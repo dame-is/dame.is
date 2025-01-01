@@ -27,9 +27,9 @@ jobs:
             new_tag="v1.0.0"
           else
             # Extract major, minor, patch
-            major=$(echo $latest_tag | cut -d. -f1 | tr -d 'v')
-            minor=$(echo $latest_tag | cut -d. -f2)
-            patch=$(echo $latest_tag | cut -d. -f3)
+            major=$(echo "$latest_tag" | cut -d. -f1 | tr -d 'v')
+            minor=$(echo "$latest_tag" | cut -d. -f2)
+            patch=$(echo "$latest_tag" | cut -d. -f3)
             # Increment patch
             patch=$((patch + 1))
             new_tag="v$major.$minor.$patch"
@@ -37,10 +37,6 @@ jobs:
           echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
 
       - name: Create New Tag
-        id: create_tag
         run: |
-          git tag ${{ steps.get_latest_tag.outputs.new_tag }}
-          git push origin ${{ steps.get_latest_tag.outputs.new_tag }}
-
-      - name: Output New Tag
-        run: echo "New Tag: ${{ steps.get_latest_tag.outputs.new_tag }}"
+          git tag "${{ steps.get_latest_tag.outputs.new_tag }}"
+          git push origin "${{ steps.get_latest_tag.outputs.new_tag }}"
