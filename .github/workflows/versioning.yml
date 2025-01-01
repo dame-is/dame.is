@@ -1,0 +1,50 @@
+name: Versioning
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for all tags and branches
+
+      - name: Get Current Version
+        id: get_version
+        run: |
+          # Fetch tags and sort them
+          git fetch --tags
+          latest_tag=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n 1)
+          echo "Latest tag: $latest_tag"
+          if [ -z "$latest_tag" ]; then
+            new_version="v1.0.0"
+          else
+            # Extract major, minor, patch
+            major=$(echo $latest_tag | cut -d. -f1 | tr -d 'v')
+            minor=$(echo $latest_tag | cut -d. -f2)
+            patch=$(echo $latest_tag | cut -d. -f3)
+            # Increment patch
+            patch=$((patch + 1))
+            new_version="v$major.$minor.$patch"
+          fi
+          echo "::set-output name=new_version::$new_version"
+
+      - name: Create New Tag
+        if: success()
+        run: |
+          git tag ${{ steps.get_version.outputs.new_version }}
+          git push origin ${{ steps.get_version.outputs.new_version }}
+
+      - name: Update version.json (Optional)
+        if: success()
+        run: |
+          echo "{ \"version\": \"${{ steps.get_version.outputs.new_version }}\", \"date\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\" }" > version.json
+          git add version.json
+          git commit -m "Update version to ${{ steps.get_version.outputs.new_version }}"
+          git push origin main
