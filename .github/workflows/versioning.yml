@@ -39,8 +39,4 @@ jobs:
       - name: Create New Tag
         run: |
           git tag "${{ steps.get_latest_tag.outputs.new_tag }}"
-<<<<<<< HEAD
           git push origin "${{ steps.get_latest_tag.outputs.new_tag }}"
-=======
-          git push origin "${{ steps.get_latest_tag.outputs.new_tag }}"
->>>>>>> cc6b445 (Update post styling and add Bluesky link to the timestamp of each post)
