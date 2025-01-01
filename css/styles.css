@@ -142,7 +142,7 @@ footer span {
     background-color: var(--post-background-color);
 }
 
-.recent-posts {
+#recent-posts {
     max-width: 450px;
     margin: auto;
 }
@@ -182,4 +182,16 @@ body.dark-mode .post-date {
 body.dark-mode .post-counts span {
     background-color: #3a3a3a;
     color: #fff;
+}
+
+/* Styling for the Bluesky post link */
+.post-date a {
+    color: #007BFF; /* Initial color */
+    text-decoration: none; /* Remove underline */
+    transition: color 0.3s ease;
+}
+
+.post-date a:hover {
+    color: #0056b3; /* Darker shade on hover */
+    text-decoration: underline; /* Underline on hover */
 }

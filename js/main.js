@@ -168,12 +168,32 @@ async function loadRecentPosts() {
                 postText.textContent = post.record.text || '[No content]';
                 postContainer.appendChild(postText);
 
-                // Created At
+                // Created At with Bluesky Link
                 const postDate = document.createElement('p');
                 postDate.classList.add('post-date');
+
+                // Extract the Post ID from the URI
+                const uri = post.uri; // e.g., "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lep2fdto622v"
+                const postId = uri.split('/').pop(); // Extracts "3lep2fdto622v"
+
+                // Construct the Bluesky URL
+                const blueskyUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
+
+                // Format the Date
                 const date = new Date(post.record.createdAt || Date.now());
                 const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-                postDate.textContent = `Posted on ${date.toLocaleDateString(undefined, options)}`;
+                const formattedDate = date.toLocaleDateString(undefined, options);
+
+                // Create the link element
+                const dateLink = document.createElement('a');
+                dateLink.href = blueskyUrl;
+                dateLink.textContent = formattedDate;
+                dateLink.target = '_blank'; // Opens the link in a new tab
+                dateLink.rel = 'noopener noreferrer'; // Security best practices
+
+                // Append "Posted on" text and the link
+                postDate.textContent = 'Posted on ';
+                postDate.appendChild(dateLink);
                 postContainer.appendChild(postDate);
 
                 // Counts Container
@@ -214,6 +234,7 @@ async function loadRecentPosts() {
         postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
     }
 }
+
 
 // Load Markdown Content for About and Ethos Pages
 async function loadMarkdownContent() {
