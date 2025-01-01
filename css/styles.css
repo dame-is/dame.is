@@ -44,11 +44,24 @@ nav .title {
     margin-left: 20px;
 }
 
+/* Footer Styles */
 footer {
     position: fixed;
     width: 100%;
     bottom: 0;
     text-align: center;
+    background-color: #f0f0f0;
+    padding: 10px 20px;
+    font-size: 0.9em;
+}
+
+body.dark-mode footer {
+    background-color: #1e1e1e;
+    color: #ffffff;
+}
+
+footer span {
+    font-weight: bold;
 }
 
 .post {

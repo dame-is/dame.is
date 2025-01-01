@@ -1,3 +1,7 @@
+const GITHUB_USERNAME = 'damedotblog'; // Your GitHub username
+const GITHUB_REPO = 'dame.is'; // Your repository name
+const GITHUB_BRANCH = 'main'; // Your branch name
+
 // Function to load HTML components
 function loadComponent(id, url) {
     fetch(url)
@@ -62,7 +66,7 @@ function toggleTheme() {
 
 // Fetch Bluesky Stats
 async function fetchBlueskyStats() {
-    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Replace with your actual actor identifier
+    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
     const apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
 
     try {
@@ -79,42 +83,62 @@ async function fetchBlueskyStats() {
 
 // Initialize Footer functionalities
 function initializeFooter() {
-    // Set version number
-    document.getElementById('version').textContent = '1.0.0'; // Update manually or automate
-
-    // Fetch last commit timestamp from GitHub API
-    fetchLastUpdated();
+    // Set version number and last updated
+    fetchFooterData();
 }
 
-// Fetch last updated timestamp using GitHub API
-async function fetchLastUpdated() {
-    const repo = 'dame.is'; // Replace with your repo name if different
-    const user = 'damedotblog'; // Replace with your GitHub username
-
-    // Determine the current page's filename
-    let page = window.location.pathname.split('/').pop();
-    if (page === '') page = 'index.html'; // Default to index.html
-
-    const apiUrl = `https://api.github.com/repos/${user}/${repo}/commits?path=${page}&per_page=1`;
+// Fetch Footer Data (Version and Last Updated)
+async function fetchFooterData() {
+    const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
+    const apiUrlCommits = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`;
 
     try {
-        const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
-        const data = await response.json();
-        if (data.length > 0) {
-            const lastUpdated = new Date(data[0].commit.committer.date);
-            document.getElementById('last-updated').textContent = lastUpdated.toLocaleString();
+        // Fetch the latest tag
+        const responseTags = await fetch(apiUrlTags);
+        if (!responseTags.ok) throw new Error(`GitHub Tags API error: ${responseTags.status}`);
+        const tagsData = await responseTags.json();
+
+        let version = 'No Tags';
+        let lastUpdated = 'N/A';
+
+        if (tagsData.length > 0) {
+            // Assuming the tags are returned in descending order
+            version = tagsData[0].name;
+            // Fetch commit details for the latest tag
+            const commitSha = tagsData[0].commit.sha;
+            const apiUrlTagCommit = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${commitSha}`;
+            const responseTagCommit = await fetch(apiUrlTagCommit);
+            if (responseTagCommit.ok) {
+                const tagCommitData = await responseTagCommit.json();
+                const commitDate = new Date(tagCommitData.commit.committer.date);
+                const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                lastUpdated = commitDate.toLocaleDateString(undefined, options);
+            }
         } else {
-            document.getElementById('last-updated').textContent = 'N/A';
+            // If no tags exist, fallback to the latest commit
+            const responseCommits = await fetch(apiUrlCommits);
+            if (!responseCommits.ok) throw new Error(`GitHub Commits API error: ${responseCommits.status}`);
+            const commitsData = await responseCommits.json();
+            const latestCommit = commitsData;
+            version = latestCommit.sha.substring(0, 7); // Short SHA for version
+            const commitDate = new Date(latestCommit.commit.committer.date);
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+            lastUpdated = commitDate.toLocaleDateString(undefined, options);
         }
+
+        // Update the footer elements
+        document.getElementById('version').textContent = version;
+        document.getElementById('last-updated').textContent = lastUpdated;
     } catch (error) {
-        console.error('Error fetching last updated:', error);
+        console.error('Error fetching footer data:', error);
+        document.getElementById('version').textContent = 'N/A';
+        document.getElementById('last-updated').textContent = 'N/A';
     }
 }
 
 // Load Recent Posts on Home Page
 async function loadRecentPosts() {
-    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Replace with your actual actor identifier
+    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
     const apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=10&filter=posts_no_replies`;
 
     try {

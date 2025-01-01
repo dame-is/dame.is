@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write  # Grants write access to the repository contents, including tags
+
 jobs:
   bump-version:
     runs-on: ubuntu-latest
@@ -15,15 +18,13 @@ jobs:
         with:
           fetch-depth: 0  # Fetch all history for all tags and branches
 
-      - name: Get Current Version
-        id: get_version
+      - name: Get Latest Tag
+        id: get_latest_tag
         run: |
-          # Fetch tags and sort them
-          git fetch --tags
           latest_tag=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n 1)
           echo "Latest tag: $latest_tag"
           if [ -z "$latest_tag" ]; then
-            new_version="v1.0.0"
+            new_tag="v1.0.0"
           else
             # Extract major, minor, patch
             major=$(echo $latest_tag | cut -d. -f1 | tr -d 'v')
@@ -31,20 +32,15 @@ jobs:
             patch=$(echo $latest_tag | cut -d. -f3)
             # Increment patch
             patch=$((patch + 1))
-            new_version="v$major.$minor.$patch"
+            new_tag="v$major.$minor.$patch"
           fi
-          echo "::set-output name=new_version::$new_version"
+          echo "::set-output name=new_tag::$new_tag"
 
       - name: Create New Tag
-        if: success()
+        id: create_tag
         run: |
-          git tag ${{ steps.get_version.outputs.new_version }}
-          git push origin ${{ steps.get_version.outputs.new_version }}
+          git tag ${{ steps.get_latest_tag.outputs.new_tag }}
+          git push origin ${{ steps.get_latest_tag.outputs.new_tag }}
 
-      - name: Update version.json (Optional)
-        if: success()
-        run: |
-          echo "{ \"version\": \"${{ steps.get_version.outputs.new_version }}\", \"date\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\" }" > version.json
-          git add version.json
-          git commit -m "Update version to ${{ steps.get_version.outputs.new_version }}"
-          git push origin main
+      - name: Output New Tag
+        run: echo "New Tag: ${{ steps.get_latest_tag.outputs.new_tag }}"
