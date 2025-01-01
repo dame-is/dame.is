@@ -123,49 +123,63 @@ async function loadRecentPosts() {
         const data = await response.json();
         const postsList = document.getElementById('recent-posts');
 
-        data.feed.forEach(post => {
-            // Create a container for each post
-            const postContainer = document.createElement('div');
-            postContainer.classList.add('post');
+        // Clear any existing content
+        postsList.innerHTML = '';
 
-            // Post Text
-            const postText = document.createElement('p');
-            postText.classList.add('post-text');
-            postText.textContent = post.record.text;
-            postContainer.appendChild(postText);
+        data.feed.forEach(item => {
+            const post = item.post; // Access the 'post' object
 
-            // Created At
-            const postDate = document.createElement('p');
-            postDate.classList.add('post-date');
-            const date = new Date(post.record.createdAt);
-            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-            postDate.textContent = `Posted on ${date.toLocaleDateString(undefined, options)}`;
-            postContainer.appendChild(postDate);
+            // Ensure 'post' and 'record' exist
+            if (post && post.record) {
+                // Create a container for each post
+                const postContainer = document.createElement('div');
+                postContainer.classList.add('post');
 
-            // Counts
-            const countsContainer = document.createElement('div');
-            countsContainer.classList.add('post-counts');
+                // Post Text
+                const postText = document.createElement('p');
+                postText.classList.add('post-text');
+                postText.textContent = post.record.text || '[No content]';
+                postContainer.appendChild(postText);
 
-            const replyCount = document.createElement('span');
-            replyCount.textContent = `Replies: ${post.stats.replyCount}`;
-            countsContainer.appendChild(replyCount);
+                // Created At
+                const postDate = document.createElement('p');
+                postDate.classList.add('post-date');
+                const date = new Date(post.record.createdAt || Date.now());
+                const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+                postDate.textContent = `Posted on ${date.toLocaleDateString(undefined, options)}`;
+                postContainer.appendChild(postDate);
 
-            const quoteCount = document.createElement('span');
-            quoteCount.textContent = `Quotes: ${post.stats.quoteCount}`;
-            countsContainer.appendChild(quoteCount);
+                // Counts Container
+                const countsContainer = document.createElement('div');
+                countsContainer.classList.add('post-counts');
 
-            const likeCount = document.createElement('span');
-            likeCount.textContent = `Likes: ${post.stats.likeCount}`;
-            countsContainer.appendChild(likeCount);
+                // Reply Count
+                const replyCount = document.createElement('span');
+                replyCount.textContent = `Replies: ${post.replyCount || 0}`;
+                countsContainer.appendChild(replyCount);
 
-            const repostCount = document.createElement('span');
-            repostCount.textContent = `Reposts: ${post.stats.repostCount}`;
-            countsContainer.appendChild(repostCount);
+                // Quote Count
+                const quoteCount = document.createElement('span');
+                quoteCount.textContent = `Quotes: ${post.quoteCount || 0}`;
+                countsContainer.appendChild(quoteCount);
 
-            postContainer.appendChild(countsContainer);
+                // Like Count
+                const likeCount = document.createElement('span');
+                likeCount.textContent = `Likes: ${post.likeCount || 0}`;
+                countsContainer.appendChild(likeCount);
 
-            // Append the post to the list
-            postsList.appendChild(postContainer);
+                // Repost Count
+                const repostCount = document.createElement('span');
+                repostCount.textContent = `Reposts: ${post.repostCount || 0}`;
+                countsContainer.appendChild(repostCount);
+
+                postContainer.appendChild(countsContainer);
+
+                // Append the post to the list
+                postsList.appendChild(postContainer);
+            } else {
+                console.warn('Post or record missing in the feed item:', item);
+            }
         });
     } catch (error) {
         console.error('Error fetching recent posts:', error);

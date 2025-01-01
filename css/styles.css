@@ -10,11 +10,13 @@ body {
 :root {
     --background-color: #ffffff;
     --text-color: #000000;
+    --post-background-color: #f9f9f9;
 }
 
 body.dark-mode {
     --background-color: #121212;
     --text-color: #ffffff;
+    --post-background-color: #1e1e1e;
 }
 
 nav, footer {
@@ -52,13 +54,12 @@ footer {
 .post {
     border: 1px solid #ccc;
     padding: 15px;
-    margin-bottom: 20px;
+    margin: 20px;
     border-radius: 5px;
     background-color: var(--post-background-color);
 }
 
 body.dark-mode .post {
-    background-color: #2c2c2c;
     border-color: #444;
 }
 
