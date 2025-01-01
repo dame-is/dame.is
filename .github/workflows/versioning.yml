@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: write  # Grants write access to the repository contents, including tags
+  contents: write  # Grants write access to repository contents, including tags
 
 jobs:
   bump-version:
@@ -34,7 +34,7 @@ jobs:
             patch=$((patch + 1))
             new_tag="v$major.$minor.$patch"
           fi
-          echo "::set-output name=new_tag::$new_tag"
+          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
 
       - name: Create New Tag
         id: create_tag
