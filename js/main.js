@@ -49,6 +49,9 @@ function initializeNav() {
 
     // Fetch Bluesky stats
     fetchBlueskyStats();
+
+    // Assign active class to current page link
+    setActiveNavLink();
 }
 
 // Toggle Dark/Light Mode
@@ -233,3 +236,29 @@ async function loadMarkdownContent() {
     script.onload = () => console.log('Marked.js loaded');
     document.head.appendChild(script);
 })();
+
+// Function to Set Active Navigation Link
+function setActiveNavLink() {
+    // Get the current page's path
+    const currentPath = window.location.pathname.split('/').pop(); // e.g., 'about.html' or ''
+
+    // Get all navigation links
+    const navLinks = document.querySelectorAll('.nav-left .nav-link');
+
+    navLinks.forEach(link => {
+        // Get the href attribute of the link
+        const linkPath = link.getAttribute('href');
+
+        // Normalize paths for comparison
+        // Handle cases where linkPath might be 'index.html' or '/' for home
+        if (
+            (currentPath === '' && linkPath === 'index.html') ||
+            (currentPath === '/' && linkPath === 'index.html') ||
+            (currentPath === linkPath)
+        ) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
+}

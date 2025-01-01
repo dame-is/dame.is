@@ -24,24 +24,93 @@ nav, footer {
     padding: 10px 20px;
 }
 
-body.dark-mode nav, body.dark-mode footer {
-    background-color: #1e1e1e;
+
+/* Navigation Bar Styles */
+nav {
+    display: flex;
+    justify-content: space-between; /* Distribute space between left and right */
+    align-items: center; /* Vertically center the items */
+    padding: 10px 20px;
+    background-color: #f0f0f0; /* Light background color */
+    transition: background-color 0.3s ease;
 }
 
-nav a {
-    margin-right: 15px;
+body.dark-mode nav {
+    background-color: #1e1e1e; /* Dark background for dark mode */
+}
+
+.nav-left,
+.nav-right {
+    display: flex;
+    align-items: center;
+}
+
+.nav-left a.nav-link {
+    margin-right: 15px; /* Space between links */
     text-decoration: none;
-    color: inherit;
+    color: inherit; /* Inherit text color based on theme */
+    font-weight: bold;
+    transition: color 0.3s ease;
 }
 
-nav .title {
-    font-weight: bold;
-    margin-right: 30px;
+.nav-left a.nav-link:hover {
+    color: #007BFF; /* Change color on hover */
+}
+
+body.dark-mode .nav-left a.nav-link:hover {
+    color: #66B2FF; /* Adjust hover color for dark mode */
+}
+
+.nav-left a.nav-link.active {
+    border-bottom: 2px solid #007BFF; /* Underline active link */
+    color: #007BFF; /* Change text color for active link */
+}
+
+body.dark-mode .nav-left a.nav-link.active {
+    border-bottom: 2px solid #66B2FF;
+    color: #66B2FF;
+}
+
+.nav-right {
+    gap: 20px; /* Space between stats and theme toggle */
+}
+
+#bluesky-stats {
+    font-size: 0.9em;
+    color: #555;
+    transition: color 0.3s ease;
+}
+
+body.dark-mode #bluesky-stats {
+    color: #aaa;
 }
 
 #theme-toggle {
     cursor: pointer;
-    margin-left: 20px;
+    font-size: 1.2em;
+    transition: transform 0.3s ease;
+}
+
+#theme-toggle:hover {
+    transform: scale(1.2); /* Slightly enlarge on hover */
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    nav {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .nav-right {
+        margin-top: 10px;
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .nav-left a.nav-link {
+        margin-right: 10px;
+    }
 }
 
 /* Footer Styles */
@@ -64,12 +133,18 @@ footer span {
     font-weight: bold;
 }
 
+/* Post Styles */
 .post {
     border: 1px solid #ccc;
     padding: 15px;
     margin: 20px;
     border-radius: 5px;
     background-color: var(--post-background-color);
+}
+
+.recent-posts {
+    max-width: 450px;
+    margin: auto;
 }
 
 body.dark-mode .post {
@@ -79,6 +154,7 @@ body.dark-mode .post {
 .post-text {
     font-size: 1.1em;
     margin-bottom: 10px;
+    margin-top: 0px;
 }
 
 .post-date {
