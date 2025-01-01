@@ -91,7 +91,11 @@ async function fetchLastUpdated() {
     const repo = 'dame.is'; // Replace with your repo name if different
     const user = 'damedotblog'; // Replace with your GitHub username
 
-    const apiUrl = `https://api.github.com/repos/${user}/${repo}/commits?path=${window.location.pathname.replace('/', '')}&per_page=1`;
+    // Determine the current page's filename
+    let page = window.location.pathname.split('/').pop();
+    if (page === '') page = 'index.html'; // Default to index.html
+
+    const apiUrl = `https://api.github.com/repos/${user}/${repo}/commits?path=${page}&per_page=1`;
 
     try {
         const response = await fetch(apiUrl);
@@ -120,12 +124,53 @@ async function loadRecentPosts() {
         const postsList = document.getElementById('recent-posts');
 
         data.feed.forEach(post => {
-            const listItem = document.createElement('li');
-            listItem.textContent = post.text; // Adjust based on actual API response structure
-            postsList.appendChild(listItem);
+            // Create a container for each post
+            const postContainer = document.createElement('div');
+            postContainer.classList.add('post');
+
+            // Post Text
+            const postText = document.createElement('p');
+            postText.classList.add('post-text');
+            postText.textContent = post.record.text;
+            postContainer.appendChild(postText);
+
+            // Created At
+            const postDate = document.createElement('p');
+            postDate.classList.add('post-date');
+            const date = new Date(post.record.createdAt);
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+            postDate.textContent = `Posted on ${date.toLocaleDateString(undefined, options)}`;
+            postContainer.appendChild(postDate);
+
+            // Counts
+            const countsContainer = document.createElement('div');
+            countsContainer.classList.add('post-counts');
+
+            const replyCount = document.createElement('span');
+            replyCount.textContent = `Replies: ${post.stats.replyCount}`;
+            countsContainer.appendChild(replyCount);
+
+            const quoteCount = document.createElement('span');
+            quoteCount.textContent = `Quotes: ${post.stats.quoteCount}`;
+            countsContainer.appendChild(quoteCount);
+
+            const likeCount = document.createElement('span');
+            likeCount.textContent = `Likes: ${post.stats.likeCount}`;
+            countsContainer.appendChild(likeCount);
+
+            const repostCount = document.createElement('span');
+            repostCount.textContent = `Reposts: ${post.stats.repostCount}`;
+            countsContainer.appendChild(repostCount);
+
+            postContainer.appendChild(countsContainer);
+
+            // Append the post to the list
+            postsList.appendChild(postContainer);
         });
     } catch (error) {
         console.error('Error fetching recent posts:', error);
+        const postsList = document.getElementById('recent-posts');
+        postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
     }
 }
 
@@ -134,6 +179,7 @@ async function loadMarkdownContent() {
     const path = window.location.pathname.endsWith('about.html') ? 'about.md' : 'ethos.md';
     try {
         const response = await fetch(path);
+        if (!response.ok) throw new Error('Network response was not ok');
         const markdown = await response.text();
         const htmlContent = marked.parse(markdown);
         document.getElementById(`${path.split('.')[0]}-content`).innerHTML = htmlContent;
