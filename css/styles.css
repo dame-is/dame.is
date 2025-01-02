@@ -70,6 +70,7 @@ body.dark-mode .nav-left a.nav-link:hover {
 .nav-left a.nav-link.active {
     border-bottom: 2px solid #007BFF; /* Underline active link */
     color: #007BFF; /* Change text color for active link */
+    padding-top: 2px;
 }
 
 body.dark-mode .nav-left a.nav-link.active {
@@ -83,7 +84,7 @@ body.dark-mode .nav-left a.nav-link.active {
 
 #bluesky-stats {
     font-size: 0.9em;
-    color: #555;
+    color: #000000;
     transition: color 0.3s ease;
 }
 
@@ -106,6 +107,7 @@ body.dark-mode #bluesky-stats {
     nav {
         flex-direction: column;
         align-items: flex-start;
+        padding-bottom: 12px;
     }
 
     .nav-right {
@@ -119,6 +121,11 @@ body.dark-mode #bluesky-stats {
 
     .nav-left {
         margin-top: 8px;
+    }
+
+    #bluesky-stats {
+        font-size: 0.8em;
+        padding-top: 5px;
     }
 }
 
@@ -146,7 +153,7 @@ footer span {
 /* Post Styles */
 .post {
     border: 1px solid #ccc;
-    padding: 15px;
+    padding: 15px 15px 5px 15px;
     margin: 20px;
     border-radius: 5px;
     background-color: var(--post-background-color);
@@ -178,15 +185,16 @@ body.dark-mode .post-date {
 }
 
 .post-counts {
-    display: flex;
-    gap: 15px;
-    font-size: 0.9em;
+    font-size: 0.8em;
 }
 
 .post-counts span {
     background-color: #e0e0e0;
-    padding: 5px 10px;
+    padding: 3px 7px;
     border-radius: 3px;
+    display: inline-flex;
+    margin-right: 10px;
+    margin-bottom: 10px;
 }
 
 body.dark-mode .post-counts span {

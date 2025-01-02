@@ -59,9 +59,9 @@ function initializeNav() {
     // Set initial theme based on localStorage
     if (localStorage.getItem('theme') === 'dark') {
         document.body.classList.add('dark-mode');
-        themeToggle.textContent = '☀️';
+        themeToggle.textContent = 'Light Mode';
     } else {
-        themeToggle.textContent = '🌙';
+        themeToggle.textContent = 'Dark Mode';
     }
 
     // Fetch Bluesky stats
@@ -76,10 +76,10 @@ function toggleTheme() {
     const themeToggle = document.getElementById('theme-toggle');
     document.body.classList.toggle('dark-mode');
     if (document.body.classList.contains('dark-mode')) {
-        themeToggle.textContent = '☀️';
+        themeToggle.textContent = 'Light Mode';
         localStorage.setItem('theme', 'dark');
     } else {
-        themeToggle.textContent = '🌙';
+        themeToggle.textContent = 'Dark Mode';
         localStorage.setItem('theme', 'light');
     }
 }
@@ -251,23 +251,23 @@ async function loadRecentPosts() {
 
                 // Reply Count
                 const replyCount = document.createElement('span');
-                replyCount.textContent = `Replies: ${post.replyCount || 0}`;
+                replyCount.textContent = `${post.replyCount || 0} replies`;
                 countsContainer.appendChild(replyCount);
 
                 // Quote Count
                 const quoteCount = document.createElement('span');
-                quoteCount.textContent = `Quotes: ${post.quoteCount || 0}`;
+                quoteCount.textContent = `${post.quoteCount || 0} quotes`;
                 countsContainer.appendChild(quoteCount);
-
-                // Like Count
-                const likeCount = document.createElement('span');
-                likeCount.textContent = `Likes: ${post.likeCount || 0}`;
-                countsContainer.appendChild(likeCount);
 
                 // Repost Count
                 const repostCount = document.createElement('span');
-                repostCount.textContent = `Reposts: ${post.repostCount || 0}`;
+                repostCount.textContent = `${post.repostCount || 0} reposts`;
                 countsContainer.appendChild(repostCount);
+
+                // Like Count
+                const likeCount = document.createElement('span');
+                likeCount.textContent = `${post.likeCount || 0} likes`;
+                countsContainer.appendChild(likeCount);
 
                 postContainer.appendChild(countsContainer);
 
