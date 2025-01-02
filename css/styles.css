@@ -34,7 +34,7 @@ nav, footer {
 /* Navigation Bar Styles */
 nav {
     display: flex;
-    justify-content: space-between; /* Distribute space between left and right */
+    justify-content: space-evenly; /* Distribute space between left and right */
     align-items: center; /* Vertically center the items */
     padding: 10px 20px;
     background-color: #f0f0f0; /* Light background color */
@@ -99,6 +99,10 @@ body.dark-mode #bluesky-stats {
     transition: transform 0.3s ease;
     border-radius: 3px;
     font-weight: bold;
+}
+
+.dark-mode #theme-toggle {
+    background-color: rgb(68, 68, 68);
 }
 
 #theme-toggle:hover {
