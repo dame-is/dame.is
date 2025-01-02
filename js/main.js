@@ -193,7 +193,14 @@ async function loadRecentPosts() {
         // Clear any existing content
         postsList.innerHTML = '';
 
-        data.feed.forEach(item => {
+        // **Filter out reposts before processing**
+        const filteredFeed = data.feed.filter(item => {
+            // Exclude if 'reason' exists and its '$type' is 'app.bsky.feed.defs#reasonRepost'
+            return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
+        });
+
+        // Iterate over the filtered feed
+        filteredFeed.forEach(item => {
             const post = item.post; // Access the 'post' object
 
             // Ensure 'post' and 'record' exist
