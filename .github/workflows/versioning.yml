@@ -40,3 +40,33 @@ jobs:
         run: |
           git tag "${{ steps.get_latest_tag.outputs.new_tag }}"
           git push origin "${{ steps.get_latest_tag.outputs.new_tag }}"
+
+      - name: Generate Last Updated JSON
+        id: generate_last_updated
+        run: |
+          echo "{" > last-updated.json
+          # List of pages to track
+          pages=("index.html" "about.html" "ethos.html")  # Add more pages as needed
+
+          for page in "${pages[@]}"
+          do
+            # Get the last commit date for the page
+            last_commit_date=$(git log -1 --format=%cd --date=iso "$page")
+            # Format the date as ISO 8601 (e.g., 2023-08-25T14:35:22Z)
+            formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
+            # Add to JSON
+            echo "  \"$page\": \"$formatted_date\"," >> last-updated.json
+          done
+
+          # Remove the trailing comma from the last entry
+          sed -i '$ s/,$//' last-updated.json
+
+          echo "}" >> last-updated.json
+
+      - name: Commit Last Updated JSON
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last-updated.json
+          git commit -m "Add last-updated.json with latest commit dates" || echo "No changes to commit"
+          git push origin main
