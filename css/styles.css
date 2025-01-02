@@ -94,12 +94,15 @@ body.dark-mode #bluesky-stats {
 
 #theme-toggle {
     cursor: pointer;
-    font-size: 1.2em;
+    background-color: rgb(213, 213, 213);
+    padding: 3px 7px;
     transition: transform 0.3s ease;
+    border-radius: 3px;
+    font-weight: bold;
 }
 
 #theme-toggle:hover {
-    transform: scale(1.2); /* Slightly enlarge on hover */
+    transform: scale(1.1); /* Slightly enlarge on hover */
 }
 
 /* Responsive Design */
