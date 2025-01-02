@@ -1,6 +1,23 @@
+// scripts/main.js
+
 const GITHUB_USERNAME = 'damedotblog'; // Your GitHub username
 const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
+
+// Create a Promise that resolves when marked.js is loaded
+const markedLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+    script.onload = () => {
+        console.log('Marked.js loaded successfully.');
+        resolve();
+    };
+    script.onerror = () => {
+        console.error('Failed to load marked.js.');
+        reject(new Error('marked.js failed to load.'));
+    };
+    document.head.appendChild(script);
+});
 
 // Function to load HTML components
 function loadComponent(id, url) {
@@ -269,8 +286,11 @@ async function loadRecentPosts() {
 
 // Load Markdown Content for About and Ethos Pages
 async function loadMarkdownContent() {
-    const path = window.location.pathname.endsWith('about.html') ? 'about.md' : 'ethos.md';
     try {
+        // Wait until marked.js is loaded
+        await markedLoadPromise;
+
+        const path = window.location.pathname.endsWith('about.html') ? 'about.md' : 'ethos.md';
         const response = await fetch(path);
         if (!response.ok) throw new Error('Network response was not ok');
         const markdown = await response.text();
@@ -280,14 +300,6 @@ async function loadMarkdownContent() {
         console.error('Error loading Markdown content:', error);
     }
 }
-
-// Load Markdown library (marked.js)
-(function loadMarkdownLibrary() {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
-    script.onload = () => console.log('Marked.js loaded');
-    document.head.appendChild(script);
-})();
 
 // Function to Set Active Navigation Link
 function setActiveNavLink() {
