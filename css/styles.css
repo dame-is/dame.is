@@ -140,12 +140,14 @@ footer {
     text-align: center;
     background-color: #f0f0f0;
     padding: 10px 20px;
-    font-size: 0.9em;
-    max-width: 300px;
+    font-size: 0.8em;
+    max-width: 230px;
+    border-radius: 5px 0px 0px 0px;
+    border: 1px solid #ccc;
 }
 
 body.dark-mode footer {
-    background-color: #1e1e1e;
+    background-color: #000000;
     color: #ffffff;
 }
 
