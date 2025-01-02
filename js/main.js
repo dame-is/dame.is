@@ -94,6 +94,7 @@ function initializeFooter() {
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
     const apiUrlCommits = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`;
+    const apiUrlLastUpdated = 'last-updated.json'; // Path to the JSON file
 
     try {
         // Fetch the latest tag
@@ -129,9 +130,31 @@ async function fetchFooterData() {
             lastUpdated = commitDate.toLocaleDateString(undefined, options);
         }
 
+        // Fetch last-updated.json
+        const responseLastUpdated = await fetch(apiUrlLastUpdated);
+        if (!responseLastUpdated.ok) throw new Error(`Failed to fetch last-updated.json: ${responseLastUpdated.status}`);
+        const lastUpdatedData = await responseLastUpdated.json();
+
+        // Determine the current page
+        const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+
+        // Get the last updated date for the current page
+        const pageLastUpdatedISO = lastUpdatedData[currentPage];
+        let pageLastUpdated = 'N/A';
+        if (pageLastUpdatedISO) {
+            const date = new Date(pageLastUpdatedISO);
+            pageLastUpdated = date.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        }
+
         // Update the footer elements
         document.getElementById('version').textContent = version;
-        document.getElementById('last-updated').textContent = lastUpdated;
+        document.getElementById('last-updated').textContent = pageLastUpdated;
     } catch (error) {
         console.error('Error fetching footer data:', error);
         document.getElementById('version').textContent = 'N/A';
@@ -174,26 +197,35 @@ async function loadRecentPosts() {
 
                 // Extract the Post ID from the URI
                 const uri = post.uri; // e.g., "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lep2fdto622v"
-                const postId = uri.split('/').pop(); // Extracts "3lep2fdto622v"
+                if (uri) {
+                    const postId = uri.split('/').pop(); // Extracts "3lep2fdto622v"
 
-                // Construct the Bluesky URL
-                const blueskyUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
+                    // Construct the Bluesky URL
+                    const blueskyUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
 
-                // Format the Date
-                const date = new Date(post.record.createdAt || Date.now());
-                const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
-                const formattedDate = date.toLocaleDateString(undefined, options);
+                    // Format the Date
+                    const date = new Date(post.record.createdAt || Date.now());
+                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+                    const formattedDate = date.toLocaleDateString(undefined, options);
 
-                // Create the link element
-                const dateLink = document.createElement('a');
-                dateLink.href = blueskyUrl;
-                dateLink.textContent = formattedDate;
-                dateLink.target = '_blank'; // Opens the link in a new tab
-                dateLink.rel = 'noopener noreferrer'; // Security best practices
+                    // Create the link element
+                    const dateLink = document.createElement('a');
+                    dateLink.href = blueskyUrl;
+                    dateLink.textContent = formattedDate;
+                    dateLink.target = '_blank'; // Opens the link in a new tab
+                    dateLink.rel = 'noopener noreferrer'; // Security best practices
 
-                // Append "Posted on" text and the link
-                postDate.textContent = 'Posted on ';
-                postDate.appendChild(dateLink);
+                    // Append "Posted on" text and the link
+                    postDate.textContent = 'Posted on ';
+                    postDate.appendChild(dateLink);
+                } else {
+                    // Handle posts without a URI
+                    const date = new Date(post.record.createdAt || Date.now());
+                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+                    const formattedDate = date.toLocaleDateString(undefined, options);
+                    postDate.textContent = `Posted on ${formattedDate}`;
+                }
+
                 postContainer.appendChild(postDate);
 
                 // Counts Container
@@ -235,7 +267,6 @@ async function loadRecentPosts() {
     }
 }
 
-
 // Load Markdown Content for About and Ethos Pages
 async function loadMarkdownContent() {
     const path = window.location.pathname.endsWith('about.html') ? 'about.md' : 'ethos.md';
@@ -261,7 +292,7 @@ async function loadMarkdownContent() {
 // Function to Set Active Navigation Link
 function setActiveNavLink() {
     // Get the current page's path
-    const currentPath = window.location.pathname.split('/').pop(); // e.g., 'about.html' or ''
+    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
 
     // Get all navigation links
     const navLinks = document.querySelectorAll('.nav-left .nav-link');
@@ -270,13 +301,8 @@ function setActiveNavLink() {
         // Get the href attribute of the link
         const linkPath = link.getAttribute('href');
 
-        // Normalize paths for comparison
-        // Handle cases where linkPath might be 'index.html' or '/' for home
-        if (
-            (currentPath === '' && linkPath === 'index.html') ||
-            (currentPath === '/' && linkPath === 'index.html') ||
-            (currentPath === linkPath)
-        ) {
+        // Compare linkPath with currentPath
+        if (linkPath === currentPath) {
             link.classList.add('active');
         } else {
             link.classList.remove('active');

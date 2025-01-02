@@ -1,3 +1,9 @@
+main {
+    margin: 50px auto 50px auto;
+    max-width: 400px;
+    padding: 20px;
+}
+
 body {
     font-family: Arial, sans-serif;
     text-align: left;
@@ -103,7 +109,6 @@ body.dark-mode #bluesky-stats {
     }
 
     .nav-right {
-        margin-top: 10px;
         width: 100%;
         justify-content: space-between;
     }
@@ -111,17 +116,22 @@ body.dark-mode #bluesky-stats {
     .nav-left a.nav-link {
         margin-right: 10px;
     }
+
+    .nav-left {
+        margin-top: 8px;
+    }
 }
 
 /* Footer Styles */
 footer {
     position: fixed;
-    width: 100%;
     bottom: 0;
+    right: 0;
     text-align: center;
     background-color: #f0f0f0;
     padding: 10px 20px;
     font-size: 0.9em;
+    max-width: 300px;
 }
 
 body.dark-mode footer {
