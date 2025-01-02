@@ -13,34 +13,93 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0  # Fetch all history for all tags and branches
 
-      - name: Get Latest Tag
-        id: get_latest_tag
+      # Step 2: Set Up Node.js Environment (Optional but useful for scripting)
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'  # Specify the Node.js version you prefer
+
+      # Step 3: Determine Version Bump Type
+      - name: Determine version bump
+        id: bump_type
+        run: |
+          # Fetch the latest tag that matches the pattern vX.Y.Z
+          latest_tag=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n 1)
+          echo "Latest tag: $latest_tag"
+          
+          if [ -z "$latest_tag" ]; then
+            # No tags found, initialize to v0.0.0
+            bump_type="minor"
+          else
+            # Extract commit messages since the latest tag
+            commits=$(git log $latest_tag..HEAD --pretty=format:%s)
+            echo "Commits since latest tag:"
+            echo "$commits"
+
+            # Determine bump type based on commit messages
+            if echo "$commits" | grep -qE 'BREAKING CHANGE|^feat!'; then
+              bump_type="major"
+            elif echo "$commits" | grep -qE '^feat:'; then
+              bump_type="minor"
+            else
+              bump_type="patch"
+            fi
+          fi
+
+          echo "bump_type=$bump_type" >> $GITHUB_OUTPUT
+
+      # Step 4: Get Latest Tag and Calculate New Version
+      - name: Get Latest Tag and Increment Version
+        id: get_new_version
         run: |
           latest_tag=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n 1)
           echo "Latest tag: $latest_tag"
+
           if [ -z "$latest_tag" ]; then
-            new_tag="v1.0.0"
+            # No tags found, start at v0.0.0
+            major=0
+            minor=0
+            patch=0
           else
-            # Extract major, minor, patch
+            # Extract major, minor, patch numbers
             major=$(echo "$latest_tag" | cut -d. -f1 | tr -d 'v')
             minor=$(echo "$latest_tag" | cut -d. -f2)
             patch=$(echo "$latest_tag" | cut -d. -f3)
-            # Increment patch
-            patch=$((patch + 1))
-            new_tag="v$major.$minor.$patch"
           fi
+
+          # Retrieve the bump type from previous step
+          bump_type="${{ steps.bump_type.outputs.bump_type }}"
+          echo "Bump type: $bump_type"
+
+          # Increment version based on bump type
+          if [ "$bump_type" == "major" ]; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif [ "$bump_type" == "minor" ]; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
+          fi
+
+          # Formulate the new tag
+          new_tag="v$major.$minor.$patch"
           echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
 
+      # Step 5: Create and Push the New Tag
       - name: Create New Tag
         run: |
-          git tag "${{ steps.get_latest_tag.outputs.new_tag }}"
-          git push origin "${{ steps.get_latest_tag.outputs.new_tag }}"
+          git tag "${{ steps.get_new_version.outputs.new_tag }}"
+          git push origin "${{ steps.get_new_version.outputs.new_tag }}"
 
+      # Step 6: Generate Last Updated JSON
       - name: Generate Last Updated JSON
         id: generate_last_updated
         run: |
@@ -63,6 +122,7 @@ jobs:
 
           echo "}" >> last-updated.json
 
+      # Step 7: Commit Last Updated JSON
       - name: Commit Last Updated JSON
         run: |
           git config user.name "github-actions[bot]"
