@@ -34,7 +34,7 @@ jobs:
           echo "Latest tag: $latest_tag"
           
           if [ -z "$latest_tag" ]; then
-            # No tags found, initialize to v0.0.0
+            # No tags found, initialize to v1.0.0
             bump_type="minor"
           else
             # Extract commit messages since the latest tag
@@ -62,8 +62,8 @@ jobs:
           echo "Latest tag: $latest_tag"
 
           if [ -z "$latest_tag" ]; then
-            # No tags found, start at v0.0.0
-            major=0
+            # No tags found, start at v1.0.0
+            major=1
             minor=0
             patch=0
           else
@@ -104,17 +104,38 @@ jobs:
         id: generate_last_updated
         run: |
           echo "{" > last-updated.json
-          # List of pages to track
-          pages=("index.html" "about.html" "ethos.html")  # Add more pages as needed
+          # Dynamically find all .html files in the repository root
+          mapfile -t pages < <(find . -maxdepth 1 -type f -name "*.html" -exec basename {} \;)
 
           for page in "${pages[@]}"
           do
-            # Get the last commit date for the page
-            last_commit_date=$(git log -1 --format=%cd --date=iso "$page")
-            # Format the date as ISO 8601 (e.g., 2023-08-25T14:35:22Z)
-            formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
-            # Add to JSON
-            echo "  \"$page\": \"$formatted_date\"," >> last-updated.json
+            echo "Processing page: $page"
+            # Determine the corresponding .md file by replacing .html with .md
+            md_page="${page%.html}.md"
+            echo "Corresponding markdown file: $md_page"
+
+            if [ -f "$md_page" ]; then
+              # If the .md file exists, get its last commit date
+              last_commit_date=$(git log -1 --format=%cd --date=iso "$md_page")
+              echo "Last commit date from .md: $last_commit_date"
+            elif [ -f "$page" ]; then
+              # Else, get the .html file's last commit date
+              last_commit_date=$(git log -1 --format=%cd --date=iso "$page")
+              echo "Last commit date from .html: $last_commit_date"
+            else
+              # Handle case where neither file exists
+              echo "Warning: Neither $md_page nor $page exists."
+              last_commit_date="N/A"
+            fi
+
+            if [ "$last_commit_date" != "N/A" ]; then
+              # Format the date as ISO 8601 (e.g., 2023-08-25T14:35:22Z)
+              formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
+              echo "  \"$page\": \"$formatted_date\"," >> last-updated.json
+            else
+              # Assign null or a default value if no commit date is found
+              echo "  \"$page\": null," >> last-updated.json
+            fi
           done
 
           # Remove the trailing comma from the last entry

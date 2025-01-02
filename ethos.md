@@ -15,6 +15,7 @@ I’m attempting to compile a list of beliefs and values that are important to m
 - **Don't look down upon other generations,** both younger and older.
 - **Avoid arguments and embrace discussions,** turn the former into the latter when possible.
 - **Principles are good to have, but sometimes there are scenarios where they don’t apply.**
+- **Respect your elders,** but only true elders... being old doesn't make someone an elder.
 
 ## Beliefs
 
