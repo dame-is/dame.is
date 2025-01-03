@@ -183,6 +183,14 @@ body.dark-mode .post {
     margin-top: 0px;
 }
 
+.post-image {
+    max-width: 100%;
+    height: auto;
+    margin: 12px 0;
+    border-radius: 0px;
+    border: 1px solid #ccc;
+}
+
 .post-date {
     font-size: 0.9em;
     color: #666;

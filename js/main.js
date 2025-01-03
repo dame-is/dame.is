@@ -209,13 +209,48 @@ async function loadRecentPosts() {
                 const postContainer = document.createElement('div');
                 postContainer.classList.add('post');
 
-                // Post Text
-                const postText = document.createElement('p');
-                postText.classList.add('post-text');
-                postText.textContent = post.record.text || '[No content]';
-                postContainer.appendChild(postText);
+                // ============================
+                // 1. Handle Post Text
+                // ============================
+                const postTextContainer = document.createElement('div');
+                postTextContainer.classList.add('post-text-container');
 
-                // Created At with Bluesky Link
+                const postText = post.record.text || '[No content]';
+
+                // Split the text by double line breaks to create paragraphs
+                const paragraphs = postText.split('\n\n');
+
+                paragraphs.forEach(paragraph => {
+                    const p = document.createElement('p');
+                    // Replace single line breaks with spaces within paragraphs
+                    const formattedParagraph = paragraph.replace(/\n/g, ' ');
+                    p.textContent = formattedParagraph;
+                    postTextContainer.appendChild(p);
+                });
+
+                postContainer.appendChild(postTextContainer);
+
+                // ============================
+                // 2. Handle Image Embeds
+                // ============================
+                if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+                    const images = post.embed.images.slice(0, 4); // Limit to 4 images
+
+                    images.forEach(imageData => {
+                        if (imageData.fullsize && imageData.alt) {
+                            const img = document.createElement('img');
+                            img.src = imageData.fullsize;
+                            img.alt = imageData.alt;
+                            img.loading = 'lazy';
+                            img.classList.add('post-image'); // Add a class for styling
+                            postContainer.appendChild(img);
+                        }
+                    });
+                }
+
+                // ============================
+                // 3. Handle Created At Date
+                // ============================
                 const postDate = document.createElement('p');
                 postDate.classList.add('post-date');
 
@@ -229,7 +264,7 @@ async function loadRecentPosts() {
 
                     // Format the Date
                     const date = new Date(post.record.createdAt || Date.now());
-                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
                     const formattedDate = date.toLocaleDateString(undefined, options);
 
                     // Create the link element
@@ -245,14 +280,16 @@ async function loadRecentPosts() {
                 } else {
                     // Handle posts without a URI
                     const date = new Date(post.record.createdAt || Date.now());
-                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' };
+                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
                     const formattedDate = date.toLocaleDateString(undefined, options);
                     postDate.textContent = `Posted on ${formattedDate}`;
                 }
 
                 postContainer.appendChild(postDate);
 
-                // Counts Container
+                // ============================
+                // 4. Handle Counts (Replies, Quotes, Reposts, Likes)
+                // ============================
                 const countsContainer = document.createElement('div');
                 countsContainer.classList.add('post-counts');
 
@@ -278,7 +315,9 @@ async function loadRecentPosts() {
 
                 postContainer.appendChild(countsContainer);
 
-                // Append the post to the list
+                // ============================
+                // 5. Append the Post to the List
+                // ============================
                 postsList.appendChild(postContainer);
             } else {
                 console.warn('Post or record missing in the feed item:', item);
@@ -290,6 +329,7 @@ async function loadRecentPosts() {
         postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
     }
 }
+
 
 // Load Markdown Content for About and Ethos Pages
 async function loadMarkdownContent() {
