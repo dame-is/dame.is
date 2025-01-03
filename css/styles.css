@@ -13,6 +13,11 @@ body {
     color: var(--text-color);
 }
 
+p {
+    margin-top: 0px;
+    margin-bottom: 16px;
+}
+
 :root {
     --background-color: #ffffff;
     --text-color: #000000;
@@ -186,8 +191,8 @@ body.dark-mode .post {
 .post-image {
     max-width: 100%;
     height: auto;
-    margin: 12px 0;
-    border-radius: 0px;
+    margin: 0px 0px 10px 0;
+    border-radius: 5px;
     border: 1px solid #ccc;
 }
 
