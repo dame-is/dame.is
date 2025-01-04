@@ -48,7 +48,7 @@ nav {
 }
 
 body.dark-mode nav {
-    background-color: #1e1e1e; /* Dark background for dark mode */
+    border-color: #444;
 }
 
 .nav-left,
@@ -160,6 +160,7 @@ footer {
 body.dark-mode footer {
     background-color: #000000;
     color: #ffffff;
+    border-color: #444;
 }
 
 footer span {
@@ -180,6 +181,11 @@ footer span {
     margin: auto;
 }
 
+#recent-posts-header {
+    text-align: center;
+    font-weight: bold;
+}
+
 body.dark-mode .post {
     border-color: #444;
 }
@@ -196,6 +202,10 @@ body.dark-mode .post {
     margin: 0px 0px 10px 0;
     border-radius: 5px;
     border: 1px solid #ccc;
+}
+
+body.dark-mode .post-image {
+    border: 1px solid #444;
 }
 
 .post-date {
