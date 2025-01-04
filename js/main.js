@@ -217,6 +217,21 @@ async function loadRecentPosts(cursor = null) {
     }
     isLoadingPosts = true;
 
+    // -------------------------
+    // 1. Pluralization Helper
+    // -------------------------
+    /**
+     * Formats a count with the appropriate singular or plural noun.
+     * @param {number} count - The count of items.
+     * @param {string} singular - The singular form of the noun.
+     * @param {string} [plural] - The plural form of the noun. If not provided, 'singular' + 's' is used.
+     * @returns {string} - Formatted string with count and correct noun form.
+     */
+    function formatCount(count, singular, plural = null) {
+        const actualPlural = plural || `${singular}s`;
+        return `${count} ${count === 1 ? singular : actualPlural}`;
+    }
+
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
     let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}&filter=posts_no_replies`;
 
@@ -345,22 +360,26 @@ async function loadRecentPosts(cursor = null) {
 
                 // Reply Count
                 const replyCount = document.createElement('span');
-                replyCount.textContent = `${post.replyCount || 0} replies`;
+                const replies = post.replyCount || 0;
+                replyCount.textContent = formatCount(replies, 'reply');
                 countsContainer.appendChild(replyCount);
 
                 // Quote Count
                 const quoteCount = document.createElement('span');
-                quoteCount.textContent = `${post.quoteCount || 0} quotes`;
+                const quotes = post.quoteCount || 0;
+                quoteCount.textContent = formatCount(quotes, 'quote');
                 countsContainer.appendChild(quoteCount);
 
                 // Repost Count
                 const repostCount = document.createElement('span');
-                repostCount.textContent = `${post.repostCount || 0} reposts`;
+                const reposts = post.repostCount || 0;
+                repostCount.textContent = formatCount(reposts, 'repost');
                 countsContainer.appendChild(repostCount);
 
                 // Like Count
                 const likeCount = document.createElement('span');
-                likeCount.textContent = `${post.likeCount || 0} likes`;
+                const likes = post.likeCount || 0;
+                likeCount.textContent = formatCount(likes, 'like');
                 countsContainer.appendChild(likeCount);
 
                 postContainer.appendChild(countsContainer);
@@ -393,6 +412,7 @@ async function loadRecentPosts(cursor = null) {
         console.log('Finished loading posts.');
     }
 }
+
 
 // Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
