@@ -413,6 +413,7 @@ async function loadRecentPosts(cursor = null) {
     }
 }
 
+
 // Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
