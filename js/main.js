@@ -179,19 +179,47 @@ async function fetchFooterData() {
     }
 }
 
-// Load Recent Posts on Home Page
-async function loadRecentPosts() {
+// Variables to manage pagination state
+let currentBatchCursor = null; // To store the cursor for the next batch
+const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
+let isLoadingPosts = false; // Flag to prevent multiple simultaneous fetches
+
+// Initialize Post Loader with Pagination
+function initializePostLoader() {
+    // Initial load
+    loadRecentPosts();
+
+    // Create and append the "See More Posts" button
+    const postsList = document.getElementById('recent-posts');
+    const seeMoreButton = document.createElement('button');
+    seeMoreButton.id = 'see-more-posts';
+    seeMoreButton.textContent = 'See More Posts';
+    seeMoreButton.classList.add('see-more-button'); // Add a class for styling
+    seeMoreButton.addEventListener('click', loadMorePosts);
+    postsList.parentElement.appendChild(seeMoreButton); // Append after the posts list
+}
+
+// Function to load recent posts with pagination
+async function loadRecentPosts(cursor = null) {
+    if (isLoadingPosts) return; // Prevent multiple fetches
+    isLoadingPosts = true;
+
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
-    const apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=10&filter=posts_no_replies`;
+    let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}&filter=posts_no_replies`;
+
+    if (cursor) {
+        apiUrl += `&cursor=${encodeURIComponent(cursor)}`;
+    }
 
     try {
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error('Network response was not ok');
         const data = await response.json();
-        const postsList = document.getElementById('recent-posts');
 
-        // Clear any existing content
-        postsList.innerHTML = '';
+        // Update the cursor for the next batch
+        currentBatchCursor = data.cursor || null;
+
+        const postsList = document.getElementById('recent-posts');
 
         // **Filter out reposts before processing**
         const filteredFeed = data.feed.filter(item => {
@@ -323,11 +351,27 @@ async function loadRecentPosts() {
                 console.warn('Post or record missing in the feed item:', item);
             }
         });
+
+        // If there are no more posts to load, hide the "See More Posts" button
+        if (!currentBatchCursor) {
+            const seeMoreButton = document.getElementById('see-more-posts');
+            if (seeMoreButton) {
+                seeMoreButton.style.display = 'none';
+            }
+        }
     } catch (error) {
         console.error('Error fetching recent posts:', error);
         const postsList = document.getElementById('recent-posts');
         postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
+    } finally {
+        isLoadingPosts = false;
     }
+}
+
+// Function to load more posts when "See More Posts" button is clicked
+function loadMorePosts() {
+    if (!currentBatchCursor) return; // No more posts to load
+    loadRecentPosts(currentBatchCursor);
 }
 
 

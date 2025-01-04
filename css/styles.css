@@ -39,6 +39,7 @@ nav, footer {
 /* Navigation Bar Styles */
 nav {
     display: flex;
+    border-bottom: 1px solid #ccc;
     justify-content: space-evenly; /* Distribute space between left and right */
     align-items: center; /* Vertically center the items */
     padding: 10px 20px;
@@ -152,7 +153,8 @@ footer {
     font-size: 0.8em;
     max-width: 230px;
     border-radius: 5px 0px 0px 0px;
-    border: 1px solid #ccc;
+    border-left: 1px solid #ccc;
+    border-top: 1px solid #ccc;
 }
 
 body.dark-mode footer {
