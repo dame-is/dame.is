@@ -49,6 +49,7 @@ nav {
 
 body.dark-mode nav {
     border-color: #444;
+    background-color: var(--post-background-color);
 }
 
 .nav-left,
