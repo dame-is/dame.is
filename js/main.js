@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // If on index.html, load recent posts
     if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/') {
-        loadRecentPosts();
+        initializePostLoader(); // Initialize the post loader with pagination
     }
 
     // If on about.html or ethos.html, load Markdown content
@@ -186,22 +186,35 @@ let isLoadingPosts = false; // Flag to prevent multiple simultaneous fetches
 
 // Initialize Post Loader with Pagination
 function initializePostLoader() {
+    console.log('Initializing Post Loader with Pagination'); // Debugging
     // Initial load
     loadRecentPosts();
 
     // Create and append the "See More Posts" button
     const postsList = document.getElementById('recent-posts');
+    if (!postsList) {
+        console.error('Element with ID "recent-posts" not found.');
+        return;
+    }
+
     const seeMoreButton = document.createElement('button');
     seeMoreButton.id = 'see-more-posts';
     seeMoreButton.textContent = 'See More Posts';
     seeMoreButton.classList.add('see-more-button'); // Add a class for styling
     seeMoreButton.addEventListener('click', loadMorePosts);
-    postsList.parentElement.appendChild(seeMoreButton); // Append after the posts list
+    
+    // Use insertAdjacentElement to place the button after the posts list
+    postsList.insertAdjacentElement('afterend', seeMoreButton);
+    console.log('"See More Posts" button created and appended.');
 }
 
 // Function to load recent posts with pagination
 async function loadRecentPosts(cursor = null) {
-    if (isLoadingPosts) return; // Prevent multiple fetches
+    console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
+    if (isLoadingPosts) {
+        console.log('Already loading posts. Exiting.');
+        return; // Prevent multiple fetches
+    }
     isLoadingPosts = true;
 
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
@@ -212,12 +225,17 @@ async function loadRecentPosts(cursor = null) {
     }
 
     try {
+        console.log(`Fetching posts from API: ${apiUrl}`);
         const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (!response.ok) {
+            throw new Error(`Network response was not ok: ${response.status}`);
+        }
         const data = await response.json();
+        console.log('Posts fetched successfully:', data);
 
         // Update the cursor for the next batch
         currentBatchCursor = data.cursor || null;
+        console.log('Current batch cursor updated to:', currentBatchCursor);
 
         const postsList = document.getElementById('recent-posts');
 
@@ -357,23 +375,30 @@ async function loadRecentPosts(cursor = null) {
             const seeMoreButton = document.getElementById('see-more-posts');
             if (seeMoreButton) {
                 seeMoreButton.style.display = 'none';
+                console.log('No more posts to load. "See More Posts" button hidden.');
             }
         }
     } catch (error) {
         console.error('Error fetching recent posts:', error);
         const postsList = document.getElementById('recent-posts');
-        postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
+        if (postsList) {
+            postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
+        }
     } finally {
         isLoadingPosts = false;
+        console.log('Finished loading posts.');
     }
 }
 
 // Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
-    if (!currentBatchCursor) return; // No more posts to load
+    console.log('"See More Posts" button clicked.');
+    if (!currentBatchCursor) {
+        console.log('No cursor available. Cannot load more posts.');
+        return; // No more posts to load
+    }
     loadRecentPosts(currentBatchCursor);
 }
-
 
 // Load Markdown Content for About and Ethos Pages
 async function loadMarkdownContent() {
