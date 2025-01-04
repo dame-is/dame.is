@@ -258,23 +258,27 @@ async function loadRecentPosts(cursor = null) {
                 // ============================
                 // 1. Handle Post Text
                 // ============================
-                const postTextContainer = document.createElement('div');
-                postTextContainer.classList.add('post-text-container');
+                const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
 
-                const postText = post.record.text || '[No content]';
+                if (postText) {
+                    const postTextContainer = document.createElement('div');
+                    postTextContainer.classList.add('post-text-container');
 
-                // Split the text by double line breaks to create paragraphs
-                const paragraphs = postText.split('\n\n');
+                    // Split the text by double line breaks to create paragraphs
+                    const paragraphs = postText.split('\n\n');
 
-                paragraphs.forEach(paragraph => {
-                    const p = document.createElement('p');
-                    // Replace single line breaks with spaces within paragraphs
-                    const formattedParagraph = paragraph.replace(/\n/g, ' ');
-                    p.textContent = formattedParagraph;
-                    postTextContainer.appendChild(p);
-                });
+                    paragraphs.forEach(paragraph => {
+                        const p = document.createElement('p');
+                        // Replace single line breaks with spaces within paragraphs
+                        const formattedParagraph = paragraph.replace(/\n/g, ' ');
+                        p.textContent = formattedParagraph;
+                        postTextContainer.appendChild(p);
+                    });
 
-                postContainer.appendChild(postTextContainer);
+                    postContainer.appendChild(postTextContainer);
+                } else {
+                    console.log('Post has no content. Skipping post-text-container.');
+                }
 
                 // ============================
                 // 2. Handle Image Embeds
