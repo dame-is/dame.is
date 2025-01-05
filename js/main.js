@@ -35,7 +35,7 @@ function loadComponent(id, url) {
         .catch(err => console.error(`Error loading ${url}:`, err));
 }
 
-// Load navigation and footer
+// Modify the DOMContentLoaded event listener to include the log page
 document.addEventListener('DOMContentLoaded', () => {
     loadComponent('nav', 'components/nav.html');
     loadComponent('footer', 'components/footer.html');
@@ -43,6 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // If on index.html, load recent posts
     if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/') {
         initializePostLoader(); // Initialize the post loader with pagination
+    }
+
+    // If on log.html, load recent logs
+    if (window.location.pathname.endsWith('log.html')) {
+        initializeLogLoader();
     }
 
     // If on about.html or ethos.html, load Markdown content
@@ -461,3 +466,114 @@ function setActiveNavLink() {
         }
     });
 }
+
+// Function to Initialize Log Loader
+function initializeLogLoader() {
+    console.log('Initializing Log Loader');
+
+    // Variables to manage pagination state
+    let currentLogCursor = null; // To store the cursor for the next batch
+    const LOGS_PER_BATCH = 20; // Number of logs to fetch per batch
+    let isLoadingLogs = false; // Flag to prevent multiple simultaneous fetches
+
+    // Function to load logs
+    async function loadLogs(cursor = null) {
+        console.log('Loading logs', cursor ? `with cursor: ${cursor}` : '');
+        if (isLoadingLogs) {
+            console.log('Already loading logs. Exiting.');
+            return; // Prevent multiple fetches
+        }
+        isLoadingLogs = true;
+
+        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Replace with your actual actor identifier
+        let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${LOGS_PER_BATCH}&filter=posts_no_replies`;
+
+        if (cursor) {
+            apiUrl += `&cursor=${encodeURIComponent(cursor)}`;
+        }
+
+        try {
+            console.log(`Fetching logs from API: ${apiUrl}`);
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.status}`);
+            }
+            const data = await response.json();
+            console.log('Logs fetched successfully:', data);
+
+            // Update the cursor for the next batch
+            currentLogCursor = data.cursor || null;
+            console.log('Current log cursor updated to:', currentLogCursor);
+
+            const logEntries = data.feed
+                .map(item => {
+                    const text = item.post.record.text.replace(/^LOG:\s*/, ''); // Remove the prefix
+                    const createdAt = new Date(item.post.record.createdAt);
+                    const relativeTime = getRelativeTime(createdAt);
+                    return `• ${text} (${relativeTime})`;
+                })
+                .join('\n');
+
+            const logContainer = document.getElementById('log-entries');
+            if (logContainer) {
+                logContainer.textContent += logEntries + '\n';
+            } else {
+                console.error('Element with ID "log-entries" not found.');
+            }
+
+            // If there are no more logs to load, hide the "See More Logs" button
+            if (!currentLogCursor) {
+                const seeMoreButton = document.getElementById('see-more-logs');
+                if (seeMoreButton) {
+                    seeMoreButton.style.display = 'none';
+                    console.log('No more logs to load. "See More Logs" button hidden.');
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching logs:', error);
+            const logContainer = document.getElementById('log-entries');
+            if (logContainer) {
+                logContainer.textContent += 'Failed to load logs. Please try again later.\n';
+            }
+        } finally {
+            isLoadingLogs = false;
+            console.log('Finished loading logs.');
+        }
+    }
+
+    // Function to calculate relative time (e.g., "1 hour ago")
+    function getRelativeTime(date) {
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+
+        const intervals = [
+            { label: 'year', seconds: 31536000 },
+            { label: 'month', seconds: 2592000 },
+            { label: 'day', seconds: 86400 },
+            { label: 'hour', seconds: 3600 },
+            { label: 'minute', seconds: 60 },
+            { label: 'second', seconds: 1 }
+        ];
+
+        for (const interval of intervals) {
+            const count = Math.floor(diffInSeconds / interval.seconds);
+            if (count >= 1) {
+                return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
+            }
+        }
+
+        return 'just now';
+    }
+
+    // Load initial logs
+    loadLogs();
+
+    // Add event listener to the "See More Logs" button
+    const seeMoreButton = document.getElementById('see-more-logs');
+    if (seeMoreButton) {
+        seeMoreButton.addEventListener('click', () => loadLogs(currentLogCursor));
+    } else {
+        console.error('Element with ID "see-more-logs" not found.');
+    }
+}
+

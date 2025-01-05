@@ -275,3 +275,15 @@ body.dark-mode .post-counts span {
 #recent-posts {
     margin-bottom: 40px;
 }
+
+/* Log Container Styling */
+.log-container {
+    background-color: #2d2d2d;
+    color: #cccccc;
+    padding: 1em;
+    border-radius: 5px;
+    font-family: 'Courier New', Courier, monospace;
+    white-space: pre-wrap; /* Allows wrapping of long lines */
+    overflow-x: auto; /* Adds horizontal scroll if needed */
+    margin-bottom: 1em;
+}
