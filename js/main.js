@@ -467,7 +467,7 @@ function setActiveNavLink() {
     });
 }
 
-// Function to Initialize Log Loader
+// Function to Initialize Log Loader with Loading Indicators and Grouping
 function initializeLogLoader() {
     console.log('Initializing Log Loader');
 
@@ -485,7 +485,7 @@ function initializeLogLoader() {
         }
         isLoadingLogs = true;
 
-        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Your actual actor identifier
+        const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
         let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${LOGS_PER_BATCH}&filter=posts_no_replies`;
 
         if (cursor) {
@@ -505,26 +505,57 @@ function initializeLogLoader() {
             currentLogCursor = data.cursor || null;
             console.log('Current log cursor updated to:', currentLogCursor);
 
-            const logEntries = data.feed
-                .filter(item => {
-                    // **Removed Filtering for "LOG: " Prefix**
-                    // Previously: Only include posts starting with "LOG: "
-                    // Now: Include all posts
-                    return item.post.record.text && item.post.record.text.trim() !== '';
-                })
-                .map(item => {
-                    const text = item.post.record.text.trim();
-                    const createdAt = new Date(item.post.record.createdAt);
-                    const relativeTime = getRelativeTime(createdAt);
-                    return `${text} (${relativeTime})`;
-                })
-                .join('\n');
+            const logsList = document.getElementById('log-entries');
+            const loadingIndicator = document.getElementById('loading-logs'); // Loading indicator element
 
-            const logContainer = document.getElementById('log-entries');
-            if (logContainer) {
-                logContainer.textContent += logEntries + '\n';
-            } else {
-                console.error('Element with ID "log-entries" not found.');
+            // **Filter out reposts before processing**
+            const filteredFeed = data.feed.filter(item => {
+                // Exclude if 'reason' exists and its '$type' is 'app.bsky.feed.defs#reasonRepost'
+                return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
+            });
+
+            // Sort posts by createdAt descending (latest first)
+            filteredFeed.sort((a, b) => new Date(b.post.record.createdAt) - new Date(a.post.record.createdAt));
+
+            // Group posts by day
+            const groupedPosts = groupPostsByDay(filteredFeed);
+
+            // Iterate over each day group
+            for (const [date, posts] of Object.entries(groupedPosts)) {
+                // Check if the date header already exists to avoid duplicates
+                if (!document.querySelector(`.log-date-header[data-date="${date}"]`)) {
+                    // Create a date header
+                    const dateHeader = document.createElement('h2');
+                    dateHeader.classList.add('log-date-header');
+                    dateHeader.textContent = date;
+                    dateHeader.setAttribute('data-date', date); // Attribute to track existing headers
+                    logsList.appendChild(dateHeader);
+                }
+
+                // Iterate over posts for the current day
+                posts.forEach(post => {
+                    // Create a container for each log entry
+                    const logContainer = document.createElement('div');
+                    logContainer.classList.add('log-entry');
+
+                    // Post text
+                    const logText = document.createElement('p');
+                    logText.classList.add('log-text');
+                    logText.textContent = post.post.record.text.trim();
+                    logContainer.appendChild(logText);
+
+                    // Timestamp
+                    const logTimestamp = document.createElement('p');
+                    logTimestamp.classList.add('log-timestamp');
+                    const createdAt = new Date(post.post.record.createdAt);
+                    const relativeTime = getRelativeTime(createdAt);
+                    const timeString = createdAt.toLocaleTimeString(undefined, { hour12: false }) + ` on ${formatDate(createdAt)}`;
+                    logTimestamp.textContent = `${relativeTime} (${timeString})`;
+                    logContainer.appendChild(logTimestamp);
+
+                    // Append the log entry to the logs list
+                    logsList.appendChild(logContainer);
+                });
             }
 
             // If there are no more logs to load, hide the "See More Logs" button
@@ -537,11 +568,16 @@ function initializeLogLoader() {
             }
         } catch (error) {
             console.error('Error fetching logs:', error);
-            const logContainer = document.getElementById('log-entries');
-            if (logContainer) {
-                logContainer.textContent += 'Failed to load logs. Please try again later.\n';
+            const logsList = document.getElementById('log-entries');
+            if (logsList) {
+                logsList.innerHTML += '<p>Failed to load logs. Please try again later.</p>';
             }
         } finally {
+            // Hide loading indicator
+            const loadingIndicator = document.getElementById('loading-logs');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
             isLoadingLogs = false;
             console.log('Finished loading logs.');
         }
@@ -571,13 +607,51 @@ function initializeLogLoader() {
         return 'just now';
     }
 
+    // Function to format date as MM-DD-YYYY
+    function formatDate(date) {
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}-${day}-${year}`;
+    }
+
+    // Function to group posts by day
+    function groupPostsByDay(posts) {
+        const groups = {};
+
+        posts.forEach(item => {
+            const postDate = new Date(item.post.record.createdAt);
+            const year = postDate.getFullYear();
+            const month = postDate.toLocaleString('default', { month: 'long' });
+            const day = postDate.getDate();
+            const dateKey = `${month} ${day}, ${year}`;
+
+            if (!groups[dateKey]) {
+                groups[dateKey] = [];
+            }
+            groups[dateKey].push(item);
+        });
+
+        return groups;
+    }
+
+    // Function to load more logs when "See More Logs" button is clicked
+    function loadMoreLogs() {
+        console.log('"See More Logs" button clicked.');
+        if (!currentLogCursor) {
+            console.log('No cursor available. Cannot load more logs.');
+            return; // No more logs to load
+        }
+        loadLogs(currentLogCursor);
+    }
+
     // Load initial logs
     loadLogs();
 
     // Add event listener to the "See More Logs" button
     const seeMoreButton = document.getElementById('see-more-logs');
     if (seeMoreButton) {
-        seeMoreButton.addEventListener('click', () => loadLogs(currentLogCursor));
+        seeMoreButton.addEventListener('click', loadMoreLogs);
     } else {
         console.error('Element with ID "see-more-logs" not found.');
     }

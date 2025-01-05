@@ -283,7 +283,45 @@ body.dark-mode .post-counts span {
     padding: 1em;
     border-radius: 5px;
     font-family: 'Courier New', Courier, monospace;
-    white-space: pre-wrap; /* Allows wrapping of long lines */
     overflow-x: auto; /* Adds horizontal scroll if needed */
     margin-bottom: 1em;
+}
+
+/* Date Header Styling */
+.log-date-header {
+    color: #ffffff; /* White color for date headers */
+    border-bottom: 1px solid #444444;
+    padding-bottom: 0.5em;
+    margin-top: 1.5em;
+    font-size: 1.2em;
+}
+
+/* Log Entry Container */
+.log-entry {
+    margin-top: 1em;
+}
+
+/* Log Text Styling */
+.log-text {
+    margin: 0;
+    padding: 0;
+    color: #dddddd; /* Light gray for log text */
+    font-size: 1em;
+}
+
+/* Log Timestamp Styling */
+.log-timestamp {
+    margin: 0.2em 0 0 0;
+    padding: 0;
+    color: #aaaaaa; /* Different shade for timestamps */
+    font-size: 0.9em;
+    font-style: italic;
+}
+
+/* Loading Indicator Styling */
+.loading {
+    font-style: italic;
+    color: #999999;
+    margin-top: 1em;
+    display: none; /* Hidden by default */
 }
