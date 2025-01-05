@@ -35,7 +35,7 @@ function loadComponent(id, url) {
         .catch(err => console.error(`Error loading ${url}:`, err));
 }
 
-// Modify the DOMContentLoaded event listener to include the log page
+// Load navigation and footer
 document.addEventListener('DOMContentLoaded', () => {
     loadComponent('nav', 'components/nav.html');
     loadComponent('footer', 'components/footer.html');
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         initializePostLoader(); // Initialize the post loader with pagination
     }
 
-    // If on log.html, load recent logs
+    // If on log.html, load all posts as logs
     if (window.location.pathname.endsWith('log.html')) {
         initializeLogLoader();
     }
@@ -485,7 +485,7 @@ function initializeLogLoader() {
         }
         isLoadingLogs = true;
 
-        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Replace with your actual actor identifier
+        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Your actual actor identifier
         let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${LOGS_PER_BATCH}&filter=posts_no_replies`;
 
         if (cursor) {
@@ -506,11 +506,17 @@ function initializeLogLoader() {
             console.log('Current log cursor updated to:', currentLogCursor);
 
             const logEntries = data.feed
+                .filter(item => {
+                    // **Removed Filtering for "LOG: " Prefix**
+                    // Previously: Only include posts starting with "LOG: "
+                    // Now: Include all posts
+                    return item.post.record.text && item.post.record.text.trim() !== '';
+                })
                 .map(item => {
-                    const text = item.post.record.text.replace(/^LOG:\s*/, ''); // Remove the prefix
+                    const text = item.post.record.text.trim();
                     const createdAt = new Date(item.post.record.createdAt);
                     const relativeTime = getRelativeTime(createdAt);
-                    return `• ${text} (${relativeTime})`;
+                    return `${text} (${relativeTime})`;
                 })
                 .join('\n');
 
@@ -576,4 +582,3 @@ function initializeLogLoader() {
         console.error('Element with ID "see-more-logs" not found.');
     }
 }
-
