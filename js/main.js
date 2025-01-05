@@ -265,138 +265,177 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Iterate over the filtered feed
-        filteredFeed.forEach(item => {
-            const post = item.post; // Access the 'post' object
+        // -------------------------------
+        // **New Code: Group Posts by Day**
+        // -------------------------------
+        // Function to group posts by day
+        function groupPostsByDay(posts) {
+            const groups = {};
 
-            // Ensure 'post' and 'record' exist
-            if (post && post.record) {
-                // Create a container for each post
-                const postContainer = document.createElement('div');
-                postContainer.classList.add('post');
+            posts.forEach(item => {
+                const postDate = new Date(item.post.record.createdAt);
+                const year = postDate.getFullYear();
+                const month = postDate.toLocaleString('default', { month: 'long' });
+                const day = postDate.getDate();
+                const dateKey = `${month} ${day}, ${year}`;
 
-                // ============================
-                // 1. Handle Post Text
-                // ============================
-                const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
-
-                if (postText) {
-                    const postTextContainer = document.createElement('div');
-                    postTextContainer.classList.add('post-text-container');
-
-                    // Split the text by double line breaks to create paragraphs
-                    const paragraphs = postText.split('\n\n');
-
-                    paragraphs.forEach(paragraph => {
-                        const p = document.createElement('p');
-                        // Replace single line breaks with spaces within paragraphs
-                        const formattedParagraph = paragraph.replace(/\n/g, ' ');
-                        p.textContent = formattedParagraph;
-                        postTextContainer.appendChild(p);
-                    });
-
-                    postContainer.appendChild(postTextContainer);
-                } else {
-                    console.log('Post has no content. Skipping post-text-container.');
+                if (!groups[dateKey]) {
+                    groups[dateKey] = [];
                 }
+                groups[dateKey].push(item);
+            });
 
-                // ============================
-                // 2. Handle Image Embeds
-                // ============================
-                if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
-                    const images = post.embed.images.slice(0, 4); // Limit to 4 images
+            return groups;
+        }
 
-                    images.forEach(imageData => {
-                        if (imageData.fullsize && imageData.alt) {
-                            const img = document.createElement('img');
-                            img.src = imageData.fullsize;
-                            img.alt = imageData.alt;
-                            img.loading = 'lazy';
-                            img.classList.add('post-image'); // Add a class for styling
-                            postContainer.appendChild(img);
-                        }
-                    });
-                }
+        // Group the filtered posts by day
+        const groupedPosts = groupPostsByDay(filteredFeed);
 
-                // ============================
-                // 3. Handle Created At Date
-                // ============================
-                const postDate = document.createElement('p');
-                postDate.classList.add('post-date');
-
-                // Extract the Post ID from the URI
-                const uri = post.uri; // e.g., "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lep2fdto622v"
-                if (uri) {
-                    const postId = uri.split('/').pop(); // Extracts "3lep2fdto622v"
-
-                    // Construct the Bluesky URL
-                    const blueskyUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
-
-                    // Format the Date
-                    const date = new Date(post.record.createdAt || Date.now());
-                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-                    const formattedDate = date.toLocaleDateString(undefined, options);
-
-                    // Create the link element
-                    const dateLink = document.createElement('a');
-                    dateLink.href = blueskyUrl;
-                    dateLink.textContent = formattedDate;
-                    dateLink.target = '_blank'; // Opens the link in a new tab
-                    dateLink.rel = 'noopener noreferrer'; // Security best practices
-
-                    // Append "Posted on" text and the link
-                    postDate.textContent = 'Posted on ';
-                    postDate.appendChild(dateLink);
-                } else {
-                    // Handle posts without a URI
-                    const date = new Date(post.record.createdAt || Date.now());
-                    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-                    const formattedDate = date.toLocaleDateString(undefined, options);
-                    postDate.textContent = `Posted on ${formattedDate}`;
-                }
-
-                postContainer.appendChild(postDate);
-
-                // ============================
-                // 4. Handle Counts (Replies, Quotes, Reposts, Likes)
-                // ============================
-                const countsContainer = document.createElement('div');
-                countsContainer.classList.add('post-counts');
-
-                // Reply Count
-                const replyCount = document.createElement('span');
-                const replies = post.replyCount || 0;
-                replyCount.textContent = formatCount(replies, 'reply');
-                countsContainer.appendChild(replyCount);
-
-                // Quote Count
-                const quoteCount = document.createElement('span');
-                const quotes = post.quoteCount || 0;
-                quoteCount.textContent = formatCount(quotes, 'quote');
-                countsContainer.appendChild(quoteCount);
-
-                // Repost Count
-                const repostCount = document.createElement('span');
-                const reposts = post.repostCount || 0;
-                repostCount.textContent = formatCount(reposts, 'repost');
-                countsContainer.appendChild(repostCount);
-
-                // Like Count
-                const likeCount = document.createElement('span');
-                const likes = post.likeCount || 0;
-                likeCount.textContent = formatCount(likes, 'like');
-                countsContainer.appendChild(likeCount);
-
-                postContainer.appendChild(countsContainer);
-
-                // ============================
-                // 5. Append the Post to the List
-                // ============================
-                postsList.appendChild(postContainer);
-            } else {
-                console.warn('Post or record missing in the feed item:', item);
+        // Iterate over each day group
+        for (const [date, posts] of Object.entries(groupedPosts)) {
+            // Check if the date header already exists to avoid duplicates
+            if (!document.querySelector(`.post-date-header[data-date="${date}"]`)) {
+                // Create a date header
+                const dateHeader = document.createElement('h2');
+                dateHeader.classList.add('post-date-header');
+                dateHeader.textContent = date;
+                dateHeader.setAttribute('data-date', date); // Attribute to track existing headers
+                postsList.appendChild(dateHeader);
             }
-        });
+
+            // Iterate over posts for the current day
+            posts.forEach(item => {
+                const post = item.post; // Access the 'post' object
+
+                // Ensure 'post' and 'record' exist
+                if (post && post.record) {
+                    // Create a container for each post
+                    const postContainer = document.createElement('div');
+                    postContainer.classList.add('post');
+
+                    // ============================
+                    // 1. Handle Post Text
+                    // ============================
+                    const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+
+                    if (postText) {
+                        const postTextContainer = document.createElement('div');
+                        postTextContainer.classList.add('post-text-container');
+
+                        // Split the text by double line breaks to create paragraphs
+                        const paragraphs = postText.split('\n\n');
+
+                        paragraphs.forEach(paragraph => {
+                            const p = document.createElement('p');
+                            // Replace single line breaks with spaces within paragraphs
+                            const formattedParagraph = paragraph.replace(/\n/g, ' ');
+                            p.textContent = formattedParagraph;
+                            postTextContainer.appendChild(p);
+                        });
+
+                        postContainer.appendChild(postTextContainer);
+                    } else {
+                        console.log('Post has no content. Skipping post-text-container.');
+                    }
+
+                    // ============================
+                    // 2. Handle Image Embeds
+                    // ============================
+                    if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+                        const images = post.embed.images.slice(0, 4); // Limit to 4 images
+
+                        images.forEach(imageData => {
+                            if (imageData.fullsize && imageData.alt) {
+                                const img = document.createElement('img');
+                                img.src = imageData.fullsize;
+                                img.alt = imageData.alt;
+                                img.loading = 'lazy';
+                                img.classList.add('post-image'); // Add a class for styling
+                                postContainer.appendChild(img);
+                            }
+                        });
+                    }
+
+                    // ============================
+                    // 3. Handle Created At Date
+                    // ============================
+                    const postDate = document.createElement('p');
+                    postDate.classList.add('post-date');
+
+                    // Extract the Post ID from the URI
+                    const uri = post.uri; // e.g., "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lep2fdto622v"
+                    if (uri) {
+                        const postId = uri.split('/').pop(); // Extracts "3lep2fdto622v"
+
+                        // Construct the Bluesky URL
+                        const blueskyUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
+
+                        // Format the Date
+                        const date = new Date(post.record.createdAt || Date.now());
+                        const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                        const formattedDate = date.toLocaleDateString(undefined, options);
+
+                        // Create the link element
+                        const dateLink = document.createElement('a');
+                        dateLink.href = blueskyUrl;
+                        dateLink.textContent = formattedDate;
+                        dateLink.target = '_blank'; // Opens the link in a new tab
+                        dateLink.rel = 'noopener noreferrer'; // Security best practices
+
+                        // Append "Posted on" text and the link
+                        postDate.textContent = 'Posted on ';
+                        postDate.appendChild(dateLink);
+                    } else {
+                        // Handle posts without a URI
+                        const date = new Date(post.record.createdAt || Date.now());
+                        const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                        const formattedDate = date.toLocaleDateString(undefined, options);
+                        postDate.textContent = `Posted on ${formattedDate}`;
+                    }
+
+                    postContainer.appendChild(postDate);
+
+                    // ============================
+                    // 4. Handle Counts (Replies, Quotes, Reposts, Likes)
+                    // ============================
+                    const countsContainer = document.createElement('div');
+                    countsContainer.classList.add('post-counts');
+
+                    // Reply Count
+                    const replyCount = document.createElement('span');
+                    const replies = post.replyCount || 0;
+                    replyCount.textContent = formatCount(replies, 'reply');
+                    countsContainer.appendChild(replyCount);
+
+                    // Quote Count
+                    const quoteCount = document.createElement('span');
+                    const quotes = post.quoteCount || 0;
+                    quoteCount.textContent = formatCount(quotes, 'quote');
+                    countsContainer.appendChild(quoteCount);
+
+                    // Repost Count
+                    const repostCount = document.createElement('span');
+                    const reposts = post.repostCount || 0;
+                    repostCount.textContent = formatCount(reposts, 'repost');
+                    countsContainer.appendChild(repostCount);
+
+                    // Like Count
+                    const likeCount = document.createElement('span');
+                    const likes = post.likeCount || 0;
+                    likeCount.textContent = formatCount(likes, 'like');
+                    countsContainer.appendChild(likeCount);
+
+                    postContainer.appendChild(countsContainer);
+
+                    // ============================
+                    // 5. Append the Post to the List
+                    // ============================
+                    postsList.appendChild(postContainer);
+                } else {
+                    console.warn('Post or record missing in the feed item:', item);
+                }
+            });
+        }
 
         // If there are no more posts to load, hide the "See More Posts" button
         if (!currentBatchCursor) {
@@ -485,7 +524,7 @@ function initializeLogLoader() {
         }
         isLoadingLogs = true;
 
-        const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
+        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Your actual actor identifier
         let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${LOGS_PER_BATCH}&filter=posts_no_replies`;
 
         if (cursor) {
