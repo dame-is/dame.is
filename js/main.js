@@ -4,7 +4,9 @@ const GITHUB_USERNAME = 'damedotblog'; // Your GitHub username
 const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
 
-// Create a Promise that resolves when marked.js is loaded
+// ----------------------------------
+// 1. HELPER: Load Marked.js
+// ----------------------------------
 const markedLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
@@ -19,7 +21,9 @@ const markedLoadPromise = new Promise((resolve, reject) => {
     document.head.appendChild(script);
 });
 
-// Function to load HTML components
+// ----------------------------------
+// 2. HELPER: Load HTML Components
+// ----------------------------------
 function loadComponent(id, url) {
     fetch(url)
         .then(response => response.text())
@@ -35,7 +39,6 @@ function loadComponent(id, url) {
         .catch(err => console.error(`Error loading ${url}:`, err));
 }
 
-// Load navigation and footer
 document.addEventListener('DOMContentLoaded', () => {
     loadComponent('nav', 'components/nav.html');
     loadComponent('footer', 'components/footer.html');
@@ -56,11 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Initialize Navigation functionalities
+// ----------------------------------
+// 3. NAV INITIALIZATION
+// ----------------------------------
 function initializeNav() {
     // Theme toggle
     const themeToggle = document.getElementById('theme-toggle');
     themeToggle.addEventListener('click', toggleTheme);
+
     // Set initial theme based on localStorage
     if (localStorage.getItem('theme') === 'dark') {
         document.body.classList.add('dark-mode');
@@ -74,9 +80,14 @@ function initializeNav() {
 
     // Assign active class to current page link
     setActiveNavLink();
+
+    // NEW CODE: Fetch the most recent log and update nav
+    fetchLatestLogForNav();
 }
 
-// Toggle Dark/Light Mode
+// ----------------------------------
+// 4. THEME TOGGLE
+// ----------------------------------
 function toggleTheme() {
     const themeToggle = document.getElementById('theme-toggle');
     document.body.classList.toggle('dark-mode');
@@ -89,9 +100,11 @@ function toggleTheme() {
     }
 }
 
-// Fetch Bluesky Stats
+// ----------------------------------
+// 5. FETCH BLUESKY STATS
+// ----------------------------------
 async function fetchBlueskyStats() {
-    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
+    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
     const apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
 
     try {
@@ -106,13 +119,80 @@ async function fetchBlueskyStats() {
     }
 }
 
-// Initialize Footer functionalities
+// ----------------------------------
+// 6. FETCH LATEST LOG FOR NAV
+// ----------------------------------
+// This function fetches your log feed (did:plc:jucg4ddb2budmcy2pjo5fo2g)
+// and updates #recent-log-title + #recent-log-time with the most recent entry.
+async function fetchLatestLogForNav() {
+    try {
+        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Actor ID for your log feed
+        // Limit=1: only need the most recent
+        let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=1&filter=posts_no_replies`;
+
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+
+        const data = await response.json();
+        const feedItems = data.feed || [];
+
+        // Filter out any reposts
+        const filteredItems = feedItems.filter(item => {
+            return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
+        });
+
+        if (filteredItems.length > 0) {
+            const mostRecent = filteredItems[0].post; // The newest post
+            if (mostRecent && mostRecent.record) {
+                // Update Title
+                const text = mostRecent.record.text.trim();
+                document.getElementById('recent-log-title').textContent = text || 'No recent log';
+
+                // Update Time
+                const createdAt = new Date(mostRecent.record.createdAt);
+                const relativeTime = getRelativeTime(createdAt);
+                document.getElementById('recent-log-time').textContent = relativeTime;
+            }
+        } else {
+            // If no logs found, set fallback text
+            document.getElementById('recent-log-title').textContent = 'No recent log';
+            document.getElementById('recent-log-time').textContent = '';
+        }
+    } catch (error) {
+        console.error('Error fetching the latest log for nav:', error);
+    }
+}
+
+// NEW CODE: Shared helper to compute relative times, copied from your log loader.
+function getRelativeTime(date) {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    const intervals = [
+        { label: 'year', seconds: 31536000 },
+        { label: 'month', seconds: 2592000 },
+        { label: 'day', seconds: 86400 },
+        { label: 'hour', seconds: 3600 },
+        { label: 'minute', seconds: 60 },
+        { label: 'second', seconds: 1 }
+    ];
+
+    for (const interval of intervals) {
+        const count = Math.floor(diffInSeconds / interval.seconds);
+        if (count >= 1) {
+            return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
+        }
+    }
+    return 'just now';
+}
+
+// ----------------------------------
+// 7. FOOTER
+// ----------------------------------
 function initializeFooter() {
-    // Set version number and last updated
     fetchFooterData();
 }
 
-// Fetch Footer Data (Version and Last Updated)
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
     const apiUrlCommits = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`;
@@ -128,9 +208,8 @@ async function fetchFooterData() {
         let lastUpdated = 'N/A';
 
         if (tagsData.length > 0) {
-            // Assuming the tags are returned in descending order
+            // Use the first (most recent) tag
             version = tagsData[0].name;
-            // Fetch commit details for the latest tag
             const commitSha = tagsData[0].commit.sha;
             const apiUrlTagCommit = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${commitSha}`;
             const responseTagCommit = await fetch(apiUrlTagCommit);
@@ -146,7 +225,7 @@ async function fetchFooterData() {
             if (!responseCommits.ok) throw new Error(`GitHub Commits API error: ${responseCommits.status}`);
             const commitsData = await responseCommits.json();
             const latestCommit = commitsData;
-            version = latestCommit.sha.substring(0, 7); // Short SHA for version
+            version = latestCommit.sha.substring(0, 7); // Short SHA
             const commitDate = new Date(latestCommit.commit.committer.date);
             const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
             lastUpdated = commitDate.toLocaleDateString(undefined, options);
@@ -184,14 +263,15 @@ async function fetchFooterData() {
     }
 }
 
-// Variables to manage pagination state
+// ----------------------------------
+// 8. POST LOADER (INDEX PAGE)
+// ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
 const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
 let isLoadingPosts = false; // Flag to prevent multiple simultaneous fetches
 
-// Initialize Post Loader with Pagination
 function initializePostLoader() {
-    console.log('Initializing Post Loader with Pagination'); // Debugging
+    console.log('Initializing Post Loader with Pagination');
     // Initial load
     loadRecentPosts();
 
@@ -205,39 +285,29 @@ function initializePostLoader() {
     const seeMoreButton = document.createElement('button');
     seeMoreButton.id = 'see-more-posts';
     seeMoreButton.textContent = 'See More Posts';
-    seeMoreButton.classList.add('see-more-button'); // Add a class for styling
+    seeMoreButton.classList.add('see-more-button');
     seeMoreButton.addEventListener('click', loadMorePosts);
-    
-    // Use insertAdjacentElement to place the button after the posts list
+
+    // Place the button after the posts list
     postsList.insertAdjacentElement('afterend', seeMoreButton);
     console.log('"See More Posts" button created and appended.');
 }
 
-// Function to load recent posts with pagination
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
         console.log('Already loading posts. Exiting.');
-        return; // Prevent multiple fetches
+        return;
     }
     isLoadingPosts = true;
 
-    // -------------------------
-    // 1. Pluralization Helper
-    // -------------------------
-    /**
-     * Formats a count with the appropriate singular or plural noun.
-     * @param {number} count - The count of items.
-     * @param {string} singular - The singular form of the noun.
-     * @param {string} [plural] - The plural form of the noun. If not provided, 'singular' + 's' is used.
-     * @returns {string} - Formatted string with count and correct noun form.
-     */
+    // Helper to handle singular/plural
     function formatCount(count, singular, plural = null) {
         const actualPlural = plural || `${singular}s`;
         return `${count} ${count === 1 ? singular : actualPlural}`;
     }
 
-    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier
+    const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your feed for posts
     let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}&filter=posts_no_replies`;
 
     if (cursor) {
@@ -259,167 +329,123 @@ async function loadRecentPosts(cursor = null) {
 
         const postsList = document.getElementById('recent-posts');
 
-        // **Filter out reposts before processing**
+        // Filter out reposts
         const filteredFeed = data.feed.filter(item => {
-            // Exclude if 'reason' exists and its '$type' is 'app.bsky.feed.defs#reasonRepost'
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // -------------------------------
-        // **New Code: Group Posts by Day**
-        // -------------------------------
-        // Function to group posts by day
+        // Group posts by day
         function groupPostsByDay(posts) {
             const groups = {};
-
             posts.forEach(item => {
                 const postDate = new Date(item.post.record.createdAt);
                 const year = postDate.getFullYear();
                 const month = postDate.toLocaleString('default', { month: 'long' });
                 const day = postDate.getDate();
                 const dateKey = `${month} ${day}, ${year}`;
-
                 if (!groups[dateKey]) {
                     groups[dateKey] = [];
                 }
                 groups[dateKey].push(item);
             });
-
             return groups;
         }
 
-        // Group the filtered posts by day
         const groupedPosts = groupPostsByDay(filteredFeed);
 
         // Iterate over each day group
         for (const [date, posts] of Object.entries(groupedPosts)) {
-            // Check if the date header already exists to avoid duplicates
+            // Check if the date header already exists
             if (!document.querySelector(`.post-date-header[data-date="${date}"]`)) {
-                // Create a date header
                 const dateHeader = document.createElement('h2');
                 dateHeader.classList.add('post-date-header');
                 dateHeader.textContent = date;
-                dateHeader.setAttribute('data-date', date); // Attribute to track existing headers
+                dateHeader.setAttribute('data-date', date);
                 postsList.appendChild(dateHeader);
             }
 
-            // Iterate over posts for the current day
             posts.forEach(item => {
-                const post = item.post; // Access the 'post' object
-
-                // Ensure 'post' and 'record' exist
+                const post = item.post;
                 if (post && post.record) {
-                    // Create a container for each post
                     const postContainer = document.createElement('div');
                     postContainer.classList.add('post');
 
-                    // ============================
-                    // 1. Handle Post Text
-                    // ============================
+                    // 1) Post Text
                     const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
-
                     if (postText) {
                         const postTextContainer = document.createElement('div');
                         postTextContainer.classList.add('post-text-container');
-
-                        // Split the text by double line breaks to create paragraphs
                         const paragraphs = postText.split('\n\n');
-
                         paragraphs.forEach(paragraph => {
                             const p = document.createElement('p');
-                            // Replace single line breaks with spaces within paragraphs
                             const formattedParagraph = paragraph.replace(/\n/g, ' ');
                             p.textContent = formattedParagraph;
                             postTextContainer.appendChild(p);
                         });
-
                         postContainer.appendChild(postTextContainer);
-                    } else {
-                        console.log('Post has no content. Skipping post-text-container.');
                     }
 
-                    // ============================
-                    // 2. Handle Image Embeds
-                    // ============================
+                    // 2) Image Embeds
                     if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
-                        const images = post.embed.images.slice(0, 4); // Limit to 4 images
-
+                        const images = post.embed.images.slice(0, 4);
                         images.forEach(imageData => {
                             if (imageData.fullsize && imageData.alt) {
                                 const img = document.createElement('img');
                                 img.src = imageData.fullsize;
                                 img.alt = imageData.alt;
                                 img.loading = 'lazy';
-                                img.classList.add('post-image'); // Add a class for styling
+                                img.classList.add('post-image');
                                 postContainer.appendChild(img);
                             }
                         });
                     }
 
-                    // ============================
-                    // 3. Handle Created At Date
-                    // ============================
+                    // 3) Created At Date
                     const postDate = document.createElement('p');
                     postDate.classList.add('post-date');
-
-                    // Extract the Post ID from the URI
-                    const uri = post.uri; // e.g., "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lep2fdto622v"
+                    const uri = post.uri;
                     if (uri) {
-                        const postId = uri.split('/').pop(); // Extracts "3lep2fdto622v"
-
-                        // Construct the Bluesky URL
+                        const postId = uri.split('/').pop();
                         const blueskyUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
-
-                        // Format the Date
                         const date = new Date(post.record.createdAt || Date.now());
                         const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
                         const formattedDate = date.toLocaleDateString(undefined, options);
 
-                        // Create the link element
                         const dateLink = document.createElement('a');
                         dateLink.href = blueskyUrl;
                         dateLink.textContent = formattedDate;
-                        dateLink.target = '_blank'; // Opens the link in a new tab
-                        dateLink.rel = 'noopener noreferrer'; // Security best practices
+                        dateLink.target = '_blank';
+                        dateLink.rel = 'noopener noreferrer';
 
-                        // Append "Posted on" text and the link
                         postDate.textContent = 'Posted on ';
                         postDate.appendChild(dateLink);
                     } else {
-                        // Handle posts without a URI
                         const date = new Date(post.record.createdAt || Date.now());
                         const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
                         const formattedDate = date.toLocaleDateString(undefined, options);
                         postDate.textContent = `Posted on ${formattedDate}`;
                     }
-
                     postContainer.appendChild(postDate);
 
-                    // ============================
-                    // 4. Handle Counts (Replies, Quotes, Reposts, Likes)
-                    // ============================
+                    // 4) Counts (Replies, Quotes, Reposts, Likes)
                     const countsContainer = document.createElement('div');
                     countsContainer.classList.add('post-counts');
 
-                    // Reply Count
                     const replyCount = document.createElement('span');
                     const replies = post.replyCount || 0;
                     replyCount.textContent = formatCount(replies, 'reply');
                     countsContainer.appendChild(replyCount);
 
-                    // Quote Count
                     const quoteCount = document.createElement('span');
                     const quotes = post.quoteCount || 0;
                     quoteCount.textContent = formatCount(quotes, 'quote');
                     countsContainer.appendChild(quoteCount);
 
-                    // Repost Count
                     const repostCount = document.createElement('span');
                     const reposts = post.repostCount || 0;
                     repostCount.textContent = formatCount(reposts, 'repost');
                     countsContainer.appendChild(repostCount);
 
-                    // Like Count
                     const likeCount = document.createElement('span');
                     const likes = post.likeCount || 0;
                     likeCount.textContent = formatCount(likes, 'like');
@@ -427,12 +453,8 @@ async function loadRecentPosts(cursor = null) {
 
                     postContainer.appendChild(countsContainer);
 
-                    // ============================
-                    // 5. Append the Post to the List
-                    // ============================
+                    // 5) Append the Post
                     postsList.appendChild(postContainer);
-                } else {
-                    console.warn('Post or record missing in the feed item:', item);
                 }
             });
         }
@@ -457,23 +479,21 @@ async function loadRecentPosts(cursor = null) {
     }
 }
 
-
-// Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
     if (!currentBatchCursor) {
         console.log('No cursor available. Cannot load more posts.');
-        return; // No more posts to load
+        return;
     }
     loadRecentPosts(currentBatchCursor);
 }
 
-// Load Markdown Content for About and Ethos Pages
+// ----------------------------------
+// 9. LOAD MARKDOWN (ABOUT, ETHOS)
+// ----------------------------------
 async function loadMarkdownContent() {
     try {
-        // Wait until marked.js is loaded
         await markedLoadPromise;
-
         const path = window.location.pathname.endsWith('about.html') ? 'about.md' : 'ethos.md';
         const response = await fetch(path);
         if (!response.ok) throw new Error('Network response was not ok');
@@ -485,19 +505,14 @@ async function loadMarkdownContent() {
     }
 }
 
-// Function to Set Active Navigation Link
+// ----------------------------------
+// 10. ACTIVE NAV LINK
+// ----------------------------------
 function setActiveNavLink() {
-    // Get the current page's path
     const currentPath = window.location.pathname.split('/').pop() || 'index.html';
-
-    // Get all navigation links
     const navLinks = document.querySelectorAll('.nav-left .nav-link');
-
     navLinks.forEach(link => {
-        // Get the href attribute of the link
         const linkPath = link.getAttribute('href');
-
-        // Compare linkPath with currentPath
         if (linkPath === currentPath) {
             link.classList.add('active');
         } else {
@@ -506,25 +521,25 @@ function setActiveNavLink() {
     });
 }
 
-// Function to Initialize Log Loader with Loading Indicators and Grouping
+// ----------------------------------
+// 11. LOG LOADER (LOG PAGE)
+// ----------------------------------
 function initializeLogLoader() {
     console.log('Initializing Log Loader');
 
-    // Variables to manage pagination state
-    let currentLogCursor = null; // To store the cursor for the next batch
-    const LOGS_PER_BATCH = 20; // Number of logs to fetch per batch
-    let isLoadingLogs = false; // Flag to prevent multiple simultaneous fetches
+    let currentLogCursor = null;
+    const LOGS_PER_BATCH = 20;
+    let isLoadingLogs = false;
 
-    // Function to load logs
     async function loadLogs(cursor = null) {
         console.log('Loading logs', cursor ? `with cursor: ${cursor}` : '');
         if (isLoadingLogs) {
             console.log('Already loading logs. Exiting.');
-            return; // Prevent multiple fetches
+            return;
         }
         isLoadingLogs = true;
 
-        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Your actual actor identifier
+        const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // same actor as fetchLatestLogForNav
         let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${LOGS_PER_BATCH}&filter=posts_no_replies`;
 
         if (cursor) {
@@ -540,50 +555,41 @@ function initializeLogLoader() {
             const data = await response.json();
             console.log('Logs fetched successfully:', data);
 
-            // Update the cursor for the next batch
             currentLogCursor = data.cursor || null;
             console.log('Current log cursor updated to:', currentLogCursor);
 
             const logsList = document.getElementById('log-entries');
-            const loadingIndicator = document.getElementById('loading-logs'); // Loading indicator element
+            const loadingIndicator = document.getElementById('loading-logs');
 
-            // **Filter out reposts before processing**
+            // Filter out reposts
             const filteredFeed = data.feed.filter(item => {
-                // Exclude if 'reason' exists and its '$type' is 'app.bsky.feed.defs#reasonRepost'
                 return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
             });
 
-            // Sort posts by createdAt descending (latest first)
+            // Sort by createdAt desc
             filteredFeed.sort((a, b) => new Date(b.post.record.createdAt) - new Date(a.post.record.createdAt));
 
-            // Group posts by day
+            // Group by day
             const groupedPosts = groupPostsByDay(filteredFeed);
 
-            // Iterate over each day group
             for (const [date, posts] of Object.entries(groupedPosts)) {
-                // Check if the date header already exists to avoid duplicates
                 if (!document.querySelector(`.log-date-header[data-date="${date}"]`)) {
-                    // Create a date header
                     const dateHeader = document.createElement('h2');
                     dateHeader.classList.add('log-date-header');
                     dateHeader.textContent = date;
-                    dateHeader.setAttribute('data-date', date); // Attribute to track existing headers
+                    dateHeader.setAttribute('data-date', date);
                     logsList.appendChild(dateHeader);
                 }
 
-                // Iterate over posts for the current day
                 posts.forEach(post => {
-                    // Create a container for each log entry
                     const logContainer = document.createElement('div');
                     logContainer.classList.add('log-entry');
 
-                    // Post text
                     const logText = document.createElement('p');
                     logText.classList.add('log-text');
                     logText.textContent = post.post.record.text.trim();
                     logContainer.appendChild(logText);
 
-                    // Timestamp
                     const logTimestamp = document.createElement('p');
                     logTimestamp.classList.add('log-timestamp');
                     const createdAt = new Date(post.post.record.createdAt);
@@ -592,12 +598,10 @@ function initializeLogLoader() {
                     logTimestamp.textContent = `${relativeTime} (${timeString})`;
                     logContainer.appendChild(logTimestamp);
 
-                    // Append the log entry to the logs list
                     logsList.appendChild(logContainer);
                 });
             }
 
-            // If there are no more logs to load, hide the "See More Logs" button
             if (!currentLogCursor) {
                 const seeMoreButton = document.getElementById('see-more-logs');
                 if (seeMoreButton) {
@@ -612,21 +616,17 @@ function initializeLogLoader() {
                 logsList.innerHTML += '<p>Failed to load logs. Please try again later.</p>';
             }
         } finally {
-            // Hide loading indicator
-            const loadingIndicator = document.getElementById('loading-logs');
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'none';
+            if (document.getElementById('loading-logs')) {
+                document.getElementById('loading-logs').style.display = 'none';
             }
             isLoadingLogs = false;
             console.log('Finished loading logs.');
         }
     }
 
-    // Function to calculate relative time (e.g., "1 hour ago")
     function getRelativeTime(date) {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
-
         const intervals = [
             { label: 'year', seconds: 31536000 },
             { label: 'month', seconds: 2592000 },
@@ -635,59 +635,49 @@ function initializeLogLoader() {
             { label: 'minute', seconds: 60 },
             { label: 'second', seconds: 1 }
         ];
-
         for (const interval of intervals) {
             const count = Math.floor(diffInSeconds / interval.seconds);
             if (count >= 1) {
                 return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
             }
         }
-
         return 'just now';
     }
 
-    // Function to format date as MM-DD-YYYY
     function formatDate(date) {
-        const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+        const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
         return `${month}-${day}-${year}`;
     }
 
-    // Function to group posts by day
     function groupPostsByDay(posts) {
         const groups = {};
-
         posts.forEach(item => {
             const postDate = new Date(item.post.record.createdAt);
             const year = postDate.getFullYear();
             const month = postDate.toLocaleString('default', { month: 'long' });
             const day = postDate.getDate();
             const dateKey = `${month} ${day}, ${year}`;
-
             if (!groups[dateKey]) {
                 groups[dateKey] = [];
             }
             groups[dateKey].push(item);
         });
-
         return groups;
     }
 
-    // Function to load more logs when "See More Logs" button is clicked
     function loadMoreLogs() {
         console.log('"See More Logs" button clicked.');
         if (!currentLogCursor) {
             console.log('No cursor available. Cannot load more logs.');
-            return; // No more logs to load
+            return;
         }
         loadLogs(currentLogCursor);
     }
 
-    // Load initial logs
     loadLogs();
 
-    // Add event listener to the "See More Logs" button
     const seeMoreButton = document.getElementById('see-more-logs');
     if (seeMoreButton) {
         seeMoreButton.addEventListener('click', loadMoreLogs);

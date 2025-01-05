@@ -32,39 +32,75 @@ body.dark-mode {
     --post-background-color: #1e1e1e;
 }
 
-/* Navigation Bar Styles */
+/* Navigation Bar & Footer Base */
 nav, footer {
     background-color: #f0f0f0;
-    padding: 10px 20px;
-}
-
-nav {
-    display: flex;
-    border-bottom: 1px solid #ccc;
-    justify-content: space-evenly;
-    align-items: center;
-    padding: 10px 20px;
-    background-color: #f0f0f0;
-    transition: background-color 0.3s ease;
+    padding: 0 20px; /* Updated: Let the nav sections handle spacing */
 }
 
 body.dark-mode nav {
-    border-color: #444;
     background-color: var(--post-background-color);
+    border-color: #444;
 }
 
+/* Each row (section) in the nav: top and bottom */
+.nav-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0; /* Adjust vertical spacing as needed */
+    border-bottom: 1px solid #ccc;
+}
+
+.nav-section.bottom-nav {
+    border-bottom: none; /* Remove bottom border on the final row */
+}
+
+/* Top-left portion: contains two stacked lines */
+.top-nav-left {
+    display: flex;
+    flex-direction: column;
+}
+
+.site-title-and-latest-log {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between "dame.is" and the recent log title */
+    margin-bottom: 4px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 15px;
+}
+
+/* Basic styling for all left and right containers within each section */
 .nav-left,
 .nav-right {
     display: flex;
     align-items: center;
 }
 
+/* For bottom left portion (Bluesky stats) and bottom right portion (theme toggle) */
+.bottom-nav-left,
+.bottom-nav-right {
+    display: flex;
+    align-items: center;
+}
+
+/* Original link styles (kept from your existing code) */
 .nav-left a.nav-link {
-    margin-right: 15px;
     text-decoration: none;
     color: inherit;
     font-weight: bold;
     transition: color 0.3s ease;
+}
+
+/* If you want to keep the same margin from the old .nav-left, 
+   you could add margin-right to each link:
+*/
+.nav-links a.nav-link {
+    margin-right: 15px; /* or adjust as you like */
 }
 
 .nav-left a.nav-link:hover {
@@ -86,10 +122,7 @@ body.dark-mode .nav-left a.nav-link.active {
     color: #66B2FF;
 }
 
-.nav-right {
-    gap: 20px;
-}
-
+/* Bluesky stats styling */
 #bluesky-stats {
     font-size: 0.9em;
     color: #000000;
@@ -100,6 +133,11 @@ body.dark-mode #bluesky-stats {
     color: #aaa;
 }
 
+#bluesky-stats > span {
+    margin-right: 10px; /* Spacing between each stat */
+}
+
+/* Theme toggle styling */
 #theme-toggle {
     cursor: pointer;
     background-color: rgb(213, 213, 213);
@@ -119,28 +157,43 @@ body.dark-mode #theme-toggle {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    nav {
+    /* Let nav sections stack vertically */
+    .nav-section {
         flex-direction: column;
         align-items: flex-start;
         padding-bottom: 12px;
     }
 
-    .nav-right {
-        width: 100%;
-        justify-content: space-between;
+    /* Top nav left stacks lines, so no extra changes needed unless you want smaller spacing */
+    .site-title-and-latest-log {
+        margin-bottom: 8px; /* for smaller screens, adjust as needed */
     }
 
-    .nav-left a.nav-link {
-        margin-right: 10px;
+    .nav-links {
+        gap: 10px;
+        margin-bottom: 10px;
     }
 
-    .nav-left {
+    /* For the top nav right area (timestamp), 
+       let it shift under the top left if desired: */
+    .top-nav-right {
         margin-top: 8px;
     }
 
+    /* For the bottom nav, 
+       let stats and toggle stack if you prefer: */
+    .bottom-nav {
+        margin-top: 8px;
+    }
+
+    .bottom-nav-left,
+    .bottom-nav-right {
+        margin-bottom: 10px;
+    }
+
+    /* Adjust font sizes or spacing for stats if needed */
     #bluesky-stats {
         font-size: 0.8em;
-        padding-top: 5px;
     }
 }
 
@@ -183,11 +236,12 @@ footer span {
     text-align: center;
     margin-top: 41px;
     margin-bottom: -4px;
-  }
+}
 
 #recent-posts {
     max-width: 400px;
     margin: auto;
+    margin-bottom: 40px; /* So it doesn't clash with fixed footer */
 }
 
 body.dark-mode .post {
@@ -275,23 +329,18 @@ body.dark-mode .post-counts span {
     cursor: not-allowed;
 }
 
-#recent-posts {
-    margin-bottom: 40px;
-}
-
 /* Updated Log Page Styles */
 
-/* Log Container Styling */
 .log-container {
-    background-color: var(--post-background-color); /* Consistent with post background */
+    background-color: var(--post-background-color);
     color: var(--text-color);
     padding: 1em;
     border-radius: 5px;
     font-family: 'Courier New', Courier, monospace;
-    overflow: visible; /* Changed from auto to visible to prevent scrollbars */
+    overflow: visible; 
     margin-bottom: 1em;
-    max-width: 100%; /* Ensure container uses available width */
-    box-sizing: border-box; /* Include padding in width calculations */
+    max-width: 100%; 
+    box-sizing: border-box;
     padding-top: 0.5px;
 }
 
@@ -315,8 +364,8 @@ body.dark-mode .post-counts span {
     padding: 0;
     color: var(--text-color);
     font-size: 1em;
-    word-wrap: break-word; /* Ensure long words break to prevent overflow */
-    white-space: pre-wrap; /* Preserve whitespace and wrap as needed */
+    word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 /* Log Timestamp Styling */
@@ -339,7 +388,7 @@ body.dark-mode .post-counts span {
 /* Responsive Adjustments for Log Page */
 @media (max-width: 768px) {
     main {
-        max-width: 90%; /* Adjust main width for smaller screens */
+        max-width: 90%;
     }
 
     .log-container {
