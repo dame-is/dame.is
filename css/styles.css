@@ -190,14 +190,8 @@ body.dark-mode #theme-toggle {
         margin-bottom: 10px;
     }
 
-    /* For the bottom nav, 
-       let stats and toggle stack if you prefer: */
-    .bottom-nav {
-        margin-top: 8px;
-    }
-
-    .bottom-nav-left,
     .bottom-nav-right {
+        margin-top: 10px;
         margin-bottom: 10px;
     }
 
