@@ -357,7 +357,7 @@ body.dark-mode .post-counts span {
 .log-container {
     background-color: var(--post-background-color);
     color: var(--text-color);
-    padding: 15px 15px 5px 15px;
+    padding: 15px 15px 25px 15px;
     margin: 20px 0px 20px 0px;
     border-radius: 5px;
     border: 1px solid #ccc;
@@ -367,13 +367,24 @@ body.dark-mode .post-counts span {
     box-sizing: border-box;
 }
 
+pre#log-entries.log-container {
+    padding: 0px;
+    margin: 0px;
+    border-radius: 5px;
+    border: 0px solid #ccc;
+    background-color: unset;
+}
+
 /* Date Header Styling */
 .log-date-header {
     color: var(--text-color);
-    border-bottom: 1px solid #444444;
+    border-bottom: 1px solid #cfcfcf;
     padding-bottom: 0.5em;
-    margin-top: 1.5em;
+    margin-top: 0.5em;
     font-size: 1.2em;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    text-align: center;
 }
 
 /* Log Entry Container */
@@ -426,12 +437,14 @@ body.dark-mode .post-counts span {
 
 /* Date Header Lines Styling */
 .date-header-line1 {
-    font-size: 1.2em;
+    font-size: 1em;
     font-weight: bold;
 }
 
 .date-header-line2 {
-    font-size: 0.8em;
+    font-size: 0.7em;
     color: var(--text-secondary);
     margin-top: 0.3em;
+    opacity: 50%;
+    padding-bottom: 10px;
 }
