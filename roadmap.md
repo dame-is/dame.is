@@ -20,6 +20,8 @@
 - add engagement icons to posts instead of words
 - add dark mode icon instead of text button
 - add currently listening to via [last.fm api](https://www.last.fm/api/show/user.getRecentTracks)
+- add are.na activity to /log
+- add likes and reposts to /log maybe
 
 ## ideas
 - app, a section of all the software i’ve built
