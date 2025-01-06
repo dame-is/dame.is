@@ -35,7 +35,7 @@ body.dark-mode {
 /* Navigation Bar & Footer Base */
 nav, footer {
     background-color: #f0f0f0;
-    padding: 0 20px; /* Updated: Let the nav sections handle spacing */
+    /*! padding: 0 20px; */ /* Updated: Let the nav sections handle spacing */
 }
 
 body.dark-mode nav {
@@ -48,12 +48,8 @@ body.dark-mode nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0; /* Adjust vertical spacing as needed */
-    border-bottom: 1px solid #ccc;
-}
-
-.nav-section.bottom-nav {
-    border-bottom: none; /* Remove bottom border on the final row */
+    padding: 20px 20px; /* Adjust vertical spacing as needed */
+    border-bottom: 1px solid #7a7a7a36;
 }
 
 /* Top-left portion: contains two stacked lines */
@@ -65,20 +61,15 @@ body.dark-mode nav {
 .site-title-and-latest-log {
     display: flex;
     align-items: center;
-    gap: 10px; /* Space between "dame.is" and the recent log title */
-    margin-bottom: 4px;
-}
-
-.nav-links {
-    display: flex;
-    gap: 15px;
+    gap: 14px; /* Space between "dame.is" and the recent log title */
+    margin-bottom: 10px;
+    font-size: 1.3em;
 }
 
 /* Basic styling for all left and right containers within each section */
 .nav-left,
 .nav-right {
     display: flex;
-    align-items: center;
 }
 
 /* For bottom left portion (Bluesky stats) and bottom right portion (theme toggle) */
@@ -86,13 +77,13 @@ body.dark-mode nav {
 .bottom-nav-right {
     display: flex;
     align-items: center;
+    gap: 2px;
 }
 
 /* Original link styles (kept from your existing code) */
 .nav-left a.nav-link {
     text-decoration: none;
     color: inherit;
-    font-weight: bold;
     transition: color 0.3s ease;
 }
 
@@ -100,7 +91,8 @@ body.dark-mode nav {
    you could add margin-right to each link:
 */
 .nav-links a.nav-link {
-    margin-right: 15px; /* or adjust as you like */
+    margin-right: 11px; /* or adjust as you like */
+    opacity: 50%;
 }
 
 .nav-left a.nav-link:hover {
@@ -115,11 +107,13 @@ body.dark-mode .nav-left a.nav-link:hover {
     border-bottom: 2px solid #007BFF;
     color: #007BFF;
     padding-top: 2px;
+    opacity: 100%;
 }
 
 body.dark-mode .nav-left a.nav-link.active {
     border-bottom: 2px solid #66B2FF;
     color: #66B2FF;
+    opacity: 100%;
 }
 
 /* Bluesky stats styling */
@@ -127,14 +121,15 @@ body.dark-mode .nav-left a.nav-link.active {
     font-size: 0.9em;
     color: #000000;
     transition: color 0.3s ease;
+    /*! opacity: 50%; */
 }
 
 body.dark-mode #bluesky-stats {
-    color: #aaa;
+    color: #fff;
 }
 
 #bluesky-stats > span {
-    margin-right: 10px; /* Spacing between each stat */
+    margin-right: 1px; /* Spacing between each stat */
 }
 
 /* Theme toggle styling */
