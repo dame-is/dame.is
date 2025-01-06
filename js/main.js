@@ -480,10 +480,10 @@ function formatPostDate(date) {
 
     if (diffInHours < 24) {
         const relativeTime = getRelativeTime(date);
-        return `Posted ${relativeTime}`;
+        return `Posted ${relativeTime} on Day ${dayOfLife}`;
     } else {
         const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
-        return `Posted at ${formattedTime}`;
+        return `Posted at ${formattedTime} on Day ${dayOfLife}`;
     }
 }
 
@@ -612,56 +612,13 @@ async function loadRecentPosts(cursor = null) {
                         });
                     }
 
-                    // 3) Created At Date with Enhanced Format and Link
+                    // 3) Created At Date with Enhanced Format
                     const postDateElem = document.createElement('p');
                     postDateElem.classList.add('post-date');
 
-                    // **Construct the Bluesky Post URL**
-                    // Assuming 'post.uri' exists and follows the format 'did:plc:...' 
-                    // The exact URL structure may vary; adjust accordingly.
-                    // Example URL: https://bsky.app/profile/{actor}/post/{postId}
-                    const postUri = post.uri; // Adjust based on actual data structure
-                    let postUrl = '#'; // Default to '#' if URI not available
-
-                    if (postUri) {
-                        // Extract necessary parts from URI to construct URL
-                        // Example parsing; adjust based on actual URI format
-                        // Assuming postUri is something like 'did:plc:{actor}:{postId}'
-                        const uriParts = postUri.split(':');
-                        if (uriParts.length >= 4) {
-                            const actor = uriParts[2];
-                            const postId = uriParts[3];
-                            postUrl = `https://bsky.app/profile/${actor}/post/${postId}`;
-                        }
-                    }
-
                     const createdAt = new Date(post.record.createdAt || Date.now());
-
-                    // Format the post date and determine if it's recent
-                    const formattedDate = formatPostDate(createdAt, postUrl);
-
-                    if (formattedDate.isRecent && postUrl !== '#') {
-                        // Create "Posted " text
-                        const postedText = document.createTextNode('Posted ');
-
-                        // Create the <a> element for relative time
-                        const relativeTimeLink = document.createElement('a');
-                        relativeTimeLink.href = postUrl;
-                        relativeTimeLink.textContent = formattedDate.text.split(' on Day')[0].replace('Posted ', ''); // Extract relative time
-                        relativeTimeLink.target = '_blank'; // Open in a new tab
-                        relativeTimeLink.rel = 'noopener noreferrer'; // Security best practices
-
-                        // Create " on Day X" text
-                        const onDayText = document.createTextNode(formattedDate.text.substring(formattedDate.text.indexOf('on Day')));
-
-                        // Append all parts to postDateElem
-                        postDateElem.appendChild(postedText);
-                        postDateElem.appendChild(relativeTimeLink);
-                        postDateElem.appendChild(onDayText);
-                    } else {
-                        // For posts older than 24 hours or if postUrl is not available
-                        postDateElem.textContent = formattedDate.text;
-                    }
+                    const formattedPostDate = formatPostDate(createdAt);
+                    postDateElem.textContent = formattedPostDate;
 
                     postContainer.appendChild(postDateElem);
 
@@ -696,25 +653,26 @@ async function loadRecentPosts(cursor = null) {
                 }
             });
         }
-            // If there are no more posts to load, hide the "See More Posts" button
-            if (!currentBatchCursor) {
-                const seeMoreButton = document.getElementById('see-more-posts');
-                if (seeMoreButton) {
-                    seeMoreButton.style.display = 'none';
-                    console.log('No more posts to load. "See More Posts" button hidden.');
-                }
+
+        // If there are no more posts to load, hide the "See More Posts" button
+        if (!currentBatchCursor) {
+            const seeMoreButton = document.getElementById('see-more-posts');
+            if (seeMoreButton) {
+                seeMoreButton.style.display = 'none';
+                console.log('No more posts to load. "See More Posts" button hidden.');
             }
-        } catch (error) {
-            console.error('Error fetching recent posts:', error);
-            const postsList = document.getElementById('recent-posts');
-            if (postsList) {
-                postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
-            }
-        } finally {
-            isLoadingPosts = false;
-            console.log('Finished loading posts.');
         }
+    } catch (error) {
+        console.error('Error fetching recent posts:', error);
+        const postsList = document.getElementById('recent-posts');
+        if (postsList) {
+            postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
+        }
+    } finally {
+        isLoadingPosts = false;
+        console.log('Finished loading posts.');
     }
+}
 
 // Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
@@ -951,4 +909,30 @@ function initializeLogLoader() {
 
     // Initial load
     loadLogs();
+}
+
+// ----------------------------------
+// Helper Function: Format Post Date
+// ----------------------------------
+function formatPostDate(date, postUrl) {
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const dayOfLife = getDaysSinceBirthdate(date);
+
+    if (diffInHours < 24) {
+        const relativeTime = getRelativeTime(date);
+        return {
+            text: `Posted ${relativeTime} on Day ${dayOfLife}`,
+            link: postUrl, // URL to the Bluesky post
+            isRecent: true
+        };
+    } else {
+        const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
+        return {
+            text: `Posted at ${formattedTime} on Day ${dayOfLife}`,
+            link: null,
+            isRecent: false
+        };
+    }
 }
