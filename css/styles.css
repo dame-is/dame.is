@@ -100,11 +100,11 @@ body.dark-mode nav {
 }
 
 body.dark-mode .nav-left a.nav-link:hover {
-    color: #66B2FF;
+    color: #007BFF;
 }
 
 .nav-left a.nav-link.active {
-    border-bottom: 2px solid #007BFF;
+    border-bottom: 1px solid #007BFF;
     color: #007BFF;
     padding-top: 2px;
     opacity: 100%;
@@ -114,12 +114,16 @@ body.dark-mode .nav-left a.nav-link:hover {
     font-weight: bold;
 }
 
+.title.nav-link {
+    font-weight: bold;
+}
+
 #recent-log-text {
     opacity: 50%;
+    padding-right: 10px;
 }
 
 #recent-log-time {
-    padding-left: 10px;
     font-size: 0.65em;
 }
 
@@ -131,8 +135,8 @@ body.dark-mode .nav-left a.nav-link:hover {
 }
 
 body.dark-mode .nav-left a.nav-link.active {
-    border-bottom: 2px solid #66B2FF;
-    color: #66B2FF;
+    border-bottom: 1px solid #007BFF;
+    color: #007BFF;
     opacity: 100%;
 }
 
@@ -172,31 +176,34 @@ body.dark-mode #theme-toggle {
 }
 
 /* Responsive Design */
-@media (max-width: 475px) {
+@media (max-width: 400px) {
     /* Let nav sections stack vertically */
     .nav-section {
         flex-direction: column;
         align-items: flex-start;
-        padding-bottom: 12px;
     }
 
     /* Top nav left stacks lines, so no extra changes needed unless you want smaller spacing */
     .site-title-and-latest-log {
-        margin-bottom: 8px; /* for smaller screens, adjust as needed */
+        margin-bottom: 0px; /* for smaller screens, adjust as needed */
     }
 
     .nav-links {
         gap: 10px;
-        margin-bottom: 10px;
-    }
+        text-wrap-style: balance;
+        line-height: 25px;
+      }
 
     .bottom-nav-right {
         margin-top: 10px;
-        margin-bottom: 10px;
     }
 
     /* Adjust font sizes or spacing for stats if needed */
     #bluesky-stats {
+        font-size: 0.75em;
+    }
+
+    #theme-toggle {
         font-size: 0.8em;
     }
 
@@ -204,7 +211,6 @@ body.dark-mode #theme-toggle {
         display: inline;
         align-items: center;
         gap: 14px;
-        margin-bottom: 10px;
         font-size: 1.3em;
       }
 }
@@ -401,10 +407,6 @@ body.dark-mode .post-counts span {
 @media (max-width: 768px) {
     main {
         max-width: 90%;
-    }
-
-    .log-container {
-        padding: 0.8em;
     }
 
     .log-date-header {
