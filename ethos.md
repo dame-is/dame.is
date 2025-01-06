@@ -19,11 +19,10 @@ I’m attempting to compile a list of beliefs and values that are important to m
 
 ## Beliefs
 
-- Gender and sexuality are not binary.
 - Controversial emerging technologies such as AI and blockchains get a bad reputation for the nefarious ways in which they can be used, but this should not lead us to write them off or ignore the ways in which they can be used for great good.
 - The amount of time invested in something does not say much of anything about the quality of that thing.
-- Everything is connected.
 - Impact is more important than intent, but intent still matters quite a bit.
+- Everything is connected.
 
 ## Values
 

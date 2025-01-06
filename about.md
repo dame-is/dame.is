@@ -2,12 +2,12 @@
 
 I am an artist and remote tech worker residing in the southeastern United States. 
 
-I first started publishing on the internet around 2003 and have utilized numerous platforms to do so over the past two decades. Currently I use <a href="http://micro.blog" target="_blank">micro.blog</a>, <a href="http://dame.bsky.social" target="_blank">Bluesky</a>, and <a href="http://are.na/dame" target="_blank">are.na</a>. This website is a work-in-progress which I add to every week.
+I first started publishing on the internet around 2003 and have utilized numerous platforms to do so over the past two decades. This website is a work-in-progress which I add to every week.
 
 I’m interested in art, technology, gender, sexuality, labor, internet culture, and <a href="https://en.wikipedia.org/wiki/Challengers_(film)" target="_blank">Challengers (2024)</a>.
 
 ## Background
-I was born in Appalachia during the 90s. I grew up in the evangelical church but deconstructed over a 4-year period in college after intense research/soul-searching. Now I am agnostic/spiritual and appreciate parts of Zen Buddhism. **I have a non-normative experience with gender, so I guess I'd fall within the category of genderqueer or genderfluid**. I have a small dog who is a chihuahua/terrier mix.
+I was born in Appalachia during the 90s. I grew up in the evangelical church but deconstructed over a 4-year period in college after intense research/soul-searching. Now I am agnostic/spiritual and appreciate parts of Zen Buddhism. I have a non-normative experience with gender, so I fall within the category of genderqueer or genderfluid. I have a small dog who is a chihuahua/terrier mix.
 
 My passion for creativity/art started at a young age through writing. In middle school, I picked up my first camera and entered into a life-long relationship with photography. In college, I began making things across several mediums including animation, video, graphic design, and leather. My art practice for the past 5 years has focused on conceptual and abstract art.
 
@@ -18,7 +18,7 @@ In regard to technology, I'm especially interested in...
 - indie software (i.e. not venture-capital funded… micro.blog, are.na, netnewswire)
 - mobile apps (iOS focused mostly)
 
-I love tennis and play 3x a week at my local club.
+I love tennis and play three times a week at my local club.
 
 ## Personality Test Results
 - Myers-Briggs: ENFJ
