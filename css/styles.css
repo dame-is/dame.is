@@ -118,6 +118,10 @@ body.dark-mode .nav-left a.nav-link:hover {
     font-weight: bold;
 }
 
+.nav-section.top-nav {
+    border-top: 1px solid #7a7a7a36;
+}
+
 #recent-log-text {
     opacity: 50%;
     padding-right: 10px;
