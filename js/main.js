@@ -146,7 +146,7 @@ async function fetchLatestLogForNav() {
             if (mostRecent && mostRecent.record) {
                 // Update Title
                 const text = mostRecent.record.text.trim();
-                document.getElementById('recent-log-title').textContent = text || 'No recent log';
+                document.getElementById('recent-log-text').textContent = text || 'No recent log';
 
                 // Update Time
                 const createdAt = new Date(mostRecent.record.createdAt);
@@ -155,7 +155,7 @@ async function fetchLatestLogForNav() {
             }
         } else {
             // If no logs found, set fallback text
-            document.getElementById('recent-log-title').textContent = 'No recent log';
+            document.getElementById('recent-log-text').textContent = 'No recent log';
             document.getElementById('recent-log-time').textContent = '';
         }
     } catch (error) {
