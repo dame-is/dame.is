@@ -195,6 +195,12 @@ document.addEventListener('DOMContentLoaded', () => {
             initializeBlogPost();
         }
 
+        // Handle dynamic blog post slugs like /blog/your-post-slug
+        if (path.startsWith('/blog/') && pathParts.length > 1) {
+            const slug = pathParts[1];
+            initializeBlogPost(slug);
+        }
+
         // No need to call fetchFooterData() here since it's already called within initializeFooter()
     });
 });
@@ -1056,7 +1062,7 @@ function displayBlogPosts() {
         // Title
         const title = document.createElement('h2');
         const titleLink = document.createElement('a');
-        titleLink.href = `blog/${post.slug}.html`; // Link to individual blog page
+        titleLink.href = `/blog-post.html?slug=${post.slug}`; // Link with query parameter
         titleLink.textContent = post.title;
         title.appendChild(titleLink);
         postElement.appendChild(title);
