@@ -564,17 +564,11 @@ async function loadRecentPosts(cursor = null) {
 
         // Iterate over each day group
         for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
-            // Check if the log-container for this date already exists
-            let logContainer = document.querySelector(`.log-container[data-date="${headerDateText}"]`);
-            if (!logContainer) {
-                // Create a new log-container
-                logContainer = document.createElement('div');
-                logContainer.classList.add('log-container');
-                logContainer.setAttribute('data-date', headerDateText);
-
-                // Create date header
+            // Check if the date header already exists
+            if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
                 const dateHeader = document.createElement('div');
-                dateHeader.classList.add('log-date-header');
+                dateHeader.classList.add('post-date-header');
+                dateHeader.setAttribute('data-date', headerDateText);
 
                 const firstLine = document.createElement('div');
                 firstLine.classList.add('date-header-line1');
@@ -586,14 +580,9 @@ async function loadRecentPosts(cursor = null) {
                 secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
                 dateHeader.appendChild(secondLine);
 
-                // Append date header to log-container
-                logContainer.appendChild(dateHeader);
-
-                // Append log-container to postsList
-                postsList.appendChild(logContainer);
+                postsList.appendChild(dateHeader);
             }
 
-            // Append posts to the existing log-container
             groupData.posts.forEach(item => {
                 const post = item.post;
                 if (post && post.record) {
@@ -695,8 +684,8 @@ async function loadRecentPosts(cursor = null) {
 
                     postContainer.appendChild(countsContainer);
 
-                    // 5) Append the Post to the log-container
-                    logContainer.appendChild(postContainer);
+                    // 5) Append the Post
+                    postsList.appendChild(postContainer);
                 }
             });
         }
@@ -844,6 +833,11 @@ function initializeLogLoader() {
             const logsList = document.getElementById('log-entries');
             const loadingIndicator = document.getElementById('loading-logs');
 
+            // Show loading indicator if available
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'block';
+            }
+
             // Filter out reposts
             const filteredFeed = data.feed.filter(item => {
                 return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
@@ -914,13 +908,13 @@ function initializeLogLoader() {
                 groupData.logs.forEach(item => {
                     const log = item.post;
                     if (log && log.record) {
-                        const logContainerDiv = document.createElement('div');
-                        logContainerDiv.classList.add('log-entry');
+                        const logEntry = document.createElement('div');
+                        logEntry.classList.add('log-entry');
 
                         const logText = document.createElement('p');
                         logText.classList.add('log-text');
                         logText.textContent = log.record.text.trim();
-                        logContainerDiv.appendChild(logText);
+                        logEntry.appendChild(logText);
 
                         const logTimestamp = document.createElement('p');
                         logTimestamp.classList.add('log-timestamp');
@@ -928,14 +922,15 @@ function initializeLogLoader() {
                         const createdAt = new Date(log.record.createdAt);
                         const formattedLogTimestamp = formatLogDate(createdAt);
                         logTimestamp.textContent = formattedLogTimestamp;
-                        logContainerDiv.appendChild(logTimestamp);
+                        logEntry.appendChild(logTimestamp);
 
                         // Append the log entry to the log-container
-                        logContainer.appendChild(logContainerDiv);
+                        logContainer.appendChild(logEntry);
                     }
                 });
             }
 
+            // If there are no more logs to load, hide the "See More Logs" button
             if (!currentLogCursor) {
                 const seeMoreLogsButton = document.getElementById('see-more-logs');
                 if (seeMoreLogsButton) {
@@ -950,6 +945,7 @@ function initializeLogLoader() {
                 logsList.innerHTML += '<p>Failed to load logs. Please try again later.</p>';
             }
         } finally {
+            // Hide loading indicator if available
             if (loadingIndicator) {
                 loadingIndicator.style.display = 'none';
             }
@@ -958,12 +954,20 @@ function initializeLogLoader() {
         }
     }
 
+    // Function to load more logs when "See More Logs" button is clicked
+    function loadMoreLogs() {
+        console.log('"See More Logs" button clicked.');
+        if (!currentLogCursor) {
+            console.log('No cursor available. Cannot load more logs.');
+            return;
+        }
+        loadLogs(currentLogCursor);
+    }
+
     // Expose loadLogs if "See More Logs" button exists
     const seeMoreLogsButton = document.getElementById('see-more-logs');
     if (seeMoreLogsButton) {
-        seeMoreLogsButton.addEventListener('click', () => {
-            loadLogs(currentLogCursor);
-        });
+        seeMoreLogsButton.addEventListener('click', loadMoreLogs);
     }
 
     // Initial load
