@@ -62,7 +62,6 @@ body.dark-mode nav {
     display: flex;
     align-items: center;
     gap: 14px; /* Space between "dame.is" and the recent log title */
-    margin-bottom: 10px;
     font-size: 1.3em;
 }
 
