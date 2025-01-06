@@ -131,10 +131,13 @@ jobs:
             if [ "$last_commit_date" != "N/A" ]; then
               # Format the date as ISO 8601 (e.g., 2023-08-25T14:35:22Z)
               formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
-              echo "  \"$page\": \"$formatted_date\"," >> last-updated.json
+              # Strip the .html extension to match the new URL structure
+              key="${page%.html}"
+              echo "  \"$key\": \"$formatted_date\"," >> last-updated.json
             else
               # Assign null or a default value if no commit date is found
-              echo "  \"$page\": null," >> last-updated.json
+              key="${page%.html}"
+              echo "  \"$key\": null," >> last-updated.json
             fi
           done
 

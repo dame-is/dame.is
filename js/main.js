@@ -25,7 +25,7 @@ const markedLoadPromise = new Promise((resolve, reject) => {
 // 2. HELPER: Load HTML Components
 // ----------------------------------
 function loadComponent(id, url) {
-    fetch(url)
+    return fetch(url)
         .then(response => response.text())
         .then(data => {
             document.getElementById(id).innerHTML = data;
@@ -40,23 +40,30 @@ function loadComponent(id, url) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadComponent('nav', 'components/nav.html');
-    loadComponent('footer', 'components/footer.html');
+    Promise.all([
+        loadComponent('nav', 'components/nav.html'),
+        loadComponent('footer', 'components/footer.html')
+    ]).then(() => {
+        // Initialize page-specific features based on the current URL
+        const path = window.location.pathname;
+        const page = path === '/' ? 'home' : path.substring(path.lastIndexOf('/') + 1);
 
-    // If on /, load recent posts
-    if (window.location.pathname.endsWith('/') || window.location.pathname === '/') {
-        initializePostLoader(); // Initialize the post loader with pagination
-    }
+        if (page === 'home') {
+            initializePostLoader();
+        }
 
-    // If on /log, load all posts as logs
-    if (window.location.pathname.endsWith('/log')) {
-        initializeLogLoader();
-    }
+        if (page === 'log') {
+            initializeLogLoader();
+        }
 
-    // If on /about or /ethos, load Markdown content
-    if (window.location.pathname.endsWith('/about') || window.location.pathname.endsWith('/ethos')) {
-        loadMarkdownContent();
-    }
+        if (page === 'about' || page === 'ethos') {
+            loadMarkdownContent();
+        }
+
+        // Fetch and display footer data after components are loaded
+        // Ensures that footer elements are present in the DOM
+        fetchFooterData();
+    });
 });
 
 // ----------------------------------
@@ -65,14 +72,18 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeNav() {
     // Theme toggle
     const themeToggle = document.getElementById('theme-toggle');
-    themeToggle.addEventListener('click', toggleTheme);
+    if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
 
-    // Set initial theme based on localStorage
-    if (localStorage.getItem('theme') === 'dark') {
-        document.body.classList.add('dark-mode');
-        themeToggle.textContent = 'light mode';
+        // Set initial theme based on localStorage
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            themeToggle.textContent = 'light mode';
+        } else {
+            themeToggle.textContent = 'dark mode';
+        }
     } else {
-        themeToggle.textContent = 'dark mode';
+        console.warn('Theme toggle element not found.');
     }
 
     // Fetch Bluesky stats
@@ -81,7 +92,7 @@ function initializeNav() {
     // Assign active class to current page link
     setActiveNavLink();
 
-    // NEW CODE: Fetch the most recent log and update nav
+    // Fetch and display the most recent log in the navigation
     fetchLatestLogForNav();
 }
 
@@ -90,6 +101,11 @@ function initializeNav() {
 // ----------------------------------
 function toggleTheme() {
     const themeToggle = document.getElementById('theme-toggle');
+    if (!themeToggle) {
+        console.error('Theme toggle element not found.');
+        return;
+    }
+
     document.body.classList.toggle('dark-mode');
     if (document.body.classList.contains('dark-mode')) {
         themeToggle.textContent = 'light mode';
@@ -109,11 +125,13 @@ async function fetchBlueskyStats() {
 
     try {
         const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error('Network response was not ok');
+        if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
         const data = await response.json();
-        document.getElementById('followers').textContent = data.followersCount;
-        document.getElementById('following').textContent = data.followsCount;
-        document.getElementById('posts').textContent = data.postsCount;
+        if (data) {
+            document.getElementById('followers').textContent = data.followersCount || '0';
+            document.getElementById('following').textContent = data.followsCount || '0';
+            document.getElementById('posts').textContent = data.postsCount || '0';
+        }
     } catch (error) {
         console.error('Error fetching Bluesky stats:', error);
     }
@@ -122,8 +140,6 @@ async function fetchBlueskyStats() {
 // ----------------------------------
 // 6. FETCH LATEST LOG FOR NAV
 // ----------------------------------
-// This function fetches your log feed (did:plc:jucg4ddb2budmcy2pjo5fo2g)
-// and updates #recent-log-title + #recent-log-time with the most recent entry.
 async function fetchLatestLogForNav() {
     try {
         const actor = 'did:plc:jucg4ddb2budmcy2pjo5fo2g'; // Actor ID for your log feed
@@ -163,36 +179,9 @@ async function fetchLatestLogForNav() {
     }
 }
 
-// NEW CODE: Shared helper to compute relative times, copied from your log loader.
-function getRelativeTime(date) {
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-
-    const intervals = [
-        { label: 'year', seconds: 31536000 },
-        { label: 'month', seconds: 2592000 },
-        { label: 'day', seconds: 86400 },
-        { label: 'hour', seconds: 3600 },
-        { label: 'minute', seconds: 60 },
-        { label: 'second', seconds: 1 }
-    ];
-
-    for (const interval of intervals) {
-        const count = Math.floor(diffInSeconds / interval.seconds);
-        if (count >= 1) {
-            return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
-        }
-    }
-    return 'just now';
-}
-
 // ----------------------------------
 // 7. FOOTER
 // ----------------------------------
-function initializeFooter() {
-    fetchFooterData();
-}
-
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
     const apiUrlCommits = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`;
@@ -236,31 +225,69 @@ async function fetchFooterData() {
         if (!responseLastUpdated.ok) throw new Error(`Failed to fetch last-updated.json: ${responseLastUpdated.status}`);
         const lastUpdatedData = await responseLastUpdated.json();
 
-        // Determine the current page
-        const currentPage = window.location.pathname.split('/').pop() || '/';
+        // Determine the current page key based on the URL
+        let path = window.location.pathname;
 
-        // Get the last updated date for the current page
-        const pageLastUpdatedISO = lastUpdatedData[currentPage];
+        // Remove trailing slash if present
+        if (path.endsWith('/')) {
+            path = path.slice(0, -1);
+        }
+
+        // Extract the last part of the path
+        let pageKey = path.substring(path.lastIndexOf('/') + 1);
+
+        // If path is empty, assume 'home'
+        if (pageKey === '') {
+            pageKey = 'home';
+        }
+
+        // Get the last updated date for the current page from last-updated.json
+        const pageLastUpdatedISO = lastUpdatedData[pageKey];
         let pageLastUpdated = 'N/A';
         if (pageLastUpdatedISO) {
             const date = new Date(pageLastUpdatedISO);
-            pageLastUpdated = date.toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-            });
+            pageLastUpdated = formatDateHumanReadable(date);
         }
 
         // Update the footer elements
-        document.getElementById('version').textContent = version;
-        document.getElementById('last-updated').textContent = pageLastUpdated;
+        const versionElement = document.getElementById('version');
+        const lastUpdatedElement = document.getElementById('last-updated');
+
+        if (versionElement) {
+            versionElement.textContent = version;
+        } else {
+            console.warn('Element with ID "version" not found in footer.');
+        }
+
+        if (lastUpdatedElement) {
+            lastUpdatedElement.textContent = pageLastUpdated;
+        } else {
+            console.warn('Element with ID "last-updated" not found in footer.');
+        }
     } catch (error) {
         console.error('Error fetching footer data:', error);
-        document.getElementById('version').textContent = 'N/A';
-        document.getElementById('last-updated').textContent = 'N/A';
+        const versionElement = document.getElementById('version');
+        const lastUpdatedElement = document.getElementById('last-updated');
+
+        if (versionElement) {
+            versionElement.textContent = 'N/A';
+        }
+
+        if (lastUpdatedElement) {
+            lastUpdatedElement.textContent = 'N/A';
+        }
     }
+}
+
+// Helper function to format date in a human-readable format
+function formatDateHumanReadable(date) {
+    return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 // ----------------------------------
@@ -501,7 +528,13 @@ async function loadMarkdownContent() {
         if (!response.ok) throw new Error('Network response was not ok');
         const markdown = await response.text();
         const htmlContent = marked.parse(markdown);
-        document.getElementById(`${path.split('.')[0]}-content`).innerHTML = htmlContent;
+        const contentElementId = `${path.split('.')[0]}-content`;
+        const contentElement = document.getElementById(contentElementId);
+        if (contentElement) {
+            contentElement.innerHTML = htmlContent;
+        } else {
+            console.error(`Element with ID "${contentElementId}" not found.`);
+        }
     } catch (error) {
         console.error('Error loading Markdown content:', error);
     }
@@ -511,11 +544,29 @@ async function loadMarkdownContent() {
 // 10. ACTIVE NAV LINK
 // ----------------------------------
 function setActiveNavLink() {
-    const currentPath = window.location.pathname.split('/').pop() || '/';
+    const currentPath = window.location.pathname;
+    let pageKey = '';
+
+    // Remove trailing slash if present
+    let path = currentPath;
+    if (path.endsWith('/')) {
+        path = path.slice(0, -1);
+    }
+
+    // Extract the last part of the path
+    pageKey = path.substring(path.lastIndexOf('/') + 1);
+
+    // If path is empty, assume 'home'
+    if (pageKey === '') {
+        pageKey = 'home';
+    }
+
     const navLinks = document.querySelectorAll('.nav-left .nav-link');
     navLinks.forEach(link => {
         const linkPath = link.getAttribute('href');
-        if (linkPath === currentPath) {
+
+        // Compare linkPath with pageKey
+        if (linkPath === `/${pageKey}` || (pageKey === 'home' && linkPath === '/')) {
             link.classList.add('active');
         } else {
             link.classList.remove('active');
