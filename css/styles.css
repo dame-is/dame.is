@@ -258,6 +258,7 @@ footer span {
 
 .post-date-header {
     margin-bottom: 1em;
+    margin-top: 40px;
 }
 
 #recent-posts {
@@ -430,7 +431,7 @@ body.dark-mode .post-counts span {
 }
 
 .date-header-line2 {
-    font-size: 0.9em;
+    font-size: 0.8em;
     color: var(--text-secondary);
-    margin-top: 0.2em;
+    margin-top: 0.3em;
 }

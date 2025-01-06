@@ -469,6 +469,24 @@ function initializePostLoader() {
     console.log('"See More Posts" button created and appended.');
 }
 
+// ----------------------------------
+// Helper Function: Format Post Date
+// ----------------------------------
+function formatPostDate(date) {
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const dayOfLife = getDaysSinceBirthdate(date);
+
+    if (diffInHours < 24) {
+        const relativeTime = getRelativeTime(date);
+        return `Posted ${relativeTime} on Day ${dayOfLife}`;
+    } else {
+        const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
+        return `Posted at ${formattedTime} on Day ${dayOfLife}`;
+    }
+}
+
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
@@ -599,13 +617,7 @@ async function loadRecentPosts(cursor = null) {
                     postDateElem.classList.add('post-date');
 
                     const createdAt = new Date(post.record.createdAt || Date.now());
-                    const timeOptions = { hour: '2-digit', minute: '2-digit' };
-                    const formattedTime = createdAt.toLocaleTimeString(undefined, timeOptions);
-
-                    const dayOfLife = getDaysSinceBirthdate(createdAt);
-                    const relativeDate = getRelativeTime(createdAt);
-
-                    const formattedPostDate = `Posted on Day ${dayOfLife} at ${formattedTime} (${relativeDate})`;
+                    const formattedPostDate = formatPostDate(createdAt);
                     postDateElem.textContent = formattedPostDate;
 
                     postContainer.appendChild(postDateElem);
@@ -739,6 +751,22 @@ function initializeLogLoader() {
     const LOGS_PER_BATCH = 20;
     let isLoadingLogs = false;
 
+    // Helper Function: Format Log Date
+    function formatLogDate(date) {
+        const now = new Date();
+        const diffInMs = now - date;
+        const diffInHours = diffInMs / (1000 * 60 * 60);
+        const dayOfLife = getDaysSinceBirthdate(date);
+
+        if (diffInHours < 24) {
+            const relativeTime = getRelativeTime(date);
+            return `Posted ${relativeTime} on Day ${dayOfLife}`;
+        } else {
+            const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
+            return `Posted at ${formattedTime} on Day ${dayOfLife}`;
+        }
+    }
+
     async function loadLogs(cursor = null) {
         console.log('Loading logs', cursor ? `with cursor: ${cursor}` : '');
         if (isLoadingLogs) {
@@ -840,9 +868,7 @@ function initializeLogLoader() {
                         logTimestamp.classList.add('log-timestamp');
 
                         const createdAt = new Date(log.record.createdAt);
-                        const relativeTime = getRelativeTime(createdAt);
-                        const formattedTime = createdAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-                        const formattedLogTimestamp = `Posted on Day ${getDaysSinceBirthdate(createdAt)} at ${formattedTime} (${relativeTime})`;
+                        const formattedLogTimestamp = formatLogDate(createdAt);
                         logTimestamp.textContent = formattedLogTimestamp;
                         logContainer.appendChild(logTimestamp);
 
@@ -883,4 +909,22 @@ function initializeLogLoader() {
 
     // Initial load
     loadLogs();
+}
+
+// ----------------------------------
+// Helper Function: Format Post Date
+// ----------------------------------
+function formatPostDate(date) {
+    const now = new Date();
+    const diffInMs = now - date;
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const dayOfLife = getDaysSinceBirthdate(date);
+
+    if (diffInHours < 24) {
+        const relativeTime = getRelativeTime(date);
+        return `Posted ${relativeTime} on Day ${dayOfLife}`;
+    } else {
+        const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
+        return `Posted at ${formattedTime} on Day ${dayOfLife}`;
+    }
 }
