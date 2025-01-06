@@ -357,14 +357,14 @@ body.dark-mode .post-counts span {
 .log-container {
     background-color: var(--post-background-color);
     color: var(--text-color);
-    padding: 1em;
+    padding: 15px 15px 5px 15px;
+    margin: 20px 0px 20px 0px;
     border-radius: 5px;
+    border: 1px solid #ccc;
     font-family: 'Courier New', Courier, monospace;
     overflow: visible; 
-    margin-bottom: 1em;
     max-width: 100%; 
     box-sizing: border-box;
-    padding-top: 0.5px;
 }
 
 /* Date Header Styling */

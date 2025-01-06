@@ -564,11 +564,17 @@ async function loadRecentPosts(cursor = null) {
 
         // Iterate over each day group
         for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
-            // Check if the date header already exists
-            if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
+            // Check if the log-container for this date already exists
+            let logContainer = document.querySelector(`.log-container[data-date="${headerDateText}"]`);
+            if (!logContainer) {
+                // Create a new log-container
+                logContainer = document.createElement('div');
+                logContainer.classList.add('log-container');
+                logContainer.setAttribute('data-date', headerDateText);
+
+                // Create date header
                 const dateHeader = document.createElement('div');
-                dateHeader.classList.add('post-date-header');
-                dateHeader.setAttribute('data-date', headerDateText);
+                dateHeader.classList.add('log-date-header');
 
                 const firstLine = document.createElement('div');
                 firstLine.classList.add('date-header-line1');
@@ -580,9 +586,14 @@ async function loadRecentPosts(cursor = null) {
                 secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
                 dateHeader.appendChild(secondLine);
 
-                postsList.appendChild(dateHeader);
+                // Append date header to log-container
+                logContainer.appendChild(dateHeader);
+
+                // Append log-container to postsList
+                postsList.appendChild(logContainer);
             }
 
+            // Append posts to the existing log-container
             groupData.posts.forEach(item => {
                 const post = item.post;
                 if (post && post.record) {
@@ -684,8 +695,8 @@ async function loadRecentPosts(cursor = null) {
 
                     postContainer.appendChild(countsContainer);
 
-                    // 5) Append the Post
-                    postsList.appendChild(postContainer);
+                    // 5) Append the Post to the log-container
+                    logContainer.appendChild(postContainer);
                 }
             });
         }
@@ -778,7 +789,7 @@ function setActiveNavLink() {
 }
 
 // ----------------------------------
-// 15. LOG LOADER (LOG PAGE)
+// 15. LOG LOADER (LOG PAGE) - UPDATED
 // ----------------------------------
 function initializeLogLoader() {
     console.log('Initializing Log Loader');
@@ -870,11 +881,17 @@ function initializeLogLoader() {
 
             // Iterate over each day group
             for (const [headerDateText, groupData] of Object.entries(groupedLogs)) {
-                // Check if the date header already exists
-                if (!document.querySelector(`.log-date-header[data-date="${headerDateText}"]`)) {
+                // Check if the log-container for this date already exists
+                let logContainer = document.querySelector(`.log-container[data-date="${headerDateText}"]`);
+                if (!logContainer) {
+                    // Create a new log-container
+                    logContainer = document.createElement('div');
+                    logContainer.classList.add('log-container');
+                    logContainer.setAttribute('data-date', headerDateText);
+
+                    // Create date header
                     const dateHeader = document.createElement('div');
                     dateHeader.classList.add('log-date-header');
-                    dateHeader.setAttribute('data-date', headerDateText);
 
                     const firstLine = document.createElement('div');
                     firstLine.classList.add('date-header-line1');
@@ -886,19 +903,24 @@ function initializeLogLoader() {
                     secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
                     dateHeader.appendChild(secondLine);
 
-                    logsList.appendChild(dateHeader);
+                    // Append date header to log-container
+                    logContainer.appendChild(dateHeader);
+
+                    // Append log-container to logsList
+                    logsList.appendChild(logContainer);
                 }
 
+                // Append logs to the existing log-container
                 groupData.logs.forEach(item => {
                     const log = item.post;
                     if (log && log.record) {
-                        const logContainer = document.createElement('div');
-                        logContainer.classList.add('log-entry');
+                        const logContainerDiv = document.createElement('div');
+                        logContainerDiv.classList.add('log-entry');
 
                         const logText = document.createElement('p');
                         logText.classList.add('log-text');
                         logText.textContent = log.record.text.trim();
-                        logContainer.appendChild(logText);
+                        logContainerDiv.appendChild(logText);
 
                         const logTimestamp = document.createElement('p');
                         logTimestamp.classList.add('log-timestamp');
@@ -906,17 +928,18 @@ function initializeLogLoader() {
                         const createdAt = new Date(log.record.createdAt);
                         const formattedLogTimestamp = formatLogDate(createdAt);
                         logTimestamp.textContent = formattedLogTimestamp;
-                        logContainer.appendChild(logTimestamp);
+                        logContainerDiv.appendChild(logTimestamp);
 
-                        logsList.appendChild(logContainer);
+                        // Append the log entry to the log-container
+                        logContainer.appendChild(logContainerDiv);
                     }
                 });
             }
 
             if (!currentLogCursor) {
-                const seeMoreButton = document.getElementById('see-more-logs');
-                if (seeMoreButton) {
-                    seeMoreButton.style.display = 'none';
+                const seeMoreLogsButton = document.getElementById('see-more-logs');
+                if (seeMoreLogsButton) {
+                    seeMoreLogsButton.style.display = 'none';
                     console.log('No more logs to load. "See More Logs" button hidden.');
                 }
             }
@@ -927,8 +950,8 @@ function initializeLogLoader() {
                 logsList.innerHTML += '<p>Failed to load logs. Please try again later.</p>';
             }
         } finally {
-            if (document.getElementById('loading-logs')) {
-                document.getElementById('loading-logs').style.display = 'none';
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
             }
             isLoadingLogs = false;
             console.log('Finished loading logs.');
