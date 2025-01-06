@@ -172,7 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ]).then(() => {
         // Initialize page-specific features based on the current URL
         const path = window.location.pathname;
-        const page = path === '/' ? 'home' : path.substring(path.lastIndexOf('/') + 1);
+        const pathParts = path.split('/').filter(part => part !== ''); // Define pathParts
+        const page = path === '/' ? 'home' : pathParts[pathParts.length - 1].split('.')[0]; // e.g., 'blog', 'blog-post', 'log', etc.
 
         if (page === 'home') {
             initializePostLoader();
@@ -190,20 +191,21 @@ document.addEventListener('DOMContentLoaded', () => {
             initializeBlogFeed();
         }
 
-        // Initialize Blog Post if on individual blog post page
-        if (page !== 'blog' && allBlogPosts.some(post => post.slug === page)) {
-            initializeBlogPost();
-        }
-
-        // Handle dynamic blog post slugs like /blog/your-post-slug
+        // Handle dynamic blog post slugs like /blog/my-post-slug
         if (path.startsWith('/blog/') && pathParts.length > 1) {
             const slug = pathParts[1];
             initializeBlogPost(slug);
         }
 
-        // No need to call fetchFooterData() here since it's already called within initializeFooter()
+        // Initialize Blog Post if on individual blog post page (fallback)
+        if (page !== 'blog' && allBlogPosts.some(post => post.slug === page)) {
+            initializeBlogPost(page);
+        }
+
+        // No need to call fetchFooterData() here since it's already called within loadComponent()
     });
 });
+
 
 // ----------------------------------
 // 7. NAV INITIALIZATION
@@ -1027,7 +1029,7 @@ async function loadBlogPosts() {
 
     try {
         // Use absolute path for fetching index.json
-        const response = await fetch('/data/blog-index.json');
+        const response = await fetch('/data/blog-index.json'); // Adjust based on your actual path
         if (!response.ok) {
             throw new Error(`Failed to fetch blog index: ${response.status}`);
         }
@@ -1083,6 +1085,13 @@ function displayBlogPosts() {
         excerpt.textContent = post.excerpt;
         postElement.appendChild(excerpt);
 
+        // "Read more..." Link
+        const readMoreLink = document.createElement('a');
+        readMoreLink.href = `/blog-post.html?slug=${post.slug}`;
+        readMoreLink.textContent = 'Read more...';
+        readMoreLink.classList.add('read-more'); // Optional: Add a class for styling
+        postElement.appendChild(readMoreLink);
+
         // Append to blog feed
         blogFeed.appendChild(postElement);
     });
@@ -1112,7 +1121,7 @@ async function initializeBlogPost(slug) {
 
     try {
         // Fetch blog index to find the post metadata
-        const responseIndex = await fetch('/data/blog-index.json');
+        const responseIndex = await fetch('/data/blog-index.json'); // Adjust based on your actual path
         if (!responseIndex.ok) {
             throw new Error(`Failed to fetch blog index: ${responseIndex.status}`);
         }
@@ -1155,7 +1164,7 @@ async function initializeBlogPost(slug) {
         // Add more OG tags as needed
 
         // Fetch the Markdown content
-        const responseMarkdown = await fetch(`blog/${slug}.md`);
+        const responseMarkdown = await fetch(`/blog/${slug}.md`); // Use absolute path
         if (!responseMarkdown.ok) {
             throw new Error(`Failed to fetch blog post: ${responseMarkdown.status}`);
         }

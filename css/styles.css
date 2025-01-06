@@ -495,3 +495,15 @@ pre#log-entries.log-container {
     font-size: 1.1em;
     line-height: 1.6;
 }
+
+.read-more {
+    display: inline-block;
+    margin-top: 10px;
+    color: #007BFF; /* Bootstrap primary color */
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.read-more:hover {
+    text-decoration: underline;
+}

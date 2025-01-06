@@ -10,20 +10,39 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <!-- Navigation loaded via main.js -->
+    <!-- Navigation -->
     <div id="nav"></div>
 
     <main>
         <h1 id="post-title">Loading...</h1>
-        <p id="post-date">Loading date...</p>
+        <p class="blog-post-date" id="post-date">Loading date...</p>
         <div id="post-content">
             <!-- Blog post content will be injected here -->
         </div>
     </main>
 
-    <!-- Footer loaded via main.js -->
+    <!-- Footer -->
     <div id="footer"></div>
 
-    <script src="js/main.js"></script>
+    <!-- Include necessary scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- For Markdown parsing -->
+    <script src="/js/main.js"></script>
+    <script>
+        (function() {
+            const path = window.location.pathname;
+            const pathParts = path.split('/').filter(part => part !== '');
+            const slug = pathParts.length > 1 ? pathParts[1] : null; // Extract slug from /blog/slug
+    
+            if (slug) {
+                initializeBlogPost(slug);
+            } else {
+                // Handle the case where no slug is provided
+                const postTitle = document.getElementById('post-title');
+                const postContent = document.getElementById('post-content');
+                if (postTitle) postTitle.textContent = 'Post Not Found';
+                if (postContent) postContent.innerHTML = '<p>The requested post does not exist.</p>';
+            }
+        })();
+    </script>
 </body>
 </html>
