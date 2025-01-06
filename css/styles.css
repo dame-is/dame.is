@@ -251,13 +251,12 @@ footer span {
 .post {
     border: 1px solid #ccc;
     padding: 15px 15px 5px 15px;
-    margin: 20px 0px 20px 0px;
+    margin: 5px 0px 10px 0px;
     border-radius: 5px;
     background-color: var(--post-background-color);
 }
 
 .post-date-header {
-    margin-bottom: 1em;
     margin-top: 40px;
 }
 
@@ -361,7 +360,6 @@ body.dark-mode .post-counts span {
     margin: 20px 0px 20px 0px;
     border-radius: 5px;
     border: 1px solid #ccc;
-    font-family: 'Courier New', Courier, monospace;
     overflow: visible; 
     max-width: 100%; 
     box-sizing: border-box;
