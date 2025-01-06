@@ -186,6 +186,15 @@ document.addEventListener('DOMContentLoaded', () => {
             loadMarkdownContent();
         }
 
+        if (page === 'blog') {
+            initializeBlogFeed();
+        }
+
+        // Initialize Blog Post if on individual blog post page
+        if (page !== 'blog' && allBlogPosts.some(post => post.slug === page)) {
+            initializeBlogPost();
+        }
+
         // No need to call fetchFooterData() here since it's already called within initializeFooter()
     });
 });
@@ -973,6 +982,207 @@ function initializeLogLoader() {
 
     // Initial load
     loadLogs();
+}
+
+// ----------------------------------
+// 16. BLOG FEED INITIALIZATION
+// ----------------------------------
+function initializeBlogFeed() {
+    console.log('Initializing Blog Feed');
+    loadBlogPosts();
+
+    // Create and append the "See More Posts" button
+    const blogFeed = document.getElementById('blog-feed');
+    if (!blogFeed) {
+        console.error('Element with ID "blog-feed" not found.');
+        return;
+    }
+
+    const seeMoreButton = document.getElementById('see-more-blog');
+    if (seeMoreButton) {
+        seeMoreButton.addEventListener('click', loadMoreBlogPosts);
+    } else {
+        console.warn('"See More Posts" button not found.');
+    }
+}
+
+let blogCursor = 0; // To keep track of pagination
+const BLOG_POSTS_PER_BATCH = 5; // Number of posts to load per batch
+let allBlogPosts = []; // To store all fetched blog posts
+
+async function loadBlogPosts() {
+    const loadingIndicator = document.getElementById('loading-blog');
+    const blogFeed = document.getElementById('blog-feed');
+    const seeMoreButton = document.getElementById('see-more-blog');
+
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+    }
+
+    try {
+        // Fetch the list of blog posts (Assuming you have a JSON index or dynamically list files)
+        // For simplicity, let's assume you have a `blog/index.json` listing all posts
+        const response = await fetch('blog/index.json');
+        if (!response.ok) {
+            throw new Error(`Failed to fetch blog index: ${response.status}`);
+        }
+        const blogIndex = await response.json();
+
+        allBlogPosts = blogIndex.posts.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date desc
+
+        displayBlogPosts();
+    } catch (error) {
+        console.error('Error loading blog posts:', error);
+        if (blogFeed) {
+            blogFeed.innerHTML = '<p>Failed to load blog posts. Please try again later.</p>';
+        }
+    } finally {
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+    }
+}
+
+function displayBlogPosts() {
+    const blogFeed = document.getElementById('blog-feed');
+    const seeMoreButton = document.getElementById('see-more-blog');
+
+    const postsToDisplay = allBlogPosts.slice(blogCursor, blogCursor + BLOG_POSTS_PER_BATCH);
+
+    postsToDisplay.forEach(post => {
+        const postElement = document.createElement('div');
+        postElement.classList.add('blog-post');
+
+        // Title
+        const title = document.createElement('h2');
+        const titleLink = document.createElement('a');
+        titleLink.href = `blog/${post.slug}.html`; // Link to individual blog page
+        titleLink.textContent = post.title;
+        title.appendChild(titleLink);
+        postElement.appendChild(title);
+
+        // Date
+        const date = document.createElement('p');
+        date.classList.add('blog-post-date');
+        const postDate = new Date(post.date);
+        date.textContent = postDate.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+        postElement.appendChild(date);
+
+        // Excerpt
+        const excerpt = document.createElement('p');
+        excerpt.classList.add('blog-post-excerpt');
+        excerpt.textContent = post.excerpt;
+        postElement.appendChild(excerpt);
+
+        // Append to blog feed
+        blogFeed.appendChild(postElement);
+    });
+
+    blogCursor += BLOG_POSTS_PER_BATCH;
+
+    // Hide "See More" button if all posts are loaded
+    if (blogCursor >= allBlogPosts.length) {
+        const seeMoreButton = document.getElementById('see-more-blog');
+        if (seeMoreButton) {
+            seeMoreButton.style.display = 'none';
+        }
+    }
+}
+
+async function loadMoreBlogPosts() {
+    displayBlogPosts();
+}
+
+// ----------------------------------
+// 18. BLOG POST PAGE INITIALIZATION
+// ----------------------------------
+async function initializeBlogPost(slug) {
+    const loadingIndicator = document.getElementById('post-content');
+    const postTitle = document.getElementById('post-title');
+    const postDate = document.getElementById('post-date');
+
+    try {
+        // Fetch blog index to find the post metadata
+        const responseIndex = await fetch('blog/index.json');
+        if (!responseIndex.ok) {
+            throw new Error(`Failed to fetch blog index: ${responseIndex.status}`);
+        }
+        const blogIndex = await responseIndex.json();
+
+        // Find the post with the matching slug
+        const postMeta = blogIndex.posts.find(post => post.slug === slug);
+        if (!postMeta) {
+            throw new Error('Blog post not found.');
+        }
+
+        // Update title and date
+        postTitle.textContent = postMeta.title;
+        const postDateObj = new Date(postMeta.date);
+        postDate.textContent = postDateObj.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+
+        // Update document title
+        document.title = `${postMeta.title} - Your Website`;
+
+        // Update meta description
+        const metaDescription = document.querySelector('meta[name="description"]');
+        if (metaDescription) {
+            metaDescription.setAttribute('content', postMeta.excerpt);
+        } else {
+            const metaDesc = document.createElement('meta');
+            metaDesc.name = 'description';
+            metaDesc.content = postMeta.excerpt;
+            document.head.appendChild(metaDesc);
+        }
+
+        // Optionally, add Open Graph tags for better social media sharing
+        addOrUpdateMetaTag('og:title', postMeta.title);
+        addOrUpdateMetaTag('og:description', postMeta.excerpt);
+        addOrUpdateMetaTag('og:type', 'article');
+        addOrUpdateMetaTag('og:url', window.location.href);
+        // Add more OG tags as needed
+
+        // Fetch the Markdown content
+        const responseMarkdown = await fetch(`blog/${slug}.md`);
+        if (!responseMarkdown.ok) {
+            throw new Error(`Failed to fetch blog post: ${responseMarkdown.status}`);
+        }
+        const markdown = await responseMarkdown.text();
+
+        // Parse Markdown to HTML using marked.js
+        const htmlContent = marked.parse(markdown.replace(/^---[\s\S]*?---/, '')); // Remove front matter
+
+        // Inject the HTML content into the page
+        const postContent = document.getElementById('post-content');
+        postContent.innerHTML = htmlContent;
+    } catch (error) {
+        console.error('Error loading blog post:', error);
+        const postContent = document.getElementById('post-content');
+        if (postContent) {
+            postContent.innerHTML = '<p>Failed to load blog post. Please try again later.</p>';
+        }
+        const postTitle = document.getElementById('post-title');
+        if (postTitle) {
+            postTitle.textContent = 'Post Not Found';
+        }
+    }
+}
+
+function addOrUpdateMetaTag(property, content) {
+    let metaTag = document.querySelector(`meta[property="${property}"]`);
+    if (!metaTag) {
+        metaTag = document.createElement('meta');
+        metaTag.setAttribute('property', property);
+        document.head.appendChild(metaTag);
+    }
+    metaTag.setAttribute('content', content);
 }
 
 // ----------------------------------
