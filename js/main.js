@@ -172,8 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ]).then(() => {
         // Initialize page-specific features based on the current URL
         const path = window.location.pathname;
-        const pathParts = path.split('/').filter(part => part !== ''); // Define pathParts
-        const page = path === '/' ? 'home' : pathParts[pathParts.length - 1].split('.')[0]; // e.g., 'blog', 'blog-post', 'log', etc.
+        const pathParts = path.split('/').filter(part => part !== '');
+        const page = path === '/' ? 'home' : (pathParts.length > 0 ? pathParts[pathParts.length - 1].split('.')[0] : '');
 
         if (page === 'home') {
             initializePostLoader();
@@ -197,12 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initializeBlogPost(slug);
         }
 
-        // Initialize Blog Post if on individual blog post page (fallback)
-        if (page !== 'blog' && allBlogPosts.some(post => post.slug === page)) {
-            initializeBlogPost(page);
-        }
-
-        // No need to call fetchFooterData() here since it's already called within loadComponent()
+        // Optionally, handle 404 pages or other dynamic routes
     });
 });
 
@@ -1063,7 +1058,7 @@ function displayBlogPosts() {
         // Title
         const title = document.createElement('h2');
         const titleLink = document.createElement('a');
-        titleLink.href = `/blog-post.html?slug=${post.slug}`; // Link with query parameter
+        titleLink.href = `/blog/${post.slug}`; // Clean URL without .html
         titleLink.textContent = post.title;
         title.appendChild(titleLink);
         postElement.appendChild(title);
@@ -1087,7 +1082,7 @@ function displayBlogPosts() {
 
         // "Read more..." Link
         const readMoreLink = document.createElement('a');
-        readMoreLink.href = `/blog-post.html?slug=${post.slug}`;
+        readMoreLink.href = `/blog/${post.slug}`; // Clean URL without .html
         readMoreLink.textContent = 'Read more...';
         readMoreLink.classList.add('read-more'); // Optional: Add a class for styling
         postElement.appendChild(readMoreLink);
@@ -1121,7 +1116,7 @@ async function initializeBlogPost(slug) {
 
     try {
         // Fetch blog index to find the post metadata
-        const responseIndex = await fetch('/data/blog-index.json'); // Adjust based on your actual path
+        const responseIndex = await fetch('/data/blog-index.json');
         if (!responseIndex.ok) {
             throw new Error(`Failed to fetch blog index: ${responseIndex.status}`);
         }
@@ -1164,7 +1159,7 @@ async function initializeBlogPost(slug) {
         // Add more OG tags as needed
 
         // Fetch the Markdown content
-        const responseMarkdown = await fetch(`/blog/${slug}.md`); // Use absolute path
+        const responseMarkdown = await fetch(`/data/blog/${slug}.md`); // Updated path
         if (!responseMarkdown.ok) {
             throw new Error(`Failed to fetch blog post: ${responseMarkdown.status}`);
         }
