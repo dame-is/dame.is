@@ -43,8 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadComponent('nav', 'components/nav.html');
     loadComponent('footer', 'components/footer.html');
 
-    // If on index.html, load recent posts
-    if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/') {
+    // If on home.html, load recent posts
+    if (window.location.pathname.endsWith('home.html') || window.location.pathname === '/') {
         initializePostLoader(); // Initialize the post loader with pagination
     }
 
@@ -237,7 +237,7 @@ async function fetchFooterData() {
         const lastUpdatedData = await responseLastUpdated.json();
 
         // Determine the current page
-        const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+        const currentPage = window.location.pathname.split('/').pop() || 'home.html';
 
         // Get the last updated date for the current page
         const pageLastUpdatedISO = lastUpdatedData[currentPage];
@@ -509,7 +509,7 @@ async function loadMarkdownContent() {
 // 10. ACTIVE NAV LINK
 // ----------------------------------
 function setActiveNavLink() {
-    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
+    const currentPath = window.location.pathname.split('/').pop() || 'home.html';
     const navLinks = document.querySelectorAll('.nav-left .nav-link');
     navLinks.forEach(link => {
         const linkPath = link.getAttribute('href');
