@@ -440,7 +440,7 @@ async function fetchFooterData() {
 }
 
 // ----------------------------------
-// 12. POST LOADER (INDEX PAGE)
+// 12. POST LOADER (INDEX PAGE) - UPDATED
 // ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
 const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
@@ -481,6 +481,31 @@ async function loadRecentPosts(cursor = null) {
     function formatCount(count, singular, plural = null) {
         const actualPlural = plural || `${singular}s`;
         return `${count} ${count === 1 ? singular : actualPlural}`;
+    }
+
+    // Function to format the createdAt date into a relative timestamp
+    function getRelativeTime(date) {
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
+
+        const intervals = [
+            { label: 'year', seconds: 31536000 },
+            { label: 'month', seconds: 2592000 },
+            { label: 'day', seconds: 86400 },
+            { label: 'hour', seconds: 3600 },
+            { label: 'minute', seconds: 60 },
+            { label: 'second', seconds: 1 }
+        ];
+
+        for (const interval of intervals) {
+            const count = Math.floor(diffInSeconds / interval.seconds);
+            if (count >= 1) {
+                return count === 1
+                    ? `1 ${interval.label} ago`
+                    : `${count} ${interval.label}s ago`;
+            }
+        }
+        return 'just now';
     }
 
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your feed for posts
@@ -594,46 +619,38 @@ async function loadRecentPosts(cursor = null) {
                         });
                     }
 
-                    // 3) Created At Date with Clickable Link
+                    // 3) Created At Date with Clickable Relative Timestamp
                     const postDateElem = document.createElement('p');
                     postDateElem.classList.add('post-date');
 
                     // **Construct the Bluesky Post URL**
-                    // Assuming 'post.uri' exists and follows the format 'did:plc:{actor}:{postId}'
-                    // Adjust the parsing logic based on the actual 'post.uri' structure
                     const postUri = post.uri; // Adjust based on actual data structure
                     let postUrl = '#'; // Default to '#' if URI not available
 
                     if (postUri) {
+                        // Assuming 'post.uri' follows the format 'did:plc:{actor}:{postId}'
                         const uriParts = postUri.split(':');
                         if (uriParts.length >= 4) {
                             const actor = uriParts[2];
                             const postId = uriParts[3];
-                            postUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
+                            postUrl = `https://bsky.app/profile/${actor}/post/${postId}`;
                         }
                     }
 
                     const createdAt = new Date(post.record.createdAt || Date.now());
 
-                    // Format the post date
-                    const formattedPostDate = formatPostDate(createdAt);
+                    // Generate relative timestamp
+                    const relativeTime = getRelativeTime(createdAt);
 
-                    // Create text node for "Posted " or "Posted at "
-                    const postedText = document.createTextNode(formattedPostDate.startsWith('Posted at') ? 'Posted at ' : 'Posted ');
-
-                    // Create the <a> element for the clickable part
+                    // Create the <a> element for the clickable relative timestamp
                     const postLink = document.createElement('a');
                     postLink.href = postUrl;
-                    // Set the link text to the relative time or formatted time
-                    if (formattedPostDate.startsWith('Posted at')) {
-                        // For older posts
-                        postLink.textContent = formattedPostDate.replace('Posted at ', '');
-                    } else {
-                        // For recent posts
-                        postLink.textContent = formattedPostDate.replace('Posted ', '');
-                    }
+                    postLink.textContent = relativeTime;
                     postLink.target = '_blank'; // Open in a new tab
                     postLink.rel = 'noopener noreferrer'; // Security best practices
+
+                    // Create text node for "Posted "
+                    const postedText = document.createTextNode('Posted ');
 
                     // Append all parts to postDateElem
                     postDateElem.appendChild(postedText);
