@@ -10,24 +10,21 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <!-- Navigation loaded via main.js -->
+    <!-- Navigation -->
     <div id="nav"></div>
 
     <main>
-        <h1>Blog</h1>
-        <!-- Loading Indicator -->
-        <div id="loading-blog" style="display: none;">Loading blog posts...</div>
-        <!-- Blog Feed Container -->
-        <div id="blog-feed">
-            <!-- Blog posts will be appended here -->
-        </div>
-        <!-- "See More Posts" Button for Pagination -->
-        <button id="see-more-blog" class="see-more-button">See More Posts</button>
+        <h1>/blog</h1>
+        <div id="loading-blog">Loading...</div>
+        <div id="blog-feed"></div>
+        <button id="see-more-blog">See More Posts</button>
     </main>
 
-    <!-- Footer loaded via main.js -->
+    <!-- Footer -->
     <div id="footer"></div>
 
-    <script src="js/main.js"></script>
+    <!-- Include necessary scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- For Markdown parsing -->
+    <script src="/js/main.js"></script>
 </body>
 </html>

@@ -1027,7 +1027,7 @@ async function loadBlogPosts() {
 
     try {
         // Use absolute path for fetching index.json
-        const response = await fetch('/blog/index.json');
+        const response = await fetch('/data/blog-index.json');
         if (!response.ok) {
             throw new Error(`Failed to fetch blog index: ${response.status}`);
         }
@@ -1112,7 +1112,7 @@ async function initializeBlogPost(slug) {
 
     try {
         // Fetch blog index to find the post metadata
-        const responseIndex = await fetch('blog/index.json');
+        const responseIndex = await fetch('/data/blog-index.json');
         if (!responseIndex.ok) {
             throw new Error(`Failed to fetch blog index: ${responseIndex.status}`);
         }
