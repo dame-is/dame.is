@@ -199,6 +199,14 @@ body.dark-mode #theme-toggle {
     #bluesky-stats {
         font-size: 0.8em;
     }
+
+    .site-title-and-latest-log {
+        display: inline;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 10px;
+        font-size: 1.3em;
+      }
 }
 
 /* Footer Styles */
