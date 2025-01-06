@@ -10,8 +10,91 @@ const GITHUB_BRANCH = 'main'; // Your branch name
 const BIRTHDATE = new Date('1993-05-07T00:00:00Z'); // May 7, 1993
 
 // ----------------------------------
-// 2. HELPER: Define getRelativeTime
+// 2. HELPER FUNCTIONS FOR DATE CALCULATIONS
 // ----------------------------------
+
+// Function to check if a date is today
+function isToday(date) {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+}
+
+// Function to check if a date is yesterday
+function isYesterday(date) {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return date.getDate() === yesterday.getDate() &&
+           date.getMonth() === yesterday.getMonth() &&
+           date.getFullYear() === yesterday.getFullYear();
+}
+
+// Function to format full date
+function formatFullDate(date) {
+    return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+}
+
+// Function to format date header
+function formatDateHeader(date) {
+    let relativeDatestamp = '';
+    if (isToday(date)) {
+        relativeDatestamp = `Today, ${formatFullDate(date)}`;
+    } else if (isYesterday(date)) {
+        relativeDatestamp = `Yesterday, ${formatFullDate(date)}`;
+    } else {
+        relativeDatestamp = `${formatFullDate(date)}`;
+    }
+    return relativeDatestamp;
+}
+
+// Function to calculate Day of Life
+function getDaysSinceBirthdate(date) {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const diffInMs = date - BIRTHDATE;
+    return Math.floor(diffInMs / msPerDay);
+}
+
+// Function to calculate Day of Year
+function getDayOfYear(date) {
+    const start = new Date(date.getFullYear(), 0, 0);
+    const diff = date - start;
+    const oneDay = 1000 * 60 * 60 * 24;
+    return Math.floor(diff / oneDay);
+}
+
+// Function to check if a year is a leap year
+function isLeapYear(year) {
+    return ((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0);
+}
+
+// Function to calculate Age
+function getAge(date) {
+    const today = new Date();
+    let age = today.getFullYear() - BIRTHDATE.getFullYear();
+    const m = today.getMonth() - BIRTHDATE.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < BIRTHDATE.getDate())) {
+        age--;
+    }
+    return age;
+}
+
+// Helper function to format date in a human-readable format
+function formatDateHumanReadable(date) {
+    return date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+// Function to get relative time (e.g., "3 hours ago")
 function getRelativeTime(date) {
     const now = new Date();
     const diffInSeconds = Math.floor((now - date) / 1000);
@@ -63,17 +146,25 @@ function loadComponent(id, url) {
     return fetch(url)
         .then(response => response.text())
         .then(data => {
-            document.getElementById(id).innerHTML = data;
-            if (id === 'nav') {
-                initializeNav();
-            }
-            if (id === 'footer') {
-                initializeFooter();
+            const element = document.getElementById(id);
+            if (element) {
+                element.innerHTML = data;
+                if (id === 'nav') {
+                    initializeNav();
+                }
+                if (id === 'footer') {
+                    initializeFooter();
+                }
+            } else {
+                console.warn(`Element with ID "${id}" not found.`);
             }
         })
         .catch(err => console.error(`Error loading ${url}:`, err));
 }
 
+// ----------------------------------
+// 6. DOMContentLoaded Event
+// ----------------------------------
 document.addEventListener('DOMContentLoaded', () => {
     Promise.all([
         loadComponent('nav', 'components/nav.html'),
@@ -100,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ----------------------------------
-// 6. NAV INITIALIZATION
+// 7. NAV INITIALIZATION
 // ----------------------------------
 function initializeNav() {
     // Theme toggle
@@ -130,7 +221,7 @@ function initializeNav() {
 }
 
 // ----------------------------------
-// 7. THEME TOGGLE
+// 8. THEME TOGGLE
 // ----------------------------------
 function toggleTheme() {
     const themeToggle = document.getElementById('theme-toggle');
@@ -150,7 +241,7 @@ function toggleTheme() {
 }
 
 // ----------------------------------
-// 8. FETCH BLUESKY STATS
+// 9. FETCH BLUESKY STATS
 // ----------------------------------
 async function fetchBlueskyStats() {
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
@@ -181,7 +272,7 @@ async function fetchBlueskyStats() {
 }
 
 // ----------------------------------
-// 9. FETCH LATEST LOG FOR NAV
+// 10. FETCH LATEST LOG FOR NAV
 // ----------------------------------
 async function fetchLatestLogForNav() {
     try {
@@ -239,7 +330,7 @@ async function fetchLatestLogForNav() {
 }
 
 // ----------------------------------
-// 10. FOOTER
+// 11. FOOTER
 // ----------------------------------
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
@@ -348,19 +439,8 @@ async function fetchFooterData() {
     }
 }
 
-// Helper function to format date in a human-readable format
-function formatDateHumanReadable(date) {
-    return date.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
-
 // ----------------------------------
-// 11. POST LOADER (INDEX PAGE)
+// 12. POST LOADER (INDEX PAGE)
 // ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
 const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
@@ -593,7 +673,7 @@ function loadMorePosts() {
 }
 
 // ----------------------------------
-// 12. LOAD MARKDOWN (ABOUT, ETHOS)
+// 13. LOAD MARKDOWN (ABOUT, ETHOS)
 // ----------------------------------
 async function loadMarkdownContent() {
     try {
@@ -616,7 +696,7 @@ async function loadMarkdownContent() {
 }
 
 // ----------------------------------
-// 13. ACTIVE NAV LINK
+// 14. ACTIVE NAV LINK
 // ----------------------------------
 function setActiveNavLink() {
     const currentPath = window.location.pathname;
@@ -650,7 +730,7 @@ function setActiveNavLink() {
 }
 
 // ----------------------------------
-// 14. LOG LOADER (LOG PAGE)
+// 15. LOG LOADER (LOG PAGE)
 // ----------------------------------
 function initializeLogLoader() {
     console.log('Initializing Log Loader');
@@ -793,77 +873,14 @@ function initializeLogLoader() {
         }
     }
 
-    // ----------------------------------
-    // 15. HELPER FUNCTIONS FOR DATE CALCULATIONS
-    // ----------------------------------
-
-    // Function to check if a date is today
-    function isToday(date) {
-        const today = new Date();
-        return date.getDate() === today.getDate() &&
-               date.getMonth() === today.getMonth() &&
-               date.getFullYear() === today.getFullYear();
-    }
-
-    // Function to check if a date is yesterday
-    function isYesterday(date) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        return date.getDate() === yesterday.getDate() &&
-               date.getMonth() === yesterday.getMonth() &&
-               date.getFullYear() === yesterday.getFullYear();
-    }
-
-    // Function to format full date
-    function formatFullDate(date) {
-        return date.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
+    // Expose loadLogs if "See More Logs" button exists
+    const seeMoreLogsButton = document.getElementById('see-more-logs');
+    if (seeMoreLogsButton) {
+        seeMoreLogsButton.addEventListener('click', () => {
+            loadLogs(currentLogCursor);
         });
     }
 
-    // Function to format date header
-    function formatDateHeader(date) {
-        let relativeDatestamp = '';
-        if (isToday(date)) {
-            relativeDatestamp = `Today, ${formatFullDate(date)}`;
-        } else if (isYesterday(date)) {
-            relativeDatestamp = `Yesterday, ${formatFullDate(date)}`;
-        } else {
-            relativeDatestamp = `${formatFullDate(date)}`;
-        }
-        return relativeDatestamp;
-    }
-
-    // Function to calculate Day of Life
-    function getDaysSinceBirthdate(date) {
-        const msPerDay = 24 * 60 * 60 * 1000;
-        const diffInMs = date - BIRTHDATE;
-        return Math.floor(diffInMs / msPerDay);
-    }
-
-    // Function to calculate Day of Year
-    function getDayOfYear(date) {
-        const start = new Date(date.getFullYear(), 0, 0);
-        const diff = date - start;
-        const oneDay = 1000 * 60 * 60 * 24;
-        return Math.floor(diff / oneDay);
-    }
-
-    // Function to check if a year is a leap year
-    function isLeapYear(year) {
-        return ((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0);
-    }
-
-    // Function to calculate Age
-    function getAge(date) {
-        const today = new Date();
-        let age = today.getFullYear() - BIRTHDATE.getFullYear();
-        const m = today.getMonth() - BIRTHDATE.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < BIRTHDATE.getDate())) {
-            age--;
-        }
-        return age;
-    }
+    // Initial load
+    loadLogs();
 }

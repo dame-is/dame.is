@@ -1,7 +1,6 @@
 # roadmap
 
 ## in progress
-- relative timestamps on /posts page, both for the day group headers and for the individual post timestamps
 - blog page
 
 ## up next
@@ -21,7 +20,11 @@
 - add currently listening to via [last.fm api](https://www.last.fm/api/show/user.getRecentTracks)
 - add are.na activity to /log
 - add likes and reposts to /log maybe
+- individual pages for each post
 
 ## ideas
 - app, a section of all the software i’ve built
 - an authenticated side of my site that is a personal atproto client
+
+## completed
+- relative timestamps on /posts page, both for the day group headers and for the individual post timestamps
