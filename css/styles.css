@@ -110,6 +110,31 @@ body.dark-mode .nav-left a.nav-link:hover {
     opacity: 100%;
 }
 
+.title.nav-link.active {
+    font-weight: bold;
+}
+
+#recent-log-title {
+    opacity: 50%;
+    width: auto;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+#recent-log-title:hover{
+    overflow: visible; 
+    white-space: normal;
+    height:auto;
+}
+
+.nav-right.top-nav-right {
+    opacity: 50%;
+    font-size: 0.5em;
+    padding-top: 2px;
+    font-weight: normal;
+}
+
 body.dark-mode .nav-left a.nav-link.active {
     border-bottom: 2px solid #66B2FF;
     color: #66B2FF;
@@ -151,7 +176,7 @@ body.dark-mode #theme-toggle {
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 475px) {
     /* Let nav sections stack vertically */
     .nav-section {
         flex-direction: column;
@@ -167,12 +192,6 @@ body.dark-mode #theme-toggle {
     .nav-links {
         gap: 10px;
         margin-bottom: 10px;
-    }
-
-    /* For the top nav right area (timestamp), 
-       let it shift under the top left if desired: */
-    .top-nav-right {
-        margin-top: 8px;
     }
 
     /* For the bottom nav, 
