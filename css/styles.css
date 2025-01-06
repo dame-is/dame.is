@@ -114,18 +114,13 @@ body.dark-mode .nav-left a.nav-link:hover {
     font-weight: bold;
 }
 
-#recent-log-title {
+#recent-log-text {
     opacity: 50%;
-    width: auto;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
 }
 
-#recent-log-title:hover{
-    overflow: visible; 
-    white-space: normal;
-    height:auto;
+#recent-log-time {
+    padding-left: 10px;
+    font-size: 0.65em;
 }
 
 .nav-right.top-nav-right {
@@ -165,6 +160,7 @@ body.dark-mode #bluesky-stats {
     transition: transform 0.3s ease;
     border-radius: 3px;
     font-weight: bold;
+    font-size: 0.8em;
 }
 
 body.dark-mode #theme-toggle {
