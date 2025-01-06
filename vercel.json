@@ -1,12 +1,12 @@
 {
     "rewrites": [
+      { "source": "/blog/", "destination": "/blog.html" },
+      { "source": "/blog", "destination": "/blog.html" },
+      { "source": "/blog/:slug", "destination": "/blog-post.html?slug=:slug" },
+      { "source": "/blog-post", "destination": "/blog-post.html" },
       { "source": "/about", "destination": "/about.html" },
       { "source": "/ethos", "destination": "/ethos.html" },
       { "source": "/log", "destination": "/log.html" },
-      { "source": "/blog", "destination": "/blog.html" },
-      { "source": "/blog/", "destination": "/blog.html" },
-      { "source": "/blog/:slug", "destination": "/blog-post.html?slug=:slug" },
-      { "source": "/blog-post", "destination": "/blog-post.html" },
       { "source": "/index", "destination": "/" },
       { "source": "/home", "destination": "/" }
     ]

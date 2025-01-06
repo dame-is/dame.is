@@ -1026,9 +1026,8 @@ async function loadBlogPosts() {
     }
 
     try {
-        // Fetch the list of blog posts (Assuming you have a JSON index or dynamically list files)
-        // For simplicity, let's assume you have a `blog/index.json` listing all posts
-        const response = await fetch('blog/index.json');
+        // Use absolute path for fetching index.json
+        const response = await fetch('/blog/index.json');
         if (!response.ok) {
             throw new Error(`Failed to fetch blog index: ${response.status}`);
         }
