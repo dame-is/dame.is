@@ -405,9 +405,6 @@ body.dark-mode .post-counts span {
 
 /* Responsive Adjustments for Log Page */
 @media (max-width: 768px) {
-    main {
-        max-width: 90%;
-    }
 
     .log-date-header {
         font-size: 1em;
