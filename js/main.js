@@ -480,10 +480,10 @@ function formatPostDate(date) {
 
     if (diffInHours < 24) {
         const relativeTime = getRelativeTime(date);
-        return `Posted ${relativeTime} on Day ${dayOfLife}`;
+        return `Posted ${relativeTime}`;
     } else {
         const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
-        return `Posted at ${formattedTime} on Day ${dayOfLife}`;
+        return `Posted at ${formattedTime}`;
     }
 }
 
@@ -612,13 +612,54 @@ async function loadRecentPosts(cursor = null) {
                         });
                     }
 
-                    // 3) Created At Date with Enhanced Format
+                    // 3) Created At Date with Clickable Link
                     const postDateElem = document.createElement('p');
                     postDateElem.classList.add('post-date');
 
+                    // **Construct the Bluesky Post URL**
+                    // Assuming 'post.uri' exists and follows the format 'did:plc:{actor}:{postId}'
+                    // Adjust the parsing logic based on the actual 'post.uri' structure
+                    const postUri = post.uri; // Adjust based on actual data structure
+                    let postUrl = '#'; // Default to '#' if URI not available
+
+                    if (postUri) {
+                        const uriParts = postUri.split(':');
+                        if (uriParts.length >= 4) {
+                            const actor = uriParts[2];
+                            const postId = uriParts[3];
+                            postUrl = `https://bsky.app/profile/${actor}/post/${postId}`;
+                        }
+                    }
+
                     const createdAt = new Date(post.record.createdAt || Date.now());
+
+                    // Format the post date
                     const formattedPostDate = formatPostDate(createdAt);
-                    postDateElem.textContent = formattedPostDate;
+
+                    // Create text node for "Posted " or "Posted at "
+                    const postedText = document.createTextNode(formattedPostDate.startsWith('Posted at') ? 'Posted at ' : 'Posted ');
+
+                    // Create the <a> element for the clickable part
+                    const postLink = document.createElement('a');
+                    postLink.href = postUrl;
+                    // Set the link text to the relative time or formatted time
+                    if (formattedPostDate.startsWith('Posted at')) {
+                        // For older posts
+                        postLink.textContent = formattedPostDate.replace('Posted at ', '');
+                    } else {
+                        // For recent posts
+                        postLink.textContent = formattedPostDate.replace('Posted ', '');
+                    }
+                    postLink.target = '_blank'; // Open in a new tab
+                    postLink.rel = 'noopener noreferrer'; // Security best practices
+
+                    // Create text node for " on Day X"
+                    const onDayText = document.createTextNode(` on Day ${getDaysSinceBirthdate(createdAt)}`);
+
+                    // Append all parts to postDateElem
+                    postDateElem.appendChild(postedText);
+                    postDateElem.appendChild(postLink);
+                    postDateElem.appendChild(onDayText);
 
                     postContainer.appendChild(postDateElem);
 
