@@ -216,14 +216,12 @@ body.dark-mode #theme-toggle {
 
 /* Footer Styles */
 footer {
-    position: fixed;
     bottom: 0;
     right: 0;
     text-align: center;
     background-color: #f0f0f0;
     padding: 10px 20px;
     font-size: 0.8em;
-    max-width: 230px;
     border-radius: 5px 0px 0px 0px;
     border-left: 1px solid #ccc;
     border-top: 1px solid #ccc;
