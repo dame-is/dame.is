@@ -59,7 +59,7 @@ body.dark-mode nav {
 }
 
 .site-title-and-latest-log {
-    display: flex;
+    display: flex; 
     align-items: center;
     gap: 14px; /* Space between "dame.is" and the recent log title */
     font-size: 1.3em;
@@ -250,7 +250,6 @@ footer span {
 
 .post-date-header {
     font-size: 1em;
-    text-align: center;
     margin-top: 41px;
     margin-bottom: -4px;
 }
