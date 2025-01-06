@@ -43,18 +43,18 @@ document.addEventListener('DOMContentLoaded', () => {
     loadComponent('nav', 'components/nav.html');
     loadComponent('footer', 'components/footer.html');
 
-    // If on index.html, load recent posts
-    if (window.location.pathname.endsWith('index.html') || window.location.pathname === '/') {
+    // If on /, load recent posts
+    if (window.location.pathname.endsWith('/') || window.location.pathname === '/') {
         initializePostLoader(); // Initialize the post loader with pagination
     }
 
-    // If on log.html, load all posts as logs
-    if (window.location.pathname.endsWith('log.html')) {
+    // If on /log, load all posts as logs
+    if (window.location.pathname.endsWith('/log')) {
         initializeLogLoader();
     }
 
-    // If on about.html or ethos.html, load Markdown content
-    if (window.location.pathname.endsWith('about.html') || window.location.pathname.endsWith('ethos.html')) {
+    // If on /about or /ethos, load Markdown content
+    if (window.location.pathname.endsWith('/about') || window.location.pathname.endsWith('/ethos')) {
         loadMarkdownContent();
     }
 });
@@ -237,7 +237,7 @@ async function fetchFooterData() {
         const lastUpdatedData = await responseLastUpdated.json();
 
         // Determine the current page
-        const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+        const currentPage = window.location.pathname.split('/').pop() || '/';
 
         // Get the last updated date for the current page
         const pageLastUpdatedISO = lastUpdatedData[currentPage];
@@ -496,7 +496,7 @@ function loadMorePosts() {
 async function loadMarkdownContent() {
     try {
         await markedLoadPromise;
-        const path = window.location.pathname.endsWith('about.html') ? 'about.md' : 'ethos.md';
+        const path = window.location.pathname.endsWith('/about') ? 'about.md' : 'ethos.md';
         const response = await fetch(path);
         if (!response.ok) throw new Error('Network response was not ok');
         const markdown = await response.text();
@@ -511,7 +511,7 @@ async function loadMarkdownContent() {
 // 10. ACTIVE NAV LINK
 // ----------------------------------
 function setActiveNavLink() {
-    const currentPath = window.location.pathname.split('/').pop() || 'index.html';
+    const currentPath = window.location.pathname.split('/').pop() || '/';
     const navLinks = document.querySelectorAll('.nav-left .nav-link');
     navLinks.forEach(link => {
         const linkPath = link.getAttribute('href');
