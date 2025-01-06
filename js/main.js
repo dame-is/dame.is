@@ -5,7 +5,37 @@ const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
 
 // ----------------------------------
-// 1. HELPER: Load Marked.js
+// 1. HELPER: Define getRelativeTime
+// ----------------------------------
+function getRelativeTime(date) {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    const intervals = [
+        { label: 'year', seconds: 31536000 },
+        { label: 'month', seconds: 2592000 },
+        { label: 'day', seconds: 86400 },
+        { label: 'hour', seconds: 3600 },
+        { label: 'minute', seconds: 60 },
+        { label: 'second', seconds: 1 }
+    ];
+    for (const interval of intervals) {
+        const count = Math.floor(diffInSeconds / interval.seconds);
+        if (count >= 1) {
+            return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
+        }
+    }
+    return 'just now';
+}
+
+// ----------------------------------
+// 2. HELPER: Define initializeFooter
+// ----------------------------------
+function initializeFooter() {
+    fetchFooterData();
+}
+
+// ----------------------------------
+// 3. HELPER: Load Marked.js
 // ----------------------------------
 const markedLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
@@ -22,7 +52,7 @@ const markedLoadPromise = new Promise((resolve, reject) => {
 });
 
 // ----------------------------------
-// 2. HELPER: Load HTML Components
+// 4. HELPER: Load HTML Components
 // ----------------------------------
 function loadComponent(id, url) {
     return fetch(url)
@@ -67,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ----------------------------------
-// 3. NAV INITIALIZATION
+// 5. NAV INITIALIZATION
 // ----------------------------------
 function initializeNav() {
     // Theme toggle
@@ -97,7 +127,7 @@ function initializeNav() {
 }
 
 // ----------------------------------
-// 4. THEME TOGGLE
+// 6. THEME TOGGLE
 // ----------------------------------
 function toggleTheme() {
     const themeToggle = document.getElementById('theme-toggle');
@@ -117,7 +147,7 @@ function toggleTheme() {
 }
 
 // ----------------------------------
-// 5. FETCH BLUESKY STATS
+// 7. FETCH BLUESKY STATS
 // ----------------------------------
 async function fetchBlueskyStats() {
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
@@ -138,7 +168,7 @@ async function fetchBlueskyStats() {
 }
 
 // ----------------------------------
-// 6. FETCH LATEST LOG FOR NAV
+// 8. FETCH LATEST LOG FOR NAV
 // ----------------------------------
 async function fetchLatestLogForNav() {
     try {
@@ -162,17 +192,33 @@ async function fetchLatestLogForNav() {
             if (mostRecent && mostRecent.record) {
                 // Update Title
                 const text = mostRecent.record.text.trim();
-                document.getElementById('recent-log-text').textContent = text || 'No recent log';
+                const recentLogTextElement = document.getElementById('recent-log-text');
+                if (recentLogTextElement) {
+                    recentLogTextElement.textContent = text || 'No recent log';
+                } else {
+                    console.warn('Element with ID "recent-log-text" not found.');
+                }
 
                 // Update Time
                 const createdAt = new Date(mostRecent.record.createdAt);
                 const relativeTime = getRelativeTime(createdAt);
-                document.getElementById('recent-log-time').textContent = relativeTime;
+                const recentLogTimeElement = document.getElementById('recent-log-time');
+                if (recentLogTimeElement) {
+                    recentLogTimeElement.textContent = relativeTime;
+                } else {
+                    console.warn('Element with ID "recent-log-time" not found.');
+                }
             }
         } else {
             // If no logs found, set fallback text
-            document.getElementById('recent-log-text').textContent = 'No recent log';
-            document.getElementById('recent-log-time').textContent = '';
+            const recentLogTextElement = document.getElementById('recent-log-text');
+            const recentLogTimeElement = document.getElementById('recent-log-time');
+            if (recentLogTextElement) {
+                recentLogTextElement.textContent = 'No recent log';
+            }
+            if (recentLogTimeElement) {
+                recentLogTimeElement.textContent = '';
+            }
         }
     } catch (error) {
         console.error('Error fetching the latest log for nav:', error);
@@ -180,7 +226,7 @@ async function fetchLatestLogForNav() {
 }
 
 // ----------------------------------
-// 7. FOOTER
+// 9. FOOTER
 // ----------------------------------
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
@@ -291,7 +337,7 @@ function formatDateHumanReadable(date) {
 }
 
 // ----------------------------------
-// 8. POST LOADER (INDEX PAGE)
+// 10. POST LOADER (INDEX PAGE)
 // ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
 const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
@@ -506,7 +552,6 @@ async function loadRecentPosts(cursor = null) {
     }
 }
 
-
 // Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
@@ -518,7 +563,7 @@ function loadMorePosts() {
 }
 
 // ----------------------------------
-// 9. LOAD MARKDOWN (ABOUT, ETHOS)
+// 11. LOAD MARKDOWN (ABOUT, ETHOS)
 // ----------------------------------
 async function loadMarkdownContent() {
     try {
@@ -541,7 +586,7 @@ async function loadMarkdownContent() {
 }
 
 // ----------------------------------
-// 10. ACTIVE NAV LINK
+// 12. ACTIVE NAV LINK
 // ----------------------------------
 function setActiveNavLink() {
     const currentPath = window.location.pathname;
@@ -575,7 +620,7 @@ function setActiveNavLink() {
 }
 
 // ----------------------------------
-// 11. LOG LOADER (LOG PAGE)
+// 13. LOG LOADER (LOG PAGE)
 // ----------------------------------
 function initializeLogLoader() {
     console.log('Initializing Log Loader');
@@ -675,26 +720,6 @@ function initializeLogLoader() {
             isLoadingLogs = false;
             console.log('Finished loading logs.');
         }
-    }
-
-    function getRelativeTime(date) {
-        const now = new Date();
-        const diffInSeconds = Math.floor((now - date) / 1000);
-        const intervals = [
-            { label: 'year', seconds: 31536000 },
-            { label: 'month', seconds: 2592000 },
-            { label: 'day', seconds: 86400 },
-            { label: 'hour', seconds: 3600 },
-            { label: 'minute', seconds: 60 },
-            { label: 'second', seconds: 1 }
-        ];
-        for (const interval of intervals) {
-            const count = Math.floor(diffInSeconds / interval.seconds);
-            if (count >= 1) {
-                return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
-            }
-        }
-        return 'just now';
     }
 
     function formatDate(date) {
