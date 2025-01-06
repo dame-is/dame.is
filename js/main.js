@@ -469,24 +469,6 @@ function initializePostLoader() {
     console.log('"See More Posts" button created and appended.');
 }
 
-// ----------------------------------
-// Helper Function: Format Post Date
-// ----------------------------------
-function formatPostDate(date) {
-    const now = new Date();
-    const diffInMs = now - date;
-    const diffInHours = diffInMs / (1000 * 60 * 60);
-    const dayOfLife = getDaysSinceBirthdate(date);
-
-    if (diffInHours < 24) {
-        const relativeTime = getRelativeTime(date);
-        return `Posted ${relativeTime}`;
-    } else {
-        const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
-        return `Posted at ${formattedTime}`;
-    }
-}
-
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
@@ -627,7 +609,7 @@ async function loadRecentPosts(cursor = null) {
                         if (uriParts.length >= 4) {
                             const actor = uriParts[2];
                             const postId = uriParts[3];
-                            postUrl = `https://bsky.app/profile/${actor}/post/${postId}`;
+                            postUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
                         }
                     }
 
@@ -653,13 +635,9 @@ async function loadRecentPosts(cursor = null) {
                     postLink.target = '_blank'; // Open in a new tab
                     postLink.rel = 'noopener noreferrer'; // Security best practices
 
-                    // Create text node for " on Day X"
-                    const onDayText = document.createTextNode(` on Day ${getDaysSinceBirthdate(createdAt)}`);
-
                     // Append all parts to postDateElem
                     postDateElem.appendChild(postedText);
                     postDateElem.appendChild(postLink);
-                    postDateElem.appendChild(onDayText);
 
                     postContainer.appendChild(postDateElem);
 
