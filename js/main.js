@@ -5,7 +5,12 @@ const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
 
 // ----------------------------------
-// 1. HELPER: Define getRelativeTime
+// 1. CONFIGURATION: Define Birthdate
+// ----------------------------------
+const BIRTHDATE = new Date('1993-05-07T00:00:00Z'); // May 7, 1993
+
+// ----------------------------------
+// 2. HELPER: Define getRelativeTime
 // ----------------------------------
 function getRelativeTime(date) {
     const now = new Date();
@@ -28,14 +33,14 @@ function getRelativeTime(date) {
 }
 
 // ----------------------------------
-// 2. HELPER: Define initializeFooter
+// 3. HELPER: Define initializeFooter
 // ----------------------------------
 function initializeFooter() {
     fetchFooterData();
 }
 
 // ----------------------------------
-// 3. HELPER: Load Marked.js
+// 4. HELPER: Load Marked.js
 // ----------------------------------
 const markedLoadPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
@@ -52,7 +57,7 @@ const markedLoadPromise = new Promise((resolve, reject) => {
 });
 
 // ----------------------------------
-// 4. HELPER: Load HTML Components
+// 5. HELPER: Load HTML Components
 // ----------------------------------
 function loadComponent(id, url) {
     return fetch(url)
@@ -90,14 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
             loadMarkdownContent();
         }
 
-        // Fetch and display footer data after components are loaded
-        // Ensures that footer elements are present in the DOM
-        fetchFooterData();
+        // No need to call fetchFooterData() here since it's already called within initializeFooter()
     });
 });
 
 // ----------------------------------
-// 5. NAV INITIALIZATION
+// 6. NAV INITIALIZATION
 // ----------------------------------
 function initializeNav() {
     // Theme toggle
@@ -127,7 +130,7 @@ function initializeNav() {
 }
 
 // ----------------------------------
-// 6. THEME TOGGLE
+// 7. THEME TOGGLE
 // ----------------------------------
 function toggleTheme() {
     const themeToggle = document.getElementById('theme-toggle');
@@ -147,7 +150,7 @@ function toggleTheme() {
 }
 
 // ----------------------------------
-// 7. FETCH BLUESKY STATS
+// 8. FETCH BLUESKY STATS
 // ----------------------------------
 async function fetchBlueskyStats() {
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
@@ -158,9 +161,19 @@ async function fetchBlueskyStats() {
         if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
         const data = await response.json();
         if (data) {
-            document.getElementById('followers').textContent = data.followersCount || '0';
-            document.getElementById('following').textContent = data.followsCount || '0';
-            document.getElementById('posts').textContent = data.postsCount || '0';
+            const followersElem = document.getElementById('followers');
+            const followingElem = document.getElementById('following');
+            const postsElem = document.getElementById('posts');
+
+            if (followersElem) {
+                followersElem.textContent = data.followersCount || '0';
+            }
+            if (followingElem) {
+                followingElem.textContent = data.followsCount || '0';
+            }
+            if (postsElem) {
+                postsElem.textContent = data.postsCount || '0';
+            }
         }
     } catch (error) {
         console.error('Error fetching Bluesky stats:', error);
@@ -168,7 +181,7 @@ async function fetchBlueskyStats() {
 }
 
 // ----------------------------------
-// 8. FETCH LATEST LOG FOR NAV
+// 9. FETCH LATEST LOG FOR NAV
 // ----------------------------------
 async function fetchLatestLogForNav() {
     try {
@@ -226,7 +239,7 @@ async function fetchLatestLogForNav() {
 }
 
 // ----------------------------------
-// 9. FOOTER
+// 10. FOOTER
 // ----------------------------------
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
@@ -251,8 +264,13 @@ async function fetchFooterData() {
             if (responseTagCommit.ok) {
                 const tagCommitData = await responseTagCommit.json();
                 const commitDate = new Date(tagCommitData.commit.committer.date);
-                const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-                lastUpdated = commitDate.toLocaleDateString(undefined, options);
+                lastUpdated = commitDate.toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
             }
         } else {
             // If no tags exist, fallback to the latest commit
@@ -262,8 +280,13 @@ async function fetchFooterData() {
             const latestCommit = commitsData;
             version = latestCommit.sha.substring(0, 7); // Short SHA
             const commitDate = new Date(latestCommit.commit.committer.date);
-            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-            lastUpdated = commitDate.toLocaleDateString(undefined, options);
+            lastUpdated = commitDate.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
         }
 
         // Fetch last-updated.json
@@ -337,7 +360,7 @@ function formatDateHumanReadable(date) {
 }
 
 // ----------------------------------
-// 10. POST LOADER (INDEX PAGE)
+// 11. POST LOADER (INDEX PAGE)
 // ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
 const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
@@ -407,19 +430,27 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Group posts by day
+        // Group posts by day with additional data
         function groupPostsByDay(posts) {
             const groups = {};
             posts.forEach(item => {
                 const postDate = new Date(item.post.record.createdAt);
-                const year = postDate.getFullYear();
-                const month = postDate.toLocaleString('default', { month: 'long' });
-                const day = postDate.getDate();
-                const dateKey = `${month} ${day}, ${year}`;
-                if (!groups[dateKey]) {
-                    groups[dateKey] = [];
+                const relativeDatestamp = formatDateHeader(postDate);
+                const dayOfLife = getDaysSinceBirthdate(postDate);
+                const dayOfYear = getDayOfYear(postDate);
+                const totalDaysInYear = isLeapYear(postDate.getFullYear()) ? 366 : 365;
+                const age = getAge(postDate);
+
+                if (!groups[relativeDatestamp]) {
+                    groups[relativeDatestamp] = {
+                        dayOfLife: dayOfLife,
+                        dayOfYear: dayOfYear,
+                        totalDaysInYear: totalDaysInYear,
+                        age: age,
+                        posts: []
+                    };
                 }
-                groups[dateKey].push(item);
+                groups[relativeDatestamp].posts.push(item);
             });
             return groups;
         }
@@ -427,17 +458,27 @@ async function loadRecentPosts(cursor = null) {
         const groupedPosts = groupPostsByDay(filteredFeed);
 
         // Iterate over each day group
-        for (const [date, posts] of Object.entries(groupedPosts)) {
+        for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
             // Check if the date header already exists
-            if (!document.querySelector(`.post-date-header[data-date="${date}"]`)) {
-                const dateHeader = document.createElement('h2');
+            if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
+                const dateHeader = document.createElement('div');
                 dateHeader.classList.add('post-date-header');
-                dateHeader.textContent = date;
-                dateHeader.setAttribute('data-date', date);
+                dateHeader.setAttribute('data-date', headerDateText);
+
+                const firstLine = document.createElement('div');
+                firstLine.classList.add('date-header-line1');
+                firstLine.textContent = headerDateText;
+                dateHeader.appendChild(firstLine);
+
+                const secondLine = document.createElement('div');
+                secondLine.classList.add('date-header-line2');
+                secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
+                dateHeader.appendChild(secondLine);
+
                 postsList.appendChild(dateHeader);
             }
 
-            posts.forEach(item => {
+            groupData.posts.forEach(item => {
                 const post = item.post;
                 if (post && post.record) {
                     const postContainer = document.createElement('div');
@@ -473,32 +514,21 @@ async function loadRecentPosts(cursor = null) {
                         });
                     }
 
-                    // 3) Created At Date
-                    const postDate = document.createElement('p');
-                    postDate.classList.add('post-date');
-                    const uri = post.uri;
-                    if (uri) {
-                        const postId = uri.split('/').pop();
-                        const blueskyUrl = `https://bsky.app/profile/dame.bsky.social/post/${postId}`;
-                        const date = new Date(post.record.createdAt || Date.now());
-                        const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-                        const formattedDate = date.toLocaleDateString(undefined, options);
+                    // 3) Created At Date with Enhanced Format
+                    const postDateElem = document.createElement('p');
+                    postDateElem.classList.add('post-date');
 
-                        const dateLink = document.createElement('a');
-                        dateLink.href = blueskyUrl;
-                        dateLink.textContent = formattedDate;
-                        dateLink.target = '_blank';
-                        dateLink.rel = 'noopener noreferrer';
+                    const createdAt = new Date(post.record.createdAt || Date.now());
+                    const timeOptions = { hour: '2-digit', minute: '2-digit' };
+                    const formattedTime = createdAt.toLocaleTimeString(undefined, timeOptions);
 
-                        postDate.textContent = 'Posted on ';
-                        postDate.appendChild(dateLink);
-                    } else {
-                        const date = new Date(post.record.createdAt || Date.now());
-                        const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-                        const formattedDate = date.toLocaleDateString(undefined, options);
-                        postDate.textContent = `Posted on ${formattedDate}`;
-                    }
-                    postContainer.appendChild(postDate);
+                    const dayOfLife = getDaysSinceBirthdate(createdAt);
+                    const relativeDate = getRelativeTime(createdAt);
+
+                    const formattedPostDate = `Posted on Day ${dayOfLife} at ${formattedTime} (${relativeDate})`;
+                    postDateElem.textContent = formattedPostDate;
+
+                    postContainer.appendChild(postDateElem);
 
                     // 4) Counts (Replies, Quotes, Reposts, Likes)
                     const countsContainer = document.createElement('div');
@@ -563,7 +593,7 @@ function loadMorePosts() {
 }
 
 // ----------------------------------
-// 11. LOAD MARKDOWN (ABOUT, ETHOS)
+// 12. LOAD MARKDOWN (ABOUT, ETHOS)
 // ----------------------------------
 async function loadMarkdownContent() {
     try {
@@ -586,7 +616,7 @@ async function loadMarkdownContent() {
 }
 
 // ----------------------------------
-// 12. ACTIVE NAV LINK
+// 13. ACTIVE NAV LINK
 // ----------------------------------
 function setActiveNavLink() {
     const currentPath = window.location.pathname;
@@ -620,7 +650,7 @@ function setActiveNavLink() {
 }
 
 // ----------------------------------
-// 13. LOG LOADER (LOG PAGE)
+// 14. LOG LOADER (LOG PAGE)
 // ----------------------------------
 function initializeLogLoader() {
     console.log('Initializing Log Loader');
@@ -667,36 +697,77 @@ function initializeLogLoader() {
             // Sort by createdAt desc
             filteredFeed.sort((a, b) => new Date(b.post.record.createdAt) - new Date(a.post.record.createdAt));
 
-            // Group by day
-            const groupedPosts = groupPostsByDay(filteredFeed);
+            // Group logs by day with additional data
+            function groupLogsByDay(logs) {
+                const groups = {};
+                logs.forEach(item => {
+                    const logDate = new Date(item.post.record.createdAt);
+                    const relativeDatestamp = formatDateHeader(logDate);
+                    const dayOfLife = getDaysSinceBirthdate(logDate);
+                    const dayOfYear = getDayOfYear(logDate);
+                    const totalDaysInYear = isLeapYear(logDate.getFullYear()) ? 366 : 365;
+                    const age = getAge(logDate);
 
-            for (const [date, posts] of Object.entries(groupedPosts)) {
-                if (!document.querySelector(`.log-date-header[data-date="${date}"]`)) {
-                    const dateHeader = document.createElement('h2');
+                    if (!groups[relativeDatestamp]) {
+                        groups[relativeDatestamp] = {
+                            dayOfLife: dayOfLife,
+                            dayOfYear: dayOfYear,
+                            totalDaysInYear: totalDaysInYear,
+                            age: age,
+                            logs: []
+                        };
+                    }
+                    groups[relativeDatestamp].logs.push(item);
+                });
+                return groups;
+            }
+
+            const groupedLogs = groupLogsByDay(filteredFeed);
+
+            // Iterate over each day group
+            for (const [headerDateText, groupData] of Object.entries(groupedLogs)) {
+                // Check if the date header already exists
+                if (!document.querySelector(`.log-date-header[data-date="${headerDateText}"]`)) {
+                    const dateHeader = document.createElement('div');
                     dateHeader.classList.add('log-date-header');
-                    dateHeader.textContent = date;
-                    dateHeader.setAttribute('data-date', date);
+                    dateHeader.setAttribute('data-date', headerDateText);
+
+                    const firstLine = document.createElement('div');
+                    firstLine.classList.add('date-header-line1');
+                    firstLine.textContent = headerDateText;
+                    dateHeader.appendChild(firstLine);
+
+                    const secondLine = document.createElement('div');
+                    secondLine.classList.add('date-header-line2');
+                    secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
+                    dateHeader.appendChild(secondLine);
+
                     logsList.appendChild(dateHeader);
                 }
 
-                posts.forEach(post => {
-                    const logContainer = document.createElement('div');
-                    logContainer.classList.add('log-entry');
+                groupData.logs.forEach(item => {
+                    const log = item.post;
+                    if (log && log.record) {
+                        const logContainer = document.createElement('div');
+                        logContainer.classList.add('log-entry');
 
-                    const logText = document.createElement('p');
-                    logText.classList.add('log-text');
-                    logText.textContent = post.post.record.text.trim();
-                    logContainer.appendChild(logText);
+                        const logText = document.createElement('p');
+                        logText.classList.add('log-text');
+                        logText.textContent = log.record.text.trim();
+                        logContainer.appendChild(logText);
 
-                    const logTimestamp = document.createElement('p');
-                    logTimestamp.classList.add('log-timestamp');
-                    const createdAt = new Date(post.post.record.createdAt);
-                    const relativeTime = getRelativeTime(createdAt);
-                    const timeString = createdAt.toLocaleTimeString(undefined, { hour12: false }) + ` on ${formatDate(createdAt)}`;
-                    logTimestamp.textContent = `${relativeTime} (${timeString})`;
-                    logContainer.appendChild(logTimestamp);
+                        const logTimestamp = document.createElement('p');
+                        logTimestamp.classList.add('log-timestamp');
 
-                    logsList.appendChild(logContainer);
+                        const createdAt = new Date(log.record.createdAt);
+                        const relativeTime = getRelativeTime(createdAt);
+                        const formattedTime = createdAt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                        const formattedLogTimestamp = `Posted on Day ${getDaysSinceBirthdate(createdAt)} at ${formattedTime} (${relativeTime})`;
+                        logTimestamp.textContent = formattedLogTimestamp;
+                        logContainer.appendChild(logTimestamp);
+
+                        logsList.appendChild(logContainer);
+                    }
                 });
             }
 
@@ -722,44 +793,77 @@ function initializeLogLoader() {
         }
     }
 
-    function formatDate(date) {
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${month}-${day}-${year}`;
+    // ----------------------------------
+    // 15. HELPER FUNCTIONS FOR DATE CALCULATIONS
+    // ----------------------------------
+
+    // Function to check if a date is today
+    function isToday(date) {
+        const today = new Date();
+        return date.getDate() === today.getDate() &&
+               date.getMonth() === today.getMonth() &&
+               date.getFullYear() === today.getFullYear();
     }
 
-    function groupPostsByDay(posts) {
-        const groups = {};
-        posts.forEach(item => {
-            const postDate = new Date(item.post.record.createdAt);
-            const year = postDate.getFullYear();
-            const month = postDate.toLocaleString('default', { month: 'long' });
-            const day = postDate.getDate();
-            const dateKey = `${month} ${day}, ${year}`;
-            if (!groups[dateKey]) {
-                groups[dateKey] = [];
-            }
-            groups[dateKey].push(item);
+    // Function to check if a date is yesterday
+    function isYesterday(date) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        return date.getDate() === yesterday.getDate() &&
+               date.getMonth() === yesterday.getMonth() &&
+               date.getFullYear() === yesterday.getFullYear();
+    }
+
+    // Function to format full date
+    function formatFullDate(date) {
+        return date.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
         });
-        return groups;
     }
 
-    function loadMoreLogs() {
-        console.log('"See More Logs" button clicked.');
-        if (!currentLogCursor) {
-            console.log('No cursor available. Cannot load more logs.');
-            return;
+    // Function to format date header
+    function formatDateHeader(date) {
+        let relativeDatestamp = '';
+        if (isToday(date)) {
+            relativeDatestamp = `Today, ${formatFullDate(date)}`;
+        } else if (isYesterday(date)) {
+            relativeDatestamp = `Yesterday, ${formatFullDate(date)}`;
+        } else {
+            relativeDatestamp = `${formatFullDate(date)}`;
         }
-        loadLogs(currentLogCursor);
+        return relativeDatestamp;
     }
 
-    loadLogs();
+    // Function to calculate Day of Life
+    function getDaysSinceBirthdate(date) {
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const diffInMs = date - BIRTHDATE;
+        return Math.floor(diffInMs / msPerDay);
+    }
 
-    const seeMoreButton = document.getElementById('see-more-logs');
-    if (seeMoreButton) {
-        seeMoreButton.addEventListener('click', loadMoreLogs);
-    } else {
-        console.error('Element with ID "see-more-logs" not found.');
+    // Function to calculate Day of Year
+    function getDayOfYear(date) {
+        const start = new Date(date.getFullYear(), 0, 0);
+        const diff = date - start;
+        const oneDay = 1000 * 60 * 60 * 24;
+        return Math.floor(diff / oneDay);
+    }
+
+    // Function to check if a year is a leap year
+    function isLeapYear(year) {
+        return ((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0);
+    }
+
+    // Function to calculate Age
+    function getAge(date) {
+        const today = new Date();
+        let age = today.getFullYear() - BIRTHDATE.getFullYear();
+        const m = today.getMonth() - BIRTHDATE.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < BIRTHDATE.getDate())) {
+            age--;
+        }
+        return age;
     }
 }

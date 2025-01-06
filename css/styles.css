@@ -24,12 +24,14 @@ p {
     --background-color: #ffffff;
     --text-color: #000000;
     --post-background-color: #f9f9f9;
+    --text-secondary: #555555; /* Added for date header second line */
 }
 
 body.dark-mode {
     --background-color: #121212;
     --text-color: #ffffff;
     --post-background-color: #1e1e1e;
+    --text-secondary: #aaaaaa; /* Dark mode secondary text */
 }
 
 /* Navigation Bar & Footer Base */
@@ -120,6 +122,10 @@ body.dark-mode .nav-left a.nav-link:hover {
 
 .nav-section.top-nav {
     border-top: 1px solid #7a7a7a36;
+}
+
+#recent-log-container {
+    max-width: 500px;
 }
 
 #recent-log-text {
@@ -251,9 +257,7 @@ footer span {
 }
 
 .post-date-header {
-    font-size: 1em;
-    margin-top: 41px;
-    margin-bottom: -4px;
+    margin-bottom: 1em;
 }
 
 #recent-posts {
@@ -266,7 +270,7 @@ body.dark-mode .post {
     border-color: #444;
 }
 
-.post-text {
+.post-text-container p {
     font-size: 1.1em;
     margin-bottom: 10px;
     margin-top: 0px;
@@ -417,4 +421,16 @@ body.dark-mode .post-counts span {
     .log-timestamp {
         font-size: 0.85em;
     }
+}
+
+/* Date Header Lines Styling */
+.date-header-line1 {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.date-header-line2 {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-top: 0.2em;
 }
