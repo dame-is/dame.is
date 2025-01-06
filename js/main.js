@@ -914,7 +914,7 @@ function initializeLogLoader() {
 // ----------------------------------
 // Helper Function: Format Post Date
 // ----------------------------------
-function formatPostDate(date, postUrl) {
+function formatPostDate(date) {
     const now = new Date();
     const diffInMs = now - date;
     const diffInHours = diffInMs / (1000 * 60 * 60);
@@ -922,17 +922,9 @@ function formatPostDate(date, postUrl) {
 
     if (diffInHours < 24) {
         const relativeTime = getRelativeTime(date);
-        return {
-            text: `Posted ${relativeTime} on Day ${dayOfLife}`,
-            link: postUrl, // URL to the Bluesky post
-            isRecent: true
-        };
+        return `Posted ${relativeTime} on Day ${dayOfLife}`;
     } else {
         const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
-        return {
-            text: `Posted at ${formattedTime} on Day ${dayOfLife}`,
-            link: null,
-            isRecent: false
-        };
+        return `Posted at ${formattedTime} on Day ${dayOfLife}`;
     }
 }
