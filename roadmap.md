@@ -16,7 +16,9 @@
 - resume
 - contact page
 - newsletter 
-- skeet.tools 
+- skeet.tools
+- add engagement icons to posts instead of words
+- add dark mode icon instead of text button
 
 ## ideas
 - app, a section of all the software i’ve built
