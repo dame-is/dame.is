@@ -227,8 +227,7 @@ footer {
     background-color: #f0f0f0;
     padding: 10px 20px;
     font-size: 0.8em;
-    border-radius: 5px 0px 0px 0px;
-    border-left: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
     border-top: 1px solid #ccc;
 }
 
