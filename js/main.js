@@ -696,7 +696,6 @@ async function loadRecentPosts(cursor = null) {
                 }
             });
         }
-
             // If there are no more posts to load, hide the "See More Posts" button
             if (!currentBatchCursor) {
                 const seeMoreButton = document.getElementById('see-more-posts');
