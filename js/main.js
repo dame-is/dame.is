@@ -818,8 +818,18 @@ function initializeLogLoader() {
             apiUrl += `&cursor=${encodeURIComponent(cursor)}`;
         }
 
+        // Declare loadingIndicator at the top to ensure it's accessible in both try and finally
+        const loadingIndicator = document.getElementById('loading-logs');
+        const logsList = document.getElementById('log-entries');
+
         try {
             console.log(`Fetching logs from API: ${apiUrl}`);
+            
+            // Show loading indicator if available
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'block';
+            }
+
             const response = await fetch(apiUrl);
             if (!response.ok) {
                 throw new Error(`Network response was not ok: ${response.status}`);
@@ -829,14 +839,6 @@ function initializeLogLoader() {
 
             currentLogCursor = data.cursor || null;
             console.log('Current log cursor updated to:', currentLogCursor);
-
-            const logsList = document.getElementById('log-entries');
-            const loadingIndicator = document.getElementById('loading-logs');
-
-            // Show loading indicator if available
-            if (loadingIndicator) {
-                loadingIndicator.style.display = 'block';
-            }
 
             // Filter out reposts
             const filteredFeed = data.feed.filter(item => {
@@ -940,7 +942,6 @@ function initializeLogLoader() {
             }
         } catch (error) {
             console.error('Error fetching logs:', error);
-            const logsList = document.getElementById('log-entries');
             if (logsList) {
                 logsList.innerHTML += '<p>Failed to load logs. Please try again later.</p>';
             }
