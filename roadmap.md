@@ -1,9 +1,9 @@
 # roadmap
 
 ## in progress
-- blog page
 
 ## up next
+- restructure page URLs and sitemap to follow the gerund framing (dame.is/blogging, dame.is/posting, dame.is/logging, etc)
 - add time to read indicator at the top of blog posts
 - add skeleton loading indicators on posts and logs pages
 - live dynamic clock in the nav that is ticking, displaying current time and which day of my life it is (11450:5:39:20)
@@ -30,3 +30,4 @@
 
 ## completed
 - relative timestamps on /posts page, both for the day group headers and for the individual post timestamps
+- blog page
