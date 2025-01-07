@@ -636,16 +636,18 @@ async function loadRecentPosts(cursor = null) {
                     postDateElem.classList.add('post-date');
 
                     // **Construct the Bluesky Post URL**
-                    const postUri = post.uri; // Adjust based on actual data structure
+                    const postUri = post.uri; // Ensure this field exists and follows the expected format
                     let postUrl = '#'; // Default to '#' if URI not available
 
                     if (postUri) {
-                        // Assuming 'post.uri' follows the format 'did:plc:{actor}:{postId}'
-                        const uriParts = postUri.split(':');
-                        if (uriParts.length >= 4) {
-                            const actor = uriParts[2];
-                            const postId = uriParts[3];
-                            postUrl = `https://bsky.app/profile/${actor}/post/${postId}`;
+                        // Assuming 'post.uri' follows the format 'did:plc:{actor}/app.bsky.feed.post/{postId}'
+                        const uriParts = postUri.split('/');
+                        if (uriParts.length >= 3) {
+                            const actor = uriParts[0]; // 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'
+                            const postId = uriParts[2]; // '3lf4kwmdac22u'
+                            postUrl = `https://bsky.app/profile/${encodeURIComponent(actor)}/post/${encodeURIComponent(postId)}`;
+                        } else {
+                            console.warn(`Unexpected post.uri format: ${postUri}`);
                         }
                     }
 
