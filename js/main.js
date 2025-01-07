@@ -167,8 +167,8 @@ function loadComponent(id, url) {
 // ----------------------------------
 document.addEventListener('DOMContentLoaded', () => {
     Promise.all([
-        loadComponent('nav', 'components/nav.html'),
-        loadComponent('footer', 'components/footer.html')
+        loadComponent('nav', '/components/nav.html'),
+        loadComponent('footer', '/components/footer.html')
     ]).then(() => {
         // Initialize page-specific features based on the current URL
         const path = window.location.pathname;
