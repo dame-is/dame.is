@@ -252,27 +252,25 @@ function initializeNav() {
     // Theme toggle
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
-        themeToggle.addEventListener('click', toggleTheme);
-
         // Set initial theme based on localStorage
         if (localStorage.getItem('theme') === 'dark') {
             document.body.classList.add('dark-mode');
-            themeToggle.textContent = 'light mode';
-        } else {
-            themeToggle.textContent = 'dark mode';
         }
+        updateThemeIcon();
+
+        themeToggle.addEventListener('click', toggleTheme);
+
+        // Fetch Bluesky stats
+        fetchBlueskyStats();
+
+        // Assign active class to current page link
+        setActiveNavLink();
+
+        // Fetch and display the most recent log in the navigation
+        fetchLatestLogForNav();
     } else {
         console.warn('Theme toggle element not found.');
     }
-
-    // Fetch Bluesky stats
-    fetchBlueskyStats();
-
-    // Assign active class to current page link
-    setActiveNavLink();
-
-    // Fetch and display the most recent log in the navigation
-    fetchLatestLogForNav();
 }
 
 // ----------------------------------
@@ -287,11 +285,26 @@ function toggleTheme() {
 
     document.body.classList.toggle('dark-mode');
     if (document.body.classList.contains('dark-mode')) {
-        themeToggle.textContent = 'light mode';
         localStorage.setItem('theme', 'dark');
     } else {
-        themeToggle.textContent = 'dark mode';
         localStorage.setItem('theme', 'light');
+    }
+    updateThemeIcon();
+}
+
+function updateThemeIcon() {
+    const themeToggle = document.getElementById('theme-toggle');
+    if (!themeToggle) return;
+
+    const icon = themeToggle.querySelector('i');
+    if (document.body.classList.contains('dark-mode')) {
+        icon.classList.remove('fa-moon');
+        icon.classList.add('fa-sun');
+        themeToggle.setAttribute('aria-label', 'Switch to light mode');
+    } else {
+        icon.classList.remove('fa-sun');
+        icon.classList.add('fa-moon');
+        themeToggle.setAttribute('aria-label', 'Switch to dark mode');
     }
 }
 
@@ -715,24 +728,44 @@ async function loadRecentPosts(cursor = null) {
                     const countsContainer = document.createElement('div');
                     countsContainer.classList.add('post-counts');
 
-                    const replyCount = document.createElement('span');
+                    // Helper function to create count with icon
+                    function createCount(iconClass, count, label) {
+                        const countSpan = document.createElement('span');
+                        countSpan.classList.add('count-item');
+                        countSpan.setAttribute('aria-label', `${count} ${label}`);
+
+                        // Create the icon
+                        const icon = document.createElement('i');
+                        icon.className = iconClass;
+                        icon.setAttribute('aria-hidden', 'true');
+
+                        // Create the count text
+                        const countText = document.createElement('span');
+                        countText.classList.add('count-text');
+                        countText.textContent = count;
+
+                        // Append icon and count to the span
+                        countSpan.appendChild(icon);
+                        countSpan.appendChild(countText);
+
+                        return countSpan;
+                    }
+
+                    // Create counts with icons
                     const replies = post.replyCount || 0;
-                    replyCount.textContent = formatCount(replies, 'reply');
+                    const replyCount = createCount('fas fa-reply', replies, 'replies');
                     countsContainer.appendChild(replyCount);
 
-                    const quoteCount = document.createElement('span');
                     const quotes = post.quoteCount || 0;
-                    quoteCount.textContent = formatCount(quotes, 'quote');
+                    const quoteCount = createCount('fas fa-quote-right', quotes, 'quotes');
                     countsContainer.appendChild(quoteCount);
 
-                    const repostCount = document.createElement('span');
                     const reposts = post.repostCount || 0;
-                    repostCount.textContent = formatCount(reposts, 'repost');
+                    const repostCount = createCount('fas fa-retweet', reposts, 'reposts');
                     countsContainer.appendChild(repostCount);
 
-                    const likeCount = document.createElement('span');
                     const likes = post.likeCount || 0;
-                    likeCount.textContent = formatCount(likes, 'like');
+                    const likeCount = createCount('fas fa-heart', likes, 'likes');
                     countsContainer.appendChild(likeCount);
 
                     postContainer.appendChild(countsContainer);

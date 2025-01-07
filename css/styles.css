@@ -47,7 +47,7 @@ body.dark-mode {
 /* Navigation Bar & Footer Base */
 nav, footer {
     background-color: #f0f0f0;
-    /*! padding: 0 20px; */ /* Updated: Let the nav sections handle spacing */
+    /* padding: 0 20px; */ /* Updated: Let the nav sections handle spacing */
 }
 
 body.dark-mode nav {
@@ -165,7 +165,7 @@ body.dark-mode .nav-left a.nav-link.active {
     font-size: 0.9em;
     color: #000000;
     transition: color 0.3s ease;
-    /*! opacity: 50%; */
+    /* opacity: 50%; */
 }
 
 body.dark-mode #bluesky-stats {
@@ -176,24 +176,98 @@ body.dark-mode #bluesky-stats {
     margin-right: 1px; /* Spacing between each stat */
 }
 
-/* Theme toggle styling */
+/* === Updated Theme Toggle Styling === */
+
+/* Theme toggle styling: Updated to handle button with icon */
 #theme-toggle {
+    /* Removed background-color and padding to style the button */
     cursor: pointer;
-    background-color: rgb(213, 213, 213);
-    padding: 3px 7px;
-    transition: transform 0.3s ease;
+    background: none;
+    border: none;
+    /* font-weight: bold; */ /* Removed as icons are used */
+    font-size: 1.2em; /* Increased size for better visibility */
+    color: inherit; /* Inherit color from parent */
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease, color 0.3s ease;
+    /* Optional: Add some padding or spacing if needed */
+    padding: 5px;
     border-radius: 3px;
-    font-weight: bold;
-    font-size: 0.8em;
 }
 
 body.dark-mode #theme-toggle {
-    background-color: rgb(68, 68, 68);
+    /* Adjust icon color in dark mode if necessary */
+    /* color: #f1c40f; */ /* Example: sun icon color in dark mode */
 }
 
 #theme-toggle:hover {
     transform: scale(1.1);
+    /* Optional: Change color on hover */
+    color: #007BFF;
 }
+
+/* Optional: Adjust the icon color based on theme */
+/* This is handled in JavaScript by toggling classes, but you can add more styles here if needed */
+
+/* === End of Theme Toggle Styling === */
+
+/* Bluesky stats updated for icons (if applicable) */
+/* If you decide to add icons to the stats, you can style them here */
+
+/* === Post Counts Styling === */
+
+.post-counts {
+    display: flex;
+    gap: 15px; /* Adjust spacing between count items */
+    margin-top: 10px; /* Space above counts */
+    font-size: 0.9em; /* Adjust as needed */
+}
+
+.count-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.9em; /* Adjust size as needed */
+    color: #555; /* Adjust color as needed */
+    background-color: #e0e0e0;
+    padding: 3px 7px;
+    border-radius: 3px;
+    display: inline-flex;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+.count-item i {
+    margin-right: 5px;
+    color: #888; /* Icon color */
+    font-size: 1em; /* Ensure icons are appropriately sized */
+}
+
+/* Dark mode adjustments for post counts */
+body.dark-mode .post-counts .count-item {
+    background-color: #3a3a3a;
+    color: #fff;
+}
+
+body.dark-mode .post-counts .count-item i {
+    color: #fff; /* Ensure icons are visible in dark mode */
+}
+
+.count-item:hover {
+    color: #000;
+}
+
+.count-item:hover i {
+    color: #000;
+}
+
+/* Optional: transition for smooth color change */
+.count-item,
+.count-item i {
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+/* === End of Post Counts Styling === */
 
 /* Responsive Design */
 @media (max-width: 400px) {
@@ -224,7 +298,7 @@ body.dark-mode #theme-toggle {
     }
 
     #theme-toggle {
-        font-size: 0.8em;
+        font-size: 1em; /* Increased for better touch targets on small screens */
     }
 
     .site-title-and-latest-log {
@@ -308,10 +382,9 @@ body.dark-mode .post-date {
     color: #aaa;
 }
 
-.post-counts {
-    font-size: 0.8em;
-}
-
+/* === Updated Post Counts Styling === */
+/* Removed old .post-counts span styles */
+/*
 .post-counts span {
     background-color: #e0e0e0;
     padding: 3px 7px;
@@ -320,11 +393,55 @@ body.dark-mode .post-date {
     margin-right: 10px;
     margin-bottom: 10px;
 }
+*/
 
-body.dark-mode .post-counts span {
+.post-counts {
+    /* Updated to display flex and style count items with icons */
+    display: flex;
+    gap: 15px; /* Adjust spacing between count items */
+    margin-top: 10px; /* Space above counts */
+    font-size: 0.9em; /* Adjust as needed */
+}
+
+.count-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.9em; /* Adjust size as needed */
+    color: #555; /* Adjust color as needed */
+    background-color: #e0e0e0;
+    padding: 3px 7px;
+    border-radius: 3px;
+    display: inline-flex;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+.count-item i {
+    margin-right: 5px;
+    color: #888; /* Icon color */
+    font-size: 1em; /* Ensure icons are appropriately sized */
+}
+
+/* Dark mode adjustments for post counts */
+body.dark-mode .post-counts .count-item {
     background-color: #3a3a3a;
     color: #fff;
 }
+
+body.dark-mode .post-counts .count-item i {
+    color: #fff; /* Ensure icons are visible in dark mode */
+}
+
+.count-item:hover {
+    color: #000;
+}
+
+.count-item:hover i {
+    color: #000;
+}
+
+/* === End of Post Counts Styling === */
 
 /* Styling for the Bluesky post link */
 .post-date a {
@@ -457,8 +574,6 @@ pre#log-entries.log-container {
     padding-bottom: 10px;
 }
 
-/* styles.css */
-
 /* Blog Feed */
 #blog-feed .blog-post {
     border-bottom: 1px solid #eaeaea;
@@ -515,7 +630,7 @@ body.dark-mode .blog-post-excerpt {
 #post-title {
     font-size: 1.7em;
     margin-bottom: 10px;
-  }
+}
 
 #post-date {
     font-size: 1em;
@@ -526,7 +641,7 @@ body.dark-mode .blog-post-excerpt {
 #post-content {
     font-size: 1em;
     line-height: 1.4em;
-  }
+}
 
 .read-more {
     display: inline-block;
@@ -538,3 +653,49 @@ body.dark-mode .blog-post-excerpt {
 .read-more:hover {
     text-decoration: underline;
 }
+
+/* === Additional Responsive Enhancements === */
+
+/* Ensure the theme toggle button is appropriately sized on larger screens */
+@media (min-width: 401px) {
+    #theme-toggle {
+        font-size: 1.2em; /* Maintain consistency */
+    }
+}
+
+/* Adjustments for small icons and text alignment */
+.count-item i {
+    /* Ensures icons are not too large */
+    font-size: 1em;
+}
+
+/* Optional: Adjust the margin between icon and text if needed */
+.count-item i + .count-text {
+    margin-left: 5px;
+}
+
+/* Ensure the "See More Posts" button aligns with the overall design */
+.see-more-button {
+    /* Existing styles */
+    display: block;
+    margin: 20px auto;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+
+.see-more-button:hover {
+    background-color: #0056b3;
+}
+
+.see-more-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* === End of CSS Updates === */
