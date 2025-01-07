@@ -4,6 +4,49 @@ const GITHUB_USERNAME = 'damedotblog'; // Your GitHub username
 const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
 
+/**
+ * Constructs the Bluesky post URL from post.uri
+ * @param {string} postUri - The URI of the post (e.g., "at://did:plc:.../app.bsky.feed.post/...")
+ * @returns {string} - The constructed URL or '#' if invalid
+ */
+function constructBlueskyPostUrl(postUri) {
+    if (!postUri) {
+        console.warn('post.uri is undefined or null');
+        return '#';
+    }
+
+    // Ensure the URI starts with 'at://'
+    if (!postUri.startsWith('at://')) {
+        console.warn(`post.uri does not start with 'at://': ${postUri}`);
+        return '#';
+    }
+
+    // Remove the 'at://' prefix
+    const cleanUri = postUri.slice(5); // Removes 'at://'
+
+    // Split the URI by '/'
+    const uriParts = cleanUri.split('/');
+
+    // Expected structure: 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lf4kwmdac22u'
+    if (uriParts.length < 3) {
+        console.warn(`Unexpected post.uri format: ${postUri}`);
+        return '#';
+    }
+
+    const actor = uriParts[0]; // 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'
+    const postId = uriParts[2]; // '3lf4kwmdac22u'
+
+    // Validate actor and postId
+    if (!actor || !postId) {
+        console.warn(`Missing actor or postId in post.uri: ${postUri}`);
+        return '#';
+    }
+
+    // Construct the URL
+    return `https://bsky.app/profile/${actor}/post/${postId}`;
+}
+
+
 // ----------------------------------
 // 1. CONFIGURATION: Define Birthdate
 // ----------------------------------
@@ -635,27 +678,8 @@ async function loadRecentPosts(cursor = null) {
                     const postDateElem = document.createElement('p');
                     postDateElem.classList.add('post-date');
 
-                    // **Construct the Bluesky Post URL**
-                    const postUri = post.uri; // Ensure this field exists and follows the expected format
-                    let postUrl = '#'; // Default to '#' if URI not available
-
-                    if (postUri) {
-                        // Assuming 'post.uri' follows the format 'at:did:plc:{actor}/app.bsky.feed.post/{postId}'
-                        const uriParts = postUri.split('/');
-                        if (uriParts.length >= 3) {
-                            let actor = uriParts[0]; // e.g., 'at:did:plc:gq4fo3u6tqzzdkjlwzpb23tj'
-                            const postId = uriParts[2]; // e.g., '3lf4kwmdac22u'
-
-                            // Remove the 'at:' prefix if present
-                            if (actor.startsWith('at:')) {
-                                actor = actor.substring(3); // 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'
-                            }
-
-                            postUrl = `https://bsky.app/profile/${actor}/post/${postId}`;
-                        } else {
-                            console.warn(`Unexpected post.uri format: ${postUri}`);
-                        }
-                    }
+                    // **Construct the Bluesky Post URL using the helper function**
+                    const postUrl = constructBlueskyPostUrl(post.uri);
 
                     const createdAt = new Date(post.record.createdAt || Date.now());
 
