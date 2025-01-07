@@ -1,4 +1,4 @@
-/* General Styles */
+/* === General Styles === */
 
 body {
     font-family: Arial, sans-serif;
@@ -44,7 +44,8 @@ body.dark-mode {
     --text-secondary: #aaaaaa; /* Dark mode secondary text */
 }
 
-/* Navigation Bar & Footer Base */
+/* === Navigation Bar & Footer === */
+
 nav, footer {
     background-color: #f0f0f0;
     /* padding: 0 20px; */ /* Updated: Let the nav sections handle spacing */
@@ -53,10 +54,16 @@ nav, footer {
 body.dark-mode nav {
     background-color: var(--post-background-color);
     border-color: #444;
-    background-color: var(--post-background-color);
 }
 
-/* Each row (section) in the nav: top and bottom */
+body.dark-mode footer {
+    background-color: #000000;
+    color: #ffffff;
+    border-color: #444;
+}
+
+/* === Navigation Sections === */
+
 .nav-section {
     display: flex;
     justify-content: space-between;
@@ -65,7 +72,10 @@ body.dark-mode nav {
     border-bottom: 1px solid #7a7a7a36;
 }
 
-/* Top-left portion: contains two stacked lines */
+.nav-section.top-nav {
+    border-top: 1px solid #7a7a7a36;
+}
+
 .top-nav-left {
     display: flex;
     flex-direction: column;
@@ -78,13 +88,11 @@ body.dark-mode nav {
     font-size: 1.3em;
 }
 
-/* Basic styling for all left and right containers within each section */
 .nav-left,
 .nav-right {
     display: flex;
 }
 
-/* For bottom left portion (Bluesky stats) and bottom right portion (theme toggle) */
 .bottom-nav-left,
 .bottom-nav-right {
     display: flex;
@@ -92,25 +100,20 @@ body.dark-mode nav {
     gap: 2px;
 }
 
-/* Original link styles (kept from your existing code) */
+/* === Navigation Links === */
+
 .nav-left a.nav-link {
     text-decoration: none;
     color: inherit;
     transition: color 0.3s ease;
 }
 
-/* If you want to keep the same margin from the old .nav-left, 
-   you could add margin-right to each link:
-*/
 .nav-links a.nav-link {
-    margin-right: 11px; /* or adjust as you like */
+    margin-right: 11px; /* Adjust as needed */
     opacity: 50%;
 }
 
-.nav-left a.nav-link:hover {
-    color: #007BFF;
-}
-
+.nav-left a.nav-link:hover,
 body.dark-mode .nav-left a.nav-link:hover {
     color: #007BFF;
 }
@@ -122,17 +125,12 @@ body.dark-mode .nav-left a.nav-link:hover {
     opacity: 100%;
 }
 
-.title.nav-link.active {
-    font-weight: bold;
-}
-
+.title.nav-link.active,
 .title.nav-link {
     font-weight: bold;
 }
 
-.nav-section.top-nav {
-    border-top: 1px solid #7a7a7a36;
-}
+/* === Recent Log Styles === */
 
 #recent-log-container {
     max-width: 500px;
@@ -154,13 +152,8 @@ body.dark-mode .nav-left a.nav-link:hover {
     font-weight: normal;
 }
 
-body.dark-mode .nav-left a.nav-link.active {
-    border-bottom: 1px solid #007BFF;
-    color: #007BFF;
-    opacity: 100%;
-}
+/* === Bluesky Stats Styling === */
 
-/* Bluesky stats styling */
 #bluesky-stats {
     font-size: 0.9em;
     color: #000000;
@@ -176,21 +169,17 @@ body.dark-mode #bluesky-stats {
     margin-right: 1px; /* Spacing between each stat */
 }
 
-/* === Updated Theme Toggle Styling === */
+/* === Theme Toggle Styling === */
 
-/* Theme toggle styling: Updated to handle button with icon */
 #theme-toggle {
-    /* Removed background-color and padding to style the button */
     cursor: pointer;
     background: none;
     border: none;
-    /* font-weight: bold; */ /* Removed as icons are used */
     font-size: 1.2em; /* Increased size for better visibility */
     color: inherit; /* Inherit color from parent */
     display: flex;
     align-items: center;
     transition: transform 0.3s ease, color 0.3s ease;
-    /* Optional: Add some padding or spacing if needed */
     padding: 5px;
     border-radius: 3px;
 }
@@ -205,47 +194,8 @@ body.dark-mode #theme-toggle {
     color: #007BFF;
 }
 
-/* Responsive Design */
-@media (max-width: 400px) {
-    /* Let nav sections stack vertically */
-    .nav-section {
-        flex-direction: column;
-        align-items: flex-start;
-    }
+/* === Footer Styles === */
 
-    /* Top nav left stacks lines, so no extra changes needed unless you want smaller spacing */
-    .site-title-and-latest-log {
-        margin-bottom: 0px; /* for smaller screens, adjust as needed */
-    }
-
-    .nav-links {
-        gap: 10px;
-        text-wrap-style: balance;
-        line-height: 25px;
-      }
-
-    .bottom-nav-right {
-        margin-top: 10px;
-    }
-
-    /* Adjust font sizes or spacing for stats if needed */
-    #bluesky-stats {
-        font-size: 0.75em;
-    }
-
-    #theme-toggle {
-        font-size: 1em; /* Increased for better touch targets on small screens */
-    }
-
-    .site-title-and-latest-log {
-        display: inline;
-        align-items: center;
-        gap: 14px;
-        font-size: 1.3em;
-      }
-}
-
-/* Footer Styles */
 footer {
     bottom: 0;
     right: 0;
@@ -257,17 +207,12 @@ footer {
     border-top: 1px solid #ccc;
 }
 
-body.dark-mode footer {
-    background-color: #000000;
-    color: #ffffff;
-    border-color: #444;
-}
-
 footer span {
     font-weight: bold;
 }
 
-/* Post Styles */
+/* === Post Styles === */
+
 .post {
     border: 1px solid #ccc;
     padding: 15px 15px 5px 15px;
@@ -320,15 +265,20 @@ body.dark-mode .post-date {
 
 /* === Post Counts Styling === */
 
+.post-counts {
+    display: flex;
+    margin-top: 10px; /* Space above counts */
+    font-size: 0.9em; /* Adjust as needed */
+}
+
 .count-item {
     display: flex;
     align-items: center;
     font-size: 0.9em; /* Adjust size as needed */
-    color: #555; /* Adjust color as needed */
+    color: #555; /* Text color */
     background-color: #e0e0e0;
     padding: 3px 7px;
     border-radius: 3px;
-    display: inline-flex;
     margin-right: 10px;
     margin-bottom: 10px;
     transition: color 0.3s ease, background-color 0.3s ease;
@@ -337,54 +287,15 @@ body.dark-mode .post-date {
 
 .count-item i {
     margin-right: 5px;
-    color: #888; /* Icon color */
+    color: #888; /* Default icon color */
     font-size: 1em; /* Ensure icons are appropriately sized */
-}
-
-/* Dark mode adjustments for post counts */
-body.dark-mode .post-counts .count-item {
-    background-color: #3a3a3a;
-    color: #fff;
-}
-
-body.dark-mode .post-counts .count-item i {
-    color: #fff; /* Ensure icons are visible in dark mode */
-}
-
-.count-item:hover {
-    color: #000;
-}
-
-.count-item:hover i {
-    color: #000;
-}
-
-/* Optional: transition for smooth color change */
-.count-item,
-.count-item i {
-    transition: color 0.3s ease, background-color 0.3s ease;
-}
-
-/* === End of Post Counts Styling === */
-
-.post-counts {
-    margin-top: 10px; /* Space above counts */
-    font-size: 0.9em; /* Adjust as needed */
-}
-
-.count-item i {
-    margin-right: 5px;
-    color: #888; /* Icon color */
-    font-size: 1em; /* Ensure icons are appropriately sized */
+    transition: color 0.3s ease; /* Moved transition here */
 }
 
 /* === Conditional Icon Styling === */
 
 /* Default color for all icons when count is 0 */
-.count-item i {
-    color: #888;
-    transition: color 0.3s ease;
-}
+/* Already defined above in .count-item i */
 
 /* Active state: Count > 0 */
 .count-item.active i.fa-heart {
@@ -423,17 +334,15 @@ body.dark-mode .count-item.active i.fa-reply {
 /* Hover Effects for Count Items */
 .count-item:hover {
     opacity: 0.8;
+    color: #000;
 }
 
-/* Ensure the transition is smooth */
-.count-item,
-.count-item i {
-    transition: color 0.3s ease, opacity 0.3s ease;
+.count-item:hover i {
+    color: #000;
 }
 
-/* === End of Conditional Icon Styling === */
+/* === Dark Mode Adjustments for Post Counts === */
 
-/* Dark mode adjustments for post counts */
 body.dark-mode .post-counts .count-item {
     background-color: #3a3a3a;
     color: #fff;
@@ -443,17 +352,8 @@ body.dark-mode .post-counts .count-item i {
     color: #fff; /* Ensure icons are visible in dark mode */
 }
 
-.count-item:hover {
-    color: #000;
-}
+/* === Styling for the Bluesky Post Link === */
 
-.count-item:hover i {
-    color: #000;
-}
-
-/* === End of Post Counts Styling === */
-
-/* Styling for the Bluesky post link */
 .post-date a {
     color: #007BFF;
     text-decoration: none;
@@ -465,7 +365,8 @@ body.dark-mode .post-counts .count-item i {
     text-decoration: underline;
 }
 
-/* "See More Posts" Button Styles */
+/* === "See More Posts" Button Styles === */
+
 .see-more-button {
     display: block;
     margin: 20px auto;
@@ -488,7 +389,7 @@ body.dark-mode .post-counts .count-item i {
     cursor: not-allowed;
 }
 
-/* Updated Log Page Styles */
+/* === Log Page Styles === */
 
 .log-container {
     background-color: var(--post-background-color);
@@ -510,7 +411,6 @@ pre#log-entries.log-container {
     background-color: unset;
 }
 
-/* Date Header Styling */
 .log-date-header {
     color: var(--text-color);
     border-bottom: 1px solid #cfcfcf;
@@ -522,12 +422,10 @@ pre#log-entries.log-container {
     text-align: center;
 }
 
-/* Log Entry Container */
 .log-entry {
     margin-top: 1em;
 }
 
-/* Log Text Styling */
 .log-text {
     margin: 0;
     padding: 0;
@@ -537,7 +435,6 @@ pre#log-entries.log-container {
     white-space: pre-wrap;
 }
 
-/* Log Timestamp Styling */
 .log-timestamp {
     margin: 0.2em 0 0 0;
     padding: 0;
@@ -546,7 +443,6 @@ pre#log-entries.log-container {
     font-style: italic;
 }
 
-/* Loading Indicator Styling */
 .loading {
     font-style: italic;
     color: #999999;
@@ -554,23 +450,8 @@ pre#log-entries.log-container {
     display: none;
 }
 
-/* Responsive Adjustments for Log Page */
-@media (max-width: 768px) {
+/* === Date Header Lines Styling === */
 
-    .log-date-header {
-        font-size: 1em;
-    }
-
-    .log-text {
-        font-size: 0.95em;
-    }
-
-    .log-timestamp {
-        font-size: 0.85em;
-    }
-}
-
-/* Date Header Lines Styling */
 .date-header-line1 {
     font-size: 1em;
     font-weight: bold;
@@ -584,14 +465,15 @@ pre#log-entries.log-container {
     padding-bottom: 10px;
 }
 
-/* Blog Feed */
-#blog-feed .blog-post {
-    border-bottom: 1px solid #eaeaea;
-    padding: 30px 0;
-}
+/* === Blog Feed Styles === */
 
 #blog-feed {
     margin-bottom: 30px;
+}
+
+#blog-feed .blog-post {
+    border-bottom: 1px solid #eaeaea;
+    padding: 30px 0;
 }
 
 .blog-post h2 {
@@ -613,6 +495,11 @@ pre#log-entries.log-container {
     margin-bottom: 16px;
 }
 
+.blog-post-excerpt {
+    font-size: 1em;
+    color: #3b3b3b;
+}
+
 body.dark-mode #blog-feed .blog-post {
     border-bottom: 1px solid #8e8e8e65;
     padding: 30px 0;
@@ -631,12 +518,8 @@ body.dark-mode .blog-post-excerpt {
     color: #a3a3a3;
 }
 
-.blog-post-excerpt {
-    font-size: 1em;
-    color: #3b3b3b;
-}
+/* === Blog Post Page === */
 
-/* Blog Post Page */
 #post-title {
     font-size: 1.7em;
     margin-bottom: 10px;
@@ -666,41 +549,49 @@ body.dark-mode .blog-post-excerpt {
 
 /* === Additional Responsive Enhancements === */
 
-/* Ensure the theme toggle button is appropriately sized on larger screens */
+/* Responsive Design for Small Screens */
+@media (max-width: 400px) {
+    /* Let nav sections stack vertically */
+    .nav-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Top nav left stacks lines, adjust margin as needed */
+    .site-title-and-latest-log {
+        margin-bottom: 0px; /* for smaller screens, adjust as needed */
+    }
+
+    .nav-links {
+        gap: 10px;
+        text-wrap-style: balance;
+        line-height: 25px;
+    }
+
+    .bottom-nav-right {
+        margin-top: 10px;
+    }
+
+    /* Adjust font sizes or spacing for stats if needed */
+    #bluesky-stats {
+        font-size: 0.75em;
+    }
+
+    #theme-toggle {
+        font-size: 1em; /* Increased for better touch targets on small screens */
+    }
+
+    .site-title-and-latest-log {
+        display: inline;
+        align-items: center;
+        gap: 14px;
+        font-size: 1.3em;
+    }
+}
+
+/* Responsive Design for Larger Screens */
 @media (min-width: 401px) {
     #theme-toggle {
         font-size: 1.2em; /* Maintain consistency */
     }
 }
-
-/* Adjustments for small icons and text alignment */
-.count-item i {
-    /* Ensures icons are not too large */
-    font-size: 1em;
-}
-
-/* Ensure the "See More Posts" button aligns with the overall design */
-.see-more-button {
-    /* Existing styles */
-    display: block;
-    margin: 20px auto;
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color 0.3s ease;
-}
-
-.see-more-button:hover {
-    background-color: #0056b3;
-}
-
-.see-more-button:disabled {
-    background-color: #cccccc;
-    cursor: not-allowed;
-}
-
-/* === End of CSS Updates === */
