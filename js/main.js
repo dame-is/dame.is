@@ -728,11 +728,16 @@ async function loadRecentPosts(cursor = null) {
                     const countsContainer = document.createElement('div');
                     countsContainer.classList.add('post-counts');
 
-                    // Helper function to create count with icon
+                    // Helper function to create count with icon and conditional styling
                     function createCount(iconClass, count, label) {
                         const countSpan = document.createElement('span');
                         countSpan.classList.add('count-item');
                         countSpan.setAttribute('aria-label', `${count} ${label}`);
+                        
+                        // Add 'active' class if count > 0
+                        if (count > 0) {
+                            countSpan.classList.add('active');
+                        }
 
                         // Create the icon
                         const icon = document.createElement('i');

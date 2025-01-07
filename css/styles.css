@@ -196,8 +196,7 @@ body.dark-mode #bluesky-stats {
 }
 
 body.dark-mode #theme-toggle {
-    /* Adjust icon color in dark mode if necessary */
-    /* color: #f1c40f; */ /* Example: sun icon color in dark mode */
+    color: #f1c40f;
 }
 
 #theme-toggle:hover {
@@ -205,69 +204,6 @@ body.dark-mode #theme-toggle {
     /* Optional: Change color on hover */
     color: #007BFF;
 }
-
-/* Optional: Adjust the icon color based on theme */
-/* This is handled in JavaScript by toggling classes, but you can add more styles here if needed */
-
-/* === End of Theme Toggle Styling === */
-
-/* Bluesky stats updated for icons (if applicable) */
-/* If you decide to add icons to the stats, you can style them here */
-
-/* === Post Counts Styling === */
-
-.post-counts {
-    display: flex;
-    gap: 15px; /* Adjust spacing between count items */
-    margin-top: 10px; /* Space above counts */
-    font-size: 0.9em; /* Adjust as needed */
-}
-
-.count-item {
-    display: flex;
-    align-items: center;
-    font-size: 0.9em; /* Adjust size as needed */
-    color: #555; /* Adjust color as needed */
-    background-color: #e0e0e0;
-    padding: 3px 7px;
-    border-radius: 3px;
-    display: inline-flex;
-    margin-right: 10px;
-    margin-bottom: 10px;
-    transition: color 0.3s ease, background-color 0.3s ease;
-}
-
-.count-item i {
-    margin-right: 5px;
-    color: #888; /* Icon color */
-    font-size: 1em; /* Ensure icons are appropriately sized */
-}
-
-/* Dark mode adjustments for post counts */
-body.dark-mode .post-counts .count-item {
-    background-color: #3a3a3a;
-    color: #fff;
-}
-
-body.dark-mode .post-counts .count-item i {
-    color: #fff; /* Ensure icons are visible in dark mode */
-}
-
-.count-item:hover {
-    color: #000;
-}
-
-.count-item:hover i {
-    color: #000;
-}
-
-/* Optional: transition for smooth color change */
-.count-item,
-.count-item i {
-    transition: color 0.3s ease, background-color 0.3s ease;
-}
-
-/* === End of Post Counts Styling === */
 
 /* Responsive Design */
 @media (max-width: 400px) {
@@ -345,7 +281,7 @@ footer span {
 }
 
 #recent-posts {
-    max-width: 400px;
+    max-width: 350px;
     margin: auto;
     margin-bottom: 40px; /* So it doesn't clash with fixed footer */
 }
@@ -382,26 +318,7 @@ body.dark-mode .post-date {
     color: #aaa;
 }
 
-/* === Updated Post Counts Styling === */
-/* Removed old .post-counts span styles */
-/*
-.post-counts span {
-    background-color: #e0e0e0;
-    padding: 3px 7px;
-    border-radius: 3px;
-    display: inline-flex;
-    margin-right: 10px;
-    margin-bottom: 10px;
-}
-*/
-
-.post-counts {
-    /* Updated to display flex and style count items with icons */
-    display: flex;
-    gap: 15px; /* Adjust spacing between count items */
-    margin-top: 10px; /* Space above counts */
-    font-size: 0.9em; /* Adjust as needed */
-}
+/* === Post Counts Styling === */
 
 .count-item {
     display: flex;
@@ -415,6 +332,7 @@ body.dark-mode .post-date {
     margin-right: 10px;
     margin-bottom: 10px;
     transition: color 0.3s ease, background-color 0.3s ease;
+    font-weight: bold;
 }
 
 .count-item i {
@@ -422,6 +340,98 @@ body.dark-mode .post-date {
     color: #888; /* Icon color */
     font-size: 1em; /* Ensure icons are appropriately sized */
 }
+
+/* Dark mode adjustments for post counts */
+body.dark-mode .post-counts .count-item {
+    background-color: #3a3a3a;
+    color: #fff;
+}
+
+body.dark-mode .post-counts .count-item i {
+    color: #fff; /* Ensure icons are visible in dark mode */
+}
+
+.count-item:hover {
+    color: #000;
+}
+
+.count-item:hover i {
+    color: #000;
+}
+
+/* Optional: transition for smooth color change */
+.count-item,
+.count-item i {
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+/* === End of Post Counts Styling === */
+
+.post-counts {
+    margin-top: 10px; /* Space above counts */
+    font-size: 0.9em; /* Adjust as needed */
+}
+
+.count-item i {
+    margin-right: 5px;
+    color: #888; /* Icon color */
+    font-size: 1em; /* Ensure icons are appropriately sized */
+}
+
+/* === Conditional Icon Styling === */
+
+/* Default color for all icons when count is 0 */
+.count-item i {
+    color: #888;
+    transition: color 0.3s ease;
+}
+
+/* Active state: Count > 0 */
+.count-item.active i.fa-heart {
+    color: #e93434;
+}
+
+.count-item.active i.fa-retweet {
+    color: #0dc70d;
+}
+
+.count-item.active i.fa-quote-right {
+    color: #007BFF;
+}
+
+.count-item.active i.fa-reply {
+    color: black;
+}
+
+/* Dark Mode Adjustments for Active Icons */
+body.dark-mode .count-item.active i.fa-heart {
+    color: #ff6b6b; /* Lighter shade for visibility */
+}
+
+body.dark-mode .count-item.active i.fa-retweet {
+    color: #66ff66;
+}
+
+body.dark-mode .count-item.active i.fa-quote-right {
+    color: #3399ff;
+}
+
+body.dark-mode .count-item.active i.fa-reply {
+    color: #ffffff;
+}
+
+/* Hover Effects for Count Items */
+.count-item:hover {
+    opacity: 0.8;
+}
+
+/* Ensure the transition is smooth */
+.count-item,
+.count-item i {
+    transition: color 0.3s ease, opacity 0.3s ease;
+}
+
+/* === End of Conditional Icon Styling === */
 
 /* Dark mode adjustments for post counts */
 body.dark-mode .post-counts .count-item {
@@ -667,11 +677,6 @@ body.dark-mode .blog-post-excerpt {
 .count-item i {
     /* Ensures icons are not too large */
     font-size: 1em;
-}
-
-/* Optional: Adjust the margin between icon and text if needed */
-.count-item i + .count-text {
-    margin-left: 5px;
 }
 
 /* Ensure the "See More Posts" button aligns with the overall design */
