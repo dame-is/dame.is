@@ -3,6 +3,7 @@
 ## in progress
 
 ## up next
+- add support for post replies, quote posts, and links in posts
 - restructure page URLs and sitemap to follow the gerund framing (dame.is/blogging, dame.is/posting, dame.is/logging, etc)
 - add time to read indicator at the top of blog posts
 - add skeleton loading indicators on posts and logs pages
