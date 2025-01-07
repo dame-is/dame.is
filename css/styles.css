@@ -462,7 +462,11 @@ pre#log-entries.log-container {
 /* Blog Feed */
 #blog-feed .blog-post {
     border-bottom: 1px solid #eaeaea;
-    padding: 15px 0;
+    padding: 30px 0;
+}
+
+#blog-feed {
+    margin-bottom: 30px;
 }
 
 .blog-post h2 {
@@ -481,7 +485,24 @@ pre#log-entries.log-container {
 .blog-post-date {
     font-size: 0.9em;
     color: #777;
-    margin-bottom: 10px;
+    margin-bottom: 16px;
+}
+
+body.dark-mode #blog-feed .blog-post {
+    border-bottom: 1px solid #8e8e8e;
+    padding: 30px 0;
+}
+
+body.dark-mode .blog-post h2 a {
+    color: white;
+}
+
+body.dark-mode p.blog-post-date {
+    color: #777777a3;
+}
+
+body.dark-mode .blog-post-date {
+    color: #777777a3;
 }
 
 .blog-post-excerpt {
@@ -508,7 +529,6 @@ pre#log-entries.log-container {
 
 .read-more {
     display: inline-block;
-    margin-top: 10px;
     color: #007BFF; /* Bootstrap primary color */
     text-decoration: none;
     font-weight: bold;
