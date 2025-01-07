@@ -104,10 +104,13 @@ jobs:
         id: generate_last_updated
         run: |
           echo "{" > last-updated.json
-          # Dynamically find all .html files in the repository root
-          mapfile -t pages < <(find . -maxdepth 1 -type f -name "*.html" -exec basename {} \;)
 
-          for page in "${pages[@]}"
+          # ----------- Process Root .html Pages -----------
+          echo "Processing root .html files..."
+          # Find all .html files in the repository root
+          mapfile -t html_pages < <(find . -maxdepth 1 -type f -name "*.html" -exec basename {} \;)
+
+          for page in "${html_pages[@]}"
           do
             echo "Processing page: $page"
             # Determine the corresponding .md file by replacing .html with .md
@@ -137,6 +140,32 @@ jobs:
             else
               # Assign null or a default value if no commit date is found
               key="${page%.html}"
+              echo "  \"$key\": null," >> last-updated.json
+            fi
+          done
+
+          # ----------- Process Blog Post .md Files -----------
+          echo "Processing blog post .md files..."
+          # Find all .md files in /data/blog/
+          mapfile -t blog_posts < <(find data/blog/ -type f -name "*.md" -exec basename {} \;)
+
+          for md_file in "${blog_posts[@]}"
+          do
+            echo "Processing blog post: $md_file"
+            # Extract slug by removing .md extension
+            slug="${md_file%.md}"
+            key="blog/$slug"
+
+            # Get the last commit date for the .md file
+            last_commit_date=$(git log -1 --format=%cd --date=iso "data/blog/$md_file")
+            echo "Last commit date for $key: $last_commit_date"
+
+            if [ -n "$last_commit_date" ]; then
+              # Format the date as ISO 8601 (e.g., 2023-08-25T14:35:22Z)
+              formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
+              echo "  \"$key\": \"$formatted_date\"," >> last-updated.json
+            else
+              # Assign null or a default value if no commit date is found
               echo "  \"$key\": null," >> last-updated.json
             fi
           done
