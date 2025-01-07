@@ -5,6 +5,7 @@
 
 ## up next
 - add time to read indicator at the top of blog posts
+- add skeleton loading indicators on posts and logs pages
 - live dynamic clock in the nav that is ticking, displaying current time and which day of my life it is (11450:5:39:20)
 - update /log to include everything… statuses, posts, github commits, etc
 
