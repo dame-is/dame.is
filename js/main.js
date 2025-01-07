@@ -640,12 +640,18 @@ async function loadRecentPosts(cursor = null) {
                     let postUrl = '#'; // Default to '#' if URI not available
 
                     if (postUri) {
-                        // Assuming 'post.uri' follows the format 'did:plc:{actor}/app.bsky.feed.post/{postId}'
+                        // Assuming 'post.uri' follows the format 'at:did:plc:{actor}/app.bsky.feed.post/{postId}'
                         const uriParts = postUri.split('/');
                         if (uriParts.length >= 3) {
-                            const actor = uriParts[0]; // 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'
-                            const postId = uriParts[2]; // '3lf4kwmdac22u'
-                            postUrl = `https://bsky.app/profile/${encodeURIComponent(actor)}/post/${encodeURIComponent(postId)}`;
+                            let actor = uriParts[0]; // e.g., 'at:did:plc:gq4fo3u6tqzzdkjlwzpb23tj'
+                            const postId = uriParts[2]; // e.g., '3lf4kwmdac22u'
+
+                            // Remove the 'at:' prefix if present
+                            if (actor.startsWith('at:')) {
+                                actor = actor.substring(3); // 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'
+                            }
+
+                            postUrl = `https://bsky.app/profile/${actor}/post/${postId}`;
                         } else {
                             console.warn(`Unexpected post.uri format: ${postUri}`);
                         }
