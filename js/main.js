@@ -347,7 +347,7 @@ async function fetchLatestLogForNav() {
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
     const apiUrlCommits = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`;
-    const apiUrlLastUpdated = 'last-updated.json'; // Path to the JSON file
+    const apiUrlLastUpdated = '/last-updated.json'; // Absolute path
 
     try {
         // Fetch the latest tag
@@ -405,12 +405,21 @@ async function fetchFooterData() {
             path = path.slice(0, -1);
         }
 
-        // Extract the last part of the path
-        let pageKey = path.substring(path.lastIndexOf('/') + 1);
+        let pageKey = '';
 
-        // If path is empty, assume 'home'
-        if (pageKey === '') {
+        if (path.startsWith('/blog/')) {
+            // For blog post pages
+            const slug = path.split('/')[2];
+            pageKey = `blog/${slug}`;
+        } else if (path === '/blog') {
+            // For the main blog feed page
+            pageKey = 'blog';
+        } else if (path === '/') {
+            // For home page
             pageKey = 'home';
+        } else {
+            // For other pages like /about, /ethos, etc.
+            pageKey = path.substring(path.lastIndexOf('/') + 1);
         }
 
         // Get the last updated date for the current page from last-updated.json
