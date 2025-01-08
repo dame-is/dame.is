@@ -18,16 +18,55 @@ main {
 p {
     margin-top: 0px;
     margin-bottom: 16px;
+    font-size: 0.9em;
+}
+
+body.dark-mode p {
+    color: #cfcfcf;
+}
+
+a:visited {
+    color: #88C1FF;
+    text-decoration-color: #D4E9FF;
+}
+
+a {
+    color: #007BFF;
+    text-decoration-color: #88C1FF;
+}
+
+body.dark-mode a:visited {
+    color: #336294;
+    text-decoration-color: #1F4874;
+  }
+
+body.dark-mode a {
+    color: #007BFF;
+    text-decoration-color: #0061CB;
+}
+
+h1 {
+    font-size: 2em;
+    font-weight: bold;
 }
 
 h2 {
-    font-size: 1.3em;
+    font-size: 1.2em;
     margin-bottom: 10px;
     margin-top: 20px;
 }
 
+h3 {
+    font-size: 1.1em;
+    font-weight: normal;
+}
+
 ul {
     margin-top: 5px;
+}
+
+body.dark-mode ul {
+    color: #cfcfcf;
 }
 
 :root {
@@ -57,9 +96,10 @@ body.dark-mode nav {
 }
 
 body.dark-mode footer {
-    background-color: #000000;
+    background-color: var(--post-background-color);
     color: #ffffff;
-    border-color: #444;
+    border-bottom: 1px solid #7a7a7a36;
+    border-top: 1px solid #7a7a7a36;
 }
 
 /* === Navigation Sections === */
