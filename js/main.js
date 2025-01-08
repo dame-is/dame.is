@@ -245,11 +245,13 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'log':
                 initializeLogLoader();
                 break;
-            case 'skeet-tools':
-                initializeLogLoader();
-                break;
             case 'about':
+                loadMarkdownContent();
+                break;
             case 'ethos':
+                loadMarkdownContent();
+                break;
+            case 'skeet-tools':
                 loadMarkdownContent();
                 break;
             case 'blog':
