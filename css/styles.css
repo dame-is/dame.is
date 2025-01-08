@@ -203,31 +203,25 @@ body.dark-mode .nav-left a.nav-link:hover {
     font-size: 0.9em;
     color: #000000;
     transition: color 0.3s ease;
-    /* opacity: 50%; */
 }
 
 body.dark-mode #bluesky-stats {
     color: #fff;
 }
 
-#bluesky-stats > span {
-    margin-right: 1px; /* Spacing between each stat */
+body.dark-mode span.label {
+    color: #ffffffa8;
 }
 
 .stat {
     display: inline-flex;
     align-items: center;
-    margin-right: 15px; /* Adjust spacing between stats */
+    margin-right: 7px;
 }
 
 .count {
     font-weight: bold;
-    margin-right: 5px; /* Space between count and label */
-    /* Additional styling like color, font-size, etc. */
-}
-
-.label {
-    /* Styling for the label, e.g., color, font-size */
+    margin-right: 5px;
 }
 
 /* === Theme Toggle Styling === */
