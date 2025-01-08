@@ -46,6 +46,39 @@ function constructBlueskyPostUrl(postUri) {
     return `https://bsky.app/profile/${actor}/post/${postId}`;
 }
 
+// ----------------------------------
+// 18. FUNCTION: Process Outbound Links
+// ----------------------------------
+function processOutboundLinks() {
+    // Select all anchor tags with href attributes
+    const links = document.querySelectorAll('a[href]');
+    
+    links.forEach(link => {
+        const href = link.getAttribute('href');
+        let url;
+        
+        // Attempt to create a URL object; skip if invalid
+        try {
+            url = new URL(href, window.location.origin);
+        } catch (e) {
+            // Invalid URL (e.g., mailto:, tel:, or relative URLs that don't resolve)
+            return;
+        }
+
+        // Check if the link's hostname ends with any of the approved domains
+        const isInternal = approvedDomains.some(domain => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
+
+        if (!isInternal) {
+            // External link: open in new tab with security attributes
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        } else {
+            // Internal link: ensure it doesn't open in a new tab
+            link.removeAttribute('target');
+            link.removeAttribute('rel');
+        }
+    });
+}
 
 // ----------------------------------
 // 1. CONFIGURATION: Define Birthdate
@@ -1500,37 +1533,3 @@ const approvedDomains = [
     'dame.news',
     'dame.work'
 ];
-
-// ----------------------------------
-// 18. FUNCTION: Process Outbound Links
-// ----------------------------------
-function processOutboundLinks() {
-    // Select all anchor tags with href attributes
-    const links = document.querySelectorAll('a[href]');
-    
-    links.forEach(link => {
-        const href = link.getAttribute('href');
-        let url;
-        
-        // Attempt to create a URL object; skip if invalid
-        try {
-            url = new URL(href, window.location.origin);
-        } catch (e) {
-            // Invalid URL (e.g., mailto:, tel:, or relative URLs that don't resolve)
-            return;
-        }
-
-        // Check if the link's hostname ends with any of the approved domains
-        const isInternal = approvedDomains.some(domain => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
-
-        if (!isInternal) {
-            // External link: open in new tab with security attributes
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-        } else {
-            // Internal link: ensure it doesn't open in a new tab
-            link.removeAttribute('target');
-            link.removeAttribute('rel');
-        }
-    });
-}
