@@ -470,8 +470,8 @@ async function fetchFooterData() {
         } else if (path === '/blog') {
             // For the main blog feed page
             pageKey = 'blog';
-        } else if (path === '/') {
-            // For home page
+        } else if (path === '/' || path === '/index.html') {
+            // For home page, map to 'index' instead of 'home'
             pageKey = 'index';
         } else {
             // For other pages like /about, /ethos, etc.
