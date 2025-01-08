@@ -251,19 +251,42 @@ span.label {
     100% { transform: rotate(360deg); }
 }
 
+/* === Social Icon Styling === */
+
+a.nav-icon {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1.5em; /* Increased size for better visibility */
+    color: black;
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease, color 0.3s ease;
+    border-radius: 0px;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.nav-icon:hover {
+    transform: scale(1.1);
+    /* Optional: Change color on hover */
+    color: #007BFF;
+}
+
 /* === Theme Toggle Styling === */
 
 #theme-toggle {
     cursor: pointer;
     background: none;
     border: none;
-    font-size: 1.2em; /* Increased size for better visibility */
+    font-size: 1.5em; /* Increased size for better visibility */
     color: inherit; /* Inherit color from parent */
     display: flex;
     align-items: center;
     transition: transform 0.3s ease, color 0.3s ease;
-    padding: 5px;
+    margin-right: 10px;
     border-radius: 3px;
+    padding: 0px;
 }
 
 body.dark-mode #theme-toggle {
@@ -687,21 +710,10 @@ body.dark-mode .blog-post-excerpt {
         font-size: 0.9em;
     }
 
-    #theme-toggle {
-        font-size: 1em; /* Increased for better touch targets on small screens */
-    }
-
     .site-title-and-latest-log {
         display: inline;
         align-items: center;
         gap: 14px;
         font-size: 1.3em;
-    }
-}
-
-/* Responsive Design for Larger Screens */
-@media (min-width: 401px) {
-    #theme-toggle {
-        font-size: 1.2em; /* Maintain consistency */
     }
 }
