@@ -263,6 +263,33 @@ body.dark-mode .post-date {
     color: #aaa;
 }
 
+.embedded-quote {
+    border-left: 4px solid #ccc;
+    padding-left: 10px;
+    margin: 10px 0;
+    background-color: #f9f9f9;
+    font-style: italic;
+    position: relative;
+}
+
+.embedded-quote::before {
+    content: open-quote;
+    font-size: 2em;
+    position: absolute;
+    left: -10px;
+    top: -10px;
+    color: #ccc;
+}
+
+.embedded-quote::after {
+    content: close-quote;
+    font-size: 2em;
+    position: absolute;
+    right: -10px;
+    bottom: -10px;
+    color: #ccc;
+}
+
 /* === Post Counts Styling === */
 
 .post-counts {

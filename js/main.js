@@ -696,6 +696,33 @@ async function loadRecentPosts(cursor = null) {
                         });
                     }
 
+                    // === NEW: Handling Embedded Quotes ===
+                    if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
+                        const embeddedRecord = post.embed.record;
+                        if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
+                            const embeddedText = embeddedRecord.value.text || '';
+                            const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                            
+                            // Create a container for the embedded quote
+                            const quoteContainer = document.createElement('blockquote');
+                            quoteContainer.classList.add('embedded-quote'); // Add a class for styling
+
+                            // Create the quote text
+                            const quoteText = document.createElement('p');
+                            quoteText.textContent = embeddedText;
+                            quoteContainer.appendChild(quoteText);
+
+                            // Create the quote author
+                            const quoteAuthor = document.createElement('cite');
+                            quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
+                            quoteContainer.appendChild(quoteAuthor);
+
+                            // Append the quote container to the post
+                            postContainer.appendChild(quoteContainer);
+                        }
+                    }
+                    // === END OF EMBEDDED QUOTE HANDLING ===
+
                     // 3) Created At Date with Clickable Relative Timestamp
                     const postDateElem = document.createElement('p');
                     postDateElem.classList.add('post-date');
