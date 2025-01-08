@@ -277,6 +277,12 @@ body.dark-mode .post-date {
     padding-right: 12px;
 }
 
+body.dark-mode .embedded-quote {
+    border-left: 4px solid #9a9a9a;
+    background-color: #4c4c4c;
+    color: #cfcfcf;
+}
+
 /* === Post Counts Styling === */
 
 .post-counts {
