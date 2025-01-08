@@ -245,6 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'log':
                 initializeLogLoader();
                 break;
+            case 'skeet-tools':
+                initializeLogLoader();
+                break;
             case 'about':
             case 'ethos':
                 loadMarkdownContent();
