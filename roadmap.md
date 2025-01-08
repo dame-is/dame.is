@@ -3,6 +3,7 @@
 ## in progress
 
 ## up next
+- separate “posts” from “replies” in the nav’s bluesky metrics
 - fix flash of white that happens when switching pages while in dark mode
 - add support for post replies, quote posts, and links in posts
 - restructure page URLs and sitemap to follow the gerund framing (dame.is/blogging, dame.is/posting, dame.is/logging, etc)
