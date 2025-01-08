@@ -942,7 +942,7 @@ function initializeLogLoader() {
     console.log('Initializing Log Loader');
 
     let currentLogCursor = null;
-    const LOGS_PER_BATCH = 20;
+    const LOGS_PER_BATCH = 50;
     let isLoadingLogs = false;
 
     // Helper Function: Format Log Date
