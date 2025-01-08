@@ -274,7 +274,8 @@ body.dark-mode .post-date {
     padding-bottom: 10px;
     border-radius: 5px;
     color: #6b6b6b;
-  }
+    padding-right: 12px;
+}
 
 /* === Post Counts Styling === */
 
