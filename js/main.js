@@ -848,6 +848,9 @@ async function loadRecentPosts(cursor = null) {
             });
         }
 
+        // **New: Process outbound links after all posts are loaded**
+        processOutboundLinks();
+
         // If there are no more posts to load, hide the "See More Posts" button
         if (!currentBatchCursor) {
             const seeMoreButton = document.getElementById('see-more-posts');
@@ -879,18 +882,32 @@ function loadMorePosts() {
 }
 
 // ----------------------------------
-// 13. LOAD MARKDOWN (ABOUT, ETHOS)
+// 13. LOAD MARKDOWN (DYNAMICALLY HANDLING ANY PAGE)
 // ----------------------------------
 async function loadMarkdownContent() {
     try {
         await markedLoadPromise;
-        const path = window.location.pathname.endsWith('/about') ? 'about.md' : 'ethos.md';
-        const response = await fetch(path);
-        if (!response.ok) throw new Error('Network response was not ok');
+
+        // Get the current pathname and extract the last segment
+        const pathname = window.location.pathname;
+        const pageName = pathname.substring(pathname.lastIndexOf('/') + 1) || 'index'; // Default to 'index' if pathname ends with '/'
+
+        // Remove the file extension if present (e.g., 'about.html' -> 'about')
+        const baseName = pageName.includes('.') ? pageName.substring(0, pageName.lastIndexOf('.')) : pageName;
+
+        // Construct the markdown file path
+        const markdownFile = `${baseName}.md`;
+
+        // Fetch the markdown file
+        const response = await fetch(markdownFile);
+        if (!response.ok) throw new Error(`Failed to load ${markdownFile}: ${response.statusText}`);
+
+        // Parse and insert the markdown content
         const markdown = await response.text();
         const htmlContent = marked.parse(markdown);
-        const contentElementId = `${path.split('.')[0]}-content`;
+        const contentElementId = `${baseName}-content`;
         const contentElement = document.getElementById(contentElementId);
+
         if (contentElement) {
             contentElement.innerHTML = htmlContent;
         } else {
@@ -900,6 +917,7 @@ async function loadMarkdownContent() {
         console.error('Error loading Markdown content:', error);
     }
 }
+
 
 // ----------------------------------
 // 14. ACTIVE NAV LINK
@@ -1089,6 +1107,9 @@ function initializeLogLoader() {
                     }
                 });
             }
+
+            // **New: Process outbound links after all logs are loaded**
+            processOutboundLinks();
 
             // If there are no more logs to load, hide the "See More Logs" button
             if (!currentLogCursor) {
@@ -1356,4 +1377,49 @@ function formatPostDate(date) {
         const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
         return `Posted at ${formattedTime} on Day ${dayOfLife}`;
     }
+}
+
+// ----------------------------------
+// 17. CONFIGURATION: Define Approved Domains
+// ----------------------------------
+const approvedDomains = [
+    'dame.is',
+    'dame.art',
+    'dame.contact',
+    'dame.news',
+    'dame.work'
+];
+
+// ----------------------------------
+// 18. FUNCTION: Process Outbound Links
+// ----------------------------------
+function processOutboundLinks() {
+    // Select all anchor tags with href attributes
+    const links = document.querySelectorAll('a[href]');
+    
+    links.forEach(link => {
+        const href = link.getAttribute('href');
+        let url;
+        
+        // Attempt to create a URL object; skip if invalid
+        try {
+            url = new URL(href, window.location.origin);
+        } catch (e) {
+            // Invalid URL (e.g., mailto:, tel:, or relative URLs that don't resolve)
+            return;
+        }
+
+        // Check if the link's hostname ends with any of the approved domains
+        const isInternal = approvedDomains.some(domain => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
+
+        if (!isInternal) {
+            // External link: open in new tab with security attributes
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        } else {
+            // Internal link: ensure it doesn't open in a new tab
+            link.removeAttribute('target');
+            link.removeAttribute('rel');
+        }
+    });
 }
