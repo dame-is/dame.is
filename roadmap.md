@@ -12,6 +12,7 @@
 - live dynamic clock in the nav that is ticking, displaying current time and which day of my life it is (11450:5:39:20)
 - update /log to include everything… statuses, posts, github commits
 - add RSS feed to blog
+- add automatic dark mode detection
 
 ## eventually
 - personal dame.is lexicons on my atproto PDS for various data… statuses, mood, exercise, water/food, health data, etc.
