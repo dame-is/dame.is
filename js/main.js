@@ -472,7 +472,7 @@ async function fetchFooterData() {
             pageKey = 'blog';
         } else if (path === '/') {
             // For home page
-            pageKey = 'home';
+            pageKey = 'index';
         } else {
             // For other pages like /about, /ethos, etc.
             pageKey = path.substring(path.lastIndexOf('/') + 1);
