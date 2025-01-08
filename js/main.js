@@ -429,9 +429,11 @@ async function fetchFooterData() {
 
     try {
         // Fetch the latest tag
+        console.log('Fetching GitHub tags...');
         const responseTags = await fetch(apiUrlTags);
         if (!responseTags.ok) throw new Error(`GitHub Tags API error: ${responseTags.status}`);
         const tagsData = await responseTags.json();
+        console.log('Fetched tags:', tagsData);
 
         let version = 'No Tags';
         let lastUpdated = 'N/A';
@@ -441,6 +443,7 @@ async function fetchFooterData() {
             version = tagsData[0].name;
             const commitSha = tagsData[0].commit.sha;
             const apiUrlTagCommit = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${commitSha}`;
+            console.log(`Fetching commit data for tag SHA: ${commitSha}`);
             const responseTagCommit = await fetch(apiUrlTagCommit);
             if (responseTagCommit.ok) {
                 const tagCommitData = await responseTagCommit.json();
@@ -452,9 +455,11 @@ async function fetchFooterData() {
                     hour: '2-digit',
                     minute: '2-digit',
                 });
+                console.log(`Tag commit date: ${lastUpdated}`);
             }
         } else {
             // If no tags exist, fallback to the latest commit
+            console.log('No tags found. Fetching latest commit...');
             const responseCommits = await fetch(apiUrlCommits);
             if (!responseCommits.ok) throw new Error(`GitHub Commits API error: ${responseCommits.status}`);
             const commitsData = await responseCommits.json();
@@ -468,12 +473,15 @@ async function fetchFooterData() {
                 hour: '2-digit',
                 minute: '2-digit',
             });
+            console.log(`Latest commit date: ${lastUpdated}`);
         }
 
         // Fetch last-updated.json
+        console.log('Fetching last-updated.json...');
         const responseLastUpdated = await fetch(apiUrlLastUpdated);
         if (!responseLastUpdated.ok) throw new Error(`Failed to fetch last-updated.json: ${responseLastUpdated.status}`);
         const lastUpdatedData = await responseLastUpdated.json();
+        console.log('Fetched last-updated.json:', lastUpdatedData);
 
         // Determine the current page key based on the URL
         let path = window.location.pathname;
@@ -493,19 +501,26 @@ async function fetchFooterData() {
             // For the main blog feed page
             pageKey = 'blog';
         } else if (path === '/' || path === '/index.html') {
-            // For home page, map to 'index' instead of 'home'
+            // For home page, map to 'index' to match last-updated.json
             pageKey = 'index';
         } else {
             // For other pages like /about, /ethos, etc.
-            pageKey = path.substring(path.lastIndexOf('/') + 1);
+            pageKey = path.substring(path.lastIndexOf('/') + 1).split('.')[0];
         }
+
+        console.log(`Current path: ${path}`);
+        console.log(`Determined pageKey: ${pageKey}`);
 
         // Get the last updated date for the current page from last-updated.json
         const pageLastUpdatedISO = lastUpdatedData[pageKey];
+        console.log(`Fetched last updated ISO for "${pageKey}": ${pageLastUpdatedISO}`);
         let pageLastUpdated = 'N/A';
-        if (pageLastUpdatedISO) {
+        if (pageLastUpdatedISO && pageLastUpdatedISO !== 'null') {
             const date = new Date(pageLastUpdatedISO);
             pageLastUpdated = formatDateHumanReadable(date);
+            console.log(`Formatted Last Updated Date: ${pageLastUpdated}`);
+        } else {
+            console.log(`No valid last updated date found for "${pageKey}".`);
         }
 
         // Update the footer elements
@@ -514,12 +529,14 @@ async function fetchFooterData() {
 
         if (versionElement) {
             versionElement.textContent = version;
+            console.log(`Updated version element: ${version}`);
         } else {
             console.warn('Element with ID "version" not found in footer.');
         }
 
         if (lastUpdatedElement) {
             lastUpdatedElement.textContent = pageLastUpdated;
+            console.log(`Updated last-updated element: ${pageLastUpdated}`);
         } else {
             console.warn('Element with ID "last-updated" not found in footer.');
         }
