@@ -423,6 +423,10 @@ body.dark-mode .post-counts .count-item i {
     box-sizing: border-box;
 }
 
+body.dark-mode .log-container {
+    border: 1px solid #545454;
+}
+
 pre#log-entries.log-container {
     padding: 0px;
     margin: 0px;
@@ -440,6 +444,10 @@ pre#log-entries.log-container {
     word-wrap: break-word;
     white-space: pre-wrap;
     text-align: center;
+}
+
+body.dark-mode .log-date-header {
+    border-bottom: 1px solid #545454;
 }
 
 .log-entry {
