@@ -487,8 +487,8 @@ async function fetchFooterData() {
         // Determine the current page key based on the URL
         let path = window.location.pathname;
 
-        // Remove trailing slash if present
-        if (path.endsWith('/')) {
+        // Remove trailing slash if present and path is not '/'
+        if (path.endsWith('/') && path !== '/') {
             path = path.slice(0, -1);
         }
 
