@@ -216,33 +216,55 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize page-specific features based on the current URL
         const path = window.location.pathname;
         const pathParts = path.split('/').filter(part => part !== '');
-        const page = path === '/' ? 'home' : (pathParts.length > 0 ? pathParts[pathParts.length - 1].split('.')[0] : '');
-
-        if (page === 'home') {
-            initializePostLoader();
-        }
-
-        if (page === 'log') {
-            initializeLogLoader();
-        }
-
-        if (page === 'about' || page === 'ethos') {
-            loadMarkdownContent();
-        }
-
-        if (page === 'blog') {
-            initializeBlogFeed();
-        }
-
-        // Handle dynamic blog post slugs like /blog/my-post-slug
-        if (path.startsWith('/blog/') && pathParts.length > 1) {
+        
+        // Determine the current page key based on the URL
+        let pageKey = '';
+        
+        if (path === '/' || path === '/index.html') {
+            // For home page, map to 'index' to match last-updated.json
+            pageKey = 'index';
+        } else if (path.startsWith('/blog/')) {
+            // For dynamic blog post pages like /blog/my-post-slug
             const slug = pathParts[1];
-            initializeBlogPost(slug);
+            pageKey = `blog/${slug}`;
+        } else if (path === '/blog') {
+            // For the main blog feed page
+            pageKey = 'blog';
+        } else {
+            // For other static pages like /about, /ethos, etc.
+            // Extract the page name without extension
+            const lastSegment = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '';
+            pageKey = lastSegment.split('.')[0];
         }
-
-        // Optionally, handle 404 pages or other dynamic routes
+        
+        // Initialize page-specific features based on the determined pageKey
+        switch (pageKey) {
+            case 'index':
+                initializePostLoader();
+                break;
+            case 'log':
+                initializeLogLoader();
+                break;
+            case 'about':
+            case 'ethos':
+                loadMarkdownContent();
+                break;
+            case 'blog':
+                initializeBlogFeed();
+                break;
+            default:
+                if (path.startsWith('/blog/') && pathParts.length > 1) {
+                    const slug = pathParts[1];
+                    initializeBlogPost(slug);
+                }
+                // Optionally, handle 404 pages or other dynamic routes here
+                break;
+        }
+    }).catch(error => {
+        console.error('Error loading components:', error);
     });
 });
+
 
 
 // ----------------------------------
