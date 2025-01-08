@@ -205,12 +205,22 @@ body.dark-mode .nav-left a.nav-link:hover {
     transition: color 0.3s ease;
 }
 
+@media (max-width: 450px) {
+    #bluesky-stats {
+        max-width: 250px;
+    }
+}
+
 body.dark-mode #bluesky-stats {
     color: #fff;
 }
 
 body.dark-mode span.label {
     color: #ffffffa8;
+}
+
+span.label {
+    opacity: 75%;
 }
 
 .stat {
@@ -224,6 +234,7 @@ body.dark-mode span.label {
     margin-right: 5px;
 }
 
+/* Spinner styles */
 .spinner {
     border: 2px solid #f3f3f3; /* Light gray */
     border-top: 2px solid #3498db; /* Blue */
@@ -240,19 +251,42 @@ body.dark-mode span.label {
     100% { transform: rotate(360deg); }
 }
 
+/* === Social Icon Styling === */
+
+a.nav-icon {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1.5em; /* Increased size for better visibility */
+    color: black;
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease, color 0.3s ease;
+    border-radius: 0px;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.nav-icon:hover {
+    transform: scale(1.1);
+    /* Optional: Change color on hover */
+    color: #007BFF;
+}
+
 /* === Theme Toggle Styling === */
 
 #theme-toggle {
     cursor: pointer;
     background: none;
     border: none;
-    font-size: 1.2em; /* Increased size for better visibility */
+    font-size: 1.5em; /* Increased size for better visibility */
     color: inherit; /* Inherit color from parent */
     display: flex;
     align-items: center;
     transition: transform 0.3s ease, color 0.3s ease;
-    padding: 5px;
+    margin-right: 10px;
     border-radius: 3px;
+    padding: 0px;
 }
 
 body.dark-mode #theme-toggle {
@@ -673,11 +707,7 @@ body.dark-mode .blog-post-excerpt {
 
     /* Adjust font sizes or spacing for stats if needed */
     #bluesky-stats {
-        font-size: 0.75em;
-    }
-
-    #theme-toggle {
-        font-size: 1em; /* Increased for better touch targets on small screens */
+        font-size: 0.9em;
     }
 
     .site-title-and-latest-log {
@@ -685,12 +715,5 @@ body.dark-mode .blog-post-excerpt {
         align-items: center;
         gap: 14px;
         font-size: 1.3em;
-    }
-}
-
-/* Responsive Design for Larger Screens */
-@media (min-width: 401px) {
-    #theme-toggle {
-        font-size: 1.2em; /* Maintain consistency */
     }
 }
