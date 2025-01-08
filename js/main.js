@@ -354,6 +354,7 @@ async function fetchBlueskyStats() {
         const loadingElem = document.getElementById('bluesky-stats-loading');
         const statsElem = document.getElementById('bluesky-stats');
         if (loadingElem) {
+            console.log('Showing loading indicator');
             loadingElem.style.display = 'inline';
         }
         if (statsElem) {
@@ -361,6 +362,7 @@ async function fetchBlueskyStats() {
         }
 
         // Fetch Profile Data (Followers and Following)
+        console.log('Fetching profile data...');
         const profileResponse = await fetch(profileApiUrl);
         if (!profileResponse.ok) throw new Error(`Profile API error: ${profileResponse.status}`);
         const profileData = await profileResponse.json();
@@ -368,9 +370,11 @@ async function fetchBlueskyStats() {
         if (profileData) {
             followersCount = profileData.followersCount || 0;
             followingCount = profileData.followsCount || 0;
+            console.log(`Followers: ${followersCount}, Following: ${followingCount}`);
         }
 
         // Fetch Posts and Replies Counts
+        console.log('Fetching feed data...');
         // Using filter 'posts_with_replies' to get both posts and replies
         const limit = 100; // Maximum allowed per request
         let cursor = null;
@@ -382,6 +386,7 @@ async function fetchBlueskyStats() {
                 feedApiUrl += `&cursor=${encodeURIComponent(cursor)}`;
             }
 
+            console.log(`Fetching feed: ${feedApiUrl}`);
             const feedResponse = await fetch(feedApiUrl);
             if (!feedResponse.ok) throw new Error(`Feed API error: ${feedResponse.status}`);
             const feedData = await feedResponse.json();
@@ -398,13 +403,16 @@ async function fetchBlueskyStats() {
                         }
                     }
                 });
+                console.log(`Current counts - Posts: ${postsCount}, Replies: ${repliesCount}`);
             }
 
             // Check if there's a cursor for the next batch
             if (feedData.cursor) {
                 cursor = feedData.cursor;
+                console.log(`Next cursor: ${cursor}`);
             } else {
                 hasMore = false;
+                console.log('No more feed data to fetch.');
             }
 
             // Optional: Break the loop to prevent excessive API calls (e.g., max 1000 posts)
@@ -417,7 +425,7 @@ async function fetchBlueskyStats() {
             */
         }
 
-        // Update the counts in the DOM
+        // Update the counts in the DOM individually
         const followersElem = document.getElementById('followers');
         const followingElem = document.getElementById('following');
         const postsElem = document.getElementById('posts');
@@ -425,15 +433,19 @@ async function fetchBlueskyStats() {
 
         if (followersElem) {
             followersElem.textContent = followersCount;
+            console.log(`Updated followers: ${followersCount}`);
         }
         if (followingElem) {
             followingElem.textContent = followingCount;
+            console.log(`Updated following: ${followingCount}`);
         }
         if (postsElem) {
             postsElem.textContent = postsCount;
+            console.log(`Updated posts: ${postsCount}`);
         }
         if (repliesElem) {
             repliesElem.textContent = repliesCount;
+            console.log(`Updated replies: ${repliesCount}`);
         }
 
     } catch (error) {
@@ -447,21 +459,26 @@ async function fetchBlueskyStats() {
 
         if (followersElem) {
             followersElem.textContent = '0';
+            console.log('Set followers to 0 due to error.');
         }
         if (followingElem) {
             followingElem.textContent = '0';
+            console.log('Set following to 0 due to error.');
         }
         if (postsElem) {
             postsElem.textContent = '0';
+            console.log('Set posts to 0 due to error.');
         }
         if (repliesElem) {
             repliesElem.textContent = '0';
+            console.log('Set replies to 0 due to error.');
         }
     } finally {
         // Hide loading indicator and show stats
         const loadingElem = document.getElementById('bluesky-stats-loading');
         const statsElem = document.getElementById('bluesky-stats');
         if (loadingElem) {
+            console.log('Hiding loading indicator');
             loadingElem.style.display = 'none';
         }
         if (statsElem) {
@@ -469,6 +486,7 @@ async function fetchBlueskyStats() {
         }
     }
 }
+
 
 // ----------------------------------
 // 10. FETCH LATEST LOG FOR NAV

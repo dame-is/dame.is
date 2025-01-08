@@ -205,12 +205,22 @@ body.dark-mode .nav-left a.nav-link:hover {
     transition: color 0.3s ease;
 }
 
+@media (max-width: 450px) {
+    #bluesky-stats {
+        max-width: 250px;
+    }
+}
+
 body.dark-mode #bluesky-stats {
     color: #fff;
 }
 
 body.dark-mode span.label {
     color: #ffffffa8;
+}
+
+span.label {
+    opacity: 75%;
 }
 
 .stat {
@@ -674,7 +684,7 @@ body.dark-mode .blog-post-excerpt {
 
     /* Adjust font sizes or spacing for stats if needed */
     #bluesky-stats {
-        font-size: 0.75em;
+        font-size: 0.9em;
     }
 
     #theme-toggle {
