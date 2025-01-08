@@ -214,6 +214,22 @@ body.dark-mode #bluesky-stats {
     margin-right: 1px; /* Spacing between each stat */
 }
 
+.stat {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 15px; /* Adjust spacing between stats */
+}
+
+.count {
+    font-weight: bold;
+    margin-right: 5px; /* Space between count and label */
+    /* Additional styling like color, font-size, etc. */
+}
+
+.label {
+    /* Styling for the label, e.g., color, font-size */
+}
+
 /* === Theme Toggle Styling === */
 
 #theme-toggle {

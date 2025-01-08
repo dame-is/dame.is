@@ -336,7 +336,7 @@ function updateThemeIcon() {
 }
 
 // ----------------------------------
-// 9. FETCH BLUESKY STATS
+// 9. FETCH BLUESKY STATS (UPDATED)
 // ----------------------------------
 async function fetchBlueskyStats() {
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
@@ -346,25 +346,54 @@ async function fetchBlueskyStats() {
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
         const data = await response.json();
-        if (data) {
-            const followersElem = document.getElementById('followers');
-            const followingElem = document.getElementById('following');
-            const postsElem = document.getElementById('posts');
 
-            if (followersElem) {
-                followersElem.textContent = data.followersCount || '0';
-            }
-            if (followingElem) {
-                followingElem.textContent = data.followsCount || '0';
-            }
-            if (postsElem) {
-                postsElem.textContent = data.postsCount || '0';
+        if (data) {
+            const blueskyStatsElem = document.getElementById('bluesky-stats');
+
+            if (blueskyStatsElem) {
+                // Update the innerHTML with the new structure
+                blueskyStatsElem.innerHTML = `
+                    <span class="stat">
+                        <span class="count" id="followers">${data.followersCount || '0'}</span>
+                        <span class="label">followers</span>
+                    </span>
+                    <span class="stat">
+                        <span class="count" id="following">${data.followsCount || '0'}</span>
+                        <span class="label">following</span>
+                    </span>
+                    <span class="stat">
+                        <span class="count" id="posts">${data.postsCount || '0'}</span>
+                        <span class="label">posts</span>
+                    </span>
+                `;
+            } else {
+                console.warn('Element with ID "bluesky-stats" not found.');
             }
         }
     } catch (error) {
         console.error('Error fetching Bluesky stats:', error);
+
+        // Optional: Handle the error by setting default values or hiding the stats
+        const blueskyStatsElem = document.getElementById('bluesky-stats');
+        if (blueskyStatsElem) {
+            blueskyStatsElem.innerHTML = `
+                <span class="stat">
+                    <span class="count">0</span>
+                    <span class="label">followers</span>
+                </span>
+                <span class="stat">
+                    <span class="count">0</span>
+                    <span class="label">following</span>
+                </span>
+                <span class="stat">
+                    <span class="count">0</span>
+                    <span class="label">posts</span>
+                </span>
+            `;
+        }
     }
 }
+
 
 // ----------------------------------
 // 10. FETCH LATEST LOG FOR NAV
