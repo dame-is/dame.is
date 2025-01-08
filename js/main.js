@@ -335,6 +335,9 @@ function updateThemeIcon() {
     }
 }
 
+// ----------------------------------
+// 9. FETCH BLUESKY STATS (UPDATED)
+// ----------------------------------
 async function fetchBlueskyStats() {
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
     const profileApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
@@ -347,10 +350,14 @@ async function fetchBlueskyStats() {
     let repliesCount = 0;
 
     try {
-        // Show loading indicator
+        // Show loading indicator and hide stats
         const loadingElem = document.getElementById('bluesky-stats-loading');
+        const statsElem = document.getElementById('bluesky-stats');
         if (loadingElem) {
             loadingElem.style.display = 'inline';
+        }
+        if (statsElem) {
+            statsElem.style.display = 'none';
         }
 
         // Fetch Profile Data (Followers and Following)
@@ -410,67 +417,58 @@ async function fetchBlueskyStats() {
             */
         }
 
-        // Update the innerHTML with the new structure
-        const blueskyStatsElem = document.getElementById('bluesky-stats');
+        // Update the counts in the DOM
+        const followersElem = document.getElementById('followers');
+        const followingElem = document.getElementById('following');
+        const postsElem = document.getElementById('posts');
+        const repliesElem = document.getElementById('replies');
 
-        if (blueskyStatsElem) {
-            blueskyStatsElem.innerHTML = `
-                <span class="stat">
-                    <span class="count" id="followers">${followersCount}</span>
-                    <span class="label">followers</span>
-                </span>
-                <span class="stat">
-                    <span class="count" id="following">${followingCount}</span>
-                    <span class="label">following</span>
-                </span>
-                <span class="stat">
-                    <span class="count" id="posts">${postsCount}</span>
-                    <span class="label">posts</span>
-                </span>
-                <span class="stat">
-                    <span class="count" id="replies">${repliesCount}</span>
-                    <span class="label">replies</span>
-                </span>
-            `;
-        } else {
-            console.warn('Element with ID "bluesky-stats" not found.');
+        if (followersElem) {
+            followersElem.textContent = followersCount;
         }
+        if (followingElem) {
+            followingElem.textContent = followingCount;
+        }
+        if (postsElem) {
+            postsElem.textContent = postsCount;
+        }
+        if (repliesElem) {
+            repliesElem.textContent = repliesCount;
+        }
+
     } catch (error) {
         console.error('Error fetching Bluesky stats:', error);
 
         // Optional: Handle the error by setting default values or hiding the stats
-        const blueskyStatsElem = document.getElementById('bluesky-stats');
-        if (blueskyStatsElem) {
-            blueskyStatsElem.innerHTML = `
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">followers</span>
-                </span>
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">following</span>
-                </span>
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">posts</span>
-                </span>
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">replies</span>
-                </span>
-            `;
+        const followersElem = document.getElementById('followers');
+        const followingElem = document.getElementById('following');
+        const postsElem = document.getElementById('posts');
+        const repliesElem = document.getElementById('replies');
+
+        if (followersElem) {
+            followersElem.textContent = '0';
+        }
+        if (followingElem) {
+            followingElem.textContent = '0';
+        }
+        if (postsElem) {
+            postsElem.textContent = '0';
+        }
+        if (repliesElem) {
+            repliesElem.textContent = '0';
         }
     } finally {
-        // Hide loading indicator
+        // Hide loading indicator and show stats
         const loadingElem = document.getElementById('bluesky-stats-loading');
+        const statsElem = document.getElementById('bluesky-stats');
         if (loadingElem) {
             loadingElem.style.display = 'none';
         }
+        if (statsElem) {
+            statsElem.style.display = 'inline';
+        }
     }
 }
-
-
-
 
 // ----------------------------------
 // 10. FETCH LATEST LOG FOR NAV
