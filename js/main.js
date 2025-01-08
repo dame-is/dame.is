@@ -335,9 +335,6 @@ function updateThemeIcon() {
     }
 }
 
-// ----------------------------------
-// 9. FETCH BLUESKY STATS (UPDATED)
-// ----------------------------------
 async function fetchBlueskyStats() {
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
     const profileApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
@@ -350,6 +347,12 @@ async function fetchBlueskyStats() {
     let repliesCount = 0;
 
     try {
+        // Show loading indicator
+        const loadingElem = document.getElementById('bluesky-stats-loading');
+        if (loadingElem) {
+            loadingElem.style.display = 'inline';
+        }
+
         // Fetch Profile Data (Followers and Following)
         const profileResponse = await fetch(profileApiUrl);
         if (!profileResponse.ok) throw new Error(`Profile API error: ${profileResponse.status}`);
@@ -380,7 +383,7 @@ async function fetchBlueskyStats() {
                 feedData.feed.forEach(item => {
                     if (item.post && item.post.record) {
                         // Determine if the post is a reply
-                        // Assuming that replies have a 'replyTo' field in their record
+                        // Adjust this condition based on the actual API response structure
                         if (item.post.record.reply) {
                             repliesCount += 1;
                         } else {
@@ -457,8 +460,15 @@ async function fetchBlueskyStats() {
                 </span>
             `;
         }
+    } finally {
+        // Hide loading indicator
+        const loadingElem = document.getElementById('bluesky-stats-loading');
+        if (loadingElem) {
+            loadingElem.style.display = 'none';
+        }
     }
 }
+
 
 
 
