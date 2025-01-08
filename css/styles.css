@@ -142,6 +142,10 @@ body.dark-mode footer {
 
 /* === Navigation Links === */
 
+body.dark-mode nav a:visited {
+    color: white;
+}
+
 .nav-left a.nav-link {
     text-decoration: none;
     color: inherit;
