@@ -476,9 +476,10 @@ async function fetchFooterData() {
             console.log(`Latest commit date: ${lastUpdated}`);
         }
 
-        // Fetch last-updated.json
-        console.log('Fetching last-updated.json...');
-        const responseLastUpdated = await fetch(apiUrlLastUpdated);
+        // Fetch last-updated.json with cache busting
+        const timestamp = new Date().getTime();
+        console.log('Fetching last-updated.json with cache busting:', `${apiUrlLastUpdated}?v=${timestamp}`);
+        const responseLastUpdated = await fetch(`${apiUrlLastUpdated}?v=${timestamp}`);
         if (!responseLastUpdated.ok) throw new Error(`Failed to fetch last-updated.json: ${responseLastUpdated.status}`);
         const lastUpdatedData = await responseLastUpdated.json();
         console.log('Fetched last-updated.json:', lastUpdatedData);
