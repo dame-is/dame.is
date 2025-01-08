@@ -1451,6 +1451,10 @@ async function initializeBlogPost(slug) {
         // Inject the HTML content into the page
         const postContent = document.getElementById('post-content');
         postContent.innerHTML = htmlContent;
+
+        // **Invoke processOutboundLinks after inserting the HTML**
+        processOutboundLinks();
+        
     } catch (error) {
         console.error('Error loading blog post:', error);
         const postContent = document.getElementById('post-content');
