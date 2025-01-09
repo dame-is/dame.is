@@ -697,6 +697,34 @@ function initializePostLoader() {
     console.log('"See More Posts" button created and appended.');
 }
 
+/**
+ * Converts byte indices to character indices.
+ * Assumes UTF-8 encoding.
+ * @param {string} str - The input string.
+ * @param {number} byteIndex - The byte index.
+ * @returns {number} - The corresponding character index.
+ */
+function byteToCharIndex(str, byteIndex) {
+    let charIndex = 0;
+    let bytesCount = 0;
+    for (let i = 0; i < str.length; i++) {
+        const code = str.charCodeAt(i);
+        let byteLength = 1;
+        if (code > 0x7F) {
+            // Simple approximation for UTF-8 encoding
+            if (code <= 0x7FF) byteLength = 2;
+            else if (code <= 0xFFFF) byteLength = 3;
+            else byteLength = 4;
+        }
+        if (bytesCount + byteLength > byteIndex) {
+            break;
+        }
+        bytesCount += byteLength;
+        charIndex++;
+    }
+    return charIndex;
+}
+
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
@@ -807,11 +835,15 @@ async function loadRecentPosts(cursor = null) {
                     facet.features.forEach(feature => {
                         if (feature['$type'] === 'app.bsky.richtext.facet#link') {
                             const uri = feature.uri;
-                            const start = facet.index.byteStart;
-                            const end = facet.index.byteEnd;
+                            const startByte = facet.index.byteStart;
+                            const endByte = facet.index.byteEnd;
+
+                            // Convert byte indices to character indices
+                            const startChar = byteToCharIndex(text, startByte);
+                            const endChar = byteToCharIndex(text, endByte);
 
                             // Append text before the link
-                            const beforeText = text.slice(lastIndex, start);
+                            const beforeText = text.slice(lastIndex, startChar);
                             if (beforeText) {
                                 fragment.appendChild(document.createTextNode(beforeText));
                             }
@@ -825,7 +857,7 @@ async function loadRecentPosts(cursor = null) {
                             a.rel = 'noopener noreferrer'; // Security best practices
                             fragment.appendChild(a);
 
-                            lastIndex = end;
+                            lastIndex = endChar;
                         }
                     });
                 }
@@ -879,16 +911,19 @@ async function loadRecentPosts(cursor = null) {
                             const p = document.createElement('p');
 
                             // Calculate the byteStart and byteEnd for the paragraph
-                            const paragraphStart = postText.indexOf(paragraph, lastIndex);
+                            // Remove 'lastIndex' as it's undefined
+                            const paragraphStart = postText.indexOf(paragraph);
                             const paragraphText = paragraph.replace(/\n/g, ' ');
 
                             // Extract facets that fall within this paragraph
+                            // Adjust facet indices relative to the paragraph
+                            const paraStartByte = byteToCharIndex(postText, paragraphStart);
+                            const paraEndByte = paraStartByte + paragraphText.length; // Approximation
+
                             const paragraphFacets = postFacets.filter(facet => {
                                 const facetStart = facet.index.byteStart;
                                 const facetEnd = facet.index.byteEnd;
-                                const paraStart = postText.indexOf(paragraph);
-                                const paraEnd = paraStart + paragraph.length;
-                                return facetStart >= paraStart && facetEnd <= paraEnd;
+                                return facetStart >= paraStartByte && facetEnd <= paraEndByte;
                             });
 
                             // Parse the paragraph text with its facets
