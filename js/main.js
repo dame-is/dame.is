@@ -697,6 +697,124 @@ function initializePostLoader() {
     console.log('"See More Posts" button created and appended.');
 }
 
+/**
+ * Creates a mapping of character indices to cumulative byte counts.
+ * @param {string} str - The input string.
+ * @returns {Array} - An array where index i represents the cumulative bytes up to character i.
+ */
+function createByteMap(str) {
+    const encoder = new TextEncoder();
+    const byteMap = [0];
+    for (let i = 0; i < str.length; i++) {
+        const codePoint = str.codePointAt(i);
+        const codePointLength = codePoint > 0xFFFF ? 2 : 1; // Handle surrogate pairs
+        const substring = str.substring(i, i + codePointLength);
+        const encoded = encoder.encode(substring);
+        byteMap.push(byteMap[byteMap.length - 1] + encoded.length);
+        if (codePointLength === 2) {
+            i++; // Skip the next code unit as it's part of a surrogate pair
+        }
+    }
+    return byteMap;
+}
+
+/**
+ * Converts a byte index to a character index using the byteMap.
+ * @param {Array} byteMap - The cumulative byte count array.
+ * @param {number} byteIndex - The byte index.
+ * @returns {number} - The corresponding character index.
+ */
+function byteToCharIndex(byteMap, byteIndex) {
+    for (let i = 0; i < byteMap.length; i++) {
+        if (byteMap[i] > byteIndex) {
+            return i - 1;
+        }
+    }
+    return byteMap.length - 1;
+}
+
+/**
+ * Appends text to a DocumentFragment, converting \n to <br> elements.
+ * @param {DocumentFragment} fragment - The fragment to append to.
+ * @param {string} text - The text containing \n for line breaks.
+ */
+function appendTextWithLineBreaks(fragment, text) {
+    const lines = text.split('\n');
+    lines.forEach((line, index) => {
+        if (line) {
+            fragment.appendChild(document.createTextNode(line));
+        }
+        if (index < lines.length - 1) {
+            fragment.appendChild(document.createElement('br'));
+        }
+    });
+}
+
+/**
+ * Parses the entire text with facets, replacing link facets with clickable links.
+ * Also preserves line breaks by converting \n to <br>.
+ * @param {string} text - The original post text.
+ * @param {Array} facets - The facets associated with the post.
+ * @returns {DocumentFragment} - The parsed text with clickable links and preserved line breaks.
+ */
+function parseTextWithFacets(text, facets) {
+    if (!facets || facets.length === 0) {
+        const fragment = document.createDocumentFragment();
+        appendTextWithLineBreaks(fragment, text);
+        return fragment;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const byteMap = createByteMap(text);
+    let lastCharIndex = 0;
+
+    // Sort facets by byteStart to process them in order
+    const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+    sortedFacets.forEach(facet => {
+        if (facet.features) {
+            facet.features.forEach(feature => {
+                if (feature['$type'] === 'app.bsky.richtext.facet#link') {
+                    const uri = feature.uri;
+                    const startByte = facet.index.byteStart;
+                    const endByte = facet.index.byteEnd;
+
+                    // Convert byte indices to character indices
+                    const startChar = byteToCharIndex(byteMap, startByte);
+                    const endChar = byteToCharIndex(byteMap, endByte);
+
+                    console.log(`Replacing text from char ${startChar} to ${endChar} with URI: ${uri}`);
+
+                    // Append text before the link with preserved line breaks
+                    const beforeText = text.slice(lastCharIndex, startChar);
+                    if (beforeText) {
+                        appendTextWithLineBreaks(fragment, beforeText);
+                    }
+
+                    // Append the full clickable link
+                    const a = document.createElement('a');
+                    a.href = uri;
+                    a.textContent = uri; // Display the full URI as the link text
+                    a.target = '_blank'; // Open in a new tab
+                    a.rel = 'noopener noreferrer'; // Security best practices
+                    fragment.appendChild(a);
+
+                    // Update the lastCharIndex to the end of the replaced link
+                    lastCharIndex = endChar;
+                }
+            });
+        }
+    });
+
+    // Append any remaining text after the last link with preserved line breaks
+    const remainingText = text.slice(lastCharIndex);
+    if (remainingText) {
+        appendTextWithLineBreaks(fragment, remainingText);
+    }
+
+    return fragment;
+}
+
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
@@ -817,18 +935,19 @@ async function loadRecentPosts(cursor = null) {
                     const postContainer = document.createElement('div');
                     postContainer.classList.add('post');
 
-                    // 1) Post Text
+                    // 1) Post Text with Clickable Links
                     const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+                    const postFacets = post.record.facets || [];
                     if (postText) {
                         const postTextContainer = document.createElement('div');
                         postTextContainer.classList.add('post-text-container');
-                        const paragraphs = postText.split('\n\n');
-                        paragraphs.forEach(paragraph => {
-                            const p = document.createElement('p');
-                            const formattedParagraph = paragraph.replace(/\n/g, ' ');
-                            p.textContent = formattedParagraph;
-                            postTextContainer.appendChild(p);
-                        });
+
+                        // Do not replace \n with spaces
+                        const processedText = postText; // No replacement to preserve line breaks
+
+                        // Parse the text with facets to replace links
+                        const parsedText = parseTextWithFacets(processedText, postFacets);
+                        postTextContainer.appendChild(parsedText);
                         postContainer.appendChild(postTextContainer);
                     }
 
@@ -836,10 +955,10 @@ async function loadRecentPosts(cursor = null) {
                     if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
                         const images = post.embed.images.slice(0, 4);
                         images.forEach(imageData => {
-                            if (imageData.fullsize && imageData.alt) {
+                            if (imageData.fullsize) { // Modified condition to only check for fullsize
                                 const img = document.createElement('img');
                                 img.src = imageData.fullsize;
-                                img.alt = imageData.alt;
+                                img.alt = imageData.alt || 'Image'; // Provide a default alt if empty
                                 img.loading = 'lazy';
                                 img.classList.add('post-image');
                                 postContainer.appendChild(img);
