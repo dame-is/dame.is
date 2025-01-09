@@ -697,94 +697,6 @@ function initializePostLoader() {
     console.log('"See More Posts" button created and appended.');
 }
 
-/**
- * Accurately converts byte indices to character indices using TextEncoder.
- * @param {string} str - The input string.
- * @param {number} byteIndex - The byte index.
- * @returns {number} - The corresponding character index.
- */
-function byteToCharIndex(str, byteIndex) {
-    const encoder = new TextEncoder();
-    const bytes = encoder.encode(str);
-    let charIndex = 0;
-    let currentByte = 0;
-
-    while (charIndex < str.length && currentByte < byteIndex) {
-        const codePoint = str.codePointAt(charIndex);
-        const codePointLength = codePoint > 0xFFFF ? 2 : 1; // Handle surrogate pairs
-        const encodedBytes = encoder.encode(str.substring(charIndex, charIndex + codePointLength));
-        const byteLength = encodedBytes.length;
-
-        if (currentByte + byteLength > byteIndex) {
-            break;
-        }
-
-        currentByte += byteLength;
-        charIndex += codePointLength;
-    }
-
-    return charIndex;
-}
-
-/**
- * Parses text with facets to replace truncated links with full clickable URLs.
- * @param {string} text - The original post text.
- * @param {Array} facets - The facets associated with the post.
- * @returns {DocumentFragment | Text} - The parsed text with clickable links.
- */
-function parseTextWithFacets(text, facets) {
-    if (!facets || facets.length === 0) {
-        return document.createTextNode(text);
-    }
-
-    const fragment = document.createDocumentFragment();
-    let lastCharIndex = 0;
-
-    // Sort facets by byteStart to process them in order
-    const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
-
-    sortedFacets.forEach(facet => {
-        if (facet.features) {
-            facet.features.forEach(feature => {
-                if (feature['$type'] === 'app.bsky.richtext.facet#link') {
-                    const uri = feature.uri;
-                    const startByte = facet.index.byteStart;
-                    const endByte = facet.index.byteEnd;
-
-                    // Convert byte indices to character indices
-                    const startChar = byteToCharIndex(text, startByte);
-                    const endChar = byteToCharIndex(text, endByte);
-
-                    // Append text before the link
-                    const beforeText = text.slice(lastCharIndex, startChar);
-                    if (beforeText) {
-                        fragment.appendChild(document.createTextNode(beforeText));
-                    }
-
-                    // Append the full clickable link
-                    const a = document.createElement('a');
-                    a.href = uri;
-                    a.textContent = uri; // Use the full URI as the link text
-                    a.target = '_blank'; // Open in a new tab
-                    a.rel = 'noopener noreferrer'; // Security best practices
-                    fragment.appendChild(a);
-
-                    // Update the lastCharIndex to the end of the replaced link
-                    lastCharIndex = endChar;
-                }
-            });
-        }
-    });
-
-    // Append any remaining text after the last link
-    const remainingText = text.slice(lastCharIndex);
-    if (remainingText) {
-        fragment.appendChild(document.createTextNode(remainingText));
-    }
-
-    return fragment;
-}
-
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
@@ -912,35 +824,12 @@ async function loadRecentPosts(cursor = null) {
                         const postTextContainer = document.createElement('div');
                         postTextContainer.classList.add('post-text-container');
 
-                        const paragraphs = postText.split('\n\n');
-                        paragraphs.forEach(paragraph => {
-                            const p = document.createElement('p');
+                        // Replace newline characters with spaces for uniformity
+                        const processedText = postText.replace(/\n/g, ' ');
 
-                            // Identify the byte range of the paragraph within the full text
-                            const paragraphIndex = postText.indexOf(paragraph);
-                            if (paragraphIndex === -1) {
-                                console.warn('Paragraph not found in text:', paragraph);
-                                p.textContent = paragraph.replace(/\n/g, ' ');
-                                postTextContainer.appendChild(p);
-                                return;
-                            }
-
-                            // Extract the relevant portion of facets for this paragraph
-                            const paragraphStartByte = byteToCharIndex(postText, paragraphIndex);
-                            const paragraphEndByte = byteToCharIndex(postText, paragraphIndex + paragraph.length);
-
-                            const paragraphFacets = postFacets.filter(facet => {
-                                const facetStart = facet.index.byteStart;
-                                const facetEnd = facet.index.byteEnd;
-                                return facetStart >= paragraphStartByte && facetEnd <= paragraphEndByte;
-                            });
-
-                            // Parse the paragraph text with its facets
-                            const parsedParagraph = parseTextWithFacets(paragraph.replace(/\n/g, ' '), paragraphFacets);
-                            p.appendChild(parsedParagraph);
-                            postTextContainer.appendChild(p);
-                        });
-
+                        // Parse the text with facets to replace links
+                        const parsedText = parseTextWithFacets(processedText, postFacets);
+                        postTextContainer.appendChild(parsedText);
                         postContainer.appendChild(postTextContainer);
                     }
 
