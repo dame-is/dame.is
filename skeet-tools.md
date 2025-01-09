@@ -24,6 +24,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 
 ### Personal Stats
 
+- [Venn Diagram or Social Graph](https://venn.aviva.gay/dame.bsky.social)
 - [SkyZoo: Profile Metrics and Fun Stats](https://skyzoo.blue/)
 - [SkyKit: Bluesky Analytics](http://skykit.blue)
 - [Skeetstats](https://bsky.app/profile/skeetstats.xyz)
