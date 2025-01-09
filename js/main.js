@@ -734,14 +734,34 @@ function byteToCharIndex(byteMap, byteIndex) {
 }
 
 /**
+ * Appends text to a DocumentFragment, converting \n to <br> elements.
+ * @param {DocumentFragment} fragment - The fragment to append to.
+ * @param {string} text - The text containing \n for line breaks.
+ */
+function appendTextWithLineBreaks(fragment, text) {
+    const lines = text.split('\n');
+    lines.forEach((line, index) => {
+        if (line) {
+            fragment.appendChild(document.createTextNode(line));
+        }
+        if (index < lines.length - 1) {
+            fragment.appendChild(document.createElement('br'));
+        }
+    });
+}
+
+/**
  * Parses the entire text with facets, replacing link facets with clickable links.
+ * Also preserves line breaks by converting \n to <br>.
  * @param {string} text - The original post text.
  * @param {Array} facets - The facets associated with the post.
- * @returns {DocumentFragment} - The parsed text with clickable links.
+ * @returns {DocumentFragment} - The parsed text with clickable links and preserved line breaks.
  */
 function parseTextWithFacets(text, facets) {
     if (!facets || facets.length === 0) {
-        return document.createTextNode(text);
+        const fragment = document.createDocumentFragment();
+        appendTextWithLineBreaks(fragment, text);
+        return fragment;
     }
 
     const fragment = document.createDocumentFragment();
@@ -765,10 +785,10 @@ function parseTextWithFacets(text, facets) {
 
                     console.log(`Replacing text from char ${startChar} to ${endChar} with URI: ${uri}`);
 
-                    // Append text before the link
+                    // Append text before the link with preserved line breaks
                     const beforeText = text.slice(lastCharIndex, startChar);
                     if (beforeText) {
-                        fragment.appendChild(document.createTextNode(beforeText));
+                        appendTextWithLineBreaks(fragment, beforeText);
                     }
 
                     // Append the full clickable link
@@ -786,10 +806,10 @@ function parseTextWithFacets(text, facets) {
         }
     });
 
-    // Append any remaining text after the last link
+    // Append any remaining text after the last link with preserved line breaks
     const remainingText = text.slice(lastCharIndex);
     if (remainingText) {
-        fragment.appendChild(document.createTextNode(remainingText));
+        appendTextWithLineBreaks(fragment, remainingText);
     }
 
     return fragment;
@@ -922,8 +942,8 @@ async function loadRecentPosts(cursor = null) {
                         const postTextContainer = document.createElement('div');
                         postTextContainer.classList.add('post-text-container');
 
-                        // Replace newline characters with spaces for uniformity
-                        const processedText = postText.replace(/\n/g, ' ');
+                        // Do not replace \n with spaces
+                        const processedText = postText; // No replacement to preserve line breaks
 
                         // Parse the text with facets to replace links
                         const parsedText = parseTextWithFacets(processedText, postFacets);
