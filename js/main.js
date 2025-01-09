@@ -790,6 +790,56 @@ async function loadRecentPosts(cursor = null) {
 
         const groupedPosts = groupPostsByDay(filteredFeed);
 
+        // Helper function to parse text with facets and insert clickable links
+        function parseTextWithFacets(text, facets) {
+            if (!facets || facets.length === 0) {
+                return document.createTextNode(text);
+            }
+
+            let lastIndex = 0;
+            const fragment = document.createDocumentFragment();
+
+            // Sort facets by byteStart to process them in order
+            const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+            sortedFacets.forEach(facet => {
+                if (facet.features) {
+                    facet.features.forEach(feature => {
+                        if (feature['$type'] === 'app.bsky.richtext.facet#link') {
+                            const uri = feature.uri;
+                            const start = facet.index.byteStart;
+                            const end = facet.index.byteEnd;
+
+                            // Append text before the link
+                            const beforeText = text.slice(lastIndex, start);
+                            if (beforeText) {
+                                fragment.appendChild(document.createTextNode(beforeText));
+                            }
+
+                            // Append the full clickable link
+                            const linkText = uri; // Use the full URI as the link text
+                            const a = document.createElement('a');
+                            a.href = uri;
+                            a.textContent = linkText;
+                            a.target = '_blank'; // Open in a new tab
+                            a.rel = 'noopener noreferrer'; // Security best practices
+                            fragment.appendChild(a);
+
+                            lastIndex = end;
+                        }
+                    });
+                }
+            });
+
+            // Append any remaining text after the last link
+            const remainingText = text.slice(lastIndex);
+            if (remainingText) {
+                fragment.appendChild(document.createTextNode(remainingText));
+            }
+
+            return fragment;
+        }
+
         // Iterate over each day group
         for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
             // Check if the date header already exists
@@ -817,18 +867,36 @@ async function loadRecentPosts(cursor = null) {
                     const postContainer = document.createElement('div');
                     postContainer.classList.add('post');
 
-                    // 1) Post Text
+                    // 1) Post Text with Clickable Links
                     const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+                    const postFacets = post.record.facets || [];
                     if (postText) {
                         const postTextContainer = document.createElement('div');
                         postTextContainer.classList.add('post-text-container');
+
                         const paragraphs = postText.split('\n\n');
                         paragraphs.forEach(paragraph => {
                             const p = document.createElement('p');
-                            const formattedParagraph = paragraph.replace(/\n/g, ' ');
-                            p.textContent = formattedParagraph;
+
+                            // Calculate the byteStart and byteEnd for the paragraph
+                            const paragraphStart = postText.indexOf(paragraph, lastIndex);
+                            const paragraphText = paragraph.replace(/\n/g, ' ');
+
+                            // Extract facets that fall within this paragraph
+                            const paragraphFacets = postFacets.filter(facet => {
+                                const facetStart = facet.index.byteStart;
+                                const facetEnd = facet.index.byteEnd;
+                                const paraStart = postText.indexOf(paragraph);
+                                const paraEnd = paraStart + paragraph.length;
+                                return facetStart >= paraStart && facetEnd <= paraEnd;
+                            });
+
+                            // Parse the paragraph text with its facets
+                            const parsedParagraph = parseTextWithFacets(paragraphText, paragraphFacets);
+                            p.appendChild(parsedParagraph);
                             postTextContainer.appendChild(p);
                         });
+
                         postContainer.appendChild(postTextContainer);
                     }
 
@@ -836,10 +904,10 @@ async function loadRecentPosts(cursor = null) {
                     if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
                         const images = post.embed.images.slice(0, 4);
                         images.forEach(imageData => {
-                            if (imageData.fullsize && imageData.alt) {
+                            if (imageData.fullsize) { // Modified condition to only check for fullsize
                                 const img = document.createElement('img');
                                 img.src = imageData.fullsize;
-                                img.alt = imageData.alt;
+                                img.alt = imageData.alt || 'Image'; // Provide a default alt if empty
                                 img.loading = 'lazy';
                                 img.classList.add('post-image');
                                 postContainer.appendChild(img);
