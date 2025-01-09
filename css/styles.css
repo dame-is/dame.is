@@ -349,7 +349,7 @@ body.dark-mode .post {
 .post-image {
     max-width: 100%;
     height: auto;
-    margin: 0px 0px 10px 0;
+    margin: 10px 0px 0px 0;
     border-radius: 5px;
     border: 1px solid #ccc;
 }
@@ -362,6 +362,7 @@ body.dark-mode .post-image {
     font-size: 0.9em;
     color: #666;
     margin-bottom: 10px;
+    margin-top: 10px;
 }
 
 body.dark-mode .post-date {
