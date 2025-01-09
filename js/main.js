@@ -697,6 +697,104 @@ function initializePostLoader() {
     console.log('"See More Posts" button created and appended.');
 }
 
+/**
+ * Creates a mapping of character indices to cumulative byte counts.
+ * @param {string} str - The input string.
+ * @returns {Array} - An array where index i represents the cumulative bytes up to character i.
+ */
+function createByteMap(str) {
+    const encoder = new TextEncoder();
+    const byteMap = [0];
+    for (let i = 0; i < str.length; i++) {
+        const codePoint = str.codePointAt(i);
+        const codePointLength = codePoint > 0xFFFF ? 2 : 1; // Handle surrogate pairs
+        const substring = str.substring(i, i + codePointLength);
+        const encoded = encoder.encode(substring);
+        byteMap.push(byteMap[byteMap.length - 1] + encoded.length);
+        if (codePointLength === 2) {
+            i++; // Skip the next code unit as it's part of a surrogate pair
+        }
+    }
+    return byteMap;
+}
+
+/**
+ * Converts a byte index to a character index using the byteMap.
+ * @param {Array} byteMap - The cumulative byte count array.
+ * @param {number} byteIndex - The byte index.
+ * @returns {number} - The corresponding character index.
+ */
+function byteToCharIndex(byteMap, byteIndex) {
+    for (let i = 0; i < byteMap.length; i++) {
+        if (byteMap[i] > byteIndex) {
+            return i - 1;
+        }
+    }
+    return byteMap.length - 1;
+}
+
+/**
+ * Parses the entire text with facets, replacing link facets with clickable links.
+ * @param {string} text - The original post text.
+ * @param {Array} facets - The facets associated with the post.
+ * @returns {DocumentFragment} - The parsed text with clickable links.
+ */
+function parseTextWithFacets(text, facets) {
+    if (!facets || facets.length === 0) {
+        return document.createTextNode(text);
+    }
+
+    const fragment = document.createDocumentFragment();
+    const byteMap = createByteMap(text);
+    let lastCharIndex = 0;
+
+    // Sort facets by byteStart to process them in order
+    const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
+
+    sortedFacets.forEach(facet => {
+        if (facet.features) {
+            facet.features.forEach(feature => {
+                if (feature['$type'] === 'app.bsky.richtext.facet#link') {
+                    const uri = feature.uri;
+                    const startByte = facet.index.byteStart;
+                    const endByte = facet.index.byteEnd;
+
+                    // Convert byte indices to character indices
+                    const startChar = byteToCharIndex(byteMap, startByte);
+                    const endChar = byteToCharIndex(byteMap, endByte);
+
+                    console.log(`Replacing text from char ${startChar} to ${endChar} with URI: ${uri}`);
+
+                    // Append text before the link
+                    const beforeText = text.slice(lastCharIndex, startChar);
+                    if (beforeText) {
+                        fragment.appendChild(document.createTextNode(beforeText));
+                    }
+
+                    // Append the full clickable link
+                    const a = document.createElement('a');
+                    a.href = uri;
+                    a.textContent = uri; // Display the full URI as the link text
+                    a.target = '_blank'; // Open in a new tab
+                    a.rel = 'noopener noreferrer'; // Security best practices
+                    fragment.appendChild(a);
+
+                    // Update the lastCharIndex to the end of the replaced link
+                    lastCharIndex = endChar;
+                }
+            });
+        }
+    });
+
+    // Append any remaining text after the last link
+    const remainingText = text.slice(lastCharIndex);
+    if (remainingText) {
+        fragment.appendChild(document.createTextNode(remainingText));
+    }
+
+    return fragment;
+}
+
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
