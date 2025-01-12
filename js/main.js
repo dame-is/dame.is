@@ -340,6 +340,10 @@ async function fetchBlueskyStats() {
     const profileApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
     const feedApiUrlBase = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed`;
   
+    // Set separate animation durations (in milliseconds) for profile vs. paginated data
+    const animationDurationProfile = 800; // followers & following
+    const animationDurationFeed = 1500;   // posts & replies
+  
     // Set up stat container elements (initially showing 0)
     const statsContainer = document.getElementById('bluesky-stats');
     if (statsContainer) {
@@ -372,12 +376,19 @@ async function fetchBlueskyStats() {
     const postsElem = document.getElementById('posts');
     const repliesElem = document.getElementById('replies');
   
-    // Function to animate from current value to new value over a short duration
-    function animateStat(element, from, to, duration = 500) {
+    /**
+     * Animate a number change from a starting value to an ending value.
+     * @param {HTMLElement} element The element whose textContent will be updated.
+     * @param {number} from The starting value.
+     * @param {number} to The final value.
+     * @param {number} duration Animation duration in milliseconds.
+     */
+    function animateStat(element, from, to, duration) {
       const startTime = performance.now();
       function updateValue(now) {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
+        // Using an easing function (ease-out)
         const easedProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = Math.floor(from + easedProgress * (to - from));
         element.textContent = currentValue;
@@ -400,16 +411,16 @@ async function fetchBlueskyStats() {
       if (!profileResponse.ok) throw new Error(`Profile API error: ${profileResponse.status}`);
       const profileData = await profileResponse.json();
       if (profileData) {
-        // Animate each stat from 0 to its profile value
         const newFollowers = profileData.followersCount || 0;
         const newFollowing = profileData.followsCount || 0;
-        animateStat(followersElem, followersCount, newFollowers);
-        animateStat(followingElem, followingCount, newFollowing);
+        // Animate profile stats using the separate duration
+        animateStat(followersElem, followersCount, newFollowers, animationDurationProfile);
+        animateStat(followingElem, followingCount, newFollowing, animationDurationProfile);
         followersCount = newFollowers;
         followingCount = newFollowing;
       }
   
-      // --- STEP 2: Fetch Posts and Replies in a Paginated Way ---
+      // --- STEP 2: Fetch Posts and Replies (Paginated) ---
       const limit = 100; // Maximum allowed per request
       let cursor = null;
       let hasMore = true;
@@ -423,14 +434,14 @@ async function fetchBlueskyStats() {
         if (!feedResponse.ok) throw new Error(`Feed API error: ${feedResponse.status}`);
         const feedData = await feedResponse.json();
   
-        // Track current counts to know what value to animate from
+        // Store current counts to animate from the previous value to the new cumulative value
         const currentPosts = postsCount;
         const currentReplies = repliesCount;
   
         if (feedData && Array.isArray(feedData.feed)) {
           feedData.feed.forEach(item => {
             if (item.post && item.post.record) {
-              // Adjust this condition according to the API response structure:
+              // Adjust condition based on API response.
               if (item.post.record.reply) {
                 repliesCount += 1;
               } else {
@@ -440,28 +451,29 @@ async function fetchBlueskyStats() {
           });
         }
   
-        // Animate only the difference from the previous count to the current count:
+        // Animate the updated values using the duration for feed stats.
         if (postsElem) {
-          animateStat(postsElem, currentPosts, postsCount);
+          animateStat(postsElem, currentPosts, postsCount, animationDurationFeed);
         }
         if (repliesElem) {
-          animateStat(repliesElem, currentReplies, repliesCount);
+          animateStat(repliesElem, currentReplies, repliesCount, animationDurationFeed);
         }
   
+        // Handle pagination: update the cursor or end loop
         if (feedData.cursor) {
           cursor = feedData.cursor;
         } else {
           hasMore = false;
         }
   
-        // Optional: Break after a given limit to prevent too many API calls
+        // Optional: Limit number of iterations to avoid excessive API calls.
         // if (postsCount + repliesCount >= 1000) {
         //   hasMore = false;
         // }
       }
     } catch (error) {
       console.error('Error fetching Bluesky stats:', error);
-      // Optionally, set the stats to 0 or show an error message.
+      // Optionally show error values or reset counts
       if (followersElem) followersElem.textContent = 0;
       if (followingElem) followingElem.textContent = 0;
       if (postsElem) postsElem.textContent = 0;
