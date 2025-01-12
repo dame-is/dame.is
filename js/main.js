@@ -341,7 +341,7 @@ async function fetchBlueskyStats() {
     const feedApiUrlBase = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed`;
   
     // Set separate animation durations (in milliseconds) for profile vs. paginated data
-    const animationDurationProfile = 1500; // followers & following
+    const animationDurationProfile = 2200; // followers & following
     const animationDurationFeed = 1500;   // posts & replies
   
     // Set up stat container elements (initially showing 0)
