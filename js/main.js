@@ -340,11 +340,43 @@ async function fetchBlueskyStats() {
     const profileApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
     const feedApiUrlBase = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed`;
   
-    // Set separate animation durations (in milliseconds) for profile vs. paginated data
-    const animationDurationProfile = 2200; // followers & following
-    const animationDurationFeed = 1500;   // posts & replies
+    // Key used in sessionStorage
+    const storageKey = 'blueskyStats';
   
-    // Set up stat container elements (initially showing 0)
+    // Helper to update the DOM immediately (without animation)
+    function updateStatsNow(stats) {
+      const statsContainer = document.getElementById('bluesky-stats');
+      if (statsContainer) {
+        statsContainer.innerHTML = `
+          <span class="stat">
+              <span class="count" id="followers">${stats.followers}</span>
+              <span class="label">followers</span>
+          </span>
+          <span class="stat">
+              <span class="count" id="following">${stats.following}</span>
+              <span class="label">following</span>
+          </span>
+          <span class="stat">
+              <span class="count" id="posts">${stats.posts}</span>
+              <span class="label">posts</span>
+          </span>
+          <span class="stat">
+              <span class="count" id="replies">${stats.replies}</span>
+              <span class="label">replies</span>
+          </span>
+        `;
+      }
+    }
+  
+    // Check if stats have already been cached.
+    const cachedStats = sessionStorage.getItem(storageKey);
+    if (cachedStats) {
+      const stats = JSON.parse(cachedStats);
+      updateStatsNow(stats);
+      return; // no need to animate
+    }
+  
+    // No cached stats, so initialize the DOM with 0s.
     const statsContainer = document.getElementById('bluesky-stats');
     if (statsContainer) {
       statsContainer.innerHTML = `
@@ -370,7 +402,11 @@ async function fetchBlueskyStats() {
       return;
     }
   
-    // Get references to the count elements
+    // Define separate durations for animations.
+    const animationDurationProfile = 2200; // for followers and following
+    const animationDurationFeed = 1500;   // for posts and replies
+  
+    // Get references to the count elements.
     const followersElem = document.getElementById('followers');
     const followingElem = document.getElementById('following');
     const postsElem = document.getElementById('posts');
@@ -378,6 +414,7 @@ async function fetchBlueskyStats() {
   
     /**
      * Animate a number change from a starting value to an ending value.
+     *
      * @param {HTMLElement} element The element whose textContent will be updated.
      * @param {number} from The starting value.
      * @param {number} to The final value.
@@ -388,7 +425,7 @@ async function fetchBlueskyStats() {
       function updateValue(now) {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        // Using an easing function (ease-out)
+        // Ease-out interpolation
         const easedProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = Math.floor(from + easedProgress * (to - from));
         element.textContent = currentValue;
@@ -399,7 +436,7 @@ async function fetchBlueskyStats() {
       requestAnimationFrame(updateValue);
     }
   
-    // These will be our cumulative counts
+    // Cumulative count values.
     let followersCount = 0;
     let followingCount = 0;
     let postsCount = 0;
@@ -413,7 +450,7 @@ async function fetchBlueskyStats() {
       if (profileData) {
         const newFollowers = profileData.followersCount || 0;
         const newFollowing = profileData.followsCount || 0;
-        // Animate profile stats using the separate duration
+        // Animate from 0 to the new values.
         animateStat(followersElem, followersCount, newFollowers, animationDurationProfile);
         animateStat(followingElem, followingCount, newFollowing, animationDurationProfile);
         followersCount = newFollowers;
@@ -421,7 +458,7 @@ async function fetchBlueskyStats() {
       }
   
       // --- STEP 2: Fetch Posts and Replies (Paginated) ---
-      const limit = 100; // Maximum allowed per request
+      const limit = 100; // maximum allowed per request
       let cursor = null;
       let hasMore = true;
   
@@ -434,14 +471,14 @@ async function fetchBlueskyStats() {
         if (!feedResponse.ok) throw new Error(`Feed API error: ${feedResponse.status}`);
         const feedData = await feedResponse.json();
   
-        // Store current counts to animate from the previous value to the new cumulative value
+        // Store current counts to animate from.
         const currentPosts = postsCount;
         const currentReplies = repliesCount;
   
         if (feedData && Array.isArray(feedData.feed)) {
           feedData.feed.forEach(item => {
             if (item.post && item.post.record) {
-              // Adjust condition based on API response.
+              // Adjust condition as needed.
               if (item.post.record.reply) {
                 repliesCount += 1;
               } else {
@@ -451,35 +488,40 @@ async function fetchBlueskyStats() {
           });
         }
   
-        // Animate the updated values using the duration for feed stats.
-        if (postsElem) {
-          animateStat(postsElem, currentPosts, postsCount, animationDurationFeed);
-        }
-        if (repliesElem) {
-          animateStat(repliesElem, currentReplies, repliesCount, animationDurationFeed);
-        }
+        // Animate the updates.
+        if (postsElem) animateStat(postsElem, currentPosts, postsCount, animationDurationFeed);
+        if (repliesElem) animateStat(repliesElem, currentReplies, repliesCount, animationDurationFeed);
   
-        // Handle pagination: update the cursor or end loop
         if (feedData.cursor) {
           cursor = feedData.cursor;
         } else {
           hasMore = false;
         }
   
-        // Optional: Limit number of iterations to avoid excessive API calls.
+        // Optionally, limit iterations to avoid too many API calls.
         // if (postsCount + repliesCount >= 1000) {
         //   hasMore = false;
         // }
       }
+  
+      // Once all stats are fetched, cache the final results.
+      const finalStats = {
+        followers: followersCount,
+        following: followingCount,
+        posts: postsCount,
+        replies: repliesCount,
+      };
+      sessionStorage.setItem(storageKey, JSON.stringify(finalStats));
     } catch (error) {
       console.error('Error fetching Bluesky stats:', error);
-      // Optionally show error values or reset counts
+      // Optionally show error stats.
       if (followersElem) followersElem.textContent = 0;
       if (followingElem) followingElem.textContent = 0;
       if (postsElem) postsElem.textContent = 0;
       if (repliesElem) repliesElem.textContent = 0;
     }
   }
+  
   
 
 
@@ -834,6 +876,15 @@ async function loadRecentPosts(cursor = null) {
     }
     isLoadingPosts = true;
 
+    // For the initial load, remove any skeleton elements (assumed to have the class "post-skeleton")
+    if (!cursor) {
+        const postsList = document.getElementById('recent-posts');
+        if (postsList) {
+            const skeletons = postsList.querySelectorAll('.post-skeleton');
+            skeletons.forEach(skel => skel.remove());
+        }
+    }
+
     // Helper to handle singular/plural
     function formatCount(count, singular, plural = null) {
         const actualPlural = plural || `${singular}s`;
@@ -867,7 +918,6 @@ async function loadRecentPosts(cursor = null) {
 
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your feed for posts
     let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}&filter=posts_no_replies`;
-
     if (cursor) {
         apiUrl += `&cursor=${encodeURIComponent(cursor)}`;
     }
@@ -953,10 +1003,8 @@ async function loadRecentPosts(cursor = null) {
                         const postTextContainer = document.createElement('div');
                         postTextContainer.classList.add('post-text-container');
 
-                        // Do not replace \n with spaces
-                        const processedText = postText; // No replacement to preserve line breaks
-
-                        // Parse the text with facets to replace links
+                        // Do not replace \n with spaces; preserve line breaks
+                        const processedText = postText;
                         const parsedText = parseTextWithFacets(processedText, postFacets);
                         postTextContainer.appendChild(parsedText);
                         postContainer.appendChild(postTextContainer);
@@ -966,10 +1014,10 @@ async function loadRecentPosts(cursor = null) {
                     if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
                         const images = post.embed.images.slice(0, 4);
                         images.forEach(imageData => {
-                            if (imageData.fullsize) { // Modified condition to only check for fullsize
+                            if (imageData.fullsize) { // Only check for fullsize
                                 const img = document.createElement('img');
                                 img.src = imageData.fullsize;
-                                img.alt = imageData.alt || 'Image'; // Provide a default alt if empty
+                                img.alt = imageData.alt || 'Image';
                                 img.loading = 'lazy';
                                 img.classList.add('post-image');
                                 postContainer.appendChild(img);
@@ -982,11 +1030,11 @@ async function loadRecentPosts(cursor = null) {
                         const embeddedRecord = post.embed.record;
                         if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
                             const embeddedText = embeddedRecord.value.text || '';
-                            const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                            const embeddedAuthorHandle = (embeddedRecord.author && embeddedRecord.author.handle) ? embeddedRecord.author.handle : 'Unknown';
                             
                             // Create a container for the embedded quote
                             const quoteContainer = document.createElement('blockquote');
-                            quoteContainer.classList.add('embedded-quote'); // Add a class for styling
+                            quoteContainer.classList.add('embedded-quote');
 
                             // Create the quote text
                             const quoteText = document.createElement('p');
@@ -998,7 +1046,6 @@ async function loadRecentPosts(cursor = null) {
                             quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
                             quoteContainer.appendChild(quoteAuthor);
 
-                            // Append the quote container to the post
                             postContainer.appendChild(quoteContainer);
                         }
                     }
@@ -1008,7 +1055,7 @@ async function loadRecentPosts(cursor = null) {
                     const postDateElem = document.createElement('p');
                     postDateElem.classList.add('post-date');
 
-                    // **Construct the Bluesky Post URL using the helper function**
+                    // Construct the Bluesky Post URL using the helper function
                     const postUrl = constructBlueskyPostUrl(post.uri);
 
                     const createdAt = new Date(post.record.createdAt || Date.now());
@@ -1020,16 +1067,14 @@ async function loadRecentPosts(cursor = null) {
                     const postLink = document.createElement('a');
                     postLink.href = postUrl;
                     postLink.textContent = relativeTime;
-                    postLink.target = '_blank'; // Open in a new tab
-                    postLink.rel = 'noopener noreferrer'; // Security best practices
+                    postLink.target = '_blank';
+                    postLink.rel = 'noopener noreferrer';
 
                     // Create text node for "Posted "
                     const postedText = document.createTextNode('Posted ');
 
-                    // Append all parts to postDateElem
                     postDateElem.appendChild(postedText);
                     postDateElem.appendChild(postLink);
-
                     postContainer.appendChild(postDateElem);
 
                     // 4) Counts (Replies, Quotes, Reposts, Likes)
@@ -1042,22 +1087,18 @@ async function loadRecentPosts(cursor = null) {
                         countSpan.classList.add('count-item');
                         countSpan.setAttribute('aria-label', `${count} ${label}`);
                         
-                        // Add 'active' class if count > 0
                         if (count > 0) {
                             countSpan.classList.add('active');
                         }
 
-                        // Create the icon
                         const icon = document.createElement('i');
                         icon.className = iconClass;
                         icon.setAttribute('aria-hidden', 'true');
 
-                        // Create the count text
                         const countText = document.createElement('span');
                         countText.classList.add('count-text');
                         countText.textContent = count;
 
-                        // Append icon and count to the span
                         countSpan.appendChild(icon);
                         countSpan.appendChild(countText);
 
@@ -1089,7 +1130,7 @@ async function loadRecentPosts(cursor = null) {
             });
         }
 
-        // **New: Process outbound links after all posts are loaded**
+        // Process outbound links after all posts are loaded
         processOutboundLinks();
 
         // If there are no more posts to load, hide the "See More Posts" button

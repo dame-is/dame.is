@@ -90,6 +90,10 @@ nav, footer {
     /* padding: 0 20px; */ /* Updated: Let the nav sections handle spacing */
 }
 
+nav {
+    min-height: 194.7px;
+}
+
 body.dark-mode nav {
     background-color: var(--post-background-color);
     border-color: #444;
@@ -495,6 +499,75 @@ body.dark-mode .post-counts .count-item i {
     text-decoration: underline;
 }
 
+/* --- Post Skeleton Styles --- */
+.post-skeleton {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 15px;
+    margin: 5px 0 10px 0;
+    background-color: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  body.dark-mode .post-skeleton {
+    border-color: #444;
+    background-color: #333;
+  }
+  
+  /* Skeleton elements */
+  .skel-line {
+    height: 15px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* Dark mode skeleton lines */
+  body.dark-mode .skel-line {
+    background-color: #555;
+  }
+  
+  /* Add a shimmer effect */
+  @keyframes shimmer {
+    0% {
+      background-position: -450px 0;
+    }
+    100% {
+      background-position: 450px 0;
+    }
+  }
+  
+  .skel-line::before {
+    content: '';
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(224,224,224,0) 0%, rgba(224,224,224,0.5) 50%, rgba(224,224,224,0) 100%);
+    background-size: 450px 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  
+  body.dark-mode .skel-line::before {
+    background: linear-gradient(90deg, rgba(85,85,85,0) 0%, rgba(85,85,85,0.5) 50%, rgba(85,85,85,0) 100%);
+    background-size: 450px 100%;
+  }
+  
+  /* You can define multiple widths for variety */
+  .skel-line.short {
+    width: 40%;
+  }
+  
+  .skel-line.medium {
+    width: 70%;
+  }
+  
+  .skel-line.long {
+    width: 90%;
+  }
+
 /* === "See More Posts" Button Styles === */
 
 .see-more-button {
@@ -688,7 +761,7 @@ body.dark-mode .blog-post-excerpt {
 /* === Additional Responsive Enhancements === */
 
 /* Responsive Design for Small Screens */
-@media (max-width: 400px) {
+@media (max-width: 520px) {
     /* Let nav sections stack vertically */
     .nav-section {
         flex-direction: column;
