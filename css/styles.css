@@ -15,6 +15,10 @@ main {
     padding: 20px;
 }
 
+nav {
+    min-height: 194.7px;
+}
+
 p {
     margin-top: 0px;
     margin-bottom: 16px;
