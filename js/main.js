@@ -373,7 +373,7 @@ async function fetchBlueskyStats() {
     const repliesElem = document.getElementById('replies');
   
     // Function to animate from current value to new value over a short duration
-    function animateStat(element, from, to, duration = 200) {
+    function animateStat(element, from, to, duration = 500) {
       const startTime = performance.now();
       function updateValue(now) {
         const elapsed = now - startTime;
