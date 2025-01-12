@@ -340,7 +340,7 @@ async function fetchBlueskyStats() {
     const profileApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
     const feedApiUrlBase = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed`;
   
-    // Prepare a container for the stats (this removes any loading indicator you may have)
+    // Set up stat container elements (initially showing 0)
     const statsContainer = document.getElementById('bluesky-stats');
     if (statsContainer) {
       statsContainer.innerHTML = `
@@ -366,17 +366,20 @@ async function fetchBlueskyStats() {
       return;
     }
   
-    // Function to animate a number count from 0 to targetValue over animationDuration (in ms)
-    function animateValue(element, targetValue, animationDuration = 1500) {
-      const start = 0;
+    // Get references to the count elements
+    const followersElem = document.getElementById('followers');
+    const followingElem = document.getElementById('following');
+    const postsElem = document.getElementById('posts');
+    const repliesElem = document.getElementById('replies');
+  
+    // Function to animate from current value to new value over a short duration
+    function animateStat(element, from, to, duration = 200) {
       const startTime = performance.now();
-      
       function updateValue(now) {
         const elapsed = now - startTime;
-        const progress = Math.min(elapsed / animationDuration, 1);
-        // Apply an easing function (optional: here a simple ease-out)
+        const progress = Math.min(elapsed / duration, 1);
         const easedProgress = 1 - Math.pow(1 - progress, 3);
-        const currentValue = Math.floor(easedProgress * (targetValue - start) + start);
+        const currentValue = Math.floor(from + easedProgress * (to - from));
         element.textContent = currentValue;
         if (progress < 1) {
           requestAnimationFrame(updateValue);
@@ -385,40 +388,49 @@ async function fetchBlueskyStats() {
       requestAnimationFrame(updateValue);
     }
   
-    // Initialize counts to 0; these will be updated after fetching
+    // These will be our cumulative counts
     let followersCount = 0;
     let followingCount = 0;
     let postsCount = 0;
     let repliesCount = 0;
   
     try {
-      // Fetch Profile Data (Followers and Following)
+      // --- STEP 1: Fetch Profile Data ---
       const profileResponse = await fetch(profileApiUrl);
       if (!profileResponse.ok) throw new Error(`Profile API error: ${profileResponse.status}`);
       const profileData = await profileResponse.json();
       if (profileData) {
-        followersCount = profileData.followersCount || 0;
-        followingCount = profileData.followsCount || 0;
+        // Animate each stat from 0 to its profile value
+        const newFollowers = profileData.followersCount || 0;
+        const newFollowing = profileData.followsCount || 0;
+        animateStat(followersElem, followersCount, newFollowers);
+        animateStat(followingElem, followingCount, newFollowing);
+        followersCount = newFollowers;
+        followingCount = newFollowing;
       }
   
-      // Fetch Posts and Replies Counts
+      // --- STEP 2: Fetch Posts and Replies in a Paginated Way ---
       const limit = 100; // Maximum allowed per request
       let cursor = null;
       let hasMore = true;
+  
       while (hasMore) {
         let feedApiUrl = `${feedApiUrlBase}?actor=${encodeURIComponent(actor)}&limit=${limit}&filter=posts_with_replies`;
         if (cursor) {
           feedApiUrl += `&cursor=${encodeURIComponent(cursor)}`;
         }
-  
         const feedResponse = await fetch(feedApiUrl);
         if (!feedResponse.ok) throw new Error(`Feed API error: ${feedResponse.status}`);
         const feedData = await feedResponse.json();
   
+        // Track current counts to know what value to animate from
+        const currentPosts = postsCount;
+        const currentReplies = repliesCount;
+  
         if (feedData && Array.isArray(feedData.feed)) {
           feedData.feed.forEach(item => {
             if (item.post && item.post.record) {
-              // Adjust this condition based on your API response structure
+              // Adjust this condition according to the API response structure:
               if (item.post.record.reply) {
                 repliesCount += 1;
               } else {
@@ -428,55 +440,35 @@ async function fetchBlueskyStats() {
           });
         }
   
+        // Animate only the difference from the previous count to the current count:
+        if (postsElem) {
+          animateStat(postsElem, currentPosts, postsCount);
+        }
+        if (repliesElem) {
+          animateStat(repliesElem, currentReplies, repliesCount);
+        }
+  
         if (feedData.cursor) {
           cursor = feedData.cursor;
         } else {
           hasMore = false;
         }
   
-        // Optionally break after a certain number of posts, e.g., 1000
+        // Optional: Break after a given limit to prevent too many API calls
         // if (postsCount + repliesCount >= 1000) {
         //   hasMore = false;
         // }
       }
-  
-      // Animate each stat value updating live
-      const followersElem = document.getElementById('followers');
-      const followingElem = document.getElementById('following');
-      const postsElem = document.getElementById('posts');
-      const repliesElem = document.getElementById('replies');
-  
-      if (followersElem) animateValue(followersElem, followersCount);
-      if (followingElem) animateValue(followingElem, followingCount);
-      if (postsElem) animateValue(postsElem, postsCount);
-      if (repliesElem) animateValue(repliesElem, repliesCount);
     } catch (error) {
       console.error('Error fetching Bluesky stats:', error);
-      // On error, you may want to show defaults or an error message
-      const errorHTML = `
-        <span class="stat">
-            <span class="count">0</span>
-            <span class="label">followers</span>
-        </span>
-        <span class="stat">
-            <span class="count">0</span>
-            <span class="label">following</span>
-        </span>
-        <span class="stat">
-            <span class="count">0</span>
-            <span class="label">posts</span>
-        </span>
-        <span class="stat">
-            <span class="count">0</span>
-            <span class="label">replies</span>
-        </span>
-      `;
-      statsContainer.innerHTML = errorHTML;
+      // Optionally, set the stats to 0 or show an error message.
+      if (followersElem) followersElem.textContent = 0;
+      if (followingElem) followingElem.textContent = 0;
+      if (postsElem) postsElem.textContent = 0;
+      if (repliesElem) repliesElem.textContent = 0;
     }
   }
   
-
-
 
 
 // ----------------------------------
