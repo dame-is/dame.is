@@ -68,6 +68,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 - [Blue Place: r/place, but for Bluesky](https://place.blue)
 - [pastesphere: paste-bin on the AT Protocol](https://pastesphere.link/)
 - [Recipe Exchange](https://recipe.exchange/)
+- [skywatched: review and track movies](https://skywatched.app/)
 
 ## Manage Your Data
 

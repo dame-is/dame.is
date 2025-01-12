@@ -339,137 +339,148 @@ async function fetchBlueskyStats() {
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your actual actor identifier for stats
     const profileApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
     const feedApiUrlBase = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed`;
-
-    // Initialize counts
+  
+    // Set separate animation durations (in milliseconds) for profile vs. paginated data
+    const animationDurationProfile = 2200; // followers & following
+    const animationDurationFeed = 1500;   // posts & replies
+  
+    // Set up stat container elements (initially showing 0)
+    const statsContainer = document.getElementById('bluesky-stats');
+    if (statsContainer) {
+      statsContainer.innerHTML = `
+        <span class="stat">
+            <span class="count" id="followers">0</span>
+            <span class="label">followers</span>
+        </span>
+        <span class="stat">
+            <span class="count" id="following">0</span>
+            <span class="label">following</span>
+        </span>
+        <span class="stat">
+            <span class="count" id="posts">0</span>
+            <span class="label">posts</span>
+        </span>
+        <span class="stat">
+            <span class="count" id="replies">0</span>
+            <span class="label">replies</span>
+        </span>
+      `;
+    } else {
+      console.warn('Element with ID "bluesky-stats" not found.');
+      return;
+    }
+  
+    // Get references to the count elements
+    const followersElem = document.getElementById('followers');
+    const followingElem = document.getElementById('following');
+    const postsElem = document.getElementById('posts');
+    const repliesElem = document.getElementById('replies');
+  
+    /**
+     * Animate a number change from a starting value to an ending value.
+     * @param {HTMLElement} element The element whose textContent will be updated.
+     * @param {number} from The starting value.
+     * @param {number} to The final value.
+     * @param {number} duration Animation duration in milliseconds.
+     */
+    function animateStat(element, from, to, duration) {
+      const startTime = performance.now();
+      function updateValue(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Using an easing function (ease-out)
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        const currentValue = Math.floor(from + easedProgress * (to - from));
+        element.textContent = currentValue;
+        if (progress < 1) {
+          requestAnimationFrame(updateValue);
+        }
+      }
+      requestAnimationFrame(updateValue);
+    }
+  
+    // These will be our cumulative counts
     let followersCount = 0;
     let followingCount = 0;
     let postsCount = 0;
     let repliesCount = 0;
-
+  
     try {
-        // Show loading indicator
-        const loadingElem = document.getElementById('bluesky-stats-loading');
-        if (loadingElem) {
-            loadingElem.style.display = 'inline';
+      // --- STEP 1: Fetch Profile Data ---
+      const profileResponse = await fetch(profileApiUrl);
+      if (!profileResponse.ok) throw new Error(`Profile API error: ${profileResponse.status}`);
+      const profileData = await profileResponse.json();
+      if (profileData) {
+        const newFollowers = profileData.followersCount || 0;
+        const newFollowing = profileData.followsCount || 0;
+        // Animate profile stats using the separate duration
+        animateStat(followersElem, followersCount, newFollowers, animationDurationProfile);
+        animateStat(followingElem, followingCount, newFollowing, animationDurationProfile);
+        followersCount = newFollowers;
+        followingCount = newFollowing;
+      }
+  
+      // --- STEP 2: Fetch Posts and Replies (Paginated) ---
+      const limit = 100; // Maximum allowed per request
+      let cursor = null;
+      let hasMore = true;
+  
+      while (hasMore) {
+        let feedApiUrl = `${feedApiUrlBase}?actor=${encodeURIComponent(actor)}&limit=${limit}&filter=posts_with_replies`;
+        if (cursor) {
+          feedApiUrl += `&cursor=${encodeURIComponent(cursor)}`;
         }
-
-        // Fetch Profile Data (Followers and Following)
-        const profileResponse = await fetch(profileApiUrl);
-        if (!profileResponse.ok) throw new Error(`Profile API error: ${profileResponse.status}`);
-        const profileData = await profileResponse.json();
-
-        if (profileData) {
-            followersCount = profileData.followersCount || 0;
-            followingCount = profileData.followsCount || 0;
+        const feedResponse = await fetch(feedApiUrl);
+        if (!feedResponse.ok) throw new Error(`Feed API error: ${feedResponse.status}`);
+        const feedData = await feedResponse.json();
+  
+        // Store current counts to animate from the previous value to the new cumulative value
+        const currentPosts = postsCount;
+        const currentReplies = repliesCount;
+  
+        if (feedData && Array.isArray(feedData.feed)) {
+          feedData.feed.forEach(item => {
+            if (item.post && item.post.record) {
+              // Adjust condition based on API response.
+              if (item.post.record.reply) {
+                repliesCount += 1;
+              } else {
+                postsCount += 1;
+              }
+            }
+          });
         }
-
-        // Fetch Posts and Replies Counts
-        // Using filter 'posts_with_replies' to get both posts and replies
-        const limit = 100; // Maximum allowed per request
-        let cursor = null;
-        let hasMore = true;
-
-        while (hasMore) {
-            let feedApiUrl = `${feedApiUrlBase}?actor=${encodeURIComponent(actor)}&limit=${limit}&filter=posts_with_replies`;
-            if (cursor) {
-                feedApiUrl += `&cursor=${encodeURIComponent(cursor)}`;
-            }
-
-            const feedResponse = await fetch(feedApiUrl);
-            if (!feedResponse.ok) throw new Error(`Feed API error: ${feedResponse.status}`);
-            const feedData = await feedResponse.json();
-
-            if (feedData && Array.isArray(feedData.feed)) {
-                feedData.feed.forEach(item => {
-                    if (item.post && item.post.record) {
-                        // Determine if the post is a reply
-                        // Adjust this condition based on the actual API response structure
-                        if (item.post.record.reply) {
-                            repliesCount += 1;
-                        } else {
-                            postsCount += 1;
-                        }
-                    }
-                });
-            }
-
-            // Check if there's a cursor for the next batch
-            if (feedData.cursor) {
-                cursor = feedData.cursor;
-            } else {
-                hasMore = false;
-            }
-
-            // Optional: Break the loop to prevent excessive API calls (e.g., max 1000 posts)
-            // Uncomment the following lines if you wish to limit the number of iterations
-            /*
-            if (postsCount + repliesCount >= 1000) {
-                console.warn('Reached maximum post count limit (1000). Stopping pagination.');
-                hasMore = false;
-            }
-            */
+  
+        // Animate the updated values using the duration for feed stats.
+        if (postsElem) {
+          animateStat(postsElem, currentPosts, postsCount, animationDurationFeed);
         }
-
-        // Update the innerHTML with the new structure
-        const blueskyStatsElem = document.getElementById('bluesky-stats');
-
-        if (blueskyStatsElem) {
-            blueskyStatsElem.innerHTML = `
-                <span class="stat">
-                    <span class="count" id="followers">${followersCount}</span>
-                    <span class="label">followers</span>
-                </span>
-                <span class="stat">
-                    <span class="count" id="following">${followingCount}</span>
-                    <span class="label">following</span>
-                </span>
-                <span class="stat">
-                    <span class="count" id="posts">${postsCount}</span>
-                    <span class="label">posts</span>
-                </span>
-                <span class="stat">
-                    <span class="count" id="replies">${repliesCount}</span>
-                    <span class="label">replies</span>
-                </span>
-            `;
+        if (repliesElem) {
+          animateStat(repliesElem, currentReplies, repliesCount, animationDurationFeed);
+        }
+  
+        // Handle pagination: update the cursor or end loop
+        if (feedData.cursor) {
+          cursor = feedData.cursor;
         } else {
-            console.warn('Element with ID "bluesky-stats" not found.');
+          hasMore = false;
         }
+  
+        // Optional: Limit number of iterations to avoid excessive API calls.
+        // if (postsCount + repliesCount >= 1000) {
+        //   hasMore = false;
+        // }
+      }
     } catch (error) {
-        console.error('Error fetching Bluesky stats:', error);
-
-        // Optional: Handle the error by setting default values or hiding the stats
-        const blueskyStatsElem = document.getElementById('bluesky-stats');
-        if (blueskyStatsElem) {
-            blueskyStatsElem.innerHTML = `
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">followers</span>
-                </span>
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">following</span>
-                </span>
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">posts</span>
-                </span>
-                <span class="stat">
-                    <span class="count">0</span>
-                    <span class="label">replies</span>
-                </span>
-            `;
-        }
-    } finally {
-        // Hide loading indicator
-        const loadingElem = document.getElementById('bluesky-stats-loading');
-        if (loadingElem) {
-            loadingElem.style.display = 'none';
-        }
+      console.error('Error fetching Bluesky stats:', error);
+      // Optionally show error values or reset counts
+      if (followersElem) followersElem.textContent = 0;
+      if (followingElem) followingElem.textContent = 0;
+      if (postsElem) postsElem.textContent = 0;
+      if (repliesElem) repliesElem.textContent = 0;
     }
-}
-
-
+  }
+  
 
 
 // ----------------------------------
