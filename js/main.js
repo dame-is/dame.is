@@ -1131,109 +1131,161 @@ async function loadRecentPosts(cursor = null) {
             postsList.appendChild(dateHeader);
         }
         
-        // Process each individual post for this day group
-        groupData.posts.forEach(item => {
-            const post = item.post;
-            if (post && post.record) {
-                const postContainer = document.createElement('div');
-                postContainer.classList.add('post');
-                
-                // 1) Post Text with Clickable Links
-                const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
-                const postFacets = post.record.facets || [];
-                if (postText) {
-                    const postTextContainer = document.createElement('div');
-                    postTextContainer.classList.add('post-text-container');
-                    const processedText = postText; // Preserve line breaks
-                    const parsedText = parseTextWithFacets(processedText, postFacets);
-                    postTextContainer.appendChild(parsedText);
-                    postContainer.appendChild(postTextContainer);
-                }
-                
-                // 2) Image Embeds
-                if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
-                    const images = post.embed.images.slice(0, 4);
-                    images.forEach(imageData => {
-                        if (imageData.fullsize) {
-                            const img = document.createElement('img');
-                            img.src = imageData.fullsize;
-                            img.alt = imageData.alt || 'Image';
-                            img.loading = 'lazy';
-                            img.classList.add('post-image');
-                            postContainer.appendChild(img);
-                        }
-                    });
-                }
-                
-                // 3) Embedded Quotes
-                if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
-                    const embeddedRecord = post.embed.record;
-                    if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
-                        const embeddedText = embeddedRecord.value.text || '';
-                        const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
-                        
-                        const quoteContainer = document.createElement('blockquote');
-                        quoteContainer.classList.add('embedded-quote');
-                        const quoteText = document.createElement('p');
-                        quoteText.textContent = embeddedText;
-                        quoteContainer.appendChild(quoteText);
-                        const quoteAuthor = document.createElement('cite');
-                        quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
-                        quoteContainer.appendChild(quoteAuthor);
-                        postContainer.appendChild(quoteContainer);
-                    }
-                }
-                
-                // 4) Post Date with Clickable Relative Timestamp
-                const postDateElem = document.createElement('p');
-                postDateElem.classList.add('post-date');
-                const postUrl = constructBlueskyPostUrl(post.uri);
-                const createdAt = new Date(post.record.createdAt || Date.now());
-                const relativeTime = getRelativeTime(createdAt);
-                const postLink = document.createElement('a');
-                postLink.href = postUrl;
-                postLink.textContent = relativeTime;
-                postLink.target = '_blank';
-                postLink.rel = 'noopener noreferrer';
-                const postedText = document.createTextNode('Posted ');
-                postDateElem.appendChild(postedText);
-                postDateElem.appendChild(postLink);
-                postContainer.appendChild(postDateElem);
-                
-                // 5) Individual Post Counts
-                const countsContainer = document.createElement('div');
-                countsContainer.classList.add('post-counts');
-                function createCount(iconClass, count, label) {
-                    const countSpan = document.createElement('span');
-                    countSpan.classList.add('count-item');
-                    countSpan.setAttribute('aria-label', `${count} ${label}`);
-                    if (count > 0) {
-                        countSpan.classList.add('active');
-                    }
-                    const icon = document.createElement('i');
-                    icon.className = iconClass;
-                    icon.setAttribute('aria-hidden', 'true');
-                    const countText = document.createElement('span');
-                    countText.classList.add('count-text');
-                    countText.textContent = count;
-                    countSpan.appendChild(icon);
-                    countSpan.appendChild(countText);
-                    return countSpan;
-                }
-                const replies = post.replyCount || 0;
-                countsContainer.appendChild(createCount('fas fa-reply', replies, 'replies'));
-                const quotes = post.quoteCount || 0;
-                countsContainer.appendChild(createCount('fas fa-quote-right', quotes, 'quotes'));
-                const reposts = post.repostCount || 0;
-                countsContainer.appendChild(createCount('fas fa-retweet', reposts, 'reposts'));
-                const likes = post.likeCount || 0;
-                countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
-                postContainer.appendChild(countsContainer);
-                
-                // 6) Append the Post
-                postsList.appendChild(postContainer);
+// Process each individual post for this day group
+groupData.posts.forEach(item => {
+    const post = item.post;
+    if (post && post.record) {
+        const postContainer = document.createElement('div');
+        postContainer.classList.add('post');
+        
+        // 1) Post Text with Clickable Links
+        const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+        const postFacets = post.record.facets || [];
+        if (postText) {
+            const postTextContainer = document.createElement('div');
+            postTextContainer.classList.add('post-text-container');
+            const processedText = postText; // Preserve line breaks
+            const parsedText = parseTextWithFacets(processedText, postFacets);
+            postTextContainer.appendChild(parsedText);
+            postContainer.appendChild(postTextContainer);
+        }
+        
+        // NEW: Check if an external embed exists
+        // This handles embeds of type "app.bsky.embed.external#view"
+        if (post.embed &&
+            post.embed.$type === "app.bsky.embed.external#view" &&
+            post.embed.external &&
+            post.embed.external.uri) {
+
+            // Create the linkCard container
+            const linkCard = document.createElement('div');
+            linkCard.classList.add('linkCard');
+            // Make the whole card clickable
+            linkCard.style.cursor = 'pointer';
+            linkCard.addEventListener('click', () => {
+                window.open(post.embed.external.uri, '_blank', 'noopener');
+            });
+
+            // Optional: Add a thumbnail image if available
+            if (post.embed.external.thumb) {
+                const thumb = document.createElement('img');
+                thumb.classList.add('linkCard-thumb');
+                thumb.src = post.embed.external.thumb;
+                thumb.alt = post.embed.external.title || 'Link thumbnail';
+                linkCard.appendChild(thumb);
             }
-        });
+
+            // Create a container for textual information
+            const linkInfo = document.createElement('div');
+            linkInfo.classList.add('linkCard-info');
+
+            // Display the title
+            if (post.embed.external.title) {
+                const titleElem = document.createElement('div');
+                titleElem.classList.add('linkCard-title');
+                titleElem.textContent = post.embed.external.title;
+                linkInfo.appendChild(titleElem);
+            }
+
+            // Optionally display the description
+            if (post.embed.external.description) {
+                const descElem = document.createElement('div');
+                descElem.classList.add('linkCard-description');
+                descElem.textContent = post.embed.external.description;
+                linkInfo.appendChild(descElem);
+            }
+
+            // Append the textual info to the card
+            linkCard.appendChild(linkInfo);
+
+            // Append the linkCard below the post text
+            postContainer.appendChild(linkCard);
+        }
+
+        // 2) Image Embeds
+        if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+            const images = post.embed.images.slice(0, 4);
+            images.forEach(imageData => {
+                if (imageData.fullsize) {
+                    const img = document.createElement('img');
+                    img.src = imageData.fullsize;
+                    img.alt = imageData.alt || 'Image';
+                    img.loading = 'lazy';
+                    img.classList.add('post-image');
+                    postContainer.appendChild(img);
+                }
+            });
+        }
+        
+        // 3) Embedded Quotes
+        if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
+            const embeddedRecord = post.embed.record;
+            if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
+                const embeddedText = embeddedRecord.value.text || '';
+                const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                
+                const quoteContainer = document.createElement('blockquote');
+                quoteContainer.classList.add('embedded-quote');
+                const quoteText = document.createElement('p');
+                quoteText.textContent = embeddedText;
+                quoteContainer.appendChild(quoteText);
+                const quoteAuthor = document.createElement('cite');
+                quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
+                quoteContainer.appendChild(quoteAuthor);
+                postContainer.appendChild(quoteContainer);
+            }
+        }
+        
+        // 4) Post Date with Clickable Relative Timestamp
+        const postDateElem = document.createElement('p');
+        postDateElem.classList.add('post-date');
+        const postUrl = constructBlueskyPostUrl(post.uri);
+        const createdAt = new Date(post.record.createdAt || Date.now());
+        const relativeTime = getRelativeTime(createdAt);
+        const postLink = document.createElement('a');
+        postLink.href = postUrl;
+        postLink.textContent = relativeTime;
+        postLink.target = '_blank';
+        postLink.rel = 'noopener noreferrer';
+        const postedText = document.createTextNode('Posted ');
+        postDateElem.appendChild(postedText);
+        postDateElem.appendChild(postLink);
+        postContainer.appendChild(postDateElem);
+        
+        // 5) Individual Post Counts
+        const countsContainer = document.createElement('div');
+        countsContainer.classList.add('post-counts');
+        function createCount(iconClass, count, label) {
+            const countSpan = document.createElement('span');
+            countSpan.classList.add('count-item');
+            countSpan.setAttribute('aria-label', `${count} ${label}`);
+            if (count > 0) {
+                countSpan.classList.add('active');
+            }
+            const icon = document.createElement('i');
+            icon.className = iconClass;
+            icon.setAttribute('aria-hidden', 'true');
+            const countText = document.createElement('span');
+            countText.classList.add('count-text');
+            countText.textContent = count;
+            countSpan.appendChild(icon);
+            countSpan.appendChild(countText);
+            return countSpan;
+        }
+        const replies = post.replyCount || 0;
+        countsContainer.appendChild(createCount('fas fa-reply', replies, 'replies'));
+        const quotes = post.quoteCount || 0;
+        countsContainer.appendChild(createCount('fas fa-quote-right', quotes, 'quotes'));
+        const reposts = post.repostCount || 0;
+        countsContainer.appendChild(createCount('fas fa-retweet', reposts, 'reposts'));
+        const likes = post.likeCount || 0;
+        countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
+        postContainer.appendChild(countsContainer);
+    
+        // 6) Append the Post
+        postsList.appendChild(postContainer);
+    }
+});
     }
 
     // Process outbound links after all posts are loaded
