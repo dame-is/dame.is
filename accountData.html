@@ -316,13 +316,13 @@
     let likesReceived = 0, repostsReceived = 0, quotesReceived = 0, repliesReceived = 0;
     for (const item of feed) {
       // Filter out posts that include the string "#reasonRepost"
-      if (item && item.record && JSON.stringify(item.record).indexOf("#reasonRepost") !== -1) {
+      if (item && item.post && JSON.stringify(item.record).indexOf("#reasonRepost") !== -1) {
         continue;
       }
-      likesReceived += (item.likeCount || 0);
-      repostsReceived += (item.repostCount || 0);
-      quotesReceived += (item.quoteCount || 0);
-      repliesReceived += (item.replyCount || 0);
+      likesReceived += (item.post.likeCount || 0);
+      repostsReceived += (item.post.repostCount || 0);
+      quotesReceived += (item.post.quoteCount || 0);
+      repliesReceived += (item.post.replyCount || 0);
     }
     return {
       likesReceived,
