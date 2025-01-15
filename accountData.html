@@ -466,107 +466,73 @@
       const totalBskyRecordsPercentage = totalRecords ? totalBskyRecords / totalRecords : 0;
       const totalNonBskyRecordsPercentage = totalRecords ? totalNonBskyRecords / totalRecords : 0;
 
-        // 7. For detailed post statistics.
-        console.log("Fetching posts records...");
-        const postsRecords = await fetchRecordsForCollection("app.bsky.feed.post");
+      // 7. For detailed post statistics.
+      const postsRecords = await fetchRecordsForCollection("app.bsky.feed.post");
+      const postsCount = profile.postsCount || postsRecords.length;
+      function filterRecords(records, testFunc) {
+        return records.filter(testFunc).length;
+      }
+      // Count only posts (records with no "reply" key).
+      const onlyPosts = filterRecords(postsRecords, rec => !rec.value.hasOwnProperty("reply"));
+      const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
+      // Count replies (records with a "reply" key).
+      const onlyReplies = filterRecords(postsRecords, rec => rec.value.hasOwnProperty("reply"));
+      const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
+      
+      // New logic for replies.
+      const onlyRepliesToSelf = postsRecords.filter(rec => {
+        if (!rec.value.hasOwnProperty("reply")) return false;
+        const authors = getReplyAuthors(rec.value.reply);
+        return authors.some(author => author === did);
+      }).length;
+      const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
+      const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
+      const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
 
-        // Log the entire postsRecords array to understand the structure and data.
-        console.log("Fetched postsRecords:", postsRecords);
-
-        // Count the total number of posts (or use profile data if available).
-        const postsCount = profile.postsCount || postsRecords.length;
-        console.log("Total posts count:", postsCount);
-
-        // Utility function for filtering records with a specific condition.
-        function filterRecords(records, testFunc) {
-        const filtered = records.filter(testFunc);
-        console.log(`Filter applied. Matched ${filtered.length} records.`);
-        return filtered.length;
-        }
-
-        // Count replies.
-        const onlyReplies = filterRecords(postsRecords, rec => rec.reply !== undefined);
-        console.log("Total replies:", onlyReplies);
-
-        const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
-        console.log("Replies per day:", onlyRepliesPerDay);
-
-        const onlyRepliesToSelf = filterRecords(postsRecords, rec =>
-        rec.reply && rec.reply.parent && rec.reply.parent.uri.includes(did)
-        );
-        console.log("Replies to self:", onlyRepliesToSelf);
-
-        const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
-        console.log("Replies to self per day:", onlyRepliesToSelfPerDay);
-
-        const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
-        console.log("Replies to others:", onlyRepliesToOthers);
-
-        const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
-        console.log("Replies to others per day:", onlyRepliesToOthersPerDay);
-
-        // Filter for posts without "reply" or "reason" properties.
-        const onlyPosts = filterRecords(postsRecords, rec => !rec.reply && !rec.reason);
-        console.log("Posts without reply or reason:", onlyPosts);
-
-        const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
-        console.log("Posts per day without reply or reason:", onlyPostsPerDay);
-
-        // Count quotes.
-        const onlyQuotes = filterRecords(postsRecords, rec => rec.embed && rec.embed["$type"] === "app.bsky.embed.record");
-        console.log("Quotes:", onlyQuotes);
-
-        const onlyQuotesPerDay = ageInDays ? onlyQuotes / ageInDays : 0;
-        console.log("Quotes per day:", onlyQuotesPerDay);
-
-        const onlySelfQuotes = filterRecords(postsRecords, rec =>
-        rec.embed && rec.embed["$type"] === "app.bsky.embed.record" && (rec.embed.URI || "").indexOf(did) !== -1
-        );
-        console.log("Self-quotes:", onlySelfQuotes);
-
-        const onlySelfQuotesPerDay = ageInDays ? onlySelfQuotes / ageInDays : 0;
-        console.log("Self-quotes per day:", onlySelfQuotesPerDay);
-
-        const onlyOtherQuotes = onlyQuotes - onlySelfQuotes;
-        console.log("Other quotes:", onlyOtherQuotes);
-
-        const onlyOtherQuotesPerDay = ageInDays ? onlyOtherQuotes / ageInDays : 0;
-        console.log("Other quotes per day:", onlyOtherQuotesPerDay);
+      // Count quotes.
+      const onlyQuotes = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.record");
+      const onlyQuotesPerDay = ageInDays ? onlyQuotes / ageInDays : 0;
+      const onlySelfQuotes = filterRecords(postsRecords, rec =>
+        rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.record" && (rec.value.embed.URI || "").indexOf(did) !== -1
+      );
+      const onlySelfQuotesPerDay = ageInDays ? onlySelfQuotes / ageInDays : 0;
+      const onlyOtherQuotes = onlyQuotes - onlySelfQuotes;
+      const onlyOtherQuotesPerDay = ageInDays ? onlyOtherQuotes / ageInDays : 0;
 
       // Count reposts.
       const repostRecords = await fetchRecordsForCollection("app.bsky.feed.repost");
       const onlyReposts = repostRecords.length;
       const onlyRepostsPerDay = ageInDays ? onlyReposts / ageInDays : 0;
-      const onlySelfReposts = filterRecords(repostRecords, rec => (rec.subject && rec.subject.URI || "").indexOf(did) !== -1);
+      const onlySelfReposts = filterRecords(repostRecords, rec => (rec.value.subject && rec.value.subject.URI || "").indexOf(did) !== -1);
       const onlySelfRepostsPerDay = ageInDays ? onlySelfReposts / ageInDays : 0;
       const onlyOtherReposts = onlyReposts - onlySelfReposts;
       const onlyOtherRepostsPerDay = ageInDays ? onlyOtherReposts / ageInDays : 0;
 
       // Count posts with images.
-      const postsWithImages = filterRecords(postsRecords, rec => rec.embed && rec.embed["$type"] === "app.bsky.embed.images");
+      const postsWithImages = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images");
       const imagePostsPerDay = ageInDays ? postsWithImages / ageInDays : 0;
       const imagePostsAltText = filterRecords(postsRecords, rec =>
-        rec.embed && rec.embed["$type"] === "app.bsky.embed.images" && rec.embed.alt && rec.embed.alt.trim()
+      rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images" && rec.value.embed.alt && rec.value.embed.alt.trim()
       );
       const imagePostsNoAltText = postsWithImages - imagePostsAltText;
       const altTextPercentage = postsWithImages ? imagePostsAltText / postsWithImages : 0;
       // Count posts with only text.
       const postsWithOnlyText = filterRecords(postsRecords, rec =>
-        !rec.embed && !rec.reply && !(rec.facets && JSON.stringify(rec.facets).indexOf("app.bsky.richtext.facet#link") !== -1)
+        !rec.value.embed && !rec.value.reply && !(rec.value.facets && JSON.stringify(rec.value.facets).indexOf("app.bsky.richtext.facet#link") !== -1)
       );
       const textPostsPerDay = ageInDays ? postsWithOnlyText / ageInDays : 0;
       // Count posts with mentions.
       const postsWithMentions = filterRecords(postsRecords, rec =>
-        rec.facets && rec.facets.features && rec.facets.features.some(f => f["$type"] === "app.bsky.richtext.facet#mention")
+        rec.value.facets && rec.value.facets.features && rec.value.facets.features.some(f => f["$type"] === "app.bsky.richtext.facet#mention")
       );
       const mentionPostsPerDay = ageInDays ? postsWithMentions / ageInDays : 0;
       // Count posts with video.
-      const postsWithVideo = filterRecords(postsRecords, rec => rec.embed && rec.embed["$type"] === "app.bsky.embed.video");
+      const postsWithVideo = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.video");
       const videoPostsPerDay = ageInDays ? postsWithVideo / ageInDays : 0;
       // Count posts with links.
       const postsWithLinks = filterRecords(postsRecords, rec => {
-        if (rec.facets && rec.facets.features && rec.facets.features.some(f => f["$type"] === "app.bsky.richtext.facet#link")) return true;
-        if (rec.embed && rec.embed["$type"] === "app.bsky.embed.external") return true;
+        if (rec.value.facets && rec.value.facets.features && rec.value.facets.features.some(f => f["$type"] === "app.bsky.richtext.facet#link")) return true;
+        if (rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.external") return true;
         return false;
       });
       const linkPostsPerDay = ageInDays ? postsWithLinks / ageInDays : 0;
