@@ -552,6 +552,7 @@ body.dark-mode .count-item.active i.fa-reply {
     font-size: 0.65em; /* slightly smaller if desired */
     padding: 2px 5px;
     margin: 0px;
+    margin: 0px;
 }
 
 .embedded-quote p {
