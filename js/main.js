@@ -756,17 +756,6 @@ async function fetchFooterData() {
 }
 
 // ----------------------------------
-// GLOBALS
-// ----------------------------------
-let currentBatchCursor = null; // To store the cursor for the next batch
-const POSTS_PER_BATCH = 100;     // Number of posts to fetch per batch
-let isLoadingPosts = false;      // Flag to prevent multiple simultaneous fetches
-
-// Global variable that determines how many days to load.
-// Initially, load posts from the past 4 complete days.
-let currentDaysCount = 4;
-
-// ----------------------------------
 // 12. POST LOADER (INDEX PAGE) - UPDATED
 // ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
