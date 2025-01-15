@@ -15,10 +15,6 @@ main {
     padding: 20px;
 }
 
-nav {
-    min-height: 194.7px;
-}
-
 p {
     margin-top: 0px;
     margin-bottom: 16px;
@@ -552,28 +548,6 @@ body.dark-mode .count-item.active i.fa-reply {
     font-size: 0.65em; /* slightly smaller if desired */
     padding: 2px 5px;
     margin: 0px;
-    margin: 0px;
-}
-
-.embedded-quote p {
-    margin-bottom: 8px;
-}
-
-cite {
-    font-size: 0.9em;
-}
-
-body.dark-mode .header-right .count-item {
-    background-color: #3a3a3a;
-    color: #fff;
-}
-
-.embedded-quote p {
-    margin-bottom: 8px;
-}
-
-cite {
-    font-size: 0.9em;
 }
 
 body.dark-mode .header-right .count-item {
