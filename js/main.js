@@ -982,24 +982,39 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Additional filtering for replies:
-        // If a post is a reply (i.e. post.record.reply exists) then only include it if
-        // both the parent's and root's author (from item.reply) have your DID.
+         // Additional filtering for replies:
+        // If a post is a reply (i.e. post.record.reply exists) then only include it if:
+        // - The envelope includes a reply object, and
+        //   - item.reply.parent.author.did equals your DID,
+        //   - item.reply.root.author.did equals your DID,
+        // - And if a grandparentAuthor is provided (item.grandparentAuthor), then its did must equal your DID.
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
                 if (post.record.reply) {
-                    // If the envelope includes a 'reply' object then check its parent's and root's author DID.
-                    if (item.reply) {
-                        if (item.reply.parent && item.reply.parent.author && item.reply.parent.author.did !== actor) {
-                            return false;
-                        }
-                        if (item.reply.root && item.reply.root.author && item.reply.root.author.did !== actor) {
+                    // Check envelope metadata; if missing, exclude.
+                    if (!item.reply) {
+                        return false;
+                    }
+                    if (item.reply.parent && item.reply.parent.author) {
+                        if (item.reply.parent.author.did !== actor) {
                             return false;
                         }
                     } else {
-                        // If no envelope reply metadata is provided, err on the side of exclusion.
                         return false;
+                    }
+                    if (item.reply.root && item.reply.root.author) {
+                        if (item.reply.root.author.did !== actor) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                    // Additionally, check grandparentAuthor if it exists.
+                    if (item.grandparentAuthor) {
+                        if (item.grandparentAuthor.did !== actor) {
+                            return false;
+                        }
                     }
                 }
                 return true;
