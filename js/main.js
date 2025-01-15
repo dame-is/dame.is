@@ -982,6 +982,28 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
+        // Now filter further to only include reply posts if they are actually replies to you.
+        // For posts that are replies, check if the "parent" and "root" properties (if they exist)
+        // contain your DID. (If a post is not a reply, include it automatically.)
+        const finalBatch = filteredBatch.filter(item => {
+            const post = item.post;
+            if (post && post.record) {
+                // If the post is a reply (has parent and/or root properties), check for your DID.
+                if (post.record.parent || post.record.root) {
+                    // Only include reply posts if both "parent" and "root" contain your DID.
+                    // (You might need to adjust this check if the fields are objects or nested differently.)
+                    if (post.record.parent && post.record.parent.indexOf(actor) === -1) {
+                        return false;
+                    }
+                    if (post.record.root && post.record.root.indexOf(actor) === -1) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        });
+
         // Additional filtering for replies (same as before)
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
