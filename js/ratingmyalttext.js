@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import ReactDOM from "react-dom";
-import NeedlePieChart from "./components/NeedlePieChart";
+import NeedlePieChart from "ratemyalttext/components/NeedlePieChart.js";
 
 const App = () => {
   const [username, setUsername] = useState("");
