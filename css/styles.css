@@ -467,6 +467,34 @@ body.dark-mode .count-item.active i.fa-reply {
     color: #000;
 }
 
+/* Container to hold the left (date text) and right (counts) sections */
+.post-date-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 5px;
+}
+
+/* Left side for date header text */
+.header-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Right side for the 2x2 counts grid */
+.header-right {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: 5px 10px;
+}
+
+/* Optional: Adjust count-item styles if needed */
+.header-right .count-item {
+    font-size: 0.8em; /* slightly smaller if desired */
+    padding: 2px 5px;
+}
+
 /* === Dark Mode Adjustments for Post Counts === */
 
 body.dark-mode .post-counts .count-item {
