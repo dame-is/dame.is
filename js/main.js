@@ -960,175 +960,216 @@ async function loadRecentPosts(cursor = null) {
 
         const groupedPosts = groupPostsByDay(filteredFeed);
 
-        // Iterate over each day group
-        for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
-            // Check if the date header already exists
-            if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
-                const dateHeader = document.createElement('div');
-                dateHeader.classList.add('post-date-header');
-                dateHeader.setAttribute('data-date', headerDateText);
+// Iterate over each day group
+for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
 
-                const firstLine = document.createElement('div');
-                firstLine.classList.add('date-header-line1');
-                firstLine.textContent = headerDateText;
-                dateHeader.appendChild(firstLine);
-
-                const secondLine = document.createElement('div');
-                secondLine.classList.add('date-header-line2');
-                secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
-                dateHeader.appendChild(secondLine);
-
-                postsList.appendChild(dateHeader);
+    // Check if the date header already exists
+    if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
+        // Create the container for the header
+        const dateHeader = document.createElement('div');
+        dateHeader.classList.add('post-date-header');
+        dateHeader.setAttribute('data-date', headerDateText);
+        
+        // Create a left container for the date text lines
+        const headerLeft = document.createElement('div');
+        headerLeft.classList.add('header-left');
+        
+        const firstLine = document.createElement('div');
+        firstLine.classList.add('date-header-line1');
+        firstLine.textContent = headerDateText;
+        headerLeft.appendChild(firstLine);
+        
+        const secondLine = document.createElement('div');
+        secondLine.classList.add('date-header-line2');
+        secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
+        headerLeft.appendChild(secondLine);
+        
+        // Create a right container for the counts (2x2 grid)
+        const headerRight = document.createElement('div');
+        headerRight.classList.add('header-right');
+        
+        // Calculate totals for the day by summing counts from each post
+        let totalReplies = 0,
+            totalQuotes  = 0,
+            totalReposts = 0,
+            totalLikes   = 0;
+            
+        groupData.posts.forEach(item => {
+            const post = item.post;
+            if (post && post.record) {
+                totalReplies += post.replyCount || 0;
+                totalQuotes  += post.quoteCount || 0;
+                totalReposts += post.repostCount || 0;
+                totalLikes   += post.likeCount || 0;
             }
-
-            groupData.posts.forEach(item => {
-                const post = item.post;
-                if (post && post.record) {
-                    const postContainer = document.createElement('div');
-                    postContainer.classList.add('post');
-
-                    // 1) Post Text with Clickable Links
-                    const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
-                    const postFacets = post.record.facets || [];
-                    if (postText) {
-                        const postTextContainer = document.createElement('div');
-                        postTextContainer.classList.add('post-text-container');
-
-                        // Do not replace \n with spaces
-                        const processedText = postText; // No replacement to preserve line breaks
-
-                        // Parse the text with facets to replace links
-                        const parsedText = parseTextWithFacets(processedText, postFacets);
-                        postTextContainer.appendChild(parsedText);
-                        postContainer.appendChild(postTextContainer);
-                    }
-
-                    // 2) Image Embeds
-                    if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
-                        const images = post.embed.images.slice(0, 4);
-                        images.forEach(imageData => {
-                            if (imageData.fullsize) { // Modified condition to only check for fullsize
-                                const img = document.createElement('img');
-                                img.src = imageData.fullsize;
-                                img.alt = imageData.alt || 'Image'; // Provide a default alt if empty
-                                img.loading = 'lazy';
-                                img.classList.add('post-image');
-                                postContainer.appendChild(img);
-                            }
-                        });
-                    }
-
-                    // === NEW: Handling Embedded Quotes ===
-                    if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
-                        const embeddedRecord = post.embed.record;
-                        if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
-                            const embeddedText = embeddedRecord.value.text || '';
-                            const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
-                            
-                            // Create a container for the embedded quote
-                            const quoteContainer = document.createElement('blockquote');
-                            quoteContainer.classList.add('embedded-quote'); // Add a class for styling
-
-                            // Create the quote text
-                            const quoteText = document.createElement('p');
-                            quoteText.textContent = embeddedText;
-                            quoteContainer.appendChild(quoteText);
-
-                            // Create the quote author
-                            const quoteAuthor = document.createElement('cite');
-                            quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
-                            quoteContainer.appendChild(quoteAuthor);
-
-                            // Append the quote container to the post
-                            postContainer.appendChild(quoteContainer);
-                        }
-                    }
-                    // === END OF EMBEDDED QUOTE HANDLING ===
-
-                    // 3) Created At Date with Clickable Relative Timestamp
-                    const postDateElem = document.createElement('p');
-                    postDateElem.classList.add('post-date');
-
-                    // **Construct the Bluesky Post URL using the helper function**
-                    const postUrl = constructBlueskyPostUrl(post.uri);
-
-                    const createdAt = new Date(post.record.createdAt || Date.now());
-
-                    // Generate relative timestamp
-                    const relativeTime = getRelativeTime(createdAt);
-
-                    // Create the <a> element for the clickable relative timestamp
-                    const postLink = document.createElement('a');
-                    postLink.href = postUrl;
-                    postLink.textContent = relativeTime;
-                    postLink.target = '_blank'; // Open in a new tab
-                    postLink.rel = 'noopener noreferrer'; // Security best practices
-
-                    // Create text node for "Posted "
-                    const postedText = document.createTextNode('Posted ');
-
-                    // Append all parts to postDateElem
-                    postDateElem.appendChild(postedText);
-                    postDateElem.appendChild(postLink);
-
-                    postContainer.appendChild(postDateElem);
-
-                    // 4) Counts (Replies, Quotes, Reposts, Likes)
-                    const countsContainer = document.createElement('div');
-                    countsContainer.classList.add('post-counts');
-
-                    // Helper function to create count with icon and conditional styling
-                    function createCount(iconClass, count, label) {
-                        const countSpan = document.createElement('span');
-                        countSpan.classList.add('count-item');
-                        countSpan.setAttribute('aria-label', `${count} ${label}`);
-                        
-                        // Add 'active' class if count > 0
-                        if (count > 0) {
-                            countSpan.classList.add('active');
-                        }
-
-                        // Create the icon
-                        const icon = document.createElement('i');
-                        icon.className = iconClass;
-                        icon.setAttribute('aria-hidden', 'true');
-
-                        // Create the count text
-                        const countText = document.createElement('span');
-                        countText.classList.add('count-text');
-                        countText.textContent = count;
-
-                        // Append icon and count to the span
-                        countSpan.appendChild(icon);
-                        countSpan.appendChild(countText);
-
-                        return countSpan;
-                    }
-
-                    // Create counts with icons
-                    const replies = post.replyCount || 0;
-                    const replyCount = createCount('fas fa-reply', replies, 'replies');
-                    countsContainer.appendChild(replyCount);
-
-                    const quotes = post.quoteCount || 0;
-                    const quoteCount = createCount('fas fa-quote-right', quotes, 'quotes');
-                    countsContainer.appendChild(quoteCount);
-
-                    const reposts = post.repostCount || 0;
-                    const repostCount = createCount('fas fa-retweet', reposts, 'reposts');
-                    countsContainer.appendChild(repostCount);
-
-                    const likes = post.likeCount || 0;
-                    const likeCount = createCount('fas fa-heart', likes, 'likes');
-                    countsContainer.appendChild(likeCount);
-
-                    postContainer.appendChild(countsContainer);
-
-                    // 5) Append the Post
-                    postsList.appendChild(postContainer);
-                }
-            });
+        });
+        
+        // Helper function (same as used for individual posts)
+        function createCount(iconClass, count, label) {
+            const countSpan = document.createElement('span');
+            countSpan.classList.add('count-item');
+            countSpan.setAttribute('aria-label', `${count} ${label}`);
+            
+            // Add 'active' class if count > 0
+            if (count > 0) {
+                countSpan.classList.add('active');
+            }
+        
+            // Create the icon
+            const icon = document.createElement('i');
+            icon.className = iconClass;
+            icon.setAttribute('aria-hidden', 'true');
+        
+            // Create the count text
+            const countText = document.createElement('span');
+            countText.classList.add('count-text');
+            countText.textContent = count;
+        
+            // Append icon and text to the span
+            countSpan.appendChild(icon);
+            countSpan.appendChild(countText);
+            return countSpan;
         }
+        
+        // Create count items for the header using the totals
+        const replyCountHeader = createCount('fas fa-reply', totalReplies, 'replies');
+        const quoteCountHeader = createCount('fas fa-quote-right', totalQuotes, 'quotes');
+        const repostCountHeader = createCount('fas fa-retweet', totalReposts, 'reposts');
+        const likeCountHeader = createCount('fas fa-heart', totalLikes, 'likes');
+        
+        // Append the counts to the header-right container.
+        // (They will arrange in a grid via CSS.)
+        headerRight.appendChild(replyCountHeader);
+        headerRight.appendChild(quoteCountHeader);
+        headerRight.appendChild(repostCountHeader);
+        headerRight.appendChild(likeCountHeader);
+        
+        // Append header-left and header-right into the dateHeader.
+        // Wrapping them in a flex container to have them side-by-side.
+        dateHeader.appendChild(headerLeft);
+        dateHeader.appendChild(headerRight);
+        
+        postsList.appendChild(dateHeader);
+    }
+    
+    // Process each individual post for this day group (as before)
+    groupData.posts.forEach(item => {
+        const post = item.post;
+        if (post && post.record) {
+            const postContainer = document.createElement('div');
+            postContainer.classList.add('post');
+            
+            // [POST TEXT, EMBEDS, POST DATE, INDIVIDUAL POST COUNTS, ETC...]
+            // ... (Keep your existing code for constructing a post)
+            
+            // 1) Post Text with Clickable Links
+            const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+            const postFacets = post.record.facets || [];
+            if (postText) {
+                const postTextContainer = document.createElement('div');
+                postTextContainer.classList.add('post-text-container');
+        
+                // Process and preserve line breaks (no replacement)
+                const processedText = postText;
+                const parsedText = parseTextWithFacets(processedText, postFacets);
+                postTextContainer.appendChild(parsedText);
+                postContainer.appendChild(postTextContainer);
+            }
+            
+            // 2) Image Embeds
+            if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+                const images = post.embed.images.slice(0, 4);
+                images.forEach(imageData => {
+                    if (imageData.fullsize) {
+                        const img = document.createElement('img');
+                        img.src = imageData.fullsize;
+                        img.alt = imageData.alt || 'Image';
+                        img.loading = 'lazy';
+                        img.classList.add('post-image');
+                        postContainer.appendChild(img);
+                    }
+                });
+            }
+            
+            // 3) Embedded Quotes
+            if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
+                const embeddedRecord = post.embed.record;
+                if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
+                    const embeddedText = embeddedRecord.value.text || '';
+                    const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                    
+                    const quoteContainer = document.createElement('blockquote');
+                    quoteContainer.classList.add('embedded-quote');
+        
+                    const quoteText = document.createElement('p');
+                    quoteText.textContent = embeddedText;
+                    quoteContainer.appendChild(quoteText);
+        
+                    const quoteAuthor = document.createElement('cite');
+                    quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
+                    quoteContainer.appendChild(quoteAuthor);
+        
+                    postContainer.appendChild(quoteContainer);
+                }
+            }
+            
+            // 4) Post Date with Clickable Relative Timestamp
+            const postDateElem = document.createElement('p');
+            postDateElem.classList.add('post-date');
+            
+            const postUrl = constructBlueskyPostUrl(post.uri);
+            const createdAt = new Date(post.record.createdAt || Date.now());
+            const relativeTime = getRelativeTime(createdAt);
+            
+            const postLink = document.createElement('a');
+            postLink.href = postUrl;
+            postLink.textContent = relativeTime;
+            postLink.target = '_blank';
+            postLink.rel = 'noopener noreferrer';
+            
+            const postedText = document.createTextNode('Posted ');
+            postDateElem.appendChild(postedText);
+            postDateElem.appendChild(postLink);
+            postContainer.appendChild(postDateElem);
+            
+            // 5) Individual Post Counts
+            const countsContainer = document.createElement('div');
+            countsContainer.classList.add('post-counts');
+            
+            function createCount(iconClass, count, label) {
+                const countSpan = document.createElement('span');
+                countSpan.classList.add('count-item');
+                countSpan.setAttribute('aria-label', `${count} ${label}`);
+                if (count > 0) {
+                    countSpan.classList.add('active');
+                }
+                const icon = document.createElement('i');
+                icon.className = iconClass;
+                icon.setAttribute('aria-hidden', 'true');
+                const countText = document.createElement('span');
+                countText.classList.add('count-text');
+                countText.textContent = count;
+                countSpan.appendChild(icon);
+                countSpan.appendChild(countText);
+                return countSpan;
+            }
+            
+            const replies = post.replyCount || 0;
+            countsContainer.appendChild(createCount('fas fa-reply', replies, 'replies'));
+            const quotes = post.quoteCount || 0;
+            countsContainer.appendChild(createCount('fas fa-quote-right', quotes, 'quotes'));
+            const reposts = post.repostCount || 0;
+            countsContainer.appendChild(createCount('fas fa-retweet', reposts, 'reposts'));
+            const likes = post.likeCount || 0;
+            countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
+            
+            postContainer.appendChild(countsContainer);
+        
+            // 6) Append the Post
+            postsList.appendChild(postContainer);
+        }
+    });
+}
 
         // **New: Process outbound links after all posts are loaded**
         processOutboundLinks();
