@@ -40,13 +40,21 @@
               }
             }
         
-            async function fetchProfile(did) {
-              const url = `${PUBLIC_API_URL}/xrpc/com.atproto.repo.describeRepo?actor=${encodeURIComponent(did)}`;
-              const res = await fetch(url);
-              if (!res.ok) {
-                throw new Error(`Failed to fetch profile for DID: ${did}`);
+            async function fetchServiceEndpoint(did) {
+              try {
+                const res = await fetch(`https://plc.directory/${did}`);
+                const data = await res.json();
+                if (data.service && data.service.length > 0) {
+                  const serviceEndpoint = data.service[0].serviceEndpoint;
+                  if (serviceEndpoint) {
+                    return serviceEndpoint;
+                  }
+                }
+                throw new Error(`Service endpoint not found for DID: ${did}`);
+              } catch (error) {
+                console.error('Error fetching service endpoint:', error);
+                throw error;
               }
-              return await res.json();
             }
         
             async function fetchRecordsForCollection(serviceEndpoint, did, collectionName) {
@@ -95,9 +103,8 @@
                 // Step 1: Resolve DID
                 const did = await resolveHandleToDID(username);
         
-                // Step 2: Fetch profile and service endpoint
-                const profile = await fetchProfile(did);
-                const serviceEndpoint = profile.serviceEndpoint || PUBLIC_API_URL;
+                // Step 2: Fetch service endpoint from PLC directory
+                const serviceEndpoint = await fetchServiceEndpoint(did);
         
                 // Step 3: Fetch records using the service endpoint
                 const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
