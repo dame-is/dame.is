@@ -794,9 +794,7 @@
         },
         alsoKnownAs: {
           totalAkas: akaSet.size,
-          activeAkas: (auditLogData && auditLogData.records && auditLogData.records.length)
-                      ? auditLogData.records[auditLogData.records.length - 1].alsoKnownAs.length
-                      : 0,
+          activeAkas,
           totalBskyAkas,
           totalCustomAkas,
           domainRarity: calculateDomainRarity(profile.handle),
