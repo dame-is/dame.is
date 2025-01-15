@@ -340,43 +340,11 @@ async function fetchBlueskyStats() {
     const profileApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
     const feedApiUrlBase = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed`;
   
-    // Key used in sessionStorage
-    const storageKey = 'blueskyStats';
+    // Set separate animation durations (in milliseconds) for profile vs. paginated data
+    const animationDurationProfile = 2200; // followers & following
+    const animationDurationFeed = 1500;   // posts & replies
   
-    // Helper to update the DOM immediately (without animation)
-    function updateStatsNow(stats) {
-      const statsContainer = document.getElementById('bluesky-stats');
-      if (statsContainer) {
-        statsContainer.innerHTML = `
-          <span class="stat">
-              <span class="count" id="followers">${stats.followers}</span>
-              <span class="label">followers</span>
-          </span>
-          <span class="stat">
-              <span class="count" id="following">${stats.following}</span>
-              <span class="label">following</span>
-          </span>
-          <span class="stat">
-              <span class="count" id="posts">${stats.posts}</span>
-              <span class="label">posts</span>
-          </span>
-          <span class="stat">
-              <span class="count" id="replies">${stats.replies}</span>
-              <span class="label">replies</span>
-          </span>
-        `;
-      }
-    }
-  
-    // Check if stats have already been cached.
-    const cachedStats = sessionStorage.getItem(storageKey);
-    if (cachedStats) {
-      const stats = JSON.parse(cachedStats);
-      updateStatsNow(stats);
-      return; // no need to animate
-    }
-  
-    // No cached stats, so initialize the DOM with 0s.
+    // Set up stat container elements (initially showing 0)
     const statsContainer = document.getElementById('bluesky-stats');
     if (statsContainer) {
       statsContainer.innerHTML = `
@@ -402,11 +370,7 @@ async function fetchBlueskyStats() {
       return;
     }
   
-    // Define separate durations for animations.
-    const animationDurationProfile = 800; // for followers and following
-    const animationDurationFeed = 1500;   // for posts and replies
-  
-    // Get references to the count elements.
+    // Get references to the count elements
     const followersElem = document.getElementById('followers');
     const followingElem = document.getElementById('following');
     const postsElem = document.getElementById('posts');
@@ -414,7 +378,6 @@ async function fetchBlueskyStats() {
   
     /**
      * Animate a number change from a starting value to an ending value.
-     *
      * @param {HTMLElement} element The element whose textContent will be updated.
      * @param {number} from The starting value.
      * @param {number} to The final value.
@@ -425,7 +388,7 @@ async function fetchBlueskyStats() {
       function updateValue(now) {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        // Ease-out interpolation
+        // Using an easing function (ease-out)
         const easedProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = Math.floor(from + easedProgress * (to - from));
         element.textContent = currentValue;
@@ -436,7 +399,7 @@ async function fetchBlueskyStats() {
       requestAnimationFrame(updateValue);
     }
   
-    // Cumulative count values.
+    // These will be our cumulative counts
     let followersCount = 0;
     let followingCount = 0;
     let postsCount = 0;
@@ -450,7 +413,7 @@ async function fetchBlueskyStats() {
       if (profileData) {
         const newFollowers = profileData.followersCount || 0;
         const newFollowing = profileData.followsCount || 0;
-        // Animate from 0 to the new values.
+        // Animate profile stats using the separate duration
         animateStat(followersElem, followersCount, newFollowers, animationDurationProfile);
         animateStat(followingElem, followingCount, newFollowing, animationDurationProfile);
         followersCount = newFollowers;
@@ -534,23 +497,14 @@ async function fetchBlueskyStats() {
             hasMore = false;
         }
   
-        // Optionally, limit iterations to avoid too many API calls.
+        // Optional: Limit number of iterations to avoid excessive API calls.
         // if (postsCount + repliesCount >= 1000) {
         //   hasMore = false;
         // }
       }
-  
-      // Once all stats are fetched, cache the final results.
-      const finalStats = {
-        followers: followersCount,
-        following: followingCount,
-        posts: postsCount,
-        replies: repliesCount,
-      };
-      sessionStorage.setItem(storageKey, JSON.stringify(finalStats));
     } catch (error) {
       console.error('Error fetching Bluesky stats:', error);
-      // Optionally show error stats.
+      // Optionally show error values or reset counts
       if (followersElem) followersElem.textContent = 0;
       if (followingElem) followingElem.textContent = 0;
       if (postsElem) postsElem.textContent = 0;
@@ -756,17 +710,6 @@ async function fetchFooterData() {
 }
 
 // ----------------------------------
-// GLOBALS
-// ----------------------------------
-let currentBatchCursor = null; // To store the cursor for the next batch
-const POSTS_PER_BATCH = 100;     // Number of posts to fetch per batch
-let isLoadingPosts = false;      // Flag to prevent multiple simultaneous fetches
-
-// Global variable that determines how many days to load.
-// Initially, load posts from the past 4 complete days.
-let currentDaysCount = 4;
-
-// ----------------------------------
 // 12. POST LOADER (INDEX PAGE) - UPDATED
 // ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
@@ -963,12 +906,6 @@ async function loadRecentPosts(cursor = null) {
         return;
     }
 
-    // Use the global cutoff value instead of a locally computed 4-day threshold.
-    const thresholdTime = currentCutoffTime;
-
-    // Use the global cutoff value instead of a locally computed 4-day threshold.
-    const thresholdTime = currentCutoffTime;
-
     // We'll fetch posts in two API calls (total 200 posts) when paginating.
     let allFetchedPosts = [];
     let batchesToFetch = 2; // 2 batches * 100 = 200 posts total.
@@ -994,29 +931,6 @@ async function loadRecentPosts(cursor = null) {
         // Remove reposts
         const filteredBatch = data.feed.filter(item => {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
-        });
-
-        // Additional filtering for replies (same as before)
-        const finalBatch = filteredBatch.filter(item => {
-            const post = item.post;
-            if (post && post.record) {
-                if (post.record.reply) {
-                    if (!item.reply) return false;
-                    if (item.reply.parent && item.reply.parent.author) {
-                        if (item.reply.parent.author.did !== actor) return false;
-                    } else return false;
-                    if (item.reply.root && item.reply.root.author) {
-                        if (item.reply.root.author.did !== actor) return false;
-                    } else return false;
-                    if (item.reply.grandparentAuthor) {
-                        if (item.reply.grandparentAuthor.author) {
-                            if (item.reply.grandparentAuthor.author.did !== actor) return false;
-                        } else return false;
-                    }
-                }
-                return true;
-            }
-            return false;
         });
 
         // Additional filtering for replies (same as before)
