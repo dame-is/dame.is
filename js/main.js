@@ -979,20 +979,23 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Now filter further to only include reply posts if they are actually replies to you.
-        // For posts that are replies, check if the "parent" and "root" properties (if they exist)
-        // contain your DID. (If a post is not a reply, include it automatically.)
+        // Additional filtering for replies:
+        // If a post is a reply (i.e. post.record.reply exists) then only include it if
+        // both the parent's and root's author (from item.reply) have your DID.
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
-                // If the post is a reply (has parent and/or root properties), check for your DID.
-                if (post.record.parent || post.record.root) {
-                    // Only include reply posts if both "parent" and "root" contain your DID.
-                    // (You might need to adjust this check if the fields are objects or nested differently.)
-                    if (post.record.parent && post.record.parent.indexOf(actor) === -1) {
-                        return false;
-                    }
-                    if (post.record.root && post.record.root.indexOf(actor) === -1) {
+                if (post.record.reply) {
+                    // If the envelope includes a 'reply' object then check its parent's and root's author DID.
+                    if (item.reply) {
+                        if (item.reply.parent && item.reply.parent.author && item.reply.parent.author.did !== actor) {
+                            return false;
+                        }
+                        if (item.reply.root && item.reply.root.author && item.reply.root.author.did !== actor) {
+                            return false;
+                        }
+                    } else {
+                        // If no envelope reply metadata is provided, err on the side of exclusion.
                         return false;
                     }
                 }
