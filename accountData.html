@@ -533,9 +533,15 @@
       // Count posts with images.
       const postsWithImages = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images");
       const imagePostsPerDay = ageInDays ? postsWithImages / ageInDays : 0;
-      const imagePostsAltText = filterRecords(postsRecords, rec =>
-      rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images" && rec.value.embed.alt && rec.value.embed.alt.trim()
-      );
+      const imagePostsAltText = filterRecords(postsRecords, rec => {
+        // Check if the embed object exists and is of the correct type
+        if (!rec.value.embed || rec.value.embed["$type"] !== "app.bsky.embed.images") {
+            return false;
+        }
+
+        // Check if any image in the images array contains an "alt" value
+        return rec.value.embed.images && rec.value.embed.images.some(image => image.alt && image.alt.trim());
+        });
       const imagePostsNoAltText = postsWithImages - imagePostsAltText;
       const altTextPercentage = postsWithImages ? imagePostsAltText / postsWithImages : 0;
       // Count posts with only text.
