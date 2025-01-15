@@ -979,18 +979,40 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Add all posts from this batch to the fallback array
-        allFetchedPosts.push(...filteredBatch);
+        // Now filter further to only include reply posts if they are actually replies to you.
+        // For posts that are replies, check if the "parent" and "root" properties (if they exist)
+        // contain your DID. (If a post is not a reply, include it automatically.)
+        const finalBatch = filteredBatch.filter(item => {
+            const post = item.post;
+            if (post && post.record) {
+                // If the post is a reply (has parent and/or root properties), check for your DID.
+                if (post.record.parent || post.record.root) {
+                    // Only include reply posts if both "parent" and "root" contain your DID.
+                    // (You might need to adjust this check if the fields are objects or nested differently.)
+                    if (post.record.parent && post.record.parent.indexOf(actor) === -1) {
+                        return false;
+                    }
+                    if (post.record.root && post.record.root.indexOf(actor) === -1) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        });
 
-        // Process each post in this batch
-        for (let item of filteredBatch) {
+        // Add all posts from this batch to the fallback array
+        allFetchedPosts.push(...finalBatch);
+
+        // Process each post in this batch – accumulating posts that are newer than 4 days.
+        for (let item of finalBatch) {
             const post = item.post;
             if (post && post.record) {
                 const postTime = new Date(post.record.createdAt).getTime();
                 if (postTime >= fourDaysAgoTime) {
                     recentPosts.push(item);
                 } else {
-                    // Found a post older than 4 days.
+                    // Found a post older than 4 days. Stop fetching further.
                     keepFetching = false;
                     break;
                 }
@@ -1131,185 +1153,184 @@ async function loadRecentPosts(cursor = null) {
             postsList.appendChild(dateHeader);
         }
         
-// Process each individual post for this day group
-groupData.posts.forEach(item => {
-    const post = item.post;
-    if (post && post.record) {
-        const postContainer = document.createElement('div');
-        postContainer.classList.add('post');
-        
-        // 1) Post Text with Clickable Links
-        const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
-        const postFacets = post.record.facets || [];
-        if (postText) {
-            const postTextContainer = document.createElement('div');
-            postTextContainer.classList.add('post-text-container');
-            const processedText = postText; // Preserve line breaks
-            const parsedText = parseTextWithFacets(processedText, postFacets);
-            postTextContainer.appendChild(parsedText);
-            postContainer.appendChild(postTextContainer);
-        }
-        
-        // NEW: Check if an external embed exists
-        // This handles embeds of type "app.bsky.embed.external#view"
-        if (post.embed &&
-            post.embed.$type === "app.bsky.embed.external#view" &&
-            post.embed.external &&
-            post.embed.external.uri) {
-
-            // Create the linkCard container
-            const linkCard = document.createElement('div');
-            linkCard.classList.add('linkCard');
-            // Make the whole card clickable
-            linkCard.style.cursor = 'pointer';
-            linkCard.addEventListener('click', () => {
-                window.open(post.embed.external.uri, '_blank', 'noopener');
-            });
-
-            // Optional: Add a thumbnail image if available
-            if (post.embed.external.thumb) {
-                const thumb = document.createElement('img');
-                thumb.classList.add('linkCard-thumb');
-                thumb.src = post.embed.external.thumb;
-                thumb.alt = post.embed.external.title || 'Link thumbnail';
-                linkCard.appendChild(thumb);
-            }
-
-            // Create a container for textual information
-            const linkInfo = document.createElement('div');
-            linkInfo.classList.add('linkCard-info');
-
-            // Display the title
-            if (post.embed.external.title) {
-                const titleElem = document.createElement('div');
-                titleElem.classList.add('linkCard-title');
-                titleElem.textContent = post.embed.external.title;
-                linkInfo.appendChild(titleElem);
-            }
-
-            // Optionally display the description
-            if (post.embed.external.description) {
-                const descElem = document.createElement('div');
-                descElem.classList.add('linkCard-description');
-                descElem.textContent = post.embed.external.description;
-                linkInfo.appendChild(descElem);
-            }
-            
-            // Create a URL preview element.
-            // We extract the hostname and/or path and then truncate after a certain number of characters.
-            let urlPreviewText = post.embed.external.uri;
-            try {
-                // Create a URL object for easier extraction (note: may throw on invalid URLs)
-                const urlObj = new URL(post.embed.external.uri);
-                // You can choose to display just the hostname...
-                // urlPreviewText = urlObj.hostname;
-                // ...or hostname plus part of the pathname:
-                urlPreviewText = `${urlObj.hostname}${urlObj.pathname}`;
-            } catch (e) {
-                // Fallback in case URL constructor fails.
-                console.error('Invalid URL for embed.external.uri', post.embed.external.uri);
-            }
-            // Define a maximum number of characters (e.g., 40)
-            const maxChars = 40;
-            if (urlPreviewText.length > maxChars) {
-                urlPreviewText = urlPreviewText.substring(0, maxChars) + '…';
-            }
-            const previewElem = document.createElement('div');
-            previewElem.classList.add('linkCard-preview');
-            previewElem.textContent = urlPreviewText;
-            linkInfo.appendChild(previewElem);
-
-            // Append the textual info to the card
-            linkCard.appendChild(linkInfo);
-
-            // Append the linkCard below the post text
-            postContainer.appendChild(linkCard);
-        }
-
-        // 2) Image Embeds
-        if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
-            const images = post.embed.images.slice(0, 4);
-            images.forEach(imageData => {
-                if (imageData.fullsize) {
-                    const img = document.createElement('img');
-                    img.src = imageData.fullsize;
-                    img.alt = imageData.alt || 'Image';
-                    img.loading = 'lazy';
-                    img.classList.add('post-image');
-                    postContainer.appendChild(img);
-                }
-            });
-        }
-        
-        // 3) Embedded Quotes
-        if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
-            const embeddedRecord = post.embed.record;
-            if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
-                const embeddedText = embeddedRecord.value.text || '';
-                const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+        // Process each individual post for this day group
+        groupData.posts.forEach(item => {
+            const post = item.post;
+            if (post && post.record) {
+                const postContainer = document.createElement('div');
+                postContainer.classList.add('post');
                 
-                const quoteContainer = document.createElement('blockquote');
-                quoteContainer.classList.add('embedded-quote');
-                const quoteText = document.createElement('p');
-                quoteText.textContent = embeddedText;
-                quoteContainer.appendChild(quoteText);
-                const quoteAuthor = document.createElement('cite');
-                quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
-                quoteContainer.appendChild(quoteAuthor);
-                postContainer.appendChild(quoteContainer);
+                // 1) Post Text with Clickable Links
+                const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+                const postFacets = post.record.facets || [];
+                if (postText) {
+                    const postTextContainer = document.createElement('div');
+                    postTextContainer.classList.add('post-text-container');
+                    const processedText = postText; // Preserve line breaks
+                    const parsedText = parseTextWithFacets(processedText, postFacets);
+                    postTextContainer.appendChild(parsedText);
+                    postContainer.appendChild(postTextContainer);
+                }
+                
+                // NEW: Check if an external embed exists
+                // This handles embeds of type "app.bsky.embed.external#view"
+                if (post.embed &&
+                    post.embed.$type === "app.bsky.embed.external#view" &&
+                    post.embed.external &&
+                    post.embed.external.uri) {
+
+                    // Create the linkCard container
+                    const linkCard = document.createElement('div');
+                    linkCard.classList.add('linkCard');
+                    // Make the whole card clickable
+                    linkCard.style.cursor = 'pointer';
+                    linkCard.addEventListener('click', () => {
+                        window.open(post.embed.external.uri, '_blank', 'noopener');
+                    });
+
+                    // Optional: Add a thumbnail image if available
+                    if (post.embed.external.thumb) {
+                        const thumb = document.createElement('img');
+                        thumb.classList.add('linkCard-thumb');
+                        thumb.src = post.embed.external.thumb;
+                        thumb.alt = post.embed.external.title || 'Link thumbnail';
+                        linkCard.appendChild(thumb);
+                    }
+
+                    // Create a container for textual information
+                    const linkInfo = document.createElement('div');
+                    linkInfo.classList.add('linkCard-info');
+
+                    // Display the title
+                    if (post.embed.external.title) {
+                        const titleElem = document.createElement('div');
+                        titleElem.classList.add('linkCard-title');
+                        titleElem.textContent = post.embed.external.title;
+                        linkInfo.appendChild(titleElem);
+                    }
+
+                    // Optionally display the description
+                    if (post.embed.external.description) {
+                        const descElem = document.createElement('div');
+                        descElem.classList.add('linkCard-description');
+                        descElem.textContent = post.embed.external.description;
+                        linkInfo.appendChild(descElem);
+                    }
+                    
+                    // Create a URL preview element.
+                    // We extract the hostname and/or path and then truncate after a certain number of characters.
+                    let urlPreviewText = post.embed.external.uri;
+                    try {
+                        // Create a URL object for easier extraction (note: may throw on invalid URLs)
+                        const urlObj = new URL(post.embed.external.uri);
+                        // You can choose to display just the hostname...
+                        // urlPreviewText = urlObj.hostname;
+                        // ...or hostname plus part of the pathname:
+                        urlPreviewText = `${urlObj.hostname}${urlObj.pathname}`;
+                    } catch (e) {
+                        console.error('Invalid URL for embed.external.uri', post.embed.external.uri);
+                    }
+                    // Define a maximum number of characters (e.g., 40)
+                    const maxChars = 40;
+                    if (urlPreviewText.length > maxChars) {
+                        urlPreviewText = urlPreviewText.substring(0, maxChars) + '…';
+                    }
+                    const previewElem = document.createElement('div');
+                    previewElem.classList.add('linkCard-preview');
+                    previewElem.textContent = urlPreviewText;
+                    linkInfo.appendChild(previewElem);
+
+                    // Append the textual info to the card
+                    linkCard.appendChild(linkInfo);
+
+                    // Append the linkCard below the post text
+                    postContainer.appendChild(linkCard);
+                }
+                
+                // 2) Image Embeds
+                if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+                    const images = post.embed.images.slice(0, 4);
+                    images.forEach(imageData => {
+                        if (imageData.fullsize) {
+                            const img = document.createElement('img');
+                            img.src = imageData.fullsize;
+                            img.alt = imageData.alt || 'Image';
+                            img.loading = 'lazy';
+                            img.classList.add('post-image');
+                            postContainer.appendChild(img);
+                        }
+                    });
+                }
+                
+                // 3) Embedded Quotes
+                if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
+                    const embeddedRecord = post.embed.record;
+                    if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
+                        const embeddedText = embeddedRecord.value.text || '';
+                        const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                        
+                        const quoteContainer = document.createElement('blockquote');
+                        quoteContainer.classList.add('embedded-quote');
+                        const quoteText = document.createElement('p');
+                        quoteText.textContent = embeddedText;
+                        quoteContainer.appendChild(quoteText);
+                        const quoteAuthor = document.createElement('cite');
+                        quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
+                        quoteContainer.appendChild(quoteAuthor);
+                        postContainer.appendChild(quoteContainer);
+                    }
+                }
+                
+                // 4) Post Date with Clickable Relative Timestamp
+                const postDateElem = document.createElement('p');
+                postDateElem.classList.add('post-date');
+                const postUrl = constructBlueskyPostUrl(post.uri);
+                const createdAt = new Date(post.record.createdAt || Date.now());
+                const relativeTime = getRelativeTime(createdAt);
+                const postLink = document.createElement('a');
+                postLink.href = postUrl;
+                postLink.textContent = relativeTime;
+                postLink.target = '_blank';
+                postLink.rel = 'noopener noreferrer';
+                const postedText = document.createTextNode('Posted ');
+                postDateElem.appendChild(postedText);
+                postDateElem.appendChild(postLink);
+                postContainer.appendChild(postDateElem);
+                
+                // 5) Individual Post Counts
+                const countsContainer = document.createElement('div');
+                countsContainer.classList.add('post-counts');
+                function createCount(iconClass, count, label) {
+                    const countSpan = document.createElement('span');
+                    countSpan.classList.add('count-item');
+                    countSpan.setAttribute('aria-label', `${count} ${label}`);
+                    if (count > 0) {
+                        countSpan.classList.add('active');
+                    }
+                    const icon = document.createElement('i');
+                    icon.className = iconClass;
+                    icon.setAttribute('aria-hidden', 'true');
+                    const countText = document.createElement('span');
+                    countText.classList.add('count-text');
+                    countText.textContent = count;
+                    countSpan.appendChild(icon);
+                    countSpan.appendChild(countText);
+                    return countSpan;
+                }
+                const replies = post.replyCount || 0;
+                countsContainer.appendChild(createCount('fas fa-reply', replies, 'replies'));
+                const quotes = post.quoteCount || 0;
+                countsContainer.appendChild(createCount('fas fa-quote-right', quotes, 'quotes'));
+                const reposts = post.repostCount || 0;
+                countsContainer.appendChild(createCount('fas fa-retweet', reposts, 'reposts'));
+                const likes = post.likeCount || 0;
+                countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
+                postContainer.appendChild(countsContainer);
+            
+                // 6) Append the Post
+                postsList.appendChild(postContainer);
             }
-        }
-        
-        // 4) Post Date with Clickable Relative Timestamp
-        const postDateElem = document.createElement('p');
-        postDateElem.classList.add('post-date');
-        const postUrl = constructBlueskyPostUrl(post.uri);
-        const createdAt = new Date(post.record.createdAt || Date.now());
-        const relativeTime = getRelativeTime(createdAt);
-        const postLink = document.createElement('a');
-        postLink.href = postUrl;
-        postLink.textContent = relativeTime;
-        postLink.target = '_blank';
-        postLink.rel = 'noopener noreferrer';
-        const postedText = document.createTextNode('Posted ');
-        postDateElem.appendChild(postedText);
-        postDateElem.appendChild(postLink);
-        postContainer.appendChild(postDateElem);
-        
-        // 5) Individual Post Counts
-        const countsContainer = document.createElement('div');
-        countsContainer.classList.add('post-counts');
-        function createCount(iconClass, count, label) {
-            const countSpan = document.createElement('span');
-            countSpan.classList.add('count-item');
-            countSpan.setAttribute('aria-label', `${count} ${label}`);
-            if (count > 0) {
-                countSpan.classList.add('active');
-            }
-            const icon = document.createElement('i');
-            icon.className = iconClass;
-            icon.setAttribute('aria-hidden', 'true');
-            const countText = document.createElement('span');
-            countText.classList.add('count-text');
-            countText.textContent = count;
-            countSpan.appendChild(icon);
-            countSpan.appendChild(countText);
-            return countSpan;
-        }
-        const replies = post.replyCount || 0;
-        countsContainer.appendChild(createCount('fas fa-reply', replies, 'replies'));
-        const quotes = post.quoteCount || 0;
-        countsContainer.appendChild(createCount('fas fa-quote-right', quotes, 'quotes'));
-        const reposts = post.repostCount || 0;
-        countsContainer.appendChild(createCount('fas fa-retweet', reposts, 'reposts'));
-        const likes = post.likeCount || 0;
-        countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
-        postContainer.appendChild(countsContainer);
-    
-        // 6) Append the Post
-        postsList.appendChild(postContainer);
-    }
-});
+        });
     }
 
     // Process outbound links after all posts are loaded
