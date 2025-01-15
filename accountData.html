@@ -582,12 +582,12 @@
       };
 
         // 8. Parse audit log for rotation keys and alsoKnownAs information.
-        const auditLogData = await fetchAuditLog();
+        const rawAuditData = await fetchAuditLog();
 
-        // Ensure auditLogData is an array
-        let auditRecords = Array.isArray(auditLogData) ? auditLogData : [];
+        // Convert rawAuditData to an array if necessary.
+        let auditRecords = Array.isArray(rawAuditData) ? rawAuditData : Object.values(rawAuditData);
 
-        // plcOperations: count of top-level objects.
+        // plcOperations: count of top-level audit records.
         const plcOperations = auditRecords.length;
 
         // Initialize variables.
@@ -595,37 +595,26 @@
         let activeAkas = 0;
         let akaSet = new Set();
 
-        // Only proceed if we have records.
         if (plcOperations > 0) {
-        // Sort audit records by createdAt ascending (oldest first)
+        // Sort records by createdAt ascending so that the latest record is last.
         auditRecords.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-        // The latest record is the last in the sorted array.
+        // The latest record is the last element.
         const latestRecord = auditRecords[auditRecords.length - 1];
 
-        // Rotation Keys: read from latestRecord.operation.rotationKeys
-        if (
-            latestRecord.operation &&
-            Array.isArray(latestRecord.operation.rotationKeys)
-        ) {
+        // Rotation Keys: from the latest record's operation.rotationKeys array.
+        if (latestRecord.operation && Array.isArray(latestRecord.operation.rotationKeys)) {
             rotationKeys = latestRecord.operation.rotationKeys.length;
         }
 
-        // Active Akas: from latestRecord.operation.alsoKnownAs (if exists)
-        if (
-            latestRecord.operation &&
-            Array.isArray(latestRecord.operation.alsoKnownAs)
-        ) {
+        // Active Akas: from the latest record's operation.alsoKnownAs array.
+        if (latestRecord.operation && Array.isArray(latestRecord.operation.alsoKnownAs)) {
             activeAkas = latestRecord.operation.alsoKnownAs.length;
         }
 
-        // Process all records: for each record that has an alsoKnownAs array in its operation,
-        // add each alias to our unique set.
+        // Build the set of all unique aliases across all records.
         auditRecords.forEach(record => {
-            if (
-            record.operation &&
-            Array.isArray(record.operation.alsoKnownAs)
-            ) {
+            if (record.operation && Array.isArray(record.operation.alsoKnownAs)) {
             record.operation.alsoKnownAs.forEach(alias => {
                 akaSet.add(alias);
             });
@@ -634,10 +623,9 @@
         }
 
         const totalAkas = akaSet.size;
-        const totalBskyAkas = Array.from(akaSet).filter(alias =>
-        alias.includes("bsky.social")
-        ).length;
+        const totalBskyAkas = Array.from(akaSet).filter(alias => alias.includes("bsky.social")).length;
         const totalCustomAkas = totalAkas - totalBskyAkas;
+
 
 
       // 9. Compute engagements from author feed.
