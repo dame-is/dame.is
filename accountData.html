@@ -789,7 +789,13 @@
             textPercentage: postsCount ? postsWithOnlyText / postsCount : 0,
             linkPercentage: postsCount ? postsWithLinks / postsCount : 0,
             imagePercentage: postsCount ? postsWithImages / postsCount : 0,
-            videoPercentage: postsCount ? postsWithVideo / postsCount : 0
+            videoPercentage: postsCount ? postsWithVideo / postsCount : 0,
+            engagementsReceived: {
+                likesReceived,
+                repostsReceived,
+                quotesReceived,
+                repliesReceived
+            }
           },
           "app.bsky.feed.threadgate": (await fetchRecordsForCollection("app.bsky.feed.threadgate")).length || 0,
           "app.bsky.feed.like": {
@@ -823,14 +829,14 @@
           handleType: profile.handle.includes("bsky.social") ? "default" : "custom"
         },
         analysis: {
-          accountAgeStatement: "",
-          blueskyFeatures: "",
-          atprotoEngagement: "",
-          domainHistoryStatement: "",
-          rotationKeyStatement: "",
-          pdsHostStatement: "",
-          generationStatement: "invite-only era and were amongst the first 10000 users",
-          socialStatusStatement: "",
+          accountAgeStatement,
+          blueskyFeatures,
+          atprotoEngagement,
+          domainHistoryStatement,
+          rotationKeyStatement,
+          pdsHostStatement,
+          generationStatement,
+          socialStatusStatement,
           narrative: narrative
         }
       };
