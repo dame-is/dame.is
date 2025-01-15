@@ -496,10 +496,20 @@
       const onlyQuotesPerDay = ageInDays ? onlyQuotes / ageInDays : 0;
       const onlySelfQuotes = filterRecords(postsRecords, rec => {
         // Check if the "embed" object exists and is of the correct type
-        if (!rec.value || !rec.value.embed || rec.value.embed["$type"] !== "app.bsky.embed.record") return false;
+        if (
+            !rec.value || 
+            !rec.value.embed || 
+            (rec.value.embed["$type"] !== "app.bsky.embed.record" && rec.value.embed["$type"] !== "app.bsky.embed.recordWithMedia")
+        ) {
+            return false;
+        }
 
-        // Check if the "URI" contains the DID
-        return rec.value.embed.uri && rec.value.embed.uri.includes(did);
+        // Match either `record.record.uri` or `record.uri` containing the DID
+        const embedRecord = rec.value.embed.record;
+        return (
+            (embedRecord.record && embedRecord.record.uri && embedRecord.record.uri.includes(did)) ||
+            (embedRecord.uri && embedRecord.uri.includes(did))
+        );
         });
       const onlySelfQuotesPerDay = ageInDays ? onlySelfQuotes / ageInDays : 0;
       const onlyOtherQuotes = onlyQuotes - onlySelfQuotes;
@@ -533,10 +543,14 @@
         !rec.value.embed && !rec.value.reply && !(rec.value.facets && JSON.stringify(rec.value.facets).indexOf("app.bsky.richtext.facet#link") !== -1)
       );
       const textPostsPerDay = ageInDays ? postsWithOnlyText / ageInDays : 0;
-      // Count posts with mentions.
-      const postsWithMentions = filterRecords(postsRecords, rec =>
-        rec.value.facets && rec.value.facets.features && rec.value.facets.features.some(f => f["$type"] === "app.bsky.richtext.facet#mention")
-      );
+        // Count posts with mentions.
+        const postsWithMentions = filterRecords(postsRecords, rec => {
+        if (!rec.value || !rec.value.facets) return false;
+
+        return rec.value.facets.some(facet =>
+            facet.features && facet.features.some(feature => feature["$type"] === "app.bsky.richtext.facet#mention")
+        );
+        });
       const mentionPostsPerDay = ageInDays ? postsWithMentions / ageInDays : 0;
       // Count posts with video.
       const postsWithVideo = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.video");
