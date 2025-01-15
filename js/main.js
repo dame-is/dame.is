@@ -457,45 +457,81 @@ async function fetchBlueskyStats() {
         followingCount = newFollowing;
       }
   
-      // --- STEP 2: Fetch Posts and Replies (Paginated) ---
-      const limit = 100; // maximum allowed per request
-      let cursor = null;
-      let hasMore = true;
-  
-      while (hasMore) {
+        // --- STEP 2: Fetch Posts and Replies (Paginated) ---
+        const limit = 100; // Maximum allowed per request
+        let cursor = null;
+        let hasMore = true;
+
+        // These will be our cumulative counts
+        let postsCount = 0;
+        let repliesCount = 0;
+
+        while (hasMore) {
+        // Use the filter "posts_with_replies" so that replies are included
         let feedApiUrl = `${feedApiUrlBase}?actor=${encodeURIComponent(actor)}&limit=${limit}&filter=posts_with_replies`;
         if (cursor) {
-          feedApiUrl += `&cursor=${encodeURIComponent(cursor)}`;
+            feedApiUrl += `&cursor=${encodeURIComponent(cursor)}`;
         }
         const feedResponse = await fetch(feedApiUrl);
         if (!feedResponse.ok) throw new Error(`Feed API error: ${feedResponse.status}`);
         const feedData = await feedResponse.json();
-  
-        // Store current counts to animate from.
+
+        // Store the current counts so we can animate from their previous values
         const currentPosts = postsCount;
         const currentReplies = repliesCount;
-  
+
         if (feedData && Array.isArray(feedData.feed)) {
-          feedData.feed.forEach(item => {
+            feedData.feed.forEach(item => {
             if (item.post && item.post.record) {
-              // Adjust condition as needed.
-              if (item.post.record.reply) {
-                repliesCount += 1;
-              } else {
+                // If the post is a reply we run our filtering logic.
+                // Otherwise, we count it as a post.
+                if (item.post.record.reply) {
+                let validReply = false;
+                // Check that envelope reply metadata is provided.
+                if (item.reply) {
+                    // Check parent's author DID
+                    if (item.reply.parent && item.reply.parent.author && item.reply.parent.author.did === actor) {
+                    // Check root's author DID
+                    if (item.reply.root && item.reply.root.author && item.reply.root.author.did === actor) {
+                        // Additionally, if a grandparent is provided, it must also have your DID.
+                        if (item.reply.grandparentAuthor) {
+                        if (item.reply.grandparentAuthor.author && item.reply.grandparentAuthor.author.did === actor) {
+                            validReply = true;
+                        }
+                        } else {
+                        validReply = true;
+                        }
+                    }
+                    }
+                }
+                // If the reply meets the "to me" criteria, count it as a post.
+                if (validReply) {
+                    postsCount += 1;
+                } else {
+                    // Otherwise, count it as a reply.
+                    repliesCount += 1;
+                }
+                } else {
+                // Not a reply: count as a post.
                 postsCount += 1;
-              }
+                }
             }
-          });
+            });
         }
-  
-        // Animate the updates.
-        if (postsElem) animateStat(postsElem, currentPosts, postsCount, animationDurationFeed);
-        if (repliesElem) animateStat(repliesElem, currentReplies, repliesCount, animationDurationFeed);
-  
+
+        // Animate the updated stats using the feed stats animation duration.
+        if (postsElem) {
+            animateStat(postsElem, currentPosts, postsCount, animationDurationFeed);
+        }
+        if (repliesElem) {
+            animateStat(repliesElem, currentReplies, repliesCount, animationDurationFeed);
+        }
+
+        // Pagination handling
         if (feedData.cursor) {
-          cursor = feedData.cursor;
+            cursor = feedData.cursor;
         } else {
-          hasMore = false;
+            hasMore = false;
         }
   
         // Optionally, limit iterations to avoid too many API calls.
@@ -959,19 +995,17 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-// Additional filtering for replies:
+        // Additional filtering for replies:
         // If a post is a reply (i.e. post.record.reply exists) then only include it if:
-        // - The envelope includes a reply object (item.reply), and
-        //   - item.reply.parent.author.did === actor,
-        //   - item.reply.root.author.did === actor,
-        //   - And if item.reply.grandparentAuthor exists, then item.reply.grandparentAuthor.author.did === actor.
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
+                // If this is a reply, require that envelope reply metadata is present.
                 if (post.record.reply) {
                     if (!item.reply) {
                         return false;
                     }
+                    // Verify that the parent's author DID equals your DID.
                     if (item.reply.parent && item.reply.parent.author) {
                         if (item.reply.parent.author.did !== actor) {
                             return false;
@@ -979,6 +1013,7 @@ async function loadRecentPosts(cursor = null) {
                     } else {
                         return false;
                     }
+                    // Verify that the root's author DID equals your DID.
                     if (item.reply.root && item.reply.root.author) {
                         if (item.reply.root.author.did !== actor) {
                             return false;
@@ -986,10 +1021,14 @@ async function loadRecentPosts(cursor = null) {
                     } else {
                         return false;
                     }
-                    // Check for grandparentAuthor within the reply envelope.
-                    // If it exists, require that its author DID equals actor.
+                    // Additionally, if a grandparent is provided under item.reply.grandparentAuthor,
+                    // then its author's DID must equal your DID.
                     if (item.reply.grandparentAuthor) {
-                        if (item.reply.grandparentAuthor.author && item.reply.grandparentAuthor.author.did !== actor) {
+                        if (item.reply.grandparentAuthor.author) {
+                            if (item.reply.grandparentAuthor.author.did !== actor) {
+                                return false;
+                            }
+                        } else {
                             return false;
                         }
                     }
