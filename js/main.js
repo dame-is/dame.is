@@ -98,9 +98,12 @@ function formatDateHeader(date) {
 // Function to calculate Day of Life
 function getDaysSinceBirthdate(date) {
     const msPerDay = 24 * 60 * 60 * 1000;
-    const diffInMs = date - BIRTHDATE;
-    return Math.floor(diffInMs / msPerDay);
+    // Create UTC date numbers for both dates (ignoring local timezone)
+    const utcBirthDate = Date.UTC(BIRTHDATE.getFullYear(), BIRTHDATE.getMonth(), BIRTHDATE.getDate());
+    const utcCurrentDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    return Math.floor((utcCurrentDate - utcBirthDate) / msPerDay);
 }
+
 
 // Function to calculate Day of Year
 function getDayOfYear(date) {
