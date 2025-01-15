@@ -7,17 +7,9 @@
         { "source": "/about", "destination": "/about.html" },
         { "source": "/ethos", "destination": "/ethos.html" },
         { "source": "/log", "destination": "/log.html" },
-        { "source": "/ratingmyalttext", "destination": "/ratingmyalttext.html" },
+        { "source": "/ratingmyalttext", "destination": "/ratemyalttext/src/ratingmyalttext.html" },
         { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
         { "source": "/index", "destination": "/" },
         { "source": "/home", "destination": "/" }
-    ],
-    "version": 2,
-    "builds": [
-      { "src": "ratemyalttext/src/ratingmyalttext.html", "use": "@vercel/static" },
-      { "src": "ratemyalttext/src/ratingmyalttext.js", "use": "@vercel/node" }
-    ],
-    "routes": [
-      { "src": "/ratemyalttext", "dest": "/ratemyalttext/src/ratingmyalttext.html" }
     ]
 }
