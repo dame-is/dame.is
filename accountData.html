@@ -103,7 +103,7 @@
 
   // 6. Fetch Author Feed (for engagements)
   async function fetchAuthorFeed() {
-    let urlBase = `${serviceEndpoint}/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(did)}&limit=100`;
+    let urlBase = `${publicServiceEndpoint}/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(did)}&limit=100`;
     let feed = [];
     let cursor = null;
     do {
