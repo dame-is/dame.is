@@ -979,17 +979,16 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-         // Additional filtering for replies:
+// Additional filtering for replies:
         // If a post is a reply (i.e. post.record.reply exists) then only include it if:
-        // - The envelope includes a reply object, and
-        //   - item.reply.parent.author.did equals your DID,
-        //   - item.reply.root.author.did equals your DID,
-        // - And if a grandparentAuthor is provided (item.grandparentAuthor), then its did must equal your DID.
+        // - The envelope includes a reply object (item.reply), and
+        //   - item.reply.parent.author.did === actor,
+        //   - item.reply.root.author.did === actor,
+        //   - And if item.reply.grandparentAuthor exists, then item.reply.grandparentAuthor.author.did === actor.
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
                 if (post.record.reply) {
-                    // Check envelope metadata; if missing, exclude.
                     if (!item.reply) {
                         return false;
                     }
@@ -1007,9 +1006,10 @@ async function loadRecentPosts(cursor = null) {
                     } else {
                         return false;
                     }
-                    // Additionally, check grandparentAuthor if it exists.
-                    if (item.grandparentAuthor) {
-                        if (item.grandparentAuthor.did !== actor) {
+                    // Check for grandparentAuthor within the reply envelope.
+                    // If it exists, require that its author DID equals actor.
+                    if (item.reply.grandparentAuthor) {
+                        if (item.reply.grandparentAuthor.author && item.reply.grandparentAuthor.author.did !== actor) {
                             return false;
                         }
                     }
