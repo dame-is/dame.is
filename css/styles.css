@@ -550,6 +550,11 @@ body.dark-mode .count-item.active i.fa-reply {
     margin: 0px;
 }
 
+body.dark-mode .header-right .count-item {
+    background-color: #3a3a3a;
+    color: #fff;
+}
+
 .embedded-quote p {
     margin-bottom: 8px;
 }
