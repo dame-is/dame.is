@@ -789,7 +789,13 @@
             textPercentage: postsCount ? postsWithOnlyText / postsCount : 0,
             linkPercentage: postsCount ? postsWithLinks / postsCount : 0,
             imagePercentage: postsCount ? postsWithImages / postsCount : 0,
-            videoPercentage: postsCount ? postsWithVideo / postsCount : 0
+            videoPercentage: postsCount ? postsWithVideo / postsCount : 0,
+            engagementsReceived: {
+                likesReceived,
+                repostsReceived,
+                quotesReceived,
+                repliesReceived
+            }
           },
           "app.bsky.feed.threadgate": (await fetchRecordsForCollection("app.bsky.feed.threadgate")).length || 0,
           "app.bsky.feed.like": {
