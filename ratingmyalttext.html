@@ -41,7 +41,7 @@
             }
         
             async function fetchProfile(did) {
-              const url = `${PUBLIC_API_URL}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`;
+              const url = `${PUBLIC_API_URL}/xrpc/com.atproto.repo.describeRepo?actor=${encodeURIComponent(did)}`;
               const res = await fetch(url);
               if (!res.ok) {
                 throw new Error(`Failed to fetch profile for DID: ${did}`);
