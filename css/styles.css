@@ -486,13 +486,15 @@ body.dark-mode .count-item.active i.fa-reply {
 .header-right {
     display: grid;
     grid-template-columns: repeat(2, auto);
-    gap: 5px 10px;
+    gap: 5px 6px;
+    margin-bottom: 13px;
 }
 
 /* Optional: Adjust count-item styles if needed */
 .header-right .count-item {
-    font-size: 0.8em; /* slightly smaller if desired */
+    font-size: 0.65em; /* slightly smaller if desired */
     padding: 2px 5px;
+    margin: 0px;
 }
 
 /* === Dark Mode Adjustments for Post Counts === */

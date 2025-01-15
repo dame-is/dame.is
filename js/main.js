@@ -826,6 +826,13 @@ function parseTextWithFacets(text, facets) {
     return fragment;
 }
 
+/**
+ * Modified loadRecentPosts:
+ * - On initial load (cursor === null), fetch posts in batches until:
+ *    a) We have accumulated 20 posts created within the last 4 days, OR
+ *    b) We hit a post older than 4 days.
+ * - If fewer than 20 posts were created in the last 4 days, display the most recent 20 posts.
+ */
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
     if (isLoadingPosts) {
@@ -834,13 +841,13 @@ async function loadRecentPosts(cursor = null) {
     }
     isLoadingPosts = true;
 
-    // Helper to handle singular/plural
+    // Helper to handle singular/plural (remains unchanged)
     function formatCount(count, singular, plural = null) {
         const actualPlural = plural || `${singular}s`;
         return `${count} ${count === 1 ? singular : actualPlural}`;
     }
 
-    // Function to format the createdAt date into a relative timestamp
+    // Function to format the createdAt date into a relative timestamp (remains unchanged)
     function getRelativeTime(date) {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
@@ -866,239 +873,168 @@ async function loadRecentPosts(cursor = null) {
     }
 
     const actor = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj'; // Your feed for posts
-    let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}&filter=posts_no_replies`;
-
-    if (cursor) {
-        apiUrl += `&cursor=${encodeURIComponent(cursor)}`;
+    const postsList = document.getElementById('recent-posts');
+    if (!postsList) {
+        console.error('Element with ID "recent-posts" not found.');
+        isLoadingPosts = false;
+        return;
     }
 
-    try {
+    // Variables to accumulate posts
+    let allFetchedPosts = []; // All posts fetched (will be used as fallback)
+    let recentPosts = [];     // Posts created within the last 4 days
+    const fourDaysAgoTime = Date.now() - (4 * 24 * 60 * 60 * 1000);
+
+    let localCursor = cursor;
+    let keepFetching = true;
+
+    // We fetch batches until:
+    //    - we find a post older than 4 days (indicating we've passed that threshold), OR
+    //    - we have accumulated at least 20 recent posts,
+    //    - or the API has no more posts to fetch.
+    while (keepFetching) {
+        let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}&filter=posts_no_replies`;
+        if (localCursor) {
+            apiUrl += `&cursor=${encodeURIComponent(localCursor)}`;
+        }
         console.log(`Fetching posts from API: ${apiUrl}`);
         const response = await fetch(apiUrl);
         if (!response.ok) {
-            throw new Error(`Network response was not ok: ${response.status}`);
+            console.error(`Network response was not ok: ${response.status}`);
+            break;
         }
         const data = await response.json();
-        console.log('Posts fetched successfully:', data);
-
-        // Update the cursor for the next batch
-        currentBatchCursor = data.cursor || null;
+        // Update cursor for next batch
+        localCursor = data.cursor || null;
+        currentBatchCursor = localCursor;
         console.log('Current batch cursor updated to:', currentBatchCursor);
 
-        const postsList = document.getElementById('recent-posts');
-
         // Filter out reposts
-        const filteredFeed = data.feed.filter(item => {
+        const filteredBatch = data.feed.filter(item => {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Group posts by day with additional data
-        function groupPostsByDay(posts) {
-            const groups = {};
-            posts.forEach(item => {
-                const postDate = new Date(item.post.record.createdAt);
-                const relativeDatestamp = formatDateHeader(postDate);
-                const dayOfLife = getDaysSinceBirthdate(postDate);
-                const dayOfYear = getDayOfYear(postDate);
-                const totalDaysInYear = isLeapYear(postDate.getFullYear()) ? 366 : 365;
-                const age = getAge(postDate);
+        // Add all posts from this batch to the fallback array
+        allFetchedPosts.push(...filteredBatch);
 
-                if (!groups[relativeDatestamp]) {
-                    groups[relativeDatestamp] = {
-                        dayOfLife: dayOfLife,
-                        dayOfYear: dayOfYear,
-                        totalDaysInYear: totalDaysInYear,
-                        age: age,
-                        posts: []
-                    };
-                }
-                groups[relativeDatestamp].posts.push(item);
-            });
-            return groups;
-        }
-
-        const groupedPosts = groupPostsByDay(filteredFeed);
-
-// Iterate over each day group
-for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
-
-    // Check if the date header already exists
-    if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
-        // Create the container for the header
-        const dateHeader = document.createElement('div');
-        dateHeader.classList.add('post-date-header');
-        dateHeader.setAttribute('data-date', headerDateText);
-        
-        // Create a left container for the date text lines
-        const headerLeft = document.createElement('div');
-        headerLeft.classList.add('header-left');
-        
-        const firstLine = document.createElement('div');
-        firstLine.classList.add('date-header-line1');
-        firstLine.textContent = headerDateText;
-        headerLeft.appendChild(firstLine);
-        
-        const secondLine = document.createElement('div');
-        secondLine.classList.add('date-header-line2');
-        secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
-        headerLeft.appendChild(secondLine);
-        
-        // Create a right container for the counts (2x2 grid)
-        const headerRight = document.createElement('div');
-        headerRight.classList.add('header-right');
-        
-        // Calculate totals for the day by summing counts from each post
-        let totalReplies = 0,
-            totalQuotes  = 0,
-            totalReposts = 0,
-            totalLikes   = 0;
-            
-        groupData.posts.forEach(item => {
+        // Process each post in this batch
+        for (let item of filteredBatch) {
             const post = item.post;
             if (post && post.record) {
-                totalReplies += post.replyCount || 0;
-                totalQuotes  += post.quoteCount || 0;
-                totalReposts += post.repostCount || 0;
-                totalLikes   += post.likeCount || 0;
-            }
-        });
-        
-        // Helper function (same as used for individual posts)
-        function createCount(iconClass, count, label) {
-            const countSpan = document.createElement('span');
-            countSpan.classList.add('count-item');
-            countSpan.setAttribute('aria-label', `${count} ${label}`);
-            
-            // Add 'active' class if count > 0
-            if (count > 0) {
-                countSpan.classList.add('active');
-            }
-        
-            // Create the icon
-            const icon = document.createElement('i');
-            icon.className = iconClass;
-            icon.setAttribute('aria-hidden', 'true');
-        
-            // Create the count text
-            const countText = document.createElement('span');
-            countText.classList.add('count-text');
-            countText.textContent = count;
-        
-            // Append icon and text to the span
-            countSpan.appendChild(icon);
-            countSpan.appendChild(countText);
-            return countSpan;
-        }
-        
-        // Create count items for the header using the totals
-        const replyCountHeader = createCount('fas fa-reply', totalReplies, 'replies');
-        const quoteCountHeader = createCount('fas fa-quote-right', totalQuotes, 'quotes');
-        const repostCountHeader = createCount('fas fa-retweet', totalReposts, 'reposts');
-        const likeCountHeader = createCount('fas fa-heart', totalLikes, 'likes');
-        
-        // Append the counts to the header-right container.
-        // (They will arrange in a grid via CSS.)
-        headerRight.appendChild(replyCountHeader);
-        headerRight.appendChild(quoteCountHeader);
-        headerRight.appendChild(repostCountHeader);
-        headerRight.appendChild(likeCountHeader);
-        
-        // Append header-left and header-right into the dateHeader.
-        // Wrapping them in a flex container to have them side-by-side.
-        dateHeader.appendChild(headerLeft);
-        dateHeader.appendChild(headerRight);
-        
-        postsList.appendChild(dateHeader);
-    }
-    
-    // Process each individual post for this day group (as before)
-    groupData.posts.forEach(item => {
-        const post = item.post;
-        if (post && post.record) {
-            const postContainer = document.createElement('div');
-            postContainer.classList.add('post');
-            
-            // [POST TEXT, EMBEDS, POST DATE, INDIVIDUAL POST COUNTS, ETC...]
-            // ... (Keep your existing code for constructing a post)
-            
-            // 1) Post Text with Clickable Links
-            const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
-            const postFacets = post.record.facets || [];
-            if (postText) {
-                const postTextContainer = document.createElement('div');
-                postTextContainer.classList.add('post-text-container');
-        
-                // Process and preserve line breaks (no replacement)
-                const processedText = postText;
-                const parsedText = parseTextWithFacets(processedText, postFacets);
-                postTextContainer.appendChild(parsedText);
-                postContainer.appendChild(postTextContainer);
-            }
-            
-            // 2) Image Embeds
-            if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
-                const images = post.embed.images.slice(0, 4);
-                images.forEach(imageData => {
-                    if (imageData.fullsize) {
-                        const img = document.createElement('img');
-                        img.src = imageData.fullsize;
-                        img.alt = imageData.alt || 'Image';
-                        img.loading = 'lazy';
-                        img.classList.add('post-image');
-                        postContainer.appendChild(img);
-                    }
-                });
-            }
-            
-            // 3) Embedded Quotes
-            if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
-                const embeddedRecord = post.embed.record;
-                if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
-                    const embeddedText = embeddedRecord.value.text || '';
-                    const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
-                    
-                    const quoteContainer = document.createElement('blockquote');
-                    quoteContainer.classList.add('embedded-quote');
-        
-                    const quoteText = document.createElement('p');
-                    quoteText.textContent = embeddedText;
-                    quoteContainer.appendChild(quoteText);
-        
-                    const quoteAuthor = document.createElement('cite');
-                    quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
-                    quoteContainer.appendChild(quoteAuthor);
-        
-                    postContainer.appendChild(quoteContainer);
+                const postTime = new Date(post.record.createdAt).getTime();
+                if (postTime >= fourDaysAgoTime) {
+                    recentPosts.push(item);
+                } else {
+                    // Found a post older than 4 days.
+                    keepFetching = false;
+                    break;
                 }
             }
+        }
+
+        // If we've accumulated 20 or more recent posts, stop fetching
+        if (recentPosts.length >= POSTS_PER_BATCH) {
+            keepFetching = false;
+        }
+        // Also stop if there is no further batch available
+        if (!localCursor) {
+            keepFetching = false;
+        }
+    }
+
+    // Decide which posts to display:
+    // If we found at least one recent post (created within 4 days), use them.
+    // But if there are fewer than 20, we’ll fall back and display the most recent 20 posts overall.
+    let postsToDisplay = [];
+    if (recentPosts.length > 0) {
+        postsToDisplay = recentPosts;
+        if (postsToDisplay.length < POSTS_PER_BATCH && allFetchedPosts.length >= POSTS_PER_BATCH) {
+            // Fewer than 20 posts in the last 4 days: use the most recent 20 posts overall
+            postsToDisplay = allFetchedPosts.slice(0, POSTS_PER_BATCH);
+        }
+    } else {
+        // No posts in the last 4 days: show the most recent 20 posts overall
+        postsToDisplay = allFetchedPosts.slice(0, POSTS_PER_BATCH);
+    }
+
+    console.log(`Total posts to display: ${postsToDisplay.length}`);
+
+    // GROUP POSTS BY DAY (using your existing grouping function)
+    function groupPostsByDay(posts) {
+        const groups = {};
+        posts.forEach(item => {
+            const postDate = new Date(item.post.record.createdAt);
+            const relativeDatestamp = formatDateHeader(postDate);
+            const dayOfLife = getDaysSinceBirthdate(postDate);
+            const dayOfYear = getDayOfYear(postDate);
+            const totalDaysInYear = isLeapYear(postDate.getFullYear()) ? 366 : 365;
+            const age = getAge(postDate);
+
+            if (!groups[relativeDatestamp]) {
+                groups[relativeDatestamp] = {
+                    dayOfLife: dayOfLife,
+                    dayOfYear: dayOfYear,
+                    totalDaysInYear: totalDaysInYear,
+                    age: age,
+                    posts: []
+                };
+            }
+            groups[relativeDatestamp].posts.push(item);
+        });
+        return groups;
+    }
+
+    const groupedPosts = groupPostsByDay(postsToDisplay);
+
+    // Iterate over each day group and build your header and individual posts as before
+    for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
+        // Check if the date header already exists
+        if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
+            // Create the container for the header
+            const dateHeader = document.createElement('div');
+            dateHeader.classList.add('post-date-header');
+            dateHeader.setAttribute('data-date', headerDateText);
             
-            // 4) Post Date with Clickable Relative Timestamp
-            const postDateElem = document.createElement('p');
-            postDateElem.classList.add('post-date');
+            // Create a left container for the date text lines
+            const headerLeft = document.createElement('div');
+            headerLeft.classList.add('header-left');
             
-            const postUrl = constructBlueskyPostUrl(post.uri);
-            const createdAt = new Date(post.record.createdAt || Date.now());
-            const relativeTime = getRelativeTime(createdAt);
+            const firstLine = document.createElement('div');
+            firstLine.classList.add('date-header-line1');
+            firstLine.textContent = headerDateText;
+            headerLeft.appendChild(firstLine);
             
-            const postLink = document.createElement('a');
-            postLink.href = postUrl;
-            postLink.textContent = relativeTime;
-            postLink.target = '_blank';
-            postLink.rel = 'noopener noreferrer';
+            const secondLine = document.createElement('div');
+            secondLine.classList.add('date-header-line2');
+            secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
+            headerLeft.appendChild(secondLine);
             
-            const postedText = document.createTextNode('Posted ');
-            postDateElem.appendChild(postedText);
-            postDateElem.appendChild(postLink);
-            postContainer.appendChild(postDateElem);
+            // Create a right container for the counts (2x2 grid)
+            const headerRight = document.createElement('div');
+            headerRight.classList.add('header-right');
             
-            // 5) Individual Post Counts
-            const countsContainer = document.createElement('div');
-            countsContainer.classList.add('post-counts');
+            // Calculate totals for the day by summing counts from each post
+            let totalReplies = 0,
+                totalQuotes  = 0,
+                totalReposts = 0,
+                totalLikes   = 0;
+                
+            groupData.posts.forEach(item => {
+                const post = item.post;
+                if (post && post.record) {
+                    totalReplies += post.replyCount || 0;
+                    totalQuotes  += post.quoteCount || 0;
+                    totalReposts += post.repostCount || 0;
+                    totalLikes   += post.likeCount || 0;
+                }
+            });
             
+            // Helper function (same as used for individual posts)
             function createCount(iconClass, count, label) {
                 const countSpan = document.createElement('span');
                 countSpan.classList.add('count-item');
                 countSpan.setAttribute('aria-label', `${count} ${label}`);
+                
                 if (count > 0) {
                     countSpan.classList.add('active');
                 }
@@ -1113,44 +1049,141 @@ for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
                 return countSpan;
             }
             
-            const replies = post.replyCount || 0;
-            countsContainer.appendChild(createCount('fas fa-reply', replies, 'replies'));
-            const quotes = post.quoteCount || 0;
-            countsContainer.appendChild(createCount('fas fa-quote-right', quotes, 'quotes'));
-            const reposts = post.repostCount || 0;
-            countsContainer.appendChild(createCount('fas fa-retweet', reposts, 'reposts'));
-            const likes = post.likeCount || 0;
-            countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
+            // Create count items for the header using the totals
+            const replyCountHeader = createCount('fas fa-reply', totalReplies, 'replies');
+            const quoteCountHeader = createCount('fas fa-quote-right', totalQuotes, 'quotes');
+            const repostCountHeader = createCount('fas fa-retweet', totalReposts, 'reposts');
+            const likeCountHeader = createCount('fas fa-heart', totalLikes, 'likes');
             
-            postContainer.appendChild(countsContainer);
+            headerRight.appendChild(replyCountHeader);
+            headerRight.appendChild(quoteCountHeader);
+            headerRight.appendChild(repostCountHeader);
+            headerRight.appendChild(likeCountHeader);
+            
+            dateHeader.appendChild(headerLeft);
+            dateHeader.appendChild(headerRight);
+            
+            postsList.appendChild(dateHeader);
+        }
         
-            // 6) Append the Post
-            postsList.appendChild(postContainer);
-        }
-    });
-}
-
-        // **New: Process outbound links after all posts are loaded**
-        processOutboundLinks();
-
-        // If there are no more posts to load, hide the "See More Posts" button
-        if (!currentBatchCursor) {
-            const seeMoreButton = document.getElementById('see-more-posts');
-            if (seeMoreButton) {
-                seeMoreButton.style.display = 'none';
-                console.log('No more posts to load. "See More Posts" button hidden.');
+        // Process each individual post for this day group
+        groupData.posts.forEach(item => {
+            const post = item.post;
+            if (post && post.record) {
+                const postContainer = document.createElement('div');
+                postContainer.classList.add('post');
+                
+                // 1) Post Text with Clickable Links
+                const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+                const postFacets = post.record.facets || [];
+                if (postText) {
+                    const postTextContainer = document.createElement('div');
+                    postTextContainer.classList.add('post-text-container');
+                    const processedText = postText; // Preserve line breaks
+                    const parsedText = parseTextWithFacets(processedText, postFacets);
+                    postTextContainer.appendChild(parsedText);
+                    postContainer.appendChild(postTextContainer);
+                }
+                
+                // 2) Image Embeds
+                if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+                    const images = post.embed.images.slice(0, 4);
+                    images.forEach(imageData => {
+                        if (imageData.fullsize) {
+                            const img = document.createElement('img');
+                            img.src = imageData.fullsize;
+                            img.alt = imageData.alt || 'Image';
+                            img.loading = 'lazy';
+                            img.classList.add('post-image');
+                            postContainer.appendChild(img);
+                        }
+                    });
+                }
+                
+                // 3) Embedded Quotes
+                if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
+                    const embeddedRecord = post.embed.record;
+                    if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
+                        const embeddedText = embeddedRecord.value.text || '';
+                        const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                        
+                        const quoteContainer = document.createElement('blockquote');
+                        quoteContainer.classList.add('embedded-quote');
+                        const quoteText = document.createElement('p');
+                        quoteText.textContent = embeddedText;
+                        quoteContainer.appendChild(quoteText);
+                        const quoteAuthor = document.createElement('cite');
+                        quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
+                        quoteContainer.appendChild(quoteAuthor);
+                        postContainer.appendChild(quoteContainer);
+                    }
+                }
+                
+                // 4) Post Date with Clickable Relative Timestamp
+                const postDateElem = document.createElement('p');
+                postDateElem.classList.add('post-date');
+                const postUrl = constructBlueskyPostUrl(post.uri);
+                const createdAt = new Date(post.record.createdAt || Date.now());
+                const relativeTime = getRelativeTime(createdAt);
+                const postLink = document.createElement('a');
+                postLink.href = postUrl;
+                postLink.textContent = relativeTime;
+                postLink.target = '_blank';
+                postLink.rel = 'noopener noreferrer';
+                const postedText = document.createTextNode('Posted ');
+                postDateElem.appendChild(postedText);
+                postDateElem.appendChild(postLink);
+                postContainer.appendChild(postDateElem);
+                
+                // 5) Individual Post Counts
+                const countsContainer = document.createElement('div');
+                countsContainer.classList.add('post-counts');
+                function createCount(iconClass, count, label) {
+                    const countSpan = document.createElement('span');
+                    countSpan.classList.add('count-item');
+                    countSpan.setAttribute('aria-label', `${count} ${label}`);
+                    if (count > 0) {
+                        countSpan.classList.add('active');
+                    }
+                    const icon = document.createElement('i');
+                    icon.className = iconClass;
+                    icon.setAttribute('aria-hidden', 'true');
+                    const countText = document.createElement('span');
+                    countText.classList.add('count-text');
+                    countText.textContent = count;
+                    countSpan.appendChild(icon);
+                    countSpan.appendChild(countText);
+                    return countSpan;
+                }
+                const replies = post.replyCount || 0;
+                countsContainer.appendChild(createCount('fas fa-reply', replies, 'replies'));
+                const quotes = post.quoteCount || 0;
+                countsContainer.appendChild(createCount('fas fa-quote-right', quotes, 'quotes'));
+                const reposts = post.repostCount || 0;
+                countsContainer.appendChild(createCount('fas fa-retweet', reposts, 'reposts'));
+                const likes = post.likeCount || 0;
+                countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
+                postContainer.appendChild(countsContainer);
+                
+                // 6) Append the Post
+                postsList.appendChild(postContainer);
             }
-        }
-    } catch (error) {
-        console.error('Error fetching recent posts:', error);
-        const postsList = document.getElementById('recent-posts');
-        if (postsList) {
-            postsList.innerHTML = '<p>Failed to load posts. Please try again later.</p>';
-        }
-    } finally {
-        isLoadingPosts = false;
-        console.log('Finished loading posts.');
+        });
     }
+
+    // **New: Process outbound links after all posts are loaded**
+    processOutboundLinks();
+
+    // If there are no more posts to load, hide the "See More Posts" button
+    if (!currentBatchCursor) {
+        const seeMoreButton = document.getElementById('see-more-posts');
+        if (seeMoreButton) {
+            seeMoreButton.style.display = 'none';
+            console.log('No more posts to load. "See More Posts" button hidden.');
+        }
+    }
+    isLoadingPosts = false;
+    console.log('Finished loading posts.');
 }
 
 // Function to load more posts when "See More Posts" button is clicked
@@ -1162,6 +1195,7 @@ function loadMorePosts() {
     }
     loadRecentPosts(currentBatchCursor);
 }
+
 
 // ----------------------------------
 // 13. LOAD MARKDOWN (DYNAMICALLY HANDLING ANY PAGE)
