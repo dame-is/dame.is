@@ -1047,13 +1047,8 @@ async function loadRecentPosts(cursor = null) {
         }
     }
 
-    // --- Preserve the scroll position ---
-    const previousScrollPosition = window.pageYOffset || document.documentElement.scrollTop;
-
     // Now render the groups.
     console.log(`Total day groups to display: ${Object.keys(groupedPosts).length}`);
-    // Clear current postsList to avoid duplicates (optional, depending on your use-case)
-    postsList.innerHTML = '';
 
     for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
         if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
@@ -1289,10 +1284,6 @@ async function loadRecentPosts(cursor = null) {
             console.log('No more posts to load. "See More Posts" button hidden.');
         }
     }
-
-    // Restore the previous scroll position so that the page doesn't automatically scroll down.
-    window.scrollTo(0, previousScrollPosition);
-
     isLoadingPosts = false;
     console.log('Finished loading posts.');
 }
