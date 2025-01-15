@@ -769,9 +769,13 @@ let currentDaysCount = 4;
 // ----------------------------------
 // 12. POST LOADER (INDEX PAGE) - UPDATED
 // ----------------------------------
+let currentBatchCursor = null; // To store the cursor for the next batch
+const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
+let isLoadingPosts = false; // Flag to prevent multiple simultaneous fetches
+
 function initializePostLoader() {
-    console.log('Initializing Post Loader with Day-Based Batches');
-    // Initial load (using currentDaysCount to define the interval)
+    console.log('Initializing Post Loader with Pagination');
+    // Initial load
     loadRecentPosts();
 
     // Create and append the "See More Posts" button
@@ -930,6 +934,7 @@ async function loadRecentPosts(cursor = null) {
     function getRelativeTime(date) {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
+
         const intervals = [
             { label: 'year', seconds: 31536000 },
             { label: 'month', seconds: 2592000 },
@@ -938,6 +943,7 @@ async function loadRecentPosts(cursor = null) {
             { label: 'minute', seconds: 60 },
             { label: 'second', seconds: 1 }
         ];
+
         for (const interval of intervals) {
             const count = Math.floor(diffInSeconds / interval.seconds);
             if (count >= 1) {
@@ -982,27 +988,47 @@ async function loadRecentPosts(cursor = null) {
         currentBatchCursor = localCursor;
         console.log('Current batch cursor updated to:', currentBatchCursor);
 
-        // Remove reposts.
+        // Remove reposts
         const filteredBatch = data.feed.filter(item => {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Apply the reply filter (unchanged from your version).
+        // Additional filtering for replies:
+        // If a post is a reply (i.e. post.record.reply exists) then only include it if:
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
+                // If this is a reply, require that envelope reply metadata is present.
                 if (post.record.reply) {
-                    if (!item.reply) return false;
+                    if (!item.reply) {
+                        return false;
+                    }
+                    // Verify that the parent's author DID equals your DID.
                     if (item.reply.parent && item.reply.parent.author) {
-                        if (item.reply.parent.author.did !== actor) return false;
-                    } else return false;
+                        if (item.reply.parent.author.did !== actor) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                    // Verify that the root's author DID equals your DID.
                     if (item.reply.root && item.reply.root.author) {
-                        if (item.reply.root.author.did !== actor) return false;
-                    } else return false;
+                        if (item.reply.root.author.did !== actor) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                    // Additionally, if a grandparent is provided under item.reply.grandparentAuthor,
+                    // then its author's DID must equal your DID.
                     if (item.reply.grandparentAuthor) {
                         if (item.reply.grandparentAuthor.author) {
-                            if (item.reply.grandparentAuthor.author.did !== actor) return false;
-                        } else return false;
+                            if (item.reply.grandparentAuthor.author.did !== actor) {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
                     }
                 }
                 return true;
@@ -1010,37 +1036,52 @@ async function loadRecentPosts(cursor = null) {
             return false;
         });
 
-        // Append this batch to our overall fetched posts.
+        // Add all posts from this batch to the fallback array
         allFetchedPosts.push(...finalBatch);
 
-        // For each item, check its createdAt; if it is newer than our lowerBoundTime, add it.
+        // Process each post in this batch – accumulating posts that are newer than 4 days.
         for (let item of finalBatch) {
             const post = item.post;
             if (post && post.record) {
                 const postTime = new Date(post.record.createdAt).getTime();
-                if (postTime >= lowerBoundTime) {
-                    dayPosts.push(item);
+                if (postTime >= fourDaysAgoTime) {
+                    recentPosts.push(item);
                 } else {
-                    // Once we encounter a post older than our cutoff, we stop fetching further.
+                    // Found a post older than 4 days. Stop fetching further.
                     keepFetching = false;
                     break;
                 }
             }
         }
 
-        // Also stop if there is no further batch available.
+        // If we've accumulated 20 or more recent posts, stop fetching
+        if (recentPosts.length >= POSTS_PER_BATCH) {
+            keepFetching = false;
+        }
+        // Also stop if there is no further batch available
         if (!localCursor) {
             keepFetching = false;
         }
     }
 
-    console.log(`Fetched a total of ${allFetchedPosts.length} posts; ${dayPosts.length} posts within the current ${currentDaysCount} days`);
+    // Decide which posts to display:
+    // If we found at least one recent post (created within 4 days), use them.
+    // But if there are fewer than 20, we’ll fall back and display the most recent 20 posts overall.
+    let postsToDisplay = [];
+    if (recentPosts.length > 0) {
+        postsToDisplay = recentPosts;
+        if (postsToDisplay.length < POSTS_PER_BATCH && allFetchedPosts.length >= POSTS_PER_BATCH) {
+            // Fewer than 20 posts in the last 4 days: use the most recent 20 posts overall
+            postsToDisplay = allFetchedPosts.slice(0, POSTS_PER_BATCH);
+        }
+    } else {
+        // No posts in the last 4 days: show the most recent 20 posts overall
+        postsToDisplay = allFetchedPosts.slice(0, POSTS_PER_BATCH);
+    }
 
-    // We display all posts that are within the day interval.
-    let postsToDisplay = dayPosts;
-    // (If no posts are found in the interval, you might decide to display the fallback allFetchedPosts, but here we assume we show an empty state.)
+    console.log(`Total posts to display: ${postsToDisplay.length}`);
 
-    // Group posts by day using your grouping function.
+    // GROUP POSTS BY DAY (using your existing grouping function)
     function groupPostsByDay(posts) {
         const groups = {};
         posts.forEach(item => {
@@ -1064,35 +1105,42 @@ async function loadRecentPosts(cursor = null) {
         });
         return groups;
     }
+
     const groupedPosts = groupPostsByDay(postsToDisplay);
 
-    // Render the posts (your rendering logic remains mostly unchanged).
+    // Iterate over each day group and build your header and individual posts as before
     for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
-        // If the header for this day hasn't been rendered already, create it.
+        // Check if the date header already exists
         if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
+            // Create the container for the header
             const dateHeader = document.createElement('div');
             dateHeader.classList.add('post-date-header');
             dateHeader.setAttribute('data-date', headerDateText);
-
+            
+            // Create a left container for the date text lines
             const headerLeft = document.createElement('div');
             headerLeft.classList.add('header-left');
+            
             const firstLine = document.createElement('div');
             firstLine.classList.add('date-header-line1');
             firstLine.textContent = headerDateText;
             headerLeft.appendChild(firstLine);
-
+            
             const secondLine = document.createElement('div');
             secondLine.classList.add('date-header-line2');
             secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
             headerLeft.appendChild(secondLine);
-
+            
+            // Create a right container for the counts (2x2 grid)
             const headerRight = document.createElement('div');
             headerRight.classList.add('header-right');
-
+            
+            // Calculate totals for the day by summing counts from each post
             let totalReplies = 0,
                 totalQuotes  = 0,
                 totalReposts = 0,
                 totalLikes   = 0;
+                
             groupData.posts.forEach(item => {
                 const post = item.post;
                 if (post && post.record) {
@@ -1102,11 +1150,13 @@ async function loadRecentPosts(cursor = null) {
                     totalLikes   += post.likeCount || 0;
                 }
             });
-
+            
+            // Helper function (same as used for individual posts)
             function createCount(iconClass, count, label) {
                 const countSpan = document.createElement('span');
                 countSpan.classList.add('count-item');
                 countSpan.setAttribute('aria-label', `${count} ${label}`);
+                
                 if (count > 0) {
                     countSpan.classList.add('active');
                 }
@@ -1120,51 +1170,60 @@ async function loadRecentPosts(cursor = null) {
                 countSpan.appendChild(countText);
                 return countSpan;
             }
+            
+            // Create count items for the header using the totals
             const replyCountHeader = createCount('fas fa-reply', totalReplies, 'replies');
             const quoteCountHeader = createCount('fas fa-quote-right', totalQuotes, 'quotes');
             const repostCountHeader = createCount('fas fa-retweet', totalReposts, 'reposts');
             const likeCountHeader = createCount('fas fa-heart', totalLikes, 'likes');
+            
             headerRight.appendChild(replyCountHeader);
             headerRight.appendChild(quoteCountHeader);
             headerRight.appendChild(repostCountHeader);
             headerRight.appendChild(likeCountHeader);
-
+            
             dateHeader.appendChild(headerLeft);
             dateHeader.appendChild(headerRight);
+            
             postsList.appendChild(dateHeader);
         }
-
-        // Render the individual posts for this day group.
+        
+        // Process each individual post for this day group
         groupData.posts.forEach(item => {
             const post = item.post;
             if (post && post.record) {
                 const postContainer = document.createElement('div');
                 postContainer.classList.add('post');
-
-                // Post Text with clickable links
+                
+                // 1) Post Text with Clickable Links
                 const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
                 const postFacets = post.record.facets || [];
                 if (postText) {
                     const postTextContainer = document.createElement('div');
                     postTextContainer.classList.add('post-text-container');
-                    const processedText = postText;
+                    const processedText = postText; // Preserve line breaks
                     const parsedText = parseTextWithFacets(processedText, postFacets);
                     postTextContainer.appendChild(parsedText);
                     postContainer.appendChild(postTextContainer);
                 }
-
-                // External embed (linkCard)
+                
+                // NEW: Check if an external embed exists
+                // This handles embeds of type "app.bsky.embed.external#view"
                 if (post.embed &&
                     post.embed.$type === "app.bsky.embed.external#view" &&
                     post.embed.external &&
                     post.embed.external.uri) {
 
+                    // Create the linkCard container
                     const linkCard = document.createElement('div');
                     linkCard.classList.add('linkCard');
+                    // Make the whole card clickable
                     linkCard.style.cursor = 'pointer';
                     linkCard.addEventListener('click', () => {
                         window.open(post.embed.external.uri, '_blank', 'noopener');
                     });
+
+                    // Optional: Add a thumbnail image if available
                     if (post.embed.external.thumb) {
                         const thumb = document.createElement('img');
                         thumb.classList.add('linkCard-thumb');
@@ -1172,27 +1231,41 @@ async function loadRecentPosts(cursor = null) {
                         thumb.alt = post.embed.external.title || 'Link thumbnail';
                         linkCard.appendChild(thumb);
                     }
+
+                    // Create a container for textual information
                     const linkInfo = document.createElement('div');
                     linkInfo.classList.add('linkCard-info');
+
+                    // Display the title
                     if (post.embed.external.title) {
                         const titleElem = document.createElement('div');
                         titleElem.classList.add('linkCard-title');
                         titleElem.textContent = post.embed.external.title;
                         linkInfo.appendChild(titleElem);
                     }
+
+                    // Optionally display the description
                     if (post.embed.external.description) {
                         const descElem = document.createElement('div');
                         descElem.classList.add('linkCard-description');
                         descElem.textContent = post.embed.external.description;
                         linkInfo.appendChild(descElem);
                     }
+                    
+                    // Create a URL preview element.
+                    // We extract the hostname and/or path and then truncate after a certain number of characters.
                     let urlPreviewText = post.embed.external.uri;
                     try {
+                        // Create a URL object for easier extraction (note: may throw on invalid URLs)
                         const urlObj = new URL(post.embed.external.uri);
+                        // You can choose to display just the hostname...
+                        // urlPreviewText = urlObj.hostname;
+                        // ...or hostname plus part of the pathname:
                         urlPreviewText = `${urlObj.hostname}${urlObj.pathname}`;
                     } catch (e) {
                         console.error('Invalid URL for embed.external.uri', post.embed.external.uri);
                     }
+                    // Define a maximum number of characters (e.g., 40)
                     const maxChars = 40;
                     if (urlPreviewText.length > maxChars) {
                         urlPreviewText = urlPreviewText.substring(0, maxChars) + '…';
@@ -1201,11 +1274,15 @@ async function loadRecentPosts(cursor = null) {
                     previewElem.classList.add('linkCard-preview');
                     previewElem.textContent = urlPreviewText;
                     linkInfo.appendChild(previewElem);
+
+                    // Append the textual info to the card
                     linkCard.appendChild(linkInfo);
+
+                    // Append the linkCard below the post text
                     postContainer.appendChild(linkCard);
                 }
-
-                // Image embeds
+                
+                // 2) Image Embeds
                 if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
                     const images = post.embed.images.slice(0, 4);
                     images.forEach(imageData => {
@@ -1219,13 +1296,14 @@ async function loadRecentPosts(cursor = null) {
                         }
                     });
                 }
-
-                // Embedded quotes
+                
+                // 3) Embedded Quotes
                 if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
                     const embeddedRecord = post.embed.record;
                     if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
                         const embeddedText = embeddedRecord.value.text || '';
                         const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                        
                         const quoteContainer = document.createElement('blockquote');
                         quoteContainer.classList.add('embedded-quote');
                         const quoteText = document.createElement('p');
@@ -1237,8 +1315,8 @@ async function loadRecentPosts(cursor = null) {
                         postContainer.appendChild(quoteContainer);
                     }
                 }
-
-                // Post date with clickable relative timestamp
+                
+                // 4) Post Date with Clickable Relative Timestamp
                 const postDateElem = document.createElement('p');
                 postDateElem.classList.add('post-date');
                 const postUrl = constructBlueskyPostUrl(post.uri);
@@ -1253,8 +1331,8 @@ async function loadRecentPosts(cursor = null) {
                 postDateElem.appendChild(postedText);
                 postDateElem.appendChild(postLink);
                 postContainer.appendChild(postDateElem);
-
-                // Post counts
+                
+                // 5) Individual Post Counts
                 const countsContainer = document.createElement('div');
                 countsContainer.classList.add('post-counts');
                 function createCount(iconClass, count, label) {
@@ -1283,13 +1361,14 @@ async function loadRecentPosts(cursor = null) {
                 const likes = post.likeCount || 0;
                 countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
                 postContainer.appendChild(countsContainer);
-
+            
+                // 6) Append the Post
                 postsList.appendChild(postContainer);
             }
         });
     }
 
-    // Process outbound links after all posts are loaded
+    // **New: Process outbound links after all posts are loaded**
     processOutboundLinks();
 
     // If there are no more posts to load, hide the "See More Posts" button.
@@ -1317,7 +1396,6 @@ function loadMorePosts() {
     // Call loadRecentPosts with the currentBatchCursor.
     loadRecentPosts(currentBatchCursor);
 }
-
 
 
 // ----------------------------------
