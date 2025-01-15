@@ -489,9 +489,10 @@ body.dark-mode .count-item.active i.fa-reply {
 /* If you have an image, it will usually appear at the top */
 .linkCard-thumb {
     width: 100%;
-    max-height: 150px;
+    max-height: 200px;
     object-fit: cover;
     display: block;
+    border-bottom: 1px solid #ccc;
 }
 
 /* Container for the title, description, and URL preview */
@@ -516,8 +517,7 @@ body.dark-mode .count-item.active i.fa-reply {
 
 /* URL preview styling */
 .linkCard-preview {
-    margin-top: 8px;
-    font-size: 0.85em;
+    font-size: 0.75em;
     color: #007BFF;
     white-space: nowrap;
     overflow: hidden;
