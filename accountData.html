@@ -466,38 +466,72 @@
       const totalBskyRecordsPercentage = totalRecords ? totalBskyRecords / totalRecords : 0;
       const totalNonBskyRecordsPercentage = totalRecords ? totalNonBskyRecords / totalRecords : 0;
 
-      // 7. For detailed post statistics.
-      const postsRecords = await fetchRecordsForCollection("app.bsky.feed.post");
-      const postsCount = profile.postsCount || postsRecords.length;
-      function filterRecords(records, testFunc) {
-        return records.filter(testFunc).length;
-      }
+        // 7. For detailed post statistics.
+        console.log("Fetching posts records...");
+        const postsRecords = await fetchRecordsForCollection("app.bsky.feed.post");
+
+        // Log the entire postsRecords array to understand the structure and data.
+        console.log("Fetched postsRecords:", postsRecords);
+
+        // Count the total number of posts (or use profile data if available).
+        const postsCount = profile.postsCount || postsRecords.length;
+        console.log("Total posts count:", postsCount);
+
+        // Utility function for filtering records with a specific condition.
+        function filterRecords(records, testFunc) {
+        const filtered = records.filter(testFunc);
+        console.log(`Filter applied. Matched ${filtered.length} records.`);
+        return filtered.length;
+        }
 
         // Count replies.
-        const onlyReplies = filterRecords(postsRecords, rec => rec.post.reply !== undefined);
+        const onlyReplies = filterRecords(postsRecords, rec => rec.reply !== undefined);
+        console.log("Total replies:", onlyReplies);
+
         const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
+        console.log("Replies per day:", onlyRepliesPerDay);
 
         const onlyRepliesToSelf = filterRecords(postsRecords, rec =>
-        rec.reply && rec.post.reply.parent && rec.post.reply.parent.uri.includes(did)
+        rec.reply && rec.reply.parent && rec.reply.parent.uri.includes(did)
         );
+        console.log("Replies to self:", onlyRepliesToSelf);
+
         const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
+        console.log("Replies to self per day:", onlyRepliesToSelfPerDay);
 
         const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
+        console.log("Replies to others:", onlyRepliesToOthers);
+
         const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
+        console.log("Replies to others per day:", onlyRepliesToOthersPerDay);
 
-        // Filter for posts without "reply" or "reason" properties
-        const onlyPosts = filterRecords(postsRecords, rec => !rec.post.reply && !rec.post.reason);
+        // Filter for posts without "reply" or "reason" properties.
+        const onlyPosts = filterRecords(postsRecords, rec => !rec.reply && !rec.reason);
+        console.log("Posts without reply or reason:", onlyPosts);
+
         const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
+        console.log("Posts per day without reply or reason:", onlyPostsPerDay);
 
-      // Count quotes.
-      const onlyQuotes = filterRecords(postsRecords, rec => rec.embed && rec.embed["$type"] === "app.bsky.embed.record");
-      const onlyQuotesPerDay = ageInDays ? onlyQuotes / ageInDays : 0;
-      const onlySelfQuotes = filterRecords(postsRecords, rec =>
+        // Count quotes.
+        const onlyQuotes = filterRecords(postsRecords, rec => rec.embed && rec.embed["$type"] === "app.bsky.embed.record");
+        console.log("Quotes:", onlyQuotes);
+
+        const onlyQuotesPerDay = ageInDays ? onlyQuotes / ageInDays : 0;
+        console.log("Quotes per day:", onlyQuotesPerDay);
+
+        const onlySelfQuotes = filterRecords(postsRecords, rec =>
         rec.embed && rec.embed["$type"] === "app.bsky.embed.record" && (rec.embed.URI || "").indexOf(did) !== -1
-      );
-      const onlySelfQuotesPerDay = ageInDays ? onlySelfQuotes / ageInDays : 0;
-      const onlyOtherQuotes = onlyQuotes - onlySelfQuotes;
-      const onlyOtherQuotesPerDay = ageInDays ? onlyOtherQuotes / ageInDays : 0;
+        );
+        console.log("Self-quotes:", onlySelfQuotes);
+
+        const onlySelfQuotesPerDay = ageInDays ? onlySelfQuotes / ageInDays : 0;
+        console.log("Self-quotes per day:", onlySelfQuotesPerDay);
+
+        const onlyOtherQuotes = onlyQuotes - onlySelfQuotes;
+        console.log("Other quotes:", onlyOtherQuotes);
+
+        const onlyOtherQuotesPerDay = ageInDays ? onlyOtherQuotes / ageInDays : 0;
+        console.log("Other quotes per day:", onlyOtherQuotesPerDay);
 
       // Count reposts.
       const repostRecords = await fetchRecordsForCollection("app.bsky.feed.repost");
