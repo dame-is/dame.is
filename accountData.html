@@ -472,45 +472,48 @@
       function filterRecords(records, testFunc) {
         return records.filter(testFunc).length;
       }
-        // Helper function to safely extract nested author DID from a reply object.
-        function getReplyAuthors(reply) {
+        // Helper function to extract author DIDs from a reply record.
+        // It checks:
+        //   - rec.reply.parent.author.did
+        //   - rec.reply.root.author.did
+        //   - Additionally, if the record has a "grandparentAuthor" property, it includes that DID.
+        function getReplyAuthors(rec) {
         const authors = [];
-        // Check parent
-        if (reply.parent && reply.parent.author) {
-            authors.push(reply.parent.author);
+        if (rec.reply) {
+            if (rec.reply.parent && rec.reply.parent.author && rec.reply.parent.author.did) {
+            authors.push(rec.reply.parent.author.did);
+            }
+            if (rec.reply.root && rec.reply.root.author && rec.reply.root.author.did) {
+            authors.push(rec.reply.root.author.did);
+            }
         }
-        // Check root
-        if (reply.root && reply.root.author) {
-            authors.push(reply.root.author);
-        }
-        // If your data ever includes a grandparent, add a check here.
-        if (reply.grandparent && reply.grandparent.author) {
-            authors.push(reply.grandparent.author);
+        if (rec.grandparentAuthor && rec.grandparentAuthor.did) {
+            authors.push(rec.grandparentAuthor.did);
         }
         return authors;
         }
+        
+        // When processing postsRecords from "app.bsky.feed.post":
+        // Ignore any record that has a "reason" property (these are reposts, not pure replies).
 
-        // Assuming postsRecords is an array of records from the "app.bsky.feed.post" collection,
-        // where a reply record is distinguished by having a top-level "reply" property.
-        const onlyPosts = postsRecords.filter(rec => !rec.hasOwnProperty("reply")).length;
-        const onlyReplies = postsRecords.filter(rec => rec.hasOwnProperty("reply")).length;
+        // Count only posts (records with no "reply" key)
+        const onlyPosts = postsRecords.filter(rec => !rec.hasOwnProperty("reply") && !rec.hasOwnProperty("reason")).length;
+        const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
 
-        // For replies, check if any of the nested author values match our did.
-        const onlyRepliesToSelf = postsRecords.filter(rec => {
-        if (!rec.hasOwnProperty("reply")) return false;
-        // Use our helper to get all author DIDs from the reply object.
-        const authors = getReplyAuthors(rec.reply);
-        // Return true if at least one author equals our did.
+        // Count replies: records that have a "reply" property (and do not have a "reason" property)
+        const replies = postsRecords.filter(rec => rec.hasOwnProperty("reply") && !rec.hasOwnProperty("reason"));
+        const onlyReplies = replies.length;
+        const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
+
+        // Now, count replies to self: among reply records, if any author in the nested reply data equals our did.
+        const onlyRepliesToSelf = replies.filter(rec => {
+        const authors = getReplyAuthors(rec);
         return authors.some(author => author === did);
         }).length;
-
-        // Replies to others is just the difference.
-        const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
-
-        // Optionally, compute per-day counts if you have ageInDays.
-        const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
-        const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
         const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
+
+        // Replies to others is defined as the difference.
+        const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
         const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
 
       // Count quotes.
