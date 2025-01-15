@@ -1079,104 +1079,139 @@ async function loadRecentPosts(cursor = null) {
                 const postContainer = document.createElement('div');
                 postContainer.classList.add('post');
 
-                // 1) Post Text with clickable links
+                // Post Text
                 const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
                 const postFacets = post.record.facets || [];
                 if (postText) {
                     const postTextContainer = document.createElement('div');
                     postTextContainer.classList.add('post-text-container');
-                    const processedText = postText; // Preserve line breaks
-                    const parsedText = parseTextWithFacets(processedText, postFacets);
+                    const parsedText = parseTextWithFacets(postText, postFacets);
                     postTextContainer.appendChild(parsedText);
                     postContainer.appendChild(postTextContainer);
                 }
 
-                // 2) External embed (linkCard)
-                if (post.embed &&
-                    post.embed.$type === "app.bsky.embed.external#view" &&
-                    post.embed.external &&
-                    post.embed.external.uri) {
-
-                    const linkCard = document.createElement('div');
-                    linkCard.classList.add('linkCard');
-                    linkCard.style.cursor = 'pointer';
-                    linkCard.addEventListener('click', () => {
-                        window.open(post.embed.external.uri, '_blank', 'noopener');
-                    });
-                    if (post.embed.external.thumb) {
-                        const thumb = document.createElement('img');
-                        thumb.classList.add('linkCard-thumb');
-                        thumb.src = post.embed.external.thumb;
-                        thumb.alt = post.embed.external.title || 'Link thumbnail';
-                        linkCard.appendChild(thumb);
-                    }
-                    const linkInfo = document.createElement('div');
-                    linkInfo.classList.add('linkCard-info');
-                    if (post.embed.external.title) {
-                        const titleElem = document.createElement('div');
-                        titleElem.classList.add('linkCard-title');
-                        titleElem.textContent = post.embed.external.title;
-                        linkInfo.appendChild(titleElem);
-                    }
-                    if (post.embed.external.description) {
-                        const descElem = document.createElement('div');
-                        descElem.classList.add('linkCard-description');
-                        descElem.textContent = post.embed.external.description;
-                        linkInfo.appendChild(descElem);
-                    }
-                    let urlPreviewText = post.embed.external.uri;
-                    try {
-                        const urlObj = new URL(post.embed.external.uri);
-                        urlPreviewText = `${urlObj.hostname}${urlObj.pathname}`;
-                    } catch (e) {
-                        console.error('Invalid URL for embed.external.uri', post.embed.external.uri);
-                    }
-                    const maxChars = 40;
-                    if (urlPreviewText.length > maxChars) {
-                        urlPreviewText = urlPreviewText.substring(0, maxChars) + '…';
-                    }
-                    const previewElem = document.createElement('div');
-                    previewElem.classList.add('linkCard-preview');
-                    previewElem.textContent = urlPreviewText;
-                    linkInfo.appendChild(previewElem);
-                    linkCard.appendChild(linkInfo);
-                    postContainer.appendChild(linkCard);
-                }
-
-                // 3) Image embeds
-                if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
-                    const images = post.embed.images.slice(0, 4);
-                    images.forEach(imageData => {
-                        if (imageData.fullsize) {
-                            const img = document.createElement('img');
-                            img.src = imageData.fullsize;
-                            img.alt = imageData.alt || 'Image';
-                            img.loading = 'lazy';
-                            img.classList.add('post-image');
-                            postContainer.appendChild(img);
+                // Now check for embeds.
+                // If the embed type is "app.bsky.embed.recordWithMedia#view", then render both the quoted record and the media.
+                if (post.embed && post.embed.$type === "app.bsky.embed.recordWithMedia#view") {
+                    // Render the quoted record (if available)
+                    if (post.embed.record && post.embed.record.record && post.embed.record.record.value) {
+                        const quotedText = post.embed.record.record.value.text || '';
+                        const quotedAuthor = post.embed.record.record.author && post.embed.record.record.author.handle ? post.embed.record.record.author.handle : '';
+                        if (quotedText) {
+                            const quoteContainer = document.createElement('blockquote');
+                            quoteContainer.classList.add('embedded-quote');
+                            const quoteTextElem = document.createElement('p');
+                            quoteTextElem.textContent = quotedText;
+                            quoteContainer.appendChild(quoteTextElem);
+                            if (quotedAuthor) {
+                                const quoteAuthorElem = document.createElement('cite');
+                                quoteAuthorElem.textContent = `— @${quotedAuthor}`;
+                                quoteContainer.appendChild(quoteAuthorElem);
+                            }
+                            postContainer.appendChild(quoteContainer);
                         }
-                    });
-                }
+                    }
+                    // Render the media (assuming images)
+                    if (post.embed.media && post.embed.media.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.media.images)) {
+                        post.embed.media.images.forEach(imageData => {
+                            if (imageData.fullsize) {
+                                const img = document.createElement('img');
+                                img.src = imageData.fullsize;
+                                img.alt = imageData.alt || 'Image';
+                                img.loading = 'lazy';
+                                img.classList.add('post-image');
+                                postContainer.appendChild(img);
+                            }
+                        });
+                    }
+                } else {
+                    // Otherwise, handle individual embed types.
+                    // External embed as linkCard
+                    if (post.embed &&
+                        post.embed.$type === "app.bsky.embed.external#view" &&
+                        post.embed.external &&
+                        post.embed.external.uri) {
 
-                // 4) Embedded quotes
-                if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
-                    const embeddedRecord = post.embed.record;
-                    if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
-                        const embeddedText = embeddedRecord.value.text || '';
-                        const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
-                        const quoteContainer = document.createElement('blockquote');
-                        quoteContainer.classList.add('embedded-quote');
-                        const quoteText = document.createElement('p');
-                        quoteText.textContent = embeddedText;
-                        quoteContainer.appendChild(quoteText);
-                        const quoteAuthor = document.createElement('cite');
-                        quoteAuthor.textContent = `— @${embeddedAuthorHandle}`;
-                        quoteContainer.appendChild(quoteAuthor);
-                        postContainer.appendChild(quoteContainer);
+                        const linkCard = document.createElement('div');
+                        linkCard.classList.add('linkCard');
+                        linkCard.style.cursor = 'pointer';
+                        linkCard.addEventListener('click', () => {
+                            window.open(post.embed.external.uri, '_blank', 'noopener');
+                        });
+                        if (post.embed.external.thumb) {
+                            const thumb = document.createElement('img');
+                            thumb.classList.add('linkCard-thumb');
+                            thumb.src = post.embed.external.thumb;
+                            thumb.alt = post.embed.external.title || 'Link thumbnail';
+                            linkCard.appendChild(thumb);
+                        }
+                        const linkInfo = document.createElement('div');
+                        linkInfo.classList.add('linkCard-info');
+                        if (post.embed.external.title) {
+                            const titleElem = document.createElement('div');
+                            titleElem.classList.add('linkCard-title');
+                            titleElem.textContent = post.embed.external.title;
+                            linkInfo.appendChild(titleElem);
+                        }
+                        if (post.embed.external.description) {
+                            const descElem = document.createElement('div');
+                            descElem.classList.add('linkCard-description');
+                            descElem.textContent = post.embed.external.description;
+                            linkInfo.appendChild(descElem);
+                        }
+                        let urlPreviewText = post.embed.external.uri;
+                        try {
+                            const urlObj = new URL(post.embed.external.uri);
+                            urlPreviewText = `${urlObj.hostname}${urlObj.pathname}`;
+                        } catch (e) {
+                            console.error('Invalid URL for embed.external.uri', post.embed.external.uri);
+                        }
+                        const maxChars = 40;
+                        if (urlPreviewText.length > maxChars) {
+                            urlPreviewText = urlPreviewText.substring(0, maxChars) + '…';
+                        }
+                        const previewElem = document.createElement('div');
+                        previewElem.classList.add('linkCard-preview');
+                        previewElem.textContent = urlPreviewText;
+                        linkInfo.appendChild(previewElem);
+                        linkCard.appendChild(linkInfo);
+                        postContainer.appendChild(linkCard);
+                    }
+                    // Image embeds (if not included in recordWithMedia)
+                    if (post.embed && post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+                        post.embed.images.forEach(imageData => {
+                            if (imageData.fullsize) {
+                                const img = document.createElement('img');
+                                img.src = imageData.fullsize;
+                                img.alt = imageData.alt || 'Image';
+                                img.loading = 'lazy';
+                                img.classList.add('post-image');
+                                postContainer.appendChild(img);
+                            }
+                        });
+                    }
+                    // Quote (record) embed
+                    if (post.embed && post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
+                        const embeddedRecord = post.embed.record;
+                        if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
+                            const embeddedText = embeddedRecord.value.text || '';
+                            const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                            if (embeddedText) {
+                                const quoteContainer = document.createElement('blockquote');
+                                quoteContainer.classList.add('embedded-quote');
+                                const quoteTextElem = document.createElement('p');
+                                quoteTextElem.textContent = embeddedText;
+                                quoteContainer.appendChild(quoteTextElem);
+                                const quoteAuthorElem = document.createElement('cite');
+                                quoteAuthorElem.textContent = `— @${embeddedAuthorHandle}`;
+                                quoteContainer.appendChild(quoteAuthorElem);
+                                postContainer.appendChild(quoteContainer);
+                            }
+                        }
                     }
                 }
 
-                // 5) Post date with clickable relative timestamp
+                // Post Date
                 const postDateElem = document.createElement('p');
                 postDateElem.classList.add('post-date');
                 const postUrl = constructBlueskyPostUrl(post.uri);
@@ -1192,7 +1227,7 @@ async function loadRecentPosts(cursor = null) {
                 postDateElem.appendChild(postLink);
                 postContainer.appendChild(postDateElem);
 
-                // 6) Post counts
+                // Post Counts
                 const countsContainer = document.createElement('div');
                 countsContainer.classList.add('post-counts');
                 function createCount(iconClass, count, label) {
@@ -1230,7 +1265,6 @@ async function loadRecentPosts(cursor = null) {
     // Process outbound links after all posts are loaded
     processOutboundLinks();
 
-    // If there are no more posts to load, hide the "See More Posts" button.
     if (!currentBatchCursor) {
         const seeMoreButton = document.getElementById('see-more-posts');
         if (seeMoreButton) {
@@ -1238,21 +1272,18 @@ async function loadRecentPosts(cursor = null) {
             console.log('No more posts to load. "See More Posts" button hidden.');
         }
     }
+
     isLoadingPosts = false;
     console.log('Finished loading posts.');
 }
 
 // Function to load more posts when "See More Posts" button is clicked
-// This version fetches an additional 100 posts (up to 200 total) so that we can ensure
-// that we do not display posts for an incomplete day.
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
-    // If there is no cursor, we cannot paginate further.
     if (!currentBatchCursor) {
         console.log('No cursor available. Cannot load more posts.');
         return;
     }
-    // Call loadRecentPosts with the currentBatchCursor.
     loadRecentPosts(currentBatchCursor);
 }
 
