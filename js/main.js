@@ -979,19 +979,17 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-// Additional filtering for replies:
+        // Additional filtering for replies:
         // If a post is a reply (i.e. post.record.reply exists) then only include it if:
-        // - The envelope includes a reply object (item.reply), and
-        //   - item.reply.parent.author.did === actor,
-        //   - item.reply.root.author.did === actor,
-        //   - And if item.reply.grandparentAuthor exists, then item.reply.grandparentAuthor.author.did === actor.
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
+                // If this is a reply, require that envelope reply metadata is present.
                 if (post.record.reply) {
                     if (!item.reply) {
                         return false;
                     }
+                    // Verify that the parent's author DID equals your DID.
                     if (item.reply.parent && item.reply.parent.author) {
                         if (item.reply.parent.author.did !== actor) {
                             return false;
@@ -999,6 +997,7 @@ async function loadRecentPosts(cursor = null) {
                     } else {
                         return false;
                     }
+                    // Verify that the root's author DID equals your DID.
                     if (item.reply.root && item.reply.root.author) {
                         if (item.reply.root.author.did !== actor) {
                             return false;
@@ -1006,10 +1005,14 @@ async function loadRecentPosts(cursor = null) {
                     } else {
                         return false;
                     }
-                    // Check for grandparentAuthor within the reply envelope.
-                    // If it exists, require that its author DID equals actor.
+                    // Additionally, if a grandparent is provided under item.reply.grandparentAuthor,
+                    // then its author's DID must equal your DID.
                     if (item.reply.grandparentAuthor) {
-                        if (item.reply.grandparentAuthor.author && item.reply.grandparentAuthor.author.did !== actor) {
+                        if (item.reply.grandparentAuthor.author) {
+                            if (item.reply.grandparentAuthor.author.did !== actor) {
+                                return false;
+                            }
+                        } else {
                             return false;
                         }
                     }
