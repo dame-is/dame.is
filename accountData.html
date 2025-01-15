@@ -20,6 +20,7 @@
   const handle = "dame.bsky.social";
   const serviceEndpoint = "https://enoki.us-east.host.bsky.network";
   const plcDirectoryEndpoint = "https://plc.directory";
+  const publicServiceEndpoint = "https://public.api.bsky.app/";
 
   // Basic in-memory cache to avoid duplicate API calls.
   const cache = {};
@@ -55,7 +56,7 @@
    ***********************************************************************/
   // 1. Fetch Profile data
   async function fetchProfile() {
-    const url = `${serviceEndpoint}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`;
+    const url = `${publicServiceEndpoint}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`;
     return await cachedGetJSON(url);
   }
 
