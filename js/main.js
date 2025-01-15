@@ -756,16 +756,22 @@ async function fetchFooterData() {
 }
 
 // ----------------------------------
-// 12. POST LOADER (INDEX PAGE) - UPDATED
+// GLOBALS
 // ----------------------------------
 let currentBatchCursor = null; // To store the cursor for the next batch
 const POSTS_PER_BATCH = 100;     // Number of posts to fetch per batch
 let isLoadingPosts = false;      // Flag to prevent multiple simultaneous fetches
 
+// Global cutoff: initially only load posts from the past 4 days.
+let currentCutoffTime = Date.now() - (4 * 24 * 60 * 60 * 1000);
+
+// ----------------------------------
+// 12. POST LOADER (INDEX PAGE) - UPDATED
+// ----------------------------------
 function initializePostLoader() {
     console.log('Initializing Post Loader with Pagination');
     // Initial load
-    loadRecentPosts();
+    loadRecentPosts(); // Loads posts with posts newer than currentCutoffTime
 
     // Create and append the "See More Posts" button
     const postsList = document.getElementById('recent-posts');
@@ -923,7 +929,6 @@ async function loadRecentPosts(cursor = null) {
     function getRelativeTime(date) {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
-
         const intervals = [
             { label: 'year', seconds: 31536000 },
             { label: 'month', seconds: 2592000 },
@@ -951,6 +956,9 @@ async function loadRecentPosts(cursor = null) {
         isLoadingPosts = false;
         return;
     }
+
+    // Use the global cutoff value instead of a locally computed 4-day threshold.
+    const thresholdTime = currentCutoffTime;
 
     // Use the global cutoff value instead of a locally computed 4-day threshold.
     const thresholdTime = currentCutoffTime;
@@ -983,16 +991,15 @@ async function loadRecentPosts(cursor = null) {
         });
 
         // Additional filtering for replies:
-        // If a post is a reply (i.e. post.record.reply exists) then only include it if:
+        // If a post is a reply then include it only if envelope reply metadata is present and:
+        // parent's, root's, and (if present) grandparent's author DID equal your DID.
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
-                // If this is a reply, require that envelope reply metadata is present.
                 if (post.record.reply) {
                     if (!item.reply) {
                         return false;
                     }
-                    // Verify that the parent's author DID equals your DID.
                     if (item.reply.parent && item.reply.parent.author) {
                         if (item.reply.parent.author.did !== actor) {
                             return false;
@@ -1000,7 +1007,6 @@ async function loadRecentPosts(cursor = null) {
                     } else {
                         return false;
                     }
-                    // Verify that the root's author DID equals your DID.
                     if (item.reply.root && item.reply.root.author) {
                         if (item.reply.root.author.did !== actor) {
                             return false;
@@ -1008,8 +1014,6 @@ async function loadRecentPosts(cursor = null) {
                     } else {
                         return false;
                     }
-                    // Additionally, if a grandparent is provided under item.reply.grandparentAuthor,
-                    // then its author's DID must equal your DID.
                     if (item.reply.grandparentAuthor) {
                         if (item.reply.grandparentAuthor.author) {
                             if (item.reply.grandparentAuthor.author.did !== actor) {
@@ -1372,11 +1376,11 @@ async function loadRecentPosts(cursor = null) {
 // Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
-    if (!currentBatchCursor) {
-        console.log('No cursor available. Cannot load more posts.');
-        return;
-    }
-    loadRecentPosts(currentBatchCursor);
+    // Shift our global cutoff 4 days back so that we load posts for the next interval.
+    currentCutoffTime -= (4 * 24 * 60 * 60 * 1000);
+    // Reset the cursor to fetch from the top relative to our new cutoff.
+    currentBatchCursor = null;
+    loadRecentPosts(null);
 }
 
 
