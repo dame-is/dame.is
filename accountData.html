@@ -472,49 +472,17 @@
       function filterRecords(records, testFunc) {
         return records.filter(testFunc).length;
       }
-        // Helper function to extract author DIDs from a reply record.
-        // It checks:
-        //   - rec.reply.parent.author.did
-        //   - rec.reply.root.author.did
-        //   - Additionally, if the record has a "grandparentAuthor" property, it includes that DID.
-        function getReplyAuthors(rec) {
-        const authors = [];
-        if (rec.reply) {
-            if (rec.reply.parent && rec.reply.parent.author && rec.reply.parent.author.did) {
-            authors.push(rec.reply.parent.author.did);
-            }
-            if (rec.reply.root && rec.reply.root.author && rec.reply.root.author.did) {
-            authors.push(rec.reply.root.author.did);
-            }
-        }
-        if (rec.grandparentAuthor && rec.grandparentAuthor.did) {
-            authors.push(rec.grandparentAuthor.did);
-        }
-        return authors;
-        }
-        
-        // When processing postsRecords from "app.bsky.feed.post":
-        // Ignore any record that has a "reason" property (these are reposts, not pure replies).
 
-        // Count only posts (records with no "reply" key)
-        const onlyPosts = postsRecords.filter(rec => !rec.hasOwnProperty("reply") && !rec.hasOwnProperty("reason")).length;
-        const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
-
-        // Count replies: records that have a "reply" property (and do not have a "reason" property)
-        const replies = postsRecords.filter(rec => rec.hasOwnProperty("reply") && !rec.hasOwnProperty("reason"));
-        const onlyReplies = replies.length;
+        // Count replies.
+        const onlyReplies = filterRecords(postsRecords, rec => rec.reply !== undefined);
         const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
-
-        // Now, count replies to self: among reply records, if any author in the nested reply data equals our did.
-        const onlyRepliesToSelf = replies.filter(rec => {
-        const authors = getReplyAuthors(rec);
-        return authors.some(author => author === did);
-        }).length;
+        const onlyRepliesToSelf = filterRecords(postsRecords, rec =>
+        rec.reply && rec.reply.parent && rec.reply.parent.uri.includes(did)
+        );
         const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
-
-        // Replies to others is defined as the difference.
         const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
         const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
+
 
       // Count quotes.
       const onlyQuotes = filterRecords(postsRecords, rec => rec.embed && rec.embed["$type"] === "app.bsky.embed.record");
