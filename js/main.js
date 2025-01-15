@@ -966,7 +966,7 @@ for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
         // Helper function (same as used for individual posts)
         function createCount(iconClass, count, label) {
             const countSpan = document.createElement('span');
-            countSpan.classList.add('count-item');
+            countSpan.classList.add('count-item-day');
             countSpan.setAttribute('aria-label', `${count} ${label}`);
             
             // Add 'active' class if count > 0
@@ -981,7 +981,7 @@ for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
         
             // Create the count text
             const countText = document.createElement('span');
-            countText.classList.add('count-text');
+            countText.classList.add('count-text-day');
             countText.textContent = count;
         
             // Append icon and text to the span
