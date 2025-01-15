@@ -758,20 +758,21 @@ async function fetchFooterData() {
 // ----------------------------------
 // GLOBALS
 // ----------------------------------
-let currentBatchCursor = null; // To store the cursor for the next batch
-const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
-let isLoadingPosts = false; // Flag to prevent multiple simultaneous fetches
+let currentBatchCursor = null; // For API pagination (if needed)
+const POSTS_PER_BATCH = 100;      // API request size (we still use this for each call)
+let isLoadingPosts = false;      // Flag to avoid concurrent fetching
 
-// Global cutoff: initially only load posts from the past 4 days.
-let currentCutoffTime = Date.now() - (4 * 24 * 60 * 60 * 1000);
+// Global variable that determines how many days to load.
+// Initially, load posts from the past 4 complete days.
+let currentDaysCount = 4;
 
 // ----------------------------------
 // 12. POST LOADER (INDEX PAGE) - UPDATED
 // ----------------------------------
 function initializePostLoader() {
-    console.log('Initializing Post Loader with Pagination');
-    // Initial load
-    loadRecentPosts(); // Loads posts with posts newer than currentCutoffTime
+    console.log('Initializing Post Loader with Day-Based Batches');
+    // Initial load (using currentDaysCount to define the interval)
+    loadRecentPosts();
 
     // Create and append the "See More Posts" button
     const postsList = document.getElementById('recent-posts');
@@ -910,13 +911,12 @@ function parseTextWithFacets(text, facets) {
 }
 
 /**
- * Modified loadRecentPosts:
- * - On initial load (cursor === null), fetch posts in batches until:
- *    a) We have accumulated 20 posts created within the current cutoff interval (initially the last 4 days), OR
- *    b) We hit a post older than the cutoff.
- * - If fewer than 20 posts exist within that interval, display the most recent 20 posts overall.
- * - Replies are now also fetched. However, if a post is a reply (i.e. it has a "reply" property in its record),
- *   then we only include it if both the reply’s "parent" and "root" (and, if present, "grandparentAuthor") contain your DID.
+ * loadRecentPosts() – Day-Based Version
+ *
+ * This version always loads posts that were created after our lower bound timestamp,
+ * where the lower bound is computed as: now - (currentDaysCount * 24 hrs).
+ *
+ * We fetch batches from the API until we encounter a post older than our cutoff.
  */
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
@@ -926,13 +926,12 @@ async function loadRecentPosts(cursor = null) {
     }
     isLoadingPosts = true;
 
-    // Helper to handle singular/plural (remains unchanged)
-    function formatCount(count, singular, plural = null) {
-        const actualPlural = plural || `${singular}s`;
-        return `${count} ${count === 1 ? singular : actualPlural}`;
-    }
+    // Compute the lower bound timestamp.
+    const nowTime = Date.now();
+    const lowerBoundTime = nowTime - (currentDaysCount * 24 * 60 * 60 * 1000);
+    console.log(`Loading posts from ${new Date(nowTime).toLocaleString()} until ${new Date(lowerBoundTime).toLocaleString()}`);
 
-    // Function to format the createdAt date into a relative timestamp (remains unchanged)
+    // Helper to format a relative timestamp (unchanged).
     function getRelativeTime(date) {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
@@ -944,7 +943,6 @@ async function loadRecentPosts(cursor = null) {
             { label: 'minute', seconds: 60 },
             { label: 'second', seconds: 1 }
         ];
-
         for (const interval of intervals) {
             const count = Math.floor(diffInSeconds / interval.seconds);
             if (count >= 1) {
@@ -964,22 +962,16 @@ async function loadRecentPosts(cursor = null) {
         return;
     }
 
-    // Use the global cutoff value instead of a locally computed 4-day threshold.
-    const thresholdTime = currentCutoffTime;
+    // Arrays to accumulate posts
+    let allFetchedPosts = []; // All posts fetched from the API (fallback)
+    let dayPosts = [];        // Posts that are within our desired day interval (i.e. newer than lowerBoundTime)
 
-    // Variables to accumulate posts
-    let allFetchedPosts = []; // All posts fetched (used as fallback)
-    let recentPosts = [];     // Posts created within the current cutoff interval
-
-    let localCursor = cursor;
+    let localCursor = cursor; // For API pagination
     let keepFetching = true;
 
-    // Fetch batches until:
-    //  - we encounter a post older than our current cutoff, OR
-    //  - we have accumulated at least POSTS_PER_BATCH posts, OR
-    //  - there is no further batch available.
+    // Fetch posts until we either run out of new pages or we encounter a post older than our lower bound.
     while (keepFetching) {
-        // Remove the posts_no_replies filter so that replies are included.
+        // We remove any filter so that replies are included (your reply filtering logic remains here if needed).
         let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}`;
         if (localCursor) {
             apiUrl += `&cursor=${encodeURIComponent(localCursor)}`;
@@ -991,48 +983,32 @@ async function loadRecentPosts(cursor = null) {
             break;
         }
         const data = await response.json();
-        // Update cursor for next batch
+        // Update the local cursor for the next batch.
         localCursor = data.cursor || null;
         currentBatchCursor = localCursor;
         console.log('Current batch cursor updated to:', currentBatchCursor);
 
-        // Remove reposts
+        // Remove reposts.
         const filteredBatch = data.feed.filter(item => {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Additional filtering for replies:
-        // If a post is a reply then include it only if envelope reply metadata is present and:
-        // parent's, root's, and (if present) grandparent's author DID equal your DID.
+        // Apply the reply filter (unchanged from your version).
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
                 if (post.record.reply) {
-                    if (!item.reply) {
-                        return false;
-                    }
+                    if (!item.reply) return false;
                     if (item.reply.parent && item.reply.parent.author) {
-                        if (item.reply.parent.author.did !== actor) {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
+                        if (item.reply.parent.author.did !== actor) return false;
+                    } else return false;
                     if (item.reply.root && item.reply.root.author) {
-                        if (item.reply.root.author.did !== actor) {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
+                        if (item.reply.root.author.did !== actor) return false;
+                    } else return false;
                     if (item.reply.grandparentAuthor) {
                         if (item.reply.grandparentAuthor.author) {
-                            if (item.reply.grandparentAuthor.author.did !== actor) {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
+                            if (item.reply.grandparentAuthor.author.did !== actor) return false;
+                        } else return false;
                     }
                 }
                 return true;
@@ -1040,46 +1016,37 @@ async function loadRecentPosts(cursor = null) {
             return false;
         });
 
-        // Append this batch to the overall fallback
+        // Append this batch to our overall fetched posts.
         allFetchedPosts.push(...finalBatch);
 
-        // Check each post in this batch against the current cutoff.
+        // For each item, check its createdAt; if it is newer than our lowerBoundTime, add it.
         for (let item of finalBatch) {
             const post = item.post;
             if (post && post.record) {
                 const postTime = new Date(post.record.createdAt).getTime();
-                if (postTime >= thresholdTime) {
-                    recentPosts.push(item);
+                if (postTime >= lowerBoundTime) {
+                    dayPosts.push(item);
                 } else {
-                    // We've encountered a post older than our current cutoff; stop fetching.
+                    // Once we encounter a post older than our cutoff, we stop fetching further.
                     keepFetching = false;
                     break;
                 }
             }
         }
 
-        // Stop if we have enough recent posts or there is no next page.
-        if (recentPosts.length >= POSTS_PER_BATCH || !localCursor) {
+        // Also stop if there is no further batch available.
+        if (!localCursor) {
             keepFetching = false;
         }
     }
 
-    // Decide which posts to display:
-    // If we have at least one post meeting the cutoff, use those.
-    // Otherwise, fall back to the most recent 20 posts overall.
-    let postsToDisplay = [];
-    if (recentPosts.length > 0) {
-        postsToDisplay = recentPosts;
-        if (postsToDisplay.length < POSTS_PER_BATCH && allFetchedPosts.length >= POSTS_PER_BATCH) {
-            postsToDisplay = allFetchedPosts.slice(0, POSTS_PER_BATCH);
-        }
-    } else {
-        postsToDisplay = allFetchedPosts.slice(0, POSTS_PER_BATCH);
-    }
+    console.log(`Fetched a total of ${allFetchedPosts.length} posts; ${dayPosts.length} posts within the current ${currentDaysCount} days`);
 
-    console.log(`Total posts to display: ${postsToDisplay.length}`);
+    // We display all posts that are within the day interval.
+    let postsToDisplay = dayPosts;
+    // (If no posts are found in the interval, you might decide to display the fallback allFetchedPosts, but here we assume we show an empty state.)
 
-    // GROUP POSTS BY DAY (using your existing grouping function)
+    // Group posts by day using your grouping function.
     function groupPostsByDay(posts) {
         const groups = {};
         posts.forEach(item => {
@@ -1089,6 +1056,7 @@ async function loadRecentPosts(cursor = null) {
             const dayOfYear = getDayOfYear(postDate);
             const totalDaysInYear = isLeapYear(postDate.getFullYear()) ? 366 : 365;
             const age = getAge(postDate);
+
             if (!groups[relativeDatestamp]) {
                 groups[relativeDatestamp] = {
                     dayOfLife: dayOfLife,
@@ -1102,11 +1070,11 @@ async function loadRecentPosts(cursor = null) {
         });
         return groups;
     }
-
     const groupedPosts = groupPostsByDay(postsToDisplay);
 
-    // Render the groups and posts
+    // Render the posts (your rendering logic remains mostly unchanged).
     for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
+        // If the header for this day hasn't been rendered already, create it.
         if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
             const dateHeader = document.createElement('div');
             dateHeader.classList.add('post-date-header');
@@ -1114,7 +1082,6 @@ async function loadRecentPosts(cursor = null) {
 
             const headerLeft = document.createElement('div');
             headerLeft.classList.add('header-left');
-
             const firstLine = document.createElement('div');
             firstLine.classList.add('date-header-line1');
             firstLine.textContent = headerDateText;
@@ -1159,12 +1126,10 @@ async function loadRecentPosts(cursor = null) {
                 countSpan.appendChild(countText);
                 return countSpan;
             }
-
             const replyCountHeader = createCount('fas fa-reply', totalReplies, 'replies');
             const quoteCountHeader = createCount('fas fa-quote-right', totalQuotes, 'quotes');
             const repostCountHeader = createCount('fas fa-retweet', totalReposts, 'reposts');
             const likeCountHeader = createCount('fas fa-heart', totalLikes, 'likes');
-
             headerRight.appendChild(replyCountHeader);
             headerRight.appendChild(quoteCountHeader);
             headerRight.appendChild(repostCountHeader);
@@ -1172,28 +1137,29 @@ async function loadRecentPosts(cursor = null) {
 
             dateHeader.appendChild(headerLeft);
             dateHeader.appendChild(headerRight);
-
             postsList.appendChild(dateHeader);
         }
 
+        // Render the individual posts for this day group.
         groupData.posts.forEach(item => {
             const post = item.post;
             if (post && post.record) {
                 const postContainer = document.createElement('div');
                 postContainer.classList.add('post');
 
+                // Post Text with clickable links
                 const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
                 const postFacets = post.record.facets || [];
                 if (postText) {
                     const postTextContainer = document.createElement('div');
                     postTextContainer.classList.add('post-text-container');
-                    const processedText = postText; // Preserve line breaks
+                    const processedText = postText;
                     const parsedText = parseTextWithFacets(processedText, postFacets);
                     postTextContainer.appendChild(parsedText);
                     postContainer.appendChild(postTextContainer);
                 }
 
-                // Check for external embed (linkCard)
+                // External embed (linkCard)
                 if (post.embed &&
                     post.embed.$type === "app.bsky.embed.external#view" &&
                     post.embed.external &&
@@ -1205,7 +1171,6 @@ async function loadRecentPosts(cursor = null) {
                     linkCard.addEventListener('click', () => {
                         window.open(post.embed.external.uri, '_blank', 'noopener');
                     });
-
                     if (post.embed.external.thumb) {
                         const thumb = document.createElement('img');
                         thumb.classList.add('linkCard-thumb');
@@ -1213,24 +1178,20 @@ async function loadRecentPosts(cursor = null) {
                         thumb.alt = post.embed.external.title || 'Link thumbnail';
                         linkCard.appendChild(thumb);
                     }
-
                     const linkInfo = document.createElement('div');
                     linkInfo.classList.add('linkCard-info');
-
                     if (post.embed.external.title) {
                         const titleElem = document.createElement('div');
                         titleElem.classList.add('linkCard-title');
                         titleElem.textContent = post.embed.external.title;
                         linkInfo.appendChild(titleElem);
                     }
-
                     if (post.embed.external.description) {
                         const descElem = document.createElement('div');
                         descElem.classList.add('linkCard-description');
                         descElem.textContent = post.embed.external.description;
                         linkInfo.appendChild(descElem);
                     }
-
                     let urlPreviewText = post.embed.external.uri;
                     try {
                         const urlObj = new URL(post.embed.external.uri);
@@ -1246,7 +1207,6 @@ async function loadRecentPosts(cursor = null) {
                     previewElem.classList.add('linkCard-preview');
                     previewElem.textContent = urlPreviewText;
                     linkInfo.appendChild(previewElem);
-
                     linkCard.appendChild(linkInfo);
                     postContainer.appendChild(linkCard);
                 }
@@ -1284,7 +1244,7 @@ async function loadRecentPosts(cursor = null) {
                     }
                 }
 
-                // Post date and link
+                // Post date with clickable relative timestamp
                 const postDateElem = document.createElement('p');
                 postDateElem.classList.add('post-date');
                 const postUrl = constructBlueskyPostUrl(post.uri);
@@ -1349,12 +1309,13 @@ async function loadRecentPosts(cursor = null) {
     console.log('Finished loading posts.');
 }
 
-// Function to load more posts when "See More Posts" button is clicked
+// Function to load more posts when "See More Posts" button is clicked.
+// This version shifts our day interval by 4 days.
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
-    // Shift our global cutoff 4 days back so that we load posts for the next interval.
-    currentCutoffTime -= (4 * 24 * 60 * 60 * 1000);
-    // Reset the cursor to fetch from the top relative to our new cutoff.
+    // Increase the day interval by 4 days
+    currentDaysCount += 4;
+    // Reset the pagination cursor so that we start from the top of the feed for the new interval.
     currentBatchCursor = null;
     loadRecentPosts(null);
 }
