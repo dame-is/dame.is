@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="images/favicon.ico" type="image/x-icon">
 <title>alt text rating</title>
+<script src="https://cdn.jsdelivr.net/npm/react/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.min.js"></script>
 <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="/css/styles.css">
 </head>
@@ -21,8 +24,12 @@
             <button type="submit">Search</button>
           </form>
           <div class="results" id="results"></div>
+          <div id="chart-container"></div>
         
           <script>
+            const { useState, useEffect } = React;
+            const { PieChart, Pie, Cell } = Recharts;
+        
             const PUBLIC_API_URL = "https://public.api.bsky.app";
         
             async function resolveHandleToDID(handle) {
@@ -92,27 +99,76 @@
               };
             }
         
+            const NeedlePieChart = ({ value }) => {
+              const RADIAN = Math.PI / 180;
+              const data = [
+                { name: 'Bad', value: 25, color: '#FF4D4D' },
+                { name: 'Decent', value: 25, color: '#FFC107' },
+                { name: 'Good', value: 25, color: '#4CAF50' },
+                { name: 'Amazing', value: 25, color: '#3F51B5' },
+              ];
+              const cx = 150;
+              const cy = 150;
+              const iR = 70;
+              const oR = 100;
+        
+              const needle = (value, data, cx, cy, iR, oR, color) => {
+                const total = data.reduce((sum, entry) => sum + entry.value, 0);
+                const angle = 180.0 * (1 - value / total);
+                const length = (iR + 2 * oR) / 3;
+                const sin = Math.sin(-RADIAN * angle);
+                const cos = Math.cos(-RADIAN * angle);
+                const r = 5;
+                const x0 = cx;
+                const y0 = cy;
+                const xp = x0 + length * cos;
+                const yp = y0 + length * sin;
+        
+                return (
+                  <>
+                    <circle cx={x0} cy={y0} r={r} fill={color} />
+                    <path d={`M${x0} ${y0} L${xp} ${yp}`} stroke={color} strokeWidth="2" />
+                  </>
+                );
+              };
+        
+              return (
+                <PieChart width={300} height={300}>
+                  <Pie
+                    dataKey="value"
+                    startAngle={180}
+                    endAngle={0}
+                    data={data}
+                    cx={cx}
+                    cy={cy}
+                    innerRadius={iR}
+                    outerRadius={oR}
+                    stroke="none"
+                  >
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  {needle(value, data, cx, cy, iR, oR, '#000')}
+                </PieChart>
+              );
+            };
+        
             document.getElementById("search-form").addEventListener("submit", async (event) => {
               event.preventDefault();
         
               const username = document.getElementById("username").value.trim();
               const resultsDiv = document.getElementById("results");
+              const chartContainer = document.getElementById("chart-container");
               resultsDiv.textContent = "Loading...";
+              chartContainer.innerHTML = "";
         
               try {
-                // Step 1: Resolve DID
                 const did = await resolveHandleToDID(username);
-        
-                // Step 2: Fetch service endpoint from PLC directory
                 const serviceEndpoint = await fetchServiceEndpoint(did);
-        
-                // Step 3: Fetch records using the service endpoint
                 const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
-        
-                // Step 4: Analyze posts
                 const analysis = analyzePosts(records);
         
-                // Step 5: Display results
                 resultsDiv.innerHTML = `
                   <h2>Analysis Results for ${username}</h2>
                   <p>Total Posts: ${analysis.totalPosts}</p>
@@ -120,6 +176,11 @@
                   <p>Posts with Alt Text: ${analysis.postsWithAltText}</p>
                   <p>Alt Text Usage: ${analysis.altTextPercentage.toFixed(2)}%</p>
                 `;
+        
+                ReactDOM.render(
+                  <NeedlePieChart value={analysis.altTextPercentage} />,
+                  chartContainer
+                );
               } catch (error) {
                 resultsDiv.textContent = `Error: ${error.message}`;
               }
