@@ -310,33 +310,45 @@
     return { totalRecords, totalBskyRecords, totalNonBskyRecords };
   }
 
-  // Calculate engagements for the account using the author feed.
-  async function calculateEngagements() {
-    const feed = await fetchAuthorFeed();
-    let likesReceived = 0, repostsReceived = 0, quotesReceived = 0, repliesReceived = 0;
-    for (const item of feed) {
-      // Filter out posts that include the string "#reasonRepost"
-      if (item && item.post && JSON.stringify(item.post).indexOf("#reasonRepost") !== -1) {
+// Calculate engagements for the account using the author feed.
+async function calculateEngagements() {
+  // Fetch the author's feed
+  const feed = await fetchAuthorFeed();
+
+  // Initialize counters for engagements
+  let likesReceived = 0;
+  let repostsReceived = 0;
+  let quotesReceived = 0;
+  let repliesReceived = 0;
+
+  // Iterate over each item in the feed
+  for (const key in feed) {
+    const item = feed[key];
+
+    // Ensure item and item.post exist and are valid
+    if (item && item.post) {
+      // Skip posts that include the string "#reasonRepost"
+      if (JSON.stringify(item.post).indexOf("#reasonRepost") !== -1) {
         continue;
       }
-      likesReceived += (item.post.likeCount || 0);
-      repostsReceived += (item.post.repostCount || 0);
-      quotesReceived += (item.post.quoteCount || 0);
-      repliesReceived += (item.post.replyCount || 0);
+
+      // Accumulate engagement counts
+      likesReceived += item.post.likeCount || 0;
+      repostsReceived += item.post.repostCount || 0;
+      quotesReceived += item.post.quoteCount || 0;
+      repliesReceived += item.post.replyCount || 0;
     }
-    return {
-      likesReceived,
-      repostsReceived,
-      quotesReceived,
-      repliesReceived,
-      uniqueEngagers300Posts: 0,
-      topEngagers300posts: [],
-      topLiker300posts: [],
-      topReposter300posts: [],
-      topQuoter300posts: [],
-      topReplier300posts: []
-    };
   }
+
+  // Return the total engagement counts
+  return {
+    likesReceived,
+    repostsReceived,
+    quotesReceived,
+    repliesReceived,
+  };
+}
+
 
   // Build the analysis narrative paragraphs based on the criteria.
   function buildAnalysisNarrative(accountData) {
