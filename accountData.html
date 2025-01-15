@@ -791,7 +791,25 @@
             imagePercentage: postsCount ? postsWithImages / postsCount : 0,
             videoPercentage: postsCount ? postsWithVideo / postsCount : 0
           },
-          collections: collectionStats
+          "app.bsky.feed.threadgate": (await fetchRecordsForCollection("app.bsky.feed.threadgate")).length || 0,
+          "app.bsky.feed.like": {
+            likes: (await fetchRecordsForCollection("app.bsky.feed.like")).length || 0,
+            likesPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.feed.like")).length) / ageInDays : 0
+          },
+          "app.bsky.graph.block": {
+            blocks: (await fetchRecordsForCollection("app.bsky.graph.block")).length || 0,
+            blocksPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.graph.block")).length) / ageInDays : 0
+          },
+          "app.bsky.feed.generator": (await fetchRecordsForCollection("app.bsky.feed.generator")).length || 0,
+          "app.bsky.graph.follow": {
+            follows: (await fetchRecordsForCollection("app.bsky.graph.follow")).length || 0,
+            followsPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.graph.follow")).length) / ageInDays : 0
+          },
+          "app.bsky.graph.list": (await fetchRecordsForCollection("app.bsky.graph.list")).length || 0,
+          "app.bsky.graph.listblock": (await fetchRecordsForCollection("app.bsky.graph.listblock")).length || 0,
+          "app.bsky.graph.listitem": (await fetchRecordsForCollection("app.bsky.graph.listitem")).length || 0,
+          "app.bsky.graph.starterpack": (await fetchRecordsForCollection("app.bsky.graph.starterpack")).length || 0,
+          "{non.app.bsky.collections}": totalNonBskyCollections
         },
         activityLast30Days: {
           profileEdited: (new Date(profile.indexedAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
