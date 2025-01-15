@@ -467,6 +467,43 @@ body.dark-mode .count-item.active i.fa-reply {
     color: #000;
 }
 
+.linkCard {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    display: flex;
+    overflow: hidden;
+    margin: 10px 0;
+    transition: box-shadow 0.3s ease;
+    background-color: #fff;
+}
+
+.linkCard:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.linkCard-thumb {
+    max-width: 120px;
+    object-fit: cover;
+}
+
+.linkCard-info {
+    padding: 10px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.linkCard-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.linkCard-description {
+    font-size: 0.9em;
+    color: #555;
+}
+
 /* Container to hold the left (date text) and right (counts) sections */
 .post-date-header {
     display: flex;
