@@ -1,0 +1,21 @@
+{
+  "name": "ratemyalttext",
+  "version": "1.0.0",
+  "main": "ratingmyalttext.js",
+  "scripts": {
+  "start": "parcel src/ratingmyalttext.html",
+  "build": "parcel build src/ratingmyalttext.html"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "recharts": "^2.15.0"
+  },
+  "devDependencies": {
+    "parcel": "^2.13.3"
+  }
+}
