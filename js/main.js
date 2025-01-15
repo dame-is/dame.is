@@ -762,16 +762,17 @@ let currentBatchCursor = null; // To store the cursor for the next batch
 const POSTS_PER_BATCH = 100;     // Number of posts to fetch per batch
 let isLoadingPosts = false;      // Flag to prevent multiple simultaneous fetches
 
-// Global cutoff: initially only load posts from the past 4 days.
-let currentCutoffTime = Date.now() - (4 * 24 * 60 * 60 * 1000);
+// Global variable that determines how many days to load.
+// Initially, load posts from the past 4 complete days.
+let currentDaysCount = 4;
 
 // ----------------------------------
 // 12. POST LOADER (INDEX PAGE) - UPDATED
 // ----------------------------------
 function initializePostLoader() {
-    console.log('Initializing Post Loader with Pagination');
-    // Initial load
-    loadRecentPosts(); // Loads posts with posts newer than currentCutoffTime
+    console.log('Initializing Post Loader with Day-Based Batches');
+    // Initial load (using currentDaysCount to define the interval)
+    loadRecentPosts();
 
     // Create and append the "See More Posts" button
     const postsList = document.getElementById('recent-posts');
@@ -937,7 +938,6 @@ async function loadRecentPosts(cursor = null) {
             { label: 'minute', seconds: 60 },
             { label: 'second', seconds: 1 }
         ];
-
         for (const interval of intervals) {
             const count = Math.floor(diffInSeconds / interval.seconds);
             if (count >= 1) {
@@ -985,43 +985,27 @@ async function loadRecentPosts(cursor = null) {
         currentBatchCursor = localCursor;
         console.log('Current batch cursor updated to:', currentBatchCursor);
 
-        // Remove reposts
+        // Remove reposts.
         const filteredBatch = data.feed.filter(item => {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Additional filtering for replies:
-        // If a post is a reply then include it only if envelope reply metadata is present and:
-        // parent's, root's, and (if present) grandparent's author DID equal your DID.
+        // Apply the reply filter (unchanged from your version).
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
                 if (post.record.reply) {
-                    if (!item.reply) {
-                        return false;
-                    }
+                    if (!item.reply) return false;
                     if (item.reply.parent && item.reply.parent.author) {
-                        if (item.reply.parent.author.did !== actor) {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
+                        if (item.reply.parent.author.did !== actor) return false;
+                    } else return false;
                     if (item.reply.root && item.reply.root.author) {
-                        if (item.reply.root.author.did !== actor) {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
+                        if (item.reply.root.author.did !== actor) return false;
+                    } else return false;
                     if (item.reply.grandparentAuthor) {
                         if (item.reply.grandparentAuthor.author) {
-                            if (item.reply.grandparentAuthor.author.did !== actor) {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
+                            if (item.reply.grandparentAuthor.author.did !== actor) return false;
+                        } else return false;
                     }
                 }
                 return true;
@@ -1070,6 +1054,7 @@ async function loadRecentPosts(cursor = null) {
             const dayOfYear = getDayOfYear(postDate);
             const totalDaysInYear = isLeapYear(postDate.getFullYear()) ? 366 : 365;
             const age = getAge(postDate);
+
             if (!groups[relativeDatestamp]) {
                 groups[relativeDatestamp] = {
                     dayOfLife: dayOfLife,
@@ -1101,6 +1086,7 @@ async function loadRecentPosts(cursor = null) {
     console.log(`Total day groups to display: ${Object.keys(groupedPosts).length}`);
 
     for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
+        // If the header for this day hasn't been rendered already, create it.
         if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
             const dateHeader = document.createElement('div');
             dateHeader.classList.add('post-date-header');
@@ -1108,7 +1094,6 @@ async function loadRecentPosts(cursor = null) {
 
             const headerLeft = document.createElement('div');
             headerLeft.classList.add('header-left');
-
             const firstLine = document.createElement('div');
             firstLine.classList.add('date-header-line1');
             firstLine.textContent = headerDateText;
@@ -1157,7 +1142,6 @@ async function loadRecentPosts(cursor = null) {
             const quoteCountHeader = createCount('fas fa-quote-right', totalQuotes, 'quotes');
             const repostCountHeader = createCount('fas fa-retweet', totalReposts, 'reposts');
             const likeCountHeader = createCount('fas fa-heart', totalLikes, 'likes');
-
             headerRight.appendChild(replyCountHeader);
             headerRight.appendChild(quoteCountHeader);
             headerRight.appendChild(repostCountHeader);
@@ -1165,10 +1149,10 @@ async function loadRecentPosts(cursor = null) {
 
             dateHeader.appendChild(headerLeft);
             dateHeader.appendChild(headerRight);
-
             postsList.appendChild(dateHeader);
         }
 
+        // Render the individual posts for this day group.
         groupData.posts.forEach(item => {
             const post = item.post;
             if (post && post.record) {
@@ -1373,12 +1357,13 @@ async function loadRecentPosts(cursor = null) {
     console.log('Finished loading posts.');
 }
 
-// Function to load more posts when "See More Posts" button is clicked
+// Function to load more posts when "See More Posts" button is clicked.
+// This version shifts our day interval by 4 days.
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
-    // Shift our global cutoff 4 days back so that we load posts for the next interval.
-    currentCutoffTime -= (4 * 24 * 60 * 60 * 1000);
-    // Reset the cursor to fetch from the top relative to our new cutoff.
+    // Increase the day interval by 4 days
+    currentDaysCount += 4;
+    // Reset the pagination cursor so that we start from the top of the feed for the new interval.
     currentBatchCursor = null;
     loadRecentPosts(null);
 }
