@@ -1129,6 +1129,30 @@ groupData.posts.forEach(item => {
                 descElem.textContent = post.embed.external.description;
                 linkInfo.appendChild(descElem);
             }
+            
+            // Create a URL preview element.
+            // We extract the hostname and/or path and then truncate after a certain number of characters.
+            let urlPreviewText = post.embed.external.uri;
+            try {
+                // Create a URL object for easier extraction (note: may throw on invalid URLs)
+                const urlObj = new URL(post.embed.external.uri);
+                // You can choose to display just the hostname...
+                // urlPreviewText = urlObj.hostname;
+                // ...or hostname plus part of the pathname:
+                urlPreviewText = `${urlObj.hostname}${urlObj.pathname}`;
+            } catch (e) {
+                // Fallback in case URL constructor fails.
+                console.error('Invalid URL for embed.external.uri', post.embed.external.uri);
+            }
+            // Define a maximum number of characters (e.g., 40)
+            const maxChars = 40;
+            if (urlPreviewText.length > maxChars) {
+                urlPreviewText = urlPreviewText.substring(0, maxChars) + '…';
+            }
+            const previewElem = document.createElement('div');
+            previewElem.classList.add('linkCard-preview');
+            previewElem.textContent = urlPreviewText;
+            linkInfo.appendChild(previewElem);
 
             // Append the textual info to the card
             linkCard.appendChild(linkInfo);
