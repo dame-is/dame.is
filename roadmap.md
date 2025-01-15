@@ -1,13 +1,10 @@
 # roadmap
 
 ## in progress
-- skeet.tools (migrate off micro.blog)
 
 ## up next
-- separate “posts” from “replies” in the nav’s bluesky metrics
+
 - fix flash of white that happens when switching pages while in dark mode
-- add support for post replies
-- add support for links in posts
 - restructure page URLs and sitemap to follow the gerund framing (dame.is/blogging, dame.is/posting, dame.is/logging, etc)
 - add time to read indicator at the top of blog posts
 - add skeleton loading indicators on posts and logs pages
@@ -23,7 +20,6 @@
 - resume
 - contact page
 - newsletter 
-- add engagement icons to posts instead of words
 - add currently listening to via [last.fm api](https://www.last.fm/api/show/user.getRecentTracks)
 - add are.na activity to /log
 - add likes and reposts to /log maybe
@@ -38,3 +34,8 @@
 - blog page
 - add support for quote posts
 - add dark mode icon instead of text button and replace post metrics with icons
+- separate “posts” from “replies” in the nav’s bluesky metrics
+- skeet.tools (migrate off micro.blog)
+- add support for post replies
+- add support for links in posts
+- add engagement icons to posts instead of words
