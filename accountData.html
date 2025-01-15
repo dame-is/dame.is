@@ -431,41 +431,40 @@
       // 3. Blobs count and per-day/post calculations
       const blobsCount = await fetchAllBlobsCount();
 
-        // 4. Repo description gives collections.
-        const repoDescription = await fetchRepoDescription();
-        const collections = repoDescription.collections || [];
-        const totalCollections = collections.length;
-
-        // 5. Aggregate record counts for all collections dynamically.
-        const collectionStats = {};
-        for (const collection of collections) {
-        const records = await fetchRecordsForCollection(collection);
-        const recordCount = records.length;
-        const recordsPerDay = ageInDays ? recordCount / ageInDays : 0;
-
-        // Add to collection stats
-        collectionStats[collection] = {
-            count: recordCount,
-            recordsPerDay,
-        };
+      // 4. Repo description gives collections.
+      const repoDescription = await fetchRepoDescription();
+      let collections = repoDescription.collections || [];
+      const totalCollections = collections.length;
+      const bskyCollectionNames = collections.filter(col => col.indexOf("app.bsky") !== -1);
+      const totalBskyCollections = bskyCollectionNames.length;
+      const totalNonBskyCollections = totalCollections - totalBskyCollections;
+      
+      // 5. Build targetCollections array.
+      const targetCollections = [
+        "app.bsky.feed.post",
+        "app.bsky.feed.repost",
+        "app.bsky.feed.like",
+        "app.bsky.graph.block",
+        "app.bsky.feed.generator",
+        "app.bsky.graph.follow",
+        "app.bsky.graph.list",
+        "app.bsky.graph.listblock",
+        "app.bsky.graph.listitem",
+        "app.bsky.graph.starterpack"
+      ];
+      collections.forEach(col => {
+        if (col.indexOf("app.bsky") === -1 && targetCollections.indexOf(col) === -1) {
+          targetCollections.push(col);
         }
+      });
 
-        const bskyCollectionNames = collections.filter(col => col.includes("app.bsky"));
-        const totalBskyCollections = bskyCollectionNames.length;
-        const totalNonBskyCollections = totalCollections - totalBskyCollections;
-
-        // 6. Aggregate totals
-        const totalRecords = Object.values(collectionStats).reduce((sum, stat) => sum + stat.count, 0);
-        const totalRecordsPerDay = ageInDays ? totalRecords / ageInDays : 0;
-
-        // 6.5. Compute Bsky-specific and non-Bsky-specific totals
-        const totalBskyRecords = bskyCollectionNames.reduce(
-        (sum, col) => sum + (collectionStats[col]?.count || 0),
-        0
-        );
-        const totalBskyRecordsPerDay = ageInDays ? totalBskyRecords / ageInDays : 0;
-        const totalNonBskyRecords = totalRecords - totalBskyRecords;
-        const totalNonBskyRecordsPerDay = ageInDays ? totalNonBskyRecords / ageInDays : 0;
+      // 6. Aggregate record counts.
+      const { totalRecords, totalBskyRecords, totalNonBskyRecords } = await calculateRecordsAggregate(targetCollections);
+      const totalRecordsPerDay = ageInDays ? totalRecords / ageInDays : 0;
+      const totalBskyRecordsPerDay = ageInDays ? totalBskyRecords / ageInDays : 0;
+      const totalNonBskyRecordsPerDay = ageInDays ? totalNonBskyRecords / ageInDays : 0;
+      const totalBskyRecordsPercentage = totalRecords ? totalBskyRecords / totalRecords : 0;
+      const totalNonBskyRecordsPercentage = totalRecords ? totalNonBskyRecords / totalRecords : 0;
 
       // 7. For detailed post statistics.
       const postsRecords = await fetchRecordsForCollection("app.bsky.feed.post");
