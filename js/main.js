@@ -1153,6 +1153,19 @@ async function loadRecentPosts(cursor = null) {
                 // Now check for embeds.
                 // If the embed type is "app.bsky.embed.recordWithMedia#view", then render both the quoted record and the media.
                 if (post.embed && post.embed.$type === "app.bsky.embed.recordWithMedia#view") {
+                    // Render the media (assuming images)
+                    if (post.embed.media && post.embed.media.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.media.images)) {
+                        post.embed.media.images.forEach(imageData => {
+                            if (imageData.fullsize) {
+                                const img = document.createElement('img');
+                                img.src = imageData.fullsize;
+                                img.alt = imageData.alt || 'Image';
+                                img.loading = 'lazy';
+                                img.classList.add('post-image');
+                                postContainer.appendChild(img);
+                            }
+                        });
+                    }
                     // Render the quoted record (if available)
                     if (post.embed.record && post.embed.record.record && post.embed.record.record.value) {
                         const quotedText = post.embed.record.record.value.text || '';
@@ -1170,19 +1183,6 @@ async function loadRecentPosts(cursor = null) {
                             }
                             postContainer.appendChild(quoteContainer);
                         }
-                    }
-                    // Render the media (assuming images)
-                    if (post.embed.media && post.embed.media.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.media.images)) {
-                        post.embed.media.images.forEach(imageData => {
-                            if (imageData.fullsize) {
-                                const img = document.createElement('img');
-                                img.src = imageData.fullsize;
-                                img.alt = imageData.alt || 'Image';
-                                img.loading = 'lazy';
-                                img.classList.add('post-image');
-                                postContainer.appendChild(img);
-                            }
-                        });
                     }
                 } else {
                     // Otherwise, handle individual embed types.
