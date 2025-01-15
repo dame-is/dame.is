@@ -550,6 +550,14 @@ body.dark-mode .count-item.active i.fa-reply {
     margin: 0px;
 }
 
+.embedded-quote p {
+    margin-bottom: 8px;
+}
+
+cite {
+    font-size: 0.9em;
+}
+
 /* === Dark Mode Adjustments for Post Counts === */
 
 body.dark-mode .post-counts .count-item {
