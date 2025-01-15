@@ -476,13 +476,18 @@
         // Count replies.
         const onlyReplies = filterRecords(postsRecords, rec => rec.reply !== undefined);
         const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
+
         const onlyRepliesToSelf = filterRecords(postsRecords, rec =>
         rec.reply && rec.reply.parent && rec.reply.parent.uri.includes(did)
         );
         const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
+
         const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
         const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
 
+        // Filter for posts without "reply" or "reason" properties
+        const onlyPosts = filterRecords(postsRecords, rec => !rec.reply && !rec.reason);
+        const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
 
       // Count quotes.
       const onlyQuotes = filterRecords(postsRecords, rec => rec.embed && rec.embed["$type"] === "app.bsky.embed.record");
