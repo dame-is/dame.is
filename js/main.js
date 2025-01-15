@@ -1351,7 +1351,6 @@ async function loadRecentPosts(cursor = null) {
     // Process outbound links after all posts are loaded
     processOutboundLinks();
 
-    // If there are no more posts to load, hide the "See More Posts" button.
     if (!currentBatchCursor) {
         const seeMoreButton = document.getElementById('see-more-posts');
         if (seeMoreButton) {
@@ -1365,16 +1364,12 @@ async function loadRecentPosts(cursor = null) {
 }
 
 // Function to load more posts when "See More Posts" button is clicked
-// This version fetches an additional 100 posts (up to 200 total) so that we can ensure
-// that we do not display posts for an incomplete day.
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
-    // If there is no cursor, we cannot paginate further.
     if (!currentBatchCursor) {
         console.log('No cursor available. Cannot load more posts.');
         return;
     }
-    // Call loadRecentPosts with the currentBatchCursor.
     loadRecentPosts(currentBatchCursor);
 }
 
