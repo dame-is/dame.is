@@ -769,9 +769,13 @@ let currentDaysCount = 4;
 // ----------------------------------
 // 12. POST LOADER (INDEX PAGE) - UPDATED
 // ----------------------------------
+let currentBatchCursor = null; // To store the cursor for the next batch
+const POSTS_PER_BATCH = 20; // Number of posts to fetch per batch
+let isLoadingPosts = false; // Flag to prevent multiple simultaneous fetches
+
 function initializePostLoader() {
-    console.log('Initializing Post Loader with Day-Based Batches');
-    // Initial load (using currentDaysCount to define the interval)
+    console.log('Initializing Post Loader with Pagination');
+    // Initial load
     loadRecentPosts();
 
     // Create and append the "See More Posts" button
@@ -930,6 +934,7 @@ async function loadRecentPosts(cursor = null) {
     function getRelativeTime(date) {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
+
         const intervals = [
             { label: 'year', seconds: 31536000 },
             { label: 'month', seconds: 2592000 },
@@ -938,6 +943,7 @@ async function loadRecentPosts(cursor = null) {
             { label: 'minute', seconds: 60 },
             { label: 'second', seconds: 1 }
         ];
+
         for (const interval of intervals) {
             const count = Math.floor(diffInSeconds / interval.seconds);
             if (count >= 1) {
@@ -985,27 +991,47 @@ async function loadRecentPosts(cursor = null) {
         currentBatchCursor = localCursor;
         console.log('Current batch cursor updated to:', currentBatchCursor);
 
-        // Remove reposts.
+        // Remove reposts
         const filteredBatch = data.feed.filter(item => {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Apply the reply filter (unchanged from your version).
+        // Additional filtering for replies:
+        // If a post is a reply (i.e. post.record.reply exists) then only include it if:
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
+                // If this is a reply, require that envelope reply metadata is present.
                 if (post.record.reply) {
-                    if (!item.reply) return false;
+                    if (!item.reply) {
+                        return false;
+                    }
+                    // Verify that the parent's author DID equals your DID.
                     if (item.reply.parent && item.reply.parent.author) {
-                        if (item.reply.parent.author.did !== actor) return false;
-                    } else return false;
+                        if (item.reply.parent.author.did !== actor) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                    // Verify that the root's author DID equals your DID.
                     if (item.reply.root && item.reply.root.author) {
-                        if (item.reply.root.author.did !== actor) return false;
-                    } else return false;
+                        if (item.reply.root.author.did !== actor) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                    // Additionally, if a grandparent is provided under item.reply.grandparentAuthor,
+                    // then its author's DID must equal your DID.
                     if (item.reply.grandparentAuthor) {
                         if (item.reply.grandparentAuthor.author) {
-                            if (item.reply.grandparentAuthor.author.did !== actor) return false;
-                        } else return false;
+                            if (item.reply.grandparentAuthor.author.did !== actor) {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
                     }
                 }
                 return true;
@@ -1086,31 +1112,37 @@ async function loadRecentPosts(cursor = null) {
     console.log(`Total day groups to display: ${Object.keys(groupedPosts).length}`);
 
     for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
-        // If the header for this day hasn't been rendered already, create it.
+        // Check if the date header already exists
         if (!document.querySelector(`.post-date-header[data-date="${headerDateText}"]`)) {
+            // Create the container for the header
             const dateHeader = document.createElement('div');
             dateHeader.classList.add('post-date-header');
             dateHeader.setAttribute('data-date', headerDateText);
-
+            
+            // Create a left container for the date text lines
             const headerLeft = document.createElement('div');
             headerLeft.classList.add('header-left');
+            
             const firstLine = document.createElement('div');
             firstLine.classList.add('date-header-line1');
             firstLine.textContent = headerDateText;
             headerLeft.appendChild(firstLine);
-
+            
             const secondLine = document.createElement('div');
             secondLine.classList.add('date-header-line2');
             secondLine.textContent = `Day ${groupData.dayOfLife} / ${groupData.dayOfYear} of ${groupData.totalDaysInYear} / Year ${groupData.age}`;
             headerLeft.appendChild(secondLine);
-
+            
+            // Create a right container for the counts (2x2 grid)
             const headerRight = document.createElement('div');
             headerRight.classList.add('header-right');
-
+            
+            // Calculate totals for the day by summing counts from each post
             let totalReplies = 0,
                 totalQuotes  = 0,
                 totalReposts = 0,
                 totalLikes   = 0;
+                
             groupData.posts.forEach(item => {
                 const post = item.post;
                 if (post && post.record) {
@@ -1120,11 +1152,13 @@ async function loadRecentPosts(cursor = null) {
                     totalLikes   += post.likeCount || 0;
                 }
             });
-
+            
+            // Helper function (same as used for individual posts)
             function createCount(iconClass, count, label) {
                 const countSpan = document.createElement('span');
                 countSpan.classList.add('count-item');
                 countSpan.setAttribute('aria-label', `${count} ${label}`);
+                
                 if (count > 0) {
                     countSpan.classList.add('active');
                 }
@@ -1138,21 +1172,25 @@ async function loadRecentPosts(cursor = null) {
                 countSpan.appendChild(countText);
                 return countSpan;
             }
+            
+            // Create count items for the header using the totals
             const replyCountHeader = createCount('fas fa-reply', totalReplies, 'replies');
             const quoteCountHeader = createCount('fas fa-quote-right', totalQuotes, 'quotes');
             const repostCountHeader = createCount('fas fa-retweet', totalReposts, 'reposts');
             const likeCountHeader = createCount('fas fa-heart', totalLikes, 'likes');
+            
             headerRight.appendChild(replyCountHeader);
             headerRight.appendChild(quoteCountHeader);
             headerRight.appendChild(repostCountHeader);
             headerRight.appendChild(likeCountHeader);
-
+            
             dateHeader.appendChild(headerLeft);
             dateHeader.appendChild(headerRight);
+            
             postsList.appendChild(dateHeader);
         }
-
-        // Render the individual posts for this day group.
+        
+        // Process each individual post for this day group
         groupData.posts.forEach(item => {
             const post = item.post;
             if (post && post.record) {
@@ -1336,15 +1374,17 @@ async function loadRecentPosts(cursor = null) {
                 const likes = post.likeCount || 0;
                 countsContainer.appendChild(createCount('fas fa-heart', likes, 'likes'));
                 postContainer.appendChild(countsContainer);
-
+            
+                // 6) Append the Post
                 postsList.appendChild(postContainer);
             }
         });
     }
 
-    // Process outbound links after all posts are loaded
+    // **New: Process outbound links after all posts are loaded**
     processOutboundLinks();
 
+    // If there are no more posts to load, hide the "See More Posts" button
     if (!currentBatchCursor) {
         const seeMoreButton = document.getElementById('see-more-posts');
         if (seeMoreButton) {
@@ -1357,17 +1397,15 @@ async function loadRecentPosts(cursor = null) {
     console.log('Finished loading posts.');
 }
 
-// Function to load more posts when "See More Posts" button is clicked.
-// This version shifts our day interval by 4 days.
+// Function to load more posts when "See More Posts" button is clicked
 function loadMorePosts() {
     console.log('"See More Posts" button clicked.');
-    // Increase the day interval by 4 days
-    currentDaysCount += 4;
-    // Reset the pagination cursor so that we start from the top of the feed for the new interval.
-    currentBatchCursor = null;
-    loadRecentPosts(null);
+    if (!currentBatchCursor) {
+        console.log('No cursor available. Cannot load more posts.');
+        return;
+    }
+    loadRecentPosts(currentBatchCursor);
 }
-
 
 
 // ----------------------------------
