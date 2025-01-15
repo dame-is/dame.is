@@ -310,45 +310,33 @@
     return { totalRecords, totalBskyRecords, totalNonBskyRecords };
   }
 
-// Calculate engagements for the account using the author feed.
-async function calculateEngagements() {
-  // Fetch the author's feed
-  const feed = await fetchAuthorFeed();
+    // Calculate engagements for the account using the author feed.
+    async function calculateEngagements() {
+    const feed = await fetchAuthorFeed();
+    let likesReceived = 0;
+    let repostsReceived = 0;
+    let quotesReceived = 0;
+    let repliesReceived = 0;
 
-  // Initialize counters for engagements
-  let likesReceived = 0;
-  let repostsReceived = 0;
-  let quotesReceived = 0;
-  let repliesReceived = 0;
+    for (const item of feed) {
+      if (item && item.post) {
+        // Skip repost reasons
+        if (JSON.stringify(item.post).includes("#reasonRepost")) continue;
 
-  // Iterate over each item in the feed
-  for (const key in feed) {
-    const item = feed[key];
-
-    // Ensure item and item.post exist and are valid
-    if (item && item.post) {
-      // Skip posts that include the string "#reasonRepost"
-      if (JSON.stringify(item.post).indexOf("#reasonRepost") !== -1) {
-        continue;
+        likesReceived += item.post.likeCount || 0;
+        repostsReceived += item.post.repostCount || 0;
+        quotesReceived += item.post.quoteCount || 0;
+        repliesReceived += item.post.replyCount || 0;
       }
-
-      // Accumulate engagement counts
-      likesReceived += item.post.likeCount || 0;
-      repostsReceived += item.post.repostCount || 0;
-      quotesReceived += item.post.quoteCount || 0;
-      repliesReceived += item.post.replyCount || 0;
     }
+
+    return {
+      likesReceived,
+      repostsReceived,
+      quotesReceived,
+      repliesReceived,
+    };
   }
-
-  // Return the total engagement counts
-  return {
-    likesReceived,
-    repostsReceived,
-    quotesReceived,
-    repliesReceived,
-  };
-}
-
 
   // Build the analysis narrative paragraphs based on the criteria.
   function buildAnalysisNarrative(accountData) {
@@ -443,40 +431,41 @@ async function calculateEngagements() {
       // 3. Blobs count and per-day/post calculations
       const blobsCount = await fetchAllBlobsCount();
 
-      // 4. Repo description gives collections.
-      const repoDescription = await fetchRepoDescription();
-      let collections = repoDescription.collections || [];
-      const totalCollections = collections.length;
-      const bskyCollectionNames = collections.filter(col => col.indexOf("app.bsky") !== -1);
-      const totalBskyCollections = bskyCollectionNames.length;
-      const totalNonBskyCollections = totalCollections - totalBskyCollections;
-      
-      // 5. Build targetCollections array.
-      const targetCollections = [
-        "app.bsky.feed.post",
-        "app.bsky.feed.repost",
-        "app.bsky.feed.like",
-        "app.bsky.graph.block",
-        "app.bsky.feed.generator",
-        "app.bsky.graph.follow",
-        "app.bsky.graph.list",
-        "app.bsky.graph.listblock",
-        "app.bsky.graph.listitem",
-        "app.bsky.graph.starterpack"
-      ];
-      collections.forEach(col => {
-        if (col.indexOf("app.bsky") === -1 && targetCollections.indexOf(col) === -1) {
-          targetCollections.push(col);
-        }
-      });
+        // 4. Repo description gives collections.
+        const repoDescription = await fetchRepoDescription();
+        const collections = repoDescription.collections || [];
+        const totalCollections = collections.length;
 
-      // 6. Aggregate record counts.
-      const { totalRecords, totalBskyRecords, totalNonBskyRecords } = await calculateRecordsAggregate(targetCollections);
-      const totalRecordsPerDay = ageInDays ? totalRecords / ageInDays : 0;
-      const totalBskyRecordsPerDay = ageInDays ? totalBskyRecords / ageInDays : 0;
-      const totalNonBskyRecordsPerDay = ageInDays ? totalNonBskyRecords / ageInDays : 0;
-      const totalBskyRecordsPercentage = totalRecords ? totalBskyRecords / totalRecords : 0;
-      const totalNonBskyRecordsPercentage = totalRecords ? totalNonBskyRecords / totalRecords : 0;
+        // 5. Aggregate record counts for all collections dynamically.
+        const collectionStats = {};
+        for (const collection of collections) {
+        const records = await fetchRecordsForCollection(collection);
+        const recordCount = records.length;
+        const recordsPerDay = ageInDays ? recordCount / ageInDays : 0;
+
+        // Add to collection stats
+        collectionStats[collection] = {
+            count: recordCount,
+            recordsPerDay,
+        };
+        }
+
+        const bskyCollectionNames = collections.filter(col => col.includes("app.bsky"));
+        const totalBskyCollections = bskyCollectionNames.length;
+        const totalNonBskyCollections = totalCollections - totalBskyCollections;
+
+        // 6. Aggregate totals
+        const totalRecords = Object.values(collectionStats).reduce((sum, stat) => sum + stat.count, 0);
+        const totalRecordsPerDay = ageInDays ? totalRecords / ageInDays : 0;
+
+        // 6.5. Compute Bsky-specific and non-Bsky-specific totals
+        const totalBskyRecords = bskyCollectionNames.reduce(
+        (sum, col) => sum + (collectionStats[col]?.count || 0),
+        0
+        );
+        const totalBskyRecordsPerDay = ageInDays ? totalBskyRecords / ageInDays : 0;
+        const totalNonBskyRecords = totalRecords - totalBskyRecords;
+        const totalNonBskyRecordsPerDay = ageInDays ? totalNonBskyRecords / ageInDays : 0;
 
       // 7. For detailed post statistics.
       const postsRecords = await fetchRecordsForCollection("app.bsky.feed.post");
@@ -801,33 +790,9 @@ async function calculateEngagements() {
             textPercentage: postsCount ? postsWithOnlyText / postsCount : 0,
             linkPercentage: postsCount ? postsWithLinks / postsCount : 0,
             imagePercentage: postsCount ? postsWithImages / postsCount : 0,
-            videoPercentage: postsCount ? postsWithVideo / postsCount : 0,
-            engagementsReceived: {
-                likesReceived,
-                repostsReceived,
-                quotesReceived,
-                repliesReceived
-            }
+            videoPercentage: postsCount ? postsWithVideo / postsCount : 0
           },
-          "app.bsky.feed.threadgate": (await fetchRecordsForCollection("app.bsky.feed.threadgate")).length || 0,
-          "app.bsky.feed.like": {
-            likes: (await fetchRecordsForCollection("app.bsky.feed.like")).length || 0,
-            likesPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.feed.like")).length) / ageInDays : 0
-          },
-          "app.bsky.graph.block": {
-            blocks: (await fetchRecordsForCollection("app.bsky.graph.block")).length || 0,
-            blocksPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.graph.block")).length) / ageInDays : 0
-          },
-          "app.bsky.feed.generator": (await fetchRecordsForCollection("app.bsky.feed.generator")).length || 0,
-          "app.bsky.graph.follow": {
-            follows: (await fetchRecordsForCollection("app.bsky.graph.follow")).length || 0,
-            followsPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.graph.follow")).length) / ageInDays : 0
-          },
-          "app.bsky.graph.list": (await fetchRecordsForCollection("app.bsky.graph.list")).length || 0,
-          "app.bsky.graph.listblock": (await fetchRecordsForCollection("app.bsky.graph.listblock")).length || 0,
-          "app.bsky.graph.listitem": (await fetchRecordsForCollection("app.bsky.graph.listitem")).length || 0,
-          "app.bsky.graph.starterpack": (await fetchRecordsForCollection("app.bsky.graph.starterpack")).length || 0,
-          "{non.app.bsky.collections}": totalNonBskyCollections
+          collections: collectionStats
         },
         activityLast30Days: {
           profileEdited: (new Date(profile.indexedAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
