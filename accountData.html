@@ -481,10 +481,12 @@
       
       // New logic for replies.
       const onlyRepliesToSelf = postsRecords.filter(rec => {
-        if (!rec.value.hasOwnProperty("reply")) return false;
-        const authors = getReplyAuthors(rec.value.reply);
-        return authors.some(author => author === did);
-      }).length;
+        // Check if the "reply" object exists in the "value" field
+        if (!rec.value || !rec.value.reply || !rec.value.reply.parent) return false;
+
+        // Check if the "parent" object has a "uri" and if it contains the DID
+        return rec.value.reply.parent.uri.includes(did);
+        }).length;
       const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
       const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
       const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
@@ -492,9 +494,13 @@
       // Count quotes.
       const onlyQuotes = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.record");
       const onlyQuotesPerDay = ageInDays ? onlyQuotes / ageInDays : 0;
-      const onlySelfQuotes = filterRecords(postsRecords, rec =>
-        rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.record" && (rec.value.embed.URI || "").indexOf(did) !== -1
-      );
+      const onlySelfQuotes = filterRecords(postsRecords, rec => {
+        // Check if the "embed" object exists and is of the correct type
+        if (!rec.value || !rec.value.embed || rec.value.embed["$type"] !== "app.bsky.embed.record") return false;
+
+        // Check if the "URI" contains the DID
+        return rec.value.embed.uri && rec.value.embed.uri.includes(did);
+        });
       const onlySelfQuotesPerDay = ageInDays ? onlySelfQuotes / ageInDays : 0;
       const onlyOtherQuotes = onlyQuotes - onlySelfQuotes;
       const onlyOtherQuotesPerDay = ageInDays ? onlyOtherQuotes / ageInDays : 0;
@@ -503,7 +509,13 @@
       const repostRecords = await fetchRecordsForCollection("app.bsky.feed.repost");
       const onlyReposts = repostRecords.length;
       const onlyRepostsPerDay = ageInDays ? onlyReposts / ageInDays : 0;
-      const onlySelfReposts = filterRecords(repostRecords, rec => (rec.value.subject && rec.value.subject.URI || "").indexOf(did) !== -1);
+      const onlySelfReposts = filterRecords(repostRecords, rec => {
+        // Ensure the "subject" object and "uri" property exist
+        if (!rec.value || !rec.value.subject || !rec.value.subject.uri) return false;
+
+        // Check if the "uri" contains the DID
+        return rec.value.subject.uri.includes(did);
+        });
       const onlySelfRepostsPerDay = ageInDays ? onlySelfReposts / ageInDays : 0;
       const onlyOtherReposts = onlyReposts - onlySelfReposts;
       const onlyOtherRepostsPerDay = ageInDays ? onlyOtherReposts / ageInDays : 0;
