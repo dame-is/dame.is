@@ -1087,6 +1087,9 @@ async function loadRecentPosts(cursor = null) {
         }
     }
 
+    // --- Preserve the scroll position ---
+    const previousScrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+
     // Now render the groups.
     console.log(`Total day groups to display: ${Object.keys(groupedPosts).length}`);
 
