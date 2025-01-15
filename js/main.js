@@ -873,8 +873,9 @@ function parseTextWithFacets(text, facets) {
  *    a) We have accumulated 20 posts created within the last 4 days, OR
  *    b) We hit a post older than 4 days.
  * - If fewer than 20 posts were created in the last 4 days, display the most recent 20 posts.
- * - Replies are now also fetched. However, if a post is a reply (contains a "parent" and/or "root"),
- *   we only include it if both properties contain our DID.
+ * - Replies are now also fetched. However, if a post is a reply (i.e. it has a "reply" property in its record),
+ *   then we only include it if both the reply’s "parent" and "root" (from the envelope, if present)
+ *   contain your DID.
  */
 async function loadRecentPosts(cursor = null) {
     console.log('Loading recent posts', cursor ? `with cursor: ${cursor}` : '');
@@ -936,7 +937,7 @@ async function loadRecentPosts(cursor = null) {
     //    - we have accumulated at least 20 recent posts,
     //    - or the API has no more posts to fetch.
     while (keepFetching) {
-        // Remove &filter=posts_no_replies so that replies are also fetched.
+        // Remove &filter=posts_no_replies so that replies are included.
         let apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(actor)}&limit=${POSTS_PER_BATCH}`;
         if (localCursor) {
             apiUrl += `&cursor=${encodeURIComponent(localCursor)}`;
@@ -953,25 +954,28 @@ async function loadRecentPosts(cursor = null) {
         currentBatchCursor = localCursor;
         console.log('Current batch cursor updated to:', currentBatchCursor);
 
-        // Filter out reposts first.
+        // Remove reposts
         const filteredBatch = data.feed.filter(item => {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Now filter further to only include reply posts if they are actually replies to you.
-        // For posts that are replies, check if the "parent" and "root" properties (if they exist)
-        // contain your DID. (If a post is not a reply, include it automatically.)
+        // Additional filtering for replies:
+        // If a post is a reply (i.e. post.record.reply exists) then only include it if
+        // both the parent's and root's author (from item.reply) have your DID.
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
-                // If the post is a reply (has parent and/or root properties), check for your DID.
-                if (post.record.parent || post.record.root) {
-                    // Only include reply posts if both "parent" and "root" contain your DID.
-                    // (You might need to adjust this check if the fields are objects or nested differently.)
-                    if (post.record.parent && post.record.parent.indexOf(actor) === -1) {
-                        return false;
-                    }
-                    if (post.record.root && post.record.root.indexOf(actor) === -1) {
+                if (post.record.reply) {
+                    // If the envelope includes a 'reply' object then check its parent's and root's author DID.
+                    if (item.reply) {
+                        if (item.reply.parent && item.reply.parent.author && item.reply.parent.author.did !== actor) {
+                            return false;
+                        }
+                        if (item.reply.root && item.reply.root.author && item.reply.root.author.did !== actor) {
+                            return false;
+                        }
+                    } else {
+                        // If no envelope reply metadata is provided, err on the side of exclusion.
                         return false;
                     }
                 }
