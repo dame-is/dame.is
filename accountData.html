@@ -89,7 +89,6 @@
           do {
             const url = urlBase + (cursor ? `&cursor=${cursor}` : '');
             const data = await cachedGetJSON(url);
-            // Use data.cids as the key containing the blob identifiers.
             count += Array.isArray(data.cids) ? data.cids.length : 0;
             cursor = data.cursor || null;
           } while (cursor);
@@ -187,7 +186,6 @@
           if (reply.root && reply.root.author) {
             authors.push(reply.root.author);
           }
-          // If your data has a grandparent, you could add:
           if (reply.grandparent && reply.grandparent.author) {
             authors.push(reply.grandparent.author);
           }
@@ -195,7 +193,6 @@
         }
       
         // Calculate posting style using the provided criteria.
-        // Expects an object with posts stats.
         function calculatePostingStyle(stats) {
           const {
             onlyPostsPerDay = 0,
@@ -208,7 +205,6 @@
             postsPerDay = 0
           } = stats;
       
-          // Rule: if not enough post frequency then maybe Lurker.
           if (postsPerDay < 0.1 && stats.totalBskyRecordsPerDay > 0.3) {
             return "Lurker";
           }
@@ -280,13 +276,8 @@
         }
       
         // Calculate domain rarity based on handle and its length.
-        // For handles including "bsky.social", we count the entire string.
-        // For custom domains:
-        //   - If the handle ends with .com, .org, or .net, we use the domain part (after the first dot).
-        //   - Otherwise, we use the entire string.
         function calculateDomainRarity(handle) {
           if (handle.includes("bsky.social")) {
-            // For bsky handles, use the entire handle length.
             const len = handle.length;
             if (len >= 21) return "very common";
             if (len >= 18 && len <= 20) return "common";
@@ -295,14 +286,11 @@
             if (len === 15) return "very rare";
             if (len <= 14) return "extremely rare";
           } else {
-            // For custom domains, check if the handle ends with one of the standard TLDs.
             const standardTLDs = [".com", ".org", ".net"];
             const hasStandardTLD = standardTLDs.some(tld => handle.endsWith(tld));
             let len;
             if (hasStandardTLD) {
-              // Use only the domain part (e.g. everything after the first dot).
               const parts = handle.split(".");
-              // Rejoin everything after the first element:
               const domain = parts.slice(1).join(".");
               len = domain.length;
               if (len >= 15) return "very common";
@@ -312,7 +300,6 @@
               if (len === 6) return "very rare";
               if (len <= 5) return "extremely rare";
             } else {
-              // Otherwise, use the entire handle.
               len = handle.length;
               if (len >= 14) return "very common";
               if (len >= 11 && len <= 13) return "common";
@@ -362,6 +349,36 @@
           return { totalRecords, totalBskyRecords, totalNonBskyRecords, collectionStats };
         }
       
+        // NEW: Calculate aggregate records for a recent period (in days) by filtering records based on createdAt.
+        async function calculateRecordsAggregateForPeriod(collectionNames, periodDays) {
+          let totalRecords = 0;
+          let totalBskyRecords = 0;
+          let totalNonBskyRecords = 0;
+          const collectionStats = {};
+          const cutoffTime = Date.now() - periodDays * 24 * 60 * 60 * 1000;
+          for (const col of collectionNames) {
+            const recs = await fetchRecordsForCollection(col);
+            // Assume that record creation time is stored in rec.value.createdAt
+            const filtered = recs.filter(rec => {
+              const recordTime = new Date(rec.value.createdAt).getTime();
+              return recordTime >= cutoffTime;
+            });
+            const count = filtered.length;
+            const perDay = periodDays ? count / periodDays : 0;
+            collectionStats[col] = {
+              count: roundToTwo(count),
+              perDay: roundToTwo(perDay)
+            };
+            totalRecords += count;
+            if (col.indexOf("app.bsky") !== -1) {
+              totalBskyRecords += count;
+            } else {
+              totalNonBskyRecords += count;
+            }
+          }
+          return { totalRecords, totalBskyRecords, totalNonBskyRecords, collectionStats };
+        }
+      
         // Calculate engagements for the account using the author feed.
         async function calculateEngagements() {
           const feed = await fetchAuthorFeed();
@@ -372,9 +389,7 @@
       
           for (const item of feed) {
             if (item && item.post) {
-              // Skip repost reasons
               if (JSON.stringify(item.post).includes("#reasonRepost")) continue;
-      
               likesReceived += item.post.likeCount || 0;
               repostsReceived += item.post.repostCount || 0;
               quotesReceived += item.post.quoteCount || 0;
@@ -494,7 +509,7 @@
             // 5. Build targetCollections array (includes all collections)
             const targetCollections = [...new Set(collections)];
       
-            // 6. Aggregate record counts.
+            // 6. Aggregate record counts for overall activity.
             const { totalRecords, totalBskyRecords, totalNonBskyRecords, collectionStats } = await calculateRecordsAggregate(targetCollections, ageInDays);
             const totalRecordsPerDay = ageInDays ? totalRecords / ageInDays : 0;
             const totalBskyRecordsPerDay = ageInDays ? totalBskyRecords / ageInDays : 0;
@@ -508,30 +523,22 @@
             function filterRecords(records, testFunc) {
               return records.filter(testFunc).length;
             }
-            // Count only posts (records with no "reply" key).
             const onlyPosts = filterRecords(postsRecords, rec => !rec.value.hasOwnProperty("reply"));
             const onlyPostsPerDay = ageInDays ? onlyPosts / ageInDays : 0;
-            // Count replies (records with a "reply" key).
             const onlyReplies = filterRecords(postsRecords, rec => rec.value.hasOwnProperty("reply"));
             const onlyRepliesPerDay = ageInDays ? onlyReplies / ageInDays : 0;
             
-            // New logic for replies.
             const onlyRepliesToSelf = postsRecords.filter(rec => {
-              // Check if the "reply" object exists in the "value" field
               if (!rec.value || !rec.value.reply || !rec.value.reply.parent) return false;
-      
-              // Check if the "parent" object has a "uri" and if it contains the DID
               return rec.value.reply.parent.uri.includes(did);
-              }).length;
+            }).length;
             const onlyRepliesToSelfPerDay = ageInDays ? onlyRepliesToSelf / ageInDays : 0;
             const onlyRepliesToOthers = onlyReplies - onlyRepliesToSelf;
             const onlyRepliesToOthersPerDay = ageInDays ? onlyRepliesToOthers / ageInDays : 0;
       
-            // Count quotes.
             const onlyQuotes = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.record");
             const onlyQuotesPerDay = ageInDays ? onlyQuotes / ageInDays : 0;
             const onlySelfQuotes = filterRecords(postsRecords, rec => {
-              // Check if the "embed" object exists and is of the correct type
               if (
                   !rec.value || 
                   !rec.value.embed || 
@@ -540,64 +547,50 @@
                   return false;
               }
       
-              // Match either `record.record.uri` or `record.uri` containing the DID
               const embedRecord = rec.value.embed.record;
               return (
                   (embedRecord.record && embedRecord.record.uri && embedRecord.record.uri.includes(did)) ||
                   (embedRecord.uri && embedRecord.uri.includes(did))
               );
-              });
+            });
             const onlySelfQuotesPerDay = ageInDays ? onlySelfQuotes / ageInDays : 0;
             const onlyOtherQuotes = onlyQuotes - onlySelfQuotes;
             const onlyOtherQuotesPerDay = ageInDays ? onlyOtherQuotes / ageInDays : 0;
       
-            // Count reposts.
             const repostRecords = await fetchRecordsForCollection("app.bsky.feed.repost");
             const onlyReposts = repostRecords.length;
             const onlyRepostsPerDay = ageInDays ? onlyReposts / ageInDays : 0;
             const onlySelfReposts = filterRecords(repostRecords, rec => {
-              // Ensure the "subject" object and "uri" property exist
               if (!rec.value || !rec.value.subject || !rec.value.subject.uri) return false;
-      
-              // Check if the "uri" contains the DID
               return rec.value.subject.uri.includes(did);
-              });
+            });
             const onlySelfRepostsPerDay = ageInDays ? onlySelfReposts / ageInDays : 0;
             const onlyOtherReposts = onlyReposts - onlySelfReposts;
             const onlyOtherRepostsPerDay = ageInDays ? onlyOtherReposts / ageInDays : 0;
       
-            // Count posts with images.
             const postsWithImages = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images");
             const imagePostsPerDay = ageInDays ? postsWithImages / ageInDays : 0;
             const imagePostsAltText = filterRecords(postsRecords, rec => {
-              // Check if the embed object exists and is of the correct type
               if (!rec.value.embed || rec.value.embed["$type"] !== "app.bsky.embed.images") {
                   return false;
               }
-      
-              // Check if any image in the images array contains an "alt" value
               return rec.value.embed.images && rec.value.embed.images.some(image => image.alt && image.alt.trim());
-              });
+            });
             const imagePostsNoAltText = postsWithImages - imagePostsAltText;
             const altTextPercentage = postsWithImages ? imagePostsAltText / postsWithImages : 0;
-            // Count posts with only text.
             const postsWithOnlyText = filterRecords(postsRecords, rec =>
               !rec.value.embed && !rec.value.reply && !(rec.value.facets && JSON.stringify(rec.value.facets).indexOf("app.bsky.richtext.facet#link") !== -1)
             );
             const textPostsPerDay = ageInDays ? postsWithOnlyText / ageInDays : 0;
-              // Count posts with mentions.
-              const postsWithMentions = filterRecords(postsRecords, rec => {
+            const postsWithMentions = filterRecords(postsRecords, rec => {
               if (!rec.value || !rec.value.facets) return false;
-      
               return rec.value.facets.some(facet =>
                   facet.features && facet.features.some(feature => feature["$type"] === "app.bsky.richtext.facet#mention")
               );
-              });
+            });
             const mentionPostsPerDay = ageInDays ? postsWithMentions / ageInDays : 0;
-            // Count posts with video.
             const postsWithVideo = filterRecords(postsRecords, rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.video");
             const videoPostsPerDay = ageInDays ? postsWithVideo / ageInDays : 0;
-            // Count posts with links.
             const postsWithLinks = filterRecords(postsRecords, rec => {
               if (rec.value.facets && rec.value.facets.features && rec.value.facets.features.some(f => f["$type"] === "app.bsky.richtext.facet#link")) return true;
               if (rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.external") return true;
@@ -724,6 +717,12 @@
                 totalNonBskyRecords,
                 totalNonBskyRecordsPerDay,
                 totalNonBskyRecordsPercentage,
+                plcOperations,
+                ...collectionStats,
+                "app.bsky.feed.post": {
+                  ...postStats,
+                  engagementsReceived
+                }
               },
               postingStyle,
               socialStatus,
@@ -734,7 +733,14 @@
               }
             });
       
-            // 14. Construct final accountData JSON.
+            // 14. Now compute activity aggregates for the last 30 days.
+            const periodDays = 30;
+            const { totalRecords: totalRecords30, totalBskyRecords: totalBskyRecords30, totalNonBskyRecords: totalNonBskyRecords30, collectionStats: collectionStats30 } = await calculateRecordsAggregateForPeriod(targetCollections, periodDays);
+            const totalRecordsPerDay30 = periodDays ? totalRecords30 / periodDays : 0;
+            const totalBskyRecordsPerDay30 = periodDays ? totalBskyRecords30 / periodDays : 0;
+            const totalNonBskyRecordsPerDay30 = periodDays ? totalNonBskyRecords30 / periodDays : 0;
+      
+            // 15. Construct final accountData JSON.
             const accountData = {
               profile: {
                 ...profile,
@@ -779,17 +785,21 @@
                 totalNonBskyRecordsPerDay: roundToTwo(totalNonBskyRecordsPerDay),
                 totalNonBskyRecordsPercentage: roundToTwo(totalNonBskyRecordsPercentage),
                 plcOperations: roundToTwo(plcOperations),
-                // Dynamic collections
                 ...collectionStats,
-                // Existing specific collections (if you still want to keep them)
                 "app.bsky.feed.post": {
                   ...postStats,
                   engagementsReceived
-                },
-                // Additional hard-coded collections can be added here if needed
+                }
               },
               activityLast30Days: {
-                profileEdited: (new Date(profile.indexedAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+                profileEdited: new Date(profile.indexedAt) > new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000),
+                totalRecords: roundToTwo(totalRecords30),
+                totalRecordsPerDay: roundToTwo(totalRecordsPerDay30),
+                totalBskyRecords: roundToTwo(totalBskyRecords30),
+                totalBskyRecordsPerDay: roundToTwo(totalBskyRecordsPerDay30),
+                totalNonBskyRecords: roundToTwo(totalNonBskyRecords30),
+                totalNonBskyRecordsPerDay: roundToTwo(totalNonBskyRecordsPerDay30),
+                collections: collectionStats30
               },
               alsoKnownAs: {
                 totalAkas: roundToTwo(totalAkas),
@@ -804,7 +814,7 @@
               }
             };
       
-            // 15. Build final output JSON.
+            // 16. Build final output JSON.
             const finalOutput = {
               message: "accountData retrieved successfully",
               accountData
@@ -837,10 +847,7 @@
               message: "Error retrieving accountData",
               error: err.toString()
             };
-            // Render plain error JSON
             document.getElementById("output").textContent = JSON.stringify(errorOutput, null, 2);
-            
-            // Initialize JSONEditor with error JSON
             const container = document.getElementById("jsoneditor");
             const options = {
               mode: 'tree',
