@@ -339,7 +339,7 @@
         }
       
         // Calculate aggregate records for the account by iterating over each collection.
-        async function calculateRecordsAggregate(collectionNames) {
+        async function calculateRecordsAggregate(collectionNames, ageInDays) {
           let totalRecords = 0;
           let totalBskyRecords = 0;
           let totalNonBskyRecords = 0;
