@@ -835,12 +835,11 @@ body.dark-mode .blog-post-excerpt {
 #alt-text-rating-form {
     background-color: var(--post-background-color);
     padding: 20px;
-    border-radius: 8px;
     border: 1px solid #ccc;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     text-align: center;
-    max-width: 95%; /* Ensure it fits within smaller screens */
-    margin: auto;   /* Center the form horizontally */
+    max-width: 95%;
+    margin: auto;
+    border-radius: 5px;
 }
 
 body.dark-mode #alt-text-rating-form {
