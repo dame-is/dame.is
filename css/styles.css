@@ -1,5 +1,20 @@
 /* === General Styles === */
 
+html, body {
+    margin: 0;               /* Remove default margins */
+    padding: 0;              /* Remove default padding */
+    min-height: 100vh;       /* Ensure the body is at least as tall as the viewport */
+    display: flex;           /* Use Flexbox to structure content */
+    flex-direction: column;  /* Stack child elements vertically */
+    box-sizing: border-box;  /* Include padding and borders in element size */
+}
+
+main {
+    flex-grow: 1;            /* Allow the main content to grow and fill available space */
+    align-items: center;
+    justify-content: center;
+}
+
 body {
     font-family: Arial, sans-serif;
     text-align: left;
