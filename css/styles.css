@@ -843,6 +843,10 @@ body.dark-mode .blog-post-excerpt {
     margin: auto;   /* Center the form horizontally */
 }
 
+body.dark-mode #alt-text-rating-form {
+    border-color: #444;
+}
+
 #alt-text-rating-form h1 {
     text-align: center;
     margin-bottom: 20px;
