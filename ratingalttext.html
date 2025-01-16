@@ -1,16 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
-  <title>alt text rating</title>
-  <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/css/styles.css">
-  <!-- Updated React, ReactDOM, and Recharts -->
-  <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="images/favicon.ico" type="image/x-icon">
+<title>alt text rating</title>
+<script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
     <!-- Navigation -->
@@ -25,11 +21,10 @@
             <button type="submit">Search</button>
           </form>
           <div class="results" id="results"></div>
-          <div id="alt-text-chart" style="width: 400px; height: 300px; margin: auto;"></div>
-
+        
           <script>
             const PUBLIC_API_URL = "https://public.api.bsky.app";
-
+        
             async function resolveHandleToDID(handle) {
               try {
                 const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
@@ -44,7 +39,7 @@
                 throw error;
               }
             }
-
+        
             async function fetchServiceEndpoint(did) {
               try {
                 const res = await fetch(`https://plc.directory/${did}`);
@@ -61,26 +56,26 @@
                 throw error;
               }
             }
-
+        
             async function fetchRecordsForCollection(serviceEndpoint, did, collectionName) {
               let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collectionName)}&limit=100`;
               let records = [];
               let cursor = null;
-
+        
               do {
                 const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
                 const res = await fetch(url);
                 const data = await res.json();
-
+        
                 if (Array.isArray(data.records)) {
                   records = records.concat(data.records);
                 }
                 cursor = data.cursor || null;
               } while (cursor);
-
+        
               return records;
             }
-
+        
             function analyzePosts(records) {
               const postsWithImages = records.filter(
                 rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
@@ -88,7 +83,7 @@
               const postsWithAltText = postsWithImages.filter(rec =>
                 rec.value.embed.images.some(img => img.alt && img.alt.trim())
               );
-
+        
               return {
                 totalPosts: records.length,
                 postsWithImages: postsWithImages.length,
@@ -96,85 +91,27 @@
                 altTextPercentage: (postsWithAltText.length / postsWithImages.length) * 100 || 0,
               };
             }
-
-            function renderAltTextChart(altTextPercentage) {
-              const { React, ReactDOM, Recharts } = window;
-              const { PieChart, Pie, Cell, ResponsiveContainer } = Recharts;
-
-              const data = [
-                { value: 25, color: "#ff4d4d" }, // Bad
-                { value: 25, color: "#ffa64d" }, // Decent
-                { value: 25, color: "#ffff4d" }, // Good
-                { value: 25, color: "#80ff80" }, // Excellent
-              ];
-
-              const RADIAN = Math.PI / 180;
-
-              const renderNeedle = (value, cx, cy, iR, oR, color) => {
-                const angle = 180 * (1 - value / 100);
-                const length = (iR + oR) / 2;
-                const sin = Math.sin(-Math.PI / 180 * angle);
-                const cos = Math.cos(-Math.PI / 180 * angle);
-                const needleRadius = 5;
-
-                const x0 = cx;
-                const y0 = cy;
-                const xp = x0 + length * cos;
-                const yp = y0 + length * sin;
-
-                return React.createElement(
-                    React.Fragment,
-                    null,
-                    React.createElement('circle', { cx: x0, cy: y0, r: needleRadius, fill: color }),
-                    React.createElement('path', { d: `M${x0},${y0} L${xp},${yp}`, stroke: color, strokeWidth: 2 })
-                );
-                };
-
-
-              ReactDOM.render(
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={data}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius="40%"
-                      outerRadius="80%"
-                      startAngle={180}
-                      endAngle={0}
-                      dataKey="value"
-                    >
-                      {data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    {renderNeedle(altTextPercentage, 200, 150, 80, 160, "#333")}
-                  </PieChart>
-                </ResponsiveContainer>,
-                document.getElementById("alt-text-chart")
-              );
-            }
-
+        
             document.getElementById("search-form").addEventListener("submit", async (event) => {
               event.preventDefault();
-
+        
               const username = document.getElementById("username").value.trim();
               const resultsDiv = document.getElementById("results");
               resultsDiv.textContent = "Loading...";
-
+        
               try {
                 // Step 1: Resolve DID
                 const did = await resolveHandleToDID(username);
-
+        
                 // Step 2: Fetch service endpoint from PLC directory
                 const serviceEndpoint = await fetchServiceEndpoint(did);
-
+        
                 // Step 3: Fetch records using the service endpoint
                 const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
-
+        
                 // Step 4: Analyze posts
                 const analysis = analyzePosts(records);
-
+        
                 // Step 5: Display results
                 resultsDiv.innerHTML = `
                   <h2>Analysis Results for ${username}</h2>
@@ -183,9 +120,6 @@
                   <p>Posts with Alt Text: ${analysis.postsWithAltText}</p>
                   <p>Alt Text Usage: ${analysis.altTextPercentage.toFixed(2)}%</p>
                 `;
-
-                // Render the chart
-                renderAltTextChart(analysis.altTextPercentage);
               } catch (error) {
                 resultsDiv.textContent = `Error: ${error.message}`;
               }
