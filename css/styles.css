@@ -835,8 +835,6 @@ body.dark-mode .blog-post-excerpt {
 #alt-text-rating-form {
     background-color: var(--post-background-color);
     padding: 20px;
-<<<<<<< HEAD
-<<<<<<< HEAD
     border: 1px solid #ccc;
     text-align: center;
     max-width: 95%;
@@ -846,21 +844,14 @@ body.dark-mode .blog-post-excerpt {
 
 body.dark-mode #alt-text-rating-form {
     border-color: #444;
-=======
     border-radius: 8px;
-=======
->>>>>>> 0645de4 (fix: alt text tool styling)
     border: 1px solid #ccc;
     text-align: center;
-<<<<<<< HEAD
     max-width: 95%; /* Ensure it fits within smaller screens */
     margin: auto;   /* Center the form horizontally */
->>>>>>> 671d9e6 (add: styling for alt tool)
-=======
     max-width: 95%;
     margin: auto;
     border-radius: 5px;
->>>>>>> 0645de4 (fix: alt text tool styling)
 }
 
 body.dark-mode #alt-text-rating-form {
@@ -924,20 +915,11 @@ body.dark-mode #alt-text-rating-form {
     border: 1px solid #ccc;
     border-radius: 5px;
     margin-bottom: 10px; /* Space between input and button */
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 99b1399 (fix: search bar text alignment)
     text-align: center;
 }
 
 .search-bar input#username {
     text-align: center;
-<<<<<<< HEAD
-=======
->>>>>>> 671d9e6 (add: styling for alt tool)
-=======
->>>>>>> 99b1399 (fix: search bar text alignment)
 }
 
 .search-bar button {
