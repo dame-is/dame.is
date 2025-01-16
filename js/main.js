@@ -826,8 +826,7 @@ function parseTextWithFacets(text, facets) {
                     // Convert byte indices to character indices
                     const startChar = byteToCharIndex(byteMap, startByte);
                     const endChar = byteToCharIndex(byteMap, endByte);
-
-                    // Adjust end index by one to be inclusive (if not at the end of the text)
+                    // Adjust the end index so that it's inclusive (if it's not already the end of the text)
                     const endCharAdjusted = endChar < text.length ? endChar + 1 : endChar;
 
                     // Append text before the link
@@ -836,8 +835,23 @@ function parseTextWithFacets(text, facets) {
                         appendTextWithLineBreaks(fragment, beforeText);
                     }
 
-                    // Extract the link text using the adjusted end index
-                    const linkText = text.slice(startChar, endCharAdjusted);
+                    // Extract the link text using the adjusted indices
+                    let linkText = text.slice(startChar, endCharAdjusted);
+
+                    // If the link text starts with a space, extract that space separately
+                    if (linkText.startsWith(" ")) {
+                        // Determine how many whitespace characters are at the start
+                        const match = linkText.match(/^\s+/);
+                        if (match) {
+                            const leadingWhitespace = match[0];
+                            // Append the whitespace as normal text
+                            appendTextWithLineBreaks(fragment, leadingWhitespace);
+                            // Remove the whitespace from the link text
+                            linkText = linkText.slice(leadingWhitespace.length);
+                        }
+                    }
+
+                    // Create the link element using the trimmed text
                     const a = document.createElement('a');
                     a.href = uri;
                     a.textContent = linkText;
@@ -845,7 +859,7 @@ function parseTextWithFacets(text, facets) {
                     a.rel = 'noopener noreferrer';
                     fragment.appendChild(a);
 
-                    // Update lastCharIndex
+                    // Update the lastCharIndex to after the link
                     lastCharIndex = endCharAdjusted;
                 }
             });
