@@ -7,10 +7,10 @@
   <title>alt text rating</title>
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/css/styles.css">
-  <!-- Updated CDN links without integrity attributes -->
+  <!-- Updated React, ReactDOM, and Recharts -->
   <script src="https://cdn.jsdelivr.net/npm/react@17/umd/react.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/react-dom@17/umd/react-dom.production.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.js"></script>
 </head>
 <body>
     <!-- Navigation -->
@@ -123,10 +123,10 @@
                 const yp = y0 + length * sin;
 
                 return (
-                  <>
+                  <div>
                     <circle cx={x0} cy={y0} r={needleRadius} fill={color} />
                     <path d={`M${x0},${y0} L${xp},${yp}`} stroke={color} strokeWidth="2" />
-                  </>
+                  </div>
                 );
               };
 
