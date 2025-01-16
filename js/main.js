@@ -856,13 +856,6 @@ function parseTextWithFacets(text, facets) {
     if (remainingText) {
         appendTextWithLineBreaks(fragment, remainingText);
     }
-
-    console.log(`Facet URI: ${uri}`);
-    console.log(`Start Byte: ${startByte}, End Byte: ${endByte}`);
-    console.log(`Start Char: ${startChar}, End Char: ${endChar}`);
-    console.log(`Extracted Text: "${text.slice(startChar, endChar)}"`);
-
-
     return fragment;
 }
 
