@@ -955,24 +955,46 @@ async function loadRecentPosts(cursor = null) {
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
-                if (post.record.reply) {
-                    if (!item.reply) return false;
-                    if (item.reply.parent && item.reply.parent.author) {
-                        if (item.reply.parent.author.did !== actor) return false;
-                    } else return false;
-                    if (item.reply.root && item.reply.root.author) {
-                        if (item.reply.root.author.did !== actor) return false;
-                    } else return false;
-                    if (item.reply.grandparentAuthor) {
-                        if (item.reply.grandparentAuthor.author) {
-                            if (item.reply.grandparentAuthor.author.did !== actor) return false;
-                        } else return false;
-                    }
+            if (post.record.reply) {
+                // If the reply block is present in the record, then we require more reply details
+                if (!item.reply) return false;
+                
+                // Check reply.parent: 
+                // In some cases parent may be wrapped in an object that contains an 'author'
+                if (item.reply.parent) {
+                // If parent has an 'author' sub-object, use that; otherwise, assume the parent object itself is the author
+                const parentDid = item.reply.parent.author 
+                                    ? item.reply.parent.author.did 
+                                    : item.reply.parent.did;
+                if (parentDid !== actor) return false;
+                } else {
+                return false;
                 }
-                return true;
+                
+                // Check reply.root
+                if (item.reply.root) {
+                const rootDid = item.reply.root.author 
+                                ? item.reply.root.author.did 
+                                : item.reply.root.did;
+                if (rootDid !== actor) return false;
+                } else {
+                return false;
+                }
+                
+                // Check grandparentAuthor – note that in your sample grandparentAuthor is already the author object.
+                if (item.reply.grandparentAuthor) {
+                // Try both possibilities: either there's a nested 'author' or there isn't
+                const grandparentDid = item.reply.grandparentAuthor.author 
+                                        ? item.reply.grandparentAuthor.author.did 
+                                        : item.reply.grandparentAuthor.did;
+                if (grandparentDid !== actor) return false;
+                }
+            }
+            return true;
             }
             return false;
         });
+        
 
         allFetchedPosts.push(...finalBatch);
         batchesToFetch--;
