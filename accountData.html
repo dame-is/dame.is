@@ -495,7 +495,7 @@
             const targetCollections = [...new Set(collections)];
       
             // 6. Aggregate record counts.
-            const { totalRecords, totalBskyRecords, totalNonBskyRecords, collectionStats } = await calculateRecordsAggregate(targetCollections);
+            const { totalRecords, totalBskyRecords, totalNonBskyRecords, collectionStats } = await calculateRecordsAggregate(targetCollections, ageInDays);
             const totalRecordsPerDay = ageInDays ? totalRecords / ageInDays : 0;
             const totalBskyRecordsPerDay = ageInDays ? totalBskyRecords / ageInDays : 0;
             const totalNonBskyRecordsPerDay = ageInDays ? totalNonBskyRecords / ageInDays : 0;
