@@ -23,7 +23,7 @@
   <main>
       <div id="analysis">
         <h1>Bluesky Account Production Analysis</h1>
-  
+
         <!-- Prettier JSON Viewer Section -->
         <h2>Interactive JSON Viewer</h2>
         <div id="jsoneditor"></div>
@@ -143,6 +143,28 @@
         /***********************************************************************
          * Calculation Functions
          ***********************************************************************/
+        // Helper function to round numbers to two decimal places
+        function roundToTwo(num) {
+          return Number(num.toFixed(2));
+        }
+      
+        // Recursive function to round all numerical values in an object
+        function roundNumbers(obj) {
+          if (Array.isArray(obj)) {
+            return obj.map(roundNumbers);
+          } else if (typeof obj === 'object' && obj !== null) {
+            const newObj = {};
+            for (let key in obj) {
+              newObj[key] = roundNumbers(obj[key]);
+            }
+            return newObj;
+          } else if (typeof obj === 'number') {
+            return roundToTwo(obj);
+          } else {
+            return obj;
+          }
+        }
+      
         // Calculate age in days and age percentage (based on reference date)
         function calculateAge(createdAt) {
           const created = new Date(createdAt);
@@ -321,20 +343,27 @@
           let totalRecords = 0;
           let totalBskyRecords = 0;
           let totalNonBskyRecords = 0;
+          const collectionStats = {};
           for (const col of collectionNames) {
             const recs = await fetchRecordsForCollection(col);
-            totalRecords += recs.length;
+            const count = recs.length;
+            const perDay = ageInDays ? count / ageInDays : 0;
+            collectionStats[col] = {
+              count: roundToTwo(count),
+              perDay: roundToTwo(perDay)
+            };
+            totalRecords += count;
             if (col.indexOf("app.bsky") !== -1) {
-              totalBskyRecords += recs.length;
+              totalBskyRecords += count;
             } else {
-              totalNonBskyRecords += recs.length;
+              totalNonBskyRecords += count;
             }
           }
-          return { totalRecords, totalBskyRecords, totalNonBskyRecords };
+          return { totalRecords, totalBskyRecords, totalNonBskyRecords, collectionStats };
         }
       
-          // Calculate engagements for the account using the author feed.
-          async function calculateEngagements() {
+        // Calculate engagements for the account using the author feed.
+        async function calculateEngagements() {
           const feed = await fetchAuthorFeed();
           let likesReceived = 0;
           let repostsReceived = 0;
@@ -354,10 +383,10 @@
           }
       
           return {
-            likesReceived,
-            repostsReceived,
-            quotesReceived,
-            repliesReceived,
+            likesReceived: roundToTwo(likesReceived),
+            repostsReceived: roundToTwo(repostsReceived),
+            quotesReceived: roundToTwo(quotesReceived),
+            repliesReceived: roundToTwo(repliesReceived),
           };
         }
       
@@ -430,7 +459,7 @@
           const socialStatus = accountData.socialStatus;
           const mediaType = "a mix of text, images, and video";
           const followRatio = profile.followersCount > 0 
-            ? (profile.followsCount / profile.followersCount).toFixed(2) 
+            ? roundToTwo(profile.followsCount / profile.followersCount) 
             : 0;
           const narrative2 = `${profile.displayName} first joined Bluesky during the ${era} era. ` +
             `Their style of posting is "${postingStyle}". ` +
@@ -462,27 +491,11 @@
             const totalBskyCollections = bskyCollectionNames.length;
             const totalNonBskyCollections = totalCollections - totalBskyCollections;
             
-            // 5. Build targetCollections array.
-            const targetCollections = [
-              "app.bsky.feed.post",
-              "app.bsky.feed.repost",
-              "app.bsky.feed.like",
-              "app.bsky.graph.block",
-              "app.bsky.feed.generator",
-              "app.bsky.graph.follow",
-              "app.bsky.graph.list",
-              "app.bsky.graph.listblock",
-              "app.bsky.graph.listitem",
-              "app.bsky.graph.starterpack"
-            ];
-            collections.forEach(col => {
-              if (col.indexOf("app.bsky") === -1 && targetCollections.indexOf(col) === -1) {
-                targetCollections.push(col);
-              }
-            });
+            // 5. Build targetCollections array (includes all collections)
+            const targetCollections = [...new Set(collections)];
       
             // 6. Aggregate record counts.
-            const { totalRecords, totalBskyRecords, totalNonBskyRecords } = await calculateRecordsAggregate(targetCollections);
+            const { totalRecords, totalBskyRecords, totalNonBskyRecords, collectionStats } = await calculateRecordsAggregate(targetCollections);
             const totalRecordsPerDay = ageInDays ? totalRecords / ageInDays : 0;
             const totalBskyRecordsPerDay = ageInDays ? totalBskyRecords / ageInDays : 0;
             const totalNonBskyRecordsPerDay = ageInDays ? totalNonBskyRecords / ageInDays : 0;
@@ -593,56 +606,56 @@
             const linkPostsPerDay = ageInDays ? postsWithLinks / ageInDays : 0;
       
             const postStats = {
-              postsCount,
-              postsPerDay: ageInDays ? postsCount / ageInDays : 0,
-              onlyPosts,
-              onlyPostsPerDay,
-              onlyReplies,
-              onlyRepliesPerDay,
-              onlyRepliesToSelf,
-              onlyRepliesToSelfPerDay,
-              onlyRepliesToOthers,
-              onlyRepliesToOthersPerDay,
-              onlyQuotes,
-              onlyQuotesPerDay,
-              onlySelfQuotes,
-              onlySelfQuotesPerDay,
-              onlyOtherQuotes,
-              onlyOtherQuotesPerDay,
-              onlyReposts,
-              onlyRepostsPerDay,
-              onlySelfReposts,
-              onlySelfRepostsPerDay,
-              onlyOtherReposts,
-              onlyOtherRepostsPerDay,
-              postsWithImages,
-              imagePostsPerDay,
-              postsWithOnlyText,
-              textPostsPerDay,
-              postsWithMentions,
-              mentionPostsPerDay,
-              postsWithVideo,
-              videoPostsPerDay,
-              postsWithLinks,
-              linkPostsPerDay,
-              imagePostsAltText,
-              imagePostsNoAltText,
-              altTextPercentage,
-              replyPercentage: postsCount ? onlyReplies / postsCount : 0,
-              replySelfPercentage: postsCount ? onlyRepliesToSelf / postsCount : 0,
-              replyOtherPercentage: postsCount ? onlyRepliesToOthers / postsCount : 0,
-              quotePercentage: postsCount ? onlyQuotes / postsCount : 0,
-              quoteSelfPercentage: postsCount ? onlySelfQuotes / postsCount : 0,
-              quoteOtherPercentage: postsCount ? onlyOtherQuotes / postsCount : 0,
-              repostPercentage: postsCount ? onlyReposts / postsCount : 0,
-              repostSelfPercentage: postsCount ? onlySelfReposts / postsCount : 0,
-              repostOtherPercentage: postsCount ? onlyOtherReposts / postsCount : 0,
-              textPercentage: postsCount ? postsWithOnlyText / postsCount : 0,
-              linkPercentage: postsCount ? postsWithLinks / postsCount : 0,
-              imagePercentage: postsCount ? postsWithImages / postsCount : 0,
-              videoPercentage: postsCount ? postsWithVideo / postsCount : 0,
-              totalBskyRecordsPerDay,
-              totalNonBskyRecordsPerDay,
+              postsCount: roundToTwo(postsCount),
+              postsPerDay: ageInDays ? roundToTwo(postsCount / ageInDays) : 0,
+              onlyPosts: roundToTwo(onlyPosts),
+              onlyPostsPerDay: ageInDays ? roundToTwo(onlyPosts / ageInDays) : 0,
+              onlyReplies: roundToTwo(onlyReplies),
+              onlyRepliesPerDay: ageInDays ? roundToTwo(onlyReplies / ageInDays) : 0,
+              onlyRepliesToSelf: roundToTwo(onlyRepliesToSelf),
+              onlyRepliesToSelfPerDay: ageInDays ? roundToTwo(onlyRepliesToSelf / ageInDays) : 0,
+              onlyRepliesToOthers: roundToTwo(onlyRepliesToOthers),
+              onlyRepliesToOthersPerDay: ageInDays ? roundToTwo(onlyRepliesToOthers / ageInDays) : 0,
+              onlyQuotes: roundToTwo(onlyQuotes),
+              onlyQuotesPerDay: ageInDays ? roundToTwo(onlyQuotes / ageInDays) : 0,
+              onlySelfQuotes: roundToTwo(onlySelfQuotes),
+              onlySelfQuotesPerDay: ageInDays ? roundToTwo(onlySelfQuotes / ageInDays) : 0,
+              onlyOtherQuotes: roundToTwo(onlyOtherQuotes),
+              onlyOtherQuotesPerDay: ageInDays ? roundToTwo(onlyOtherQuotes / ageInDays) : 0,
+              onlyReposts: roundToTwo(onlyReposts),
+              onlyRepostsPerDay: ageInDays ? roundToTwo(onlyReposts / ageInDays) : 0,
+              onlySelfReposts: roundToTwo(onlySelfReposts),
+              onlySelfRepostsPerDay: ageInDays ? roundToTwo(onlySelfReposts / ageInDays) : 0,
+              onlyOtherReposts: roundToTwo(onlyOtherReposts),
+              onlyOtherRepostsPerDay: ageInDays ? roundToTwo(onlyOtherReposts / ageInDays) : 0,
+              postsWithImages: roundToTwo(postsWithImages),
+              imagePostsPerDay: ageInDays ? roundToTwo(postsWithImages / ageInDays) : 0,
+              imagePostsAltText: roundToTwo(imagePostsAltText),
+              imagePostsNoAltText: roundToTwo(imagePostsNoAltText),
+              altTextPercentage: roundToTwo(altTextPercentage),
+              postsWithOnlyText: roundToTwo(postsWithOnlyText),
+              textPostsPerDay: ageInDays ? roundToTwo(postsWithOnlyText / ageInDays) : 0,
+              postsWithMentions: roundToTwo(postsWithMentions),
+              mentionPostsPerDay: ageInDays ? roundToTwo(postsWithMentions / ageInDays) : 0,
+              postsWithVideo: roundToTwo(postsWithVideo),
+              videoPostsPerDay: ageInDays ? roundToTwo(postsWithVideo / ageInDays) : 0,
+              postsWithLinks: roundToTwo(postsWithLinks),
+              linkPostsPerDay: ageInDays ? roundToTwo(postsWithLinks / ageInDays) : 0,
+              replyPercentage: postsCount ? roundToTwo(onlyReplies / postsCount) : 0,
+              replySelfPercentage: postsCount ? roundToTwo(onlyRepliesToSelf / postsCount) : 0,
+              replyOtherPercentage: postsCount ? roundToTwo(onlyRepliesToOthers / postsCount) : 0,
+              quotePercentage: postsCount ? roundToTwo(onlyQuotes / postsCount) : 0,
+              quoteSelfPercentage: postsCount ? roundToTwo(onlySelfQuotes / postsCount) : 0,
+              quoteOtherPercentage: postsCount ? roundToTwo(onlyOtherQuotes / postsCount) : 0,
+              repostPercentage: postsCount ? roundToTwo(onlyReposts / postsCount) : 0,
+              repostSelfPercentage: postsCount ? roundToTwo(onlySelfReposts / postsCount) : 0,
+              repostOtherPercentage: postsCount ? roundToTwo(onlyOtherReposts / postsCount) : 0,
+              textPercentage: postsCount ? roundToTwo(postsWithOnlyText / postsCount) : 0,
+              linkPercentage: postsCount ? roundToTwo(postsWithLinks / postsCount) : 0,
+              imagePercentage: postsCount ? roundToTwo(postsWithImages / postsCount) : 0,
+              videoPercentage: postsCount ? roundToTwo(postsWithVideo / postsCount) : 0,
+              totalBskyRecordsPerDay: roundToTwo(totalBskyRecordsPerDay),
+              totalNonBskyRecordsPerDay: roundToTwo(totalNonBskyRecordsPerDay),
             };
       
             // 8. Parse audit log for rotation keys and alsoKnownAs information.
@@ -672,7 +685,9 @@
             }
             const totalAkas = akaSet.size;
             const totalBskyAkas = Array.from(akaSet).filter(alias => alias.includes("bsky.social")).length;
-            const totalCustomAkas = totalAkas - totalBskyAkas;
+            const totalCustomAkas = roundToTwo(totalAkas - totalBskyAkas);
+            const rotationKeysRounded = roundToTwo(rotationKeys);
+            const activeAkasRounded = roundToTwo(activeAkas);
       
             // 9. Compute engagements from author feed.
             const engagementsReceived = await calculateEngagements();
@@ -734,17 +749,17 @@
               serviceEndpoint,
               pdsType: serviceEndpoint.includes("bsky.network") ? "Bluesky" : "Third-party",
               createdAt: profile.createdAt,
-              ageInDays,
-              agePercentage,
-              blobsCount,
-              blobsPerDay: ageInDays ? blobsCount / ageInDays : 0,
-              blobsPerPost: postsCount ? blobsCount / postsCount : 0,
-              blobsPerImagePost: postsWithImages ? blobsCount / postsWithImages : 0,
-              followersCount: profile.followersCount,
-              followsCount: profile.followsCount,
-              followPercentage: profile.followersCount ? profile.followsCount / profile.followersCount : 0,
-              postsCount,
-              rotationKeys,
+              ageInDays: roundToTwo(ageInDays),
+              agePercentage: roundToTwo(agePercentage),
+              blobsCount: roundToTwo(blobsCount),
+              blobsPerDay: ageInDays ? roundToTwo(blobsCount / ageInDays) : 0,
+              blobsPerPost: postsCount ? roundToTwo(blobsCount / postsCount) : 0,
+              blobsPerImagePost: postsWithImages ? roundToTwo(blobsCount / postsWithImages) : 0,
+              followersCount: roundToTwo(profile.followersCount),
+              followsCount: roundToTwo(profile.followsCount),
+              followPercentage: profile.followersCount ? roundToTwo(profile.followsCount / profile.followersCount) : 0,
+              postsCount: roundToTwo(postsCount),
+              rotationKeys: rotationKeysRounded,
               era: calculateEra(profile.createdAt),
               postingStyle,
               socialStatus,
@@ -752,96 +767,35 @@
                 activityStatus: overallActivityStatus,
                 bskyActivityStatus,
                 atprotoActivityStatus,
-                totalCollections,
-                totalBskyCollections,
-                totalNonBskyCollections,
-                totalRecords,
-                totalRecordsPerDay,
-                totalBskyRecords,
-                totalBskyRecordsPerDay,
-                totalBskyRecordsPercentage,
-                totalNonBskyRecords,
-                totalNonBskyRecordsPerDay,
-                totalNonBskyRecordsPercentage,
-                plcOperations,
+                totalCollections: roundToTwo(totalCollections),
+                totalBskyCollections: roundToTwo(totalBskyCollections),
+                totalNonBskyCollections: roundToTwo(totalNonBskyCollections),
+                totalRecords: roundToTwo(totalRecords),
+                totalRecordsPerDay: roundToTwo(totalRecordsPerDay),
+                totalBskyRecords: roundToTwo(totalBskyRecords),
+                totalBskyRecordsPerDay: roundToTwo(totalBskyRecordsPerDay),
+                totalBskyRecordsPercentage: roundToTwo(totalBskyRecordsPercentage),
+                totalNonBskyRecords: roundToTwo(totalNonBskyRecords),
+                totalNonBskyRecordsPerDay: roundToTwo(totalNonBskyRecordsPerDay),
+                totalNonBskyRecordsPercentage: roundToTwo(totalNonBskyRecordsPercentage),
+                plcOperations: roundToTwo(plcOperations),
+                // Dynamic collections
+                ...collectionStats,
+                // Existing specific collections (if you still want to keep them)
                 "app.bsky.feed.post": {
-                  postsCount,
-                  postsPerDay: ageInDays ? postsCount / ageInDays : 0,
-                  onlyPosts,
-                  onlyPostsPerDay,
-                  onlyReplies,
-                  onlyRepliesPerDay,
-                  onlyRepliesToSelf,
-                  onlyRepliesToSelfPerDay,
-                  onlyRepliesToOthers,
-                  onlyRepliesToOthersPerDay,
-                  onlyQuotes,
-                  onlyQuotesPerDay,
-                  onlySelfQuotes,
-                  onlySelfQuotesPerDay,
-                  onlyOtherQuotes,
-                  onlyOtherQuotesPerDay,
-                  onlyReposts,
-                  onlyRepostsPerDay,
-                  onlySelfReposts,
-                  onlySelfRepostsPerDay,
-                  onlyOtherReposts,
-                  onlyOtherRepostsPerDay,
-                  postsWithImages,
-                  imagePostsPerDay,
-                  postsWithOnlyText,
-                  textPostsPerDay,
-                  postsWithMentions,
-                  mentionPostsPerDay,
-                  postsWithVideo,
-                  videoPostsPerDay,
-                  postsWithLinks,
-                  linkPostsPerDay,
-                  imagePostsAltText,
-                  imagePostsNoAltText,
-                  altTextPercentage,
-                  replyPercentage: postsCount ? onlyReplies / postsCount : 0,
-                  replySelfPercentage: postsCount ? onlyRepliesToSelf / postsCount : 0,
-                  replyOtherPercentage: postsCount ? onlyRepliesToOthers / postsCount : 0,
-                  quotePercentage: postsCount ? onlyQuotes / postsCount : 0,
-                  quoteSelfPercentage: postsCount ? onlySelfQuotes / postsCount : 0,
-                  quoteOtherPercentage: postsCount ? onlyOtherQuotes / postsCount : 0,
-                  repostPercentage: postsCount ? onlyReposts / postsCount : 0,
-                  repostSelfPercentage: postsCount ? onlySelfReposts / postsCount : 0,
-                  repostOtherPercentage: postsCount ? onlyOtherReposts / postsCount : 0,
-                  textPercentage: postsCount ? postsWithOnlyText / postsCount : 0,
-                  linkPercentage: postsCount ? postsWithLinks / postsCount : 0,
-                  imagePercentage: postsCount ? postsWithImages / postsCount : 0,
-                  videoPercentage: postsCount ? postsWithVideo / postsCount : 0,
+                  ...postStats,
+                  engagementsReceived
                 },
-                "app.bsky.feed.threadgate": (await fetchRecordsForCollection("app.bsky.feed.threadgate")).length || 0,
-                "app.bsky.feed.like": {
-                  likes: (await fetchRecordsForCollection("app.bsky.feed.like")).length || 0,
-                  likesPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.feed.like")).length) / ageInDays : 0
-                },
-                "app.bsky.graph.block": {
-                  blocks: (await fetchRecordsForCollection("app.bsky.graph.block")).length || 0,
-                  blocksPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.graph.block")).length) / ageInDays : 0
-                },
-                "app.bsky.feed.generator": (await fetchRecordsForCollection("app.bsky.feed.generator")).length || 0,
-                "app.bsky.graph.follow": {
-                  follows: (await fetchRecordsForCollection("app.bsky.graph.follow")).length || 0,
-                  followsPerDay: ageInDays ? ((await fetchRecordsForCollection("app.bsky.graph.follow")).length) / ageInDays : 0
-                },
-                "app.bsky.graph.list": (await fetchRecordsForCollection("app.bsky.graph.list")).length || 0,
-                "app.bsky.graph.listblock": (await fetchRecordsForCollection("app.bsky.graph.listblock")).length || 0,
-                "app.bsky.graph.listitem": (await fetchRecordsForCollection("app.bsky.graph.listitem")).length || 0,
-                "app.bsky.graph.starterpack": (await fetchRecordsForCollection("app.bsky.graph.starterpack")).length || 0,
-                "{non.app.bsky.collections}": totalNonBskyCollections
+                // Additional hard-coded collections can be added here if needed
               },
               activityLast30Days: {
                 profileEdited: (new Date(profile.indexedAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
               },
               alsoKnownAs: {
-                totalAkas: akaSet.size,
-                activeAkas,
-                totalBskyAkas,
-                totalCustomAkas,
+                totalAkas: roundToTwo(totalAkas),
+                activeAkas: activeAkasRounded,
+                totalBskyAkas: roundToTwo(totalBskyAkas),
+                totalCustomAkas: roundToTwo(totalCustomAkas),
                 domainRarity: calculateDomainRarity(profile.handle),
                 handleType: profile.handle.includes("bsky.social") ? "default" : "custom"
               },
@@ -850,14 +804,17 @@
               }
             };
       
-                  // 15. Build final output JSON.
-                  const finalOutput = {
+            // 15. Build final output JSON.
+            const finalOutput = {
               message: "accountData retrieved successfully",
               accountData
             };
       
+            // Round all numerical values in accountData
+            const roundedAccountData = roundNumbers(finalOutput);
+      
             // Render plain JSON in the <pre> element
-            document.getElementById("output").textContent = JSON.stringify(finalOutput, null, 2);
+            document.getElementById("output").textContent = JSON.stringify(roundedAccountData, null, 2);
       
             // Initialize JSONEditor and render the pretty JSON
             const container = document.getElementById("jsoneditor");
@@ -872,7 +829,7 @@
               }
             };
             const editor = new JSONEditor(container, options);
-            editor.set(finalOutput);
+            editor.set(roundedAccountData);
       
           } catch (err) {
             console.error("Error loading account data:", err);
