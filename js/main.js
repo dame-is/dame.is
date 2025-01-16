@@ -803,15 +803,14 @@ function appendTextWithLineBreaks(fragment, text) {
  * @returns {DocumentFragment} - The parsed text with clickable links and preserved line breaks.
  */
 function parseTextWithFacets(text, facets) {
-    if (!facets || facets.length === 0) {
-        const fragment = document.createDocumentFragment();
-        appendTextWithLineBreaks(fragment, text);
-        return fragment;
-    }
-
     const fragment = document.createDocumentFragment();
     const byteMap = createByteMap(text);
     let lastCharIndex = 0;
+
+    if (!facets || facets.length === 0) {
+        appendTextWithLineBreaks(fragment, text);
+        return fragment;
+    }
 
     // Sort facets by byteStart to process them in order
     const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
@@ -828,30 +827,28 @@ function parseTextWithFacets(text, facets) {
                     const startChar = byteToCharIndex(byteMap, startByte);
                     const endChar = byteToCharIndex(byteMap, endByte);
 
-                    console.log(`Replacing text from char ${startChar} to ${endChar} with URI: ${uri}`);
-
-                    // Append text before the link with preserved line breaks
+                    // Append text before the link
                     const beforeText = text.slice(lastCharIndex, startChar);
                     if (beforeText) {
                         appendTextWithLineBreaks(fragment, beforeText);
                     }
 
-                    // Append the full clickable link
+                    // Append the link
+                    const linkText = text.slice(startChar, endChar);
                     const a = document.createElement('a');
                     a.href = uri;
-                    a.textContent = uri; // Display the full URI as the link text
+                    a.textContent = linkText; // Display the exact text from the post as the link text
                     a.target = '_blank'; // Open in a new tab
                     a.rel = 'noopener noreferrer'; // Security best practices
                     fragment.appendChild(a);
 
-                    // Update the lastCharIndex to the end of the replaced link
                     lastCharIndex = endChar;
                 }
             });
         }
     });
 
-    // Append any remaining text after the last link with preserved line breaks
+    // Append any remaining text
     const remainingText = text.slice(lastCharIndex);
     if (remainingText) {
         appendTextWithLineBreaks(fragment, remainingText);
