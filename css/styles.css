@@ -917,13 +917,19 @@ body.dark-mode #alt-text-rating-form {
     border-radius: 5px;
     margin-bottom: 10px; /* Space between input and button */
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 99b1399 (fix: search bar text alignment)
     text-align: center;
 }
 
 .search-bar input#username {
     text-align: center;
+<<<<<<< HEAD
 =======
 >>>>>>> 671d9e6 (add: styling for alt tool)
+=======
+>>>>>>> 99b1399 (fix: search bar text alignment)
 }
 
 .search-bar button {
