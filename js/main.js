@@ -951,50 +951,41 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Updated filtering for replies with detailed author checks
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
-            // If this is a reply post...
-            if (post.record.reply) {
-                // There must be a corresponding reply object
+              // If this is a reply...
+              if (post.record.reply) {
+                // Make sure the reply object exists.
                 if (!item.reply) return false;
-        
-                // Check reply.parent: if exists, its author must match the actor.
-                if (item.reply.parent) {
-                if (item.reply.parent.author) {
-                    if (item.reply.parent.author.did !== actor) return false;
-                } else {
-                    // If parent exists but doesn't have author details, exclude it.
-                    return false;
-                }
-                }
-        
-                // Check reply.root: if exists, its author must match the actor.
-                if (item.reply.root) {
-                if (item.reply.root.author) {
-                    if (item.reply.root.author.did !== actor) return false;
-                } else {
-                    // If root exists but doesn't include author details, exclude it.
-                    return false;
-                }
-                }
-        
-                // Check reply.grandparentAuthor: if exists,
-                // either it has an "author" object or the field itself is the author information.
-                if (item.reply.grandparentAuthor) {
-                if (item.reply.grandparentAuthor.author) {
-                    if (item.reply.grandparentAuthor.author.did !== actor) return false;
-                } else {
-                    if (item.reply.grandparentAuthor.did !== actor) return false;
-                }
-                }
-            }
-            // Include the post if it either isn’t a reply or if all reply author checks pass
-            return true;
+          
+                // Helper function to extract the top-level DID from a field.
+                const getDid = (field) => {
+                  if (!field) return null;
+                  // If there's a nested author, use that DID.
+                  if (field.author && field.author.did) {
+                    return field.author.did;
+                  }
+                  // Otherwise, assume field itself contains the DID.
+                  return field.did || null;
+                };
+          
+                // Check the top-level reply fields.
+                const parentDid = getDid(item.reply.parent);
+                const rootDid = getDid(item.reply.root);
+                const grandparentDid = getDid(item.reply.grandparentAuthor);
+          
+                // If any of these exist but do not match the actor, filter out.
+                if (parentDid !== null && parentDid !== actor) return false;
+                if (rootDid !== null && rootDid !== actor) return false;
+                if (grandparentDid !== null && grandparentDid !== actor) return false;
+              }
+              // If not a reply or reply checks pass, include the post.
+              return true;
             }
             return false;
-        });
+          });
+          
         
         allFetchedPosts.push(...finalBatch);
         batchesToFetch--;
