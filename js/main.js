@@ -804,7 +804,7 @@ function appendTextWithLineBreaks(fragment, text) {
  */
 function parseTextWithFacets(text, facets) {
     const fragment = document.createDocumentFragment();
-    const byteMap = createByteMap(text);
+    const byteMap = createByteMap(text); // Map bytes to character indices
     let lastCharIndex = 0;
 
     if (!facets || facets.length === 0) {
@@ -812,7 +812,7 @@ function parseTextWithFacets(text, facets) {
         return fragment;
     }
 
-    // Sort facets by byteStart to process them in order
+    // Sort facets by byteStart to ensure correct order
     const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
 
     sortedFacets.forEach(facet => {
@@ -827,6 +827,9 @@ function parseTextWithFacets(text, facets) {
                     const startChar = byteToCharIndex(byteMap, startByte);
                     const endChar = byteToCharIndex(byteMap, endByte);
 
+                    // Ensure endChar is inclusive
+                    const exactLinkText = text.slice(startChar, endChar);
+
                     // Append text before the link
                     const beforeText = text.slice(lastCharIndex, startChar);
                     if (beforeText) {
@@ -834,15 +837,14 @@ function parseTextWithFacets(text, facets) {
                     }
 
                     // Append the link
-                    const linkText = text.slice(startChar, endChar); // Get the exact link text from the original text
                     const a = document.createElement('a');
                     a.href = uri;
-                    a.textContent = linkText; // Use the exact link text as content
-                    a.target = '_blank'; // Open in a new tab
-                    a.rel = 'noopener noreferrer'; // Security best practices
+                    a.textContent = exactLinkText.trim(); // Use the exact link text
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
                     fragment.appendChild(a);
 
-                    // Update the lastCharIndex to after the link
+                    // Update the lastCharIndex
                     lastCharIndex = endChar;
                 }
             });
@@ -854,6 +856,12 @@ function parseTextWithFacets(text, facets) {
     if (remainingText) {
         appendTextWithLineBreaks(fragment, remainingText);
     }
+
+    console.log(`Facet URI: ${uri}`);
+    console.log(`Start Byte: ${startByte}, End Byte: ${endByte}`);
+    console.log(`Start Char: ${startChar}, End Char: ${endChar}`);
+    console.log(`Extracted Text: "${text.slice(startChar, endChar)}"`);
+
 
     return fragment;
 }
