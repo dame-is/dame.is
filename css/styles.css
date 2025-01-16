@@ -855,6 +855,10 @@ body.dark-mode #alt-text-rating-form {
 >>>>>>> 671d9e6 (add: styling for alt tool)
 }
 
+body.dark-mode #alt-text-rating-form {
+    border-color: #444;
+}
+
 #alt-text-rating-form h1 {
     text-align: center;
     margin-bottom: 20px;
