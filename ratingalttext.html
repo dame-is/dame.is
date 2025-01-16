@@ -113,8 +113,8 @@
               const renderNeedle = (value, cx, cy, iR, oR, color) => {
                 const angle = 180 * (1 - value / 100);
                 const length = (iR + oR) / 2;
-                const sin = Math.sin(-RADIAN * angle);
-                const cos = Math.cos(-RADIAN * angle);
+                const sin = Math.sin(-Math.PI / 180 * angle);
+                const cos = Math.cos(-Math.PI / 180 * angle);
                 const needleRadius = 5;
 
                 const x0 = cx;
@@ -122,13 +122,14 @@
                 const xp = x0 + length * cos;
                 const yp = y0 + length * sin;
 
-                return (
-                  <div>
-                    <circle cx={x0} cy={y0} r={needleRadius} fill={color} />
-                    <path d={`M${x0},${y0} L${xp},${yp}`} stroke={color} strokeWidth="2" />
-                  </div>
+                return React.createElement(
+                    React.Fragment,
+                    null,
+                    React.createElement('circle', { cx: x0, cy: y0, r: needleRadius, fill: color }),
+                    React.createElement('path', { d: `M${x0},${y0} L${xp},${yp}`, stroke: color, strokeWidth: 2 })
                 );
-              };
+                };
+
 
               ReactDOM.render(
                 <ResponsiveContainer width="100%" height={300}>
