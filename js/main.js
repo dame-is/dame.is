@@ -834,21 +834,22 @@ function parseTextWithFacets(text, facets) {
                     }
 
                     // Append the link
-                    const linkText = text.slice(startChar, endChar);
+                    const linkText = text.slice(startChar, endChar); // Get the exact link text from the original text
                     const a = document.createElement('a');
                     a.href = uri;
-                    a.textContent = linkText; // Display the exact text from the post as the link text
+                    a.textContent = linkText; // Use the exact link text as content
                     a.target = '_blank'; // Open in a new tab
                     a.rel = 'noopener noreferrer'; // Security best practices
                     fragment.appendChild(a);
 
+                    // Update the lastCharIndex to after the link
                     lastCharIndex = endChar;
                 }
             });
         }
     });
 
-    // Append any remaining text
+    // Append any remaining text after the last link
     const remainingText = text.slice(lastCharIndex);
     if (remainingText) {
         appendTextWithLineBreaks(fragment, remainingText);
