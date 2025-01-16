@@ -3,15 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <title>Bluesky Account Production Analysis</title>
+  <!-- JSONEditor CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/jsoneditor@9.5.6/dist/jsoneditor.min.css" rel="stylesheet" type="text/css">
   <style>
     body { font-family: sans-serif; margin: 1rem; }
-    pre { background: #f8f8f8; padding: 1rem; border: 1px solid #ccc; }
+    pre { background: #f8f8f8; padding: 1rem; border: 1px solid #ccc; overflow: auto; }
+    #jsoneditor { height: 400px; border: 1px solid #ccc; margin-bottom: 2rem; }
   </style>
 </head>
 <body>
   <h1>Bluesky Account Production Analysis</h1>
+  
+  <!-- Prettier JSON Viewer Section -->
+  <h2>Interactive JSON Viewer</h2>
+  <div id="jsoneditor"></div>
+  
+  <!-- Plain JSON Output -->
+  <h2>Raw JSON Output</h2>
   <pre id="output"></pre>
 
+  <!-- JSONEditor JS -->
+  <script src="https://cdn.jsdelivr.net/npm/jsoneditor@9.5.6/dist/jsoneditor.min.js"></script>
+  
   <script>
   /***********************************************************************
    * Global settings and basic caching
@@ -827,19 +840,47 @@
         }
       };
 
-      // 15. Build final output JSON.
-      const finalOutput = {
+            // 15. Build final output JSON.
+            const finalOutput = {
         message: "accountData retrieved successfully",
         accountData
       };
 
+      // Render plain JSON in the <pre> element
       document.getElementById("output").textContent = JSON.stringify(finalOutput, null, 2);
+
+      // Initialize JSONEditor and render the pretty JSON
+      const container = document.getElementById("jsoneditor");
+      const options = {
+        mode: 'tree',
+        indentation: 2,
+        onError: function (err) {
+          alert(err.toString());
+        },
+        onModeChange: function (newMode, oldMode) {
+          console.log('Mode switched from', oldMode, 'to', newMode);
+        }
+      };
+      const editor = new JSONEditor(container, options);
+      editor.set(finalOutput);
+
     } catch (err) {
       console.error("Error loading account data:", err);
-      document.getElementById("output").textContent = JSON.stringify({
+      const errorOutput = {
         message: "Error retrieving accountData",
         error: err.toString()
-      }, null, 2);
+      };
+      // Render plain error JSON
+      document.getElementById("output").textContent = JSON.stringify(errorOutput, null, 2);
+      
+      // Initialize JSONEditor with error JSON
+      const container = document.getElementById("jsoneditor");
+      const options = {
+        mode: 'tree',
+        indentation: 2
+      };
+      const editor = new JSONEditor(container, options);
+      editor.set(errorOutput);
     }
   }
 

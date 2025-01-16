@@ -804,7 +804,7 @@ function appendTextWithLineBreaks(fragment, text) {
  */
 function parseTextWithFacets(text, facets) {
     const fragment = document.createDocumentFragment();
-    const byteMap = createByteMap(text); // Map bytes to character indices
+    const byteMap = createByteMap(text);
     let lastCharIndex = 0;
 
     if (!facets || facets.length === 0) {
@@ -812,7 +812,7 @@ function parseTextWithFacets(text, facets) {
         return fragment;
     }
 
-    // Sort facets by byteStart to ensure correct order
+    // Sort facets by byteStart to process them in order
     const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
 
     sortedFacets.forEach(facet => {
@@ -827,8 +827,8 @@ function parseTextWithFacets(text, facets) {
                     const startChar = byteToCharIndex(byteMap, startByte);
                     const endChar = byteToCharIndex(byteMap, endByte);
 
-                    // Ensure endChar is inclusive
-                    const exactLinkText = text.slice(startChar, endChar);
+                    // Adjust end index by one to be inclusive (if not at the end of the text)
+                    const endCharAdjusted = endChar < text.length ? endChar + 1 : endChar;
 
                     // Append text before the link
                     const beforeText = text.slice(lastCharIndex, startChar);
@@ -836,16 +836,17 @@ function parseTextWithFacets(text, facets) {
                         appendTextWithLineBreaks(fragment, beforeText);
                     }
 
-                    // Append the link
+                    // Extract the link text using the adjusted end index
+                    const linkText = text.slice(startChar, endCharAdjusted);
                     const a = document.createElement('a');
                     a.href = uri;
-                    a.textContent = exactLinkText.trim(); // Use the exact link text
+                    a.textContent = linkText;
                     a.target = '_blank';
                     a.rel = 'noopener noreferrer';
                     fragment.appendChild(a);
 
-                    // Update the lastCharIndex
-                    lastCharIndex = endChar;
+                    // Update lastCharIndex
+                    lastCharIndex = endCharAdjusted;
                 }
             });
         }
@@ -856,6 +857,7 @@ function parseTextWithFacets(text, facets) {
     if (remainingText) {
         appendTextWithLineBreaks(fragment, remainingText);
     }
+
     return fragment;
 }
 
