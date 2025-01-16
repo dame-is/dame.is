@@ -957,18 +957,15 @@ async function loadRecentPosts(cursor = null) {
               // If the post is a reply, perform extra checks.
               if (post.record.reply) {
                 if (!item.reply) {
-                  console.log("Excluding post because item.reply is missing");
+                  console.log("Excluding post because item.reply is missing", post.uri);
                   return false;
                 }
           
-                // Function to extract the top-level author DID from a reply field.
                 const getTopLevelDid = (field) => {
                   if (!field) return null;
-                  // Check for nested author.did first.
                   if (field.author && field.author.did) {
                     return field.author.did;
                   }
-                  // Otherwise, look for a direct did.
                   return field.did || null;
                 };
           
@@ -976,23 +973,22 @@ async function loadRecentPosts(cursor = null) {
                 const rootDid = getTopLevelDid(item.reply.root);
                 const grandparentDid = getTopLevelDid(item.reply.grandparentAuthor);
           
-                console.log("Reply field DIDs for post", item.post.uri);
+                console.log("Reply field DIDs for post", post.uri);
                 console.log("  parentDid:", parentDid);
                 console.log("  rootDid:", rootDid);
                 console.log("  grandparentDid:", grandparentDid);
                 console.log("  actor:", actor);
           
-                // For each field that is present, ensure it matches the actor.
                 if (parentDid !== null && parentDid !== actor) {
-                  console.log("Excluding post; parentDid does not match");
+                  console.log("Excluding post; parentDid does not match", post.uri);
                   return false;
                 }
                 if (rootDid !== null && rootDid !== actor) {
-                  console.log("Excluding post; rootDid does not match");
+                  console.log("Excluding post; rootDid does not match", post.uri);
                   return false;
                 }
                 if (grandparentDid !== null && grandparentDid !== actor) {
-                  console.log("Excluding post; grandparentDid does not match");
+                  console.log("Excluding post; grandparentDid does not match", post.uri);
                   return false;
                 }
               }
@@ -1000,6 +996,7 @@ async function loadRecentPosts(cursor = null) {
             }
             return false;
           });
+          
           
         allFetchedPosts.push(...finalBatch);
         batchesToFetch--;
