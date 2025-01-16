@@ -803,15 +803,14 @@ function appendTextWithLineBreaks(fragment, text) {
  * @returns {DocumentFragment} - The parsed text with clickable links and preserved line breaks.
  */
 function parseTextWithFacets(text, facets) {
-    if (!facets || facets.length === 0) {
-        const fragment = document.createDocumentFragment();
-        appendTextWithLineBreaks(fragment, text);
-        return fragment;
-    }
-
     const fragment = document.createDocumentFragment();
     const byteMap = createByteMap(text);
     let lastCharIndex = 0;
+
+    if (!facets || facets.length === 0) {
+        appendTextWithLineBreaks(fragment, text);
+        return fragment;
+    }
 
     // Sort facets by byteStart to process them in order
     const sortedFacets = facets.slice().sort((a, b) => a.index.byteStart - b.index.byteStart);
@@ -827,31 +826,47 @@ function parseTextWithFacets(text, facets) {
                     // Convert byte indices to character indices
                     const startChar = byteToCharIndex(byteMap, startByte);
                     const endChar = byteToCharIndex(byteMap, endByte);
+                    // Adjust the end index so that it's inclusive (if it's not already the end of the text)
+                    const endCharAdjusted = endChar < text.length ? endChar + 1 : endChar;
 
-                    console.log(`Replacing text from char ${startChar} to ${endChar} with URI: ${uri}`);
-
-                    // Append text before the link with preserved line breaks
+                    // Append text before the link
                     const beforeText = text.slice(lastCharIndex, startChar);
                     if (beforeText) {
                         appendTextWithLineBreaks(fragment, beforeText);
                     }
 
-                    // Append the full clickable link
+                    // Extract the link text using the adjusted indices
+                    let linkText = text.slice(startChar, endCharAdjusted);
+
+                    // If the link text starts with a space, extract that space separately
+                    if (linkText.startsWith(" ")) {
+                        // Determine how many whitespace characters are at the start
+                        const match = linkText.match(/^\s+/);
+                        if (match) {
+                            const leadingWhitespace = match[0];
+                            // Append the whitespace as normal text
+                            appendTextWithLineBreaks(fragment, leadingWhitespace);
+                            // Remove the whitespace from the link text
+                            linkText = linkText.slice(leadingWhitespace.length);
+                        }
+                    }
+
+                    // Create the link element using the trimmed text
                     const a = document.createElement('a');
                     a.href = uri;
-                    a.textContent = uri; // Display the full URI as the link text
-                    a.target = '_blank'; // Open in a new tab
-                    a.rel = 'noopener noreferrer'; // Security best practices
+                    a.textContent = linkText;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
                     fragment.appendChild(a);
 
-                    // Update the lastCharIndex to the end of the replaced link
-                    lastCharIndex = endChar;
+                    // Update the lastCharIndex to after the link
+                    lastCharIndex = endCharAdjusted;
                 }
             });
         }
     });
 
-    // Append any remaining text after the last link with preserved line breaks
+    // Append any remaining text after the last link
     const remainingText = text.slice(lastCharIndex);
     if (remainingText) {
         appendTextWithLineBreaks(fragment, remainingText);
