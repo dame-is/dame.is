@@ -954,47 +954,53 @@ async function loadRecentPosts(cursor = null) {
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
-              // If it's a reply post:
+              // If the post is a reply, perform extra checks.
               if (post.record.reply) {
-                // There must be a reply object at the top level.
-                if (!item.reply) return false;
+                if (!item.reply) {
+                  console.log("Excluding post because item.reply is missing");
+                  return false;
+                }
           
-                // Helper function that, given a reply field,
-                // returns the author DID using either a nested author or a direct property.
+                // Function to extract the top-level author DID from a reply field.
                 const getTopLevelDid = (field) => {
                   if (!field) return null;
-                  // Check if there's a nested author object
+                  // Check for nested author.did first.
                   if (field.author && field.author.did) {
                     return field.author.did;
                   }
-                  // Otherwise, assume the field itself holds the DID
+                  // Otherwise, look for a direct did.
                   return field.did || null;
                 };
           
-                // Get the top-level DIDs for parent, root, and grandparentAuthor (if present)
                 const parentDid = getTopLevelDid(item.reply.parent);
                 const rootDid = getTopLevelDid(item.reply.root);
                 const grandparentDid = getTopLevelDid(item.reply.grandparentAuthor);
           
-                // For each field that is present, require that the DID matches the actor.
-                // (If a field is missing, we assume there's no conflict.)
+                console.log("Reply field DIDs for post", item.post.uri);
+                console.log("  parentDid:", parentDid);
+                console.log("  rootDid:", rootDid);
+                console.log("  grandparentDid:", grandparentDid);
+                console.log("  actor:", actor);
+          
+                // For each field that is present, ensure it matches the actor.
                 if (parentDid !== null && parentDid !== actor) {
+                  console.log("Excluding post; parentDid does not match");
                   return false;
                 }
                 if (rootDid !== null && rootDid !== actor) {
+                  console.log("Excluding post; rootDid does not match");
                   return false;
                 }
                 if (grandparentDid !== null && grandparentDid !== actor) {
+                  console.log("Excluding post; grandparentDid does not match");
                   return false;
                 }
               }
-              // Include the post if it's not a reply or the checks passed.
               return true;
             }
             return false;
           });
           
-        
         allFetchedPosts.push(...finalBatch);
         batchesToFetch--;
         if (!localCursor) break;
