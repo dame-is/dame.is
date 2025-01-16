@@ -951,51 +951,51 @@ async function loadRecentPosts(cursor = null) {
             return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
         });
 
-        // Additional filtering for replies (same as before)
+        // Updated filtering for replies with detailed author checks
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
+            // If this is a reply post...
             if (post.record.reply) {
-                // If the reply block is present in the record, then we require more reply details
+                // There must be a corresponding reply object
                 if (!item.reply) return false;
-                
-                // Check reply.parent: 
-                // In some cases parent may be wrapped in an object that contains an 'author'
+        
+                // Check reply.parent: if exists, its author must match the actor.
                 if (item.reply.parent) {
-                // If parent has an 'author' sub-object, use that; otherwise, assume the parent object itself is the author
-                const parentDid = item.reply.parent.author 
-                                    ? item.reply.parent.author.did 
-                                    : item.reply.parent.did;
-                if (parentDid !== actor) return false;
+                if (item.reply.parent.author) {
+                    if (item.reply.parent.author.did !== actor) return false;
                 } else {
-                return false;
+                    // If parent exists but doesn't have author details, exclude it.
+                    return false;
                 }
-                
-                // Check reply.root
+                }
+        
+                // Check reply.root: if exists, its author must match the actor.
                 if (item.reply.root) {
-                const rootDid = item.reply.root.author 
-                                ? item.reply.root.author.did 
-                                : item.reply.root.did;
-                if (rootDid !== actor) return false;
+                if (item.reply.root.author) {
+                    if (item.reply.root.author.did !== actor) return false;
                 } else {
-                return false;
+                    // If root exists but doesn't include author details, exclude it.
+                    return false;
                 }
-                
-                // Check grandparentAuthor – note that in your sample grandparentAuthor is already the author object.
+                }
+        
+                // Check reply.grandparentAuthor: if exists,
+                // either it has an "author" object or the field itself is the author information.
                 if (item.reply.grandparentAuthor) {
-                // Try both possibilities: either there's a nested 'author' or there isn't
-                const grandparentDid = item.reply.grandparentAuthor.author 
-                                        ? item.reply.grandparentAuthor.author.did 
-                                        : item.reply.grandparentAuthor.did;
-                if (grandparentDid !== actor) return false;
+                if (item.reply.grandparentAuthor.author) {
+                    if (item.reply.grandparentAuthor.author.did !== actor) return false;
+                } else {
+                    if (item.reply.grandparentAuthor.did !== actor) return false;
+                }
                 }
             }
+            // Include the post if it either isn’t a reply or if all reply author checks pass
             return true;
             }
             return false;
         });
         
-
         allFetchedPosts.push(...finalBatch);
         batchesToFetch--;
         if (!localCursor) break;
