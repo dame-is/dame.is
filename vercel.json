@@ -8,6 +8,7 @@
         { "source": "/ethos", "destination": "/ethos.html" },
         { "source": "/log", "destination": "/log.html" },
         { "source": "/ratingmyalttext", "destination": "/ratemyalttext/src/ratingmyalttext.html" },
+        { "source": "/ratingalttext", "destination": "/ratingalttext.html" },
         { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
         { "source": "/index", "destination": "/" },
         { "source": "/home", "destination": "/" }

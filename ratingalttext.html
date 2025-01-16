@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+    <title>alt text tool</title>
+    <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+        <!-- Navigation -->
+        <div id="nav"></div>
+
+        <!-- Main Content -->
+        <main>
+            <div id="alt-text-tool>
+                <h1>Bluesky Alt Text Analyzer</h1>
+                <form class="search-bar" id="search-form">
+                  <input type="text" id="username" placeholder="Enter Bluesky username (e.g., dame.bsky.social)" required />
+                  <button type="submit">Search</button>
+                </form>
+                <div class="results" id="results"></div>
+              
+                <script>
+                  const PUBLIC_API_URL = "https://public.api.bsky.app";
+              
+                  async function resolveHandleToDID(handle) {
+                    try {
+                      const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+                      const data = await res.json();
+                      if (data.did) {
+                        return data.did;
+                      } else {
+                        throw new Error(`Unable to resolve DID for handle: ${handle}`);
+                      }
+                    } catch (error) {
+                      console.error('Error resolving handle to DID:', error);
+                      throw error;
+                    }
+                  }
+              
+                  async function fetchServiceEndpoint(did) {
+                    try {
+                      const res = await fetch(`https://plc.directory/${did}`);
+                      const data = await res.json();
+                      if (data.service && data.service.length > 0) {
+                        const serviceEndpoint = data.service[0].serviceEndpoint;
+                        if (serviceEndpoint) {
+                          return serviceEndpoint;
+                        }
+                      }
+                      throw new Error(`Service endpoint not found for DID: ${did}`);
+                    } catch (error) {
+                      console.error('Error fetching service endpoint:', error);
+                      throw error;
+                    }
+                  }
+              
+                  async function fetchRecordsForCollection(serviceEndpoint, did, collectionName) {
+                    let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collectionName)}&limit=100`;
+                    let records = [];
+                    let cursor = null;
+              
+                    do {
+                      const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
+                      const res = await fetch(url);
+                      const data = await res.json();
+              
+                      if (Array.isArray(data.records)) {
+                        records = records.concat(data.records);
+                      }
+                      cursor = data.cursor || null;
+                    } while (cursor);
+              
+                    return records;
+                  }
+              
+                  function analyzePosts(records) {
+                    const postsWithImages = records.filter(
+                      rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
+                    );
+                    const postsWithAltText = postsWithImages.filter(rec =>
+                      rec.value.embed.images.some(img => img.alt && img.alt.trim())
+                    );
+              
+                    return {
+                      totalPosts: records.length,
+                      postsWithImages: postsWithImages.length,
+                      postsWithAltText: postsWithAltText.length,
+                      altTextPercentage: (postsWithAltText.length / postsWithImages.length) * 100 || 0,
+                    };
+                  }
+              
+                  document.getElementById("search-form").addEventListener("submit", async (event) => {
+                    event.preventDefault();
+              
+                    const username = document.getElementById("username").value.trim();
+                    const resultsDiv = document.getElementById("results");
+                    resultsDiv.textContent = "Loading...";
+              
+                    try {
+                      // Step 1: Resolve DID
+                      const did = await resolveHandleToDID(username);
+              
+                      // Step 2: Fetch service endpoint from PLC directory
+                      const serviceEndpoint = await fetchServiceEndpoint(did);
+              
+                      // Step 3: Fetch records using the service endpoint
+                      const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+              
+                      // Step 4: Analyze posts
+                      const analysis = analyzePosts(records);
+              
+                      // Step 5: Display results
+                      resultsDiv.innerHTML = `
+                        <h2>Analysis Results for ${username}</h2>
+                        <p>Total Posts: ${analysis.totalPosts}</p>
+                        <p>Posts with Images: ${analysis.postsWithImages}</p>
+                        <p>Posts with Alt Text: ${analysis.postsWithAltText}</p>
+                        <p>Alt Text Usage: ${analysis.altTextPercentage.toFixed(2)}%</p>
+                      `;
+                    } catch (error) {
+                      resultsDiv.textContent = `Error: ${error.message}`;
+                    }
+                  });
+                </script>
+            </div>
+        </main>
+    
+        <!-- Footer -->
+        <div id="footer"></div>
+    
+        <script src="js/main.js"></script>
+</body>
+</html>
