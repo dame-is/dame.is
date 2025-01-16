@@ -954,33 +954,41 @@ async function loadRecentPosts(cursor = null) {
         const finalBatch = filteredBatch.filter(item => {
             const post = item.post;
             if (post && post.record) {
-              // If this is a reply...
+              // If it's a reply post:
               if (post.record.reply) {
-                // Make sure the reply object exists.
+                // There must be a reply object at the top level.
                 if (!item.reply) return false;
           
-                // Helper function to extract the top-level DID from a field.
-                const getDid = (field) => {
+                // Helper function that, given a reply field,
+                // returns the author DID using either a nested author or a direct property.
+                const getTopLevelDid = (field) => {
                   if (!field) return null;
-                  // If there's a nested author, use that DID.
+                  // Check if there's a nested author object
                   if (field.author && field.author.did) {
                     return field.author.did;
                   }
-                  // Otherwise, assume field itself contains the DID.
+                  // Otherwise, assume the field itself holds the DID
                   return field.did || null;
                 };
           
-                // Check the top-level reply fields.
-                const parentDid = getDid(item.reply.parent);
-                const rootDid = getDid(item.reply.root);
-                const grandparentDid = getDid(item.reply.grandparentAuthor);
+                // Get the top-level DIDs for parent, root, and grandparentAuthor (if present)
+                const parentDid = getTopLevelDid(item.reply.parent);
+                const rootDid = getTopLevelDid(item.reply.root);
+                const grandparentDid = getTopLevelDid(item.reply.grandparentAuthor);
           
-                // If any of these exist but do not match the actor, filter out.
-                if (parentDid !== null && parentDid !== actor) return false;
-                if (rootDid !== null && rootDid !== actor) return false;
-                if (grandparentDid !== null && grandparentDid !== actor) return false;
+                // For each field that is present, require that the DID matches the actor.
+                // (If a field is missing, we assume there's no conflict.)
+                if (parentDid !== null && parentDid !== actor) {
+                  return false;
+                }
+                if (rootDid !== null && rootDid !== actor) {
+                  return false;
+                }
+                if (grandparentDid !== null && grandparentDid !== actor) {
+                  return false;
+                }
               }
-              // If not a reply or reply checks pass, include the post.
+              // Include the post if it's not a reply or the checks passed.
               return true;
             }
             return false;
