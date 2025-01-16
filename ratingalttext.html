@@ -15,7 +15,7 @@
     <!-- Main Content -->
     <main>
         <div id="alt-text-rating-form">
-            <h1>Bluesky Alt Text Analyzer</h1>
+            <h1>Bluesky Alt Text Rating</h1>
             <form class="search-bar" id="search-form">
                 <input type="text" id="username" placeholder="Enter Bluesky username (e.g., dame.bsky.social)" required />
                 <button type="submit">Search</button>
@@ -121,13 +121,13 @@
 
                         // Step 5: Display results
                         resultsDiv.innerHTML = `
-                          <h2>Analysis Results for ${username}</h2>
-                          <p>Total Posts: ${analysis.totalPosts}</p>
-                          <p>Posts with Images: ${analysis.postsWithImages}</p>
-                          <p>Posts with Alt Text: ${analysis.postsWithAltText}</p>
-                          <p>Alt Text Usage: ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}</p>
+                          <p>Analysis Results for ${username}</p>
+                          <p>${analysis.totalPosts} posts analyzed</p>
+                          <p>${analysis.postsWithImages} posts containing images</p>
+                          <p>${analysis.postsWithAltText} posts with alt text</p>
+                          <h2>Score: ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}</h2>
                           <div class="resources">
-                              <h3>Learn More About Alt Text:</h3>
+                              <h3>Learn more about alt text:</h3>
                               <ul>
                                   <li><a href="https://www.section508.gov/create/alternative-text/" target="_blank">Authoring Meaningful Alternative Text</a></li>
                                   <li><a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">Write helpful Alt Text to describe images</a></li>

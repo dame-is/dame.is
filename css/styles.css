@@ -815,31 +815,68 @@ body.dark-mode .blog-post-excerpt {
     }
 }
 
-.search-bar {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
-  }
-  .search-bar input {
-    width: 300px;
-    padding: 10px;
-    font-size: 1em;
-    border: 1px solid #ccc;
-    border-radius: 5px 0 0 5px;
-  }
-  .search-bar button {
-    padding: 10px 20px;
-    font-size: 1em;
-    border: none;
-    background-color: #007bff;
-    color: white;
-    border-radius: 0 5px 5px 0;
-    cursor: pointer;
-  }
-  .search-bar button:hover {
-    background-color: #0056b3;
-  }
-  .results {
-    margin-top: 20px;
-    text-align: center;
-  }
+      /* === Specific Styles for Alt Text Analyzer === */
+
+      #alt-text-rating-form {
+        background-color: var(--post-background-color);
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    #alt-text-rating-form h1 {
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    .results {
+        margin-top: 20px;
+        font-size: 0.95em;
+    }
+
+    .results h2 {
+        color: var(--text-color);
+        font-size: 1.2em;
+        margin-bottom: 15px;
+    }
+
+    .resources h3 {
+        font-size: 1em;
+        margin-top: 20px;
+    }
+
+    .resources ul {
+        list-style: none;
+        padding: 0;
+    }
+
+    .resources li {
+        margin-bottom: 10px;
+    }
+
+    .resources a {
+        text-decoration: none;
+        color: #007bff;
+    }
+
+    .resources a:hover {
+        text-decoration: underline;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 400px) {
+        #alt-text-rating-form {
+            padding: 15px;
+        }
+
+        .search-bar input {
+            width: 100%;
+        }
+
+        .search-bar button {
+            width: 100%;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+    }
