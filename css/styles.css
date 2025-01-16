@@ -904,6 +904,11 @@ body.dark-mode #alt-text-rating-form {
     border: 1px solid #ccc;
     border-radius: 5px;
     margin-bottom: 10px; /* Space between input and button */
+    text-align: center;
+}
+
+.search-bar input#username {
+    text-align: center;
 }
 
 .search-bar button {
