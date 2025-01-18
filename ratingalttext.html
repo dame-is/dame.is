@@ -8,10 +8,19 @@
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/css/styles.css" />
   <style>
+    .alt-card {
+      background: #fff;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    /* Hide results div by default */
     #results {
       display: none;
     }
   </style>
+  <!-- Load Chart.js from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -62,6 +71,9 @@
     </div>
     
     <script>
+      // ----------------------------
+      // Analysis Functions (unchanged)
+      // ----------------------------
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
       const MIN_DATE = new Date("2022-11-16T00:00:00Z");
@@ -107,7 +119,6 @@
           }
           cursor = data.cursor || null;
         } while (cursor);
-
         return records;
       }
 
@@ -151,28 +162,34 @@
         };
       }
 
-      // Function to render the gauge using Chart.js
-      function renderGauge(percentage) {
+      // ----------------------------
+      // Chart.js Gauge (with four quadrants) using Chart.js
+      // ----------------------------
+      function renderGauge(score) {
         // Get the canvas context
         const ctx = document.getElementById('gaugeChart').getContext('2d');
-        // Remove any existing chart instance (if needed)
+        // Destroy any previous chart instance
         if (window.gaugeChartInstance) {
           window.gaugeChartInstance.destroy();
         }
-        // Create the gauge chart
+        // Define four equal segments (each 25%) for the gauge
+        const gaugeData = [25, 25, 25, 25];
+        // Colors for each quadrant (you can adjust these)
+        const quadrantColors = ['#ff0000', '#ff9900', '#ffff66', '#00cc00'];
+
         window.gaugeChartInstance = new Chart(ctx, {
           type: 'doughnut',
           data: {
             datasets: [{
-              data: [percentage, 100 - percentage],
-              backgroundColor: ['#00ff00', '#ff0000'],
+              data: gaugeData,
+              backgroundColor: quadrantColors,
               borderWidth: 0,
             }]
           },
           options: {
-            rotation: Math.PI,           // start angle (180° = left)
-            circumference: Math.PI,        // draw only half of the circle
-            cutout: '60%',                 // doughnut thickness
+            rotation: Math.PI,        // Start at 180° (left)
+            circumference: Math.PI,     // Only half the circle (180° span)
+            cutout: '60%',              // Determines thickness of the gauge
             plugins: {
               legend: { display: false },
               tooltip: { enabled: false }
@@ -188,15 +205,16 @@
                 const ctx = chart.ctx;
                 const cw = chart.width;
                 const ch = chart.height;
-                const needleValue = percentage;
-                const dataTotal = chart.config.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                // Calculate the angle for the needle (in radians)
-                const angle = Math.PI + (needleValue / dataTotal) * Math.PI;
+                // Map score (0-100) to an angle within the half circle.
+                // 0% → angle = Math.PI (180°; left edge)
+                // 100% → angle = 0 (0°; right edge)
+                const angle = Math.PI - (score / 100) * Math.PI;
                 const cx = cw / 2;
-                const cy = ch - 10;  // shift bottom a bit
-                const r = Math.min(cx, cy);
-                // Calculate needle endpoint
+                const cy = ch - 10;  // Shift a bit from the bottom
+                const r = Math.min(cx, ch);
+                // Determine the needle length (adjust as needed)
                 const needleLength = r * 0.8;
+                // Calculate needle endpoint
                 const x = cx + needleLength * Math.cos(angle);
                 const y = cy + needleLength * Math.sin(angle);
                 ctx.save();
@@ -220,6 +238,9 @@
         });
       }
 
+      // ----------------------------
+      // Form Handler
+      // ----------------------------
       document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = document.getElementById("username").value.trim();
@@ -237,15 +258,17 @@
             ? "No image posts detected! 🔍"
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
           
-          // Update text results
+          // Update text results with analysis details
           textResults.innerHTML = `
-            ${analysis.totalPosts} posts analyzed<br>
-            ${analysis.postsWithImages} contain images<br>
-            ${analysis.imageReplies} are replies<br>
-            ${analysis.postsWithAltText} posts have alt text<br>
-            <strong>Score: ${scoreText}</strong>
+            <p>${analysis.totalPosts} posts analyzed</p>
+            <p>${analysis.postsWithImages} contain images</p>
+            <p>${analysis.imageReplies} are replies</p>
+            <p>${analysis.postsWithAltText} posts have alt text</p>
+            <h2>Score: ${scoreText}</h2>
+            <div id="chart"></div>
+            <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
-          // Render the gauge chart based on the alt text percentage
+          // Render the gauge based on the computed alt text percentage (score)
           renderGauge(analysis.altTextPercentage);
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
