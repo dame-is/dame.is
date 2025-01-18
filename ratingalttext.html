@@ -43,12 +43,6 @@
           <li><a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">Write helpful Alt Text to describe images</a></li>
         </ul>
       </div>
-      <div class="credblue">
-        <h3>Follow for more tools like this:</h3>
-        <ul>
-          <li><a href="https://bsky.app/profile/cred.blue" target="_blank">@cred.blue</a></li>
-        </ul>
-      </div>
     </div>
     
     <script>
@@ -179,9 +173,10 @@
           resultsDiv.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} posts contain images</p>
-            <p>${analysis.imageReplies} replies contain images</p>
+            <p>${analysis.imageReplies} of them are replies</p>
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
+            <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;

@@ -840,6 +840,7 @@ body.dark-mode .blog-post-excerpt {
     max-width: 95%;
     margin: auto;
     border-radius: 5px;
+    margin-bottom: 20px;
 }
 
 body.dark-mode #alt-text-rating-form {
