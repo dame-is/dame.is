@@ -18,8 +18,7 @@
       width: 100%;
       max-width: 400px;
       position: relative;
-      padding-bottom: 0; /* 300/400 = 0.75 */
-      /*! height: -117px; */
+      padding-bottom: 0;
       margin-top: 0px;
       margin-bottom: 6px;
     }
@@ -28,14 +27,21 @@
       top: -13px;
       left: 0;
       width: 100%;
-      /*! height: 58%; */
       margin-top: -93px;
       overflow: hidden;
-      /*! bottom: -50%; */
     }
     /* Smooth transition for needle rotation */
     .needle-group {
       transition: transform 0.5s ease-out;
+    }
+    /* Style for the checkbox and label */
+    .checkbox-container {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 10px;
+    }
+    .checkbox-container input {
+      margin-right: 5px;
     }
   </style>
 </head>
@@ -51,6 +57,11 @@
       <form class="search-bar" id="search-form">
         <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required>
         <button type="submit">Analyze</button>
+        <!-- Last 90 Days Checkbox -->
+        <div class="checkbox-container">
+          <input type="checkbox" id="last90days" checked>
+          <label for="last90days">Last 90 Days</label>
+        </div>
       </form>
       <!-- Results container -->
       <div class="results" id="results">
@@ -59,20 +70,16 @@
         <div class="gauge-container">
           <!-- SVG gauge with viewBox="0 0 400 300" -->
           <svg class="gauge-svg" viewBox="0 0 400 300">
-            <!-- Four Quadrants for a perfect half‑circle gauge -->
-            <!-- Quadrant 1: 0-25% (from 180° to 135°) -->
+            <!-- Quadrants for the gauge -->
             <path d="M50,300 A150,150 0 0,1 93.93,193.93 L200,300 Z" fill="#ff0000"></path>
-            <!-- Quadrant 2: 25-50% (from 135° to 90°) -->
             <path d="M93.93,193.93 A150,150 0 0,1 200,150 L200,300 Z" fill="#ff9900"></path>
-            <!-- Quadrant 3: 50-75% (from 90° to 45°) -->
             <path d="M200,150 A150,150 0 0,1 306.07,193.93 L200,300 Z" fill="#ffff66"></path>
-            <!-- Quadrant 4: 75-100% (from 45° to 0°) -->
             <path d="M306.07,193.93 A150,150 0 0,1 350,300 L200,300 Z" fill="#00cc00"></path>
             <!-- Center pivot circle -->
             <circle cx="200" cy="300" r="10" fill="#000"></circle>
             <!-- Needle group with pivot at (200,300) -->
             <g id="needle-group" class="needle-group" transform="rotate(0,200,300)">
-              <!-- Needle from (200,300) to (50,300) (points fully left by default) -->
+              <!-- Needle from (200,300) to (50,300) -->
               <line id="needle" x1="200" y1="300" x2="50" y2="300" stroke="#000" stroke-width="7"/>
             </g>
           </svg>
@@ -98,11 +105,13 @@
     
     <script>
       // ----------------------------
-      // Analysis Functions (unchanged)
+      // Analysis Functions
       // ----------------------------
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
-      const MIN_DATE = new Date("2022-11-16T00:00:00Z");
+      
+      // Global storage for records so we can re-run the analysis based on checkbox changes.
+      let allRecords = [];
 
       async function resolveHandleToDID(handle) {
         try {
@@ -147,11 +156,29 @@
         return records;
       }
 
-      function analyzePosts(records) {
+      /**
+       * Analyze posts with an option to filter to only the last 90 days.
+       *
+       * @param {Array} records - The array of post records.
+       * @param {boolean} useLast90Days - If true, filter posts to those created in the last 90 days.
+       * @returns {Object} analysis results.
+       */
+      function analyzePosts(records, useLast90Days) {
+        // Determine the minimum date for filtering
+        let minDate;
+        if (useLast90Days) {
+          minDate = new Date();
+          minDate.setDate(minDate.getDate() - 90);
+        } else {
+          // If not filtering, set minDate to a very early date
+          minDate = new Date("1970-01-01T00:00:00Z");
+        }
+        
+        // Filter by createdAt using the determined minDate
         const filteredRecords = records.filter(rec => {
           if (rec.value.createdAt) {
             const postDate = new Date(rec.value.createdAt);
-            return postDate >= MIN_DATE;
+            return postDate >= minDate;
           }
           return false;
         });
@@ -188,12 +215,11 @@
       // ----------------------------
       // Needle Oscillation Settings and Animation
       // ----------------------------
-      // These parameters can be adjusted to change the animation's naturalness.
       let oscillationInterval = 7;       // Interval between updates in ms
       let baseNeedleIncrement = 2;          // Base percentage change per tick
       let oscillationMin = 0;             // Base minimum percentage during oscillation
       let oscillationMax = 100;            // Base maximum percentage during oscillation
-      let bounceRange = 75;                // Maximum random bounce (in percentage points) at boundaries
+      let bounceRange = 75;                // Maximum random bounce at boundaries
       
       let currentOscillation = oscillationMin;
       let oscillationDirection = 1;       // 1 means increasing, -1 means decreasing
@@ -203,11 +229,9 @@
         currentOscillation = oscillationMin;
         oscillationDirection = 1;
         needleAnimInterval = setInterval(() => {
-          // Random factor to introduce irregularity (between 0.8 and 1.2)
           let randomFactor = 0.8 + Math.random() * 0.4;
           let increment = baseNeedleIncrement * randomFactor;
           currentOscillation += oscillationDirection * increment;
-          // Bounce effect: at boundaries, add random offset within bounceRange
           if (currentOscillation >= oscillationMax) {
             currentOscillation = oscillationMax - (Math.random() * bounceRange);
             oscillationDirection = -1;
@@ -226,12 +250,12 @@
         }
       }
       
-      // ----------------------------
-      // Custom SVG Gauge Update Function (Needle Only)
-      // ----------------------------
-      // Mapping:
-      // 0% → 0° (needle points fully left)
-      // 100% → 180° (needle points fully right)
+      /**
+       * Updates the gauge needle based on the given percentage.
+       * Mapping: 0% -> 0° (fully left), 100% -> 180° (fully right)
+       *
+       * @param {number} percentage - A value between 0 and 100.
+       */
       function updateGauge(percentage) {
         percentage = Math.max(0, Math.min(100, percentage));
         const angleDeg = (percentage / 100) * 180;
@@ -243,48 +267,85 @@
         }
       }
       
-        // Helper function: returns the appropriate singular or plural string
-        function pluralize(count, singular, plural) {
+      // Helper function for proper pluralization of result strings.
+      function pluralize(count, singular, plural) {
         return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
-        }
+      }
 
-        // ----------------------------
-        // Form Handler
-        // ----------------------------
-        document.getElementById("search-form").addEventListener("submit", async (event) => {
+      // ----------------------------
+      // Function to update the analysis results based on the checkbox state.
+      // ----------------------------
+      function updateAnalysisResults(useLast90Days) {
+        // Re-run analysis on the globally stored records
+        const analysis = analyzePosts(allRecords, useLast90Days);
+        const textResults = document.getElementById("textResults");
+        const scoreText = analysis.postsWithImages === 0
+          ? "No image posts detected! 🔍"
+          : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+
+        textResults.innerHTML = `
+          <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
+          <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
+          <p>${pluralize(analysis.imageReplies, "is a reply", "are replies")}</p>
+          <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
+          <h2>Score: ${scoreText}</h2>
+        `;
+
+        // Set the gauge needle to the final percentage
+        updateGauge(analysis.altTextPercentage);
+      }
+
+      // ----------------------------
+      // Form Handler
+      // ----------------------------
+      document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
         const textResults = document.getElementById("textResults");
         resultsDiv.style.display = "block";
         textResults.textContent = "Loading...";
-        // Start the needle oscillation while loading
+        // Start needle oscillation while loading
         startNeedleAnimation();
+
         try {
-            const did = await resolveHandleToDID(username);
-            const serviceEndpoint = await fetchServiceEndpoint(did);
-            const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
-            const analysis = analyzePosts(records);
-            const scoreText = analysis.postsWithImages === 0
+          const did = await resolveHandleToDID(username);
+          const serviceEndpoint = await fetchServiceEndpoint(did);
+          allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+          
+          // Check if the "Last 90 Days" checkbox is checked
+          const useLast90Days = document.getElementById("last90days").checked;
+          const analysis = analyzePosts(allRecords, useLast90Days);
+          const scoreText = analysis.postsWithImages === 0
             ? "No image posts detected! 🔍"
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-            // Use pluralize helper to render correct phrases
-            textResults.innerHTML = `
+          textResults.innerHTML = `
             <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
             <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
             <p>${pluralize(analysis.imageReplies, "is a reply", "are replies")}</p>
             <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
             <h2>Score: ${scoreText}</h2>
-            `;
-            // Stop the oscillation and update the needle to the final position
-            stopNeedleAnimation();
-            updateGauge(analysis.altTextPercentage);
+          `;
+
+          stopNeedleAnimation();
+          updateGauge(analysis.altTextPercentage);
         } catch (error) {
-            stopNeedleAnimation();
-            resultsDiv.textContent = `Error: ${error.message}`;
+          stopNeedleAnimation();
+          resultsDiv.textContent = `Error: ${error.message}`;
         }
-        });
+      });
+
+      // ----------------------------
+      // Listen for checkbox state changes
+      // ----------------------------
+      document.getElementById("last90days").addEventListener("change", (event) => {
+        // Only update if we have already fetched records
+        if (allRecords.length > 0) {
+          const useLast90Days = event.target.checked;
+          updateAnalysisResults(useLast90Days);
+        }
+      });
     </script>
   </main>
 
