@@ -142,13 +142,18 @@
             // Step 4: Analyze posts (only including posts on or after 2022-11-16)
             const analysis = analyzePosts(records);
 
+            // Determine the score message depending on image post count
+            const scoreText = analysis.postsWithImages === 0 
+              ? "No image posts detected! 🔍" 
+              : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+
             // Step 5: Display results
             resultsDiv.innerHTML = `
               <p>${analysis.totalPosts} posts analyzed</p>
               <p>${analysis.postsWithImages} posts containing images</p>
               <p>${analysis.postsWithAltText} posts with alt text</p>
               <p>${analysis.imageReplies} image reply posts</p>
-              <h2>Score: ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}</h2>
+              <h2>Score: ${scoreText}</h2>
               <div class="resources">
                 <h3>Learn more about alt text:</h3>
                 <ul>
@@ -178,4 +183,3 @@
   <script src="js/main.js"></script>
 </body>
 </html>
-
