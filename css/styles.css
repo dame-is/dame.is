@@ -832,7 +832,7 @@ body.dark-mode .blog-post-excerpt {
 
 /* === Specific Styles for Alt Text Analyzer === */
 
-#alt-text-rating-form {
+.alt-card {
     background-color: var(--post-background-color);
     padding: 20px;
     border: 1px solid #ccc;
@@ -885,6 +885,17 @@ body.dark-mode #alt-text-rating-form {
     list-style: none;
     padding: 0;
     font-size: 0.7em;
+}
+
+.credblue ul {
+    list-style: none;
+    padding: 0;
+    font-size: 0.7em;
+}
+
+.credblue h3 {
+    font-size: 1em;
+    margin-top: 20px;
 }
 
 .resources li {
