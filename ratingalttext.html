@@ -59,7 +59,7 @@
         <button type="submit">Analyze</button>
         <!-- Last 90 Days Checkbox -->
         <div class="checkbox-container">
-          <input type="checkbox" id="last90days" checked>
+          <input type="checkbox" id="last90days" unchecked>
           <label for="last90days">Last 90 Days</label>
         </div>
       </form>
@@ -215,11 +215,12 @@
       // ----------------------------
       // Needle Oscillation Settings and Animation
       // ----------------------------
-      let oscillationInterval = 7;       // Interval between updates in ms
+      // These parameters can be adjusted to change the animation's naturalness.
+      let oscillationInterval = 25;       // Interval between updates in ms
       let baseNeedleIncrement = 2;          // Base percentage change per tick
-      let oscillationMin = 0;             // Base minimum percentage during oscillation
-      let oscillationMax = 100;            // Base maximum percentage during oscillation
-      let bounceRange = 75;                // Maximum random bounce at boundaries
+      let oscillationMin = 5;             // Base minimum percentage during oscillation
+      let oscillationMax = 95;            // Base maximum percentage during oscillation
+      let bounceRange = 15;                // Maximum random bounce (in percentage points) at boundaries
       
       let currentOscillation = oscillationMin;
       let oscillationDirection = 1;       // 1 means increasing, -1 means decreasing
