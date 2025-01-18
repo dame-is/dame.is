@@ -18,15 +18,20 @@
       width: 100%;
       max-width: 400px;
       position: relative;
-      padding-bottom: 75%; /* 300/400 = 0.75 */
+      padding-bottom: 0; /* 300/400 = 0.75 */
+      /*! height: -117px; */
+      margin-top: 0px;
+      margin-bottom: 6px;
     }
     .gauge-container svg {
       position: relative;
       top: -13px;
       left: 0;
       width: 100%;
+      /*! height: 58%; */
       margin-top: -93px;
       overflow: hidden;
+      /*! bottom: -50%; */
     }
     /* Smooth transition for needle rotation */
     .needle-group {
@@ -184,11 +189,11 @@
       // Needle Oscillation Settings and Animation
       // ----------------------------
       // These parameters can be adjusted to change the animation's naturalness.
-      let oscillationInterval = 25;       // Interval between updates in ms
+      let oscillationInterval = 12;       // Interval between updates in ms
       let baseNeedleIncrement = 2;          // Base percentage change per tick
       let oscillationMin = 10;             // Base minimum percentage during oscillation
       let oscillationMax = 90;            // Base maximum percentage during oscillation
-      let bounceRange = 10;                // Maximum random bounce (in percentage points) at boundaries
+      let bounceRange = 20;                // Maximum random bounce (in percentage points) at boundaries
       
       let currentOscillation = oscillationMin;
       let oscillationDirection = 1;       // 1 means increasing, -1 means decreasing
