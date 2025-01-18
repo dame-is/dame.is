@@ -20,10 +20,12 @@
       position: relative;
       padding-bottom: 0; /* 300/400 = 0.75 */
       /*! height: -117px; */
+      margin-top: 0px;
+      margin-bottom: 6px;
     }
     .gauge-container svg {
       position: relative;
-      top: -8%;
+      top: -11%;
       left: 0;
       width: 100%;
       /*! height: 58%; */
@@ -187,10 +189,10 @@
       // Needle Oscillation Settings and Animation
       // ----------------------------
       // Parameters you can adjust:
-      let oscillationInterval = 50;     // ms between updates
-      let needleIncrement = 2;          // percentage change per tick
-      let oscillationMin = 0;           // min percentage (0%)
-      let oscillationMax = 100;         // max percentage (100%)
+      let oscillationInterval = 25;     // ms between updates
+      let needleIncrement = 6;          // percentage change per tick
+      let oscillationMin = 5;           // min percentage (0%)
+      let oscillationMax = 95;         // max percentage (100%)
       
       let currentOscillation = oscillationMin;
       let oscillationDirection = 1;     // 1: increasing, -1: decreasing

@@ -876,6 +876,7 @@ body.dark-mode .alt-card {
     list-style: none;
     padding: 0;
     font-size: 0.7em;
+    margin-bottom: 0px;
 }
 
 .credblue ul {
@@ -915,7 +916,7 @@ body.dark-mode .alt-card {
     font-size: 1em;
     border: 1px solid #ccc;
     border-radius: 5px;
-    margin-bottom: 10px; /* Space between input and button */
+    margin-bottom: 17px;
     text-align: center;
 }
 
