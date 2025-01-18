@@ -17,9 +17,9 @@
       margin: 20px auto;
       width: 100%;
       max-width: 400px;
-      /* Using aspect ratio based on the new viewBox height (200/400=50%) */
       position: relative;
-      padding-bottom: 50%;
+      /* Set aspect ratio based on the SVG's viewBox (we use 400x350) */
+      padding-bottom: 87.5%; /* 350/400 * 100 */
     }
     .gauge-container svg {
       position: absolute;
@@ -28,6 +28,7 @@
       width: 100% !important;
       height: 100% !important;
     }
+    /* Smooth transition for needle rotation */
     .needle-group {
       transition: transform 0.5s ease-out;
     }
@@ -50,24 +51,23 @@
         <p id="textResults"></p>
         <!-- Responsive gauge container -->
         <div class="gauge-container">
-          <!-- SVG gauge with viewBox that crops extra white space -->
-          <!-- Original gauge geometry: center at (200,300) and radius 150 -->
-          <!-- New viewBox: "0 150 400 200" -->
-          <svg class="gauge-svg" viewBox="0 150 400 200">
-            <!-- Draw the gauge as a half-circle divided into four quadrants -->
-            <!-- Quadrant 1: from 180° to 135° -->
+          <!-- SVG gauge with viewBox="0 0 400 350" -->
+          <!-- The gauge is drawn as a perfect half-circle with center at (200,300) and radius 150 -->
+          <svg class="gauge-svg" viewBox="0 0 400 350">
+            <!-- Four colored quadrants. (Coordinates calculated so that the arc spans from left (50,300) to right (350,300) with top at (200,150)) -->
+            <!-- Quadrant 1: 0-25% (from 180° to 135°) -->
             <path d="M50,300 A150,150 0 0,1 107.11,236.89 L200,300 Z" fill="#ff0000"></path>
-            <!-- Quadrant 2: from 135° to 90° -->
+            <!-- Quadrant 2: 25-50% (from 135° to 90°) -->
             <path d="M107.11,236.89 A150,150 0 0,1 200,150 L200,300 Z" fill="#ff9900"></path>
-            <!-- Quadrant 3: from 90° to 45° -->
+            <!-- Quadrant 3: 50-75% (from 90° to 45°) -->
             <path d="M200,150 A150,150 0 0,1 292.89,236.89 L200,300 Z" fill="#ffff66"></path>
-            <!-- Quadrant 4: from 45° to 0° -->
+            <!-- Quadrant 4: 75-100% (from 45° to 0°) -->
             <path d="M292.89,236.89 A150,150 0 0,1 350,300 L200,300 Z" fill="#00cc00"></path>
-            <!-- Center pivot circle (the same point, but now appears at (200,300) of original, i.e. (200,150) in the new viewBox) -->
+            <!-- Pivot circle -->
             <circle cx="200" cy="300" r="10" fill="#000"></circle>
-            <!-- Needle group: we update its pivot to (200,300) in original coordinates which, in this viewBox, shows as (200,150) -->
+            <!-- Needle group: Initially set to 0° rotation (meaning the needle points fully left) -->
             <g id="needle-group" class="needle-group" transform="rotate(0,200,300)">
-              <!-- The needle is drawn as a line from the pivot (200,300) to the left edge (50,300) -->
+              <!-- The needle is a line from pivot (200,300) to the left endpoint (50,300) -->
               <line id="needle" x1="200" y1="300" x2="50" y2="300" stroke="#000" stroke-width="4"/>
             </g>
           </svg>
@@ -181,6 +181,33 @@
       }
 
       // ----------------------------
+      // Needle Animation While Loading
+      // ----------------------------
+      let needleAnimInterval = null;
+      function startNeedleAnimation() {
+        let tempProgress = 0;
+        let direction = 1;  // 1 for increasing, -1 for decreasing
+        needleAnimInterval = setInterval(() => {
+          // Increase or decrease the temporary progress from 0 to 100
+          tempProgress += direction * 5; // adjust speed as needed
+          if (tempProgress >= 100) {
+            tempProgress = 100;
+            direction = -1;
+          } else if (tempProgress <= 0) {
+            tempProgress = 0;
+            direction = 1;
+          }
+          updateGauge(tempProgress);
+        }, 50);
+      }
+      function stopNeedleAnimation() {
+        if (needleAnimInterval) {
+          clearInterval(needleAnimInterval);
+          needleAnimInterval = null;
+        }
+      }
+
+      // ----------------------------
       // Custom SVG Gauge Update Function
       // ----------------------------
       // Mapping:
@@ -189,8 +216,6 @@
       function updateGauge(percentage) {
         percentage = Math.max(0, Math.min(100, percentage));
         const angleDeg = (percentage / 100) * 180;
-        // The pivot for rotation is (200,300) in the original coordinate system.
-        // In our cropped viewBox ("0 0 400 350") we still refer to original coordinates.
         const needleGroup = document.getElementById('needle-group');
         if (needleGroup) {
           needleGroup.setAttribute('transform', `rotate(${angleDeg},200,300)`);
@@ -209,6 +234,8 @@
         const textResults = document.getElementById("textResults");
         resultsDiv.style.display = "block";
         textResults.textContent = "Loading...";
+        // Start the needle oscillation animation
+        startNeedleAnimation();
         try {
           const did = await resolveHandleToDID(username);
           const serviceEndpoint = await fetchServiceEndpoint(did);
@@ -224,9 +251,11 @@
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
           `;
-          // Update gauge needle to final position
+          // Stop the needle oscillation and update to final position
+          stopNeedleAnimation();
           updateGauge(analysis.altTextPercentage);
         } catch (error) {
+          stopNeedleAnimation();
           resultsDiv.textContent = `Error: ${error.message}`;
         }
       });
