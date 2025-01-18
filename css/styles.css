@@ -903,31 +903,75 @@ body.dark-mode .alt-card {
     text-decoration: underline;
 }
 
-.search-bar {
-    display: flex;
-    flex-direction: column; /* Stack input and button on mobile */
-    align-items: center;
+
+@media (max-width: 400px) {
+    #alt-text-rating-form {
+
+    }
+
+    #alt-text-rating-form h1 {
+
+    }
+
+    .results {
+
+    }
+
+    .resources h3 {
+
+    }
+
+    .search-bar input {
+
+    }
+
+    .search-bar button {
+
+    }
 }
 
+/* Responsive: For smaller screens, stack the elements vertically */
+@media (max-width: 500px) {
+    .search-bar {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .checkbox-container {
+        margin-left: 0;
+    }
+}
+
+/* General Styles for the search bar */
+.search-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px; /* space between the input and the action row */
+}
+
+/* Style for the input */
 .search-bar input {
-    width: 90%; /* Full width with padding */
-    max-width: 300px; /* Limit maximum width */
+    width: 90%;
+    max-width: 300px;
     padding: 10px;
     font-size: 1em;
     border: 1px solid #ccc;
     border-radius: 5px;
-    margin-bottom: 17px;
     text-align: center;
 }
 
-.search-bar input#username {
-    text-align: center;
+/* Action row: contains the button and the checkbox, arranged horizontally */
+.action-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
 }
 
+/* Style for the Analyze button */
 .search-bar button {
-    width: 40%; /* Match the width of the input */
-    max-width: 300px; /* Limit maximum width */
-    padding: 10px;
+    padding: 10px 20px;
     font-size: 1em;
     border: none;
     background-color: #007bff;
@@ -936,59 +980,89 @@ body.dark-mode .alt-card {
     cursor: pointer;
 }
 
-.results p {
-    margin-top: 0px;
-    margin-bottom: 5px;
-    font-size: 0.9em;
-}
-
 .search-bar button:hover {
     background-color: #0056b3;
 }
 
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-    #alt-text-rating-form {
-        padding: 15px;
-    }
-
-    #alt-text-rating-form h1 {
-        font-size: 1.3em; /* Slightly smaller for mid-sized screens */
-    }
-
-    .results h2 {
-        font-size: 1.1em;
-    }
-
-    .resources h3 {
-        font-size: 0.9em;
-    }
+/* Custom Checkbox Styles */
+.custom-checkbox {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.9em;
+    user-select: none;
 }
 
-@media (max-width: 400px) {
-    #alt-text-rating-form {
-        padding: 10px;
-    }
+/* Hide the default checkbox appearance */
+.custom-checkbox input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    border: 2px solid #007bff;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    background-color: #fff;
+    transition: background-color 0.2s, border-color 0.2s;
+}
 
-    #alt-text-rating-form h1 {
-        font-size: 1.2em;
-    }
+/* Create a custom indicator (optional: you can use the input element itself) */
+.custom-checkbox .checkbox-indicator {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #007bff;
+    border-radius: 4px;
+    margin-right: 8px;
+    position: relative;
+    transition: background-color 0.2s, border-color 0.2s;
+}
 
-    .results {
-        font-size: 0.9em;
-    }
+/* Hide the native checkmark; we use the indicator to display the check state. */
+.custom-checkbox input[type="checkbox"]:checked + .checkbox-indicator {
+    background-color: #007bff;
+    border-color: #007bff;
+}
 
-    .resources h3 {
-        font-size: 0.8em;
-    }
+/* Optional: Add a checkmark icon using CSS pseudo-elements */
+.custom-checkbox input[type="checkbox"]:checked + .checkbox-indicator::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 6px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
 
-    .search-bar input {
-        width: 80%; /* Full width for very small screens */
-        font-size: 0.9em; /* Smaller text for input */
-    }
+/* When clicking, have a subtle focus outline */
+.custom-checkbox input[type="checkbox"]:focus {
+    box-shadow: 0 0 3px 2px rgba(0, 123, 255, 0.5);
+}
 
-    .search-bar button {
-        width: 45%; /* Full width for button */
-        font-size: 0.9em; /* Smaller text for button */
-    }
+/* Hide the native checkbox visually but still keep it accessible. */
+.custom-checkbox input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Instead, we use the indicator to toggle */
+.custom-checkbox {
+    position: relative;
+    padding-left: 28px; /* space for the checkbox indicator */
+}
+
+/* Ensure the indicator sits in the correct position */
+.custom-checkbox .checkbox-indicator {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }

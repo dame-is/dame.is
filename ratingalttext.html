@@ -55,12 +55,18 @@
       <h1>Bluesky Alt Text Rating</h1>
       <p>How consistently do you use alt text?</p>
       <form class="search-bar" id="search-form">
+        <!-- The search input -->
         <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required>
-        <button type="submit">Analyze</button>
-        <!-- Last 90 Days Checkbox -->
-        <div class="checkbox-container">
-          <input type="checkbox" id="last90days" unchecked>
-          <label for="last90days">Last 90 Days</label>
+      
+        <!-- Row with the Analyze button and the styled checkbox -->
+        <div class="action-row">
+          <button type="submit">Analyze</button>
+          <!-- Custom Checkbox -->
+          <label class="custom-checkbox">
+            <input type="checkbox" id="last90days" checked>
+            <span class="checkbox-indicator"></span>
+            Last 90 Days
+          </label>
         </div>
       </form>
       <!-- Results container -->
