@@ -1,150 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="images/favicon.ico" type="image/x-icon">
-<title>Alt Text Rating</title>
-<script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="/css/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+  <title>Alt Text Rating</title>
+  <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-    <!-- Navigation -->
-    <div id="nav"></div>
+  <!-- Navigation -->
+  <div id="nav"></div>
 
-    <!-- Main Content -->
-    <main>
-        <div id="alt-text-rating-form">
-            <h1>Bluesky Alt Text Rating</h1>
-            <form class="search-bar" id="search-form">
-                <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required />
-                <button type="submit">Analyze</button>
-            </form>
-            <div class="results" id="results"></div>
-            
-            <script>
-                const PUBLIC_API_URL = "https://public.api.bsky.app";
-                const emojis = ["☹️", "😐", "🙂", "☺️"];
+  <!-- Main Content -->
+  <main>
+    <div id="alt-text-rating-form">
+      <h1>Bluesky Alt Text Rating</h1>
+      <form class="search-bar" id="search-form">
+        <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required />
+        <button type="submit">Analyze</button>
+      </form>
+      <div class="results" id="results"></div>
+      
+      <script>
+        const PUBLIC_API_URL = "https://public.api.bsky.app";
+        const emojis = ["☹️", "😐", "🙂", "☺️"];
+        // Define the minimum date (posts on or after this date will be counted)
+        const MIN_DATE = new Date("2022-11-16T00:00:00Z");
 
-                async function resolveHandleToDID(handle) {
-                    try {
-                        const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
-                        const data = await res.json();
-                        if (data.did) return data.did;
-                        throw new Error(`Unable to resolve DID for handle: ${handle}`);
-                    } catch (error) {
-                        console.error('Error resolving handle to DID:', error);
-                        throw error;
-                    }
-                }
+        async function resolveHandleToDID(handle) {
+          try {
+            const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+            const data = await res.json();
+            if (data.did) return data.did;
+            throw new Error(`Unable to resolve DID for handle: ${handle}`);
+          } catch (error) {
+            console.error('Error resolving handle to DID:', error);
+            throw error;
+          }
+        }
 
-                async function fetchServiceEndpoint(did) {
-                    try {
-                        const res = await fetch(`https://plc.directory/${did}`);
-                        const data = await res.json();
-                        if (data.service && data.service.length > 0) {
-                            const serviceEndpoint = data.service[0].serviceEndpoint;
-                            if (serviceEndpoint) return serviceEndpoint;
-                        }
-                        throw new Error(`Service endpoint not found for DID: ${did}`);
-                    } catch (error) {
-                        console.error('Error fetching service endpoint:', error);
-                        throw error;
-                    }
-                }
+        async function fetchServiceEndpoint(did) {
+          try {
+            const res = await fetch(`https://plc.directory/${did}`);
+            const data = await res.json();
+            if (data.service && data.service.length > 0) {
+              const serviceEndpoint = data.service[0].serviceEndpoint;
+              if (serviceEndpoint) return serviceEndpoint;
+            }
+            throw new Error(`Service endpoint not found for DID: ${did}`);
+          } catch (error) {
+            console.error('Error fetching service endpoint:', error);
+            throw error;
+          }
+        }
 
-                async function fetchRecordsForCollection(serviceEndpoint, did, collectionName) {
-                    let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collectionName)}&limit=100`;
-                    let records = [];
-                    let cursor = null;
+        async function fetchRecordsForCollection(serviceEndpoint, did, collectionName) {
+          let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collectionName)}&limit=100`;
+          let records = [];
+          let cursor = null;
 
-                    do {
-                        const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
-                        const res = await fetch(url);
-                        const data = await res.json();
+          do {
+            const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
+            const res = await fetch(url);
+            const data = await res.json();
 
-                        if (Array.isArray(data.records)) {
-                            records = records.concat(data.records);
-                        }
-                        cursor = data.cursor || null;
-                    } while (cursor);
+            if (Array.isArray(data.records)) {
+              records = records.concat(data.records);
+            }
+            cursor = data.cursor || null;
+          } while (cursor);
 
-                    return records;
-                }
+          return records;
+        }
 
-                function analyzePosts(records) {
-                    const postsWithImages = records.filter(
-                        rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
-                    );
-                    const postsWithAltText = postsWithImages.filter(rec =>
-                        rec.value.embed.images.some(img => img.alt && img.alt.trim())
-                    );
+        function analyzePosts(records) {
+          // First, filter out any posts prior to MIN_DATE
+          const filteredRecords = records.filter(rec => {
+            // Make sure createdAt exists and is a valid date
+            if (rec.value.createdAt) {
+              const postDate = new Date(rec.value.createdAt);
+              return postDate >= MIN_DATE;
+            }
+            return false;
+          });
 
-                    const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
-                    let emoji = emojis[0];
-                    if (altTextPercentage >= 75) {
-                        emoji = emojis[3];
-                    } else if (altTextPercentage >= 50) {
-                        emoji = emojis[2];
-                    } else if (altTextPercentage >= 25) {
-                        emoji = emojis[1];
-                    }
+          // Posts that include an image embed
+          const postsWithImages = filteredRecords.filter(
+            rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
+          );
+          
+          // Posts with image embed that include alt text on at least one image
+          const postsWithAltText = postsWithImages.filter(rec =>
+            rec.value.embed.images.some(img => img.alt && img.alt.trim())
+          );
 
-                    return {
-                        totalPosts: records.length,
-                        postsWithImages: postsWithImages.length,
-                        postsWithAltText: postsWithAltText.length,
-                        altTextPercentage: altTextPercentage,
-                        emoji: emoji,
-                    };
-                }
+          // Posts that are replies (have the 'reply' property) AND contain an image embed.
+          const imageReplies = filteredRecords.filter(rec =>
+            rec.value.embed && 
+            rec.value.embed["$type"] === "app.bsky.embed.images" &&
+            rec.value.reply
+          );
 
-                document.getElementById("search-form").addEventListener("submit", async (event) => {
-                    event.preventDefault();
+          const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
+          let emoji = emojis[0];
+          if (altTextPercentage >= 75) {
+            emoji = emojis[3];
+          } else if (altTextPercentage >= 50) {
+            emoji = emojis[2];
+          } else if (altTextPercentage >= 25) {
+            emoji = emojis[1];
+          }
 
-                    const username = document.getElementById("username").value.trim();
-                    const resultsDiv = document.getElementById("results");
-                    resultsDiv.textContent = "Loading...";
+          return {
+            totalPosts: filteredRecords.length,
+            postsWithImages: postsWithImages.length,
+            postsWithAltText: postsWithAltText.length,
+            imageReplies: imageReplies.length,
+            altTextPercentage: altTextPercentage,
+            emoji: emoji,
+          };
+        }
 
-                    try {
-                        // Step 1: Resolve DID
-                        const did = await resolveHandleToDID(username);
+        document.getElementById("search-form").addEventListener("submit", async (event) => {
+          event.preventDefault();
 
-                        // Step 2: Fetch service endpoint from PLC directory
-                        const serviceEndpoint = await fetchServiceEndpoint(did);
+          const username = document.getElementById("username").value.trim();
+          const resultsDiv = document.getElementById("results");
+          resultsDiv.textContent = "Loading...";
 
-                        // Step 3: Fetch records using the service endpoint
-                        const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+          try {
+            // Step 1: Resolve DID
+            const did = await resolveHandleToDID(username);
 
-                        // Step 4: Analyze posts
-                        const analysis = analyzePosts(records);
+            // Step 2: Fetch service endpoint from PLC directory
+            const serviceEndpoint = await fetchServiceEndpoint(did);
 
-                        // Step 5: Display results
-                        resultsDiv.innerHTML = `
-                          <p>${analysis.totalPosts} posts analyzed</p>
-                          <p>${analysis.postsWithImages} posts containing images</p>
-                          <p>${analysis.postsWithAltText} posts with alt text</p>
-                          <h2>Score: ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}</h2>
-                          <div class="resources">
-                              <h3>Learn more about alt text:</h3>
-                              <ul>
-                              <li><a href="https://bsky.app/settings/accessibility" target="_blank">Change your Bluesky alt text settings</a></li>
-                                  <li><a href="https://www.section508.gov/create/alternative-text/" target="_blank">Authoring Meaningful Alternative Text</a></li>
-                                  <li><a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">Write helpful Alt Text to describe images</a></li>
-                              </ul>
-                          </div>
-                        `;
-                    } catch (error) {
-                        resultsDiv.textContent = `Error: ${error.message}`;
-                    }
-                });
-            </script>
-        </div>
-    </main>
+            // Step 3: Fetch records using the service endpoint
+            const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
 
-    <!-- Footer -->
-    <div id="footer"></div>
+            // Step 4: Analyze posts (only including posts on or after 2022-11-16)
+            const analysis = analyzePosts(records);
 
-    <script src="js/main.js"></script>
+            // Step 5: Display results
+            resultsDiv.innerHTML = `
+              <p>${analysis.totalPosts} posts analyzed</p>
+              <p>${analysis.postsWithImages} posts containing images</p>
+              <p>${analysis.postsWithAltText} posts with alt text</p>
+              <p>${analysis.imageReplies} image reply posts</p>
+              <h2>Score: ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}</h2>
+              <div class="resources">
+                <h3>Learn more about alt text:</h3>
+                <ul>
+                  <li><a href="https://bsky.app/settings/accessibility" target="_blank">Change your Bluesky alt text settings</a></li>
+                  <li><a href="https://www.section508.gov/create/alternative-text/" target="_blank">Authoring Meaningful Alternative Text</a></li>
+                  <li><a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">Write helpful Alt Text to describe images</a></li>
+                </ul>
+              </div>
+              <div class="credblue">
+                <h3>Follow for more tools like this:</h3>
+                <ul>
+                  <li><a href="https://bsky.app/profile/cred.blue" target="_blank">@cred.blue</a></li>
+                </ul>
+              </div>
+            `;
+          } catch (error) {
+            resultsDiv.textContent = `Error: ${error.message}`;
+          }
+        });
+      </script>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <div id="footer"></div>
+
+  <script src="js/main.js"></script>
 </body>
 </html>
+
