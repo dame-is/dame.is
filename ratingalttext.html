@@ -8,6 +8,14 @@
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
+    /* Simple styling for card separation; adjust as needed */
+    .alt-card {
+      background: #fff;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
     /* Hide results div by default */
     #results {
       display: none;
@@ -40,7 +48,7 @@
         </ul>
       </div>
     </div>
-    
+
     <script>
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
@@ -140,12 +148,72 @@
         };
       }
 
+      // Generate an SVG half-pie chart with needle based on the alt text percentage.
+      function generatePieChart(percentage) {
+        // We'll create a half-circle chart (from 180° to 0°)
+        const width = 400, height = 250;
+        const cx = width / 2, cy = height; // center at bottom middle
+        const oR = 100; // outer radius
+        const total = 100;
+        
+        // Data segments: with alt text and without alt text.
+        const data = [
+          { name: 'With Alt', value: percentage, color: '#00ff00' },
+          { name: 'Without Alt', value: total - percentage, color: '#ff0000' }
+        ];
+        
+        // Helper function to convert polar coordinates to cartesian.
+        function polarToCartesian(cx, cy, r, angleDeg) {
+          const angleRad = (angleDeg - 90) * Math.PI / 180.0;
+          return {
+             x: cx + (r * Math.cos(angleRad)),
+             y: cy + (r * Math.sin(angleRad))
+          };
+        }
+        
+        // Helper function to describe an arc path in SVG.
+        function describeArc(cx, cy, radius, startAngle, endAngle) {
+          const start = polarToCartesian(cx, cy, radius, endAngle);
+          const end = polarToCartesian(cx, cy, radius, startAngle);
+          const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+          return [
+            "M", start.x, start.y, 
+            "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y
+          ].join(" ");
+        }
+        
+        // Build the paths for each segment.
+        let currentAngle = 180;
+        let paths = "";
+        data.forEach(segment => {
+          const segmentAngle = (segment.value / total) * 180;
+          const startAngle = currentAngle;
+          const endAngle = currentAngle - segmentAngle;
+          const arcPath = describeArc(cx, cy, oR, startAngle, endAngle);
+          const d = arcPath + " L " + cx + " " + cy + " Z";
+          paths += `<path d="${d}" fill="${segment.color}" stroke="none"></path>`;
+          currentAngle = endAngle;
+        });
+        
+        // Draw the needle. (Needle rotates along the half circle.)
+        const needleAngle = 180 - (percentage / 100) * 180;
+        const needleLength = oR; // can adjust if desired
+        const needleEnd = polarToCartesian(cx, cy, needleLength, needleAngle);
+        let needleSVG = `<line x1="${cx}" y1="${cy}" x2="${needleEnd.x}" y2="${needleEnd.y}" stroke="#000" stroke-width="3"></line>`;
+        needleSVG += `<circle cx="${cx}" cy="${cy}" r="5" fill="#000"></circle>`;
+        
+        return `<svg width="${width}" height="${height}">
+                  ${paths}
+                  ${needleSVG}
+                </svg>`;
+      }
+
       document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
 
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
-        // Make the results container visible immediately so that "Loading..." appears.
+        // Show the results container immediately so "Loading..." appears.
         resultsDiv.style.display = "block";
         resultsDiv.textContent = "Loading...";
 
@@ -167,13 +235,17 @@
             ? "No image posts detected! 🔍" 
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-          // Display analysis results in the results card
+          // Generate the pie chart SVG using the alt text percentage.
+          const pieChartSVG = generatePieChart(analysis.altTextPercentage);
+
+          // Display analysis results (and pie chart) in the results card
           resultsDiv.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
-            <p>${analysis.imageReplies} are replies</p>
-            <p>${analysis.postsWithAltText} posts have alt text</p>
+            <p>${analysis.imageReplies} are replies with images</p>
+            <p>${analysis.postsWithAltText} image posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
+            ${pieChartSVG}
             <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
         } catch (error) {
@@ -185,7 +257,6 @@
 
   <!-- Footer -->
   <div id="footer"></div>
-
   <script src="js/main.js"></script>
 </body>
 </html>
