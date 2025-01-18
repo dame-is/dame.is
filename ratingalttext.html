@@ -9,12 +9,16 @@
   <link rel="stylesheet" href="/css/styles.css">
   <style>
     /* Simple styling for card separation; adjust as needed */
-    .card {
+    .alt-card {
       background: #fff;
       padding: 1rem;
       margin: 1rem 0;
       border-radius: 4px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    /* Hide results div by default */
+    #results {
+      display: none;
     }
   </style>
 </head>
@@ -169,17 +173,19 @@
             ? "No image posts detected! 🔍" 
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-          // Display analysis results in the results card
+          // Display analysis results in the results card and make it visible
           resultsDiv.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
-            <p>${analysis.postsWithImages} posts contain images</p>
-            <p>${analysis.imageReplies} of them are replies</p>
+            <p>${analysis.postsWithImages} contain images</p>
+            <p>${analysis.imageReplies} are replies</p>
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
             <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
+          resultsDiv.style.display = "block";
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
+          resultsDiv.style.display = "block";
         }
       });
     </script>

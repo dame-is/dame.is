@@ -841,27 +841,17 @@ body.dark-mode .blog-post-excerpt {
     margin: auto;
     border-radius: 5px;
     margin-bottom: 20px;
+    padding-top: 30px;
+    padding-bottom: 30px;
 }
 
-body.dark-mode #alt-text-rating-form {
-    border-color: #444;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    text-align: center;
-    max-width: 95%; /* Ensure it fits within smaller screens */
-    margin: auto;   /* Center the form horizontally */
-    max-width: 95%;
-    margin: auto;
-    border-radius: 5px;
-}
-
-body.dark-mode #alt-text-rating-form {
+body.dark-mode .alt-card {
     border-color: #444;
 }
 
 #alt-text-rating-form h1 {
     text-align: center;
-    margin-bottom: 20px;
+    margin-top: 0px;
     font-size: 1.5em; /* Adjusted for better readability */
 }
 
@@ -879,7 +869,7 @@ body.dark-mode #alt-text-rating-form {
 
 .resources h3 {
     font-size: 1em;
-    margin-top: 20px;
+    margin-top: 0px;
 }
 
 .resources ul {
@@ -916,7 +906,6 @@ body.dark-mode #alt-text-rating-form {
     display: flex;
     flex-direction: column; /* Stack input and button on mobile */
     align-items: center;
-    margin: 20px 0;
 }
 
 .search-bar input {
