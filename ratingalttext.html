@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
   <title>Alt Text Rating</title>
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/styles.css">
   <style>
     /* Hide results div by default */
     #results {
@@ -16,17 +16,20 @@
     .gauge-container {
       margin: 20px auto;
       max-width: 400px;
-      /* Maintain a square aspect ratio */
       width: 100%;
+      /* Maintain aspect ratio */
       position: relative;
+      padding-bottom: 75%; /* 400x300 ratio */
     }
-    .gauge-svg {
+    .gauge-container svg {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
-      height: auto;
+      height: 100%;
     }
-    /* The needle is a separate element that we can rotate */
-    .needle {
-      transform-origin: 50% 100%;
+    /* Optional: Style for the needle for smoother transitions */
+    .needle-group {
       transition: transform 0.5s ease-out;
     }
   </style>
@@ -48,28 +51,28 @@
         <p id="textResults"></p>
         <!-- Gauge container -->
         <div class="gauge-container">
-          <!-- SVG gauge: viewBox is 0 0 400 200 so that the arc is drawn in the top half -->
-          <svg class="gauge-svg" viewBox="0 0 400 200">
-            <!-- Background arc (four quadrants) -->
-            <!-- We draw an arc using a path for the full half circle.
-                 For simplicity we split the half circle into four arcs.
-                 You can pre-compute the arcs or use one arc with gradient fill.
-                 Here we produce four arcs manually. -->
-            <!-- Quadrant 1: 0-25% (from 180° to 135°) -->
-            <path d="M50,200 A150,150 0 0,1 125,50 L200,200 Z" fill="#ff0000"></path>
-            <!-- Quadrant 2: 25-50% (from 135° to 90°) -->
-            <path d="M125,50 A150,150 0 0,1 200,20 L200,200 Z" fill="#ff9900"></path>
-            <!-- Quadrant 3: 50-75% (from 90° to 45°) -->
-            <path d="M200,20 A150,150 0 0,1 275,50 L200,200 Z" fill="#ffff66"></path>
-            <!-- Quadrant 4: 75-100% (from 45° to 0°) -->
-            <path d="M275,50 A150,150 0 0,1 350,200 L200,200 Z" fill="#00cc00"></path>
+          <!-- SVG gauge: viewBox is 0 0 400 300 for proper aspect ratio -->
+          <svg class="gauge-svg" viewBox="0 0 400 300">
+            <!-- Background quadrants -->
+            <!-- Quadrant 1: 0-25% (180° to 135°) -->
+            <path d="M100,200 A100,100 0 0,1 170.71,270.71 L200,200 Z" fill="#ff0000"></path>
+            <!-- Quadrant 2: 25-50% (135° to 90°) -->
+            <path d="M170.71,270.71 A100,100 0 0,1 200,300 L200,200 Z" fill="#ff9900"></path>
+            <!-- Quadrant 3: 50-75% (90° to 45°) -->
+            <path d="M200,300 A100,100 0 0,1 229.29,270.71 L200,200 Z" fill="#ffff66"></path>
+            <!-- Quadrant 4: 75-100% (45° to 0°) -->
+            <path d="M229.29,270.71 A100,100 0 0,1 300,200 L200,200 Z" fill="#00cc00"></path>
             <!-- Center circle (optional) -->
             <circle cx="200" cy="200" r="10" fill="#000"></circle>
-            <!-- Needle: a line drawn from the center of rotation (200,200) upward -->
-            <!-- We use a line element with class "needle" so that we can later rotate it -->
-            <line id="needle" class="needle" x1="200" y1="200" x2="200" y2="80" stroke="#000" stroke-width="4" />
+            <!-- Needle group for rotation -->
+            <g id="needle-group" class="needle-group" transform="rotate(180,200,200)">
+              <line id="needle" x1="200" y1="200" x2="200" y2="120" stroke="#000" stroke-width="4" />
+            </g>
           </svg>
         </div>
+        <p>
+          <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
+        </p>
       </div>
     </div>
     <!-- Extra info card (always visible) -->
@@ -85,11 +88,9 @@
     </div>
     
     <script>
-      // ----------------------------
-      // Analysis Functions (unchanged)
-      // ----------------------------
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
+      // Define the minimum date (posts on or after this date will be counted)
       const MIN_DATE = new Date("2022-11-16T00:00:00Z");
 
       async function resolveHandleToDID(handle) {
@@ -123,19 +124,23 @@
         let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collectionName)}&limit=100`;
         let records = [];
         let cursor = null;
+
         do {
           const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
           const res = await fetch(url);
           const data = await res.json();
+
           if (Array.isArray(data.records)) {
             records = records.concat(data.records);
           }
           cursor = data.cursor || null;
         } while (cursor);
+
         return records;
       }
 
       function analyzePosts(records) {
+        // First, filter out any posts prior to MIN_DATE
         const filteredRecords = records.filter(rec => {
           if (rec.value.createdAt) {
             const postDate = new Date(rec.value.createdAt);
@@ -143,17 +148,24 @@
           }
           return false;
         });
-        const postsWithImages = filteredRecords.filter(rec =>
-          rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
+
+        // Posts that include an image embed
+        const postsWithImages = filteredRecords.filter(
+          rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
         );
+        
+        // Posts with image embed that include alt text on at least one image
         const postsWithAltText = postsWithImages.filter(rec =>
           rec.value.embed.images.some(img => img.alt && img.alt.trim())
         );
+
+        // Posts that are replies (have the 'reply' property) AND contain an image embed.
         const imageReplies = filteredRecords.filter(rec =>
-          rec.value.embed &&
+          rec.value.embed && 
           rec.value.embed["$type"] === "app.bsky.embed.images" &&
           rec.value.reply
         );
+
         const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
         let emoji = emojis[0];
         if (altTextPercentage >= 75) {
@@ -163,6 +175,7 @@
         } else if (altTextPercentage >= 25) {
           emoji = emojis[1];
         }
+
         return {
           totalPosts: filteredRecords.length,
           postsWithImages: postsWithImages.length,
@@ -180,16 +193,15 @@
       // The gauge is drawn as a half‑circle (an arc) that spans 180°.
       // 0% => Needle rotated to the far left (180deg), 100% => Needle at far right (0deg).
       function updateGauge(percentage) {
-        // The needle is the line element with id="needle"
+        // Clamp percentage between 0 and 100
+        percentage = Math.max(0, Math.min(100, percentage));
         // Compute rotation angle in degrees:
         // Map 0% -> 180deg and 100% -> 0deg.
         const angleDeg = 180 - (percentage / 100) * 180;
-        // Set the transform on the needle (rotate about its bottom center, which we set in the SVG)
-        const needleEl = document.getElementById('needle');
-        needleEl.style.transform = `rotate(${angleDeg}deg)`;
+        // Set the transform on the needle group
+        const needleGroup = document.getElementById('needle-group');
+        needleGroup.setAttribute('transform', `rotate(${angleDeg},200,200)`);
       }
-
-      // Optionally, animate the needle (using CSS transition, see .needle style)
 
       // ----------------------------
       // Form Handler
@@ -200,23 +212,36 @@
         const resultsDiv = document.getElementById("results");
         const textResults = document.getElementById("textResults");
         resultsDiv.style.display = "block";
-        textResults.textContent = "Loading...";
+        resultsDiv.textContent = "Loading...";
+
         try {
+          // Step 1: Resolve DID
           const did = await resolveHandleToDID(username);
+
+          // Step 2: Fetch service endpoint from PLC directory
           const serviceEndpoint = await fetchServiceEndpoint(did);
+
+          // Step 3: Fetch records using the service endpoint
           const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+
+          // Step 4: Analyze posts (only including posts on or after 2022-11-16)
           const analysis = analyzePosts(records);
-          const scoreText = analysis.postsWithImages === 0
-            ? "No image posts detected! 🔍"
+
+          // Determine the score message depending on image post count
+          const scoreText = analysis.postsWithImages === 0 
+            ? "No image posts detected! 🔍" 
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+
+          // Display analysis results in the results card
           textResults.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
-            <p>${analysis.imageReplies} are replies</p>
+            <p>${analysis.imageReplies} image posts are replies</p>
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
           `;
-          // Update the gauge needle based on the alt text percentage.
+
+          // Update the gauge needle based on the alt text percentage
           updateGauge(analysis.altTextPercentage);
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
@@ -227,6 +252,7 @@
 
   <!-- Footer -->
   <div id="footer"></div>
+
   <script src="js/main.js"></script>
 </body>
 </html>
