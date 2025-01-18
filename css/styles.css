@@ -972,7 +972,7 @@ body.dark-mode .alt-card {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 15px;
+    gap: 28px;
 }
 
 /* Style for the Analyze button */
@@ -990,6 +990,15 @@ body.dark-mode .alt-card {
     background-color: #0056b3;
 }
 
+.custom-checkbox input[type="checkbox"]:checked:hover + .checkbox-indicator {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.custom-checkbox input[type="checkbox"]:hover + .checkbox-indicator {
+    background-color: #8fc5ff;
+}
+
 /* Custom Checkbox Styles */
 .custom-checkbox {
     display: inline-flex;
@@ -1004,8 +1013,8 @@ body.dark-mode .alt-card {
     appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    width: 20px;
-    height: 20px;
+    width: 15px;
+    height: 15px;
     margin: 0;
     border: 2px solid #007bff;
     border-radius: 4px;
@@ -1062,7 +1071,9 @@ body.dark-mode .alt-card {
 /* Instead, we use the indicator to toggle */
 .custom-checkbox {
     position: relative;
-    padding-left: 28px; /* space for the checkbox indicator */
+    padding-left: 33px; /* space for the checkbox indicator */
+    margin-bottom: 19px;
+    font-size: 1em;
 }
 
 /* Ensure the indicator sits in the correct position */
