@@ -18,20 +18,15 @@
       width: 100%;
       max-width: 400px;
       position: relative;
-      padding-bottom: 0; /* 300/400 = 0.75 */
-      /*! height: -117px; */
-      margin-top: 0px;
-      margin-bottom: 6px;
+      padding-bottom: 75%; /* 300/400 = 0.75 */
     }
     .gauge-container svg {
       position: relative;
       top: -13px;
       left: 0;
       width: 100%;
-      /*! height: 58%; */
       margin-top: -93px;
       overflow: hidden;
-      /*! bottom: -50%; */
     }
     /* Smooth transition for needle rotation */
     .needle-group {
@@ -185,58 +180,47 @@
         };
       }
 
-        // ----------------------------
-        // Needle Oscillation Settings and Animation
-        // ----------------------------
-        // Parameters you can adjust:
-        let oscillationInterval = 35;   // milliseconds between updates
-        let needleIncrement = 1;        // baseline percentage change per tick
-        let oscillationMin = 10;         // minimum percentage (e.g., 5%)
-        let oscillationMax = 90;        // maximum percentage (e.g., 95%)
-
-        // New parameters:
-        let bounceFactor = 2;           // maximum bounce overshoot in percentage points
-        let randomVariation = 0.5;      // random variation (in percentage points) per tick
-
-        let currentOscillation = oscillationMin;
-        let oscillationDirection = 1;   // 1 for increasing, -1 for decreasing
-        let needleAnimInterval = null;
-
-        function startNeedleAnimation() {
+      // ----------------------------
+      // Needle Oscillation Settings and Animation
+      // ----------------------------
+      // These parameters can be adjusted to change the animation's naturalness.
+      let oscillationInterval = 25;       // Interval between updates in ms
+      let baseNeedleIncrement = 2;          // Base percentage change per tick
+      let oscillationMin = 10;             // Base minimum percentage during oscillation
+      let oscillationMax = 90;            // Base maximum percentage during oscillation
+      let bounceRange = 10;                // Maximum random bounce (in percentage points) at boundaries
+      
+      let currentOscillation = oscillationMin;
+      let oscillationDirection = 1;       // 1 means increasing, -1 means decreasing
+      let needleAnimInterval = null;
+      
+      function startNeedleAnimation() {
         currentOscillation = oscillationMin;
         oscillationDirection = 1;
         needleAnimInterval = setInterval(() => {
-            // Calculate a random variation between -randomVariation and +randomVariation
-            const variation = (Math.random() * 2 - 1) * randomVariation;
-            // Increase currentOscillation by the base increment, modified by the variation
-            currentOscillation += oscillationDirection * (needleIncrement + variation);
-            
-            // Apply bounce effect: if we reach or exceed endpoints, overshoot slightly by bounceFactor
-            if (currentOscillation >= oscillationMax) {
-            currentOscillation = oscillationMax + bounceFactor;
+          // Random factor to introduce irregularity (between 0.8 and 1.2)
+          let randomFactor = 0.8 + Math.random() * 0.4;
+          let increment = baseNeedleIncrement * randomFactor;
+          currentOscillation += oscillationDirection * increment;
+          // Bounce effect: at boundaries, add random offset within bounceRange
+          if (currentOscillation >= oscillationMax) {
+            currentOscillation = oscillationMax - (Math.random() * bounceRange);
             oscillationDirection = -1;
-            } else if (currentOscillation <= oscillationMin) {
-            currentOscillation = oscillationMin - bounceFactor;
+          } else if (currentOscillation <= oscillationMin) {
+            currentOscillation = oscillationMin + (Math.random() * bounceRange);
             oscillationDirection = 1;
-            }
-            // Clamp currentOscillation loosely (allowing a slight overshoot bounce)
-            if (currentOscillation > oscillationMax + bounceFactor) {
-            currentOscillation = oscillationMax + bounceFactor;
-            }
-            if (currentOscillation < oscillationMin - bounceFactor) {
-            currentOscillation = oscillationMin - bounceFactor;
-            }
-            updateGauge(currentOscillation);
+          }
+          updateGauge(currentOscillation);
         }, oscillationInterval);
-        }
-
-        function stopNeedleAnimation() {
+      }
+      
+      function stopNeedleAnimation() {
         if (needleAnimInterval !== null) {
-            clearInterval(needleAnimInterval);
-            needleAnimInterval = null;
+          clearInterval(needleAnimInterval);
+          needleAnimInterval = null;
         }
-        }
-
+      }
+      
       // ----------------------------
       // Custom SVG Gauge Update Function (Needle Only)
       // ----------------------------
@@ -253,42 +237,49 @@
           console.error("Needle group element not found.");
         }
       }
+      
+        // Helper function: returns the appropriate singular or plural string
+        function pluralize(count, singular, plural) {
+        return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
+        }
 
-      // ----------------------------
-      // Form Handler
-      // ----------------------------
-      document.getElementById("search-form").addEventListener("submit", async (event) => {
+        // ----------------------------
+        // Form Handler
+        // ----------------------------
+        document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
         const textResults = document.getElementById("textResults");
         resultsDiv.style.display = "block";
         textResults.textContent = "Loading...";
-        // Start oscillating needle while loading
+        // Start the needle oscillation while loading
         startNeedleAnimation();
         try {
-          const did = await resolveHandleToDID(username);
-          const serviceEndpoint = await fetchServiceEndpoint(did);
-          const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
-          const analysis = analyzePosts(records);
-          const scoreText = analysis.postsWithImages === 0
+            const did = await resolveHandleToDID(username);
+            const serviceEndpoint = await fetchServiceEndpoint(did);
+            const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+            const analysis = analyzePosts(records);
+            const scoreText = analysis.postsWithImages === 0
             ? "No image posts detected! 🔍"
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
-          textResults.innerHTML = `
-            <p>${analysis.totalPosts} posts analyzed</p>
-            <p>${analysis.postsWithImages} contain images</p>
-            <p>${analysis.imageReplies} are replies</p>
-            <p>${analysis.postsWithAltText} posts have alt text</p>
+
+            // Use pluralize helper to render correct phrases
+            textResults.innerHTML = `
+            <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
+            <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
+            <p>${pluralize(analysis.imageReplies, "is a reply", "are replies")}</p>
+            <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
             <h2>Score: ${scoreText}</h2>
-          `;
-          // Stop the oscillation and set needle to final position
-          stopNeedleAnimation();
-          updateGauge(analysis.altTextPercentage);
+            `;
+            // Stop the oscillation and update the needle to the final position
+            stopNeedleAnimation();
+            updateGauge(analysis.altTextPercentage);
         } catch (error) {
-          stopNeedleAnimation();
-          resultsDiv.textContent = `Error: ${error.message}`;
+            stopNeedleAnimation();
+            resultsDiv.textContent = `Error: ${error.message}`;
         }
-      });
+        });
     </script>
   </main>
 
