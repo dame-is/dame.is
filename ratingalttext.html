@@ -19,7 +19,8 @@
   <!-- Load React, ReactDOM, and Recharts from CDNs -->
   <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
+  <!-- Use JSDelivr for Recharts -->
+  <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.min.js"></script>
 </head>
 <body>
   <!-- Navigation -->
@@ -275,7 +276,7 @@
               ? "No image posts detected! 🔍"
               : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-          // Update results text
+          // Update results text and include a container for the chart.
           resultsDiv.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
