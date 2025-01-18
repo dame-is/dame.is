@@ -16,11 +16,11 @@
       display: none;
     }
   </style>
-  <!-- Load React, ReactDOM, and Recharts from CDNs -->
+  <!-- Load React and ReactDOM (v17) from CDNs -->
   <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-  <!-- Use JSDelivr for Recharts -->
-  <script src="https://cdn.jsdelivr.net/npm/recharts/umd/Recharts.min.js"></script>
+  <!-- Use a specific version of Recharts that’s known to work (e.g., 2.1.9) -->
+  <script src="https://cdn.jsdelivr.net/npm/recharts@2.1.9/umd/Recharts.min.js"></script>
 </head>
 <body>
   <!-- Navigation -->
@@ -74,7 +74,7 @@
     </div>
 
     <script>
-      // For convenience, alias React and ReactDOM from the UMD globals.
+      // Alias React and ReactDOM from the UMD globals.
       const { useState, useEffect } = React;
       const {
         PieChart,
@@ -83,7 +83,6 @@
       } = Recharts;
 
       // Define our React component that renders a PieChart with a needle.
-      // This component uses the percentage prop (0-100) to generate data.
       function PieChartWithNeedle({ percentage }) {
         // Define total and computed segments.
         const total = 100;
@@ -100,15 +99,12 @@
         const iR = 50;
         const oR = 100;
 
-        // The needle: compute angle based on percentage.
-        const totalAngle = 180; // half-pie spanning 180 deg
+        // Compute needle parameters.
         const needleAngle = 180 - (percentage / total) * 180; // 0% -> 180deg, 100% -> 0deg
         const radian = Math.PI / 180;
         const needleLength = (iR + oR) / 2 + 10; // adjust length as needed
         const sin = Math.sin(-needleAngle * radian);
         const cos = Math.cos(-needleAngle * radian);
-
-        // Calculate the needle endpoint.
         const needleX = cx + needleLength * cos;
         const needleY = cy + needleLength * sin;
 
@@ -130,7 +126,6 @@
                 React.createElement(Cell, { key: `cell-${index}`, fill: entry.color })
               )
             ),
-            // Render the needle as an SVG line and a circle at the pivot
             React.createElement("line", {
               x1: cx,
               y1: cy,
@@ -149,7 +144,7 @@
         );
       }
 
-      // Your existing non-React code for analysis
+      // Non-React code for data analysis.
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
       const MIN_DATE = new Date("2022-11-16T00:00:00Z");
@@ -203,7 +198,6 @@
       }
 
       function analyzePosts(records) {
-        // Filter out posts prior to MIN_DATE.
         const filteredRecords = records.filter((rec) => {
           if (rec.value.createdAt) {
             const postDate = new Date(rec.value.createdAt);
@@ -211,22 +205,16 @@
           }
           return false;
         });
-
-        // Posts with image embeds.
         const postsWithImages = filteredRecords.filter(
           (rec) =>
             rec.value.embed &&
             rec.value.embed["$type"] === "app.bsky.embed.images"
         );
-
-        // Posts with alt text.
         const postsWithAltText = postsWithImages.filter((rec) =>
           rec.value.embed.images.some(
             (img) => img.alt && img.alt.trim()
           )
         );
-
-        // Posts that are replies.
         const imageReplies = filteredRecords.filter((rec) =>
           rec.value.embed &&
           rec.value.embed["$type"] === "app.bsky.embed.images" &&
@@ -254,7 +242,6 @@
         };
       }
 
-      // When the form is submitted, perform the analysis and render the chart.
       document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = document.getElementById("username").value.trim();
@@ -276,7 +263,6 @@
               ? "No image posts detected! 🔍"
               : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-          // Update results text and include a container for the chart.
           resultsDiv.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
@@ -287,7 +273,6 @@
             <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
 
-          // Render the Recharts PieChartWithNeedle component into the chart container.
           ReactDOM.render(
             React.createElement(PieChartWithNeedle, { percentage: analysis.altTextPercentage }),
             document.getElementById("chart")
