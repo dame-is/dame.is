@@ -1,35 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
   <title>Alt Text Rating</title>
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/styles.css">
   <style>
     /* Hide results div by default */
     #results {
       display: none;
     }
-    /* Responsive container for the gauge using aspect ratio */
-    .gauge-container {
-      position: relative;
-      width: 100%;
-      /* For example, a 2:1 aspect ratio; adjust padding-bottom to change */
-      padding-bottom: 50%;
-      margin: 20px 0;
-    }
-    .gauge-container canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100% !important;
-      height: 100% !important;
-    }
   </style>
-  <!-- Load Chart.js from CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <!-- Navigation -->
@@ -43,50 +26,25 @@
         <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required />
         <button type="submit">Analyze</button>
       </form>
-      <!-- Results container -->
-      <div class="results" id="results">
-        <p id="textResults"></p>
-        <!-- Responsive gauge container -->
-        <div class="gauge-container">
-          <canvas id="gaugeChart"></canvas>
-        </div>
-        <p>
-          <a href="https://bsky.app/profile/cred.blue" target="_blank">
-            Discover more tools: @cred.blue
-          </a>
-        </p>
-      </div>
+      <!-- This card will hold the analysis results -->
+      <div class="results" id="results"></div>
     </div>
-    <!-- Extra info card (always visible) -->
+    <!-- Extra info card always visible -->
     <div id="extra-info" class="alt-card">
       <div class="resources">
         <h3>Learn more about alt text:</h3>
         <ul>
-          <li>
-            <a href="https://bsky.app/settings/accessibility" target="_blank">
-              Change your Bluesky alt text settings
-            </a>
-          </li>
-          <li>
-            <a href="https://www.section508.gov/create/alternative-text/" target="_blank">
-              Authoring Meaningful Alternative Text
-            </a>
-          </li>
-          <li>
-            <a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">
-              Write helpful Alt Text to describe images
-            </a>
-          </li>
+          <li><a href="https://bsky.app/settings/accessibility" target="_blank">Change your Bluesky alt text settings</a></li>
+          <li><a href="https://www.section508.gov/create/alternative-text/" target="_blank">Authoring Meaningful Alternative Text</a></li>
+          <li><a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">Write helpful Alt Text to describe images</a></li>
         </ul>
       </div>
     </div>
     
     <script>
-      // ----------------------------
-      // Analysis Functions (unchanged)
-      // ----------------------------
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
+      // Define the minimum date (posts on or after this date will be counted)
       const MIN_DATE = new Date("2022-11-16T00:00:00Z");
 
       async function resolveHandleToDID(handle) {
@@ -96,7 +54,7 @@
           if (data.did) return data.did;
           throw new Error(`Unable to resolve DID for handle: ${handle}`);
         } catch (error) {
-          console.error("Error resolving handle to DID:", error);
+          console.error('Error resolving handle to DID:', error);
           throw error;
         }
       }
@@ -111,7 +69,7 @@
           }
           throw new Error(`Service endpoint not found for DID: ${did}`);
         } catch (error) {
-          console.error("Error fetching service endpoint:", error);
+          console.error('Error fetching service endpoint:', error);
           throw error;
         }
       }
@@ -120,19 +78,23 @@
         let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collectionName)}&limit=100`;
         let records = [];
         let cursor = null;
+
         do {
           const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
           const res = await fetch(url);
           const data = await res.json();
+
           if (Array.isArray(data.records)) {
             records = records.concat(data.records);
           }
           cursor = data.cursor || null;
         } while (cursor);
+
         return records;
       }
 
       function analyzePosts(records) {
+        // First, filter out any posts prior to MIN_DATE
         const filteredRecords = records.filter(rec => {
           if (rec.value.createdAt) {
             const postDate = new Date(rec.value.createdAt);
@@ -140,17 +102,24 @@
           }
           return false;
         });
-        const postsWithImages = filteredRecords.filter(rec =>
-          rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
+
+        // Posts that include an image embed
+        const postsWithImages = filteredRecords.filter(
+          rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
         );
+        
+        // Posts with image embed that include alt text on at least one image
         const postsWithAltText = postsWithImages.filter(rec =>
           rec.value.embed.images.some(img => img.alt && img.alt.trim())
         );
+
+        // Posts that are replies (have the 'reply' property) AND contain an image embed.
         const imageReplies = filteredRecords.filter(rec =>
-          rec.value.embed &&
+          rec.value.embed && 
           rec.value.embed["$type"] === "app.bsky.embed.images" &&
           rec.value.reply
         );
+
         const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
         let emoji = emojis[0];
         if (altTextPercentage >= 75) {
@@ -160,6 +129,7 @@
         } else if (altTextPercentage >= 25) {
           emoji = emojis[1];
         }
+
         return {
           totalPosts: filteredRecords.length,
           postsWithImages: postsWithImages.length,
@@ -170,109 +140,42 @@
         };
       }
 
-      // ----------------------------
-      // Chart.js Gauge (with four quadrants, responsive)
-      // ----------------------------
-      function renderGauge(score) {
-        const ctx = document.getElementById('gaugeChart').getContext('2d');
-        // Destroy any existing chart instance
-        if (window.gaugeChartInstance) {
-          window.gaugeChartInstance.destroy();
-        }
-        // Four quadrants (each 25%) will be displayed regardless of score.
-        const gaugeData = [25, 25, 25, 25];
-        // Colors for each quadrant (adjust as desired)
-        const quadrantColors = ['#ff0000', '#ff9900', '#ffff66', '#00cc00'];
-
-        window.gaugeChartInstance = new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            datasets: [{
-              data: gaugeData,
-              backgroundColor: quadrantColors,
-              borderWidth: 0,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            rotation: Math.PI,        // Start at 180° (left edge)
-            circumference: Math.PI,     // Draw half a circle (180° span)
-            cutout: '60%',              // Thickness of the gauge ring
-            plugins: {
-              legend: { display: false },
-              tooltip: { enabled: false }
-            },
-            animation: {
-              animateRotate: true,
-              animateScale: true
-            },
-            // Custom plugin to draw the needle
-            plugins: [{
-              id: 'needle',
-              afterDraw: function(chart) {
-                const ctx = chart.ctx;
-                const cw = chart.width;
-                const ch = chart.height;
-                // For a responsive canvas we compute the pivot as the bottom center of the gauge
-                const cx = cw / 2;
-                const cy = ch; // pivot at the bottom edge
-                // Map score (0 to 100) to an angle between Math.PI (left) and 0 (right)
-                const angle = Math.PI - (score / 100) * Math.PI;
-                // Use half the canvas width as a reference for needle length
-                const needleLength = cw / 2 * 0.9;
-                // Calculate the needle endpoint relative to pivot (cx, cy)
-                const x = cx + needleLength * Math.cos(angle);
-                const y = cy + needleLength * Math.sin(angle);
-                ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(cx, cy);
-                ctx.lineTo(x, y);
-                ctx.lineWidth = 4;
-                ctx.strokeStyle = "#000";
-                ctx.stroke();
-                // Draw the pivot circle
-                ctx.beginPath();
-                ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
-                ctx.fillStyle = "#000";
-                ctx.fill();
-                ctx.restore();
-              }
-            }]
-          }
-        });
-      }
-
-      // ----------------------------
-      // Form Handler
-      // ----------------------------
       document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
+
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
-        const textResults = document.getElementById("textResults");
+        // Make the results container visible immediately so that "Loading..." appears.
         resultsDiv.style.display = "block";
-        textResults.textContent = "Loading...";
+        resultsDiv.textContent = "Loading...";
+
         try {
+          // Step 1: Resolve DID
           const did = await resolveHandleToDID(username);
+
+          // Step 2: Fetch service endpoint from PLC directory
           const serviceEndpoint = await fetchServiceEndpoint(did);
+
+          // Step 3: Fetch records using the service endpoint
           const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+
+          // Step 4: Analyze posts (only including posts on or after 2022-11-16)
           const analysis = analyzePosts(records);
-          const scoreText = analysis.postsWithImages === 0
-            ? "No image posts detected! 🔍"
+
+          // Determine the score message depending on image post count
+          const scoreText = analysis.postsWithImages === 0 
+            ? "No image posts detected! 🔍" 
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
-          
-          textResults.innerHTML = `
+
+          // Display analysis results in the results card
+          resultsDiv.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
-            <p>${analysis.imageReplies} are replies</p>
+            <p>${analysis.imageReplies} image posts are replies</p>
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
-            <div id="chart"></div>
             <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
-          // Render the gauge using the computed percentage score
-          renderGauge(analysis.altTextPercentage);
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
         }
@@ -282,6 +185,7 @@
 
   <!-- Footer -->
   <div id="footer"></div>
+
   <script src="js/main.js"></script>
 </body>
 </html>
