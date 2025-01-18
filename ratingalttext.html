@@ -45,6 +45,7 @@
   <main>
     <div id="alt-text-rating-form" class="alt-card">
       <h1>Bluesky Alt Text Rating</h1>
+      <p>How consistently do you use alt text?</p>
       <form class="search-bar" id="search-form">
         <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required>
         <button type="submit">Analyze</button>
@@ -258,7 +259,7 @@
           textResults.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
-            <p>${analysis.imageReplies} image posts are replies</p>
+            <p>${analysis.imageReplies} are replies</p>
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
           `;
