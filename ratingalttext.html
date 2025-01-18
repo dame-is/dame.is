@@ -310,7 +310,10 @@
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
         const textResults = document.getElementById("textResults");
+        // Show the results area (which will display either results or error)
         resultsDiv.style.display = "block";
+        // Ensure the gauge container is visible on a successful run
+        document.querySelector('.gauge-container').style.display = "block";
         textResults.textContent = "Loading...";
         // Start needle oscillation while loading
         startNeedleAnimation();
@@ -338,19 +341,21 @@
             stopNeedleAnimation();
             updateGauge(analysis.altTextPercentage);
         } catch (error) {
-            // Stop any ongoing needle animation
+            // Stop the needle oscillation and reset the gauge
             stopNeedleAnimation();
-            // Reset the gauge to its starting position
             updateGauge(oscillationMin);
-            // Clear stored records (if desired)
+            // Clear stored records
             allRecords = [];
-            // Display the error message in the results area.
+            // Hide the gauge container on error so it does not appear
+            document.querySelector('.gauge-container').style.display = "none";
+            // Display the error message (with red text) in the results area
             textResults.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-            // Optionally, you can set focus back to the username input
+            // Set focus back to the username input so the user can try again
             document.getElementById("username").focus();
         }
         });
 
+        
       // ----------------------------
       // Listen for checkbox state changes
       // ----------------------------
