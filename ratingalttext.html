@@ -179,15 +179,39 @@
       }
 
       // ----------------------------
-      // Custom SVG Gauge Update Function
+      // Needle Animation While Loading
       // ----------------------------
+      let needleAnimInterval = null;
+      function startNeedleAnimation() {
+        let progress = 0;
+        let direction = 1;  // 1 for increasing, -1 for decreasing
+        needleAnimInterval = setInterval(() => {
+          progress += direction * 2; // Adjust the speed as desired
+          if (progress >= 100) {
+            progress = 100;
+            direction = -1;
+          } else if (progress <= 0) {
+            progress = 0;
+            direction = 1;
+          }
+          updateGauge(progress);
+        }, 50);
+      }
+      function stopNeedleAnimation() {
+        if (needleAnimInterval) {
+          clearInterval(needleAnimInterval);
+          needleAnimInterval = null;
+        }
+      }
+
+      // ----------------------------
+      // Custom SVG Gauge Update Function (Needle Only)
+      // ----------------------------
+      // Mapping:
+      // 0% → 0° (needle points fully left)
+      // 100% → 180° (needle points fully right)
       function updateGauge(percentage) {
-        // Clamp percentage between 0 and 100
         percentage = Math.max(0, Math.min(100, percentage));
-        // For our gauge:
-        // - When score=0, needle should point left (i.e. 0° rotation).
-        // - When score=100, needle should point right (i.e. 180° rotation).
-        // Therefore, calculate:
         const angleDeg = (percentage / 100) * 180;
         const needleGroup = document.getElementById('needle-group');
         if (needleGroup) {
@@ -207,6 +231,8 @@
         const textResults = document.getElementById("textResults");
         resultsDiv.style.display = "block";
         textResults.textContent = "Loading...";
+        // Start needle oscillation while loading
+        startNeedleAnimation();
         try {
           const did = await resolveHandleToDID(username);
           const serviceEndpoint = await fetchServiceEndpoint(did);
@@ -222,9 +248,11 @@
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
           `;
-          // Update the gauge needle based on analysis score
+          // Stop the loading animation and update to final position
+          stopNeedleAnimation();
           updateGauge(analysis.altTextPercentage);
         } catch (error) {
+          stopNeedleAnimation();
           resultsDiv.textContent = `Error: ${error.message}`;
         }
       });
