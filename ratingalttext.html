@@ -2,21 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="images/favicon.ico" type="image/x-icon">
   <title>Alt Text Rating</title>
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
+    /* Hide results until needed */
     #results {
       display: none;
     }
+    /* Responsive container for the gauge */
     .gauge-container {
       margin: 20px auto;
-      max-width: 400px;
       width: 100%;
+      max-width: 400px;
+      /* Use aspect ratio trick for 400x300 viewBox */
       position: relative;
-      padding-bottom: 75%; /* for a 400x300 aspect ratio */
+      padding-bottom: 75%; /* 300/400 = 0.75 */
     }
     .gauge-container svg {
       position: absolute;
@@ -25,6 +28,7 @@
       width: 100%;
       height: 100%;
     }
+    /* The needle group will transition smoothly */
     .needle-group {
       transition: transform 0.5s ease-out;
     }
@@ -42,28 +46,39 @@
         <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required>
         <button type="submit">Analyze</button>
       </form>
+      <!-- Results container -->
       <div class="results" id="results">
         <p id="textResults"></p>
-        <!-- Keep the SVG gauge static so it doesn't get overwritten -->
+        <!-- Responsive gauge container -->
         <div class="gauge-container">
+          <!-- SVG gauge with viewBox="0 0 400 300" -->
           <svg class="gauge-svg" viewBox="0 0 400 300">
-            <!-- Background quadrants -->
-            <path d="M100,200 A100,100 0 0,1 170.71,270.71 L200,200 Z" fill="#ff0000"></path>
-            <path d="M170.71,270.71 A100,100 0 0,1 200,300 L200,200 Z" fill="#ff9900"></path>
-            <path d="M200,300 A100,100 0 0,1 229.29,270.71 L200,200 Z" fill="#ffff66"></path>
-            <path d="M229.29,270.71 A100,100 0 0,1 300,200 L200,200 Z" fill="#00cc00"></path>
-            <!-- Center Circle -->
-            <circle cx="200" cy="200" r="10" fill="#000"></circle>
-            <!-- Needle group: initial rotation 180° (left) -->
-            <g id="needle-group" class="needle-group" transform="rotate(180,200,200)">
-              <line id="needle" x1="200" y1="200" x2="200" y2="120" stroke="#000" stroke-width="4" />
+            <!-- Draw the gauge as a perfect half circle using four quadrants -->
+            <!-- Quadrant 1: from 180° to 135° -->
+            <path d="M50,300 A150,150 0 0,1 93.93,193.93 L200,300 Z" fill="#ff0000"></path>
+            <!-- Quadrant 2: from 135° to 90° -->
+            <path d="M93.93,193.93 A150,150 0 0,1 200,150 L200,300 Z" fill="#ff9900"></path>
+            <!-- Quadrant 3: from 90° to 45° -->
+            <path d="M200,150 A150,150 0 0,1 306.07,193.93 L200,300 Z" fill="#ffff66"></path>
+            <!-- Quadrant 4: from 45° to 0° -->
+            <path d="M306.07,193.93 A150,150 0 0,1 350,300 L200,300 Z" fill="#00cc00"></path>
+            <!-- Optional center circle -->
+            <circle cx="200" cy="300" r="10" fill="#000"></circle>
+            <!-- Needle group: initially rotate 180°, so needle points fully left -->
+            <g id="needle-group" class="needle-group" transform="rotate(180,200,300)">
+              <!-- The needle as a line from pivot (200,300) upward to (200,180) -->
+              <line id="needle" x1="200" y1="300" x2="200" y2="180" stroke="#000" stroke-width="4"/>
             </g>
           </svg>
         </div>
-        <p><a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a></p>
+        <p>
+          <a href="https://bsky.app/profile/cred.blue" target="_blank">
+            Discover more tools: @cred.blue
+          </a>
+        </p>
       </div>
     </div>
-    <!-- Extra info card always visible -->
+    <!-- Extra info card (always visible) -->
     <div id="extra-info" class="alt-card">
       <div class="resources">
         <h3>Learn more about alt text:</h3>
@@ -165,17 +180,17 @@
       }
 
       // ----------------------------
-      // Custom SVG Gauge Functions
+      // Custom SVG Gauge Update Function
       // ----------------------------
       function updateGauge(percentage) {
-        // Clamp percentage between 0 and 100
+        // Ensure percentage is between 0 and 100
         percentage = Math.max(0, Math.min(100, percentage));
-        // Compute rotation angle in degrees:
-        // 0% maps to 180deg (pointing left), 100% maps to 0deg (pointing right)
+        // Map 0% to 180° and 100% to 0°
         const angleDeg = 180 - (percentage / 100) * 180;
+        // Get the needle group element and update its transform
         const needleGroup = document.getElementById('needle-group');
         if (needleGroup) {
-          needleGroup.setAttribute('transform', `rotate(${angleDeg},200,200)`);
+          needleGroup.setAttribute('transform', `rotate(${angleDeg},200,300)`);
         } else {
           console.error("Needle group element not found.");
         }
@@ -206,7 +221,7 @@
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
           `;
-          // Update the custom SVG gauge needle based on altTextPercentage
+          // Update the custom gauge needle based on analysis score
           updateGauge(analysis.altTextPercentage);
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
