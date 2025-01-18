@@ -222,11 +222,11 @@
       // Needle Oscillation Settings and Animation
       // ----------------------------
       // These parameters can be adjusted to change the animation's naturalness.
-      let oscillationInterval = 25;       // Interval between updates in ms
-      let baseNeedleIncrement = 2;          // Base percentage change per tick
-      let oscillationMin = 5;             // Base minimum percentage during oscillation
+      let oscillationInterval = 10;       // Interval between updates in ms
+      let baseNeedleIncrement = 1;          // Base percentage change per tick
+      let oscillationMin = 15;             // Base minimum percentage during oscillation
       let oscillationMax = 95;            // Base maximum percentage during oscillation
-      let bounceRange = 15;                // Maximum random bounce (in percentage points) at boundaries
+      let bounceRange = 30;                // Maximum random bounce (in percentage points) at boundaries
       
       let currentOscillation = oscillationMin;
       let oscillationDirection = 1;       // 1 means increasing, -1 means decreasing
@@ -302,10 +302,10 @@
         updateGauge(analysis.altTextPercentage);
       }
 
-      // ----------------------------
-      // Form Handler
-      // ----------------------------
-      document.getElementById("search-form").addEventListener("submit", async (event) => {
+        // ----------------------------
+        // Form Handler
+        // ----------------------------
+        document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
@@ -316,32 +316,40 @@
         startNeedleAnimation();
 
         try {
-          const did = await resolveHandleToDID(username);
-          const serviceEndpoint = await fetchServiceEndpoint(did);
-          allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
-          
-          // Check if the "Last 90 Days" checkbox is checked
-          const useLast90Days = document.getElementById("last90days").checked;
-          const analysis = analyzePosts(allRecords, useLast90Days);
-          const scoreText = analysis.postsWithImages === 0
+            const did = await resolveHandleToDID(username);
+            const serviceEndpoint = await fetchServiceEndpoint(did);
+            allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+
+            // Check if the "Last 90 Days" checkbox is checked
+            const useLast90Days = document.getElementById("last90days").checked;
+            const analysis = analyzePosts(allRecords, useLast90Days);
+            const scoreText = analysis.postsWithImages === 0
             ? "No image posts detected! 🔍"
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-          textResults.innerHTML = `
+            textResults.innerHTML = `
             <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
             <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
             <p>${pluralize(analysis.imageReplies, "is a reply", "are replies")}</p>
             <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
             <h2>Score: ${scoreText}</h2>
-          `;
+            `;
 
-          stopNeedleAnimation();
-          updateGauge(analysis.altTextPercentage);
+            stopNeedleAnimation();
+            updateGauge(analysis.altTextPercentage);
         } catch (error) {
-          stopNeedleAnimation();
-          resultsDiv.textContent = `Error: ${error.message}`;
+            // Stop any ongoing needle animation
+            stopNeedleAnimation();
+            // Reset the gauge to its starting position
+            updateGauge(oscillationMin);
+            // Clear stored records (if desired)
+            allRecords = [];
+            // Display the error message in the results area.
+            textResults.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+            // Optionally, you can set focus back to the username input
+            document.getElementById("username").focus();
         }
-      });
+        });
 
       // ----------------------------
       // Listen for checkbox state changes
