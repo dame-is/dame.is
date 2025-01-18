@@ -124,7 +124,7 @@
           const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
           const data = await res.json();
           if (data.did) return data.did;
-          throw new Error(`Unable to resolve DID for handle: ${handle}`);
+          throw new Error(`Invalid username, please try again!`);
         } catch (error) {
           console.error("Error resolving handle to DID:", error);
           throw error;
@@ -355,7 +355,7 @@
         }
         });
 
-        
+
       // ----------------------------
       // Listen for checkbox state changes
       // ----------------------------
