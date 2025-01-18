@@ -8,18 +8,16 @@
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <style>
-    /* Hide results until needed */
     #results {
       display: none;
     }
-    /* Responsive container for the gauge */
+    /* Responsive container: using an aspect ratio of 400x350 */
     .gauge-container {
       margin: 20px auto;
       width: 100%;
       max-width: 400px;
-      /* Use aspect ratio trick for 400x300 viewBox */
       position: relative;
-      padding-bottom: 75%; /* 300/400 = 0.75 */
+      padding-bottom: 87.5%; /* 350/400 = 0.875 */
     }
     .gauge-container svg {
       position: absolute;
@@ -28,7 +26,7 @@
       width: 100%;
       height: 100%;
     }
-    /* The needle group will transition smoothly */
+    /* Smooth animation for needle rotation */
     .needle-group {
       transition: transform 0.5s ease-out;
     }
@@ -51,24 +49,25 @@
         <p id="textResults"></p>
         <!-- Responsive gauge container -->
         <div class="gauge-container">
-          <!-- SVG gauge with viewBox="0 0 400 300" -->
-          <svg class="gauge-svg" viewBox="0 0 400 300">
-            <!-- Draw the gauge as a perfect half circle using four quadrants -->
-            <!-- Quadrant 1: from 180° to 135° -->
-            <path d="M50,300 A150,150 0 0,1 93.93,193.93 L200,300 Z" fill="#ff0000"></path>
-            <!-- Quadrant 2: from 135° to 90° -->
-            <path d="M93.93,193.93 A150,150 0 0,1 200,150 L200,300 Z" fill="#ff9900"></path>
-            <!-- Quadrant 3: from 90° to 45° -->
-            <path d="M200,150 A150,150 0 0,1 306.07,193.93 L200,300 Z" fill="#ffff66"></path>
-            <!-- Quadrant 4: from 45° to 0° -->
-            <path d="M306.07,193.93 A150,150 0 0,1 350,300 L200,300 Z" fill="#00cc00"></path>
-            <!-- Optional center circle -->
-            <circle cx="200" cy="300" r="10" fill="#000"></circle>
-            <!-- Needle group: initially rotate 180°, so needle points fully left -->
-            <g id="needle-group" class="needle-group" transform="rotate(180,200,300)">
-              <!-- The needle as a line from pivot (200,300) upward to (200,180) -->
-              <line id="needle" x1="200" y1="300" x2="200" y2="180" stroke="#000" stroke-width="4"/>
+          <!-- SVG gauge drawn as a perfect half-circle -->
+          <!-- The arc is based on a circle with center (200,300) and radius ~156.25 -->
+          <!-- Endpoints: left (≈43.75,300), right (≈356.25,300), top at (200,100) -->
+          <svg class="gauge-svg" viewBox="0 0 400 350">
+            <!-- Draw the gauge arc -->
+            <path id="gauge-arc"
+              d="M43.75,300 A156.25,156.25 0 0,1 356.25,300"
+              fill="none" stroke="#ddd" stroke-width="20"/>
+            <!-- (Optional) You could overlay colored quadrants here. -->
+
+            <!-- Needle group: default transform is rotate(0,200,300) so the needle points left -->
+            <g id="needle-group" class="needle-group" transform="rotate(0,200,300)">
+              <!-- Draw the needle as a line from pivot (200,300) to the left endpoint (43.75,300) -->
+              <line id="needle"
+                x1="200" y1="300" x2="43.75" y2="300"
+                stroke="#000" stroke-width="4"/>
             </g>
+            <!-- Pivot circle -->
+            <circle cx="200" cy="300" r="8" fill="#000"/>
           </svg>
         </div>
         <p>
@@ -183,11 +182,11 @@
       // Custom SVG Gauge Update Function
       // ----------------------------
       function updateGauge(percentage) {
-        // Ensure percentage is between 0 and 100
+        // Clamp percentage between 0 and 100
         percentage = Math.max(0, Math.min(100, percentage));
-        // Map 0% to 180° and 100% to 0°
-        const angleDeg = 180 - (percentage / 100) * 180;
-        // Get the needle group element and update its transform
+        // Compute rotation angle in degrees:
+        // 0% -> 0° (needle points left) and 100% -> 180° (needle points right).
+        const angleDeg = (percentage / 100) * 180;
         const needleGroup = document.getElementById('needle-group');
         if (needleGroup) {
           needleGroup.setAttribute('transform', `rotate(${angleDeg},200,300)`);
@@ -221,7 +220,6 @@
             <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
           `;
-          // Update the custom gauge needle based on analysis score
           updateGauge(analysis.altTextPercentage);
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
