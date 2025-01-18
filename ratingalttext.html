@@ -5,22 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
   <title>Alt Text Rating</title>
-  <!-- Load FontAwesome if needed -->
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
-  <!-- Load CSS -->
   <link rel="stylesheet" href="/css/styles.css" />
-  <!-- Inline styles -->
   <style>
-    /* Hide results div by default */
     #results {
       display: none;
     }
   </style>
-  <!-- Load React and ReactDOM (v17) from CDNs -->
-  <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-  <!-- Use a specific version of Recharts that’s known to work (e.g., 2.1.9) -->
-  <script src="https://cdn.jsdelivr.net/npm/recharts@2.1.9/umd/Recharts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <!-- Navigation -->
@@ -31,129 +23,52 @@
     <div id="alt-text-rating-form" class="alt-card">
       <h1>Bluesky Alt Text Rating</h1>
       <form class="search-bar" id="search-form">
-        <input
-          type="text"
-          id="username"
-          placeholder="(e.g., dame.bsky.social)"
-          required
-        />
+        <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required />
         <button type="submit">Analyze</button>
       </form>
-      <!-- Analysis results container -->
+      <!-- Results container -->
       <div class="results" id="results">
-        <!-- Chart container where we mount our Recharts component -->
-        <div id="chart"></div>
+        <p id="textResults"></p>
+        <!-- Canvas element for the gauge -->
+        <canvas id="gaugeChart" width="400" height="200"></canvas>
+        <p>
+          <a href="https://bsky.app/profile/cred.blue" target="_blank">
+            Discover more tools: @cred.blue</a>
+        </p>
       </div>
     </div>
-    <!-- Extra info card always visible -->
+    <!-- Extra info card (always visible) -->
     <div id="extra-info" class="alt-card">
       <div class="resources">
         <h3>Learn more about alt text:</h3>
         <ul>
           <li>
-            <a href="https://bsky.app/settings/accessibility" target="_blank"
-              >Change your Bluesky alt text settings</a
-            >
+            <a href="https://bsky.app/settings/accessibility" target="_blank">
+              Change your Bluesky alt text settings
+            </a>
           </li>
           <li>
-            <a
-              href="https://www.section508.gov/create/alternative-text/"
-              target="_blank"
-              >Authoring Meaningful Alternative Text</a
-            >
+            <a href="https://www.section508.gov/create/alternative-text/" target="_blank">
+              Authoring Meaningful Alternative Text
+            </a>
           </li>
           <li>
-            <a
-              href="https://accessibility.huit.harvard.edu/describe-content-images"
-              target="_blank"
-              >Write helpful Alt Text to describe images</a
-            >
+            <a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">
+              Write helpful Alt Text to describe images
+            </a>
           </li>
         </ul>
       </div>
     </div>
-
+    
     <script>
-      // Alias React and ReactDOM from the UMD globals.
-      const { useState, useEffect } = React;
-      const {
-        PieChart,
-        Pie,
-        Cell,
-      } = Recharts;
-
-      // Define our React component that renders a PieChart with a needle.
-      function PieChartWithNeedle({ percentage }) {
-        // Define total and computed segments.
-        const total = 100;
-        const data = [
-          { name: "With Alt", value: percentage, color: "#00ff00" },
-          { name: "Without Alt", value: total - percentage, color: "#ff0000" },
-        ];
-
-        // Define chart dimensions and radii.
-        const width = 400,
-          height = 400;
-        const cx = width / 2;
-        const cy = height / 2 + 50; // move center lower to simulate half pie
-        const iR = 50;
-        const oR = 100;
-
-        // Compute needle parameters.
-        const needleAngle = 180 - (percentage / total) * 180; // 0% -> 180deg, 100% -> 0deg
-        const radian = Math.PI / 180;
-        const needleLength = (iR + oR) / 2 + 10; // adjust length as needed
-        const sin = Math.sin(-needleAngle * radian);
-        const cos = Math.cos(-needleAngle * radian);
-        const needleX = cx + needleLength * cos;
-        const needleY = cy + needleLength * sin;
-
-        return (
-          React.createElement(PieChart, { width, height },
-            React.createElement(Pie, {
-                dataKey: "value",
-                startAngle: 180,
-                endAngle: 0,
-                data: data,
-                cx: cx,
-                cy: cy,
-                innerRadius: iR,
-                outerRadius: oR,
-                fill: "#8884d8",
-                stroke: "none"
-              },
-              data.map((entry, index) =>
-                React.createElement(Cell, { key: `cell-${index}`, fill: entry.color })
-              )
-            ),
-            React.createElement("line", {
-              x1: cx,
-              y1: cy,
-              x2: needleX,
-              y2: needleY,
-              stroke: "#000",
-              strokeWidth: 3
-            }),
-            React.createElement("circle", {
-              cx: cx,
-              cy: cy,
-              r: 5,
-              fill: "#000"
-            })
-          )
-        );
-      }
-
-      // Non-React code for data analysis.
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
       const MIN_DATE = new Date("2022-11-16T00:00:00Z");
 
       async function resolveHandleToDID(handle) {
         try {
-          const res = await fetch(
-            `${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
-          );
+          const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
           const data = await res.json();
           if (data.did) return data.did;
           throw new Error(`Unable to resolve DID for handle: ${handle}`);
@@ -187,7 +102,6 @@
           const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
           const res = await fetch(url);
           const data = await res.json();
-
           if (Array.isArray(data.records)) {
             records = records.concat(data.records);
           }
@@ -198,31 +112,26 @@
       }
 
       function analyzePosts(records) {
-        const filteredRecords = records.filter((rec) => {
+        const filteredRecords = records.filter(rec => {
           if (rec.value.createdAt) {
             const postDate = new Date(rec.value.createdAt);
             return postDate >= MIN_DATE;
           }
           return false;
         });
-        const postsWithImages = filteredRecords.filter(
-          (rec) =>
-            rec.value.embed &&
-            rec.value.embed["$type"] === "app.bsky.embed.images"
+        const postsWithImages = filteredRecords.filter(rec =>
+          rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
         );
-        const postsWithAltText = postsWithImages.filter((rec) =>
-          rec.value.embed.images.some(
-            (img) => img.alt && img.alt.trim()
-          )
+        const postsWithAltText = postsWithImages.filter(rec =>
+          rec.value.embed.images.some(img => img.alt && img.alt.trim())
         );
-        const imageReplies = filteredRecords.filter((rec) =>
+        const imageReplies = filteredRecords.filter(rec =>
           rec.value.embed &&
           rec.value.embed["$type"] === "app.bsky.embed.images" &&
           rec.value.reply
         );
 
-        const altTextPercentage =
-          (postsWithAltText.length / postsWithImages.length) * 100 || 0;
+        const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
         let emoji = emojis[0];
         if (altTextPercentage >= 75) {
           emoji = emojis[3];
@@ -242,41 +151,102 @@
         };
       }
 
+      // Function to render the gauge using Chart.js
+      function renderGauge(percentage) {
+        // Get the canvas context
+        const ctx = document.getElementById('gaugeChart').getContext('2d');
+        // Remove any existing chart instance (if needed)
+        if (window.gaugeChartInstance) {
+          window.gaugeChartInstance.destroy();
+        }
+        // Create the gauge chart
+        window.gaugeChartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            datasets: [{
+              data: [percentage, 100 - percentage],
+              backgroundColor: ['#00ff00', '#ff0000'],
+              borderWidth: 0,
+            }]
+          },
+          options: {
+            rotation: Math.PI,           // start angle (180° = left)
+            circumference: Math.PI,        // draw only half of the circle
+            cutout: '60%',                 // doughnut thickness
+            plugins: {
+              legend: { display: false },
+              tooltip: { enabled: false }
+            },
+            animation: {
+              animateRotate: true,
+              animateScale: true
+            },
+            // Custom plugin to draw the needle
+            plugins: [{
+              id: 'needle',
+              afterDraw: function(chart, easing) {
+                const ctx = chart.ctx;
+                const cw = chart.width;
+                const ch = chart.height;
+                const needleValue = percentage;
+                const dataTotal = chart.config.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                // Calculate the angle for the needle (in radians)
+                const angle = Math.PI + (needleValue / dataTotal) * Math.PI;
+                const cx = cw / 2;
+                const cy = ch - 10;  // shift bottom a bit
+                const r = Math.min(cx, cy);
+                // Calculate needle endpoint
+                const needleLength = r * 0.8;
+                const x = cx + needleLength * Math.cos(angle);
+                const y = cy + needleLength * Math.sin(angle);
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(angle);
+                ctx.beginPath();
+                ctx.moveTo(0, -2);
+                ctx.lineTo(needleLength, 0);
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = "#000";
+                ctx.stroke();
+                ctx.restore();
+                // Draw the needle knob
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.fillStyle = "#000";
+                ctx.fill();
+              }
+            }]
+          }
+        });
+      }
+
       document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
+        const textResults = document.getElementById("textResults");
         resultsDiv.style.display = "block";
-        resultsDiv.textContent = "Loading...";
+        textResults.textContent = "Loading...";
 
         try {
           const did = await resolveHandleToDID(username);
           const serviceEndpoint = await fetchServiceEndpoint(did);
-          const records = await fetchRecordsForCollection(
-            serviceEndpoint,
-            did,
-            "app.bsky.feed.post"
-          );
+          const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
           const analysis = analyzePosts(records);
-          const scoreText =
-            analysis.postsWithImages === 0
-              ? "No image posts detected! 🔍"
-              : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
-
-          resultsDiv.innerHTML = `
-            <p>${analysis.totalPosts} posts analyzed</p>
-            <p>${analysis.postsWithImages} contain images</p>
-            <p>${analysis.imageReplies} are replies</p>
-            <p>${analysis.postsWithAltText} posts have alt text</p>
-            <h2>Score: ${scoreText}</h2>
-            <div id="chart"></div>
-            <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
+          const scoreText = analysis.postsWithImages === 0
+            ? "No image posts detected! 🔍"
+            : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+          
+          // Update text results
+          textResults.innerHTML = `
+            ${analysis.totalPosts} posts analyzed<br>
+            ${analysis.postsWithImages} contain images<br>
+            ${analysis.imageReplies} are replies<br>
+            ${analysis.postsWithAltText} posts have alt text<br>
+            <strong>Score: ${scoreText}</strong>
           `;
-
-          ReactDOM.render(
-            React.createElement(PieChartWithNeedle, { percentage: analysis.altTextPercentage }),
-            document.getElementById("chart")
-          );
+          // Render the gauge chart based on the alt text percentage
+          renderGauge(analysis.altTextPercentage);
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
         }
