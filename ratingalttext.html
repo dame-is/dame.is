@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
   <title>Alt Text Rating</title>
+  <!-- Load FontAwesome if needed -->
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/css/styles.css">
+  <!-- Load CSS -->
+  <link rel="stylesheet" href="/css/styles.css" />
+  <!-- Inline styles -->
   <style>
-    /* Simple styling for card separation; adjust as needed */
-    .alt-card {
-      background: #fff;
-      padding: 1rem;
-      margin: 1rem 0;
-      border-radius: 4px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
     /* Hide results div by default */
     #results {
       display: none;
     }
   </style>
+  <!-- Load React, ReactDOM, and Recharts from CDNs -->
+  <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
 </head>
 <body>
   <!-- Navigation -->
@@ -31,38 +30,139 @@
     <div id="alt-text-rating-form" class="alt-card">
       <h1>Bluesky Alt Text Rating</h1>
       <form class="search-bar" id="search-form">
-        <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required />
+        <input
+          type="text"
+          id="username"
+          placeholder="(e.g., dame.bsky.social)"
+          required
+        />
         <button type="submit">Analyze</button>
       </form>
-      <!-- This card will hold the analysis results -->
-      <div class="results" id="results"></div>
+      <!-- Analysis results container -->
+      <div class="results" id="results">
+        <!-- Chart container where we mount our Recharts component -->
+        <div id="chart"></div>
+      </div>
     </div>
     <!-- Extra info card always visible -->
     <div id="extra-info" class="alt-card">
       <div class="resources">
         <h3>Learn more about alt text:</h3>
         <ul>
-          <li><a href="https://bsky.app/settings/accessibility" target="_blank">Change your Bluesky alt text settings</a></li>
-          <li><a href="https://www.section508.gov/create/alternative-text/" target="_blank">Authoring Meaningful Alternative Text</a></li>
-          <li><a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">Write helpful Alt Text to describe images</a></li>
+          <li>
+            <a href="https://bsky.app/settings/accessibility" target="_blank"
+              >Change your Bluesky alt text settings</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://www.section508.gov/create/alternative-text/"
+              target="_blank"
+              >Authoring Meaningful Alternative Text</a
+            >
+          </li>
+          <li>
+            <a
+              href="https://accessibility.huit.harvard.edu/describe-content-images"
+              target="_blank"
+              >Write helpful Alt Text to describe images</a
+            >
+          </li>
         </ul>
       </div>
     </div>
 
     <script>
+      // For convenience, alias React and ReactDOM from the UMD globals.
+      const { useState, useEffect } = React;
+      const {
+        PieChart,
+        Pie,
+        Cell,
+      } = Recharts;
+
+      // Define our React component that renders a PieChart with a needle.
+      // This component uses the percentage prop (0-100) to generate data.
+      function PieChartWithNeedle({ percentage }) {
+        // Define total and computed segments.
+        const total = 100;
+        const data = [
+          { name: "With Alt", value: percentage, color: "#00ff00" },
+          { name: "Without Alt", value: total - percentage, color: "#ff0000" },
+        ];
+
+        // Define chart dimensions and radii.
+        const width = 400,
+          height = 400;
+        const cx = width / 2;
+        const cy = height / 2 + 50; // move center lower to simulate half pie
+        const iR = 50;
+        const oR = 100;
+
+        // The needle: compute angle based on percentage.
+        const totalAngle = 180; // half-pie spanning 180 deg
+        const needleAngle = 180 - (percentage / total) * 180; // 0% -> 180deg, 100% -> 0deg
+        const radian = Math.PI / 180;
+        const needleLength = (iR + oR) / 2 + 10; // adjust length as needed
+        const sin = Math.sin(-needleAngle * radian);
+        const cos = Math.cos(-needleAngle * radian);
+
+        // Calculate the needle endpoint.
+        const needleX = cx + needleLength * cos;
+        const needleY = cy + needleLength * sin;
+
+        return (
+          React.createElement(PieChart, { width, height },
+            React.createElement(Pie, {
+                dataKey: "value",
+                startAngle: 180,
+                endAngle: 0,
+                data: data,
+                cx: cx,
+                cy: cy,
+                innerRadius: iR,
+                outerRadius: oR,
+                fill: "#8884d8",
+                stroke: "none"
+              },
+              data.map((entry, index) =>
+                React.createElement(Cell, { key: `cell-${index}`, fill: entry.color })
+              )
+            ),
+            // Render the needle as an SVG line and a circle at the pivot
+            React.createElement("line", {
+              x1: cx,
+              y1: cy,
+              x2: needleX,
+              y2: needleY,
+              stroke: "#000",
+              strokeWidth: 3
+            }),
+            React.createElement("circle", {
+              cx: cx,
+              cy: cy,
+              r: 5,
+              fill: "#000"
+            })
+          )
+        );
+      }
+
+      // Your existing non-React code for analysis
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
-      // Define the minimum date (posts on or after this date will be counted)
       const MIN_DATE = new Date("2022-11-16T00:00:00Z");
 
       async function resolveHandleToDID(handle) {
         try {
-          const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+          const res = await fetch(
+            `${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+          );
           const data = await res.json();
           if (data.did) return data.did;
           throw new Error(`Unable to resolve DID for handle: ${handle}`);
         } catch (error) {
-          console.error('Error resolving handle to DID:', error);
+          console.error("Error resolving handle to DID:", error);
           throw error;
         }
       }
@@ -77,7 +177,7 @@
           }
           throw new Error(`Service endpoint not found for DID: ${did}`);
         } catch (error) {
-          console.error('Error fetching service endpoint:', error);
+          console.error("Error fetching service endpoint:", error);
           throw error;
         }
       }
@@ -102,8 +202,8 @@
       }
 
       function analyzePosts(records) {
-        // First, filter out any posts prior to MIN_DATE
-        const filteredRecords = records.filter(rec => {
+        // Filter out posts prior to MIN_DATE.
+        const filteredRecords = records.filter((rec) => {
           if (rec.value.createdAt) {
             const postDate = new Date(rec.value.createdAt);
             return postDate >= MIN_DATE;
@@ -111,24 +211,29 @@
           return false;
         });
 
-        // Posts that include an image embed
+        // Posts with image embeds.
         const postsWithImages = filteredRecords.filter(
-          rec => rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
-        );
-        
-        // Posts with image embed that include alt text on at least one image
-        const postsWithAltText = postsWithImages.filter(rec =>
-          rec.value.embed.images.some(img => img.alt && img.alt.trim())
+          (rec) =>
+            rec.value.embed &&
+            rec.value.embed["$type"] === "app.bsky.embed.images"
         );
 
-        // Posts that are replies (have the 'reply' property) AND contain an image embed.
-        const imageReplies = filteredRecords.filter(rec =>
-          rec.value.embed && 
+        // Posts with alt text.
+        const postsWithAltText = postsWithImages.filter((rec) =>
+          rec.value.embed.images.some(
+            (img) => img.alt && img.alt.trim()
+          )
+        );
+
+        // Posts that are replies.
+        const imageReplies = filteredRecords.filter((rec) =>
+          rec.value.embed &&
           rec.value.embed["$type"] === "app.bsky.embed.images" &&
           rec.value.reply
         );
 
-        const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
+        const altTextPercentage =
+          (postsWithAltText.length / postsWithImages.length) * 100 || 0;
         let emoji = emojis[0];
         if (altTextPercentage >= 75) {
           emoji = emojis[3];
@@ -148,106 +253,44 @@
         };
       }
 
-      // Generate an SVG half-pie chart with needle based on the alt text percentage.
-      function generatePieChart(percentage) {
-        // We'll create a half-circle chart (from 180° to 0°)
-        const width = 400, height = 250;
-        const cx = width / 2, cy = height; // center at bottom middle
-        const oR = 100; // outer radius
-        const total = 100;
-        
-        // Data segments: with alt text and without alt text.
-        const data = [
-          { name: 'With Alt', value: percentage, color: '#00ff00' },
-          { name: 'Without Alt', value: total - percentage, color: '#ff0000' }
-        ];
-        
-        // Helper function to convert polar coordinates to cartesian.
-        function polarToCartesian(cx, cy, r, angleDeg) {
-          const angleRad = (angleDeg - 90) * Math.PI / 180.0;
-          return {
-             x: cx + (r * Math.cos(angleRad)),
-             y: cy + (r * Math.sin(angleRad))
-          };
-        }
-        
-        // Helper function to describe an arc path in SVG.
-        function describeArc(cx, cy, radius, startAngle, endAngle) {
-          const start = polarToCartesian(cx, cy, radius, endAngle);
-          const end = polarToCartesian(cx, cy, radius, startAngle);
-          const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-          return [
-            "M", start.x, start.y, 
-            "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y
-          ].join(" ");
-        }
-        
-        // Build the paths for each segment.
-        let currentAngle = 180;
-        let paths = "";
-        data.forEach(segment => {
-          const segmentAngle = (segment.value / total) * 180;
-          const startAngle = currentAngle;
-          const endAngle = currentAngle - segmentAngle;
-          const arcPath = describeArc(cx, cy, oR, startAngle, endAngle);
-          const d = arcPath + " L " + cx + " " + cy + " Z";
-          paths += `<path d="${d}" fill="${segment.color}" stroke="none"></path>`;
-          currentAngle = endAngle;
-        });
-        
-        // Draw the needle. (Needle rotates along the half circle.)
-        const needleAngle = 180 - (percentage / 100) * 180;
-        const needleLength = oR; // can adjust if desired
-        const needleEnd = polarToCartesian(cx, cy, needleLength, needleAngle);
-        let needleSVG = `<line x1="${cx}" y1="${cy}" x2="${needleEnd.x}" y2="${needleEnd.y}" stroke="#000" stroke-width="3"></line>`;
-        needleSVG += `<circle cx="${cx}" cy="${cy}" r="5" fill="#000"></circle>`;
-        
-        return `<svg width="${width}" height="${height}">
-                  ${paths}
-                  ${needleSVG}
-                </svg>`;
-      }
-
+      // When the form is submitted, perform the analysis and render the chart.
       document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
-
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
-        // Show the results container immediately so "Loading..." appears.
         resultsDiv.style.display = "block";
         resultsDiv.textContent = "Loading...";
 
         try {
-          // Step 1: Resolve DID
           const did = await resolveHandleToDID(username);
-
-          // Step 2: Fetch service endpoint from PLC directory
           const serviceEndpoint = await fetchServiceEndpoint(did);
-
-          // Step 3: Fetch records using the service endpoint
-          const records = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
-
-          // Step 4: Analyze posts (only including posts on or after 2022-11-16)
+          const records = await fetchRecordsForCollection(
+            serviceEndpoint,
+            did,
+            "app.bsky.feed.post"
+          );
           const analysis = analyzePosts(records);
+          const scoreText =
+            analysis.postsWithImages === 0
+              ? "No image posts detected! 🔍"
+              : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-          // Determine the score message depending on image post count
-          const scoreText = analysis.postsWithImages === 0 
-            ? "No image posts detected! 🔍" 
-            : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
-
-          // Generate the pie chart SVG using the alt text percentage.
-          const pieChartSVG = generatePieChart(analysis.altTextPercentage);
-
-          // Display analysis results (and pie chart) in the results card
+          // Update results text
           resultsDiv.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
-            <p>${analysis.imageReplies} are replies with images</p>
-            <p>${analysis.postsWithAltText} image posts have alt text</p>
+            <p>${analysis.imageReplies} are replies</p>
+            <p>${analysis.postsWithAltText} posts have alt text</p>
             <h2>Score: ${scoreText}</h2>
-            ${pieChartSVG}
+            <div id="chart"></div>
             <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
+
+          // Render the Recharts PieChartWithNeedle component into the chart container.
+          ReactDOM.render(
+            React.createElement(PieChartWithNeedle, { percentage: analysis.altTextPercentage }),
+            document.getElementById("chart")
+          );
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
         }
