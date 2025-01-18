@@ -8,15 +8,17 @@
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/css/styles.css" />
   <style>
+    /* Hide results div by default */
     #results {
       display: none;
     }
-    /* Force the gauge canvas to be square and centered */
+    /* Force the gauge canvas to use fixed dimensions */
     #gaugeChart {
       display: block;
       margin: 20px auto;
-      width: 366px !important;
-      height: 366px !important;
+      width: 400px !important;
+      height: 200px !important;
+      background: #fff;
     }
   </style>
   <!-- Load Chart.js from CDN -->
@@ -38,7 +40,7 @@
       <div class="results" id="results">
         <p id="textResults"></p>
         <!-- Canvas element for the gauge -->
-        <canvas id="gaugeChart"></canvas>
+        <canvas id="gaugeChart" width="400" height="200"></canvas>
         <p>
           <a href="https://bsky.app/profile/cred.blue" target="_blank">
             Discover more tools: @cred.blue
@@ -140,7 +142,6 @@
           rec.value.embed["$type"] === "app.bsky.embed.images" &&
           rec.value.reply
         );
-
         const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
         let emoji = emojis[0];
         if (altTextPercentage >= 75) {
@@ -166,13 +167,13 @@
       function renderGauge(score) {
         // Get the canvas context
         const ctx = document.getElementById('gaugeChart').getContext('2d');
-        // Destroy any existing chart instance if present
+        // Destroy any previous chart instance if present
         if (window.gaugeChartInstance) {
           window.gaugeChartInstance.destroy();
         }
-        // Define four quadrants, each representing 25%
+        // Define four quadrants, each representing 25% of the scale
         const gaugeData = [25, 25, 25, 25];
-        // Colors for the quadrants (modify as desired)
+        // Colors for the quadrants (adjust as desired)
         const quadrantColors = ['#ff0000', '#ff9900', '#ffff66', '#00cc00'];
 
         window.gaugeChartInstance = new Chart(ctx, {
@@ -187,16 +188,17 @@
           options: {
             responsive: false,
             maintainAspectRatio: false,
-            rotation: Math.PI,        // Start at 180° (left)
-            circumference: Math.PI,     // Draw half a circle (180° span)
-            cutout: '60%',              // Thickness of the doughnut
+            // We want a half-doughnut drawn above the canvas bottom:
+            rotation: Math.PI,        // Start at 180° (left edge)
+            circumference: Math.PI,     // Span 180°
+            cutout: '60%',              // Adjust thickness as desired
             plugins: {
               legend: { display: false },
               tooltip: { enabled: false }
             },
             layout: {
               padding: {
-                bottom: 20 // extra padding if needed
+                bottom: 0, top: 0, left: 0, right: 0
               }
             },
             animation: {
@@ -206,20 +208,18 @@
             // Custom plugin to draw the needle
             plugins: [{
               id: 'needle',
-              afterDraw: function(chart, easing) {
+              afterDraw: function(chart) {
                 const ctx = chart.ctx;
                 const cw = chart.width;
                 const ch = chart.height;
+                // Pivot position at bottom center of canvas:
+                const cx = cw / 2;
+                const cy = ch;
                 // Map score (0-100) to an angle between Math.PI (left) and 0 (right)
                 const angle = Math.PI - (score / 100) * Math.PI;
-                // For a half-doughnut drawn with rotation: Math.PI, the arc's center
-                // is at (cw/2, ch/2). We'll use that as the needle's pivot.
-                const cx = cw / 2;
-                const cy = ch / 2;
-                // Use the smaller of half the canvas width or height as reference for length
-                const r = Math.min(cx, cy);
-                const needleLength = r * 0.9;
-                // Calculate the needle endpoint
+                // Use cx as the gauge radius (since the arc is drawn in the top half of the canvas)
+                const needleLength = cx * 0.9; // 90% of half the canvas width
+                // Compute needle endpoint relative to bottom center pivot
                 const x = cx + needleLength * Math.cos(angle);
                 const y = cy + needleLength * Math.sin(angle);
                 ctx.save();
@@ -230,9 +230,9 @@
                 ctx.lineWidth = 4;
                 ctx.strokeStyle = "#000";
                 ctx.stroke();
-                // Draw the needle pivot as a circle
+                // Draw a pivot circle
                 ctx.beginPath();
-                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
                 ctx.fillStyle = "#000";
                 ctx.fill();
                 ctx.restore();
@@ -262,7 +262,6 @@
             ? "No image posts detected! 🔍"
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
           
-          // Update text results with analysis details
           textResults.innerHTML = `
             <p>${analysis.totalPosts} posts analyzed</p>
             <p>${analysis.postsWithImages} contain images</p>
@@ -272,7 +271,7 @@
             <div id="chart"></div>
             <a href="https://bsky.app/profile/cred.blue" target="_blank">Discover more tools: @cred.blue</a>
           `;
-          // Render the gauge based on the alt text percentage (score)
+          // Render gauge using the computed alt text percentage
           renderGauge(analysis.altTextPercentage);
         } catch (error) {
           resultsDiv.textContent = `Error: ${error.message}`;
