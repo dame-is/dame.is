@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
   <title>Alt Text Rating</title>
   <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/styles.css" />
   <style>
     /* Hide results until needed */
     #results {
@@ -32,7 +32,7 @@
     }
     /* Smooth transition for needle rotation */
     .needle-group {
-      transition: transform 0.5s ease-out;
+      transition: transform 0.2s linear;
     }
     /* Style for the checkbox and label */
     .checkbox-container {
@@ -56,9 +56,9 @@
       <p>How consistently do you use alt text?</p>
       <form class="search-bar" id="search-form">
         <!-- The search input -->
-        <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required>
-      
-        <!-- Row with the Analyze button and the styled checkbox -->
+        <input type="text" id="username" placeholder="(e.g., dame.bsky.social)" required />
+
+        <!-- Row with the Analyze button -->
         <div class="action-row">
           <button type="submit">Analyze</button>
         </div>
@@ -71,24 +71,24 @@
           <!-- SVG gauge with viewBox="0 0 400 300" -->
           <svg class="gauge-svg" viewBox="0 0 400 300">
             <!-- Quadrants for the gauge -->
-            <path d="M50,300 A150,150 0 0,1 93.93,193.93 L200,300 Z" fill="#ff0000"></path>
-            <path d="M93.93,193.93 A150,150 0 0,1 200,150 L200,300 Z" fill="#ff9900"></path>
-            <path d="M200,150 A150,150 0 0,1 306.07,193.93 L200,300 Z" fill="#ffff66"></path>
-            <path d="M306.07,193.93 A150,150 0 0,1 350,300 L200,300 Z" fill="#00cc00"></path>
+            <path d="M50,300 A150,150 0 0,1 93.93,193.93 L200,300 Z" fill="#ff0000" />
+            <path d="M93.93,193.93 A150,150 0 0,1 200,150 L200,300 Z" fill="#ff9900" />
+            <path d="M200,150 A150,150 0 0,1 306.07,193.93 L200,300 Z" fill="#ffff66" />
+            <path d="M306.07,193.93 A150,150 0 0,1 350,300 L200,300 Z" fill="#00cc00" />
             <!-- Center pivot circle -->
-            <circle cx="200" cy="300" r="10" fill="#000"></circle>
+            <circle cx="200" cy="300" r="10" fill="#000" />
             <!-- Needle group with pivot at (200,300) -->
             <g id="needle-group" class="needle-group" transform="rotate(0,200,300)">
               <!-- Needle from (200,300) to (50,300) -->
-              <line id="needle" x1="200" y1="300" x2="50" y2="300" stroke="#000" stroke-width="7"/>
+              <line id="needle" x1="200" y1="300" x2="50" y2="300" stroke="#000" stroke-width="7" />
             </g>
           </svg>
         </div>
         <!-- Custom Checkbox -->
         <label class="custom-checkbox">
-            <input type="checkbox" id="last90days">
-            <span class="checkbox-indicator"></span>
-            Last 90 Days Only
+          <input type="checkbox" id="last90days" />
+          <span class="checkbox-indicator"></span>
+          Last 90 Days Only
         </label>
         <p>
           <a href="https://bsky.app/profile/cred.blue" target="_blank">
@@ -102,26 +102,40 @@
       <div class="resources">
         <h3>Learn more about alt text:</h3>
         <ul>
-          <li><a href="https://bsky.app/settings/accessibility" target="_blank">Change your Bluesky alt text settings</a></li>
-          <li><a href="https://www.section508.gov/create/alternative-text/" target="_blank">Authoring Meaningful Alternative Text</a></li>
-          <li><a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">Write helpful Alt Text to describe images</a></li>
+          <li>
+            <a href="https://bsky.app/settings/accessibility" target="_blank">
+              Change your Bluesky alt text settings
+            </a>
+          </li>
+          <li>
+            <a href="https://www.section508.gov/create/alternative-text/" target="_blank">
+              Authoring Meaningful Alternative Text
+            </a>
+          </li>
+          <li>
+            <a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">
+              Write helpful Alt Text to describe images
+            </a>
+          </li>
         </ul>
       </div>
     </div>
-    
+
     <script>
       // ----------------------------
       // Analysis Functions
       // ----------------------------
       const PUBLIC_API_URL = "https://public.api.bsky.app";
       const emojis = ["☹️", "😐", "🙂", "☺️"];
-      
+
       // Global storage for records so we can re-run the analysis based on checkbox changes.
       let allRecords = [];
 
       async function resolveHandleToDID(handle) {
         try {
-          const res = await fetch(`${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+          const res = await fetch(
+            `${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+          );
           const data = await res.json();
           if (data.did) return data.did;
           throw new Error(`Invalid username, please try again!`);
@@ -147,7 +161,9 @@
       }
 
       async function fetchRecordsForCollection(serviceEndpoint, did, collectionName) {
-        let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=${encodeURIComponent(collectionName)}&limit=100`;
+        let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(
+          did
+        )}&collection=${encodeURIComponent(collectionName)}&limit=100`;
         let records = [];
         let cursor = null;
         do {
@@ -179,27 +195,30 @@
           // If not filtering, set minDate to a very early date
           minDate = new Date("1970-01-01T00:00:00Z");
         }
-        
+
         // Filter by createdAt using the determined minDate
-        const filteredRecords = records.filter(rec => {
+        const filteredRecords = records.filter((rec) => {
           if (rec.value.createdAt) {
             const postDate = new Date(rec.value.createdAt);
             return postDate >= minDate;
           }
           return false;
         });
-        const postsWithImages = filteredRecords.filter(rec =>
-          rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
+        const postsWithImages = filteredRecords.filter(
+          (rec) =>
+            rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
         );
-        const postsWithAltText = postsWithImages.filter(rec =>
-          rec.value.embed.images.some(img => img.alt && img.alt.trim())
+        const postsWithAltText = postsWithImages.filter((rec) =>
+          rec.value.embed.images.some((img) => img.alt && img.alt.trim())
         );
-        const imageReplies = filteredRecords.filter(rec =>
-          rec.value.embed &&
-          rec.value.embed["$type"] === "app.bsky.embed.images" &&
-          rec.value.reply
+        const imageReplies = filteredRecords.filter(
+          (rec) =>
+            rec.value.embed &&
+            rec.value.embed["$type"] === "app.bsky.embed.images" &&
+            rec.value.reply
         );
-        const altTextPercentage = (postsWithAltText.length / postsWithImages.length) * 100 || 0;
+        const altTextPercentage =
+          (postsWithAltText.length / postsWithImages.length) * 100 || 0;
         let emoji = emojis[0];
         if (altTextPercentage >= 75) {
           emoji = emojis[3];
@@ -219,61 +238,80 @@
       }
 
       // ----------------------------
-      // Needle Oscillation Settings and Animation
+      // Needle Oscillation Settings and Animation (using requestAnimationFrame)
       // ----------------------------
-      // These parameters can be adjusted to change the animation's naturalness.
-      let oscillationInterval = 10;       // Interval between updates in ms
-      let baseNeedleIncrement = 1;          // Base percentage change per tick
-      let oscillationMin = 15;             // Base minimum percentage during oscillation
-      let oscillationMax = 95;            // Base maximum percentage during oscillation
-      let bounceRange = 30;                // Maximum random bounce (in percentage points) at boundaries
-      
+      // You can adjust these parameters for speed and bounce behavior
+      let baseSpeed = 0.05; // Base speed in percentage change per millisecond
+      let oscillationMin = 15; // Minimum percentage value
+      let oscillationMax = 95; // Maximum percentage value
+      let bounceRange = 30; // Maximum random bounce in percentage
       let currentOscillation = oscillationMin;
-      let oscillationDirection = 1;       // 1 means increasing, -1 means decreasing
-      let needleAnimInterval = null;
-      
+      let oscillationDirection = 1; // 1 for increasing, -1 for decreasing
+      let animFrameId = null;
+      let lastTimestamp = null;
+
+      function animateNeedle(timestamp) {
+        if (!lastTimestamp) {
+          lastTimestamp = timestamp;
+        }
+        const deltaTime = timestamp - lastTimestamp;
+        lastTimestamp = timestamp;
+
+        // Calculate increment based on base speed and a random factor for natural variation
+        let randomFactor = 0.8 + Math.random() * 0.4; // between 0.8 and 1.2
+        let increment = baseSpeed * deltaTime * randomFactor;
+        currentOscillation += oscillationDirection * increment;
+
+        // Bounce logic: when reaching a bound, reverse direction and add a random bounce offset
+        if (currentOscillation >= oscillationMax) {
+          currentOscillation = oscillationMax - Math.random() * bounceRange;
+          oscillationDirection = -1;
+        } else if (currentOscillation <= oscillationMin) {
+          currentOscillation = oscillationMin + Math.random() * bounceRange;
+          oscillationDirection = 1;
+        }
+
+        updateGauge(currentOscillation);
+        animFrameId = requestAnimationFrame(animateNeedle);
+      }
+
       function startNeedleAnimation() {
+        // Reset state variables
         currentOscillation = oscillationMin;
         oscillationDirection = 1;
-        needleAnimInterval = setInterval(() => {
-          let randomFactor = 0.8 + Math.random() * 0.4;
-          let increment = baseNeedleIncrement * randomFactor;
-          currentOscillation += oscillationDirection * increment;
-          if (currentOscillation >= oscillationMax) {
-            currentOscillation = oscillationMax - (Math.random() * bounceRange);
-            oscillationDirection = -1;
-          } else if (currentOscillation <= oscillationMin) {
-            currentOscillation = oscillationMin + (Math.random() * bounceRange);
-            oscillationDirection = 1;
-          }
-          updateGauge(currentOscillation);
-        }, oscillationInterval);
+        lastTimestamp = null;
+        // Cancel any existing animation frame
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+        }
+        // Start the animation loop
+        animFrameId = requestAnimationFrame(animateNeedle);
       }
-      
+
       function stopNeedleAnimation() {
-        if (needleAnimInterval !== null) {
-          clearInterval(needleAnimInterval);
-          needleAnimInterval = null;
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+          animFrameId = null;
         }
       }
-      
+
       /**
        * Updates the gauge needle based on the given percentage.
-       * Mapping: 0% -> 0° (fully left), 100% -> 180° (fully right)
+       * Mapping: 0% → 0° (fully left), 100% → 180° (fully right)
        *
        * @param {number} percentage - A value between 0 and 100.
        */
       function updateGauge(percentage) {
         percentage = Math.max(0, Math.min(100, percentage));
         const angleDeg = (percentage / 100) * 180;
-        const needleGroup = document.getElementById('needle-group');
+        const needleGroup = document.getElementById("needle-group");
         if (needleGroup) {
-          needleGroup.setAttribute('transform', `rotate(${angleDeg},200,300)`);
+          needleGroup.setAttribute("transform", `rotate(${angleDeg},200,300)`);
         } else {
           console.error("Needle group element not found.");
         }
       }
-      
+
       // Helper function for proper pluralization of result strings.
       function pluralize(count, singular, plural) {
         return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
@@ -286,9 +324,10 @@
         // Re-run analysis on the globally stored records
         const analysis = analyzePosts(allRecords, useLast90Days);
         const textResults = document.getElementById("textResults");
-        const scoreText = analysis.postsWithImages === 0
-          ? "No image posts detected! 🔍"
-          : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+        const scoreText =
+          analysis.postsWithImages === 0
+            ? "No image posts detected! 🔍"
+            : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
         textResults.innerHTML = `
           <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
@@ -302,10 +341,10 @@
         updateGauge(analysis.altTextPercentage);
       }
 
-        // ----------------------------
-        // Form Handler
-        // ----------------------------
-        document.getElementById("search-form").addEventListener("submit", async (event) => {
+      // ----------------------------
+      // Form Handler
+      // ----------------------------
+      document.getElementById("search-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
@@ -313,48 +352,48 @@
         // Show the results area (which will display either results or error)
         resultsDiv.style.display = "block";
         // Ensure the gauge container is visible on a successful run
-        document.querySelector('.gauge-container').style.display = "block";
+        document.querySelector(".gauge-container").style.display = "block";
         textResults.textContent = "Loading...";
-        // Start needle oscillation while loading
+        // Start needle animation while loading
         startNeedleAnimation();
 
         try {
-            const did = await resolveHandleToDID(username);
-            const serviceEndpoint = await fetchServiceEndpoint(did);
-            allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+          const did = await resolveHandleToDID(username);
+          const serviceEndpoint = await fetchServiceEndpoint(did);
+          allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
 
-            // Check if the "Last 90 Days" checkbox is checked
-            const useLast90Days = document.getElementById("last90days").checked;
-            const analysis = analyzePosts(allRecords, useLast90Days);
-            const scoreText = analysis.postsWithImages === 0
-            ? "No image posts detected! 🔍"
-            : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+          // Check if the "Last 90 Days" checkbox is checked
+          const useLast90Days = document.getElementById("last90days").checked;
+          const analysis = analyzePosts(allRecords, useLast90Days);
+          const scoreText =
+            analysis.postsWithImages === 0
+              ? "No image posts detected! 🔍"
+              : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-            textResults.innerHTML = `
+          textResults.innerHTML = `
             <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
             <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
             <p>${pluralize(analysis.imageReplies, "is a reply", "are replies")}</p>
             <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
             <h2>Score: ${scoreText}</h2>
-            `;
+          `;
 
-            stopNeedleAnimation();
-            updateGauge(analysis.altTextPercentage);
+          stopNeedleAnimation();
+          updateGauge(analysis.altTextPercentage);
         } catch (error) {
-            // Stop the needle oscillation and reset the gauge
-            stopNeedleAnimation();
-            updateGauge(oscillationMin);
-            // Clear stored records
-            allRecords = [];
-            // Hide the gauge container on error so it does not appear
-            document.querySelector('.gauge-container').style.display = "none";
-            // Display the error message (with red text) in the results area
-            textResults.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-            // Set focus back to the username input so the user can try again
-            document.getElementById("username").focus();
+          // Stop the needle animation and reset the gauge
+          stopNeedleAnimation();
+          updateGauge(oscillationMin);
+          // Clear stored records
+          allRecords = [];
+          // Hide the gauge container on error so it does not appear
+          document.querySelector(".gauge-container").style.display = "none";
+          // Display the error message (with red text) in the results area
+          textResults.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+          // Set focus back to the username input so the user can try again
+          document.getElementById("username").focus();
         }
-        });
-
+      });
 
       // ----------------------------
       // Listen for checkbox state changes
