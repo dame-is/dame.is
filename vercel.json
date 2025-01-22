@@ -12,5 +12,18 @@
         { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
         { "source": "/index", "destination": "/" },
         { "source": "/home", "destination": "/" }
-    ]
+    ],
+    "redirects": [
+        {
+          "source": "/",
+          "has": [
+            {
+              "type": "host",
+              "value": "skeet.tools"
+            }
+          ],
+          "destination": "https://dame.is/skeet-tools",
+          "permanent": true
+        }
+      ]
 }
