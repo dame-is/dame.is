@@ -6,6 +6,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 
 ## Featured Tools
 
+- [Alt Text Rating Tool: How consistly do you use alt text?](https://dame.is/ratingalttext)
 - [Skeet Reviewer: Use the KonMari method to sort through your old posts](https://reviewer.skeet.tools)
 - [Graze: No-Code Feed Creator](https://www.graze.social/)
 - [pdsls.dev: Browse AtProto repositories](https://pdsls.dev/)
