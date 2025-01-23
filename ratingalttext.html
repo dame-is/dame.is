@@ -74,24 +74,6 @@
           <button type="submit">Analyze</button>
         </div>
       </form>
-<<<<<<< HEAD
-      <!-- Filters Container -->
-      <div class="filters-container">
-        <!-- Existing "Last 90 Days Only" Checkbox -->
-        <label class="checkbox-container">
-          <input type="checkbox" id="last90days" />
-          <span class="checkbox-indicator"></span>
-          Last 90 Days Only
-        </label>
-        <!-- New "Exclude Replies to Others" Checkbox -->
-        <label class="checkbox-container">
-          <input type="checkbox" id="excludeReplies" />
-          <span class="checkbox-indicator"></span>
-          Exclude Replies to Others
-        </label>
-      </div>
-=======
->>>>>>> 481f55c (move filters container below chart)
       <!-- Results container -->
       <div class="results" id="results">
         <p id="textResults"></p>
@@ -261,12 +243,6 @@
           // If not filtering by last 90 days, set to epoch start
           dynamicMinDate = new Date("1970-01-01T00:00:00Z");
         }
-
-        // Combine static and dynamic min dates
-        // The effective minDate is the later of STATIC_MIN_DATE and dynamicMinDate
-        const minDate = useLast90Days 
-          ? (dynamicMinDate > STATIC_MIN_DATE ? dynamicMinDate : STATIC_MIN_DATE) 
-          : STATIC_MIN_DATE;
 
         // Combine static and dynamic min dates
         // The effective minDate is the later of STATIC_MIN_DATE and dynamicMinDate
