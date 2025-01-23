@@ -228,10 +228,9 @@
 
         // Initialize counts
         let postsCount = 0;
-        let repliesCount = 0;
+        let imageReplies = 0;
         let postsWithImages = 0;
         let postsWithAltText = 0;
-        let imageReplies = 0;
 
         // Iterate through each record
         records.forEach(rec => {
@@ -274,15 +273,7 @@
             } else {
               if (!excludeReplies) {
                 // Count as a reply
-                repliesCount += 1;
-
-                // If it's a reply with images, count it
-                if (
-                  rec.value.embed &&
-                  rec.value.embed["$type"] === "app.bsky.embed.images"
-                ) {
-                  imageReplies += 1;
-                }
+                imageReplies += 1;
               }
               // If excludeReplies is true, do not count this reply
             }
@@ -323,7 +314,6 @@
           totalPosts: postsCount,
           postsWithImages: postsWithImages,
           postsWithAltText: postsWithAltText,
-          repliesCount: repliesCount,
           imageReplies: imageReplies,
           altTextPercentage: altTextPercentage,
           emoji: emoji,
@@ -422,10 +412,11 @@
             ? "No image posts detected! 🔍"
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
+        // Update the results display to match the desired format
         textResults.innerHTML = `
           <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
-          <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
-          <p>${pluralize(analysis.repliesCount, "reply excluded", "replies excluded")}</p>
+          <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
+          <p>${pluralize(analysis.imageReplies, "are replies", "are replies")}</p>
           <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
           <h2>Score: ${scoreText}</h2>
         `;
@@ -466,10 +457,11 @@
               ? "No image posts detected! 🔍"
               : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
+          // Update the results display to match the desired format
           textResults.innerHTML = `
             <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
-            <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
-            <p>${pluralize(analysis.repliesCount, "reply excluded", "replies excluded")}</p>
+            <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
+            <p>${pluralize(analysis.imageReplies, "are replies", "are replies")}</p>
             <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
             <h2>Score: ${scoreText}</h2>
           `;
@@ -480,7 +472,7 @@
           // Stop the needle animation and reset the gauge
           stopNeedleAnimation();
           updateGauge(oscillationMin);
-          // Clear stored records
+          // Clear stored records and actorDID
           allRecords = [];
           actorDID = "";
           // Hide the gauge container on error so it does not appear
@@ -497,7 +489,7 @@
       // ----------------------------
       // Function to handle changes in filter checkboxes
       function handleFilterChange() {
-        // Only update if we have already fetched records
+        // Only update if we have already fetched records and have actorDID
         if (allRecords.length > 0 && actorDID) {
           const useLast90Days = document.getElementById("last90days").checked;
           const excludeReplies = document.getElementById("excludeReplies").checked;
