@@ -868,7 +868,7 @@ body.dark-mode .alt-card {
 
 .results h2 {
     color: var(--text-color);
-    font-size: 1.2em;
+    font-size: 1.5em;
     margin-bottom: 15px;
 }
 
@@ -1083,3 +1083,8 @@ body.dark-mode .alt-card {
     top: 50%;
     transform: translateY(-50%);
 }
+
+
+.filters-container {
+    font-size: 0.8em;
+  }

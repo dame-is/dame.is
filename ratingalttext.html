@@ -24,7 +24,7 @@
     }
     .gauge-container svg {
       position: relative;
-      top: -13px;
+      top: -23px;
       left: 0;
       width: 100%;
       margin-top: -93px;
@@ -78,13 +78,13 @@
         <label class="checkbox-container">
           <input type="checkbox" id="last90days" />
           <span class="checkbox-indicator"></span>
-          Last 90 Days Only
+          Last 90 Days
         </label>
-        <!-- New "Exclude Replies to Others" Checkbox -->
+        <!-- New "Exclude Replies to Others" Checkbox (Starts Unchecked) -->
         <label class="checkbox-container">
           <input type="checkbox" id="excludeReplies" />
           <span class="checkbox-indicator"></span>
-          Exclude Replies to Others
+          Exclude Replies
         </label>
       </div>
       <!-- Results container -->
@@ -153,6 +153,28 @@
       // Define the static minimum date: April 22, 2023, at 12:01 PM UTC
       const STATIC_MIN_DATE = new Date("2023-04-22T12:01:00Z");
 
+      /**
+       * Determine if a reply is directed to the user themselves.
+       *
+       * @param {Object} rec - The post record.
+       * @param {string} actor - The DID of the user.
+       * @returns {boolean} - True if the reply is to self, else false.
+       */
+      function isReplyToSelf(rec, actor) {
+        return (
+          rec.value.reply &&
+          rec.value.reply.parent &&
+          rec.value.reply.parent.author &&
+          rec.value.reply.parent.author.did === actor &&
+          rec.value.reply.root &&
+          rec.value.reply.root.author &&
+          rec.value.reply.root.author.did === actor &&
+          (!rec.value.reply.grandparentAuthor ||
+            (rec.value.reply.grandparentAuthor.author &&
+              rec.value.reply.grandparentAuthor.author.did === actor))
+        );
+      }
+
       async function resolveHandleToDID(handle) {
         try {
           const res = await fetch(
@@ -189,7 +211,7 @@
         let records = [];
         let cursor = null;
         do {
-          const url = cursor ? `${urlBase}&cursor=${cursor}` : urlBase;
+          const url = cursor ? `${urlBase}&cursor=${encodeURIComponent(cursor)}` : urlBase;
           const res = await fetch(url);
           const data = await res.json();
           if (Array.isArray(data.records)) {
@@ -227,9 +249,9 @@
           : STATIC_MIN_DATE;
 
         // Initialize counts
-        let postsCount = 0;
-        let imageReplies = 0;
+        let totalPosts = 0;
         let postsWithImages = 0;
+        let repliesWithImages = 0;
         let postsWithAltText = 0;
 
         // Iterate through each record
@@ -240,50 +262,55 @@
           if (postDate < minDate) return; // Exclude based on date
 
           let isReply = false;
-          let isReplyToSelf = false;
+          let isReplyToSelfFlag = false;
 
           if (rec.value.reply) {
             isReply = true;
-            // Check if the reply is to self
-            if (
-              rec.value.reply.parent &&
-              rec.value.reply.parent.author &&
-              rec.value.reply.parent.author.did === actor &&
-              rec.value.reply.root &&
-              rec.value.reply.root.author &&
-              rec.value.reply.root.author.did === actor
-            ) {
-              if (rec.value.reply.grandparentAuthor) {
-                if (
-                  rec.value.reply.grandparentAuthor.author &&
-                  rec.value.reply.grandparentAuthor.author.did === actor
-                ) {
-                  isReplyToSelf = true;
-                }
-              } else {
-                isReplyToSelf = true;
-              }
-            }
+            isReplyToSelfFlag = isReplyToSelf(rec, actor);
           }
 
           if (isReply) {
-            if (isReplyToSelf) {
+            if (isReplyToSelfFlag) {
               // Treat as a post
-              postsCount += 1;
+              totalPosts += 1;
+
+              if (
+                rec.value.embed &&
+                rec.value.embed["$type"] === "app.bsky.embed.images"
+              ) {
+                postsWithImages += 1;
+
+                // Check if any image has alt text
+                const hasAltText = rec.value.embed.images.some(img => img.alt && img.alt.trim());
+                if (hasAltText) {
+                  postsWithAltText += 1;
+                }
+              }
             } else {
               if (!excludeReplies) {
                 // Count as a reply
-                imageReplies += 1;
+                totalPosts += 1;
+
+                if (
+                  rec.value.embed &&
+                  rec.value.embed["$type"] === "app.bsky.embed.images"
+                ) {
+                  postsWithImages += 1;
+                  repliesWithImages += 1;
+
+                  // Check if any image has alt text
+                  const hasAltText = rec.value.embed.images.some(img => img.alt && img.alt.trim());
+                  if (hasAltText) {
+                    postsWithAltText += 1;
+                  }
+                }
               }
               // If excludeReplies is true, do not count this reply
             }
           } else {
             // Not a reply: count as a post
-            postsCount += 1;
-          }
+            totalPosts += 1;
 
-          // If it's a post (including replies to self), check for images and alt text
-          if (!isReply || (isReply && isReplyToSelf)) {
             if (
               rec.value.embed &&
               rec.value.embed["$type"] === "app.bsky.embed.images"
@@ -311,10 +338,10 @@
         }
 
         return {
-          totalPosts: postsCount,
+          totalPosts: totalPosts,
           postsWithImages: postsWithImages,
+          repliesWithImages: repliesWithImages,
           postsWithAltText: postsWithAltText,
-          imageReplies: imageReplies,
           altTextPercentage: altTextPercentage,
           emoji: emoji,
         };
@@ -416,7 +443,7 @@
         textResults.innerHTML = `
           <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
           <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
-          <p>${pluralize(analysis.imageReplies, "are replies", "are replies")}</p>
+          <p>${pluralize(analysis.repliesWithImages, "are replies", "are replies")}</p>
           <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
           <h2>Score: ${scoreText}</h2>
         `;
@@ -461,7 +488,7 @@
           textResults.innerHTML = `
             <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
             <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
-            <p>${pluralize(analysis.imageReplies, "are replies", "are replies")}</p>
+            <p>${pluralize(analysis.repliesWithImages, "are replies", "are replies")}</p>
             <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
             <h2>Score: ${scoreText}</h2>
           `;
