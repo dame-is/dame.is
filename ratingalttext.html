@@ -80,11 +80,11 @@
           <span class="checkbox-indicator"></span>
           Last 90 Days Only
         </label>
-        <!-- New "Exclude Replies" Checkbox -->
+        <!-- New "Exclude Replies to Others" Checkbox -->
         <label class="checkbox-container">
           <input type="checkbox" id="excludeReplies" />
           <span class="checkbox-indicator"></span>
-          Exclude Replies
+          Exclude Replies to Others
         </label>
       </div>
       <!-- Results container -->
@@ -148,6 +148,7 @@
 
       // Global storage for records so we can re-run the analysis based on checkbox changes.
       let allRecords = [];
+      let actorDID = ""; // To store the user's DID
 
       // Define the static minimum date: April 22, 2023, at 12:01 PM UTC
       const STATIC_MIN_DATE = new Date("2023-04-22T12:01:00Z");
@@ -200,14 +201,15 @@
       }
 
       /**
-       * Analyze posts with options to filter by the last 90 days and exclude replies.
+       * Analyze posts with options to filter by the last 90 days and exclude replies to others.
        *
        * @param {Array} records - The array of post records.
        * @param {boolean} useLast90Days - If true, filter posts to those created in the last 90 days.
-       * @param {boolean} excludeReplies - If true, exclude posts that are replies.
+       * @param {boolean} excludeReplies - If true, exclude replies to others.
+       * @param {string} actor - The DID of the user to identify replies to themselves.
        * @returns {Object} analysis results.
        */
-      function analyzePosts(records, useLast90Days, excludeReplies) {
+      function analyzePosts(records, useLast90Days, excludeReplies, actor) {
         // Determine the dynamic minimum date based on the checkbox
         let dynamicMinDate;
         if (useLast90Days) {
@@ -224,38 +226,90 @@
           ? (dynamicMinDate > STATIC_MIN_DATE ? dynamicMinDate : STATIC_MIN_DATE) 
           : STATIC_MIN_DATE;
 
-        // Filter by createdAt using the determined minDate
-        let filteredRecords = records.filter((rec) => {
-          if (rec.value.createdAt) {
-            const postDate = new Date(rec.value.createdAt);
-            return postDate >= minDate;
+        // Initialize counts
+        let postsCount = 0;
+        let repliesCount = 0;
+        let postsWithImages = 0;
+        let postsWithAltText = 0;
+        let imageReplies = 0;
+
+        // Iterate through each record
+        records.forEach(rec => {
+          if (!rec.value.createdAt) return; // Skip if no creation date
+
+          const postDate = new Date(rec.value.createdAt);
+          if (postDate < minDate) return; // Exclude based on date
+
+          let isReply = false;
+          let isReplyToSelf = false;
+
+          if (rec.value.reply) {
+            isReply = true;
+            // Check if the reply is to self
+            if (
+              rec.value.reply.parent &&
+              rec.value.reply.parent.author &&
+              rec.value.reply.parent.author.did === actor &&
+              rec.value.reply.root &&
+              rec.value.reply.root.author &&
+              rec.value.reply.root.author.did === actor
+            ) {
+              if (rec.value.reply.grandparentAuthor) {
+                if (
+                  rec.value.reply.grandparentAuthor.author &&
+                  rec.value.reply.grandparentAuthor.author.did === actor
+                ) {
+                  isReplyToSelf = true;
+                }
+              } else {
+                isReplyToSelf = true;
+              }
+            }
           }
-          return false;
+
+          if (isReply) {
+            if (isReplyToSelf) {
+              // Treat as a post
+              postsCount += 1;
+            } else {
+              if (!excludeReplies) {
+                // Count as a reply
+                repliesCount += 1;
+
+                // If it's a reply with images, count it
+                if (
+                  rec.value.embed &&
+                  rec.value.embed["$type"] === "app.bsky.embed.images"
+                ) {
+                  imageReplies += 1;
+                }
+              }
+              // If excludeReplies is true, do not count this reply
+            }
+          } else {
+            // Not a reply: count as a post
+            postsCount += 1;
+          }
+
+          // If it's a post (including replies to self), check for images and alt text
+          if (!isReply || (isReply && isReplyToSelf)) {
+            if (
+              rec.value.embed &&
+              rec.value.embed["$type"] === "app.bsky.embed.images"
+            ) {
+              postsWithImages += 1;
+
+              // Check if any image has alt text
+              const hasAltText = rec.value.embed.images.some(img => img.alt && img.alt.trim());
+              if (hasAltText) {
+                postsWithAltText += 1;
+              }
+            }
+          }
         });
 
-        // If "Exclude Replies" is checked, filter out reply posts
-        if (excludeReplies) {
-          filteredRecords = filteredRecords.filter((rec) => {
-            // Assuming that a reply post has a 'reply' field
-            return !rec.value.reply;
-          });
-        }
-
-        const postsWithImages = filteredRecords.filter(
-          (rec) =>
-            rec.value.embed && rec.value.embed["$type"] === "app.bsky.embed.images"
-        );
-        const postsWithAltText = postsWithImages.filter((rec) =>
-          rec.value.embed.images.some((img) => img.alt && img.alt.trim())
-        );
-        const imageReplies = filteredRecords.filter(
-          (rec) =>
-            rec.value.embed &&
-            rec.value.embed["$type"] === "app.bsky.embed.images" &&
-            rec.value.reply
-        );
         const altTextPercentage =
-          (postsWithAltText.length / postsWithImages.length) * 100 || 0;
+          (postsWithAltText / postsWithImages) * 100 || 0;
         let emoji = emojis[0];
         if (altTextPercentage >= 75) {
           emoji = emojis[3];
@@ -264,11 +318,13 @@
         } else if (altTextPercentage >= 25) {
           emoji = emojis[1];
         }
+
         return {
-          totalPosts: filteredRecords.length,
-          postsWithImages: postsWithImages.length,
-          postsWithAltText: postsWithAltText.length,
-          imageReplies: imageReplies.length,
+          totalPosts: postsCount,
+          postsWithImages: postsWithImages,
+          postsWithAltText: postsWithAltText,
+          repliesCount: repliesCount,
+          imageReplies: imageReplies,
           altTextPercentage: altTextPercentage,
           emoji: emoji,
         };
@@ -359,7 +415,7 @@
       // ----------------------------
       function updateAnalysisResults(useLast90Days, excludeReplies) {
         // Re-run analysis on the globally stored records
-        const analysis = analyzePosts(allRecords, useLast90Days, excludeReplies);
+        const analysis = analyzePosts(allRecords, useLast90Days, excludeReplies, actorDID);
         const textResults = document.getElementById("textResults");
         const scoreText =
           analysis.postsWithImages === 0
@@ -369,7 +425,7 @@
         textResults.innerHTML = `
           <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
           <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
-          <p>${pluralize(analysis.imageReplies, "is a reply", "are replies")}</p>
+          <p>${pluralize(analysis.repliesCount, "reply excluded", "replies excluded")}</p>
           <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
           <h2>Score: ${scoreText}</h2>
         `;
@@ -396,6 +452,7 @@
 
         try {
           const did = await resolveHandleToDID(username);
+          actorDID = did; // Store the user's DID for analysis
           const serviceEndpoint = await fetchServiceEndpoint(did);
           allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
 
@@ -403,7 +460,7 @@
           const useLast90Days = document.getElementById("last90days").checked;
           const excludeReplies = document.getElementById("excludeReplies").checked;
 
-          const analysis = analyzePosts(allRecords, useLast90Days, excludeReplies);
+          const analysis = analyzePosts(allRecords, useLast90Days, excludeReplies, actorDID);
           const scoreText =
             analysis.postsWithImages === 0
               ? "No image posts detected! 🔍"
@@ -412,7 +469,7 @@
           textResults.innerHTML = `
             <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
             <p>${pluralize(analysis.postsWithImages, "contains images", "contain images")}</p>
-            <p>${pluralize(analysis.imageReplies, "is a reply", "are replies")}</p>
+            <p>${pluralize(analysis.repliesCount, "reply excluded", "replies excluded")}</p>
             <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
             <h2>Score: ${scoreText}</h2>
           `;
@@ -425,6 +482,7 @@
           updateGauge(oscillationMin);
           // Clear stored records
           allRecords = [];
+          actorDID = "";
           // Hide the gauge container on error so it does not appear
           document.querySelector(".gauge-container").style.display = "none";
           // Display the error message (with red text) in the results area
@@ -440,7 +498,7 @@
       // Function to handle changes in filter checkboxes
       function handleFilterChange() {
         // Only update if we have already fetched records
-        if (allRecords.length > 0) {
+        if (allRecords.length > 0 && actorDID) {
           const useLast90Days = document.getElementById("last90days").checked;
           const excludeReplies = document.getElementById("excludeReplies").checked;
           updateAnalysisResults(useLast90Days, excludeReplies);
