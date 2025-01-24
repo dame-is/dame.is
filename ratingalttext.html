@@ -184,7 +184,7 @@
           );
           const data = await res.json();
           if (data.did) return data.did;
-          throw new Error(`Invalid username, please try again!`);
+          throw new Error(`Invalid username, please try again! Make sure you're not including the @ symbol before the domain.`);
         } catch (error) {
           console.error("Error resolving handle to DID:", error);
           throw error;
