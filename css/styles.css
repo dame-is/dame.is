@@ -329,21 +329,59 @@ footer {
     border-top: 1px solid #ccc;
 }
 
-footer span {
-    font-weight: bold;
+/* Flex Container */
+.footer-container {
+    display: flex;
+    flex-direction: column; /* Stack vertically by default */
+    align-items: center;
+    gap: 10px; /* Space between sections */
 }
 
+/* Footer Sections */
+.footer-section {
+    display: flex;
+    align-items: center;
+}
+
+/* Labels Styling */
+.last-updated-label,
+.version-label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+/* Values Styling */
+.last-updated-timestamp,
+.version-number {
+    color: #555;
+}
+
+/* Large Screen Styles */
 @media (min-width: 600px) {
-    footer {
-        display: flex;
+    .footer-container {
+        flex-direction: row; /* Arrange horizontally */
         justify-content: center;
-        align-items: center;
-        gap: 10px; /* Adds space between the items */
-        flex-wrap: nowrap;
+        gap: 20px; /* Increased space between sections */
     }
 
-    footer br {
-        display: none; /* Removes line breaks on larger screens */
+    /* Reorder Sections */
+    .footer-last-updated {
+        order: 1;
+    }
+
+    .footer-version {
+        order: 2;
+    }
+
+    .footer-copyright {
+        order: 3;
+    }
+
+    /* Add Separators between Sections */
+    .footer-section:not(:last-child)::after {
+        content: "|";
+        margin-left: 20px;
+        color: #333;
     }
 }
 
