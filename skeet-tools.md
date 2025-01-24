@@ -190,6 +190,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 - [TID converter](https://mary.my.id/tools/tid-converter)
 - [Weather Vane](https://verify.aviary.domains/)
 - [TID clock](https://retr0.id/stuff/atclock/)
+- [handles.net: Automatically provision and manage Bluesky Handles for your community](https://handles.net/)
 
 ## Guides
 
