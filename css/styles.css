@@ -553,6 +553,9 @@ body.dark-mode .count-item.active i.fa-reply {
     transition: box-shadow 0.3s ease;
     background-color: #fff;
 }
+.dark-mode .linkCard-title {
+    color: black;
+}
 
 .linkCard:hover {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
