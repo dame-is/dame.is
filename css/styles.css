@@ -333,6 +333,21 @@ footer span {
     font-weight: bold;
 }
 
+@media (min-width: 600px) {
+    footer {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px; /* Adds space between the items */
+        flex-wrap: nowrap;
+    }
+
+    footer br {
+        display: none; /* Removes line breaks on larger screens */
+    }
+}
+
+
 /* === Post Styles === */
 
 .post {

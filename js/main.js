@@ -578,6 +578,31 @@ async function fetchLatestLogForNav() {
 // ----------------------------------
 // 11. FOOTER
 // ----------------------------------
+
+// Helper function to calculate relative time
+function getRelativeTime(pastDate) {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - pastDate) / 1000);
+
+    const intervals = [
+        { label: 'year', seconds: 31536000 },
+        { label: 'month', seconds: 2592000 },
+        { label: 'week', seconds: 604800 },
+        { label: 'day', seconds: 86400 },
+        { label: 'hour', seconds: 3600 },
+        { label: 'minute', seconds: 60 },
+        { label: 'second', seconds: 1 }
+    ];
+
+    for (const interval of intervals) {
+        const count = Math.floor(diffInSeconds / interval.seconds);
+        if (count >= 1) {
+            return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(-count, interval.label);
+        }
+    }
+    return 'just now';
+}
+
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
     const apiUrlCommits = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`;
@@ -592,7 +617,7 @@ async function fetchFooterData() {
         console.log('Fetched tags:', tagsData);
 
         let version = 'No Tags';
-        let lastUpdated = 'N/A';
+        let lastUpdatedDate = null;
 
         if (tagsData.length > 0) {
             // Use the first (most recent) tag
@@ -603,15 +628,8 @@ async function fetchFooterData() {
             const responseTagCommit = await fetch(apiUrlTagCommit);
             if (responseTagCommit.ok) {
                 const tagCommitData = await responseTagCommit.json();
-                const commitDate = new Date(tagCommitData.commit.committer.date);
-                lastUpdated = commitDate.toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                });
-                console.log(`Tag commit date: ${lastUpdated}`);
+                lastUpdatedDate = new Date(tagCommitData.commit.committer.date);
+                console.log(`Tag commit date: ${lastUpdatedDate}`);
             }
         } else {
             // If no tags exist, fallback to the latest commit
@@ -621,15 +639,8 @@ async function fetchFooterData() {
             const commitsData = await responseCommits.json();
             const latestCommit = commitsData;
             version = latestCommit.sha.substring(0, 7); // Short SHA
-            const commitDate = new Date(latestCommit.commit.committer.date);
-            lastUpdated = commitDate.toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-            });
-            console.log(`Latest commit date: ${lastUpdated}`);
+            lastUpdatedDate = new Date(latestCommit.commit.committer.date);
+            console.log(`Latest commit date: ${lastUpdatedDate}`);
         }
 
         // Fetch last-updated.json with cache busting
@@ -674,7 +685,13 @@ async function fetchFooterData() {
         let pageLastUpdated = 'N/A';
         if (pageLastUpdatedISO && pageLastUpdatedISO !== 'null') {
             const date = new Date(pageLastUpdatedISO);
-            pageLastUpdated = formatDateHumanReadable(date);
+            const relativeTime = getRelativeTime(date); // e.g., "4 hours ago"
+            const formattedDate = date.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+            });
+            pageLastUpdated = `${relativeTime} on ${formattedDate}`;
             console.log(`Formatted Last Updated Date: ${pageLastUpdated}`);
         } else {
             console.log(`No valid last updated date found for "${pageKey}".`);
