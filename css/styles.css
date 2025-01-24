@@ -354,6 +354,12 @@ footer {
     color: #555;
 }
 
+/* Values Styling */
+.dark-mode .last-updated-timestamp,
+.version-number {
+    color: #989898;
+}
+
 /* Large Screen Styles */
 @media (min-width: 600px) {
     .footer-container {
