@@ -361,7 +361,7 @@ footer {
     .footer-container {
         flex-direction: row; /* Arrange horizontally */
         justify-content: center;
-        gap: 20px; /* Increased space between sections */
+        gap: 13px; /* Increased space between sections */
     }
 
     /* Reorder Sections */
@@ -380,7 +380,7 @@ footer {
     /* Add Separators between Sections */
     .footer-section:not(:last-child)::after {
         content: "|";
-        margin-left: 20px;
+        margin-left: 10px;
         color: #333;
     }
 }
