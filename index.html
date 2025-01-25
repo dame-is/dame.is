@@ -8,6 +8,28 @@
     <title>dame.is</title>
     <script src="https://kit.fontawesome.com/830b363cf0.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="/css/styles.css">
+
+    <!-- SCRIPTS AND CONTENT FOR MARY'S BSKY POST EMBEDS -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/bluesky-post-embed@^1.0.0/+esm"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bluesky-post-embed@^1.0.0/dist/core.min.css">
+
+    <!-- Built-in themes -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bluesky-post-embed@^1.0.0/themes/light.min.css" media="(prefers-color-scheme: light)">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bluesky-post-embed@^1.0.0/themes/dim.min.css" media="(prefers-color-scheme: dark)">
+
+    <!-- Fallback/placeholder elements if JS script is taking a while to load or is failing -->
+    <style>
+    .bluesky-post-fallback {
+        margin: 16px 0;
+        border-left: 3px solid var(--divider);
+        padding: 4px 8px;
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+    }
+    .bluesky-post-fallback p {
+        margin: 0 0 8px 0;
+    }
+    </style>
 </head>
 <body>
     <!-- Navigation -->

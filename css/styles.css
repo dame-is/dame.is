@@ -294,7 +294,7 @@ a.nav-icon {
     cursor: pointer;
     background: none;
     border: none;
-    font-size: 1.5em; /* Increased size for better visibility */
+    font-size: 1.6em; /* Increased size for better visibility */
     color: inherit; /* Inherit color from parent */
     display: flex;
     align-items: center;
@@ -302,6 +302,8 @@ a.nav-icon {
     margin-right: 10px;
     border-radius: 3px;
     padding: 0px;
+    padding-top: 1px;
+    padding-left: 1px;
 }
 
 body.dark-mode #theme-toggle {
@@ -1087,4 +1089,55 @@ body.dark-mode .alt-card {
 
 .filters-container {
     font-size: 0.8em;
+  }
+
+
+  /* Add these styles to your existing CSS */
+
+/* Container for autocomplete items */
+.autocomplete-items {
+    position: absolute;
+    border: 1px solid #d4d4d4;
+    border-top: none;
+    z-index: 99;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  /* Style each item */
+  .autocomplete-item {
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+  }
+  
+  /* Highlighted item */
+  .autocomplete-item:hover,
+  .autocomplete-item.active {
+    background-color: #e9e9e9;
+  }
+  
+  /* Avatar image */
+  .autocomplete-item img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 10px;
+    object-fit: cover;
+  }
+  
+
+
+  .fa-bluesky {
+    color: #3b9af8;
+  }
+
+  .fa-moon {
+    --fa: "\f186";
+    color: #707070;
   }
