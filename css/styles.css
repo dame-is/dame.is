@@ -933,7 +933,9 @@ body.dark-mode .alt-card {
 .results h2 {
     color: var(--text-color);
     font-size: 1.5em;
-    margin-bottom: 15px;
+    max-width: 200px;
+    margin: 20px auto;
+    text-align: center;
 }
 
 .resources h3 {
