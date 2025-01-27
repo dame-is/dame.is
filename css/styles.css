@@ -1216,3 +1216,10 @@ body.dark-mode .alt-card {
     --fa: "\f186";
     color: #707070;
   }
+
+  .icon {
+    width: 24px; /* Adjust as needed */
+    height: 24px; /* Adjust as needed */
+    fill: currentColor; /* Inherit color from parent */
+    vertical-align: middle; /* Align with text */
+}
