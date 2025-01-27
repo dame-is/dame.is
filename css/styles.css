@@ -285,7 +285,6 @@ a.nav-icon {
 .nav-icon:hover {
     transform: scale(1.1);
     /* Optional: Change color on hover */
-    color: #007BFF;
 }
 
 /* === Theme Toggle Styling === */
@@ -477,7 +476,7 @@ body.dark-mode .embedded-quote {
     display: flex;
     align-items: center;
     font-size: 0.9em; /* Adjust size as needed */
-    color: #555; /* Text color */
+    color: #929292; /* Text color */
     background-color: #e0e0e0;
     padding: 3px 7px;
     border-radius: 3px;
@@ -1231,11 +1230,15 @@ body.dark-mode .alt-card {
   }
 
   #theme-toggle {
+    width: 23px;
+    height: 23px;
+  }
+
+  .nav-icon .icon {
     width: 28px;
     height: 28px;
   }
 
-  .nav-icon .icon {
-    width: 33px;
-    height: 33px;
+  .count-text {
+    color: #585858;
   }
