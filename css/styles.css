@@ -1238,3 +1238,11 @@ body.dark-mode .alt-card {
   .count-text {
     color: #585858;
   }
+  
+  .icon.fa-github {
+    color: black;
+  }
+
+  .dark-mode .icon.fa-github {
+    color: white;
+  }
