@@ -307,12 +307,13 @@ a.nav-icon {
 
 body.dark-mode #theme-toggle {
     color: #f1c40f;
+    width: 27px;
+    height: 27px;
 }
 
 #theme-toggle:hover {
     transform: scale(1.1);
     /* Optional: Change color on hover */
-    color: #007BFF;
 }
 
 /* === Footer Styles === */
@@ -1212,11 +1213,6 @@ body.dark-mode .alt-card {
     color: #3b9af8;
   }
 
-  .fa-moon {
-    --fa: "\f186";
-    color: #707070;
-  }
-
   .count-item .icon {
     width: 18px;
     height: 14px;
@@ -1230,8 +1226,8 @@ body.dark-mode .alt-card {
   }
 
   #theme-toggle {
-    width: 23px;
-    height: 23px;
+    width: 24px;
+    height: 24px;
   }
 
   .nav-icon .icon {
