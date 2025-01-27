@@ -485,6 +485,7 @@ body.dark-mode .embedded-quote {
     margin-bottom: 10px;
     transition: color 0.3s ease, background-color 0.3s ease;
     font-weight: bold;
+    padding-left: 5px;
 }
 
 .count-item i {
@@ -1217,9 +1218,24 @@ body.dark-mode .alt-card {
     color: #707070;
   }
 
-  .icon {
-    width: 24px; /* Adjust as needed */
-    height: 24px; /* Adjust as needed */
-    fill: currentColor; /* Inherit color from parent */
-    vertical-align: middle; /* Align with text */
-}
+  .count-item .icon {
+    width: 18px;
+    height: 14px;
+    padding-right: 4px;
+  }
+
+  .header-right .icon {
+    width: 15px;
+    height: 12px;
+    padding-right: 4px;
+  }
+
+  #theme-toggle {
+    width: 28px;
+    height: 28px;
+  }
+
+  .nav-icon .icon {
+    width: 33px;
+    height: 33px;
+  }
