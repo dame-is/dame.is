@@ -500,36 +500,36 @@ body.dark-mode .embedded-quote {
 /* Already defined above in .count-item i */
 
 /* Active state: Count > 0 */
-.count-item.active i.fa-heart {
+.count-item.active .fa-heart {
     color: #e93434;
 }
 
-.count-item.active i.fa-retweet {
+.count-item.active .fa-retweet {
     color: #0dc70d;
 }
 
-.count-item.active i.fa-quote-right {
+.count-item.active .fa-quote-right {
     color: #007BFF;
 }
 
-.count-item.active i.fa-reply {
+.count-item.active .fa-reply {
     color: black;
 }
 
 /* Dark Mode Adjustments for Active Icons */
-body.dark-mode .count-item.active i.fa-heart {
+body.dark-mode .count-item.active .fa-heart {
     color: #ff6b6b; /* Lighter shade for visibility */
 }
 
-body.dark-mode .count-item.active i.fa-retweet {
+body.dark-mode .count-item.active .fa-retweet {
     color: #66ff66;
 }
 
-body.dark-mode .count-item.active i.fa-quote-right {
+body.dark-mode .count-item.active .fa-quote-right {
     color: #3399ff;
 }
 
-body.dark-mode .count-item.active i.fa-reply {
+body.dark-mode .count-item.active .fa-reply {
     color: #ffffff;
 }
 
