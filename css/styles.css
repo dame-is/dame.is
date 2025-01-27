@@ -632,7 +632,7 @@ body.dark-mode .count-item.active .fa-reply {
 
 body.dark-mode .header-right .count-item {
     background-color: #3a3a3a;
-    color: #fff;
+    color: #838383;
 }
 
 .embedded-quote p {
@@ -1238,7 +1238,11 @@ body.dark-mode .alt-card {
   .count-text {
     color: #585858;
   }
-  
+
+  .dark-mode .count-text {
+    color: #ffffff;
+  }
+
   .icon.fa-github {
     color: black;
   }
