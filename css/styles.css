@@ -647,11 +647,7 @@ cite {
 
 body.dark-mode .post-counts .count-item {
     background-color: #3a3a3a;
-    color: #fff;
-}
-
-body.dark-mode .post-counts .count-item i {
-    color: #fff; /* Ensure icons are visible in dark mode */
+    color: #838383;
 }
 
 /* === Styling for the Bluesky Post Link === */
