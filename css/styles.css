@@ -28,7 +28,9 @@ main {
     margin: 10px auto 30px auto;
     max-width: 400px;
     padding: 20px;
-    width: 80%;
+    width: 90%;
+    padding-left: 0px;
+    padding-right: 0px;
 }
 
 p {
@@ -1020,33 +1022,6 @@ body.dark-mode .alt-card {
     text-decoration: underline;
 }
 
-
-@media (max-width: 400px) {
-    #alt-text-rating-form {
-
-    }
-
-    #alt-text-rating-form h1 {
-
-    }
-
-    .results {
-
-    }
-
-    .resources h3 {
-
-    }
-
-    .search-bar input {
-
-    }
-
-    .search-bar button {
-
-    }
-}
-
 /* Responsive: For smaller screens, stack the elements vertically */
 @media (max-width: 500px) {
     .search-bar {
@@ -1352,11 +1327,6 @@ body.dark-mode .alt-card {
 .comment em {
     color: #777;
     font-size: 0.9rem;
-}
-
-/* 📌 **BlueskyComments Specific Styles (if needed)** */
-.bluesky-comment {
-    /* Customize as per your preference */
 }
 
 /* === Base Styles for Comment Icons === */

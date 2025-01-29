@@ -1877,28 +1877,6 @@ async function initializeBlogPost(slug) {
         // Update document title
         document.title = `${metadata.title || 'Blog Post'} - dame.is`;
 
-        // Update meta description
-        if (metadata.excerpt) {
-            addOrUpdateMetaTag('description', metadata.excerpt);
-            addOrUpdateMetaTag('og:description', metadata.excerpt);
-            addOrUpdateMetaTag('twitter:description', metadata.excerpt);
-        }
-
-        // Update OG Meta Tags
-        if (metadata.og) {
-            addOrUpdateMetaTag('og:title', metadata.og.title || metadata.title);
-            addOrUpdateMetaTag('og:description', metadata.og.description || metadata.excerpt);
-            addOrUpdateMetaTag('og:image', metadata.og.image);
-            addOrUpdateMetaTag('og:url', metadata.og.url || window.location.href);
-            addOrUpdateMetaTag('og:type', 'article');
-
-            // Twitter Card Meta Tags
-            addOrUpdateMetaTag('twitter:title', metadata.og.title || metadata.title);
-            addOrUpdateMetaTag('twitter:description', metadata.og.description || metadata.excerpt);
-            addOrUpdateMetaTag('twitter:image', metadata.og.image);
-            addOrUpdateMetaTag('twitter:card', 'summary_large_image');
-        }
-
         // **Set the Bluesky URI in the comments container and dispatch event**
         if (metadata.bluesky_uri) {
             const commentsContainer = document.getElementById('bluesky-comments');
@@ -1926,21 +1904,6 @@ async function initializeBlogPost(slug) {
         }
     }
 }
-
-function addOrUpdateMetaTag(name, content) {
-    let metaTag = document.querySelector(`meta[property="${name}"], meta[name="${name}"]`);
-    if (!metaTag) {
-        metaTag = document.createElement('meta');
-        if (name.startsWith('og:') || name.startsWith('twitter:')) {
-            metaTag.setAttribute('property', name);
-        } else {
-            metaTag.setAttribute('name', name);
-        }
-        document.head.appendChild(metaTag);
-    }
-    metaTag.setAttribute('content', content);
-}
-
 
 
 // ----------------------------------
