@@ -1438,6 +1438,13 @@ async function loadMarkdownContent() {
 
         if (contentElement) {
             contentElement.innerHTML = htmlContent;
+
+            // **Process outbound links after content injection**
+            if (typeof processOutboundLinks === 'function') {
+                processOutboundLinks();
+            } else {
+                console.warn('processOutboundLinks function is not defined.');
+            }
         } else {
             console.error(`Element with ID "${contentElementId}" not found.`);
         }
@@ -1445,6 +1452,7 @@ async function loadMarkdownContent() {
         console.error('Error loading Markdown content:', error);
     }
 }
+
 
 
 // ----------------------------------
@@ -1866,6 +1874,13 @@ async function initializeBlogPost(slug) {
         // Inject the HTML content into the page
         const postContent = document.getElementById('post-content');
         postContent.innerHTML = htmlContent;
+
+        // **Call `processOutboundLinks` after content injection**
+        if (typeof processOutboundLinks === 'function') {
+            processOutboundLinks();
+        } else {
+            console.warn('processOutboundLinks function is not defined.');
+        }
     } catch (error) {
         console.error('Error loading blog post:', error);
         const postContent = document.getElementById('post-content');
@@ -1878,6 +1893,7 @@ async function initializeBlogPost(slug) {
         }
     }
 }
+
 
 function addOrUpdateMetaTag(property, content) {
     let metaTag = document.querySelector(`meta[property="${property}"]`);
@@ -1951,3 +1967,7 @@ function processOutboundLinks() {
         }
     });
 }
+
+// Make the function accessible globally
+window.processOutboundLinks = processOutboundLinks;
+
