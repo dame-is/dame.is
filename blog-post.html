@@ -78,13 +78,12 @@
             const uri = container.getAttribute('data-uri');
     
             if (!uri) {
-                container.innerHTML = '<p>No comments section available.</p>';
+                container.innerHTML = '<p>No comments are currently available. Check back later.</p>';
                 return;
             }
     
             // Prevent multiple renders
             if (container._blueskyRoot) {
-                console.warn('BlueskyComments is already rendered.');
                 return;
             }
     
@@ -95,6 +94,9 @@
                 createElement(BlueskyComments, {
                     uri: `https://bsky.app/profile/dame.bsky.social/post/${uri}`,
                     // Optional: Customize additional props as needed
+                    commentFilters: [
+                        BlueskyFilters.NoPins, // Hide pinned comments
+                        ],
                 })
             );
         }
