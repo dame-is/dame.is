@@ -6,7 +6,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
-    <title>blog post - dame.is</title>
+    <!-- Default Open Graph Metadata (to be dynamically replaced) -->
+    <meta property="og:title" content="Blog Post - dame.is">
+    <meta property="og:description" content="Read our latest blog post.">
+    <meta property="og:image" content="/images/default-og-image.jpg">
+    <meta property="og:url" content="https://dame.is/blog">
+    <meta property="og:type" content="article">
+    
+    <meta name="twitter:title" content="Blog Post - dame.is">
+    <meta name="twitter:description" content="Read our latest blog post.">
+    <meta name="twitter:image" content="/images/default-og-image.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    
+    <title>Blog Post - dame.is</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
@@ -26,11 +38,12 @@
 
     <!-- Include necessary scripts -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- For Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/gray-matter@4.0.3/browser.js"></script> <!-- For Frontmatter parsing -->
     <script src="/js/main.js"></script> <!-- Ensure this is loaded before inline scripts -->
     <script>
         // Initialize content loading after scripts are loaded
         document.addEventListener('DOMContentLoaded', () => {
-            loadMarkdownContent();
+            initializeBlogPostFromURL();
         });
     </script>
     <script>
