@@ -847,6 +847,7 @@ blockquote p {
     border: 1px solid #ccc;
     border-radius: 5px;
     margin-top: 10px;
+    width: 100%;
 }
 
 .dark-mode #post-content img {
