@@ -1256,6 +1256,12 @@ body.dark-mode .alt-card {
     color: #3b9af8;
   }
 
+  .icon {
+    width: 18px;
+    height: 14px;
+    padding-right: 4px;
+  }
+
   .count-item .icon {
     width: 18px;
     height: 14px;
