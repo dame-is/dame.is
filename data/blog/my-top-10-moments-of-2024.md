@@ -3,7 +3,7 @@ title: "My top 10 moments from 2024"
 date: "2024-12-31"
 author: "Dame"
 excerpt: "Rhett & Link have a tradition of using their final podcast episode of the year to rank their top 10 moments of the year. These are always some of my favorite episodes of Ear Biscuits, so I thought I should try to do the same thing for myself."
-bluesky_uri: "3lft5dg5qgc2p"
+bluesky_uri: "3len3e4oemc2j"
 og:
   title: "My top 10 moments from 2024"
   description: "Rhett & Link have a tradition of using their final podcast episode of the year to rank their top 10 moments of the year. These are always some of my favorite episodes of Ear Biscuits, so I thought I should try to do the same thing for myself."
