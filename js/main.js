@@ -1974,7 +1974,7 @@ async function fetchBlueskyComments(uri) {
         };
 
         const response = await fetch(apiEndpoint, {
-            method: 'POST',
+            method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 // 'Authorization': 'Bearer YOUR_ACCESS_TOKEN', // If authentication is required
