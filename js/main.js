@@ -1841,10 +1841,19 @@ async function initializeBlogPost(slug) {
         }
         const rawMarkdown = await responseMarkdown.text();
 
-        // Parse frontmatter using gray-matter
-        const parsed = matter(rawMarkdown);
-        const metadata = parsed.data;
-        const markdownContent = parsed.content;
+        // Extract Frontmatter using regex
+        const frontmatterRegex = /^---\s*([\s\S]*?)\s*---\s*([\s\S]*)$/;
+        const match = rawMarkdown.match(frontmatterRegex);
+
+        if (!match) {
+            throw new Error('Invalid frontmatter format.');
+        }
+
+        const frontmatter = match[1];
+        const markdownContent = match[2];
+
+        // Parse Frontmatter using js-yaml
+        const metadata = jsyaml.load(frontmatter);
 
         // Parse Markdown to HTML using marked.js
         const htmlContent = marked.parse(markdownContent);
@@ -1854,15 +1863,19 @@ async function initializeBlogPost(slug) {
 
         // Update title and date
         postTitle.textContent = metadata.title || 'Untitled Post';
-        const postDateObj = new Date(metadata.date);
-        postDate.textContent = postDateObj.toLocaleDateString(undefined, {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
+        if (metadata.date) {
+            const postDateObj = new Date(metadata.date);
+            postDate.textContent = postDateObj.toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+            });
+        } else {
+            postDate.textContent = '';
+        }
 
         // Update document title
-        document.title = `${metadata.title} - dame.is`;
+        document.title = `${metadata.title || 'Blog Post'} - dame.is`;
 
         // Update meta description
         if (metadata.excerpt) {
