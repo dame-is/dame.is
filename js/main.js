@@ -1965,7 +1965,7 @@ async function fetchBlueskyComments(uri) {
 
     try {
         // Define the API endpoint
-        const apiEndpoint = 'https://bsky.social/xrpc/app.bsky.feed.getPostThread';
+        const apiEndpoint = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread';
 
         // Define the payload
         const payload = {
