@@ -22,6 +22,11 @@
           ],
           "destination": "https://dame.is/skeet-tools",
           "permanent": true
+      },
+      {
+          "source": "/(.*)",
+          "destination": "/",
+          "statusCode": 307
       }
   ]
 }
