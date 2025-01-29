@@ -47,7 +47,7 @@ For the past 4-5 years, I’ve kept a fairly consistent [logbook](https://en.wik
 
 ![A screenshot of dame's logbook that shows various logs such as "eating a bowl of freshed mixed berries" and "visiting with parents"](/images/blog/dame-logbook-example.jpg "dame logbook example")
 
-As I was thinking about how to make my new website feel “alive”, I realized it would be interesting if I began publishing all of my daily logs publicly and in a format similar to Facebook’s old “status updates”. So, I acquired the domain dame.is, and hacked together a solution that would make sharing all of my logs really simple. 
+As I was thinking about how to make my new website feel “alive”, I realized it would be interesting if I began publishing all of my daily logs publicly and in a format similar to Facebook’s old “status updates”. So, I acquired the domain **dame.is**, and hacked together a solution that would make sharing all of my logs really simple. 
 
 When you go to my website, the most prominent thing featured are now these status updates. This means that if you visit my site 8 different times in a given day, you’ll likely see 8 different reports of what it is that I’m currently doing... much like you’d have seen from me back during the early days of Facebook.
 
@@ -59,4 +59,4 @@ For speed and efficiency’s sake, I created an Apple Shortcut that is triggered
 
 Here’s a template of the shortcut I use if you’re interested in seeing it in action: https://www.icloud.com/shortcuts/b21adf7035d14992941ef72855d9003a
 
-*What other helpful frameworks from the web's past have we accidentally discarded? What new methods might we create to foster more groundedness in our digital lives?*
+**What other helpful frameworks from the web's past have we accidentally discarded? What new methods might we create to foster more groundedness in our digital lives?**

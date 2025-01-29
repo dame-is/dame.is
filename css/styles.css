@@ -812,6 +812,18 @@ body.dark-mode .log-date-header {
     color: #cfcfcf;
   }
 
+  em a {
+    padding-left: 5px;
+  }
+
+  p em {
+    font-size: 0.8em;
+    text-align: right;
+    display: flex;
+    justify-content: right;
+    opacity: 30%;
+  }
+
 blockquote {
     border-left: 4px solid #ccc;
     padding-left: 10px;
