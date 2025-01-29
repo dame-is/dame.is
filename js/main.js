@@ -1899,14 +1899,15 @@ async function initializeBlogPost(slug) {
             addOrUpdateMetaTag('twitter:card', 'summary_large_image');
         }
 
-        // **Fetch and Render Bluesky Comments**
+        // **Set the Bluesky URI in the comments container and dispatch event**
         if (metadata.bluesky_uri) {
-            fetchBlueskyComments(metadata.bluesky_uri);
+            const commentsContainer = document.getElementById('bluesky-comments');
+            commentsContainer.setAttribute('data-uri', metadata.bluesky_uri);
+            // Dispatch a custom event to notify the module script
+            window.dispatchEvent(new CustomEvent('bluesky_uri_set'));
         } else {
-            const commentsContainer = document.getElementById('comments-container');
-            if (commentsContainer) {
-                commentsContainer.innerHTML = '<p>No comments section available.</p>';
-            }
+            const commentsContainer = document.getElementById('bluesky-comments');
+            commentsContainer.innerHTML = '<p>No comments section available.</p>';
         }
 
         // **Call `processOutboundLinks` after content injection**
@@ -1940,94 +1941,7 @@ function addOrUpdateMetaTag(name, content) {
     metaTag.setAttribute('content', content);
 }
 
-// ----------------------------------
-// 🔹 **Bluesky Comments Integration**
-// ----------------------------------
 
-/**
- * Fetches comments from Bluesky based on the provided URI and renders them.
- * @param {string} uri - The Bluesky post URI (e.g., "3lft5dg5qgc2p")
- */
-async function fetchBlueskyComments(uri) {
-    const commentsContainer = document.getElementById('comments-container');
-    if (!commentsContainer) {
-        console.error('Comments container not found.');
-        return;
-    }
-
-    if (!uri) {
-        commentsContainer.innerHTML = '<p>No comments</p>';
-        return;
-    }
-
-    // Show loading indicator
-    commentsContainer.innerHTML = '<p>Loading comments...</p>';
-
-    try {
-        // Define the API endpoint with query parameter
-        const apiEndpoint = `https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/${uri}`;
-
-        const response = await fetch(apiEndpoint, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                // 'Authorization': 'Bearer YOUR_ACCESS_TOKEN', // If authentication is required
-            },
-            // GET requests typically do not have a body
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch comments: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        // Validate response structure
-        if (!data.thread || !data.thread.replies || data.thread.replies.length === 0) {
-            commentsContainer.innerHTML = '<p>No comments yet.</p>';
-            return;
-        }
-
-        // Render comments
-        const commentsHTML = data.thread.replies.map(reply => {
-            // Validate reply structure
-            if (!reply.post) return '';
-
-            const { author, text, createdAt } = reply.post;
-
-            // Safely extract author information
-            const authorName = author?.displayName || author?.handle || 'Unknown';
-
-            return `
-                <div class="comment">
-                    <p><strong>${escapeHTML(authorName)}</strong> <em>${new Date(createdAt).toLocaleString()}</em></p>
-                    <p>${escapeHTML(text)}</p>
-                </div>
-            `;
-        }).join('');
-
-        commentsContainer.innerHTML = commentsHTML;
-
-    } catch (error) {
-        console.error('Error fetching comments:', error);
-        commentsContainer.innerHTML = '<p>Failed to load comments.</p>';
-    }
-}
-
-/**
- * Escapes HTML to prevent XSS attacks.
- * @param {string} unsafe - The string to escape.
- * @returns {string} - The escaped string.
- */
-function escapeHTML(unsafe) {
-    if (typeof unsafe !== 'string') return '';
-    return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
 
 // ----------------------------------
 // Helper Function: Format Post Date
