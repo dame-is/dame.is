@@ -1348,8 +1348,8 @@ body.dark-mode .alt-card {
 .comment-heart,
 .comment-repost,
 .comment-reply {
-  width: 1.25rem;               /* Match existing icon size */
-  height: 1.25rem;
+  width: 1rem;               /* Match existing icon size */
+  height: 1rem;
   color: #888;                  /* Default icon color, similar to .count-item i */
   transition: color 0.3s ease, opacity 0.3s ease;  /* Smooth color and opacity transitions */
   cursor: pointer;              /* Indicates interactivity */
@@ -1357,6 +1357,42 @@ body.dark-mode .alt-card {
   align-items: center;          /* Vertically centers the icons */
   justify-content: center;      /* Horizontally centers the icons */
 }
+
+._actionsContainer_1pvtk_130 {
+    margin-top: .5rem;
+    display: flex;
+    width: 100%;
+    max-width: 150px;
+    flex-direction: row;
+    align-items: center;
+    opacity: .6;
+    gap: 14px;
+  }
+
+  #comments-section a:visited {
+    color: black;
+  }
+
+  ._authorLink_1pvtk_84 {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: .5rem;
+  }
+
+  ._authorName_1pvtk_104 {
+    margin-bottom: 0px;
+  }
+
+  ._commentsList_1pvtk_55 p {
+    margin-bottom: 0px;
+  }
+
+  ._commentContainer_1pvtk_72 {
+    margin: 1rem 0;
+    font-size: .875rem;
+    margin-bottom: 0px;
+  }
 
 /* === Override Parent Opacity for Icons === */
 
@@ -1369,29 +1405,29 @@ body.dark-mode .alt-card {
 /* === Conditional Icon Styling === */
 
 /* Active state: Count > 0 */
-.active .comment-heart {
-  color: #e93434; /* Similar to .count-item.active .fa-heart */
+.comment-heart {
+  fill: #e93434; /* Similar to .count-item.active .fa-heart */
 }
 
-.active .comment-repost {
-  color: #0dc70d; /* Similar to .count-item.active .fa-retweet */
+.comment-repost {
+  fill: #0dc70d; /* Similar to .count-item.active .fa-retweet */
 }
 
-.active .comment-reply {
-  color: #007BFF; /* Similar to .count-item.active .fa-quote-right */
+.comment-reply {
+  fill: #4c4c4c; /* Similar to .count-item.active .fa-quote-right */
 }
 
 /* Dark Mode Adjustments for Active Icons */
-body.dark-mode .active .comment-heart {
-  color: #ff6b6b; /* Lighter shade for visibility */
+body.dark-mode .comment-heart {
+  fill: #ff6b6b; /* Lighter shade for visibility */
 }
 
-body.dark-mode .active .comment-repost {
-  color: #66ff66;
+body.dark-mode .comment-repost {
+  fill: #66ff66;
 }
 
-body.dark-mode .active .comment-reply {
-  color: #3399ff;
+body.dark-mode .comment-reply {
+  fill: #3399ff;
 }
 
 /* === Hover Effects for Comment Icons === */
