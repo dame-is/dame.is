@@ -71,6 +71,30 @@
         import { createRoot } from 'react-dom/client';
         import { BlueskyComments } from 'https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.es.js';
 
+         // Define an Error Boundary to catch rendering errors
+    class ErrorBoundary extends Component {
+        constructor(props) {
+            super(props);
+            this.state = { hasError: false };
+        }
+
+        static getDerivedStateFromError(error) {
+            return { hasError: true };
+        }
+
+        componentDidCatch(error, errorInfo) {
+            console.error('ErrorBoundary caught an error:', error, errorInfo);
+        }
+
+        render() {
+            if (this.state.hasError) {
+                return createElement('p', null, 'Something went wrong with the comments.');
+            }
+
+            return this.props.children;
+        }
+    }
+
         /**
      * Replaces the default SVG icons in the comments section with custom icons from the SVG sprite.
      */
@@ -178,5 +202,6 @@
         // Listen for a custom event dispatched by main.js after setting the URI
         window.addEventListener('bluesky_uri_set', renderBlueskyComments);
     </script>
+
 </body>
 </html>
