@@ -334,11 +334,11 @@ function updateThemeIcon() {
 
     if (document.body.classList.contains('dark-mode')) {
         // Switch to Sun Icon for Light Mode
-        useElement.setAttribute('href', 'assets/icons/icons-sprite.svg#icon-sun');
+        useElement.setAttribute('href', '/assets/icons/icons-sprite.svg#icon-sun');
         themeToggle.setAttribute('aria-label', 'Switch to light mode');
     } else {
         // Switch to Moon Icon for Dark Mode
-        useElement.setAttribute('href', 'assets/icons/icons-sprite.svg#icon-moon');
+        useElement.setAttribute('href', '/assets/icons/icons-sprite.svg#icon-moon');
         themeToggle.setAttribute('aria-label', 'Switch to dark mode');
     }
 }
@@ -1128,7 +1128,7 @@ for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
 
             // Create <use> element referencing the SVG sprite
             const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-            use.setAttribute('href', `assets/icons/icons-sprite.svg#icon-${iconName}`);
+            use.setAttribute('href', `/assets/icons/icons-sprite.svg#icon-${iconName}`);
 
             // Append <use> to SVG
             svg.appendChild(use);
@@ -1346,7 +1346,7 @@ for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
 
                 // Create <use> element referencing the SVG sprite
                 const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                use.setAttribute('href', `assets/icons/icons-sprite.svg#icon-${iconName}`);
+                use.setAttribute('href', `/assets/icons/icons-sprite.svg#icon-${iconName}`);
 
                 // Append <use> to SVG
                 svg.appendChild(use);
