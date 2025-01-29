@@ -1964,22 +1964,16 @@ async function fetchBlueskyComments(uri) {
     commentsContainer.innerHTML = '<p>Loading comments...</p>';
 
     try {
-        // Define the API endpoint
-        const apiEndpoint = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread';
-
-        // Define the payload
-        const payload = {
-            uri: `at://${uri}`, // Ensure the URI is prefixed with 'at://'
-            depth: 1, // Adjust depth as needed (1 for direct replies)
-        };
+        // Define the API endpoint with query parameter
+        const apiEndpoint = `https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/${uri}`;
 
         const response = await fetch(apiEndpoint, {
             method: 'GET',
             headers: {
-                'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 // 'Authorization': 'Bearer YOUR_ACCESS_TOKEN', // If authentication is required
             },
-            body: JSON.stringify(payload),
+            // GET requests typically do not have a body
         });
 
         if (!response.ok) {
@@ -2001,9 +1995,12 @@ async function fetchBlueskyComments(uri) {
 
             const { author, text, createdAt } = reply.post;
 
+            // Safely extract author information
+            const authorName = author?.displayName || author?.handle || 'Unknown';
+
             return `
                 <div class="comment">
-                    <p><strong>${author.displayName || author.handle}</strong> <em>${new Date(createdAt).toLocaleString()}</em></p>
+                    <p><strong>${escapeHTML(authorName)}</strong> <em>${new Date(createdAt).toLocaleString()}</em></p>
                     <p>${escapeHTML(text)}</p>
                 </div>
             `;
@@ -2023,6 +2020,7 @@ async function fetchBlueskyComments(uri) {
  * @returns {string} - The escaped string.
  */
 function escapeHTML(unsafe) {
+    if (typeof unsafe !== 'string') return '';
     return unsafe
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
