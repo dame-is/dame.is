@@ -63,6 +63,6 @@ How might you incorporate this into your social media practice? Well, you could 
 
 For speed and efficiency’s sake, I created an Apple Shortcut that is triggered via my iPhone’s Action Button that allows me to quickly type in the update and have it sent to the Bluesky account via the API. This allows me to post an update in less than 15 seconds from either my phone or my watch.
 
-Here’s a template of the shortcut I use if you’re interested in seeing it in action: https://www.icloud.com/shortcuts/b21adf7035d14992941ef72855d9003a
+Here’s a template of the shortcut I use if you’re interested in seeing it in action: [shortcut link](https://www.icloud.com/shortcuts/b21adf7035d14992941ef72855d9003a)
 
 **What other helpful frameworks from the web's past have we accidentally discarded? What new methods might we create to foster more groundedness in our digital lives?**
