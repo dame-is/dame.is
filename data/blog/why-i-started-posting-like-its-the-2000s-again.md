@@ -3,7 +3,7 @@ title: "Why I started posting like it’s the 2000s again"
 date: "2025-01-28"
 author: "Dame"
 excerpt: "In November of 2007, Facebook made a tiny change to its user interface that would massively influence what we know of today as a “post” on social media. What was that change?"
-bluesky_uri: "3lft5dg5qgc2p"
+bluesky_uri: ""
 og:
   title: "Why I started posting like it’s the 2000s again"
   description: "In November of 2007, Facebook made a tiny change to its user interface that would massively influence what we know of today as a “post” on social media. What was that change?"
