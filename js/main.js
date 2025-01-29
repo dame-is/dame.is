@@ -1899,6 +1899,16 @@ async function initializeBlogPost(slug) {
             addOrUpdateMetaTag('twitter:card', 'summary_large_image');
         }
 
+        // **Fetch and Render Bluesky Comments**
+        if (metadata.bluesky_uri) {
+            fetchBlueskyComments(metadata.bluesky_uri);
+        } else {
+            const commentsContainer = document.getElementById('comments-container');
+            if (commentsContainer) {
+                commentsContainer.innerHTML = '<p>No comments section available.</p>';
+            }
+        }
+
         // **Call `processOutboundLinks` after content injection**
         if (typeof processOutboundLinks === 'function') {
             processOutboundLinks();
@@ -1928,6 +1938,97 @@ function addOrUpdateMetaTag(name, content) {
         document.head.appendChild(metaTag);
     }
     metaTag.setAttribute('content', content);
+}
+
+// ----------------------------------
+// 🔹 **Bluesky Comments Integration**
+// ----------------------------------
+
+/**
+ * Fetches comments from Bluesky based on the provided URI and renders them.
+ * @param {string} uri - The Bluesky post URI (e.g., "3lft5dg5qgc2p")
+ */
+async function fetchBlueskyComments(uri) {
+    const commentsContainer = document.getElementById('comments-container');
+    if (!commentsContainer) {
+        console.error('Comments container not found.');
+        return;
+    }
+
+    if (!uri) {
+        commentsContainer.innerHTML = '<p>No comments</p>';
+        return;
+    }
+
+    // Show loading indicator
+    commentsContainer.innerHTML = '<p>Loading comments...</p>';
+
+    try {
+        // Define the API endpoint
+        const apiEndpoint = 'https://bsky.social/xrpc/app.bsky.feed.getPostThread';
+
+        // Define the payload
+        const payload = {
+            uri: `at://${uri}`, // Ensure the URI is prefixed with 'at://'
+            depth: 1, // Adjust depth as needed (1 for direct replies)
+        };
+
+        const response = await fetch(apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Authorization': 'Bearer YOUR_ACCESS_TOKEN', // If authentication is required
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch comments: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Validate response structure
+        if (!data.thread || !data.thread.replies || data.thread.replies.length === 0) {
+            commentsContainer.innerHTML = '<p>No comments yet.</p>';
+            return;
+        }
+
+        // Render comments
+        const commentsHTML = data.thread.replies.map(reply => {
+            // Validate reply structure
+            if (!reply.post) return '';
+
+            const { author, text, createdAt } = reply.post;
+
+            return `
+                <div class="comment">
+                    <p><strong>${author.displayName || author.handle}</strong> <em>${new Date(createdAt).toLocaleString()}</em></p>
+                    <p>${escapeHTML(text)}</p>
+                </div>
+            `;
+        }).join('');
+
+        commentsContainer.innerHTML = commentsHTML;
+
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        commentsContainer.innerHTML = '<p>Failed to load comments.</p>';
+    }
+}
+
+/**
+ * Escapes HTML to prevent XSS attacks.
+ * @param {string} unsafe - The string to escape.
+ * @returns {string} - The escaped string.
+ */
+function escapeHTML(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // ----------------------------------
