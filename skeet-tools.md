@@ -2,8 +2,6 @@
 
 My personal collection of 100+ tools and resources for Bluesky. The “featured” section is what I like and/or use the most, they are not sponsors.
 
-*Hand-curated with <3 by [dame.bsky.social](https://bsky.app/profile/dame.bsky.social)*
-
 ## Featured Tools
 
 - [Alt Text Rating Tool: How consistly do you use alt text?](https://dame.is/ratingalttext)
