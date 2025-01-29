@@ -14,13 +14,17 @@ They removed the mandatory word “is” from the beginning of what were once ca
 In those days, all of our posts looked like this:
 
 > Dame is watching a movie
+
 > Dame is hanging out with friends
+
 > Dame is sad
 
 The Facebook “feed” at the time also reflected individual actions that a user was taking in a very similar manner such as...
 
 > Dame joined the group “Local Meetups”
+
 > Dame added “1984” to favorite books
+
 > Dame is attending “Jazz Concert”
 
 ![An old screenshot of Facebook mobile from 2007 that shows how status updates use to look](/images/blog/2007-facebook-status-updates.jpg "2007 facebook status updates")
@@ -33,15 +37,21 @@ But overtime, most social media websites shifted towards prompting you with ques
 
 While I’m glad that the concept of “posting” on social media evolved over time, I am sad that we seemed to essentially abandon the traditional “status update” of Facebook’s yesteryears in the process. I wish people still made simple reports of what they were doing, eating, reading, or listening to. 
 
-I think this loss is part of a larger phenomenon of everyone becoming much more disembodied and less grounded while we’re inhabiting digital spaces. To help combat this shift in my own life, I decided to create a new personal website this year that felt more “alive” and reflective of my lived experience. The frameworks that social media unconsciously put us within do not lend well to mindfulness or embodiment, and I wanted to take a swing at giving myself a healthier digital playground.
+**I think this loss is part of a larger phenomenon of everyone becoming much more disembodied and less grounded while we’re inhabiting digital spaces.** To help combat this shift in my own life, I decided to create a new personal website this year that felt more “alive” and reflective of my lived experience. The frameworks that social media unconsciously put us within do not lend well to mindfulness or embodiment, and I wanted to take a swing at giving myself a healthier digital playground.
 
 For the past 4-5 years, I’ve kept a fairly consistent [logbook](https://en.wikipedia.org/wiki/Logbook) of what I was doing at almost every hour of the day. Doing this is a form of journaling for me, and it’s neat to be able to look back at a given time in my life and see what the day-to-day experience was like. We tend to easily remember major events or certain qualia about our past lifestyles, but the seemingly mundane or simpler parts tend to be easily forgotten if we don’t keep a record of them.
+
+![A screenshot of dame's logbook that shows various logs such as "eating a bowl of freshed mixed berries" and "visiting with parents"](/images/blog/dame-logbook-example.jpg "dame logbook example")
 
 As I was thinking about how to make my new website feel “alive”, I realized it would be interesting if I began publishing all of my daily logs publicly and in a format similar to Facebook’s old “status updates”. So, I acquired the domain dame.is, and hacked together a solution that would make sharing all of my logs really simple. 
 
 When you go to my website, the most prominent thing featured are now these status updates. This means that if you visit my site 8 different times in a given day, you’ll likely see 8 different reports of what it is that I’m currently doing... much like you’d have seen from me back during the early days of Facebook.
 
+![A screenshot of the dame.is website navigation bar that says "dame is taking a shower as of 16 minutes ago](/images/blog/dame-is-website-example.jpg "dame.is website example")
+
 How might you incorporate this into your social media practice? Well, you could start sharing these kinds of updates on your main account periodically... or you might create a separate account for them so that people could selectively see them only if they want to. My dame.is status updates are actually hosted on a dedicated Bluesky/Atproto PDS using Bluesky’s post lexicon, and then my website merely fetches that data anytime it loads. So, you can also follow my status updates on Bluesky from that account: [@dame.is](https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g)
+
+<blockquote class="bluesky-embed" data-bluesky-uri="at://did:plc:jucg4ddb2budmcy2pjo5fo2g/app.bsky.feed.post/3lgtt7jroel2k" data-bluesky-cid="bafyreidbtsyroketsixew6vk64fkyfbwjxyruknrtineqikatuxzblengm"><p lang="en">formatting and styling new blog post</p>&mdash; dame.is (<a href="https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g?ref_src=embed">@dame.is</a>) <a href="https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g/post/3lgtt7jroel2k?ref_src=embed">January 28, 2025 at 8:33 PM</a></blockquote><script async src="https://embed.bsky.app/static/embed.js" charset="utf-8"></script>
 
 For speed and efficiency’s sake, I created an Apple Shortcut that is triggered via my iPhone’s Action Button that allows me to quickly type in the update and have it sent to the Bluesky account via the API. This allows me to post an update in less than 15 seconds from either my phone or my watch.
 
