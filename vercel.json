@@ -27,22 +27,6 @@
           "source": "/(.*)",
           "destination": "/",
           "statusCode": 307
-      },
-      {
-          "source": "/:path*",
-          "has": [
-              {
-                  "type": "host",
-                  "value": "*.dame.is"
-              }
-          ],
-          "missing": [
-              {
-                  "type": "host"
-              }
-          ],
-          "destination": "https://dame.is",
-          "permanent": true
       }
   ]
 }
