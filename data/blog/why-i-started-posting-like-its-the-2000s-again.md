@@ -25,14 +25,6 @@ In those days, all of our posts looked like this:
 
 > Dame is sad
 
-The Facebook “feed” at the time also reflected individual actions that a user was taking in a very similar manner such as...
-
-> Dame joined the group “Local Meetups”
-
-> Dame added “1984” to favorite books
-
-> Dame is attending “Jazz Concert”
-
 ![An old screenshot of Facebook mobile from 2007 that shows how status updates use to look](/images/blog/2007-facebook-status-updates.jpg "2007 facebook status updates")
 *image source: [tech crunch](https://techcrunch.com/2007/08/15/facebook-iphone-ultrahype/)*
 
