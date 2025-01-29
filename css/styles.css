@@ -1427,3 +1427,12 @@ body.dark-mode .comment-reply {
   opacity: 0.8;     /* Slightly reduces opacity on hover */
   color: #000;      /* Changes color to black on hover */
 }
+
+
+.post-text-container a {
+    display: inline; /* Default: keep single links inline */
+}
+
+.post-text-container:has(a + a) a {
+    display: block; /* If multiple links exist, each goes on a new line */
+}
