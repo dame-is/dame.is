@@ -67,107 +67,81 @@
     </script>
     <!-- 📌 **Add Module Script for BlueskyComments** -->
     <script type="module">
-        import { createElement, Component } from 'react';
+        import { createElement } from 'react';
         import { createRoot } from 'react-dom/client';
         import { BlueskyComments } from 'https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.es.js';
-    
-        // Define an Error Boundary to catch rendering errors
-        class ErrorBoundary extends Component {
-            constructor(props) {
-                super(props);
-                this.state = { hasError: false };
-            }
-    
-            static getDerivedStateFromError(error) {
-                return { hasError: true };
-            }
-    
-            componentDidCatch(error, errorInfo) {
-                console.error('ErrorBoundary caught an error:', error, errorInfo);
-            }
-    
-            render() {
-                if (this.state.hasError) {
-                    return createElement('p', null, 'Something went wrong with the comments.');
-                }
-    
-                return this.props.children;
-            }
-        }
-    
+
         /**
-         * Replaces the default SVG icons in the comments section with custom icons from the SVG sprite.
-         */
-        function replaceDefaultIcons() {
-            const commentsContainer = document.getElementById('bluesky-comments');
-            if (!commentsContainer) {
-                console.error('Comments container not found for icon replacement.');
-                return;
-            }
-    
-            // Mapping of default icons to your custom icons
-            const iconMapping = {
-                'heart': 'heart',      // Replace 'heart' with 'heart' (assuming same icon)
-                'retweet': 'retweet',  // Replace 'retweet' with 'retweet' (assuming same icon)
-                'reply': 'reply',      // Replace 'reply' with 'reply' (assuming same icon)
-                // Add more mappings if there are additional icons
-            };
-    
-            // Select all SVG icons within the comments
-            const svgIcons = commentsContainer.querySelectorAll('svg._icon_1pvtk_31');
-    
-            svgIcons.forEach(svg => {
-                // Get the parent span to determine which count it represents
-                const parentSpan = svg.parentElement;
-                if (!parentSpan) return;
-    
-                const countText = parentSpan.querySelector('span');
-                if (!countText) return;
-    
-                let iconName = '';
-    
-                if (countText.textContent.includes('likes')) {
-                    iconName = 'heart'; // Default icon name
-                } else if (countText.textContent.includes('reposts')) {
-                    iconName = 'retweet';
-                } else if (countText.textContent.includes('replies')) {
-                    iconName = 'reply';
-                }
-    
-                if (iconName && iconMapping[iconName]) {
-                    // Clear existing SVG content
-                    while (svg.firstChild) {
-                        svg.removeChild(svg.firstChild);
-                    }
-    
-                    // Create a new <use> element referencing your SVG sprite
-                    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-                    use.setAttribute('href', `/assets/icons/icons-sprite.svg#icon-${iconMapping[iconName]}`);
-                    use.setAttribute('aria-label', `${iconMapping[iconName]} icon`);
-                    use.setAttribute('role', 'img');
-    
-                    // Append the <use> to the SVG
-                    svg.appendChild(use);
-    
-                    // Optionally, update classes or styles
-                    svg.classList.remove('_icon_1pvtk_31'); // Remove existing classes if necessary
-                    svg.classList.add(`icon-${iconMapping[iconName]}`); // Add your own classes
-    
-                    console.log(`Replaced icon for ${iconName} with icon-${iconMapping[iconName]}`);
-                }
-            });
+     * Replaces the default SVG icons in the comments section with custom icons from the SVG sprite.
+     */
+    function replaceDefaultIcons() {
+        const commentsContainer = document.getElementById('bluesky-comments');
+        if (!commentsContainer) {
+            console.error('Comments container not found for icon replacement.');
+            return;
         }
+
+        // Mapping of default icons to your custom icons
+        const iconMapping = {
+            'heart': 'heart',      // Replace 'heart' with 'heart' (assuming same icon)
+            'retweet': 'retweet',  // Replace 'retweet' with 'retweet' (assuming same icon)
+            'reply': 'reply',      // Replace 'reply' with 'reply' (assuming same icon)
+            // Add more mappings if there are additional icons
+        };
+
+        // Select all SVG icons within the comments
+        const svgIcons = commentsContainer.querySelectorAll('svg._icon_1pvtk_31');
+
+        svgIcons.forEach(svg => {
+            // Get the parent span to determine which count it represents
+            const parentSpan = svg.parentElement;
+            if (!parentSpan) return;
+
+            const countText = parentSpan.querySelector('span');
+            if (!countText) return;
+
+            let iconName = '';
+
+            if (countText.textContent.includes('likes')) {
+                iconName = 'heart'; // Default icon name
+            } else if (countText.textContent.includes('reposts')) {
+                iconName = 'retweet';
+            } else if (countText.textContent.includes('replies')) {
+                iconName = 'reply';
+            }
+
+            if (iconName && iconMapping[iconName]) {
+                // Clear existing SVG content
+                while (svg.firstChild) {
+                    svg.removeChild(svg.firstChild);
+                }
+
+                // Create a new <use> element referencing your SVG sprite
+                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                use.setAttribute('href', `/assets/icons/icons-sprite.svg#icon-${iconMapping[iconName]}`);
+                use.setAttribute('aria-label', `${iconMapping[iconName]} icon`);
+                use.setAttribute('role', 'img');
+
+                // Append the <use> to the SVG
+                svg.appendChild(use);
+
+                // Optionally, update classes or styles
+                svg.classList.remove('_icon_1pvtk_31'); // Remove existing classes if necessary
+                svg.classList.add(`icon-${iconMapping[iconName]}`); // Add your own classes
+
+                console.log(`Replaced icon for ${iconName} with icon-${iconMapping[iconName]}`);
+            }
+        });
+    }
     
         /**
          * Renders the BlueskyComments component once the `bluesky_uri` is set.
          */
         function renderBlueskyComments() {
-            console.log('renderBlueskyComments called');
             const container = document.getElementById('bluesky-comments');
             const uri = container.getAttribute('data-uri');
     
             if (!uri) {
-                console.log('No URI found, displaying fallback message.');
                 container.innerHTML = '<p>No comments section available.</p>';
                 return;
             }
@@ -178,9 +152,9 @@
                 return;
             }
     
-            const root = createRoot(container);
+                const root = createRoot(container);
             container._blueskyRoot = root; // Store reference to prevent re-rendering
-    
+
             try {
                 root.render(
                     createElement(ErrorBoundary, null,
@@ -193,7 +167,7 @@
                     )
                 );
                 console.log('BlueskyComments rendered successfully.');
-    
+
                 // After rendering, replace the default icons with custom icons
                 replaceDefaultIcons();
             } catch (error) {
@@ -201,26 +175,8 @@
             }
         }
     
-        /**
-         * Cleanup function to unmount the BlueskyComments component.
-         * Call this function when navigating away or reloading the page.
-         */
-        function cleanupBlueskyComments() {
-            const container = document.getElementById('bluesky-comments');
-            if (container && container._blueskyRoot) {
-                container._blueskyRoot.unmount();
-                delete container._blueskyRoot;
-                console.log('BlueskyComments unmounted successfully.');
-            }
-        }
-    
         // Listen for a custom event dispatched by main.js after setting the URI
         window.addEventListener('bluesky_uri_set', renderBlueskyComments);
-    
-        // Listen for page unload to perform cleanup
-        window.addEventListener('beforeunload', cleanupBlueskyComments);
     </script>
-    
-    
 </body>
 </html>
