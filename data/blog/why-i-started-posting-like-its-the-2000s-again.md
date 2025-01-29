@@ -28,12 +28,16 @@ The Facebook “feed” at the time also reflected individual actions that a use
 > Dame is attending “Jazz Concert”
 
 ![An old screenshot of Facebook mobile from 2007 that shows how status updates use to look](/images/blog/2007-facebook-status-updates.jpg "2007 facebook status updates")
+*image source: [tech crunch](https://techcrunch.com/2007/08/15/facebook-iphone-ultrahype/)*
 
 Back then, social media was a place you went to keep up with what your friends were actually **doing**. You didn’t go there to consume the news, follow influencers, or debate culture war issues with strangers.
 
 Social media was a digital location for the expression of your state of being. After all, the word “is” is the 3rd-person singular present indicative of the word “be”, which means “to exist or live” as in Shakespeare’s existential question: “To be or not to be...”
 
 But overtime, most social media websites shifted towards prompting you with questions like “What’s on your mind?” (Facebook) or “What’s happening?” (Twitter) instead of asking for a simple update about the state of your current existence. These subtle UI changes turned out to be massively consequential for how we experience reality in the 2020s, a time period in which social media has finally worked its way inside almost every facet of our lives.
+
+![An old screenshot of Facebook showing the newer "what's on your mind?" status prompt](/images/blog/facebook-new-status-prompt.png "new facebook status prompt")
+*image source: [chscommunicator](https://chscommunicator.com/23672/features/2012/01/facebook-status-whats-the-point/)*
 
 While I’m glad that the concept of “posting” on social media evolved over time, I am sad that we seemed to essentially abandon the traditional “status update” of Facebook’s yesteryears in the process. I wish people still made simple reports of what they were doing, eating, reading, or listening to. 
 
@@ -51,8 +55,8 @@ When you go to my website, the most prominent thing featured are now these statu
 
 How might you incorporate this into your social media practice? Well, you could start sharing these kinds of updates on your main account periodically... or you might create a separate account for them so that people could selectively see them only if they want to. My dame.is status updates are actually hosted on a dedicated Bluesky/Atproto PDS using Bluesky’s post lexicon, and then my website merely fetches that data anytime it loads. So, you can also follow my status updates on Bluesky from that account: [@dame.is](https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g)
 
-<blockquote class="bluesky-embed" data-bluesky-uri="at://did:plc:jucg4ddb2budmcy2pjo5fo2g/app.bsky.feed.post/3lgtt7jroel2k" data-bluesky-cid="bafyreidbtsyroketsixew6vk64fkyfbwjxyruknrtineqikatuxzblengm"><p lang="en">formatting and styling new blog post</p>&mdash; dame.is (<a href="https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g?ref_src=embed">@dame.is</a>) <a href="https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g/post/3lgtt7jroel2k?ref_src=embed">January 28, 2025 at 8:33 PM</a></blockquote><script async src="https://embed.bsky.app/static/embed.js" charset="utf-8"></script>
-
 For speed and efficiency’s sake, I created an Apple Shortcut that is triggered via my iPhone’s Action Button that allows me to quickly type in the update and have it sent to the Bluesky account via the API. This allows me to post an update in less than 15 seconds from either my phone or my watch.
 
 Here’s a template of the shortcut I use if you’re interested in seeing it in action: https://www.icloud.com/shortcuts/b21adf7035d14992941ef72855d9003a
+
+*What other helpful frameworks from the web's past have we accidentally discarded? What new methods might we create to foster more groundedness in our digital lives?*
