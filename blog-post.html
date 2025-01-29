@@ -36,8 +36,7 @@
     <!-- Footer -->
     <div id="footer"></div>
 
-    <!-- Include necessary scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- For Markdown parsing -->
+    <!-- For Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/gray-matter@4.0.3/browser.js"></script> <!-- For Frontmatter parsing -->
     <script src="/js/main.js"></script> <!-- Ensure this is loaded before inline scripts -->
     <script>
@@ -45,23 +44,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             initializeBlogPostFromURL();
         });
-    </script>
-    <script>
-        (function() {
-            const path = window.location.pathname;
-            const pathParts = path.split('/').filter(part => part !== '');
-            const slug = pathParts.length > 1 ? pathParts[1] : null; // Extract slug from /blog/slug
-    
-            if (slug) {
-                initializeBlogPost(slug);
-            } else {
-                // Handle the case where no slug is provided
-                const postTitle = document.getElementById('post-title');
-                const postContent = document.getElementById('post-content');
-                if (postTitle) postTitle.textContent = 'Post Not Found';
-                if (postContent) postContent.innerHTML = '<p>The requested post does not exist.</p>';
-            }
-        })();
     </script>
 </body>
 </html>
