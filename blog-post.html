@@ -65,44 +65,110 @@
             initializeBlogPostFromURL();
         });
     </script>
-    <!-- 📌 **Add Module Script for BlueskyComments** -->
-    <script type="module">
-        import { createElement } from 'react';
-        import { createRoot } from 'react-dom/client';
-        import { BlueskyComments } from 'https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.es.js';
-    
-        /**
-         * Renders the BlueskyComments component once the `bluesky_uri` is set.
-         */
-        function renderBlueskyComments() {
-            const container = document.getElementById('bluesky-comments');
-            const uri = container.getAttribute('data-uri');
-    
-            if (!uri) {
-                container.innerHTML = '<p>No comments section available.</p>';
-                return;
-            }
-    
-            // Prevent multiple renders
-            if (container._blueskyRoot) {
-                console.warn('BlueskyComments is already rendered.');
-                return;
-            }
-    
-            const root = createRoot(container);
-            container._blueskyRoot = root; // Store reference to prevent re-rendering
-    
-            root.render(
-                createElement(BlueskyComments, {
-                    uri: `https://bsky.app/profile/dame.bsky.social/post/${uri}`,
-                    // Optional: Customize additional props as needed
-                })
-            );
+<!-- 📌 **Add Module Script for BlueskyComments with Icon Replacement** -->
+<script type="module">
+    import { createElement } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { BlueskyComments } from 'https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.es.js';
+
+    /**
+     * Replaces the default SVG icons in the comments section with custom icons from the SVG sprite.
+     */
+    function replaceDefaultIcons() {
+        const commentsContainer = document.getElementById('bluesky-comments');
+        if (!commentsContainer) {
+            console.error('Comments container not found for icon replacement.');
+            return;
         }
-    
-        // Listen for a custom event dispatched by main.js after setting the URI
-        window.addEventListener('bluesky_uri_set', renderBlueskyComments);
-    </script>
+
+        // Mapping of comment types to your custom icon IDs
+        const iconMapping = {
+            'likes': 'heart',      // Replace 'likes' with 'icon-heart'
+            'reposts': 'retweet',  // Replace 'reposts' with 'icon-retweet'
+            'replies': 'reply'     // Replace 'replies' with 'icon-reply'
+        };
+
+        // Select all SVG icons within the comments section
+        const svgIcons = commentsContainer.querySelectorAll('svg');
+
+        svgIcons.forEach(svg => {
+            // Traverse up to find the parent element that contains the count text
+            const parentSpan = svg.closest('span') || svg.parentElement;
+            if (!parentSpan) return;
+
+            const countTextElement = parentSpan.querySelector('span');
+            if (!countTextElement) return;
+
+            const countText = countTextElement.textContent.toLowerCase();
+
+            // Determine which icon to replace based on the count text
+            let iconKey = '';
+            if (countText.includes('like')) {
+                iconKey = 'likes';
+            } else if (countText.includes('repost')) {
+                iconKey = 'reposts';
+            } else if (countText.includes('reply')) {
+                iconKey = 'replies';
+            }
+
+            if (iconKey && iconMapping[iconKey]) {
+                // Clear existing SVG content
+                while (svg.firstChild) {
+                    svg.removeChild(svg.firstChild);
+                }
+
+                // Create a new <use> element referencing your SVG sprite
+                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                use.setAttribute('href', `/assets/icons/icons-sprite.svg#icon-${iconMapping[iconKey]}`);
+                use.setAttribute('aria-label', `${iconMapping[iconKey]} icon`);
+                use.setAttribute('role', 'img');
+
+                // Append the <use> to the SVG
+                svg.appendChild(use);
+
+                // Optionally, update classes for styling consistency
+                svg.classList.add(`icon-${iconMapping[iconKey]}`);
+                console.log(`Replaced default icon with icon-${iconMapping[iconKey]}`);
+            }
+        });
+    }
+
+    /**
+     * Renders the BlueskyComments component once the `bluesky_uri` is set.
+     */
+    function renderBlueskyComments() {
+        const container = document.getElementById('bluesky-comments');
+        const uri = container.getAttribute('data-uri');
+
+        if (!uri) {
+            container.innerHTML = '<p>No comments section available.</p>';
+            return;
+        }
+
+        // Prevent multiple renders
+        if (container._blueskyRoot) {
+            console.warn('BlueskyComments is already rendered.');
+            return;
+        }
+
+        const root = createRoot(container);
+        container._blueskyRoot = root; // Store reference to prevent re-rendering
+
+        root.render(
+            createElement(BlueskyComments, {
+                uri: `https://bsky.app/profile/dame.bsky.social/post/${uri}`,
+                // Optional: Customize additional props as needed
+            })
+        );
+
+        // After rendering, replace the default icons with custom icons
+        replaceDefaultIcons();
+    }
+
+    // Listen for a custom event dispatched by main.js after setting the URI
+    window.addEventListener('bluesky_uri_set', renderBlueskyComments);
+</script>
+>
 
 </body>
 </html>
