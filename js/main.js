@@ -1907,7 +1907,7 @@ async function initializeBlogPost(slug) {
             window.dispatchEvent(new CustomEvent('bluesky_uri_set'));
         } else {
             const commentsContainer = document.getElementById('bluesky-comments');
-            commentsContainer.innerHTML = '<p>No comments section available.</p>';
+            commentsContainer.innerHTML = '<p>No comments are currently available. Check back later.</p>';
         }
 
         // **Call `processOutboundLinks` after content injection**
