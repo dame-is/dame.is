@@ -3,6 +3,7 @@ title: "My personal goals for 2025"
 date: "2024-12-26"
 author: "Dame"
 excerpt: "Yes, I’m a new year goals person... have been most of my life."
+bluesky_uri: "3lft5dg5qgc2p"
 og:
   title: "My personal goals for 2025"
   description: "While the Gregorian calendar is probably not the best or most interesting framework for time, it is the most widely used across the planet, and it’s deeply embedded in my psyche, so I continue to find it helpful to make plans around. If it’s cringe to do so, then I’m cringe."

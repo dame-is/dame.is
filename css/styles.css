@@ -1293,3 +1293,37 @@ body.dark-mode .alt-card {
   .dark-mode .icon.fa-github {
     color: white;
   }
+
+
+  /* 📌 **Comments Section Styles** */
+#comments-section {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+#comments-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.comment {
+    padding: 1rem;
+    border: 1px solid #f0f0f0;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    background-color: #fafafa;
+}
+
+.comment p {
+    margin: 0.5rem 0;
+}
+
+.comment strong {
+    color: #333;
+}
+
+.comment em {
+    color: #777;
+    font-size: 0.9rem;
+}
