@@ -1279,6 +1279,20 @@ body.dark-mode .alt-card {
     height: 24px;
   }
 
+  .icon.fa-moon {
+    width: 22px;
+    height: 33px;
+    padding-right: 0px;
+  }
+
+
+  .dark-mode .icon.fa-moon {
+    width: 28px;
+    height: 33px;
+    padding-right: 0px;
+  }
+
+
   .nav-icon .icon {
     width: 28px;
     height: 28px;
@@ -1371,6 +1385,10 @@ body.dark-mode .alt-card {
 
   #comments-section a:visited {
     color: black;
+  }
+
+  .dark-mode #comments-section a:visited {
+    color: white;
   }
 
   ._authorLink_1pvtk_84 {
