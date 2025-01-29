@@ -1812,28 +1812,49 @@ async function loadMoreBlogPosts() {
 // ----------------------------------
 // 18. BLOG POST PAGE INITIALIZATION
 // ----------------------------------
+async function initializeBlogPostFromURL() {
+    const path = window.location.pathname;
+    const pathParts = path.split('/').filter(part => part !== '');
+    const slug = pathParts.length > 1 ? pathParts[1] : null; // Extract slug from /blog/slug
+
+    if (slug) {
+        await initializeBlogPost(slug);
+    } else {
+        // Handle the case where no slug is provided
+        const postTitle = document.getElementById('post-title');
+        const postContent = document.getElementById('post-content');
+        if (postTitle) postTitle.textContent = 'Post Not Found';
+        if (postContent) postContent.innerHTML = '<p>The requested post does not exist.</p>';
+    }
+}
+
 async function initializeBlogPost(slug) {
-    const loadingIndicator = document.getElementById('post-content');
+    const postContent = document.getElementById('post-content');
     const postTitle = document.getElementById('post-title');
     const postDate = document.getElementById('post-date');
 
     try {
-        // Fetch blog index to find the post metadata
-        const responseIndex = await fetch('/data/blog-index.json');
-        if (!responseIndex.ok) {
-            throw new Error(`Failed to fetch blog index: ${responseIndex.status}`);
+        // Fetch the Markdown content
+        const responseMarkdown = await fetch(`/data/blog/${slug}.md`); // Adjust path as needed
+        if (!responseMarkdown.ok) {
+            throw new Error(`Failed to fetch blog post: ${responseMarkdown.status}`);
         }
-        const blogIndex = await responseIndex.json();
+        const rawMarkdown = await responseMarkdown.text();
 
-        // Find the post with the matching slug
-        const postMeta = blogIndex.posts.find(post => post.slug === slug);
-        if (!postMeta) {
-            throw new Error('Blog post not found.');
-        }
+        // Parse frontmatter using gray-matter
+        const parsed = matter(rawMarkdown);
+        const metadata = parsed.data;
+        const markdownContent = parsed.content;
+
+        // Parse Markdown to HTML using marked.js
+        const htmlContent = marked.parse(markdownContent);
+
+        // Inject the HTML content into the page
+        postContent.innerHTML = htmlContent;
 
         // Update title and date
-        postTitle.textContent = postMeta.title;
-        const postDateObj = new Date(postMeta.date);
+        postTitle.textContent = metadata.title || 'Untitled Post';
+        const postDateObj = new Date(metadata.date);
         postDate.textContent = postDateObj.toLocaleDateString(undefined, {
             year: 'numeric',
             month: 'long',
@@ -1841,39 +1862,29 @@ async function initializeBlogPost(slug) {
         });
 
         // Update document title
-        document.title = `${postMeta.title} - Your Website`;
+        document.title = `${metadata.title} - dame.is`;
 
         // Update meta description
-        const metaDescription = document.querySelector('meta[name="description"]');
-        if (metaDescription) {
-            metaDescription.setAttribute('content', postMeta.excerpt);
-        } else {
-            const metaDesc = document.createElement('meta');
-            metaDesc.name = 'description';
-            metaDesc.content = postMeta.excerpt;
-            document.head.appendChild(metaDesc);
+        if (metadata.excerpt) {
+            addOrUpdateMetaTag('description', metadata.excerpt);
+            addOrUpdateMetaTag('og:description', metadata.excerpt);
+            addOrUpdateMetaTag('twitter:description', metadata.excerpt);
         }
 
-        // Optionally, add Open Graph tags for better social media sharing
-        addOrUpdateMetaTag('og:title', postMeta.title);
-        addOrUpdateMetaTag('og:description', postMeta.excerpt);
-        addOrUpdateMetaTag('og:type', 'article');
-        addOrUpdateMetaTag('og:url', window.location.href);
-        // Add more OG tags as needed
+        // Update OG Meta Tags
+        if (metadata.og) {
+            addOrUpdateMetaTag('og:title', metadata.og.title || metadata.title);
+            addOrUpdateMetaTag('og:description', metadata.og.description || metadata.excerpt);
+            addOrUpdateMetaTag('og:image', metadata.og.image);
+            addOrUpdateMetaTag('og:url', metadata.og.url || window.location.href);
+            addOrUpdateMetaTag('og:type', 'article');
 
-        // Fetch the Markdown content
-        const responseMarkdown = await fetch(`/data/blog/${slug}.md`); // Updated path
-        if (!responseMarkdown.ok) {
-            throw new Error(`Failed to fetch blog post: ${responseMarkdown.status}`);
+            // Twitter Card Meta Tags
+            addOrUpdateMetaTag('twitter:title', metadata.og.title || metadata.title);
+            addOrUpdateMetaTag('twitter:description', metadata.og.description || metadata.excerpt);
+            addOrUpdateMetaTag('twitter:image', metadata.og.image);
+            addOrUpdateMetaTag('twitter:card', 'summary_large_image');
         }
-        const markdown = await responseMarkdown.text();
-
-        // Parse Markdown to HTML using marked.js
-        const htmlContent = marked.parse(markdown.replace(/^---[\s\S]*?---/, '')); // Remove front matter
-
-        // Inject the HTML content into the page
-        const postContent = document.getElementById('post-content');
-        postContent.innerHTML = htmlContent;
 
         // **Call `processOutboundLinks` after content injection**
         if (typeof processOutboundLinks === 'function') {
@@ -1883,23 +1894,24 @@ async function initializeBlogPost(slug) {
         }
     } catch (error) {
         console.error('Error loading blog post:', error);
-        const postContent = document.getElementById('post-content');
         if (postContent) {
             postContent.innerHTML = '<p>Failed to load blog post. Please try again later.</p>';
         }
-        const postTitle = document.getElementById('post-title');
         if (postTitle) {
             postTitle.textContent = 'Post Not Found';
         }
     }
 }
 
-
-function addOrUpdateMetaTag(property, content) {
-    let metaTag = document.querySelector(`meta[property="${property}"]`);
+function addOrUpdateMetaTag(name, content) {
+    let metaTag = document.querySelector(`meta[property="${name}"], meta[name="${name}"]`);
     if (!metaTag) {
         metaTag = document.createElement('meta');
-        metaTag.setAttribute('property', property);
+        if (name.startsWith('og:') || name.startsWith('twitter:')) {
+            metaTag.setAttribute('property', name);
+        } else {
+            metaTag.setAttribute('name', name);
+        }
         document.head.appendChild(metaTag);
     }
     metaTag.setAttribute('content', content);
