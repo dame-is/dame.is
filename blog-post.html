@@ -18,8 +18,21 @@
     <meta name="twitter:image" content="/images/default-og-image.jpg">
     <meta name="twitter:card" content="summary_large_image">
     
+    <!-- 📌 **Include Bluesky Comments CSS** -->
+    <link rel="stylesheet" href="https://unpkg.com/bluesky-comments@1.0.0/dist/bluesky-comments.css">
+
     <title>Blog Post - dame.is</title>
     <link rel="stylesheet" href="/css/styles.css">
+
+    <!-- 📌 **Add Import Map for React** -->
+    <script type="importmap">
+        {
+          "imports": {
+            "react": "https://esm.sh/react@18",
+            "react-dom/client": "https://esm.sh/react-dom@18/client"
+          }
+        }
+        </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -35,9 +48,7 @@
         <!-- 📌 **Comments Section Start** -->
         <section id="comments-section">
             <h2>Comments</h2>
-            <div id="comments-container">
-                <p>Loading comments...</p>
-            </div>
+            <div id="bluesky-comments" data-uri=""></div>
         </section>
         <!-- 📌 **Comments Section End** -->
     </main>
@@ -53,6 +64,36 @@
         document.addEventListener('DOMContentLoaded', () => {
             initializeBlogPostFromURL();
         });
+    </script>
+    <!-- 📌 **Add Module Script for BlueskyComments** -->
+    <script type="module">
+        import { createElement } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { BlueskyComments } from 'https://unpkg.com/bluesky-comments@1.0.0/dist/bluesky-comments.es.js';
+
+        /**
+         * Renders the BlueskyComments component once the `bluesky_uri` is set.
+         */
+        function renderBlueskyComments() {
+            const container = document.getElementById('bluesky-comments');
+            const uri = container.getAttribute('data-uri');
+
+            if (!uri) {
+                container.innerHTML = '<p>No comments section available.</p>';
+                return;
+            }
+
+            const root = createRoot(container);
+            root.render(
+                createElement(BlueskyComments, {
+                    uri: `https://bsky.app/profile/dame.bsky.social/post/${uri}`,
+                    // Optional: Customize additional props as needed
+                })
+            );
+        }
+
+        // Listen for a custom event dispatched by main.js after setting the URI
+        window.addEventListener('bluesky_uri_set', renderBlueskyComments);
     </script>
 </body>
 </html>

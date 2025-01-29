@@ -1295,7 +1295,7 @@ body.dark-mode .alt-card {
   }
 
 
-  /* 📌 **Comments Section Styles** */
+/* 📌 **Comments Section Styles** */
 #comments-section {
     margin-top: 2rem;
     padding-top: 1rem;
@@ -1305,6 +1305,10 @@ body.dark-mode .alt-card {
 #comments-section h2 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
+}
+
+#bluesky-comments {
+    margin-top: 1rem;
 }
 
 .comment {
@@ -1326,4 +1330,9 @@ body.dark-mode .alt-card {
 .comment em {
     color: #777;
     font-size: 0.9rem;
+}
+
+/* 📌 **BlueskyComments Specific Styles (if needed)** */
+.bluesky-comment {
+    /* Customize as per your preference */
 }
