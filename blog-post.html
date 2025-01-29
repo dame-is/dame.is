@@ -47,7 +47,6 @@
 
         <!-- 📌 **Comments Section Start** -->
         <section id="comments-section">
-            <h2>Comments</h2>
             <div id="bluesky-comments" data-uri=""></div>
         </section>
         <!-- 📌 **Comments Section End** -->
@@ -103,6 +102,80 @@
         // Listen for a custom event dispatched by main.js after setting the URI
         window.addEventListener('bluesky_uri_set', renderBlueskyComments);
     </script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+          // Function to replace SVGs based on fill and stroke
+          function replaceSVGIcons() {
+            const svgIcons = document.querySelectorAll('svg._icon_1pvtk_31');
+            
+            svgIcons.forEach(svg => {
+              const fill = svg.getAttribute('fill');
+              const stroke = svg.getAttribute('stroke');
+              
+              let newSVG = null;
+              
+              // Replace Heart Icon
+              if (fill === 'pink' && stroke === 'pink') {
+                newSVG = `
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+                    <path d="M47.6 300.4L228.3 469.1c7.5 7 17.4 10.9 27.7 10.9s20.2-3.9 27.7-10.9L464.4 300.4c30.4-28.3 47.6-68 47.6-109.5v-5.8c0-69.9-50.5-129.5-119.4-141C347 36.5 300.6 51.4 268 84L256 96 244 84c-32.6-32.6-79-47.5-124.6-39.9C50.5 55.6 0 115.2 0 185.1v5.8c0 41.5 17.2 81.2 47.6 109.5z"/>
+                  </svg>
+                `;
+              }
+              // Replace Repost Icon
+              else if (fill === 'none' && stroke === 'green') {
+                newSVG = `
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
+                    <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+                    <path d="M272 416c17.7 0 32-14.3 32-32s-14.3-32-32-32l-112 0c-17.7 0-32-14.3-32-32l0-128 32 0c12.9 0 24.6-7.8 29.6-19.8s2.2-25.7-6.9-34.9l-64-64c-12.5-12.5-32.8-12.5-45.3 0l-64 64c-9.2 9.2-11.9 22.9-6.9 34.9s16.6 19.8 29.6 19.8l32 0 0 128c0 53 43 96 96 96l112 0zM304 96c-17.7 0-32 14.3-32 32s14.3 32 32 32l112 0c17.7 0 32 14.3 32 32l0 128-32 0c-12.9 0-24.6 7.8-29.6 19.8s-2.2 25.7 6.9 34.9l64 64c12.5 12.5 32.8 12.5 45.3 0l64-64c9.2-9.2 11.9-22.9 6.9-34.9s-16.6-19.8-29.6-19.8l-32 0 0-128c0-53-43-96-96-96L304 96z"/>
+                  </svg>
+                `;
+              }
+              // Replace Reply Icon
+              else if (fill === '#7FBADC' && stroke === '#7FBADC') {
+                newSVG = `
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <!--!Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2025 Fonticons, Inc.-->
+                    <path d="M205 34.8c11.5 5.1 19 16.6 19 29.2l0 64 112 0c97.2 0 176 78.8 176 176c0 113.3-81.5 163.9-100.2 174.1c-2.5 1.4-5.3 1.9-8.1 1.9c-10.9 0-19.7-8.9-19.7-19.7c0-7.5 4.3-14.4 9.8-19.5c9.4-8.8 22.2-26.4 22.2-56.7c0-53-43-96-96-96l-96 0 0 64c0 12.6-7.4 24.1-19 29.2s-25 3-34.4-5.4l-160-144C3.9 225.7 0 217.1 0 208s3.9-17.7 10.6-23.8l160-144c9.4-8.5 22.9-10.6 34.4-5.4z"/>
+                  </svg>
+                `;
+              }
+              
+              if (newSVG) {
+                // Create a temporary container to parse the new SVG
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newSVG.trim();
+                const newSVGElement = tempDiv.firstChild;
+                
+                // Optionally, preserve existing classes or add new ones
+                newSVGElement.classList.add('_icon_1pvtk_31'); // Retain the original class if needed
+                
+                // Replace the old SVG with the new one
+                svg.parentNode.replaceChild(newSVGElement, svg);
+              }
+            });
+          }
+          
+          // Initial replacement
+          replaceSVGIcons();
+          
+          // If comments load dynamically after initial load, observe changes
+          const commentsSection = document.getElementById('comments-section');
+          if (commentsSection) {
+            const observer = new MutationObserver((mutations) => {
+              mutations.forEach((mutation) => {
+                if (mutation.addedNodes.length) {
+                  replaceSVGIcons();
+                }
+              });
+            });
+            
+            observer.observe(commentsSection, { childList: true, subtree: true });
+          }
+        });
+      </script>
+      
 
 </body>
 </html>
