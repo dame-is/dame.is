@@ -71,6 +71,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 
 ## Manage Your Data
 
+- [Bulk Retroactive Thread Gating](https://boat.kelinci.net/bsky-threadgate-applicator)
 - [Skeet Reviewer: Use the KonMari method to sort through your old posts](https://reviewer.skeet.tools)
 - [Skeetgen: Generate an easily viewable archive of your Bluesky posts](https://mary-ext.github.io/skeetgen/)
 - [SkySweeper: Auto-delete old skeets](https://skysweeper.p8.lu)
