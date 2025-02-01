@@ -8,7 +8,7 @@ const blogIndexPath = path.join(__dirname, 'data', 'blog-index.json');
 const outputPath = path.join(__dirname, 'feed.xml');
 
 // Your website's base URL (update with your actual domain)
-const siteUrl = 'https://yourdomain.com';
+const siteUrl = 'https://dame.is';
 
 // Read the JSON file with blog posts
 fs.readFile(blogIndexPath, 'utf8', (err, data) => {
