@@ -45,7 +45,7 @@ fs.readFile(blogIndexPath, 'utf8', (err, data) => {
     <item>
       <title>${escapeXml(post.title)}</title>
       <link>${postUrl}</link>
-      <description>${escapeXml(post.excerpt)}</description>
+      <description><![CDATA[${post.excerpt} <a href="${postUrl}">Read More</a>]]></description>
       <pubDate>${pubDate}</pubDate>
       <guid>${postUrl}</guid>
     </item>`;
