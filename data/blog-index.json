@@ -3,6 +3,7 @@
         {
             "title": "Why I started posting like it’s the 2000s again",
             "date": "2025-01-28",
+            "time": "10:00am EST",
             "author": "Dame",
             "excerpt": "In November of 2007, Facebook made a tiny change to its user interface that would massively influence what we know of today as a “post” on social media. What was that change?",
             "slug": "why-i-started-posting-like-its-the-2000s-again"
@@ -10,6 +11,7 @@
         {
             "title": "My top 10 moments from 2024",
             "date": "2024-12-31",
+            "time": "10:00am EST",
             "author": "Dame",
             "excerpt": "Rhett & Link have a tradition of using their final podcast episode of the year to rank their top 10 moments of the year. These are always some of my favorite episodes of Ear Biscuits, so I thought I should try to do the same thing for myself.",
             "slug": "my-top-10-moments-of-2024"
@@ -17,6 +19,7 @@
         {
             "title": "My personal goals for 2025",
             "date": "2024-12-26",
+            "time": "10:00am EST",
             "author": "Dame",
             "excerpt": "Yes, I’m a new year goals person... have been most of my life.",
             "slug": "my-personal-goals-for-2025"
