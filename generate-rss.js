@@ -37,7 +37,7 @@ fs.readFile(blogIndexPath, 'utf8', (err, data) => {
   const rssItems = posts.map(post => {
     // Construct the URL for the individual blog post.
     // Adjust the URL if your post URLs differ.
-    const postUrl = `${siteUrl}/blog/${post.slug}.html`;
+    const postUrl = `${siteUrl}/blog/${post.slug}`;
     // Convert the date to an RFC 822 format using toUTCString()
     const pubDate = new Date(post.date).toUTCString();
 
