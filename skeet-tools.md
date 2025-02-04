@@ -190,6 +190,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 - [Weather Vane](https://verify.aviary.domains/)
 - [TID clock](https://retr0.id/stuff/atclock/)
 - [handles.net: Automatically provision and manage Bluesky Handles for your community](https://handles.net/)
+- [Lexidex: catalog of Lexicons](https://lexidex.bsky.dev/)
 
 ## Guides
 
