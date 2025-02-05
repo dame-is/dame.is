@@ -1,0 +1,60 @@
+<!-- blog/blog-post.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
+
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="How I made an automated dynamic avatar for my Bluesky profile">
+    <meta property="og:description" content="Several years ago, back when Twitter was a thing and it had a decent API, my friend @goose.art did a weird little experiment where he made his avatar dynamic... it automatically changed appearances on a regular basis and became increasingly deep-fried (increased in distortion and lossy compression). I’ve seen several other people mess around with this concept since then, and I’ve always had it in the back of my head as something I wanted to eventually try for myself.">
+    <meta property="og:image" content="images/blog/automated-avatar-graphics/avatar-grid.jpg">
+    <meta property="og:url" content="https://dame.is/blog/how-i-made-an-automated-dynamic-avatar-for-my-bluesky-profile">
+    <meta property="og:type" content="article">
+    
+    <!-- 📌 **Include Bluesky Comments CSS** -->
+    <link rel="stylesheet" href="https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.css">
+
+    <title>How I made an automated dynamic avatar for my Bluesky profile</title>
+    <link rel="stylesheet" href="/css/styles.css">
+
+    <!-- 📌 **Add Import Map for React** -->
+    <script type="importmap">
+        {
+          "imports": {
+            "react": "https://esm.sh/react@18",
+            "react-dom/client": "https://esm.sh/react-dom@18/client"
+          }
+        }
+    </script>
+</head>
+<body>
+    <!-- Navigation -->
+    <div id="nav"></div>
+
+    <main>
+        <h1 id="post-title">How I made an automated dynamic avatar for my Bluesky profile</h1>
+        <p class="blog-post-date" id="post-date">2025-2-5</p>
+        <div id="post-content">
+            <!-- Blog post content will be injected here -->
+        </div>
+
+        <!-- 📌 **Comments Section Start** -->
+        <section id="comments-section">
+            <div id="bluesky-comments" data-uri="{{BLUESKY_URI}}"></div>
+        </section>
+        <!-- 📌 **Comments Section End** -->
+    </main>
+
+    <!-- Footer -->
+    <div id="footer"></div>
+
+    <!-- Shared Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- For Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script> <!-- For YAML parsing -->
+    <script src="/js/main.js"></script> <!-- Main JS functions -->
+    <script type="module" src="/js/comments-init.js"></script><!-- Bluesky Comments Initialization -->
+    <script src="/js/svg-icons.js"></script> <!-- SVG Icon Replacement -->
+</body>
+</html>
