@@ -60,7 +60,9 @@ Here’s a copy of [the Apple Shortcut file](https://www.icloud.com/shortcuts/dd
 
 I’d like to create a Version 2 of this project in a few weeks that adds some additional elements like logic paths and additional visuals that display based on weather data (fog, rain, cloud cover, rare random events like shooting stars, etc). It would also be nice to automate my banner image to match the backgrounds of the avatar.
 
-I’m also planning to upgrade my status update account ([@now.dame.is](https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g)) to have a dynamic bio that includes regularly updated data about my current psychological state + environment (focus level, mood, current song, indoor temp, etc).
+In addition to this automation, I also added a dynamic bio to my status update account ([@now.dame.is](https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g)) that includes regularly updated data about my current psychological state + environment (focus level, mood, current song, indoor temp, etc).
+
+![A screenshot of my status update profile showing dynamic data](/images/blog/automated-avatar-graphics/bio-profile.png "bio profile example")
 
 Using Apple Shortcuts to automate Bluesky data has a lot of interesting experimental potential thanks to the large number of automation triggers that Apple provides. Everything from sound recognition to whether or you’re stationary or not... and don’t even get me started with NFC tags. I hope we see more people trying weird things in the future.
 
