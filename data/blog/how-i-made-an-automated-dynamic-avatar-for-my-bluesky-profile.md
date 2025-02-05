@@ -13,7 +13,7 @@ og:
 
 Several years ago, back when Twitter was a thing and it had a decent API, my friend [@goose.art](https://bsky.app/profile/goose.art) did a weird little experiment where he made his avatar dynamic... it automatically changed appearances on a regular basis and became increasingly deep-fried (increased in distortion and lossy compression). I’ve seen several other people mess around with this concept since then, and I’ve always had it in the back of my head as something I wanted to eventually try for myself.
 
-Flash forward to today, and I’ve finally made good on that desire thanks to Bluesky and it’s wonderful API.
+Flash forward to today, and I’ve finally done exactly that thanks to Bluesky and its wonderful API.
 
 Today I activated an automation that changes my Bluesky avatar every hour of each day to roughly correspond with the daylight (or lack thereof) that I’m experiencing in my time zone (EST). As the sun is rising and setting each day, you’ll see it reflected on my profile in the form of ever-changing sky gradients. I felt that this expression was especially appropriate given the theme of the Bluesky brand.
 
