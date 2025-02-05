@@ -26,7 +26,7 @@ function renderBlueskyComments() {
 
     root.render(
         createElement(BlueskyComments, {
-            uri: `https://bsky.app/profile/dame.bsky.social/post/${uri}`,
+            uri: `https://bsky.app/profile/dame.is/post/${uri}`,
         })
     );
 }
