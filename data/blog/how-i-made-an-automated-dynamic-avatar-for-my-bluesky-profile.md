@@ -1,6 +1,6 @@
 ---
 title: "How I made an automated dynamic avatar for my Bluesky profile"
-date: "2025-2-5"
+date: "2025-02-05"
 author: "Dame"
 excerpt: "Several years ago, back when Twitter was a thing and it had a decent API, my friend @goose.art did a weird little experiment where he made his avatar dynamic... it automatically changed appearances on a regular basis and became increasingly deep-fried (increased in distortion and lossy compression). I’ve seen several other people mess around with this concept since then, and I’ve always had it in the back of my head as something I wanted to eventually try for myself."
 bluesky_uri: "3lhh4e7j4xk2b"
