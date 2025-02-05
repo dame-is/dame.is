@@ -40,6 +40,21 @@
             <!-- Blog post content will be injected here -->
         </div>
 
+        <div id="newsletter-form">
+  
+            <form action="https://buttondown.com/api/emails/embed-subscribe/dame" method="post" target="popupwindow" onsubmit="window.open('https://buttondown.com/dame', 'popupwindow')" class="embeddable-buttondown-form">
+                    <label for="bd-email">Email Address</label>
+                    <input type="email" name="email" id="bd-email">
+                    <label for="bsky-handle">Bluesky Handle (Optional)</label>
+                    <input type="text" name="metadata__bsky-handle" id="bsky-handle">
+                    <label for="name">Name or Pseudonym (Optional)</label>
+                    <input type="text" name="metadata__name" id="name">
+                    <input type="submit" value="Subscribe">
+                    <input type="hidden" name="tag" value="blog-top-10-moments-2024">
+                    <input type="hidden" name="tag" value="personal-site">
+                  </form>
+            </div>
+
         <!-- 📌 **Comments Section Start** -->
         <section id="comments-section">
             <div id="bluesky-comments" data-uri="3len3e4oemc2j"></div>

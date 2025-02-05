@@ -1441,3 +1441,36 @@ body.dark-mode .comment-reply {
 .post-text-container:has(a + a) a {
     display: block; /* If multiple links exist, each goes on a new line */
 }
+
+
+/* === Newsletter Form Styles === */
+
+
+#newsletter-form {
+    display: flex;
+  }
+  .embeddable-buttondown-form {
+    display: grid;
+    grid-row-gap: 6px;
+  }
+  input#newsletter-form {
+    margin-bottom: 10px;
+  }
+  .embeddable-buttondown-form #input {
+    margin-bottom: 10px;
+  }
+  #bd-email {
+    margin-bottom: 10px;
+  }
+  #bsky-handle {
+    margin-bottom: 10px;
+  }
+  #name {
+    margin-bottom: 10px;
+  }
+  #newsletter-form {
+    font-size: 0.8em;
+  }
+  #newsletter-header {
+    margin-bottom: 19px;
+  }
