@@ -1,10 +1,12 @@
 name: Generate RSS Feed
+permissions:
+  contents: write   # Allow write access to repository contents
 
 on:
   push:
     branches: [ main ]
     paths:
-      - 'blog/*.html'  # Only trigger if files in /blog/ ending in .html change
+      - 'blog/*.html'
 
 jobs:
   build:
