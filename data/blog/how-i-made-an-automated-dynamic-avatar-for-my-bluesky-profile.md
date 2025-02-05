@@ -58,7 +58,7 @@ Here’s a copy of [the Apple Shortcut file](https://www.icloud.com/shortcuts/dd
 
 ## Future Updates and Ideas
 
-I’d like to create a Version 2 of this project in a few weeks that adds some additional elements like logic paths and additional visuals that display based on weather data (fog, rain, cloud cover, rare random events like shooting stars, etc). It would also be nice to automate my banner image to match the backgrounds of the avatar.
+I’d like to create a Version 2 of this project in a few weeks that adds some additional elements like logic paths and layers that display based on weather data (fog, rain, cloud cover, rare random events like shooting stars, etc). It would also be nice to automate my banner image to match the backgrounds of the avatar.
 
 In addition to this automation, I also added a dynamic bio to my status update account ([@now.dame.is](https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g)) that includes regularly updated data about my current psychological state + environment (focus level, mood, current song, indoor temp, etc).
 
