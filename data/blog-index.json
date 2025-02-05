@@ -1,6 +1,14 @@
 {
     "posts": [
         {
+            "title": "How I made an automated dynamic avatar for my Bluesky profile",
+            "date": "2025-02-5",
+            "time": "10:00am EST",
+            "author": "Dame",
+            "excerpt": "Several years ago, back when Twitter was a thing and it had a decent API, my friend @goose.art did a weird little experiment where he made his avatar dynamic... it automatically changed appearances on a regular basis and became increasingly deep-fried (increased in distortion and lossy compression).",
+            "slug": "how-i-made-an-automated-dynamic-avatar-for-my-bluesky-profile"
+        },
+        {
             "title": "Why I started posting like it’s the 2000s again",
             "date": "2025-01-28",
             "time": "10:00am EST",
