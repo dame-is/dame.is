@@ -31,7 +31,7 @@ The backgrounds are simple two-color gradients with noise filters applied and th
 
 ![A closeup of one of the dynamic avatars](/images/blog/automated-avatar-graphics/5pmbig.jpg "bluesky sky avatar close up")
 
-After the fact I realized that the visuals I produced had a taste of Ed Ruscha’s style to them, an artist whose work I have long appreciated. 
+After the fact, I realized that the visuals I produced had a taste of Ed Ruscha’s style to them, an artist whose work I have long appreciated. 
 
 ![A collection of Ed Ruscha paintings hanging on a gallery wall](/images/blog/automated-avatar-graphics/ed-ruscha-example.jpg "ed ruscha example")
 *[Artwork © Ed Ruscha. Photo: Rob McKeever](https://gagosian.com/exhibitions/2017/ed-ruscha-custom-built-intrigue-drawings-1974-1984/)*
@@ -54,7 +54,7 @@ There’s quite a bit of regex that was needed to properly match/filter JSON dat
 
 The one surprise I had along the way was realizing that I couldn’t just push one element of profile data through the API... I originally sent a test request through that just contained the avatar update, and quickly discovered that it “removed” my display name, banner, pinned post, and description because I didn’t include those elements in the data I was pushing. That’s why the Apple Shortcut includes the step of fetching the existing profile data, so that even though nothing else changes it can be fed back into the POST request along with the avatar update.
 
-Here’s a copy of [the Apple Shortcut file](https://www.icloud.com/shortcuts/dd304c7087b84a90bd7286c887e94caa) if you’re interested at looking at the “code” yourself or modifying it.
+Here’s a copy of [the Apple Shortcut file](https://www.icloud.com/shortcuts/dd304c7087b84a90bd7286c887e94caa) if you’re interested in looking at the “code” yourself or modifying it.
 
 ## Future Updates and Ideas
 
