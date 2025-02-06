@@ -46,6 +46,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 - [Top 500 Users List](https://vqv.app/index.html)
 - [Handles directory](https://blue.mackuba.eu/directory/)
 - [BlueTube: Hottest YouTube Links on Bluesky](https://bluetube.fyi/)
+- [bskycharts](https://bskycharts.edavis.dev/bluesky-day.html)
 
 ## Services/AppViews
 
