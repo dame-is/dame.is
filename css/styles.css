@@ -1474,3 +1474,7 @@ body.dark-mode .comment-reply {
   #newsletter-header {
     margin-bottom: 19px;
   }
+
+  #shareButton {
+    background-color: #5f5f5f;
+}
