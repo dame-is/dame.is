@@ -1478,3 +1478,16 @@ body.dark-mode .comment-reply {
   #shareButton {
     background-color: #5f5f5f;
 }
+
+
+@media (max-width: 450px) {
+    .gauge-container {
+        margin: 20px auto;
+        width: 100%;
+        max-width: 400px;
+        position: relative;
+        padding-bottom: 0;
+        margin-top: 25px;
+        margin-bottom: -16px;
+      }
+}
