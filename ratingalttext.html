@@ -5,6 +5,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
+
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Bluesky Alt Text Rating Tool">
+    <meta property="og:description" content="How consistently do you use alt text?">
+    <meta property="og:image" content="/images/alt-text-rating-tool.jpg">
+    <meta property="og:url" content="https://dame.is/ratingalttext">
+    <meta property="og:type" content="website">
+
   <title>Bluesky Alt Text Rating Tool</title>
   <link rel="stylesheet" href="/css/styles.css" />
   <style>
@@ -510,10 +518,10 @@
         const shareButton = document.getElementById("shareButton");
         const shareText =
           `My alt text rating score is ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}\n\n` +
-          `${analysis.totalPosts} posts analyzed\n` +
-          `${analysis.postsWithImages} contain images\n` +
-          `${analysis.postsWithAltText} have alt text\n\n` +
-          `Get your Bluesky Alt Text Rating here: dame.is/ratingalttext`;
+          `${analysis.totalPosts} posts analyzed,\n` +
+          `${analysis.postsWithImages} contain images,\n` +
+          `${analysis.postsWithAltText} have alt text...\n\n` +
+          `Get your Bluesky alt text rating here: dame.is/ratingalttext`;
         const intentUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
         shareButton.onclick = function() {
           window.open(intentUrl, '_blank');
