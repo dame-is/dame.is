@@ -1479,6 +1479,25 @@ body.dark-mode .comment-reply {
     background-color: #5f5f5f;
 }
 
+    /* Responsive container for the gauge */
+    .gauge-container {
+        margin: 20px auto;
+        width: 100%;
+        max-width: 400px;
+        position: relative;
+        padding-bottom: 0;
+        margin-top: -27px;
+        margin-bottom: -16px;
+      }
+      .gauge-container svg {
+        position: relative;
+        top: -18px;
+        left: 0;
+        width: 100%;
+        margin-top: -93px;
+        overflow: hidden;
+      }
+
 
 @media (max-width: 450px) {
     .gauge-container {
