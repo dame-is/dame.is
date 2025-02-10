@@ -206,9 +206,30 @@
         }
       }
 
+      /**
+       * Fetches the service endpoint for a given DID.
+       * 
+       * For did:plc identities, it fetches data from https://plc.directory/<did>.
+       * For did:web identities, it constructs the URL as:
+       *    https://<domain>/.well-known/did.json
+       *
+       * @param {string} did - The decentralized identifier.
+       * @returns {Promise<string>} The service endpoint URL.
+       */
       async function fetchServiceEndpoint(did) {
         try {
-          const res = await fetch(`https://plc.directory/${did}`);
+          let url;
+          if (did.startsWith("did:web:")) {
+            // Extract the domain from the DID (e.g., did:web:lathrys.at → lathrys.at)
+            const domain = did.slice("did:web:".length);
+            url = `https://${domain}/.well-known/did.json`;
+          } else if (did.startsWith("did:plc:")) {
+            url = `https://plc.directory/${did}`;
+          } else {
+            throw new Error(`Unsupported DID method for DID: ${did}`);
+          }
+
+          const res = await fetch(url);
           const data = await res.json();
           if (data.service && data.service.length > 0) {
             const serviceEndpoint = data.service[0].serviceEndpoint;
