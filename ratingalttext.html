@@ -8,7 +8,6 @@
   <title>Bluesky Alt Text Rating Tool</title>
   <link rel="stylesheet" href="/css/styles.css" />
   <style>
-
     /* Hide results until needed */
     #results {
       display: none;
@@ -55,6 +54,12 @@
     .filters-container label {
       margin-right: 7px;
     }
+    /* Style for the action row buttons */
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -83,9 +88,10 @@
           <div id="autocomplete-list" class="autocomplete-items"></div>
         </div>
 
-        <!-- Row with the Analyze button -->
+        <!-- Row with the Analyze and Share buttons -->
         <div class="action-row">
           <button type="submit">Analyze</button>
+          <button type="button" id="shareButton" style="display:none;">Share</button>
         </div>
       </form>
       <!-- Results container -->
@@ -197,20 +203,19 @@
         handle = handle.replace(/[\u200E\u200F\u202A-\u202E]/g, '');
         
         try {
-            const res = await fetch(
+          const res = await fetch(
             `${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
-            );
-            const data = await res.json();
-            if (data.did) return data.did;
-            throw new Error(
+          );
+          const data = await res.json();
+          if (data.did) return data.did;
+          throw new Error(
             "Invalid username, please try again! Make sure you're not including the @ symbol before the domain."
-            );
+          );
         } catch (error) {
-            console.error("Error resolving handle to DID:", error);
-            throw error;
+          console.error("Error resolving handle to DID:", error);
+          throw error;
         }
-        }
-
+      }
 
       /**
        * Fetches the service endpoint for a given DID.
@@ -394,7 +399,6 @@
       // ----------------------------
       // Needle Oscillation Settings and Animation (using requestAnimationFrame)
       // ----------------------------
-      // You can adjust these parameters for speed and bounce behavior
       let baseSpeed = 0.10; // Base speed in percentage change per millisecond
       let oscillationMin = 0; // Minimum percentage value
       let oscillationMax = 100; // Maximum percentage value
@@ -411,12 +415,10 @@
         const deltaTime = timestamp - lastTimestamp;
         lastTimestamp = timestamp;
 
-        // Calculate increment based on base speed and a random factor for natural variation
         let randomFactor = 0.8 + Math.random() * 0.4; // between 0.8 and 1.2
         let increment = baseSpeed * deltaTime * randomFactor;
         currentOscillation += oscillationDirection * increment;
 
-        // Bounce logic: when reaching a bound, reverse direction and add a random bounce offset
         if (currentOscillation >= oscillationMax) {
           currentOscillation = oscillationMax - Math.random() * bounceRange;
           oscillationDirection = -1;
@@ -430,15 +432,12 @@
       }
 
       function startNeedleAnimation() {
-        // Reset state variables
         currentOscillation = oscillationMin;
         oscillationDirection = 1;
         lastTimestamp = null;
-        // Cancel any existing animation frame
         if (animFrameId) {
           cancelAnimationFrame(animFrameId);
         }
-        // Start the animation loop
         animFrameId = requestAnimationFrame(animateNeedle);
       }
 
@@ -451,7 +450,6 @@
 
       /**
        * Updates the gauge needle based on the given percentage.
-       * Mapping: 0% → 0° (fully left), 100% → 180° (fully right)
        *
        * @param {number} percentage - A value between 0 and 100.
        */
@@ -473,9 +471,9 @@
 
       // ----------------------------
       // Function to update the analysis results based on the checkbox states.
+      // Also updates the Share button.
       // ----------------------------
       function updateAnalysisResults(useLast90Days, excludeReplies) {
-        // Re-run analysis on the globally stored records
         const analysis = analyzePosts(allRecords, useLast90Days, excludeReplies, actorDID);
         const textResults = document.getElementById("textResults");
         const scoreText =
@@ -483,7 +481,6 @@
             ? "No image posts detected! 🔍"
             : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-        // Update the results display to match the desired format
         textResults.innerHTML = `
           <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
           <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
@@ -492,8 +489,36 @@
           <h2>Score: ${scoreText}</h2>
         `;
 
-        // Set the gauge needle to the final percentage
         updateGauge(analysis.altTextPercentage);
+        updateShareButton(analysis);
+      }
+
+      /**
+       * Updates the Share button with an action intent link based on the analysis.
+       *
+       * The composed text will be:
+       *
+       * My alt text rating score is 72.73% 🙂
+       *
+       * 586 posts analyzed
+       * 121 contain images
+       * 88 have alt text
+       *
+       * Get your Bluesky Alt Text Rating here: dame.is/ratingalttext
+       */
+      function updateShareButton(analysis) {
+        const shareButton = document.getElementById("shareButton");
+        const shareText =
+          `My alt text rating score is ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}\n\n` +
+          `${analysis.totalPosts} posts analyzed\n` +
+          `${analysis.postsWithImages} contain images\n` +
+          `${analysis.postsWithAltText} have alt text\n\n` +
+          `Get your Bluesky Alt Text Rating here: dame.is/ratingalttext`;
+        const intentUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
+        shareButton.onclick = function() {
+          window.open(intentUrl, '_blank');
+        };
+        shareButton.style.display = "inline-block";
       }
 
       // ----------------------------
@@ -504,21 +529,17 @@
         const username = document.getElementById("username").value.trim();
         const resultsDiv = document.getElementById("results");
         const textResults = document.getElementById("textResults");
-        // Show the results area (which will display either results or error)
         resultsDiv.style.display = "block";
-        // Ensure the gauge container is visible on a successful run
         document.querySelector(".gauge-container").style.display = "block";
         textResults.textContent = "Loading...";
-        // Start needle animation while loading
         startNeedleAnimation();
 
         try {
           const did = await resolveHandleToDID(username);
-          actorDID = did; // Store the user's DID for analysis
+          actorDID = did;
           const serviceEndpoint = await fetchServiceEndpoint(did);
           allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
 
-          // Check the states of both checkboxes
           const useLast90Days = document.getElementById("last90days").checked;
           const excludeReplies = document.getElementById("excludeReplies").checked;
 
@@ -528,7 +549,6 @@
               ? "No image posts detected! 🔍"
               : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
 
-          // Update the results display to match the desired format
           textResults.innerHTML = `
             <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
             <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
@@ -539,18 +559,14 @@
 
           stopNeedleAnimation();
           updateGauge(analysis.altTextPercentage);
+          updateShareButton(analysis);
         } catch (error) {
-          // Stop the needle animation and reset the gauge
           stopNeedleAnimation();
           updateGauge(oscillationMin);
-          // Clear stored records and actorDID
           allRecords = [];
           actorDID = "";
-          // Hide the gauge container on error so it does not appear
           document.querySelector(".gauge-container").style.display = "none";
-          // Display the error message (with red text) in the results area
           textResults.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-          // Set focus back to the username input so the user can try again
           document.getElementById("username").focus();
         }
       });
@@ -558,9 +574,7 @@
       // ----------------------------
       // Listen for checkbox state changes
       // ----------------------------
-      // Function to handle changes in filter checkboxes
       function handleFilterChange() {
-        // Only update if we have already fetched records and have actorDID
         if (allRecords.length > 0 && actorDID) {
           const useLast90Days = document.getElementById("last90days").checked;
           const excludeReplies = document.getElementById("excludeReplies").checked;
@@ -568,7 +582,6 @@
         }
       }
 
-      // Add event listeners to both checkboxes
       document.getElementById("last90days").addEventListener("change", handleFilterChange);
       document.getElementById("excludeReplies").addEventListener("change", handleFilterChange);
     </script>
@@ -582,7 +595,6 @@
         const DEBOUNCE_DELAY = 300; // milliseconds
         const MAX_SUGGESTIONS = 5;
 
-        // Function to fetch suggestions from the API
         async function fetchSuggestions(query) {
           if (!query) {
             clearSuggestions();
@@ -608,7 +620,6 @@
           }
         }
 
-        // Function to display suggestions in the dropdown
         function displaySuggestions(actors) {
           clearSuggestions();
 
@@ -621,8 +632,6 @@
           actors.forEach((actor) => {
             const item = document.createElement("div");
             item.classList.add("autocomplete-item");
-
-            // Highlight matching part
             const handle = actor.handle;
             const index = handle.toLowerCase().indexOf(query);
             let highlightedHandle = handle;
@@ -640,7 +649,6 @@
               <span>${highlightedHandle}</span>
             `;
 
-            // Handle click on suggestion
             item.addEventListener("click", () => {
               searchInput.value = actor.handle;
               clearSuggestions();
@@ -650,18 +658,15 @@
             autocompleteList.appendChild(item);
           });
 
-          // Update ARIA attributes
           searchInput.setAttribute("aria-expanded", "true");
         }
 
-        // Function to clear suggestions
         function clearSuggestions() {
           autocompleteList.innerHTML = "";
           searchInput.setAttribute("aria-expanded", "false");
           currentFocus = -1;
         }
 
-        // Debounce function to limit API calls
         function debounce(func, delay) {
           return function (...args) {
             clearTimeout(debounceTimeout);
@@ -669,7 +674,6 @@
           };
         }
 
-        // Event listener for input events with debouncing
         searchInput.addEventListener(
           "input",
           debounce((e) => {
@@ -678,14 +682,12 @@
           }, DEBOUNCE_DELAY)
         );
 
-        // Close the autocomplete list when clicking outside
         document.addEventListener("click", (e) => {
           if (e.target !== searchInput) {
             clearSuggestions();
           }
         });
 
-        // Optional: Keyboard navigation for suggestions
         let currentFocus = -1;
 
         searchInput.addEventListener("keydown", function (e) {
@@ -725,6 +727,6 @@
 
   <!-- Footer -->
   <div id="footer"></div>
-    <script src="/js/main.js"></script> <!-- Ensure this is loaded before inline scripts -->
+  <script src="/js/main.js"></script>
 </body>
 </html>
