@@ -193,18 +193,24 @@
       }
 
       async function resolveHandleToDID(handle) {
+        // Remove directional formatting characters (e.g., U+200E, U+200F, U+202A–U+202E)
+        handle = handle.replace(/[\u200E\u200F\u202A-\u202E]/g, '');
+        
         try {
-          const res = await fetch(
+            const res = await fetch(
             `${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
-          );
-          const data = await res.json();
-          if (data.did) return data.did;
-          throw new Error(`Invalid username, please try again! Make sure you're not including the @ symbol before the domain.`);
+            );
+            const data = await res.json();
+            if (data.did) return data.did;
+            throw new Error(
+            "Invalid username, please try again! Make sure you're not including the @ symbol before the domain."
+            );
         } catch (error) {
-          console.error("Error resolving handle to DID:", error);
-          throw error;
+            console.error("Error resolving handle to DID:", error);
+            throw error;
         }
-      }
+        }
+
 
       /**
        * Fetches the service endpoint for a given DID.
