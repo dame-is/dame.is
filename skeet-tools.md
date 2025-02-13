@@ -172,6 +172,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 ## Dev Tools
 
 - [pdsls.dev: Browse AtProto repositories](https://pdsls.dev/)
+- [atp.tools](https://atp.tools/)
 - [sdk.blue: Libraries & SDKs for the AT Protocol](http://sdk.blue)
 - [Resolve a Bluesky Handle](https://internect.info)
 - [Boat: Various Technical Tools](https://boat.kelinci.net/)
