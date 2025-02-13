@@ -50,6 +50,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 
 ## Services/AppViews
 
+- [Mutesky: Manage your muted words in bulk](https://mutesky.app/)
 - [Frontpage: Decentralized Link Aggregator](https://frontpage.fyi)
 - [WhiteWind: Markdown Blogging Service](https://whtwnd.com/about)
 - [Skylights: Track and Review Favorite Media](https://skylights.my/profile/watwa.re)
