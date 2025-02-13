@@ -70,6 +70,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 - [Recipe Exchange](https://recipe.exchange/)
 - [skywatched: review and track movies](https://skywatched.app/)
 - [Ruthub: Kanban on AT Proto](https://ruthub.com)
+- [dazzle.fm: what's happening on bluesky](https://dazzle.fm/trends)
 
 ## Manage Your Data
 
@@ -99,6 +100,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 - [Blockenheimer: Block large amounts of accounts](https://blockenheimer.click/)
 - [Convert Starter Pack to List](https://nws-bot.us/bskyStarterPack.php)
 - [List Copier](https://bsky.cam.fyi/lists)
+- [listfluff: add and remove users from bluesky lists](https://github.com/mollypup/listfluff?tab=readme-ov-file)
 - [Which Pack: See What Starterpacks Youâ€™re In](https://whichpack.com/)
 - [AT Orbital Laser: Block a user and their followers](https://at-orbital-laser.aesthr.com/)
 
