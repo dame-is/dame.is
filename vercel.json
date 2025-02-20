@@ -1,27 +1,31 @@
 {
-  "rewrites": [
-      { "source": "/blog/", "destination": "/blog.html" },
-      { "source": "/blog", "destination": "/blog.html" },
-      { "source": "/blog/:slug", "destination": "/blog/:slug.html" },
-      { "source": "/about", "destination": "/about.html" },
-      { "source": "/ethos", "destination": "/ethos.html" },
-      { "source": "/log", "destination": "/log.html" },
-      { "source": "/ratingalttext", "destination": "/ratingalttext.html" },
-      { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
-      { "source": "/index", "destination": "/" },
-      { "source": "/home", "destination": "/" }
-  ],
-  "redirects": [
-      {
-          "source": "/",
-          "has": [
-              {
-                  "type": "host",
-                  "value": "skeet.tools"
-              }
-          ],
-          "destination": "https://dame.is/skeet-tools",
-          "permanent": true
-      }
-  ]
-}
+    "rewrites": [
+    { "source": "/blog/", "destination": "/blog.html" },
+    { "source": "/blog", "destination": "/blog.html" },
+    { "source": "/blog/:slug", "destination": "/blog/:slug.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/ethos", "destination": "/ethos.html" },
+    { "source": "/log", "destination": "/log.html" },
+    { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
+    { "source": "/index", "destination": "/" },
+    { "source": "/home", "destination": "/" }
+    ],
+   "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "skeet.tools"
+        }
+      ],
+      "destination": "https://dame.is/skeet-tools",
+      "permanent": true
+    },
+    {
+      "source": "/ratingalttext",
+      "destination": "https://cred.blue/alt-text",
+      "permanent": true
+    }
+    ]
+   }
