@@ -114,6 +114,7 @@ My personal collection of 100+ tools and resources for Bluesky. The â€œfeaturedâ
 - [Butterfly: Bluesky for Apple Watch](https://apps.apple.com/us/app/butterfly-for-bluesky/id6738070758)
 - [Ucho-ten](https://app.ucho-ten.net/)
 - [Swablu](https://swablu.pages.dev/#/login)
+- [Bluejeans](https://bluejeans.app/)
 
 ## Labelers/Moderation Services
 
