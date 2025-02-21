@@ -5,6 +5,7 @@
     { "source": "/blog/:slug", "destination": "/blog/:slug.html" },
     { "source": "/about", "destination": "/about.html" },
     { "source": "/ethos", "destination": "/ethos.html" },
+    { "source": "/patrons", "destination": "/patrons.html" },
     { "source": "/log", "destination": "/log.html" },
     { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
     { "source": "/index", "destination": "/" },
