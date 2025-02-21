@@ -2,7 +2,7 @@
 
 <a class="patreon-button" href="https://patreon.com/dameis" target="_blank">Donate on Patreon</a>
 <br>
-<a class="ko-fi button" href="https://patreon.com/dameis" target="_blank">Donate on Ko-fi</a>
+<a class="ko-fi button" href="https://ko-fi.com/dameis" target="_blank">Donate on Ko-fi</a>
 
 Hello there,
 
