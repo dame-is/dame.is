@@ -1,6 +1,14 @@
 {
     "posts": [
         {
+            "title": "Creating a decentralized bathroom (powered by AT Protocol)",
+            "date": "2025-03-08",
+            "time": "10:00am EST",
+            "author": "Dame",
+            "excerpt": "As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly...",
+            "slug": "creating-a-decentralized-bathroom-at-protocol"
+        },
+        {
             "title": "How I made an automated dynamic avatar for my Bluesky profile",
             "date": "2025-02-05",
             "time": "10:00am EST",
