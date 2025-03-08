@@ -13,7 +13,7 @@ og:
 
 As many of you know by now, I am a [Lexicon](https://atproto.com/guides/lexicon) enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly...
 
-But before we get to that, let's cover some basics for the new folks in the room. (If you want to skip straight to the bathroom part, click here)
+But before we get to that, let's cover some basics for the new folks in the room. (If you want to skip straight to the bathroom part, [click here](#my-decentralized-bathroom))
 
 ## "Explain the AT Protocol like I'm 5"
 
