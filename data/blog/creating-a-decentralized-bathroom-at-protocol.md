@@ -7,7 +7,7 @@ bluesky_uri: ""
 og:
   title: "Creating a decentralized bathroom (powered by the AT Protocol)"
   description: "As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly..."
-  image: "/images/blog/social-images/my-top-10-moments-blog-image.jpg"
+  image: "/images/blog/creating-a-decentralized-bathroom-at-protocol.jpg"
   url: "https://dame.is/blog/creating-a-decentralized-bathroom-at-protocol"
 ---
 
