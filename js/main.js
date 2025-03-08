@@ -254,6 +254,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'ethos':
                 loadMarkdownContent();
                 break;
+            case 'patrons':
+                loadMarkdownContent();
+                break;
             case 'skeet-tools':
                 loadMarkdownContent();
                 break;
