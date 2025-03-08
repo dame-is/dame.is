@@ -1,3 +1,5 @@
+# /patrons
+
 [Support monthly via Patreon](https://patreon.com/dameis)<br>
 [Give a one-time tip via Ko-fi](https://ko-fi.com/dameis)
 
