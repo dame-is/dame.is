@@ -13,21 +13,21 @@ og:
 
 As many of you know by now, I am a [Lexicon](https://atproto.com/guides/lexicon) enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly...
 
-But before we get to that, let's cover some basics for the new folks in the room. (If you want to skip straight to the bathroom part, [click here](#my-decentralized-bathroom))
+But before we get to that, let's cover some basics for the new folks in the room.
 
 ## "Explain the AT Protocol like I'm 5"
 
 Bluesky is a semi-decentralized social networking platform built on top of a new internet protocol known as the AT Protocol that uses arbitrary JSON schemas and personal data servers (PDSs) to empower user agency and autonomy. Kinda technical and difficult to understand underneath all that jargon, right? Here's a simpler way of thinking about it...
 
-**You can now own your social networking data, take it with you wherever you want, and never be locked into an app ever again.** Suck it, Elon Musk and Mark Zuckerberg.
+**You can now own your social networking data, take it with you wherever you want, and never be locked into an app ever again.**
 
-The most exciting part of the AT Protocol to me though is the concept of the [Personal Data Server (PDS)](https://docs.bsky.app/docs/advanced-guides/atproto) and the way data is stored on it. Every single post, like, reply, or follow you make on Bluesky is stored in your own PDS in the form of a lexicon record. 
+The most exciting part of the AT Protocol to me is the concept of the [Personal Data Server (PDS)](https://docs.bsky.app/docs/advanced-guides/atproto) and the way data is stored on it. Every single post, like, reply, or follow you make on Bluesky is stored in your own PDS in the form of a lexicon record. 
 
 ### Lexicons are just File Formats
 
 For the non-technical in the audience, **a Lexicon is basically just a file format** for the AT Protocol... think of it like a file on your computer that might come in many different forms: .jpg, .pdf, .doc, .txt
 
-In the AT Protocol world, these "file formats" are called [NSIDs](https://atproto.com/specs/nsid) and look like domain names that are backwards. Here's what Bluesky's "file formats" look like under the hood:
+These "file formats" are called [NSIDs](https://atproto.com/specs/nsid) and look like domain names that are backwards. Here's what Bluesky's "file formats" look like under the hood:
 
 ```
 app.bsky.actor.profile
@@ -47,7 +47,7 @@ Up until this point, most developers have been hard at work create new and excit
 
 ## Introducing, the Personal Lexicon
 
-Many people such as myself are big believers in everyone having their own personal website... a plot of digital land that you control and call home. I've had a personal website since I was a teenager, so at least a decade or two by now. I've also been tracking weird and eclectic data about my personal life since I was a child ([my first spreadsheet was a list of all the vanity license plates I had seen]()). I know, I'm a bit of an odd nerd.
+Many people such as myself are big believers in everyone having their own personal website... a plot of digital land that you control and call home. I've had a personal website since I was a teenager, so at least a decade or two by now. I've also been tracking weird and eclectic data about my personal life since I was a child (my first spreadsheet was a list of all the vanity license plates I had seen). I know, I'm a bit of an odd nerd.
 
 All this got me thinking... what if more people had their own personal "file formats"? With the AT Protocol, this is now super easy thanks to Lexicons.
 
@@ -77,7 +77,7 @@ I'm not suggesting everyone throw out collectively used lexicons that we all kno
 
 Here's the stupid, unhinged, out-of-pocket, bat-shit crazy thing that I made this week... 
 
-![A roll of toilet paper in the bathroom with a white stickerk above it](/images/blog/og-image.png "nfc sticker")
+![A roll of toilet paper in the bathroom with a white stickerk above it](/images/blog/creating-a-decentralized-bathroom-at-protocol.jpg "nfc sticker")
 
 See that white little circular thing above my toilet paper? That's a cheap NFC sticker I bought online in a roll of 50. When I tap my iPhone against it, it instantly creates a record on my AT Protocol PDS under the Lexicon `is.dame.on.the.toilet`, with the `answer` property being `yes`.
 
@@ -85,7 +85,11 @@ Now, anyone can see when the last time I was on the toilet, and the data is host
 
 ## Introducing im.flushing
 
-It's like [statusphere.xyz](https://statusphere.xyz), but for seeing who's going to the bathroom right now. You login with your Bluesky/ATProto account, choose an emoji, and let the network know you're on the throne.
+It's like [statusphere.xyz](https://statusphere.xyz), but for seeing who's going to the bathroom right now. You login with your Bluesky/ATProto account, choose an emoji, and let the network know you're on the throne. All records are stored in a custom lexicon:
+
+```
+im.flushing.right.now
+```
 
 It's technically my first official AppView for the AT Protocol and my first public lexicon. What a professional way to kick things off! I hope you enjoy it.
 
