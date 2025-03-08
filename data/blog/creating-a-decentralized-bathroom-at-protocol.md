@@ -3,7 +3,7 @@ title: "Creating a decentralized bathroom (powered by the AT Protocol)"
 date: "2025-03-08"
 author: "Dame"
 excerpt: "As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly..."
-bluesky_uri: ""
+bluesky_uri: "3ljvamka4422e"
 og:
   title: "Creating a decentralized bathroom (powered by the AT Protocol)"
   description: "As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly..."
