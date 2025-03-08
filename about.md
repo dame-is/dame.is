@@ -7,7 +7,7 @@ I first started publishing on the internet around 2003 and have utilized numerou
 I’m interested in art, technology, gender, sexuality, labor, internet culture, and <a href="https://en.wikipedia.org/wiki/Challengers_(film)" target="_blank">Challengers (2024)</a>.
 
 ## Background
-I was born in the Carolinas during the 90s. I grew up in the evangelical church but deconstructed over a 4-year period in college after intense research/soul-searching. Now I am agnostic/spiritual and appreciate parts of Zen Buddhism. I have a non-normative experience with gender, so I fall within the category of genderqueer or genderfluid. I have a small dog who is a chihuahua/terrier mix.
+I was born in the southeastern United States during the 90s. I grew up in the evangelical church but deconstructed over a 4-year period in college after intense research/soul-searching. Now I am agnostic/spiritual and appreciate parts of Zen Buddhism. I have a non-normative experience with gender, so I fall within the category of genderqueer or genderfluid. I have a small dog named Cooper who is a chihuahua/terrier mix.
 
 My passion for creativity/art started at a young age through writing. In middle school, I picked up my first camera and entered into a life-long relationship with photography. In college, I began making things across several mediums including animation, video, graphic design, and leather. My art practice for the past 5 years has focused on conceptual and abstract art.
 
