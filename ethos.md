@@ -5,7 +5,7 @@ I’m attempting to compile a list of beliefs and values that are important to m
 ## Principles
 
 - **Give people the benefit of the doubt** (unless they have a track record of acting in bad faith). 
-- **Don’t be judgy.**
+- **Practice non-judgment** as much as possible.
 - **Avoid personal comparisons**, as they usually do more harm than good.
 - **Maintain a beginner’s mindset.** 
 - **Be helpful and give without the expectation of return.**
@@ -16,7 +16,7 @@ I’m attempting to compile a list of beliefs and values that are important to m
 - **Avoid arguments and embrace discussions,** turn the former into the latter when possible.
 - **Principles are good to have, but sometimes there are scenarios where they don’t apply.**
 - **Respect your elders,** but only true elders... being old doesn't make someone an elder.
-- **Practice non-judgment** as much as possible.
+- **There's always a bigger fish**. ([source](https://www.youtube.com/watch?v=bjQRTFX1Lp4))
 
 ## Beliefs
 
