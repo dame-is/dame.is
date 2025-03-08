@@ -71,7 +71,7 @@ something very beautiful and sublime about that<br><br><a href="https://bsky.app
 
 Now I know what some of you fellow nerds are thinking... "WHAT ABOUT MY INTEROPERABILITY?!"
 
-I'm not suggesting everyone throw out collectively used lexicons that we all know and love. That would be dumb. What I am saying though is that not all data needs to be interoperable or socially connected out of the box. Yes, I could create a proprietary "am I on the toilet?" AT protocol app that is a bespoke social network for those of us who post from the toilet... but that would be silly, right? RIGHT!?
+I'm not suggesting everyone throw out collectively used lexicons that we all know and love. That would be dumb. What I am saying though is that not all data needs to be interoperable or socially connected out of the box. Yes, I could create a proprietary "am I on the toilet?" app that is a bespoke social network for those of us who post from the toilet... but that would be silly, right? RIGHT!?
 
 ## My decentralized bathroom
 
@@ -84,6 +84,8 @@ See that white little circular thing above my toilet paper? That's a cheap NFC s
 Now, anyone can see when the last time I was on the toilet, and the data is hosted on a decentralized network. Lemme guess, your jealous right? Fine, if you say so...
 
 ## Introducing im.flushing
+
+That bespoke social network I mentioned earlier? Well... I decided to actually make it. You can create your first post (called a "flush") here: [https://flushing.im/](https://flushing.im/)
 
 It's like [statusphere.xyz](https://statusphere.xyz), but for seeing who's going to the bathroom right now. You login with your Bluesky/ATProto account, choose an emoji, and let the network know you're on the throne. All records are stored in a custom lexicon:
 
