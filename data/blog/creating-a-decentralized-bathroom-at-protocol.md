@@ -1,23 +1,19 @@
 ---
-title: "Creating a decentralized bathroom (powered by AT Protocol)"
+title: "Creating a decentralized bathroom (powered by the AT Protocol)"
 date: "2025-03-08"
 author: "Dame"
 excerpt: "As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly..."
 bluesky_uri: ""
 og:
-  title: "Creating a decentralized bathroom (powered by AT Protocol)"
+  title: "Creating a decentralized bathroom (powered by the AT Protocol)"
   description: "As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly..."
   image: "/images/blog/social-images/my-top-10-moments-blog-image.jpg"
   url: "https://dame.is/blog/creating-a-decentralized-bathroom-at-protocol"
 ---
 
-# Creating a decentralized bathroom (powered by AT Protocol)
-
 As many of you know by now, I am a [Lexicon](https://atproto.com/guides/lexicon) enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly...
 
 But before we get to that, let's cover some basics for the new folks in the room. (If you want to skip straight to the bathroom part, click here)
-
-<blockquote class="bluesky-embed" data-bluesky-uri="at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3ljani35fks2w" data-bluesky-cid="bafyreihynqyjui7uozbt46nbya7efmf35fyedosrcnjgqfie7muzvpk4yu"><p lang="en"><br><br><a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/3ljani35fks2w?ref_src=embed">[image or embed]</a></p>&mdash; dame (<a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj?ref_src=embed">@dame.is</a>) <a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/3ljani35fks2w?ref_src=embed">Feb 28, 2025 at 9:45 AM</a></blockquote><script async src="https://embed.bsky.app/static/embed.js" charset="utf-8"></script>
 
 ## "Explain the AT Protocol like I'm 5"
 
@@ -30,8 +26,6 @@ The most exciting part of the AT Protocol to me though is the concept of the [Pe
 ### Lexicons are just File Formats
 
 For the non-technical in the audience, **a Lexicon is basically just a file format** for the AT Protocol... think of it like a file on your computer that might come in many different forms: .jpg, .pdf, .doc, .txt
-
-<blockquote class="bluesky-embed" data-bluesky-uri="at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lizcg2kfns2f" data-bluesky-cid="bafyreiawxommjhojusfpcmsuggjtrimh7wbnfklf3nl62vnezc6nfqu2qa"><p lang="en">i may have found a helpful analogy for how to describe atproto lexicons to “normal” everyday users<br><br><a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/3lizcg2kfns2f?ref_src=embed">[image or embed]</a></p>&mdash; dame (<a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj?ref_src=embed">@dame.is</a>) <a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/3lizcg2kfns2f?ref_src=embed">Feb 25, 2025 at 11:39 AM</a></blockquote><script async src="https://embed.bsky.app/static/embed.js" charset="utf-8"></script>
 
 In the AT Protocol world, these "file formats" are called [NSIDs](https://atproto.com/specs/nsid) and look like domain names that are backwards. Here's what Bluesky's "file formats" look like under the hood:
 
