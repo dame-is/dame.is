@@ -95,5 +95,7 @@ im.flushing.right.now
 
 It's technically my first official AppView for the AT Protocol and my first public lexicon. What a professional way to kick things off! I hope you enjoy it.
 
+Try it here: [https://flushing.im/](https://flushing.im/)
+
 ![A promotional screenshot of the app im.flushing](/images/blog/og-image.png "im.flushing promo image")
 
