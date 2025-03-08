@@ -1,6 +1,6 @@
 // scripts/main.js
 
-const GITHUB_USERNAME = 'damedotblog'; // Your GitHub username
+const GITHUB_USERNAME = 'dame-is'; // Your GitHub username
 const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
 
