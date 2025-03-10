@@ -1,8 +1,12 @@
 // scripts/main.js
 
+import { inject } from '@vercel/analytics';
+
 const GITHUB_USERNAME = 'dame-is'; // Your GitHub username
 const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
+
+inject();
 
 /**
  * Constructs the Bluesky post URL from post.uri
