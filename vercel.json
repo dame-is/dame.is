@@ -1,5 +1,5 @@
 {
-  "rewrites": [
+    "rewrites": [
       { "source": "/blog/", "destination": "/blog.html" },
       { "source": "/blog", "destination": "/blog.html" },
       { "source": "/blog/:slug", "destination": "/blog/:slug.html" },
@@ -11,18 +11,23 @@
       { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
       { "source": "/index", "destination": "/" },
       { "source": "/home", "destination": "/" }
-  ],
-  "redirects": [
+    ],
+    "redirects": [
       {
-          "source": "/",
-          "has": [
-              {
-                  "type": "host",
-                  "value": "skeet.tools"
-              }
-          ],
-          "destination": "https://cred.blue/resources",
-          "permanent": true
+        "source": "/",
+        "has": [
+          {
+            "type": "host",
+            "value": "skeet.tools"
+          }
+        ],
+        "destination": "https://cred.blue/resources",
+        "permanent": true
+      },
+      {
+        "source": "/ratingalttext",
+        "destination": "https://cred.blue/alt-text",
+        "permanent": true
       }
-  ]
-}
+    ]
+  }
