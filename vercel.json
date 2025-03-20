@@ -7,8 +7,6 @@
       { "source": "/ethos", "destination": "/ethos.html" },
       { "source": "/log", "destination": "/log.html" },
       { "source": "/patrons", "destination": "/patrons.html" },
-      { "source": "/ratingalttext", "destination": "/ratingalttext.html" },
-      { "source": "/skeet-tools", "destination": "/skeet-tools.html" },
       { "source": "/index", "destination": "/" },
       { "source": "/home", "destination": "/" }
     ],
@@ -27,6 +25,11 @@
       {
         "source": "/ratingalttext",
         "destination": "https://cred.blue/alt-text",
+        "permanent": true
+      },
+      {
+        "source": "/skeet-tools",
+        "destination": "https://cred.blue/resources",
         "permanent": true
       }
     ]
