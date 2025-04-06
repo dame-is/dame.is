@@ -910,6 +910,12 @@ async function loadRecentPosts(cursor = null) {
     }
     isLoadingPosts = true;
 
+    // Get loading indicator
+    const loadingIndicator = document.getElementById('posts-loading');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+    }
+
     // Helper to format a relative timestamp (unchanged)
     function getRelativeTime(date) {
         const now = new Date();
@@ -1380,6 +1386,11 @@ for (const [headerDateText, groupData] of Object.entries(groupedPosts)) {
 
     // Process outbound links after all posts are loaded
     processOutboundLinks();
+
+    // Hide the loading indicator now that posts are loaded
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
 
     if (!currentBatchCursor) {
         const seeMoreButton = document.getElementById('see-more-posts');
@@ -1928,7 +1939,9 @@ const approvedDomains = [
     'dame.art',
     'dame.contact',
     'dame.news',
-    'dame.work'
+    'dame.work',
+    'localhost',
+    '127.0.0.1'
 ];
 
 // ----------------------------------
