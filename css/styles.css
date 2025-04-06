@@ -1485,3 +1485,83 @@ body.dark-mode .comment-reply {
   #shareButton {
     background-color: #5f5f5f;
 }
+
+/* === Blog Post Embeds === */
+.bluesky-embed {
+    margin: 20px 0;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    max-width: 500px;
+}
+
+body.dark-mode .bluesky-embed {
+    background-color: #2a2a2a;
+    border-color: #444;
+}
+
+.blog-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+
+.blog-content h2, .blog-content h3 {
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+.blog-content p {
+    margin-bottom: 15px;
+    line-height: 1.6;
+}
+
+/* === Blog Post Page Additional Styles === */
+.blog-post {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.read-more {
+    display: inline-block;
+    margin-top: 10px;
+    color: #007BFF;
+    text-decoration: none;
+}
+
+.read-more:hover {
+    text-decoration: underline;
+}
+
+/* Fix for code blocks in blog posts */
+.blog-content pre, .blog-content code {
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-family: monospace;
+    overflow-x: auto;
+}
+
+body.dark-mode .blog-content pre, 
+body.dark-mode .blog-content code {
+    background-color: #333;
+    color: #f0f0f0;
+}
+
+.blog-content pre {
+    padding: 10px;
+    margin: 15px 0;
+}
+
+/* Ensure comments section is styled properly */
+#comments-section {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #eaeaea;
+}
+
+body.dark-mode #comments-section {
+    border-top-color: #444;
+}

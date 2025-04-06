@@ -2,13 +2,11 @@
     "buildCommand": "npm run build",
     "outputDirectory": "_site",
     "rewrites": [
-      { "source": "/blog/", "destination": "/blog.html" },
-      { "source": "/blog", "destination": "/blog.html" },
-      { "source": "/blog/:slug", "destination": "/blog/:slug.html" },
-      { "source": "/about", "destination": "/about.html" },
-      { "source": "/ethos", "destination": "/ethos.html" },
-      { "source": "/log", "destination": "/log.html" },
-      { "source": "/patrons", "destination": "/patrons.html" },
+      { "source": "/blog", "destination": "/blog/" },
+      { "source": "/about", "destination": "/about/" },
+      { "source": "/ethos", "destination": "/ethos/" },
+      { "source": "/log", "destination": "/log/" },
+      { "source": "/patrons", "destination": "/patrons/" },
       { "source": "/index", "destination": "/" },
       { "source": "/home", "destination": "/" }
     ],

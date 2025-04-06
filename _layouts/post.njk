@@ -1,4 +1,3 @@
-<!-- _layouts/post.njk -->
 ---
 layout: base
 ---
@@ -14,7 +13,7 @@ layout: base
 
 <article class="blog-post">
     <h1 id="post-title">{{ title }}</h1>
-    <p id="post-date" class="blog-post-date">{{ date | date }}</p>
+    <p id="post-date" class="blog-post-date">{{ date | date }} {{ time }}</p>
     
     <div id="post-content">
         {{ content | safe }}
@@ -37,4 +36,12 @@ layout: base
 </script>
 <script type="module" src="/js/comments-init.js"></script>
 <script src="/js/svg-icons.js"></script>
+<script>
+    // Ensure the outbound links processor runs after the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof processOutboundLinks === 'function') {
+            processOutboundLinks();
+        }
+    });
+</script>
 {% endblock %}
