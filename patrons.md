@@ -1,3 +1,8 @@
+---
+layout: base
+title: Patrons
+---
+
 # /patrons
 
 [Support monthly via Patreon](https://patreon.com/dameis)<br>

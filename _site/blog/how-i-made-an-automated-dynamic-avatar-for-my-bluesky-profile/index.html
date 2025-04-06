@@ -1,0 +1,72 @@
+<!-- _layouts/post.njk -->
+---
+layout: base
+---
+
+<!-- Open Graph Metadata -->
+<meta property="og:title" content="How I made an automated dynamic avatar for my Bluesky profile">
+<meta property="og:description" content="Several years ago, back when Twitter was a thing and it had a decent API, my friend @goose.art did a weird little experiment where he made his avatar dynamic... it automatically changed appearances on a regular basis and became increasingly deep-fried (increased in distortion and lossy compression). I&#39;ve seen several other people mess around with this concept since then, and I&#39;ve always had it in the back of my head as something I wanted to eventually try for myself.">
+<meta property="og:image" content="/images/blog/automated-avatar-graphics/avatar-grid.jpg">
+<meta property="og:url" content="https://dame.is/blog/how-i-made-an-automated-dynamic-avatar-for-my-bluesky-profile/">
+<meta property="og:type" content="article">
+<link rel="stylesheet" href="https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.css">
+
+
+<article class="blog-post">
+    <h1 id="post-title">How I made an automated dynamic avatar for my Bluesky profile</h1>
+    <p id="post-date" class="blog-post-date">February 4, 2025</p>
+    
+    <div id="post-content">
+        <p>Several years ago, back when Twitter was a thing and it had a decent API, my friend <a href="https://bsky.app/profile/goose.art">@goose.art</a> did a weird little experiment where he made his avatar dynamic... it automatically changed appearances on a regular basis and became increasingly deep-fried (increased in distortion and lossy compression). I've seen several other people mess around with this concept since then, and I've always had it in the back of my head as something I wanted to eventually try for myself.</p>
+<p>Flash forward to today, and I've finally done exactly that thanks to Bluesky and its wonderful API.</p>
+<p>Today I activated an automation that changes my Bluesky avatar every hour of each day to roughly correspond with the daylight (or lack thereof) that I'm experiencing in my time zone (EST). As the sun is rising and setting each day, you'll see it reflected on my profile in the form of ever-changing sky gradients. I felt that this expression was especially appropriate given the theme of the Bluesky brand.</p>
+<p><img src="/images/blog/automated-avatar-graphics/avatar-profile.png" alt="A screenshot of my bluesky profile showing one of the avatar designs" title="avatar profile example"></p>
+<p>In case anyone is wondering how this automation works under the surface, I thought it might be worthwhile to write up a blog post explaining my process. I'm sure all of the devs/engineers can deduce what's going on, but I think I implemented it in a pretty fun way that should be entertaining regardless of your skill level.</p>
+<h2>The Visuals and Concept</h2>
+<p>Ever since coming back to social media after a long break last year, my profile picture had just been my name in Arial font loosely in the style of Charli xcx's Brat album cover. I evolved the design of it overtime to be more my own style, and  then I realized that it would work perfectly for this project. So, I began creating a bunch of interesting variants of the design in Adobe Illustrator.</p>
+<p><img src="/images/blog/automated-avatar-graphics/avatar-grid.jpg" alt="A grid showing all 24 versions of my avatar with various sky gradient backgrounds, one for each hour of the day" title="bluesky sky avatar gradients grid"></p>
+<p>The backgrounds are simple two-color gradients with noise filters applied and then styled with a gaussian blur. The variations of the word &quot;dame&quot; were made using numerous blending layers, strokes, and effects all smashed together in funky and disturbing ways.</p>
+<p><img src="/images/blog/automated-avatar-graphics/5pmbig.jpg" alt="A closeup of one of the dynamic avatars" title="bluesky sky avatar close up"></p>
+<p>After the fact, I realized that the visuals I produced had a taste of Ed Ruscha's style to them, an artist whose work I have long appreciated.</p>
+<p><img src="/images/blog/automated-avatar-graphics/ed-ruscha-example.jpg" alt="A collection of Ed Ruscha paintings hanging on a gallery wall" title="ed ruscha example"><br>
+<em><a href="https://gagosian.com/exhibitions/2017/ed-ruscha-custom-built-intrigue-drawings-1974-1984/">Artwork © Ed Ruscha. Photo: Rob McKeever</a></em></p>
+<h2>The &quot;Code&quot;</h2>
+<p>While I could have used a traditional <a href="https://en.wikipedia.org/wiki/Cron">cron job</a> to schedule the changes each hour, that seemed pretty boring, and I have an affinity towards making Apple Shortcuts... so I challenged myself to go that route instead, which had the added benefit of letting me control things from wherever I happen to be thanks to the fact that I have my phone with me at all times.</p>
+<p>There were several possible ways to implement the necessary API calls, and I tried several of them, but ultimately I landed on using a single dictionary full of the necessary CIDs for each image. Every hour the shortcut performs these steps:</p>
+<ol>
+<li>Queries the dictionary for the image CID corresponding to the current time.</li>
+<li>Authenticates my Bluesky account using an app password.</li>
+<li>Uses the API to fetch my profile's current data.</li>
+<li>Builds a POST request using the fetched profile data + the new avatar CID, before then sending it back via the putRecord endpoint.</li>
+<li>Checks that the data was updated correctly and notifies me if there was an error.</li>
+</ol>
+<p><img src="/images/blog/automated-avatar-graphics/apple-shortcut.png" alt="A screenshot of the apple shortcut code that automates the bluesky avatar" title="bluesky apple shortcut avatar automation"></p>
+<p>There's quite a bit of regex that was needed to properly match/filter JSON data, and I don't know regex, but luckily claude/chatgpt is very good at writing it for me.</p>
+<p>The one surprise I had along the way was realizing that I couldn't just push one element of profile data through the API... I originally sent a test request through that just contained the avatar update, and quickly discovered that it &quot;removed&quot; my display name, banner, pinned post, and description because I didn't include those elements in the data I was pushing. That's why the Apple Shortcut includes the step of fetching the existing profile data, so that even though nothing else changes it can be fed back into the POST request along with the avatar update.</p>
+<p>Here's a copy of <a href="https://www.icloud.com/shortcuts/dd304c7087b84a90bd7286c887e94caa">the Apple Shortcut file</a> if you're interested in looking at the &quot;code&quot; yourself or modifying it.</p>
+<h2>Future Updates and Ideas</h2>
+<p>I'd like to create a Version 2 of this project in a few weeks that adds some additional elements like logic paths and layers that display based on weather data (fog, rain, cloud cover, rare random events like shooting stars, etc). It would also be nice to automate my banner image to match the backgrounds of the avatar.</p>
+<p>In addition to this automation, I also added a dynamic bio to my status update account (<a href="https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g">@now.dame.is</a>) that includes regularly updated data about my current psychological state + environment (focus level, mood, current song, indoor temp, etc).</p>
+<p><img src="/images/blog/automated-avatar-graphics/bio-profile.png" alt="A screenshot of my status update profile showing dynamic data" title="bio profile example"></p>
+<p>Using Apple Shortcuts to automate Bluesky data has a lot of interesting experimental potential thanks to the large number of automation triggers that Apple provides. Everything from sound recognition to whether or you're stationary or not... and don't even get me started with NFC tags. I hope we see more people trying weird things in the future.</p>
+<p>Special shout out to <a href="https://bsky.app/profile/did:plc:xs7gyx2tysuh5dy33bvgkntb">@cagrimmett.com</a> for sharing <a href="https://www.icloud.com/shortcuts/aea8c8f6cb074e179be0a28ff2145c48">this template</a> that saved me a bunch of time  I would've spent trying to figure out how to setup the session/auth functions.</p>
+
+    </div>
+
+    <section id="comments-section">
+        <h2>Comments</h2>
+        <div id="bluesky-comments" data-uri="3lhh4e7j4xk2b"></div>
+    </section>
+</article>
+
+
+<script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18",
+        "react-dom/client": "https://esm.sh/react-dom@18/client"
+      }
+    }
+</script>
+<script type="module" src="/js/comments-init.js"></script>
+<script src="/js/svg-icons.js"></script>

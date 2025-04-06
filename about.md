@@ -1,10 +1,15 @@
+---
+layout: base
+title: About
+---
+
 # /about
 
 I am an artist and remote tech worker residing in the southeastern United States. 
 
 I first started publishing on the internet around 2003 and have utilized numerous platforms to do so over the past two decades. This website is a work-in-progress which I add to every week.
 
-I’m interested in art, technology, gender, sexuality, labor, internet culture, and <a href="https://en.wikipedia.org/wiki/Challengers_(film)" target="_blank">Challengers (2024)</a>.
+I'm interested in art, technology, gender, sexuality, labor, internet culture, and <a href="https://en.wikipedia.org/wiki/Challengers_(film)" target="_blank">Challengers (2024)</a>.
 
 ## Background
 I was born in the southeastern United States during the 90s. I grew up in the evangelical church but deconstructed over a 4-year period in college after intense research/soul-searching. Now I am agnostic/spiritual and appreciate parts of Zen Buddhism. I have a non-normative experience with gender, so I fall within the category of genderqueer or genderfluid. I have a small dog named Cooper who is a chihuahua/terrier mix.
@@ -30,7 +35,7 @@ I love tennis and play three times a week at my local club.
 ## Favorite Films
 1. Arrival (2016)
 2. Interstellar (2014)
-3. Emperor’s New Groove (2000)
+3. Emperor's New Groove (2000)
 4. Challengers (2024)
 5. Tár (2022)
 6. Ratatouille (2007)
@@ -40,7 +45,7 @@ I love tennis and play three times a week at my local club.
 10. This is Spinal Tap (1984)
 11. Annihilation (2018)
 12. Rear Window (1954)
-13. Kiki’s Delivery Service (1989)
+13. Kiki's Delivery Service (1989)
 14. Her (2013)
 15. 2001: A Space Odyssey (1968)
 16. Gravity (2013)
@@ -50,7 +55,7 @@ I love tennis and play three times a week at my local club.
 20. Logan (2017)
 
 ## Favorite Music Albums
-1. Brat and it’s the same but there’s three more songs so it’s not by Charli xcx (2024)
+1. Brat and it's the same but there's three more songs so it's not by Charli xcx (2024)
 2. DAMN by Kendrick Lamar (2017)
 3. Emotion by Carly Rae Jepsen (2015)
 4. For Ever by Jungle (2018)
@@ -61,7 +66,7 @@ I love tennis and play three times a week at my local club.
 9. Woodstock by Portugal. The Man (2017)
 10. Born to Die by Lana Del Rey (2012)
 
- ## Favorite Books
+## Favorite Books
 1. *Stories of Your Life and Others* by Ted Chiang
 2. *The Lorax* by Dr Seuss
 3. *Zen Keys* by Thich Nhat Hanh
@@ -81,7 +86,7 @@ I love tennis and play three times a week at my local club.
 5. The Legend of Zelda: Oracle of Seasons (2001, GBC)
 6. Pokemon Silver (1999, GBC)
 7. Anno 1602 (1998, PC)
-8. Chip’s Challenge (1989, PC)
+8. Chip's Challenge (1989, PC)
 9. NYT Connections (2023, iPhone)
 10. Super Smash Bros. Brawl (2008, Wii)
 
@@ -94,5 +99,5 @@ I love tennis and play three times a week at my local club.
 6. Arrested Development (Netflix)
 7. The Price is Right (Bob Parker)
 8. Mythbusters (Discovery)
-9. What’s new Scooby Doo? (Cartoon Network)
+9. What's new Scooby Doo? (Cartoon Network)
 10. Sherlock (BBC)

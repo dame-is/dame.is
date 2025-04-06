@@ -1,0 +1,72 @@
+<!-- _layouts/post.njk -->
+---
+layout: base
+---
+
+<!-- Open Graph Metadata -->
+<meta property="og:title" content="Why I started posting like it&#39;s the 2000s again">
+<meta property="og:description" content="In November of 2007, Facebook made a tiny change to its user interface that would massively influence what we know of today as a &#39;post&#39; on social media. What was that change?">
+<meta property="og:image" content="/images/blog/social-images/why-i-started-blog-image.jpg">
+<meta property="og:url" content="https://dame.is/blog/why-i-started-posting-like-its-the-2000s-again/">
+<meta property="og:type" content="article">
+<link rel="stylesheet" href="https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.css">
+
+
+<article class="blog-post">
+    <h1 id="post-title">Why I started posting like it&#39;s the 2000s again</h1>
+    <p id="post-date" class="blog-post-date">January 28, 2025</p>
+    
+    <div id="post-content">
+        <p>In November of 2007, Facebook made a <strong>tiny</strong> change to its user interface that would massively influence what we know of today as a &quot;post&quot; on social media. What was that change?</p>
+<p>They removed the mandatory word &quot;is&quot; from the beginning of what were once called &quot;status updates&quot;.</p>
+<blockquote>
+<p>Initially, the status format forced you to write about yourself in the third person; you couldn't get rid of the verb &quot;is&quot; after your name, so getting your feelings across often required some grammatical maneuvering. (<a href="https://www.the-independent.com/life-style/facebook-status-post-evolution-anniversary-b2489534.html">source</a>)</p>
+</blockquote>
+<p>In those days, all of our posts looked like this:</p>
+<blockquote>
+<p>Dame is watching a movie</p>
+</blockquote>
+<blockquote>
+<p>Dame is hanging out with friends</p>
+</blockquote>
+<blockquote>
+<p>Dame is sad</p>
+</blockquote>
+<p><img src="/images/blog/2007-facebook-status-updates.jpg" alt="An old screenshot of Facebook mobile from 2007 that shows how status updates use to look" title="2007 facebook status updates"><br>
+<em>image source: <a href="https://techcrunch.com/2007/08/15/facebook-iphone-ultrahype/">tech crunch</a></em></p>
+<p>Back then, social media was a place you went to keep up with what your friends were actually <strong>doing</strong>. You didn't go there to consume the news, follow influencers, or debate culture war issues with strangers.</p>
+<p>Social media was a digital location for the expression of your state of being. After all, the word &quot;is&quot; is the 3rd-person singular present indicative of the word &quot;be&quot;, which means &quot;to exist or live&quot; as in Shakespeare's existential question: &quot;To be or not to be...&quot;</p>
+<p>But overtime, most social media websites shifted towards prompting you with questions like &quot;What's on your mind?&quot; (Facebook) or &quot;What's happening?&quot; (Twitter) instead of asking for a simple update about the state of your current existence. These subtle UI changes turned out to be massively consequential for how we experience reality in the 2020s, a time period in which social media has finally worked its way inside almost every facet of our lives.</p>
+<p><img src="/images/blog/facebook-new-status-prompt.png" alt="An old screenshot of Facebook showing the newer &quot;what's on your mind?&quot; status prompt" title="new facebook status prompt"><br>
+<em>image source: <a href="https://chscommunicator.com/23672/features/2012/01/facebook-status-whats-the-point/">chscommunicator</a></em></p>
+<p>While I'm glad that the concept of &quot;posting&quot; on social media evolved over time, I am sad that we seemed to essentially abandoned the traditional &quot;status update&quot; of Facebook's yesteryears in the process. I wish people still made simple reports of what they were doing, eating, reading, or listening to.</p>
+<p><strong>I think this loss is part of a larger phenomenon of everyone becoming much more disembodied and less grounded while we're inhabiting digital spaces.</strong> To help combat this shift in my own life, I decided to create a new personal website this year that felt more &quot;alive&quot; and reflective of my lived experience. The frameworks that social media unconsciously put us within do not lend well to mindfulness or embodiment, and I wanted to take a swing at giving myself a healthier digital playground.</p>
+<p>For the past 4-5 years, I've kept a fairly consistent <a href="https://en.wikipedia.org/wiki/Logbook">logbook</a> of what I was doing at almost every hour of the day. Doing this is a form of journaling for me, and it's neat to be able to look back at a given time in my life and see what the day-to-day experience was like. We tend to easily remember major events or certain qualia about our past lifestyles, but the seemingly mundane or simpler parts tend to be easily forgotten if we don't keep a record of them.</p>
+<p><img src="/images/blog/dame-logbook-example.jpg" alt="A screenshot of dame's logbook that shows various logs such as &quot;eating a bowl of freshed mixed berries&quot; and &quot;visiting with parents&quot;" title="dame logbook example"></p>
+<p>As I was thinking about how to make my new website feel &quot;alive&quot;, I realized it would be interesting if I began publishing all of my daily logs publicly and in a format similar to Facebook's old &quot;status updates&quot;. So, I acquired the domain <strong><a href="http://dame.is">dame.is</a></strong>, and hacked together a solution that would make sharing all of my logs really simple.</p>
+<p>When you go to my website, the most prominent thing featured are now these status updates. This means that if you visit my site 8 different times in a given day, you'll likely see 8 different reports of what it is that I'm currently doing... much like you'd have seen from me back during the early days of Facebook.</p>
+<p><img src="/images/blog/dame-is-website-example.jpg" alt="A screenshot of the dame.is website navigation bar that says &quot;dame is taking a shower as of 16 minutes ago" title="dame.is website example"></p>
+<p>How might you incorporate this into your social media practice? Well, you could start sharing these kinds of updates on your main account periodically... or you might create a separate account for them so that people could selectively see them only if they want to. My <a href="http://dame.is">dame.is</a> status updates are actually hosted on a dedicated Bluesky/Atproto PDS using Bluesky's post lexicon, and then my website merely fetches that data anytime it loads. So, you can also follow my status updates on Bluesky from that account: <a href="https://bsky.app/profile/did:plc:jucg4ddb2budmcy2pjo5fo2g">@dame.is</a></p>
+<p>For speed and efficiency's sake, I created an Apple Shortcut that is triggered via my iPhone's Action Button that allows me to quickly type in the update and have it sent to the Bluesky account via the API. This allows me to post an update in less than 15 seconds from either my phone or my watch.</p>
+<p>Here's a template of the shortcut I use if you're interested in seeing it in action: <a href="https://www.icloud.com/shortcuts/b21adf7035d14992941ef72855d9003a">shortcut link</a></p>
+<p><strong>What other helpful frameworks from the web's past have we accidentally discarded? What new methods might we create to foster more groundedness in our digital lives?</strong></p>
+
+    </div>
+
+    <section id="comments-section">
+        <h2>Comments</h2>
+        <div id="bluesky-comments" data-uri="3lgvhp7rq622b"></div>
+    </section>
+</article>
+
+
+<script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18",
+        "react-dom/client": "https://esm.sh/react-dom@18/client"
+      }
+    }
+</script>
+<script type="module" src="/js/comments-init.js"></script>
+<script src="/js/svg-icons.js"></script>

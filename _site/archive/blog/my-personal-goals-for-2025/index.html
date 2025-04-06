@@ -1,0 +1,83 @@
+<!-- blog/blog-post.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
+
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="My personal goals for 2025">
+    <meta property="og:description" content="While the Gregorian calendar is probably not the best or most interesting framework for time, it is the most widely used across the planet, and it’s deeply embedded in my psyche, so I continue to find it helpful to make plans around. If it’s cringe to do so, then I’m cringe.">
+    <meta property="og:image" content="/images/blog/social-images/my-personal-goals-blog.jpg">
+    <meta property="og:url" content="https://dame.is/blog/my-personal-goals-for-2025">
+    <meta property="og:type" content="article">
+    
+    <!-- 📌 **Include Bluesky Comments CSS** -->
+    <link rel="stylesheet" href="https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.css">
+
+    <title>My personal goals for 2025 - dame.is</title>
+    <link rel="stylesheet" href="/css/styles.css">
+
+    <!-- 📌 **Add Import Map for React** -->
+    <script type="importmap">
+        {
+          "imports": {
+            "react": "https://esm.sh/react@18",
+            "react-dom/client": "https://esm.sh/react-dom@18/client"
+          }
+        }
+    </script>
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+      </script>
+      <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <div id="nav"></div>
+
+    <main>
+        <h1 id="post-title">My personal goals for 2025</h1>
+        <p class="blog-post-date" id="post-date">2024-12-26</p>
+        <div id="post-content">
+            <!-- Blog post content will be injected here -->
+        </div>
+
+        <div id="newsletter-header">
+            <h2>Subscribe to my email newsletter</h2>
+        </div>
+
+        <div id="newsletter-form">
+  
+            <form action="https://buttondown.com/api/emails/embed-subscribe/dame" method="post" target="popupwindow" onsubmit="window.open('https://buttondown.com/dame', 'popupwindow')" class="embeddable-buttondown-form">
+                    <label for="bd-email">Email Address</label>
+                    <input type="email" name="email" id="bd-email" placeholder="username@gmail.com">
+                    <label for="bsky-handle">Bluesky Handle (Optional)</label>
+                    <input type="text" name="metadata__bsky-handle" id="bsky-handle" placeholder="username.bsky.social">
+                    <label for="name">Name or Pseudonym (Optional)</label>
+                    <input type="text" name="metadata__name" id="name" placeholder="Name">
+                    <input type="submit" value="Subscribe">
+                    <input type="hidden" name="tag" value="blog-2025-goals">
+                    <input type="hidden" name="tag" value="personal-site">
+                  </form>
+            </div>
+
+        <!-- 📌 **Comments Section Start** -->
+        <section id="comments-section">
+            <div id="bluesky-comments" data-uri="3leact5gkl22t"></div>
+        </section>
+        <!-- 📌 **Comments Section End** -->
+    </main>
+
+    <!-- Footer -->
+    <div id="footer"></div>
+
+    <!-- Shared Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- For Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script> <!-- For YAML parsing -->
+    <script src="/js/main.js"></script> <!-- Main JS functions -->
+    <script type="module" src="/js/comments-init.js"></script> <!-- Bluesky Comments Initialization -->
+    <script src="/js/svg-icons.js"></script> <!-- SVG Icon Replacement -->
+</body>
+</html>
