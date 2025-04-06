@@ -1,0 +1,1487 @@
+/* === General Styles === */
+
+html, body {
+    margin: 0;               /* Remove default margins */
+    padding: 0;              /* Remove default padding */
+    min-height: 100vh;       /* Ensure the body is at least as tall as the viewport */
+    display: flex;           /* Use Flexbox to structure content */
+    flex-direction: column;  /* Stack child elements vertically */
+    box-sizing: border-box;  /* Include padding and borders in element size */
+}
+
+main {
+    flex-grow: 1;            /* Allow the main content to grow and fill available space */
+    align-items: center;
+    justify-content: center;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    text-align: left;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+main {
+    margin: 10px auto 30px auto;
+    max-width: 400px;
+    padding: 20px;
+    width: 90%;
+    padding-left: 0px;
+    padding-right: 0px;
+}
+
+p {
+    margin-top: 0px;
+    margin-bottom: 16px;
+    font-size: 0.9em;
+}
+
+body.dark-mode p {
+    color: #cfcfcf;
+}
+
+a:visited {
+    color: #88C1FF;
+    text-decoration-color: #D4E9FF;
+}
+
+a {
+    color: #007BFF;
+    text-decoration-color: #88C1FF;
+}
+
+body.dark-mode a:visited {
+    color: #336294;
+    text-decoration-color: #1F4874;
+  }
+
+body.dark-mode a {
+    color: #007BFF;
+    text-decoration-color: #0061CB;
+}
+
+h1 {
+    font-size: 2em;
+    font-weight: bold;
+}
+
+h2 {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    margin-top: 20px;
+}
+
+h3 {
+    font-size: 1.1em;
+    font-weight: normal;
+}
+
+ul {
+    margin-top: 5px;
+}
+
+li {
+  margin-top: 0px;
+  font-size: 0.9em;
+}
+
+body.dark-mode ul {
+    color: #cfcfcf;
+}
+
+:root {
+    --background-color: #ffffff;
+    --text-color: #000000;
+    --post-background-color: #f9f9f9;
+    --text-secondary: #555555; /* Added for date header second line */
+}
+
+body.dark-mode {
+    --background-color: #121212;
+    --text-color: #ffffff;
+    --post-background-color: #1e1e1e;
+    --text-secondary: #aaaaaa; /* Dark mode secondary text */
+}
+
+/* === Navigation Bar & Footer === */
+
+nav, footer {
+    background-color: #f0f0f0;
+    /* padding: 0 20px; */ /* Updated: Let the nav sections handle spacing */
+}
+
+body.dark-mode nav {
+    background-color: var(--post-background-color);
+    border-color: #444;
+}
+
+body.dark-mode footer {
+    background-color: var(--post-background-color);
+    color: #ffffff;
+    border-bottom: 1px solid #7a7a7a36;
+    border-top: 1px solid #7a7a7a36;
+}
+
+/* === Navigation Sections === */
+
+.nav-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 20px; /* Adjust vertical spacing as needed */
+    border-bottom: 1px solid #7a7a7a36;
+}
+
+.nav-section.top-nav {
+    border-top: 1px solid #7a7a7a36;
+}
+
+.top-nav-left {
+    display: flex;
+    flex-direction: column;
+}
+
+.site-title-and-latest-log {
+    display: flex; 
+    align-items: center;
+    gap: 14px; /* Space between "dame.is" and the recent log title */
+    font-size: 1.3em;
+}
+
+.nav-left,
+.nav-right {
+    display: flex;
+}
+
+.bottom-nav-left,
+.bottom-nav-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* === Navigation Links === */
+
+body.dark-mode nav a:visited {
+    color: white;
+}
+
+.nav-left a.nav-link {
+    text-decoration: none;
+    color: inherit;
+    transition: color 0.3s ease;
+}
+
+.nav-links a.nav-link {
+    margin-right: 11px; /* Adjust as needed */
+    opacity: 50%;
+}
+
+.nav-left a.nav-link:hover,
+body.dark-mode .nav-left a.nav-link:hover {
+    color: #007BFF;
+}
+
+.nav-left a.nav-link.active {
+    border-bottom: 1px solid #007BFF;
+    color: #007BFF;
+    padding-top: 2px;
+    opacity: 100%;
+}
+
+.title.nav-link.active,
+.title.nav-link {
+    font-weight: bold;
+}
+
+/* === Recent Log Styles === */
+
+#recent-log-container {
+    max-width: 500px;
+}
+
+#recent-log-text {
+    opacity: 50%;
+    padding-right: 10px;
+}
+
+#recent-log-time {
+    font-size: 0.65em;
+    white-space: nowrap;
+}
+
+.nav-right.top-nav-right {
+    opacity: 50%;
+    font-size: 0.5em;
+    padding-top: 2px;
+    font-weight: normal;
+}
+
+/* === Bluesky Stats Styling === */
+
+#bluesky-stats {
+    font-size: 0.9em;
+    color: #000000;
+    transition: color 0.3s ease;
+}
+
+@media (max-width: 450px) {
+    #bluesky-stats {
+        max-width: 250px;
+    }
+}
+
+body.dark-mode #bluesky-stats {
+    color: #fff;
+}
+
+body.dark-mode span.label {
+    color: #ffffffa8;
+}
+
+span.label {
+    opacity: 75%;
+}
+
+.stat {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 7px;
+}
+
+.count {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+/* Spinner styles */
+.spinner {
+    border: 2px solid #f3f3f3; /* Light gray */
+    border-top: 2px solid #3498db; /* Blue */
+    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* === Social Icon Styling === */
+
+a.nav-icon {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1.5em; /* Increased size for better visibility */
+    color: black;
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease, color 0.3s ease;
+    border-radius: 0px;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.nav-icon:hover {
+    transform: scale(1.1);
+    /* Optional: Change color on hover */
+}
+
+/* === Theme Toggle Styling === */
+
+#theme-toggle {
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 1.6em; /* Increased size for better visibility */
+    color: inherit; /* Inherit color from parent */
+    display: flex;
+    align-items: center;
+    transition: transform 0.3s ease, color 0.3s ease;
+    margin-right: 10px;
+    border-radius: 3px;
+    padding: 0px;
+    padding-top: 1px;
+    padding-left: 1px;
+}
+
+body.dark-mode #theme-toggle {
+    color: #f1c40f;
+    width: 27px;
+    height: 27px;
+}
+
+#theme-toggle:hover {
+    transform: scale(1.1);
+    /* Optional: Change color on hover */
+}
+
+/* === Footer Styles === */
+
+footer {
+    bottom: 0;
+    right: 0;
+    text-align: center;
+    background-color: #f0f0f0;
+    padding: 10px 20px;
+    font-size: 0.8em;
+    border-bottom: 1px solid #ccc;
+    border-top: 1px solid #ccc;
+}
+
+/* Flex Container */
+.footer-container {
+    display: flex;
+    flex-direction: column; /* Stack vertically by default */
+    align-items: center;
+    gap: 10px; /* Space between sections */
+}
+
+/* Footer Sections */
+.footer-section {
+    display: flex;
+    align-items: center;
+}
+
+/* Labels Styling */
+.last-updated-label,
+.version-label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+/* Values Styling */
+.last-updated-timestamp,
+.version-number {
+    color: #555;
+}
+
+/* Values Styling */
+.dark-mode .last-updated-timestamp,
+.version-number {
+    color: #989898;
+}
+
+/* Large Screen Styles */
+@media (min-width: 600px) {
+    .footer-container {
+        flex-direction: row; /* Arrange horizontally */
+        justify-content: center;
+        gap: 13px; /* Increased space between sections */
+    }
+
+    /* Reorder Sections */
+    .footer-last-updated {
+        order: 1;
+    }
+
+    .footer-version {
+        order: 2;
+    }
+
+    .footer-copyright {
+        order: 3;
+    }
+
+    /* Add Separators between Sections */
+    .footer-section:not(:last-child)::after {
+        content: "|";
+        margin-left: 10px;
+        color: #333;
+    }
+}
+
+
+/* === Post Styles === */
+
+.post {
+    border: 1px solid #ccc;
+    padding: 15px 15px 5px 15px;
+    margin: 5px 0px 10px 0px;
+    border-radius: 5px;
+    background-color: var(--post-background-color);
+}
+
+.post-date-header {
+    margin-top: 40px;
+}
+
+#recent-posts {
+    max-width: 350px;
+    margin: auto;
+    margin-bottom: 40px; /* So it doesn't clash with fixed footer */
+}
+
+body.dark-mode .post {
+    border-color: #444;
+}
+
+.post-text-container p {
+    font-size: 1.1em;
+    margin-bottom: 10px;
+    margin-top: 0px;
+}
+
+.post-image {
+    max-width: 100%;
+    height: auto;
+    margin: 10px 0px 0px 0;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+body.dark-mode .post-image {
+    border: 1px solid #444;
+}
+
+.post-date {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+    margin-top: 10px;
+}
+
+body.dark-mode .post-date {
+    color: #aaa;
+}
+
+.embedded-quote {
+    border-left: 4px solid #ccc;
+    padding-left: 10px;
+    margin: 10px 0;
+    background-color: #e9e9e9;
+    font-style: italic;
+    position: relative;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-radius: 5px;
+    color: #6b6b6b;
+    padding-right: 12px;
+}
+
+body.dark-mode .embedded-quote {
+    border-left: 4px solid #9a9a9a;
+    background-color: #4c4c4c;
+    color: #cfcfcf;
+}
+
+/* === Post Counts Styling === */
+
+.post-counts {
+    display: flex;
+    margin-top: 10px; /* Space above counts */
+    font-size: 0.9em; /* Adjust as needed */
+}
+
+.count-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.9em; /* Adjust size as needed */
+    color: #929292; /* Text color */
+    background-color: #e0e0e0;
+    padding: 3px 7px;
+    border-radius: 3px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    transition: color 0.3s ease, background-color 0.3s ease;
+    font-weight: bold;
+    padding-left: 5px;
+}
+
+.count-item i {
+    margin-right: 5px;
+    color: #888; /* Default icon color */
+    font-size: 1em; /* Ensure icons are appropriately sized */
+    transition: color 0.3s ease; /* Moved transition here */
+}
+
+/* === Conditional Icon Styling === */
+
+/* Default color for all icons when count is 0 */
+/* Already defined above in .count-item i */
+
+/* Active state: Count > 0 */
+.count-item.active .fa-heart {
+    color: #e93434;
+}
+
+.count-item.active .fa-retweet {
+    color: #0dc70d;
+}
+
+.count-item.active .fa-quote-right {
+    color: #007BFF;
+}
+
+.count-item.active .fa-reply {
+    color: black;
+}
+
+/* Dark Mode Adjustments for Active Icons */
+body.dark-mode .count-item.active .fa-heart {
+    color: #ff6b6b; /* Lighter shade for visibility */
+}
+
+body.dark-mode .count-item.active .fa-retweet {
+    color: #66ff66;
+}
+
+body.dark-mode .count-item.active .fa-quote-right {
+    color: #3399ff;
+}
+
+body.dark-mode .count-item.active .fa-reply {
+    color: #ffffff;
+}
+
+/* Hover Effects for Count Items */
+.count-item:hover {
+    opacity: 0.8;
+    color: #000;
+}
+
+.count-item:hover i {
+    color: #000;
+}
+
+.linkCard {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 10px 0;
+    transition: box-shadow 0.3s ease;
+    background-color: #fff;
+}
+.dark-mode .linkCard-title {
+    color: black;
+}
+
+.linkCard:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* If you have an image, it will usually appear at the top */
+.linkCard-thumb {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    display: block;
+    border-bottom: 1px solid #ccc;
+}
+
+/* Container for the title, description, and URL preview */
+.linkCard-info {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Title styling */
+.linkCard-title {
+    font-weight: bold;
+    font-size: 1em;
+}
+
+/* Description styling */
+.linkCard-description {
+    font-size: 0.9em;
+    color: #555;
+}
+
+/* URL preview styling */
+.linkCard-preview {
+    font-size: 0.75em;
+    color: #007BFF;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Container to hold the left (date text) and right (counts) sections */
+.post-date-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 5px;
+}
+
+/* Left side for date header text */
+.header-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Right side for the 2x2 counts grid */
+.header-right {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: 5px 6px;
+    margin-bottom: 13px;
+}
+
+/* Optional: Adjust count-item styles if needed */
+.header-right .count-item {
+    font-size: 0.65em; /* slightly smaller if desired */
+    padding: 2px 5px;
+    margin: 0px;
+}
+
+body.dark-mode .header-right .count-item {
+    background-color: #3a3a3a;
+    color: #838383;
+}
+
+.embedded-quote p {
+    margin-bottom: 8px;
+}
+
+cite {
+    font-size: 0.9em;
+}
+
+/* === Dark Mode Adjustments for Post Counts === */
+
+body.dark-mode .post-counts .count-item {
+    background-color: #3a3a3a;
+    color: #838383;
+}
+
+/* === Styling for the Bluesky Post Link === */
+
+.post-date a {
+    color: #007BFF;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.post-date a:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* === "See More Posts" Button Styles === */
+
+.see-more-button {
+    display: block;
+    margin: 20px auto;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+
+.see-more-button:hover {
+    background-color: #0056b3;
+}
+
+.see-more-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+/* === Log Page Styles === */
+
+.log-container {
+    background-color: var(--post-background-color);
+    color: var(--text-color);
+    padding: 15px 15px 25px 15px;
+    margin: 20px 0px 20px 0px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    overflow: visible; 
+    max-width: 100%; 
+    box-sizing: border-box;
+}
+
+body.dark-mode .log-container {
+    border: 1px solid #545454;
+}
+
+pre#log-entries.log-container {
+    padding: 0px;
+    margin: 0px;
+    border-radius: 5px;
+    border: 0px solid #ccc;
+    background-color: unset;
+}
+
+.log-date-header {
+    color: var(--text-color);
+    border-bottom: 1px solid #cfcfcf;
+    padding-bottom: 0.5em;
+    margin-top: 0.5em;
+    font-size: 1.2em;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    text-align: center;
+}
+
+body.dark-mode .log-date-header {
+    border-bottom: 1px solid #545454;
+}
+
+.log-entry {
+    margin-top: 1em;
+}
+
+.log-text {
+    margin: 0;
+    padding: 0;
+    color: var(--text-color);
+    font-size: 1em;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.log-timestamp {
+    margin: 0.2em 0 0 0;
+    padding: 0;
+    color: #aaaaaa;
+    font-size: 0.75em;
+    font-style: italic;
+}
+
+.loading {
+    font-style: italic;
+    color: #999999;
+    margin-top: 1em;
+    display: none;
+}
+
+/* === Date Header Lines Styling === */
+
+.date-header-line1 {
+    font-size: 1em;
+    font-weight: bold;
+}
+
+.date-header-line2 {
+    font-size: 0.7em;
+    color: var(--text-secondary);
+    margin-top: 0.3em;
+    opacity: 50%;
+    padding-bottom: 10px;
+}
+
+/* === Blog Feed Styles === */
+
+#blog-feed {
+    margin-bottom: 30px;
+}
+
+#blog-feed .blog-post {
+    border-bottom: 1px solid #eaeaea;
+    padding: 30px 0;
+}
+
+.blog-post h2 {
+    margin: 0 0 10px 0;
+}
+
+.blog-post h2 a {
+    text-decoration: none;
+    color: #333;
+}
+
+.blog-post h2 a:hover {
+    color: #007BFF;
+}
+
+.blog-post-date {
+    font-size: 0.9em;
+    color: #777;
+    margin-bottom: 16px;
+}
+
+.blog-post-excerpt {
+    font-size: 1em;
+    color: #3b3b3b;
+}
+
+.dark-mode blockquote {
+    border-left: 4px solid #9a9a9a;
+    background-color: #4c4c4c;
+    color: #cfcfcf;
+  }
+
+  em a {
+    padding-left: 5px;
+  }
+
+  p em {
+    font-size: 0.8em;
+    text-align: right;
+    display: flex;
+    justify-content: right;
+    opacity: 30%;
+  }
+
+blockquote {
+    border-left: 4px solid #ccc;
+    padding-left: 10px;
+    margin: 20px 0;
+    background-color: #e9e9e9;
+    font-style: italic;
+    position: relative;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-radius: 5px;
+    color: #6b6b6b;
+    padding-right: 12px;
+  }
+
+blockquote p {
+    margin-bottom: 0px !important;
+  }
+
+#post-content img {
+    max-width: 400px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.dark-mode #post-content img {
+    border-color: #444;
+}
+
+body.dark-mode #blog-feed .blog-post {
+    border-bottom: 1px solid #8e8e8e65;
+    padding: 30px 0;
+}
+
+body.dark-mode .blog-post h2 a {
+    color: white;
+}
+
+body.dark-mode p.blog-post-date {
+    color: #77777782;
+}
+
+body.dark-mode .blog-post-excerpt {
+    font-size: 1em;
+    color: #a3a3a3;
+}
+
+/* === Blog Post Page === */
+
+#post-title {
+    font-size: 1.7em;
+    margin-bottom: 10px;
+}
+
+#post-date {
+    font-size: 1em;
+    color: #777;
+    margin-bottom: 20px;
+}
+
+#post-content {
+    font-size: 1em;
+    line-height: 1.4em;
+}
+
+.read-more {
+    display: inline-block;
+    color: #007BFF; /* Bootstrap primary color */
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.read-more:hover {
+    text-decoration: underline;
+}
+
+/* === Additional Responsive Enhancements === */
+
+/* Responsive Design for Small Screens */
+@media (max-width: 400px) {
+    /* Let nav sections stack vertically */
+    .nav-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Top nav left stacks lines, adjust margin as needed */
+    .site-title-and-latest-log {
+        margin-bottom: 0px; /* for smaller screens, adjust as needed */
+    }
+
+    .nav-links {
+        gap: 10px;
+        text-wrap-style: balance;
+        line-height: 25px;
+    }
+
+    .bottom-nav-right {
+        margin-top: 10px;
+    }
+
+    /* Adjust font sizes or spacing for stats if needed */
+    #bluesky-stats {
+        font-size: 0.9em;
+    }
+
+    .site-title-and-latest-log {
+        display: inline;
+        align-items: center;
+        gap: 14px;
+        font-size: 1.3em;
+    }
+}
+
+/* === Specific Styles for Alt Text Analyzer === */
+
+.alt-card {
+    background-color: var(--post-background-color);
+    padding: 20px;
+    border: 1px solid #ccc;
+    text-align: center;
+    max-width: 95%;
+    margin: auto;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    padding-top: 30px;
+    padding-bottom: 30px;
+}
+
+body.dark-mode .alt-card {
+    border-color: #444;
+}
+
+#alt-text-rating-form h1 {
+    text-align: center;
+    margin-top: 0px;
+    font-size: 1.5em; /* Adjusted for better readability */
+}
+
+.results {
+    margin-top: 20px;
+    font-size: 0.95em;
+    word-wrap: break-word; /* Prevent long text from breaking the layout */
+}
+
+.results p {
+    margin-bottom: 4px;
+    word-wrap: break-word; /* Prevent long text from breaking the layout */
+}
+
+.results h2 {
+    color: var(--text-color);
+    font-size: 1.5em;
+    max-width: 200px;
+    margin: 20px auto;
+    text-align: center;
+}
+
+.resources h3 {
+    font-size: 1em;
+    margin-top: 0px;
+}
+
+.resources ul {
+    list-style: none;
+    padding: 0;
+    font-size: 0.7em;
+    margin-bottom: 0px;
+}
+
+.credblue ul {
+    list-style: none;
+    padding: 0;
+    font-size: 0.7em;
+}
+
+.credblue h3 {
+    font-size: 1em;
+    margin-top: 20px;
+}
+
+.resources li {
+    margin-bottom: 5px;
+}
+
+.resources a {
+    text-decoration: none;
+    color: #007bff;
+}
+
+.resources a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive: For smaller screens, stack the elements vertically */
+@media (max-width: 500px) {
+    .search-bar {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .checkbox-container {
+        margin-left: 0;
+    }
+}
+
+/* General Styles for the search bar */
+.search-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px; /* space between the input and the action row */
+    margin-top: 15px;
+}
+
+/* Style for the input */
+.search-bar input {
+    width: 90%;
+    max-width: 300px;
+    padding: 10px;
+    font-size: 1em;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    text-align: center;
+}
+
+/* Action row: contains the button and the checkbox, arranged horizontally */
+.action-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+}
+
+/* Style for the Analyze button */
+.search-bar button {
+    padding: 10px 20px;
+    font-size: 1em;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.search-bar button:hover {
+    background-color: #0056b3;
+}
+
+.custom-checkbox input[type="checkbox"]:checked:hover + .checkbox-indicator {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.custom-checkbox input[type="checkbox"]:hover + .checkbox-indicator {
+    background-color: #8fc5ff;
+}
+
+/* Custom Checkbox Styles */
+.custom-checkbox {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.9em;
+    user-select: none;
+}
+
+/* Hide the default checkbox appearance */
+.custom-checkbox input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    border: 2px solid #007bff;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    background-color: #fff;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+/* Create a custom indicator (optional: you can use the input element itself) */
+.custom-checkbox .checkbox-indicator {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #007bff;
+    border-radius: 4px;
+    margin-right: 8px;
+    position: relative;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+/* Hide the native checkmark; we use the indicator to display the check state. */
+.custom-checkbox input[type="checkbox"]:checked + .checkbox-indicator {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* Optional: Add a checkmark icon using CSS pseudo-elements */
+.custom-checkbox input[type="checkbox"]:checked + .checkbox-indicator::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 6px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* When clicking, have a subtle focus outline */
+.custom-checkbox input[type="checkbox"]:focus {
+    box-shadow: 0 0 3px 2px rgba(0, 123, 255, 0.5);
+}
+
+/* Hide the native checkbox visually but still keep it accessible. */
+.custom-checkbox input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Instead, we use the indicator to toggle */
+.custom-checkbox {
+    position: relative;
+    padding-left: 33px; /* space for the checkbox indicator */
+    margin-bottom: 19px;
+    font-size: 1em;
+}
+
+/* Ensure the indicator sits in the correct position */
+.custom-checkbox .checkbox-indicator {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+
+.filters-container {
+    font-size: 0.8em;
+  }
+
+
+  /* Add these styles to your existing CSS */
+
+/* Container for autocomplete items */
+.autocomplete-items {
+    position: absolute;
+    z-index: 99;
+    top: 116%;
+    left: 0;
+    right: 0;
+    background-color: #fff;
+    overflow: clip;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding-top: 5px;
+  }
+
+  /* Hide the autocomplete container when it's empty */
+.autocomplete-items:empty {
+    display: none;
+  }
+
+  .dark-mode .autocomplete-items {
+    color: black;
+  }
+  
+  /* Style each item */
+  .autocomplete-item {
+    padding: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: 0.9em;
+  padding-top: 4px;
+  }
+  
+  /* Highlighted item */
+  .autocomplete-item:hover,
+  .autocomplete-item.active {
+    background-color: #e9e9e9;
+  }
+  
+  /* Avatar image */
+  .autocomplete-item img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 7px;
+    object-fit: cover;
+  }
+  
+
+
+  .fa-bluesky {
+    color: #3b9af8;
+  }
+
+  .icon {
+    width: 18px;
+    height: 14px;
+    padding-right: 4px;
+  }
+
+  .count-item .icon {
+    width: 18px;
+    height: 14px;
+    padding-right: 4px;
+  }
+
+  .header-right .icon {
+    width: 15px;
+    height: 12px;
+    padding-right: 4px;
+  }
+
+  #theme-toggle {
+    width: 24px;
+    height: 24px;
+  }
+
+  .icon.fa-moon {
+    width: 22px;
+    height: 33px;
+    padding-right: 0px;
+  }
+
+
+  .dark-mode .icon.fa-moon {
+    width: 28px;
+    height: 33px;
+    padding-right: 0px;
+  }
+
+
+  .nav-icon .icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .count-text {
+    color: #585858;
+  }
+
+  .dark-mode .count-text {
+    color: #ffffff;
+  }
+
+  .icon.fa-github {
+    color: black;
+  }
+
+  .dark-mode .icon.fa-github {
+    color: white;
+  }
+
+
+/* 📌 **Comments Section Styles** */
+#comments-section {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+#comments-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+#bluesky-comments {
+    margin-top: 1rem;
+}
+
+.comment {
+    padding: 1rem;
+    border: 1px solid #f0f0f0;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    background-color: #fafafa;
+}
+
+.comment p {
+    margin: 0.5rem 0;
+}
+
+.comment strong {
+    color: #333;
+}
+
+.comment em {
+    color: #777;
+    font-size: 0.9rem;
+}
+
+/* === Base Styles for Comment Icons === */
+
+.comment-heart,
+.comment-repost,
+.comment-reply {
+  width: 1rem;               /* Match existing icon size */
+  height: 1rem;
+  color: #888;                  /* Default icon color, similar to .count-item i */
+  transition: color 0.3s ease, opacity 0.3s ease;  /* Smooth color and opacity transitions */
+  cursor: pointer;              /* Indicates interactivity */
+  display: inline-flex;         /* Ensures proper alignment */
+  align-items: center;          /* Vertically centers the icons */
+  justify-content: center;      /* Horizontally centers the icons */
+}
+
+._actionsContainer_1pvtk_130 {
+    margin-top: .5rem;
+    display: flex;
+    width: 100%;
+    max-width: 150px;
+    flex-direction: row;
+    align-items: center;
+    opacity: .6;
+    gap: 14px;
+  }
+
+  #comments-section a:visited {
+    color: black;
+  }
+
+  .dark-mode #comments-section a:visited {
+    color: white;
+  }
+
+  ._authorLink_1pvtk_84 {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: .5rem;
+  }
+
+  ._authorName_1pvtk_104 {
+    margin-bottom: 0px;
+  }
+
+  ._commentsList_1pvtk_55 p {
+    margin-bottom: 0px;
+  }
+
+  ._commentContainer_1pvtk_72 {
+    margin: 1rem 0;
+    font-size: .875rem;
+    margin-bottom: 0px;
+  }
+
+/* === Override Parent Opacity for Icons === */
+
+._actionsContainer_1pvtk_130 .comment-heart,
+._actionsContainer_1pvtk_130 .comment-repost,
+._actionsContainer_1pvtk_130 .comment-reply {
+  opacity: 1; /* Make icons fully opaque */
+}
+
+/* === Conditional Icon Styling === */
+
+/* Active state: Count > 0 */
+.comment-heart {
+  fill: #e93434; /* Similar to .count-item.active .fa-heart */
+}
+
+.comment-repost {
+  fill: #0dc70d; /* Similar to .count-item.active .fa-retweet */
+}
+
+.comment-reply {
+  fill: #4c4c4c; /* Similar to .count-item.active .fa-quote-right */
+}
+
+/* Dark Mode Adjustments for Active Icons */
+body.dark-mode .comment-heart {
+  fill: #ff6b6b; /* Lighter shade for visibility */
+}
+
+body.dark-mode .comment-repost {
+  fill: #66ff66;
+}
+
+body.dark-mode .comment-reply {
+  fill: #3399ff;
+}
+
+/* === Hover Effects for Comment Icons === */
+.comment-heart:hover,
+.comment-repost:hover,
+.comment-reply:hover {
+  opacity: 0.8;     /* Slightly reduces opacity on hover */
+  color: #000;      /* Changes color to black on hover */
+}
+
+
+.post-text-container a {
+    display: inline; /* Default: keep single links inline */
+}
+
+.post-text-container:has(a + a) a {
+    display: block; /* If multiple links exist, each goes on a new line */
+}
+
+
+  .icon.fa-discord {
+    width: 36px;
+  
+    height: 36px;
+  
+  }
+
+/* === Newsletter Form Styles === */
+
+
+#newsletter-form {
+    display: flex;
+  }
+  .embeddable-buttondown-form {
+    display: grid;
+    grid-row-gap: 6px;
+  }
+  input#newsletter-form {
+    margin-bottom: 10px;
+  }
+  .embeddable-buttondown-form #input {
+    margin-bottom: 10px;
+  }
+  #bd-email {
+    margin-bottom: 10px;
+  }
+  #bsky-handle {
+    margin-bottom: 10px;
+  }
+  #name {
+    margin-bottom: 10px;
+  }
+  #newsletter-form {
+    font-size: 0.8em;
+  }
+  #newsletter-header {
+    margin-bottom: 19px;
+  }
+
+  #shareButton {
+    background-color: #5f5f5f;
+}

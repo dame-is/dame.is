@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
+    <title>{{ title }} - dame.is</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="alternate" type="application/rss+xml" title="RSS Feed for Dame's Blog" href="/feed.xml">
+    {% block head %}{% endblock %}
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    {% include "nav.njk" %}
+
+    <main>
+        {{ content | safe }}
+    </main>
+
+    <!-- Footer -->
+    {% include "footer.njk" %}
+
+    <script src="/js/main.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

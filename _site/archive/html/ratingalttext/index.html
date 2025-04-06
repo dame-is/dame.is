@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Existing head content -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="images/favicon.ico" type="image/x-icon" />
+
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Bluesky Alt Text Rating Tool">
+    <meta property="og:description" content="How consistently do you use alt text?">
+    <meta property="og:image" content="/images/alt-text-rating-tool.jpg">
+    <meta property="og:url" content="https://dame.is/ratingalttext">
+    <meta property="og:type" content="website">
+
+  <title>Bluesky Alt Text Rating Tool</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    /* Hide results until needed */
+    #results {
+      display: none;
+    }
+    /* Responsive container for the gauge */
+    .gauge-container {
+      margin: 20px auto;
+      width: 100%;
+      max-width: 400px;
+      position: relative;
+      padding-bottom: 0;
+      margin-top: 0px;
+      margin-bottom: -16px;
+    }
+    .gauge-container svg {
+      position: relative;
+      top: -18px;
+      left: 0;
+      width: 100%;
+      margin-top: -93px;
+      overflow: hidden;
+    }
+    /* Smooth transition for needle rotation */
+    .needle-group {
+      transition: transform 0.2s linear;
+    }
+    /* Style for the checkboxes and labels */
+    .checkbox-container {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 10px;
+    }
+    .checkbox-container input {
+      margin-right: 5px;
+    }
+    /* Container for both checkboxes */
+    .filters-container {
+      display: flex;
+      align-items: center;
+      margin-top: 10px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .filters-container label {
+      margin-right: 7px;
+    }
+    /* Style for the action row buttons */
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+  </style>
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+  <!-- Navigation -->
+  <div id="nav"></div>
+
+  <!-- Main Content -->
+  <main>
+    <div id="alt-text-rating-form" class="alt-card">
+      <h1>Bluesky Alt Text Rating</h1>
+      <p>How consistently do you use alt text?</p>
+      <form class="search-bar" id="search-form" autocomplete="off">
+        <!-- The search input -->
+        <div style="position: relative;">
+          <input
+            type="text"
+            id="username"
+            placeholder="(e.g., dame.bsky.social)"
+            required
+            aria-autocomplete="list"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-owns="autocomplete-list"
+          />
+          <!-- Suggestions Dropdown -->
+          <div id="autocomplete-list" class="autocomplete-items"></div>
+        </div>
+
+        <!-- Row with the Analyze and Share buttons -->
+        <div class="action-row">
+          <button type="submit">Analyze</button>
+          <button type="button" id="shareButton" style="display:none;">Share Results</button>
+        </div>
+      </form>
+      <!-- Results container -->
+      <div class="results" id="results">
+        <p id="textResults"></p>
+        <!-- Responsive gauge container -->
+        <div class="gauge-container">
+          <!-- SVG gauge with viewBox="0 0 400 300" -->
+          <svg class="gauge-svg" viewBox="0 0 400 300">
+            <!-- Quadrants for the gauge -->
+            <path d="M50,300 A150,150 0 0,1 93.93,193.93 L200,300 Z" fill="#ff0000" />
+            <path d="M93.93,193.93 A150,150 0 0,1 200,150 L200,300 Z" fill="#ff9900" />
+            <path d="M200,150 A150,150 0 0,1 306.07,193.93 L200,300 Z" fill="#ffff66" />
+            <path d="M306.07,193.93 A150,150 0 0,1 350,300 L200,300 Z" fill="#00cc00" />
+            <!-- Center pivot circle -->
+            <circle cx="200" cy="300" r="10" fill="#000" />
+            <!-- Needle group with pivot at (200,300) -->
+            <g id="needle-group" class="needle-group" transform="rotate(0,200,300)">
+              <!-- Needle from (200,300) to (50,300) -->
+              <line id="needle" x1="200" y1="300" x2="50" y2="300" stroke="#000" stroke-width="7" />
+            </g>
+          </svg>
+        </div>
+        <!-- Filters Container -->
+        <div class="filters-container">
+          <!-- Existing "Last 90 Days Only" Checkbox -->
+          <label class="checkbox-container">
+            <input type="checkbox" id="last90days" />
+            <span class="checkbox-indicator"></span>
+            Last 90 Days
+          </label>
+          <!-- New "Exclude Replies to Others" Checkbox (Starts Unchecked) -->
+          <label class="checkbox-container">
+            <input type="checkbox" id="excludeReplies" />
+            <span class="checkbox-indicator"></span>
+            Exclude Replies
+          </label>
+        </div>
+        <p>
+            <a href="https://bsky.app/settings/accessibility" target="_blank">
+                Change your Bluesky alt text settings
+            </a>
+        </p>
+        <p>
+          <a href="https://bsky.app/profile/cred.blue" target="_blank">
+            Discover more tools: @cred.blue
+          </a>
+        </p>
+      </div>
+    </div>
+    <!-- Extra info card (always visible) -->
+    <div id="extra-info" class="alt-card">
+      <div class="resources">
+        <h3>Learn more about alt text:</h3>
+        <ul>
+          <li>
+            <a href="https://www.section508.gov/create/alternative-text/" target="_blank">
+              Authoring Meaningful Alternative Text
+            </a>
+          </li>
+          <li>
+            <a href="https://accessibility.huit.harvard.edu/describe-content-images" target="_blank">
+              Write helpful Alt Text to describe images
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Existing Script Tags -->
+    <script>
+      // ----------------------------
+      // Analysis Functions
+      // ----------------------------
+      const PUBLIC_API_URL = "https://public.api.bsky.app";
+      const emojis = ["☹️", "😐", "🙂", "☺️"];
+
+      // Global storage for records so we can re-run the analysis based on checkbox changes.
+      let allRecords = [];
+      let actorDID = ""; // To store the user's DID
+
+      // Define the static minimum date: April 22, 2023, at 12:01 PM UTC
+      const STATIC_MIN_DATE = new Date("2023-04-22T12:01:00Z");
+
+      /**
+       * Determine if a reply is directed to the user themselves.
+       *
+       * @param {Object} rec - The post record.
+       * @param {string} actor - The DID of the user.
+       * @returns {boolean} - True if the reply is to self, else false.
+       */
+      function isReplyToSelf(rec, actor) {
+        return (
+          rec.value.reply &&
+          rec.value.reply.parent &&
+          rec.value.reply.parent.author &&
+          rec.value.reply.parent.author.did === actor &&
+          rec.value.reply.root &&
+          rec.value.reply.root.author &&
+          rec.value.reply.root.author.did === actor &&
+          (!rec.value.reply.grandparentAuthor ||
+            (rec.value.reply.grandparentAuthor.author &&
+              rec.value.reply.grandparentAuthor.author.did === actor))
+        );
+      }
+
+      async function resolveHandleToDID(handle) {
+        // Remove directional formatting characters (e.g., U+200E, U+200F, U+202A–U+202E)
+        handle = handle.replace(/[\u200E\u200F\u202A-\u202E]/g, '');
+        
+        try {
+          const res = await fetch(
+            `${PUBLIC_API_URL}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+          );
+          const data = await res.json();
+          if (data.did) return data.did;
+          throw new Error(
+            "Invalid username, please try again! Make sure you're not including the @ symbol before the domain."
+          );
+        } catch (error) {
+          console.error("Error resolving handle to DID:", error);
+          throw error;
+        }
+      }
+
+      /**
+       * Fetches the service endpoint for a given DID.
+       * 
+       * For did:plc identities, it fetches data from https://plc.directory/<did>.
+       * For did:web identities, it constructs the URL as:
+       *    https://<domain>/.well-known/did.json
+       *
+       * @param {string} did - The decentralized identifier.
+       * @returns {Promise<string>} The service endpoint URL.
+       */
+      async function fetchServiceEndpoint(did) {
+        try {
+          let url;
+          if (did.startsWith("did:web:")) {
+            // Extract the domain from the DID (e.g., did:web:lathrys.at → lathrys.at)
+            const domain = did.slice("did:web:".length);
+            url = `https://${domain}/.well-known/did.json`;
+          } else if (did.startsWith("did:plc:")) {
+            url = `https://plc.directory/${did}`;
+          } else {
+            throw new Error(`Unsupported DID method for DID: ${did}`);
+          }
+
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.service && data.service.length > 0) {
+            const serviceEndpoint = data.service[0].serviceEndpoint;
+            if (serviceEndpoint) return serviceEndpoint;
+          }
+          throw new Error(`Service endpoint not found for DID: ${did}`);
+        } catch (error) {
+          console.error("Error fetching service endpoint:", error);
+          throw error;
+        }
+      }
+
+      async function fetchRecordsForCollection(serviceEndpoint, did, collectionName) {
+        let urlBase = `${serviceEndpoint}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(
+          did
+        )}&collection=${encodeURIComponent(collectionName)}&limit=100`;
+        let records = [];
+        let cursor = null;
+        do {
+          const url = cursor ? `${urlBase}&cursor=${encodeURIComponent(cursor)}` : urlBase;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (Array.isArray(data.records)) {
+            records = records.concat(data.records);
+          }
+          cursor = data.cursor || null;
+        } while (cursor);
+        return records;
+      }
+
+      /**
+       * Analyze posts with options to filter by the last 90 days and exclude replies to others.
+       *
+       * @param {Array} records - The array of post records.
+       * @param {boolean} useLast90Days - If true, filter posts to those created in the last 90 days.
+       * @param {boolean} excludeReplies - If true, exclude replies to others.
+       * @param {string} actor - The DID of the user to identify replies to themselves.
+       * @returns {Object} analysis results.
+       */
+      function analyzePosts(records, useLast90Days, excludeReplies, actor) {
+        // Determine the dynamic minimum date based on the checkbox
+        let dynamicMinDate;
+        if (useLast90Days) {
+          dynamicMinDate = new Date();
+          dynamicMinDate.setDate(dynamicMinDate.getDate() - 90);
+        } else {
+          // If not filtering by last 90 days, set to epoch start
+          dynamicMinDate = new Date("1970-01-01T00:00:00Z");
+        }
+
+        // Combine static and dynamic min dates
+        // The effective minDate is the later of STATIC_MIN_DATE and dynamicMinDate
+        const minDate = useLast90Days 
+          ? (dynamicMinDate > STATIC_MIN_DATE ? dynamicMinDate : STATIC_MIN_DATE) 
+          : STATIC_MIN_DATE;
+
+        // Initialize counts
+        let totalPosts = 0;
+        let postsWithImages = 0;
+        let repliesWithImages = 0;
+        let postsWithAltText = 0;
+
+        // Iterate through each record
+        records.forEach(rec => {
+          if (!rec.value.createdAt) return; // Skip if no creation date
+
+          const postDate = new Date(rec.value.createdAt);
+          if (postDate < minDate) return; // Exclude based on date
+
+          let isReply = false;
+          let isReplyToSelfFlag = false;
+
+          if (rec.value.reply) {
+            isReply = true;
+            isReplyToSelfFlag = isReplyToSelf(rec, actor);
+          }
+
+          if (isReply) {
+            if (isReplyToSelfFlag) {
+              // Treat as a post
+              totalPosts += 1;
+
+              if (
+                rec.value.embed &&
+                rec.value.embed["$type"] === "app.bsky.embed.images"
+              ) {
+                postsWithImages += 1;
+
+                // Check if any image has alt text
+                const hasAltText = rec.value.embed.images.some(img => img.alt && img.alt.trim());
+                if (hasAltText) {
+                  postsWithAltText += 1;
+                }
+              }
+            } else {
+              if (!excludeReplies) {
+                // Count as a reply
+                totalPosts += 1;
+
+                if (
+                  rec.value.embed &&
+                  rec.value.embed["$type"] === "app.bsky.embed.images"
+                ) {
+                  postsWithImages += 1;
+                  repliesWithImages += 1;
+
+                  // Check if any image has alt text
+                  const hasAltText = rec.value.embed.images.some(img => img.alt && img.alt.trim());
+                  if (hasAltText) {
+                    postsWithAltText += 1;
+                  }
+                }
+              }
+              // If excludeReplies is true, do not count this reply
+            }
+          } else {
+            // Not a reply: count as a post
+            totalPosts += 1;
+
+            if (
+              rec.value.embed &&
+              rec.value.embed["$type"] === "app.bsky.embed.images"
+            ) {
+              postsWithImages += 1;
+
+              // Check if any image has alt text
+              const hasAltText = rec.value.embed.images.some(img => img.alt && img.alt.trim());
+              if (hasAltText) {
+                postsWithAltText += 1;
+              }
+            }
+          }
+        });
+
+        const altTextPercentage =
+          (postsWithAltText / postsWithImages) * 100 || 0;
+        let emoji = emojis[0];
+        if (altTextPercentage >= 75) {
+          emoji = emojis[3];
+        } else if (altTextPercentage >= 50) {
+          emoji = emojis[2];
+        } else if (altTextPercentage >= 25) {
+          emoji = emojis[1];
+        }
+
+        return {
+          totalPosts: totalPosts,
+          postsWithImages: postsWithImages,
+          repliesWithImages: repliesWithImages,
+          postsWithAltText: postsWithAltText,
+          altTextPercentage: altTextPercentage,
+          emoji: emoji,
+        };
+      }
+
+      // ----------------------------
+      // Needle Oscillation Settings and Animation (using requestAnimationFrame)
+      // ----------------------------
+      let baseSpeed = 0.10; // Base speed in percentage change per millisecond
+      let oscillationMin = 0; // Minimum percentage value
+      let oscillationMax = 100; // Maximum percentage value
+      let bounceRange = 10; // Maximum random bounce in percentage
+      let currentOscillation = oscillationMin;
+      let oscillationDirection = 1; // 1 for increasing, -1 for decreasing
+      let animFrameId = null;
+      let lastTimestamp = null;
+
+      function animateNeedle(timestamp) {
+        if (!lastTimestamp) {
+          lastTimestamp = timestamp;
+        }
+        const deltaTime = timestamp - lastTimestamp;
+        lastTimestamp = timestamp;
+
+        let randomFactor = 0.8 + Math.random() * 0.4; // between 0.8 and 1.2
+        let increment = baseSpeed * deltaTime * randomFactor;
+        currentOscillation += oscillationDirection * increment;
+
+        if (currentOscillation >= oscillationMax) {
+          currentOscillation = oscillationMax - Math.random() * bounceRange;
+          oscillationDirection = -1;
+        } else if (currentOscillation <= oscillationMin) {
+          currentOscillation = oscillationMin + Math.random() * bounceRange;
+          oscillationDirection = 1;
+        }
+
+        updateGauge(currentOscillation);
+        animFrameId = requestAnimationFrame(animateNeedle);
+      }
+
+      function startNeedleAnimation() {
+        currentOscillation = oscillationMin;
+        oscillationDirection = 1;
+        lastTimestamp = null;
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+        }
+        animFrameId = requestAnimationFrame(animateNeedle);
+      }
+
+      function stopNeedleAnimation() {
+        if (animFrameId) {
+          cancelAnimationFrame(animFrameId);
+          animFrameId = null;
+        }
+      }
+
+      /**
+       * Updates the gauge needle based on the given percentage.
+       *
+       * @param {number} percentage - A value between 0 and 100.
+       */
+      function updateGauge(percentage) {
+        percentage = Math.max(0, Math.min(100, percentage));
+        const angleDeg = (percentage / 100) * 180;
+        const needleGroup = document.getElementById("needle-group");
+        if (needleGroup) {
+          needleGroup.setAttribute("transform", `rotate(${angleDeg},200,300)`);
+        } else {
+          console.error("Needle group element not found.");
+        }
+      }
+
+      // Helper function for proper pluralization of result strings.
+      function pluralize(count, singular, plural) {
+        return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
+      }
+
+      // ----------------------------
+      // Function to update the analysis results based on the checkbox states.
+      // Also updates the Share button.
+      // ----------------------------
+      function updateAnalysisResults(useLast90Days, excludeReplies) {
+        const analysis = analyzePosts(allRecords, useLast90Days, excludeReplies, actorDID);
+        const textResults = document.getElementById("textResults");
+        const scoreText =
+          analysis.postsWithImages === 0
+            ? "No image posts detected! 🔍"
+            : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+
+        textResults.innerHTML = `
+          <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
+          <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
+          <p>${pluralize(analysis.repliesWithImages, "are replies", "are replies")}</p>
+          <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
+          <h2>Score: ${scoreText}</h2>
+        `;
+
+        updateGauge(analysis.altTextPercentage);
+        updateShareButton(analysis);
+      }
+
+      /**
+       * Updates the Share button with an action intent link based on the analysis.
+       *
+       * The composed text will be:
+       *
+       * My alt text rating score is 72.73% 🙂
+       *
+       * 586 posts analyzed
+       * 121 contain images
+       * 88 have alt text
+       *
+       * Get your Bluesky Alt Text Rating here: dame.is/ratingalttext
+       */
+      function updateShareButton(analysis) {
+        const shareButton = document.getElementById("shareButton");
+        const shareText =
+          `My alt text rating score is ${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}\n\n` +
+          `${analysis.totalPosts} posts analyzed,\n` +
+          `${analysis.postsWithImages} contain images,\n` +
+          `${analysis.postsWithAltText} have alt text...\n\n` +
+          `Get your Bluesky alt text rating here: dame.is/ratingalttext`;
+        const intentUrl = `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}`;
+        shareButton.onclick = function() {
+          window.open(intentUrl, '_blank');
+        };
+        shareButton.style.display = "inline-block";
+      }
+
+      // ----------------------------
+      // Form Handler
+      // ----------------------------
+      document.getElementById("search-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const username = document.getElementById("username").value.trim();
+        const resultsDiv = document.getElementById("results");
+        const textResults = document.getElementById("textResults");
+        resultsDiv.style.display = "block";
+        document.querySelector(".gauge-container").style.display = "block";
+        textResults.textContent = "Loading...";
+        startNeedleAnimation();
+
+        try {
+          const did = await resolveHandleToDID(username);
+          actorDID = did;
+          const serviceEndpoint = await fetchServiceEndpoint(did);
+          allRecords = await fetchRecordsForCollection(serviceEndpoint, did, "app.bsky.feed.post");
+
+          const useLast90Days = document.getElementById("last90days").checked;
+          const excludeReplies = document.getElementById("excludeReplies").checked;
+
+          const analysis = analyzePosts(allRecords, useLast90Days, excludeReplies, actorDID);
+          const scoreText =
+            analysis.postsWithImages === 0
+              ? "No image posts detected! 🔍"
+              : `${analysis.altTextPercentage.toFixed(2)}% ${analysis.emoji}`;
+
+          textResults.innerHTML = `
+            <p>${pluralize(analysis.totalPosts, "post analyzed", "posts analyzed")}</p>
+            <p>${pluralize(analysis.postsWithImages, "contain images", "contain images")}</p>
+            <p>${pluralize(analysis.repliesWithImages, "are replies", "are replies")}</p>
+            <p>${pluralize(analysis.postsWithAltText, "post has alt text", "posts have alt text")}</p>
+            <h2>Score: ${scoreText}</h2>
+          `;
+
+          stopNeedleAnimation();
+          updateGauge(analysis.altTextPercentage);
+          updateShareButton(analysis);
+        } catch (error) {
+          stopNeedleAnimation();
+          updateGauge(oscillationMin);
+          allRecords = [];
+          actorDID = "";
+          document.querySelector(".gauge-container").style.display = "none";
+          textResults.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+          document.getElementById("username").focus();
+        }
+      });
+
+      // ----------------------------
+      // Listen for checkbox state changes
+      // ----------------------------
+      function handleFilterChange() {
+        if (allRecords.length > 0 && actorDID) {
+          const useLast90Days = document.getElementById("last90days").checked;
+          const excludeReplies = document.getElementById("excludeReplies").checked;
+          updateAnalysisResults(useLast90Days, excludeReplies);
+        }
+      }
+
+      document.getElementById("last90days").addEventListener("change", handleFilterChange);
+      document.getElementById("excludeReplies").addEventListener("change", handleFilterChange);
+    </script>
+
+    <!-- Autocomplete Script -->
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const searchInput = document.getElementById("username");
+        const autocompleteList = document.getElementById("autocomplete-list");
+        let debounceTimeout = null;
+        const DEBOUNCE_DELAY = 300; // milliseconds
+        const MAX_SUGGESTIONS = 5;
+
+        async function fetchSuggestions(query) {
+          if (!query) {
+            clearSuggestions();
+            return;
+          }
+
+          try {
+            const response = await fetch(
+              `https://public.api.bsky.app/xrpc/app.bsky.actor.searchActorsTypeahead?q=${encodeURIComponent(
+                query
+              )}&limit=${MAX_SUGGESTIONS}`
+            );
+
+            if (!response.ok) {
+              throw new Error("Failed to fetch suggestions");
+            }
+
+            const data = await response.json();
+            displaySuggestions(data.actors);
+          } catch (error) {
+            console.error("Error fetching autocomplete suggestions:", error);
+            clearSuggestions();
+          }
+        }
+
+        function displaySuggestions(actors) {
+          clearSuggestions();
+
+          if (!actors || actors.length === 0) {
+            return;
+          }
+
+          const query = searchInput.value.trim().toLowerCase();
+
+          actors.forEach((actor) => {
+            const item = document.createElement("div");
+            item.classList.add("autocomplete-item");
+            const handle = actor.handle;
+            const index = handle.toLowerCase().indexOf(query);
+            let highlightedHandle = handle;
+            if (index !== -1) {
+              highlightedHandle =
+                handle.substring(0, index) +
+                "<strong>" +
+                handle.substring(index, index + query.length) +
+                "</strong>" +
+                handle.substring(index + query.length);
+            }
+
+            item.innerHTML = `
+              <img src="${actor.avatar}" alt="${actor.handle}'s avatar" />
+              <span>${highlightedHandle}</span>
+            `;
+
+            item.addEventListener("click", () => {
+              searchInput.value = actor.handle;
+              clearSuggestions();
+              searchInput.focus();
+            });
+
+            autocompleteList.appendChild(item);
+          });
+
+          searchInput.setAttribute("aria-expanded", "true");
+        }
+
+        function clearSuggestions() {
+          autocompleteList.innerHTML = "";
+          searchInput.setAttribute("aria-expanded", "false");
+          currentFocus = -1;
+        }
+
+        function debounce(func, delay) {
+          return function (...args) {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => func.apply(this, args), delay);
+          };
+        }
+
+        searchInput.addEventListener(
+          "input",
+          debounce((e) => {
+            const query = e.target.value.trim();
+            fetchSuggestions(query);
+          }, DEBOUNCE_DELAY)
+        );
+
+        document.addEventListener("click", (e) => {
+          if (e.target !== searchInput) {
+            clearSuggestions();
+          }
+        });
+
+        let currentFocus = -1;
+
+        searchInput.addEventListener("keydown", function (e) {
+          const items = autocompleteList.getElementsByClassName("autocomplete-item");
+          if (e.key === "ArrowDown") {
+            currentFocus++;
+            addActive(items);
+          } else if (e.key === "ArrowUp") {
+            currentFocus--;
+            addActive(items);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (currentFocus > -1) {
+              if (items[currentFocus]) {
+                items[currentFocus].click();
+              }
+            }
+          }
+        });
+
+        function addActive(items) {
+          if (!items) return false;
+          removeActive(items);
+          if (currentFocus >= items.length) currentFocus = 0;
+          if (currentFocus < 0) currentFocus = items.length - 1;
+          items[currentFocus].classList.add("active");
+        }
+
+        function removeActive(items) {
+          for (let item of items) {
+            item.classList.remove("active");
+          }
+        }
+      });
+    </script>
+  </main>
+
+  <!-- Footer -->
+  <div id="footer"></div>
+  <script src="/js/main.js"></script>
+</body>
+</html>

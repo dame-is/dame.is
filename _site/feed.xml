@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Dame's Blog</title>
+  <subtitle>The latest posts from Dame's Blog</subtitle>
+  <link href="https://dame.is/feed.xml" rel="self"/>
+  <link href="https://dame.is/"/>
+  <updated>2025-03-08T00:00:00Z</updated>
+  <id>https://dame.is/</id>
+  <author>
+    <name>Dame</name>
+    <email>your-email@example.com</email>
+  </author>
+  
+  <entry>
+    <title>Creating a decentralized bathroom (powered by the AT Protocol)</title>
+    <link href="https://dame.is/blog/creating-a-decentralized-bathroom-at-protocol/"/>
+    <updated>2025-03-08T00:00:00Z</updated>
+    <id>https://dame.is/blog/creating-a-decentralized-bathroom-at-protocol/</id>
+    <content type="html">As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world&#39;s first bathroom that is connected to the AT Protocol. Yes, you read that correctly...</content>
+  </entry>
+  
+  <entry>
+    <title>How I made an automated dynamic avatar for my Bluesky profile</title>
+    <link href="https://dame.is/blog/how-i-made-an-automated-dynamic-avatar-for-my-bluesky-profile/"/>
+    <updated>2025-02-05T00:00:00Z</updated>
+    <id>https://dame.is/blog/how-i-made-an-automated-dynamic-avatar-for-my-bluesky-profile/</id>
+    <content type="html">Several years ago, back when Twitter was a thing and it had a decent API, my friend @goose.art did a weird little experiment where he made his avatar dynamic... it automatically changed appearances on a regular basis and became increasingly deep-fried (increased in distortion and lossy compression). I&#39;ve seen several other people mess around with this concept since then, and I&#39;ve always had it in the back of my head as something I wanted to eventually try for myself.</content>
+  </entry>
+  
+  <entry>
+    <title>Why I started posting like it&#39;s the 2000s again</title>
+    <link href="https://dame.is/blog/why-i-started-posting-like-its-the-2000s-again/"/>
+    <updated>2025-01-29T00:00:00Z</updated>
+    <id>https://dame.is/blog/why-i-started-posting-like-its-the-2000s-again/</id>
+    <content type="html">In November of 2007, Facebook made a tiny change to its user interface that would massively influence what we know of today as a &#39;post&#39; on social media. What was that change?</content>
+  </entry>
+  
+  <entry>
+    <title>My top 10 moments from 2024</title>
+    <link href="https://dame.is/blog/my-top-10-moments-of-2024/"/>
+    <updated>2024-12-31T00:00:00Z</updated>
+    <id>https://dame.is/blog/my-top-10-moments-of-2024/</id>
+    <content type="html">Rhett &amp; Link have a tradition of using their final podcast episode of the year to rank their top 10 moments of the year. These are always some of my favorite episodes of Ear Biscuits, so I thought I should try to do the same thing for myself.</content>
+  </entry>
+  
+  <entry>
+    <title>My personal goals for 2025</title>
+    <link href="https://dame.is/blog/my-personal-goals-for-2025/"/>
+    <updated>2024-12-26T00:00:00Z</updated>
+    <id>https://dame.is/blog/my-personal-goals-for-2025/</id>
+    <content type="html">Yes, I&#39;m a new year goals person... have been most of my life.</content>
+  </entry>
+</feed> 

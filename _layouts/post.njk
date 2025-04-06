@@ -1,0 +1,40 @@
+<!-- _layouts/post.njk -->
+---
+layout: base
+---
+{% block head %}
+<!-- Open Graph Metadata -->
+<meta property="og:title" content="{{ title }}">
+<meta property="og:description" content="{{ excerpt }}">
+<meta property="og:image" content="{{ ogImage }}">
+<meta property="og:url" content="https://dame.is{{ page.url }}">
+<meta property="og:type" content="article">
+<link rel="stylesheet" href="https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.css">
+{% endblock %}
+
+<article class="blog-post">
+    <h1 id="post-title">{{ title }}</h1>
+    <p id="post-date" class="blog-post-date">{{ date | date }}</p>
+    
+    <div id="post-content">
+        {{ content | safe }}
+    </div>
+
+    <section id="comments-section">
+        <h2>Comments</h2>
+        <div id="bluesky-comments" data-uri="{{ blueskyUri }}"></div>
+    </section>
+</article>
+
+{% block scripts %}
+<script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18",
+        "react-dom/client": "https://esm.sh/react-dom@18/client"
+      }
+    }
+</script>
+<script type="module" src="/js/comments-init.js"></script>
+<script src="/js/svg-icons.js"></script>
+{% endblock %}

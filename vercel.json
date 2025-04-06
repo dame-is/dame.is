@@ -1,4 +1,6 @@
 {
+    "buildCommand": "npm run build",
+    "outputDirectory": "_site",
     "rewrites": [
       { "source": "/blog/", "destination": "/blog.html" },
       { "source": "/blog", "destination": "/blog.html" },

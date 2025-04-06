@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="images/favicon.ico" type="image/x-icon">
+    <title>Support Dame</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <script>
+        window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+      </script>
+      <script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <div id="nav"></div>
+
+    <!-- Main Content -->
+    <main>
+        <div id="patrons-content"></div>
+    </main>
+
+    <!-- Footer -->
+    <div id="footer"></div>
+
+    <!-- Include necessary scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> <!-- For Markdown parsing -->
+    <script src="/js/main.js"></script> <!-- Ensure this is loaded before inline scripts -->
+    <script>
+        // Initialize content loading after scripts are loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMarkdownContent();
+        });
+    </script>
+</body>
+</html>
