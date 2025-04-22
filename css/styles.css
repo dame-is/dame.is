@@ -1590,6 +1590,7 @@ body.dark-mode .resume h2 {
 
 .job {
   margin-bottom: 35px;
+  position: relative; /* Needed for absolute positioning of pseudo-elements */
 }
 
 .job h3 {
@@ -1657,47 +1658,42 @@ body.dark-mode .sabbatical h3 {
   color: #81c784;
 }
 
-/* Company group styling */
-.company-group {
+/* Linked job styling */
+.linked-job {
+  padding-left: 20px; /* Space for the line */
+  margin-bottom: 20px; /* Reduce margin between linked jobs */
+}
+
+.linked-job::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #007BFF;
+  opacity: 0.2;
+}
+
+body.dark-mode .linked-job::before {
+  background-color: #88C1FF;
+  opacity: 0.2;
+}
+
+/* Adjust line start for the first linked job */
+.first-linked::before {
+  top: 20px; /* Start line below the title */
+}
+
+/* Adjust line end for the last linked job */
+.last-linked::before {
+  bottom: auto; /* Don't extend to bottom */
+  height: 20px; /* End line shortly after title */
+}
+
+/* Ensure normal margin after the last linked job */
+.last-linked {
   margin-bottom: 35px;
-  border-left: 3px solid #ddd;
-  padding-left: 15px;
-}
-
-body.dark-mode .company-group {
-  border-left-color: #444;
-}
-
-.company-header {
-  margin-bottom: 15px;
-  font-weight: bold;
-}
-
-.company-header span:first-child {
-  color: #007BFF;
-  margin-right: 15px;
-}
-
-body.dark-mode .company-header span:first-child {
-  color: #88C1FF;
-}
-
-.company-header span:last-child {
-  font-style: italic;
-  color: #777;
-  font-weight: normal;
-}
-
-body.dark-mode .company-header span:last-child {
-  color: #999;
-}
-
-.company-group .job {
-  margin-bottom: 25px;
-}
-
-.company-group .job:last-child {
-  margin-bottom: 0;
 }
 
 .education {
