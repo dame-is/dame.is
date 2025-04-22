@@ -8,7 +8,8 @@
       { "source": "/log", "destination": "/log/" },
       { "source": "/patrons", "destination": "/patrons/" },
       { "source": "/index", "destination": "/" },
-      { "source": "/home", "destination": "/" }
+      { "source": "/home", "destination": "/" },
+      { "source": "/:path*", "destination": "https://publish.obsidian.md/serve?url=dame.is/:path*" }
     ],
     "redirects": [
       {
