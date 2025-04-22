@@ -71,39 +71,34 @@ title: Resume
     </ul>
   </div>
   
-  <div class="company-group">
-    <div class="company-header">
-      <span>Therapy Brands</span>
-      <span>2 years 8 months</span>
+  <div class="job linked-job first-linked">
+    <h3>Strategic Marketing Manager</h3>
+    <div class="job-details">
+      <span class="employer">Therapy Brands</span>
+      <span class="period">September 2019 - August 2020 (1 year)</span>
     </div>
-    
-    <div class="job">
-      <h3>Strategic Marketing Manager</h3>
-      <div class="job-details">
-        <span class="period">September 2019 - August 2020 (1 year)</span>
-      </div>
-      <ul>
-        <li>Led a results-oriented marketing team responsible for five B2B SaaS brands in the healthcare industry.</li>
-        <li>Managed a $1 million budget and executed content marketing strategies to achieve 167% of our MQL goal.</li>
-        <li>Named the top marketing team of the company for two quarters in a row.</li>
-        <li>Managed a content strategist and worked closely with contract writers to produce engaging content.</li>
-        <li>Created automated drip email campaigns in HubSpot to engage users at all lifecycle stages.</li>
-        <li>Managed our HubSpot instance and assisted with integrating with Salesforce.</li>
-      </ul>
+    <ul>
+      <li>Led a results-oriented marketing team responsible for five B2B SaaS brands in the healthcare industry.</li>
+      <li>Managed a $1 million budget and executed content marketing strategies to achieve 167% of our MQL goal.</li>
+      <li>Named the top marketing team of the company for two quarters in a row.</li>
+      <li>Managed a content strategist and worked closely with contract writers to produce engaging content.</li>
+      <li>Created automated drip email campaigns in HubSpot to engage users at all lifecycle stages.</li>
+      <li>Managed our HubSpot instance and assisted with integrating with Salesforce.</li>
+    </ul>
+  </div>
+  
+  <div class="job linked-job last-linked">
+    <h3>Creative Specialist</h3>
+    <div class="job-details">
+      <span class="employer">Therapy Brands</span>
+      <span class="period">January 2018 - September 2019 (1 year 9 months)</span>
     </div>
-    
-    <div class="job">
-      <h3>Creative Specialist</h3>
-      <div class="job-details">
-        <span class="period">January 2018 - September 2019 (1 year 9 months)</span>
-      </div>
-      <ul>
-        <li>Revitalized visual branding and implemented tools/training so employees were equipped.</li>
-        <li>Created SEO-friendly content marketing and redesigned a website to help achieve 245% ARR growth.</li>
-        <li>Executed a successful direct mail campaign for $2,000 which netted us $70,000 in ARR.</li>
-        <li>Helped manage HubSpot CRM, workflows, templates, and more.</li>
-      </ul>
-    </div>
+    <ul>
+      <li>Revitalized visual branding and implemented tools/training so employees were equipped.</li>
+      <li>Created SEO-friendly content marketing and redesigned a website to help achieve 245% ARR growth.</li>
+      <li>Executed a successful direct mail campaign for $2,000 which netted us $70,000 in ARR.</li>
+      <li>Helped manage HubSpot CRM, workflows, templates, and more.</li>
+    </ul>
   </div>
   
   <div class="job">
