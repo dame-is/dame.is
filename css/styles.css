@@ -1565,3 +1565,269 @@ body.dark-mode .blog-content code {
 body.dark-mode #comments-section {
     border-top-color: #444;
 }
+
+/* === Resume Styles === */
+
+.resume-container {
+  max-width: 800px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.resume-section {
+  margin-bottom: 2.5rem;
+}
+
+.resume-section h2 {
+  font-size: 1.4em;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  color: #007BFF;
+}
+
+body.dark-mode .resume-section h2 {
+  border-bottom-color: #444;
+  color: #88C1FF;
+}
+
+/* Sabbatical styling */
+.job.sabbatical {
+  background-color: rgba(129, 199, 132, 0.08);
+  border: 1px solid rgba(129, 199, 132, 0.2);
+  border-radius: 8px;
+  padding: 1.2rem;
+  border-bottom: none;
+}
+
+body.dark-mode .job.sabbatical {
+  background-color: rgba(129, 199, 132, 0.05);
+  border-color: rgba(129, 199, 132, 0.15);
+}
+
+.job.sabbatical h3.job-title {
+  color: #2e7d32;
+}
+
+body.dark-mode .job.sabbatical h3.job-title {
+  color: #81c784;
+}
+
+.job.sabbatical .job-employer {
+  color: #4caf50;
+  font-style: italic;
+}
+
+body.dark-mode .job.sabbatical .job-employer {
+  color: #66bb6a;
+}
+
+/* Job group styling for related positions */
+.job-group {
+  position: relative;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(0,123,255,0.15);
+  border-radius: 8px;
+  padding: 1.5rem;
+  background-color: rgba(0,123,255,0.03);
+}
+
+body.dark-mode .job-group {
+  border-color: rgba(136,193,255,0.15);
+  background-color: rgba(0,38,77,0.2);
+}
+
+.company-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0,123,255,0.2);
+}
+
+.company-name {
+  font-weight: bold;
+  font-size: 1.1em;
+  color: #007BFF;
+}
+
+body.dark-mode .company-name {
+  color: #88C1FF;
+}
+
+.total-tenure {
+  font-style: italic;
+  color: #777;
+}
+
+body.dark-mode .total-tenure {
+  color: #999;
+}
+
+.job-progression {
+  position: relative;
+  border-bottom: none;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.job-progression:not(.last):after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -10px;
+  width: 2px;
+  height: 20px;
+  background-color: rgba(0,123,255,0.4);
+}
+
+.job-progression:not(.last):before {
+  content: "↑";
+  position: absolute;
+  left: -1px;
+  bottom: -18px;
+  color: rgba(0,123,255,0.6);
+  font-size: 16px;
+  z-index: 1;
+}
+
+body.dark-mode .job-progression:not(.last):after {
+  background-color: rgba(136,193,255,0.4);
+}
+
+body.dark-mode .job-progression:not(.last):before {
+  color: rgba(136,193,255,0.6);
+}
+
+.promotion-indicator {
+  display: inline-block;
+  background-color: rgba(0,123,255,0.1);
+  color: #007BFF;
+  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: 10px;
+  border: 1px solid rgba(0,123,255,0.2);
+}
+
+body.dark-mode .promotion-indicator {
+  background-color: rgba(0,38,77,0.3);
+  color: #88C1FF;
+  border-color: rgba(136,193,255,0.2);
+}
+
+.job {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px dashed rgba(0,0,0,0.1);
+}
+
+.job-group .job {
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.job-group .job:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+body.dark-mode .job {
+  border-bottom-color: rgba(255,255,255,0.1);
+}
+
+.job:last-child {
+  border-bottom: none;
+}
+
+.job h3.job-title {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: #333;
+}
+
+body.dark-mode .job h3.job-title {
+  color: #eee;
+}
+
+.job-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  font-size: 0.9em;
+}
+
+.job-employer {
+  font-weight: 600;
+  color: #555;
+}
+
+body.dark-mode .job-employer {
+  color: #aaa;
+}
+
+.job-period {
+  color: #777;
+  font-style: italic;
+}
+
+body.dark-mode .job-period {
+  color: #999;
+}
+
+.job ul {
+  margin-left: 1rem;
+  padding-left: 1rem;
+}
+
+.job li {
+  margin-bottom: 0.5rem;
+}
+
+.education {
+  margin-bottom: 1rem;
+}
+
+.education h3.degree-title {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: #333;
+}
+
+.education-institution {
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+body.dark-mode .education h3.degree-title {
+  color: #eee;
+}
+
+body.dark-mode .education-institution {
+  color: #aaa;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 600px) {
+  .job-meta {
+    flex-direction: column;
+  }
+  
+  .job-employer, .job-period {
+    margin-bottom: 0.3rem;
+  }
+  
+  main {
+    padding: 15px;
+  }
+}
+
+@media (min-width: 768px) {
+  main {
+    max-width: 800px;
+  }
+}
