@@ -1706,9 +1706,3 @@ body.dark-mode .education div {
     padding: 15px;
   }
 }
-
-@media (min-width: 768px) {
-  main {
-    max-width: 800px;
-  }
-}
