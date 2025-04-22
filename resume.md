@@ -71,10 +71,10 @@ title: Resume
     </ul>
   </div>
   
-  <div class="job linked-job first-linked">
+  <div class="job">
     <h3>Strategic Marketing Manager</h3>
     <div class="job-details">
-      <span class="employer">Therapy Brands</span>
+      <span class="employer">Therapy Brands</span> <span class="total-duration">(Total: 2 years 8 months)</span>
       <span class="period">September 2019 - August 2020 (1 year)</span>
     </div>
     <ul>
@@ -87,7 +87,7 @@ title: Resume
     </ul>
   </div>
   
-  <div class="job linked-job last-linked">
+  <div class="job">
     <h3>Creative Specialist</h3>
     <div class="job-details">
       <span class="employer">Therapy Brands</span>

@@ -1658,42 +1658,15 @@ body.dark-mode .sabbatical h3 {
   color: #81c784;
 }
 
-/* Linked job styling */
-.linked-job {
-  padding-left: 20px; /* Space for the line */
-  margin-bottom: 20px; /* Reduce margin between linked jobs */
+/* Total duration styling */
+.total-duration {
+  font-size: 0.9em;
+  color: #666;
+  margin-left: 5px;
 }
 
-.linked-job::before {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background-color: #007BFF;
-  opacity: 0.2;
-}
-
-body.dark-mode .linked-job::before {
-  background-color: #88C1FF;
-  opacity: 0.2;
-}
-
-/* Adjust line start for the first linked job */
-.first-linked::before {
-  top: 20px; /* Start line below the title */
-}
-
-/* Adjust line end for the last linked job */
-.last-linked::before {
-  bottom: auto; /* Don't extend to bottom */
-  height: 20px; /* End line shortly after title */
-}
-
-/* Ensure normal margin after the last linked job */
-.last-linked {
-  margin-bottom: 35px;
+body.dark-mode .total-duration {
+  color: #aaa;
 }
 
 .education {
