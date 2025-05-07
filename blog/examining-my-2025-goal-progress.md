@@ -34,7 +34,7 @@ Today is my birthday, and we're almost halfway through the year already, so it f
 - Create some sort of helpful + free "evergreen" content series
 - Continue microblogging daily
 - Read at least one book a month
-- Meditate more than I did in 2023
+- Meditate more than I did in 2024
 - Land my next job (ideally thru relationships and discovery rather than applications) OR begin to generate income from a project
 - Continue playing tennis 2-3 times a week
 - Use are.na on a daily/weekly basis
@@ -53,7 +53,6 @@ Today is my birthday, and we're almost halfway through the year already, so it f
 - Take a solo trip
 - Travel someplace new
 - Take some private tennis lessons to improve fundamentals
-- Start going back to the dentist after ~1 year off
 - Get to bed earlier
 
 ## New goals
