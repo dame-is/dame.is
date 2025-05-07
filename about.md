@@ -7,24 +7,22 @@ title: About
 
 I am an artist and remote tech worker residing in the southeastern United States. 
 
-I first started publishing on the internet around 2003 and have utilized numerous platforms to do so over the past two decades. This website is a work-in-progress which I add to every week.
-
-I'm interested in art, technology, gender, sexuality, labor, internet culture, and <a href="https://en.wikipedia.org/wiki/Challengers_(film)" target="_blank">Challengers (2024)</a>.
+I first started publishing on the internet around 2003 and have utilized numerous platforms to do so over the past two decades. This website is a work-in-progress which I add to every month.
 
 ## Background
-I was born in the southeastern United States during the 90s. I grew up in the evangelical church but deconstructed over a 4-year period in college after intense research/soul-searching. Now I am agnostic/spiritual and appreciate parts of Zen Buddhism. I have a non-normative experience with gender, so I fall within the category of genderqueer or genderfluid. I have a small dog named Cooper who is a chihuahua/terrier mix.
+I'm a 90s kid whose birthday is almost the same as the public release of the World Wide Web, so I feel a kinship with the internet. I am agnostic/spiritual and appreciate parts of Zen Buddhism. I have a non-normative experience with gender, so I fall within the category of genderqueer or genderfluid. I have a small dog named Cooper who is a chihuahua/terrier mix.
 
-My passion for creativity/art started at a young age through writing. In middle school, I picked up my first camera and entered into a life-long relationship with photography. In college, I began making things across several mediums including animation, video, graphic design, and leather. My art practice for the past 5 years has focused on conceptual and abstract art.
+My passion for creativity/art started at a young age through writing. Then in middle school I picked up my first camera and entered into a life-long relationship with photography. In college, I began making things across several mediums including animation, video, graphic design, and leather. My art practice for the past 5 years has focused on conceptual and abstract art.
 
-As a "professional", I've worked primarily as a graphic designer, content creator, and marketer for software companies. I'm currently on sabbatical, but always open to conversations.
+As a "professional", I've worked primarily as a graphic designer, content creator, and marketer for software companies. I just recently ended a 6-month sabbatical and am now focused on building things within the AT Protocol ecosystem.
 
 In regard to technology, I'm especially interested in...
 - consumer health tech (home medical devices, fitness, wellness, accessibility, etc), 
 - indie software (i.e. are.na, netnewswire, etc)
-- mobile apps (iOS focused mostly)
-- the AT Protocol + Bluesky
+- web apps (iOS focused mostly)
+- emerging tech (decentralization + LLMs)
 
-I love tennis and play three times a week at my local club.
+I love tennis and play every week at my local club, sometimes in USTA leagues.
 
 ## Personality Test Results
 - Myers-Briggs: ENFJ

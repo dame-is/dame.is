@@ -10,11 +10,11 @@ title: Patrons
 
 Hello there,
 
-My name is [Dame](https://bsky.app/profile/dame.is). I'm an artist and software experimentalist who has been creating resources, tools, and content for the AT Protocol + Bluesky community for the past several months during my professional (unpaid) sabbatical. I've been a part of Bluesky since almost the very beginning (user #1,216), and I've developed a keen interest in helping make the "Atmosphere" better.
+My name is [Dame](https://bsky.app/profile/dame.is). I'm an artist and software experimentalist who is creating resources, tools, and content for the AT Protocol + Bluesky community.
 
-Recently I launched the beta version of a new platform I've created called [cred.blue](https://cred.blue). It allows you to generate a Bluesky score, helps you understand your AT Protocol data footprint, and let's you vibe check strangers and new accounts. Bots, fake accounts, and bad actors are all over the place these days, so it's my hope that this platform can play a small part in helping you better navigate the digital spaces we inhabit.
+So far I've created an [alt text rating tool](https://cred.blue/alt-text), a social scoring system called [cred.blue](https://cred.blue/), and a satirical social network called [Flushes](https://flushes.app).
 
-Launching and maintaining a project of this nature requires a significant time investment as well as ongoing costs in the form of servers, hosting, and various services. It's my hope that through this Patreon and Ko-fi I'll be able to at least cover the upkeep costs of the various free resources I've made. I should be able to do that well for around ~$600. Beyond that, I'm interested in focusing more of my time towards creating new projects, tools, and resources that can help people live healthier digital lives... both within the AT Protocol + Bluesky ecosystem and beyond.
+Making projects like these requires a significant time investment as well as ongoing costs in the form of servers, hosting, and various services. It's my hope that through my Patreon and Ko-fi I'll be able to at least cover the upkeep costs of the various free tools I've made, and then eventually provide premium features to my supporters.
 
 Thank you for considering supporting me,
 
