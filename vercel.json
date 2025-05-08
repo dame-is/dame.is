@@ -32,6 +32,11 @@
         "source": "/skeet-tools",
         "destination": "https://cred.blue/resources",
         "permanent": true
+      },
+      {
+        "source": "/chip-taste-test",
+        "destination": "/eating-chips",
+        "permanent": true
       }
     ]
   }
