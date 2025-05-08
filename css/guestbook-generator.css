@@ -1,81 +1,123 @@
 .guestbook-generator {
     margin: 2rem 0;
-    padding: 1.5rem;
+    padding: 2rem 1.5rem;
     border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #f9f9f9;
+    border-radius: 14px;
+    background-color: #fafbfc;
+    max-width: 420px;
+    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04);
 }
 
 .guestbook-generator form {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.2rem;
 }
 
 .guestbook-generator label {
     font-weight: bold;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.4rem;
+    font-size: 1.08em;
 }
 
 .guestbook-generator input,
 .guestbook-generator textarea {
-    padding: 0.5rem;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 1rem;
+    padding: 0.7rem 0.9rem;
+    border: 1.5px solid #ccc;
+    border-radius: 6px;
+    font-size: 1.05em;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 0.2rem;
+    background: #fff;
+    transition: border-color 0.2s;
+}
+
+.guestbook-generator input:focus,
+.guestbook-generator textarea:focus {
+    border-color: #007bff;
+    outline: none;
 }
 
 .guestbook-generator textarea {
-    min-height: 100px;
+    min-height: 90px;
     resize: vertical;
 }
 
-.guestbook-generator button {
-    padding: 0.75rem 1.5rem;
-    background-color: #007bff;
+.guestbook-generator button[type="submit"] {
+    padding: 0.9rem 0;
+    background-color: #2684ff;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.2s;
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 0.5rem;
+    transition: background 0.18s, box-shadow 0.18s;
+    box-shadow: 0 1px 4px 0 rgba(38,132,255,0.08);
+    width: 100%;
 }
 
-.guestbook-generator button:hover {
-    background-color: #0056b3;
+.guestbook-generator button[type="submit"]:hover {
+    background-color: #1565c0;
 }
 
 #guestbook-result {
-    margin-top: 1rem;
+    margin-top: 1.2rem;
     padding: 1rem;
     background-color: #f5f5f5;
     border: 1px solid #ddd;
-    border-radius: 4px;
+    border-radius: 6px;
     font-family: monospace;
     white-space: pre-wrap;
     display: none;
+    font-size: 1em;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 #copy-json {
-    margin-top: 1rem;
+    margin-top: 0.7rem;
     display: none;
+    width: 100%;
+    padding: 0.7rem 0;
+    background: #e0e7ef;
+    color: #1565c0;
+    border: none;
+    border-radius: 6px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.18s;
+}
+
+#copy-json:hover {
+    background: #d0d7df;
+    color: #0d47a1;
 }
 
 /* Dark mode support */
 .dark-mode .guestbook-generator {
-    background-color: #2d2d2d;
+    background-color: #23272e;
     border-color: #444;
+    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.18);
 }
 
 .dark-mode .guestbook-generator input,
 .dark-mode .guestbook-generator textarea {
-    background-color: #3d3d3d;
+    background-color: #2d313a;
     border-color: #555;
     color: #fff;
 }
 
 .dark-mode #guestbook-result {
-    background-color: #3d3d3d;
+    background-color: #2d313a;
     border-color: #555;
     color: #fff;
+}
+
+.dark-mode #copy-json {
+    background: #23272e;
+    color: #88c1ff;
 } 

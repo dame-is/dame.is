@@ -15,7 +15,7 @@ My latest lexicon experiment is geared towards the real atproto nerds, so if you
 
 If you spend time browsing PDS tools like [pdsls.dev](https://pdsls.dev) or [atp.tools](https://atp.tools), then you've probably picked up on the fact that by default they sort lexicon collections alphabetically. This means that 99.99% of PDSes currently begin with app.bsky records at the top. This got me thinking... what if I made some "welcome" records that would go at the top of my PDS so that nerds browsing it would get a friendly hello?
 
-[image]
+![A screenshot of pdsls.dev showing the welcome message lexicons at the top of the collections list](/images/blog/guestbook-blog.png)
 
 So, I created [a.welcome.message.for.my.pds](https://pdsls.dev/at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/a.welcome.message.for.my.pds). At the moment it contains a little greeting + a list of links where people can find me and my projects.
 
@@ -136,7 +136,7 @@ Then, theoretically, if that person ever creates a guestbook down the line using
 
 ## The guestbook record generator
 
-To cut down on some of the time that it takes to put together the data for guestbook signing, I've created a little tool below to simplify things. Type in the username of the account whose guestbook you want to sign, write your message, and then it will output the JSON for you to copy to your clipboard. Then you can just paste that into pdsls.dev.
+To cut down on some of the time that it takes to put together the data for guestbook signing, I've created a little tool below to simplify things. Type in the username of the account whose guestbook you want to sign, write your message, and then it will output the JSON for you to copy to your clipboard. Then you can just paste that into [pdsls.dev](https://pdsls.dev).
 
 <div class="guestbook-generator">
     <form id="guestbook-form">
