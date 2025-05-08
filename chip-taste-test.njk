@@ -1,0 +1,338 @@
+---
+layout: base
+title: Chip Flavor Taste Test Analysis
+---
+
+<style>
+  .chart-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin: 20px 0;
+  }
+  .tab-container {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .tab {
+    padding: 10px 15px;
+    background: #e9ecef;
+    border: none;
+    border-radius: 5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .tab.active {
+    background: #4299e1;
+    color: white;
+  }
+  .tab:hover:not(.active) {
+    background: #dee2e6;
+  }
+  .chart-view {
+    display: none;
+  }
+  .chart-view.active {
+    display: block;
+  }
+  .insight-box {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin: 20px 0;
+  }
+  .key-point {
+    font-weight: 600;
+    color: #2c3e50;
+  }
+  .list-item {
+    margin-bottom: 8px;
+  }
+</style>
+
+<div class="content">
+  <h1>Chip Flavor Taste Test Analysis</h1>
+  <p>Analysis based on 7 participants' ratings of 22 different chip flavors. All scores normalized to a scale of 0-100.</p>
+  
+  <div class="tab-container">
+    <button class="tab active" data-target="accuracy">Accuracy</button>
+    <button class="tab" data-target="enjoyment">Enjoyment</button>
+    <button class="tab" data-target="dame">Dame's Picks</button>
+    <button class="tab" data-target="brands">Brands</button>
+    <button class="tab" data-target="controversial">Controversial</button>
+  </div>
+  
+  <div id="accuracy-view" class="chart-view active">
+    <h2>Most & Least Accurate Flavors</h2>
+    <p>How well did each chip flavor represent what it claimed to be?</p>
+    <div class="chart-container">
+      <svg id="accuracy-chart" width="100%" height="400"></svg>
+    </div>
+    <div class="insight-box">
+      <h3>Key Insights:</h3>
+      <ul>
+        <li class="list-item"><span class="key-point">Pesto (Tantos)</span> was rated as the most accurate flavor representation with an average score of 87/100.</li>
+        <li class="list-item"><span class="key-point">Scallops (Lay's)</span> was rated as the least accurate with only 24/100.</li>
+        <li class="list-item">Most participants agreed that <span class="brand-name">Tantos</span> and <span class="brand-name">Carolina Kettle</span> brands had the most accurate flavor profiles.</li>
+      </ul>
+    </div>
+  </div>
+  
+  <div id="enjoyment-view" class="chart-view">
+    <h2>Most & Least Enjoyed Flavors</h2>
+    <p>Which flavors did participants actually like the most?</p>
+    <div class="chart-container">
+      <svg id="enjoyment-chart" width="100%" height="400"></svg>
+    </div>
+    <div class="insight-box">
+      <h3>Key Insights:</h3>
+      <ul>
+        <li class="list-item"><span class="key-point">Salt & Pepper (Trader Joe's)</span> was the most enjoyed flavor with an average score of 80/100.</li>
+        <li class="list-item"><span class="key-point">Garlic Shrimp (Doritos)</span> was the least enjoyed with only 19/100.</li>
+        <li class="list-item">Three of the top five most enjoyed flavors were from specialty brands rather than mainstream chip companies.</li>
+      </ul>
+    </div>
+  </div>
+  
+  <div id="dame-view" class="chart-view">
+    <h2>Dame's Favorites & Least Favorites</h2>
+    <div class="chart-container">
+      <svg id="dame-chart" width="100%" height="400"></svg>
+    </div>
+    <div class="insight-box">
+      <h3>Key Insights:</h3>
+      <ul>
+        <li class="list-item"><span class="key-point">Chamoy! (Kettle Brand)</span> was Dame's absolute favorite with a score of 95/100.</li>
+        <li class="list-item">Dame's least favorite was <span class="key-point">Pizza Party (Trader Joe's)</span> with only 25/100.</li>
+      </ul>
+    </div>
+  </div>
+  
+  <div id="brands-view" class="chart-view">
+    <h2>Brand Performance</h2>
+    <p>Average enjoyment scores by brand</p>
+    <div class="chart-container">
+      <svg id="brands-chart" width="100%" height="400"></svg>
+    </div>
+    <div class="insight-box">
+      <h3>Key Insights:</h3>
+      <ul>
+        <li class="list-item"><span class="key-point">Wai Lana</span> had the highest average enjoyment score (74/100).</li>
+        <li class="list-item"><span class="key-point">Turtle Chips</span> had the lowest average rating (13/100).</li>
+      </ul>
+    </div>
+  </div>
+  
+  <div id="controversial-view" class="chart-view">
+    <h2>Most Controversial Flavors</h2>
+    <p>Flavors with the highest standard deviation in scores (people disagreed the most)</p>
+    <div class="chart-container">
+      <svg id="controversial-chart" width="100%" height="400"></svg>
+    </div>
+    <div class="insight-box">
+      <h3>Key Insights:</h3>
+      <ul>
+        <li class="list-item"><span class="key-point">Ghost Chili (Lay's)</span> had the most variable ratings (StdDev: 32.1).</li>
+        <li class="list-item">Spicy flavors in general tended to have high disagreement among tasters.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Data for charts
+  const accuracyData = [
+    { name: "Pesto", brand: "Tantos", value: 87, color: "#8884d8" },
+    { name: "Rosemary & Garlic", brand: "Carolina Kettle", value: 86, color: "#8884d8" },
+    { name: "Black Truffle", brand: "Torres", value: 87, color: "#8884d8" },
+    { name: "Carolina Reaper", brand: "Lowcountry", value: 77, color: "#8884d8" },
+    { name: "Limón", brand: "Lay's", value: 85, color: "#8884d8" },
+    { name: "Seaweed", brand: "Turtle Chips", value: 31, color: "#ff8042" },
+    { name: "Scallops", brand: "Lay's", value: 24, color: "#ff8042" },
+    { name: "Spicy Hot Pot", brand: "Lay's", value: 39, color: "#ff8042" },
+    { name: "Pizza Party", brand: "Trader Joe's", value: 41, color: "#ff8042" },
+    { name: "Roasted Chicken Wings", brand: "Lay's", value: 52, color: "#ff8042" }
+  ];
+
+  const enjoymentData = [
+    { name: "Salt & Pepper", brand: "Trader Joe's", value: 80, color: "#82ca9d" },
+    { name: "Rosemary & Garlic", brand: "Carolina Kettle", value: 76, color: "#82ca9d" },
+    { name: "Purple Sweet Potato", brand: "Wai Lana", value: 75, color: "#82ca9d" },
+    { name: "Mexican Street Corn", brand: "Late July", value: 73, color: "#82ca9d" },
+    { name: "Black Truffle", brand: "Torres", value: 69, color: "#82ca9d" },
+    { name: "Garlic Shrimp", brand: "Doritos", value: 19, color: "#ff8042" },
+    { name: "Seaweed", brand: "Turtle Chips", value: 21, color: "#ff8042" },
+    { name: "Scallops", brand: "Lay's", value: 26, color: "#ff8042" },
+    { name: "Honey Butter", brand: "Calbee", value: 30, color: "#ff8042" },
+    { name: "Ghost Chili", brand: "Lay's", value: 31, color: "#ff8042" }
+  ];
+
+  const dameData = [
+    { name: "Chamoy!", brand: "Kettle Brand", value: 95, color: "#82ca9d" },
+    { name: "Black Truffle", brand: "Torres", value: 93, color: "#82ca9d" },
+    { name: "Golden Sriracha", brand: "Doritos", value: 92, color: "#82ca9d" },
+    { name: "Rosemary & Garlic", brand: "Carolina Kettle", value: 87, color: "#82ca9d" },
+    { name: "Purple Sweet Potato", brand: "Wai Lana", value: 86, color: "#82ca9d" },
+    { name: "Pizza Party", brand: "Trader Joe's", value: 25, color: "#ff8042" },
+    { name: "Spicy Hot Pot", brand: "Lay's", value: 31, color: "#ff8042" },
+    { name: "Ghost Chili", brand: "Lay's", value: 37, color: "#ff8042" },
+    { name: "White Truffle", brand: "Trader Joe's", value: 40, color: "#ff8042" },
+    { name: "Honey Butter", brand: "Calbee", value: 41, color: "#ff8042" }
+  ];
+
+  const brandsData = [
+    { name: "Wai Lana", brand: "1 flavor", value: 74, color: "#82ca9d" },
+    { name: "Tantos", brand: "1 flavor", value: 71, color: "#82ca9d" },
+    { name: "Lowcountry", brand: "1 flavor", value: 68, color: "#82ca9d" },
+    { name: "Late July", brand: "1 flavor", value: 65, color: "#82ca9d" },
+    { name: "Trader Joe's", brand: "3 flavors", value: 57, color: "#82ca9d" },
+    { name: "Carolina Kettle", brand: "2 flavors", value: 56, color: "#8884d8" },
+    { name: "Lay's", brand: "6 flavors", value: 52, color: "#8884d8" },
+    { name: "Torres", brand: "1 flavor", value: 51, color: "#8884d8" },
+    { name: "Doritos", brand: "2 flavors", value: 35, color: "#ff8042" },
+    { name: "Kettle Brand", brand: "1 flavor", value: 31, color: "#ff8042" }
+  ];
+
+  const controversialData = [
+    { name: "Ghost Chili", brand: "Lay's", value: 32.1, color: "#ff8042" },
+    { name: "Pesto", brand: "Tantos", value: 29.4, color: "#8884d8" },
+    { name: "Carolina Reaper", brand: "Lowcountry", value: 28.7, color: "#8884d8" },
+    { name: "Spicy Hot Pot", brand: "Lay's", value: 27.9, color: "#ff8042" },
+    { name: "Dill Pickle", brand: "Lay's", value: 26.2, color: "#8884d8" }
+  ];
+
+  function createBarChart(svgId, data, maxValue = 100, valueLabel = "Score") {
+    const svg = document.getElementById(svgId);
+    const margin = { top: 20, right: 80, bottom: 50, left: 200 };
+    const width = svg.clientWidth - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+    
+    // Clear SVG
+    svg.innerHTML = '';
+    
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("transform", `translate(${margin.left},${margin.top})`);
+    svg.appendChild(g);
+    
+    // Create scales
+    const xScale = value => (value / maxValue) * width;
+    const yScale = index => index * (height / data.length) + (height / data.length / 2);
+    
+    // Draw bars
+    data.forEach((d, i) => {
+      const bar = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bar.setAttribute("x", 0);
+      bar.setAttribute("y", i * (height / data.length) + 5);
+      bar.setAttribute("width", xScale(d.value));
+      bar.setAttribute("height", (height / data.length) - 10);
+      bar.setAttribute("fill", d.color);
+      g.appendChild(bar);
+      
+      // Name labels
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", -10);
+      label.setAttribute("y", yScale(i));
+      label.setAttribute("text-anchor", "end");
+      label.setAttribute("dominant-baseline", "middle");
+      label.textContent = d.name;
+      g.appendChild(label);
+      
+      // Value labels
+      const valueText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      valueText.setAttribute("x", xScale(d.value) + 5);
+      valueText.setAttribute("y", yScale(i));
+      valueText.setAttribute("dominant-baseline", "middle");
+      valueText.textContent = d.value.toFixed(1);
+      g.appendChild(valueText);
+    });
+    
+    // X Axis
+    const xAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    xAxis.setAttribute("x1", 0);
+    xAxis.setAttribute("y1", height);
+    xAxis.setAttribute("x2", width);
+    xAxis.setAttribute("y2", height);
+    xAxis.setAttribute("stroke", "#000");
+    g.appendChild(xAxis);
+    
+    // X Axis ticks
+    for (let i = 0; i <= maxValue; i += 20) {
+      const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      tick.setAttribute("x1", xScale(i));
+      tick.setAttribute("y1", height);
+      tick.setAttribute("x2", xScale(i));
+      tick.setAttribute("y2", height + 5);
+      tick.setAttribute("stroke", "#000");
+      g.appendChild(tick);
+      
+      const tickLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      tickLabel.setAttribute("x", xScale(i));
+      tickLabel.setAttribute("y", height + 20);
+      tickLabel.setAttribute("text-anchor", "middle");
+      tickLabel.textContent = i;
+      g.appendChild(tickLabel);
+    }
+    
+    // X Axis label
+    const xLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    xLabel.setAttribute("x", width / 2);
+    xLabel.setAttribute("y", height + 40);
+    xLabel.setAttribute("text-anchor", "middle");
+    xLabel.textContent = valueLabel;
+    g.appendChild(xLabel);
+  }
+  
+  // Draw the charts
+  document.addEventListener('DOMContentLoaded', () => {
+    createBarChart("accuracy-chart", accuracyData, 100, "Accuracy Score");
+    
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs and views
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.chart-view').forEach(v => v.classList.remove('active'));
+        
+        // Add active class to current tab and view
+        tab.classList.add('active');
+        const targetView = document.getElementById(`${tab.dataset.target}-view`);
+        targetView.classList.add('active');
+        
+        // Render the appropriate chart
+        const targetId = tab.dataset.target;
+        if (targetId === "accuracy") {
+          createBarChart("accuracy-chart", accuracyData, 100, "Accuracy Score");
+        } else if (targetId === "enjoyment") {
+          createBarChart("enjoyment-chart", enjoymentData, 100, "Enjoyment Score");
+        } else if (targetId === "dame") {
+          createBarChart("dame-chart", dameData, 100, "Dame's Score");
+        } else if (targetId === "brands") {
+          createBarChart("brands-chart", brandsData, 100, "Average Score");
+        } else if (targetId === "controversial") {
+          createBarChart("controversial-chart", controversialData, 40, "Standard Deviation");
+        }
+      });
+    });
+    
+    // Redraw on resize
+    window.addEventListener('resize', function() {
+      const activeTab = document.querySelector('.tab.active').dataset.target;
+      if (activeTab === "accuracy") {
+        createBarChart("accuracy-chart", accuracyData, 100, "Accuracy Score");
+      } else if (activeTab === "enjoyment") {
+        createBarChart("enjoyment-chart", enjoymentData, 100, "Enjoyment Score");
+      } else if (activeTab === "dame") {
+        createBarChart("dame-chart", dameData, 100, "Dame's Score");
+      } else if (activeTab === "brands") {
+        createBarChart("brands-chart", brandsData, 100, "Average Score");
+      } else if (activeTab === "controversial") {
+        createBarChart("controversial-chart", controversialData, 40, "Standard Deviation");
+      }
+    });
+  });
+</script> 
