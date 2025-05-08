@@ -76,7 +76,7 @@ In the meantime, here's a step-by-step guide to making your own nerd version.
 
 "guestbook": "REPLACE WITH URI after record creation by editing the record via recreation",
 
-"more-info": "https://dame.is/blog/LINK"
+"more-info": "https://dame.is/blog/a-guestbook-and-welcome-message-for-my-pds/"
 
 }
 ```
