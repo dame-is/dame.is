@@ -4,13 +4,6 @@ title: Chip Flavor Taste Test Analysis
 ---
 
 <style>
-  .chart-container {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    padding: 20px;
-    margin: 20px 0;
-  }
   .tab-container {
     display: flex;
     gap: 10px;
@@ -39,13 +32,6 @@ title: Chip Flavor Taste Test Analysis
   .chart-view.active {
     display: block;
   }
-  .insight-box {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    padding: 20px;
-    margin: 20px 0;
-  }
   .key-point {
     font-weight: 600;
     color: #2c3e50;
@@ -57,7 +43,8 @@ title: Chip Flavor Taste Test Analysis
 
 <div class="content">
   <h1>Chip Flavor Taste Test Analysis</h1>
-  <p>Analysis based on 7 participants' ratings of 22 different chip flavors. All scores normalized to a scale of 0-100.</p>
+  <p>For my 32nd birthday my family got together and did a massive chip taste test focused on unique or international varities. Everyone rated each chip on a scale of 0-100 for relative enjoyment and then scored them for how authentic the flavor match was. This activity was heavily inspired by Good Mythical Morning.</p>
+  <p>Claude performed the following data analysis based on all 7 participants' individual ratings of 22 different chip flavors.</p>
   
   <div class="tab-container">
     <button class="tab active" data-target="accuracy">Accuracy</button>
@@ -142,6 +129,49 @@ title: Chip Flavor Taste Test Analysis
       </ul>
     </div>
   </div>
+
+  <hr>
+  <h2>Reference: Full List of Chips Tasted</h2>
+  <p>For reference, here is the full list of chip flavors and brands we tasted, as recorded during the event:</p>
+  <img src="/chip-taste-test.jpg" alt="Handwritten table of all chip flavors, brands, and scores from the taste test event. See below for a text version." style="max-width:100%;height:auto;border:1px solid #ccc;border-radius:8px;margin-bottom:20px;">
+
+  <table class="chip-list-table" style="margin: 30px auto; max-width: 700px; width: 100%; border-collapse: collapse;">
+    <caption style="caption-side: top; font-weight: bold; margin-bottom: 8px;">Full List of Chips Tasted</caption>
+    <thead>
+      <tr>
+        <th style="border-bottom: 2px solid #ccc; padding: 6px 8px;">#</th>
+        <th style="border-bottom: 2px solid #ccc; padding: 6px 8px;">Flavor</th>
+        <th style="border-bottom: 2px solid #ccc; padding: 6px 8px;">Brand</th>
+        <th style="border-bottom: 2px solid #ccc; padding: 6px 8px;">Accuracy</th>
+        <th style="border-bottom: 2px solid #ccc; padding: 6px 8px;">Initial Score</th>
+        <th style="border-bottom: 2px solid #ccc; padding: 6px 8px;">Final Score</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Dill Pickle</td><td>Lay's</td><td>42</td><td>55</td><td></td></tr>
+      <tr><td>2</td><td>Limón</td><td>Lay's</td><td>65</td><td>66</td><td></td></tr>
+      <tr><td>3</td><td>Golden Sriracha</td><td>Doritos</td><td>68</td><td>92</td><td></td></tr>
+      <tr><td>4</td><td>Pizza Party</td><td>Trader Joe's</td><td>40</td><td>25</td><td></td></tr>
+      <tr><td>5</td><td>White Truffle</td><td>Trader Joe's</td><td>35</td><td>40</td><td></td></tr>
+      <tr><td>6</td><td>Salt & Pepper</td><td>Trader Joe's</td><td>55</td><td>74</td><td></td></tr>
+      <tr><td>7</td><td>Stuffed Jalapeño</td><td>Publix</td><td>60</td><td>51</td><td></td></tr>
+      <tr><td>8</td><td>Mexican Street Corn</td><td>Late July</td><td>62</td><td>79</td><td></td></tr>
+      <tr><td>9</td><td>Carolina Reaper</td><td>Lowcountry</td><td>60</td><td>66</td><td></td></tr>
+      <tr><td>10</td><td>Coastal Crab Boil</td><td>Carolina Kettle</td><td>67</td><td>55</td><td></td></tr>
+      <tr><td>11</td><td>Rosemary & Garlic</td><td>Carolina Kettle</td><td>77</td><td>87</td><td></td></tr>
+      <tr><td>12</td><td>Purple Sweet Potato</td><td>Wai Lana</td><td>60</td><td>86</td><td></td></tr>
+      <tr><td>13</td><td>Pesto</td><td>Tantos</td><td>98</td><td>79</td><td></td></tr>
+      <tr><td>14</td><td>Black Truffle</td><td>Torres</td><td>90</td><td>93</td><td></td></tr>
+      <tr><td>15</td><td>Roasted Chicken Wings</td><td>Lay's</td><td>31</td><td>80</td><td></td></tr>
+      <tr><td>16</td><td>Chamoy!</td><td>Kettle Brand</td><td>80</td><td>95</td><td></td></tr>
+      <tr><td>17</td><td>Ghost Chili</td><td>Lay's</td><td>65</td><td>37</td><td></td></tr>
+      <tr><td>18</td><td>Spicy Hot Pot</td><td>Lay's</td><td>11</td><td>31</td><td></td></tr>
+      <tr><td>19</td><td>Garlic Shrimp</td><td>Doritos</td><td>79</td><td>71</td><td></td></tr>
+      <tr><td>20</td><td>Scallops</td><td>Lay's</td><td>15</td><td>50</td><td></td></tr>
+      <tr><td>21</td><td>Honey Butter</td><td>Calbee</td><td>49</td><td>41</td><td></td></tr>
+      <tr><td>22</td><td>Seaweed</td><td>Turtle Chips</td><td>2</td><td>46</td><td></td></tr>
+    </tbody>
+  </table>
 </div>
 
 <script>

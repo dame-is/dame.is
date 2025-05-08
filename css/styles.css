@@ -1706,3 +1706,90 @@ body.dark-mode .education div {
     padding: 15px;
   }
 }
+
+/* === Chip Taste Test Styles === */
+.tab-container {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 10px 15px;
+  background: #e9ecef;
+  border: none;
+  border-radius: 5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.tab.active {
+  background: #4299e1;
+  color: white;
+}
+
+.tab:hover:not(.active) {
+  background: #dee2e6;
+}
+
+.chart-view {
+  display: none;
+}
+
+.chart-view.active {
+  display: block;
+}
+
+.key-point {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.list-item {
+  margin-bottom: 8px;
+}
+
+/* Dark Mode Styles for Chip Taste Test */
+body.dark-mode .tab {
+  background: #2d3748;
+  color: #e2e8f0;
+}
+
+body.dark-mode .tab.active {
+  background: #4299e1;
+  color: white;
+}
+
+body.dark-mode .tab:hover:not(.active) {
+  background: #4a5568;
+}
+
+body.dark-mode .key-point {
+  color: #e2e8f0;
+}
+
+body.dark-mode .list-item {
+  color: #e2e8f0;
+}
+
+body.dark-mode .chart-container svg text {
+  fill: #e2e8f0;
+}
+
+body.dark-mode .chart-container svg line {
+  stroke: #4a5568;
+}
+
+body.dark-mode .insight-box {
+  background-color: #2d3748;
+  border: 1px solid #4a5568;
+  border-radius: 5px;
+  padding: 15px;
+  margin-top: 20px;
+}
+
+body.dark-mode .insight-box h3 {
+  color: #e2e8f0;
+}
