@@ -5,7 +5,7 @@ date: "2025-05-08"
 time: "1:00pm EST"
 author: "Dame"
 excerpt: "We all know by now that I am a black market lexicon dealer and an enjoyer of illegal atproto records. It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, she wouldn't have invented roller skates."
-blueskyUri: ""
+blueskyUri: "3loof6k33lc26"
 ogImage: "/images/blog/guestbook-blog.png"
 ---
 
