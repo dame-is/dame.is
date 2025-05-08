@@ -49,7 +49,7 @@ So, I created [a.guestbook.for.my.pds](https://pdsls.dev/at://did:plc:gq4fo3u6tq
 }
 ```
 
-[image of backlink]
+![constellation backlinks for the guestbook as seen underneath the record on pdsls.dev](/images/blog/backlinks-example.png)
 
 Because of the technical nature of this setup, it's not exactly a guestbook that anyone can enjoy. It's geared specifically towards developers and freaks like me who aren't engineers but who know enough to get in trouble. What if there was an atproto-based guestbook that more people could enjoy?
 
