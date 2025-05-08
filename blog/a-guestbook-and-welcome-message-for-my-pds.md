@@ -121,7 +121,7 @@ In the meantime, here's a step-by-step guide to making your own nerd version.
 
 "$type": "a.guestbook.i.signed",
 
-"message": "hi atpotato",
+"message": "hi there",
 
 "guestbook": "REPLACE WITH URI of the guestbook you want to sign"
 
