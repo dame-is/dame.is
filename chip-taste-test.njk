@@ -47,7 +47,7 @@ title: Chip Flavor Taste Test Analysis
   }
   /* Make main content wider for this page only */
   main {
-    max-width: 800px !important;
+    max-width: 600px !important;
   }
 </style>
 
@@ -300,21 +300,40 @@ title: Chip Flavor Taste Test Analysis
     g.appendChild(xAxis);
     
     // X Axis ticks
-    for (let i = 0; i <= maxValue; i += 20) {
-      const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      tick.setAttribute("x1", xScale(i));
-      tick.setAttribute("y1", height);
-      tick.setAttribute("x2", xScale(i));
-      tick.setAttribute("y2", height + 5);
-      tick.setAttribute("stroke", "#000");
-      g.appendChild(tick);
-      
-      const tickLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      tickLabel.setAttribute("x", xScale(i));
-      tickLabel.setAttribute("y", height + 20);
-      tickLabel.setAttribute("text-anchor", "middle");
-      tickLabel.textContent = i;
-      g.appendChild(tickLabel);
+    const isMobile = window.innerWidth < 500;
+    if (isMobile) {
+      // Only show min and max ticks
+      [0, maxValue].forEach(i => {
+        const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        tick.setAttribute("x1", xScale(i));
+        tick.setAttribute("y1", height);
+        tick.setAttribute("x2", xScale(i));
+        tick.setAttribute("y2", height + 5);
+        tick.setAttribute("stroke", "#000");
+        g.appendChild(tick);
+        const tickLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        tickLabel.setAttribute("x", xScale(i));
+        tickLabel.setAttribute("y", height + 20);
+        tickLabel.setAttribute("text-anchor", "middle");
+        tickLabel.textContent = i;
+        g.appendChild(tickLabel);
+      });
+    } else {
+      for (let i = 0; i <= maxValue; i += 20) {
+        const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        tick.setAttribute("x1", xScale(i));
+        tick.setAttribute("y1", height);
+        tick.setAttribute("x2", xScale(i));
+        tick.setAttribute("y2", height + 5);
+        tick.setAttribute("stroke", "#000");
+        g.appendChild(tick);
+        const tickLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        tickLabel.setAttribute("x", xScale(i));
+        tickLabel.setAttribute("y", height + 20);
+        tickLabel.setAttribute("text-anchor", "middle");
+        tickLabel.textContent = i;
+        g.appendChild(tickLabel);
+      }
     }
     
     // X Axis label
