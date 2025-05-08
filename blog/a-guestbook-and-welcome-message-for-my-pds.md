@@ -4,12 +4,12 @@ title: "A guestbook and welcome message for my atproto PDS"
 date: "2025-05-08"
 time: "1:00pm EST"
 author: "Dame"
-excerpt: "We all know by now that I am a black market lexicon dealer and an enjoyer of illegal atproto records. It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, she wouldn't have invented roller skates."
+excerpt: "We all know by now that I believe in the lexicon black market and an enjoy illegal atproto records. It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, she wouldn't have invented roller skates."
 blueskyUri: "3loof6k33lc26"
 ogImage: "/images/blog/guestbook-blog.png"
 ---
 
-We all know by now that [I am a black market lexicon dealer](https://bsky.app/profile/dame.is/post/3lo56xss6hk2n) and an enjoyer of [illegal atproto records](https://bsky.app/profile/dame.is/post/3lnyoz6es2k2b). It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, [she wouldn't have invented roller skates](https://www.youtube.com/watch?v=K8Gmd8y_Aiw).
+We all know by now that [I believe in the lexicon black market](https://bsky.app/profile/dame.is/post/3lo56xss6hk2n) and thus enjoy [illegal atproto records](https://bsky.app/profile/dame.is/post/3lnyoz6es2k2b). It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, [she wouldn't have invented roller skates](https://www.youtube.com/watch?v=K8Gmd8y_Aiw).
 
 My latest lexicon experiment is geared towards the real atproto nerds, so if you're not familiar with how this stuff works, you might want to [read my previous blog post where I explained lexicons](https://dame.is/blog/creating-a-decentralized-bathroom-at-protocol/). Ok, let's jump in.
 
