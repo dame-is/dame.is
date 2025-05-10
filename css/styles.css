@@ -197,6 +197,62 @@ body.dark-mode .nav-left a.nav-link:hover {
     font-weight: bold;
 }
 
+/* === Dropdown Navigation Styles === */
+.nav-item {
+    position: relative;
+    display: inline-block;
+}
+
+.has-dropdown .dropdown {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    min-width: 120px;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    border-radius: 4px;
+}
+
+.has-dropdown:hover .dropdown,
+.has-dropdown:focus-within .dropdown,
+.has-dropdown.dropdown-open .dropdown {
+    display: block;
+}
+
+.dropdown-link {
+    display: block;
+    padding: 8px 16px;
+    color: #333;
+    text-decoration: none;
+    white-space: nowrap;
+    opacity: 0.7;
+    transition: opacity 0.2s ease, background-color 0.2s ease;
+}
+
+.dropdown-link:hover,
+.dropdown-link:focus {
+    background: #e0e0e0;
+    opacity: 1;
+}
+
+/* Dark mode dropdown styles */
+body.dark-mode .has-dropdown .dropdown {
+    background: #1e1e1e;
+    border: 1px solid #444;
+}
+
+body.dark-mode .dropdown-link {
+    color: #fff;
+}
+
+body.dark-mode .dropdown-link:hover,
+body.dark-mode .dropdown-link:focus {
+    background: #2a2a2a;
+}
+
 /* === Recent Log Styles === */
 
 #recent-log-container {

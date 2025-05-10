@@ -268,6 +268,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname === '/supported' || window.location.pathname === '/supported/') {
         initializeSupportersList();
     }
+
+    // Mobile/tap dropdown support for nav
+    document.querySelectorAll('.nav-item.has-dropdown > .nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Only activate on touch/click, not on keyboard navigation
+            if (window.matchMedia('(hover: none)').matches || window.innerWidth < 900) {
+                e.preventDefault();
+                const parent = this.parentElement;
+                const isOpen = parent.classList.contains('dropdown-open');
+                // Close all dropdowns
+                document.querySelectorAll('.nav-item.has-dropdown').forEach(item => {
+                    item.classList.remove('dropdown-open');
+                });
+                // Toggle this one
+                if (!isOpen) {
+                    parent.classList.add('dropdown-open');
+                }
+            }
+        });
+    });
+    // Optional: close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.nav-item.has-dropdown')) {
+            document.querySelectorAll('.nav-item.has-dropdown').forEach(item => {
+                item.classList.remove('dropdown-open');
+            });
+        }
+    });
 });
 
 // Function to initialize Bluesky comments
@@ -2016,8 +2044,8 @@ async function initializeSupportersList() {
             return;
         }
 
-        // Create the list HTML
-        const listHtml = data.items.map(item => {
+        // Create the list HTML - now in reverse order
+        const listHtml = [...data.items].reverse().map(item => {
             const handle = item.subject.handle;
             const displayName = item.subject.displayName || handle;
             return `<div class="supporter">
