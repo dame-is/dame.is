@@ -2,9 +2,18 @@
 layout: base
 title: Log
 ---
+
+# /log
+
 <div class="log-container-wrapper">
-    <h1>/log</h1>
     <div id="loading-logs">Loading logs...</div>
     <div id="log-entries"></div>
     <button id="see-more-logs">See More Logs</button>
-</div> 
+</div>
+
+<script>
+    // Initialize the log loader when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeLogLoader();
+    });
+</script> 

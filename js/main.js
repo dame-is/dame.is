@@ -1481,20 +1481,22 @@ function setActiveNavLink() {
         path = path.slice(0, -1);
     }
 
-    // Extract the last part of the path
-    pageKey = path.substring(path.lastIndexOf('/') + 1);
-
-    // If path is empty, assume 'home'
-    if (pageKey === '') {
-        pageKey = 'home';
+    // Special case for root path
+    if (path === '') {
+        pageKey = 'about';
+    } else {
+        // Extract the last part of the path
+        pageKey = path.substring(path.lastIndexOf('/') + 1);
     }
 
     const navLinks = document.querySelectorAll('.nav-left .nav-link');
     navLinks.forEach(link => {
         const linkPath = link.getAttribute('href');
-
-        // Compare linkPath with pageKey
-        if (linkPath === `/${pageKey}` || (pageKey === 'home' && linkPath === '/')) {
+        
+        // Special case for about link
+        if (linkPath === '/' && pageKey === 'about') {
+            link.classList.add('active');
+        } else if (linkPath === `/${pageKey}`) {
             link.classList.add('active');
         } else {
             link.classList.remove('active');
