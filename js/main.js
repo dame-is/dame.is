@@ -263,6 +263,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             break;
     }
+
+    // Initialize supporters list if we're on the supported page
+    if (window.location.pathname === '/supported' || window.location.pathname === '/supported/') {
+        initializeSupportersList();
+    }
 });
 
 // Function to initialize Bluesky comments
@@ -1988,4 +1993,54 @@ function processOutboundLinks() {
 
 // Make the function accessible globally
 window.processOutboundLinks = processOutboundLinks;
+
+// ----------------------------------
+// 19. SUPPORTERS LIST INITIALIZATION
+// ----------------------------------
+async function initializeSupportersList() {
+    const supportersList = document.getElementById('supporters-list');
+    if (!supportersList) return;
+
+    try {
+        // Fetch the list data from the Bluesky API
+        const listUri = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.graph.list/3linbcqreuh22';
+        const apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.graph.getList?uri=${encodeURIComponent(listUri)}`;
+        
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error(`Failed to fetch supporters list: ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.items || data.items.length === 0) {
+            supportersList.innerHTML = '<p>No supporters found.</p>';
+            return;
+        }
+
+        // Create the list HTML
+        const listHtml = data.items.map(item => {
+            const handle = item.subject.handle;
+            const displayName = item.subject.displayName || handle;
+            return `<div class="supporter">
+                <a href="https://bsky.app/profile/${handle}" target="_blank" rel="noopener noreferrer">
+                    @${handle}
+                </a>
+            </div>`;
+        }).join('');
+
+        supportersList.innerHTML = listHtml;
+    } catch (error) {
+        console.error('Error loading supporters list:', error);
+        supportersList.innerHTML = '<p>Failed to load supporters list. Please try again later.</p>';
+    }
+}
+
+// Add initialization to DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing initialization code ...
+    
+    // Initialize supporters list if we're on the supported page
+    if (window.location.pathname === '/supported' || window.location.pathname === '/supported/') {
+        initializeSupportersList();
+    }
+});
 

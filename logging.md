@@ -3,7 +3,7 @@ layout: base
 title: Log
 ---
 
-# /log
+# /logging
 
 <div class="log-container-wrapper">
     <div id="loading-logs">Loading logs...</div>
