@@ -105,68 +105,83 @@ jobs:
         run: |
           echo "{" > last-updated.json
 
-          # ----------- Process Root .html Pages -----------
-          echo "Processing root .html files..."
-          # Find all .html files in the repository root
-          mapfile -t html_pages < <(find . -maxdepth 1 -type f -name "*.html" -exec basename {} \;)
+          # ----------- Process Markdown pages -----------
+          echo "Processing markdown files..."
+          # Find all .md files excluding node_modules
+          mapfile -t md_files < <(find . -type f -name "*.md" -not -path "./node_modules/*" -not -path "./_site/*" -not -path "./.git/*")
 
-          for page in "${html_pages[@]}"
+          for md_file in "${md_files[@]}"
           do
-            echo "Processing page: $page"
-            # Determine the corresponding .md file by replacing .html with .md
-            md_page="${page%.html}.md"
-            echo "Corresponding markdown file: $md_page"
-
-            if [ -f "$md_page" ]; then
-              # If the .md file exists, get its last commit date
-              last_commit_date=$(git log -1 --format=%cd --date=iso "$md_page")
-              echo "Last commit date from .md: $last_commit_date"
-            elif [ -f "$page" ]; then
-              # Else, get the .html file's last commit date
-              last_commit_date=$(git log -1 --format=%cd --date=iso "$page")
-              echo "Last commit date from .html: $last_commit_date"
-            else
-              # Handle case where neither file exists
-              echo "Warning: Neither $md_page nor $page exists."
-              last_commit_date="N/A"
-            fi
-
-            if [ "$last_commit_date" != "N/A" ]; then
-              # Format the date as ISO 8601 (e.g., 2023-08-25T14:35:22Z)
-              formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
-              # Strip the .html extension to match the new URL structure
-              key="${page%.html}"
-              echo "  \"$key\": \"$formatted_date\"," >> last-updated.json
-            else
-              # Assign null or a default value if no commit date is found
-              key="${page%.html}"
-              echo "  \"$key\": null," >> last-updated.json
-            fi
-          done
-
-          # ----------- Process Blog Post .md Files -----------
-          echo "Processing blog post .md files..."
-          # Find all .md files in /data/blog/
-          mapfile -t blog_posts < <(find data/blog/ -type f -name "*.md" -exec basename {} \;)
-
-          for md_file in "${blog_posts[@]}"
-          do
-            echo "Processing blog post: $md_file"
-            # Extract slug by removing .md extension
-            slug="${md_file%.md}"
-            key="blog/$slug"
+            echo "Processing markdown file: $md_file"
 
             # Get the last commit date for the .md file
-            last_commit_date=$(git log -1 --format=%cd --date=iso "data/blog/$md_file")
-            echo "Last commit date for $key: $last_commit_date"
+            last_commit_date=$(git log -1 --format=%cd --date=iso "$md_file")
+            echo "Last commit date: $last_commit_date"
 
             if [ -n "$last_commit_date" ]; then
               # Format the date as ISO 8601 (e.g., 2023-08-25T14:35:22Z)
               formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
+              
+              # Determine the appropriate key based on the file path
+              rel_path=${md_file#./}  # Remove leading ./
+              
+              # Extract the key from the path
+              if [[ "$rel_path" == "index.md" ]]; then
+                # Handle root index.md specially
+                key="index"
+              elif [[ "$rel_path" == "writing/blogs/"* ]]; then
+                # Handle blog posts
+                slug=$(basename "$rel_path" .md)
+                key="blog/${slug}"
+              elif [[ "$rel_path" == "writing/posts/"* ]]; then
+                # Handle posts
+                key="posts"
+              elif [[ "$rel_path" == "sharing/beliefs/"* ]]; then
+                # Handle beliefs pages
+                key="beliefs"
+              else
+                # For other pages, use the filename without extension
+                key=$(basename "$rel_path" .md)
+              fi
+              
+              echo "Generated key: $key for file: $rel_path"
               echo "  \"$key\": \"$formatted_date\"," >> last-updated.json
-            else
-              # Assign null or a default value if no commit date is found
-              echo "  \"$key\": null," >> last-updated.json
+            fi
+          done
+
+          # ----------- Process NJK templates -----------
+          echo "Processing njk templates..."
+          # Find all .njk files excluding node_modules
+          mapfile -t njk_files < <(find . -type f -name "*.njk" -not -path "./node_modules/*" -not -path "./_site/*" -not -path "./.git/*")
+
+          for njk_file in "${njk_files[@]}"
+          do
+            # Only process page templates, not layouts or includes
+            if [[ "$njk_file" != *"_layouts/"* && "$njk_file" != *"_includes/"* ]]; then
+              echo "Processing template: $njk_file"
+
+              # Get the last commit date for the file
+              last_commit_date=$(git log -1 --format=%cd --date=iso "$njk_file")
+              echo "Last commit date: $last_commit_date"
+
+              if [ -n "$last_commit_date" ]; then
+                # Format the date as ISO 8601
+                formatted_date=$(date -u -d "$last_commit_date" +"%Y-%m-%dT%H:%M:%SZ")
+                
+                # Determine the appropriate key based on the file path
+                rel_path=${njk_file#./}  # Remove leading ./
+                
+                # Extract the key from the path
+                if [[ "$rel_path" == "index.njk" ]]; then
+                  key="index"
+                else
+                  # For other pages, use the filename without extension
+                  key=$(basename "$rel_path" .njk)
+                fi
+                
+                echo "Generated key: $key for template: $rel_path"
+                echo "  \"$key\": \"$formatted_date\"," >> last-updated.json
+              fi
             fi
           done
 

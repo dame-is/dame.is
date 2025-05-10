@@ -3,8 +3,7 @@ layout: base
 title: Ethos
 ---
 
-dame.is/sharing/
-# beliefs
+# /beliefs
 
 The following list is a work-in-progress and is by no means comprehensive. I will likely fall short of my own ideals. Still, these are some of the things I strive towards and want to keep myself accountable to.
 
