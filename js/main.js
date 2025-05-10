@@ -2004,7 +2004,7 @@ async function initializeSupportersList() {
     try {
         // Fetch the list data from the Bluesky API
         const listUri = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.graph.list/3linbcqreuh22';
-        const apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.graph.getList?uri=${encodeURIComponent(listUri)}`;
+        const apiUrl = `https://public.api.bsky.app/xrpc/app.bsky.graph.getList?list=${encodeURIComponent(listUri)}`;
         
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`Failed to fetch supporters list: ${response.status}`);

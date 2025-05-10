@@ -3,8 +3,6 @@ layout: base
 title: About
 ---
 
-# /about
-
 I am an artist and remote tech worker residing in the southeastern United States. 
 
 I first started publishing on the internet around 2003 and have utilized numerous platforms to do so over the past two decades. This website is a work-in-progress which I add to every month.
