@@ -43,11 +43,6 @@ body.dark-mode p {
     color: #cfcfcf;
 }
 
-a:visited {
-    color: #88C1FF;
-    text-decoration-color: #D4E9FF;
-}
-
 a {
     color: #007BFF;
     text-decoration-color: #88C1FF;
@@ -209,12 +204,10 @@ body.dark-mode .nav-left a.nav-link:hover {
     left: 0;
     top: 100%;
     background: #f0f0f0;
-    border: 1px solid #ddd;
-    min-width: 120px;
+    border: 1px solid #7a7a7a36;
     z-index: 10;
     box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-    border-radius: 4px;
-}
+  }
 
 .has-dropdown:hover .dropdown,
 .has-dropdown:focus-within .dropdown,
