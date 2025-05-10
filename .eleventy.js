@@ -29,7 +29,13 @@ module.exports = function(eleventyConfig) {
   
   // Create a collection for blog posts
   eleventyConfig.addCollection("posts", function(collectionApi) {
-    return collectionApi.getFilteredByGlob("blog/**/*.md")
+    return collectionApi.getFilteredByGlob("writing/posts/**/*.md")
+      .sort((a, b) => new Date(b.data.date) - new Date(a.data.date));
+  });
+
+  // Create a collection for blog posts
+  eleventyConfig.addCollection("blogs", function(collectionApi) {
+    return collectionApi.getFilteredByGlob("writing/blogs/**/*.md")
       .sort((a, b) => new Date(b.data.date) - new Date(a.data.date));
   });
 

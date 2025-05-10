@@ -6,8 +6,8 @@ title: Dame's Blog
     <h1>/blog</h1>
     
     <div class="blog-posts">
-    {%- if collections.posts.length > 0 -%}
-        {%- for post in collections.posts -%}
+    {%- if collections.blogs.length > 0 -%}
+        {%- for post in collections.blogs -%}
             <article class="blog-post">
                 <h2><a href="{{ post.url }}">{{ post.data.title }}</a></h2>
                 <p class="blog-post-date">{{ post.data.date | date }} {{ post.data.time }}</p>

@@ -2,16 +2,61 @@
     "buildCommand": "npm run build",
     "outputDirectory": "_site",
     "rewrites": [
-      { "source": "/blog", "destination": "/blog/" },
-      { "source": "/about", "destination": "/about/" },
-      { "source": "/ethos", "destination": "/ethos/" },
-      { "source": "/log", "destination": "/log/" },
-      { "source": "/patrons", "destination": "/patrons/" },
+      { "source": "/writing/blogs", "destination": "/writing/blogs/" },
+      { "source": "/writing/posts", "destination": "/writing/posts/" },
+      { "source": "/sharing/beliefs", "destination": "/sharing/beliefs/" },
+      { "source": "/logging", "destination": "/logging/" },
+      { "source": "/supported", "destination": "/supported/" },
       { "source": "/index", "destination": "/" },
       { "source": "/home", "destination": "/" },
       { "source": "/:path*", "destination": "https://publish.obsidian.md/serve?url=dame.is/:path*" }
     ],
     "redirects": [
+      {
+        "source": "/about",
+        "destination": "/",
+        "permanent": true
+      },
+      {
+        "source": "/blog",
+        "destination": "/writing/blogs",
+        "permanent": true
+      },
+      {
+        "source": "/blog/:slug",
+        "destination": "/writing/blogs/:slug",
+        "permanent": true
+      },
+      {
+        "source": "/posts",
+        "destination": "/writing/posts",
+        "permanent": true
+      },
+      {
+        "source": "/log",
+        "destination": "/logging",
+        "permanent": true
+      },
+      {
+        "source": "/patrons",
+        "destination": "/supported",
+        "permanent": true
+      },
+      {
+        "source": "/ethos",
+        "destination": "/sharing/beliefs",
+        "permanent": true
+      },
+      {
+        "source": "/blog/creating-a-decentralized-bathroom-at-protocol",
+        "destination": "/writing/blogs/creating-a-decentralized-bathroom-at-protocol",
+        "permanent": true
+      },
+      {
+        "source": "/blog/a-guestbook-and-welcome-message-for-my-pds",
+        "destination": "/writing/blogs/a-guestbook-and-welcome-message-for-my-pds",
+        "permanent": true
+      },
       {
         "source": "/",
         "has": [

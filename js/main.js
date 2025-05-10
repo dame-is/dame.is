@@ -226,13 +226,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (path === '/' || path === '/index.html') {
         // For home page, map to 'index' to match last-updated.json
         pageKey = 'index';
-    } else if (path.startsWith('/blog/')) {
-        // For dynamic blog post pages like /blog/my-post-slug
-        const slug = pathParts[1];
+    } else if (path.startsWith('/writing/blogs/')) {
+        // For dynamic blog post pages like /writing/blogs/my-post-slug
+        const slug = pathParts[2];
         pageKey = `blog/${slug}`;
-    } else if (path === '/blog' || path === '/blog/') {
+    } else if (path === '/writing/blogs' || path === '/writing/blogs/') {
         // For the main blog feed page
         pageKey = 'blog';
+    } else if (path === '/writing/posts' || path === '/writing/posts/') {
+        // For the posts feed page
+        pageKey = 'posts';
     } else {
         // For other static pages like /about, /ethos, etc.
         // Extract the page name without extension
@@ -242,10 +245,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize page-specific features based on the determined pageKey
     switch (pageKey) {
-        case 'index':
+        case 'posts':
             initializePostLoader();
             break;
-        case 'log':
+        case 'logging':
             initializeLogLoader();
             break;
         case 'blog':
@@ -253,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // No need to initialize anything
             break;
         default:
-            if (path.startsWith('/blog/') && pathParts.length > 1) {
+            if (path.startsWith('/writing/blogs/') && pathParts.length > 2) {
                 // Blog posts are now rendered by 11ty
                 // Just initialize Bluesky comments if needed
                 initializeBlueskyComments();
@@ -663,13 +666,16 @@ async function fetchFooterData() {
 
         let pageKey = '';
 
-        if (path.startsWith('/blog/')) {
+        if (path.startsWith('/writing/blogs/')) {
             // For blog post pages
             const slug = path.split('/')[2];
             pageKey = `blog/${slug}`;
-        } else if (path === '/blog') {
+        } else if (path === '/writing/blogs') {
             // For the main blog feed page
             pageKey = 'blog';
+        } else if (path === '/writing/posts' || path === '/writing/posts/') {
+            // For the posts feed page
+            pageKey = 'posts';
         } else if (path === '/' || path === '/index.html') {
             // For home page, map to 'index' to match last-updated.json
             pageKey = 'index';

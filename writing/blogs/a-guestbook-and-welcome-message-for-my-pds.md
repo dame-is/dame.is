@@ -11,7 +11,7 @@ ogImage: "/images/blog/guestbook-blog.png"
 
 We all know by now that [I believe in the lexicon black market](https://bsky.app/profile/dame.is/post/3lo56xss6hk2n) and thus enjoy [illegal atproto records](https://bsky.app/profile/dame.is/post/3lnyoz6es2k2b). It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, [she wouldn't have invented roller skates](https://www.youtube.com/watch?v=K8Gmd8y_Aiw).
 
-My latest lexicon experiment is geared towards the real atproto nerds, so if you're not familiar with how this stuff works, you might want to [read my previous blog post where I explained lexicons](https://dame.is/blog/creating-a-decentralized-bathroom-at-protocol/). Ok, let's jump in.
+My latest lexicon experiment is geared towards the real atproto nerds, so if you're not familiar with how this stuff works, you might want to [read my previous blog post where I explained lexicons](https://dame.is/writing/blogs/creating-a-decentralized-bathroom-at-protocol). Ok, let's jump in.
 
 If you spend time browsing PDS tools like [pdsls.dev](https://pdsls.dev) or [atp.tools](https://atp.tools), then you've probably picked up on the fact that by default they sort lexicon collections alphabetically. This means that 99.99% of PDSes currently begin with app.bsky records at the top. This got me thinking... what if I made some "welcome" records that would go at the top of my PDS so that nerds browsing it would get a friendly hello?
 
@@ -76,7 +76,7 @@ In the meantime, here's a step-by-step guide to making your own nerd version.
 
 "guestbook": "REPLACE WITH URI after record creation by editing the record via recreation",
 
-"more-info": "https://dame.is/blog/a-guestbook-and-welcome-message-for-my-pds/"
+"more-info": "https://dame.is/writing/blogs/a-guestbook-and-welcome-message-for-my-pds/"
 
 }
 ```
