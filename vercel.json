@@ -28,6 +28,11 @@
         "permanent": true
       },
       {
+        "source": "/blog/:slug/",
+        "destination": "/writing/blogs/:slug/",
+        "permanent": true
+      },
+      {
         "source": "/posts",
         "destination": "/writing/posts",
         "permanent": true
