@@ -66,7 +66,6 @@ layout: base
                 const date = new Date(dateStr);
                 
                 // Using the existing formatting functions from main.js
-                const headerDateText = formatDateHeader(date);
                 const dayOfLife = getDaysSinceBirthdate(date);
                 const relativeTime = getRelativeTime(date);
                 const formattedDate = date.toLocaleDateString(undefined, {
@@ -75,7 +74,7 @@ layout: base
                     day: 'numeric'
                 });
                 
-                postDateElement.textContent = `${headerDateText}, Day ${dayOfLife}, ${relativeTime} (${formattedDate})`;
+                postDateElement.textContent = `Day ${dayOfLife}, ${relativeTime} (${formattedDate})`;
             }
         }
         

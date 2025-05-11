@@ -33,7 +33,6 @@ title: Dame's Blog
                 const date = new Date(dateStr);
                 
                 // Using the existing formatting functions from main.js
-                const headerDateText = formatDateHeader(date);
                 const dayOfLife = getDaysSinceBirthdate(date);
                 const relativeTime = getRelativeTime(date);
                 const formattedDate = date.toLocaleDateString(undefined, {
@@ -42,7 +41,7 @@ title: Dame's Blog
                     day: 'numeric'
                 });
                 
-                element.textContent = `${headerDateText}, Day ${dayOfLife}, ${relativeTime} (${formattedDate})`;
+                element.textContent = `Day ${dayOfLife}, ${relativeTime} (${formattedDate})`;
             }
         });
         
