@@ -50,7 +50,21 @@ module.exports = function(eleventyConfig) {
 
   // Add jsDateString filter to convert date to ISO string for JavaScript use
   eleventyConfig.addFilter("jsDateString", function(date) {
-    return new Date(date).toISOString();
+    // Create a date object and ensure it has timezone information
+    // This will help prevent timezone issues when displaying dates
+    const dateObj = new Date(date);
+    
+    // Create a specific time for the date (noon UTC to avoid timezone issues)
+    // This ensures that the date will be the same regardless of the timezone
+    const isoDate = new Date(Date.UTC(
+      dateObj.getFullYear(),
+      dateObj.getMonth(),
+      dateObj.getDate(),
+      12, 0, 0 // noon UTC
+    )).toISOString();
+    
+    console.log(`Converting date ${date} to ISO string: ${isoDate}`);
+    return isoDate;
   });
 
   return {
