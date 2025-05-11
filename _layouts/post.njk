@@ -13,7 +13,7 @@ layout: base
 
 <article class="blog-post">
     <h1 id="post-title">{{ title }}</h1>
-    <p id="post-date" class="blog-post-date">{{ date | date }} {{ time }}</p>
+    <p id="post-date" class="blog-post-date" data-date="{{ date | jsDateString }}">{{ date | date }} {{ time }}</p>
     
     <div id="post-content">
         {{ content | safe }}
@@ -57,8 +57,29 @@ layout: base
 <script type="module" src="/js/comments-init.js"></script>
 <script src="/js/svg-icons.js"></script>
 <script>
-    // Ensure the outbound links processor runs after the page loads
     document.addEventListener('DOMContentLoaded', function() {
+        // Format post date
+        const postDateElement = document.getElementById('post-date');
+        if (postDateElement) {
+            const dateStr = postDateElement.getAttribute('data-date');
+            if (dateStr) {
+                const date = new Date(dateStr);
+                
+                // Using the existing formatting functions from main.js
+                const headerDateText = formatDateHeader(date);
+                const dayOfLife = getDaysSinceBirthdate(date);
+                const relativeTime = getRelativeTime(date);
+                const formattedDate = date.toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+                
+                postDateElement.textContent = `${headerDateText}, Day ${dayOfLife}, ${relativeTime} (${formattedDate})`;
+            }
+        }
+        
+        // Ensure the outbound links processor runs after the page loads
         if (typeof processOutboundLinks === 'function') {
             processOutboundLinks();
         }

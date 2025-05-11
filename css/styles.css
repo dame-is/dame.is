@@ -50,7 +50,7 @@ a {
 
 body.dark-mode a:visited {
     color: #336294;
-    text-decoration-color: #1F4874;
+    /*! text-decoration-color: #1F4874; */
   }
 
 body.dark-mode a {
@@ -1288,9 +1288,8 @@ body.dark-mode .alt-card {
   }
 
   .icon {
-    width: 18px;
-    height: 14px;
-    padding-right: 4px;
+    width: 20px;
+    height: 20px;
   }
 
   .count-item .icon {
@@ -1310,23 +1309,10 @@ body.dark-mode .alt-card {
     height: 24px;
   }
 
-  .icon.fa-moon {
-    width: 22px;
-    height: 33px;
-    padding-right: 0px;
-  }
-
-
   .dark-mode .icon.fa-moon {
-    width: 28px;
-    height: 33px;
+    width: 20px;
+    height: 20px;
     padding-right: 0px;
-  }
-
-
-  .nav-icon .icon {
-    width: 28px;
-    height: 28px;
   }
 
   .count-text {
@@ -1340,6 +1326,18 @@ body.dark-mode .alt-card {
   .icon.fa-github {
     color: black;
   }
+
+.icon.fa-discord {
+    width: 25px;
+    height: 25px;
+}
+
+  .icon.fa-moon {
+    width: 15px;
+    height: 33px;
+    padding-right: 0px;
+  }
+
 
   .dark-mode .icon.fa-github {
     color: white;
@@ -1490,14 +1488,6 @@ body.dark-mode .comment-reply {
 .post-text-container:has(a + a) a {
     display: block; /* If multiple links exist, each goes on a new line */
 }
-
-
-  .icon.fa-discord {
-    width: 36px;
-  
-    height: 36px;
-  
-  }
 
 /* === Newsletter Form Styles === */
 

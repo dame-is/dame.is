@@ -48,6 +48,11 @@ module.exports = function(eleventyConfig) {
     });
   });
 
+  // Add jsDateString filter to convert date to ISO string for JavaScript use
+  eleventyConfig.addFilter("jsDateString", function(date) {
+    return new Date(date).toISOString();
+  });
+
   return {
     dir: {
       input: ".",
