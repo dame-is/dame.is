@@ -5,7 +5,7 @@ title: Patrons
 
 # /supported
 
-[Support monthly via Patreon](https://patreon.com/dameis)<br>
+[Support monthly via Patreon](https://patreon.com/dameis)
 [Give a one-time tip via Ko-fi](https://ko-fi.com/dameis)
 
 Hello there,
