@@ -314,11 +314,32 @@ function initializeNav() {
     // Theme toggle
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
-        // Set initial theme based on localStorage
-        if (localStorage.getItem('theme') === 'dark') {
+        // First check for system preference
+        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // Set initial theme based on localStorage if present, otherwise use system preference
+        const storedTheme = localStorage.getItem('theme');
+        
+        if (storedTheme === 'dark' || (storedTheme === null && prefersDarkMode)) {
             document.body.classList.add('dark-mode');
+        } else if (storedTheme === 'light' || (storedTheme === null && !prefersDarkMode)) {
+            document.body.classList.remove('dark-mode');
         }
+        
         updateThemeIcon();
+
+        // Listen for system preference changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            // Only update theme based on system if user hasn't explicitly set a preference
+            if (localStorage.getItem('theme') === null) {
+                if (e.matches) {
+                    document.body.classList.add('dark-mode');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                }
+                updateThemeIcon();
+            }
+        });
 
         themeToggle.addEventListener('click', toggleTheme);
 
