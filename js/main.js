@@ -249,7 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
             initializePostLoader();
             break;
         case 'logging':
-            initializeLogLoader();
+            // The log loader will be initialized by the script tag in logging.md
+            // Don't initialize it here to avoid double initialization
             break;
         case 'blog':
             // Blogs are now handled by 11ty
@@ -1568,6 +1569,7 @@ function initializeLogLoader() {
     const LOGS_PER_BATCH = 50;
     let isLoadingLogs = false;
     let processedPostIds = new Set(); // Track post IDs we've already processed
+    let hasInitialized = false; // Flag to prevent double initialization
 
     // Helper Function: Format Log Date
     function formatLogDate(date) {
@@ -1709,21 +1711,34 @@ function initializeLogLoader() {
                 groupData.logs.forEach(item => {
                     const log = item.post;
                     if (log && log.record) {
+                        // Add extra check to avoid duplicates by checking for existing entries with the same text/timestamp
+                        const logText = log.record.text.trim();
+                        const logTimestamp = new Date(log.record.createdAt).getTime();
+                        
+                        // Check if this exact log text + timestamp already exists in this container
+                        const existingLog = logContainer.querySelector(`.log-entry[data-timestamp="${logTimestamp}"][data-text="${logText}"]`);
+                        if (existingLog) {
+                            return; // Skip if already exists
+                        }
+                        
                         const logEntry = document.createElement('div');
                         logEntry.classList.add('log-entry');
+                        // Store text and timestamp as data attributes for future duplicate checks
+                        logEntry.setAttribute('data-timestamp', logTimestamp);
+                        logEntry.setAttribute('data-text', logText);
 
-                        const logText = document.createElement('p');
-                        logText.classList.add('log-text');
-                        logText.textContent = log.record.text.trim();
-                        logEntry.appendChild(logText);
+                        const logTextEl = document.createElement('p');
+                        logTextEl.classList.add('log-text');
+                        logTextEl.textContent = logText;
+                        logEntry.appendChild(logTextEl);
 
-                        const logTimestamp = document.createElement('p');
-                        logTimestamp.classList.add('log-timestamp');
+                        const logTimestampEl = document.createElement('p');
+                        logTimestampEl.classList.add('log-timestamp');
 
                         const createdAt = new Date(log.record.createdAt);
                         const formattedLogTimestamp = formatLogDate(createdAt);
-                        logTimestamp.textContent = formattedLogTimestamp;
-                        logEntry.appendChild(logTimestamp);
+                        logTimestampEl.textContent = formattedLogTimestamp;
+                        logEntry.appendChild(logTimestampEl);
 
                         // Append the log entry to the log-container
                         logContainer.appendChild(logEntry);
@@ -1731,7 +1746,7 @@ function initializeLogLoader() {
                 });
             }
 
-            // **New: Process outbound links after all logs are loaded**
+            // Process outbound links after all logs are loaded
             processOutboundLinks();
 
             // If there are no more logs to load, hide the "See More Logs" button
@@ -1773,8 +1788,12 @@ function initializeLogLoader() {
         seeMoreLogsButton.addEventListener('click', loadMoreLogs);
     }
 
-    // Initial load
-    loadLogs();
+    // Only do the initial load if we haven't already
+    if (!hasInitialized) {
+        hasInitialized = true;
+        // Initial load
+        loadLogs();
+    }
 }
 
 // ----------------------------------
