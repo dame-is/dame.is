@@ -1546,6 +1546,7 @@ function initializeLogLoader() {
     let currentLogCursor = null;
     const LOGS_PER_BATCH = 50;
     let isLoadingLogs = false;
+    let processedPostIds = new Set(); // Track post IDs we've already processed
 
     // Helper Function: Format Log Date
     function formatLogDate(date) {
@@ -1605,8 +1606,25 @@ function initializeLogLoader() {
                 return !(item.reason && item.reason.$type === "app.bsky.feed.defs#reasonRepost");
             });
 
+            // Deduplicate logs by checking if we've already processed this post ID
+            const deduplicatedFeed = filteredFeed.filter(item => {
+                if (!item.post || !item.post.uri) return false; 
+                
+                // Extract a unique ID from the post URI
+                const postIdMatch = item.post.uri.match(/\/([^\/]+)$/);
+                const postId = postIdMatch ? postIdMatch[1] : null;
+                
+                if (!postId || processedPostIds.has(postId)) {
+                    return false; // Skip this item if we've already processed it
+                }
+                
+                // Otherwise, add it to our set and keep it
+                processedPostIds.add(postId);
+                return true;
+            });
+
             // Sort by createdAt desc
-            filteredFeed.sort((a, b) => new Date(b.post.record.createdAt) - new Date(a.post.record.createdAt));
+            deduplicatedFeed.sort((a, b) => new Date(b.post.record.createdAt) - new Date(a.post.record.createdAt));
 
             // Group logs by day with additional data
             function groupLogsByDay(logs) {
@@ -1633,7 +1651,7 @@ function initializeLogLoader() {
                 return groups;
             }
 
-            const groupedLogs = groupLogsByDay(filteredFeed);
+            const groupedLogs = groupLogsByDay(deduplicatedFeed);
 
             // Iterate over each day group
             for (const [headerDateText, groupData] of Object.entries(groupedLogs)) {
