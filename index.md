@@ -8,19 +8,19 @@ I am an artist and remote tech worker residing in the southeastern United States
 I first started publishing on the internet around 2003 and have utilized numerous platforms to do so over the past two decades. This website is a work-in-progress which I add to every month.
 
 ## Background
-I'm a 90s kid whose birthday is almost the same as the public release of the World Wide Web, so I feel a kinship with the internet. I am agnostic/spiritual and appreciate parts of Zen Buddhism. I have a non-normative experience with gender, so I fall within the category of genderqueer or genderfluid. I have a small dog named Cooper who is a chihuahua/terrier mix.
+I'm a 90s kid whose birthday is almost the same as the public release of the World Wide Web, so I feel a kinship with the internet. I am agnostic and a casual practitioner of Zen Buddhism, with great appreciation for animism. I have a non-normative experience with gender and fall within the category of genderqueer or genderfluid. I have a small dog named Cooper who is a chihuahua/terrier mix.
 
-My passion for creativity/art started at a young age through writing. Then in middle school I picked up my first camera and entered into a life-long relationship with photography. In college, I began making things across several mediums including animation, video, graphic design, and leather. My art practice for the past 5 years has focused on conceptual and abstract art.
+My passion for art started at a young age through writing. In middle school I picked up my first camera and fell in love with photography. In college I began making things across several mediums including animation, video, graphic design, and leather. My art practice for the past 5 years has focused on conceptual and abstract art.
 
-As a "professional", I've worked primarily as a graphic designer, content creator, and marketer for software companies. I just recently ended a 6-month sabbatical and am now focused on building things within the AT Protocol ecosystem.
+As a "professional", I've worked primarily as a graphic designer, content creator, and communicator for software companies. I recently ended a sabbatical and am now focused on building things within the AT Protocol ecosystem.
 
 In regard to technology, I'm especially interested in...
-- consumer health tech (home medical devices, fitness, wellness, accessibility, etc), 
-- indie software (i.e. are.na, netnewswire, etc)
-- web apps (iOS focused mostly)
-- emerging tech (decentralization + LLMs)
+- indie software
+- web apps
+- emerging tech
+- consumer health
 
-I love tennis and play every week at my local club, sometimes in USTA leagues.
+I love tennis and play weekly at my local club, sometimes in USTA leagues.
 
 ## Personality Test Results
 - Myers-Briggs: ENFJ
@@ -58,7 +58,7 @@ I love tennis and play every week at my local club, sometimes in USTA leagues.
 5. Melodrama by Lorde (2017)
 6. Aja by Steely Dan (1977)
 7. Women in Music Part III by HAIM (2020)
-8. IGOR by Tyler, The Creator (2019)
+8. Louder, Please by Rose Gray (2025)
 9. Woodstock by Portugal. The Man (2017)
 10. Born to Die by Lana Del Rey (2012)
 
@@ -72,7 +72,7 @@ I love tennis and play every week at my local club, sometimes in USTA leagues.
 7. *Gender Trouble* by Judith Butler
 8. *14,000 things to be happy about* by Barbara Ann Kipfer
 9. *The Medium is the Massage* by Marshall McLuhan
-10. *The Holy Bible* by Various Men
+10. *Annihilation* by Jeff VanderMeer
 
 ## Favorite Video Games
 1. Old School RuneScape (2004, PC)
