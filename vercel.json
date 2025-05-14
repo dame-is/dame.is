@@ -94,8 +94,23 @@
         "permanent": true
       },
       {
+        "source": "/once/again/asking/for/your/financial/support",
+        "destination": "/supported",
+        "permanent": true
+      },
+      {
         "source": "/chip-taste-test",
         "destination": "/eating-chips",
+        "permanent": true
+      },
+      {
+        "source": "/curating",
+        "destination": "https://www.are.na/dame/",
+        "permanent": true
+      },
+      {
+        "source": "/curating/:path*",
+        "destination": "https://www.are.na/dame/:path*",
         "permanent": true
       }
     ]
