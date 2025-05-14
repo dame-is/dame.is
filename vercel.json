@@ -84,6 +84,11 @@
         "permanent": true
       },
       {
+        "source": "/blocked",
+        "destination": "https://clearsky.app/dame.is/blocked-by",
+        "permanent": true
+      },
+      {
         "source": "/chip-taste-test",
         "destination": "/eating-chips",
         "permanent": true
