@@ -94,6 +94,11 @@
         "permanent": true
       },
       {
+        "source": "/max",
+        "destination": "/supported",
+        "permanent": true
+      },
+      {
         "source": "/once/again/asking/for/your/financial/support",
         "destination": "/supported",
         "permanent": true
