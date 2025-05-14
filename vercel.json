@@ -89,6 +89,11 @@
         "permanent": true
       },
       {
+        "source": "/once/again/asking/for/your/financial/support",
+        "destination": "/supported",
+        "permanent": true
+      },
+      {
         "source": "/chip-taste-test",
         "destination": "/eating-chips",
         "permanent": true
