@@ -109,6 +109,11 @@
         "permanent": true
       },
       {
+        "source": "/flushing",
+        "destination": "https://flushes.app/profile/dame.is",
+        "permanent": true
+      },
+      {
         "source": "/curating/:path*",
         "destination": "https://www.are.na/dame/:path*",
         "permanent": true
