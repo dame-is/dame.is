@@ -12,6 +12,7 @@ The following list is a work-in-progress and is by no means comprehensive. I wil
 - **Avoid personal comparisons**, as they usually do more harm than good.
 - **Maintain a beginner's mindset.** 
 - **Be helpful and give without the expectation of return.**
+- **Not everything is about you.**
 - **Don't cultivate a personal "brand"**, let your "brand" be something that arises organically without intention or effort and that is only ever thought about by other people and not yourself.
 - **Don't take yourself too seriously.**
 - **Don't look down upon other generations,** both younger and older.
