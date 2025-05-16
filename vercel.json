@@ -5,6 +5,7 @@
       { "source": "/writing/blogs", "destination": "/writing/blogs/" },
       { "source": "/writing/posts", "destination": "/writing/posts/" },
       { "source": "/sharing/beliefs", "destination": "/sharing/beliefs/" },
+      { "source": "/creating/shortcuts", "destination": "/creating/shortcuts/" },
       { "source": "/logging", "destination": "/logging/" },
       { "source": "/supported", "destination": "/supported/" },
       { "source": "/index", "destination": "/" },

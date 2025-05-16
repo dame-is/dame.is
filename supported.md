@@ -1,6 +1,6 @@
 ---
 layout: base
-title: Patrons
+title: Supported
 ---
 
 # /supported
