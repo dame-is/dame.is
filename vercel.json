@@ -115,6 +115,11 @@
         "permanent": true
       },
       {
+        "source": "/answering/questions",
+        "destination": "https://ngl.link/dame62309",
+        "permanent": true
+      },
+      {
         "source": "/flushing",
         "destination": "https://flushes.app/profile/dame.is",
         "permanent": true
