@@ -8,6 +8,25 @@
     <title>{{ title }} - dame.is</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="alternate" type="application/rss+xml" title="RSS Feed for Dame's Blog" href="/feed.xml">
+    
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="{{ title }} - dame.is">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://dame.is{{ page.url }}">
+    {% if excerpt %}
+    <meta property="og:description" content="{{ excerpt }}">
+    {% else %}
+    <meta property="og:description" content="Dame's personal website and digital garden">
+    {% endif %}
+    {% if ogImage %}
+    <meta property="og:image" content="https://dame.is{{ ogImage }}">
+    <meta property="twitter:card" content="summary_large_image">
+    {% else %}
+    <meta property="og:image" content="https://dame.is/images/default-og-image.jpg">
+    <meta property="twitter:card" content="summary">
+    {% endif %}
+    <meta property="twitter:creator" content="@dameonrj">
+    
     {% block head %}{% endblock %}
     <script>
         window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
