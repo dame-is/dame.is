@@ -11,7 +11,7 @@ Fast travel between Bluesky clients, ATProto services, or PDS explorers.
 <iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/w9XQot5otK4?si=5tV21z5PFwAiha96&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 </div>
 
-I found myself constantly needing to switch between Bluesky or AT Protocol clients, so I created an Apple Shortcut that let's you jump between apps while maintaining your relative position in terms of the data you're trying to view.
+I found myself constantly needing to switch between Bluesky or AT Protocol clients, so I created an [Apple Shortcut](https://apps.apple.com/us/app/shortcuts/id915249334) that let's you jump between apps while maintaining your relative position in terms of the data you're trying to view.
 
 All you have to do is tap the "share" button and choose at://wormhole!
 
@@ -24,4 +24,4 @@ If you're browsing the Bluesky app and want to quickly look at an account or pos
 
 [Download Shortcut](https://www.icloud.com/shortcuts/a45cef15e0174de4a81c5da82b776c10)
 
-**If at://wormhole isn't appearing when you tap the "share" button, go into the Apple Shortcuts app, find the shorcut, tap the three dots icon in its top-right, and then find the information icon at the bottom of the screen to check that "Show in Share Sheet" is enabled."**
+**Note:** If at://wormhole isn't appearing when you tap the "share" button, go into the Apple Shortcuts app, find the shorcut, tap the three dots icon in its top-right, and then find the information icon at the bottom of the screen to check that "Show in Share Sheet" is enabled."
