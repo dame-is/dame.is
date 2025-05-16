@@ -26,4 +26,4 @@ If you're browsing the Bluesky app and want to quickly look at an account or pos
 
 [Download Shortcut](https://www.icloud.com/shortcuts/a45cef15e0174de4a81c5da82b776c10)
 
-**Note:** If at://wormhole isn't appearing when you tap the "share" button, go into the Apple Shortcuts app, find the shorcut, tap the three dots icon in its top-right, and then find the information icon at the bottom of the screen to check that "Show in Share Sheet" is enabled."
+**Note:** If at://wormhole isn't appearing when you tap the "share" button, go into the Apple Shortcuts app, find the shortcut, tap the three dots icon in its top-right, and then find the information icon at the bottom of the screen to check that "Show in Share Sheet" is enabled."
