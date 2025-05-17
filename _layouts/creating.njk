@@ -8,7 +8,7 @@ layout: base
   {{ content | safe }}
   
   <div class="creating-items">
-    {% set creatingPages = collections.all | filterByFolder("creating") | sort(true, false, "date") %}
+    {% set creatingPages = collections.creating | sort(true, false, "date") %}
     
     <table class="creating-table">
       <thead>

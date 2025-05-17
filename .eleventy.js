@@ -58,7 +58,18 @@ module.exports = function(eleventyConfig) {
 
   // Date filter for formatting
   eleventyConfig.addFilter("date", function(date, format) {
-    return new Date(date).toLocaleDateString('en-US', {
+    if (!date) return '';
+    
+    // Handle string dates in various formats
+    const dateObj = new Date(date);
+    
+    // Check if valid date
+    if (isNaN(dateObj.getTime())) {
+      console.warn(`Warning: Invalid date: ${date}`);
+      return date; // Return the original string if it's not a valid date
+    }
+    
+    return dateObj.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -67,9 +78,17 @@ module.exports = function(eleventyConfig) {
 
   // Add jsDateString filter to convert date to ISO string for JavaScript use
   eleventyConfig.addFilter("jsDateString", function(date) {
+    if (!date) return '';
+    
     // Create a date object and ensure it has timezone information
     // This will help prevent timezone issues when displaying dates
     const dateObj = new Date(date);
+    
+    // Check if valid date
+    if (isNaN(dateObj.getTime())) {
+      console.warn(`Warning: Invalid date format for jsDateString: ${date}`);
+      return ''; // Return empty string for invalid dates
+    }
     
     // Create a specific time for the date (noon UTC to avoid timezone issues)
     // This ensures that the date will be the same regardless of the timezone
@@ -80,7 +99,6 @@ module.exports = function(eleventyConfig) {
       12, 0, 0 // noon UTC
     )).toISOString();
     
-    console.log(`Converting date ${date} to ISO string: ${isoDate}`);
     return isoDate;
   });
 
