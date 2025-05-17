@@ -39,6 +39,23 @@ module.exports = function(eleventyConfig) {
       .sort((a, b) => new Date(b.data.date) - new Date(a.data.date));
   });
 
+  // Create a collection for creating pages
+  eleventyConfig.addCollection("creating", function(collectionApi) {
+    return collectionApi.getFilteredByGlob("creating/**/*.md")
+      .sort((a, b) => new Date(b.data.date) - new Date(a.data.date));
+  });
+
+  // Filter for filtering pages by folder
+  eleventyConfig.addFilter("filterByFolder", function(collection, folderPath) {
+    if (!collection || !collection.length) {
+      return [];
+    }
+    
+    return collection.filter(item => {
+      return item.inputPath.includes(folderPath) && !item.inputPath.endsWith(`/${folderPath}.md`);
+    });
+  });
+
   // Date filter for formatting
   eleventyConfig.addFilter("date", function(date, format) {
     return new Date(date).toLocaleDateString('en-US', {
