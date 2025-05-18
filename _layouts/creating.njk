@@ -18,7 +18,7 @@ layout: base
           <td>
             <a href="{{ page.url }}" class="creating-item-title">{{ page.data.title }}</a>
           </td>
-          <td>{{ page.data.date | date }}</td>
+          <td>{{ page.data.date | enhancedDate }}</td>
           <td>
             {% if page.data.tags %}
               <div class="tag-list">

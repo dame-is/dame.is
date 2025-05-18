@@ -98,7 +98,7 @@ layout: base
                     day: 'numeric'
                 });
                 
-                postDateElement.textContent = `Day ${dayOfLife}, ${relativeTime} (${formattedDate})`;
+                postDateElement.textContent = `${relativeTime[0].toUpperCase() + relativeTime.slice(1)}, ${formattedDate} (Day ${dayOfLife})`;
             }
         }
         

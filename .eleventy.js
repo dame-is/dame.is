@@ -76,6 +76,60 @@ module.exports = function(eleventyConfig) {
     });
   });
 
+  // Add enhanced date filter that includes relative time and day count
+  eleventyConfig.addFilter("enhancedDate", function(date) {
+    if (!date) return '';
+    
+    // Handle string dates in various formats
+    const dateObj = new Date(date);
+    
+    // Check if valid date
+    if (isNaN(dateObj.getTime())) {
+      console.warn(`Warning: Invalid date format for enhanced date: ${date}`);
+      return date; // Return the original string if it's not a valid date
+    }
+    
+    // Format the date
+    const formattedDate = dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    // Calculate days since a reference date (birthdate or any starting point)
+    const birthdate = new Date('1993-06-02'); // Example birthdate
+    const daysSince = Math.floor((dateObj - birthdate) / (1000 * 60 * 60 * 24));
+    
+    // Calculate relative time
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - dateObj) / 1000);
+    
+    const intervals = [
+      { label: 'year', seconds: 31536000 },
+      { label: 'month', seconds: 2592000 },
+      { label: 'week', seconds: 604800 },
+      { label: 'day', seconds: 86400 },
+      { label: 'hour', seconds: 3600 },
+      { label: 'minute', seconds: 60 },
+      { label: 'second', seconds: 1 }
+    ];
+    
+    let relativeTime = 'Just now';
+    
+    for (const interval of intervals) {
+      const count = Math.floor(diffInSeconds / interval.seconds);
+      if (count >= 1) {
+        // Format the relative time with first letter capitalized
+        const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+        let formatted = formatter.format(-count, interval.label);
+        relativeTime = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+        break;
+      }
+    }
+    
+    return `${relativeTime}, ${formattedDate} (Day ${daysSince})`;
+  });
+
   // Add jsDateString filter to convert date to ISO string for JavaScript use
   eleventyConfig.addFilter("jsDateString", function(date) {
     if (!date) return '';

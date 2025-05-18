@@ -84,15 +84,14 @@ function formatFullDate(date) {
 
 // Function to format date header
 function formatDateHeader(date) {
-    let relativeDatestamp = '';
-    if (isToday(date)) {
-        relativeDatestamp = `Today, ${formatFullDate(date)}`;
-    } else if (isYesterday(date)) {
-        relativeDatestamp = `Yesterday, ${formatFullDate(date)}`;
-    } else {
-        relativeDatestamp = `${formatFullDate(date)}`;
-    }
-    return relativeDatestamp;
+    const dayOfLife = getDaysSinceBirthdate(date);
+    const relativeTime = getRelativeTime(date);
+    const formattedDate = formatFullDate(date);
+    
+    // Capitalize first letter of relative time
+    const capitalizedRelativeTime = relativeTime.charAt(0).toUpperCase() + relativeTime.slice(1);
+    
+    return `${capitalizedRelativeTime}, ${formattedDate} (Day ${dayOfLife})`;
 }
 
 // Function to calculate Day of Life
@@ -2016,18 +2015,18 @@ async function initializeBlogPost(slug) {
 // Helper Function: Format Post Date
 // ----------------------------------
 function formatPostDate(date) {
-    const now = new Date();
-    const diffInMs = now - date;
-    const diffInHours = diffInMs / (1000 * 60 * 60);
     const dayOfLife = getDaysSinceBirthdate(date);
-
-    if (diffInHours < 24) {
-        const relativeTime = getRelativeTime(date);
-        return `Posted ${relativeTime} on Day ${dayOfLife}`;
-    } else {
-        const formattedTime = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: 'numeric' });
-        return `Posted at ${formattedTime} on Day ${dayOfLife}`;
-    }
+    const relativeTime = getRelativeTime(date);
+    const formattedDate = date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    // Capitalize first letter of relative time
+    const capitalizedRelativeTime = relativeTime.charAt(0).toUpperCase() + relativeTime.slice(1);
+    
+    return `${capitalizedRelativeTime}, ${formattedDate} (Day ${dayOfLife})`;
 }
 
 // ----------------------------------

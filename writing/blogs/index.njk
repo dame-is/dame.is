@@ -65,7 +65,7 @@ title: Dame's Blog
                     day: 'numeric'
                 });
                 
-                element.textContent = `Day ${dayOfLife}, ${relativeTime} (${formattedDate})`;
+                element.textContent = `${relativeTime[0].toUpperCase() + relativeTime.slice(1)}, ${formattedDate} (Day ${dayOfLife})`;
             }
         });
         
