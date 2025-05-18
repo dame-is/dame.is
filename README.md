@@ -13,20 +13,10 @@ This is the github repo for my website! Welcome!
 - everything else can be seen in the files
 
 ### tools
-- vscode
+- cursor
 - vercel
 - github
 - working copy
 - apple shortcuts
-- apple terminal
-- claude/chatgpt
-- firefox
-
-### code
-- javascript
-- html
-- css
-- markdown
-- json
 
 More info coming soon...
