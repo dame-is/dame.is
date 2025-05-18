@@ -2,6 +2,7 @@
 const yaml = require("js-yaml");
 const pluginRss = require("@11ty/eleventy-plugin-rss");
 const markdownIt = require("markdown-it");
+const fs = require("fs");
 
 module.exports = function(eleventyConfig) {
   // Configure Markdown
@@ -54,6 +55,36 @@ module.exports = function(eleventyConfig) {
     return collection.filter(item => {
       return item.inputPath.includes(folderPath) && !item.inputPath.endsWith(`/${folderPath}.md`);
     });
+  });
+
+  // Get last modified date from git if available, otherwise from filesystem
+  eleventyConfig.addFilter("lastModifiedDate", function(inputPath) {
+    try {
+      // Remove the leading ./ from inputPath if present
+      const cleanPath = inputPath.replace(/^\.\//, '');
+      
+      // Try to get date from git first (more accurate for content changes)
+      try {
+        const { execSync } = require('child_process');
+        const gitDate = execSync(`git log -1 --format=%cd --date=iso ${cleanPath}`, { 
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'ignore']
+        }).trim();
+        
+        if (gitDate) {
+          return new Date(gitDate);
+        }
+      } catch (gitErr) {
+        // If git command fails, silently fall back to filesystem
+      }
+      
+      // Fall back to filesystem date
+      const stat = fs.statSync(cleanPath);
+      return stat.mtime;
+    } catch (e) {
+      console.warn(`Warning: Couldn't get last modified date for ${inputPath}`);
+      return new Date();
+    }
   });
 
   // Date filter for formatting

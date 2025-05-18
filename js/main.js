@@ -665,8 +665,7 @@ function getRelativeTime(pastDate) {
 async function fetchFooterData() {
     const apiUrlTags = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/tags`;
     const apiUrlCommits = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`;
-    const apiUrlLastUpdated = '/last-updated.json'; // Absolute path
-
+    
     try {
         // Fetch the latest tag
         console.log('Fetching GitHub tags...');
@@ -681,15 +680,6 @@ async function fetchFooterData() {
         if (tagsData.length > 0) {
             // Use the first (most recent) tag
             version = tagsData[0].name;
-            const commitSha = tagsData[0].commit.sha;
-            const apiUrlTagCommit = `https://api.github.com/repos/${GITHUB_USERNAME}/${GITHUB_REPO}/commits/${commitSha}`;
-            console.log(`Fetching commit data for tag SHA: ${commitSha}`);
-            const responseTagCommit = await fetch(apiUrlTagCommit);
-            if (responseTagCommit.ok) {
-                const tagCommitData = await responseTagCommit.json();
-                lastUpdatedDate = new Date(tagCommitData.commit.committer.date);
-                console.log(`Tag commit date: ${lastUpdatedDate}`);
-            }
         } else {
             // If no tags exist, fallback to the latest commit
             console.log('No tags found. Fetching latest commit...');
@@ -698,95 +688,22 @@ async function fetchFooterData() {
             const commitsData = await responseCommits.json();
             const latestCommit = commitsData;
             version = latestCommit.sha.substring(0, 7); // Short SHA
-            lastUpdatedDate = new Date(latestCommit.commit.committer.date);
-            console.log(`Latest commit date: ${lastUpdatedDate}`);
         }
 
-        // Fetch last-updated.json with cache busting
-        const timestamp = new Date().getTime();
-        console.log('Fetching last-updated.json with cache busting:', `${apiUrlLastUpdated}?v=${timestamp}`);
-        const responseLastUpdated = await fetch(`${apiUrlLastUpdated}?v=${timestamp}`);
-        if (!responseLastUpdated.ok) throw new Error(`Failed to fetch last-updated.json: ${responseLastUpdated.status}`);
-        const lastUpdatedData = await responseLastUpdated.json();
-        console.log('Fetched last-updated.json:', lastUpdatedData);
-
-        // Determine the current page key based on the URL
-        let path = window.location.pathname;
-
-        // Remove trailing slash if present and path is not '/'
-        if (path.endsWith('/') && path !== '/') {
-            path = path.slice(0, -1);
-        }
-
-        let pageKey = '';
-
-        if (path.startsWith('/writing/blogs/')) {
-            // For blog post pages
-            const slug = path.split('/')[2];
-            pageKey = `blog/${slug}`;
-        } else if (path === '/writing/blogs') {
-            // For the main blog feed page
-            pageKey = 'blog';
-        } else if (path === '/writing/posts' || path === '/writing/posts/') {
-            // For the posts feed page
-            pageKey = 'posts';
-        } else if (path === '/' || path === '/index.html') {
-            // For home page, map to 'index' to match last-updated.json
-            pageKey = 'index';
-        } else {
-            // For other pages like /about, /ethos, etc.
-            pageKey = path.substring(path.lastIndexOf('/') + 1).split('.')[0];
-        }
-
-        console.log(`Current path: ${path}`);
-        console.log(`Determined pageKey: ${pageKey}`);
-
-        // Get the last updated date for the current page from last-updated.json
-        const pageLastUpdatedISO = lastUpdatedData[pageKey];
-        console.log(`Fetched last updated ISO for "${pageKey}": ${pageLastUpdatedISO}`);
-        let pageLastUpdated = 'N/A';
-        if (pageLastUpdatedISO && pageLastUpdatedISO !== 'null') {
-            const date = new Date(pageLastUpdatedISO);
-            const relativeTime = getRelativeTime(date); // e.g., "4 hours ago"
-            const formattedDate = date.toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'numeric',
-                day: 'numeric',
-            });
-            pageLastUpdated = `${relativeTime} on ${formattedDate}`;
-            console.log(`Formatted Last Updated Date: ${pageLastUpdated}`);
-        } else {
-            console.log(`No valid last updated date found for "${pageKey}".`);
-        }
-
-        // Update the footer elements
+        // Update the version element if needed
         const versionElement = document.getElementById('version');
-        const lastUpdatedElement = document.getElementById('last-updated');
-
         if (versionElement) {
             versionElement.textContent = version;
             console.log(`Updated version element: ${version}`);
-        } else {
-            console.warn('Element with ID "version" not found in footer.');
         }
-
-        if (lastUpdatedElement) {
-            lastUpdatedElement.textContent = pageLastUpdated;
-            console.log(`Updated last-updated element: ${pageLastUpdated}`);
-        } else {
-            console.warn('Element with ID "last-updated" not found in footer.');
-        }
+        
+        // NOTE: We're no longer updating the last-updated element here
+        // as it's now handled by Eleventy templating
     } catch (error) {
         console.error('Error fetching footer data:', error);
         const versionElement = document.getElementById('version');
-        const lastUpdatedElement = document.getElementById('last-updated');
-
         if (versionElement) {
             versionElement.textContent = 'N/A';
-        }
-
-        if (lastUpdatedElement) {
-            lastUpdatedElement.textContent = 'N/A';
         }
     }
 }
