@@ -181,7 +181,7 @@ module.exports = function(eleventyConfig) {
     // Check if valid date
     if (isNaN(dateObj.getTime())) {
       console.warn(`Warning: Invalid date format for enhanced date: ${date}`);
-      return date; // Return the original string if it's not a valid date
+      return ''; // Return empty string for invalid dates
     }
     
     // Format the date
