@@ -5,4 +5,4 @@ permalink: /writing/
 tags: page
 ---
 
-Coming soon...
+A collection of written works, both large and small.
