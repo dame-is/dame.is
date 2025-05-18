@@ -5,4 +5,4 @@ permalink: /creating/
 tags: page
 ---
 
-This page showcases my various creative projects, designs, and works in progress. Each item represents a different aspect of my creative journey. Click on any item to explore more details.
+This is a reverse chronological list of all the projects I've created in my life. It's a work-in-progress and is being added to over time.
