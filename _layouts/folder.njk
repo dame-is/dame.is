@@ -29,7 +29,9 @@ layout: base
         {% for subfolder in subfolders %}
           <div class="subfolder-item">
             <a href="{{ subfolder.url }}" class="subfolder-title">{{ subfolder.data.title }}</a>
-            {% if subfolder.inputPath.endsWith('.njk') %}
+            {% if subfolder.data.folderType %}
+              <span class="folder-type">{{ subfolder.data.folderType }}</span>
+            {% elif subfolder.inputPath.endsWith('.njk') %}
               <span class="folder-type">.njk template</span>
             {% else %}
               <span class="folder-type">subfolder</span>
@@ -41,38 +43,45 @@ layout: base
     {% endif %}
     
     <!-- Regular content table -->
+    {% set contentPages = [] %}
+    {% for p in folderPages %}
+      {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
+        {% if p.data.layout != 'folder' and not p.inputPath.endsWith('.njk') %}
+          {% set contentPages = (contentPages.push(p), contentPages) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    
+    {% if contentPages.length > 0 %}
     <h2>Contents</h2>
     <table class="folder-table">
       <tbody>
-      {% for p in folderPages %}
-        {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
-          {% if p.data.layout != 'folder' and not p.inputPath.endsWith('.njk') %}
-          <tr>
-            <td>
-              <a href="{{ p.url }}" class="folder-item-title">{{ p.data.title }}</a>
-            </td>
-            <td>
-              {% if p.data.date %}
-              <div class="date-display">
-                <div class="date-primary">{{ p.data.date | enhancedDate }}</div>
-                <div class="date-secondary">Day {{ p.data.date | jsDateString | dayOfLife }}, Year {{ p.data.date | jsDateString | yearOfLife }}</div>
+      {% for p in contentPages %}
+        <tr>
+          <td>
+            <a href="{{ p.url }}" class="folder-item-title">{{ p.data.title }}</a>
+          </td>
+          <td>
+            {% if p.data.date %}
+            <div class="date-display">
+              <div class="date-primary">{{ p.data.date | enhancedDate }}</div>
+              <div class="date-secondary">Day {{ p.data.date | jsDateString | dayOfLife }}, Year {{ p.data.date | jsDateString | yearOfLife }}</div>
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            {% set subfolder = p.inputPath | getSubfolder %}
+            {% if subfolder %}
+              <div class="folder-path">
+                <span class="folder-label">{{ subfolder }}</span>
               </div>
-              {% endif %}
-            </td>
-            <td>
-              {% set subfolder = p.inputPath | getSubfolder %}
-              {% if subfolder %}
-                <div class="folder-path">
-                  <span class="folder-label">{{ subfolder }}</span>
-                </div>
-              {% endif %}
-            </td>
-          </tr>
-          {% endif %}
-        {% endif %}
+            {% endif %}
+          </td>
+        </tr>
       {% endfor %}
       </tbody>
     </table>
+    {% endif %}
   </div>
 </div>
 
