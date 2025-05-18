@@ -170,9 +170,21 @@ body.dark-mode nav a:visited {
     transition: color 0.3s ease;
 }
 
+.nav-links {
+    margin-right: 11px; /* Adjust as needed */
+    opacity: 50%;
+}
+
 .nav-links a.nav-link {
     margin-right: 11px; /* Adjust as needed */
     opacity: 50%;
+}
+
+.pin-emoji {
+    margin-right: 8px;
+    font-size: 0.9em;
+    opacity: 1;
+    vertical-align: middle;
 }
 
 .nav-left a.nav-link:hover,
@@ -2021,4 +2033,50 @@ main:has(.folder-container) {
 body.dark-mode .folder-label {
   background-color: var(--tag-bg-dark, #2d3748);
   color: var(--tag-text-dark, #e2e8f0);
+}
+
+/* === Filepath Navigation Styles === */
+.filepath-nav {
+  border-bottom: 1px solid #7a7a7a36;
+  font-size: 0.9em;
+  opacity: 0.8;
+}
+
+.filepath-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filepath-link {
+  display: inline-flex;
+}
+
+.filepath-segment {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.filepath-segment:hover {
+  color: #007BFF;
+  text-decoration: underline;
+}
+
+.filepath-separator {
+  margin: 0 0.2rem;
+  color: #7a7a7a;
+}
+
+body.dark-mode .filepath-separator {
+  color: #9a9a9a;
+}
+
+/* Adjust responsive behavior for filepath nav */
+@media (max-width: 400px) {
+  .filepath-links {
+    flex-direction: row;
+    padding: 5px 0;
+    line-height: 1.8;
+  }
 }

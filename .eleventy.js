@@ -65,6 +65,26 @@ module.exports = function(eleventyConfig) {
     return '';
   });
 
+  // Split filter for filepath segments
+  eleventyConfig.addFilter("split", function(string, separator) {
+    if (!string) return [];
+    return string.split(separator);
+  });
+
+  // Filter array elements
+  eleventyConfig.addFilter("filter", function(array, callback) {
+    if (!array || !Array.isArray(array)) return [];
+    
+    return array.filter(item => {
+      if (typeof callback === 'function') {
+        return callback(item);
+      } else {
+        // If callback is a string like "segment => segment", evaluate it as a function
+        return item && item !== '';
+      }
+    });
+  });
+
   // Filter for filtering pages by folder
   eleventyConfig.addFilter("filterByFolder", function(collection, folderPath) {
     if (!collection || !collection.length) {
