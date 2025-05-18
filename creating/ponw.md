@@ -2,7 +2,10 @@
 layout: post
 title: Proof of (No) Work
 date: 2022-09-01
-tags: "art", "conceptual", "design"
+tags:
+  - art
+  - conceptual
+  - design
 ogImage: /images/shortcuts/a-status-update-og-image.jpg
 excerpt: Post status updates to a dedicated Bluesky account and optionally use your own custom lexicon name for them.
 ---
