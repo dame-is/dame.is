@@ -121,4 +121,42 @@ layout: base
     padding: 0.1rem 0.4rem;
     border-radius: 3px;
   }
+  
+  /* Responsive table styles for mobile */
+  @media (max-width: 768px) {
+    .folder-table {
+      width: 100%;
+      display: block;
+    }
+    
+    .folder-table tbody {
+      display: block;
+    }
+    
+    .folder-table tr {
+      display: grid;
+      grid-template-columns: 1fr;
+      padding: 1rem 0;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .folder-table td {
+      display: block;
+      padding: 0.25rem 0;
+      border: none;
+    }
+    
+    .folder-table td:first-child {
+      padding-top: 0;
+    }
+    
+    .folder-item-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+    
+    .date-display {
+      margin: 0.5rem 0;
+    }
+  }
 </style> 
