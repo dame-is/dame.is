@@ -191,10 +191,6 @@ module.exports = function(eleventyConfig) {
       day: 'numeric'
     });
     
-    // Calculate days since a reference date (birthdate or any starting point)
-    const birthdate = new Date('1993-06-02'); // Example birthdate
-    const daysSince = Math.floor((dateObj - birthdate) / (1000 * 60 * 60 * 24));
-    
     // Calculate relative time
     const now = new Date();
     const diffInSeconds = Math.floor((now - dateObj) / 1000);
@@ -222,7 +218,7 @@ module.exports = function(eleventyConfig) {
       }
     }
     
-    return `${relativeTime}, ${formattedDate} (Day ${daysSince})`;
+    return `${relativeTime}, ${formattedDate}`;
   });
 
   // Add jsDateString filter to convert date to ISO string for JavaScript use
