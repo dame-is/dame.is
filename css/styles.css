@@ -124,7 +124,6 @@ body.dark-mode footer {
 
 .nav-section {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 20px 20px; /* Adjust vertical spacing as needed */
     border-bottom: 1px solid #7a7a7a36;
@@ -2048,6 +2047,24 @@ body.dark-mode .folder-label {
   flex-wrap: wrap;
   align-items: center;
   opacity: 50%;
+}
+
+.nav-left.bottom-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.link-emoji {
+  margin-right: 8px;
+  font-size: 0.9em;
+  opacity: 1;
+  vertical-align: middle;
+}
+
+.filepath-nav .link-emoji {
+  margin-right: 8px;
+  opacity: 1; /* Ensures the emoji is at 100% opacity */
 }
 
 .filepath-link {
