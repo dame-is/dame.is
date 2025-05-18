@@ -1992,9 +1992,9 @@ main:has(.folder-container) {
 
 .folder-table th,
 .folder-table td {
-  padding: 1rem;
+  padding: 0.5rem;
   text-align: left;
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  border: 1px solid var(--border-color, #e2e8f0);
 }
 
 .folder-table th {
@@ -2101,12 +2101,12 @@ body.dark-mode .filepath-separator {
 }
 
 .date-primary {
-    font-size: 1em;
+    font-size: 0.9em;
 }
 
 .date-secondary {
-    font-size: 0.8em;
-    opacity: 0.7;
+    font-size: 0.7em;
+    opacity: 0.5;
     margin-top: 2px;
 }
 
