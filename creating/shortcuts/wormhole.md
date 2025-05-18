@@ -7,8 +7,6 @@ ogImage: /images/shortcuts/wormhole-og-image.jpg
 excerpt: Fast travel between Bluesky clients, ATProto services, or PDS explorers with this Apple Shortcut.
 ---
 
-# at://wormhole
-
 Fast travel between Bluesky clients, ATProto services, or PDS explorers.
 
 <div class="responsive-iframe-container">

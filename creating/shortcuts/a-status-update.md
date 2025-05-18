@@ -7,8 +7,6 @@ ogImage: /images/shortcuts/a-status-update-og-image.jpg
 excerpt: Post status updates to a dedicated Bluesky account and optionally use your own custom lexicon name for them.
 ---
 
-# a.status.update
-
 Post status updates to a dedicated Bluesky account and optionally use your own custom lexicon name for them.
 
 <div class="responsive-iframe-container">
