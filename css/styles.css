@@ -947,12 +947,14 @@ body.dark-mode .blog-post-excerpt {
 #post-title {
     font-size: 1.7em;
     margin-bottom: 10px;
+    text-align: center;
 }
 
 #post-date {
-    font-size: 1em;
+    font-size: 0.8em;
     color: #777;
     margin-bottom: 20px;
+    text-align: center;
 }
 
 #post-content {
@@ -977,8 +979,6 @@ body.dark-mode .blog-post-excerpt {
 @media (max-width: 400px) {
     /* Let nav sections stack vertically */
     .nav-section {
-        flex-direction: column-reverse;
-        align-items: flex-start;
         gap: 10px
     }
 
@@ -998,7 +998,6 @@ body.dark-mode .blog-post-excerpt {
     }
 
     .site-title-and-latest-log {
-        display: inline;
         align-items: center;
         gap: 14px;
         font-size: 1.3em;
@@ -1970,6 +1969,10 @@ main:has(.creating-container) {
   margin: 0 auto; 
 }
 
+.folder-container p {
+	max-width: 500px;
+}
+
 /* Override main container width just for folder layout */
 main:has(.folder-container) {
   max-width: 900px;
@@ -1987,7 +1990,6 @@ main:has(.folder-container) {
 .folder-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1.5rem;
 }
 
 .folder-table th,
@@ -2021,7 +2023,6 @@ main:has(.folder-container) {
 .folder-label {
   padding: 0.25rem 0.5rem;
   background-color: var(--tag-bg, #e2e8f0);
-  border-radius: 4px;
   font-size: 0.75rem;
   white-space: nowrap;
 }
