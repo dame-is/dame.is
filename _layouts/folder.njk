@@ -12,31 +12,63 @@ layout: base
     {% set currentUrl = page.url %}
     {% set folderPath = currentUrl | replace("/index.html", "") %}
     
+    <!-- Subfolders and special pages section -->
+    {% set subfolders = [] %}
+    {% for p in folderPages %}
+      {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
+        {% if p.inputPath.endsWith('.md') and p.inputPath.includes('/index.md') or p.inputPath.endsWith('.njk') %}
+          {% set subfolders = (subfolders.push(p), subfolders) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+    
+    {% if subfolders.length > 0 %}
+    <div class="subfolders-section">
+      <h2>Subfolders</h2>
+      <div class="subfolder-items">
+        {% for subfolder in subfolders %}
+          <div class="subfolder-item">
+            <a href="{{ subfolder.url }}" class="subfolder-title">{{ subfolder.data.title }}</a>
+            {% if subfolder.inputPath.endsWith('.njk') %}
+              <span class="folder-type">.njk template</span>
+            {% else %}
+              <span class="folder-type">subfolder</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    
+    <!-- Regular content table -->
+    <h2>Contents</h2>
     <table class="folder-table">
       <tbody>
       {% for p in folderPages %}
         {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
-        <tr>
-          <td>
-            <a href="{{ p.url }}" class="folder-item-title">{{ p.data.title }}</a>
-          </td>
-          <td>
-            {% if p.data.date %}
-            <div class="date-display">
-              <div class="date-primary">{{ p.data.date | enhancedDate }}</div>
-              <div class="date-secondary">Day {{ p.data.date | jsDateString | dayOfLife }}, Year {{ p.data.date | jsDateString | yearOfLife }}</div>
-            </div>
-            {% endif %}
-          </td>
-          <td>
-            {% set subfolder = p.inputPath | getSubfolder %}
-            {% if subfolder %}
-              <div class="folder-path">
-                <span class="folder-label">{{ subfolder }}</span>
+          {% if not (p.inputPath.endsWith('.md') and p.inputPath.includes('/index.md')) and not p.inputPath.endsWith('.njk') %}
+          <tr>
+            <td>
+              <a href="{{ p.url }}" class="folder-item-title">{{ p.data.title }}</a>
+            </td>
+            <td>
+              {% if p.data.date %}
+              <div class="date-display">
+                <div class="date-primary">{{ p.data.date | enhancedDate }}</div>
+                <div class="date-secondary">Day {{ p.data.date | jsDateString | dayOfLife }}, Year {{ p.data.date | jsDateString | yearOfLife }}</div>
               </div>
-            {% endif %}
-          </td>
-        </tr>
+              {% endif %}
+            </td>
+            <td>
+              {% set subfolder = p.inputPath | getSubfolder %}
+              {% if subfolder %}
+                <div class="folder-path">
+                  <span class="folder-label">{{ subfolder }}</span>
+                </div>
+              {% endif %}
+            </td>
+          </tr>
+          {% endif %}
         {% endif %}
       {% endfor %}
       </tbody>
@@ -46,3 +78,38 @@ layout: base
 
 {% block scripts %}
 {% endblock %} 
+
+<style>
+  .subfolders-section {
+    margin-bottom: 2rem;
+  }
+  
+  .subfolder-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .subfolder-item {
+    background-color: #f5f5f5;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .subfolder-title {
+    font-weight: 500;
+    text-decoration: none;
+  }
+  
+  .folder-type {
+    font-size: 0.8rem;
+    color: #666;
+    background-color: #e0e0e0;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+  }
+</style> 
