@@ -186,9 +186,11 @@ body.dark-mode nav a:visited {
     vertical-align: middle;
 }
 
-.nav-left a.nav-link:hover,
-body.dark-mode .nav-left a.nav-link:hover {
-    color: #007BFF;
+.link-emoji {
+    margin-right: 8px;
+    font-size: 0.9em;
+    opacity: 1;
+    vertical-align: middle;
 }
 
 .nav-left a.nav-link.active {

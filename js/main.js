@@ -442,6 +442,7 @@ async function fetchBlueskyStats() {
             <span class="count" id="following">0</span>
             <span class="label">following</span>
         </span>
+        <!-- Temporarily removed posts and replies counts
         <span class="stat">
             <span class="count" id="posts">0</span>
             <span class="label">posts</span>
@@ -450,6 +451,7 @@ async function fetchBlueskyStats() {
             <span class="count" id="replies">0</span>
             <span class="label">replies</span>
         </span>
+        -->
       `;
     } else {
       console.warn('Element with ID "bluesky-stats" not found.');
@@ -459,8 +461,9 @@ async function fetchBlueskyStats() {
     // Get references to the count elements
     const followersElem = document.getElementById('followers');
     const followingElem = document.getElementById('following');
-    const postsElem = document.getElementById('posts');
-    const repliesElem = document.getElementById('replies');
+    // Temporarily commented out posts and replies elements
+    // const postsElem = document.getElementById('posts');
+    // const repliesElem = document.getElementById('replies');
   
     /**
      * Animate a number change from a starting value to an ending value.
@@ -488,8 +491,9 @@ async function fetchBlueskyStats() {
     // These will be our cumulative counts
     let followersCount = 0;
     let followingCount = 0;
-    let postsCount = 0;
-    let repliesCount = 0;
+    // Temporarily commented out posts and replies counts
+    // let postsCount = 0;
+    // let repliesCount = 0;
   
     try {
       // --- STEP 1: Fetch Profile Data ---
@@ -506,7 +510,9 @@ async function fetchBlueskyStats() {
         followingCount = newFollowing;
       }
   
+        /* 
         // --- STEP 2: Fetch Posts and Replies (Paginated) ---
+        // Temporarily commenting out posts and replies fetching to reduce API calls
         const limit = 100; // Maximum allowed per request
         let cursor = null;
         let hasMore = true;
@@ -588,13 +594,15 @@ async function fetchBlueskyStats() {
         //   hasMore = false;
         // }
       }
+      */
     } catch (error) {
       console.error('Error fetching Bluesky stats:', error);
       // Optionally show error values or reset counts
       if (followersElem) followersElem.textContent = 0;
       if (followingElem) followingElem.textContent = 0;
-      if (postsElem) postsElem.textContent = 0;
-      if (repliesElem) repliesElem.textContent = 0;
+      // Temporarily commented out posts and replies error handling
+      // if (postsElem) postsElem.textContent = 0;
+      // if (repliesElem) repliesElem.textContent = 0;
     }
   }
   
