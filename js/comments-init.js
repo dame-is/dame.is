@@ -31,9 +31,27 @@ function renderBlueskyComments() {
         
         console.log('Rendering BlueskyComments with URI:', blueskyUri);
 
-        // Add styles for error messages
+        // Add styles for comments and error messages
         const style = document.createElement('style');
         style.textContent = `
+            /* Remove margins from comment containers */
+            ._commentContainer_1pvtk_72 {
+                margin: 0 !important;
+            }
+            
+            /* Add a subtle border to replies container */
+            ._repliesContainer_1pvtk_125 {
+                border-left: 2px solid #52525247 !important;
+                padding-left: 1rem !important;
+                margin-left: 0.5rem !important;
+            }
+            
+            /* Hide the actions container */
+            ._actionsContainer_1pvtk_130 {
+                display: none !important;
+            }
+            
+            /* Error styles */
             .comments-error {
                 padding: 10px;
                 margin-top: 10px;
@@ -47,6 +65,11 @@ function renderBlueskyComments() {
                 background-color: #3b1818;
                 color: #fc8181;
                 border-color: #fc8181;
+            }
+            
+            /* Dark mode support for reply container border */
+            .dark-mode ._repliesContainer_1pvtk_125 {
+                border-left-color: #52525280 !important;
             }
         `;
         document.head.appendChild(style);
