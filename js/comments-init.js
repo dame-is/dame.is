@@ -32,73 +32,9 @@ function renderBlueskyComments() {
         
         console.log('Rendering BlueskyComments with URI:', blueskyUri);
 
-        // Add the CSS styles for the join conversation section
+        // Add the CSS for custom styling
         const style = document.createElement('style');
         style.textContent = `
-            .custom-conversation-links {
-                margin-bottom: 20px;
-                margin-top: 10px;
-                font-size: 0.9em;
-                padding: 12px 16px;
-                background-color: #f5f5f5;
-                border-radius: 8px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            
-            .dark-mode .custom-conversation-links {
-                background-color: #2d3748;
-                color: #e2e8f0;
-            }
-            
-            .conversation-text {
-                margin: 0;
-            }
-            
-            .conversation-buttons {
-                display: flex;
-                gap: 10px;
-            }
-            
-            .app-button {
-                padding: 6px 12px;
-                border-radius: 4px;
-                text-decoration: none;
-                transition: background-color 0.2s, color 0.2s;
-                font-weight: 500;
-            }
-            
-            .bluesky-app-button {
-                background-color: #f0f7ff;
-                color: #3b82f6;
-                border: 1px solid #3b82f6;
-            }
-            
-            .bluesky-app-button:hover {
-                background-color: #dbeafe;
-            }
-            
-            .deer-app-button {
-                background-color: #f0fff4;
-                color: #22c55e;
-                border: 1px solid #22c55e;
-            }
-            
-            .deer-app-button:hover {
-                background-color: #dcfce7;
-            }
-            
-            .dark-mode .bluesky-app-button {
-                background-color: #1e293b;
-                color: #60a5fa;
-            }
-            
-            .dark-mode .deer-app-button {
-                background-color: #1e293b;
-                color: #4ade80;
-            }
-            
             .comments-error {
                 padding: 10px;
                 margin-top: 10px;
@@ -114,18 +50,31 @@ function renderBlueskyComments() {
                 border-color: #fc8181;
             }
             
-            /* Add observer to insert our custom links after component loads */
-            .bluesky-comments-header + div {
-                position: relative;
+            /* Style for the Deer link that we'll add to the existing message */
+            a.deer-link {
+                color: #22c55e;
+                text-decoration: underline;
+                font-weight: 500;
+                transition: color 0.2s;
+            }
+            
+            a.deer-link:hover {
+                color: #16a34a;
+            }
+            
+            .dark-mode a.deer-link {
+                color: #4ade80;
+            }
+            
+            .dark-mode a.deer-link:hover {
+                color: #34d399;
             }
         `;
         document.head.appendChild(style);
-
-        // Create the div for the comments component
+        
+        // Create a div for the comments component
         const commentsComponentDiv = document.createElement('div');
         commentsComponentDiv.id = 'bluesky-comments-component';
-        
-        // Clear and add content
         container.innerHTML = '';
         container.appendChild(commentsComponentDiv);
 
@@ -138,60 +87,45 @@ function renderBlueskyComments() {
             })
         );
         
-        // Set up a mutation observer to add our custom links after the BlueskyComments component renders
-        const observer = new MutationObserver((mutations, obs) => {
-            // Look for the first div after the component's own header text
-            const commentHeader = commentsComponentDiv.querySelector('div > div:first-child');
-            
-            if (commentHeader) {
-                // Create our custom links container
-                const linksContainer = document.createElement('div');
-                linksContainer.className = 'custom-conversation-links';
-                
-                // Create text element
-                const textElement = document.createElement('p');
-                textElement.className = 'conversation-text';
-                textElement.textContent = 'Join this conversation via:';
-                
-                // Create buttons container
-                const buttonsContainer = document.createElement('div');
-                buttonsContainer.className = 'conversation-buttons';
-                
-                // Create Bluesky button
-                const blueskyButton = document.createElement('a');
-                blueskyButton.href = blueskyUri;
-                blueskyButton.className = 'app-button bluesky-app-button';
-                blueskyButton.textContent = 'Bluesky';
-                blueskyButton.target = '_blank';
-                blueskyButton.rel = 'noopener noreferrer';
-                
-                // Create Deer button
-                const deerButton = document.createElement('a');
-                deerButton.href = deerUri;
-                deerButton.className = 'app-button deer-app-button';
-                deerButton.textContent = 'Deer';
-                deerButton.target = '_blank';
-                deerButton.rel = 'noopener noreferrer';
-                
-                // Assemble the elements
-                buttonsContainer.appendChild(blueskyButton);
-                buttonsContainer.appendChild(deerButton);
-                linksContainer.appendChild(textElement);
-                linksContainer.appendChild(buttonsContainer);
-                
-                // Insert our links after the header
-                commentHeader.insertAdjacentElement('afterend', linksContainer);
-                
-                // Disconnect the observer once we've inserted our links
-                obs.disconnect();
-            }
+        // Create a mutation observer to watch for the built-in "Join the conversation" message
+        // and modify it to include Deer as an option
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length) {
+                    // Look for the text node that says "Join the conversation by replying on Bluesky."
+                    const joinMessage = document.evaluate(
+                        "//text()[contains(., 'Join the conversation by replying on Bluesky')]",
+                        container,
+                        null,
+                        XPathResult.FIRST_ORDERED_NODE_TYPE,
+                        null
+                    ).singleNodeValue;
+                    
+                    if (joinMessage) {
+                        // Get the parent element containing the message
+                        const messageContainer = joinMessage.parentElement;
+                        
+                        if (messageContainer && !messageContainer.getAttribute('data-modified')) {
+                            // Replace the text with a new message that includes both Bluesky and Deer
+                            messageContainer.innerHTML = `Join the conversation by <a href="${blueskyUri}" target="_blank" rel="noopener noreferrer">replying on Bluesky</a> or <a href="${deerUri}" target="_blank" rel="noopener noreferrer" class="deer-link">Deer</a>.`;
+                            
+                            // Mark this element as modified to avoid repeated modifications
+                            messageContainer.setAttribute('data-modified', 'true');
+                            
+                            // Disconnect the observer once we've found and modified the message
+                            observer.disconnect();
+                        }
+                    }
+                }
+            });
         });
         
-        // Start observing the comments component
-        observer.observe(commentsComponentDiv, {
-            childList: true,
-            subtree: true
+        // Start observing the container for changes
+        observer.observe(container, { 
+            childList: true, 
+            subtree: true 
         });
+        
     } catch (error) {
         console.error('Error rendering Bluesky comments:', error);
         
