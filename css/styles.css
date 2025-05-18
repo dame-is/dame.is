@@ -991,10 +991,6 @@ body.dark-mode .blog-post-excerpt {
         line-height: 25px;
     }
 
-    .bottom-nav-right {
-        margin-top: 10px;
-    }
-
     /* Adjust font sizes or spacing for stats if needed */
     #bluesky-stats {
         font-size: 0.9em;
