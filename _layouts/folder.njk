@@ -16,7 +16,7 @@ layout: base
     {% set subfolders = [] %}
     {% for p in folderPages %}
       {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
-        {% if p.inputPath.endsWith('.md') and p.inputPath.includes('/index.md') or p.inputPath.endsWith('.njk') %}
+        {% if p.data.layout == 'folder' or p.inputPath.endsWith('.njk') %}
           {% set subfolders = (subfolders.push(p), subfolders) %}
         {% endif %}
       {% endif %}
@@ -46,7 +46,7 @@ layout: base
       <tbody>
       {% for p in folderPages %}
         {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
-          {% if not (p.inputPath.endsWith('.md') and p.inputPath.includes('/index.md')) and not p.inputPath.endsWith('.njk') %}
+          {% if p.data.layout != 'folder' and not p.inputPath.endsWith('.njk') %}
           <tr>
             <td>
               <a href="{{ p.url }}" class="folder-item-title">{{ p.data.title }}</a>
