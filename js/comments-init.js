@@ -42,7 +42,6 @@ function renderBlueskyComments() {
             /* Add a subtle border to replies container */
             ._repliesContainer_1pvtk_125 {
                 border-left: 2px solid #52525247 !important;
-                padding-left: 1rem !important;
             }
             
             /* Hide the actions container */
