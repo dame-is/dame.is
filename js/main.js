@@ -94,6 +94,29 @@ function formatDateHeader(date) {
     return `${capitalizedRelativeTime}, ${formattedDate} (Day ${dayOfLife})`;
 }
 
+// Function to format date header by day only (for grouping posts and logs)
+function formatDailyDateHeader(date) {
+    // For consistent grouping by day, normalize the date by setting hours, minutes, seconds to 0
+    const normalizedDate = new Date(date);
+    normalizedDate.setHours(0, 0, 0, 0);
+    
+    const dayOfLife = getDaysSinceBirthdate(normalizedDate);
+    const formattedDate = formatFullDate(normalizedDate);
+    
+    // Use "Today" or "Yesterday" for recent dates
+    let prefix = '';
+    if (isToday(normalizedDate)) {
+        prefix = 'Today';
+    } else if (isYesterday(normalizedDate)) {
+        prefix = 'Yesterday';
+    } else {
+        // For older dates, just use the date without relative time
+        prefix = '';
+    }
+    
+    return prefix ? `${prefix}, ${formattedDate} (Day ${dayOfLife})` : `${formattedDate} (Day ${dayOfLife})`;
+}
+
 // Function to calculate Day of Life
 function getDaysSinceBirthdate(date) {
     const msPerDay = 24 * 60 * 60 * 1000;
@@ -1009,14 +1032,19 @@ async function loadRecentPosts(cursor = null) {
         const groups = {};
         posts.forEach(item => {
             const postDate = new Date(item.post.record.createdAt);
-            // Assuming formatDateHeader returns a string representation that can be used as a key.
-            const relativeDatestamp = formatDateHeader(postDate);
+            // Get date part only as a consistent string key for grouping
+            const dateKey = postDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+            
+            // Use the daily date header format for display
+            const relativeDatestamp = formatDailyDateHeader(postDate);
             const dayOfLife = getDaysSinceBirthdate(postDate);
             const dayOfYear = getDayOfYear(postDate);
             const totalDaysInYear = isLeapYear(postDate.getFullYear()) ? 366 : 365;
             const age = getAge(postDate);
-            if (!groups[relativeDatestamp]) {
-                groups[relativeDatestamp] = {
+            
+            if (!groups[dateKey]) {
+                groups[dateKey] = {
+                    displayDate: relativeDatestamp,
                     dayOfLife: dayOfLife,
                     dayOfYear: dayOfYear,
                     totalDaysInYear: totalDaysInYear,
@@ -1024,21 +1052,52 @@ async function loadRecentPosts(cursor = null) {
                     posts: []
                 };
             }
-            groups[relativeDatestamp].posts.push(item);
+            groups[dateKey].posts.push(item);
         });
-        return groups;
+        
+        // Convert from date keys back to display dates for rendering
+        const displayGroups = {};
+        for (const [dateKey, groupData] of Object.entries(groups)) {
+            displayGroups[groupData.displayDate] = {
+                dayOfLife: groupData.dayOfLife,
+                dayOfYear: groupData.dayOfYear,
+                totalDaysInYear: groupData.totalDaysInYear,
+                age: groupData.age,
+                posts: groupData.posts
+            };
+        }
+        
+        return displayGroups;
     }
     let groupedPosts = groupPostsByDay(allFetchedPosts);
 
     // If currentBatchCursor is not null (i.e. more posts exist), assume the oldest day group may be incomplete.
     // Remove the group with the oldest date.
     if (currentBatchCursor) {
-        // Get all group keys and sort them in ascending order (oldest first)
-        const groupKeys = Object.keys(groupedPosts).sort((a, b) => new Date(a) - new Date(b));
+        // Get all display dates and find the oldest one by comparing the actual ISO date key
+        const groupKeys = Object.keys(groupedPosts);
         if (groupKeys.length > 0) {
-            const oldestKey = groupKeys[0];
-            console.log(`Removing oldest group '${oldestKey}' since more posts exist.`);
-            delete groupedPosts[oldestKey];
+            // Convert display dates back to timestamps to find the oldest one
+            let oldestDate = new Date();
+            let oldestKey = '';
+            
+            // Iterate through all groups and find the oldest one
+            for (const displayDate of groupKeys) {
+                // For each group, get a sample post to find the actual date
+                const samplePost = groupedPosts[displayDate].posts[0];
+                const postDate = new Date(samplePost.post.record.createdAt);
+                
+                // Compare dates and track the oldest one
+                if (postDate < oldestDate) {
+                    oldestDate = postDate;
+                    oldestKey = displayDate;
+                }
+            }
+            
+            if (oldestKey) {
+                console.log(`Removing oldest group '${oldestKey}' since more posts exist.`);
+                delete groupedPosts[oldestKey];
+            }
         }
     }
 
@@ -1570,14 +1629,19 @@ function initializeLogLoader() {
                 const groups = {};
                 logs.forEach(item => {
                     const logDate = new Date(item.post.record.createdAt);
-                    const relativeDatestamp = formatDateHeader(logDate);
+                    // Get date part only as a consistent string key for grouping
+                    const dateKey = logDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+                    
+                    // Use the daily date header format for display
+                    const relativeDatestamp = formatDailyDateHeader(logDate);
                     const dayOfLife = getDaysSinceBirthdate(logDate);
                     const dayOfYear = getDayOfYear(logDate);
                     const totalDaysInYear = isLeapYear(logDate.getFullYear()) ? 366 : 365;
                     const age = getAge(logDate);
-
-                    if (!groups[relativeDatestamp]) {
-                        groups[relativeDatestamp] = {
+                    
+                    if (!groups[dateKey]) {
+                        groups[dateKey] = {
+                            displayDate: relativeDatestamp,
                             dayOfLife: dayOfLife,
                             dayOfYear: dayOfYear,
                             totalDaysInYear: totalDaysInYear,
@@ -1585,9 +1649,22 @@ function initializeLogLoader() {
                             logs: []
                         };
                     }
-                    groups[relativeDatestamp].logs.push(item);
+                    groups[dateKey].logs.push(item);
                 });
-                return groups;
+                
+                // Convert from date keys back to display dates for rendering
+                const displayGroups = {};
+                for (const [dateKey, groupData] of Object.entries(groups)) {
+                    displayGroups[groupData.displayDate] = {
+                        dayOfLife: groupData.dayOfLife,
+                        dayOfYear: groupData.dayOfYear,
+                        totalDaysInYear: groupData.totalDaysInYear,
+                        age: groupData.age,
+                        logs: groupData.logs
+                    };
+                }
+                
+                return displayGroups;
             }
 
             const groupedLogs = groupLogsByDay(deduplicatedFeed);

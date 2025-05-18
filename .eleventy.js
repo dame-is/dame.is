@@ -66,23 +66,30 @@ module.exports = function(eleventyConfig) {
       // Try to get date from git first (more accurate for content changes)
       try {
         const { execSync } = require('child_process');
-        const gitDate = execSync(`git log -1 --format=%cd --date=iso ${cleanPath}`, { 
+        console.log(`Getting git last modified date for: ${cleanPath}`);
+        // Use a more specific git command with rfc format for better date handling
+        const gitDate = execSync(`git log -1 --format=%aI -- ${cleanPath}`, { 
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'ignore']
         }).trim();
         
         if (gitDate) {
+          console.log(`Found git last modified date: ${gitDate} for ${cleanPath}`);
           return new Date(gitDate);
+        } else {
+          console.log(`No git history found for: ${cleanPath}`);
         }
       } catch (gitErr) {
-        // If git command fails, silently fall back to filesystem
+        // Log the error for debugging
+        console.warn(`Git command failed for ${cleanPath}: ${gitErr.message}`);
       }
       
       // Fall back to filesystem date
+      console.log(`Falling back to filesystem date for: ${cleanPath}`);
       const stat = fs.statSync(cleanPath);
       return stat.mtime;
     } catch (e) {
-      console.warn(`Warning: Couldn't get last modified date for ${inputPath}`);
+      console.warn(`Warning: Couldn't get last modified date for ${inputPath}: ${e.message}`);
       return new Date();
     }
   });
@@ -100,6 +107,32 @@ module.exports = function(eleventyConfig) {
       return date; // Return the original string if it's not a valid date
     }
     
+    // If format is "relative", return a human-readable relative time
+    if (format === "relative") {
+      const now = new Date();
+      const diffInSeconds = Math.floor((now - dateObj) / 1000);
+      
+      const intervals = [
+        { label: 'year', seconds: 31536000 },
+        { label: 'month', seconds: 2592000 },
+        { label: 'week', seconds: 604800 },
+        { label: 'day', seconds: 86400 },
+        { label: 'hour', seconds: 3600 },
+        { label: 'minute', seconds: 60 },
+        { label: 'second', seconds: 1 }
+      ];
+      
+      for (const interval of intervals) {
+        const count = Math.floor(diffInSeconds / interval.seconds);
+        if (count >= 1) {
+          const plural = count === 1 ? '' : 's';
+          return `${count} ${interval.label}${plural} ago`;
+        }
+      }
+      return 'just now';
+    }
+    
+    // For default format, return a formatted date string
     return dateObj.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',

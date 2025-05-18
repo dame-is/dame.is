@@ -4,11 +4,9 @@
         <div class="footer-section footer-last-updated">
             <span class="last-updated-label">Last Updated:</span>
             <span class="last-updated-timestamp">
-                {% if page.date %}
-                    {{ page.date | date }}
-                {% elif page.inputPath %}
-                    <!-- Fall back to file stats if available -->
-                    {{ page.inputPath | lastModifiedDate | date }}
+                {% if page.inputPath %}
+                    {% set lastModified = page.inputPath | lastModifiedDate %}
+                    <span title="{{ lastModified | date }}">{{ lastModified | date("relative") }}</span>
                 {% else %}
                     Unknown
                 {% endif %}
