@@ -989,7 +989,6 @@ body.dark-mode .blog-post-excerpt {
     .nav-links {
         gap: 10px;
         text-wrap-style: balance;
-        line-height: 25px;
     }
 
     /* Adjust font sizes or spacing for stats if needed */
@@ -2093,7 +2092,6 @@ body.dark-mode .filepath-separator {
   .filepath-links {
     flex-direction: row;
     padding: 5px 0;
-    line-height: 1.8;
   }
 }
 
