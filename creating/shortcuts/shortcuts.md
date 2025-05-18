@@ -1,7 +1,7 @@
 ---
 layout: folder
 title: /shortcuts
-permalink: /shortcuts/
+permalink: /creating/shortcuts/
 tags: page
 ---
 
