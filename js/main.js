@@ -259,6 +259,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (path === '/writing/posts' || path === '/writing/posts/') {
         // For the posts feed page
         pageKey = 'posts';
+    } else if (path.startsWith('/creating/shortcuts/')) {
+        // For shortcuts pages like /creating/shortcuts/wormhole
+        pageKey = 'shortcuts';
     } else {
         // For other static pages like /about, /ethos, etc.
         // Extract the page name without extension
@@ -280,12 +283,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // No need to initialize anything
             break;
         default:
-            if (path.startsWith('/writing/blogs/') && pathParts.length > 2) {
-                // Blog posts are now rendered by 11ty
-                // Just initialize Bluesky comments if needed
-                initializeBlueskyComments();
-            }
+            // No specific initialization needed for other page types
             break;
+    }
+
+    // Check if the current page has a Bluesky comments section, regardless of page type
+    if (document.getElementById('bluesky-comments')) {
+        initializeBlueskyComments();
     }
 
     // Initialize supporters list if we're on the supported page
