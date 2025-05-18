@@ -138,6 +138,10 @@ layout: base
       grid-template-columns: 1fr;
       padding: 1rem 0;
       border-bottom: 1px solid #eee;
+      grid-template-areas: 
+        "date"
+        "title"
+        "folder";
     }
     
     .folder-table td {
@@ -146,8 +150,16 @@ layout: base
       border: none;
     }
     
-    .folder-table td:first-child {
-      padding-top: 0;
+    .folder-table td:nth-child(1) {
+      grid-area: title;
+    }
+    
+    .folder-table td:nth-child(2) {
+      grid-area: date;
+    }
+    
+    .folder-table td:nth-child(3) {
+      grid-area: folder;
     }
     
     .folder-item-title {
@@ -156,7 +168,7 @@ layout: base
     }
     
     .date-display {
-      margin: 0.5rem 0;
+      margin: 0 0 0.5rem 0;
     }
   }
 </style> 

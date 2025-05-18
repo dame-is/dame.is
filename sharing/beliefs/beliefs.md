@@ -1,6 +1,6 @@
 ---
-layout: folder
-title: /beliefs
+layout: post
+title: Beliefs
 ---
 
 The following list is a work-in-progress and is by no means comprehensive. I will likely fall short of my own ideals. Still, these are some of the things I strive towards and want to keep myself accountable to.

@@ -3,6 +3,8 @@ layout: base
 title: About
 ---
 
+# About
+
 Hello there, welcome to my personal website.
 
 My name is Dame, and I am a conceptual artist and remote tech worker residing in the southeastern United States. 
