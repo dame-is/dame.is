@@ -5,7 +5,7 @@ title: About
 
 Hello there, welcome to my personal website.
 
-My name is Dae, and I am a conceptual artist and remote tech worker residing in the southeastern United States. 
+My name is Dame, and I am a conceptual artist and remote tech worker residing in the southeastern United States. 
 
 I first started publishing on the internet around 2003. This website was created in January 2025 and is a work-in-progress that I add to each month.
 
