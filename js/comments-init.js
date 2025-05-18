@@ -24,9 +24,9 @@ function renderBlueskyComments() {
         return;
     }
 
-    // Always use dame.is as the profile handle since all comments are posted through this account
-    const profileHandle = 'dame.is';
-    const fullUri = `https://bsky.app/profile/${profileHandle}/post/${uri}`;
+    // Use the permanent DID instead of the handle
+    const profileDid = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj';
+    const fullUri = `https://bsky.app/profile/${profileDid}/post/${uri}`;
     console.log('Rendering BlueskyComments with URI:', fullUri);
 
     const root = createRoot(container);
