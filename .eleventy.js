@@ -72,17 +72,9 @@ module.exports = function(eleventyConfig) {
   });
 
   // Filter array elements
-  eleventyConfig.addFilter("filter", function(array, callback) {
+  eleventyConfig.addFilter("filter", function(array) {
     if (!array || !Array.isArray(array)) return [];
-    
-    return array.filter(item => {
-      if (typeof callback === 'function') {
-        return callback(item);
-      } else {
-        // If callback is a string like "segment => segment", evaluate it as a function
-        return item && item !== '';
-      }
-    });
+    return array.filter(item => item && item !== '');
   });
 
   // Filter for filtering pages by folder

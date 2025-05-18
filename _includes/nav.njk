@@ -82,15 +82,17 @@
                 <span class="filepath-link">
                     <a href="/" class="filepath-segment">dame.is</a>
                 </span>
-                {% set pathSegments = page.url | split('/') | filter(segment => segment) %}
+                {% set pathSegments = page.url | split('/') | filter %}
                 {% set currentPath = '' %}
                 {% for segment in pathSegments %}
-                    {% set currentPath = currentPath + '/' + segment %}
-                    {% if not loop.last or segment != 'index.html' %}
-                        <span class="filepath-separator">/</span>
-                        <span class="filepath-link">
-                            <a href="{{ currentPath }}" class="filepath-segment">{{ segment }}</a>
-                        </span>
+                    {% if segment and segment != '' %}
+                        {% set currentPath = currentPath + '/' + segment %}
+                        {% if not loop.last or segment != 'index.html' %}
+                            <span class="filepath-separator">/</span>
+                            <span class="filepath-link">
+                                <a href="{{ currentPath }}" class="filepath-segment">{{ segment }}</a>
+                            </span>
+                        {% endif %}
                     {% endif %}
                 {% endfor %}
             </div>
