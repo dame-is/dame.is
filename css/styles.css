@@ -978,6 +978,7 @@ body.dark-mode .blog-post-excerpt {
     .nav-section {
         flex-direction: column-reverse;
         align-items: flex-start;
+        gap: 10px
     }
 
     /* Top nav left stacks lines, adjust margin as needed */
@@ -2059,7 +2060,7 @@ body.dark-mode .folder-label {
 }
 
 .filepath-nav .link-emoji {
-  margin-right: 8px;
+  margin-right: 15px;
   opacity: 1; /* Ensures the emoji is at 100% opacity */
 }
 
