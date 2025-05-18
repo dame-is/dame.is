@@ -11,13 +11,6 @@ layout: base
     {% set creatingPages = collections.creating | sort(true, false, "date") %}
     
     <table class="creating-table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Date</th>
-          <th>Tags</th>
-        </tr>
-      </thead>
       <tbody>
       {% for page in creatingPages %}
         {% if page.url != '/creating/' and page.data.title %}

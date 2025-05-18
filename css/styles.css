@@ -1895,9 +1895,14 @@ pre {
 
 /* Creating page styles */
 .creating-container {
-  max-width: 1200px;
+  max-width: 900px;
   margin: 0 auto;
   padding: 2rem 1rem;
+}
+
+/* Override main container width just for creating layout */
+main:has(.creating-container) {
+  max-width: 900px;
 }
 
 .creating-container h1 {

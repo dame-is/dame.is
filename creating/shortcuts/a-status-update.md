@@ -1,6 +1,8 @@
 ---
-layout: base
+layout: post
 title: a.status.update
+date: 2025-05-17
+tags: "shortcuts"
 ogImage: /images/shortcuts/a-status-update-og-image.jpg
 excerpt: Post status updates to a dedicated Bluesky account and optionally use your own custom lexicon name for them.
 ---
