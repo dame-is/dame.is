@@ -172,7 +172,6 @@ body.dark-mode nav a:visited {
 
 .nav-links {
     margin-right: 11px; /* Adjust as needed */
-    opacity: 50%;
 }
 
 .nav-links a.nav-link {
@@ -2046,6 +2045,7 @@ body.dark-mode .folder-label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  opacity: 50%;
 }
 
 .filepath-link {

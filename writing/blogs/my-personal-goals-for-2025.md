@@ -7,6 +7,7 @@ author: "Dame"
 excerpt: "Yes, I'm a new year goals person... have been most of my life."
 blueskyUri: "3leact5gkl22t"
 ogImage: "/images/blog/social-images/my-personal-goals-blog.jpg"
+showNewsletter: true
 ---
 
 Yes, I'm a new year goals person... have been most of my life.

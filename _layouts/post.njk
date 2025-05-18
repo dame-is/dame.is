@@ -19,6 +19,7 @@ layout: base
         {{ content | safe }}
     </div>
 
+    {% if showNewsletter %}
     <section id="newsletter-section">
         <div id="newsletter-header">
             <h2>Subscribe to my email newsletter</h2>
@@ -38,11 +39,14 @@ layout: base
             </form>
         </div>
     </section>
+    {% endif %}
 
+    {% if blueskyUri %}
     <section id="comments-section">
         <h2>Comments</h2>
         <div id="bluesky-comments" data-uri="{{ blueskyUri }}"></div>
     </section>
+    {% endif %}
 </article>
 
 {% block scripts %}

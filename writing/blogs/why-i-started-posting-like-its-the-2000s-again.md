@@ -7,6 +7,7 @@ author: "Dame"
 excerpt: "In November of 2007, Facebook made a tiny change to its user interface that would massively influence what we know of today as a 'post' on social media. What was that change?"
 blueskyUri: "3lgvhp7rq622b"
 ogImage: "/images/blog/social-images/why-i-started-blog-image.jpg"
+showNewsletter: true
 ---
 
 In November of 2007, Facebook made a **tiny** change to its user interface that would massively influence what we know of today as a "post" on social media. What was that change?

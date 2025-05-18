@@ -7,6 +7,7 @@ author: "Dame"
 excerpt: "Rhett & Link have a tradition of using their final podcast episode of the year to rank their top 10 moments of the year. These are always some of my favorite episodes of Ear Biscuits, so I thought I should try to do the same thing for myself."
 blueskyUri: "3len3e4oemc2j"
 ogImage: "/images/blog/social-images/my-top-10-moments-blog-image.jpg"
+showNewsletter: true
 ---
 
 Rhett & Link have a tradition of using [their final podcast episode of the year to rank their top 10 moments of the year](https://www.youtube.com/watch?v=LXG_plpS69M). These are always some of my favorite episodes of Ear Biscuits, so I thought I should try to do the same thing for myself.

@@ -7,6 +7,7 @@ author: "Dame"
 excerpt: "As many of you know by now, I am a Lexicon enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly..."
 blueskyUri: "3ljvamka4422e"
 ogImage: "/images/blog/creating-a-decentralized-bathroom-at-protocol.jpg"
+showNewsletter: true
 ---
 
 As many of you know by now, I am a [Lexicon](https://atproto.com/guides/lexicon) enjoyer. So much so that this week I created the world's first bathroom that is connected to the AT Protocol. Yes, you read that correctly...
@@ -56,44 +57,3 @@ is.dame.counting.turtles
 is.dame.tasting.wine
 is.dame.on.the.toilet
 ```
-
-Yes, I have a silly file format for going to the bathroom, cause why not?
-
-<blockquote class="bluesky-embed" data-bluesky-uri="at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3ljppqso5t22w" data-bluesky-cid="bafyreif6zppvorddm2y5xt6yomohc3ejr4hudd7zv6bltutwvpiml54hma"><p lang="en">i like that my domain name (dame.is) reads like a sentence either forwards or backwards
-
-forwards: it's a statement ➡️
-
-backwards: it's a question ⬅️
-
-something very beautiful and sublime about that<br><br><a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/3ljppqso5t22w?ref_src=embed">[image or embed]</a></p>&mdash; dame (<a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj?ref_src=embed">@dame.is</a>) <a href="https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/3ljppqso5t22w?ref_src=embed">Mar 6, 2025 at 9:36 AM</a></blockquote><script async src="https://embed.bsky.app/static/embed.js" charset="utf-8"></script>
-
-Now I know what some of you fellow nerds are thinking... "WHAT ABOUT MY INTEROPERABILITY?!"
-
-I'm not suggesting everyone throw out collectively used lexicons that we all know and love. That would be dumb. What I am saying though is that not all data needs to be interoperable or socially connected out of the box. Yes, I could create a proprietary "am I on the toilet?" app that is a bespoke social network for those of us who post from the toilet... but that would be silly, right? RIGHT!?
-
-## My decentralized bathroom
-
-Here's the stupid, unhinged, out-of-pocket, bat-shit crazy thing that I made this week... 
-
-![A roll of toilet paper in the bathroom with a white stickerk above it](/images/blog/creating-a-decentralized-bathroom-at-protocol.jpg "nfc sticker")
-
-See that white little circular thing above my toilet paper? That's a cheap NFC sticker I bought online in a roll of 50. When I tap my iPhone against it, it instantly creates a record on my AT Protocol PDS under the Lexicon `is.dame.on.the.toilet`, with the `answer` property being `yes`.
-
-Now, anyone can see when the last time I was on the toilet, and the data is hosted on a decentralized network. Lemme guess, your jealous right? Fine, if you say so...
-
-## Introducing im.flushing
-
-That bespoke social network I mentioned earlier? Well... I decided to actually make it. You can create your first post (called a "flush") here: [https://flushing.im/](https://flushing.im/)
-
-It's like [statusphere.xyz](https://statusphere.xyz), but for seeing who's going to the bathroom right now. You login with your Bluesky/ATProto account, choose an emoji, and let the network know you're on the throne. All records are stored in a custom lexicon:
-
-```
-im.flushing.right.now
-```
-
-It's technically my first official AppView for the AT Protocol and my first public lexicon. What a professional way to kick things off! I hope you enjoy it.
-
-Try it here: [https://flushing.im/](https://flushing.im/)
-
-![A promotional screenshot of the app im.flushing](/images/blog/og-image.png "im.flushing promo image")
-

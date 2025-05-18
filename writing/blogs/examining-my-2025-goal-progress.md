@@ -7,6 +7,7 @@ author: "Dame"
 excerpt: "Today is my birthday, and we're almost halfway through the year already, so it feels like a good time to check in on my goals."
 blueskyUri: "3lolyfg6qis2m"
 ogImage: "/images/blog/social-images/examining-my-2025-goal-progress.png"
+showNewsletter: true
 ---
 
 Today is my birthday, and we're almost halfway through the year already, so it feels like a good time to check in on my goals. Let's see how I'm doing...

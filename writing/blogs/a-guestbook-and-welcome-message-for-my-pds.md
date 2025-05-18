@@ -7,6 +7,7 @@ author: "Dame"
 excerpt: "We all know by now that I believe in the lexicon black market and an enjoy illegal atproto records. It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, she wouldn't have invented roller skates."
 blueskyUri: "3loof6k33lc26"
 ogImage: "/images/blog/guestbook-blog.png"
+showNewsletter: true
 ---
 
 We all know by now that [I believe in the lexicon black market](https://bsky.app/profile/dame.is/post/3lo56xss6hk2n) and thus enjoy [illegal atproto records](https://bsky.app/profile/dame.is/post/3lnyoz6es2k2b). It's not my fault that Bluesky PBC allowed for such shenanigans! If the good lord had intended for us to walk, [she wouldn't have invented roller skates](https://www.youtube.com/watch?v=K8Gmd8y_Aiw).
