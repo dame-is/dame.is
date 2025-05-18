@@ -1,12 +1,20 @@
 <footer>
     <div class="footer-container">
-        <!-- Last Updated Section -->
+        <!-- Last Commit Section -->
         <div class="footer-section footer-last-updated">
-            <span class="last-updated-label">Last Updated:</span>
+            <span class="last-updated-label">Last Commit:</span>
             <span class="last-updated-timestamp">
                 {% if page.inputPath %}
                     {% set lastModified = page.inputPath | lastModifiedDate %}
-                    <span title="{{ lastModified | date }}">{{ lastModified | date("relative") }}</span>
+                    {% set commitCommand %}git log -1 --format=%h -- {{ page.inputPath | replace("./", "") }}{% endset %}
+                    {% set commitId = commitCommand | exec | trim %}
+                    {% set repoUrl = "https://github.com/dame-is/dame.is" %}
+                    <span title="{{ lastModified | date }}">
+                        {{ lastModified | date("relative") }}
+                        {% if commitId %}
+                            (<a href="{{ repoUrl }}/commit/{{ commitId }}" target="_blank">{{ commitId }}</a>)
+                        {% endif %}
+                    </span>
                 {% else %}
                     Unknown
                 {% endif %}

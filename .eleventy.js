@@ -65,6 +65,21 @@ module.exports = function(eleventyConfig) {
     return '';
   });
 
+  // Add exec filter to execute shell commands (mainly for git operations)
+  eleventyConfig.addFilter("exec", function(command) {
+    try {
+      const { execSync } = require('child_process');
+      const output = execSync(command, { 
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'ignore']
+      }).trim();
+      return output;
+    } catch (error) {
+      console.warn(`Error executing command "${command}": ${error.message}`);
+      return '';
+    }
+  });
+
   // Split filter for filepath segments
   eleventyConfig.addFilter("split", function(string, separator) {
     if (!string) return [];
