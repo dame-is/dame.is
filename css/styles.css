@@ -976,7 +976,7 @@ body.dark-mode .blog-post-excerpt {
 @media (max-width: 400px) {
     /* Let nav sections stack vertically */
     .nav-section {
-        flex-direction: column;
+        flex-direction: column-reverse;
         align-items: flex-start;
     }
 
@@ -994,7 +994,6 @@ body.dark-mode .blog-post-excerpt {
     /* Adjust font sizes or spacing for stats if needed */
     #bluesky-stats {
         font-size: 0.9em;
-        margin-top: 10px;
     }
 
     .site-title-and-latest-log {
