@@ -991,13 +991,14 @@ body.dark-mode .blog-post-excerpt {
         line-height: 25px;
     }
 
-    .bottom-nav-left {
+    .bottom-nav-right {
         margin-top: 10px;
     }
 
     /* Adjust font sizes or spacing for stats if needed */
     #bluesky-stats {
         font-size: 0.9em;
+        margin-top: 10px;
     }
 
     .site-title-and-latest-log {
