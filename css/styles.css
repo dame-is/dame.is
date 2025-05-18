@@ -31,6 +31,7 @@ main {
     width: 90%;
     padding-left: 0px;
     padding-right: 0px;
+    padding-top: 0px;
 }
 
 p {
@@ -1966,8 +1967,7 @@ main:has(.creating-container) {
 
 .folder-container {
   max-width: 900px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+  margin: 0 auto; 
 }
 
 /* Override main container width just for folder layout */
