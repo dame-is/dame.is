@@ -97,8 +97,8 @@ function formatDateHeader(date) {
 // Function to format date header by day only (for grouping posts and logs)
 function formatDailyDateHeader(date) {
     // For consistent grouping by day, normalize the date by setting hours, minutes, seconds to 0
-    const normalizedDate = new Date(date);
-    normalizedDate.setHours(0, 0, 0, 0);
+    // Create a new date with the local day/month/year to properly handle timezone differences
+    const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
     
     const dayOfLife = getDaysSinceBirthdate(normalizedDate);
     const formattedDate = formatFullDate(normalizedDate);
@@ -114,7 +114,8 @@ function formatDailyDateHeader(date) {
         prefix = '';
     }
     
-    return prefix ? `${prefix}, ${formattedDate} (Day ${dayOfLife})` : `${formattedDate} (Day ${dayOfLife})`;
+    // Return date without the Day number
+    return prefix ? `${prefix}, ${formattedDate}` : formattedDate;
 }
 
 // Function to calculate Day of Life
@@ -1032,8 +1033,8 @@ async function loadRecentPosts(cursor = null) {
         const groups = {};
         posts.forEach(item => {
             const postDate = new Date(item.post.record.createdAt);
-            // Get date part only as a consistent string key for grouping
-            const dateKey = postDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+            // Create a key based on local date in YYYY-MM-DD format to ensure proper timezone handling
+            const dateKey = `${postDate.getFullYear()}-${String(postDate.getMonth() + 1).padStart(2, '0')}-${String(postDate.getDate()).padStart(2, '0')}`;
             
             // Use the daily date header format for display
             const relativeDatestamp = formatDailyDateHeader(postDate);
@@ -1629,8 +1630,8 @@ function initializeLogLoader() {
                 const groups = {};
                 logs.forEach(item => {
                     const logDate = new Date(item.post.record.createdAt);
-                    // Get date part only as a consistent string key for grouping
-                    const dateKey = logDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+                    // Create a key based on local date in YYYY-MM-DD format to ensure proper timezone handling
+                    const dateKey = `${logDate.getFullYear()}-${String(logDate.getMonth() + 1).padStart(2, '0')}-${String(logDate.getDate()).padStart(2, '0')}`;
                     
                     // Use the daily date header format for display
                     const relativeDatestamp = formatDailyDateHeader(logDate);
