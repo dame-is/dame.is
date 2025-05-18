@@ -179,14 +179,14 @@ body.dark-mode nav a:visited {
 }
 
 .pin-emoji {
-    margin-right: 8px;
+    margin-right: 15px;
     font-size: 0.9em;
     opacity: 1;
     vertical-align: middle;
 }
 
 .link-emoji {
-    margin-right: 8px;
+    margin-right: 15px;
     font-size: 0.9em;
     opacity: 1;
     vertical-align: middle;
