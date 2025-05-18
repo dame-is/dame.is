@@ -20,7 +20,12 @@ layout: base
           <td>
             <a href="{{ p.url }}" class="folder-item-title">{{ p.data.title }}</a>
           </td>
-          <td>{{ p.data.date | enhancedDate }}</td>
+          <td>
+            <div class="date-display">
+              <div class="date-primary">{{ p.data.date | enhancedDate }}</div>
+              <div class="date-secondary">Day {{ p.data.date | jsDateString | dayOfLife }}, Year {{ p.data.date | jsDateString | yearOfLife }}</div>
+            </div>
+          </td>
           <td>
             {% set subfolder = p.inputPath | getSubfolder %}
             {% if subfolder %}

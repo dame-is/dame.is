@@ -251,6 +251,56 @@ module.exports = function(eleventyConfig) {
     return isoDate;
   });
 
+  // Add dayOfLife filter to calculate days since birthdate
+  eleventyConfig.addFilter("dayOfLife", function(dateString) {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    
+    // Check if valid date
+    if (isNaN(date.getTime())) {
+      console.warn(`Warning: Invalid date format for dayOfLife: ${dateString}`);
+      return ''; // Return empty string for invalid dates
+    }
+    
+    // Define birthdate
+    const birthdate = new Date('1993-05-07'); // Assuming this is the birthdate used in main.js
+    
+    // Calculate days since birthdate (same as getDaysSinceBirthdate in main.js)
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const utcBirthDate = Date.UTC(birthdate.getFullYear(), birthdate.getMonth(), birthdate.getDate());
+    const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    return Math.floor((utcDate - utcBirthDate) / msPerDay);
+  });
+
+  // Add yearOfLife filter to calculate age/year of life
+  eleventyConfig.addFilter("yearOfLife", function(dateString) {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    
+    // Check if valid date
+    if (isNaN(date.getTime())) {
+      console.warn(`Warning: Invalid date format for yearOfLife: ${dateString}`);
+      return ''; // Return empty string for invalid dates
+    }
+    
+    // Define birthdate
+    const birthdate = new Date('1993-05-07'); // Assuming this is the birthdate used in main.js
+    
+    // Calculate age/year of life
+    let age = date.getFullYear() - birthdate.getFullYear();
+    const m = date.getMonth() - birthdate.getMonth();
+    
+    // Adjust age if birthday hasn't occurred yet in the year
+    if (m < 0 || (m === 0 && date.getDate() < birthdate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  });
+
   return {
     dir: {
       input: ".",
