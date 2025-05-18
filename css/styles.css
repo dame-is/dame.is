@@ -1955,3 +1955,70 @@ main:has(.creating-container) {
   font-size: 0.75rem;
   white-space: nowrap;
 }
+
+.folder-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* Override main container width just for folder layout */
+main:has(.folder-container) {
+  max-width: 900px;
+}
+
+.folder-container h1 {
+  margin-bottom: 1.5rem;
+  font-size: 2.5rem;
+}
+
+.folder-items {
+  margin-top: 2rem;
+}
+
+.folder-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+}
+
+.folder-table th,
+.folder-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.folder-table th {
+  font-weight: bold;
+  background-color: var(--highlight-bg, #f8fafc);
+}
+
+.folder-item-title {
+  font-weight: 600;
+  color: var(--link-color, #3182ce);
+  text-decoration: none;
+}
+
+.folder-item-title:hover {
+  text-decoration: underline;
+}
+
+.folder-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.folder-label {
+  padding: 0.25rem 0.5rem;
+  background-color: var(--tag-bg, #e2e8f0);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+body.dark-mode .folder-label {
+  background-color: var(--tag-bg-dark, #2d3748);
+  color: var(--tag-text-dark, #e2e8f0);
+}

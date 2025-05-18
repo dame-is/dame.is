@@ -46,6 +46,25 @@ module.exports = function(eleventyConfig) {
       .sort((a, b) => new Date(b.data.date) - new Date(a.data.date));
   });
 
+  // Add filter to get subfolder name
+  eleventyConfig.addFilter("getSubfolder", function(inputPath) {
+    if (!inputPath) return '';
+    
+    // Remove leading ./ if present
+    const cleanPath = inputPath.replace(/^\.\//, '');
+    
+    // Split by slashes
+    const parts = cleanPath.split('/');
+    
+    // If there are at least 2 parts (base folder and subfolder)
+    if (parts.length >= 2) {
+      // Return the second part (subfolder)
+      return parts[1];
+    }
+    
+    return '';
+  });
+
   // Filter for filtering pages by folder
   eleventyConfig.addFilter("filterByFolder", function(collection, folderPath) {
     if (!collection || !collection.length) {

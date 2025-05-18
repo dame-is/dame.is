@@ -1,5 +1,5 @@
 ---
-layout: creating
+layout: folder
 title: /creating
 permalink: /creating/
 tags: page

@@ -1,0 +1,41 @@
+---
+layout: base
+---
+
+<div class="folder-container">
+  <h1>{{ title }}</h1>
+  
+  {{ content | safe }}
+  
+  <div class="folder-items">
+    {% set folderPages = collections.all | sort(true, false, "date") %}
+    {% set currentUrl = page.url %}
+    {% set folderPath = currentUrl | replace("/index.html", "") %}
+    
+    <table class="folder-table">
+      <tbody>
+      {% for p in folderPages %}
+        {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
+        <tr>
+          <td>
+            <a href="{{ p.url }}" class="folder-item-title">{{ p.data.title }}</a>
+          </td>
+          <td>{{ p.data.date | enhancedDate }}</td>
+          <td>
+            {% set subfolder = p.inputPath | getSubfolder %}
+            {% if subfolder %}
+              <div class="folder-path">
+                <span class="folder-label">{{ subfolder }}</span>
+              </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% block scripts %}
+{% endblock %} 
