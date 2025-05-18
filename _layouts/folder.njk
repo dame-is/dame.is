@@ -24,7 +24,7 @@ layout: base
     
     {% if subfolders.length > 0 %}
     <div class="subfolders-section">
-      <h2>Subfolders</h2>
+      <h2>Content Groups</h2>
       <div class="subfolder-items">
         {% for subfolder in subfolders %}
           <div class="subfolder-item">
@@ -53,7 +53,7 @@ layout: base
     {% endfor %}
     
     {% if contentPages.length > 0 %}
-    <h2>Contents</h2>
+    <h2>All Content</h2>
     <table class="folder-table">
       <tbody>
       {% for p in contentPages %}
