@@ -77,7 +77,7 @@
            </a>
 
             <!-- House Icon -->
-           <a href="https://dame.is" class="nav-icon nav-icon-house" aria-label="House">
+           <a href="/" class="nav-icon nav-icon-house" aria-label="House">
             <svg class="icon icon-house fa-house" fill="currentColor">
                 <use href="/assets/icons/icons-sprite.svg#icon-house"></use>
             </svg>
@@ -168,64 +168,24 @@
 </div>
 
 <script>
-// Koan data - all numbered koans
-const koans = [
-    "/_data/koans/1_joshus_dog.md",
-    "/_data/koans/2_hyakujos_fox.md",
-    "/_data/koans/3_guteis_finger.md",
-    "/_data/koans/4_a_beardless_foreigner.md",
-    "/_data/koans/5_kyogen_mounts_the_tree.md",
-    "/_data/koans/6_buddha_twirls_a_flower.md",
-    "/_data/koans/7_joshu_washes_the_bowl.md",
-    "/_data/koans/8_keichus_wheel.md",
-    "/_data/koans/9_a_buddha_before_history.md",
-    "/_data/koans/10_seizei_alone_and_poor.md",
-    "/_data/koans/11_joshu_examines_a_monk_in_meditation.md",
-    "/_data/koans/12_zuigan_calls_his_own_master.md",
-    "/_data/koans/13_tokusan_holds_his_bowl.md",
-    "/_data/koans/14_nansen_cuts_the_cat_in_two.md",
-    "/_data/koans/15_tozans_three_blows.md",
-    "/_data/koans/16_bells_and_robes.md",
-    "/_data/koans/17_the_three_calls_of_the_emperors_teacher.md",
-    "/_data/koans/18_tozans_three_pounds.md",
-    "/_data/koans/19_everyday_life_is_the_path.md",
-    "/_data/koans/20_the_enlightened_man.md",
-    "/_data/koans/21_dried_dung.md",
-    "/_data/koans/22_kashapas_preaching_sign.md",
-    "/_data/koans/23_do_not_think_good,_do_not_think_not-good.md",
-    "/_data/koans/24_without_words,_without_silence.md",
-    "/_data/koans/25_preaching_from_the_third_seat.md",
-    "/_data/koans/26_two_monks_roll_up_the_screen.md",
-    "/_data/koans/27_it_is_not_mind,_it_is_not_buddha,_it_is_not_things.md",
-    "/_data/koans/28_blow_out_the_candle.md",
-    "/_data/koans/29_not_the_wind,_not_the_flag.md",
-    "/_data/koans/30_this_mind_is_buddha.md",
-    "/_data/koans/31_joshu_investigates.md",
-    "/_data/koans/32_a_philosopher_asks_buddha.md",
-    "/_data/koans/33_this_mind_is_not_buddha.md",
-    "/_data/koans/34_learning_is_not_the_path.md",
-    "/_data/koans/35_two_souls.md",
-    "/_data/koans/36_meeting_a_zen_master_on_the_road.md",
-    "/_data/koans/37_a_buffalo_passes_through_the_enclosure.md",
-    "/_data/koans/38_an_oak_tree_in_the_garden.md",
-    "/_data/koans/39_ummons_sidetrack.md",
-    "/_data/koans/40_tipping_over_a_water_vase.md",
-    "/_data/koans/41_bodhidharma_pacifies_the_mind.md",
-    "/_data/koans/42_the_girl_comes_out_from_meditation.md",
-    "/_data/koans/43_shuzans_short_staff.md",
-    "/_data/koans/44_bashos_staff.md",
-    "/_data/koans/45_who_is_he.md",
-    "/_data/koans/46_proceed_from_the_top_of_the_pole.md",
-    "/_data/koans/47_three_gates_of_tosotsu.md",
-    "/_data/koans/48_one_road_of_kembo.md",
-    "/_data/koans/49_ambans_addition.md"
-];
+// Koan data - dynamically loaded from _data/koans.js
+const koans = {{ koans | dump | safe }};
 
 // Function to convert markdown to HTML with enhanced support
 function markdownToHtml(markdown) {
-    return markdown
-        // Convert blockquotes
-        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+    // First, combine consecutive blockquotes into a single blockquote
+    let processedMarkdown = markdown.replace(/^>(.*?)$([\n\r]*?)(?=>|$)/gm, (match, content) => {
+        // Trim whitespace but preserve line breaks within the blockquote
+        return `> ${content.trim()}\n`;
+    });
+
+    return processedMarkdown
+        // Convert blockquotes (now handling multi-line quotes better)
+        .replace(/^> (.*?)$([\n\r]*?(?:^> .*?$[\n\r]*?)*)/gm, (match) => {
+            // Remove the '> ' prefix from each line and wrap in blockquote
+            const content = match.replace(/^> /gm, '');
+            return `<blockquote>${content}</blockquote>`;
+        })
         // Convert headers
         .replace(/^# (.*$)/gm, '<h1>$1</h1>')
         .replace(/^## (.*$)/gm, '<h2>$1</h2>')
@@ -240,8 +200,6 @@ function markdownToHtml(markdown) {
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
         // Convert lists
         .replace(/^\* (.*$)/gm, '<li>$1</li>')
-        // Wrap adjacent blockquotes
-        .replace(/<\/blockquote>\n<blockquote>/g, '\n')
         // Convert paragraphs (must come last)
         .split('\n\n').map(para => {
             if (para.startsWith('<')) return para; // Skip if it's already HTML
