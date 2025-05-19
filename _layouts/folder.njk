@@ -116,12 +116,29 @@ layout: base
     background-color: rgba(128, 128, 128, 0.3);
     padding: 0.1rem 0.4rem;
   }
+
+  /* Table border styles */
+  .folder-table {
+    border-collapse: collapse;
+  }
+  
+  .folder-table th, .folder-table td {
+    border: 1px solid rgba(200, 200, 200, 0.1);
+    padding: 0.75rem;
+  }
+  
+  /* Dark mode table border styles */
+  body.dark-mode .folder-table th, 
+  body.dark-mode .folder-table td {
+    border-color: rgba(80, 80, 80, 0.3);
+  }
   
   /* Responsive table styles for mobile */
   @media (max-width: 600px) {
     .folder-table {
       width: 100%;
       display: block;
+      border: none;
     }
     
     .folder-table tbody {
@@ -131,30 +148,51 @@ layout: base
     .folder-table tr {
       display: grid;
       grid-template-columns: 1fr;
-      padding: 1rem 0;
+      padding: 1rem;
       grid-template-areas: 
         "title"
         "date"
         "folder";
+      margin-bottom: 1rem;
+      background-color: #ffffff;
+      border: 1px solid #7a7a7a36;
+      transition: background-color 0.2s ease;
+    }
+    
+    .folder-table tr:hover {
+      background-color: #f8f8f8;
+    }
+    
+    /* Dark mode card styles for mobile */
+    body.dark-mode .folder-table tr {
+      background-color: #1e1e1e;
+      border: 1px solid #7a7a7a36;
+    }
+    
+    body.dark-mode .folder-table tr:hover {
+      background-color: #2a2a2a;
     }
     
     .folder-table td {
       display: block;
-      padding: 0.25rem 0;
       border: none;
       max-width: 400px;
     }
     
     .folder-table td:nth-child(1) {
       grid-area: title;
+      padding-bottom: 0.5rem;
     }
     
     .folder-table td:nth-child(2) {
       grid-area: date;
+      padding-top: 0.25rem;
+      padding-bottom: 0.5rem;
     }
     
     .folder-table td:nth-child(3) {
       grid-area: folder;
+      padding-top: 0.25rem;
     }
     
     .folder-item-title {
@@ -163,7 +201,7 @@ layout: base
     }
     
     .date-display {
-      margin: 0 0 0.5rem 0;
+      margin: 0;
     }
   }
 </style> 
