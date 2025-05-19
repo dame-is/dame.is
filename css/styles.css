@@ -776,7 +776,6 @@ body.dark-mode .post-counts .count-item {
     color: var(--text-color);
     padding: 15px 15px 25px 15px;
     margin: 20px 0px 20px 0px;
-    border-radius: 5px;
     border: 1px solid #ccc;
     overflow: visible; 
     max-width: 100%; 
