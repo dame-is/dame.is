@@ -3,8 +3,8 @@ layout: post
 title: Flushes
 date: 2025-03-08
 blueskyUri: "3ljvamka4422e"
-ogImage: /images/shortcuts/flushes-og-image.jpg
-excerpt: Fast travel between Bluesky clients, ATProto services, or PDS explorers with this Apple Shortcut.
+ogImage: /images/software/flushes-og-image.jpg
+excerpt: A tiny satirical social media app for posting when you're on the toilet.
 ---
 
 A tiny satirical social media app for posting when you're on the toilet.

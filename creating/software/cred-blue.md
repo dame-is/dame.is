@@ -3,7 +3,7 @@ layout: post
 title: cred.blue
 date: 2025-02-20
 blueskyUri: "3limlc76f422w"
-ogImage: /images/shortcuts/credblue-og-image.jpg
+ogImage: /images/software/credblue-og-image.jpg
 excerpt: Generate a Bluesky score, see your ATProto data footprint, vibe check strangers and new accounts.
 ---
 
