@@ -12,13 +12,14 @@ Quickly share old-school status updates to a Bluesky account or custom lexicon w
 Read more about the inspiration behind this project and trend in [a blog post I wrote about it](https://dame.is/writing/blogs/why-i-started-posting-like-its-the-2000s-again/). Discover more status update accounts via [the Bluesky list/feed]( https://bsky.app/profile/dame.is/lists/3loy6eehhef2k). To have your status update account added to the list, mention @dame.is.
 
 <div class="responsive-iframe-container">
-
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/DV-mYClT_Tc?si=-9w82-cLt6m_5dNW&amp;controls=0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
 </div>
 
 ## Features
 
 - post to 2 different accounts at once
 - use a custom lexicon, the bsky post lex, or both
+- foundation for dynamic bios
 - supports did:web
 - works with third-party PDS accounts
 - update notification if new version is available
