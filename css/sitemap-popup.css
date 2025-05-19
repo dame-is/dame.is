@@ -338,31 +338,6 @@ body.dark-mode .sitemap-node-toggle:hover {
 body.sitemap-open {
   overflow: hidden;
 }
-
-/* Overlay when popup is open on mobile */
-@media (max-width: 768px) {
-  body.sitemap-open::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 997;
-  }
-  
-  .sitemap-popup {
-    width: 90%;
-    max-height: 70vh;
-
-  }
-  
-  .sitemap-popup.open {
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
 /* Allow scrolling within popup content */
 .sitemap-popup-content {
   -webkit-overflow-scrolling: touch;
