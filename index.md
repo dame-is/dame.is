@@ -1,11 +1,11 @@
 ---
 layout: base
-title: About
+title: Welcome
 ---
 
-# About
+# Welcome
 
-Welcome to my digital home.
+This is my digital home.
 
 My name is Dame, and I am a conceptual artist and remote tech worker residing in the southeastern United States.
 
