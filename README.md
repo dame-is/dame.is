@@ -19,4 +19,8 @@ This is the github repo for my website! Welcome!
 - working copy
 - apple shortcuts
 
+### credits
+
+- [gateless gate koan collection](https://github.com/drproteus/the-gateless-gate)
+
 More info coming soon...

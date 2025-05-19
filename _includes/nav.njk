@@ -21,7 +21,6 @@
     <!-- PINNED LINKS SECTION -->
     <div class="nav-section bottom-nav">
         <div class="nav-left bottom-nav-left">
-            <span class="pin-emoji">📌</span>
             <div class="nav-links">
                 <a href="/writing" class="nav-link {% if page.url.startsWith('/writing/') %}active{% endif %}">/writing</a>
                 <a href="/creating" class="nav-link {% if page.url.startsWith('/creating/') %}active{% endif %}">/creating</a>
@@ -55,19 +54,40 @@
                 <use href="/assets/icons/icons-sprite.svg#icon-discord"></use>
             </svg>
            </a>
-        
-            <!-- Theme Toggle -->
-            <button id="theme-toggle" aria-label="Toggle theme" class="theme-toggle-button">
-                <svg class="icon fa-moon" fill="currentColor">
-                    <use href="/assets/icons/icons-sprite.svg#icon-moon"></use>
-                </svg>
-            </button>
+
+           <!-- Arena Icon -->
+           <a href="https://are.na/dame" target="_blank" rel="noopener noreferrer" class="nav-icon" aria-label="Are.na Profile">
+            <svg class="icon fa-arena" fill="currentColor">
+                <use href="/assets/icons/icons-sprite.svg#icon-arena"></use>
+            </svg>
+           </a>
+
+            <!-- Dharma Icon -->
+           <a href="#" class="nav-icon" aria-label="Dharma" id="dharma-toggle-button">
+            <svg class="icon fa-dharmna" fill="currentColor">
+                <use href="/assets/icons/icons-sprite.svg#icon-dharma"></use>
+            </svg>
+           </a>
+
+            <!-- Hourglass Icon -->
+           <a href="#" class="nav-icon" aria-label="Hourglass" id="hourglass-toggle-button">
+            <svg class="icon fa-hourglass" fill="currentColor">
+                <use href="/assets/icons/icons-sprite.svg#icon-hourglass"></use>
+            </svg>
+           </a>
+
+            <!-- House Icon -->
+           <a href="https://dame.is" class="nav-icon" aria-label="House">
+            <svg class="icon fa-house" fill="currentColor">
+                <use href="/assets/icons/icons-sprite.svg#icon-house"></use>
+            </svg>
+           </a>
         </div>  
         <!-- Left side - Bluesky Stats -->
         <div class="nav-left bottom-nav-left">
             <span id="bluesky-stats">
-                <span style="font-weight: bold;" id="followers">-</span> followers
-                <span style="font-weight: bold; padding-left: 5px;" id="following">-</span> following
+                <span style="font-weight: bold;" id="followers">0</span> followers
+                <span style="font-weight: bold; padding-left: 5px;" id="following">0</span> following
                 <!-- Temporarily removed posts and replies counts
                 <span style="font-weight: bold; padding-left: 5px;" id="posts">-</span> posts
                 <span style="font-weight: bold; padding-left: 5px;" id="replies">-</span> replies
@@ -100,4 +120,259 @@
             </div>
         </div>
     </div> -->
-</nav> 
+</nav>
+
+<!-- Dharma Popup -->
+<div id="dharma-backdrop" class="settings-backdrop"></div>
+<div id="dharma-popup" class="settings-popup">
+    <div class="settings-popup-header">
+        <div class="settings-title-container">
+            <h3 class="settings-title">Random Koan</h3>
+            <div class="settings-subtitle">from The Gateless Gate</div>
+        </div>
+        <div class="settings-header-actions">
+            <button id="dharma-close-button" class="settings-close-button" aria-label="Close koan">
+                <span>✕</span>
+            </button>
+        </div>
+    </div>
+    <div class="settings-popup-content">
+        <div id="dharma-content" class="settings-content">
+            <!-- Koan text will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<!-- Hourglass Popup -->
+<div id="hourglass-backdrop" class="settings-backdrop"></div>
+<div id="hourglass-popup" class="settings-popup">
+    <div class="settings-popup-header">
+        <div class="settings-title-container">
+            <h3 class="settings-title">Time</h3>
+            <div class="settings-subtitle">dame.is</div>
+        </div>
+        <div class="settings-header-actions">
+            <button id="hourglass-close-button" class="settings-close-button" aria-label="Close time">
+                <span>✕</span>
+            </button>
+        </div>
+    </div>
+    <div class="settings-popup-content">
+        <div id="hourglass-content" class="settings-content">
+            <div id="current-time" class="time-display"></div>
+            <div id="day-of-year" class="time-display"></div>
+            <div id="current-date" class="time-display"></div>
+            <div id="life-days" class="time-display"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Koan data - all numbered koans
+const koans = [
+    "/_data/koans/1_joshus_dog.md",
+    "/_data/koans/2_hyakujos_fox.md",
+    "/_data/koans/3_guteis_finger.md",
+    "/_data/koans/4_a_beardless_foreigner.md",
+    "/_data/koans/5_kyogen_mounts_the_tree.md",
+    "/_data/koans/6_buddha_twirls_a_flower.md",
+    "/_data/koans/7_joshu_washes_the_bowl.md",
+    "/_data/koans/8_keichus_wheel.md",
+    "/_data/koans/9_a_buddha_before_history.md",
+    "/_data/koans/10_seizei_alone_and_poor.md",
+    "/_data/koans/11_joshu_examines_a_monk_in_meditation.md",
+    "/_data/koans/12_zuigan_calls_his_own_master.md",
+    "/_data/koans/13_tokusan_holds_his_bowl.md",
+    "/_data/koans/14_nansen_cuts_the_cat_in_two.md",
+    "/_data/koans/15_tozans_three_blows.md",
+    "/_data/koans/16_bells_and_robes.md",
+    "/_data/koans/17_the_three_calls_of_the_emperors_teacher.md",
+    "/_data/koans/18_tozans_three_pounds.md",
+    "/_data/koans/19_everyday_life_is_the_path.md",
+    "/_data/koans/20_the_enlightened_man.md",
+    "/_data/koans/21_dried_dung.md",
+    "/_data/koans/22_kashapas_preaching_sign.md",
+    "/_data/koans/23_do_not_think_good,_do_not_think_not-good.md",
+    "/_data/koans/24_without_words,_without_silence.md",
+    "/_data/koans/25_preaching_from_the_third_seat.md",
+    "/_data/koans/26_two_monks_roll_up_the_screen.md",
+    "/_data/koans/27_it_is_not_mind,_it_is_not_buddha,_it_is_not_things.md",
+    "/_data/koans/28_blow_out_the_candle.md",
+    "/_data/koans/29_not_the_wind,_not_the_flag.md",
+    "/_data/koans/30_this_mind_is_buddha.md",
+    "/_data/koans/31_joshu_investigates.md",
+    "/_data/koans/32_a_philosopher_asks_buddha.md",
+    "/_data/koans/33_this_mind_is_not_buddha.md",
+    "/_data/koans/34_learning_is_not_the_path.md",
+    "/_data/koans/35_two_souls.md",
+    "/_data/koans/36_meeting_a_zen_master_on_the_road.md",
+    "/_data/koans/37_a_buffalo_passes_through_the_enclosure.md",
+    "/_data/koans/38_an_oak_tree_in_the_garden.md",
+    "/_data/koans/39_ummons_sidetrack.md",
+    "/_data/koans/40_tipping_over_a_water_vase.md",
+    "/_data/koans/41_bodhidharma_pacifies_the_mind.md",
+    "/_data/koans/42_the_girl_comes_out_from_meditation.md",
+    "/_data/koans/43_shuzans_short_staff.md",
+    "/_data/koans/44_bashos_staff.md",
+    "/_data/koans/45_who_is_he.md",
+    "/_data/koans/46_proceed_from_the_top_of_the_pole.md",
+    "/_data/koans/47_three_gates_of_tosotsu.md",
+    "/_data/koans/48_one_road_of_kembo.md",
+    "/_data/koans/49_ambans_addition.md"
+];
+
+// Function to convert markdown to HTML with enhanced support
+function markdownToHtml(markdown) {
+    return markdown
+        // Convert blockquotes
+        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Convert headers
+        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+        // Convert italics
+        .replace(/_([^_]+)_/g, '<em>$1</em>')
+        // Convert bold
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        // Convert code blocks
+        .replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>')
+        // Convert links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+        // Convert lists
+        .replace(/^\* (.*$)/gm, '<li>$1</li>')
+        // Wrap adjacent blockquotes
+        .replace(/<\/blockquote>\n<blockquote>/g, '\n')
+        // Convert paragraphs (must come last)
+        .split('\n\n').map(para => {
+            if (para.startsWith('<')) return para; // Skip if it's already HTML
+            return `<p>${para.replace(/\n/g, '<br>')}</p>`;
+        }).join('\n');
+}
+
+// Function to toggle popups
+function togglePopup(popupId, backdropId) {
+    const popup = document.getElementById(popupId);
+    const backdrop = document.getElementById(backdropId);
+    
+    if (popup.classList.contains('open')) {
+        popup.classList.remove('open');
+        backdrop.classList.remove('open');
+        document.body.classList.remove('settings-open');
+    } else {
+        popup.classList.add('open');
+        backdrop.classList.add('open');
+        document.body.classList.add('settings-open');
+    }
+}
+
+// Function to load random koan
+async function loadRandomKoan() {
+    const randomIndex = Math.floor(Math.random() * koans.length);
+    try {
+        const response = await fetch(koans[randomIndex]);
+        const markdown = await response.text();
+        const html = markdownToHtml(markdown);
+        document.getElementById('dharma-content').innerHTML = html;
+    } catch (error) {
+        console.error('Error loading koan:', error);
+    }
+}
+
+// Function to update time display
+function updateTimeDisplay() {
+    const now = new Date();
+    const birthDate = new Date('1993-05-07');
+    const startOfYear = new Date(now.getFullYear(), 0, 0);
+    const diff = now - startOfYear;
+    const oneDay = 1000 * 60 * 60 * 24;
+    const dayOfYear = Math.floor(diff / oneDay);
+    const lifeDays = Math.floor((now - birthDate) / oneDay) + 1;
+    
+    // Calculate current year of life (age)
+    const age = Math.floor((now - birthDate) / (oneDay * 365.25));
+
+    document.getElementById('current-time').textContent = now.toLocaleTimeString('en-US', { 
+        timeZone: 'America/New_York',
+        hour12: true,
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit'
+    }) + ' EST';
+    document.getElementById('day-of-year').textContent = `Day ${dayOfYear} / 365`;
+    document.getElementById('current-date').textContent = now.toLocaleDateString('en-US', { 
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    document.getElementById('life-days').textContent = `Day ${lifeDays} / Year ${age}`;
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Dharma popup functionality
+    const dharmaButton = document.getElementById('dharma-toggle-button');
+    const dharmaCloseButton = document.getElementById('dharma-close-button');
+    const dharmaBackdrop = document.getElementById('dharma-backdrop');
+
+    dharmaButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        loadRandomKoan();
+        togglePopup('dharma-popup', 'dharma-backdrop');
+    });
+    dharmaCloseButton.addEventListener('click', () => togglePopup('dharma-popup', 'dharma-backdrop'));
+    dharmaBackdrop.addEventListener('click', () => togglePopup('dharma-popup', 'dharma-backdrop'));
+
+    // Hourglass popup functionality
+    const hourglassButton = document.getElementById('hourglass-toggle-button');
+    const hourglassCloseButton = document.getElementById('hourglass-close-button');
+    const hourglassBackdrop = document.getElementById('hourglass-backdrop');
+
+    hourglassButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        updateTimeDisplay();
+        togglePopup('hourglass-popup', 'hourglass-backdrop');
+    });
+    hourglassCloseButton.addEventListener('click', () => togglePopup('hourglass-popup', 'hourglass-backdrop'));
+    hourglassBackdrop.addEventListener('click', () => togglePopup('hourglass-popup', 'hourglass-backdrop'));
+
+    // Update time display every second when hourglass popup is open
+    setInterval(() => {
+        if (document.getElementById('hourglass-popup').classList.contains('open')) {
+            updateTimeDisplay();
+        }
+    }, 1000);
+
+    // Keyboard shortcuts for dharma and hourglass popups
+    document.addEventListener('keydown', function(event) {
+        // Only trigger if not typing in an input field and no modifier keys are pressed
+        if (!event.ctrlKey && !event.metaKey && !event.isComposing && 
+            !event.target.closest('input, textarea, select')) {
+            
+            // 'D' key toggles the dharma popup
+            if (event.key.toLowerCase() === 'd') {
+                event.preventDefault();
+                loadRandomKoan();
+                togglePopup('dharma-popup', 'dharma-backdrop');
+            }
+            
+            // 'T' key toggles the time popup
+            if (event.key.toLowerCase() === 't') {
+                event.preventDefault();
+                updateTimeDisplay();
+                togglePopup('hourglass-popup', 'hourglass-backdrop');
+            }
+        }
+
+        // ESC key closes any open popup
+        if (event.key === 'Escape') {
+            if (document.getElementById('dharma-popup').classList.contains('open')) {
+                togglePopup('dharma-popup', 'dharma-backdrop');
+            }
+            if (document.getElementById('hourglass-popup').classList.contains('open')) {
+                togglePopup('hourglass-popup', 'hourglass-backdrop');
+            }
+        }
+    });
+});
+</script> 

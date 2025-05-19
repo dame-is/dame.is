@@ -4,6 +4,33 @@ const GITHUB_USERNAME = 'dame-is'; // Your GitHub username
 const GITHUB_REPO = 'dame.is'; // Your repository name
 const GITHUB_BRANCH = 'main'; // Your branch name
 
+// ----------------------------------
+// FONT SIZE AND THEME MANAGEMENT
+// ----------------------------------
+
+// Apply font size from localStorage on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Apply saved font size
+  const savedFontSize = localStorage.getItem('fontSize') || 'medium';
+  document.body.classList.add(`font-${savedFontSize}`);
+  
+  // Apply saved theme
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'dark') {
+    document.body.classList.add('dark-mode');
+  }
+});
+
+// Function to change font size
+function changeFontSize(size) {
+  // Remove existing font size classes
+  document.body.classList.remove('font-small', 'font-medium', 'font-large');
+  // Add the new size class
+  document.body.classList.add(`font-${size}`);
+  // Save preference to localStorage
+  localStorage.setItem('fontSize', size);
+}
+
 /**
  * Constructs the Bluesky post URL from post.uri
  * @param {string} postUri - The URI of the post (e.g., "at://did:plc:.../app.bsky.feed.post/...")

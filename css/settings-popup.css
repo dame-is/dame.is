@@ -1,0 +1,376 @@
+/* Floating Settings Button and Popup Styles */
+
+/* Button Container */
+.settings-button-container {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;  /* Position on the left side, opposite to sitemap */
+  z-index: 998;
+}
+
+/* Toggle Button */
+.settings-toggle-button {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: #f0f0f0;
+  color: #555;
+  border: 1px solid #7a7a7a36;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-toggle-button:hover {
+  transform: scale(1.05);
+  background-color: #e0e0e0;
+}
+
+body.dark-mode .settings-toggle-button {
+  background-color: #1e1e1e;
+  border: 1px solid #7a7a7a36;
+  color: #aaa;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .settings-toggle-button:hover {
+  background-color: #282828;
+}
+
+.settings-toggle-button:active {
+  transform: scale(0.95);
+}
+
+/* Emoji inside button */
+.settings-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Popup Container */
+.settings-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  width: 85%;
+  max-width: 400px;
+  max-height: 80vh;
+  background-color: var(--bg-secondary, #f5f5f5);
+  border-radius: 0;
+  border: 1px solid #7a7a7a36;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  will-change: transform;
+  transform-origin: center center;
+  /* Ensure position is defined before first animation */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Set initial position to prevent first-load jump */
+  top: 50% !important;
+  left: 50% !important;
+}
+
+/* Dark mode popup */
+body.dark-mode .settings-popup {
+  background-color: var(--bg-secondary-dark, #1e1e1e);
+  border: 1px solid #7a7a7a36;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* When popup is open */
+.settings-popup.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -55%) scale(1);
+}
+
+/* Popup Header */
+.settings-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.dark-mode .settings-popup-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Close Button */
+.settings-close-button {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #666;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.settings-close-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+body.dark-mode .settings-close-button {
+  color: #aaa;
+}
+
+body.dark-mode .settings-close-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #eee;
+}
+
+/* Header actions container */
+.settings-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Popup Content */
+.settings-popup-content {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Settings Content */
+.settings-content {
+  font-size: 0.95rem;
+}
+
+/* Settings title container */
+.settings-title-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Settings title */
+.settings-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text-primary, #333);
+}
+
+/* Settings subtitle */
+.settings-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #666);
+  margin-top: 2px;
+}
+
+body.dark-mode .settings-subtitle {
+  color: var(--text-secondary-dark, #aaa);
+}
+
+/* Settings option container */
+.settings-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.settings-option:last-child {
+  border-bottom: none;
+}
+
+body.dark-mode .settings-option {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Settings option label */
+.settings-option-label {
+  font-weight: 500;
+  color: var(--text-primary, #333);
+}
+
+body.dark-mode .settings-option-label {
+  color: var(--text-primary-dark, #eee);
+}
+
+/* Settings control container */
+.settings-option-control {
+  display: flex;
+  align-items: center;
+}
+
+/* Settings checkbox */
+.settings-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Settings select */
+.settings-select {
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background-color: var(--bg-primary, #fff);
+  color: var(--text-primary, #333);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+body.dark-mode .settings-select {
+  background-color: var(--bg-primary-dark, #2a2a2a);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary-dark, #eee);
+}
+
+/* Backdrop overlay for when settings is open */
+.settings-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 997;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s;
+}
+
+.settings-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+body.dark-mode .settings-backdrop {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+/* Time display styles */
+.time-display {
+    font-size: 1.2rem;
+    font-family: monospace;
+    margin: 10px 0;
+    padding: 10px;
+    background-color: var(--bg-primary, #f8f8f8);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.dark-mode .time-display {
+    background-color: var(--bg-primary-dark, #2a2a2a);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Dharma content styles */
+#dharma-content {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    padding: 20px;
+    text-align: left;
+}
+
+#dharma-content h1 {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+    text-align: center;
+    color: var(--text-primary);
+}
+
+#dharma-content blockquote {
+    margin: 1rem 0;
+    padding: 1rem;
+    background-color: var(--bg-primary);
+    border-left: 3px solid var(--text-secondary);
+    font-style: italic;
+}
+
+/* Poetry sections (in code blocks) */
+#dharma-content pre {
+    margin: 1.5rem 0;
+    padding: 1.5rem 1rem;
+    background-color: var(--bg-primary);
+    border: none;
+    font-family: var(--font-serif, serif);
+    white-space: pre-wrap;       /* preserve newlines, but wrap text */
+    word-wrap: break-word;       /* break long words */
+    overflow-wrap: break-word;   /* modern version of word-wrap */
+    text-align: center;
+    font-style: italic;
+    position: relative;
+    overflow: visible;
+    max-width: 100%;            /* ensure container doesn't overflow */
+    box-sizing: border-box;     /* include padding in width calculation */
+}
+
+#dharma-content pre::before,
+#dharma-content pre::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: min(50px, 30%);     /* responsive line width */
+    height: 1px;
+    background-color: var(--text-secondary);
+    transform: translateX(-50%);
+}
+
+#dharma-content pre::before {
+    top: 0;
+}
+
+#dharma-content pre::after {
+    bottom: 0;
+}
+
+#dharma-content pre code {
+    background: none;
+    padding: 0;
+    font-size: clamp(0.9rem, 2.5vw, 1rem); /* responsive font size */
+    color: var(--text-primary);
+    font-family: inherit;
+    display: block;             /* ensure full width */
+    width: 100%;               /* take full width of container */
+    white-space: pre-wrap;     /* ensure consistent wrapping */
+    word-wrap: break-word;
+}
+
+#dharma-content p {
+    margin: 1rem 0;
+}
+
+body.dark-mode #dharma-content blockquote {
+    background-color: var(--bg-primary-dark);
+    border-left-color: var(--text-secondary-dark);
+}
+
+body.dark-mode #dharma-content pre {
+    background-color: var(--bg-primary-dark);
+}
+
+body.dark-mode #dharma-content pre::before,
+body.dark-mode #dharma-content pre::after {
+    background-color: var(--text-secondary-dark);
+}
+
+/* Body class when settings is open */
+body.settings-open {
+    overflow: hidden;
+} 

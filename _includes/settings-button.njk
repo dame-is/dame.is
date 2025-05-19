@@ -1,0 +1,201 @@
+<!-- Floating Settings Button and Popup -->
+<div class="settings-button-container">
+  <button id="settings-toggle-button" class="settings-toggle-button" aria-label="Toggle settings">
+    <span class="settings-emoji">⚙️</span>
+  </button>
+</div>
+
+<!-- Backdrop for blur effect -->
+<div id="settings-backdrop" class="settings-backdrop"></div>
+
+<div id="settings-popup" class="settings-popup">
+  <div class="settings-popup-header">
+    <div class="settings-title-container">
+      <h3 class="settings-title">Settings</h3>
+      <div class="settings-subtitle">dame.is</div>
+    </div>
+    <div class="settings-header-actions">
+      <button id="settings-close-button" class="settings-close-button" aria-label="Close settings">
+        <span>✕</span>
+      </button>
+    </div>
+  </div>
+  <div class="settings-popup-content">
+    <div id="settings-content" class="settings-content">
+      <!-- Theme settings -->
+      <div class="settings-group">
+        <h4 class="settings-group-title">Theme</h4>
+        <div class="settings-option">
+          <label for="dark-mode-toggle" class="settings-option-label">Dark Mode</label>
+          <div class="settings-option-control">
+            <input type="checkbox" id="dark-mode-toggle" class="settings-checkbox" />
+          </div>
+        </div>
+        <div class="settings-option">
+          <label for="font-size" class="settings-option-label">Font Size</label>
+          <div class="settings-option-control">
+            <select id="font-size" class="settings-select">
+              <option value="small">Small</option>
+              <option value="medium" selected>Medium</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation settings -->
+      <div class="settings-group">
+        <h4 class="settings-group-title">Navigation Bar</h4>
+        <div class="settings-option">
+          <label for="show-pinned-links" class="settings-option-label">Show Pinned Links</label>
+          <div class="settings-option-control">
+            <input type="checkbox" id="show-pinned-links" class="settings-checkbox" checked />
+          </div>
+        </div>
+        <div class="settings-option">
+          <label for="show-social-stats" class="settings-option-label">Show Social Icons & Stats</label>
+          <div class="settings-option-control">
+            <input type="checkbox" id="show-social-stats" class="settings-checkbox" checked />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Make toggleSettings function available globally
+  window.toggleSettings = function() {
+    const settingsPopup = document.getElementById('settings-popup');
+    const settingsBackdrop = document.getElementById('settings-backdrop');
+    
+    if (settingsPopup.classList.contains('open')) {
+      settingsPopup.classList.remove('open');
+      settingsBackdrop.classList.remove('open');
+      document.body.classList.remove('settings-open');
+    } else {
+      settingsPopup.classList.add('open');
+      settingsBackdrop.classList.add('open');
+      document.body.classList.add('settings-open');
+      
+      // Initialize settings values when opening
+      initializeSettings();
+    }
+  };
+  
+  // Define the initialization function to be called when the DOM is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    // Get references to elements
+    const toggleButton = document.getElementById('settings-toggle-button');
+    const closeButton = document.getElementById('settings-close-button');
+    const settingsPopup = document.getElementById('settings-popup');
+    
+    // Fix for first-time animation issues on mobile
+    // We initially set the popup with no transition, then add it after a small delay
+    settingsPopup.style.transition = 'none';
+    setTimeout(function() {
+      settingsPopup.style.transition = 'opacity 0.25s ease, transform 0.25s ease, visibility 0.25s';
+    }, 100);
+    
+    // Initialize settings functionality
+    function initializeSettings() {
+      // Dark mode toggle initialization
+      const darkModeToggle = document.getElementById('dark-mode-toggle');
+      if (darkModeToggle) {
+        // Set initial state based on current mode
+        darkModeToggle.checked = document.body.classList.contains('dark-mode');
+        
+        // Add event listener
+        darkModeToggle.addEventListener('change', function() {
+          if (this.checked) {
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('theme', 'dark');
+          } else {
+            document.body.classList.remove('dark-mode');
+            localStorage.setItem('theme', 'light');
+          }
+        });
+      }
+      
+      // Font size selection initialization
+      const fontSizeSelect = document.getElementById('font-size');
+      if (fontSizeSelect) {
+        // Get current font size from local storage or default to medium
+        const currentFontSize = localStorage.getItem('fontSize') || 'medium';
+        fontSizeSelect.value = currentFontSize;
+        
+        // Add event listener
+        fontSizeSelect.addEventListener('change', function() {
+          const newSize = this.value;
+          // Remove any existing font size classes
+          document.body.classList.remove('font-small', 'font-medium', 'font-large');
+          // Add the new font size class
+          document.body.classList.add(`font-${newSize}`);
+          // Save to local storage
+          localStorage.setItem('fontSize', newSize);
+        });
+        
+        // Apply the font size on load
+        document.body.classList.add(`font-${currentFontSize}`);
+      }
+
+      // Navigation visibility settings initialization
+      const pinnedLinksToggle = document.getElementById('show-pinned-links');
+      const socialStatsToggle = document.getElementById('show-social-stats');
+
+      if (pinnedLinksToggle && socialStatsToggle) {
+        // Get current states from localStorage or default to true
+        const showPinnedLinks = localStorage.getItem('showPinnedLinks') !== 'false';
+        const showSocialStats = localStorage.getItem('showSocialStats') !== 'false';
+
+        // Set initial states
+        pinnedLinksToggle.checked = showPinnedLinks;
+        socialStatsToggle.checked = showSocialStats;
+
+        // Apply initial states to the nav sections
+        document.body.classList.toggle('hide-pinned-links', !showPinnedLinks);
+        document.body.classList.toggle('hide-social-stats', !showSocialStats);
+
+        // Add event listeners
+        pinnedLinksToggle.addEventListener('change', function() {
+          document.body.classList.toggle('hide-pinned-links', !this.checked);
+          localStorage.setItem('showPinnedLinks', this.checked);
+        });
+
+        socialStatsToggle.addEventListener('change', function() {
+          document.body.classList.toggle('hide-social-stats', !this.checked);
+          localStorage.setItem('showSocialStats', this.checked);
+        });
+      }
+    }
+    
+    // Add all the functions to the global scope
+    window.initializeSettings = initializeSettings;
+    
+    // Add event listeners to toggle settings
+    toggleButton.addEventListener('click', window.toggleSettings);
+    closeButton.addEventListener('click', window.toggleSettings);
+    
+    // Make settings toggle work with 'S' key shortcut
+    document.addEventListener('keydown', function(event) {
+      // 'S' key toggles the settings
+      if (event.key === 's' && !event.ctrlKey && !event.metaKey && 
+          !event.isComposing && !event.target.closest('input, textarea, select')) {
+        event.preventDefault();
+        window.toggleSettings();
+      }
+      
+      // ESC key closes the settings
+      if (event.key === 'Escape' && document.getElementById('settings-popup').classList.contains('open')) {
+        window.toggleSettings();
+      }
+    });
+    
+    // Add click event to backdrop to close settings
+    const settingsBackdrop = document.getElementById('settings-backdrop');
+    settingsBackdrop.addEventListener('click', window.toggleSettings);
+
+    // Initialize settings on page load
+    initializeSettings();
+  });
+</script> 

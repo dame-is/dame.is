@@ -134,6 +134,7 @@ body.dark-mode footer {
     align-items: center;
     padding: 20px 20px; /* Adjust vertical spacing as needed */
     border-bottom: 1px solid #7a7a7a36;
+    gap: 10px;
 }
 
 .nav-section.top-nav {
@@ -161,7 +162,10 @@ body.dark-mode footer {
 .bottom-nav-right {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px 0px;  /* Increased consistent gap for better grid-like spacing */
+    flex-wrap: wrap;
+    justify-content: flex-start;  /* Align content to the left */
+    width: fit-content;  /* Container will only be as wide as needed */
 }
 
 /* === Navigation Links === */
@@ -174,15 +178,20 @@ body.dark-mode nav a:visited {
     text-decoration: none;
     color: inherit;
     transition: color 0.3s ease;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .nav-links {
     margin-right: 11px; /* Adjust as needed */
+    display: flex; /* Use flexbox for better control */
+    flex-wrap: wrap; /* Allow wrapping when needed */
+    gap: 3px; /* Add space between wrapped items */
 }
 
 .nav-links a.nav-link {
     margin-right: 11px; /* Adjust as needed */
     opacity: 50%;
+    white-space: nowrap; /* Prevent text wrapping within the link */
 }
 
 .pin-emoji {
@@ -202,7 +211,6 @@ body.dark-mode nav a:visited {
 .nav-left a.nav-link.active {
     border-bottom: 1px solid #007BFF;
     color: #007BFF;
-    padding-top: 2px;
     opacity: 100%;
 }
 
@@ -354,7 +362,7 @@ a.nav-icon {
     cursor: pointer;
     background: none;
     border: none;
-    font-size: 1.5em; /* Increased size for better visibility */
+    font-size: 1.5em;
     color: black;
     display: flex;
     align-items: center;
@@ -366,7 +374,77 @@ a.nav-icon {
 
 .nav-icon:hover {
     transform: scale(1.1);
-    /* Optional: Change color on hover */
+}
+
+/* Dark mode icon colors */
+body.dark-mode a.nav-icon {
+    color: white;
+}
+
+/* Bluesky specific color - only in light mode */
+.icon.fa-bluesky {
+    color: #3b9af8;
+}
+
+body.dark-mode .icon.fa-bluesky {
+    color: white;
+}
+
+.icon {
+    width: 20px;
+    height: 20px;
+}
+
+/* Remove any specific color overrides for other icons */
+.icon.fa-github,
+.icon.fa-discord,
+.icon.fa-arena,
+.icon.fa-dharmna,
+.icon.fa-hourglass,
+.icon.fa-house {
+    color: inherit;
+}
+
+.count-item .icon {
+    width: 18px;
+    height: 14px;
+    padding-right: 4px;
+}
+
+.header-right .icon {
+    width: 15px;
+    height: 12px;
+    padding-right: 4px;
+}
+
+#theme-toggle {
+    width: 24px;
+    height: 24px;
+}
+
+.dark-mode .icon.fa-moon {
+    width: 20px;
+    height: 20px;
+    padding-right: 0px;
+}
+
+.count-text {
+    color: #585858;
+}
+
+.dark-mode .count-text {
+    color: #ffffff;
+}
+
+.icon.fa-discord {
+    width: 25px;
+    height: 25px;
+}
+
+.icon.fa-moon {
+    width: 15px;
+    height: 33px;
+    padding-right: 0px;
 }
 
 /* === Theme Toggle Styling === */
@@ -914,7 +992,6 @@ blockquote {
     position: relative;
     padding-top: 10px;
     padding-bottom: 10px;
-    border-radius: 5px;
     color: #6b6b6b;
     padding-right: 12px;
   }
@@ -999,8 +1076,9 @@ body.dark-mode .blog-post-excerpt {
     }
 
     .nav-links {
-        gap: 10px;
-        text-wrap-style: balance;
+        row-gap: 0px;
+        display: flex;
+        flex-wrap: wrap;
     }
 
     /* Adjust font sizes or spacing for stats if needed */
@@ -2138,4 +2216,100 @@ body.dark-mode .date-secondary {
 .sitemap-nav-toggle:hover {
   opacity: 1;
   transform: scale(1.1);
+}
+
+/* Font Size Classes */
+body.font-small {
+  font-size: 0.9rem;
+}
+
+body.font-medium {
+  font-size: 1rem;
+}
+
+body.font-large {
+  font-size: 1.1rem;
+}
+
+/* Adjustments for larger text */
+body.font-large h1 {
+  font-size: 2.2rem;
+}
+
+body.font-large h2 {
+  font-size: 1.9rem;
+}
+
+body.font-large h3 {
+  font-size: 1.6rem;
+}
+
+body.font-large .nav-link,
+body.font-large .footer-link {
+  font-size: 1.1rem;
+}
+
+/* Adjustments for smaller text */
+body.font-small h1 {
+  font-size: 1.8rem;
+}
+
+body.font-small h2 {
+  font-size: 1.5rem;
+}
+
+body.font-small h3 {
+  font-size: 1.2rem;
+}
+
+body.font-small .nav-link,
+body.font-small .footer-link {
+  font-size: 0.9rem;
+}
+
+/* === Settings Groups Styling === */
+.settings-group {
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+body.dark-mode .settings-group {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.settings-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.settings-group-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: var(--text-primary);
+}
+
+/* === Navigation Section Visibility === */
+body.hide-pinned-links .nav-section:nth-child(2) {
+    display: none;
+}
+
+body.hide-social-stats .nav-section:nth-child(3) {
+    display: none;
+}
+
+/* Ensure the top section is always visible and has proper borders */
+.nav-section.top-nav {
+    display: flex !important;
+}
+
+/* Adjust borders based on visibility */
+body.hide-pinned-links.hide-social-stats .nav-section.top-nav {
+    border-bottom: none;
+}
+
+body.hide-social-stats .nav-section:nth-child(2) {
+    border-bottom: none;
 }

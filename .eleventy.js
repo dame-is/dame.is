@@ -19,8 +19,10 @@ module.exports = function(eleventyConfig) {
   eleventyConfig.addPassthroughCopy("css");
   eleventyConfig.addPassthroughCopy("js");
   eleventyConfig.addPassthroughCopy("images");
-  eleventyConfig.addPassthroughCopy("assets");
-  eleventyConfig.addPassthroughCopy("data");
+  eleventyConfig.addPassthroughCopy({
+    "assets": "assets",
+    "_data/koans": "_data/koans"  // Pass through koans directory without processing
+  });
   
   // Add support for YAML front matter
   eleventyConfig.addDataExtension("yaml", contents => yaml.load(contents));
@@ -362,6 +364,9 @@ module.exports = function(eleventyConfig) {
     
     console.log('Site structure JSON generated at:', outputPath);
   });
+
+  // Ignore markdown files in _data/koans
+  eleventyConfig.ignores.add("_data/koans/*.md");
 
   return {
     dir: {
