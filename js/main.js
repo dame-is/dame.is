@@ -82,106 +82,108 @@ function formatFullDate(date) {
     });
 }
 
-// Function to format date header
-function formatDateHeader(date) {
-    const dayOfLife = getDaysSinceBirthdate(date);
-    const relativeTime = getRelativeTime(date);
-    const formattedDate = formatFullDate(date);
-    
-    // Capitalize first letter of relative time
-    const capitalizedRelativeTime = relativeTime.charAt(0).toUpperCase() + relativeTime.slice(1);
-    
-    return `${capitalizedRelativeTime}, ${formattedDate} (Day ${dayOfLife})`;
+// Function to normalize a date to UTC noon
+function normalizeToUTCNoon(date) {
+    return new Date(Date.UTC(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        12, 0, 0 // noon UTC
+    ));
 }
 
-// Function to format date header by day only (for grouping posts and logs)
-function formatDailyDateHeader(date) {
-    // For consistent grouping by day, normalize the date by setting hours, minutes, seconds to 0
-    // Create a new date with the local day/month/year to properly handle timezone differences
-    const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
-    
-    const dayOfLife = getDaysSinceBirthdate(normalizedDate);
-    const formattedDate = formatFullDate(normalizedDate);
-    
-    // Use "Today" or "Yesterday" for recent dates
-    let prefix = '';
-    if (isToday(normalizedDate)) {
-        prefix = 'Today';
-    } else if (isYesterday(normalizedDate)) {
-        prefix = 'Yesterday';
-    } else {
-        // For older dates, just use the date without relative time
-        prefix = '';
-    }
-    
-    // Return date without the Day number
-    return prefix ? `${prefix}, ${formattedDate}` : formattedDate;
-}
-
-// Function to calculate Day of Life
-function getDaysSinceBirthdate(date) {
-    const msPerDay = 24 * 60 * 60 * 1000;
-    // Create UTC date numbers for both dates (ignoring local timezone)
-    const utcBirthDate = Date.UTC(BIRTHDATE.getFullYear(), BIRTHDATE.getMonth(), BIRTHDATE.getDate());
-    const utcCurrentDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-    return Math.floor((utcCurrentDate - utcBirthDate) / msPerDay);
-}
-
-
-// Function to calculate Day of Year
-function getDayOfYear(date) {
-    const start = new Date(date.getFullYear(), 0, 0);
-    const diff = date - start;
-    const oneDay = 1000 * 60 * 60 * 24;
-    return Math.floor(diff / oneDay);
-}
-
-// Function to check if a year is a leap year
-function isLeapYear(year) {
-    return ((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0);
-}
-
-// Function to calculate Age
-function getAge(date) {
-    const today = new Date();
-    let age = today.getFullYear() - BIRTHDATE.getFullYear();
-    const m = today.getMonth() - BIRTHDATE.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < BIRTHDATE.getDate())) {
-        age--;
-    }
-    return age;
-}
-
-// Helper function to format date in a human-readable format
-function formatDateHumanReadable(date) {
-    return date.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-}
-
-// Function to get relative time (e.g., "3 hours ago")
+// Function to get relative time using Intl.RelativeTimeFormat
 function getRelativeTime(date) {
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
+    // Normalize both dates to UTC noon for consistent comparison
+    const normalizedDate = normalizeToUTCNoon(date);
+    const now = normalizeToUTCNoon(new Date());
+    
+    const diffInSeconds = Math.floor((now - normalizedDate) / 1000);
+    
     const intervals = [
         { label: 'year', seconds: 31536000 },
         { label: 'month', seconds: 2592000 },
+        { label: 'week', seconds: 604800 },
         { label: 'day', seconds: 86400 },
         { label: 'hour', seconds: 3600 },
         { label: 'minute', seconds: 60 },
         { label: 'second', seconds: 1 }
     ];
+    
     for (const interval of intervals) {
         const count = Math.floor(diffInSeconds / interval.seconds);
         if (count >= 1) {
-            return `${count} ${interval.label}${count !== 1 ? 's' : ''} ago`;
+            const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+            let formatted = formatter.format(-count, interval.label);
+            return formatted.charAt(0).toUpperCase() + formatted.slice(1);
         }
     }
-    return 'just now';
+    return 'Just now';
+}
+
+// Function to calculate Day of Life
+function getDaysSinceBirthdate(date) {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    // Normalize both dates to UTC noon for consistent comparison
+    const normalizedDate = normalizeToUTCNoon(date);
+    const normalizedBirthdate = normalizeToUTCNoon(BIRTHDATE);
+    
+    // Create UTC date numbers for both dates
+    const utcBirthDate = Date.UTC(normalizedBirthdate.getFullYear(), normalizedBirthdate.getMonth(), normalizedBirthdate.getDate());
+    const utcCurrentDate = Date.UTC(normalizedDate.getFullYear(), normalizedDate.getMonth(), normalizedDate.getDate());
+    return Math.floor((utcCurrentDate - utcBirthDate) / msPerDay);
+}
+
+// Function to calculate Year of Life
+function getYearOfLife(date) {
+    // Normalize both dates to UTC noon for consistent comparison
+    const normalizedDate = normalizeToUTCNoon(date);
+    const normalizedBirthdate = normalizeToUTCNoon(BIRTHDATE);
+    
+    let age = normalizedDate.getUTCFullYear() - normalizedBirthdate.getUTCFullYear();
+    const m = normalizedDate.getUTCMonth() - normalizedBirthdate.getUTCMonth();
+    if (m < 0 || (m === 0 && normalizedDate.getUTCDate() < normalizedBirthdate.getUTCDate())) {
+        age--;
+    }
+    return age;
+}
+
+// Function to format date for folder view
+function formatFolderDate(date) {
+    const relativeTime = getRelativeTime(date);
+    const formattedDate = formatFullDate(date);
+    const dayOfLife = getDaysSinceBirthdate(date);
+    const yearOfLife = getYearOfLife(date);
+    
+    return {
+        primary: `${relativeTime}, ${formattedDate}`,
+        secondary: `Day ${dayOfLife}, Year ${yearOfLife}`
+    };
+}
+
+// Function to format date for post view
+function formatPostDate(date) {
+    const relativeTime = getRelativeTime(date);
+    const formattedDate = formatFullDate(date);
+    const dayOfLife = getDaysSinceBirthdate(date);
+    
+    return `${relativeTime}, ${formattedDate} (Day ${dayOfLife})`;
+}
+
+// Function to format date for daily header
+function formatDailyDateHeader(date) {
+    const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+    const dayOfLife = getDaysSinceBirthdate(normalizedDate);
+    const formattedDate = formatFullDate(normalizedDate);
+    
+    let prefix = '';
+    if (isToday(normalizedDate)) {
+        prefix = 'Today';
+    } else if (isYesterday(normalizedDate)) {
+        prefix = 'Yesterday';
+    }
+    
+    return prefix ? `${prefix}, ${formattedDate}` : formattedDate;
 }
 
 // ----------------------------------

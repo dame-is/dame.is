@@ -61,7 +61,7 @@ layout: base
             {% if p.data.date %}
             <div class="date-display">
               <div class="date-primary">{{ p.data.date | enhancedDate }}</div>
-              <div class="date-secondary">Day {{ p.data.date | jsDateString | dayOfLife }}, Year {{ p.data.date | jsDateString | yearOfLife }}</div>
+              <div class="date-secondary">{{ p.data.date | jsDateString | dayOfLife }}, Year {{ p.data.date | jsDateString | yearOfLife }}</div>
             </div>
             {% endif %}
           </td>
