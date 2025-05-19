@@ -201,15 +201,106 @@ module.exports = function(eleventyConfig) {
     ));
   }
 
+  // Define birthdate for day of life calculations
+  const BIRTHDATE = new Date('1993-05-07T00:00:00Z');
+
+  // Function for day of life calculation
+  function getDaysSinceBirthdate(date) {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    // Normalize both dates to UTC noon for consistent comparison
+    const normalizedDate = normalizeToUTCNoon(date);
+    const normalizedBirthdate = normalizeToUTCNoon(BIRTHDATE);
+    
+    // Create UTC date numbers for both dates
+    const utcBirthDate = Date.UTC(normalizedBirthdate.getUTCFullYear(), normalizedBirthdate.getUTCMonth(), normalizedBirthdate.getUTCDate());
+    const utcCurrentDate = Date.UTC(normalizedDate.getUTCFullYear(), normalizedDate.getUTCMonth(), normalizedDate.getUTCDate());
+    return Math.floor((utcCurrentDate - utcBirthDate) / msPerDay);
+  }
+
+  // Function for year of life calculation
+  function getYearOfLife(date) {
+    // Normalize both dates to UTC noon for consistent comparison
+    const normalizedDate = normalizeToUTCNoon(date);
+    const normalizedBirthdate = normalizeToUTCNoon(BIRTHDATE);
+    
+    let age = normalizedDate.getUTCFullYear() - normalizedBirthdate.getUTCFullYear();
+    const m = normalizedDate.getUTCMonth() - normalizedBirthdate.getUTCMonth();
+    if (m < 0 || (m === 0 && normalizedDate.getUTCDate() < normalizedBirthdate.getUTCDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  // Function to get relative time
+  function getRelativeTime(date) {
+    // Get current time in UTC
+    const now = new Date();
+    const nowUTC = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      now.getUTCHours(),
+      now.getUTCMinutes(),
+      now.getUTCSeconds()
+    ));
+    
+    // Normalize input date to UTC noon if needed
+    const normalizedDate = normalizeToUTCNoon(date);
+    
+    const diffInSeconds = Math.floor((nowUTC - normalizedDate) / 1000);
+    
+    const intervals = [
+      { label: 'year', seconds: 31536000 },
+      { label: 'month', seconds: 2592000 },
+      { label: 'week', seconds: 604800 },
+      { label: 'day', seconds: 86400 },
+      { label: 'hour', seconds: 3600 },
+      { label: 'minute', seconds: 60 },
+      { label: 'second', seconds: 1 }
+    ];
+    
+    for (const interval of intervals) {
+      const count = Math.floor(diffInSeconds / interval.seconds);
+      if (count >= 1) {
+        const formatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+        let formatted = formatter.format(-count, interval.label);
+        return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      }
+    }
+    return 'Just now';
+  }
+
+  // Function to format full date
+  function formatFullDate(date) {
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+
+  // Function to format date for folder view
+  function formatFolderDate(date) {
+    const relativeTime = getRelativeTime(date);
+    const formattedDate = formatFullDate(date);
+    const dayOfLife = getDaysSinceBirthdate(date);
+    const yearOfLife = getYearOfLife(date);
+    
+    return {
+      primary: `${relativeTime}, ${formattedDate}`,
+      secondary: `Day ${dayOfLife}, Year ${yearOfLife}`
+    };
+  }
+
   // Add custom filters
   eleventyConfig.addFilter("enhancedDate", function(date) {
     if (!date) return '';
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) return '';
     
-    // Normalize to UTC noon for consistent comparison
-    const normalizedDate = normalizeToUTCNoon(dateObj);
-    return formatFolderDate(normalizedDate);
+    // Use the formatFolderDate function
+    const formatted = formatFolderDate(dateObj);
+    return formatted.primary;
   });
 
   eleventyConfig.addFilter("jsDateString", function(date) {
