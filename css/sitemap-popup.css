@@ -151,6 +151,7 @@ body.dark-mode .sitemap-close-button:hover {
 /* Node Container */
 .sitemap-node-container {
   margin-bottom: 2px;
+  position: relative;
 }
 
 /* Node */
@@ -164,9 +165,9 @@ body.dark-mode .sitemap-close-button:hover {
 .sitemap-link {
   text-decoration: none;
   color: var(--text-primary, #333);
-  padding: 4px 8px;
+  padding: 4px 8px 4px 10px;
   border-radius: 4px;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   white-space: nowrap;
@@ -206,13 +207,50 @@ body.dark-mode .sitemap-link:hover {
 
 /* Active Link */
 .sitemap-link.active {
-  background-color: rgba(0, 123, 255, 0.1);
+  background-color: rgba(0, 123, 255, 0.2);
   font-weight: 600;
   color: #007BFF;
+  border-left: 3px solid #007BFF;
+  box-shadow: 0 1px 3px rgba(0, 123, 255, 0.1);
+  padding-left: 7px;
 }
 
 body.dark-mode .sitemap-link.active {
-  background-color: rgba(0, 123, 255, 0.2);
+  background-color: rgba(0, 123, 255, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 123, 255, 0.2);
+}
+
+/* Active folder styling */
+.sitemap-link.folder-link.active-folder {
+  background-color: rgba(0, 123, 255, 0.1);
+  color: #007BFF;
+  font-weight: 500;
+}
+
+body.dark-mode .sitemap-link.folder-link.active-folder {
+  background-color: rgba(0, 123, 255, 0.15);
+}
+
+/* Show different folder icon for active folders */
+.sitemap-link.folder-link.active-folder::before {
+  content: "📂";
+}
+
+/* Highlight the entire path to active item */
+.sitemap-node-container:has([data-active-path="true"]) > .sitemap-node > .sitemap-link {
+  color: #007BFF;
+}
+
+/* Current section indicator */
+.sitemap-node-container:has(> .sitemap-node > .sitemap-link.active)::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background-color: #007BFF;
+  border-radius: 2px;
 }
 
 /* Toggle Button */
@@ -313,4 +351,14 @@ body.sitemap-open {
 
 body.dark-mode .sitemap-subtitle {
   color: #aaa;
+}
+
+/* Background for parent folders of active items */
+.sitemap-node-children:has([data-active-path="true"]) {
+  background-color: rgba(0, 123, 255, 0.03);
+  border-radius: 4px;
+}
+
+body.dark-mode .sitemap-node-children:has([data-active-path="true"]) {
+  background-color: rgba(0, 123, 255, 0.05);
 } 

@@ -1990,11 +1990,6 @@ main:has(.folder-container) {
   max-width: 900px;
 }
 
-.folder-container h1 {
-  margin-bottom: 1.5rem;
-  font-size: 2.5rem;
-}
-
 .folder-items {
   margin-top: 2rem;
 }
