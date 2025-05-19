@@ -75,6 +75,12 @@ body.dark-mode .sitemap-toggle-button:hover {
   overflow: hidden;
   will-change: transform;
   transform-origin: center center;
+  /* Ensure position is defined before first animation */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Set initial position to prevent first-load jump */
+  top: 50% !important;
+  left: 50% !important;
 }
 
 /* Dark mode popup */

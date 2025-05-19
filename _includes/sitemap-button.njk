@@ -58,6 +58,14 @@
     const toggleButton = document.getElementById('sitemap-toggle-button');
     const closeButton = document.getElementById('sitemap-close-button');
     const sitemapContent = document.getElementById('sitemap-content');
+    const sitemapPopup = document.getElementById('sitemap-popup');
+    
+    // Fix for first-time animation issues on mobile
+    // We initially set the popup with no transition, then add it after a small delay
+    sitemapPopup.style.transition = 'none';
+    setTimeout(function() {
+      sitemapPopup.style.transition = 'opacity 0.25s ease, transform 0.25s ease, visibility 0.25s';
+    }, 100);
     
     // Add a direct event listener to the site title
     const siteTitle = document.querySelector('.sitemap-title-toggle');
