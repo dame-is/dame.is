@@ -6,7 +6,7 @@
         <div class="nav-left top-nav-left">
             <!-- First line: site title + latest log text -->
             <div class="site-title-and-latest-log">
-                <a href="/" class="title nav-link">dame.is</a>
+                <a href="/" class="title nav-link sitemap-title-toggle" data-sitemap-toggle="true" onclick="if(window.toggleSitemap){window.toggleSitemap();return false;}" title="Click to view site map">dame.is</a>
                 <!-- Dynamically filled by JS -->
                 <span id="recent-log-container">
                     <div>
@@ -63,7 +63,7 @@
         </div>
     </div>
 
-    <!-- PINNED LINKS SECTION -->
+        <!-- PINNED LINKS SECTION -->
     <div class="nav-section bottom-nav">
         <div class="nav-left bottom-nav-left">
             <span class="pin-emoji">📌</span>
@@ -78,9 +78,9 @@
     </div>
 
     <!-- FILEPATH SECTION -->
-    <div class="nav-section bottom-nav filepath-nav">
+    <!-- <div class="nav-section bottom-nav filepath-nav">
         <div class="nav-left bottom-nav-left">
-            <span class="link-emoji">🔗</span>
+            <span class="sitemap-nav-toggle" title="Open site map">🗺️</span>
             <div class="filepath-links">
                 <span class="filepath-link">
                     <a href="/" class="filepath-segment">dame.is</a>
@@ -100,5 +100,5 @@
                 {% endfor %}
             </div>
         </div>
-    </div>
+    </div> -->
 </nav> 

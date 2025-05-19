@@ -1,0 +1,360 @@
+<!-- Floating Sitemap Button and Popup -->
+<div class="sitemap-button-container">
+  <button id="sitemap-toggle-button" class="sitemap-toggle-button" aria-label="Toggle site map">
+    <span class="sitemap-emoji">🗺️</span>
+  </button>
+</div>
+
+<div id="sitemap-popup" class="sitemap-popup">
+  <div class="sitemap-popup-header">
+    <div class="sitemap-title-container">
+      <h3 class="sitemap-title">Site Map</h3>
+      <div class="sitemap-subtitle">dame.is</div>
+    </div>
+    <div class="sitemap-header-actions">
+      <button id="sitemap-close-button" class="sitemap-close-button" aria-label="Close site map">
+        <span>✕</span>
+      </button>
+    </div>
+  </div>
+  <div class="sitemap-popup-content">
+    <div id="sitemap-content" class="sitemap-content">
+      <!-- The sitemap will be loaded here by JavaScript -->
+    </div>
+  </div>
+</div>
+
+{% siteStructureJson %}
+
+<script>
+  // Make toggleSitemap function available globally
+  window.toggleSitemap = function() {
+    const sitemapPopup = document.getElementById('sitemap-popup');
+    const sitemapContent = document.getElementById('sitemap-content');
+    
+    if (sitemapPopup.classList.contains('open')) {
+      sitemapPopup.classList.remove('open');
+      document.body.classList.remove('sitemap-open');
+    } else {
+      sitemapPopup.classList.add('open');
+      document.body.classList.add('sitemap-open');
+      
+      // Only initialize the sitemap content if it hasn't been done already
+      if (sitemapContent.children.length === 0) {
+        initializeSitemapInPopup();
+      }
+    }
+  };
+  
+  // Define the initialization function to be called when the DOM is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    // Get references to elements
+    const toggleButton = document.getElementById('sitemap-toggle-button');
+    const closeButton = document.getElementById('sitemap-close-button');
+    const sitemapContent = document.getElementById('sitemap-content');
+    
+    // Add a direct event listener to the site title
+    const siteTitle = document.querySelector('.sitemap-title-toggle');
+    if (siteTitle) {
+      siteTitle.addEventListener('click', function(e) {
+        e.preventDefault(); // Prevent default navigation
+        window.toggleSitemap();
+      });
+    }
+    
+    // Initialize sitemap in the popup
+    function initializeSitemapInPopup() {
+      // Clear any existing content to prevent duplication
+      sitemapContent.innerHTML = '';
+      
+      // Try to get structure from inline data
+      const inlineData = document.getElementById('site-structure-data');
+      if (inlineData) {
+        try {
+          const siteStructure = JSON.parse(inlineData.textContent);
+          renderSitemapInPopup(siteStructure);
+          return;
+        } catch (error) {
+          console.warn('Error parsing inline site structure data:', error);
+        }
+      }
+      
+      // Fallback to fetching the JSON file
+      fetch('/site-structure.json')
+        .then(response => response.json())
+        .then(structure => {
+          renderSitemapInPopup(structure);
+        })
+        .catch(error => {
+          console.error('Error loading sitemap data:', error);
+          sitemapContent.innerHTML = '<p>Error loading site map. Please try refreshing.</p>';
+        });
+    }
+    
+    // Add all the functions to the global scope
+    window.initializeSitemapInPopup = initializeSitemapInPopup;
+    
+    // Render the sitemap in the popup
+    function renderSitemapInPopup(structure) {
+      const currentPath = window.location.pathname;
+      
+      // Create container
+      const container = document.createElement('div');
+      container.className = 'sitemap-tree';
+      
+      // Track paths to avoid duplication
+      const processedPaths = new Set();
+      
+      // Add children of root directly to container instead of showing root node
+      if (structure.children && structure.children.length > 0) {
+        structure.children.forEach(child => {
+          // Skip if this path was already processed
+          if (processedPaths.has(child.path)) {
+            return;
+          }
+          
+          // Mark this path as processed
+          processedPaths.add(child.path);
+          
+          const childNode = createSitemapNode(child, currentPath, processedPaths);
+          container.appendChild(childNode);
+        });
+      }
+      
+      // Add to popup
+      sitemapContent.appendChild(container);
+      
+      // Expand active path
+      expandActivePath();
+    }
+    
+    // Create a node for the sitemap
+    function createSitemapNode(item, currentPath, processedPaths = new Set()) {
+      const nodeContainer = document.createElement('div');
+      nodeContainer.className = 'sitemap-node-container';
+      
+      const isActive = item.path === currentPath || 
+                      currentPath.startsWith(item.path + '/');
+      
+      // Create label with link
+      const nodeLabel = document.createElement('div');
+      nodeLabel.className = 'sitemap-node';
+      
+      const link = document.createElement('a');
+      link.href = item.path;
+      link.className = 'sitemap-link';
+      if (item.path === currentPath) {
+        link.classList.add('active');
+      }
+      
+      // Add icon based on type
+      if (item.isPage) {
+        link.classList.add('page-link');
+      } else {
+        link.classList.add('folder-link');
+        if (isActive) {
+          link.classList.add('active-folder');
+        }
+      }
+      
+      // Format the display name
+      let displayName = item.name;
+      
+      // Replace hyphens with spaces for better readability
+      displayName = displayName.replace(/-/g, ' ');
+      
+      // If name is long and has more than 4 words, truncate
+      const words = displayName.split(' ');
+      if (words.length > 4) {
+        displayName = words.slice(0, 4).join(' ') + '...';
+      } else if (displayName.length > 25) {
+        // Truncate very long names
+        displayName = displayName.substring(0, 25) + '...';
+      }
+      
+      // Set display text
+      link.textContent = displayName;
+      
+      // Add full name as tooltip for truncated items
+      if (displayName !== item.name.replace(/-/g, ' ')) {
+        link.title = item.name.replace(/-/g, ' ');
+      }
+      
+      if (isActive) {
+        link.setAttribute('data-active-path', 'true');
+      }
+      
+      nodeLabel.appendChild(link);
+      
+      // Add toggle button for folders with children
+      if (item.hasChildren && item.children && item.children.length > 0) {
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'sitemap-node-toggle';
+        toggleBtn.innerHTML = '<span class="toggle-icon">+</span>';
+        toggleBtn.setAttribute('aria-label', `Toggle ${item.name} submenu`);
+        
+        nodeLabel.appendChild(toggleBtn);
+        
+        // Create children container
+        const childrenContainer = document.createElement('div');
+        childrenContainer.className = isActive ? 
+          'sitemap-node-children' : 
+          'sitemap-node-children collapsed';
+        
+        // Add all children
+        if (!processedPaths) {
+          processedPaths = new Set();
+        }
+        
+        item.children.forEach(child => {
+          // Skip if this path was already processed to avoid duplicates
+          if (processedPaths.has(child.path)) {
+            return;
+          }
+          
+          // Mark this path as processed
+          processedPaths.add(child.path);
+          
+          const childNode = createSitemapNode(child, currentPath, processedPaths);
+          childrenContainer.appendChild(childNode);
+        });
+        
+        // Add toggle behavior
+        toggleBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          childrenContainer.classList.toggle('collapsed');
+          
+          // Update toggle icon
+          const icon = this.querySelector('.toggle-icon');
+          if (childrenContainer.classList.contains('collapsed')) {
+            icon.textContent = '+';
+          } else {
+            icon.textContent = '−'; // Minus sign
+          }
+        });
+        
+        // Initial state of toggle icon
+        const toggleIcon = toggleBtn.querySelector('.toggle-icon');
+        toggleIcon.textContent = childrenContainer.classList.contains('collapsed') ? '+' : '−';
+        
+        nodeContainer.appendChild(nodeLabel);
+        nodeContainer.appendChild(childrenContainer);
+      } else {
+        nodeContainer.appendChild(nodeLabel);
+      }
+      
+      return nodeContainer;
+    }
+    
+    // Expand active path
+    function expandActivePath() {
+      const activeElements = document.querySelectorAll('[data-active-path="true"]');
+      
+      activeElements.forEach(element => {
+        let parent = element.parentElement;
+        
+        while (parent) {
+          const container = parent.closest('.sitemap-node-children');
+          if (!container) break;
+          
+          container.classList.remove('collapsed');
+          
+          const toggleBtn = container.previousElementSibling?.querySelector('.sitemap-node-toggle');
+          if (toggleBtn) {
+            const icon = toggleBtn.querySelector('.toggle-icon');
+            if (icon) {
+              icon.textContent = '−';
+            }
+          }
+          
+          parent = container.parentElement;
+        }
+      });
+    }
+    
+    // Add event listeners
+    toggleButton.addEventListener('click', window.toggleSitemap);
+    closeButton.addEventListener('click', window.toggleSitemap);
+    
+    // Make all sitemap toggles on the page work
+    document.querySelectorAll('.sitemap-nav-toggle, [data-sitemap-toggle="true"]').forEach(function(toggle) {
+      toggle.addEventListener('click', function(e) {
+        // If it's the site title, prevent the default navigation
+        if (this.classList.contains('sitemap-title-toggle')) {
+          e.preventDefault();
+        }
+        window.toggleSitemap();
+      });
+    });
+    
+    // Set up a MutationObserver to watch for dynamically added sitemap toggle elements
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach(function(node) {
+            if (node.nodeType === 1) { // Element node
+              // Check if the added node is a toggle
+              if ((node.classList && node.classList.contains('sitemap-nav-toggle')) || 
+                  (node.getAttribute && node.getAttribute('data-sitemap-toggle') === 'true')) {
+                node.addEventListener('click', function(e) {
+                  if (this.classList.contains('sitemap-title-toggle')) {
+                    e.preventDefault();
+                  }
+                  window.toggleSitemap();
+                });
+              }
+              
+              // Check children of added node
+              const toggles = node.querySelectorAll('.sitemap-nav-toggle, [data-sitemap-toggle="true"]');
+              toggles.forEach(function(toggle) {
+                toggle.addEventListener('click', function(e) {
+                  if (this.classList.contains('sitemap-title-toggle')) {
+                    e.preventDefault();
+                  }
+                  window.toggleSitemap();
+                });
+              });
+            }
+          });
+        }
+      });
+    });
+    
+    // Start observing the entire document
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true 
+    });
+    
+    // Add keyboard shortcut support ('M' key to toggle)
+    document.addEventListener('keydown', function(event) {
+      // Only trigger if not in input/textarea
+      if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'TEXTAREA') {
+        // 'M' key toggles the sitemap
+        if (event.key === 'm' || event.key === 'M') {
+          event.preventDefault();
+          window.toggleSitemap();
+        }
+        
+        // ESC key closes the sitemap
+        if (event.key === 'Escape' && document.getElementById('sitemap-popup').classList.contains('open')) {
+          window.toggleSitemap();
+        }
+      }
+    });
+    
+    // Close when clicking outside the popup (but not the toggle button)
+    document.addEventListener('click', function(event) {
+      const sitemapPopup = document.getElementById('sitemap-popup');
+      if (sitemapPopup.classList.contains('open') && 
+          !sitemapPopup.contains(event.target) && 
+          !toggleButton.contains(event.target) &&
+          !event.target.matches('.sitemap-nav-toggle') && 
+          !event.target.matches('.sitemap-title-toggle')) {
+        window.toggleSitemap();
+      }
+    });
+  });
+</script> 

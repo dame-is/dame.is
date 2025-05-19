@@ -312,6 +312,37 @@ module.exports = function(eleventyConfig) {
     return age;
   });
 
+  // Generate site structure JSON file
+  eleventyConfig.addPassthroughCopy("js");
+  eleventyConfig.addPassthroughCopy("css");
+  
+  // Generate the site structure JSON file for client-side use
+  eleventyConfig.addJavaScriptFunction("generateSiteStructureJson", function(data) {
+    return JSON.stringify(data.siteMap);
+  });
+
+  // Output the site structure as a JSON file
+  eleventyConfig.addShortcode("siteStructureJson", function() {
+    return `<script type="application/json" id="site-structure-data">
+      ${JSON.stringify(this.siteMap)}
+    </script>`;
+  });
+
+  // Write the site structure to a JSON file during build
+  eleventyConfig.on('eleventy.after', async ({ dir, results }) => {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Get the site structure from your data file
+    const siteMap = require('./_data/siteMap.js')();
+    
+    // Write it to the output directory
+    const outputPath = path.join(dir.output, 'site-structure.json');
+    fs.writeFileSync(outputPath, JSON.stringify(siteMap, null, 2));
+    
+    console.log('Site structure JSON generated at:', outputPath);
+  });
+
   return {
     dir: {
       input: ".",

@@ -93,6 +93,9 @@ body.dark-mode ul {
     --text-color: #000000;
     --post-background-color: #f9f9f9;
     --text-secondary: #555555; /* Added for date header second line */
+    --bg-secondary: #f5f5f5;  /* For site map container */
+    --bg-hover: #e8e8e8;      /* For hover effects */
+    --text-primary: #333333;  /* For primary text in site map */
 }
 
 body.dark-mode {
@@ -100,6 +103,9 @@ body.dark-mode {
     --text-color: #ffffff;
     --post-background-color: #1e1e1e;
     --text-secondary: #aaaaaa; /* Dark mode secondary text */
+    --bg-secondary-dark: #1e1e1e; /* For site map container in dark mode */
+    --bg-hover-dark: #282828;     /* For hover effects in dark mode */
+    --text-primary: #f0f0f0;      /* For primary text in site map in dark mode */
 }
 
 /* === Navigation Bar & Footer === */
@@ -203,6 +209,12 @@ body.dark-mode nav a:visited {
 .title.nav-link.active,
 .title.nav-link {
     font-weight: bold;
+}
+
+/* Sitemap title toggle styles */
+.sitemap-title-toggle {
+    position: relative;
+    cursor: pointer;
 }
 
 /* === Dropdown Navigation Styles === */
@@ -979,7 +991,7 @@ body.dark-mode .blog-post-excerpt {
 @media (max-width: 400px) {
     /* Let nav sections stack vertically */
     .nav-section {
-        gap: 10px
+        gap: 5px
     }
 
     /* Top nav left stacks lines, adjust margin as needed */
@@ -2094,6 +2106,11 @@ body.dark-mode .filepath-separator {
     flex-direction: row;
     padding: 5px 0;
   }
+  
+  .sitemap-nav-toggle {
+    margin-right: 10px;
+    font-size: 1em;
+  }
 }
 
 .date-display {
@@ -2113,4 +2130,18 @@ body.dark-mode .filepath-separator {
 
 body.dark-mode .date-secondary {
     opacity: 0.6;
+}
+
+/* Sitemap icon in navigation */
+.sitemap-nav-toggle {
+  margin-right: 10px;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  font-size: 1.4em;
+}
+
+.sitemap-nav-toggle:hover {
+  opacity: 1;
+  transform: scale(1.1);
 }

@@ -1,0 +1,161 @@
+/* Site Map Component Styles */
+
+.site-map-container {
+  margin: 2rem 0;
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: var(--bg-secondary);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.site-map-title {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.site-map-root {
+  display: flex;
+  flex-direction: column;
+}
+
+.root-node {
+  margin-bottom: 0.5rem;
+}
+
+.site-map-node-container {
+  margin-left: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.site-map-node {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0;
+}
+
+.site-map-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.site-map-link:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Root link styling */
+.root-link {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+/* Different styling for folders vs pages */
+.folder-link::before {
+  content: "📁";
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.folder-link.active::before {
+  content: "📂"; /* Open folder icon for active folder */
+}
+
+.page-link::before {
+  content: "📄";
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Active link styling */
+.site-map-link.active {
+  font-weight: 600;
+  color: #007BFF;
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+.dark-mode .site-map-link.active {
+  background-color: rgba(0, 123, 255, 0.2);
+}
+
+/* Toggle button styling */
+.site-map-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.site-map-toggle:hover {
+  color: var(--text-primary);
+}
+
+.toggle-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  text-align: center;
+  line-height: 16px;
+  font-weight: bold;
+}
+
+.site-map-children {
+  margin-left: 1rem;
+  margin-top: 0.25rem;
+  overflow: hidden;
+  max-height: 500px; /* Arbitrary large value */
+  transition: max-height 0.3s ease;
+}
+
+.site-map-children.collapsed {
+  max-height: 0;
+}
+
+/* Indentation for nested levels */
+.site-map-children .site-map-children {
+  margin-left: 1.5rem;
+}
+
+/* Dark mode adjustments */
+.dark-mode .site-map-container {
+  background-color: var(--bg-secondary-dark);
+}
+
+.dark-mode .site-map-link:hover {
+  background-color: var(--bg-hover-dark);
+}
+
+/* Mobile friendly adjustments */
+@media (max-width: 400px) {
+  .site-map-container {
+    padding: 0.75rem;
+    max-height: 70vh; /* Allow more space on mobile */
+  }
+  
+  .site-map-node-container {
+    margin-left: 0.5rem;
+  }
+  
+  .site-map-children {
+    margin-left: 0.75rem;
+  }
+  
+  .site-map-children .site-map-children {
+    margin-left: 1rem;
+  }
+} 
