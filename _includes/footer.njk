@@ -4,23 +4,9 @@
         <div class="footer-section footer-last-updated">
             <span class="last-updated-label">Last Commit:</span>
             <span class="last-updated-timestamp">
-                {% if page.inputPath %}
-                    {% set commitCommand %}git log -1 --format="%h|%ar" -- {{ page.inputPath | replace("./", "") }}{% endset %}
-                    {% set commitInfo = commitCommand | exec | trim %}
-                    {% set parts = commitInfo | split("|") %}
-                    {% set commitId = parts[0] %}
-                    {% set commitDate = parts[1] %}
-                    {% set repoUrl = "https://github.com/dame-is/dame.is" %}
-                    <span title="{{ commitDate }}">
-                        {{ commitDate }}
-                        {% if commitId %}
-                            (<a href="{{ repoUrl }}/commit/{{ commitId }}" target="_blank">{{ commitId }}</a>)
-                        {% endif %}
-                    </span>
-                {% else %}
-                    Unknown
-                {% endif %}
+                Loading...
             </span>
         </div>
     </div>
+    <script src="/js/last-commit.js"></script>
 </footer> 
