@@ -2074,9 +2074,6 @@ main:has(.creating-container) {
   margin: 0 auto; 
 }
 
-.folder-container p {
-	max-width: 500px;
-}
 
 /* Override main container width just for folder layout */
 main:has(.folder-container) {
@@ -2678,4 +2675,51 @@ body.hide-social-stats .nav-section:nth-child(3) {
         gap: 10px;
         flex-wrap: wrap;
     }
+}
+
+/* Content Alignment Styles */
+.nav-align-left h1,
+.nav-align-left h2,
+.nav-align-left h3,
+.nav-align-left .post-date-header,
+.nav-align-left .date-header-line1,
+.nav-align-left .date-header-line2,
+.nav-align-left #post-title,
+.nav-align-left #post-date {
+    text-align: left;
+}
+
+.nav-align-center h1,
+.nav-align-center h2,
+.nav-align-center h3,
+.nav-align-center .post-date-header,
+.nav-align-center .date-header-line1,
+.nav-align-center .date-header-line2,
+.nav-align-center #post-title,
+.nav-align-center #post-date {
+    text-align: center;
+}
+
+.nav-align-center .post-date-header {
+    flex-direction: column;
+    align-items: center;
+}
+
+.nav-align-center .header-right {
+    margin-top: 10px;
+}
+
+.nav-align-right h1,
+.nav-align-right h2,
+.nav-align-right h3,
+.nav-align-right .post-date-header,
+.nav-align-right .date-header-line1,
+.nav-align-right .date-header-line2,
+.nav-align-right #post-title,
+.nav-align-right #post-date {
+    text-align: right;
+}
+
+.nav-align-right .post-date-header {
+    flex-direction: row-reverse;
 }
