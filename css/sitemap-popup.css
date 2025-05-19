@@ -200,7 +200,7 @@ body.dark-mode .sitemap-action-button:hover {
   text-decoration: none;
   color: var(--text-primary, #333);
   padding: 4px 8px 4px 10px;
-  border-radius: 4px;
+  border-radius: 0;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -239,19 +239,19 @@ body.dark-mode .sitemap-link:hover {
   font-size: 0.9em;
 }
 
-/* Active Link */
+/* Active Link - More minimal styling */
 .sitemap-link.active {
-  background-color: rgba(0, 123, 255, 0.2);
+  background-color: rgba(0, 123, 255, 0.1);
   font-weight: 600;
   color: #007BFF;
-  border-left: 3px solid #007BFF;
-  box-shadow: 0 1px 3px rgba(0, 123, 255, 0.1);
-  padding-left: 7px;
+  border-left: 2px solid #007BFF;
+  box-shadow: none;
+  padding-left: 8px;
 }
 
 body.dark-mode .sitemap-link.active {
-  background-color: rgba(0, 123, 255, 0.3);
-  box-shadow: 0 1px 3px rgba(0, 123, 255, 0.2);
+  background-color: rgba(0, 123, 255, 0.15);
+  box-shadow: none;
 }
 
 /* Active folder styling */
@@ -275,16 +275,16 @@ body.dark-mode .sitemap-link.folder-link.active-folder {
   color: #007BFF;
 }
 
-/* Current section indicator */
+/* Current section indicator - More minimal */
 .sitemap-node-container:has(> .sitemap-node > .sitemap-link.active)::before {
   content: "";
   position: absolute;
   left: -10px;
   top: 0;
   bottom: 0;
-  width: 3px;
+  width: 2px;
   background-color: #007BFF;
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 /* Toggle Button */
@@ -367,12 +367,12 @@ body.dark-mode .sitemap-subtitle {
   color: #aaa;
 }
 
-/* Background for parent folders of active items */
+/* Background for parent folders of active items - More minimal */
 .sitemap-node-children:has([data-active-path="true"]) {
-  background-color: rgba(0, 123, 255, 0.03);
-  border-radius: 4px;
+  background-color: rgba(0, 123, 255, 0.02);
+  border-radius: 0;
 }
 
 body.dark-mode .sitemap-node-children:has([data-active-path="true"]) {
-  background-color: rgba(0, 123, 255, 0.05);
+  background-color: rgba(0, 123, 255, 0.03);
 } 
