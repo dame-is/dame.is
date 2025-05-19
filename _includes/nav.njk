@@ -18,6 +18,19 @@
         </div>
     </div>
 
+    <!-- PINNED LINKS SECTION -->
+    <div class="nav-section bottom-nav">
+        <div class="nav-left bottom-nav-left">
+            <span class="pin-emoji">📌</span>
+            <div class="nav-links">
+                <a href="/writing" class="nav-link {% if page.url.startsWith('/writing/') %}active{% endif %}">/writing</a>
+                <a href="/creating" class="nav-link {% if page.url.startsWith('/creating/') %}active{% endif %}">/creating</a>
+                <a href="/sharing" class="nav-link {% if page.url.startsWith('/sharing/') %}active{% endif %}">/sharing</a>
+                <a href="/supported" class="nav-link {% if page.url == '/supported/' %}active{% endif %}">/supported</a>
+            </div>
+        </div>
+    </div>
+
     <!-- STATS SECTION: Follower counts, etc. -->
     <div class="nav-section bottom-nav">
         <!-- Right side - Social Icons and Theme Toggle -->
@@ -60,19 +73,6 @@
                 <span style="font-weight: bold; padding-left: 5px;" id="replies">-</span> replies
                 -->
             </span>
-        </div>
-    </div>
-
-        <!-- PINNED LINKS SECTION -->
-    <div class="nav-section bottom-nav">
-        <div class="nav-left bottom-nav-left">
-            <span class="pin-emoji">📌</span>
-            <div class="nav-links">
-                <a href="/writing" class="nav-link {% if page.url.startsWith('/writing/') %}active{% endif %}">/writing</a>
-                <a href="/creating" class="nav-link {% if page.url.startsWith('/creating/') %}active{% endif %}">/creating</a>
-                <a href="/sharing" class="nav-link {% if page.url.startsWith('/sharing/') %}active{% endif %}">/sharing</a>
-                <a href="/supported" class="nav-link {% if page.url == '/supported/' %}active{% endif %}">/supported</a>
-            </div>
         </div>
     </div>
 
