@@ -26,19 +26,19 @@ body {
 
 /* === Font Family Classes === */
 .font-arial {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: Arial, "Arial MT", "Helvetica Neue", Helvetica, sans-serif;
 }
 
 .font-times {
-    font-family: "Times New Roman", Times, serif;
+    font-family: "Times New Roman", TimesNewRoman, "Times New Roman PS", "Times Roman", Times, "Liberation Serif", "Nimbus Roman No9 L", serif;
 }
 
 .font-mono {
-    font-family: "Courier New", Courier, monospace;
+    font-family: "Courier New", "Courier Prime", Courier, "Liberation Mono", "Nimbus Mono L", monospace;
 }
 
 .font-comic {
-    font-family: "Comic Sans MS", "Comic Sans", cursive;
+    font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", "Marker Felt", cursive;
 }
 
 main {
