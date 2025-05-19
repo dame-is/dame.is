@@ -102,49 +102,59 @@ body.dark-mode .sitemap-popup-header {
   border-bottom-color: rgba(255, 255, 255, 0.1);
 }
 
-/* Header Actions Container */
-.sitemap-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Action Buttons */
-.sitemap-action-button,
-.sitemap-close-button {
+/* Close Button */
+.sitemap-close-button,
+.sitemap-action-button {
   background: none;
   border: none;
-  font-size: 1rem;
+  font-size: 1.2rem;
   color: #666;
   cursor: pointer;
   padding: 5px;
-  border-radius: 4px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.sitemap-action-button:hover,
-.sitemap-close-button:hover {
+.sitemap-close-button:hover,
+.sitemap-action-button:hover {
   background-color: rgba(0, 0, 0, 0.1);
   color: #333;
 }
 
-.sitemap-close-button {
-  font-size: 1.2rem;
-  border-radius: 50%;
-}
-
-body.dark-mode .sitemap-action-button,
-body.dark-mode .sitemap-close-button {
+body.dark-mode .sitemap-close-button,
+body.dark-mode .sitemap-action-button {
   color: #aaa;
 }
 
-body.dark-mode .sitemap-action-button:hover,
-body.dark-mode .sitemap-close-button:hover {
+body.dark-mode .sitemap-close-button:hover,
+body.dark-mode .sitemap-action-button:hover {
   background-color: rgba(255, 255, 255, 0.1);
   color: #eee;
+}
+
+/* Header actions container */
+.sitemap-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Specific sizing for action buttons */
+.sitemap-action-button {
+  font-size: 1rem;
+}
+
+/* Home button styling */
+#sitemap-home-button span {
+  font-size: 1.1rem;
+}
+
+/* Collapse all button styling */
+#sitemap-collapse-all span {
+  font-size: 1rem;
 }
 
 /* Popup Content */

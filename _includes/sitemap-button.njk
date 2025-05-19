@@ -12,11 +12,11 @@
       <div class="sitemap-subtitle">dame.is</div>
     </div>
     <div class="sitemap-header-actions">
-      <button id="sitemap-home-button" class="sitemap-action-button" aria-label="Go to home page" title="Home">
+      <button id="sitemap-home-button" class="sitemap-action-button" aria-label="Go to home page">
         <span>🏠</span>
       </button>
-      <button id="sitemap-collapse-all-button" class="sitemap-action-button" aria-label="Collapse all folders" title="Collapse All">
-        <span>🔄</span>
+      <button id="sitemap-collapse-all" class="sitemap-action-button" aria-label="Collapse all folders">
+        <span>📁</span>
       </button>
       <button id="sitemap-close-button" class="sitemap-close-button" aria-label="Close site map">
         <span>✕</span>
@@ -57,8 +57,6 @@
     // Get references to elements
     const toggleButton = document.getElementById('sitemap-toggle-button');
     const closeButton = document.getElementById('sitemap-close-button');
-    const homeButton = document.getElementById('sitemap-home-button');
-    const collapseAllButton = document.getElementById('sitemap-collapse-all-button');
     const sitemapContent = document.getElementById('sitemap-content');
     
     // Add a direct event listener to the site title
@@ -66,7 +64,7 @@
     if (siteTitle) {
       siteTitle.addEventListener('click', function(e) {
         e.preventDefault(); // Prevent default navigation
-        window.toggleSitemap();
+        window.location.href = '/';
       });
     }
     
@@ -104,6 +102,9 @@
     
     // Render the sitemap in the popup
     function renderSitemapInPopup(structure) {
+      // Clear any existing content to prevent duplication
+      sitemapContent.innerHTML = '';
+      
       const currentPath = window.location.pathname;
       
       // Create container
@@ -282,10 +283,20 @@
       });
     }
     
-    // Function to collapse all folders
-    function collapseAllFolders() {
-      const childrenContainers = document.querySelectorAll('.sitemap-node-children');
-      childrenContainers.forEach(container => {
+    // Add event listeners
+    toggleButton.addEventListener('click', window.toggleSitemap);
+    closeButton.addEventListener('click', window.toggleSitemap);
+    
+    // Add home button event listener
+    const homeButton = document.getElementById('sitemap-home-button');
+    homeButton.addEventListener('click', function() {
+      window.location.href = '/';
+    });
+    
+    // Add collapse all button event listener
+    const collapseAllButton = document.getElementById('sitemap-collapse-all');
+    collapseAllButton.addEventListener('click', function() {
+      document.querySelectorAll('.sitemap-node-children:not(.collapsed)').forEach(function(container) {
         container.classList.add('collapsed');
         
         // Update toggle icons
@@ -298,29 +309,14 @@
         }
       });
       
-      // After collapsing all, re-expand the active path
-      setTimeout(expandActivePath, 10);
-    }
-    
-    // Add event listeners
-    toggleButton.addEventListener('click', window.toggleSitemap);
-    closeButton.addEventListener('click', window.toggleSitemap);
-    
-    // Home button - navigate to home page
-    homeButton.addEventListener('click', function() {
-      window.location.href = '/';
+      // Then re-expand only the direct path to active item
+      expandActivePath();
     });
-    
-    // Collapse all button
-    collapseAllButton.addEventListener('click', collapseAllFolders);
     
     // Make all sitemap toggles on the page work
     document.querySelectorAll('.sitemap-nav-toggle, [data-sitemap-toggle="true"]').forEach(function(toggle) {
       toggle.addEventListener('click', function(e) {
-        // If it's the site title, prevent the default navigation
-        if (this.classList.contains('sitemap-title-toggle')) {
-          e.preventDefault();
-        }
+        e.preventDefault();
         window.toggleSitemap();
       });
     });
@@ -335,9 +331,7 @@
               if ((node.classList && node.classList.contains('sitemap-nav-toggle')) || 
                   (node.getAttribute && node.getAttribute('data-sitemap-toggle') === 'true')) {
                 node.addEventListener('click', function(e) {
-                  if (this.classList.contains('sitemap-title-toggle')) {
-                    e.preventDefault();
-                  }
+                  e.preventDefault();
                   window.toggleSitemap();
                 });
               }
@@ -346,9 +340,7 @@
               const toggles = node.querySelectorAll('.sitemap-nav-toggle, [data-sitemap-toggle="true"]');
               toggles.forEach(function(toggle) {
                 toggle.addEventListener('click', function(e) {
-                  if (this.classList.contains('sitemap-title-toggle')) {
-                    e.preventDefault();
-                  }
+                  e.preventDefault();
                   window.toggleSitemap();
                 });
               });
