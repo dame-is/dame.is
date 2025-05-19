@@ -201,6 +201,42 @@ function formatDailyDateHeader(date) {
     return prefix ? `${prefix}, ${formattedDate}` : formattedDate;
 }
 
+// Function to calculate Day of Year
+function getDayOfYear(date) {
+    const start = new Date(Date.UTC(date.getUTCFullYear(), 0, 0));
+    const diff = date - start;
+    const oneDay = 1000 * 60 * 60 * 24;
+    return Math.floor(diff / oneDay);
+}
+
+// Function to check if a year is a leap year
+function isLeapYear(year) {
+    return ((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0);
+}
+
+// Function to calculate Age
+function getAge(date) {
+    const today = new Date();
+    
+    // Convert to UTC for consistent comparison
+    const todayUTC = new Date(Date.UTC(
+        today.getUTCFullYear(),
+        today.getUTCMonth(),
+        today.getUTCDate()
+    ));
+    
+    // Get age based on year difference
+    let age = todayUTC.getUTCFullYear() - BIRTHDATE.getUTCFullYear();
+    
+    // Adjust age if birthday hasn't occurred yet in the current year
+    const m = todayUTC.getUTCMonth() - BIRTHDATE.getUTCMonth();
+    if (m < 0 || (m === 0 && todayUTC.getUTCDate() < BIRTHDATE.getUTCDate())) {
+        age--;
+    }
+    
+    return age;
+}
+
 // ----------------------------------
 // 3. HELPER: Define initializeFooter
 // ----------------------------------
