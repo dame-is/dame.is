@@ -2723,3 +2723,87 @@ body.hide-social-stats .nav-section:nth-child(3) {
 .nav-align-right .post-date-header {
     flex-direction: row-reverse;
 }
+
+/* === Subfolder Styles === */
+.subfolders-section {
+    margin-bottom: 2rem;
+}
+
+.subfolder-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.nav-align-left .subfolder-items {
+    justify-content: flex-start;
+}
+
+.nav-align-center .subfolder-items {
+    justify-content: center;
+}
+
+.nav-align-right .subfolder-items {
+    justify-content: flex-end;
+}
+
+.subfolder-item {
+    background-color: rgba(128, 128, 128, 0.2);
+    padding: 0.5rem 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.subfolder-title {
+    font-weight: 700;
+    text-decoration: none;
+    color: #4a86e8;
+}
+
+.folder-type {
+    font-size: 0.8rem;
+    color: rgba(160, 160, 160, 0.9);
+    background-color: rgba(128, 128, 128, 0.3);
+    padding: 0.1rem 0.4rem;
+}
+
+/* Dark mode adjustments */
+body.dark-mode .subfolder-item {
+    background-color: rgba(128, 128, 128, 0.15);
+}
+
+body.dark-mode .folder-type {
+    color: rgba(200, 200, 200, 0.9);
+    background-color: rgba(128, 128, 128, 0.2);
+}
+
+/* === Folder Layout Styles === */
+.folder-header {
+    max-width: 500px;
+    margin: 0 auto;
+    margin-bottom: 2rem;
+}
+
+.nav-align-left .folder-header {
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.nav-align-left .folder-header p {
+    text-align: left;
+}
+
+.nav-align-center .folder-header p {
+    text-align: center;
+}
+
+.nav-align-right .folder-header {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.nav-align-right .folder-header p {
+    text-align: right;
+}

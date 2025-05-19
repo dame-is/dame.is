@@ -3,9 +3,10 @@ layout: base
 ---
 
 <div class="folder-container">
-  <h1>{{ title }}</h1>
-  
-  {{ content | safe }}
+  <section class="folder-header">
+    <h1>{{ title }}</h1>
+    {{ content | safe }}
+  </section>
   
   <div class="folder-items">
     {% set folderPages = collections.all | sort(true, false, "date") %}
@@ -85,38 +86,6 @@ layout: base
 {% endblock %} 
 
 <style>
-  .subfolders-section {
-    margin-bottom: 2rem;
-  }
-  
-  .subfolder-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-  
-  .subfolder-item {
-    background-color: rgba(128, 128, 128, 0.2);
-    padding: 0.5rem 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  
-  .subfolder-title {
-    font-weight: 700;
-    text-decoration: none;
-    color: #4a86e8;
-  }
-  
-  .folder-type {
-    font-size: 0.8rem;
-    color: rgba(160, 160, 160, 0.9);
-    background-color: rgba(128, 128, 128, 0.3);
-    padding: 0.1rem 0.4rem;
-  }
-
   /* Table border styles */
   .folder-table {
     border-collapse: collapse;
