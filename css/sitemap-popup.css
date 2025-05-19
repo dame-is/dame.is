@@ -69,10 +69,12 @@ body.dark-mode .sitemap-toggle-button:hover {
   z-index: 999;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  will-change: transform;
+  transform-origin: center center;
 }
 
 /* Dark mode popup */
@@ -347,6 +349,13 @@ body.sitemap-open {
   .sitemap-popup {
     width: 90%;
     max-height: 70vh;
+    /* Mobile-specific animation settings */
+    transform: translate(-50%, -50%) scale(0.95);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out, visibility 0.2s;
+  }
+  
+  .sitemap-popup.open {
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 
