@@ -84,6 +84,11 @@ function formatFullDate(date) {
 
 // Function to normalize a date to UTC noon
 function normalizeToUTCNoon(date) {
+    // If the date already has a time component (hours, minutes, seconds), preserve it
+    if (date.getHours() !== 0 || date.getMinutes() !== 0 || date.getSeconds() !== 0) {
+        return date;
+    }
+    // Otherwise, set to noon UTC
     return new Date(Date.UTC(
         date.getFullYear(),
         date.getMonth(),
@@ -96,9 +101,19 @@ function normalizeToUTCNoon(date) {
 function getRelativeTime(date) {
     // Normalize both dates to UTC noon for consistent comparison
     const normalizedDate = normalizeToUTCNoon(date);
-    const now = normalizeToUTCNoon(new Date());
     
-    const diffInSeconds = Math.floor((now - normalizedDate) / 1000);
+    // Get current time in UTC
+    const now = new Date();
+    const nowUTC = new Date(Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        now.getUTCHours(),
+        now.getUTCMinutes(),
+        now.getUTCSeconds()
+    ));
+    
+    const diffInSeconds = Math.floor((nowUTC - normalizedDate) / 1000);
     
     const intervals = [
         { label: 'year', seconds: 31536000 },

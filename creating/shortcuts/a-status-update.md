@@ -1,7 +1,7 @@
 ---
 layout: post
 title: a.status.update
-date: 2025-05-19
+date: 2025-05-19T12:30:00-05:00
 blueskyUri: ""
 ogImage: /images/shortcuts/a-status-update-og-image.jpg
 excerpt: Quickly share old-school status updates to a Bluesky account or custom lexicon without having to open the app. Assign it to the iPhone's action button for even faster access!

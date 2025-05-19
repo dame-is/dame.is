@@ -188,10 +188,15 @@ module.exports = function(eleventyConfig) {
 
   // Function to normalize a date to UTC noon
   function normalizeToUTCNoon(date) {
+    // If the date already has a time component (hours, minutes, seconds), preserve it
+    if (date.getUTCHours() !== 0 || date.getUTCMinutes() !== 0 || date.getUTCSeconds() !== 0) {
+      return date;
+    }
+    // Otherwise, set to noon UTC
     return new Date(Date.UTC(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate(),
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
       12, 0, 0 // noon UTC
     ));
   }
