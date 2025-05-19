@@ -64,6 +64,16 @@
       <div class="settings-group">
         <h4 class="settings-group-title">Navigation Bar</h4>
         <div class="settings-option">
+          <label for="nav-alignment" class="settings-option-label">Navigation Alignment</label>
+          <div class="settings-option-control">
+            <select id="nav-alignment" class="settings-select">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-option">
           <label for="show-pinned-links" class="settings-option-label">Show Pinned Links</label>
           <div class="settings-option-control">
             <input type="checkbox" id="show-pinned-links" class="settings-checkbox" checked />
@@ -155,6 +165,22 @@
         lofiModeToggle.addEventListener('change', function() {
           document.body.classList.toggle('lofi-mode', this.checked);
           localStorage.setItem('lofiMode', this.checked);
+          
+          // Update navigation alignment based on lo-fi mode
+          const navAlignmentSelect = document.getElementById('nav-alignment');
+          if (this.checked) {
+            // Switch to center alignment in lo-fi mode
+            document.body.classList.remove('nav-align-left', 'nav-align-right');
+            document.body.classList.add('nav-align-center');
+            if (navAlignmentSelect) navAlignmentSelect.value = 'center';
+            localStorage.setItem('navAlignment', 'center');
+          } else {
+            // Switch back to left alignment when disabling lo-fi mode
+            document.body.classList.remove('nav-align-center', 'nav-align-right');
+            document.body.classList.add('nav-align-left');
+            if (navAlignmentSelect) navAlignmentSelect.value = 'left';
+            localStorage.setItem('navAlignment', 'left');
+          }
         });
       }
       
@@ -202,6 +228,30 @@
         
         // Apply the font size on load
         document.body.classList.add(`font-${currentFontSize}`);
+      }
+
+      // Navigation alignment initialization
+      const navAlignmentSelect = document.getElementById('nav-alignment');
+      if (navAlignmentSelect) {
+        // Get current alignment from localStorage or default to left
+        const currentAlignment = localStorage.getItem('navAlignment') || 'left';
+        navAlignmentSelect.value = currentAlignment;
+        
+        // Remove any existing alignment classes
+        document.body.classList.remove('nav-align-left', 'nav-align-center', 'nav-align-right');
+        // Add the current alignment class
+        document.body.classList.add(`nav-align-${currentAlignment}`);
+        
+        // Add event listener
+        navAlignmentSelect.addEventListener('change', function() {
+          const newAlignment = this.value;
+          // Remove any existing alignment classes
+          document.body.classList.remove('nav-align-left', 'nav-align-center', 'nav-align-right');
+          // Add the new alignment class
+          document.body.classList.add(`nav-align-${newAlignment}`);
+          // Save to local storage
+          localStorage.setItem('navAlignment', newAlignment);
+        });
       }
 
       // Navigation visibility settings initialization
@@ -281,6 +331,13 @@
         document.body.classList.remove('lofi-mode');
         const lofiModeToggle = document.getElementById('lofi-mode-toggle');
         if (lofiModeToggle) lofiModeToggle.checked = false;
+
+        // Reset navigation alignment to left
+        document.body.classList.remove('nav-align-center', 'nav-align-right');
+        document.body.classList.add('nav-align-left');
+        const navAlignmentSelect = document.getElementById('nav-alignment');
+        if (navAlignmentSelect) navAlignmentSelect.value = 'left';
+        localStorage.setItem('navAlignment', 'left');
 
         // Reset font family to Arial
         document.body.classList.remove('font-arial', 'font-times', 'font-mono', 'font-comic');

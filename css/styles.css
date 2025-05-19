@@ -199,7 +199,6 @@ body.dark-mode nav a:visited {
 }
 
 .nav-links {
-    margin-right: 11px; /* Adjust as needed */
     display: flex; /* Use flexbox for better control */
     flex-wrap: wrap; /* Allow wrapping when needed */
     gap: 3px; /* Add space between wrapped items */
@@ -2322,15 +2321,6 @@ body.hide-social-stats .nav-section:nth-child(3) {
     display: flex !important;
 }
 
-/* Adjust borders based on visibility */
-body.hide-pinned-links.hide-social-stats .nav-section.top-nav {
-    border-bottom: none;
-}
-
-body.hide-social-stats .nav-section:nth-child(2) {
-    border-bottom: none;
-}
-
 /* === Lo-fi Mode Styles === */
 .lofi-mode {
     /* Reset background and text colors */
@@ -2365,10 +2355,36 @@ body.hide-social-stats .nav-section:nth-child(2) {
 .lofi-mode .nav-section {
     border: none;
     padding: 20px 20px;
+    justify-content: center;
+    text-align: center;
 }
 
 .lofi-mode .nav-section.top-nav {
     border: none;
+}
+
+.lofi-mode .nav-section .nav-left,
+.lofi-mode .nav-section .nav-right,
+.lofi-mode .nav-section .bottom-nav-left,
+.lofi-mode .nav-section .bottom-nav-right,
+.lofi-mode .nav-section .top-nav-left,
+.lofi-mode .nav-section .top-nav-right {
+    justify-content: center;
+    width: 100%;
+}
+
+.lofi-mode .site-title-and-latest-log {
+    justify-content: center;
+}
+
+.lofi-mode .nav-links {
+    justify-content: center;
+    width: 100%;
+}
+
+.lofi-mode .filepath-links {
+    justify-content: center;
+    width: 100%;
 }
 
 /* Simplify links */
@@ -2564,4 +2580,78 @@ body.hide-social-stats .nav-section:nth-child(2) {
 
 .lofi-mode .sitemap-nav-toggle span {
   display: none;
+}
+
+/* === Navigation Alignment Styles === */
+.nav-align-left .nav-section {
+    justify-content: flex-start;
+}
+
+.nav-align-left .nav-section .nav-left,
+.nav-align-left .nav-section .nav-right,
+.nav-align-left .nav-section .bottom-nav-left,
+.nav-align-left .nav-section .bottom-nav-right,
+.nav-align-left .nav-section .top-nav-left,
+.nav-align-left .nav-section .top-nav-right,
+.nav-align-left .site-title-and-latest-log,
+.nav-align-left .nav-links,
+.nav-align-left .filepath-links {
+    justify-content: flex-start;
+}
+
+.nav-align-center .nav-section {
+    justify-content: center;
+    text-align: center;
+}
+
+.nav-align-center .nav-section .nav-left,
+.nav-align-center .nav-section .nav-right,
+.nav-align-center .nav-section .bottom-nav-left,
+.nav-align-center .nav-section .bottom-nav-right,
+.nav-align-center .nav-section .top-nav-left,
+.nav-align-center .nav-section .top-nav-right {
+    justify-content: center;
+    width: 100%;
+}
+
+.nav-align-center .site-title-and-latest-log,
+.nav-align-center .nav-links,
+.nav-align-center .filepath-links {
+    justify-content: center;
+    width: 100%;
+}
+
+.nav-align-right .nav-section {
+    justify-content: flex-end;
+}
+
+.nav-align-right .nav-section .nav-left,
+.nav-align-right .nav-section .nav-right,
+.nav-align-right .nav-section .bottom-nav-left,
+.nav-align-right .nav-section .bottom-nav-right,
+.nav-align-right .nav-section .top-nav-left,
+.nav-align-right .nav-section .top-nav-right,
+.nav-align-right .site-title-and-latest-log,
+.nav-align-right .nav-links,
+.nav-align-right .filepath-links {
+    justify-content: flex-end;
+}
+
+/* Adjust social icons and stats layout in centered nav */
+.nav-align-center .nav-section:has(#bluesky-stats) {
+    flex-direction: column;
+    gap: 15px;
+}
+
+.nav-align-center .nav-section .nav-left:has(.nav-icon),
+.nav-align-center .nav-section .nav-right:has(#bluesky-stats) {
+    justify-content: center;
+    gap: 15px;
+}
+
+.nav-align-center #bluesky-stats {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
 }
