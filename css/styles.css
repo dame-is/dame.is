@@ -16,12 +16,29 @@ main {
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: Arial, sans-serif;  /* Default to Arial */
     text-align: left;
     margin: 0;
     padding: 0;
     background-color: var(--background-color);
     color: var(--text-color);
+}
+
+/* === Font Family Classes === */
+.font-arial {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.font-times {
+    font-family: "Times New Roman", Times, serif;
+}
+
+.font-mono {
+    font-family: "Courier New", Courier, monospace;
+}
+
+.font-comic {
+    font-family: "Comic Sans MS", "Comic Sans", cursive;
 }
 
 main {
@@ -2312,4 +2329,239 @@ body.hide-pinned-links.hide-social-stats .nav-section.top-nav {
 
 body.hide-social-stats .nav-section:nth-child(2) {
     border-bottom: none;
+}
+
+/* === Lo-fi Mode Styles === */
+.lofi-mode {
+    /* Reset background and text colors */
+    --background-color: #fff;
+    --text-color: #000;
+    --post-background-color: transparent;
+    --text-secondary: #555;
+    --bg-secondary: transparent;
+    --bg-hover: #f0f0f0;
+    --text-primary: #000;
+    
+    /* Set Times New Roman as default font */
+    font-family: "Times New Roman", Times, serif !important;
+}
+
+.lofi-mode.dark-mode {
+    --background-color: #111;
+    --text-color: #eee;
+    --post-background-color: transparent;
+    --text-secondary: #aaa;
+    --bg-secondary: transparent;
+    --bg-hover: #222;
+    --text-primary: #eee;
+}
+
+/* Navigation simplification */
+.lofi-mode nav {
+    background-color: transparent;
+    border: none;
+}
+
+.lofi-mode .nav-section {
+    border: none;
+    padding: 20px 20px;
+}
+
+.lofi-mode .nav-section.top-nav {
+    border: none;
+}
+
+/* Simplify links */
+.lofi-mode a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+.lofi-mode .nav-left a.nav-link {
+    text-decoration: none;
+}
+
+.lofi-mode .nav-left a.nav-link.active {
+    text-decoration: underline;
+    border: none;
+    color: inherit;
+}
+
+/* Remove backgrounds from posts and cards */
+.lofi-mode .post,
+.lofi-mode .alt-card,
+.lofi-mode .log-container {
+    background: none;
+    border: none;
+    border-bottom: 1px solid #ddd;
+    border-radius: 0;
+    padding: 15px 0;
+}
+
+.lofi-mode.dark-mode .post,
+.lofi-mode.dark-mode .alt-card,
+.lofi-mode.dark-mode .log-container {
+    border-bottom-color: #333;
+}
+
+/* Simplify icons */
+.lofi-mode .nav-icon {
+    opacity: 0.7;
+}
+
+.lofi-mode .nav-icon:hover {
+    opacity: 1;
+    transform: none;
+}
+
+/* Simplify blockquotes */
+.lofi-mode blockquote {
+    border-left: 2px solid currentColor;
+    background: none;
+    padding-left: 1em;
+    color: inherit;
+    opacity: 0.8;
+}
+
+/* Simplify code blocks */
+.lofi-mode code {
+    background: none;
+    padding: 0;
+    color: inherit;
+}
+
+.lofi-mode pre {
+    background: none;
+    padding: 1em 0;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    border-radius: 0;
+}
+
+.lofi-mode.dark-mode pre {
+    border-color: #333;
+}
+
+/* Simplify images */
+.lofi-mode img {
+    border: none;
+    border-radius: 0;
+    filter: grayscale(100%);
+}
+
+/* Simplify buttons */
+.lofi-mode button:not(.settings-toggle-button):not(.settings-close-button) {
+    color: inherit;
+    padding: 5px 10px;
+    border-radius: 0;
+}
+
+/* Simplify settings popup */
+.lofi-mode .settings-popup {
+    background-color: var(--background-color);
+    border: 1px solid currentColor;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.lofi-mode .settings-popup-header {
+    border-bottom: 1px solid currentColor;
+}
+
+.lofi-mode .settings-group {
+    border-bottom: 1px solid currentColor;
+    opacity: 0.8;
+}
+
+/* Simplify footer */
+.lofi-mode footer {
+    background: none;
+    border-top: 1px solid currentColor;
+    opacity: 0.8;
+}
+
+/* Simplify stats and counts */
+.lofi-mode .count-item {
+    background: none;
+    padding: 0;
+    margin-right: 15px;
+    opacity: 0.7;
+}
+
+.lofi-mode #bluesky-stats {
+    opacity: 0.7;
+}
+
+/* Remove transitions */
+.lofi-mode * {
+    transition: none !important;
+}
+
+/* Adjust spacing */
+.lofi-mode main {
+    max-width: 650px;
+    line-height: 1.6;
+}
+
+/* Lo-fi mode button styles */
+.lofi-mode .settings-toggle-button,
+.lofi-mode .sitemap-toggle-button {
+  border-radius: 0;
+  width: auto;
+  height: auto;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-family: inherit;
+  background-color: #f0f0f0;
+  border: 1px solid #7a7a7a36;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  color: #555;
+}
+
+.lofi-mode.dark-mode .settings-toggle-button,
+.lofi-mode.dark-mode .sitemap-toggle-button {
+  background-color: #1e1e1e;
+  border: 1px solid #7a7a7a36;
+  color: #aaa;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.lofi-mode .settings-toggle-button:hover,
+.lofi-mode .sitemap-toggle-button:hover {
+  background-color: #e0e0e0;
+  transform: none;
+}
+
+.lofi-mode.dark-mode .settings-toggle-button:hover,
+.lofi-mode.dark-mode .sitemap-toggle-button:hover {
+  background-color: #282828;
+}
+
+.lofi-mode .settings-emoji,
+.lofi-mode .sitemap-emoji {
+  display: none;
+}
+
+.lofi-mode .settings-toggle-button::after {
+  content: "Settings";
+}
+
+.lofi-mode .sitemap-toggle-button::after {
+  content: "Map";
+}
+
+/* Lo-fi mode sitemap nav toggle */
+.lofi-mode .sitemap-nav-toggle {
+  font-size: 1rem;
+}
+
+.lofi-mode .sitemap-nav-toggle::before {
+  content: "Map";
+  font-family: inherit;
+}
+
+.lofi-mode .sitemap-nav-toggle span {
+  display: none;
 }

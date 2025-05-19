@@ -32,6 +32,23 @@
           </div>
         </div>
         <div class="settings-option">
+          <label for="lofi-mode-toggle" class="settings-option-label">Lo-fi Mode</label>
+          <div class="settings-option-control">
+            <input type="checkbox" id="lofi-mode-toggle" class="settings-checkbox" />
+          </div>
+        </div>
+        <div class="settings-option">
+          <label for="font-family" class="settings-option-label">Font Family</label>
+          <div class="settings-option-control">
+            <select id="font-family" class="settings-select">
+              <option value="arial">Arial</option>
+              <option value="times">Times New Roman</option>
+              <option value="mono">Monospace</option>
+              <option value="comic">Comic Sans MS</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-option">
           <label for="font-size" class="settings-option-label">Font Size</label>
           <div class="settings-option-control">
             <select id="font-size" class="settings-select">
@@ -57,6 +74,13 @@
           <div class="settings-option-control">
             <input type="checkbox" id="show-social-stats" class="settings-checkbox" checked />
           </div>
+        </div>
+      </div>
+
+      <!-- Reset settings -->
+      <div class="settings-group">
+        <div class="settings-option settings-reset">
+          <button id="reset-settings" class="settings-reset-button">Reset to Defaults</button>
         </div>
       </div>
     </div>
@@ -114,6 +138,47 @@
             document.body.classList.remove('dark-mode');
             localStorage.setItem('theme', 'light');
           }
+        });
+      }
+      
+      // Lo-fi mode toggle initialization
+      const lofiModeToggle = document.getElementById('lofi-mode-toggle');
+      if (lofiModeToggle) {
+        // Get current state from localStorage or default to false
+        const isLofiMode = localStorage.getItem('lofiMode') === 'true';
+        
+        // Set initial state
+        lofiModeToggle.checked = isLofiMode;
+        document.body.classList.toggle('lofi-mode', isLofiMode);
+        
+        // Add event listener
+        lofiModeToggle.addEventListener('change', function() {
+          document.body.classList.toggle('lofi-mode', this.checked);
+          localStorage.setItem('lofiMode', this.checked);
+        });
+      }
+      
+      // Font family selection initialization
+      const fontFamilySelect = document.getElementById('font-family');
+      if (fontFamilySelect) {
+        // Get current font family from local storage or default to arial
+        const currentFontFamily = localStorage.getItem('fontFamily') || 'arial';
+        fontFamilySelect.value = currentFontFamily;
+        
+        // Remove any existing font family classes
+        document.body.classList.remove('font-arial', 'font-times', 'font-mono', 'font-comic');
+        // Add the current font family class
+        document.body.classList.add(`font-${currentFontFamily}`);
+        
+        // Add event listener
+        fontFamilySelect.addEventListener('change', function() {
+          const newFont = this.value;
+          // Remove any existing font family classes
+          document.body.classList.remove('font-arial', 'font-times', 'font-mono', 'font-comic');
+          // Add the new font family class
+          document.body.classList.add(`font-${newFont}`);
+          // Save to local storage
+          localStorage.setItem('fontFamily', newFont);
         });
       }
       
@@ -194,6 +259,49 @@
     // Add click event to backdrop to close settings
     const settingsBackdrop = document.getElementById('settings-backdrop');
     settingsBackdrop.addEventListener('click', window.toggleSettings);
+
+    // Reset settings functionality
+    const resetButton = document.getElementById('reset-settings');
+    if (resetButton) {
+      resetButton.addEventListener('click', function() {
+        // Clear all settings from localStorage
+        localStorage.removeItem('theme');
+        localStorage.removeItem('lofiMode');
+        localStorage.removeItem('fontFamily');
+        localStorage.removeItem('fontSize');
+        localStorage.removeItem('showPinnedLinks');
+        localStorage.removeItem('showSocialStats');
+
+        // Reset dark mode
+        document.body.classList.remove('dark-mode');
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        if (darkModeToggle) darkModeToggle.checked = false;
+
+        // Reset lo-fi mode
+        document.body.classList.remove('lofi-mode');
+        const lofiModeToggle = document.getElementById('lofi-mode-toggle');
+        if (lofiModeToggle) lofiModeToggle.checked = false;
+
+        // Reset font family to Arial
+        document.body.classList.remove('font-arial', 'font-times', 'font-mono', 'font-comic');
+        document.body.classList.add('font-arial');
+        const fontFamilySelect = document.getElementById('font-family');
+        if (fontFamilySelect) fontFamilySelect.value = 'arial';
+
+        // Reset font size to medium
+        document.body.classList.remove('font-small', 'font-medium', 'font-large');
+        document.body.classList.add('font-medium');
+        const fontSizeSelect = document.getElementById('font-size');
+        if (fontSizeSelect) fontSizeSelect.value = 'medium';
+
+        // Reset navigation settings
+        document.body.classList.remove('hide-pinned-links', 'hide-social-stats');
+        const pinnedLinksToggle = document.getElementById('show-pinned-links');
+        const socialStatsToggle = document.getElementById('show-social-stats');
+        if (pinnedLinksToggle) pinnedLinksToggle.checked = true;
+        if (socialStatsToggle) socialStatsToggle.checked = true;
+      });
+    }
 
     // Initialize settings on page load
     initializeSettings();

@@ -419,6 +419,8 @@ function initializeBlueskyComments() {
 // 7. NAV INITIALIZATION
 // ----------------------------------
 function initializeNav() {
+    console.log('Initializing navigation...');
+    
     // Theme toggle
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
@@ -450,19 +452,107 @@ function initializeNav() {
         });
 
         themeToggle.addEventListener('click', toggleTheme);
-
-        // Fetch Bluesky stats
-        fetchBlueskyStats();
-
-        // Assign active class to current page link
-        setActiveNavLink();
-
-        // Fetch and display the most recent log in the navigation
-        fetchLatestLogForNav();
     } else {
         console.warn('Theme toggle element not found.');
     }
+
+    // Fetch Bluesky stats
+    console.log('Fetching Bluesky stats...');
+    fetchBlueskyStats();
+
+    // Assign active class to current page link
+    setActiveNavLink();
+
+    // Fetch and display the most recent log in the navigation
+    console.log('Fetching latest log...');
+    fetchLatestLogForNav();
 }
+
+// Main initialization when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded - Initializing...');
+    
+    // Initialize nav and its features
+    initializeNav();
+    
+    // Initialize page-specific features based on the current URL
+    const path = window.location.pathname;
+    const pathParts = path.split('/').filter(part => part !== '');
+    
+    // Determine the current page key based on the URL
+    let pageKey = '';
+    
+    if (path === '/' || path === '/index.html') {
+        pageKey = 'index';
+    } else if (path.startsWith('/writing/blogs/')) {
+        const slug = pathParts[2];
+        pageKey = `blog/${slug}`;
+    } else if (path === '/writing/blogs' || path === '/writing/blogs/') {
+        pageKey = 'blog';
+    } else if (path === '/writing/posts' || path === '/writing/posts/') {
+        pageKey = 'posts';
+    } else if (path.startsWith('/creating/shortcuts/')) {
+        pageKey = 'shortcuts';
+    } else {
+        const lastSegment = pathParts.length > 0 ? pathParts[pathParts.length - 1] : '';
+        pageKey = lastSegment.split('.')[0];
+    }
+    
+    // Initialize page-specific features based on the determined pageKey
+    switch (pageKey) {
+        case 'posts':
+            initializePostLoader();
+            break;
+        case 'logging':
+            // The log loader will be initialized by the script tag in logging.md
+            break;
+        case 'blog':
+            // Blogs are now handled by 11ty
+            break;
+        default:
+            // No specific initialization needed for other page types
+            break;
+    }
+
+    // Check if the current page has a Bluesky comments section
+    if (document.getElementById('bluesky-comments')) {
+        initializeBlueskyComments();
+    }
+
+    // Initialize supporters list if we're on the supported page
+    if (window.location.pathname === '/supported' || window.location.pathname === '/supported/') {
+        initializeSupportersList();
+    }
+
+    // Mobile/tap dropdown support for nav
+    document.querySelectorAll('.nav-item.has-dropdown > .nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Only activate on touch/click, not on keyboard navigation
+            if (window.matchMedia('(hover: none)').matches || window.innerWidth < 900) {
+                e.preventDefault();
+                const parent = this.parentElement;
+                const isOpen = parent.classList.contains('dropdown-open');
+                // Close all dropdowns
+                document.querySelectorAll('.nav-item.has-dropdown').forEach(item => {
+                    item.classList.remove('dropdown-open');
+                });
+                // Toggle this one
+                if (!isOpen) {
+                    parent.classList.add('dropdown-open');
+                }
+            }
+        });
+    });
+
+    // Optional: close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.nav-item.has-dropdown')) {
+            document.querySelectorAll('.nav-item.has-dropdown').forEach(item => {
+                item.classList.remove('dropdown-open');
+            });
+        }
+    });
+});
 
 // ----------------------------------
 // 8. THEME TOGGLE

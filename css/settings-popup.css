@@ -61,7 +61,7 @@ body.dark-mode .settings-toggle-button:hover {
   transform: translate(-50%, -50%) scale(0.9);
   width: 85%;
   max-width: 400px;
-  max-height: 80vh;
+  max-height: 60vh;
   background-color: var(--bg-secondary, #f5f5f5);
   border-radius: 0;
   border: 1px solid #7a7a7a36;
@@ -373,4 +373,82 @@ body.dark-mode #dharma-content pre::after {
 /* Body class when settings is open */
 body.settings-open {
     overflow: hidden;
+}
+
+/* Reset settings button */
+.settings-reset {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+.settings-reset-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.settings-reset-button:hover {
+  background-color: #c82333;
+}
+
+body.dark-mode .settings-reset-button {
+  background-color: #bd2130;
+}
+
+body.dark-mode .settings-reset-button:hover {
+  background-color: #a71d2a;
+}
+
+/* Add a divider before the reset section */
+.settings-reset {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  margin-top: 15px;
+}
+
+body.dark-mode .settings-reset {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Lo-fi mode overrides */
+body.lofi-mode .settings-toggle-button {
+  width: auto;
+  height: auto;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-family: "Times New Roman", Times, serif;
+  border-radius: 0;
+  background-color: #f0f0f0;
+  border: 1px solid #7a7a7a36;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  color: #555;
+}
+
+body.lofi-mode.dark-mode .settings-toggle-button {
+  background-color: #1e1e1e;
+  border: 1px solid #7a7a7a36;
+  color: #aaa;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+body.lofi-mode .settings-toggle-button:hover {
+  background-color: #e0e0e0;
+  transform: none;
+}
+
+body.lofi-mode.dark-mode .settings-toggle-button:hover {
+  background-color: #282828;
+}
+
+body.lofi-mode .settings-emoji {
+  display: none;
+}
+
+body.lofi-mode .settings-toggle-button::after {
+  content: "Settings";
 } 

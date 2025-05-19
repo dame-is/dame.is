@@ -46,6 +46,44 @@ body.dark-mode .sitemap-toggle-button:hover {
   transform: scale(0.95);
 }
 
+/* Lo-fi mode overrides */
+body.lofi-mode .sitemap-toggle-button {
+  width: auto;
+  height: auto;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-family: "Times New Roman", Times, serif;
+  border-radius: 0;
+  background-color: #f0f0f0;
+  border: 1px solid #7a7a7a36;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  color: #555;
+}
+
+body.lofi-mode.dark-mode .sitemap-toggle-button {
+  background-color: #1e1e1e;
+  border: 1px solid #7a7a7a36;
+  color: #aaa;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+body.lofi-mode .sitemap-toggle-button:hover {
+  background-color: #e0e0e0;
+  transform: none;
+}
+
+body.lofi-mode.dark-mode .sitemap-toggle-button:hover {
+  background-color: #282828;
+}
+
+body.lofi-mode .sitemap-emoji {
+  display: none;
+}
+
+body.lofi-mode .sitemap-toggle-button::after {
+  content: "Map";
+}
+
 /* Emoji inside button */
 .sitemap-emoji {
   display: flex;
@@ -61,7 +99,7 @@ body.dark-mode .sitemap-toggle-button:hover {
   transform: translate(-50%, -50%) scale(0.9);
   width: 85%;
   max-width: 400px;
-  max-height: 80vh;
+  max-height: 60vh;
   background-color: var(--bg-secondary, #f5f5f5);
   border-radius: 0;
   border: 1px solid #7a7a7a36;
