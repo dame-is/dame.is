@@ -12,6 +12,12 @@
       <div class="sitemap-subtitle">dame.is</div>
     </div>
     <div class="sitemap-header-actions">
+      <button id="sitemap-home-button" class="sitemap-action-button" aria-label="Go to home page" title="Home">
+        <span>🏠</span>
+      </button>
+      <button id="sitemap-collapse-all-button" class="sitemap-action-button" aria-label="Collapse all folders" title="Collapse All">
+        <span>🔄</span>
+      </button>
       <button id="sitemap-close-button" class="sitemap-close-button" aria-label="Close site map">
         <span>✕</span>
       </button>
@@ -51,6 +57,8 @@
     // Get references to elements
     const toggleButton = document.getElementById('sitemap-toggle-button');
     const closeButton = document.getElementById('sitemap-close-button');
+    const homeButton = document.getElementById('sitemap-home-button');
+    const collapseAllButton = document.getElementById('sitemap-collapse-all-button');
     const sitemapContent = document.getElementById('sitemap-content');
     
     // Add a direct event listener to the site title
@@ -274,9 +282,37 @@
       });
     }
     
+    // Function to collapse all folders
+    function collapseAllFolders() {
+      const childrenContainers = document.querySelectorAll('.sitemap-node-children');
+      childrenContainers.forEach(container => {
+        container.classList.add('collapsed');
+        
+        // Update toggle icons
+        const toggleBtn = container.previousElementSibling?.querySelector('.sitemap-node-toggle');
+        if (toggleBtn) {
+          const icon = toggleBtn.querySelector('.toggle-icon');
+          if (icon) {
+            icon.textContent = '+';
+          }
+        }
+      });
+      
+      // After collapsing all, re-expand the active path
+      setTimeout(expandActivePath, 10);
+    }
+    
     // Add event listeners
     toggleButton.addEventListener('click', window.toggleSitemap);
     closeButton.addEventListener('click', window.toggleSitemap);
+    
+    // Home button - navigate to home page
+    homeButton.addEventListener('click', function() {
+      window.location.href = '/';
+    });
+    
+    // Collapse all button
+    collapseAllButton.addEventListener('click', collapseAllFolders);
     
     // Make all sitemap toggles on the page work
     document.querySelectorAll('.sitemap-nav-toggle, [data-sitemap-toggle="true"]').forEach(function(toggle) {
