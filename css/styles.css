@@ -2655,3 +2655,27 @@ body.hide-social-stats .nav-section:nth-child(3) {
     justify-content: center;
     flex-wrap: wrap;
 }
+
+/* === Mobile Navigation Styles === */
+@media (max-width: 500px) {
+    .nav-section:has(#bluesky-stats) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .nav-section:has(#bluesky-stats) .nav-left,
+    .nav-section:has(#bluesky-stats) .nav-right {
+        width: 100%;
+    }
+
+    .nav-section:has(#bluesky-stats) .nav-left {
+        margin-bottom: 5px;
+    }
+
+    #bluesky-stats {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+}
