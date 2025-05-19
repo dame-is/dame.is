@@ -2807,3 +2807,7 @@ body.dark-mode .folder-type {
 .nav-align-right .folder-header p {
     text-align: right;
 }
+
+.icon.icon-hourglass {
+	scale: 0.94;
+}
