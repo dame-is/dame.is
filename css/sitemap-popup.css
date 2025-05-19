@@ -355,9 +355,7 @@ body.sitemap-open {
   .sitemap-popup {
     width: 90%;
     max-height: 70vh;
-    /* Mobile-specific animation settings */
-    transform: translate(-50%, -50%) scale(0.95);
-    transition: opacity 0.2s ease-out, transform 0.2s ease-out, visibility 0.2s;
+
   }
   
   .sitemap-popup.open {
