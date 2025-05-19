@@ -5,6 +5,9 @@
   </button>
 </div>
 
+<!-- Backdrop for blur effect -->
+<div id="sitemap-backdrop" class="sitemap-backdrop"></div>
+
 <div id="sitemap-popup" class="sitemap-popup">
   <div class="sitemap-popup-header">
     <div class="sitemap-title-container">
@@ -37,12 +40,15 @@
   window.toggleSitemap = function() {
     const sitemapPopup = document.getElementById('sitemap-popup');
     const sitemapContent = document.getElementById('sitemap-content');
+    const sitemapBackdrop = document.getElementById('sitemap-backdrop');
     
     if (sitemapPopup.classList.contains('open')) {
       sitemapPopup.classList.remove('open');
+      sitemapBackdrop.classList.remove('open');
       document.body.classList.remove('sitemap-open');
     } else {
       sitemapPopup.classList.add('open');
+      sitemapBackdrop.classList.add('open');
       document.body.classList.add('sitemap-open');
       
       // Only initialize the sitemap content if it hasn't been done already
@@ -379,6 +385,12 @@
           window.toggleSitemap();
         }
       }
+    });
+    
+    // Close when clicking on the backdrop
+    const sitemapBackdrop = document.getElementById('sitemap-backdrop');
+    sitemapBackdrop.addEventListener('click', function(event) {
+      window.toggleSitemap();
     });
     
     // Close when clicking outside the popup (but not the toggle button)

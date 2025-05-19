@@ -338,6 +338,32 @@ body.dark-mode .sitemap-node-toggle:hover {
 body.sitemap-open {
   overflow: hidden;
 }
+
+/* Backdrop overlay for when sitemap is open */
+.sitemap-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s;
+}
+
+.sitemap-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+body.dark-mode .sitemap-backdrop {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
 /* Allow scrolling within popup content */
 .sitemap-popup-content {
   -webkit-overflow-scrolling: touch;
