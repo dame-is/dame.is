@@ -129,64 +129,6 @@ layout: base
   
   /* Responsive table styles for mobile */
   @media (max-width: 600px) {
-    .folder-table {
-      display: block;
-      border: none;
-    }
-    
-    .folder-table tbody {
-      display: block;
-    }
-    
-    .folder-table tr {
-      display: grid;
-      grid-template-columns: 1fr;
-      padding: 1rem;
-      grid-template-areas: 
-        "title"
-        "date"
-        "folder";
-      margin-bottom: 1rem;
-      background-color: var(--background);
-      border: 1px solid var(--border);
-      transition: background-color 0.2s ease;
-    }
-    
-    .folder-table tr:hover {
-      background-color: var(--background-hover);
-    }
-    
-    .folder-table td {
-      display: block;
-      border: none;
-      max-width: 400px;
-    }
-    
-    .folder-table td:nth-child(1) {
-      grid-area: title;
-      padding-bottom: 0.5rem;
-    }
-    
-    .folder-table td:nth-child(2) {
-      grid-area: date;
-      padding-top: 0.25rem;
-      padding-bottom: 0.5rem;
-    }
-    
-    .folder-table td:nth-child(3) {
-      grid-area: folder;
-      padding-top: 0.25rem;
-    }
-    
-    .folder-item-title {
-      font-size: 1.4rem;
-      font-weight: 500;
-    }
-    
-    .date-display {
-      margin: 0;
-    }
-
     .full-width-table-container {
       margin-left: -1rem;
       margin-right: -1rem;
