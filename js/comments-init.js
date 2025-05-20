@@ -94,6 +94,13 @@ function renderBlueskyComments() {
                 margin-bottom: 0px;
             }
 
+            ._commentContent_yf3k8_95 {
+                padding: 0.4rem 0 0 !important;
+                margin: 10px !important;
+                margin-top: 0.2rem !important;
+                margin-bottom: 0px !important;
+            }
+
             ._commentContainer_yf3k8_90 {
                 margin: 0.5rem 0 !important;
             }
