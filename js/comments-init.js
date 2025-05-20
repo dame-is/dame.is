@@ -58,9 +58,6 @@ function renderBlueskyComments() {
                 justify-content: flex-start;
             }
 
-            ._container_yf3k8_1 a, ._container_yf3k8_1 a._link_yf3k8_33, ._container_yf3k8_1 a._link_yf3k8_33:hover {
-                text-decoration: none !important;
-            }
 
             .nav-align-center ._statsBar_yf3k8_12,
             .nav-align-center ._replyText_yf3k8_56 {
@@ -72,6 +69,16 @@ function renderBlueskyComments() {
             .nav-align-right ._replyText_yf3k8_56 {
                 text-align: right;
                 justify-content: flex-end;
+            }
+            
+            /* Ensure Deer text is visible */
+            ._replyText_yf3k8_56 {
+                display: flex !important;
+                gap: 0.25rem;
+            }
+
+            ._replyText_yf3k8_56 a {
+                display: inline !important;
             }
             
             /* Error styles */
@@ -154,6 +161,10 @@ function renderBlueskyComments() {
             createElement(BlueskyComments, {
                 uri: blueskyUri,
                 enableDeer: true,
+                onEmpty: (details) => {
+                    console.log('No comments found:', details);
+                    container.innerHTML = '<p>Be the first to comment on this post on Bluesky or Deer!</p>';
+                }
             })
         );
     } catch (error) {
