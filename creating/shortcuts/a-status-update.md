@@ -32,6 +32,6 @@ Read more about the inspiration behind this project and trend in [a blog post I 
 
 2. If you scroll down further in the shortcut's code, you can adjust some settings by toggling boolean values between true/false. By default the shortcut creates new Bluesky posts for the first account and custom lexicon records for the second account. This is my personal setup because I share the status updates to @now.dame.is and then they also get saved to the PDS for @dame.is as a custom lexicon.
 
-3. The default custom lexicon NSID is a.status.update. You can leave this as-is or add your own. [See the NSID spec for limitations(https://atproto.com/specs/nsid)].
+3. The default custom lexicon NSID is a.status.update. You can leave this as-is or add your own. [See the NSID spec for limitations](https://atproto.com/specs/nsid).
 
 4. If you have any questions or issues, don't hesitate to reach out on Bluesky!
