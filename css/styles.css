@@ -1495,21 +1495,18 @@ body.dark-mode .alt-card {
 }
 
 /* === Base Styles for Comment Icons === */
-
-.comment-heart,
-.comment-repost,
-.comment-reply {
-  width: 1rem;               /* Match existing icon size */
-  height: 1rem;
-  color: #888;                  /* Default icon color, similar to .count-item i */
-  transition: color 0.3s ease, opacity 0.3s ease;  /* Smooth color and opacity transitions */
-  cursor: pointer;              /* Indicates interactivity */
-  display: inline-flex;         /* Ensures proper alignment */
-  align-items: center;          /* Vertically centers the icons */
-  justify-content: center;      /* Horizontally centers the icons */
+._icon_yf3k8_41 {
+    width: 1rem;               /* Match existing icon size */
+    height: 1rem;
+    color: #888;                  /* Default icon color */
+    transition: color 0.3s ease, opacity 0.3s ease;  /* Smooth transitions */
+    cursor: pointer;              /* Indicates interactivity */
+    display: inline-flex;         /* Ensures proper alignment */
+    align-items: center;          /* Vertically centers the icons */
+    justify-content: center;      /* Horizontally centers the icons */
 }
 
-.bsky-actions-container {
+._actionsContainer_yf3k8_147 {
     margin-top: .5rem;
     display: flex;
     width: 100%;
@@ -1528,78 +1525,81 @@ body.dark-mode .alt-card {
     color: white;
 }
 
-.bsky-author-link {
+._authorLink_yf3k8_102 {
     display: flex;
     flex-direction: row;
     justify-content: flex-start;
     gap: .5rem;
 }
 
-.bsky-author-name {
+._authorName_yf3k8_122 {
     margin-bottom: 0px;
 }
 
-.bsky-comments-list p {
-    margin-bottom: 0px;
+._handle_yf3k8_139 {
+    color: #666;
 }
 
-.bsky-comment-container {
+.dark-mode ._handle_yf3k8_139 {
+    color: #aaa;
+}
+
+._commentContainer_yf3k8_90 {
     margin: 1rem 0;
     font-size: .875rem;
     margin-bottom: 0px;
 }
 
 /* === Override Parent Opacity for Icons === */
-
-.bsky-actions-container .comment-heart,
-.bsky-actions-container .comment-repost,
-.bsky-actions-container .comment-reply {
-  opacity: 1; /* Make icons fully opaque */
+._actionsContainer_yf3k8_147 ._icon_yf3k8_41 {
+    opacity: 1; /* Make icons fully opaque */
 }
 
 /* === Conditional Icon Styling === */
-
-/* Active state: Count > 0 */
-.comment-heart {
-  fill: #e93434; /* Similar to .count-item.active .fa-heart */
+._actionsRow_yf3k8_164 {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
-.comment-repost {
-  fill: #0dc70d; /* Similar to .count-item.active .fa-retweet */
+._actionsRow_yf3k8_164 p {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #666;
 }
 
-.comment-reply {
-  fill: #4c4c4c; /* Similar to .count-item.active .fa-quote-right */
+.dark-mode ._actionsRow_yf3k8_164 p {
+    color: #aaa;
 }
 
-/* Dark Mode Adjustments for Active Icons */
-body.dark-mode .comment-heart {
-  fill: #ff6b6b; /* Lighter shade for visibility */
+/* === Hover Effects for Icons === */
+._icon_yf3k8_41:hover {
+    opacity: 0.8;     /* Slightly reduces opacity on hover */
+    color: #000;      /* Changes color to black on hover */
 }
 
-body.dark-mode .comment-repost {
-  fill: #66ff66;
+.dark-mode ._icon_yf3k8_41:hover {
+    color: #fff;      /* Changes color to white on hover in dark mode */
 }
 
-body.dark-mode .comment-reply {
-  fill: #3399ff;
+/* === Avatar Styles === */
+._avatar_yf3k8_114 {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
 }
 
-/* === Hover Effects for Comment Icons === */
-.comment-heart:hover,
-.comment-repost:hover,
-.comment-reply:hover {
-  opacity: 0.8;     /* Slightly reduces opacity on hover */
-  color: #000;      /* Changes color to black on hover */
-}
-
-
-.post-text-container a {
-    display: inline; /* Default: keep single links inline */
-}
-
-.post-text-container:has(a + a) a {
-    display: block; /* If multiple links exist, each goes on a new line */
+/* === Screen Reader Text === */
+._screenReader_yf3k8_170 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* === Newsletter Form Styles === */
