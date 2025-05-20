@@ -51,6 +51,25 @@ function renderBlueskyComments() {
                 display: none !important;
             }
             
+            /* Alignment classes for stats bar and reply text */
+            .nav-align-left ._statsBar_yf3k8_12,
+            .nav-align-left ._replyText_yf3k8_56 {
+                text-align: left;
+                justify-content: flex-start;
+            }
+
+            .nav-align-center ._statsBar_yf3k8_12,
+            .nav-align-center ._replyText_yf3k8_56 {
+                text-align: center;
+                justify-content: center;
+            }
+
+            .nav-align-right ._statsBar_yf3k8_12,
+            .nav-align-right ._replyText_yf3k8_56 {
+                text-align: right;
+                justify-content: flex-end;
+            }
+            
             /* Error styles */
             .comments-error {
                 padding: 10px;
