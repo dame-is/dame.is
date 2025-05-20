@@ -1509,7 +1509,7 @@ body.dark-mode .alt-card {
   justify-content: center;      /* Horizontally centers the icons */
 }
 
-._actionsContainer_1pvtk_130 {
+.bsky-actions-container {
     margin-top: .5rem;
     display: flex;
     width: 100%;
@@ -1518,42 +1518,42 @@ body.dark-mode .alt-card {
     align-items: center;
     opacity: .6;
     gap: 14px;
-  }
+}
 
-  #comments-section a:visited {
+#comments-section a:visited {
     color: black;
-  }
+}
 
-  .dark-mode #comments-section a:visited {
+.dark-mode #comments-section a:visited {
     color: white;
-  }
+}
 
-  ._authorLink_1pvtk_84 {
+.bsky-author-link {
     display: flex;
     flex-direction: row;
     justify-content: flex-start;
     gap: .5rem;
-  }
+}
 
-  ._authorName_1pvtk_104 {
+.bsky-author-name {
     margin-bottom: 0px;
-  }
+}
 
-  ._commentsList_1pvtk_55 p {
+.bsky-comments-list p {
     margin-bottom: 0px;
-  }
+}
 
-  ._commentContainer_1pvtk_72 {
+.bsky-comment-container {
     margin: 1rem 0;
     font-size: .875rem;
     margin-bottom: 0px;
-  }
+}
 
 /* === Override Parent Opacity for Icons === */
 
-._actionsContainer_1pvtk_130 .comment-heart,
-._actionsContainer_1pvtk_130 .comment-repost,
-._actionsContainer_1pvtk_130 .comment-reply {
+.bsky-actions-container .comment-heart,
+.bsky-actions-container .comment-repost,
+.bsky-actions-container .comment-reply {
   opacity: 1; /* Make icons fully opaque */
 }
 

@@ -2,7 +2,7 @@
 
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BlueskyComments } from 'https://unpkg.com/bluesky-comments@0.9.0/dist/bluesky-comments.es.js';
+import { BlueskyComments } from 'https://unpkg.com/bluesky-comments@0.11.1/dist/bluesky-comments.es.js';
 
 /**
  * Renders the BlueskyComments component on any page that has a blueskyUri in its frontmatter.
@@ -35,17 +35,19 @@ function renderBlueskyComments() {
         const style = document.createElement('style');
         style.textContent = `
             /* Remove margins from comment containers */
-            ._commentContainer_1pvtk_72 {
-
+            .bsky-comment-container {
+                margin: 1rem 0;
+                font-size: .875rem;
+                margin-bottom: 0px;
             }
             
             /* Add a subtle border to replies container */
-            ._repliesContainer_1pvtk_125 {
+            .bsky-replies-container {
                 border-left: 2px solid #52525247 !important;
             }
             
             /* Hide the actions container */
-            ._actionsContainer_1pvtk_130 {
+            .bsky-actions-container {
                 display: none !important;
             }
             
@@ -66,8 +68,26 @@ function renderBlueskyComments() {
             }
             
             /* Dark mode support for reply container border */
-            .dark-mode ._repliesContainer_1pvtk_125 {
+            .dark-mode .bsky-replies-container {
                 border-left-color: #52525280 !important;
+            }
+
+            /* Author link styles */
+            .bsky-author-link {
+                display: flex;
+                flex-direction: row;
+                justify-content: flex-start;
+                gap: .5rem;
+            }
+
+            /* Author name styles */
+            .bsky-author-name {
+                margin-bottom: 0px;
+            }
+
+            /* Comments list styles */
+            .bsky-comments-list p {
+                margin-bottom: 0px;
             }
         `;
         document.head.appendChild(style);
