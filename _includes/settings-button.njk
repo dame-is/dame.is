@@ -60,6 +60,31 @@
         </div>
       </div>
 
+      <!-- Layout settings -->
+      <div class="settings-group">
+        <h4 class="settings-group-title">Layout</h4>
+        <div class="settings-option">
+          <label for="page-width" class="settings-option-label">Page Width</label>
+          <div class="settings-option-control">
+            <select id="page-width" class="settings-select">
+              <option value="narrow" selected>Narrow</option>
+              <option value="medium">Medium</option>
+              <option value="wide">Wide</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-option">
+          <label for="line-height" class="settings-option-label">Line Height</label>
+          <div class="settings-option-control">
+            <select id="line-height" class="settings-select">
+              <option value="tight" selected>Tight</option>
+              <option value="normal">Normal</option>
+              <option value="loose">Loose</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <!-- Navigation settings -->
       <div class="settings-group">
         <h4 class="settings-group-title">Navigation Bar</h4>
@@ -297,6 +322,54 @@
           localStorage.setItem('showBlueskyStats', this.checked);
         });
       }
+
+      // Page width selection initialization
+      const pageWidthSelect = document.getElementById('page-width');
+      if (pageWidthSelect) {
+        // Get current page width from local storage or default to narrow
+        const currentPageWidth = localStorage.getItem('pageWidth') || 'narrow';
+        pageWidthSelect.value = currentPageWidth;
+        
+        // Remove any existing page width classes
+        document.body.classList.remove('page-narrow', 'page-medium', 'page-wide');
+        // Add the current page width class
+        document.body.classList.add(`page-${currentPageWidth}`);
+        
+        // Add event listener
+        pageWidthSelect.addEventListener('change', function() {
+          const newWidth = this.value;
+          // Remove any existing page width classes
+          document.body.classList.remove('page-narrow', 'page-medium', 'page-wide');
+          // Add the new page width class
+          document.body.classList.add(`page-${newWidth}`);
+          // Save to local storage
+          localStorage.setItem('pageWidth', newWidth);
+        });
+      }
+
+      // Line height selection initialization
+      const lineHeightSelect = document.getElementById('line-height');
+      if (lineHeightSelect) {
+        // Get current line height from local storage or default to tight
+        const currentLineHeight = localStorage.getItem('lineHeight') || 'tight';
+        lineHeightSelect.value = currentLineHeight;
+        
+        // Remove any existing line height classes
+        document.body.classList.remove('line-tight', 'line-normal', 'line-loose');
+        // Add the current line height class
+        document.body.classList.add(`line-${currentLineHeight}`);
+        
+        // Add event listener
+        lineHeightSelect.addEventListener('change', function() {
+          const newHeight = this.value;
+          // Remove any existing line height classes
+          document.body.classList.remove('line-tight', 'line-normal', 'line-loose');
+          // Add the new line height class
+          document.body.classList.add(`line-${newHeight}`);
+          // Save to local storage
+          localStorage.setItem('lineHeight', newHeight);
+        });
+      }
     }
     
     // Add all the functions to the global scope
@@ -375,6 +448,20 @@
         if (pinnedLinksToggle) pinnedLinksToggle.checked = true;
         if (socialIconsToggle) socialIconsToggle.checked = true;
         if (blueskyStatsToggle) blueskyStatsToggle.checked = true;
+
+        // Reset page width to narrow
+        document.body.classList.remove('page-narrow', 'page-medium', 'page-wide');
+        document.body.classList.add('page-narrow');
+        const pageWidthSelect = document.getElementById('page-width');
+        if (pageWidthSelect) pageWidthSelect.value = 'narrow';
+        localStorage.setItem('pageWidth', 'narrow');
+
+        // Reset line height to tight
+        document.body.classList.remove('line-tight', 'line-normal', 'line-loose');
+        document.body.classList.add('line-tight');
+        const lineHeightSelect = document.getElementById('line-height');
+        if (lineHeightSelect) lineHeightSelect.value = 'tight';
+        localStorage.setItem('lineHeight', 'tight');
       });
     }
 

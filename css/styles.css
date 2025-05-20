@@ -2363,10 +2363,20 @@ body.hide-bluesky-stats .nav-stats {
     padding: 20px 20px;
     justify-content: center;
     text-align: center;
+    border-bottom: 1px solid #ddd;  /* Add border between sections */
 }
 
+.lofi-mode.dark-mode .nav-section {
+    border-bottom-color: #333;  /* Darker border for dark mode */
+}
+
+
 .lofi-mode .nav-section.top-nav {
-    border: none;
+    border-bottom: 1px solid #ddd;  /* Ensure top nav has border */
+}
+
+.lofi-mode.dark-mode .nav-section.top-nav {
+    border-bottom-color: #333;  /* Darker border for dark mode */
 }
 
 .lofi-mode .nav-section .nav-left,
@@ -2500,8 +2510,13 @@ body.hide-bluesky-stats .nav-stats {
 /* Simplify footer */
 .lofi-mode footer {
     background: none;
-    border-top: 1px solid currentColor;
+    border: none;
+    border-top: 1px solid #ddd;
     opacity: 0.8;
+}
+
+.lofi-mode.dark-mode footer {
+    border-top-color: #333;
 }
 
 /* Simplify stats and counts */
@@ -2523,8 +2538,7 @@ body.hide-bluesky-stats .nav-stats {
 
 /* Adjust spacing */
 .lofi-mode main {
-    max-width: 650px;
-    line-height: 1.6;
+    max-width: 400px;
 }
 
 /* Lo-fi mode button styles */
@@ -2819,4 +2833,30 @@ body.dark-mode .folder-type {
 
 .icon.icon-hourglass {
 	scale: 0.94;
+}
+
+/* === Page Width Classes === */
+.page-narrow main {
+    max-width: 400px;
+}
+
+.page-medium main {
+    max-width: 600px;
+}
+
+.page-wide main {
+    max-width: 800px;
+}
+
+/* === Line Height Classes === */
+.line-tight {
+    line-height: 1.3;
+}
+
+.line-normal {
+    line-height: 1.6;
+}
+
+.line-loose {
+    line-height: 1.8;
 }
