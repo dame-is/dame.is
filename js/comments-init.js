@@ -43,7 +43,7 @@ function renderBlueskyComments() {
             
             /* Add a subtle border to replies container */
             ._repliesContainer_yf3k8_142 {
-                border-left: 2px solid #52525247 !important;
+                border-left: 0px !important;
             }
             
             /* Hide the actions container */
@@ -84,10 +84,27 @@ function renderBlueskyComments() {
             ._authorName_yf3k8_50 {
                 margin-bottom: 0px;
             }
+            /* Remove reply stats */
+            ._actionsContainer_yf3k8_147 {
+                display: none !important;
+            }
 
             /* Comments list styles */
             ._commentsList_yf3k8_65 p {
                 margin-bottom: 0px;
+            }
+
+            ._commentContainer_yf3k8_90 {
+                margin: 0.5rem 0 !important;
+            }
+
+            /* Individual comment margins */
+            ._commentContent_yf3k8_95 {
+                margin: 10px !important;
+            }
+
+            ._divider_yf3k8_61 {
+            	display: none !important;
             }
         `;
         document.head.appendChild(style);
