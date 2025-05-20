@@ -159,6 +159,30 @@ function renderBlueskyComments() {
                 uri: blueskyUri,
             })
         );
+
+        // Add mutation observer to modify the reply text
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    const replyText = document.querySelector('._replyText_yf3k8_56');
+                    if (replyText && replyText.textContent.includes('Join the conversation')) {
+                        const link = replyText.querySelector('a');
+                        if (link) {
+                            const bskyUrl = link.href;
+                            const deerUrl = bskyUrl.replace('bsky.app', 'deer.social');
+                            replyText.innerHTML = `Join the conversation by replying on <a class="_link_yf3k8_33" href="${bskyUrl}" target="_blank" rel="noreferrer noopener">Bluesky</a> or <a class="_link_yf3k8_33" href="${deerUrl}" target="_blank" rel="noreferrer noopener">Deer</a>.`;
+                            observer.disconnect(); // Stop observing once we've made our change
+                        }
+                    }
+                }
+            });
+        });
+
+        // Start observing the comments container
+        observer.observe(commentsComponentDiv, {
+            childList: true,
+            subtree: true
+        });
     } catch (error) {
         console.error('Error rendering Bluesky comments:', error);
         
