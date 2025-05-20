@@ -1,124 +1,100 @@
 .guestbook-generator {
     margin: 2rem 0;
-    padding: 2rem 1.5rem;
-    border: 1px solid #ddd;
-    border-radius: 14px;
-    background-color: #fafbfc;
-    max-width: 420px;
-    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04);
+    padding: 1.5rem;
+    border: 1px solid #ccc;
+    background-color: var(--post-background-color);
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .guestbook-generator form {
     display: flex;
     flex-direction: column;
-    gap: 1.2rem;
+    gap: 15px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.guestbook-generator div {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .guestbook-generator label {
-    font-weight: bold;
-    margin-bottom: 0.4rem;
-    font-size: 1.08em;
+    font-size: 0.9em;
+    display: block;
 }
 
 .guestbook-generator input,
 .guestbook-generator textarea {
-    padding: 0.7rem 0.9rem;
-    border: 1.5px solid #ccc;
-    border-radius: 6px;
-    font-size: 1.05em;
     width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    font-size: 0.9em;
+    background: var(--background-color);
+    color: var(--text-color);
     box-sizing: border-box;
-    margin-bottom: 0.2rem;
-    background: #fff;
-    transition: border-color 0.2s;
-}
-
-.guestbook-generator input:focus,
-.guestbook-generator textarea:focus {
-    border-color: #007bff;
-    outline: none;
+    margin: 0;
 }
 
 .guestbook-generator textarea {
-    min-height: 90px;
+    min-height: 80px;
     resize: vertical;
     font-family: inherit;
 }
 
 .guestbook-generator button[type="submit"] {
-    padding: 0.9rem 0;
-    background-color: #2684ff;
-    color: white;
-    border: none;
-    border-radius: 6px;
+    padding: 8px;
+    background: var(--post-background-color);
+    color: var(--text-color);
+    border: 1px solid #ccc;
     cursor: pointer;
-    font-size: 1.1em;
-    font-weight: bold;
-    margin-top: 0.5rem;
-    transition: background 0.18s, box-shadow 0.18s;
-    box-shadow: 0 1px 4px 0 rgba(38,132,255,0.08);
+    font-size: 0.9em;
     width: 100%;
-}
-
-.guestbook-generator button[type="submit"]:hover {
-    background-color: #1565c0;
+    box-sizing: border-box;
+    margin: 0;
 }
 
 #guestbook-result {
-    margin-top: 1.2rem;
-    padding: 1rem;
-    background-color: #f5f5f5;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    margin-top: 15px;
+    padding: 8px;
+    background: var(--post-background-color);
+    border: 1px solid #ccc;
     font-family: monospace;
     white-space: pre-wrap;
     display: none;
-    font-size: 1em;
-    max-width: 100%;
-    overflow-x: auto;
+    font-size: 0.9em;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #copy-json {
-    margin-top: 0.7rem;
+    margin-top: 10px;
     display: none;
     width: 100%;
-    padding: 0.7rem 0;
-    background: #e0e7ef;
-    color: #1565c0;
-    border: none;
-    border-radius: 6px;
-    font-size: 1em;
-    font-weight: bold;
+    padding: 8px;
+    background: var(--post-background-color);
+    color: var(--text-color);
+    border: 1px solid #ccc;
+    font-size: 0.9em;
     cursor: pointer;
-    transition: background 0.18s;
+    box-sizing: border-box;
 }
 
+.guestbook-generator button:hover,
 #copy-json:hover {
-    background: #d0d7df;
-    color: #0d47a1;
+    background: var(--bg-hover);
 }
 
 /* Dark mode support */
-.dark-mode .guestbook-generator {
-    background-color: #23272e;
+body.dark-mode .guestbook-generator {
     border-color: #444;
-    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.18);
 }
 
-.dark-mode .guestbook-generator input,
-.dark-mode .guestbook-generator textarea {
-    background-color: #2d313a;
-    border-color: #555;
-    color: #fff;
-}
-
-.dark-mode #guestbook-result {
-    background-color: #2d313a;
-    border-color: #555;
-    color: #fff;
-}
-
-.dark-mode #copy-json {
-    background: #23272e;
-    color: #88c1ff;
+body.dark-mode .guestbook-generator input,
+body.dark-mode .guestbook-generator textarea,
+body.dark-mode .guestbook-generator button,
+body.dark-mode #guestbook-result,
+body.dark-mode #copy-json {
+    border-color: #444;
 } 

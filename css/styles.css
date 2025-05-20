@@ -1609,38 +1609,63 @@ body.dark-mode .comment-reply {
 
 /* === Newsletter Form Styles === */
 
+#newsletter-section {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+}
+
+body.dark-mode #newsletter-section {
+    border-top-color: #444;
+}
 
 #newsletter-form {
-    display: flex;
-  }
-  .embeddable-buttondown-form {
-    display: grid;
-    grid-row-gap: 6px;
-  }
-  input#newsletter-form {
-    margin-bottom: 10px;
-  }
-  .embeddable-buttondown-form #input {
-    margin-bottom: 10px;
-  }
-  #bd-email {
-    margin-bottom: 10px;
-  }
-  #bsky-handle {
-    margin-bottom: 10px;
-  }
-  #name {
-    margin-bottom: 10px;
-  }
-  #newsletter-form {
-    font-size: 0.8em;
-  }
-  #newsletter-header {
-    margin-bottom: 19px;
-  }
+    width: 100%;
+}
 
-  #shareButton {
-    background-color: #5f5f5f;
+.embeddable-buttondown-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.embeddable-buttondown-form label {
+    font-size: 0.9em;
+    margin-bottom: -10px;
+}
+
+.embeddable-buttondown-form input[type="email"],
+.embeddable-buttondown-form input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    font-size: 0.9em;
+    background: var(--background-color);
+    color: var(--text-color);
+}
+
+body.dark-mode .embeddable-buttondown-form input[type="email"],
+body.dark-mode .embeddable-buttondown-form input[type="text"] {
+    border-color: #444;
+}
+
+.embeddable-buttondown-form input[type="submit"] {
+    width: 100%;
+    padding: 8px;
+    background: var(--post-background-color);
+    border: 1px solid #ccc;
+    color: var(--text-color);
+    font-size: 0.9em;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
+body.dark-mode .embeddable-buttondown-form input[type="submit"] {
+    border-color: #444;
+}
+
+.embeddable-buttondown-form input[type="submit"]:hover {
+    background: var(--bg-hover);
 }
 
 /* === Blog Post Embeds === */
@@ -1955,10 +1980,8 @@ body.dark-mode .insight-box h3 {
 code {
     background-color: #f5f5f5;
     color: #c7254e;
-    padding: 2px 6px;
-    border-radius: 4px;
     font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
-    font-size: 0.97em;
+    font-size: inherit;
     word-break: break-word;
 }
 
@@ -1966,12 +1989,10 @@ code {
 pre, pre code {
     background-color: #f5f5f5;
     color: #333;
-    border-radius: 6px;
-    padding: 14px 16px;
     font-family: 'Fira Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
-    font-size: 0.97em;
+    font-size: 0.8em;
     overflow-x: auto;
-    line-height: 1.5;
+    line-height: 0.8em;
     margin: 18px 0;
     box-sizing: border-box;
     max-width: 100%;
@@ -1990,6 +2011,7 @@ body.dark-mode pre code {
 pre {
     overflow-x: auto;
     max-width: 100%;
+    padding: 10px;
 }
 
 /* === Responsive iframe container === */
