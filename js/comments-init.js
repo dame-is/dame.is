@@ -58,6 +58,10 @@ function renderBlueskyComments() {
                 justify-content: flex-start;
             }
 
+            ._container_yf3k8_1 a, ._container_yf3k8_1 a._link_yf3k8_33, ._container_yf3k8_1 a._link_yf3k8_33:hover {
+                text-decoration: none !important;
+            }
+
             .nav-align-center ._statsBar_yf3k8_12,
             .nav-align-center ._replyText_yf3k8_56 {
                 text-align: center;
