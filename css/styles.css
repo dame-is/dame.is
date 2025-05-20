@@ -204,13 +204,14 @@ body.dark-mode nav a:visited {
     white-space: nowrap; /* Prevent text wrapping */
 }
 
-.nav-links {
-    display: flex; /* Use flexbox for better control */
-    flex-wrap: wrap; /* Allow wrapping when needed */
-    gap: 3px; /* Add space between wrapped items */
+/* Remove conflicting nav-links styles */
+.nav-pinned-links .nav-links {
+    display: inline-flex !important;
+    flex-wrap: nowrap !important;
+    gap: 0; /* Remove gap that affects scrolling */
 }
 
-.nav-links a.nav-link {
+.nav-pinned-links .nav-links a.nav-link {
     margin-right: 11px; /* Adjust as needed */
     opacity: 50%;
     white-space: nowrap; /* Prevent text wrapping within the link */
@@ -2973,3 +2974,21 @@ body.dark-mode .folder-table td {
         margin: 0;
     }
 }
+
+/* === Navigation Section Visibility === */
+body.hide-pinned-links .nav-pinned-links {
+    display: none;
+}
+
+body.hide-social-icons .nav-social-icons {
+    display: none;
+}
+
+body.hide-bluesky-stats .nav-stats {
+    display: none;
+}
+
+/* Ensure the top section is always visible and has proper borders */
+.nav-section.top-nav {
+    display: flex !important;
+} 

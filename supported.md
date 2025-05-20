@@ -1,6 +1,7 @@
 ---
 layout: base
-title: Supported
+title: /supported
+pinned: true
 ---
 
 # /supported

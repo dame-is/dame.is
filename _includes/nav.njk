@@ -21,11 +21,30 @@
     <!-- PINNED LINKS SECTION -->
     <div class="nav-section bottom-nav nav-pinned-links">
         <div class="nav-left bottom-nav-left">
-            <div class="nav-links">
-                <a href="/writing" class="nav-link {% if page.url.startsWith('/writing/') %}active{% endif %}">/writing</a>
-                <a href="/creating" class="nav-link {% if page.url.startsWith('/creating/') %}active{% endif %}">/creating</a>
-                <a href="/sharing" class="nav-link {% if page.url.startsWith('/sharing/') %}active{% endif %}">/sharing</a>
-                <a href="/supported" class="nav-link {% if page.url == '/supported/' %}active{% endif %}">/supported</a>
+            <div class="nav-links-scroll-container">
+                <div class="nav-links-scroll-content">
+                    {# Get all pages with pinned: true #}
+                    {% set pinnedPages = collections.all | filterPinned %}
+                    
+                    {# Create 4 sets of links for smooth scrolling #}
+                    {% for i in range(0, 6) %}
+                    <div class="nav-links">
+                        {% for pinnedPage in pinnedPages %}
+                        {% set currentUrl = page.url | replace('/index.html', '/') %}
+                        {% set pinnedUrl = pinnedPage.url | replace('/index.html', '/') %}
+                        {% set isActive = currentUrl == pinnedUrl or currentUrl.startsWith(pinnedUrl) %}
+                        <a href="{{ pinnedUrl }}" 
+                           class="nav-link {% if isActive %}active{% endif %}"
+                           data-current="{{ currentUrl }}"
+                           data-pinned="{{ pinnedUrl }}"
+                           data-is-active="{{ isActive }}"
+                           {% if isActive %}aria-current="page"{% endif %}>
+                            {{ pinnedPage.data.title }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     </div>

@@ -334,6 +334,11 @@ module.exports = function(eleventyConfig) {
     return getYearOfLife(normalizedDate);
   });
 
+  // Add filter to get pinned pages
+  eleventyConfig.addFilter("filterPinned", function(collection) {
+    return collection.filter(item => item.data.pinned === true);
+  });
+
   // Generate site structure JSON file
   eleventyConfig.addPassthroughCopy("js");
   eleventyConfig.addPassthroughCopy("css");

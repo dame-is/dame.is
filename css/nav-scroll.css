@@ -1,0 +1,152 @@
+/* Scrolling Navigation Styles */
+
+.nav-links-scroll-container {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Left gradient overlay */
+.nav-links-scroll-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30px;
+    height: 100%;
+    background: linear-gradient(to right, #f0f0f0 20%, transparent);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Right gradient overlay */
+.nav-links-scroll-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 30px;
+    height: 100%;
+    background: linear-gradient(to left, #f0f0f0 20%, transparent);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Dark mode gradient adjustments */
+body.dark-mode .nav-links-scroll-container::before {
+    background: linear-gradient(to right, #1e1e1e 20%, transparent);
+}
+
+body.dark-mode .nav-links-scroll-container::after {
+    background: linear-gradient(to left, #1e1e1e 20%, transparent);
+}
+
+.nav-section.bottom-nav.nav-pinned-links {
+	padding-left: 0px;
+	padding-right: 0px;
+}
+
+.nav-links-scroll-content {
+    display: inline-flex !important;
+    animation: scroll-links 60s linear infinite;
+    white-space: nowrap;
+    will-change: transform;
+}
+
+/* Pause animation on hover */
+.nav-links-scroll-content:hover {
+    animation-play-state: paused;
+}
+
+.nav-links {
+    display: inline-flex !important;
+    flex-wrap: nowrap !important;
+}
+
+.nav-links a.nav-link {
+    display: inline-block;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+    text-decoration: none;
+    margin-right: 8px; /* Reduced margin between links */
+    position: relative; /* For underline positioning */
+}
+
+.nav-links a.nav-link:hover {
+    opacity: 1;
+}
+
+/* Active link styles */
+.nav-links a.nav-link[data-is-active="true"],
+.nav-pinned-links .nav-links a.nav-link[data-is-active="true"],
+.nav-links a.nav-link.active,
+.nav-pinned-links .nav-links a.nav-link.active {
+    opacity: 1 !important;
+    color: #007BFF !important;
+    border-bottom: 1px solid #007BFF !important;
+    font-weight: 500;
+}
+
+/* Dark mode active link styles */
+body.dark-mode .nav-links a.nav-link[data-is-active="true"],
+body.dark-mode .nav-pinned-links .nav-links a.nav-link[data-is-active="true"],
+body.dark-mode .nav-links a.nav-link.active,
+body.dark-mode .nav-pinned-links .nav-links a.nav-link.active {
+    color: #007BFF !important;
+    border-bottom-color: #007BFF !important;
+}
+
+/* Remove the custom underline since we're using border-bottom */
+.nav-links a.nav-link.active::after {
+    display: none;
+}
+
+@keyframes scroll-links {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-25%); /* Only move by one set of links */
+    }
+}
+
+/* Dark mode adjustments */
+body.dark-mode .nav-links a.nav-link {
+    color: #fff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .nav-links-scroll-content {
+        animation-duration: 45s; /* Slightly faster on mobile but still smooth */
+    }
+}
+
+/* Lo-fi mode adjustments */
+body.lofi-mode .nav-links-scroll-content {
+    animation: none;
+}
+
+body.lofi-mode .nav-links {
+    display: flex !important;
+    padding-right: 0;
+    animation: none;
+}
+
+body.lofi-mode .nav-links:last-child {
+    display: none !important;
+}
+
+/* Lo-fi mode gradient adjustments */
+body.lofi-mode .nav-links-scroll-container::before,
+body.lofi-mode .nav-links-scroll-container::after {
+    display: none;
+}
+
+/* Override nav alignment styles */
+.nav-align-left .nav-links,
+.nav-align-center .nav-links,
+.nav-align-right .nav-links {
+    justify-content: flex-start !important;
+    width: auto !important;
+} 

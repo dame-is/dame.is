@@ -1723,17 +1723,19 @@ function setActiveNavLink() {
         pageKey = path.substring(path.lastIndexOf('/') + 1);
     }
 
-    const navLinks = document.querySelectorAll('.nav-left .nav-link');
+    const navLinks = document.querySelectorAll('.nav-left .nav-link, .nav-pinned-links .nav-link');
     navLinks.forEach(link => {
         const linkPath = link.getAttribute('href');
+        const isActive = (linkPath === '/' && pageKey === 'about') || 
+                        (linkPath === `/${pageKey}`) ||
+                        (currentPath.startsWith(linkPath) && linkPath !== '/');
         
-        // Special case for about link
-        if (linkPath === '/' && pageKey === 'about') {
+        if (isActive) {
             link.classList.add('active');
-        } else if (linkPath === `/${pageKey}`) {
-            link.classList.add('active');
+            link.setAttribute('data-is-active', 'true');
         } else {
             link.classList.remove('active');
+            link.setAttribute('data-is-active', 'false');
         }
     });
 }

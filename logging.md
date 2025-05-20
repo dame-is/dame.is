@@ -1,6 +1,7 @@
 ---
 layout: base
-title: Log
+title: /logging
+pinned: true
 ---
 
 # /logging
