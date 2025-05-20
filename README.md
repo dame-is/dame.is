@@ -21,6 +21,7 @@ This is the github repo for my website! Welcome!
 
 ### credits
 
+- [bluesky-comments](https://github.com/czue/bluesky-comments)
 - [gateless gate koan collection](https://github.com/drproteus/the-gateless-gate)
 
 More info coming soon...
