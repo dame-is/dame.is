@@ -22,6 +22,5 @@ Here are some of my personality test results:
 - Astrology: Taurus
 - Enneagram: 2
 - DISC: Support/Steadiness
-- 
 
 Now, go explore the rest of the site. Tap the map button if you get lost (or need help getting lost). Make yourself at home by going to the settings menu and tweaking things to your liking.
