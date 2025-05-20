@@ -29,12 +29,15 @@
 .guestbook-generator textarea {
     width: 100%;
     padding: 8px;
-    border: 1px solid #ccc;
-    font-size: 0.9em;
-    background: var(--background-color);
+    margin-bottom: 16px;
+    border: 1px solid var(--border-color);
+    background-color: var(--background-color);
     color: var(--text-color);
-    box-sizing: border-box;
-    margin: 0;
+    font-family: var(--font-family);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 0;
 }
 
 .guestbook-generator textarea {

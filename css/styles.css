@@ -2973,3 +2973,21 @@ body.dark-mode .folder-table td {
         margin: 0;
     }
 }
+
+/* Reset iOS input styling */
+input,
+textarea {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 0;
+}
+
+/* Ensure submit buttons also have no rounded corners */
+input[type="submit"],
+button[type="submit"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 0;
+}
