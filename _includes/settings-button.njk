@@ -182,6 +182,21 @@
     
     // Initialize settings functionality
     function initializeSettings() {
+      // Auto Dark Mode toggle initialization
+      const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
+      if (autoDarkModeToggle) {
+        // Default to true unless explicitly set to false
+        const isAutoDarkMode = localStorage.getItem('autoDarkMode') === null ? true : localStorage.getItem('autoDarkMode') === 'true';
+        
+        // Set initial state
+        autoDarkModeToggle.checked = isAutoDarkMode;
+        
+        // Add event listener
+        autoDarkModeToggle.addEventListener('change', function() {
+          localStorage.setItem('autoDarkMode', this.checked);
+        });
+      }
+
       // Dark mode toggle initialization
       const darkModeToggle = document.getElementById('dark-mode-toggle');
       if (darkModeToggle) {
@@ -427,18 +442,22 @@
     if (resetButton) {
       resetButton.addEventListener('click', function() {
         // Clear all settings from localStorage
-        localStorage.removeItem('theme');
-        localStorage.removeItem('lofiMode');
-        localStorage.removeItem('fontFamily');
-        localStorage.removeItem('fontSize');
-        localStorage.removeItem('showPinnedLinks');
-        localStorage.removeItem('showSocialIcons');
-        localStorage.removeItem('showBlueskyStats');
+        localStorage.clear();
+        
+        // Reset Auto Dark Mode to true (default state)
+        const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
+        if (autoDarkModeToggle) {
+          autoDarkModeToggle.checked = true;
+          localStorage.setItem('autoDarkMode', 'true');
+        }
 
         // Reset dark mode
         document.body.classList.remove('dark-mode');
         const darkModeToggle = document.getElementById('dark-mode-toggle');
-        if (darkModeToggle) darkModeToggle.checked = false;
+        if (darkModeToggle) {
+          darkModeToggle.checked = false;
+          localStorage.setItem('theme', 'light');
+        }
 
         // Reset lo-fi mode
         document.body.classList.remove('lofi-mode');
