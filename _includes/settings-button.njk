@@ -80,9 +80,15 @@
           </div>
         </div>
         <div class="settings-option">
-          <label for="show-social-stats" class="settings-option-label">Show Social Icons & Stats</label>
+          <label for="show-social-icons" class="settings-option-label">Show Social Icons</label>
           <div class="settings-option-control">
-            <input type="checkbox" id="show-social-stats" class="settings-checkbox" checked />
+            <input type="checkbox" id="show-social-icons" class="settings-checkbox" checked />
+          </div>
+        </div>
+        <div class="settings-option">
+          <label for="show-bluesky-stats" class="settings-option-label">Show Bluesky Stats</label>
+          <div class="settings-option-control">
+            <input type="checkbox" id="show-bluesky-stats" class="settings-checkbox" checked />
           </div>
         </div>
       </div>
@@ -256,20 +262,24 @@
 
       // Navigation visibility settings initialization
       const pinnedLinksToggle = document.getElementById('show-pinned-links');
-      const socialStatsToggle = document.getElementById('show-social-stats');
+      const socialIconsToggle = document.getElementById('show-social-icons');
+      const blueskyStatsToggle = document.getElementById('show-bluesky-stats');
 
-      if (pinnedLinksToggle && socialStatsToggle) {
+      if (pinnedLinksToggle && socialIconsToggle && blueskyStatsToggle) {
         // Get current states from localStorage or default to true
         const showPinnedLinks = localStorage.getItem('showPinnedLinks') !== 'false';
-        const showSocialStats = localStorage.getItem('showSocialStats') !== 'false';
+        const showSocialIcons = localStorage.getItem('showSocialIcons') !== 'false';
+        const showBlueskyStats = localStorage.getItem('showBlueskyStats') !== 'false';
 
         // Set initial states
         pinnedLinksToggle.checked = showPinnedLinks;
-        socialStatsToggle.checked = showSocialStats;
+        socialIconsToggle.checked = showSocialIcons;
+        blueskyStatsToggle.checked = showBlueskyStats;
 
         // Apply initial states to the nav sections
         document.body.classList.toggle('hide-pinned-links', !showPinnedLinks);
-        document.body.classList.toggle('hide-social-stats', !showSocialStats);
+        document.body.classList.toggle('hide-social-icons', !showSocialIcons);
+        document.body.classList.toggle('hide-bluesky-stats', !showBlueskyStats);
 
         // Add event listeners
         pinnedLinksToggle.addEventListener('change', function() {
@@ -277,9 +287,14 @@
           localStorage.setItem('showPinnedLinks', this.checked);
         });
 
-        socialStatsToggle.addEventListener('change', function() {
-          document.body.classList.toggle('hide-social-stats', !this.checked);
-          localStorage.setItem('showSocialStats', this.checked);
+        socialIconsToggle.addEventListener('change', function() {
+          document.body.classList.toggle('hide-social-icons', !this.checked);
+          localStorage.setItem('showSocialIcons', this.checked);
+        });
+
+        blueskyStatsToggle.addEventListener('change', function() {
+          document.body.classList.toggle('hide-bluesky-stats', !this.checked);
+          localStorage.setItem('showBlueskyStats', this.checked);
         });
       }
     }
@@ -320,7 +335,8 @@
         localStorage.removeItem('fontFamily');
         localStorage.removeItem('fontSize');
         localStorage.removeItem('showPinnedLinks');
-        localStorage.removeItem('showSocialStats');
+        localStorage.removeItem('showSocialIcons');
+        localStorage.removeItem('showBlueskyStats');
 
         // Reset dark mode
         document.body.classList.remove('dark-mode');
@@ -352,11 +368,13 @@
         if (fontSizeSelect) fontSizeSelect.value = 'medium';
 
         // Reset navigation settings
-        document.body.classList.remove('hide-pinned-links', 'hide-social-stats');
+        document.body.classList.remove('hide-pinned-links', 'hide-social-icons', 'hide-bluesky-stats');
         const pinnedLinksToggle = document.getElementById('show-pinned-links');
-        const socialStatsToggle = document.getElementById('show-social-stats');
+        const socialIconsToggle = document.getElementById('show-social-icons');
+        const blueskyStatsToggle = document.getElementById('show-bluesky-stats');
         if (pinnedLinksToggle) pinnedLinksToggle.checked = true;
-        if (socialStatsToggle) socialStatsToggle.checked = true;
+        if (socialIconsToggle) socialIconsToggle.checked = true;
+        if (blueskyStatsToggle) blueskyStatsToggle.checked = true;
       });
     }
 

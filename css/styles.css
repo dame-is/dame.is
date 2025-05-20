@@ -2310,11 +2310,15 @@ body.dark-mode .settings-group {
 }
 
 /* === Navigation Section Visibility === */
-body.hide-pinned-links .nav-section:nth-child(2) {
+body.hide-pinned-links .nav-pinned-links {
     display: none;
 }
 
-body.hide-social-stats .nav-section:nth-child(3) {
+body.hide-social-icons .nav-social-icons {
+    display: none;
+}
+
+body.hide-bluesky-stats .nav-stats {
     display: none;
 }
 
