@@ -140,6 +140,11 @@ function renderBlueskyComments() {
             ._divider_yf3k8_61 {
             	display: none !important;
             }
+
+            ._container_yf3k8_1 ._showMoreButton_yf3k8_72 {
+                border-radius: 0px !important;
+                background: var(--background-color) !important;
+            }
         `;
         document.head.appendChild(style);
         

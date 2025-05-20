@@ -8,7 +8,7 @@ title: Log
 <div class="log-container-wrapper">
     <div id="loading-logs">Loading logs...</div>
     <div id="log-entries"></div>
-    <button id="see-more-logs">See More Logs</button>
+    <button id="see-more-logs" class="see-more-button">See More Logs</button>
 </div>
 
 <script>

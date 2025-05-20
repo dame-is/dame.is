@@ -12,7 +12,6 @@
 .settings-toggle-button {
   width: 50px;
   height: 50px;
-  border-radius: 50%;
   background-color: #f0f0f0;
   color: #555;
   border: 1px solid #7a7a7a36;
@@ -121,6 +120,8 @@ body.dark-mode .settings-popup-header {
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s ease, color 0.2s ease;
+  padding: 8px;
+  border-radius: 0;
 }
 
 .settings-close-button:hover {
@@ -141,7 +142,7 @@ body.dark-mode .settings-close-button:hover {
 .settings-header-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 0;
 }
 
 /* Popup Content */
@@ -282,13 +283,13 @@ body.dark-mode .time-display {
 #dharma-content {
     font-size: 1.1rem;
     line-height: 1.6;
-    padding: 20px;
     text-align: left;
 }
 
 #dharma-content h1 {
     font-size: 1.4rem;
     margin-bottom: 1rem;
+    margin-top: 0px;
     text-align: center;
     color: var(--text-primary);
 }
@@ -348,6 +349,8 @@ body.dark-mode .time-display {
     width: 100%;               /* take full width of container */
     white-space: pre-wrap;     /* ensure consistent wrapping */
     word-wrap: break-word;
+    margin: 0px;
+    line-height: 1em;
 }
 
 #dharma-content p {
@@ -374,43 +377,32 @@ body.settings-open {
 }
 
 /* Reset settings button */
-.settings-reset {
-  display: flex;
-  justify-content: center;
-  padding-top: 10px;
-}
-
 .settings-reset-button {
-  background-color: #dc3545;
-  color: white;
+  background: none;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  font-size: 1.2rem;
+  color: #666;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  padding: 8px;
+  border-radius: 0;
 }
 
 .settings-reset-button:hover {
-  background-color: #c82333;
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #333;
 }
 
 body.dark-mode .settings-reset-button {
-  background-color: #bd2130;
+  color: #aaa;
 }
 
 body.dark-mode .settings-reset-button:hover {
-  background-color: #a71d2a;
-}
-
-/* Add a divider before the reset section */
-.settings-reset {
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-  margin-top: 15px;
-}
-
-body.dark-mode .settings-reset {
-  border-top-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #eee;
 }
 
 /* Lo-fi mode overrides */
