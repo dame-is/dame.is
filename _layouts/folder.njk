@@ -38,8 +38,8 @@ layout: base
       </div>
     </div>
     {% endif %}
-    
-    <!-- Regular content table -->
+
+    <!-- Content pages setup -->
     {% set contentPages = [] %}
     {% for p in folderPages %}
       {% if p.url.startsWith(folderPath) and p.url != folderPath and p.url != folderPath + '/' and p.data.title %}
@@ -48,9 +48,17 @@ layout: base
         {% endif %}
       {% endif %}
     {% endfor %}
-    
+
     {% if contentPages.length > 0 %}
     <h2>All Content</h2>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Separate full-width container for the table -->
+{% if contentPages.length > 0 %}
+<div class="full-width-table-container">
+  <div class="table-content-wrapper">
     <table class="folder-table">
       <tbody>
       {% for p in contentPages %}
@@ -78,17 +86,34 @@ layout: base
       {% endfor %}
       </tbody>
     </table>
-    {% endif %}
   </div>
 </div>
+{% endif %}
 
 {% block scripts %}
 {% endblock %} 
 
 <style>
-  /* Table border styles */
+  /* Full-width table container styles */
+  .full-width-table-container {
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    margin-right: calc(-50vw + 50%);
+    background: var(--background-alt);
+    margin-top: 1rem;
+  }
+
+  .table-content-wrapper {
+    width: 95%;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* Table styles */
   .folder-table {
+    width: 100%;
     border-collapse: collapse;
+    background: var(--background);
   }
   
   .folder-table th, .folder-table td {
@@ -105,7 +130,6 @@ layout: base
   /* Responsive table styles for mobile */
   @media (max-width: 600px) {
     .folder-table {
-      width: 100%;
       display: block;
       border: none;
     }
@@ -123,23 +147,13 @@ layout: base
         "date"
         "folder";
       margin-bottom: 1rem;
-      background-color: #ffffff;
-      border: 1px solid #7a7a7a36;
+      background-color: var(--background);
+      border: 1px solid var(--border);
       transition: background-color 0.2s ease;
     }
     
     .folder-table tr:hover {
-      background-color: #f8f8f8;
-    }
-    
-    /* Dark mode card styles for mobile */
-    body.dark-mode .folder-table tr {
-      background-color: #1e1e1e;
-      border: 1px solid #7a7a7a36;
-    }
-    
-    body.dark-mode .folder-table tr:hover {
-      background-color: #2a2a2a;
+      background-color: var(--background-hover);
     }
     
     .folder-table td {
@@ -171,6 +185,17 @@ layout: base
     
     .date-display {
       margin: 0;
+    }
+
+    .full-width-table-container {
+      margin-left: -1rem;
+      margin-right: -1rem;
+      width: calc(100% + 2rem);
+    }
+
+    .table-content-wrapper {
+      width: calc(100% - 2rem);
+      margin: 0 1rem;
     }
   }
 </style> 

@@ -338,6 +338,12 @@
           document.body.classList.add(`page-${newWidth}`);
           // Save to local storage
           localStorage.setItem('pageWidth', newWidth);
+          
+          // Ensure tables maintain full width
+          document.querySelectorAll('table').forEach(table => {
+            table.style.width = '100%';
+            table.style.maxWidth = 'none';
+          });
         });
       }
 
