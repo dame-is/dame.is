@@ -475,7 +475,6 @@ body.dark-mode .icon.fa-bluesky {
     align-items: center;
     transition: transform 0.3s ease, color 0.3s ease;
     margin-right: 10px;
-    border-radius: 3px;
     padding: 0px;
     padding-top: 1px;
     padding-left: 1px;
@@ -574,7 +573,6 @@ footer {
     border: 1px solid #ccc;
     padding: 15px 15px 5px 15px;
     margin: 5px 0px 10px 0px;
-    border-radius: 5px;
     background-color: var(--post-background-color);
 }
 
@@ -602,7 +600,6 @@ body.dark-mode .post {
     max-width: 100%;
     height: auto;
     margin: 10px 0px 0px 0;
-    border-radius: 5px;
     border: 1px solid #ccc;
 }
 
@@ -630,7 +627,6 @@ body.dark-mode .post-date {
     position: relative;
     padding-top: 10px;
     padding-bottom: 10px;
-    border-radius: 5px;
     color: #6b6b6b;
     padding-right: 12px;
 }
@@ -656,7 +652,6 @@ body.dark-mode .embedded-quote {
     color: #929292; /* Text color */
     background-color: #e0e0e0;
     padding: 3px 7px;
-    border-radius: 3px;
     margin-right: 10px;
     margin-bottom: 10px;
     transition: color 0.3s ease, background-color 0.3s ease;
@@ -722,7 +717,6 @@ body.dark-mode .count-item.active .fa-reply {
 
 .linkCard {
     border: 1px solid #ccc;
-    border-radius: 5px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -848,7 +842,6 @@ body.dark-mode .post-counts .count-item {
     background-color: #007bff;
     color: #fff;
     border: none;
-    border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
     transition: background-color 0.3s ease;
@@ -883,7 +876,6 @@ body.dark-mode .log-container {
 pre#log-entries.log-container {
     padding: 0px;
     margin: 0px;
-    border-radius: 5px;
     border: 0px solid #ccc;
     background-color: unset;
 }
@@ -1019,7 +1011,6 @@ blockquote p {
 #post-content img {
     max-width: 400px;
     border: 1px solid #ccc;
-    border-radius: 5px;
     margin-top: 10px;
     width: 100%;
 }
@@ -1118,7 +1109,6 @@ body.dark-mode .blog-post-excerpt {
     text-align: center;
     max-width: 95%;
     margin: auto;
-    border-radius: 5px;
     margin-bottom: 20px;
     padding-top: 30px;
     padding-bottom: 30px;
@@ -1217,7 +1207,6 @@ body.dark-mode .alt-card {
     padding: 10px;
     font-size: 1em;
     border: 1px solid #ccc;
-    border-radius: 5px;
     text-align: center;
 }
 
@@ -1481,7 +1470,6 @@ body.dark-mode .alt-card {
 .comment {
     padding: 1rem;
     border: 1px solid #f0f0f0;
-    border-radius: 5px;
     margin-bottom: 1rem;
     background-color: #fafafa;
 }
@@ -1672,7 +1660,6 @@ body.dark-mode .embeddable-buttondown-form input[type="submit"] {
 .bluesky-embed {
     margin: 20px 0;
     border: 1px solid #e1e8ed;
-    border-radius: 12px;
     padding: 15px;
     background-color: #f8f9fa;
     max-width: 500px;
@@ -1686,7 +1673,6 @@ body.dark-mode .bluesky-embed {
 .blog-content img {
     max-width: 100%;
     height: auto;
-    border-radius: 5px;
     margin: 20px 0;
 }
 
@@ -1720,7 +1706,6 @@ body.dark-mode .bluesky-embed {
 /* Fix for code blocks in blog posts */
 .blog-content pre, .blog-content code {
     background-color: #f5f5f5;
-    border-radius: 4px;
     padding: 2px 5px;
     font-family: monospace;
     overflow-x: auto;
@@ -1822,7 +1807,6 @@ body.dark-mode .period {
 .sabbatical {
   background-color: rgba(129, 199, 132, 0.08);
   border: 1px solid rgba(129, 199, 132, 0.2);
-  border-radius: 8px;
   padding: 15px;
   margin-bottom: 35px;
 }
@@ -1901,7 +1885,6 @@ body.dark-mode .education div {
   padding: 10px 15px;
   background: #e9ecef;
   border: none;
-  border-radius: 5px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
@@ -1967,7 +1950,6 @@ body.dark-mode .chart-container svg line {
 body.dark-mode .insight-box {
   background-color: #2d3748;
   border: 1px solid #4a5568;
-  border-radius: 5px;
   padding: 15px;
   margin-top: 20px;
 }
@@ -2091,7 +2073,6 @@ main:has(.creating-container) {
 .tag {
   padding: 0.25rem 0.5rem;
   background-color: var(--tag-bg, #e2e8f0);
-  border-radius: 4px;
   font-size: 0.75rem;
   white-space: nowrap;
 }
