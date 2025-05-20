@@ -35,19 +35,19 @@ function renderBlueskyComments() {
         const style = document.createElement('style');
         style.textContent = `
             /* Remove margins from comment containers */
-            .bsky-comment-container {
+            ._commentContainer_yf3k8_90 {
                 margin: 1rem 0;
                 font-size: .875rem;
                 margin-bottom: 0px;
             }
             
             /* Add a subtle border to replies container */
-            .bsky-replies-container {
+            ._repliesContainer_yf3k8_142 {
                 border-left: 2px solid #52525247 !important;
             }
             
             /* Hide the actions container */
-            .bsky-actions-container {
+            ._actionsContainer_yf3k8_90 {
                 display: none !important;
             }
             
@@ -68,12 +68,12 @@ function renderBlueskyComments() {
             }
             
             /* Dark mode support for reply container border */
-            .dark-mode .bsky-replies-container {
+            .dark-mode ._repliesContainer_yf3k8_142 {
                 border-left-color: #52525280 !important;
             }
 
             /* Author link styles */
-            .bsky-author-link {
+            ._authorLink_yf3k8_102 {
                 display: flex;
                 flex-direction: row;
                 justify-content: flex-start;
@@ -81,12 +81,12 @@ function renderBlueskyComments() {
             }
 
             /* Author name styles */
-            .bsky-author-name {
+            ._authorName_yf3k8_50 {
                 margin-bottom: 0px;
             }
 
             /* Comments list styles */
-            .bsky-comments-list p {
+            ._commentsList_yf3k8_65 p {
                 margin-bottom: 0px;
             }
         `;

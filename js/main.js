@@ -412,69 +412,6 @@ function initializeBlueskyComments() {
     if (commentsContainer) {
         // Dispatch a custom event to notify the module script
         window.dispatchEvent(new CustomEvent('bluesky_uri_set'));
-
-        // Add event listener for when the comments are loaded
-        window.addEventListener('bluesky_comments_loaded', function() {
-            // Replace the default icons with custom ones
-            const actionRows = document.querySelectorAll('._actionsRow_yf3k8_164');
-            actionRows.forEach(row => {
-                const icon = row.querySelector('._icon_yf3k8_41');
-                if (!icon) return;
-
-                // Get the current icon's purpose based on its path
-                const path = icon.querySelector('path');
-                if (!path) return;
-                const pathD = path.getAttribute('d');
-
-                // Create new SVG element
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.classList.add('_icon_yf3k8_41');
-                svg.setAttribute('fill', 'currentColor');
-                svg.setAttribute('aria-hidden', 'true');
-                svg.setAttribute('focusable', 'false');
-
-                // Create <use> element referencing our custom icons
-                const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-
-                // Determine which icon to use based on the action type
-                if (pathD.includes('M21 8.25c0-2.485-2.099-4.5-4.688-4.5')) {
-                    // Heart icon
-                    use.setAttribute('href', '/assets/icons/icons-sprite.svg#icon-heart');
-                    svg.style.color = '#e93434';
-                } else if (pathD.includes('M19.5 12c0-1.232-.046-2.453')) {
-                    // Repost icon
-                    use.setAttribute('href', '/assets/icons/icons-sprite.svg#icon-retweet');
-                    svg.style.color = '#0dc70d';
-                } else if (pathD.includes('M12 20.25c4.97 0 9-3.694')) {
-                    // Reply icon
-                    use.setAttribute('href', '/assets/icons/icons-sprite.svg#icon-reply');
-                    svg.style.color = '#4c4c4c';
-                }
-
-                // Append <use> to SVG
-                svg.appendChild(use);
-
-                // Replace the original icon
-                icon.replaceWith(svg);
-            });
-
-            // Apply dark mode styles if needed
-            if (document.body.classList.contains('dark-mode')) {
-                const handles = document.querySelectorAll('._handle_yf3k8_139');
-                handles.forEach(handle => {
-                    handle.style.color = '#aaa';
-                });
-
-                // Update icon colors for dark mode
-                const heartIcons = document.querySelectorAll('._icon_yf3k8_41[href*="icon-heart"]');
-                const repostIcons = document.querySelectorAll('._icon_yf3k8_41[href*="icon-retweet"]');
-                const replyIcons = document.querySelectorAll('._icon_yf3k8_41[href*="icon-reply"]');
-
-                heartIcons.forEach(icon => icon.style.color = '#ff6b6b');
-                repostIcons.forEach(icon => icon.style.color = '#66ff66');
-                replyIcons.forEach(icon => icon.style.color = '#3399ff');
-            }
-        });
     }
 }
 

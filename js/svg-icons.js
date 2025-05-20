@@ -47,8 +47,8 @@ document.addEventListener("DOMContentLoaded", function() {
      * Replaces SVG icons based on their 'd' attribute and assigns distinct classes.
      */
     function replaceSVGIcons() {
-        // Select all SVG elements with the specific class
-        const svgIcons = document.querySelectorAll('svg._icon_1pvtk_31');
+        // Select all SVG elements with the new class names from v0.11.1
+        const svgIcons = document.querySelectorAll('svg._icon_yf3k8_31, svg[class*="_icon_"]');
 
         svgIcons.forEach(svg => {
             // Find the <path> element within the SVG
@@ -71,9 +71,9 @@ document.addEventListener("DOMContentLoaded", function() {
                     newSVGElement.classList.add(className);
                 }
 
-                // Retain any existing classes except the original '_icon_1pvtk_31'
+                // Retain any existing classes except the original icon classes
                 svg.classList.forEach(cls => {
-                    if (cls !== '_icon_1pvtk_31') {
+                    if (!cls.includes('_icon_')) {
                         newSVGElement.classList.add(cls);
                     }
                 });
