@@ -8,17 +8,54 @@ const GITHUB_BRANCH = 'main'; // Your branch name
 // FONT SIZE AND THEME MANAGEMENT
 // ----------------------------------
 
+// Function to check if current time is within daytime hours (7 AM to 7 PM)
+function isDaytime() {
+    const currentHour = new Date().getHours();
+    return currentHour >= 7 && currentHour < 19; // 7 AM to 7 PM
+}
+
+// Function to update theme based on time of day
+function updateThemeBasedOnTime() {
+    // Only update if auto dark mode is enabled
+    if (localStorage.getItem('autoDarkMode') !== 'false') {
+        if (isDaytime()) {
+            document.body.classList.remove('dark-mode');
+        } else {
+            document.body.classList.add('dark-mode');
+        }
+        updateThemeIcon();
+    }
+}
+
 // Apply font size from localStorage on page load
 document.addEventListener('DOMContentLoaded', function() {
-  // Apply saved font size
-  const savedFontSize = localStorage.getItem('fontSize') || 'medium';
-  document.body.classList.add(`font-${savedFontSize}`);
-  
-  // Apply saved theme
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'dark') {
-    document.body.classList.add('dark-mode');
-  }
+    // Apply saved font size
+    const savedFontSize = localStorage.getItem('fontSize') || 'medium';
+    document.body.classList.add(`font-${savedFontSize}`);
+    
+    // Initialize auto dark mode if not set
+    if (localStorage.getItem('autoDarkMode') === null) {
+        localStorage.setItem('autoDarkMode', 'true');
+    }
+    
+    // Apply theme based on auto/manual settings
+    if (localStorage.getItem('autoDarkMode') === 'true') {
+        // Auto dark mode is enabled, use time-based theme
+        updateThemeBasedOnTime();
+    } else {
+        // Auto dark mode is disabled, use manual setting
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+        }
+    }
+
+    // Set up interval to check time and update theme every minute if auto mode is enabled
+    setInterval(() => {
+        if (localStorage.getItem('autoDarkMode') === 'true') {
+            updateThemeBasedOnTime();
+        }
+    }, 60000);
 });
 
 // Function to change font size
@@ -333,32 +370,23 @@ function initializeNav() {
     // Theme toggle
     const themeToggle = document.getElementById('theme-toggle');
     if (themeToggle) {
-        // First check for system preference
-        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // First check for auto dark mode
+        const isAutoDarkMode = localStorage.getItem('autoDarkMode') === 'true';
         
-        // Set initial theme based on localStorage if present, otherwise use system preference
-        const storedTheme = localStorage.getItem('theme');
-        
-        if (storedTheme === 'dark' || (storedTheme === null && prefersDarkMode)) {
-            document.body.classList.add('dark-mode');
-        } else if (storedTheme === 'light' || (storedTheme === null && !prefersDarkMode)) {
-            document.body.classList.remove('dark-mode');
+        if (isAutoDarkMode) {
+            // Use time-based theme
+            updateThemeBasedOnTime();
+        } else {
+            // Use manual theme setting
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+            } else if (storedTheme === 'light') {
+                document.body.classList.remove('dark-mode');
+            }
         }
         
         updateThemeIcon();
-
-        // Listen for system preference changes
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-            // Only update theme based on system if user hasn't explicitly set a preference
-            if (localStorage.getItem('theme') === null) {
-                if (e.matches) {
-                    document.body.classList.add('dark-mode');
-                } else {
-                    document.body.classList.remove('dark-mode');
-                }
-                updateThemeIcon();
-            }
-        });
 
         themeToggle.addEventListener('click', toggleTheme);
     } else {
@@ -473,13 +501,16 @@ function toggleTheme() {
         return;
     }
 
-    document.body.classList.toggle('dark-mode');
-    if (document.body.classList.contains('dark-mode')) {
-        localStorage.setItem('theme', 'dark');
-    } else {
-        localStorage.setItem('theme', 'light');
+    // Only toggle theme if auto dark mode is disabled
+    if (localStorage.getItem('autoDarkMode') !== 'true') {
+        document.body.classList.toggle('dark-mode');
+        if (document.body.classList.contains('dark-mode')) {
+            localStorage.setItem('theme', 'dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+        }
+        updateThemeIcon();
     }
-    updateThemeIcon();
 }
 
 function updateThemeIcon() {
@@ -2212,6 +2243,59 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize supporters list if we're on the supported page
     if (window.location.pathname === '/supported' || window.location.pathname === '/supported/') {
         initializeSupportersList();
+    }
+});
+
+// Add initialization for the auto dark mode toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    
+    if (autoDarkModeToggle && darkModeToggle) {
+        // Set initial states
+        const isAutoDarkMode = localStorage.getItem('autoDarkMode') === 'true';
+        const isAlwaysDark = localStorage.getItem('theme') === 'dark' && !isAutoDarkMode;
+        
+        autoDarkModeToggle.checked = isAutoDarkMode;
+        darkModeToggle.checked = isAlwaysDark;
+        
+        // Add event listener for auto dark mode toggle
+        autoDarkModeToggle.addEventListener('change', function() {
+            const isChecked = this.checked;
+            localStorage.setItem('autoDarkMode', isChecked);
+            
+            if (isChecked) {
+                // Uncheck and disable Always Dark Mode
+                darkModeToggle.checked = false;
+                localStorage.setItem('theme', 'light');
+                // Enable auto dark mode
+                updateThemeBasedOnTime();
+            } else {
+                // Keep current theme state when disabling auto mode
+                const isDark = document.body.classList.contains('dark-mode');
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            }
+        });
+        
+        // Update dark mode toggle event listener
+        darkModeToggle.addEventListener('change', function() {
+            const isChecked = this.checked;
+            
+            if (isChecked) {
+                // Uncheck Auto Dark Mode
+                autoDarkModeToggle.checked = false;
+                localStorage.setItem('autoDarkMode', 'false');
+                
+                // Enable Always Dark Mode
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                // Disable Dark Mode
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+            }
+            updateThemeIcon();
+        });
     }
 });
 

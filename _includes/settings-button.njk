@@ -27,19 +27,34 @@
       <div class="settings-group">
         <h4 class="settings-group-title">Theme</h4>
         <div class="settings-option">
-          <label for="dark-mode-toggle" class="settings-option-label">Dark Mode</label>
+          <label for="auto-dark-mode-toggle" class="settings-option-label">
+            Auto Dark Mode
+            <div class="settings-option-description">Switches to dark mode after 7 PM</div>
+          </label>
+          <div class="settings-option-control">
+            <input type="checkbox" id="auto-dark-mode-toggle" class="settings-checkbox" checked />
+          </div>
+        </div>
+        <div class="settings-option">
+          <label for="dark-mode-toggle" class="settings-option-label">Always Dark Mode</label>
           <div class="settings-option-control">
             <input type="checkbox" id="dark-mode-toggle" class="settings-checkbox" />
           </div>
         </div>
         <div class="settings-option">
-          <label for="lofi-mode-toggle" class="settings-option-label">Lo-fi Mode</label>
+          <label for="lofi-mode-toggle" class="settings-option-label">
+            Lo-fi Mode
+            <div class="settings-option-description">Removes unnecessary styling</div>
+          </label>
           <div class="settings-option-control">
             <input type="checkbox" id="lofi-mode-toggle" class="settings-checkbox" />
           </div>
         </div>
         <div class="settings-option">
-          <label for="font-family" class="settings-option-label">Font Family</label>
+          <label for="font-family" class="settings-option-label">
+            Font Family
+            <div class="settings-option-description">Choose your preferred typeface</div>
+          </label>
           <div class="settings-option-control">
             <select id="font-family" class="settings-select">
               <option value="arial">Sans-serif</option>
@@ -50,7 +65,10 @@
           </div>
         </div>
         <div class="settings-option">
-          <label for="font-size" class="settings-option-label">Font Size</label>
+          <label for="font-size" class="settings-option-label">
+            Font Size
+            <div class="settings-option-description">Adjust text size for readability</div>
+          </label>
           <div class="settings-option-control">
             <select id="font-size" class="settings-select">
               <option value="small">Small</option>
@@ -65,7 +83,10 @@
       <div class="settings-group">
         <h4 class="settings-group-title">Layout</h4>
         <div class="settings-option">
-          <label for="page-width" class="settings-option-label">Page Width</label>
+          <label for="page-width" class="settings-option-label">
+            Page Width
+            <div class="settings-option-description">Control content width</div>
+          </label>
           <div class="settings-option-control">
             <select id="page-width" class="settings-select">
               <option value="narrow" selected>Narrow</option>
@@ -75,7 +96,10 @@
           </div>
         </div>
         <div class="settings-option">
-          <label for="line-height" class="settings-option-label">Line Height</label>
+          <label for="line-height" class="settings-option-label">
+            Line Height
+            <div class="settings-option-description">Adjust spacing between lines</div>
+          </label>
           <div class="settings-option-control">
             <select id="line-height" class="settings-select">
               <option value="tight" selected>Tight</option>

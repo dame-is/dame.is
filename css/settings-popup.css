@@ -209,6 +209,18 @@ body.dark-mode .settings-option-label {
   color: var(--text-primary-dark, #eee);
 }
 
+/* Settings option description */
+.settings-option-description {
+  font-size: 0.8em;
+  font-weight: normal;
+  color: var(--text-secondary, #666);
+  margin-top: 2px;
+}
+
+body.dark-mode .settings-option-description {
+  color: var(--text-secondary-dark, #aaa);
+}
+
 /* Settings control container */
 .settings-option-control {
   display: flex;
