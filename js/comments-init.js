@@ -153,6 +153,7 @@ function renderBlueskyComments() {
         root.render(
             createElement(BlueskyComments, {
                 uri: blueskyUri,
+                enableDeer: true,
             })
         );
     } catch (error) {
