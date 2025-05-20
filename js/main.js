@@ -16,16 +16,97 @@ function isDaytime() {
 
 // Function to update theme based on time of day
 function updateThemeBasedOnTime() {
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
+    
     // Only update if auto dark mode is enabled
-    if (localStorage.getItem('autoDarkMode') !== 'false') {
-        if (isDaytime()) {
-            document.body.classList.remove('dark-mode');
-        } else {
-            document.body.classList.add('dark-mode');
+    if (autoDarkModeToggle && autoDarkModeToggle.checked) {
+        const shouldBeDark = !isDaytime();
+        document.body.classList.toggle('dark-mode', shouldBeDark);
+        
+        // Update the Always Dark Mode toggle to match the current state
+        // but don't save it to localStorage
+        if (darkModeToggle) {
+            darkModeToggle.checked = shouldBeDark;
         }
+        
         updateThemeIcon();
     }
 }
+
+// Function to handle dark mode toggle changes
+function handleDarkModeToggle(event) {
+    const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    
+    if (event.target === darkModeToggle) {
+        // If Always Dark Mode is toggled
+        if (darkModeToggle.checked) {
+            // Disable auto dark mode
+            if (autoDarkModeToggle) {
+                autoDarkModeToggle.checked = false;
+                localStorage.setItem('autoDarkMode', 'false');
+            }
+            // Enable dark mode
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            // Disable dark mode
+            document.body.classList.remove('dark-mode');
+            localStorage.setItem('theme', 'light');
+        }
+    } else if (event.target === autoDarkModeToggle) {
+        // If Auto Dark Mode is toggled
+        if (autoDarkModeToggle.checked) {
+            // Clear manual theme preference
+            localStorage.removeItem('theme');
+            // Update theme based on time immediately
+            updateThemeBasedOnTime();
+        } else {
+            // If turning off auto dark mode, keep current state
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            if (darkModeToggle) {
+                darkModeToggle.checked = isDark;
+            }
+        }
+        localStorage.setItem('autoDarkMode', autoDarkModeToggle.checked);
+    }
+    
+    updateThemeIcon();
+}
+
+// Apply settings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
+    
+    if (darkModeToggle && autoDarkModeToggle) {
+        // Set up event listeners
+        darkModeToggle.addEventListener('change', handleDarkModeToggle);
+        autoDarkModeToggle.addEventListener('change', handleDarkModeToggle);
+        
+        // Initialize auto dark mode
+        const isAutoDarkMode = localStorage.getItem('autoDarkMode') !== 'false';
+        autoDarkModeToggle.checked = isAutoDarkMode;
+        
+        if (isAutoDarkMode) {
+            // If auto dark mode is enabled, set theme based on time
+            updateThemeBasedOnTime();
+        } else {
+            // Otherwise, respect the saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+            const isDark = savedTheme === 'dark';
+            document.body.classList.toggle('dark-mode', isDark);
+            darkModeToggle.checked = isDark;
+        }
+        
+        // Set up interval to check time
+        setInterval(updateThemeBasedOnTime, 60000); // Check every minute
+    }
+    
+    // ... rest of the initialization code ...
+});
 
 // Apply font size from localStorage on page load
 document.addEventListener('DOMContentLoaded', function() {
