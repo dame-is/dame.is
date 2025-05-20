@@ -126,6 +126,8 @@ function renderBlueskyComments() {
                 margin: 10px !important;
                 margin-top: 0.2rem !important;
                 margin-bottom: 0px !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
             }
 
             ._commentContainer_yf3k8_90 {
@@ -135,6 +137,8 @@ function renderBlueskyComments() {
             /* Individual comment margins */
             ._commentContent_yf3k8_95 {
                 margin: 10px !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
             }
 
             ._divider_yf3k8_61 {
