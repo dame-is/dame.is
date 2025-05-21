@@ -2102,7 +2102,6 @@ main:has(.folder-container) {
 .folder-table {
   width: 100%;
   border-collapse: collapse;
-  background: var(--background);
 }
 
 .folder-table th,
@@ -2889,7 +2888,6 @@ body.dark-mode .folder-type {
 .folder-table {
     width: 100%;
     border-collapse: collapse;
-    background: var(--background);
 }
 
 .folder-table th,

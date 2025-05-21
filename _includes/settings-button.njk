@@ -26,28 +26,26 @@
       <!-- Theme settings -->
       <div class="settings-group">
         <h4 class="settings-group-title">Theme</h4>
-        <div class="settings-option">
-          <label for="auto-dark-mode-toggle" class="settings-option-label">
-            Auto Dark Mode
-            <div class="settings-option-description">Switches to dark mode after 7 PM</div>
-          </label>
-          <div class="settings-option-control">
-            <input type="checkbox" id="auto-dark-mode-toggle" class="settings-checkbox" checked />
-          </div>
-        </div>
-        <div class="settings-option">
-          <label for="dark-mode-toggle" class="settings-option-label">Always Dark Mode</label>
-          <div class="settings-option-control">
-            <input type="checkbox" id="dark-mode-toggle" class="settings-checkbox" />
-          </div>
-        </div>
-        <div class="settings-option">
+          <div class="settings-option">
           <label for="lofi-mode-toggle" class="settings-option-label">
             Lo-fi Mode
             <div class="settings-option-description">Removes unnecessary styling</div>
           </label>
           <div class="settings-option-control">
             <input type="checkbox" id="lofi-mode-toggle" class="settings-checkbox" />
+          </div>
+        </div>
+        <div class="settings-option">
+          <label for="theme-select" class="settings-option-label">
+            Theme
+            <div class="settings-option-description">Choose how the site theme behaves</div>
+          </label>
+          <div class="settings-option-control">
+            <select id="theme-select" class="settings-select">
+              <option value="auto">Auto Dark Mode</option>
+              <option value="dark">Always Dark Mode</option>
+              <option value="light">Always Light Mode</option>
+            </select>
           </div>
         </div>
         <div class="settings-option">
@@ -83,6 +81,19 @@
       <div class="settings-group">
         <h4 class="settings-group-title">Layout</h4>
         <div class="settings-option">
+          <label for="nav-alignment" class="settings-option-label">
+            Site Alignment
+            <div class="settings-option-description">Control site-wide content alignment</div>
+          </label>
+          <div class="settings-option-control">
+            <select id="nav-alignment" class="settings-select">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+        </div>
+        <div class="settings-option">
           <label for="page-width" class="settings-option-label">
             Page Width
             <div class="settings-option-description">Control content width</div>
@@ -113,16 +124,6 @@
       <!-- Navigation settings -->
       <div class="settings-group">
         <h4 class="settings-group-title">Navigation Bar</h4>
-        <div class="settings-option">
-          <label for="nav-alignment" class="settings-option-label">Navigation Alignment</label>
-          <div class="settings-option-control">
-            <select id="nav-alignment" class="settings-select">
-              <option value="left">Left</option>
-              <option value="center">Center</option>
-              <option value="right">Right</option>
-            </select>
-          </div>
-        </div>
         <div class="settings-option">
           <label for="show-pinned-links" class="settings-option-label">Show Pinned Links</label>
           <div class="settings-option-control">
@@ -182,39 +183,57 @@
     
     // Initialize settings functionality
     function initializeSettings() {
-      // Auto Dark Mode toggle initialization
-      const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
-      if (autoDarkModeToggle) {
-        // Default to true unless explicitly set to false
-        const isAutoDarkMode = localStorage.getItem('autoDarkMode') === null ? true : localStorage.getItem('autoDarkMode') === 'true';
+      // Theme selection initialization
+      const themeSelect = document.getElementById('theme-select');
+      if (themeSelect) {
+        // Function to check if it's after 7 PM
+        function isAfter7PM() {
+          const now = new Date();
+          return now.getHours() >= 19;
+        }
+
+        // Function to update theme based on current selection and time
+        function updateTheme() {
+          const currentTheme = themeSelect.value;
+          
+          switch (currentTheme) {
+            case 'dark':
+              document.body.classList.add('dark-mode');
+              localStorage.setItem('theme', 'dark');
+              break;
+            case 'light':
+              document.body.classList.remove('dark-mode');
+              localStorage.setItem('theme', 'light');
+              break;
+            case 'auto':
+              localStorage.setItem('theme', 'auto');
+              if (isAfter7PM()) {
+                document.body.classList.add('dark-mode');
+              } else {
+                document.body.classList.remove('dark-mode');
+              }
+              break;
+          }
+        }
+
+        // Set initial state based on localStorage or default to auto
+        const savedTheme = localStorage.getItem('theme') || 'auto';
+        themeSelect.value = savedTheme;
         
-        // Set initial state
-        autoDarkModeToggle.checked = isAutoDarkMode;
-        
-        // Add event listener
-        autoDarkModeToggle.addEventListener('change', function() {
-          localStorage.setItem('autoDarkMode', this.checked);
-        });
+        // Initial theme application
+        updateTheme();
+
+        // Add event listener for theme changes
+        themeSelect.addEventListener('change', updateTheme);
+
+        // Set up interval to check time every minute for auto mode
+        setInterval(() => {
+          if (themeSelect.value === 'auto') {
+            updateTheme();
+          }
+        }, 60000);
       }
 
-      // Dark mode toggle initialization
-      const darkModeToggle = document.getElementById('dark-mode-toggle');
-      if (darkModeToggle) {
-        // Set initial state based on current mode
-        darkModeToggle.checked = document.body.classList.contains('dark-mode');
-        
-        // Add event listener
-        darkModeToggle.addEventListener('change', function() {
-          if (this.checked) {
-            document.body.classList.add('dark-mode');
-            localStorage.setItem('theme', 'dark');
-          } else {
-            document.body.classList.remove('dark-mode');
-            localStorage.setItem('theme', 'light');
-          }
-        });
-      }
-      
       // Lo-fi mode toggle initialization
       const lofiModeToggle = document.getElementById('lofi-mode-toggle');
       if (lofiModeToggle) {
@@ -444,19 +463,12 @@
         // Clear all settings from localStorage
         localStorage.clear();
         
-        // Reset Auto Dark Mode to true (default state)
-        const autoDarkModeToggle = document.getElementById('auto-dark-mode-toggle');
-        if (autoDarkModeToggle) {
-          autoDarkModeToggle.checked = true;
-          localStorage.setItem('autoDarkMode', 'true');
-        }
-
-        // Reset dark mode
-        document.body.classList.remove('dark-mode');
-        const darkModeToggle = document.getElementById('dark-mode-toggle');
-        if (darkModeToggle) {
-          darkModeToggle.checked = false;
-          localStorage.setItem('theme', 'light');
+        // Reset theme
+        const themeSelect = document.getElementById('theme-select');
+        if (themeSelect) {
+          themeSelect.value = 'auto';
+          localStorage.setItem('theme', 'auto');
+          updateTheme();
         }
 
         // Reset lo-fi mode

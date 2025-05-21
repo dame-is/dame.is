@@ -145,18 +145,9 @@ body.dark-mode .nav-links a.nav-link {
 }
 
 /* Lo-fi mode adjustments */
-body.lofi-mode .nav-links-scroll-content {
-    animation: none;
-}
-
 body.lofi-mode .nav-links {
     display: flex !important;
     padding-right: 0;
-    animation: none;
-}
-
-body.lofi-mode .nav-links:last-child {
-    display: none !important;
 }
 
 /* Lo-fi mode gradient adjustments */
