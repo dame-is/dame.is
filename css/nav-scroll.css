@@ -4,6 +4,7 @@
     width: 100%;
     overflow: hidden;
     position: relative;
+    max-width: 100vw; /* Ensure container doesn't exceed viewport width */
 }
 
 /* Left gradient overlay */
@@ -44,6 +45,8 @@ body.dark-mode .nav-links-scroll-container::after {
 .nav-section.bottom-nav.nav-pinned-links {
 	padding-left: 0px;
 	padding-right: 0px;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .nav-links-scroll-content {
@@ -51,6 +54,8 @@ body.dark-mode .nav-links-scroll-container::after {
     animation: scroll-links 60s linear infinite;
     white-space: nowrap;
     will-change: transform;
+    width: max-content; /* Allow content to determine width */
+    max-width: none; /* Remove any max-width constraints */
 }
 
 /* Pause animation on hover */
@@ -61,6 +66,7 @@ body.dark-mode .nav-links-scroll-container::after {
 .nav-links {
     display: inline-flex !important;
     flex-wrap: nowrap !important;
+    width: max-content; /* Allow content to determine width */
 }
 
 .nav-links a.nav-link {
@@ -70,6 +76,7 @@ body.dark-mode .nav-links-scroll-container::after {
     text-decoration: none;
     margin-right: 8px; /* Reduced margin between links */
     position: relative; /* For underline positioning */
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .nav-links a.nav-link:hover {
@@ -118,7 +125,22 @@ body.dark-mode .nav-links a.nav-link {
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .nav-links-scroll-content {
-        animation-duration: 45s; /* Slightly faster on mobile but still smooth */
+        animation-duration: 30s; /* Faster on mobile for better UX */
+    }
+    
+    .nav-section.bottom-nav.nav-pinned-links {
+        width: 100%;
+    }
+    
+    .nav-links-scroll-container {
+        width: 100%;
+        margin: 0;
+        overflow-x: hidden; /* Ensure no horizontal scrolling */
+    }
+
+    .nav-links a.nav-link {
+        font-size: 0.9em; /* Slightly smaller text on mobile */
+        margin-right: 6px; /* Reduced spacing between links */
     }
 }
 
@@ -148,5 +170,5 @@ body.lofi-mode .nav-links-scroll-container::after {
 .nav-align-center .nav-links,
 .nav-align-right .nav-links {
     justify-content: flex-start !important;
-    width: auto !important;
+    width: max-content !important;
 } 
