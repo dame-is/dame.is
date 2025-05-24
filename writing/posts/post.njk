@@ -1,6 +1,8 @@
 ---
 layout: base
 title: Post
+permalink: /writing/posts/post.html
+eleventyExcludeFromCollections: true
 ---
 
 <div id="single-post-container">
@@ -9,7 +11,7 @@ title: Post
 
 <script>
     // The post ID will be the last segment of the URL
-    const postId = window.location.pathname.split('/').pop();
+    const postId = window.location.pathname.split('/').filter(Boolean).pop();
     
     // Initialize the single post view when the DOM is loaded
     document.addEventListener('DOMContentLoaded', function() {
