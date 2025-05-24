@@ -36,6 +36,7 @@ const siteMapConfig = {
     '.gitignore',
     'package.json',
     'package-lock.json',
+    'writing/posts/post.njk',
     
     // Add your custom excluded files here
     // 'example-file-to-exclude.md',
