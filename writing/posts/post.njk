@@ -1,6 +1,8 @@
 ---
 layout: base
 title: Post
+permalink: false
+eleventyExcludeFromCollections: true
 ---
 
 {% block head %}
@@ -56,9 +58,9 @@ title: Post
         // Set the URI for the comments section
         const commentsDiv = document.getElementById('bluesky-comments');
         if (commentsDiv) {
-            // Construct the AT URI in the correct format
-            const uri = `at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/${postId}`;
-            commentsDiv.setAttribute('data-uri', uri);
+            // Format the URL in the correct bsky.app format
+            const bskyUrl = `https://bsky.app/profile/dame.is/post/${postId}`;
+            commentsDiv.setAttribute('data-uri', bskyUrl);
         }
 
         // Function to load a single post
@@ -80,9 +82,10 @@ title: Post
 
                 const repoData = await repoResponse.json();
 
-                // Use the URI from the API response for the comments
+                // Update the comments URI with the correct bsky.app URL format
                 if (commentsDiv) {
-                    commentsDiv.setAttribute('data-uri', repoData.uri);
+                    const bskyUrl = `https://bsky.app/profile/dame.is/post/${postId}`;
+                    commentsDiv.setAttribute('data-uri', bskyUrl);
                 }
 
                 // Then, fetch the post with engagement data from the feed API
