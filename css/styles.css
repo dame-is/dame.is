@@ -2998,3 +2998,29 @@ body.hide-bluesky-stats .nav-stats {
   #single-post-container .post-counts {
     display: none;
   }
+
+/* RSS Feed Link */
+.rss-link {
+    margin: 1rem 0;
+}
+
+.rss-link a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--background-alt);
+    border-radius: 20px;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.rss-link a:hover {
+    background: var(--accent-color);
+    color: var(--background);
+}
+
+.rss-link svg {
+    width: 16px;
+    height: 16px;
+}
