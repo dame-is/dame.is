@@ -2990,39 +2990,3 @@ body.hide-bluesky-stats .nav-stats {
 .nav-section.top-nav {
     display: flex !important;
 } 
-
-#single-post-container {
-    max-width: 800px;
-    margin: 2rem auto;
-    padding: 0 1rem;
-}
-
-#post-loading {
-    text-align: center;
-    padding: 2rem;
-    font-style: italic;
-    color: #666;
-}
-
-body.dark-mode #post-loading {
-    color: #999;
-}
-
-.local-post-link {
-    color: var(--text-color);
-    text-decoration: none;
-    transition: color 0.2s ease;
-}
-
-.local-post-link:hover {
-    color: var(--link-color);
-    text-decoration: underline;
-}
-
-body.dark-mode .local-post-link {
-    color: var(--dark-text-color);
-}
-
-body.dark-mode .local-post-link:hover {
-    color: var(--dark-link-color);
-}

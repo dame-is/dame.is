@@ -7,4 +7,60 @@ folderType:
 <div id="recent-posts">
     <h1>/posts</h1>
     <div id="posts-loading">Loading...</div>
-</div> 
+</div>
+
+<script>
+    // Add this function to extract post ID from URI
+    function getPostIdFromUri(uri) {
+        const match = uri.match(/\/([^\/]+)$/);
+        return match ? match[1] : null;
+    }
+
+    // Modify the existing loadRecentPosts function to add links to individual posts
+    document.addEventListener('DOMContentLoaded', function() {
+        const originalLoadRecentPosts = window.loadRecentPosts;
+        
+        // Override the loadRecentPosts function
+        window.loadRecentPosts = async function(cursor = null) {
+            // Call the original function first
+            await originalLoadRecentPosts(cursor);
+            
+            // Now add links to individual posts
+            const posts = document.querySelectorAll('.post');
+            posts.forEach(post => {
+                const postLink = post.querySelector('.post-date a');
+                if (postLink) {
+                    const postUri = postLink.href;
+                    const postId = getPostIdFromUri(postUri);
+                    if (postId) {
+                        // Create a "View Post" link
+                        const viewPostLink = document.createElement('a');
+                        viewPostLink.href = `/writing/posts/${postId}`;
+                        viewPostLink.classList.add('view-post-link');
+                        viewPostLink.textContent = 'View Post';
+                        
+                        // Add the link after the post date
+                        const postDate = post.querySelector('.post-date');
+                        if (postDate) {
+                            postDate.appendChild(document.createTextNode(' • '));
+                            postDate.appendChild(viewPostLink);
+                        }
+                    }
+                }
+            });
+        };
+        
+        // Initialize the post loader
+        window.loadRecentPosts();
+    });
+</script>
+
+<style>
+    .view-post-link {
+        color: inherit;
+        text-decoration: none;
+    }
+    .view-post-link:hover {
+        text-decoration: underline;
+    }
+</style> 

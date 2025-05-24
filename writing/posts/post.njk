@@ -1,8 +1,6 @@
 ---
 layout: base
 title: Post
-permalink: /writing/posts/post.html
-eleventyExcludeFromCollections: true
 ---
 
 <div id="single-post-container">
@@ -10,11 +8,93 @@ eleventyExcludeFromCollections: true
 </div>
 
 <script>
-    // The post ID will be the last segment of the URL
-    const postId = window.location.pathname.split('/').filter(Boolean).pop();
-    
-    // Initialize the single post view when the DOM is loaded
+    // This script will be responsible for loading and displaying a single post
     document.addEventListener('DOMContentLoaded', function() {
-        loadSinglePost(postId);
+        // Get the post ID from the URL
+        const path = window.location.pathname;
+        const postId = path.split('/').pop(); // Gets the last segment of the URL
+
+        // Function to load a single post
+        async function loadSinglePost() {
+            try {
+                // Show loading indicator
+                const loadingIndicator = document.getElementById('post-loading');
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'block';
+                }
+
+                // Fetch the post data
+                const apiUrl = `https://enoki.us-east.host.bsky.network/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Agq4fo3u6tqzzdkjlwzpb23tj&collection=app.bsky.feed.post&rkey=${postId}`;
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch post: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const post = {
+                    uri: data.uri,
+                    record: data.value,
+                    // We don't have engagement counts in this API response
+                    replyCount: 0,
+                    repostCount: 0,
+                    likeCount: 0,
+                    quoteCount: 0
+                };
+
+                // Create post container
+                const container = document.getElementById('single-post-container');
+                container.innerHTML = ''; // Clear loading indicator
+
+                // Create post element
+                const postElement = document.createElement('div');
+                postElement.classList.add('post');
+
+                // Post Text
+                const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+                if (postText) {
+                    const postTextContainer = document.createElement('div');
+                    postTextContainer.classList.add('post-text-container');
+                    postTextContainer.textContent = postText;
+                    postElement.appendChild(postTextContainer);
+                }
+
+                // Post Date
+                const postDateElem = document.createElement('p');
+                postDateElem.classList.add('post-date');
+                const postUrl = constructBlueskyPostUrl(post.uri);
+                const createdAt = new Date(post.record.createdAt || Date.now());
+                const relativeTime = getRelativeTime(createdAt);
+                const postLink = document.createElement('a');
+                postLink.href = postUrl;
+                postLink.textContent = relativeTime;
+                postLink.target = '_blank';
+                postLink.rel = 'noopener noreferrer';
+                const postedText = document.createTextNode('Posted ');
+                postDateElem.appendChild(postedText);
+                postDateElem.appendChild(postLink);
+                postElement.appendChild(postDateElem);
+
+                // Append the post to the container
+                container.appendChild(postElement);
+
+                // Hide loading indicator
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+
+                // Process any outbound links
+                if (typeof processOutboundLinks === 'function') {
+                    processOutboundLinks();
+                }
+            } catch (error) {
+                console.error('Error loading post:', error);
+                const container = document.getElementById('single-post-container');
+                container.innerHTML = '<p>Failed to load post. Please try again later.</p>';
+            }
+        }
+
+        // Load the post
+        loadSinglePost();
     });
 </script> 
