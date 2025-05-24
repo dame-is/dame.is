@@ -23,24 +23,26 @@ title: Post
                     loadingIndicator.style.display = 'block';
                 }
 
-                // Fetch the post data
-                const apiUrl = `https://enoki.us-east.host.bsky.network/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Agq4fo3u6tqzzdkjlwzpb23tj&collection=app.bsky.feed.post&rkey=${postId}`;
-                const response = await fetch(apiUrl);
+                // First, fetch the post data from the repo API
+                const repoApiUrl = `https://enoki.us-east.host.bsky.network/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Agq4fo3u6tqzzdkjlwzpb23tj&collection=app.bsky.feed.post&rkey=${postId}`;
+                const repoResponse = await fetch(repoApiUrl);
                 
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch post: ${response.status}`);
+                if (!repoResponse.ok) {
+                    throw new Error(`Failed to fetch post: ${repoResponse.status}`);
                 }
 
-                const data = await response.json();
-                const post = {
-                    uri: data.uri,
-                    record: data.value,
-                    // We don't have engagement counts in this API response
-                    replyCount: 0,
-                    repostCount: 0,
-                    likeCount: 0,
-                    quoteCount: 0
-                };
+                const repoData = await repoResponse.json();
+
+                // Then, fetch the post with engagement data from the feed API
+                const feedApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(repoData.uri)}`;
+                const feedResponse = await fetch(feedApiUrl);
+
+                if (!feedResponse.ok) {
+                    throw new Error(`Failed to fetch post engagement: ${feedResponse.status}`);
+                }
+
+                const feedData = await feedResponse.json();
+                const post = feedData.posts[0]; // Get the first (and only) post
 
                 // Create post container
                 const container = document.getElementById('single-post-container');
@@ -52,11 +54,132 @@ title: Post
 
                 // Post Text
                 const postText = post.record.text && post.record.text.trim() !== '' ? post.record.text : null;
+                const postFacets = post.record.facets || [];
                 if (postText) {
                     const postTextContainer = document.createElement('div');
                     postTextContainer.classList.add('post-text-container');
-                    postTextContainer.textContent = postText;
+                    const parsedText = parseTextWithFacets(postText, postFacets);
+                    postTextContainer.appendChild(parsedText);
                     postElement.appendChild(postTextContainer);
+                }
+
+                // Handle embeds
+                if (post.embed) {
+                    // If the embed type is "app.bsky.embed.recordWithMedia#view", then render both the quoted record and the media
+                    if (post.embed.$type === "app.bsky.embed.recordWithMedia#view") {
+                        // Render the media (assuming images)
+                        if (post.embed.media && post.embed.media.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.media.images)) {
+                            post.embed.media.images.forEach(imageData => {
+                                if (imageData.fullsize) {
+                                    const img = document.createElement('img');
+                                    img.src = imageData.fullsize;
+                                    img.alt = imageData.alt || 'Image';
+                                    img.loading = 'lazy';
+                                    img.classList.add('post-image');
+                                    postElement.appendChild(img);
+                                }
+                            });
+                        }
+                        // Render the quoted record (if available)
+                        if (post.embed.record && post.embed.record.record && post.embed.record.record.value) {
+                            const quotedText = post.embed.record.record.value.text || '';
+                            const quotedAuthor = post.embed.record.record.author && post.embed.record.record.author.handle ? post.embed.record.record.author.handle : '';
+                            if (quotedText) {
+                                const quoteContainer = document.createElement('blockquote');
+                                quoteContainer.classList.add('embedded-quote');
+                                const quoteTextElem = document.createElement('p');
+                                quoteTextElem.textContent = quotedText;
+                                quoteContainer.appendChild(quoteTextElem);
+                                if (quotedAuthor) {
+                                    const quoteAuthorElem = document.createElement('cite');
+                                    quoteAuthorElem.textContent = `— @${quotedAuthor}`;
+                                    quoteContainer.appendChild(quoteAuthorElem);
+                                }
+                                postElement.appendChild(quoteContainer);
+                            }
+                        }
+                    } else {
+                        // Handle individual embed types
+                        // External embed as linkCard
+                        if (post.embed.$type === "app.bsky.embed.external#view" && post.embed.external && post.embed.external.uri) {
+                            const linkCard = document.createElement('div');
+                            linkCard.classList.add('linkCard');
+                            linkCard.style.cursor = 'pointer';
+                            linkCard.addEventListener('click', () => {
+                                window.open(post.embed.external.uri, '_blank', 'noopener');
+                            });
+                            if (post.embed.external.thumb) {
+                                const thumb = document.createElement('img');
+                                thumb.classList.add('linkCard-thumb');
+                                thumb.src = post.embed.external.thumb;
+                                thumb.alt = post.embed.external.title || 'Link thumbnail';
+                                linkCard.appendChild(thumb);
+                            }
+                            const linkInfo = document.createElement('div');
+                            linkInfo.classList.add('linkCard-info');
+                            if (post.embed.external.title) {
+                                const titleElem = document.createElement('div');
+                                titleElem.classList.add('linkCard-title');
+                                titleElem.textContent = post.embed.external.title;
+                                linkInfo.appendChild(titleElem);
+                            }
+                            if (post.embed.external.description) {
+                                const descElem = document.createElement('div');
+                                descElem.classList.add('linkCard-description');
+                                descElem.textContent = post.embed.external.description;
+                                linkInfo.appendChild(descElem);
+                            }
+                            let urlPreviewText = post.embed.external.uri;
+                            try {
+                                const urlObj = new URL(post.embed.external.uri);
+                                urlPreviewText = `${urlObj.hostname}${urlObj.pathname}`;
+                            } catch (e) {
+                                console.error('Invalid URL for embed.external.uri', post.embed.external.uri);
+                            }
+                            const maxChars = 40;
+                            if (urlPreviewText.length > maxChars) {
+                                urlPreviewText = urlPreviewText.substring(0, maxChars) + '…';
+                            }
+                            const previewElem = document.createElement('div');
+                            previewElem.classList.add('linkCard-preview');
+                            previewElem.textContent = urlPreviewText;
+                            linkInfo.appendChild(previewElem);
+                            linkCard.appendChild(linkInfo);
+                            postElement.appendChild(linkCard);
+                        }
+                        // Image embeds
+                        if (post.embed.$type === "app.bsky.embed.images#view" && Array.isArray(post.embed.images)) {
+                            post.embed.images.forEach(imageData => {
+                                if (imageData.fullsize) {
+                                    const img = document.createElement('img');
+                                    img.src = imageData.fullsize;
+                                    img.alt = imageData.alt || 'Image';
+                                    img.loading = 'lazy';
+                                    img.classList.add('post-image');
+                                    postElement.appendChild(img);
+                                }
+                            });
+                        }
+                        // Quote (record) embed
+                        if (post.embed.$type === "app.bsky.embed.record#view" && post.embed.record) {
+                            const embeddedRecord = post.embed.record;
+                            if (embeddedRecord.$type === "app.bsky.embed.record#viewRecord" && embeddedRecord.value) {
+                                const embeddedText = embeddedRecord.value.text || '';
+                                const embeddedAuthorHandle = embeddedRecord.author && embeddedRecord.author.handle ? embeddedRecord.author.handle : 'Unknown';
+                                if (embeddedText) {
+                                    const quoteContainer = document.createElement('blockquote');
+                                    quoteContainer.classList.add('embedded-quote');
+                                    const quoteTextElem = document.createElement('p');
+                                    quoteTextElem.textContent = embeddedText;
+                                    quoteContainer.appendChild(quoteTextElem);
+                                    const quoteAuthorElem = document.createElement('cite');
+                                    quoteAuthorElem.textContent = `— @${embeddedAuthorHandle}`;
+                                    quoteContainer.appendChild(quoteAuthorElem);
+                                    postElement.appendChild(quoteContainer);
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Post Date
@@ -74,6 +197,58 @@ title: Post
                 postDateElem.appendChild(postedText);
                 postDateElem.appendChild(postLink);
                 postElement.appendChild(postDateElem);
+
+                // Post Counts
+                const countsContainer = document.createElement('div');
+                countsContainer.classList.add('post-counts');
+
+                function createCount(iconName, count, label) {
+                    const countSpan = document.createElement('span');
+                    countSpan.classList.add('count-item');
+                    countSpan.setAttribute('aria-label', `${count} ${label}`);
+                    if (count > 0) {
+                        countSpan.classList.add('active');
+                    }
+
+                    // Create SVG element
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.classList.add('icon', `fa-${iconName}`);
+                    svg.setAttribute('fill', 'currentColor');
+                    svg.setAttribute('aria-hidden', 'true');
+                    svg.setAttribute('focusable', 'false');
+
+                    // Create <use> element referencing the SVG sprite
+                    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+                    use.setAttribute('href', `/assets/icons/icons-sprite.svg#icon-${iconName}`);
+
+                    // Append <use> to SVG
+                    svg.appendChild(use);
+
+                    // Append SVG to countSpan
+                    countSpan.appendChild(svg);
+
+                    // Create and append count text
+                    const countText = document.createElement('span');
+                    countText.classList.add('count-text');
+                    countText.textContent = count;
+                    countSpan.appendChild(countText);
+
+                    return countSpan;
+                }
+
+                const replies = post.replyCount || 0;
+                countsContainer.appendChild(createCount('reply', replies, 'replies'));
+
+                const quotes = post.quoteCount || 0;
+                countsContainer.appendChild(createCount('quote-right', quotes, 'quotes'));
+
+                const reposts = post.repostCount || 0;
+                countsContainer.appendChild(createCount('retweet', reposts, 'reposts'));
+
+                const likes = post.likeCount || 0;
+                countsContainer.appendChild(createCount('heart', likes, 'likes'));
+
+                postElement.appendChild(countsContainer);
 
                 // Append the post to the container
                 container.appendChild(postElement);
