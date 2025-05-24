@@ -56,6 +56,7 @@ title: Post
         // Set the URI for the comments section
         const commentsDiv = document.getElementById('bluesky-comments');
         if (commentsDiv) {
+            // Construct the AT URI in the correct format
             const uri = `at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/${postId}`;
             commentsDiv.setAttribute('data-uri', uri);
         }
@@ -78,6 +79,11 @@ title: Post
                 }
 
                 const repoData = await repoResponse.json();
+
+                // Use the URI from the API response for the comments
+                if (commentsDiv) {
+                    commentsDiv.setAttribute('data-uri', repoData.uri);
+                }
 
                 // Then, fetch the post with engagement data from the feed API
                 const feedApiUrl = `https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris=${encodeURIComponent(repoData.uri)}`;
