@@ -3,6 +3,10 @@ layout: base
 title: Post
 ---
 
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/bluesky-comments@0.11.1/dist/bluesky-comments.css">
+{% endblock %}
+
 <div id="single-post-container">
     <h1>Bluesky Post</h1>
     <div id="post-loading">Loading...</div>
@@ -27,12 +31,34 @@ title: Post
 }
 </style>
 
+<section id="comments-section">
+    <div id="bluesky-comments"></div>
+</section>
+
+<script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18",
+        "react-dom/client": "https://esm.sh/react-dom@18/client"
+      }
+    }
+</script>
+
+<script type="module" src="/js/comments-init.js"></script>
+
 <script>
     // This script will be responsible for loading and displaying a single post
     document.addEventListener('DOMContentLoaded', function() {
         // Get the post ID from the URL
         const path = window.location.pathname;
         const postId = path.split('/').pop(); // Gets the last segment of the URL
+
+        // Set the URI for the comments section
+        const commentsDiv = document.getElementById('bluesky-comments');
+        if (commentsDiv) {
+            const uri = `at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/${postId}`;
+            commentsDiv.setAttribute('data-uri', uri);
+        }
 
         // Function to load a single post
         async function loadSinglePost() {
