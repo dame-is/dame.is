@@ -15,7 +15,7 @@
 }
 ---
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xml:base="{{ metadata.url }}" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xml:base="{{ metadata.url }}" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>{{ metadata.title }}</title>
     <link>{{ metadata.url }}</link>
@@ -28,13 +28,13 @@
     <item>
       <title>{{ post.data.title }}</title>
       <link>{{ absolutePostUrl }}</link>
-      <description><![CDATA[
+      <description>{{ post.data.excerpt }}</description>
+      <content:encoded><![CDATA[
         {%- if post.data.ogImage -%}
         <img src="{{ metadata.url }}{{ post.data.ogImage }}" alt="{{ post.data.title }}"/>
         {%- endif -%}
-        {{ post.data.excerpt }}
-        {{ post.templateContent | htmlToAbsoluteUrls(absolutePostUrl) }}
-      ]]></description>
+        {{ post.templateContent | htmlToAbsoluteUrls(absolutePostUrl) | safe }}
+      ]]></content:encoded>
       <pubDate>{{ post.date | dateToRfc822 }}</pubDate>
       <dc:creator>{{ post.data.author or metadata.author.name }}</dc:creator>
       <guid isPermaLink="true">{{ absolutePostUrl }}</guid>
