@@ -30,9 +30,9 @@ function renderBlueskyComments() {
         if (uri.startsWith('https://bsky.app/')) {
             blueskyUri = uri;
         } else {
-            // Use handle instead of DID for compatibility
-            const profileHandle = 'dame.is';
-            blueskyUri = `https://bsky.app/profile/${profileHandle}/post/${uri}`;
+            // Use DID instead of handle
+            const profileDid = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj';
+            blueskyUri = `https://bsky.app/profile/${profileDid}/post/${uri}`;
         }
         
         console.log('Rendering BlueskyComments with URI:', blueskyUri);

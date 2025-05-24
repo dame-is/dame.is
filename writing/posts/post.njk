@@ -14,9 +14,7 @@ eleventyExcludeFromCollections: true
 </div>
 
 <style>
-.post-links {
-    margin-top: 2rem;
-}
+/* Remove post-links section since we're not using it anymore */
 
 /* Alignment styles */
 .nav-align-left .post-links {
@@ -29,6 +27,73 @@ eleventyExcludeFromCollections: true
 
 .nav-align-right .post-links {
     text-align: right;
+}
+
+/* Custom icon styles for comments */
+.comment-heart,
+.comment-repost,
+.comment-reply {
+    width: 1rem;
+    height: 1rem;
+    color: #888;
+    transition: color 0.3s ease, opacity 0.3s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bsky-actions-container {
+    margin-top: .5rem;
+    display: flex;
+    width: 100%;
+    max-width: 150px;
+    flex-direction: row;
+    align-items: center;
+    opacity: .6;
+    gap: 14px;
+}
+
+.bsky-actions-container .comment-heart,
+.bsky-actions-container .comment-repost,
+.bsky-actions-container .comment-reply {
+    opacity: 1;
+}
+
+.comment-heart {
+    fill: #e93434;
+}
+
+.comment-repost {
+    fill: #0dc70d;
+}
+
+.comment-reply {
+    fill: #4c4c4c;
+}
+
+body.dark-mode .comment-heart {
+    fill: #ff6b6b;
+}
+
+body.dark-mode .comment-repost {
+    fill: #66ff66;
+}
+
+body.dark-mode .comment-reply {
+    fill: #3399ff;
+}
+
+.comment-heart:hover,
+.comment-repost:hover,
+.comment-reply:hover {
+    opacity: 0.8;
+    color: #000;
+}
+
+/* Remove border from comments section */
+#comments-section {
+    margin-top: 2rem;
 }
 </style>
 
@@ -46,6 +111,7 @@ eleventyExcludeFromCollections: true
 </script>
 
 <script type="module" src="/js/comments-init.js"></script>
+<script src="/js/svg-icons.js"></script>
 
 <script>
     // This script will be responsible for loading and displaying a single post
@@ -58,7 +124,7 @@ eleventyExcludeFromCollections: true
         const commentsDiv = document.getElementById('bluesky-comments');
         if (commentsDiv) {
             // Format the URL in the correct bsky.app format
-            const bskyUrl = `https://bsky.app/profile/dame.is/post/${postId}`;
+            const bskyUrl = `https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/${postId}`;
             commentsDiv.setAttribute('data-uri', bskyUrl);
         }
 
@@ -300,30 +366,6 @@ eleventyExcludeFromCollections: true
 
                 // Append the post to the container
                 container.appendChild(postElement);
-
-                // Add links to view on Bluesky and Deer
-                const linksContainer = document.createElement('div');
-                linksContainer.classList.add('post-links');
-
-                const textNode1 = document.createTextNode('View on ');
-                const blueskyLink = document.createElement('a');
-                blueskyLink.href = `https://bsky.app/profile/dame.is/post/${postId}`;
-                blueskyLink.textContent = 'Bluesky';
-                blueskyLink.target = '_blank';
-                blueskyLink.rel = 'noopener noreferrer';
-                const textNode2 = document.createTextNode(' or ');
-                const deerLink = document.createElement('a');
-                deerLink.href = `https://deer.social/profile/dame.is/post/${postId}`;
-                deerLink.textContent = 'Deer';
-                deerLink.target = '_blank';
-                deerLink.rel = 'noopener noreferrer';
-
-                linksContainer.appendChild(textNode1);
-                linksContainer.appendChild(blueskyLink);
-                linksContainer.appendChild(textNode2);
-                linksContainer.appendChild(deerLink);
-
-                container.appendChild(linksContainer);
 
                 // Hide loading indicator
                 if (loadingIndicator) {
