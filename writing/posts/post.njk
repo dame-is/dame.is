@@ -1,0 +1,18 @@
+---
+layout: base
+title: Post
+---
+
+<div id="single-post-container">
+    <div id="post-loading">Loading...</div>
+</div>
+
+<script>
+    // The post ID will be the last segment of the URL
+    const postId = window.location.pathname.split('/').pop();
+    
+    // Initialize the single post view when the DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSinglePost(postId);
+    });
+</script> 
