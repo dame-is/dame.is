@@ -4,8 +4,15 @@ title: Post
 ---
 
 <div id="single-post-container">
+    <h1>Bluesky Post</h1>
     <div id="post-loading">Loading...</div>
 </div>
+
+<style>
+.post-links {
+    margin-top: 2rem;
+}
+</style>
 
 <script>
     // This script will be responsible for loading and displaying a single post
@@ -46,7 +53,7 @@ title: Post
 
                 // Create post container
                 const container = document.getElementById('single-post-container');
-                container.innerHTML = ''; // Clear loading indicator
+                container.innerHTML = '<h1>Bluesky Post</h1>'; // Reset container but keep header
 
                 // Create post element
                 const postElement = document.createElement('div');
@@ -253,6 +260,30 @@ title: Post
                 // Append the post to the container
                 container.appendChild(postElement);
 
+                // Add links to view on Bluesky and Deer
+                const linksContainer = document.createElement('div');
+                linksContainer.classList.add('post-links');
+
+                const textNode1 = document.createTextNode('View on ');
+                const blueskyLink = document.createElement('a');
+                blueskyLink.href = `https://bsky.app/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/${postId}`;
+                blueskyLink.textContent = 'Bluesky';
+                blueskyLink.target = '_blank';
+                blueskyLink.rel = 'noopener noreferrer';
+                const textNode2 = document.createTextNode(' or ');
+                const deerLink = document.createElement('a');
+                deerLink.href = `https://deer.social/profile/did:plc:gq4fo3u6tqzzdkjlwzpb23tj/post/${postId}`;
+                deerLink.textContent = 'Deer';
+                deerLink.target = '_blank';
+                deerLink.rel = 'noopener noreferrer';
+
+                linksContainer.appendChild(textNode1);
+                linksContainer.appendChild(blueskyLink);
+                linksContainer.appendChild(textNode2);
+                linksContainer.appendChild(deerLink);
+
+                container.appendChild(linksContainer);
+
                 // Hide loading indicator
                 if (loadingIndicator) {
                     loadingIndicator.style.display = 'none';
@@ -265,7 +296,7 @@ title: Post
             } catch (error) {
                 console.error('Error loading post:', error);
                 const container = document.getElementById('single-post-container');
-                container.innerHTML = '<p>Failed to load post. Please try again later.</p>';
+                container.innerHTML = '<h1>Bluesky Post</h1><p>Failed to load post. Please try again later.</p>';
             }
         }
 

@@ -2990,3 +2990,7 @@ body.hide-bluesky-stats .nav-stats {
 .nav-section.top-nav {
     display: flex !important;
 } 
+
+#single-post-container {
+    margin-top: 30px;
+  }
