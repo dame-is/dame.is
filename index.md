@@ -11,9 +11,9 @@ I am a conceptual artist and tech worker.
 
 I was born within a week of the World Wide Web's public release, so she and I are pretty close. 
 
-I am agnostic and a casual practitioner of Zen Buddhism, with great appreciation for animism. 
+I am agnostic-ish and a casual practitioner of Zen Buddhism, with great appreciation for animism. 
 
-I have a non-normative experience with gender, falling somewhere within the umbrella of genderqueer/genderfluid.
+I have a non-normative experience with gender.
 
 I’ve worked as a graphic designer, community manager, and communicator for various software startups. Currently I'm focused on making things within the AT Protocol ecosystem.
 
@@ -25,6 +25,6 @@ Here are some of my personality test results:
 
 Now, go explore the rest of the website. 
 
-Tap the map button if you get lost (or need help getting lost). 
+Tap the map button in the bottom right if you get lost (or need help getting lost). 
 
-Make yourself at home by going to the settings menu and tweaking things to your liking.
+Make yourself at home by going to the settings menu in the bottom left and tweaking things to your liking.
