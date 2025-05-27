@@ -3,6 +3,8 @@ layout: post
 title: Practices
 ---
 
+a non-exhaustive work-in-progress list
+
 - **Give people the benefit of the doubt** (unless they have a track record of acting in bad faith). 
 - **Practice non-judgment** as much as possible.
 - **Avoid personal comparisons**, as they usually do more harm than good.

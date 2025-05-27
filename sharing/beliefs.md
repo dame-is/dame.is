@@ -3,6 +3,8 @@ layout: post
 title: Beliefs
 ---
 
+a non-exhaustive work-in-progress list
+
 - trans lives matter
 - israel is doing a genocide
 - the internet is good & bad
@@ -17,4 +19,4 @@ title: Beliefs
 - [there's always a bigger fish](https://www.youtube.com/watch?v=bjQRTFX1Lp4)
 - impact is more important than intent, but intent still matters quite a bit
 - time spent is not an indicator of quality
-- everything is connected.
+- everything is connected
