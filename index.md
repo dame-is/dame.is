@@ -9,6 +9,8 @@ My name is Dame.
 
 I am a conceptual artist and tech worker. 
 
+I write a [microblog](/writing/posts) and a [macroblog](/writing/blogs).
+
 I was born within a week of the World Wide Web's public release, so she and I are pretty close. 
 
 I am agnostic-ish and a casual practitioner of Zen Buddhism, with great appreciation for animism. 
