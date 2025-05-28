@@ -11,7 +11,7 @@ pinned: true
 
 Hello there,
 
-My name is [Dame](https://bsky.app/profile/dame.is). I'm an artist and software experimentalist who is creating resources, tools, and content for the AT Protocol + Bluesky community.
+My name is [Dame](https://bsky.app/profile/dame.is). I'm an artist and software tinkerer who is creating resources, tools, and content for the AT Protocol + Bluesky community.
 
 So far I've created an [alt text rating tool](https://cred.blue/alt-text), a social scoring system called [cred.blue](https://cred.blue/), a [verification and cancellation tool](https://cred.blue/verifier), and a satirical social network called [Flushes](https://flushes.app). Currently I'm working on launching v2 of cred.blue, writing a long-form Bluesky guide for brands/creators, and building two new small social apps.
 
