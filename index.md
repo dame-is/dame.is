@@ -15,7 +15,7 @@ I am agnostic-ish and a casual practitioner of Zen Buddhism, with great apprecia
 
 I have a non-normative experience with gender.
 
-I’ve worked as a graphic designer, community manager, and communicator for various software startups. Currently I'm focused on making things within the AT Protocol ecosystem.
+I’ve worked as a graphic designer, community manager, and writer for various software startups. Currently I'm focused on making things within the AT Protocol ecosystem.
 
 Here are some of my personality test results:
 - Myers-Briggs: ENFJ
