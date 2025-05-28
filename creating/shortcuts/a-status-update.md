@@ -34,4 +34,4 @@ Read more about the inspiration behind this project and trend in [a blog post I 
 
 3. The default custom lexicon NSID is a.status.update. You can leave this as-is or add your own. [See the NSID spec for limitations](https://atproto.com/specs/nsid).
 
-4. If you have any questions or issues, don't hesitate to reach out on Bluesky!
+4. If you have any questions or issues, don't hesitate to reach out!
