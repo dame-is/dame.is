@@ -4,12 +4,14 @@
     "build": "eleventy"
   },
   "dependencies": {
-    "@vercel/analytics": "^1.5.0"
+    "@vercel/analytics": "^1.5.0",
+    "jsdom": "^26.1.0"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.0.0",
     "@11ty/eleventy-plugin-rss": "^2.0.4",
     "js-yaml": "^4.1.0",
-    "markdown-it": "^14.0.0"
+    "markdown-it": "^14.0.0",
+    "nunjucks": "^3.2.4"
   }
 }
