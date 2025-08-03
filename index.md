@@ -15,7 +15,7 @@ I was born within a week of the World Wide Web's public release, so she and I ar
 
 I am agnostic-ish and a casual practitioner of Zen Buddhism, with great appreciation for animism. 
 
-I have a non-normative experience with gender.
+I am queer.
 
 I’ve worked as a graphic designer, community manager, and writer for various software startups. Currently I'm focused on making things within the AT Protocol ecosystem.
 
