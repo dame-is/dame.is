@@ -6,7 +6,8 @@
   align-items: center;
   justify-content: center;
   background: var(--page);
-  transition: opacity 600ms ease;
+  opacity: 1;
+  transition: opacity 600ms cubic-bezier(0.22, 0.61, 0.36, 1) 250ms;
 }
 
 .book-open.opening {
@@ -14,65 +15,123 @@
   opacity: 0;
 }
 
+.book-open-stage {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: block;
+  transform: scale(1);
+  transition: transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms;
+  outline: none;
+}
+
+.book-open-stage:focus-visible {
+  outline: 1px solid var(--ink-faint);
+  outline-offset: var(--space-3, 0.75rem);
+}
+
+.book-open.opening .book-open-stage {
+  transform: scale(1.18);
+}
+
 .book-open-cover {
   position: relative;
   width: min(26rem, 78vw);
   aspect-ratio: 3 / 4;
-  border-radius: 0;
-  background: var(--page-edge);
   color: var(--ink);
-  border: 1px solid var(--rule);
-  box-shadow: 0 18px 36px var(--shadow);
-  cursor: pointer;
-  transition: transform 220ms ease, border-color 220ms ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-7) var(--space-6);
-  text-align: center;
   font-family: var(--serif);
+  text-align: center;
   overflow: hidden;
+  transition: transform 220ms ease;
 }
 
-.book-open-cover::after {
-  content: '';
+.book-open.opening .book-open-cover {
+  overflow: visible;
+}
+
+.book-open-stage:hover .book-open-cover {
+  transform: translateY(-2px);
+}
+
+.book-open-half {
   position: absolute;
-  inset: var(--space-5) var(--space-5);
-  border-radius: 0;
-  border: 1px solid var(--rule-soft);
-  pointer-events: none;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  background: var(--page-edge);
+  border: 1px solid var(--rule);
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms,
+    opacity 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms,
+    border-color 220ms ease;
+}
+
+.book-open-half.left {
+  left: 0;
+  border-right: 0;
+}
+
+.book-open-half.right {
+  right: 0;
+  border-left: 0;
+}
+
+.book-open-stage:hover .book-open-half {
+  border-color: var(--ink-faint);
+}
+
+.book-open.opening .book-open-half.left {
+  transform: translateX(-65%);
+  opacity: 0;
+}
+
+.book-open.opening .book-open-half.right {
+  transform: translateX(65%);
+  opacity: 0;
 }
 
 .book-open-spine {
   position: absolute;
-  left: 0;
+  left: 50%;
   top: 0;
   bottom: 0;
-  width: 6px;
+  width: 1px;
+  margin-left: -0.5px;
   background: var(--rule);
-  border-radius: 0;
+  opacity: 1;
+  transition: opacity 240ms cubic-bezier(0.22, 0.61, 0.36, 1) 80ms;
 }
 
-.book-open-cover:hover {
-  transform: translateY(-2px);
-  border-color: var(--ink-faint);
-}
-
-.book-open.opening .book-open-cover {
-  transform-origin: left center;
-  animation: book-open-flip 900ms cubic-bezier(0.6, 0.05, 0.2, 1) forwards;
-}
-
-@keyframes book-open-flip {
-  0%   { transform: rotateY(0deg); }
-  100% { transform: rotateY(-92deg) translateX(-12%); }
+.book-open.opening .book-open-spine {
+  opacity: 0;
 }
 
 .book-open-title {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-3);
+  padding: var(--space-7) var(--space-6);
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.book-open.opening .book-open-title {
+  opacity: 0;
+  transform: translateY(-2px);
 }
 
 .book-open-mark {
@@ -103,7 +162,22 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .book-open-cover { transition: none; }
-  .book-open { transition: none; }
-  .book-open.opening .book-open-cover { animation: none; }
+  .book-open,
+  .book-open-stage,
+  .book-open-cover,
+  .book-open-half,
+  .book-open-spine,
+  .book-open-title {
+    transition-duration: 0ms;
+    transition-delay: 0ms;
+  }
+  .book-open.opening .book-open-stage,
+  .book-open.opening .book-open-half.left,
+  .book-open.opening .book-open-half.right,
+  .book-open.opening .book-open-title {
+    transform: none;
+  }
+  .book-open {
+    transition: opacity 300ms ease;
+  }
 }

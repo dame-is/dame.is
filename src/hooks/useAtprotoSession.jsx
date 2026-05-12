@@ -1,5 +1,4 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Agent } from '@atproto/api';
 import { getOauthClient, OAUTH_SCOPE } from '../lib/oauthClient.js';
 
 const Ctx = createContext(null);
@@ -52,7 +51,22 @@ export function AtprotoSessionProvider({ children }) {
     };
   }, []);
 
-  const agent = useMemo(() => (session ? new Agent(session) : null), [session]);
+  const [agent, setAgent] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!session) {
+      setAgent(null);
+      return undefined;
+    }
+    import('@atproto/api').then(({ Agent }) => {
+      if (cancelled) return;
+      setAgent(new Agent(session));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
 
   const signIn = useCallback(async (input) => {
     const client = getOauthClient();
@@ -75,7 +89,8 @@ export function AtprotoSessionProvider({ children }) {
       session,
       agent,
       did: session?.sub || null,
-      loading,
+      // True until init() resolves *and* (if signed in) the Agent module has loaded.
+      loading: loading || (session && !agent),
       error,
       signIn,
       signOut,

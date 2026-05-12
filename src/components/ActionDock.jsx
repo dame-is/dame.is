@@ -5,6 +5,7 @@ import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
 import ThemeToggle from './ThemeToggle.jsx';
 import TypefaceToggle from './TypefaceToggle.jsx';
+import SignInPanel from './SignInPanel.jsx';
 import './ActionDock.css';
 
 const ROUTES = [
@@ -15,6 +16,7 @@ const ROUTES = [
   { to: '/blogging', label: 'Blogging' },
   { to: '/creating', label: 'Creating' },
   { to: '/sharing', label: 'Sharing' },
+  { to: '/admin', label: 'Admin' },
 ];
 
 export default function ActionDock() {
@@ -98,6 +100,13 @@ export default function ActionDock() {
             <span className="dock-tool-label">{copied ? 'AT URI copied' : 'Copy AT URI'}</span>
             <span className="dock-tool-key">at://</span>
           </button>
+        </div>
+
+        <hr className="dock-rule" />
+
+        <div className="dock-section">
+          <div className="dock-heading">Account</div>
+          <SignInPanel onAction={closeDock} />
         </div>
       </aside>
 

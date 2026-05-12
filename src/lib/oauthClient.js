@@ -47,7 +47,7 @@ export function getOauthClient() {
   _client = new BrowserOAuthClient({
     handleResolver: 'https://bsky.social',
     clientMetadata: {
-      client_id: `${origin}/client-metadata.json`,
+      client_id: `${origin}/oauth-client-metadata.json`,
       client_name: 'dame.is',
       client_uri: origin,
       logo_uri: `${origin}/images/favicon.png`,

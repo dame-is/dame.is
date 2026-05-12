@@ -18,6 +18,7 @@ export default function BookOpenIntro() {
   }, []);
 
   function open() {
+    if (phase !== 'idle') return;
     setPhase('opening');
     // try {
     //   localStorage.setItem(STORAGE_KEY, '1');
@@ -31,17 +32,21 @@ export default function BookOpenIntro() {
     <div className={`book-open ${phase}`} role="dialog" aria-modal="true" aria-label="Welcome">
       <button
         type="button"
-        className="book-open-cover"
+        className="book-open-stage"
         onClick={open}
         aria-label="Open the site"
       >
-        <span className="book-open-spine" aria-hidden="true" />
-        <span className="book-open-title">
-          <span className="book-open-mark" aria-hidden="true">&#x2767;</span>
-          <span className="book-open-name">dame.is</span>
-          <span className="book-open-sub small-caps">an atmospheric website</span>
-          <span className="book-open-prompt small-caps">tap to open</span>
-        </span>
+        <div className="book-open-cover">
+          <div className="book-open-half left" aria-hidden="true" />
+          <div className="book-open-half right" aria-hidden="true" />
+          <div className="book-open-spine" aria-hidden="true" />
+          <div className="book-open-title">
+            <span className="book-open-mark" aria-hidden="true">&#x2767;</span>
+            <span className="book-open-name">dame.is</span>
+            <span className="book-open-sub small-caps">an atmospheric website</span>
+            <span className="book-open-prompt small-caps">tap to open</span>
+          </div>
+        </div>
       </button>
     </div>
   );
