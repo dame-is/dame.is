@@ -11,6 +11,12 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--rule);
+  font-style: normal;
+}
+
+.chrome-bar,
+.chrome-bar * {
+  font-style: normal;
 }
 
 .chrome-title {
@@ -23,6 +29,7 @@
   color: var(--ink);
   text-decoration: none;
   letter-spacing: -0.01em;
+  font-style: normal;
 }
 
 .chrome-title:hover {
