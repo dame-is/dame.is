@@ -3,7 +3,7 @@
 .dock-ribbon {
   position: fixed;
   right: 0;
-  bottom: clamp(var(--space-6), 14vh, var(--space-9));
+  bottom: clamp(var(--space-3), 4vh, var(--space-5));
   z-index: 50;
   display: inline-flex;
   flex-direction: column;
@@ -58,11 +58,11 @@
 .dock-panel {
   position: fixed;
   right: clamp(var(--space-6), 5vw, var(--space-7));
-  bottom: clamp(5rem, 16vh, 9rem);
+  bottom: clamp(3.5rem, 9vh, 5.5rem);
   z-index: 49;
   width: var(--dock-w);
   max-width: calc(100vw - var(--space-6));
-  max-height: calc(100vh - clamp(7rem, 20vh, 11rem));
+  max-height: calc(100vh - clamp(5rem, 12vh, 7rem));
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--page);
@@ -74,6 +74,15 @@
   opacity: 0;
   pointer-events: none;
   transition: transform 200ms ease, opacity 200ms ease;
+  /* Hide the scrollbar while keeping the panel scrollable. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.dock-panel::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .dock-panel.is-open {
