@@ -1,5 +1,9 @@
 node_modules
-roadmap.md
-_site/
 .DS_Store
-meta
+dist/
+.vite/
+public/data/
+*.local
+.env
+.env.local
+.vercel

@@ -1,0 +1,97 @@
+/* Book-interior tokens. Light is the page; dark is its ink-paper inversion. */
+
+:root,
+[data-theme='light'] {
+  --page:        #f7f3ea;
+  --page-edge:   #efe9dc;
+  --ink:         #1a1714;
+  --ink-soft:    #3b352d;
+  --ink-muted:   #6a6258;
+  --ink-faint:   #9a9085;
+  --rule:        #d9d2c3;
+  --rule-soft:   #e6dfd0;
+  --accent:      #8a3a2a;
+  --accent-soft: #b56a4f;
+  --highlight:   rgba(180, 140, 60, 0.18);
+  --shadow:      rgba(40, 30, 20, 0.10);
+
+  --bg:   var(--page);
+  --fg:   var(--ink);
+  --muted: var(--ink-muted);
+
+  --serif:  'Source Serif 4', 'Source Serif Pro', 'Iowan Old Style', 'Charter', Georgia, serif;
+  --sans:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --measure: 65ch;
+  --leading: 1.6;
+  --leading-tight: 1.3;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  --radius-1: 2px;
+  --radius-2: 4px;
+  --radius-3: 8px;
+
+  --chrome-h: 56px;
+  --dock-w: 280px;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-4xl: 3rem;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --page:        #1a1714;
+  --page-edge:   #14110e;
+  --ink:         #f1ead8;
+  --ink-soft:    #d8d0bc;
+  --ink-muted:   #a39a87;
+  --ink-faint:   #6a6258;
+  --rule:        #3b352d;
+  --rule-soft:   #2a2520;
+  --accent:      #d99a7a;
+  --accent-soft: #b56a4f;
+  --highlight:   rgba(217, 154, 122, 0.16);
+  --shadow:      rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system'] {
+    --page:        #1a1714;
+    --page-edge:   #14110e;
+    --ink:         #f1ead8;
+    --ink-soft:    #d8d0bc;
+    --ink-muted:   #a39a87;
+    --ink-faint:   #6a6258;
+    --rule:        #3b352d;
+    --rule-soft:   #2a2520;
+    --accent:      #d99a7a;
+    --accent-soft: #b56a4f;
+    --highlight:   rgba(217, 154, 122, 0.16);
+    --shadow:      rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+
+html, body {
+  background: var(--page);
+  color: var(--ink);
+}

@@ -1,0 +1,46 @@
+import { useEffect, useState } from 'react';
+import './BookOpenIntro.css';
+
+const STORAGE_KEY = 'dame.bookopen.seen';
+
+export default function BookOpenIntro() {
+  const [phase, setPhase] = useState('initial');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (localStorage.getItem(STORAGE_KEY) === '1') return;
+    } catch {}
+    const t = requestAnimationFrame(() => setPhase('idle'));
+    return () => cancelAnimationFrame(t);
+  }, []);
+
+  function open() {
+    setPhase('opening');
+    try {
+      localStorage.setItem(STORAGE_KEY, '1');
+    } catch {}
+    setTimeout(() => setPhase('done'), 900);
+  }
+
+  if (phase === 'initial' || phase === 'done') return null;
+
+  return (
+    <div className={`book-open ${phase}`} role="dialog" aria-modal="true" aria-label="Welcome">
+      <button
+        type="button"
+        className="book-open-cover"
+        onClick={open}
+        aria-label="Open the site"
+      >
+        <span className="book-open-spine" aria-hidden="true" />
+        <span className="book-open-title">
+          <span className="book-open-mark" aria-hidden="true">&#x2767;</span>
+          <span className="book-open-name">dame.is</span>
+          <span className="book-open-sub small-caps">an atmospheric website</span>
+          <span className="book-open-prompt small-caps">tap to open</span>
+        </span>
+      </button>
+    </div>
+  );
+}

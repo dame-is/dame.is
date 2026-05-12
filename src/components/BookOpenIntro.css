@@ -1,0 +1,109 @@
+.book-open {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page);
+  transition: opacity 600ms ease;
+}
+
+.book-open.opening {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.book-open-cover {
+  position: relative;
+  width: min(28rem, 80vw);
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-3) var(--radius-3) var(--radius-3) var(--radius-3);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-soft) 60%, color-mix(in srgb, var(--accent) 70%, var(--ink)) 100%);
+  color: var(--page);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--ink));
+  box-shadow:
+    0 24px 48px var(--shadow),
+    0 6px 18px color-mix(in srgb, var(--accent) 30%, transparent);
+  cursor: pointer;
+  transition: transform 220ms ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  text-align: center;
+  font-family: var(--serif);
+  overflow: hidden;
+}
+
+.book-open-cover::after {
+  content: '';
+  position: absolute;
+  inset: 8% 8%;
+  border-radius: var(--radius-2);
+  border: 1px solid color-mix(in srgb, var(--page) 25%, transparent);
+  pointer-events: none;
+}
+
+.book-open-spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  background: linear-gradient(to right, color-mix(in srgb, var(--ink) 40%, transparent), transparent);
+  border-top-left-radius: inherit;
+  border-bottom-left-radius: inherit;
+}
+
+.book-open-cover:hover {
+  transform: translateY(-2px) rotate(-0.4deg);
+}
+
+.book-open.opening .book-open-cover {
+  transform-origin: left center;
+  animation: book-open-flip 900ms cubic-bezier(0.6, 0.05, 0.2, 1) forwards;
+}
+
+@keyframes book-open-flip {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(-92deg) translateX(-12%); }
+}
+
+.book-open-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.book-open-mark {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.book-open-name {
+  font-family: var(--serif);
+  font-size: 2.4rem;
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+.book-open-sub {
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
+  color: color-mix(in srgb, var(--page) 90%, transparent);
+}
+
+.book-open-prompt {
+  margin-top: var(--space-4);
+  letter-spacing: 0.22em;
+  font-size: var(--text-xs);
+  color: color-mix(in srgb, var(--page) 80%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-open-cover { transition: none; }
+  .book-open { transition: none; }
+  .book-open.opening .book-open-cover { animation: none; }
+}

@@ -1,0 +1,29 @@
+.page-footer {
+  border-top: 1px solid var(--rule);
+  padding: var(--space-5) clamp(var(--space-5), 6vw, var(--space-9));
+  margin-top: var(--space-9);
+  background: var(--page);
+}
+
+.page-footer-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.page-footer-mark {
+  color: var(--accent-soft);
+  font-size: 1rem;
+}
+
+.page-footer-meta {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}

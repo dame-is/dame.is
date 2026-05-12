@@ -1,0 +1,30 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.annotating",
+  "description": "Stretch lexicon — book-style margin notes targeting any AT URI. Schema-only in v1.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["target", "body", "createdAt"],
+        "properties": {
+          "target":     { "type": "string", "format": "at-uri" },
+          "selector":   {
+            "type": "object",
+            "properties": {
+              "kind":  { "type": "string", "enum": ["paragraph", "line", "range", "whole"] },
+              "start": { "type": "integer" },
+              "end":   { "type": "integer" }
+            }
+          },
+          "kind":       { "type": "string", "enum": ["margin", "footnote", "citation", "parenthetical"] },
+          "body":       { "type": "string", "maxLength": 2000 },
+          "bodyFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
+          "createdAt":  { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

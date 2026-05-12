@@ -1,0 +1,126 @@
+.blogging-toc {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.blogging-toc-entry {
+  border-bottom: 1px dotted var(--rule);
+}
+
+.blogging-toc-entry:first-child {
+  border-top: 1px dotted var(--rule);
+}
+
+.blogging-toc-link {
+  display: grid;
+  grid-template-columns: 3rem 1fr auto;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-4) 0;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.blogging-toc-link:hover {
+  background: var(--page-edge);
+}
+
+.blogging-toc-num {
+  color: var(--ink-faint);
+}
+
+.blogging-toc-title {
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.blogging-toc-summary {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.blogging-toc-meta {
+  align-self: start;
+  padding-top: 0.4em;
+  white-space: nowrap;
+}
+
+.blog-article {
+  max-width: var(--measure);
+  margin: 0 auto;
+}
+
+.blog-article-meta {
+  display: flex;
+  gap: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+  margin: var(--space-2) 0 var(--space-6);
+}
+
+.blog-article-tags {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.blog-article-tag {
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.blog-prose {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+}
+
+.blog-prose p {
+  margin-bottom: var(--space-4);
+}
+
+.blog-prose p + p {
+  text-indent: 1.5em;
+  margin-bottom: 0;
+}
+
+.blog-prose h2,
+.blog-prose h3 {
+  margin-top: var(--space-6);
+}
+
+.blog-prose img {
+  border-radius: var(--radius-2);
+  border: 1px solid var(--rule-soft);
+}
+
+.blog-prose .first-paragraph::first-letter,
+.blog-prose > p:first-of-type::first-letter {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 4.2em;
+  float: left;
+  line-height: 0.85;
+  padding-right: 0.08em;
+  padding-top: 0.12em;
+  color: var(--accent);
+}
+
+@media (max-width: 700px) {
+  .blogging-toc-link {
+    grid-template-columns: 1fr;
+  }
+  .blogging-toc-num {
+    display: none;
+  }
+  .blogging-toc-meta {
+    text-align: left;
+  }
+}

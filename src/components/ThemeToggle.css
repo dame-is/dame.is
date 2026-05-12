@@ -1,0 +1,39 @@
+.theme-toggle {
+  cursor: default;
+}
+
+.theme-toggle:hover {
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.theme-toggle-options {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.theme-toggle-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
+  color: var(--ink-muted);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.theme-toggle-option:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.theme-toggle-option.is-active {
+  color: var(--page);
+  background: var(--ink);
+  border-color: var(--ink);
+}

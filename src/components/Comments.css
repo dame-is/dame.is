@@ -1,0 +1,18 @@
+.comments-section {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.comments-heading {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  margin-bottom: var(--space-4);
+}
+
+.comments-section .bluesky-comments-wrapper,
+.comments-section .bsky-comments {
+  font-family: var(--sans);
+}

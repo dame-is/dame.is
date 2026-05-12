@@ -1,0 +1,25 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.blogging.post",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["title", "slug", "body", "createdAt"],
+        "properties": {
+          "title":      { "type": "string", "maxLength": 300 },
+          "slug":       { "type": "string", "maxLength": 200 },
+          "summary":    { "type": "string", "maxLength": 2000 },
+          "body":       { "type": "string", "maxLength": 200000 },
+          "bodyFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
+          "tags":       { "type": "array", "items": { "type": "string", "maxLength": 64 } },
+          "commentsUri": { "type": "string", "format": "at-uri", "description": "Optional at:// URI of a Bluesky post anchoring the comment thread." },
+          "createdAt":  { "type": "string", "format": "datetime" },
+          "updatedAt":  { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
