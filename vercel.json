@@ -3,27 +3,22 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
-  "cleanUrls": true,
   "trailingSlash": false,
   "crons": [
     { "path": "/api/rebuild", "schedule": "0 */6 * * *" }
   ],
   "rewrites": [
     { "source": "/oauth-client-metadata.json", "destination": "/api/client-metadata" },
-    { "source": "/oauth/callback", "destination": "/index.html" },
-    { "source": "/oauth/:path*", "destination": "/index.html" },
-    { "source": "/admin", "destination": "/index.html" },
-    { "source": "/admin/:path*", "destination": "/index.html" },
-    { "source": "/index", "destination": "/" },
-    { "source": "/home", "destination": "/" },
     { "source": "/app.bsky.feed.post/:rkey", "destination": "/index.html" },
     { "source": "/fm.teal.alpha.feed.play/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.now/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.blogging.post/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.creating.work/:rkey", "destination": "/index.html" },
-    { "source": "/:path*", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "redirects": [
+    { "source": "/index", "destination": "/", "permanent": true },
+    { "source": "/home", "destination": "/", "permanent": true },
     { "source": "/blog", "destination": "/blogging", "permanent": true },
     { "source": "/blog/:path*", "destination": "/blogging/:path*", "permanent": true },
     { "source": "/writing/blogs", "destination": "/blogging", "permanent": true },
