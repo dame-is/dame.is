@@ -39,9 +39,9 @@
   --space-8: 4rem;
   --space-9: 6rem;
 
-  --radius-1: 2px;
-  --radius-2: 4px;
-  --radius-3: 8px;
+  --radius-1: 0;
+  --radius-2: 0;
+  --radius-3: 0;
 
   --chrome-h: 56px;
   --dock-w: 280px;

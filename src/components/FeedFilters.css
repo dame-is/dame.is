@@ -20,7 +20,7 @@
   align-items: baseline;
   gap: 0.4em;
   padding: 0.35em 0.9em;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--rule);
   background: var(--page);
   color: var(--ink-muted);
@@ -72,7 +72,7 @@
   font-size: var(--text-sm);
   padding: 0.45em 1.8em 0.45em 0.9em;
   border: 1px solid var(--rule);
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--page-edge);
   color: var(--ink);
   width: 14rem;
@@ -92,7 +92,7 @@
   transform: translateY(-50%);
   width: 1.4em;
   height: 1.4em;
-  border-radius: 999px;
+  border-radius: 0;
   font-size: 1rem;
   color: var(--ink-muted);
 }
