@@ -112,7 +112,48 @@ function blueskyPostToFeedItem(item) {
       embed: post.record?.embed || post.embed || null,
       indexedAt: post.indexedAt,
       reason: item.reason || null,
+      // Reply context — pulled from the AppView feed item. The `reply`
+      // field on the underlying record carries the parent/root URIs; the
+      // surrounding `item.reply` carries the resolved post views (one level
+      // up) so we can render a parent card without an extra round-trip.
+      reply: post.record?.reply || null,
+      parent: condensePostView(item?.reply?.parent),
+      root: condensePostView(item?.reply?.root),
     },
+  };
+}
+
+/**
+ * Strip a feed-item's parent/root post view down to just the bits we need
+ * to render a reply card. Cuts ~80% of the size off the snapshot.
+ */
+function condensePostView(view) {
+  if (!view || view.$type === 'app.bsky.feed.defs#notFoundPost' || view.$type === 'app.bsky.feed.defs#blockedPost') {
+    return view ? { $type: view.$type, uri: view.uri || null } : null;
+  }
+  if (!view.uri) return null;
+  return {
+    uri: view.uri,
+    cid: view.cid || null,
+    indexedAt: view.indexedAt || null,
+    author: view.author
+      ? {
+          did: view.author.did,
+          handle: view.author.handle,
+          displayName: view.author.displayName,
+          avatar: view.author.avatar,
+        }
+      : null,
+    record: view.record
+      ? {
+          text: view.record.text || '',
+          createdAt: view.record.createdAt || null,
+          embed: view.record.embed || null,
+        }
+      : null,
+    replyCount: view.replyCount || 0,
+    repostCount: view.repostCount || 0,
+    likeCount: view.likeCount || 0,
   };
 }
 

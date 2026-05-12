@@ -17,8 +17,8 @@
 
 .feed-chip {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4em;
+  align-items: center;
+  gap: 0.45em;
   padding: 0.35em 0.9em;
   border-radius: 0;
   border: 1px solid var(--rule);
@@ -28,6 +28,20 @@
   font-size: var(--text-xs);
   cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.feed-chip-icon {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+  transition: color 120ms ease;
+}
+
+.feed-chip:hover .feed-chip-icon {
+  color: var(--accent);
+}
+
+.feed-chip.is-active .feed-chip-icon {
+  color: var(--page);
 }
 
 .feed-chip:hover {
@@ -70,7 +84,7 @@
   -webkit-appearance: none;
   font-family: var(--sans);
   font-size: var(--text-sm);
-  padding: 0.45em 1.8em 0.45em 0.9em;
+  padding: 0.45em 1.8em 0.45em 2em;
   border: 1px solid var(--rule);
   border-radius: 0;
   background: var(--page-edge);
@@ -85,16 +99,34 @@
   background: var(--page);
 }
 
-.feed-search-clear {
+.feed-search-icon {
   position: absolute;
-  right: 0.4em;
+  left: 0.6em;
   top: 50%;
   transform: translateY(-50%);
-  width: 1.4em;
-  height: 1.4em;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+.feed-search:focus-within .feed-search-icon {
+  color: var(--ink-soft);
+}
+
+.feed-search-clear {
+  position: absolute;
+  right: 0.35em;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  border: none;
+  background: transparent;
   border-radius: 0;
-  font-size: 1rem;
   color: var(--ink-muted);
+  cursor: pointer;
 }
 
 .feed-search-clear:hover {

@@ -8,11 +8,12 @@ import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
 import Comments from '../components/Comments.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
-import { resolvePds, getRecord } from '../lib/atproto.js';
+import { resolvePds, getRecord, getPostThread } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { formatDateLong, formatTime, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
-import { VERB_TO_COLLECTION, VERB_LABELS } from '../lib/recordRoutes.js';
+import { VERB_TO_COLLECTION, VERB_LABELS, recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { musicLinksFor } from '../lib/musicLinks.js';
 import './Blogging.css';
 import '../components/Feed.css';
 
@@ -38,11 +39,45 @@ export default function Record({ verb }) {
   const collection = VERB_TO_COLLECTION[verb];
   const [item, setItem] = useState(null);
   const [missing, setMissing] = useState(false);
+  // Parent chain for posts. Newest-first array of condensed post views,
+  // i.e. parents[0] is the immediate parent, parents[N-1] is the root.
+  const [parents, setParents] = useState([]);
 
   useEffect(() => {
     setItem(null);
     setMissing(false);
+    setParents([]);
   }, [verb, rkey]);
+
+  // Resolve the parent chain for posts that are replies. Uses the AppView's
+  // app.bsky.feed.getPostThread and walks up `parent.parent…`. Falls back to
+  // whatever the snapshot already gave us if the live call fails.
+  useEffect(() => {
+    if (verb !== 'posting' || !item?.atUri) return;
+    const replyParent = item?.payload?.parent || item?.payload?.reply?.parent;
+    if (!replyParent) return;
+
+    let cancelled = false;
+    async function load() {
+      // Seed from the snapshot so the parent appears instantly even before
+      // the AppView call lands.
+      if (item.payload.parent?.uri && item.payload.parent.author) {
+        setParents([item.payload.parent]);
+      }
+      try {
+        const thread = await getPostThread(item.atUri, { parentHeight: 6, depth: 0 });
+        if (cancelled) return;
+        const chain = collectParents(thread?.thread);
+        if (chain.length) setParents(chain);
+      } catch {
+        // keep snapshot fallback
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [verb, item?.atUri]);
 
   useEffect(() => {
     if (!collection || !rkey) return;
@@ -119,6 +154,10 @@ export default function Record({ verb }) {
       <article className="record-page">
         <RecordMeta verb={verb} createdAt={createdAt} />
 
+        {verb === 'posting' && parents.length > 0 && (
+          <ParentChain parents={parents} />
+        )}
+
         {item ? (
           <RecordBody verb={verb} item={item} />
         ) : (
@@ -144,11 +183,16 @@ export default function Record({ verb }) {
 function RecordBody({ verb, item }) {
   switch (verb) {
     case 'posting':
-      return <PostCard {...item} />;
+      return <PostCard {...item} variant="record" />;
     case 'logging':
       return <StatusEntry {...item} />;
     case 'listening':
-      return <ListenRow {...item} />;
+      return (
+        <>
+          <ListenRow {...item} />
+          <ListenServiceLinks payload={item.payload} />
+        </>
+      );
     case 'blogging':
       return <BlogCard {...item} />;
     case 'creating':
@@ -156,6 +200,112 @@ function RecordBody({ verb, item }) {
     default:
       return null;
   }
+}
+
+function ListenServiceLinks({ payload }) {
+  const links = musicLinksFor(payload);
+  if (!links.length) return null;
+  return (
+    <ul className="listen-services">
+      {links.map((l) => (
+        <li key={l.service} className={`listen-service listen-service-${l.service}`}>
+          <a href={l.url} target="_blank" rel="noreferrer noopener">
+            {l.kind === 'direct' ? `Open in ${l.label}` : `Search on ${l.label}`}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Parent-of-reply rendering. Walks oldest → newest so the visual reads
+ * top-to-bottom as conversation flow.
+ */
+function ParentChain({ parents }) {
+  const ordered = [...parents].reverse(); // root … immediate parent
+  return (
+    <div className="record-parent-chain" aria-label="In reply to">
+      {ordered.map((p, i) => (
+        <ParentPostCard
+          key={p.uri || i}
+          parent={p}
+          isRoot={i === 0 && ordered.length > 1}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ParentPostCard({ parent, isRoot }) {
+  if (parent?.$type === 'app.bsky.feed.defs#notFoundPost') {
+    return <div className="record-parent record-parent-missing gutter">↳ a deleted post</div>;
+  }
+  if (parent?.$type === 'app.bsky.feed.defs#blockedPost') {
+    return <div className="record-parent record-parent-missing gutter">↳ a blocked post</div>;
+  }
+  const handle = parent?.author?.handle;
+  const text = parent?.record?.text || '';
+  const ts = parent?.record?.createdAt || parent?.indexedAt;
+  const recordHref = parent?.uri ? recordPathFromAtUri(parent.uri) : null;
+  return (
+    <article className="record-parent" data-at-uri={parent?.uri}>
+      <header className="record-parent-head">
+        {isRoot && <span className="small-caps record-parent-tag">root</span>}
+        {handle && <span className="small-caps record-parent-handle">@{handle}</span>}
+        {ts && (
+          <span className="gutter record-parent-time">
+            {recordHref ? <Link to={recordHref}>{relativeTime(ts)}</Link> : relativeTime(ts)}
+          </span>
+        )}
+      </header>
+      <p className="record-parent-text">{text || <em>—</em>}</p>
+    </article>
+  );
+}
+
+/**
+ * Walk a thread view from app.bsky.feed.getPostThread upward through its
+ * `.parent` chain. Returns the chain newest-first (immediate parent first,
+ * root last), with each entry condensed to the same shape used elsewhere.
+ */
+function collectParents(thread) {
+  const out = [];
+  let cursor = thread?.parent;
+  while (cursor) {
+    if (cursor.$type === 'app.bsky.feed.defs#notFoundPost' || cursor.$type === 'app.bsky.feed.defs#blockedPost') {
+      out.push({ $type: cursor.$type, uri: cursor.uri || null });
+      break;
+    }
+    if (cursor.post) {
+      out.push(condensePostView(cursor.post));
+    }
+    cursor = cursor.parent;
+  }
+  return out;
+}
+
+function condensePostView(view) {
+  if (!view?.uri) return null;
+  return {
+    uri: view.uri,
+    cid: view.cid || null,
+    indexedAt: view.indexedAt || null,
+    author: view.author
+      ? {
+          did: view.author.did,
+          handle: view.author.handle,
+          displayName: view.author.displayName,
+          avatar: view.author.avatar,
+        }
+      : null,
+    record: view.record
+      ? { text: view.record.text || '', createdAt: view.record.createdAt || null }
+      : null,
+    replyCount: view.replyCount || 0,
+    repostCount: view.repostCount || 0,
+    likeCount: view.likeCount || 0,
+  };
 }
 
 function RecordMeta({ verb, createdAt }) {

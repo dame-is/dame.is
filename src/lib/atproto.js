@@ -38,6 +38,19 @@ export async function getProfile(actor, { appview = APPVIEW } = {}) {
 }
 
 /**
+ * AppView — `app.bsky.feed.getPostThread`. Returns a thread view (parent
+ * chain + replies) anchored at the given AT URI.
+ */
+export async function getPostThread(uri, { appview = APPVIEW, depth = 0, parentHeight = 6 } = {}) {
+  const params = new URLSearchParams({
+    uri,
+    depth: String(depth),
+    parentHeight: String(parentHeight),
+  });
+  return fetchJson(`${appview}/xrpc/app.bsky.feed.getPostThread?${params}`);
+}
+
+/**
  * AppView — `app.bsky.feed.getAuthorFeed`. Auto-paginates up to `max` items.
  */
 export async function getAuthorFeed(actor, { appview = APPVIEW, limit = 100, max = 200 } = {}) {

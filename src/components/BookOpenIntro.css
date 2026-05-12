@@ -7,7 +7,7 @@
   justify-content: center;
   background: var(--page);
   opacity: 1;
-  transition: opacity 600ms cubic-bezier(0.22, 0.61, 0.36, 1) 250ms;
+  transition: opacity 600ms cubic-bezier(0.22, 0.61, 0.36, 1) 300ms;
 }
 
 .book-open.opening {
@@ -24,89 +24,90 @@
   font: inherit;
   color: inherit;
   cursor: pointer;
-  display: block;
-  transform: scale(1);
-  transition: transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms;
+  position: relative;
+  width: min(26rem, 78vw);
+  aspect-ratio: 3 / 4;
+  transform: translateX(0);
+  transition: transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1) 100ms;
   outline: none;
 }
 
 .book-open-stage:focus-visible {
   outline: 1px solid var(--ink-faint);
-  outline-offset: var(--space-3, 0.75rem);
+  outline-offset: 0.75rem;
 }
 
 .book-open.opening .book-open-stage {
-  transform: scale(1.18);
+  transform: translateX(50%);
+}
+
+.book-open-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform: scale(1);
+  transform-origin: left center;
+  transition: transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1) 100ms;
+}
+
+.book-open.opening .book-open-scene {
+  transform: scale(1.12);
+}
+
+.book-open-page {
+  position: absolute;
+  inset: 0;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  opacity: 0;
+  transition:
+    opacity 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 180ms,
+    border-color 220ms ease;
+  z-index: 1;
+}
+
+.book-open.opening .book-open-page {
+  opacity: 1;
 }
 
 .book-open-cover {
-  position: relative;
-  width: min(26rem, 78vw);
-  aspect-ratio: 3 / 4;
-  color: var(--ink);
-  font-family: var(--serif);
+  position: absolute;
+  inset: 0;
+  background: var(--page-edge);
+  border: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  overflow: hidden;
-  transition: transform 220ms ease;
+  font-family: var(--serif);
+  color: var(--ink);
+  transform: translateX(0);
+  transition:
+    transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1) 100ms,
+    border-color 220ms ease;
+  z-index: 2;
 }
 
 .book-open.opening .book-open-cover {
-  overflow: visible;
+  transform: translateX(-100%);
 }
 
-.book-open-stage:hover .book-open-cover {
-  transform: translateY(-2px);
-}
-
-.book-open-half {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
-  background: var(--page-edge);
-  border: 1px solid var(--rule);
-  opacity: 1;
-  transform: translateX(0);
-  transition:
-    transform 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms,
-    opacity 700ms cubic-bezier(0.22, 0.61, 0.36, 1) 120ms,
-    border-color 220ms ease;
-}
-
-.book-open-half.left {
-  left: 0;
-  border-right: 0;
-}
-
-.book-open-half.right {
-  right: 0;
-  border-left: 0;
-}
-
-.book-open-stage:hover .book-open-half {
+.book-open-stage:hover .book-open-cover,
+.book-open-stage:hover .book-open-page {
   border-color: var(--ink-faint);
-}
-
-.book-open.opening .book-open-half.left {
-  transform: translateX(-65%);
-  opacity: 0;
-}
-
-.book-open.opening .book-open-half.right {
-  transform: translateX(65%);
-  opacity: 0;
 }
 
 .book-open-spine {
   position: absolute;
-  left: 50%;
+  left: 0;
   top: 0;
   bottom: 0;
   width: 1px;
-  margin-left: -0.5px;
   background: var(--rule);
+  z-index: 3;
+  pointer-events: none;
   opacity: 1;
-  transition: opacity 240ms cubic-bezier(0.22, 0.61, 0.36, 1) 80ms;
+  transition: opacity 400ms cubic-bezier(0.22, 0.61, 0.36, 1) 500ms;
 }
 
 .book-open.opening .book-open-spine {
@@ -164,16 +165,17 @@
 @media (prefers-reduced-motion: reduce) {
   .book-open,
   .book-open-stage,
+  .book-open-scene,
   .book-open-cover,
-  .book-open-half,
+  .book-open-page,
   .book-open-spine,
   .book-open-title {
     transition-duration: 0ms;
     transition-delay: 0ms;
   }
   .book-open.opening .book-open-stage,
-  .book-open.opening .book-open-half.left,
-  .book-open.opening .book-open-half.right,
+  .book-open.opening .book-open-scene,
+  .book-open.opening .book-open-cover,
   .book-open.opening .book-open-title {
     transform: none;
   }

@@ -119,6 +119,12 @@
   font-weight: 600;
 }
 
+.chrome-signal-meta {
+  color: var(--ink-faint);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Expand/collapse handle on the far right of the primary row */
 .chrome-expand {
   flex: 0 0 auto;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import PageShell from '../components/PageShell.jsx';
-import StatusEntry from '../components/StatusEntry.jsx';
+import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { groupByDay } from '../lib/time.js';
@@ -18,6 +18,7 @@ export default function Logging() {
         snap
           .filter((r) => r?.uri && r.value)
           .map((r) => ({
+            verb: 'logging',
             atUri: r.uri,
             cid: r.cid,
             createdAt: r.value?.createdAt,
@@ -49,10 +50,7 @@ export default function Logging() {
               <DayOfLifeHeader date={group.date} />
               <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
                 {group.items.map((item) => (
-                  <li key={item.atUri} className="feed-item feed-item-logging">
-                    <span className="feed-item-verb small-caps">logging</span>
-                    <StatusEntry {...item} />
-                  </li>
+                  <FeedItem key={item.atUri} item={item} />
                 ))}
               </ul>
             </li>

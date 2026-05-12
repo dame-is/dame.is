@@ -1,5 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
+import { Search, X } from 'lucide-react';
 import { VERBS } from '../config.js';
+import VerbIcon from './VerbIcon.jsx';
 import './FeedFilters.css';
 
 /**
@@ -46,6 +48,7 @@ export default function FeedFilters({ counts }) {
               onClick={() => toggleVerb(v)}
               aria-pressed={active}
             >
+              <VerbIcon verb={v} size={13} className="feed-chip-icon" />
               <span className="feed-chip-label small-caps">{v}</span>
               {typeof count === 'number' && <span className="feed-chip-count gutter">{count}</span>}
             </button>
@@ -57,11 +60,13 @@ export default function FeedFilters({ counts }) {
             className="feed-chip feed-chip-clear"
             onClick={() => setParams((prev) => { const o = new URLSearchParams(prev); o.delete('verbs'); return o; }, { replace: true })}
           >
+            <X size={13} aria-hidden="true" className="feed-chip-icon" />
             <span className="small-caps">clear</span>
           </button>
         )}
       </div>
       <div className="feed-search">
+        <Search size={14} aria-hidden="true" className="feed-search-icon" />
         <input
           type="search"
           placeholder="search"
@@ -70,7 +75,9 @@ export default function FeedFilters({ counts }) {
           aria-label="Search the feed"
         />
         {q && (
-          <button type="button" className="feed-search-clear" onClick={() => setQ('')} aria-label="Clear search">×</button>
+          <button type="button" className="feed-search-clear" onClick={() => setQ('')} aria-label="Clear search">
+            <X size={14} aria-hidden="true" />
+          </button>
         )}
       </div>
     </div>

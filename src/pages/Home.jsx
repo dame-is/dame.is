@@ -25,9 +25,10 @@ function collapseListens(items) {
       const key = dayKey(item.createdAt);
       if (run && run.verb === 'listening' && dayKey(run.createdAt) === key) {
         run.count = (run.count || 1) + 1;
+        run.plays.push(item);
         continue;
       }
-      run = { ...item, count: 1 };
+      run = { ...item, count: 1, plays: [item] };
       out.push(run);
     } else {
       run = null;
@@ -160,6 +161,32 @@ function blueskyToFeedItem(item) {
       repostCount: post.repostCount || 0,
       likeCount: post.likeCount || 0,
       indexedAt: post.indexedAt,
+      reply: post.record?.reply || null,
+      parent: condenseParent(item?.reply?.parent),
+      root: condenseParent(item?.reply?.root),
     },
+  };
+}
+
+function condenseParent(view) {
+  if (!view) return null;
+  if (view.$type === 'app.bsky.feed.defs#notFoundPost' || view.$type === 'app.bsky.feed.defs#blockedPost') {
+    return { $type: view.$type, uri: view.uri || null };
+  }
+  if (!view.uri) return null;
+  return {
+    uri: view.uri,
+    cid: view.cid || null,
+    author: view.author
+      ? {
+          did: view.author.did,
+          handle: view.author.handle,
+          displayName: view.author.displayName,
+          avatar: view.author.avatar,
+        }
+      : null,
+    record: view.record
+      ? { text: view.record.text || '', createdAt: view.record.createdAt || null }
+      : null,
   };
 }

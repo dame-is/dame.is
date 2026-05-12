@@ -23,7 +23,7 @@ export default function BookOpenIntro() {
     // try {
     //   localStorage.setItem(STORAGE_KEY, '1');
     // } catch {}
-    setTimeout(() => setPhase('done'), 900);
+    setTimeout(() => setPhase('done'), 1000);
   }
 
   if (phase === 'initial' || phase === 'done') return null;
@@ -36,16 +36,17 @@ export default function BookOpenIntro() {
         onClick={open}
         aria-label="Open the site"
       >
-        <div className="book-open-cover">
-          <div className="book-open-half left" aria-hidden="true" />
-          <div className="book-open-half right" aria-hidden="true" />
-          <div className="book-open-spine" aria-hidden="true" />
-          <div className="book-open-title">
-            <span className="book-open-mark" aria-hidden="true">&#x2767;</span>
-            <span className="book-open-name">dame.is</span>
-            <span className="book-open-sub small-caps">an atmospheric website</span>
-            <span className="book-open-prompt small-caps">tap to open</span>
+        <div className="book-open-scene">
+          <div className="book-open-page" aria-hidden="true" />
+          <div className="book-open-cover">
+            <div className="book-open-title">
+              <span className="book-open-mark" aria-hidden="true">&#x2767;</span>
+              <span className="book-open-name">dame.is</span>
+              <span className="book-open-sub small-caps">an atmospheric website</span>
+              <span className="book-open-prompt small-caps">tap to open</span>
+            </div>
           </div>
+          <div className="book-open-spine" aria-hidden="true" />
         </div>
       </button>
     </div>
