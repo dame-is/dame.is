@@ -20,7 +20,7 @@ export function useAtUri(override) {
   useEffect(() => {
     setInfo(deriveFromRoute(location.pathname, override));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, override?.atUri]);
+  }, [location.pathname, override?.atUri, override?.cid]);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,18 +40,31 @@ export function useAtUri(override) {
 
   useEffect(() => {
     let cancelled = false;
-    if (!info?.atUri) return;
+    // We can fetch by atUri (most routes) or by rkey+lexicon (app.bsky.feed.post
+    // where the repo DID isn't known yet) or by slug (blogs, works).
+    const canResolve = info?.atUri || info?.rkey || info?.slug;
+    if (!canResolve) return;
 
     async function load() {
       const seedRecord = await loadFromSnapshots(info);
       if (!cancelled && seedRecord) {
-        setInfo((prev) => ({ ...prev, record: seedRecord, cid: seedRecord.cid || prev.cid }));
+        setInfo((prev) => ({
+          ...prev,
+          record: seedRecord,
+          atUri: prev.atUri || seedRecord.uri || null,
+          cid: seedRecord.cid || prev.cid,
+        }));
       }
       if (!pds) return;
       try {
         const fresh = await fetchRecordFromPds(pds, info);
         if (!cancelled && fresh) {
-          setInfo((prev) => ({ ...prev, record: fresh, cid: fresh.cid || prev.cid }));
+          setInfo((prev) => ({
+            ...prev,
+            record: fresh,
+            atUri: prev.atUri || fresh.uri || null,
+            cid: fresh.cid || prev.cid,
+          }));
         }
       } catch {
         // keep snapshot
@@ -62,7 +75,7 @@ export function useAtUri(override) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info?.atUri, pds]);
+  }, [info?.atUri, info?.rkey, info?.slug, info?.lexicon, pds]);
 
   return { ...info, pds };
 }

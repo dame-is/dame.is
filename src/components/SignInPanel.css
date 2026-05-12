@@ -14,7 +14,7 @@
 .signin-input {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-sm);
   color: var(--ink);
   background: var(--page-edge);
@@ -73,7 +73,7 @@
 }
 
 .signin-did {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink-soft);
   word-break: break-all;

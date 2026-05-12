@@ -90,7 +90,7 @@
 }
 
 .admin-error {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--tan);
   word-break: break-word;
@@ -148,7 +148,7 @@
 }
 
 .admin-collection-nsid {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink-faint);
   word-break: break-all;
@@ -232,7 +232,7 @@
 .admin-record-rkey {
   flex-shrink: 0;
   width: 14ch;
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink-faint);
 }

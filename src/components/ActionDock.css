@@ -140,7 +140,7 @@
 }
 
 .dock-route-path {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink-faint);
 }
@@ -164,7 +164,7 @@
 }
 
 .dock-tool-key {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink-faint);
   background: var(--page-edge);

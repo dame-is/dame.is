@@ -27,6 +27,10 @@
   --serif:  var(--font-crimson);
   --sans:   var(--font-atkinson);
   --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* UI-chrome mono (paths, kbd badges, identifiers, etc.). Follows the
+     typeface mode in serif/sans so the chrome reads as a single voice,
+     while real code surfaces (<code>, <pre>) keep --mono. */
+  --mono-ui: var(--mono);
 
   --measure: 65ch;
   --leading: 1.6;
@@ -102,18 +106,21 @@
    "combo" (default) keeps the serif/sans split; "serif" and "sans"
    collapse both stacks to a single family for a unified voice. */
 [data-typeface='serif'] {
-  --serif: var(--font-crimson);
-  --sans:  var(--font-crimson);
+  --serif:   var(--font-crimson);
+  --sans:    var(--font-crimson);
+  --mono-ui: var(--font-crimson);
 }
 
 [data-typeface='sans'] {
-  --serif: var(--font-atkinson);
-  --sans:  var(--font-atkinson);
+  --serif:   var(--font-atkinson);
+  --sans:    var(--font-atkinson);
+  --mono-ui: var(--font-atkinson);
 }
 
 [data-typeface='combo'] {
-  --serif: var(--font-crimson);
-  --sans:  var(--font-atkinson);
+  --serif:   var(--font-crimson);
+  --sans:    var(--font-atkinson);
+  --mono-ui: var(--mono);
 }
 
 html, body {

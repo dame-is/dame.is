@@ -16,7 +16,7 @@
 }
 
 .day-header-num {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-variant: normal;
   letter-spacing: 0;
   color: var(--ink-soft);

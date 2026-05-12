@@ -22,7 +22,7 @@
 }
 
 .about-handle {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-base);
   font-weight: 500;
   color: var(--ink-muted);

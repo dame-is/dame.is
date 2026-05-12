@@ -248,7 +248,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 }
 
 .listen-row-toggle-caret {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: 0.9em;
   color: var(--ink-faint);
 }

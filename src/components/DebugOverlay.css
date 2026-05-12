@@ -65,7 +65,7 @@
 }
 
 .debug-overlay-row dd {
-  font-family: var(--mono);
+  font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink);
   word-break: break-all;

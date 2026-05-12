@@ -5,7 +5,7 @@ import './DebugOverlay.css';
 
 export default function DebugOverlay() {
   const { open, closeOverlay } = useDebugOverlay();
-  const { atUri, cid, lexicon, pds, record, route } = useAtUri();
+  const { atUri, cid, lexicon, pds, record, route, rkey, slug } = useAtUri();
   const [copied, setCopied] = useState(null);
 
   if (!open) return null;
@@ -64,7 +64,7 @@ export default function DebugOverlay() {
           </>
         ) : (
           <p className="debug-overlay-empty">
-            {atUri
+            {atUri || rkey || slug
               ? 'Loading record…'
               : 'No backing record for this route yet.'}
           </p>

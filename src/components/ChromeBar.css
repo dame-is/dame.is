@@ -27,15 +27,23 @@
 
 .chrome-bar-primary {
   flex: 0 0 auto;
-  align-items: baseline;
 }
 
-.chrome-bar-primary .chrome-signals-primary {
+/* Title + primary signals share a baseline and travel together as a single
+   block that the parent row vertically centers. Baseline-aligning the row
+   itself would jam everything against the top of the 56px chrome bar; doing
+   it on this nested cluster keeps the bottoms of the text in lockstep while
+   the cluster as a whole stays centered. */
+.chrome-cluster {
+  display: flex;
   align-items: baseline;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
 }
 
-.chrome-bar-primary .chrome-expand {
-  align-self: center;
+.chrome-cluster .chrome-signals-primary {
+  align-items: baseline;
 }
 
 .chrome-bar-secondary {
@@ -170,7 +178,7 @@
   padding: 0;
   margin-right: calc(-1 * var(--space-2));
   border: 1px solid var(--rule);
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
   color: var(--ink-faint);
   cursor: pointer;

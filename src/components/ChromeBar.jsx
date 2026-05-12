@@ -14,12 +14,14 @@ export default function ChromeBar() {
   return (
     <header className={`chrome-bar ${expanded ? 'is-expanded' : 'is-collapsed'}`} role="banner">
       <div className="chrome-bar-row chrome-bar-primary">
-        <Link to="/" className="chrome-title">
-          <span className="chrome-mark">&#x2767;</span>
-          <span className="chrome-name">dame.is</span>
-        </Link>
-        <div className="chrome-signals chrome-signals-primary">
-          <NowStatus />
+        <div className="chrome-cluster">
+          <Link to="/" className="chrome-title">
+            <span className="chrome-mark">&#x2767;</span>
+            <span className="chrome-name">dame.is</span>
+          </Link>
+          <div className="chrome-signals chrome-signals-primary">
+            <NowStatus />
+          </div>
         </div>
         <button
           type="button"
@@ -53,28 +55,30 @@ export default function ChromeBar() {
           <motion.div
             key="secondary"
             id="chrome-bar-secondary"
-            className="chrome-bar-row chrome-bar-secondary"
+            className="chrome-bar-secondary-wrap"
             initial={{ height: 0 }}
             animate={{ height: 'auto' }}
             exit={{ height: 0 }}
             transition={{ duration: reduce ? 0 : 0.36, ease: [0.32, 0.72, 0, 1] }}
             style={{ overflow: 'hidden' }}
           >
-            <motion.div
-              className="chrome-signals chrome-signals-secondary"
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{
-                duration: reduce ? 0 : 0.28,
-                ease: [0.22, 0.61, 0.36, 1],
-                delay: reduce ? 0 : 0.06,
-              }}
-            >
-              <NowPlaying />
-              <DayOfLifeTicker />
-              <ProfileStats />
-            </motion.div>
+            <div className="chrome-bar-row chrome-bar-secondary">
+              <motion.div
+                className="chrome-signals chrome-signals-secondary"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{
+                  duration: reduce ? 0 : 0.28,
+                  ease: [0.22, 0.61, 0.36, 1],
+                  delay: reduce ? 0 : 0.06,
+                }}
+              >
+                <NowPlaying />
+                <DayOfLifeTicker />
+                <ProfileStats />
+              </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

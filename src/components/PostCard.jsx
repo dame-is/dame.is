@@ -49,8 +49,14 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
       {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
       <div className="post-card-row">
         <p className="post-card-text">{text || <em>—</em>}</p>
-        {ts && (
-          recordHref && variant !== 'record' ? (
+        {/*
+          On the record page itself the page-level meta header already shows
+          the timestamp (and a lot more), so showing it inside the card too
+          reads as a duplicate. Skip the in-card timestamp for `variant ===
+          'record'`.
+        */}
+        {ts && variant !== 'record' && (
+          recordHref ? (
             <Link className="gutter post-card-time" to={recordHref}>
               {relativeTime(ts)}
             </Link>
