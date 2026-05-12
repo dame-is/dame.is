@@ -34,7 +34,6 @@ function getReplyHint(payload) {
 export default function PostCard({ payload, createdAt, atUri, variant = 'timeline' }) {
   const text = payload?.text || '';
   const ts = createdAt || payload?.indexedAt;
-  const handle = payload?.author?.handle || 'dame.is';
   const rkey = rkeyFromAtUri(atUri);
   const recordHref = rkey ? `/posting/${rkey}` : null;
   const reply = getReplyHint(payload);
@@ -46,18 +45,17 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
       data-is-reply={reply ? 'true' : undefined}
     >
       {reply && variant !== 'parent' && <ReplyBadge reply={reply} />}
-      <header className="post-card-head">
-        <span className="small-caps post-card-handle">@{handle}</span>
-        {ts && (
-          recordHref && variant !== 'record' ? (
+      {ts && (
+        <header className="post-card-head">
+          {recordHref && variant !== 'record' ? (
             <Link className="gutter post-card-time" to={recordHref}>
               {relativeTime(ts)}
             </Link>
           ) : (
             <span className="gutter post-card-time">{relativeTime(ts)}</span>
-          )
-        )}
-      </header>
+          )}
+        </header>
+      )}
       <p className="post-card-text">{text || <em>—</em>}</p>
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats gutter">

@@ -16,15 +16,15 @@
 
 .feed-item-verb {
   display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.3rem;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
   font-family: var(--sans);
   font-variant: all-small-caps;
   letter-spacing: 0.14em;
   color: var(--ink-faint);
   font-size: var(--text-xs);
-  padding-top: 0.2rem;
+  padding-top: 0.25rem;
   text-align: right;
   justify-self: end;
 }
@@ -112,13 +112,8 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 .post-card-head {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-3);
-}
-
-.post-card-handle {
-  letter-spacing: 0.1em;
-  color: var(--ink-muted);
 }
 
 .post-card-time {

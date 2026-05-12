@@ -32,6 +32,8 @@
   color: var(--ink-faint);
   position: relative;
   display: inline-grid;
+  justify-items: end;
+  text-align: right;
   cursor: help;
   outline: none;
 }

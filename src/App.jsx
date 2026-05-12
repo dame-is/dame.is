@@ -19,7 +19,6 @@ import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import Footer from './components/Footer.jsx';
 import DebugOverlay from './components/DebugOverlay.jsx';
-import BookOpenIntro from './components/BookOpenIntro.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { TypefaceProvider } from './hooks/useTypeface.jsx';
@@ -80,7 +79,6 @@ export default function App() {
             <Footer />
             <ActionDock />
             <DebugOverlay />
-            <BookOpenIntro />
           </div>
         </DebugOverlayProvider>
       </ActionDockProvider>

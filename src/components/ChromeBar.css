@@ -123,6 +123,23 @@
   color: var(--ink-faint);
   font-weight: 400;
   font-variant-numeric: tabular-nums;
+  margin-left: 0.5em;
+}
+
+.chrome-signal-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.chrome-signal-link:hover,
+.chrome-signal-link:focus-visible {
+  color: var(--accent);
+}
+
+.chrome-signal-link:hover strong,
+.chrome-signal-link:focus-visible strong {
+  color: var(--accent);
 }
 
 /* Expand/collapse handle on the far right of the primary row */

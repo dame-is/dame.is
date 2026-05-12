@@ -1,5 +1,7 @@
+import { Link } from 'react-router-dom';
 import { useNowPlaying } from '../hooks/useNowPlaying.js';
 import { relativeTime } from '../lib/time.js';
+import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import TickerText from './TickerText.jsx';
 
 export default function NowPlaying() {
@@ -14,6 +16,7 @@ export default function NowPlaying() {
   }
   const ago = play.playedAt ? relativeTime(play.playedAt) : '';
   const tooltip = `${play.track}${play.artist ? ' · ' + play.artist : ''}${ago ? ' · ' + ago : ''}`;
+  const href = recordPathFromAtUri(play.atUri);
   const inner = (
     <>
       <strong>{play.track}</strong>
@@ -24,8 +27,8 @@ export default function NowPlaying() {
     <span className="chrome-signal chrome-signal-now-playing">
       <span className="chrome-signal-label">listening</span>
       <TickerText className="chrome-signal-value" title={tooltip}>
-        {play.originUrl ? (
-          <a href={play.originUrl} target="_blank" rel="noreferrer noopener">{inner}</a>
+        {href ? (
+          <Link to={href} className="chrome-signal-link">{inner}</Link>
         ) : (
           inner
         )}

@@ -45,7 +45,7 @@ export default function ProfileStats() {
     <span className="chrome-signal chrome-signal-stats">
       <TickerText className="chrome-signal-value" title={`${followers.toLocaleString()} ${label}`}>
         <strong>{followers.toLocaleString()}</strong>
-        <span className="chrome-signal-meta"> {label}</span>
+        <span className="chrome-signal-meta">{label}</span>
       </TickerText>
     </span>
   );

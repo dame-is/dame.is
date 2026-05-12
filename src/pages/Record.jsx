@@ -326,30 +326,53 @@ function RecordMeta({ verb, createdAt }) {
 /* Titles                                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Visible h1 above the record. Only set for record types whose `title`
+ * field is real metadata (blogs, works) — for short-form records we let
+ * the body itself be the focal element rather than echoing it as a title.
+ */
 function titleFor(verb, item) {
-  if (!item) return VERB_LABELS[verb] || verb;
+  if (!item) return null;
   switch (verb) {
     case 'blogging':
       return item.payload?.title || 'Untitled';
     case 'creating':
       return item.payload?.title || 'Untitled work';
-    case 'listening':
-      return item.payload?.trackName || 'Untitled play';
-    case 'posting': {
-      const text = (item.payload?.text || '').trim();
-      return text ? truncate(text, 80) : 'A post';
-    }
-    case 'logging': {
-      const text = (item.payload?.status || item.payload?.text || '').trim();
-      return text ? truncate(text, 80) : 'A status';
-    }
     default:
-      return VERB_LABELS[verb] || verb;
+      return null;
   }
 }
 
+/**
+ * Browser tab title — stays descriptive for every record type, including
+ * short-form, by snapshotting the body text.
+ */
 function headTitleFor(verb, item) {
-  return `${titleFor(verb, item)} — Dame is…`;
+  if (!item) return `${VERB_LABELS[verb] || verb} — Dame is…`;
+  switch (verb) {
+    case 'blogging':
+      return `${item.payload?.title || 'Untitled'} — Dame is…`;
+    case 'creating':
+      return `${item.payload?.title || 'Untitled work'} — Dame is…`;
+    case 'listening': {
+      const track = item.payload?.trackName;
+      const artist = Array.isArray(item.payload?.artists)
+        ? item.payload.artists.map((a) => a?.artistName).filter(Boolean).join(', ')
+        : item.payload?.artist;
+      const both = [track, artist].filter(Boolean).join(' · ');
+      return `${both || 'A play'} — Dame is…`;
+    }
+    case 'posting': {
+      const text = (item.payload?.text || '').trim();
+      return `${text ? truncate(text, 80) : 'A post'} — Dame is…`;
+    }
+    case 'logging': {
+      const text = (item.payload?.status || item.payload?.text || '').trim();
+      return `${text ? truncate(text, 80) : 'A status'} — Dame is…`;
+    }
+    default:
+      return `${VERB_LABELS[verb] || verb} — Dame is…`;
+  }
 }
 
 function truncate(s, n) {
