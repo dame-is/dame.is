@@ -61,7 +61,13 @@ export default function PostCard({ verb, payload, createdAt, atUri, variant = 't
       data-is-reply={reply ? 'true' : undefined}
       data-is-repost={isRepost ? 'true' : undefined}
     >
-      {isRepost && variant !== 'parent' && (
+      {/*
+        The "↻ reposted" tag is only useful on the standalone record page —
+        in the timeline / per-record list views, the left-rail verb column
+        already says "reposting", and inside a parent card the badge would
+        be misleading (the parent isn't being reposted by us).
+      */}
+      {isRepost && variant === 'record' && (
         <RepostBadge reason={payload?.reason} variant={variant} />
       )}
       {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
