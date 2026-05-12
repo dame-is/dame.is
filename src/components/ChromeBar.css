@@ -36,7 +36,8 @@
 }
 
 .chrome-name {
-  font-style: italic;
+  font-style: normal;
+  letter-spacing: -0.005em;
 }
 
 .chrome-signals {
@@ -69,14 +70,68 @@
 .chrome-signal-value {
   color: var(--ink-soft);
   font-weight: 500;
-  max-width: 26ch;
+  max-width: 22ch;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-style: normal;
 }
 
 .chrome-signal-value strong {
   color: var(--ink);
   font-weight: 600;
+}
+
+/* Ticker-tape marquee for truncated chrome-bar values. The track holds the
+   single copy by default; when overflow is detected JS injects a second copy
+   and we animate the track from 0 → -50% on hover/focus for a seamless loop. */
+.ticker {
+  display: inline-block;
+  max-width: 22ch;
+  vertical-align: bottom;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 1.25rem), transparent 100%);
+  mask-image: linear-gradient(to right, black 0, black calc(100% - 1.25rem), transparent 100%);
+}
+
+.ticker:not([data-truncated]) {
+  text-overflow: ellipsis;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.ticker-track {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+}
+
+.ticker-copy {
+  display: inline-block;
+  flex: 0 0 auto;
+  padding-right: 2.5em;
+}
+
+.ticker[data-truncated='true']:hover .ticker-track,
+.ticker[data-truncated='true']:focus-within .ticker-track,
+.chrome-signal:hover .ticker[data-truncated='true'] .ticker-track,
+.chrome-signal:focus-within .ticker[data-truncated='true'] .ticker-track {
+  animation: ticker-scroll var(--ticker-duration, 14s) linear infinite;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker[data-truncated='true']:hover .ticker-track,
+  .ticker[data-truncated='true']:focus-within .ticker-track,
+  .chrome-signal:hover .ticker[data-truncated='true'] .ticker-track,
+  .chrome-signal:focus-within .ticker[data-truncated='true'] .ticker-track {
+    animation: none;
+  }
 }
 
 @media (max-width: 900px) {

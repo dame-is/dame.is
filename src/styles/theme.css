@@ -1,22 +1,24 @@
-/* Book-interior tokens. Light is the page; dark is its ink-paper inversion. */
+/* Earthy palette: off-white page, dark greenish-black ink, sage/moss
+   accents, with tan/brown midtones. */
 
 :root,
 [data-theme='light'] {
-  --page:        #f7f3ea;
-  --page-edge:   #efe9dc;
-  --ink:         #1a1714;
-  --ink-soft:    #3b352d;
-  --ink-muted:   #6a6258;
-  --ink-faint:   #9a9085;
-  --rule:        #d9d2c3;
-  --rule-soft:   #e6dfd0;
-  --accent:      #8a3a2a;
-  --accent-soft: #b56a4f;
-  --highlight:   rgba(180, 140, 60, 0.18);
-  --shadow:      rgba(40, 30, 20, 0.10);
+  --page:        #f1ead4;   /* off-white with warm tan undertone */
+  --page-edge:   #e6dec3;
+  --ink:         #1d2419;   /* dark greenish-black */
+  --ink-soft:    #364034;
+  --ink-muted:   #6f6e58;   /* tan-olive */
+  --ink-faint:   #9d9784;
+  --rule:        #cabf9f;
+  --rule-soft:   #ddd2b4;
+  --accent:      #5e7a47;   /* earthy / mossy green */
+  --accent-soft: #8a9f6e;   /* sage */
+  --tan:         #a88c5f;   /* warm brown for inline highlights */
+  --highlight:   rgba(94, 122, 71, 0.16);
+  --shadow:      rgba(29, 36, 25, 0.14);
 
-  --bg:   var(--page);
-  --fg:   var(--ink);
+  --bg:    var(--page);
+  --fg:    var(--ink);
   --muted: var(--ink-muted);
 
   --serif:  'Source Serif 4', 'Source Serif Pro', 'Iowan Old Style', 'Charter', Georgia, serif;
@@ -57,17 +59,18 @@
 }
 
 [data-theme='dark'] {
-  --page:        #1a1714;
-  --page-edge:   #14110e;
-  --ink:         #f1ead8;
-  --ink-soft:    #d8d0bc;
-  --ink-muted:   #a39a87;
-  --ink-faint:   #6a6258;
-  --rule:        #3b352d;
-  --rule-soft:   #2a2520;
-  --accent:      #d99a7a;
-  --accent-soft: #b56a4f;
-  --highlight:   rgba(217, 154, 122, 0.16);
+  --page:        #1d2419;   /* dark greenish-black */
+  --page-edge:   #161c12;
+  --ink:         #ece4cb;   /* warm off-white */
+  --ink-soft:    #d2c9ac;
+  --ink-muted:   #9a9377;
+  --ink-faint:   #6a6450;
+  --rule:        #3a4232;
+  --rule-soft:   #2a311f;
+  --accent:      #a3b486;   /* sage; brighter green for dark mode */
+  --accent-soft: #8a9f6e;
+  --tan:         #c9a87a;
+  --highlight:   rgba(163, 180, 134, 0.16);
   --shadow:      rgba(0, 0, 0, 0.45);
 
   color-scheme: dark;
@@ -75,17 +78,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root[data-theme='system'] {
-    --page:        #1a1714;
-    --page-edge:   #14110e;
-    --ink:         #f1ead8;
-    --ink-soft:    #d8d0bc;
-    --ink-muted:   #a39a87;
-    --ink-faint:   #6a6258;
-    --rule:        #3b352d;
-    --rule-soft:   #2a2520;
-    --accent:      #d99a7a;
-    --accent-soft: #b56a4f;
-    --highlight:   rgba(217, 154, 122, 0.16);
+    --page:        #1d2419;
+    --page-edge:   #161c12;
+    --ink:         #ece4cb;
+    --ink-soft:    #d2c9ac;
+    --ink-muted:   #9a9377;
+    --ink-faint:   #6a6450;
+    --rule:        #3a4232;
+    --rule-soft:   #2a311f;
+    --accent:      #a3b486;
+    --accent-soft: #8a9f6e;
+    --tan:         #c9a87a;
+    --highlight:   rgba(163, 180, 134, 0.16);
     --shadow:      rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }

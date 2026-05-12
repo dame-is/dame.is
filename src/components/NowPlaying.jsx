@@ -1,5 +1,6 @@
 import { useNowPlaying } from '../hooks/useNowPlaying.js';
 import { relativeTime } from '../lib/time.js';
+import TickerText from './TickerText.jsx';
 
 export default function NowPlaying() {
   const play = useNowPlaying();
@@ -12,7 +13,7 @@ export default function NowPlaying() {
     );
   }
   const ago = play.playedAt ? relativeTime(play.playedAt) : '';
-  const label = `${play.track}${play.artist ? ' · ' + play.artist : ''}${ago ? ' · ' + ago : ''}`;
+  const tooltip = `${play.track}${play.artist ? ' · ' + play.artist : ''}${ago ? ' · ' + ago : ''}`;
   const inner = (
     <>
       <strong>{play.track}</strong>
@@ -20,15 +21,15 @@ export default function NowPlaying() {
     </>
   );
   return (
-    <span className="chrome-signal chrome-signal-now-playing" title={label}>
+    <span className="chrome-signal chrome-signal-now-playing">
       <span className="chrome-signal-label">listening</span>
-      <span className="chrome-signal-value">
+      <TickerText className="chrome-signal-value" title={tooltip}>
         {play.originUrl ? (
           <a href={play.originUrl} target="_blank" rel="noreferrer noopener">{inner}</a>
         ) : (
           inner
         )}
-      </span>
+      </TickerText>
     </span>
   );
 }

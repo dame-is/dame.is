@@ -7,3 +7,11 @@ public/data/
 .env
 .env.local
 .vercel
+# iCloud occasionally duplicates files with " 2." suffix during sync — never commit those.
+* 2.js
+* 2.jsx
+* 2.json
+* 2.css
+* 2.md
+* 2.html
+* 2.mjs

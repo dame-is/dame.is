@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useProfile } from '../hooks/useProfile.js';
+import TickerText from './TickerText.jsx';
 
 /**
  * Animated count-up for follower / following counts. Ports the spirit of
@@ -43,11 +44,11 @@ export default function ProfileStats() {
   return (
     <span className="chrome-signal chrome-signal-stats">
       <span className="chrome-signal-label">follows</span>
-      <span className="chrome-signal-value">
+      <TickerText className="chrome-signal-value" title={`${followers.toLocaleString()} followers · ${following.toLocaleString()} following`}>
         <strong>{followers.toLocaleString()}</strong>
         <span> · </span>
         <strong>{following.toLocaleString()}</strong>
-      </span>
+      </TickerText>
     </span>
   );
 }
