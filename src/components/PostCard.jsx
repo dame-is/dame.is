@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { Repeat2 } from 'lucide-react';
 import { relativeTime } from '../lib/time.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
+import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from './PostEmbed.jsx';
 
@@ -32,26 +34,40 @@ function getReplyHint(payload) {
   return null;
 }
 
-export default function PostCard({ payload, createdAt, atUri, variant = 'timeline' }) {
+export default function PostCard({ verb, payload, createdAt, atUri, variant = 'timeline' }) {
   const text = payload?.text || '';
   const facets = payload?.facets || null;
   const ts = createdAt || payload?.indexedAt;
   const rkey = rkeyFromAtUri(atUri);
-  const recordHref = rkey ? `/posting/${rkey}` : null;
+  const isRepost = verb === 'reposting'
+    || payload?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
+  const recordHref = rkey ? `/${isRepost ? 'reposting' : 'posting'}/${rkey}` : null;
   const reply = getReplyHint(payload);
   // Show the "↳ replying to …" badge in the timeline only. On the record
   // page itself, the parent chain renders above and would duplicate it.
   const showReplyBadge = reply && variant !== 'parent' && variant !== 'record';
   const embed = payload?.embed || payload?.embedRecord || null;
   const authorDid = payload?.author?.did;
+  const isOriginalAuthorMe = authorDid === ME_DID;
+  // The "by @handle" header line is interesting whenever the post wasn't
+  // authored by Dame — most commonly reposts, but also future cases like
+  // quote posts surfaced here.
+  const showOriginalAuthor = !isOriginalAuthorMe && payload?.author?.handle;
 
   return (
     <article
       className={`post-card feed-card post-card-${variant}`}
       data-at-uri={atUri}
       data-is-reply={reply ? 'true' : undefined}
+      data-is-repost={isRepost ? 'true' : undefined}
     >
+      {isRepost && variant !== 'parent' && (
+        <RepostBadge reason={payload?.reason} variant={variant} />
+      )}
       {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
+      {showOriginalAuthor && variant !== 'parent' && (
+        <OriginalAuthorHeader author={payload.author} atUri={atUri} />
+      )}
       {(text || (ts && variant !== 'record')) && (
         <div className="post-card-row">
           {text && (
@@ -96,6 +112,80 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
  * a curious reader actually wants to land. The parent's at:// uri is kept on
  * the element as a data-attribute for debugging / future use.
  */
+/**
+ * Top-line "↻ Dame reposted" tag for repost cards. Mirrors the visual
+ * weight of <ReplyBadge /> so the two stack cleanly when a post is both a
+ * repost (from Dame's POV) and a reply (within the original conversation).
+ *
+ * On the record page the verb badge in the page meta already says
+ * "reposting", so we render a slightly more descriptive form there
+ * ("↻ Dame reposted") instead of just "↻ reposted".
+ */
+function RepostBadge({ reason, variant }) {
+  const ts = reason?.indexedAt;
+  return (
+    <div className="post-card-repost gutter small-caps">
+      <Repeat2 size={13} aria-hidden="true" className="post-card-repost-icon" />
+      <span>
+        {variant === 'record' ? 'Dame reposted' : 'reposted'}
+        {ts && variant === 'record' ? ` ${relativeTime(ts)}` : ''}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Author header for posts that *aren't* Dame's own (today: reposts). Links
+ * out to the author's bsky.app profile since we don't host their records.
+ */
+function OriginalAuthorHeader({ author, atUri }) {
+  const handle = author?.handle;
+  const displayName = author?.displayName;
+  const avatar = author?.avatar;
+  const profileHref = handle ? `https://bsky.app/profile/${handle}` : null;
+  const externalPostHref = handle && atUri
+    ? `https://bsky.app/profile/${handle}/post/${atUri.split('/').pop()}`
+    : profileHref;
+  const Wrapper = ({ children }) =>
+    externalPostHref ? (
+      <a
+        className="post-card-author-link"
+        href={externalPostHref}
+        target="_blank"
+        rel="noreferrer noopener"
+      >
+        {children}
+      </a>
+    ) : (
+      <span className="post-card-author-link">{children}</span>
+    );
+  return (
+    <header className="post-card-author">
+      <Wrapper>
+        {avatar && (
+          <img
+            className="post-card-author-avatar"
+            src={avatar}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            width="28"
+            height="28"
+          />
+        )}
+        <span className="post-card-author-names">
+          {displayName && (
+            <span className="post-card-author-name">{displayName}</span>
+          )}
+          {handle && (
+            <span className="post-card-author-handle gutter">@{handle}</span>
+          )}
+        </span>
+      </Wrapper>
+    </header>
+  );
+}
+
 function ReplyBadge({ reply, recordHref }) {
   const inner = (() => {
     switch (reply.kind) {

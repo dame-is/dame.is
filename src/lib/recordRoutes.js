@@ -1,42 +1,58 @@
 // Mapping between gerund verbs, AT Protocol lexicon NSIDs, and the routes
-// that render a single record from each. Anything that needs to know
-// "what page does this record open on?" should go through here.
+// that render a single record from each. The verb-side surface is derived
+// from `verbRegistry.js` so adding a new verb / NSID there is enough.
+//
+// Some legacy bookkeeping is preserved here for verbs that have a
+// human-friendly path with a slug (`/blogging/:slug`, `/creating/:slug`)
+// instead of the generic `/{nsid}/{rkey}` form.
 
+import {
+  VERB_REGISTRY,
+  primaryNsid,
+  NSIDS,
+  VERB_LABELS as REGISTRY_LABELS,
+} from './verbRegistry.js';
 import { COLLECTIONS } from '../config.js';
 
 /**
- * Verb → collection (NSID).
- * The verbs are how the site talks about its records; the NSIDs are how the
- * AT Protocol identifies them.
+ * Verb → primary collection (NSID). For multi-source verbs (e.g. blogging,
+ * which spans is.dame.blogging.post + pub.leaflet.document + …) this is
+ * the first collection in the registry, used as the default for routes
+ * like `/blogging/:rkey` that don't specify a source.
  */
-export const VERB_TO_COLLECTION = {
-  posting: 'app.bsky.feed.post',
-  logging: COLLECTIONS.now,
-  blogging: COLLECTIONS.blogging,
-  creating: COLLECTIONS.creating,
-  listening: COLLECTIONS.listen,
-};
+export const VERB_TO_COLLECTION = Object.fromEntries(
+  VERB_REGISTRY.map((v) => [v.verb, primaryNsid(v.verb)]).filter(([, n]) => n),
+);
+
+// A repost record on Dame's PDS lives at `app.bsky.feed.repost`, but the
+// page actually *renders* the original post (the repost record's only
+// payload is a pointer). The on-site URL form `/reposting/{rkey}` uses
+// the *original post's* rkey because that's what the home feed snapshot
+// is keyed by — we don't snapshot Dame's repost records directly.
+VERB_TO_COLLECTION.reposting = 'app.bsky.feed.post';
 
 /**
- * Inverse of VERB_TO_COLLECTION — collection → verb.
+ * Inverse of VERB_TO_COLLECTION — collection → verb. For NSIDs that are
+ * shared across verbs, the registry's first matching verb wins (so an
+ * `app.bsky.feed.post` URI resolves to `posting`, not `reposting`).
  */
-export const COLLECTION_TO_VERB = Object.fromEntries(
-  Object.entries(VERB_TO_COLLECTION).map(([verb, nsid]) => [nsid, verb]),
-);
+export const COLLECTION_TO_VERB = (() => {
+  const out = {};
+  for (const v of VERB_REGISTRY) {
+    for (const c of v.collections) {
+      if (!out[c.nsid]) out[c.nsid] = v.verb;
+    }
+  }
+  return out;
+})();
 
 /**
  * The full set of route segments (verb + NSID) that resolve to the single
  * record page. Used both by the React router and by `useAtUri`.
- *
- * `pub.leaflet.document` is included so the lexicon-form URL resolves
- * the AT URI for the debug overlay even though leaflet docs aren't in
- * `VERB_TO_COLLECTION` (they share the `blogging` verb with our own
- * lexicon and route through `BlogPost.jsx` rather than `Record.jsx`).
  */
 export const RECORD_ROUTE_SEGMENTS = [
-  ...Object.keys(VERB_TO_COLLECTION),
-  ...Object.values(VERB_TO_COLLECTION),
-  COLLECTIONS.leaflet,
+  ...VERB_REGISTRY.map((v) => v.verb),
+  ...NSIDS,
 ];
 
 /**
@@ -71,9 +87,6 @@ export function recordPathFromAtUri(atUri) {
  * Pretty label for a verb on the record page header.
  */
 export const VERB_LABELS = {
-  posting: 'a post',
-  logging: 'a status',
-  blogging: 'a blog post',
-  creating: 'a work',
-  listening: 'a play',
+  ...REGISTRY_LABELS,
+  reposting: 'a repost',
 };

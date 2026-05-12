@@ -9,13 +9,30 @@
 }
 
 .feed-filters-search-only {
-  justify-content: flex-end;
+  justify-content: flex-start;
+}
+
+.feed-filters-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .feed-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+.feed-chips-sources {
+  font-size: 0.9em;
+}
+
+.feed-chip-source {
+  font-size: var(--text-xs);
+  padding: 0.25em 0.7em;
 }
 
 .feed-chip {

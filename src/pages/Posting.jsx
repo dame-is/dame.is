@@ -22,22 +22,43 @@ export default function Posting() {
         .filter((row) => row?.post?.uri)
         .map((row) => {
           const post = row.post;
+          const isRepost = row?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
+          const reason = isRepost
+            ? {
+                $type: row.reason.$type,
+                indexedAt: row.reason.indexedAt || null,
+                by: {
+                  did: row.reason.by?.did,
+                  handle: row.reason.by?.handle,
+                  displayName: row.reason.by?.displayName,
+                  avatar: row.reason.by?.avatar,
+                },
+              }
+            : null;
           return {
-            verb: 'posting',
+            verb: isRepost ? 'reposting' : 'posting',
             atUri: post.uri,
             cid: post.cid,
-            createdAt: post.record?.createdAt || post.indexedAt,
+            // Reposts: sort by when Dame reposted, not when the original
+            // was posted, so they slot into the right day-of-life group.
+            createdAt: isRepost
+              ? (reason?.indexedAt || post.indexedAt || post.record?.createdAt)
+              : (post.record?.createdAt || post.indexedAt),
             payload: {
               text: post.record?.text || '',
               author: {
                 handle: post.author?.handle,
                 displayName: post.author?.displayName,
+                avatar: post.author?.avatar,
                 did: post.author?.did,
               },
               replyCount: post.replyCount,
               repostCount: post.repostCount,
               likeCount: post.likeCount,
+              embed: post.embed || null,
+              embedRecord: post.record?.embed || null,
               indexedAt: post.indexedAt,
+              reason,
               reply: post.record?.reply || null,
               parent: condenseParentView(row.reply?.parent),
               root: condenseParentView(row.reply?.root),

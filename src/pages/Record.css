@@ -1,0 +1,62 @@
+/* Generic record-page fallback. Used when a verb has no specialized
+   layout (e.g. liking, following, voting, …) — renders a resolved
+   subject preview, the action row, and a raw JSON dump. The JSON box
+   reuses the .debug-overlay-json styling so the look matches the
+   atmosphere debug overlay. */
+
+.record-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.record-fallback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.record-fallback-actions a,
+.record-fallback-actions button {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  padding: 0.4em 0.85em;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-soft);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.record-fallback-actions a:hover,
+.record-fallback-actions button:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.record-fallback-json {
+  border: 1px solid var(--rule-soft);
+  padding: var(--space-3);
+  background: var(--page-edge);
+}
+
+.record-fallback-json > summary {
+  cursor: pointer;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  user-select: none;
+}
+
+.record-fallback-pre {
+  margin: var(--space-2) 0 0;
+  max-height: 60vh;
+  overflow: auto;
+  font-family: var(--mono-ui, ui-monospace, monospace);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: pre;
+  color: var(--ink-soft);
+}

@@ -43,9 +43,9 @@ export default function ProfileStats() {
   const label = followers === 1 ? 'follower' : 'followers';
   return (
     <span className="chrome-signal chrome-signal-stats">
-      <TickerText className="chrome-signal-value" title={`${followers.toLocaleString()} ${label}`}>
+      <TickerText className="chrome-signal-value" title={`followed by ${followers.toLocaleString()} ${label}`}>
+        <span className="chrome-signal-meta">followed by</span>
         <strong>{followers.toLocaleString()}</strong>
-        <span className="chrome-signal-meta">{label}</span>
       </TickerText>
     </span>
   );

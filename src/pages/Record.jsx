@@ -7,17 +7,20 @@ import ListenRow from '../components/ListenRow.jsx';
 import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
 import Comments from '../components/Comments.jsx';
+import ReferenceCard from '../components/ReferenceCard.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, getPostThread } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { formatDateLong, formatTime, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { VERB_TO_COLLECTION, VERB_LABELS, recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { verbConfig, primaryNsid } from '../lib/verbRegistry.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from '../components/PostEmbed.jsx';
 import './Blogging.css';
+import './Record.css';
 import '../components/Feed.css';
 
 /**
@@ -37,9 +40,13 @@ import '../components/Feed.css';
  *      AppView shape (handle, counts) is richer than the raw PDS record.
  *   3. If neither finds anything after a beat, render a "not found" page.
  */
-export default function Record({ verb }) {
+export default function Record({ verb, nsid, source }) {
   const { rkey } = useParams();
-  const collection = VERB_TO_COLLECTION[verb];
+  // Prefer the explicit NSID from the route (`/{nsid}/:rkey` form) over
+  // the verb-default; this makes multi-source verbs (blogging across
+  // dame/leaflet/standard, liking across bsky/grain/tangled) address the
+  // exact collection.
+  const collection = nsid || VERB_TO_COLLECTION[verb] || primaryNsid(verb);
   const [item, setItem] = useState(null);
   const [missing, setMissing] = useState(false);
   // Parent chain for posts. Newest-first array of condensed post views,
@@ -65,7 +72,8 @@ export default function Record({ verb }) {
   // package). The seeded parent from the snapshot still paints first so the
   // page never feels empty while the request is in flight.
   useEffect(() => {
-    if (verb !== 'posting' || !item?.atUri) return;
+    if (verb !== 'posting' && verb !== 'reposting') return;
+    if (!item?.atUri) return;
     const isReply = Boolean(item?.payload?.parent || item?.payload?.reply?.parent);
 
     if (isReply && item.payload.parent?.uri && item.payload.parent.author) {
@@ -104,14 +112,14 @@ export default function Record({ verb }) {
     let foundAnything = false;
 
     async function load() {
-      const seed = await loadFromSnapshot(verb, rkey);
+      const seed = await loadFromSnapshot(verb, rkey, collection);
       if (cancelled) return;
       if (seed) {
         foundAnything = true;
         setItem(seed);
       }
 
-      if (verb !== 'posting') {
+      if (verb !== 'posting' && verb !== 'reposting') {
         try {
           const pds = await resolvePds(ME_DID);
           if (cancelled) return;
@@ -170,19 +178,19 @@ export default function Record({ verb }) {
       headTitle={headTitleFor(verb, item)}
     >
       <article className="record-page">
-        {verb === 'posting' && parents.length > 0 && (
+        {(verb === 'posting' || verb === 'reposting') && parents.length > 0 && (
           <ParentChain parents={parents.slice(0, 1)} />
         )}
 
         {item ? (
-          <RecordBody verb={verb} item={item} />
+          <RecordBody verb={verb} item={item} collection={collection} />
         ) : (
           <p className="feed-empty">Loading record…</p>
         )}
 
         <RecordMeta collection={collection} createdAt={createdAt} />
 
-        {verb === 'posting' && item?.atUri && (
+        {(verb === 'posting' || verb === 'reposting') && item?.atUri && (
           <Comments
             atUri={item.atUri}
             replies={replies}
@@ -202,9 +210,10 @@ export default function Record({ verb }) {
 /* Body dispatch                                                       */
 /* ------------------------------------------------------------------ */
 
-function RecordBody({ verb, item }) {
+function RecordBody({ verb, item, collection }) {
   switch (verb) {
     case 'posting':
+    case 'reposting':
       return <PostCard {...item} variant="record" />;
     case 'logging':
       return <StatusEntry {...item} />;
@@ -221,8 +230,85 @@ function RecordBody({ verb, item }) {
     case 'creating':
       return <CreatingCard {...item} />;
     default:
-      return null;
+      return <GenericRecordBody verb={verb} item={item} collection={collection} />;
   }
+}
+
+/**
+ * Fallback body for any verb that doesn't have a specialized layout.
+ *
+ * Renders, top to bottom:
+ *   - the resolved subject preview (for reference verbs that have a
+ *     `_subject` baked in by the prefetch step or `subject` set inline),
+ *   - a raw JSON dump of the underlying record, styled like the
+ *     atmosphere debug overlay,
+ *   - an action row mirroring the debug overlay's affordances (copy AT
+ *     URI, copy raw JSON, open in atproto-browser).
+ *
+ * Specialized layouts are upgrades, not replacements — when a verb gets
+ * its own branch above, the fallback simply stops being reached.
+ */
+function GenericRecordBody({ item, collection }) {
+  const cfg = verbConfig(item.verb);
+  const reference = cfg?.collections?.find((c) => c.kind === 'reference');
+  const recordJson = JSON.stringify(item.raw || { uri: item.atUri, value: item.payload }, null, 2);
+  const atUri = item.atUri || null;
+  return (
+    <div className="record-fallback">
+      {reference && item.subject && (
+        <ReferenceCard
+          payload={item.payload}
+          atUri={atUri}
+          createdAt={item.createdAt}
+          source={item.source}
+          subject={item.subject}
+          verb={item.verb}
+        />
+      )}
+      <RecordActionsRow atUri={atUri} recordJson={recordJson} />
+      <details className="record-fallback-json" open>
+        <summary className="small-caps">raw record</summary>
+        <pre className="debug-overlay-json record-fallback-pre">{recordJson}</pre>
+      </details>
+    </div>
+  );
+}
+
+function RecordActionsRow({ atUri, recordJson }) {
+  const [copied, setCopied] = useState(null);
+  function copy(text, key) {
+    if (!text) return;
+    navigator.clipboard?.writeText(text).then(
+      () => {
+        setCopied(key);
+        setTimeout(() => setCopied(null), 1800);
+      },
+      () => {},
+    );
+  }
+  return (
+    <div className="record-fallback-actions">
+      {atUri && (
+        <a
+          href={`https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          Open in atproto browser
+        </a>
+      )}
+      {atUri && (
+        <button type="button" onClick={() => copy(atUri, 'uri')}>
+          {copied === 'uri' ? 'AT URI copied' : 'Copy AT URI'}
+        </button>
+      )}
+      {recordJson && (
+        <button type="button" onClick={() => copy(recordJson, 'json')}>
+          {copied === 'json' ? 'Record JSON copied' : 'Copy record JSON'}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -452,6 +538,12 @@ function headTitleFor(verb, item) {
       const text = (item.payload?.text || '').trim();
       return `${text ? truncate(text, 80) : 'A post'} — Dame is…`;
     }
+    case 'reposting': {
+      const handle = item.payload?.author?.handle;
+      const text = (item.payload?.text || '').trim();
+      const snippet = text ? truncate(text, 60) : 'a post';
+      return `Reposted: ${handle ? `@${handle} — ` : ''}${snippet} — Dame is…`;
+    }
     case 'logging': {
       const text = (item.payload?.status || item.payload?.text || '').trim();
       return `${text ? truncate(text, 80) : 'A status'} — Dame is…`;
@@ -470,21 +562,55 @@ function truncate(s, n) {
 /* Snapshot lookups                                                    */
 /* ------------------------------------------------------------------ */
 
-async function loadFromSnapshot(verb, rkey) {
+async function loadFromSnapshot(verb, rkey, nsid) {
   switch (verb) {
     case 'posting':
-      return loadPostFromSnapshot(rkey);
+    case 'reposting':
+      return loadPostFromSnapshot(verb, rkey);
     case 'logging':
       return loadByRkey('now', rkey, (r) => recordToFeedItem('logging', r));
     case 'listening':
       return loadByRkey('listening', rkey, (r) => recordToFeedItem('listening', r));
     case 'blogging':
-      return loadByRkey('blogs', rkey, (r) => recordToFeedItem('blogging', r));
+      return (
+        (await loadByRkey('blogs', rkey, (r) => recordToFeedItem('blogging', r))) ||
+        loadByRkey('leaflets', rkey, (r) => recordToFeedItem('blogging', r))
+      );
     case 'creating':
       return loadByRkey('creations', rkey, (r) => recordToFeedItem('creating', r));
-    default:
-      return null;
+    default: {
+      // Try the unified feed snapshot — every verb's records (with subjects
+      // pre-resolved) live here keyed by atUri, which makes a per-rkey hit
+      // cheap regardless of which NSID owns the record.
+      return loadFromUnifiedFeed(verb, rkey, nsid);
+    }
   }
+}
+
+async function loadFromUnifiedFeed(verb, rkey, nsid) {
+  const snap = await fetchSnapshot('unifiedFeed');
+  if (!Array.isArray(snap)) return null;
+  const found = snap.find((row) => {
+    if (row.verb !== verb) return false;
+    const uri = row?.atUri || '';
+    if (!uri.endsWith(`/${rkey}`)) return false;
+    if (nsid && !uri.includes(`/${nsid}/`)) return false;
+    return true;
+  });
+  if (!found) return null;
+  // The unified feed already uses our internal feed-item shape — just
+  // attach the raw payload as `raw` so the JSON dump in
+  // GenericRecordBody has something to render.
+  return {
+    verb: found.verb,
+    atUri: found.atUri,
+    cid: found.cid,
+    createdAt: found.createdAt,
+    source: found.source,
+    subject: found.subject,
+    payload: found.payload,
+    raw: { uri: found.atUri, cid: found.cid, value: found.payload },
+  };
 }
 
 async function loadByRkey(snapshotName, rkey, mapper) {
@@ -497,20 +623,48 @@ async function loadByRkey(snapshotName, rkey, mapper) {
   return found ? mapper(found) : null;
 }
 
-async function loadPostFromSnapshot(rkey) {
+async function loadPostFromSnapshot(verb, rkey) {
   const snap = await fetchSnapshot('posts');
   if (!Array.isArray(snap)) return null;
-  const found = snap.find((row) => {
+  // For reposts, prefer rows that explicitly have a `reasonRepost` so we
+  // pick the right row when Dame both reposted *and* authored a post that
+  // shares the same rkey (vanishingly rare, but the disambiguation is
+  // cheap). Falls through to a plain rkey match if no flagged row exists.
+  const wantsRepost = verb === 'reposting';
+  const matchByRkey = (row) => {
     const m = String(row?.post?.uri || '').match(/\/([^/]+)$/);
     return m && m[1] === rkey;
-  });
+  };
+  const found =
+    (wantsRepost &&
+      snap.find(
+        (row) =>
+          matchByRkey(row) &&
+          row?.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
+      )) ||
+    snap.find(matchByRkey);
   if (!found?.post) return null;
   const post = found.post;
+  const isRepost = found?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
+  const reason = isRepost
+    ? {
+        $type: found.reason.$type,
+        indexedAt: found.reason.indexedAt || null,
+        by: {
+          did: found.reason.by?.did,
+          handle: found.reason.by?.handle,
+          displayName: found.reason.by?.displayName,
+          avatar: found.reason.by?.avatar,
+        },
+      }
+    : null;
   return {
-    verb: 'posting',
+    verb: isRepost ? 'reposting' : 'posting',
     atUri: post.uri,
     cid: post.cid,
-    createdAt: post.record?.createdAt || post.indexedAt,
+    createdAt: isRepost
+      ? (reason?.indexedAt || post.indexedAt || post.record?.createdAt)
+      : (post.record?.createdAt || post.indexedAt),
     payload: {
       text: post.record?.text || '',
       facets: post.record?.facets || null,
@@ -528,6 +682,7 @@ async function loadPostFromSnapshot(rkey) {
       embed: post.embed || null,
       embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
+      reason,
     },
     raw: post,
   };
@@ -543,6 +698,7 @@ function recordToFeedItem(verb, record) {
       value.createdAt ||
       value.playedTime ||
       value.playedAt ||
+      value.publishedAt ||
       record.indexedAt ||
       null,
     payload: value,

@@ -10,6 +10,10 @@
 // Designed to never throw fatally — a missing collection (e.g. teal.fm if the
 // NSID has changed) degrades to an empty array so the rest of the build keeps
 // going. Errors are logged to stderr.
+//
+// The set of collections that get fetched is driven by `src/lib/verbRegistry.js`.
+// Adding a new record type to the home feed means adding a verb / collection
+// entry there — this script auto-discovers it on the next run.
 
 import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -26,8 +30,9 @@ import {
   getAuthorFeed,
   listRecords,
   getRecord,
-  toAtUri,
 } from '../src/lib/atproto.js';
+import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
+import { hydrateSubjects } from './lib/resolveSubject.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -54,6 +59,32 @@ async function safe(label, fn, fallback) {
 }
 
 /**
+ * Maps registry NSIDs to the legacy snapshot file names that the rest of
+ * the codebase still reads (`fetchSnapshot('now')`, etc.). NSIDs without
+ * an entry get `<verb>-<source>` filenames instead.
+ */
+const LEGACY_SNAPSHOT_NAME = {
+  'is.dame.now': 'now',
+  'is.dame.blogging.post': 'blogs',
+  'pub.leaflet.document': 'leaflets',
+  'is.dame.creating.work': 'creations',
+  'fm.teal.alpha.feed.play': 'listening',
+};
+
+/**
+ * Deterministic snapshot file name for a given NSID. Uses the legacy
+ * name when one is pinned (so consumers like `fetchSnapshot('now')`
+ * keep working), otherwise a NSID-shaped slug that won't collide when
+ * a verb owns multiple lexicons under the same source (e.g.
+ * `social.grain.gallery` and `social.grain.story` both fall under
+ * verb=photographing/source=grain — naming by NSID keeps them distinct).
+ */
+function snapshotNameFor(verb, source, nsid) {
+  if (LEGACY_SNAPSHOT_NAME[nsid]) return LEGACY_SNAPSHOT_NAME[nsid];
+  return nsid.replace(/\./g, '-');
+}
+
+/**
  * Defensive backfill: every is.dame.* record carries createdAt + updatedAt.
  * Older records may have only createdAt. Mirror it onto updatedAt so the
  * footer's <RecordTimestamp /> never renders broken.
@@ -70,33 +101,49 @@ function backfillTimestamps(records) {
 
 /**
  * Map a record into the unified feed shape.
- *   { verb, createdAt, atUri, payload }
+ *   { verb, createdAt, atUri, payload, source, subject? }
  */
-function toFeedItem(verb, record, { fallbackCreatedAt } = {}) {
+function toFeedItem(verb, record, { source, subject } = {}) {
   const value = record.value || {};
   const createdAt =
     value.createdAt ||
-    value.publishedAt ||  // pub.leaflet.document
     value.playedTime ||  // fm.teal.alpha.feed.play
     value.playedAt ||
+    value.publishedAt || // pub.leaflet.document
     record.indexedAt ||
-    fallbackCreatedAt ||
     null;
-  return {
+  const item = {
     verb,
     createdAt,
     atUri: record.uri || null,
     cid: record.cid || null,
+    source: source || null,
     payload: value,
   };
+  const subj = subject || record._subject;
+  if (subj) item.subject = subj;
+  return item;
 }
 
 function blueskyPostToFeedItem(item) {
   const post = item?.post;
   if (!post?.uri) return null;
+  // Bluesky's getAuthorFeed mixes authored posts and reposts in one stream.
+  // A repost is signalled by `reason.$type === ...#reasonRepost`, where
+  // `post` is still the *original* post (different DID + rkey from anything
+  // on Dame's PDS). Surface those as a separate `reposting` verb so the
+  // home feed badge and styling can distinguish them from authored posts.
+  const isRepost = item?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
+  const reason = isRepost ? condenseReason(item.reason) : null;
   return {
-    verb: 'posting',
-    createdAt: post.record?.createdAt || post.indexedAt || null,
+    verb: isRepost ? 'reposting' : 'posting',
+    source: 'bsky',
+    // Sort reposts by *when Dame reposted*, not the original post's
+    // createdAt — otherwise reposting an older post would bury it deep in
+    // the timeline.
+    createdAt: isRepost
+      ? (reason?.indexedAt || post.indexedAt || post.record?.createdAt || null)
+      : (post.record?.createdAt || post.indexedAt || null),
     atUri: post.uri,
     cid: post.cid || null,
     payload: {
@@ -119,7 +166,7 @@ function blueskyPostToFeedItem(item) {
       embed: post.embed || null,
       embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
-      reason: item.reason || null,
+      reason,
       // Reply context — pulled from the AppView feed item. The `reply`
       // field on the underlying record carries the parent/root URIs; the
       // surrounding `item.reply` carries the resolved post views (one level
@@ -127,6 +174,26 @@ function blueskyPostToFeedItem(item) {
       reply: post.record?.reply || null,
       parent: condensePostView(item?.reply?.parent),
       root: condensePostView(item?.reply?.root),
+    },
+  };
+}
+
+/**
+ * Strip a feed-item `reason` down to a small, render-ready shape. Today
+ * we only care about reposts; future reasons (pinned, etc.) can land here
+ * too.
+ */
+function condenseReason(reason) {
+  if (!reason || reason.$type !== 'app.bsky.feed.defs#reasonRepost') return null;
+  const by = reason.by || {};
+  return {
+    $type: reason.$type,
+    indexedAt: reason.indexedAt || null,
+    by: {
+      did: by.did,
+      handle: by.handle,
+      displayName: by.displayName,
+      avatar: by.avatar,
     },
   };
 }
@@ -227,6 +294,77 @@ function leafletSynopsis(docValue) {
   return joined.slice(0, 277).trimEnd() + '…';
 }
 
+/**
+ * Apply per-collection transforms based on NSID. Mutates the records in
+ * place. Anything we can do in one pass to make rendering easier — slug
+ * mirrors, blob URL bake-ins, etc. — lives here.
+ */
+function transformRecords(records, nsid, pds) {
+  if (!records?.length) return records;
+  for (const r of records) {
+    const v = r?.value;
+    if (!v) continue;
+
+    // Cross-NSID timestamp backfill.
+    if (!v.createdAt && v.publishedAt) v.createdAt = v.publishedAt;
+    if (!v.createdAt && v.playedTime) v.createdAt = v.playedTime;
+    if (!v.createdAt && r.indexedAt) v.createdAt = r.indexedAt;
+    if (v.createdAt && !v.updatedAt) v.updatedAt = v.createdAt;
+  }
+
+  if (nsid === 'pub.leaflet.document') {
+    for (const r of records) {
+      const v = r?.value;
+      if (!v) continue;
+      annotateLeafletBlobs(v, pds);
+      if (!v.summary) v.summary = leafletSynopsis(v);
+    }
+  }
+
+  return records;
+}
+
+/**
+ * Drop records older than `maxAgeDays`. Used to keep noisy reference
+ * verbs (likes, follows) from drowning the timeline.
+ */
+function applyAgeCutoff(records, maxAgeDays) {
+  if (!maxAgeDays) return records;
+  const cutoff = Date.now() - maxAgeDays * 86400 * 1000;
+  return records.filter((r) => {
+    const v = r?.value || {};
+    const ts = v.createdAt || v.playedTime || r.indexedAt;
+    if (!ts) return true;
+    const t = Date.parse(ts);
+    return Number.isFinite(t) ? t >= cutoff : true;
+  });
+}
+
+/**
+ * Fetch every `app.bsky.graph.listitem` record and bucket them under their
+ * parent list URI. Each list record gets a `_members` array of `{ did }`
+ * entries (later resolved to handles via the bsky AppView).
+ */
+async function aggregateListItems(lists, pds) {
+  if (!lists?.length) return;
+  const items = await safe(
+    'listRecords:listitem',
+    () => listRecords(pds, { repo: ME_DID, collection: 'app.bsky.graph.listitem', max: 1000 }),
+    [],
+  );
+  const byList = new Map();
+  for (const it of items) {
+    const v = it?.value;
+    if (!v?.list || !v?.subject) continue;
+    if (!byList.has(v.list)) byList.set(v.list, []);
+    byList.get(v.list).push({ did: v.subject, addedAt: v.createdAt || null });
+  }
+  for (const list of lists) {
+    const members = byList.get(list.uri) || [];
+    list._members = members;
+  }
+}
+
 async function main() {
   log(`me=${ME_DID}`);
   const pds = await safe('resolvePds', () => resolvePds(ME_DID), null);
@@ -261,56 +399,6 @@ async function main() {
   }
   await writeJson('extendedProfile', extendedProfile || {});
 
-  // --- Bluesky author feed --------------------------------------------------
-  const authorFeed = await safe(
-    'getAuthorFeed',
-    () => getAuthorFeed(ME_DID, { max: 200 }),
-    [],
-  );
-  await writeJson('posts', authorFeed);
-
-  // --- is.dame.now (status updates) -----------------------------------------
-  const nowRecords = backfillTimestamps(
-    await safe('listRecords:now', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.now, max: 500 }), []),
-  );
-  await writeJson('now', nowRecords);
-
-  // --- is.dame.blogging.post ------------------------------------------------
-  const blogRecords = backfillTimestamps(
-    await safe('listRecords:blogging', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 }), []),
-  );
-  await writeJson('blogs', blogRecords);
-
-  // --- pub.leaflet.document -------------------------------------------------
-  // Long-form documents authored on leaflet.pub. We mirror them onto
-  // /blogging alongside our own is.dame.blogging.post records.
-  const leafletRecords = await safe(
-    'listRecords:leaflet',
-    () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, max: 200 }),
-    [],
-  );
-  for (const r of leafletRecords) {
-    const v = r?.value;
-    if (!v) continue;
-    // Leaflet docs don't carry createdAt/updatedAt — they have publishedAt.
-    // Mirror it onto createdAt so existing snapshot helpers keep working.
-    if (!v.createdAt && v.publishedAt) v.createdAt = v.publishedAt;
-    if (!v.updatedAt) v.updatedAt = v.createdAt;
-    // Bake blob URLs into block previews / images so the renderer doesn't
-    // need to know about the PDS endpoint.
-    annotateLeafletBlobs(v, pds);
-    // Lift a plaintext synopsis out of the first non-empty text block so
-    // the index page and unified feed have something to show.
-    if (!v.summary) v.summary = leafletSynopsis(v);
-  }
-  await writeJson('leaflets', leafletRecords);
-
-  // --- is.dame.creating.work ------------------------------------------------
-  const creatingRecords = backfillTimestamps(
-    await safe('listRecords:creating', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }), []),
-  );
-  await writeJson('creations', creatingRecords);
-
   // --- is.dame.page (pages keyed by rkey) -----------------------------------
   const pageRecords = backfillTimestamps(
     await safe('listRecords:page', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.page, max: 100 }), []),
@@ -322,25 +410,83 @@ async function main() {
   }
   await writeJson('pages', pages);
 
-  // --- fm.teal.* listening (best effort) ------------------------------------
-  const listening = await safe(
-    'listRecords:listening',
-    () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.listen, max: 100 }),
+  // --- Registry-driven ingest -----------------------------------------------
+  const unified = [];
+  const counts = {};
+
+  // Bluesky author feed — special-cased because the AppView gives us reply
+  // context, counts, and embed views that listRecords can't.
+  const authorFeed = await safe(
+    'getAuthorFeed',
+    () => getAuthorFeed(ME_DID, { max: 200 }),
     [],
   );
-  await writeJson('listening', listening);
-
-  // --- Unified feed ---------------------------------------------------------
-  const unified = [];
-  for (const r of nowRecords) unified.push(toFeedItem('logging', r));
-  for (const r of blogRecords) unified.push(toFeedItem('blogging', r));
-  for (const r of leafletRecords) unified.push(toFeedItem('blogging', r));
-  for (const r of creatingRecords) unified.push(toFeedItem('creating', r));
-  for (const r of listening) unified.push(toFeedItem('listening', r));
+  await writeJson('posts', authorFeed);
+  counts.posts = authorFeed.length;
   for (const item of authorFeed) {
     const f = blueskyPostToFeedItem(item);
     if (f) unified.push(f);
   }
+
+  for (const verbConfig of VERB_REGISTRY) {
+    // Group collections by snapshot file so verbs that span multiple sources
+    // can still produce one merged file per source.
+    const verbAggregate = [];
+
+    for (const c of verbConfig.collections) {
+      if (c.kind === 'appviewFeed') continue; // handled above (posts)
+
+      const label = `listRecords:${c.nsid}`;
+      let records = await safe(
+        label,
+        () => listRecords(pds, { repo: ME_DID, collection: c.nsid, max: c.max || 200 }),
+        [],
+      );
+      transformRecords(records, c.nsid, pds);
+
+      if (c.kind === 'reference') {
+        await safe(`hydrateSubjects:${c.nsid}`, () => hydrateSubjects(records, c), null);
+      }
+
+      if (c.withMembers && c.withMembers === 'app.bsky.graph.listitem') {
+        await aggregateListItems(records, pds);
+      }
+
+      // Per-source / legacy snapshot.
+      const snapName = snapshotNameFor(verbConfig.verb, c.source, c.nsid);
+      await writeJson(snapName, records);
+      counts[snapName] = records.length;
+
+      // Reposts are also surfaced — and *better* surfaced — via the
+      // Bluesky author feed (where `item.reason === reasonRepost` carries
+      // the full original post view). Skip the raw `app.bsky.feed.repost`
+      // listRecords result from the unified feed so we don't show two
+      // copies (one rich, one empty pointer record). The per-source snapshot
+      // is still written above for anything that wants the raw repost log.
+      if (verbConfig.verb === 'reposting' && c.nsid === 'app.bsky.feed.repost') {
+        continue;
+      }
+
+      // Apply age cutoff before pushing into the unified feed; keep the full
+      // set in per-verb snapshots so per-page views can scroll back further.
+      const trimmed = applyAgeCutoff(records, c.maxAgeDays);
+      verbAggregate.push(...trimmed.map((r) => toFeedItem(verbConfig.verb, r, {
+        source: c.source,
+        subject: r._subject || null,
+      })));
+    }
+
+    // Multi-collection verbs also write a combined `<verb>.json` for
+    // page-level consumers that want everything at once.
+    if (verbConfig.collections.filter((c) => c.kind !== 'appviewFeed').length > 1) {
+      // The combined file already lives on disk under the legacy / per-source
+      // names; emit a merged unified-feed-shape file too for convenience.
+      await writeJson(verbConfig.verb, verbAggregate);
+    }
+
+    unified.push(...verbAggregate);
+  }
+
   unified.sort((a, b) => {
     const ax = a.createdAt || '';
     const bx = b.createdAt || '';
@@ -350,6 +496,7 @@ async function main() {
     return ax < bx ? 1 : -1;
   });
   await writeJson('unifiedFeed', unified);
+  counts.unified = unified.length;
 
   // --- Snapshot meta --------------------------------------------------------
   await writeJson('snapshot-meta', {
@@ -357,16 +504,7 @@ async function main() {
     pds,
     appview: APPVIEW,
     did: ME_DID,
-    counts: {
-      posts: authorFeed.length,
-      now: nowRecords.length,
-      blogs: blogRecords.length,
-      leaflets: leafletRecords.length,
-      creations: creatingRecords.length,
-      pages: Object.keys(pages).length,
-      listening: listening.length,
-      unified: unified.length,
-    },
+    counts,
     ok: true,
   });
 

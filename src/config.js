@@ -1,4 +1,9 @@
-// Site-wide constants. Keep in sync with new_plan.md §"Constants".
+// Site-wide constants. The verb/feed surface is configured in
+// `src/lib/verbRegistry.js`; this file pins the few remaining identity
+// values and re-exports the legacy `COLLECTIONS` / `VERBS` symbols that the
+// rest of the codebase already imports.
+
+import { VERBS as REGISTRY_VERBS, primaryNsid, NSIDS } from './lib/verbRegistry.js';
 
 export const ME_DID = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj';
 export const ME_HANDLE = 'dame.is';
@@ -7,20 +12,29 @@ export const GITHUB_REPO = 'dame-is/dame.is';
 export const APPVIEW = 'https://public.api.bsky.app';
 export const PLC_DIRECTORY = 'https://plc.directory';
 
-// PDS collections — gerund-framed under is.dame.* plus a few external
-// lexicons we read alongside our own.
+// Infrastructure-only collections (not surfaced as feed verbs).
+const PAGE_NSID = 'is.dame.page';
+const PROFILE_NSID = 'is.dame.profile';
+
+/**
+ * Legacy verb-or-shorthand → NSID lookup. Existing call sites
+ * (`COLLECTIONS.now`, `COLLECTIONS.listen`, `COLLECTIONS.leaflet`, …) keep
+ * working; new code should reach into `verbRegistry` directly instead.
+ */
 export const COLLECTIONS = {
-  now: 'is.dame.now',
-  blogging: 'is.dame.blogging.post',
-  // pub.leaflet.document — leaflet.pub long-form documents. Surfaced on the
-  // /blogging index alongside is.dame.blogging.post records.
+  now: primaryNsid('logging'),
+  blogging: primaryNsid('blogging'),
+  // pub.leaflet.document is a separate source for the `blogging` verb; keep
+  // a direct alias for the few call sites that still address it by hand.
   leaflet: 'pub.leaflet.document',
-  creating: 'is.dame.creating.work',
-  page: 'is.dame.page',
-  profile: 'is.dame.profile',
-  // teal.fm play records — confirm exact NSID before build.
-  listen: 'fm.teal.alpha.feed.play',
+  creating: primaryNsid('creating'),
+  listen: primaryNsid('listening'),
+  page: PAGE_NSID,
+  profile: PROFILE_NSID,
 };
 
-// Verbs used in the unified feed timeline.
-export const VERBS = ['logging', 'posting', 'blogging', 'listening', 'creating'];
+/** Gerund verbs surfaced on the home feed. Sourced from the registry. */
+export const VERBS = REGISTRY_VERBS;
+
+/** Every NSID the site knows how to ingest. Useful for routing fall-through. */
+export const KNOWN_NSIDS = NSIDS;

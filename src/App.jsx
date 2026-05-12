@@ -11,6 +11,7 @@ import CreatingWork from './pages/CreatingWork.jsx';
 import Sharing from './pages/Sharing.jsx';
 import Record from './pages/Record.jsx';
 import NotFound from './pages/NotFound.jsx';
+import { VERB_REGISTRY } from './lib/verbRegistry.js';
 
 // Lazy: the ATProto OAuth + Agent bundle is heavy and only used by the owner.
 const Admin = lazy(() => import('./pages/Admin.jsx'));
@@ -25,6 +26,44 @@ import { TypefaceProvider } from './hooks/useTypeface.jsx';
 import { DebugOverlayProvider } from './hooks/useDebugOverlay.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
+
+/**
+ * Verbs whose record page is handled by a bespoke page component (not the
+ * generic `Record.jsx`). The shorthand `/posting/:rkey` etc. routes for
+ * these verbs are declared explicitly below; everything else in the verb
+ * registry gets registered automatically and falls through to Record.jsx.
+ */
+const BESPOKE_VERB_ROUTES = new Set(['blogging', 'creating']);
+
+/**
+ * Build `<Route>` entries for every verb / NSID in the registry. Each
+ * verb gets:
+ *   - `/{verb}/:rkey`  (the short form)
+ *   - `/{nsid}/:rkey`  (the lexicon form) for each of the verb's NSIDs.
+ *
+ * Verbs that already have hand-written pages (e.g. `/blogging/:slug` →
+ * BlogPost.jsx) skip the short form so we don't fight over the same path.
+ */
+function generatedRecordRoutes() {
+  const out = [];
+  for (const v of VERB_REGISTRY) {
+    if (!BESPOKE_VERB_ROUTES.has(v.verb)) {
+      out.push(
+        <Route key={`v:${v.verb}`} path={`/${v.verb}/:rkey`} element={<Record verb={v.verb} />} />,
+      );
+    }
+    for (const c of v.collections) {
+      out.push(
+        <Route
+          key={`n:${c.nsid}`}
+          path={`/${c.nsid}/:rkey`}
+          element={<Record verb={v.verb} nsid={c.nsid} source={c.source} />}
+        />,
+      );
+    }
+  }
+  return out;
+}
 
 export default function App() {
   return (
@@ -42,21 +81,13 @@ export default function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/posting" element={<Posting />} />
-                  <Route path="/posting/:rkey" element={<Record verb="posting" />} />
-                  <Route path="/app.bsky.feed.post/:rkey" element={<Record verb="posting" />} />
                   <Route path="/logging" element={<Logging />} />
-                  <Route path="/logging/:rkey" element={<Record verb="logging" />} />
-                  <Route path="/is.dame.now/:rkey" element={<Record verb="logging" />} />
-                  <Route path="/listening/:rkey" element={<Record verb="listening" />} />
-                  <Route path="/fm.teal.alpha.feed.play/:rkey" element={<Record verb="listening" />} />
                   <Route path="/blogging" element={<Blogging />} />
                   <Route path="/blogging/:slug" element={<BlogPost />} />
-                  <Route path="/is.dame.blogging.post/:rkey" element={<Record verb="blogging" />} />
-                  <Route path="/pub.leaflet.document/:slug" element={<BlogPost />} />
                   <Route path="/creating" element={<Creating />} />
                   <Route path="/creating/:slug" element={<CreatingWork />} />
-                  <Route path="/is.dame.creating.work/:rkey" element={<Record verb="creating" />} />
                   <Route path="/sharing" element={<Sharing />} />
+                  {generatedRecordRoutes()}
                   <Route
                     path="/admin"
                     element={
