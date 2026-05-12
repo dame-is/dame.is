@@ -21,7 +21,7 @@
     { "source": "/is.dame.now/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.blogging.post/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.creating.work/:rkey", "destination": "/index.html" },
-    { "source": "/((?!api/|assets/|.*\\.).*)", "destination": "/index.html" }
+    { "source": "/:path*", "destination": "/index.html" }
   ],
   "redirects": [
     { "source": "/blog", "destination": "/blogging", "permanent": true },
