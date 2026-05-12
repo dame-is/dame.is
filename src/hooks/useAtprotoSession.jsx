@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getOauthClient, OAUTH_SCOPE } from '../lib/oauthClient.js';
+import { getOauthClient, getOauthEvents, OAUTH_SCOPE } from '../lib/oauthClient.js';
 
 const Ctx = createContext(null);
 
@@ -40,14 +40,15 @@ export function AtprotoSessionProvider({ children }) {
         if (!cancelled) setLoading(false);
       });
 
+    const events = getOauthEvents();
     const onDeleted = (event) => {
       const sub = event?.detail?.sub;
       setSession((current) => (current && current.sub === sub ? null : current));
     };
-    client.addEventListener('deleted', onDeleted);
+    events.addEventListener('deleted', onDeleted);
     return () => {
       cancelled = true;
-      client.removeEventListener('deleted', onDeleted);
+      events.removeEventListener('deleted', onDeleted);
     };
   }, []);
 
