@@ -325,6 +325,54 @@ function transformRecords(records, nsid, pds) {
 }
 
 /**
+ * When a verb spans multiple publishing tools that mirror the same
+ * record (currently: standard.site + pub.leaflet for blogging), collapse
+ * duplicates by normalized title. Source priority resolves ties — the
+ * first source listed wins.
+ *
+ * Records authored under `is.dame.*` lexicons are never deduped against
+ * external tools: those are first-party originals and should always
+ * surface, even if a syndication tool happens to share their title.
+ */
+const DEDUPE_PRIORITY = {
+  blogging: ['standard', 'leaflet'],
+};
+
+function dedupeVerbAggregate(verb, items) {
+  const priority = DEDUPE_PRIORITY[verb];
+  if (!priority) return items;
+  const rank = (s) => {
+    const idx = priority.indexOf(s);
+    return idx === -1 ? Number.POSITIVE_INFINITY : idx;
+  };
+  const isDedupable = (item) => priority.includes(item.source);
+
+  const winnerByTitle = new Map();
+  for (const item of items) {
+    if (!isDedupable(item)) continue;
+    const key = normalizeTitle(item.payload?.title);
+    if (!key) continue;
+    const current = winnerByTitle.get(key);
+    if (!current || rank(item.source) < rank(current.source)) {
+      winnerByTitle.set(key, item);
+    }
+  }
+
+  return items.filter((item) => {
+    if (!isDedupable(item)) return true;
+    const key = normalizeTitle(item.payload?.title);
+    if (!key) return true;
+    const winner = winnerByTitle.get(key);
+    return !winner || winner === item;
+  });
+}
+
+function normalizeTitle(title) {
+  if (!title) return '';
+  return String(title).toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+/**
  * Drop records older than `maxAgeDays`. Used to keep noisy reference
  * verbs (likes, follows) from drowning the timeline.
  */
@@ -476,15 +524,22 @@ async function main() {
       })));
     }
 
+    // Cross-source dedupe. Some verbs span multiple publishing tools
+    // that write the same logical record to multiple lexicons (e.g.
+    // standard.site and leaflet.pub both ingest the same blog post via
+    // atproto). For these, collapse duplicates by title so the home
+    // feed doesn't show the same article twice.
+    const deduped = dedupeVerbAggregate(verbConfig.verb, verbAggregate);
+
     // Multi-collection verbs also write a combined `<verb>.json` for
     // page-level consumers that want everything at once.
     if (verbConfig.collections.filter((c) => c.kind !== 'appviewFeed').length > 1) {
       // The combined file already lives on disk under the legacy / per-source
       // names; emit a merged unified-feed-shape file too for convenience.
-      await writeJson(verbConfig.verb, verbAggregate);
+      await writeJson(verbConfig.verb, deduped);
     }
 
-    unified.push(...verbAggregate);
+    unified.push(...deduped);
   }
 
   unified.sort((a, b) => {

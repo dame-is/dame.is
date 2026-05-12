@@ -486,15 +486,105 @@ a.post-card-author-link:focus-visible {
   gap: var(--space-2);
 }
 
-.reference-card-time {
-  align-self: flex-start;
+.reference-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.reference-card-row-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.reference-card-compact {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.reference-card-compact-link {
   text-decoration: none;
-  white-space: nowrap;
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease;
+}
+
+.reference-card-compact-link:hover,
+.reference-card-compact-link:focus-visible {
+  border-bottom-color: var(--accent-soft);
+}
+
+.reference-card-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  vertical-align: middle;
+}
+
+.reference-card-author-avatar {
+  border-radius: 50%;
+  border: 1px solid var(--rule-soft);
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+.reference-card-author-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.reference-card-author-handle {
   color: var(--ink-faint);
 }
 
+.reference-card-author-source {
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.reference-card-time {
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+.reference-card-expand {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  cursor: pointer;
+  width: 1.6em;
+  height: 1.6em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  font-family: var(--mono-ui, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  line-height: 1;
+  padding: 0;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.reference-card-expand:hover,
+.reference-card-expand:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--highlight);
+  outline: none;
+}
+
 .reference-card-missing {
-  margin: 0;
   color: var(--ink-muted);
   font-style: italic;
 }

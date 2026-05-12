@@ -94,6 +94,16 @@
   color: var(--ink-faint);
 }
 
+.feed-chip-more {
+  border-style: dashed;
+  color: var(--ink-muted);
+}
+
+.feed-chip-more:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
 .feed-search {
   position: relative;
   display: inline-flex;
