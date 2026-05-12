@@ -54,16 +54,27 @@ export default function ChromeBar() {
             key="secondary"
             id="chrome-bar-secondary"
             className="chrome-bar-row chrome-bar-secondary"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: reduce ? 0 : 0.32, ease: [0.2, 0.7, 0.2, 1] }}
+            initial={{ height: 0 }}
+            animate={{ height: 'auto' }}
+            exit={{ height: 0 }}
+            transition={{ duration: reduce ? 0 : 0.36, ease: [0.32, 0.72, 0, 1] }}
+            style={{ overflow: 'hidden' }}
           >
-            <div className="chrome-signals chrome-signals-secondary">
+            <motion.div
+              className="chrome-signals chrome-signals-secondary"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{
+                duration: reduce ? 0 : 0.28,
+                ease: [0.22, 0.61, 0.36, 1],
+                delay: reduce ? 0 : 0.06,
+              }}
+            >
               <NowPlaying />
               <DayOfLifeTicker />
               <ProfileStats />
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

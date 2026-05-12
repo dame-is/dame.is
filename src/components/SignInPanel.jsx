@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
+import { getProfile } from '../lib/atproto.js';
 import './SignInPanel.css';
 
 /**
@@ -17,6 +18,23 @@ export default function SignInPanel({ onAction }) {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [handle, setHandle] = useState(null);
+
+  useEffect(() => {
+    setHandle(null);
+    if (!did) return undefined;
+    let cancelled = false;
+    getProfile(did)
+      .then((profile) => {
+        if (cancelled) return;
+        const h = profile?.handle;
+        if (h && h !== 'handle.invalid') setHandle(h);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [did]);
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -51,7 +69,11 @@ export default function SignInPanel({ onAction }) {
       <div className="signin-panel">
         <div className="signin-status">
           <span className="small-caps signin-status-label">signed in</span>
-          <code className="signin-did" title={did || ''}>{shortDid(did)}</code>
+          {handle ? (
+            <span className="signin-handle" title={did || ''}>@{handle}</span>
+          ) : (
+            <code className="signin-did" title={did || ''}>{shortDid(did)}</code>
+          )}
         </div>
         {isOwner && (
           <Link to="/admin" className="dock-tool signin-admin-link" onClick={onAction}>

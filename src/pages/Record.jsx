@@ -43,35 +43,51 @@ export default function Record({ verb }) {
   // Parent chain for posts. Newest-first array of condensed post views,
   // i.e. parents[0] is the immediate parent, parents[N-1] is the root.
   const [parents, setParents] = useState([]);
+  // Direct replies to *this* post, as `threadViewPost` nodes (each with their
+  // own nested `replies`). Drives the comments tree below the record.
+  const [replies, setReplies] = useState([]);
+  const [repliesStatus, setRepliesStatus] = useState('idle'); // idle | loading | ready | error
 
   useEffect(() => {
     setItem(null);
     setMissing(false);
     setParents([]);
+    setReplies([]);
+    setRepliesStatus('idle');
   }, [verb, rkey]);
 
-  // Resolve the parent chain for posts that are replies. Uses the AppView's
-  // app.bsky.feed.getPostThread and walks up `parent.parent…`. Falls back to
-  // whatever the snapshot already gave us if the live call fails.
+  // Single AppView round-trip resolves both halves of the conversation:
+  //   - parents (walk up `thread.parent…`) for the context block above
+  //   - replies (`thread.replies`) for the comments tree below
+  // This used to be split across two effects (and a third-party comments
+  // package). The seeded parent from the snapshot still paints first so the
+  // page never feels empty while the request is in flight.
   useEffect(() => {
     if (verb !== 'posting' || !item?.atUri) return;
-    const replyParent = item?.payload?.parent || item?.payload?.reply?.parent;
-    if (!replyParent) return;
+    const isReply = Boolean(item?.payload?.parent || item?.payload?.reply?.parent);
+
+    if (isReply && item.payload.parent?.uri && item.payload.parent.author) {
+      setParents([item.payload.parent]);
+    }
 
     let cancelled = false;
+    setRepliesStatus('loading');
     async function load() {
-      // Seed from the snapshot so the parent appears instantly even before
-      // the AppView call lands.
-      if (item.payload.parent?.uri && item.payload.parent.author) {
-        setParents([item.payload.parent]);
-      }
       try {
-        const thread = await getPostThread(item.atUri, { parentHeight: 6, depth: 0 });
+        const thread = await getPostThread(item.atUri, {
+          parentHeight: 6,
+          depth: 6,
+        });
         if (cancelled) return;
         const chain = collectParents(thread?.thread);
         if (chain.length) setParents(chain);
+        const childReplies = Array.isArray(thread?.thread?.replies)
+          ? thread.thread.replies
+          : [];
+        setReplies(childReplies);
+        setRepliesStatus('ready');
       } catch {
-        // keep snapshot fallback
+        if (!cancelled) setRepliesStatus('error');
       }
     }
     load();
@@ -165,7 +181,11 @@ export default function Record({ verb }) {
         )}
 
         {verb === 'posting' && item?.atUri && (
-          <Comments atUri={item.atUri} />
+          <Comments
+            atUri={item.atUri}
+            replies={replies}
+            status={repliesStatus}
+          />
         )}
 
         <p className="record-page-aturi gutter">

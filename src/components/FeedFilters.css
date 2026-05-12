@@ -5,7 +5,6 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--rule);
   margin-bottom: var(--space-5);
 }
 
@@ -83,8 +82,8 @@
   appearance: none;
   -webkit-appearance: none;
   font-family: var(--sans);
-  font-size: var(--text-sm);
-  padding: 0.45em 1.8em 0.45em 2em;
+  font-size: var(--text-xs);
+  padding: 0.35em 1.8em 0.35em 2em;
   border: 1px solid var(--rule);
   border-radius: 0;
   background: var(--page-edge);

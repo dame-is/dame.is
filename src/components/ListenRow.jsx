@@ -28,15 +28,15 @@ export default function ListenRow({ payload, atUri, count, plays }) {
               className="listen-row-toggle gutter"
               onClick={() => setExpanded((e) => !e)}
               aria-expanded={expanded}
-              aria-label={`${expanded ? 'Hide' : 'Show'} all ${count} plays`}
+              aria-label={`${expanded ? 'Hide' : 'Show'} all ${count} songs`}
             >
-              {count} plays
+              {count} songs
               <span className="listen-row-toggle-caret" aria-hidden="true">
                 {expanded ? '−' : '+'}
               </span>
             </button>
           ) : (
-            <span className="listen-row-count gutter">{count} plays</span>
+            <span className="listen-row-count gutter">{count} songs</span>
           )
         )}
       </div>

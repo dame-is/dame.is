@@ -398,6 +398,13 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   max-width: var(--measure);
 }
 
+.feed-day-group .feed-list > li:last-child .post-card,
+.feed-day-group .feed-list > li:last-child .blog-card,
+.feed-day-group .feed-list > li:last-child .creating-card {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
 .feed-empty {
   color: var(--ink-muted);
   font-style: italic;

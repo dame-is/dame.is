@@ -42,6 +42,7 @@
   font-size: var(--text-lg);
   color: var(--ink-soft);
   max-width: var(--measure);
+  margin-bottom: 0;
 }
 
 .placeholder-card {

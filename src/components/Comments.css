@@ -9,10 +9,122 @@
   font-variant: all-small-caps;
   letter-spacing: 0.18em;
   color: var(--ink-muted);
-  margin-bottom: var(--space-4);
+  margin: 0 0 var(--space-4);
 }
 
-.comments-section .bluesky-comments-wrapper,
-.comments-section .bsky-comments {
-  font-family: var(--sans);
+.comments-tree {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.comments-tree-nested {
+  margin-top: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--rule-soft);
+}
+
+.comment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.comment-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.comment-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.comment-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--rule);
+  object-fit: cover;
+  background: var(--surface-soft, transparent);
+  flex: 0 0 auto;
+}
+
+.comment-avatar-fallback {
+  display: inline-block;
+  background:
+    linear-gradient(135deg, var(--rule-soft, #ddd) 0%, var(--rule, #bbb) 100%);
+}
+
+.comment-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.comment-author {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.comment-author-name {
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+
+a.comment-author-name:hover,
+a.comment-author-name:focus-visible {
+  border-bottom-color: var(--accent-soft);
+}
+
+.comment-author-handle {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  letter-spacing: 0.04em;
+}
+
+.comment-time {
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.comment-time a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+
+.comment-time a:hover,
+.comment-time a:focus-visible {
+  border-bottom-color: var(--ink-faint);
+}
+
+.comment-text {
+  font-family: var(--serif);
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  padding-left: calc(1.75rem + var(--space-3));
+}
+
+.comment-missing {
+  font-style: italic;
+  color: var(--ink-faint);
+  padding: var(--space-2) 0;
 }

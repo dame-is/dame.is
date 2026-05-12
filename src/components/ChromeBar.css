@@ -27,6 +27,15 @@
 
 .chrome-bar-primary {
   flex: 0 0 auto;
+  align-items: baseline;
+}
+
+.chrome-bar-primary .chrome-signals-primary {
+  align-items: baseline;
+}
+
+.chrome-bar-primary .chrome-expand {
+  align-self: center;
 }
 
 .chrome-bar-secondary {
@@ -118,6 +127,15 @@
   font-weight: 600;
 }
 
+.chrome-signal-status .chrome-signal-value {
+  color: var(--ink-muted);
+}
+
+.chrome-signal-status .chrome-signal-value strong {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
 .chrome-signal-meta {
   color: var(--ink-faint);
   font-weight: 400;
@@ -152,7 +170,7 @@
   padding: 0;
   margin-right: calc(-1 * var(--space-2));
   border: 1px solid var(--rule);
-  border-radius: 999px;
+  border-radius: 4px;
   background: transparent;
   color: var(--ink-faint);
   cursor: pointer;
