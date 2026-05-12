@@ -66,7 +66,18 @@ export default function PostCard({ verb, payload, createdAt, atUri, variant = 't
       )}
       {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
       {showOriginalAuthor && variant !== 'parent' && (
-        <OriginalAuthorHeader author={payload.author} atUri={atUri} />
+        <OriginalAuthorHeader
+          author={payload.author}
+          // For reposts, prefer the *original* post's at:// when building
+          // the outbound bsky.app link — `atUri` here is Dame's repost
+          // record on her own PDS.
+          subjectUri={payload?.subjectUri || atUri}
+        />
+      )}
+      {payload?.subjectMissing && (
+        <p className="post-card-text post-card-missing-subject">
+          <em>The reposted post is unavailable (deleted, blocked, or its server is unreachable).</em>
+        </p>
       )}
       {(text || (ts && variant !== 'record')) && (
         <div className="post-card-row">
@@ -138,13 +149,13 @@ function RepostBadge({ reason, variant }) {
  * Author header for posts that *aren't* Dame's own (today: reposts). Links
  * out to the author's bsky.app profile since we don't host their records.
  */
-function OriginalAuthorHeader({ author, atUri }) {
+function OriginalAuthorHeader({ author, subjectUri }) {
   const handle = author?.handle;
   const displayName = author?.displayName;
   const avatar = author?.avatar;
   const profileHref = handle ? `https://bsky.app/profile/${handle}` : null;
-  const externalPostHref = handle && atUri
-    ? `https://bsky.app/profile/${handle}/post/${atUri.split('/').pop()}`
+  const externalPostHref = handle && subjectUri
+    ? `https://bsky.app/profile/${handle}/post/${subjectUri.split('/').pop()}`
     : profileHref;
   const Wrapper = ({ children }) =>
     externalPostHref ? (

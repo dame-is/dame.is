@@ -128,22 +128,15 @@ function toFeedItem(verb, record, { source, subject } = {}) {
 function blueskyPostToFeedItem(item) {
   const post = item?.post;
   if (!post?.uri) return null;
-  // Bluesky's getAuthorFeed mixes authored posts and reposts in one stream.
-  // A repost is signalled by `reason.$type === ...#reasonRepost`, where
-  // `post` is still the *original* post (different DID + rkey from anything
-  // on Dame's PDS). Surface those as a separate `reposting` verb so the
-  // home feed badge and styling can distinguish them from authored posts.
-  const isRepost = item?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
-  const reason = isRepost ? condenseReason(item.reason) : null;
+  // Reposts in the author feed are owned by the `reposting` verb, which is
+  // ingested separately from `app.bsky.feed.repost` on Dame's PDS (with
+  // its subject hydrated to the full original post via `getPosts`). Skip
+  // them here so we don't double-count.
+  if (item?.reason?.$type === 'app.bsky.feed.defs#reasonRepost') return null;
   return {
-    verb: isRepost ? 'reposting' : 'posting',
+    verb: 'posting',
     source: 'bsky',
-    // Sort reposts by *when Dame reposted*, not the original post's
-    // createdAt — otherwise reposting an older post would bury it deep in
-    // the timeline.
-    createdAt: isRepost
-      ? (reason?.indexedAt || post.indexedAt || post.record?.createdAt || null)
-      : (post.record?.createdAt || post.indexedAt || null),
+    createdAt: post.record?.createdAt || post.indexedAt || null,
     atUri: post.uri,
     cid: post.cid || null,
     payload: {
@@ -166,7 +159,6 @@ function blueskyPostToFeedItem(item) {
       embed: post.embed || null,
       embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
-      reason,
       // Reply context — pulled from the AppView feed item. The `reply`
       // field on the underlying record carries the parent/root URIs; the
       // surrounding `item.reply` carries the resolved post views (one level
@@ -179,21 +171,71 @@ function blueskyPostToFeedItem(item) {
 }
 
 /**
- * Strip a feed-item `reason` down to a small, render-ready shape. Today
- * we only care about reposts; future reasons (pinned, etc.) can land here
- * too.
+ * Reshape a raw `app.bsky.feed.repost` feed item into the same payload
+ * shape that PostCard expects for an authored post. The rendered card is
+ * the *original* post (with author, text, embed, etc.); a small `reason`
+ * block captures who reposted it and when so PostCard can render the
+ * "↻ reposted" badge.
+ *
+ * The item's identity (`atUri`, `cid`, `createdAt`, `verb='reposting'`)
+ * stays anchored to Dame's repost record on her PDS so that:
+ *   - per-record routing addresses Dame's own repost rkey
+ *     (`/reposting/{repost-rkey}`), not someone else's post
+ *   - sort order in the feed reflects when Dame reposted, not when the
+ *     original was authored
  */
-function condenseReason(reason) {
-  if (!reason || reason.$type !== 'app.bsky.feed.defs#reasonRepost') return null;
-  const by = reason.by || {};
+function repostToFullPostItem(item, record) {
+  const subject = record._subject;
+  const view = subject?.kind === 'bsky.post' ? subject.view : null;
+  const ref = subject?.ref || record.value?.subject || null;
+  const repostedAt = record.value?.createdAt || record.indexedAt || null;
+  if (!view) {
+    // Subject couldn't be resolved (deleted post, blocked, foreign PDS
+    // unreachable, …). Keep the row but flag the body so PostCard can
+    // render a graceful placeholder instead of an empty card.
+    return {
+      ...item,
+      payload: {
+        ...item.payload,
+        subjectRef: ref,
+        subjectMissing: true,
+        reason: {
+          $type: 'app.bsky.feed.defs#reasonRepost',
+          indexedAt: repostedAt,
+        },
+      },
+    };
+  }
   return {
-    $type: reason.$type,
-    indexedAt: reason.indexedAt || null,
-    by: {
-      did: by.did,
-      handle: by.handle,
-      displayName: by.displayName,
-      avatar: by.avatar,
+    ...item,
+    cid: view.cid || item.cid,
+    payload: {
+      text: view.record?.text || '',
+      facets: view.record?.facets || null,
+      langs: view.record?.langs || null,
+      author: view.author
+        ? {
+            did: view.author.did,
+            handle: view.author.handle,
+            displayName: view.author.displayName,
+            avatar: view.author.avatar,
+          }
+        : null,
+      replyCount: view.replyCount || 0,
+      repostCount: view.repostCount || 0,
+      likeCount: view.likeCount || 0,
+      embed: view.embed || null,
+      embedRecord: view.record?.embed || null,
+      indexedAt: view.indexedAt,
+      // The original post's at:// (someone else's PDS). PostCard uses this
+      // to build outbound links to bsky.app for the original author, while
+      // the surrounding feed-item URL stays pinned to Dame's repost record.
+      subjectUri: view.uri,
+      subjectRef: ref,
+      reason: {
+        $type: 'app.bsky.feed.defs#reasonRepost',
+        indexedAt: repostedAt,
+      },
     },
   };
 }
@@ -505,23 +547,22 @@ async function main() {
       await writeJson(snapName, records);
       counts[snapName] = records.length;
 
-      // Reposts are also surfaced — and *better* surfaced — via the
-      // Bluesky author feed (where `item.reason === reasonRepost` carries
-      // the full original post view). Skip the raw `app.bsky.feed.repost`
-      // listRecords result from the unified feed so we don't show two
-      // copies (one rich, one empty pointer record). The per-source snapshot
-      // is still written above for anything that wants the raw repost log.
-      if (verbConfig.verb === 'reposting' && c.nsid === 'app.bsky.feed.repost') {
-        continue;
-      }
-
       // Apply age cutoff before pushing into the unified feed; keep the full
       // set in per-verb snapshots so per-page views can scroll back further.
       const trimmed = applyAgeCutoff(records, c.maxAgeDays);
-      verbAggregate.push(...trimmed.map((r) => toFeedItem(verbConfig.verb, r, {
-        source: c.source,
-        subject: r._subject || null,
-      })));
+      verbAggregate.push(...trimmed.map((r) => {
+        const item = toFeedItem(verbConfig.verb, r, {
+          source: c.source,
+          subject: r._subject || null,
+        });
+        // Reposts render as full posts using PostCard, not as terse
+        // "a post by …" reference lines. Reshape the payload to mirror
+        // the bsky author-feed shape so PostCard can read it directly.
+        if (verbConfig.verb === 'reposting' && c.nsid === 'app.bsky.feed.repost') {
+          return repostToFullPostItem(item, r);
+        }
+        return item;
+      }));
     }
 
     // Cross-source dedupe. Some verbs span multiple publishing tools

@@ -19,31 +19,17 @@ export default function Posting() {
     fetchSnapshot('posts').then((snap) => {
       if (cancelled || !Array.isArray(snap)) return;
       const mapped = snap
-        .filter((row) => row?.post?.uri)
+        // Reposts are surfaced under the dedicated `reposting` verb (and
+        // their own per-record pages). The /posting index only shows
+        // posts Dame actually authored.
+        .filter((row) => row?.post?.uri && row?.reason?.$type !== 'app.bsky.feed.defs#reasonRepost')
         .map((row) => {
           const post = row.post;
-          const isRepost = row?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
-          const reason = isRepost
-            ? {
-                $type: row.reason.$type,
-                indexedAt: row.reason.indexedAt || null,
-                by: {
-                  did: row.reason.by?.did,
-                  handle: row.reason.by?.handle,
-                  displayName: row.reason.by?.displayName,
-                  avatar: row.reason.by?.avatar,
-                },
-              }
-            : null;
           return {
-            verb: isRepost ? 'reposting' : 'posting',
+            verb: 'posting',
             atUri: post.uri,
             cid: post.cid,
-            // Reposts: sort by when Dame reposted, not when the original
-            // was posted, so they slot into the right day-of-life group.
-            createdAt: isRepost
-              ? (reason?.indexedAt || post.indexedAt || post.record?.createdAt)
-              : (post.record?.createdAt || post.indexedAt),
+            createdAt: post.record?.createdAt || post.indexedAt,
             payload: {
               text: post.record?.text || '',
               author: {
@@ -58,7 +44,6 @@ export default function Posting() {
               embed: post.embed || null,
               embedRecord: post.record?.embed || null,
               indexedAt: post.indexedAt,
-              reason,
               reply: post.record?.reply || null,
               parent: condenseParentView(row.reply?.parent),
               root: condenseParentView(row.reply?.root),

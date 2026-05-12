@@ -114,7 +114,13 @@ export const VERB_REGISTRY = [
   {
     verb: 'reposting',
     icon: 'Repeat2',
-    renderer: 'ReferenceCard',
+    // Repost records on the PDS are just pointers (`subject = { uri, cid }`).
+    // The prefetch step hydrates each one's subject via
+    // `app.bsky.feed.getPosts` and reshapes the row into the full PostCard
+    // payload, so reposts can render inline like authored posts (with a
+    // small "↻ reposted" badge and the original author header).
+    renderer: 'PostCard',
+    recordHref: ({ rkey }) => (rkey ? `/reposting/${rkey}` : null),
     pastTense: 'reposted',
     collections: [
       { nsid: 'app.bsky.feed.repost', source: 'bsky', kind: 'reference', subject: 'bsky.post', max: 200, maxAgeDays: 90 },

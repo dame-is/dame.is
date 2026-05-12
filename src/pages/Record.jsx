@@ -74,6 +74,12 @@ export default function Record({ verb, nsid, source }) {
   useEffect(() => {
     if (verb !== 'posting' && verb !== 'reposting') return;
     if (!item?.atUri) return;
+    // For reposts, the conversation we want to render is the *original*
+    // post's thread (replies, parents, …) — not Dame's repost record,
+    // which has no thread of its own. The original post URI is stashed
+    // on `payload.subjectUri` by the prefetch reshape; fall back to
+    // `atUri` for plain authored posts.
+    const threadUri = item?.payload?.subjectUri || item.atUri;
     const isReply = Boolean(item?.payload?.parent || item?.payload?.reply?.parent);
 
     if (isReply && item.payload.parent?.uri && item.payload.parent.author) {
@@ -84,7 +90,7 @@ export default function Record({ verb, nsid, source }) {
     setRepliesStatus('loading');
     async function load() {
       try {
-        const thread = await getPostThread(item.atUri, {
+        const thread = await getPostThread(threadUri, {
           parentHeight: 6,
           depth: 6,
         });
@@ -192,7 +198,7 @@ export default function Record({ verb, nsid, source }) {
 
         {(verb === 'posting' || verb === 'reposting') && item?.atUri && (
           <Comments
-            atUri={item.atUri}
+            atUri={item?.payload?.subjectUri || item.atUri}
             replies={replies}
             status={repliesStatus}
           />
@@ -565,8 +571,9 @@ function truncate(s, n) {
 async function loadFromSnapshot(verb, rkey, nsid) {
   switch (verb) {
     case 'posting':
+      return loadPostFromSnapshot('posting', rkey);
     case 'reposting':
-      return loadPostFromSnapshot(verb, rkey);
+      return loadRepostFromSnapshot(rkey);
     case 'logging':
       return loadByRkey('now', rkey, (r) => recordToFeedItem('logging', r));
     case 'listening':
@@ -626,45 +633,17 @@ async function loadByRkey(snapshotName, rkey, mapper) {
 async function loadPostFromSnapshot(verb, rkey) {
   const snap = await fetchSnapshot('posts');
   if (!Array.isArray(snap)) return null;
-  // For reposts, prefer rows that explicitly have a `reasonRepost` so we
-  // pick the right row when Dame both reposted *and* authored a post that
-  // shares the same rkey (vanishingly rare, but the disambiguation is
-  // cheap). Falls through to a plain rkey match if no flagged row exists.
-  const wantsRepost = verb === 'reposting';
-  const matchByRkey = (row) => {
+  const found = snap.find((row) => {
     const m = String(row?.post?.uri || '').match(/\/([^/]+)$/);
     return m && m[1] === rkey;
-  };
-  const found =
-    (wantsRepost &&
-      snap.find(
-        (row) =>
-          matchByRkey(row) &&
-          row?.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
-      )) ||
-    snap.find(matchByRkey);
+  });
   if (!found?.post) return null;
   const post = found.post;
-  const isRepost = found?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
-  const reason = isRepost
-    ? {
-        $type: found.reason.$type,
-        indexedAt: found.reason.indexedAt || null,
-        by: {
-          did: found.reason.by?.did,
-          handle: found.reason.by?.handle,
-          displayName: found.reason.by?.displayName,
-          avatar: found.reason.by?.avatar,
-        },
-      }
-    : null;
   return {
-    verb: isRepost ? 'reposting' : 'posting',
+    verb: 'posting',
     atUri: post.uri,
     cid: post.cid,
-    createdAt: isRepost
-      ? (reason?.indexedAt || post.indexedAt || post.record?.createdAt)
-      : (post.record?.createdAt || post.indexedAt),
+    createdAt: post.record?.createdAt || post.indexedAt,
     payload: {
       text: post.record?.text || '',
       facets: post.record?.facets || null,
@@ -682,9 +661,102 @@ async function loadPostFromSnapshot(verb, rkey) {
       embed: post.embed || null,
       embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
-      reason,
     },
     raw: post,
+  };
+}
+
+/**
+ * Load a single reposting feed-item from the `reposting-bsky.json`
+ * snapshot (raw `app.bsky.feed.repost` records with `_subject` already
+ * hydrated to the full original post view via `app.bsky.feed.getPosts`).
+ *
+ * The rkey in `/reposting/{rkey}` is *Dame's* repost record rkey on her
+ * own PDS, not the original post's rkey — so we match against
+ * `record.uri`, not the subject URI.
+ *
+ * The returned item is shaped like an authored post (so PostCard can
+ * render it inline), but `atUri` stays anchored to the repost record so
+ * routing, debug overlays, and "back to /reposting/{rkey}" all stay
+ * consistent. The original post's URI is preserved on
+ * `payload.subjectUri` for the comments / thread lookup.
+ */
+/**
+ * Load a single reposting feed-item.
+ *
+ * The unified feed already contains reposting rows in PostCard-friendly
+ * shape (text/author/embed lifted from the hydrated subject post, with
+ * `payload.subjectUri` pointing at the original post for thread lookup),
+ * so we read from there first. Falls back to the per-collection snapshot
+ * (`app-bsky-feed-repost.json`) and reshapes on the fly when a record
+ * exists on the PDS but didn't make the unified-feed age cutoff.
+ *
+ * The rkey in `/reposting/{rkey}` is *Dame's* repost record rkey on her
+ * own PDS, not the original post's rkey — so we match against the
+ * `at://…/app.bsky.feed.repost/{rkey}` form, not the subject URI.
+ */
+async function loadRepostFromSnapshot(rkey) {
+  const fromUnified = await loadFromUnifiedFeed('reposting', rkey, 'app.bsky.feed.repost');
+  if (fromUnified) return fromUnified;
+
+  const snap = await fetchSnapshot('app-bsky-feed-repost');
+  if (!Array.isArray(snap)) return null;
+  const found = snap.find((r) => {
+    const m = String(r?.uri || '').match(/\/([^/]+)$/);
+    return m && m[1] === rkey;
+  });
+  if (!found) return null;
+  const subject = found._subject;
+  const view = subject?.kind === 'bsky.post' ? subject.view : null;
+  const ref = subject?.ref || found.value?.subject || null;
+  const repostedAt = found.value?.createdAt || found.indexedAt || null;
+  if (!view) {
+    return {
+      verb: 'reposting',
+      atUri: found.uri,
+      cid: found.cid || null,
+      createdAt: repostedAt,
+      payload: {
+        subjectRef: ref,
+        subjectMissing: true,
+        reason: {
+          $type: 'app.bsky.feed.defs#reasonRepost',
+          indexedAt: repostedAt,
+        },
+      },
+      raw: found,
+    };
+  }
+  return {
+    verb: 'reposting',
+    atUri: found.uri,
+    cid: view.cid || found.cid || null,
+    createdAt: repostedAt,
+    payload: {
+      text: view.record?.text || '',
+      facets: view.record?.facets || null,
+      author: view.author
+        ? {
+            did: view.author.did,
+            handle: view.author.handle,
+            displayName: view.author.displayName,
+            avatar: view.author.avatar,
+          }
+        : null,
+      replyCount: view.replyCount || 0,
+      repostCount: view.repostCount || 0,
+      likeCount: view.likeCount || 0,
+      embed: view.embed || null,
+      embedRecord: view.record?.embed || null,
+      indexedAt: view.indexedAt,
+      subjectUri: view.uri,
+      subjectRef: ref,
+      reason: {
+        $type: 'app.bsky.feed.defs#reasonRepost',
+        indexedAt: repostedAt,
+      },
+    },
+    raw: found,
   };
 }
 
