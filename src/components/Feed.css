@@ -72,11 +72,20 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 }
 
 /* StatusEntry */
+.status-entry-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
 .status-entry-text {
   font-family: var(--serif);
   font-size: var(--text-lg);
   margin: 0;
   max-width: var(--measure);
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .status-entry-prefix {
@@ -86,6 +95,12 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 
 .status-entry-body {
   color: var(--ink);
+}
+
+.status-entry-time {
+  flex: 0 0 auto;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 /* PostCard */

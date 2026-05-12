@@ -37,17 +37,15 @@ function useCountUp(target, ms = 700) {
 export default function ProfileStats() {
   const { profile } = useProfile();
   const followers = useCountUp(profile?.followersCount ?? null);
-  const following = useCountUp(profile?.followsCount ?? null);
   if (typeof profile?.followersCount !== 'number') {
     return null;
   }
+  const label = followers === 1 ? 'follower' : 'followers';
   return (
     <span className="chrome-signal chrome-signal-stats">
-      <span className="chrome-signal-label">follows</span>
-      <TickerText className="chrome-signal-value" title={`${followers.toLocaleString()} followers · ${following.toLocaleString()} following`}>
+      <TickerText className="chrome-signal-value" title={`${followers.toLocaleString()} ${label}`}>
         <strong>{followers.toLocaleString()}</strong>
-        <span> · </span>
-        <strong>{following.toLocaleString()}</strong>
+        <span className="chrome-signal-meta"> {label}</span>
       </TickerText>
     </span>
   );

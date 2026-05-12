@@ -52,7 +52,7 @@ export default function Posting() {
   return (
     <PageShell
       verb="posting"
-      title={<><span className="gerund">Dame is&hellip;</span> posting</>}
+      title="Posting"
       intro="Bluesky posts, freshest first, grouped by day-of-life."
       atUri={`at://${ME_DID}/is.dame.page/posting`}
       headTitle="Posting — Dame is&hellip;"

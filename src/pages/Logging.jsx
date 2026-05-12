@@ -36,7 +36,7 @@ export default function Logging() {
   return (
     <PageShell
       verb="logging"
-      title={<><span className="gerund">Dame is&hellip;</span> logging</>}
+      title="Logging"
       intro="Status updates, archived. Each entry is one is.dame.now record."
       atUri={`at://${ME_DID}/is.dame.page/logging`}
       headTitle="Logging — Dame is&hellip;"

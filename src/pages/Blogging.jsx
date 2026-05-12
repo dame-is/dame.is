@@ -32,7 +32,7 @@ export default function Blogging() {
   return (
     <PageShell
       verb="blogging"
-      title={<><span className="gerund">Dame is&hellip;</span> blogging</>}
+      title="Blogging"
       intro="A book of long-form posts. Each entry is an is.dame.blogging.post record."
       atUri={`at://${ME_DID}/is.dame.page/blogging`}
       headTitle="Blogging — Dame is&hellip;"

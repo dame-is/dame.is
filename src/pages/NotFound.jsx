@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <PageShell
       verb="missing"
-      title={<><span className="gerund">Dame is&hellip;</span> nowhere to be found</>}
+      title="Nowhere to be found"
       intro="No record exists at this URL."
       headTitle="Not found — Dame is…"
     >

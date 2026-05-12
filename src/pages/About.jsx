@@ -31,7 +31,7 @@ export default function About() {
   return (
     <PageShell
       verb="introducing"
-      title={<><span className="gerund">Dame is&hellip;</span> {profile?.displayName || 'Dame'}</>}
+      title={profile?.displayName || 'About'}
       headTitle="About — Dame is…"
       atUri={`at://${ME_DID}/is.dame.profile/self`}
     >

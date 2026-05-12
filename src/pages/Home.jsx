@@ -94,8 +94,8 @@ export default function Home() {
   return (
     <PageShell
       verb="being"
-      title={<><span className="gerund">Dame is&hellip;</span> a website built atop records</>}
-      intro="An atmospheric site. Every entry below is a record on the AT Protocol — statuses, posts, blogs, plays, and works, interleaved by time."
+      title="Latest"
+      intro="A live feed of my Atmosphere data — statuses, posts, blogs, plays, and works, interleaved by time."
       atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="Dame is&hellip;"
     >
