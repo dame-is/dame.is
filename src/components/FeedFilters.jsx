@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
-import { VERBS, SOURCES, verbConfig } from '../lib/verbRegistry.js';
+import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
 import VerbIcon from './VerbIcon.jsx';
 import FeedSearch from './FeedSearch.jsx';
 import './FeedFilters.css';
@@ -16,43 +16,43 @@ import './FeedFilters.css';
 const VISIBLE_VERB_LIMIT = 5;
 
 /**
- * Verb-chip multi-select + source sub-filter + free-text search, all
- * synced to URL params:
- *   ?verbs=posting,blogging&sources=bsky,leaflet&q=mothing
+ * Verb-chip multi-select + free-text search, both synced to URL params:
+ *   ?verbs=posting,blogging&q=mothing
  *
- * The source row only renders for verbs that span more than one source
- * (or when no verb is selected) so single-source filters aren't cluttered
- * by a redundant "bsky" toggle.
+ * When the `verbs` param is absent, the default verb set from the
+ * registry takes over (everything except the high-volume reference
+ * verbs like `liking` and `voting`). To see those, the user has to
+ * click their chip explicitly.
  */
-export default function FeedFilters({ counts, sourceCounts }) {
+export default function FeedFilters({ counts }) {
   const [params, setParams] = useSearchParams();
   const [verbsExpanded, setVerbsExpanded] = useState(false);
-  const activeVerbs = new Set((params.get('verbs') || '').split(',').filter(Boolean));
-  const activeSources = new Set((params.get('sources') || '').split(',').filter(Boolean));
+  const activeVerbs = resolveActiveVerbs(params);
 
-  function toggleSetParam(key, value) {
-    const next = new Set(key === 'verbs' ? activeVerbs : activeSources);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
+  function toggleVerb(v) {
+    const next = new Set(activeVerbs);
+    if (next.has(v)) next.delete(v);
+    else next.add(v);
     setParams((prev) => {
       const out = new URLSearchParams(prev);
-      if (next.size === 0) out.delete(key);
-      else out.set(key, Array.from(next).join(','));
+      // Always write the explicit list once the user starts toggling, so
+      // their choice doesn't drift if we ever change the defaults.
+      out.set('verbs', Array.from(next).join(','));
       return out;
     }, { replace: true });
   }
 
-  function clear(key) {
+  function resetToDefault() {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
-      out.delete(key);
+      out.delete('verbs');
       return out;
     }, { replace: true });
   }
 
-  const sources = visibleSources(activeVerbs);
   const visibleVerbs = computeVisibleVerbs(VERBS, activeVerbs, verbsExpanded);
   const hiddenCount = VERBS.length - visibleVerbs.length;
+  const usingDefaults = !params.has('verbs');
 
   return (
     <div className="feed-filters">
@@ -66,7 +66,7 @@ export default function FeedFilters({ counts, sourceCounts }) {
                 key={v}
                 type="button"
                 className={`feed-chip ${active ? 'is-active' : ''}`}
-                onClick={() => toggleSetParam('verbs', v)}
+                onClick={() => toggleVerb(v)}
                 aria-pressed={active}
               >
                 <VerbIcon verb={v} size={13} className="feed-chip-icon" />
@@ -95,52 +95,38 @@ export default function FeedFilters({ counts, sourceCounts }) {
               )}
             </button>
           )}
-          {activeVerbs.size > 0 && (
+          {!usingDefaults && (
             <button
               type="button"
               className="feed-chip feed-chip-clear"
-              onClick={() => clear('verbs')}
+              onClick={resetToDefault}
+              title="Reset to default verbs"
             >
               <X size={13} aria-hidden="true" className="feed-chip-icon" />
-              <span className="small-caps">clear</span>
+              <span className="small-caps">reset</span>
             </button>
           )}
         </div>
-
-        {sources.length > 1 && (
-          <div className="feed-chips feed-chips-sources" role="group" aria-label="Filter by source">
-            {sources.map((s) => {
-              const active = activeSources.has(s);
-              const count = sourceCounts?.[s];
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  className={`feed-chip feed-chip-source ${active ? 'is-active' : ''}`}
-                  onClick={() => toggleSetParam('sources', s)}
-                  aria-pressed={active}
-                >
-                  <span className="feed-chip-label small-caps">{s}</span>
-                  {typeof count === 'number' && <span className="feed-chip-count gutter">{count}</span>}
-                </button>
-              );
-            })}
-            {activeSources.size > 0 && (
-              <button
-                type="button"
-                className="feed-chip feed-chip-clear"
-                onClick={() => clear('sources')}
-              >
-                <X size={13} aria-hidden="true" className="feed-chip-icon" />
-                <span className="small-caps">clear</span>
-              </button>
-            )}
-          </div>
-        )}
       </div>
       <FeedSearch label="Search the feed" />
     </div>
   );
+}
+
+/**
+ * Active verbs derived from the URL params. Empty `verbs` param falls
+ * back to the registry's default set so the home feed isn't flooded
+ * with high-volume reference verbs (likes, votes) on first load.
+ *
+ * Setting `verbs=` (with no value) is treated as "all enabled" — useful
+ * for power users who want to clear the default filtering without
+ * picking each chip individually.
+ */
+function resolveActiveVerbs(params) {
+  if (!params.has('verbs')) return new Set(DEFAULT_HOME_VERBS);
+  const raw = (params.get('verbs') || '').split(',').filter(Boolean);
+  if (raw.length === 0) return new Set(VERBS);
+  return new Set(raw);
 }
 
 /**
@@ -160,32 +146,15 @@ function computeVisibleVerbs(allVerbs, activeVerbs, expanded) {
 }
 
 /**
- * Which source chips to show. If the user has selected one or more verbs,
- * limit to the union of those verbs' sources; otherwise show every source
- * in the registry.
- */
-function visibleSources(activeVerbs) {
-  if (activeVerbs.size === 0) return SOURCES;
-  const set = new Set();
-  for (const v of activeVerbs) {
-    const cfg = verbConfig(v);
-    if (!cfg) continue;
-    for (const c of cfg.collections) set.add(c.source);
-  }
-  return Array.from(set);
-}
-
-/**
  * Filter helper used by Home.jsx and any other consumer of the registry
- * unified feed. Intersects verb + source filters and a free-text search.
+ * unified feed. Honors the same default-verb fallback as the chip UI so
+ * the visible feed and the visible chips agree about what's "active".
  */
 export function filterFeed(items, params) {
-  const verbs = (params.get('verbs') || '').split(',').filter(Boolean);
-  const sources = (params.get('sources') || '').split(',').filter(Boolean);
+  const activeVerbs = resolveActiveVerbs(params);
   const q = (params.get('q') || '').trim().toLowerCase();
   return items.filter((item) => {
-    if (verbs.length && !verbs.includes(item.verb)) return false;
-    if (sources.length && !sources.includes(item.source || item.payload?.source)) return false;
+    if (!activeVerbs.has(item.verb)) return false;
     if (!q) return true;
     const hay = textForMatch(item).toLowerCase();
     return hay.includes(q);

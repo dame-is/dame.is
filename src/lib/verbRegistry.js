@@ -186,6 +186,25 @@ for (const v of VERB_REGISTRY) {
 /** All gerund verbs in registry order. Drives FeedFilters chip layout. */
 export const VERBS = VERB_REGISTRY.map((v) => v.verb);
 
+/**
+ * Verbs enabled in the home feed by default (when no `verbs=` URL param
+ * is present). Excludes high-volume reference verbs that would dominate
+ * the timeline if shown unfiltered — toggling them on is opt-in.
+ */
+export const DEFAULT_HOME_VERBS = [
+  'logging',
+  'posting',
+  'blogging',
+  'listening',
+  'creating',
+  'photographing',
+  'reposting',
+  'following',
+  'listing',
+  'feeding',
+  'commenting',
+];
+
 /** Distinct source tags across the registry. Drives the source sub-filter. */
 export const SOURCES = Array.from(
   new Set(VERB_REGISTRY.flatMap((v) => v.collections.map((c) => c.source))),

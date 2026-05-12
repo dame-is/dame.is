@@ -68,16 +68,6 @@ export default function Home() {
     return c;
   }, [feed]);
 
-  const sourceCounts = useMemo(() => {
-    const c = {};
-    for (const item of feed) {
-      const s = item.source || item.payload?.source;
-      if (!s) continue;
-      c[s] = (c[s] || 0) + 1;
-    }
-    return c;
-  }, [feed]);
-
   const filtered = useMemo(() => filterFeed(feed, params), [feed, params]);
   const collapsed = useMemo(() => collapseListens(filtered), [filtered]);
   const groups = useMemo(() => groupByDay(collapsed, (i) => i.createdAt), [collapsed]);
@@ -89,7 +79,7 @@ export default function Home() {
       atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="Dame is&hellip;"
     >
-      <FeedFilters counts={counts} sourceCounts={sourceCounts} />
+      <FeedFilters counts={counts} />
       {filtered.length === 0 ? (
         <p className="feed-empty">No records match these filters.</p>
       ) : (
