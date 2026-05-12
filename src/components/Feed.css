@@ -210,7 +210,7 @@ a.post-card-author-link:focus-visible {
   display: block;
   width: 1.6rem;
   height: 1.6rem;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--rule-soft);
   background: var(--page-edge);
   object-fit: cover;
@@ -529,10 +529,11 @@ a.post-card-author-link:focus-visible {
 }
 
 .reference-card-author-avatar {
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--rule-soft);
   flex: 0 0 auto;
   vertical-align: middle;
+  object-fit: cover;
 }
 
 .reference-card-author-name {

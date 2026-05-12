@@ -58,14 +58,17 @@
 .dock-panel {
   position: fixed;
   right: clamp(var(--space-6), 5vw, var(--space-7));
-  bottom: clamp(7rem, 22vh, 11rem);
+  bottom: clamp(5rem, 16vh, 9rem);
   z-index: 49;
   width: var(--dock-w);
   max-width: calc(100vw - var(--space-6));
+  max-height: calc(100vh - clamp(7rem, 20vh, 11rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--page);
   border: 1px solid var(--rule);
   border-radius: var(--radius-3);
-  padding: var(--space-5);
+  padding: var(--space-4);
   box-shadow: 0 16px 40px var(--shadow);
   transform: translateY(8px);
   opacity: 0;
@@ -91,7 +94,7 @@
 .dock-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
 .dock-heading {
@@ -100,11 +103,11 @@
   letter-spacing: 0.18em;
   color: var(--ink-faint);
   font-size: var(--text-xs);
-  margin-bottom: var(--space-1);
+  margin-bottom: 0;
 }
 
 .dock-rule {
-  margin: var(--space-4) 0;
+  margin: var(--space-3) 0;
   border-color: var(--rule-soft);
 }
 
@@ -117,7 +120,7 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: var(--space-2) 0;
+  padding: var(--space-1) 0;
   border-radius: var(--radius-2);
   text-decoration: none;
   color: var(--ink);
@@ -150,7 +153,7 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-2) 0;
+  padding: var(--space-1) 0;
   border-radius: var(--radius-2);
   font-family: var(--sans);
   font-size: var(--text-sm);
