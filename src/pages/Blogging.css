@@ -37,6 +37,21 @@
   font-family: var(--serif);
   font-size: var(--text-xl);
   margin: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.blogging-toc-source {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  border: 1px solid var(--rule);
+  padding: 0.05em 0.5em;
+  border-radius: var(--radius-1);
+  font-weight: 400;
 }
 
 .blogging-toc-summary {
@@ -75,6 +90,14 @@
   font-variant: all-small-caps;
   letter-spacing: 0.12em;
   color: var(--accent);
+}
+
+.blog-article-description {
+  font-family: var(--serif);
+  font-size: var(--text-md);
+  font-style: italic;
+  color: var(--ink-soft);
+  margin: 0 0 var(--space-5);
 }
 
 .blog-prose {
@@ -133,6 +156,13 @@
 
 .record-page-meta {
   flex-wrap: wrap;
+  margin: var(--space-5) 0 0;
+  color: var(--ink-faint);
+}
+
+.record-page-meta-nsid {
+  font-family: var(--mono);
+  letter-spacing: 0;
 }
 
 .record-page-aturi {

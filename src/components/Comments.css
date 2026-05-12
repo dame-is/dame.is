@@ -139,3 +139,11 @@ a.comment-author-name:focus-visible {
   color: var(--ink-faint);
   padding: var(--space-2) 0;
 }
+
+.comment-embed {
+  padding-left: calc(1.75rem + var(--space-3));
+}
+
+.comment-embed > * {
+  margin-top: 0;
+}

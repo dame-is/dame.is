@@ -151,14 +151,20 @@ function blueskyToFeedItem(item) {
     cid: post.cid,
     payload: {
       text: post.record?.text || '',
+      facets: post.record?.facets || null,
       author: {
         did: post.author?.did,
         handle: post.author?.handle,
         displayName: post.author?.displayName,
+        avatar: post.author?.avatar,
       },
       replyCount: post.replyCount || 0,
       repostCount: post.repostCount || 0,
       likeCount: post.likeCount || 0,
+      // Prefer the resolved view embed (with CDN URLs); keep the raw
+      // record embed as a fallback.
+      embed: post.embed || null,
+      embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
       reply: post.record?.reply || null,
       parent: condenseParent(item?.reply?.parent),
@@ -185,7 +191,13 @@ function condenseParent(view) {
         }
       : null,
     record: view.record
-      ? { text: view.record.text || '', createdAt: view.record.createdAt || null }
+      ? {
+          text: view.record.text || '',
+          createdAt: view.record.createdAt || null,
+          facets: view.record.facets || null,
+          embed: view.record.embed || null,
+        }
       : null,
+    embed: view.embed || null,
   };
 }

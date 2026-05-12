@@ -15,6 +15,8 @@ import { dayOfLife } from '../lib/dayOfLife.js';
 import { VERB_TO_COLLECTION, VERB_LABELS, recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
+import { renderPostText } from '../lib/postRichText.jsx';
+import PostEmbed from '../components/PostEmbed.jsx';
 import './Blogging.css';
 import '../components/Feed.css';
 
@@ -168,10 +170,8 @@ export default function Record({ verb }) {
       headTitle={headTitleFor(verb, item)}
     >
       <article className="record-page">
-        <RecordMeta verb={verb} createdAt={createdAt} />
-
         {verb === 'posting' && parents.length > 0 && (
-          <ParentChain parents={parents} />
+          <ParentChain parents={parents.slice(0, 1)} />
         )}
 
         {item ? (
@@ -179,6 +179,8 @@ export default function Record({ verb }) {
         ) : (
           <p className="feed-empty">Loading record…</p>
         )}
+
+        <RecordMeta collection={collection} createdAt={createdAt} />
 
         {verb === 'posting' && item?.atUri && (
           <Comments
@@ -299,6 +301,8 @@ function ParentPostCard({ parent, isRoot }) {
   const displayName = parent?.author?.displayName;
   const did = parent?.author?.did;
   const text = parent?.record?.text || '';
+  const facets = parent?.record?.facets || null;
+  const embed = parent?.embed || parent?.record?.embed || null;
   const ts = parent?.record?.createdAt || parent?.indexedAt;
   // Only treat the parent as a local record if it lives on this site. For
   // anyone else's posts, link the timestamp out to bsky.app so the user
@@ -332,7 +336,10 @@ function ParentPostCard({ parent, isRoot }) {
           </span>
         )}
       </header>
-      <p className="record-parent-text">{text || <em>—</em>}</p>
+      <p className="record-parent-text">
+        {text ? renderPostText(text, facets) : <em>—</em>}
+      </p>
+      {embed && <PostEmbed embed={embed} did={did} />}
     </article>
   );
 }
@@ -373,24 +380,30 @@ function condensePostView(view) {
         }
       : null,
     record: view.record
-      ? { text: view.record.text || '', createdAt: view.record.createdAt || null }
+      ? {
+          text: view.record.text || '',
+          createdAt: view.record.createdAt || null,
+          facets: view.record.facets || null,
+          embed: view.record.embed || null,
+        }
       : null,
+    embed: view.embed || null,
     replyCount: view.replyCount || 0,
     repostCount: view.repostCount || 0,
     likeCount: view.likeCount || 0,
   };
 }
 
-function RecordMeta({ verb, createdAt }) {
+function RecordMeta({ collection, createdAt }) {
   if (!createdAt) return null;
   const dayNum = dayOfLife(createdAt);
   return (
     <div className="blog-article-meta record-page-meta">
-      <span className="small-caps">{VERB_LABELS[verb] || verb}</span>
-      <span>· {formatDateLong(createdAt)}</span>
-      <span>· {formatTime(createdAt)}</span>
-      {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}
+      {collection && <span className="record-page-meta-nsid">{collection}</span>}
       <span>· {relativeTime(createdAt)}</span>
+      <span>· {formatTime(createdAt)}</span>
+      <span>· {formatDateLong(createdAt)}</span>
+      {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}
     </div>
   );
 }
@@ -500,15 +513,20 @@ async function loadPostFromSnapshot(rkey) {
     createdAt: post.record?.createdAt || post.indexedAt,
     payload: {
       text: post.record?.text || '',
+      facets: post.record?.facets || null,
       author: {
         did: post.author?.did,
         handle: post.author?.handle,
         displayName: post.author?.displayName,
+        avatar: post.author?.avatar,
       },
       replyCount: post.replyCount || 0,
       repostCount: post.repostCount || 0,
       likeCount: post.likeCount || 0,
-      embed: post.record?.embed || post.embed || null,
+      // Prefer the resolved view embed (with CDN URLs); keep the raw
+      // record embed as a fallback.
+      embed: post.embed || null,
+      embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
     },
     raw: post,

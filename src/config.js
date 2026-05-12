@@ -7,10 +7,14 @@ export const GITHUB_REPO = 'dame-is/dame.is';
 export const APPVIEW = 'https://public.api.bsky.app';
 export const PLC_DIRECTORY = 'https://plc.directory';
 
-// PDS collections — gerund-framed under is.dame.*.
+// PDS collections — gerund-framed under is.dame.* plus a few external
+// lexicons we read alongside our own.
 export const COLLECTIONS = {
   now: 'is.dame.now',
   blogging: 'is.dame.blogging.post',
+  // pub.leaflet.document — leaflet.pub long-form documents. Surfaced on the
+  // /blogging index alongside is.dame.blogging.post records.
+  leaflet: 'pub.leaflet.document',
   creating: 'is.dame.creating.work',
   page: 'is.dame.page',
   profile: 'is.dame.profile',

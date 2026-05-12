@@ -1,7 +1,8 @@
 import { useSearchParams } from 'react-router-dom';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { VERBS } from '../config.js';
 import VerbIcon from './VerbIcon.jsx';
+import FeedSearch from './FeedSearch.jsx';
 import './FeedFilters.css';
 
 /**
@@ -11,7 +12,6 @@ import './FeedFilters.css';
 export default function FeedFilters({ counts }) {
   const [params, setParams] = useSearchParams();
   const activeVerbs = new Set((params.get('verbs') || '').split(',').filter(Boolean));
-  const q = params.get('q') || '';
 
   function toggleVerb(v) {
     const next = new Set(activeVerbs);
@@ -21,15 +21,6 @@ export default function FeedFilters({ counts }) {
       const out = new URLSearchParams(prev);
       if (next.size === 0) out.delete('verbs');
       else out.set('verbs', Array.from(next).join(','));
-      return out;
-    }, { replace: true });
-  }
-
-  function setQ(value) {
-    setParams((prev) => {
-      const out = new URLSearchParams(prev);
-      if (value) out.set('q', value);
-      else out.delete('q');
       return out;
     }, { replace: true });
   }
@@ -65,21 +56,7 @@ export default function FeedFilters({ counts }) {
           </button>
         )}
       </div>
-      <div className="feed-search">
-        <Search size={14} aria-hidden="true" className="feed-search-icon" />
-        <input
-          type="search"
-          placeholder="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          aria-label="Search the feed"
-        />
-        {q && (
-          <button type="button" className="feed-search-clear" onClick={() => setQ('')} aria-label="Clear search">
-            <X size={14} aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      <FeedSearch label="Search the feed" />
     </div>
   );
 }

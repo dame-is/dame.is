@@ -9,16 +9,18 @@ import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS } from '../lib/recordRoutes.j
  * Given the current route, derive the AT URI of its backing record and load
  * its raw value (for the debug overlay + RecordTimestamp).
  *
- * Returns `{ atUri, cid, lexicon, pds, record }` where `record` is the
- * `{uri, cid, value}` shape, or `null` while loading.
+ * Returns `{ atUri, cid, lexicon, pds, record, recordStatus }` where
+ *   - `record` is `{uri, cid, value}` once resolved, or `null`
+ *   - `recordStatus` is `'idle' | 'loading' | 'ready' | 'missing' | 'none'`
+ *     ('none' means the route has no backing record at all)
  */
 export function useAtUri(override) {
   const location = useLocation();
   const [pds, setPds] = useState(null);
-  const [info, setInfo] = useState(() => deriveFromRoute(location.pathname, override));
+  const [info, setInfo] = useState(() => withInitialStatus(deriveFromRoute(location.pathname, override)));
 
   useEffect(() => {
-    setInfo(deriveFromRoute(location.pathname, override));
+    setInfo(withInitialStatus(deriveFromRoute(location.pathname, override)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, override?.atUri, override?.cid]);
 
@@ -43,31 +45,51 @@ export function useAtUri(override) {
     // We can fetch by atUri (most routes) or by rkey+lexicon (app.bsky.feed.post
     // where the repo DID isn't known yet) or by slug (blogs, works).
     const canResolve = info?.atUri || info?.rkey || info?.slug;
-    if (!canResolve) return;
+    if (!canResolve) {
+      setInfo((prev) => (prev.recordStatus === 'none' ? prev : { ...prev, recordStatus: 'none' }));
+      return;
+    }
+
+    setInfo((prev) => (prev.recordStatus === 'loading' ? prev : { ...prev, recordStatus: 'loading' }));
 
     async function load() {
+      let found = false;
       const seedRecord = await loadFromSnapshots(info);
       if (!cancelled && seedRecord) {
+        found = true;
         setInfo((prev) => ({
           ...prev,
           record: seedRecord,
           atUri: prev.atUri || seedRecord.uri || null,
           cid: seedRecord.cid || prev.cid,
+          recordStatus: 'ready',
         }));
       }
-      if (!pds) return;
+      // Wait for the PDS endpoint before falling back to "missing" — if we
+      // haven't resolved it yet there's still hope a live fetch will succeed.
+      if (!pds) {
+        if (!cancelled && !found) {
+          // Hold in 'loading' until pds is known; effect re-runs once it is.
+        }
+        return;
+      }
       try {
         const fresh = await fetchRecordFromPds(pds, info);
         if (!cancelled && fresh) {
+          found = true;
           setInfo((prev) => ({
             ...prev,
             record: fresh,
             atUri: prev.atUri || fresh.uri || null,
             cid: fresh.cid || prev.cid,
+            recordStatus: 'ready',
           }));
         }
       } catch {
         // keep snapshot
+      }
+      if (!cancelled && !found) {
+        setInfo((prev) => (prev.record ? prev : { ...prev, recordStatus: 'missing' }));
       }
     }
     load();
@@ -78,6 +100,12 @@ export function useAtUri(override) {
   }, [info?.atUri, info?.rkey, info?.slug, info?.lexicon, pds]);
 
   return { ...info, pds };
+}
+
+function withInitialStatus(info) {
+  if (!info) return info;
+  const canResolve = info.atUri || info.rkey || info.slug;
+  return { ...info, recordStatus: canResolve ? 'loading' : 'none' };
 }
 
 function deriveFromRoute(pathname, override) {
@@ -185,7 +213,23 @@ async function loadFromSnapshots(info) {
   }
   if (info.lexicon === COLLECTIONS.blogging && info.slug) {
     const blogs = await fetchSnapshot('blogs');
-    return Array.isArray(blogs) ? blogs.find((r) => r?.value?.slug === info.slug) || null : null;
+    const bySlug = Array.isArray(blogs)
+      ? blogs.find((r) => r?.value?.slug === info.slug) || null
+      : null;
+    if (bySlug) return bySlug;
+    // Fall back to a leaflet doc addressed by rkey under the same URL
+    // shape — `/blogging/:id` fronts both lexicons.
+    const leaflets = await fetchSnapshot('leaflets');
+    return Array.isArray(leaflets)
+      ? leaflets.find((r) => endsWithRkey(r?.uri, info.slug)) || null
+      : null;
+  }
+  if (info.lexicon === COLLECTIONS.leaflet && (info.rkey || info.slug)) {
+    const wanted = info.rkey || info.slug;
+    const leaflets = await fetchSnapshot('leaflets');
+    return Array.isArray(leaflets)
+      ? leaflets.find((r) => endsWithRkey(r?.uri, wanted)) || null
+      : null;
   }
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
     const works = await fetchSnapshot('creations');
@@ -221,6 +265,19 @@ function endsWithRkey(uri, rkey) {
   return m && m[1] === rkey;
 }
 
+/**
+ * Leaflet documents only carry `publishedAt` natively. Mirror it onto
+ * `createdAt` / `updatedAt` so the footer's <RecordTimestamp /> and
+ * other shared helpers can stay agnostic of the lexicon.
+ */
+function mirrorLeafletTimestamps(record) {
+  if (!record?.value) return record;
+  const v = record.value;
+  if (!v.createdAt && v.publishedAt) v.createdAt = v.publishedAt;
+  if (!v.updatedAt) v.updatedAt = v.createdAt;
+  return record;
+}
+
 async function fetchRecordFromPds(pds, info) {
   if (info.lexicon === COLLECTIONS.page) {
     const rkey = info.atUri && rkeyFromAtUri(info.atUri);
@@ -232,7 +289,17 @@ async function fetchRecordFromPds(pds, info) {
   }
   if (info.lexicon === COLLECTIONS.blogging && info.slug) {
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 }).catch(() => []);
-    return recs.find((r) => r?.value?.slug === info.slug) || null;
+    const bySlug = recs.find((r) => r?.value?.slug === info.slug) || null;
+    if (bySlug) return bySlug;
+    const leaflets = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, max: 200 }).catch(() => []);
+    const found = leaflets.find((r) => endsWithRkey(r?.uri, info.slug)) || null;
+    return mirrorLeafletTimestamps(found);
+  }
+  if (info.lexicon === COLLECTIONS.leaflet) {
+    const wanted = info.rkey || info.slug;
+    if (!wanted) return null;
+    const rec = await getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, rkey: wanted }).catch(() => null);
+    return mirrorLeafletTimestamps(rec);
   }
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }).catch(() => []);

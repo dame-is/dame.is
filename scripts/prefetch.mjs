@@ -76,6 +76,7 @@ function toFeedItem(verb, record, { fallbackCreatedAt } = {}) {
   const value = record.value || {};
   const createdAt =
     value.createdAt ||
+    value.publishedAt ||  // pub.leaflet.document
     value.playedTime ||  // fm.teal.alpha.feed.play
     value.playedAt ||
     record.indexedAt ||
@@ -100,6 +101,8 @@ function blueskyPostToFeedItem(item) {
     cid: post.cid || null,
     payload: {
       text: post.record?.text || '',
+      facets: post.record?.facets || null,
+      langs: post.record?.langs || null,
       author: {
         did: post.author?.did,
         handle: post.author?.handle,
@@ -109,7 +112,12 @@ function blueskyPostToFeedItem(item) {
       replyCount: post.replyCount || 0,
       repostCount: post.repostCount || 0,
       likeCount: post.likeCount || 0,
-      embed: post.record?.embed || post.embed || null,
+      // Two embed shapes are kept side-by-side. `embed` is the resolved
+      // AppView "view" form with CDN URLs (preferred for rendering).
+      // `embedRecord` is the raw record-level embed (blob refs only) so we
+      // still have something to render if we ever lose the AppView view.
+      embed: post.embed || null,
+      embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
       reason: item.reason || null,
       // Reply context — pulled from the AppView feed item. The `reply`
@@ -148,13 +156,75 @@ function condensePostView(view) {
       ? {
           text: view.record.text || '',
           createdAt: view.record.createdAt || null,
+          facets: view.record.facets || null,
           embed: view.record.embed || null,
         }
       : null,
+    embed: view.embed || null,
     replyCount: view.replyCount || 0,
     repostCount: view.repostCount || 0,
     likeCount: view.likeCount || 0,
   };
+}
+
+/**
+ * Walk a pub.leaflet.document value and annotate any blob refs (preview
+ * images on website blocks, image blocks) with a `_url` field so the
+ * client renderer can display them without resolving the PDS again.
+ *
+ * Leaflet doc blobs live on the author's PDS. The standard atproto blob
+ * fetch endpoint is `com.atproto.sync.getBlob?did&cid`.
+ */
+function annotateLeafletBlobs(docValue, pds) {
+  const pages = Array.isArray(docValue?.pages) ? docValue.pages : [];
+  for (const page of pages) {
+    const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
+    for (const wrap of blocks) {
+      const block = wrap?.block;
+      if (!block) continue;
+      const cid = pickBlobCid(block.previewImage) || pickBlobCid(block.image);
+      if (!cid) continue;
+      const url = `${pds}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(ME_DID)}&cid=${encodeURIComponent(cid)}`;
+      if (block.previewImage && pickBlobCid(block.previewImage) === cid) {
+        block.previewImage._url = url;
+      }
+      if (block.image && pickBlobCid(block.image) === cid) {
+        block.image._url = url;
+      }
+    }
+  }
+}
+
+function pickBlobCid(blob) {
+  if (!blob) return null;
+  return blob.ref?.$link || blob.cid || null;
+}
+
+/**
+ * Pull a short plaintext synopsis from a leaflet doc — first ~280 chars
+ * across the leading text blocks. Used as a summary on the blog index
+ * and home feed when the doc has no `description`.
+ */
+function leafletSynopsis(docValue) {
+  const pages = Array.isArray(docValue?.pages) ? docValue.pages : [];
+  const parts = [];
+  let len = 0;
+  outer: for (const page of pages) {
+    const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
+    for (const wrap of blocks) {
+      const block = wrap?.block;
+      if (block?.$type !== 'pub.leaflet.blocks.text') continue;
+      const text = (block.plaintext || '').trim();
+      if (!text) continue;
+      parts.push(text);
+      len += text.length;
+      if (len > 280) break outer;
+    }
+  }
+  if (parts.length === 0) return '';
+  const joined = parts.join(' ');
+  if (joined.length <= 280) return joined;
+  return joined.slice(0, 277).trimEnd() + '…';
 }
 
 async function main() {
@@ -211,6 +281,30 @@ async function main() {
   );
   await writeJson('blogs', blogRecords);
 
+  // --- pub.leaflet.document -------------------------------------------------
+  // Long-form documents authored on leaflet.pub. We mirror them onto
+  // /blogging alongside our own is.dame.blogging.post records.
+  const leafletRecords = await safe(
+    'listRecords:leaflet',
+    () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, max: 200 }),
+    [],
+  );
+  for (const r of leafletRecords) {
+    const v = r?.value;
+    if (!v) continue;
+    // Leaflet docs don't carry createdAt/updatedAt — they have publishedAt.
+    // Mirror it onto createdAt so existing snapshot helpers keep working.
+    if (!v.createdAt && v.publishedAt) v.createdAt = v.publishedAt;
+    if (!v.updatedAt) v.updatedAt = v.createdAt;
+    // Bake blob URLs into block previews / images so the renderer doesn't
+    // need to know about the PDS endpoint.
+    annotateLeafletBlobs(v, pds);
+    // Lift a plaintext synopsis out of the first non-empty text block so
+    // the index page and unified feed have something to show.
+    if (!v.summary) v.summary = leafletSynopsis(v);
+  }
+  await writeJson('leaflets', leafletRecords);
+
   // --- is.dame.creating.work ------------------------------------------------
   const creatingRecords = backfillTimestamps(
     await safe('listRecords:creating', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }), []),
@@ -240,6 +334,7 @@ async function main() {
   const unified = [];
   for (const r of nowRecords) unified.push(toFeedItem('logging', r));
   for (const r of blogRecords) unified.push(toFeedItem('blogging', r));
+  for (const r of leafletRecords) unified.push(toFeedItem('blogging', r));
   for (const r of creatingRecords) unified.push(toFeedItem('creating', r));
   for (const r of listening) unified.push(toFeedItem('listening', r));
   for (const item of authorFeed) {
@@ -266,6 +361,7 @@ async function main() {
       posts: authorFeed.length,
       now: nowRecords.length,
       blogs: blogRecords.length,
+      leaflets: leafletRecords.length,
       creations: creatingRecords.length,
       pages: Object.keys(pages).length,
       listening: listening.length,

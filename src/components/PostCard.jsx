@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { relativeTime } from '../lib/time.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
+import { renderPostText } from '../lib/postRichText.jsx';
+import PostEmbed from './PostEmbed.jsx';
 
 /**
  * Pull a parent-post hint from the payload. Prefers the AppView's resolved
@@ -32,6 +34,7 @@ function getReplyHint(payload) {
 
 export default function PostCard({ payload, createdAt, atUri, variant = 'timeline' }) {
   const text = payload?.text || '';
+  const facets = payload?.facets || null;
   const ts = createdAt || payload?.indexedAt;
   const rkey = rkeyFromAtUri(atUri);
   const recordHref = rkey ? `/posting/${rkey}` : null;
@@ -39,6 +42,8 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
   // Show the "↳ replying to …" badge in the timeline only. On the record
   // page itself, the parent chain renders above and would duplicate it.
   const showReplyBadge = reply && variant !== 'parent' && variant !== 'record';
+  const embed = payload?.embed || payload?.embedRecord || null;
+  const authorDid = payload?.author?.did;
 
   return (
     <article
@@ -48,7 +53,9 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
     >
       {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
       <div className="post-card-row">
-        <p className="post-card-text">{text || <em>—</em>}</p>
+        <p className="post-card-text">
+          {text ? renderPostText(text, facets) : <em>—</em>}
+        </p>
         {/*
           On the record page itself the page-level meta header already shows
           the timestamp (and a lot more), so showing it inside the card too
@@ -65,6 +72,7 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
           )
         )}
       </div>
+      {embed && <PostEmbed embed={embed} did={authorDid} />}
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats gutter">
           {payload?.replyCount ? `${payload.replyCount} replies` : ''}

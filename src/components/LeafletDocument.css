@@ -1,0 +1,222 @@
+.leaflet-doc {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.leaflet-paragraph {
+  margin: 0 0 var(--space-4);
+}
+
+.leaflet-paragraph + .leaflet-paragraph {
+  text-indent: 1.5em;
+  margin-bottom: 0;
+}
+
+/* Empty text blocks act as paragraph breaks: reset the indent that
+   follows so the next "real" paragraph starts flush. */
+.leaflet-spacer {
+  margin: 0 0 var(--space-4);
+  height: 0;
+}
+
+.leaflet-spacer + .leaflet-paragraph {
+  text-indent: 0;
+}
+
+.leaflet-heading {
+  font-family: var(--serif);
+  margin: var(--space-6) 0 var(--space-3);
+  line-height: 1.2;
+}
+
+.leaflet-heading-1 { font-size: var(--text-2xl); }
+.leaflet-heading-2 { font-size: var(--text-xl); }
+.leaflet-heading-3 { font-size: var(--text-lg); }
+.leaflet-heading-4,
+.leaflet-heading-5,
+.leaflet-heading-6 { font-size: var(--text-md); }
+
+.leaflet-image {
+  margin: var(--space-5) 0;
+}
+
+.leaflet-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--rule-soft);
+}
+
+.leaflet-image-caption {
+  margin-top: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.leaflet-code {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  margin: var(--space-4) 0;
+}
+
+.leaflet-list {
+  margin: var(--space-3) 0 var(--space-4);
+  padding-left: 1.5em;
+}
+
+.leaflet-list li {
+  margin-bottom: var(--space-2);
+}
+
+/* Website / link card — visual cousin of post-embed-link-card. */
+.leaflet-website {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) 1fr;
+  gap: var(--space-4);
+  align-items: stretch;
+  margin: var(--space-5) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-3);
+  text-decoration: none;
+  color: inherit;
+  background: var(--page);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.leaflet-website:hover,
+.leaflet-website:focus-visible {
+  background: var(--page-edge);
+  border-color: var(--ink-faint);
+}
+
+.leaflet-website-thumb {
+  background: var(--page-edge);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  aspect-ratio: 1.6 / 1;
+}
+
+.leaflet-website-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.leaflet-website-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.leaflet-website-host {
+  font-family: var(--sans);
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+.leaflet-website-title {
+  font-family: var(--serif);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.leaflet-website-desc {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .leaflet-website {
+    grid-template-columns: 1fr;
+  }
+  .leaflet-website-thumb {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+/* Embedded Bluesky post block (pub.leaflet.blocks.bskyPost). */
+.leaflet-bsky-post {
+  margin: var(--space-5) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-3);
+  background: var(--page);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.leaflet-bsky-post-loading,
+.leaflet-bsky-post-missing {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.leaflet-bsky-post-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.leaflet-bsky-post-avatar {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.leaflet-bsky-post-byline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.leaflet-bsky-post-author {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.leaflet-bsky-post-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.leaflet-bsky-post-handle {
+  color: var(--ink-muted);
+  letter-spacing: 0.04em;
+}
+
+.leaflet-bsky-post-time a {
+  color: var(--ink-faint);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+
+.leaflet-bsky-post-time a:hover {
+  border-bottom-color: var(--ink-faint);
+}
+
+.leaflet-bsky-post-text {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--ink);
+  font-family: var(--sans);
+}

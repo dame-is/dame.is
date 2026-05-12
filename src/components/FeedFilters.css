@@ -8,6 +8,10 @@
   margin-bottom: var(--space-5);
 }
 
+.feed-filters-search-only {
+  justify-content: flex-end;
+}
+
 .feed-chips {
   display: flex;
   flex-wrap: wrap;
@@ -40,7 +44,7 @@
 }
 
 .feed-chip.is-active .feed-chip-icon {
-  color: var(--page);
+  color: var(--accent);
 }
 
 .feed-chip:hover {
@@ -49,13 +53,13 @@
 }
 
 .feed-chip.is-active {
-  background: var(--accent);
-  color: var(--page);
+  background: var(--highlight);
+  color: var(--accent);
   border-color: var(--accent);
 }
 
 .feed-chip.is-active .feed-chip-count {
-  color: var(--page);
+  color: var(--accent);
   opacity: 0.75;
 }
 

@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
+import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { groupByDay } from '../lib/time.js';
 import { ME_DID } from '../config.js';
@@ -9,6 +11,8 @@ import '../components/Feed.css';
 
 export default function Logging() {
   const [items, setItems] = useState([]);
+  const [params] = useSearchParams();
+  const q = params.get('q') || '';
 
   useEffect(() => {
     let cancelled = false;
@@ -31,7 +35,15 @@ export default function Logging() {
     };
   }, []);
 
-  const groups = groupByDay(items, (i) => i.createdAt);
+  const filtered = useMemo(
+    () =>
+      items.filter((i) => {
+        const p = i.payload || {};
+        return matchesQuery([p.status, p.text].filter(Boolean).join(' '), q);
+      }),
+    [items, q],
+  );
+  const groups = groupByDay(filtered, (i) => i.createdAt);
 
   return (
     <PageShell
@@ -40,8 +52,13 @@ export default function Logging() {
       atUri={`at://${ME_DID}/is.dame.page/logging`}
       headTitle="Logging — Dame is&hellip;"
     >
+      <div className="feed-filters feed-filters-search-only">
+        <FeedSearch label="Search status updates" />
+      </div>
       {groups.length === 0 ? (
-        <p className="feed-empty">No status records yet.</p>
+        <p className="feed-empty">
+          {q ? 'No status records match that search.' : 'No status records yet.'}
+        </p>
       ) : (
         <ol className="feed-list">
           {groups.map((group) => (

@@ -23,7 +23,9 @@ function recordHrefFor(item) {
   switch (item.verb) {
     case 'blogging':
     case 'creating': {
-      const slug = item.payload?.slug;
+      // Prefer the explicit slug (is.dame.* records). Leaflet docs have
+      // no slug — fall through to the rkey from the at URI.
+      const slug = item.payload?.slug || rkeyFromAtUri(item.atUri);
       return slug ? `/${item.verb}/${slug}` : null;
     }
     case 'logging':

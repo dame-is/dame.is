@@ -52,6 +52,7 @@ export default function App() {
                   <Route path="/blogging" element={<Blogging />} />
                   <Route path="/blogging/:slug" element={<BlogPost />} />
                   <Route path="/is.dame.blogging.post/:rkey" element={<Record verb="blogging" />} />
+                  <Route path="/pub.leaflet.document/:slug" element={<BlogPost />} />
                   <Route path="/creating" element={<Creating />} />
                   <Route path="/creating/:slug" element={<CreatingWork />} />
                   <Route path="/is.dame.creating.work/:rkey" element={<Record verb="creating" />} />

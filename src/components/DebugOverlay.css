@@ -135,3 +135,19 @@
   border-color: var(--accent-soft);
   color: var(--accent);
 }
+
+.debug-overlay-editor {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+  padding-top: var(--space-3);
+}
+
+.debug-overlay-editor .admin-toolbar-inline {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-2);
+}
+
+.debug-overlay-editor .record-editor-compact .admin-field {
+  margin-bottom: var(--space-3);
+}

@@ -2,6 +2,8 @@ import { relativeTime } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { Link } from 'react-router-dom';
+import { renderPostText } from '../lib/postRichText.jsx';
+import PostEmbed from './PostEmbed.jsx';
 import './Comments.css';
 
 /**
@@ -69,7 +71,9 @@ function ReplyNode({ node, depth }) {
   if (!post) return null;
   const author = post.author || {};
   const text = post.record?.text || '';
+  const facets = post.record?.facets || null;
   const ts = post.record?.createdAt || post.indexedAt;
+  const embed = post.embed || post.record?.embed || null;
   const childReplies = (node.replies || []).filter(isRenderableReply);
   return (
     <li className="comment">
@@ -96,7 +100,12 @@ function ReplyNode({ node, depth }) {
             )}
           </div>
         </header>
-        {text && <p className="comment-text">{text}</p>}
+        {text && <p className="comment-text">{renderPostText(text, facets)}</p>}
+        {embed && (
+          <div className="comment-embed">
+            <PostEmbed embed={embed} did={author.did} />
+          </div>
+        )}
       </article>
       {childReplies.length > 0 && (
         <ul className="comments-tree comments-tree-nested" data-depth={depth + 1}>

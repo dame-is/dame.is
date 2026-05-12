@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
+import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { groupByDay } from '../lib/time.js';
 import { ME_DID } from '../config.js';
@@ -9,6 +11,8 @@ import '../components/Feed.css';
 
 export default function Posting() {
   const [items, setItems] = useState([]);
+  const [params] = useSearchParams();
+  const q = params.get('q') || '';
 
   useEffect(() => {
     let cancelled = false;
@@ -47,7 +51,11 @@ export default function Posting() {
     };
   }, []);
 
-  const groups = groupByDay(items, (i) => i.createdAt);
+  const filtered = useMemo(
+    () => items.filter((i) => matchesQuery(i.payload?.text, q)),
+    [items, q],
+  );
+  const groups = groupByDay(filtered, (i) => i.createdAt);
 
   return (
     <PageShell
@@ -56,8 +64,11 @@ export default function Posting() {
       atUri={`at://${ME_DID}/is.dame.page/posting`}
       headTitle="Posting — Dame is&hellip;"
     >
+      <div className="feed-filters feed-filters-search-only">
+        <FeedSearch label="Search posts" />
+      </div>
       {groups.length === 0 ? (
-        <p className="feed-empty">No posts yet.</p>
+        <p className="feed-empty">{q ? 'No posts match that search.' : 'No posts yet.'}</p>
       ) : (
         <ol className="feed-list">
           {groups.map((group) => (

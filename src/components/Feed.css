@@ -12,6 +12,13 @@
   grid-template-columns: 4.5rem 1fr;
   gap: var(--space-4);
   align-items: start;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.feed-day-group .feed-list > .feed-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .feed-item-verb {
@@ -105,8 +112,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 
 /* PostCard */
 .post-card {
-  border-bottom: 1px solid var(--rule-soft);
-  padding-bottom: var(--space-4);
+  /* Per-row separator lives on .feed-item so every verb gets the same rule. */
 }
 
 .post-card-row {
@@ -164,8 +170,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 
 /* BlogCard */
 .blog-card {
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--rule-soft);
+  /* Per-row separator lives on .feed-item. */
 }
 
 .blog-card-head {
@@ -355,8 +360,6 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   display: grid;
   grid-template-columns: minmax(0, 9rem) 1fr;
   gap: var(--space-4);
-  border-bottom: 1px solid var(--rule-soft);
-  padding-bottom: var(--space-4);
 }
 
 .creating-card:has(.creating-card-thumb) .creating-card-body {
@@ -396,13 +399,6 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   margin: 0;
   color: var(--ink-soft);
   max-width: var(--measure);
-}
-
-.feed-day-group .feed-list > li:last-child .post-card,
-.feed-day-group .feed-list > li:last-child .blog-card,
-.feed-day-group .feed-list > li:last-child .creating-card {
-  border-bottom: none;
-  padding-bottom: 0;
 }
 
 .feed-empty {
