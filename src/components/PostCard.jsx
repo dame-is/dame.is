@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { relativeTime } from '../lib/time.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
-import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 
 /**
  * Pull a parent-post hint from the payload. Prefers the AppView's resolved
@@ -37,6 +36,9 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
   const rkey = rkeyFromAtUri(atUri);
   const recordHref = rkey ? `/posting/${rkey}` : null;
   const reply = getReplyHint(payload);
+  // Show the "↳ replying to …" badge in the timeline only. On the record
+  // page itself, the parent chain renders above and would duplicate it.
+  const showReplyBadge = reply && variant !== 'parent' && variant !== 'record';
 
   return (
     <article
@@ -44,19 +46,19 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
       data-at-uri={atUri}
       data-is-reply={reply ? 'true' : undefined}
     >
-      {reply && variant !== 'parent' && <ReplyBadge reply={reply} />}
-      {ts && (
-        <header className="post-card-head">
-          {recordHref && variant !== 'record' ? (
+      {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
+      <div className="post-card-row">
+        <p className="post-card-text">{text || <em>—</em>}</p>
+        {ts && (
+          recordHref && variant !== 'record' ? (
             <Link className="gutter post-card-time" to={recordHref}>
               {relativeTime(ts)}
             </Link>
           ) : (
             <span className="gutter post-card-time">{relativeTime(ts)}</span>
-          )}
-        </header>
-      )}
-      <p className="post-card-text">{text || <em>—</em>}</p>
+          )
+        )}
+      </div>
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats gutter">
           {payload?.replyCount ? `${payload.replyCount} replies` : ''}
@@ -70,8 +72,15 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
   );
 }
 
-function ReplyBadge({ reply }) {
-  const recordHref = reply.uri ? recordPathFromAtUri(reply.uri) : null;
+/**
+ * Renders the "↳ replying to @handle" hint above a reply card.
+ *
+ * The link points to *this* post's own record page (not the parent's) — that
+ * page is where the full parent-chain context is rendered, so this is where
+ * a curious reader actually wants to land. The parent's at:// uri is kept on
+ * the element as a data-attribute for debugging / future use.
+ */
+function ReplyBadge({ reply, recordHref }) {
   const inner = (() => {
     switch (reply.kind) {
       case 'resolved':
@@ -84,7 +93,7 @@ function ReplyBadge({ reply }) {
     }
   })();
   return (
-    <div className="post-card-reply gutter small-caps">
+    <div className="post-card-reply gutter small-caps" data-parent-uri={reply.uri || undefined}>
       <span className="post-card-reply-arrow" aria-hidden="true">↳</span>{' '}
       {recordHref ? <Link to={recordHref}>{inner}</Link> : inner}
     </div>

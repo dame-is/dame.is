@@ -184,6 +184,26 @@
   color: var(--ink-faint);
 }
 
+.record-parent-arrow {
+  color: var(--ink-faint);
+}
+
+.record-parent-context {
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+
+.record-parent-author {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.record-parent-name {
+  color: var(--ink-soft);
+}
+
 .record-parent-handle {
   letter-spacing: 0.1em;
   color: var(--ink-muted);

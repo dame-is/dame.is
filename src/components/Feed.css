@@ -109,18 +109,22 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   padding-bottom: var(--space-4);
 }
 
-.post-card-head {
+.post-card-row {
   display: flex;
   align-items: baseline;
-  justify-content: flex-end;
-  gap: var(--space-3);
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .post-card-time {
+  flex: 0 0 auto;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .post-card-text {
+  flex: 1 1 auto;
+  min-width: 0;
   font-family: var(--serif);
   font-size: var(--text-base);
   white-space: pre-wrap;

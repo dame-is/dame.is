@@ -245,17 +245,39 @@ function ParentPostCard({ parent, isRoot }) {
     return <div className="record-parent record-parent-missing gutter">↳ a blocked post</div>;
   }
   const handle = parent?.author?.handle;
+  const displayName = parent?.author?.displayName;
+  const did = parent?.author?.did;
   const text = parent?.record?.text || '';
   const ts = parent?.record?.createdAt || parent?.indexedAt;
-  const recordHref = parent?.uri ? recordPathFromAtUri(parent.uri) : null;
+  // Only treat the parent as a local record if it lives on this site. For
+  // anyone else's posts, link the timestamp out to bsky.app so the user
+  // doesn't get teleported into the wrong /posting/{rkey} on this domain.
+  const isMine = did === ME_DID;
+  const localHref = isMine && parent?.uri ? recordPathFromAtUri(parent.uri) : null;
+  const externalHref = !isMine && handle && parent?.uri
+    ? `https://bsky.app/profile/${handle}/post/${parent.uri.split('/').pop()}`
+    : null;
   return (
     <article className="record-parent" data-at-uri={parent?.uri}>
       <header className="record-parent-head">
+        <span className="record-parent-arrow" aria-hidden="true">↳</span>
         {isRoot && <span className="small-caps record-parent-tag">root</span>}
-        {handle && <span className="small-caps record-parent-handle">@{handle}</span>}
+        <span className="small-caps record-parent-context">replying to</span>
+        {(displayName || handle) && (
+          <span className="record-parent-author">
+            {displayName && <span className="record-parent-name">{displayName}</span>}
+            {handle && <span className="record-parent-handle">@{handle}</span>}
+          </span>
+        )}
         {ts && (
           <span className="gutter record-parent-time">
-            {recordHref ? <Link to={recordHref}>{relativeTime(ts)}</Link> : relativeTime(ts)}
+            {localHref ? (
+              <Link to={localHref}>{relativeTime(ts)}</Link>
+            ) : externalHref ? (
+              <a href={externalHref} target="_blank" rel="noreferrer noopener">{relativeTime(ts)}</a>
+            ) : (
+              relativeTime(ts)
+            )}
           </span>
         )}
       </header>
