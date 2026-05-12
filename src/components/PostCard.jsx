@@ -52,26 +52,28 @@ export default function PostCard({ payload, createdAt, atUri, variant = 'timelin
       data-is-reply={reply ? 'true' : undefined}
     >
       {showReplyBadge && <ReplyBadge reply={reply} recordHref={recordHref} />}
-      <div className="post-card-row">
-        <p className="post-card-text">
-          {text ? renderPostText(text, facets) : <em>—</em>}
-        </p>
-        {/*
-          On the record page itself the page-level meta header already shows
-          the timestamp (and a lot more), so showing it inside the card too
-          reads as a duplicate. Skip the in-card timestamp for `variant ===
-          'record'`.
-        */}
-        {ts && variant !== 'record' && (
-          recordHref ? (
-            <Link className="gutter post-card-time" to={recordHref}>
-              {relativeTime(ts)}
-            </Link>
-          ) : (
-            <span className="gutter post-card-time">{relativeTime(ts)}</span>
-          )
-        )}
-      </div>
+      {(text || (ts && variant !== 'record')) && (
+        <div className="post-card-row">
+          {text && (
+            <p className="post-card-text">{renderPostText(text, facets)}</p>
+          )}
+          {/*
+            On the record page itself the page-level meta header already shows
+            the timestamp (and a lot more), so showing it inside the card too
+            reads as a duplicate. Skip the in-card timestamp for `variant ===
+            'record'`.
+          */}
+          {ts && variant !== 'record' && (
+            recordHref ? (
+              <Link className="gutter post-card-time" to={recordHref}>
+                {relativeTime(ts)}
+              </Link>
+            ) : (
+              <span className="gutter post-card-time">{relativeTime(ts)}</span>
+            )
+          )}
+        </div>
+      )}
       {embed && <PostEmbed embed={embed} did={authorDid} />}
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats gutter">

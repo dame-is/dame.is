@@ -124,6 +124,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 
 .post-card-time {
   flex: 0 0 auto;
+  margin-left: auto;
   text-decoration: none;
   white-space: nowrap;
 }
