@@ -14,6 +14,7 @@ import { formatDateLong, formatTime, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { VERB_TO_COLLECTION, VERB_LABELS, recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
+import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import './Blogging.css';
 import '../components/Feed.css';
 
@@ -119,7 +120,7 @@ export default function Record({ verb }) {
 
   if (!collection) {
     return (
-      <PageShell verb={verb} title="Unknown record type" headTitle="Not found — Dame is…">
+      <PageShell title="Unknown record type" headTitle="Not found — Dame is…">
         <p>
           No collection mapped for verb <code>{verb}</code>.{' '}
           <Link to="/">Back to the timeline.</Link>
@@ -130,7 +131,7 @@ export default function Record({ verb }) {
 
   if (missing && !item) {
     return (
-      <PageShell verb={verb} title="Record not found" headTitle="Not found — Dame is…">
+      <PageShell title="Record not found" headTitle="Not found — Dame is…">
         <p>
           No <code>{collection}</code> record with rkey <code>{rkey}</code>.{' '}
           <Link to={`/${verb}`}>Back to {verb}.</Link>
@@ -145,7 +146,6 @@ export default function Record({ verb }) {
 
   return (
     <PageShell
-      verb={verb}
       title={titleFor(verb, item)}
       atUri={atUri}
       cid={cid}
@@ -189,6 +189,7 @@ function RecordBody({ verb, item }) {
     case 'listening':
       return (
         <>
+          <AlbumArt payload={item.payload} />
           <ListenRow {...item} />
           <ListenServiceLinks payload={item.payload} />
         </>
@@ -200,6 +201,36 @@ function RecordBody({ verb, item }) {
     default:
       return null;
   }
+}
+
+/**
+ * Album art for a play, fetched from iTunes by ISRC / Apple song id /
+ * track+artist text search. Renders nothing until we know either way so
+ * the layout doesn't jump; renders nothing on a miss either.
+ */
+function AlbumArt({ payload }) {
+  const result = useAlbumArt(payload, { size: 600 });
+  if (result.status !== 'hit') return null;
+  const { art } = result;
+  const release = payload?.releaseName || art.album || '';
+  const alt = release
+    ? `Album art for ${release}`
+    : art.track
+      ? `Album art for ${art.track}`
+      : 'Album art';
+  return (
+    <figure className="listen-album-art">
+      <img
+        src={art.url}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        width="600"
+        height="600"
+      />
+      {release && <figcaption className="listen-album-art-caption">{release}</figcaption>}
+    </figure>
+  );
 }
 
 function ListenServiceLinks({ payload }) {

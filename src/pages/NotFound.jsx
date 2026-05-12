@@ -4,7 +4,6 @@ import PageShell from '../components/PageShell.jsx';
 export default function NotFound() {
   return (
     <PageShell
-      verb="missing"
       title="Nowhere to be found"
       intro="No record exists at this URL."
       headTitle="Not found — Dame is…"

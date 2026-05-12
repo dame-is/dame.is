@@ -292,6 +292,34 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   font-variant-numeric: tabular-nums;
 }
 
+/* Listening record page album art */
+.listen-album-art {
+  margin: 0 0 var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.listen-album-art img {
+  display: block;
+  width: 100%;
+  max-width: 22rem;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-2, 8px);
+  background: var(--page-edge);
+}
+
+.listen-album-art-caption {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
 /* Listening record page service links */
 .listen-services {
   list-style: none;

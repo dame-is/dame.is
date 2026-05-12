@@ -22,7 +22,7 @@ export default function OauthCallback() {
   }, [loading, session, did, navigate]);
 
   return (
-    <PageShell verb="signing in" title="Signing in…" headTitle="Signing in — Dame is…">
+    <PageShell title="Signing in…" headTitle="Signing in — Dame is…">
       {error ? (
         <p className="placeholder-card">
           Sign-in failed: <code>{String(error?.message || error)}</code>

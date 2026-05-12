@@ -34,7 +34,6 @@ export default function Creating() {
 
   return (
     <PageShell
-      verb="creating"
       title="Creating"
       intro="A portfolio of works — art, software, writing, music, and more."
       atUri={`at://${ME_DID}/is.dame.page/creating`}

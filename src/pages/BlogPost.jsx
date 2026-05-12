@@ -38,7 +38,7 @@ export default function BlogPost() {
 
   if (missing && !record) {
     return (
-      <PageShell verb="blogging" title="Post not found" headTitle="Not found — Dame is…">
+      <PageShell title="Post not found" headTitle="Not found — Dame is…">
         <p>
           No <code>is.dame.blogging.post</code> with slug <code>{slug}</code>.{' '}
           <Link to="/blogging">Back to the index.</Link>
@@ -54,7 +54,6 @@ export default function BlogPost() {
 
   return (
     <PageShell
-      verb="blogging"
       title={value?.title || slug}
       atUri={record?.uri}
       cid={record?.cid}

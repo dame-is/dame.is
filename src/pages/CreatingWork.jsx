@@ -37,7 +37,7 @@ export default function CreatingWork() {
 
   if (missing && !record) {
     return (
-      <PageShell verb="creating" title="Work not found" headTitle="Not found — Dame is…">
+      <PageShell title="Work not found" headTitle="Not found — Dame is…">
         <p>
           No <code>is.dame.creating.work</code> with slug <code>{slug}</code>.{' '}
           <Link to="/creating">Back to the index.</Link>
@@ -50,7 +50,6 @@ export default function CreatingWork() {
 
   return (
     <PageShell
-      verb="creating"
       title={v?.title || slug}
       atUri={record?.uri}
       cid={record?.cid}

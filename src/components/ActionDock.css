@@ -117,20 +117,20 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) 0;
   border-radius: var(--radius-2);
   text-decoration: none;
   color: var(--ink);
-  transition: background 120ms ease;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .dock-route:hover {
-  background: var(--page-edge);
+  background: transparent;
   color: var(--accent);
 }
 
 .dock-route.is-active {
-  background: var(--page-edge);
+  background: transparent;
   color: var(--accent);
 }
 
@@ -150,16 +150,16 @@
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) 0;
   border-radius: var(--radius-2);
   font-family: var(--sans);
   font-size: var(--text-sm);
   color: var(--ink-soft);
-  transition: background 120ms ease, color 120ms ease;
+  transition: color 120ms ease;
 }
 
 .dock-tool:hover {
-  background: var(--page-edge);
+  background: transparent;
   color: var(--accent);
 }
 
@@ -179,5 +179,23 @@
     left: var(--space-3);
     width: auto;
     max-width: none;
+  }
+
+  /* Collapse the ribbon to just the mark on small screens so it
+     doesn't eat a strip of vertical space. */
+  .dock-ribbon {
+    writing-mode: horizontal-tb;
+    padding: var(--space-2) var(--space-2);
+    gap: 0;
+    border-top-left-radius: var(--radius-2);
+    border-bottom-left-radius: var(--radius-2);
+  }
+
+  .dock-ribbon-label {
+    display: none;
+  }
+
+  .dock-ribbon-mark {
+    font-size: 1.4rem;
   }
 }

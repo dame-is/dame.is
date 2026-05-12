@@ -30,7 +30,6 @@ export default function About() {
 
   return (
     <PageShell
-      verb="introducing"
       title={profile?.displayName || 'About'}
       headTitle="About — Dame is…"
       atUri={`at://${ME_DID}/is.dame.profile/self`}

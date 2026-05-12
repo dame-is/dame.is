@@ -26,7 +26,7 @@ export default function Admin() {
 
   if (loading) {
     return (
-      <PageShell verb="admin" title="Admin" headTitle="Admin — Dame is…">
+      <PageShell title="Admin" headTitle="Admin — Dame is…">
         <p className="placeholder-card">Restoring session…</p>
       </PageShell>
     );
@@ -34,7 +34,7 @@ export default function Admin() {
 
   if (!session) {
     return (
-      <PageShell verb="admin" title="Admin" headTitle="Admin — Dame is…">
+      <PageShell title="Admin" headTitle="Admin — Dame is…">
         <SignInGate signIn={signIn} />
       </PageShell>
     );
@@ -42,7 +42,7 @@ export default function Admin() {
 
   if (did !== ME_DID) {
     return (
-      <PageShell verb="admin" title="Admin" headTitle="Admin — Dame is…">
+      <PageShell title="Admin" headTitle="Admin — Dame is…">
         <p className="placeholder-card">
           Signed in as <code>{did}</code>, but this editor is restricted to{' '}
           <code>{ME_DID}</code>.
@@ -114,7 +114,6 @@ function SignInGate({ signIn }) {
 function CollectionPicker() {
   return (
     <PageShell
-      verb="admin"
       title="Collections"
       intro="Pick a collection to browse and edit records on your PDS."
       headTitle="Admin — Dame is…"
@@ -210,7 +209,6 @@ function RecordList({ agent, did, collection }) {
 
   return (
     <PageShell
-      verb="admin"
       title={lex?.label || collection}
       headTitle={`${lex?.label || collection} — Admin — Dame is…`}
     >
@@ -456,7 +454,7 @@ function RecordEditor({ agent, did, collection, rkey }) {
   const headTitle = `${title} — Admin — Dame is…`;
 
   return (
-    <PageShell verb="admin" title={title} headTitle={headTitle}>
+    <PageShell title={title} headTitle={headTitle}>
       <div className="admin-toolbar">
         <Link to={`/admin?c=${encodeURIComponent(collection)}`} className="admin-link-subtle">
           ← Back to list

@@ -4,14 +4,14 @@ const ChromeBarContext = createContext(null);
 const STORAGE_KEY = 'dame.chrome.expanded';
 
 function readInitial() {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === '1') return true;
     if (stored === '0') return false;
   } catch {}
-  // Default: collapsed on small screens, expanded on wider screens.
-  return window.matchMedia?.('(min-width: 700px)').matches ?? true;
+  // Default to expanded; users can collapse manually and we remember it.
+  return true;
 }
 
 export function ChromeBarProvider({ children }) {

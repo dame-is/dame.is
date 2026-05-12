@@ -20,7 +20,7 @@
 .chrome-bar-row {
   display: flex;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-3);
   padding: 0 clamp(var(--space-4), 4vw, var(--space-7));
   min-height: var(--chrome-h);
 }
@@ -81,7 +81,6 @@
 
 .chrome-signals-primary {
   justify-content: flex-start;
-  padding-left: var(--space-4);
   overflow: hidden;
 }
 
@@ -108,10 +107,10 @@
 .chrome-signal-value {
   color: var(--ink-soft);
   font-weight: 500;
-  max-width: 36ch;
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: normal;
+  min-width: 0;
 }
 
 .chrome-signal-value strong {
@@ -146,36 +145,32 @@
 .chrome-expand {
   flex: 0 0 auto;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: var(--space-2) var(--space-3);
-  margin-right: calc(-1 * var(--space-3));
-  color: var(--ink-muted);
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  margin-right: calc(-1 * var(--space-2));
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-faint);
   cursor: pointer;
-  transition: color 120ms ease;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.chrome-expand:hover {
+.chrome-expand:hover,
+.chrome-expand:focus-visible {
   color: var(--accent);
-}
-
-.chrome-expand-grip {
-  display: block;
-  width: 2.25rem;
-  height: 3px;
-  background: var(--rule);
-  transition: background 120ms ease, width 200ms ease;
-}
-
-.chrome-expand:hover .chrome-expand-grip {
-  background: var(--accent-soft);
-  width: 2.75rem;
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
 }
 
 .chrome-expand-glyph {
-  display: inline-block;
-  font-size: 0.85rem;
+  display: inline-flex;
+  width: 0.7rem;
+  height: 0.7rem;
   line-height: 1;
 }
 
@@ -185,7 +180,7 @@
    duplicate DOM and no idle motion — fully still when not hovered. */
 .ticker {
   display: inline-block;
-  max-width: 36ch;
+  max-width: 100%;
   vertical-align: bottom;
   overflow: hidden;
   white-space: nowrap;
@@ -209,16 +204,7 @@
 
 @media (max-width: 700px) {
   .chrome-bar-row {
-    gap: var(--space-3);
-  }
-  .chrome-signals-primary {
-    padding-left: var(--space-2);
-  }
-  .chrome-signal-value {
-    max-width: 22ch;
-  }
-  .ticker {
-    max-width: 22ch;
+    gap: var(--space-2);
   }
   .chrome-signals-secondary {
     flex-direction: column;

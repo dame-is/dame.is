@@ -119,13 +119,3 @@ blockquote {
   margin: var(--space-6) 0;
 }
 
-.running-header {
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-muted);
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-6);
-}

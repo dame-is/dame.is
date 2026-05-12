@@ -9,7 +9,6 @@ export default function DayOfLifeTicker() {
       <span className="chrome-signal-label">day</span>
       <TickerText className="chrome-signal-value" title={tooltip}>
         <strong>{day.toLocaleString()}</strong>
-        <span> · {dayOfYear}/365 · y{year}</span>
       </TickerText>
     </span>
   );

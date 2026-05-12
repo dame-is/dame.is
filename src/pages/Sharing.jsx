@@ -27,7 +27,6 @@ export default function Sharing() {
 
   return (
     <PageShell
-      verb="sharing"
       title={v.title || 'Sharing'}
       intro={v.intro || 'Things worth handing off.'}
       atUri={`at://${ME_DID}/is.dame.page/sharing`}

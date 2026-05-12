@@ -29,15 +29,22 @@ export default function ChromeBar() {
           aria-controls="chrome-bar-secondary"
           aria-label={expanded ? 'Collapse atmosphere bar' : 'Expand atmosphere bar'}
         >
-          <span className="chrome-expand-grip" aria-hidden="true" />
-          <motion.span
+          <motion.svg
             className="chrome-expand-glyph"
             aria-hidden="true"
+            viewBox="0 0 12 12"
             animate={{ rotate: expanded ? 180 : 0 }}
             transition={{ duration: reduce ? 0 : 0.25, ease: 'easeOut' }}
           >
-            &#x25BE;
-          </motion.span>
+            <path
+              d="M2.5 4.5 L6 8 L9.5 4.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </motion.svg>
         </button>
       </div>
 
