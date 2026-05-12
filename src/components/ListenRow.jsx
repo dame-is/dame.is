@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom';
 import { relativeTime } from '../lib/time.js';
+import { rkeyFromAtUri } from '../lib/atproto.js';
 
 /**
  * Single play row. The unified feed collapses runs of consecutive plays into
@@ -11,6 +13,8 @@ export default function ListenRow({ payload, createdAt, atUri, count }) {
     : (payload?.artist || '');
   const url = payload?.originUrl;
   const ts = createdAt || payload?.playedTime;
+  const rkey = rkeyFromAtUri(atUri);
+  const recordHref = rkey ? `/listening/${rkey}` : null;
   return (
     <article className="listen-row feed-card" data-at-uri={atUri}>
       <span className="small-caps listen-row-prefix">listening</span>
@@ -28,7 +32,11 @@ export default function ListenRow({ payload, createdAt, atUri, count }) {
         )}
         {count > 1 && <span className="listen-row-count gutter"> · {count} plays</span>}
       </span>
-      {ts && <span className="gutter listen-row-time">{relativeTime(ts)}</span>}
+      {ts && (
+        <span className="gutter listen-row-time">
+          {recordHref ? <Link to={recordHref}>{relativeTime(ts)}</Link> : relativeTime(ts)}
+        </span>
+      )}
     </article>
   );
 }

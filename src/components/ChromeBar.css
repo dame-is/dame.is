@@ -3,20 +3,40 @@
   top: 0;
   z-index: 30;
   display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  height: var(--chrome-h);
-  padding: 0 clamp(var(--space-4), 4vw, var(--space-7));
-  background: color-mix(in srgb, var(--page) 90%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  flex-direction: column;
+  background: color-mix(in srgb, var(--page) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--rule);
   font-style: normal;
+  overflow: hidden;
 }
 
 .chrome-bar,
 .chrome-bar * {
   font-style: normal;
+}
+
+.chrome-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: 0 clamp(var(--space-4), 4vw, var(--space-7));
+  min-height: var(--chrome-h);
+}
+
+.chrome-bar-primary {
+  flex: 0 0 auto;
+}
+
+.chrome-bar-secondary {
+  border-top: 1px solid var(--rule-soft);
+  overflow: hidden;
+}
+
+.chrome-bar-secondary > .chrome-signals {
+  width: 100%;
+  padding: var(--space-3) 0;
 }
 
 .chrome-title {
@@ -30,6 +50,7 @@
   text-decoration: none;
   letter-spacing: -0.01em;
   font-style: normal;
+  flex: 0 0 auto;
 }
 
 .chrome-title:hover {
@@ -51,12 +72,22 @@
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: var(--space-5);
   font-family: var(--sans);
   font-size: var(--text-xs);
   color: var(--ink-muted);
+  min-width: 0;
+}
+
+.chrome-signals-primary {
+  justify-content: flex-start;
+  padding-left: var(--space-4);
   overflow: hidden;
+}
+
+.chrome-signals-secondary {
+  flex-wrap: wrap;
+  row-gap: var(--space-3);
 }
 
 .chrome-signal {
@@ -77,7 +108,7 @@
 .chrome-signal-value {
   color: var(--ink-soft);
   font-weight: 500;
-  max-width: 22ch;
+  max-width: 36ch;
   overflow: hidden;
   text-overflow: ellipsis;
   font-style: normal;
@@ -88,71 +119,96 @@
   font-weight: 600;
 }
 
-/* Ticker-tape marquee for truncated chrome-bar values. The track holds the
-   single copy by default; when overflow is detected JS injects a second copy
-   and we animate the track from 0 → -50% on hover/focus for a seamless loop. */
+/* Expand/collapse handle on the far right of the primary row */
+.chrome-expand {
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-2) var(--space-3);
+  margin-right: calc(-1 * var(--space-3));
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.chrome-expand:hover {
+  color: var(--accent);
+}
+
+.chrome-expand-grip {
+  display: block;
+  width: 2.25rem;
+  height: 3px;
+  background: var(--rule);
+  transition: background 120ms ease, width 200ms ease;
+}
+
+.chrome-expand:hover .chrome-expand-grip {
+  background: var(--accent-soft);
+  width: 2.75rem;
+}
+
+.chrome-expand-glyph {
+  display: inline-block;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+/* Truncated chrome-bar values render a single copy clipped by `max-width`.
+   On hover/focus, JS animates the inner span by exactly the overflow amount
+   (oscillating back and forth) so the hidden tail scrolls into view. No
+   duplicate DOM and no idle motion — fully still when not hovered. */
 .ticker {
   display: inline-block;
-  max-width: 22ch;
+  max-width: 36ch;
   vertical-align: bottom;
   overflow: hidden;
   white-space: nowrap;
   position: relative;
+}
+
+.ticker[data-truncated='true'] {
   -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 1.25rem), transparent 100%);
   mask-image: linear-gradient(to right, black 0, black calc(100% - 1.25rem), transparent 100%);
 }
 
-.ticker:not([data-truncated]) {
-  text-overflow: ellipsis;
-  -webkit-mask-image: none;
-  mask-image: none;
+.ticker[data-playing='true'] {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 1.25rem, black calc(100% - 1.25rem), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 1.25rem, black calc(100% - 1.25rem), transparent 100%);
 }
 
-.ticker-track {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  align-items: baseline;
-}
-
-.ticker-copy {
+.ticker-inner {
   display: inline-block;
-  flex: 0 0 auto;
-  padding-right: 2.5em;
+  will-change: transform;
 }
 
-.ticker[data-truncated='true']:hover .ticker-track,
-.ticker[data-truncated='true']:focus-within .ticker-track,
-.chrome-signal:hover .ticker[data-truncated='true'] .ticker-track,
-.chrome-signal:focus-within .ticker[data-truncated='true'] .ticker-track {
-  animation: ticker-scroll var(--ticker-duration, 14s) linear infinite;
-}
-
-@keyframes ticker-scroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ticker[data-truncated='true']:hover .ticker-track,
-  .ticker[data-truncated='true']:focus-within .ticker-track,
-  .chrome-signal:hover .ticker[data-truncated='true'] .ticker-track,
-  .chrome-signal:focus-within .ticker[data-truncated='true'] .ticker-track {
-    animation: none;
-  }
-}
-
-@media (max-width: 900px) {
-  .chrome-signals {
+@media (max-width: 700px) {
+  .chrome-bar-row {
     gap: var(--space-3);
   }
-  .chrome-signal-stats,
-  .chrome-signal-now-playing {
-    display: none;
+  .chrome-signals-primary {
+    padding-left: var(--space-2);
+  }
+  .chrome-signal-value {
+    max-width: 22ch;
+  }
+  .ticker {
+    max-width: 22ch;
+  }
+  .chrome-signals-secondary {
+    flex-direction: column;
+    align-items: flex-start;
+    row-gap: var(--space-2);
+    gap: var(--space-2);
   }
 }
 
-@media (max-width: 600px) {
-  .chrome-signal-day {
+/* On collapsed state, hide the primary row's status signal on very narrow
+   screens so the title + handle have room. Tap-to-expand brings it back. */
+@media (max-width: 480px) {
+  .chrome-bar.is-collapsed .chrome-signals-primary {
     display: none;
   }
 }

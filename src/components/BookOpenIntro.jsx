@@ -6,20 +6,22 @@ const STORAGE_KEY = 'dame.bookopen.seen';
 export default function BookOpenIntro() {
   const [phase, setPhase] = useState('initial');
 
+  // TESTING: always show the intro on load. Restore the localStorage gate below
+  // (and the matching `setItem` in `open`) when ready to make it persistent.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      if (localStorage.getItem(STORAGE_KEY) === '1') return;
-    } catch {}
+    // try {
+    //   if (localStorage.getItem(STORAGE_KEY) === '1') return;
+    // } catch {}
     const t = requestAnimationFrame(() => setPhase('idle'));
     return () => cancelAnimationFrame(t);
   }, []);
 
   function open() {
     setPhase('opening');
-    try {
-      localStorage.setItem(STORAGE_KEY, '1');
-    } catch {}
+    // try {
+    //   localStorage.setItem(STORAGE_KEY, '1');
+    // } catch {}
     setTimeout(() => setPhase('done'), 900);
   }
 

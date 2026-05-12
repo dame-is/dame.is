@@ -21,8 +21,11 @@
   --fg:    var(--ink);
   --muted: var(--ink-muted);
 
-  --serif:  'Source Serif 4', 'Source Serif Pro', 'Iowan Old Style', 'Charter', Georgia, serif;
-  --sans:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-crimson: 'Crimson Pro', 'Source Serif 4', 'Iowan Old Style', 'Charter', Georgia, serif;
+  --font-atkinson: 'Atkinson Hyperlegible', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  --serif:  var(--font-crimson);
+  --sans:   var(--font-atkinson);
   --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --measure: 65ch;
@@ -93,6 +96,24 @@
     --shadow:      rgba(0, 0, 0, 0.45);
     color-scheme: dark;
   }
+}
+
+/* Typeface modes — switched via [data-typeface] on <html>.
+   "combo" (default) keeps the serif/sans split; "serif" and "sans"
+   collapse both stacks to a single family for a unified voice. */
+[data-typeface='serif'] {
+  --serif: var(--font-crimson);
+  --sans:  var(--font-crimson);
+}
+
+[data-typeface='sans'] {
+  --serif: var(--font-atkinson);
+  --sans:  var(--font-atkinson);
+}
+
+[data-typeface='combo'] {
+  --serif: var(--font-crimson);
+  --sans:  var(--font-atkinson);
 }
 
 html, body {

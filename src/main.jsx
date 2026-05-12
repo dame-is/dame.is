@@ -7,9 +7,13 @@ import './styles/theme.css';
 import './styles/typography.css';
 import './styles/app.css';
 
-const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
-const initialTheme = stored || 'system';
+const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
+const initialTheme = storedTheme || 'system';
 document.documentElement.setAttribute('data-theme', initialTheme);
+
+const storedTypeface = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.typeface') : null;
+const initialTypeface = ['combo', 'serif', 'sans'].includes(storedTypeface) ? storedTypeface : 'combo';
+document.documentElement.setAttribute('data-typeface', initialTypeface);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

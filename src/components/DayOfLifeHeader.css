@@ -30,4 +30,28 @@
 
 .day-header-date {
   color: var(--ink-faint);
+  position: relative;
+  display: inline-grid;
+  cursor: help;
+  outline: none;
+}
+
+.day-header-date-relative,
+.day-header-date-absolute {
+  grid-area: 1 / 1;
+  transition: opacity 120ms ease;
+}
+
+.day-header-date-absolute {
+  opacity: 0;
+}
+
+.day-header-date:hover .day-header-date-relative,
+.day-header-date:focus-visible .day-header-date-relative {
+  opacity: 0;
+}
+
+.day-header-date:hover .day-header-date-absolute,
+.day-header-date:focus-visible .day-header-date-absolute {
+  opacity: 1;
 }

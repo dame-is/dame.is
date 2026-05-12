@@ -50,6 +50,34 @@ const MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+/**
+ * Long-form relative phrasing tuned for day-grouped headers, e.g.
+ * "today", "yesterday", "3 days ago", "2 weeks ago", "5 months ago".
+ *
+ * Anchored to the start of `now`'s UTC day so two timestamps on the same
+ * calendar day always read as "today" regardless of clock time.
+ */
+export function relativeDay(date, now = new Date()) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const startOfDay = (x) =>
+    Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate());
+  const days = Math.round((startOfDay(now) - startOfDay(d)) / MS.d);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) {
+    const w = Math.round(days / 7);
+    return w === 1 ? '1 week ago' : `${w} weeks ago`;
+  }
+  if (days < 365) {
+    const mo = Math.round(days / 30);
+    return mo === 1 ? '1 month ago' : `${mo} months ago`;
+  }
+  const y = Math.round(days / 365);
+  return y === 1 ? '1 year ago' : `${y} years ago`;
+}
+
 export function formatDateLong(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';

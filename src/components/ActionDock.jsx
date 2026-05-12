@@ -4,6 +4,7 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
 import ThemeToggle from './ThemeToggle.jsx';
+import TypefaceToggle from './TypefaceToggle.jsx';
 import './ActionDock.css';
 
 const ROUTES = [
@@ -75,6 +76,7 @@ export default function ActionDock() {
         <div className="dock-section">
           <div className="dock-heading">Tools</div>
           <ThemeToggle />
+          <TypefaceToggle />
           <button
             type="button"
             className="dock-tool"

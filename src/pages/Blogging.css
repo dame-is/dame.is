@@ -124,3 +124,26 @@
     text-align: left;
   }
 }
+
+/* Single-record page (Record.jsx) */
+.record-page {
+  max-width: var(--measure);
+  margin: 0 auto;
+}
+
+.record-page-meta {
+  flex-wrap: wrap;
+}
+
+.record-page-aturi {
+  margin-top: var(--space-7);
+  padding-top: var(--space-4);
+  border-top: 1px dotted var(--rule);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  word-break: break-all;
+}
+
+.record-page-aturi code {
+  font-family: var(--mono);
+}

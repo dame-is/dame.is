@@ -3,6 +3,7 @@ import { useLocation, matchPath } from 'react-router-dom';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
+import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS } from '../lib/recordRoutes.js';
 
 /**
  * Given the current route, derive the AT URI of its backing record and load
@@ -73,6 +74,25 @@ function deriveFromRoute(pathname, override) {
       cid: override.cid || null,
       lexicon: override.lexicon || lexiconFromAtUri(override.atUri),
       record: override.record || null,
+      route: pathname,
+    };
+  }
+
+  // Generic single-record routes — /:verb-or-nsid/:rkey
+  for (const segment of RECORD_ROUTE_SEGMENTS) {
+    const m = matchPath(`/${segment}/:rkey`, pathname);
+    if (!m) continue;
+    const collection = VERB_TO_COLLECTION[segment] || segment;
+    const rkey = m.params.rkey;
+    // Posts may live under another author's DID; we leave the URI unset for
+    // now and let the page render its own AT URI hint after lookup.
+    const repoDid = collection === 'app.bsky.feed.post' ? null : ME_DID;
+    return {
+      atUri: repoDid ? `at://${repoDid}/${collection}/${rkey}` : null,
+      cid: null,
+      lexicon: collection,
+      rkey,
+      record: null,
       route: pathname,
     };
   }
@@ -158,7 +178,34 @@ async function loadFromSnapshots(info) {
     const works = await fetchSnapshot('creations');
     return Array.isArray(works) ? works.find((r) => r?.value?.slug === info.slug) || null : null;
   }
+
+  // By-rkey lookups for the generic record routes.
+  if (info.rkey) {
+    const snapshotName = SNAPSHOT_FOR_COLLECTION[info.lexicon];
+    if (!snapshotName) return null;
+    const snap = await fetchSnapshot(snapshotName);
+    if (!Array.isArray(snap)) return null;
+    if (info.lexicon === 'app.bsky.feed.post') {
+      const row = snap.find((r) => endsWithRkey(r?.post?.uri, info.rkey));
+      return row?.post ? { uri: row.post.uri, cid: row.post.cid, value: row.post.record } : null;
+    }
+    return snap.find((r) => endsWithRkey(r?.uri, info.rkey)) || null;
+  }
   return null;
+}
+
+const SNAPSHOT_FOR_COLLECTION = {
+  'app.bsky.feed.post': 'posts',
+  [COLLECTIONS.now]: 'now',
+  [COLLECTIONS.blogging]: 'blogs',
+  [COLLECTIONS.creating]: 'creations',
+  [COLLECTIONS.listen]: 'listening',
+};
+
+function endsWithRkey(uri, rkey) {
+  if (!uri) return false;
+  const m = String(uri).match(/\/([^/]+)$/);
+  return m && m[1] === rkey;
 }
 
 async function fetchRecordFromPds(pds, info) {
@@ -177,6 +224,11 @@ async function fetchRecordFromPds(pds, info) {
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }).catch(() => []);
     return recs.find((r) => r?.value?.slug === info.slug) || null;
+  }
+  // Generic by-rkey live fetch for our own PDS-backed collections. Skip
+  // app.bsky.feed.post — those records may live under another author's repo.
+  if (info.rkey && info.lexicon && info.lexicon !== 'app.bsky.feed.post') {
+    return getRecord(pds, { repo: ME_DID, collection: info.lexicon, rkey: info.rkey }).catch(() => null);
   }
   return null;
 }
