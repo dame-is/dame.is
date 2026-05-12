@@ -1,0 +1,23 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.page",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:home | literal:posting | literal:logging | literal:sharing | literal:blogging | literal:creating | literal:listening | tid",
+      "record": {
+        "type": "object",
+        "required": ["title", "createdAt"],
+        "properties": {
+          "title":      { "type": "string", "maxLength": 200 },
+          "slug":       { "type": "string" },
+          "intro":      { "type": "string", "maxLength": 2000 },
+          "body":       { "type": "string", "maxLength": 50000 },
+          "bodyFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
+          "createdAt":  { "type": "string", "format": "datetime" },
+          "updatedAt":  { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

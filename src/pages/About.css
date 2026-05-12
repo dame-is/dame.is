@@ -1,0 +1,91 @@
+.about-card {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: var(--space-5) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.about-avatar {
+  width: 7rem;
+  height: 7rem;
+  border-radius: var(--radius-3);
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+}
+
+.about-meta {
+  flex: 1;
+  min-width: 16rem;
+}
+
+.about-handle {
+  font-family: var(--mono);
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--ink-muted);
+  margin: 0 0 var(--space-2);
+}
+
+.about-tagline {
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  margin: 0 0 var(--space-3);
+  font-style: italic;
+  color: var(--ink);
+}
+
+.about-bio {
+  margin: 0 0 var(--space-4);
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  white-space: pre-wrap;
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.about-links a {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+}
+
+.about-readmore {
+  margin-top: var(--space-7);
+}
+
+.about-readmore > summary {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.about-readmore[open] > summary {
+  color: var(--accent);
+}
+
+.about-longform {
+  margin-top: var(--space-6);
+}
+
+.about-longform > p:first-of-type::first-letter {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 4.2em;
+  float: left;
+  line-height: 0.85;
+  padding-right: 0.08em;
+  padding-top: 0.12em;
+  color: var(--accent);
+}

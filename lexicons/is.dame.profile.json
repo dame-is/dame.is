@@ -1,0 +1,32 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.profile",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["body", "updatedAt"],
+        "properties": {
+          "tagline":    { "type": "string", "maxLength": 280 },
+          "body":       { "type": "string", "maxLength": 50000 },
+          "bodyFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
+          "links":      {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "url"],
+              "properties": {
+                "label": { "type": "string" },
+                "url":   { "type": "string", "format": "uri" }
+              }
+            }
+          },
+          "createdAt":  { "type": "string", "format": "datetime" },
+          "updatedAt":  { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

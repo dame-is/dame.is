@@ -1,0 +1,47 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.creating.work",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["title", "slug", "kind", "createdAt"],
+        "properties": {
+          "title":      { "type": "string", "maxLength": 300 },
+          "slug":       { "type": "string", "maxLength": 200 },
+          "kind":       { "type": "string", "enum": ["art", "software", "writing", "music", "video", "other"] },
+          "summary":    { "type": "string", "maxLength": 2000 },
+          "body":       { "type": "string", "maxLength": 200000 },
+          "bodyFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
+          "media":      {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["url"],
+              "properties": {
+                "url":  { "type": "string", "format": "uri" },
+                "alt":  { "type": "string" },
+                "kind": { "type": "string", "enum": ["image", "video", "embed"] }
+              }
+            }
+          },
+          "links":      {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "url"],
+              "properties": {
+                "label": { "type": "string" },
+                "url":   { "type": "string", "format": "uri" }
+              }
+            }
+          },
+          "createdAt":  { "type": "string", "format": "datetime" },
+          "updatedAt":  { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,183 @@
+/* The ribbon hangs off the lower-right edge of the page like a bookmark
+   pulling out of a book's spine. */
+.dock-ribbon {
+  position: fixed;
+  right: 0;
+  bottom: clamp(var(--space-6), 14vh, var(--space-9));
+  z-index: 50;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3) var(--space-5) var(--space-3);
+  background: var(--ink);
+  color: var(--page);
+  border-top-left-radius: var(--radius-3);
+  border-bottom-left-radius: var(--radius-3);
+  box-shadow: -4px 8px 28px var(--shadow);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), background 200ms ease;
+  writing-mode: vertical-rl;
+  transform: translateX(8px);
+}
+
+.dock-ribbon::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, transparent, var(--accent-soft), transparent);
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
+  opacity: 0.5;
+}
+
+.dock-ribbon:hover {
+  transform: translateX(0);
+  background: var(--accent);
+}
+
+.dock-ribbon.is-open {
+  background: var(--accent);
+  transform: translateX(0);
+}
+
+.dock-ribbon-mark {
+  writing-mode: horizontal-tb;
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.dock-panel {
+  position: fixed;
+  right: clamp(var(--space-6), 5vw, var(--space-7));
+  bottom: clamp(7rem, 22vh, 11rem);
+  z-index: 49;
+  width: var(--dock-w);
+  max-width: calc(100vw - var(--space-6));
+  background: var(--page);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-3);
+  padding: var(--space-5);
+  box-shadow: 0 16px 40px var(--shadow);
+  transform: translateY(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.dock-panel.is-open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dock-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+  border: 0;
+  cursor: default;
+}
+
+.dock-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dock-heading {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+  margin-bottom: var(--space-1);
+}
+
+.dock-rule {
+  margin: var(--space-4) 0;
+  border-color: var(--rule-soft);
+}
+
+.dock-routes {
+  display: flex;
+  flex-direction: column;
+}
+
+.dock-route {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-2);
+  text-decoration: none;
+  color: var(--ink);
+  transition: background 120ms ease;
+}
+
+.dock-route:hover {
+  background: var(--page-edge);
+  color: var(--accent);
+}
+
+.dock-route.is-active {
+  background: var(--page-edge);
+  color: var(--accent);
+}
+
+.dock-route-label {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+}
+
+.dock-route-path {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.dock-tool {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-2);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.dock-tool:hover {
+  background: var(--page-edge);
+  color: var(--accent);
+}
+
+.dock-tool-key {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-1);
+  padding: 0 0.4em;
+}
+
+@media (max-width: 540px) {
+  .dock-panel {
+    right: var(--space-3);
+    left: var(--space-3);
+    width: auto;
+    max-width: none;
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.now",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["status", "createdAt"],
+        "properties": {
+          "status":    { "type": "string", "maxLength": 280, "description": "Short status string. Renders as 'dame.is <status>'." },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
