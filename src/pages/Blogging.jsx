@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
+import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { relativeTime } from '../lib/time.js';
@@ -21,7 +22,8 @@ import './Blogging.css';
  * in every JSX expression.
  */
 export default function Blogging() {
-  const [entries, setEntries] = useState([]);
+  // `null` = both snapshot fetches are still pending; `[]` = loaded.
+  const [entries, setEntries] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
@@ -47,15 +49,17 @@ export default function Blogging() {
     };
   }, []);
 
+  const loading = entries === null;
+  const safeEntries = entries || [];
   const filtered = useMemo(
     () =>
-      entries.filter((e) =>
+      safeEntries.filter((e) =>
         matchesQuery(
           [e.title, e.summary, e.id].filter(Boolean).join(' '),
           q,
         ),
       ),
-    [entries, q],
+    [safeEntries, q],
   );
 
   return (
@@ -68,7 +72,9 @@ export default function Blogging() {
       <div className="feed-filters feed-filters-search-only">
         <FeedSearch label="Search blog posts" />
       </div>
-      {filtered.length === 0 ? (
+      {loading ? (
+        <BloggingTocSkeleton rows={5} />
+      ) : filtered.length === 0 ? (
         <p className="feed-empty">
           {q ? 'No blog posts match that search.' : 'No blog posts yet.'}
         </p>
