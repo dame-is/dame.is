@@ -62,9 +62,10 @@
   z-index: 49;
   width: var(--dock-w);
   max-width: calc(100vw - var(--space-6));
-  max-height: calc(100vh - clamp(5rem, 12vh, 7rem));
+  max-height: calc(100dvh - clamp(5rem, 12vh, 7rem));
   overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: var(--page);
   border: 1px solid var(--rule);
   border-radius: var(--radius-3);
@@ -186,16 +187,36 @@
 }
 
 @media (max-width: 540px) {
+  /* On mobile the panel becomes a bottom sheet pinned to the viewport
+     edge. We use dvh to handle the iOS URL bar resizing and safe-area
+     insets so the content never lands behind the home indicator. */
   .dock-panel {
     right: var(--space-3);
     left: var(--space-3);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-3));
     width: auto;
     max-width: none;
+    max-height: calc(100dvh - var(--space-5) - env(safe-area-inset-top, 0px));
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    border-radius: var(--radius-3);
+  }
+
+  /* Less internal whitespace inside the sheet so more rows are visible
+     before scrolling kicks in. */
+  .dock-rule {
+    margin: var(--space-2) 0;
+  }
+
+  .dock-route,
+  .dock-tool {
+    padding: calc(var(--space-1) + 2px) 0;
   }
 
   /* Collapse the ribbon to just the mark on small screens so it
-     doesn't eat a strip of vertical space. */
+     doesn't eat a strip of vertical space, and tuck it into the
+     bottom-right corner above the safe area. */
   .dock-ribbon {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2));
     writing-mode: horizontal-tb;
     padding: var(--space-2) var(--space-2);
     gap: 0;
