@@ -8,6 +8,7 @@ import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
+import { RecordSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, getPostThread } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
@@ -191,10 +192,10 @@ export default function Record({ verb, nsid, source }) {
         {item ? (
           <RecordBody verb={verb} item={item} collection={collection} />
         ) : (
-          <p className="feed-empty">Loading record…</p>
+          <RecordSkeleton />
         )}
 
-        <RecordMeta collection={collection} createdAt={createdAt} />
+        {item && <RecordMeta collection={collection} createdAt={createdAt} />}
 
         {(verb === 'posting' || verb === 'reposting') && item?.atUri && (
           <Comments

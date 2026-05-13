@@ -4,6 +4,7 @@ import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { Link } from 'react-router-dom';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from './PostEmbed.jsx';
+import { CommentsSkeleton } from './Skeleton.jsx';
 import './Comments.css';
 
 /**
@@ -37,7 +38,7 @@ export default function Comments({
 
 function CommentsBody({ replies, status, emptyMessage }) {
   if (status === 'loading' && (!replies || replies.length === 0)) {
-    return <p className="feed-empty">Loading replies…</p>;
+    return <CommentsSkeleton rows={3} />;
   }
   if (status === 'error' && (!replies || replies.length === 0)) {
     return <p className="feed-empty">Couldn't load replies.</p>;
