@@ -1,0 +1,313 @@
+/* Animated loading skeletons.
+
+   Two layered animations make the placeholders feel alive without being
+   noisy:
+
+     1. A slow shimmer sweep — a horizontal gradient driven by
+        `background-position`. This is the dominant cue that something is
+        loading and the colors are pulled from the page palette so it
+        reads as "blank parchment" rather than "Material UI".
+
+     2. A breathing opacity wrapper — applied via Motion in JS. The
+        wrapper fades the whole skeleton column in, holds it, and fades
+        out as the real content swaps in. Per-block opacity is also
+        gently animated so a static page-edge fallback (when a user has
+        prefers-reduced-motion: reduce) still doesn't look like an error
+        state. */
+
+.skeleton {
+  display: inline-block;
+  vertical-align: middle;
+  background: linear-gradient(
+    90deg,
+    var(--page-edge) 0%,
+    var(--rule-soft) 45%,
+    var(--rule) 50%,
+    var(--rule-soft) 55%,
+    var(--page-edge) 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  background-position: 100% 0;
+  animation: skeleton-shimmer 1.7s ease-in-out infinite;
+  border-radius: var(--radius-1, 0);
+  /* Browsers don't read empty inline-block content as anything; force a
+     baseline so the parent line-height keeps text-line skeletons aligned
+     with surrounding flow. */
+  line-height: 1;
+  color: transparent;
+  user-select: none;
+}
+
+.skeleton-block {
+  display: block;
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--rule-soft);
+    opacity: 0.7;
+  }
+}
+
+/* Stack of skeleton text lines that mimics a paragraph. */
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+}
+
+.skeleton-text > .skeleton {
+  display: block;
+}
+
+/* Container Motion-fades — keeps things from snapping in. */
+.skeleton-shell {
+  display: block;
+  width: 100%;
+}
+
+/* Variant: feed-list skeleton, mirroring the .feed-item grid so the
+   placeholder doesn't reflow once the real items land. */
+.skeleton-feed {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: var(--space-5);
+}
+
+.skeleton-feed-item {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: var(--space-4);
+  align-items: start;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.skeleton-feed-item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.skeleton-feed-verb {
+  justify-self: end;
+  width: 3.4rem;
+  height: 0.8rem;
+  margin-top: 0.4rem;
+}
+
+.skeleton-feed-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.skeleton-feed-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.skeleton-feed-row .skeleton-feed-time {
+  flex: 0 0 auto;
+  width: 2.6rem;
+  height: 0.7rem;
+}
+
+.skeleton-feed-row .skeleton-feed-text {
+  flex: 1 1 auto;
+  height: 1.05em;
+  max-width: var(--measure);
+}
+
+@media (max-width: 700px) {
+  .skeleton-feed-item {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+  .skeleton-feed-verb {
+    justify-self: start;
+  }
+}
+
+/* Variant: blogging table-of-contents row skeleton. */
+.skeleton-toc {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.skeleton-toc-entry {
+  border-bottom: 1px dotted var(--rule);
+  display: grid;
+  grid-template-columns: 3rem 1fr auto;
+  gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-4) 0;
+}
+
+.skeleton-toc-entry:first-child {
+  border-top: 1px dotted var(--rule);
+}
+
+.skeleton-toc-num {
+  width: 1.8rem;
+  height: 0.8rem;
+}
+
+.skeleton-toc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.skeleton-toc-title {
+  height: 1.2em;
+  max-width: 28ch;
+}
+
+.skeleton-toc-summary {
+  height: 0.8em;
+  max-width: 40ch;
+}
+
+.skeleton-toc-meta {
+  width: 4.5rem;
+  height: 0.75rem;
+  align-self: start;
+  margin-top: 0.4em;
+}
+
+@media (max-width: 700px) {
+  .skeleton-toc-entry {
+    grid-template-columns: 1fr;
+  }
+  .skeleton-toc-num,
+  .skeleton-toc-meta {
+    display: none;
+  }
+}
+
+/* Variant: creating grid card skeleton. */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.skeleton-grid-cell {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+}
+
+.skeleton-grid-thumb {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  display: block;
+}
+
+.skeleton-grid-meta {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeleton-grid-kind {
+  width: 4rem;
+  height: 0.65rem;
+}
+
+.skeleton-grid-title {
+  width: 70%;
+  height: 1.1em;
+}
+
+.skeleton-grid-time {
+  width: 30%;
+  height: 0.65rem;
+}
+
+/* Variant: single-record / blog-post / work skeleton. Lives inside the
+   page article so it gets the .record-page measure and gutters. */
+.skeleton-record {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.skeleton-record-meta {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.skeleton-record-meta-cell {
+  height: 0.75rem;
+  width: 5rem;
+}
+
+.skeleton-record-image {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  max-width: var(--measure);
+}
+
+/* Variant: comments tree skeleton (avatar + byline + text). Mirrors the
+   .comment / .comment-head layout so it lines up with real replies. */
+.skeleton-comments {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-comments-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.skeleton-comments-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.skeleton-comments-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.skeleton-comments-avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+}
+
+.skeleton-comments-name {
+  height: 0.85rem;
+}
+
+.skeleton-comments-text {
+  padding-left: calc(1.75rem + var(--space-3));
+}
