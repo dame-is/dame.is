@@ -21,9 +21,9 @@ import { ME_DID } from '../config.js';
  * Follow records skip the expand affordance: their compact form already
  * shows the same data the expanded form would (avatar, handle, name).
  *
- * The `subject` is populated at prefetch time by
- * `scripts/lib/resolveSubject.mjs`. When it's missing, we render a
- * graceful "<verb> a deleted X" line.
+ * The `subject` is populated by `src/lib/subjectResolver.js` (used by
+ * both the build-time prefetch and the browser's live home-feed refresh).
+ * When it's missing, we render a graceful "<verb> a deleted X" line.
  */
 export default function ReferenceCard({ payload, atUri, createdAt, source, subject, verb }) {
   const [expanded, setExpanded] = useState(false);
