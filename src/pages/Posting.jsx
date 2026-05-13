@@ -4,20 +4,26 @@ import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
+import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { groupByDay } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
 export default function Posting() {
-  const [items, setItems] = useState([]);
+  // `null` = snapshot still loading; `[]` = loaded but empty.
+  const [items, setItems] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
   useEffect(() => {
     let cancelled = false;
     fetchSnapshot('posts').then((snap) => {
-      if (cancelled || !Array.isArray(snap)) return;
+      if (cancelled) return;
+      if (!Array.isArray(snap)) {
+        setItems([]);
+        return;
+      }
       const mapped = snap
         // Reposts are surfaced under the dedicated `reposting` verb (and
         // their own per-record pages). The /posting index only shows
@@ -57,9 +63,11 @@ export default function Posting() {
     };
   }, []);
 
+  const loading = items === null;
+  const safeItems = items || [];
   const filtered = useMemo(
-    () => items.filter((i) => matchesQuery(i.payload?.text, q)),
-    [items, q],
+    () => safeItems.filter((i) => matchesQuery(i.payload?.text, q)),
+    [safeItems, q],
   );
   const groups = groupByDay(filtered, (i) => i.createdAt);
 
@@ -73,7 +81,9 @@ export default function Posting() {
       <div className="feed-filters feed-filters-search-only">
         <FeedSearch label="Search posts" />
       </div>
-      {groups.length === 0 ? (
+      {loading ? (
+        <FeedSkeleton rows={6} label="Loading posts" />
+      ) : groups.length === 0 ? (
         <p className="feed-empty">{q ? 'No posts match that search.' : 'No posts yet.'}</p>
       ) : (
         <ol className="feed-list">
