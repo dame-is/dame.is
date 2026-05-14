@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import FeedFilters, { filterFeed } from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
+import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds } from '../lib/atproto.js';
@@ -42,7 +43,10 @@ function collapseListens(items) {
 
 export default function Home() {
   const [params] = useSearchParams();
-  const [feed, setFeed] = useState([]);
+  // `null` here means "snapshot fetch hasn't resolved yet" — distinct
+  // from `[]` (loaded, but no records / no matches) so we can show a
+  // skeleton on first paint instead of the empty-state copy.
+  const [feed, setFeed] = useState(null);
   const [loadedAt, setLoadedAt] = useState(null);
   const [refreshState, setRefreshState] = useState('idle');
 
@@ -98,13 +102,16 @@ export default function Home() {
     };
   }, []);
 
+  const loading = feed === null;
+  const safeFeed = feed || [];
+
   const counts = useMemo(() => {
     const c = {};
-    for (const item of feed) c[item.verb] = (c[item.verb] || 0) + 1;
+    for (const item of safeFeed) c[item.verb] = (c[item.verb] || 0) + 1;
     return c;
-  }, [feed]);
+  }, [safeFeed]);
 
-  const filtered = useMemo(() => filterFeed(feed, params), [feed, params]);
+  const filtered = useMemo(() => filterFeed(safeFeed, params), [safeFeed, params]);
   const collapsed = useMemo(() => collapseListens(filtered), [filtered]);
   const groups = useMemo(() => groupByDay(collapsed, (i) => i.createdAt), [collapsed]);
 
@@ -116,7 +123,9 @@ export default function Home() {
       headTitle="Dame is&hellip;"
     >
       <FeedFilters counts={counts} />
-      {filtered.length === 0 ? (
+      {loading ? (
+        <FeedSkeleton rows={8} />
+      ) : filtered.length === 0 ? (
         <p className="feed-empty">No records match these filters.</p>
       ) : (
         <ol className="feed-list">
@@ -132,9 +141,9 @@ export default function Home() {
           ))}
         </ol>
       )}
-      {loadedAt && (
+      {!loading && loadedAt && (
         <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
-          {filtered.length} of {feed.length} records ·{' '}
+          {filtered.length} of {safeFeed.length} records ·{' '}
           {refreshState === 'refreshing'
             ? 'fetching live records…'
             : refreshState === 'error'

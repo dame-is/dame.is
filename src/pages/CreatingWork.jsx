@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong } from '../lib/time.js';
@@ -42,6 +43,16 @@ export default function CreatingWork() {
           No <code>is.dame.creating.work</code> with slug <code>{slug}</code>.{' '}
           <Link to="/creating">Back to the index.</Link>
         </p>
+      </PageShell>
+    );
+  }
+
+  if (!record) {
+    return (
+      <PageShell headTitle={`${slug} — Dame is…`}>
+        <article className="creating-work-page">
+          <CreatingWorkSkeleton />
+        </article>
       </PageShell>
     );
   }

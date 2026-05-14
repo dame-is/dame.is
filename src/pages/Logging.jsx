@@ -4,20 +4,26 @@ import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
+import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { groupByDay } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
 export default function Logging() {
-  const [items, setItems] = useState([]);
+  // `null` = snapshot still loading; `[]` = loaded but empty.
+  const [items, setItems] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
   useEffect(() => {
     let cancelled = false;
     fetchSnapshot('now').then((snap) => {
-      if (cancelled || !Array.isArray(snap)) return;
+      if (cancelled) return;
+      if (!Array.isArray(snap)) {
+        setItems([]);
+        return;
+      }
       setItems(
         snap
           .filter((r) => r?.uri && r.value)
@@ -35,13 +41,15 @@ export default function Logging() {
     };
   }, []);
 
+  const loading = items === null;
+  const safeItems = items || [];
   const filtered = useMemo(
     () =>
-      items.filter((i) => {
+      safeItems.filter((i) => {
         const p = i.payload || {};
         return matchesQuery([p.status, p.text].filter(Boolean).join(' '), q);
       }),
-    [items, q],
+    [safeItems, q],
   );
   const groups = groupByDay(filtered, (i) => i.createdAt);
 
@@ -55,7 +63,9 @@ export default function Logging() {
       <div className="feed-filters feed-filters-search-only">
         <FeedSearch label="Search status updates" />
       </div>
-      {groups.length === 0 ? (
+      {loading ? (
+        <FeedSkeleton rows={5} label="Loading status updates" />
+      ) : groups.length === 0 ? (
         <p className="feed-empty">
           {q ? 'No status records match that search.' : 'No status records yet.'}
         </p>

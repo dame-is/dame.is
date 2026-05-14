@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Comments from '../components/Comments.jsx';
+import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong, relativeTime } from '../lib/time.js';
@@ -109,8 +110,10 @@ export default function BlogPost() {
 
   if (resolution.status === 'loading') {
     return (
-      <PageShell title={id} headTitle={`${id} — Dame is…`}>
-        <p className="feed-empty">Loading post…</p>
+      <PageShell headTitle={`${id} — Dame is…`}>
+        <article className="blog-article">
+          <BlogPostSkeleton paragraphs={4} />
+        </article>
       </PageShell>
     );
   }

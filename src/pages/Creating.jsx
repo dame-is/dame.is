@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
+import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { relativeTime } from '../lib/time.js';
 import { ME_DID } from '../config.js';
@@ -9,7 +10,8 @@ import '../components/FeedFilters.css';
 import './Creating.css';
 
 export default function Creating() {
-  const [works, setWorks] = useState([]);
+  // `null` = snapshot still loading; `[]` = loaded but no works.
+  const [works, setWorks] = useState(null);
   const [kind, setKind] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
@@ -17,7 +19,11 @@ export default function Creating() {
   useEffect(() => {
     let cancelled = false;
     fetchSnapshot('creations').then((snap) => {
-      if (cancelled || !Array.isArray(snap)) return;
+      if (cancelled) return;
+      if (!Array.isArray(snap)) {
+        setWorks([]);
+        return;
+      }
       setWorks(
         snap
           .filter((r) => r?.value)
@@ -33,10 +39,12 @@ export default function Creating() {
     };
   }, []);
 
-  const kinds = Array.from(new Set(works.map((r) => r.value?.kind).filter(Boolean)));
+  const loading = works === null;
+  const safeWorks = works || [];
+  const kinds = Array.from(new Set(safeWorks.map((r) => r.value?.kind).filter(Boolean)));
   const filtered = useMemo(
     () =>
-      works.filter((r) => {
+      safeWorks.filter((r) => {
         const v = r.value || {};
         if (kind && v.kind !== kind) return false;
         return matchesQuery(
@@ -44,7 +52,7 @@ export default function Creating() {
           q,
         );
       }),
-    [works, kind, q],
+    [safeWorks, kind, q],
   );
 
   return (
@@ -78,7 +86,9 @@ export default function Creating() {
         ) : null}
         <FeedSearch label="Search works" />
       </div>
-      {filtered.length === 0 ? (
+      {loading ? (
+        <CreatingGridSkeleton cells={6} />
+      ) : filtered.length === 0 ? (
         <p className="feed-empty">
           {q ? 'No works match that search.' : 'No works yet.'}
         </p>
