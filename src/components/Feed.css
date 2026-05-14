@@ -9,7 +9,10 @@
 
 .feed-item {
   display: grid;
-  grid-template-columns: 4.5rem 1fr;
+  /* minmax(0, 1fr) lets the card column shrink below min-content width
+     (long handles, monospace paths) so the row never forces horizontal
+     page scroll on narrow viewports. */
+  grid-template-columns: 4.5rem minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
   padding-bottom: var(--space-4);
@@ -72,6 +75,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   flex-direction: column;
   gap: var(--space-2);
   padding-bottom: var(--space-2);
+  min-width: 0;
 }
 
 .feed-card-meta {
@@ -143,6 +147,18 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   color: var(--ink-faint);
 }
 
+/* Explicit metadata typography so stats never inherit the serif body
+   scale from a stretched grid/flex ancestor when min-width was wrong. */
+article.post-card > footer.post-card-stats {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: var(--leading-tight);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .post-card-reply {
   font-size: var(--text-xs);
   letter-spacing: 0.12em;
@@ -188,12 +204,15 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   display: flex;
   align-items: center;
   margin-bottom: var(--space-2);
+  min-width: 0;
 }
 
 .post-card-author-link {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 auto;
   text-decoration: none;
   color: inherit;
   border-bottom: 1px solid transparent;
@@ -218,24 +237,32 @@ a.post-card-author-link:focus-visible {
 }
 
 .post-card-author-names {
-  display: inline-flex;
+  display: flex;
   align-items: baseline;
   gap: 0.4rem;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .post-card-author-name {
   font-family: var(--sans);
   font-size: var(--text-sm);
   color: var(--ink);
+  flex: 0 1 auto;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .post-card-author-handle {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: var(--text-xs);
   color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* BlogCard */
@@ -915,7 +942,7 @@ a.post-card-author-link:focus-visible {
 
 @media (max-width: 700px) {
   .feed-item {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);
   }
   .feed-item-verb {
