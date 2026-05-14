@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { rkeyFromAtUri } from '../lib/atproto.js';
+import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 
 /**
  * Compact card for a long-form entry inside the unified Home feed.
@@ -48,7 +49,9 @@ export default function BlogCard({ payload, atUri, source }) {
           <span className="small-caps blog-card-source">{resolvedSource}</span>
         )}
       </header>
-      {summary && <p className="blog-card-summary">{summary}</p>}
+      {summary && (
+        <p className="blog-card-summary">{renderPlainTextWithTruncatedUrls(summary)}</p>
+      )}
     </article>
   );
 }

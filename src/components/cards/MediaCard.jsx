@@ -4,6 +4,8 @@
  * blobs plus optional title and description; the card surfaces a thumb
  * grid (or first frame for stories) with caption + link out.
  */
+import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+
 export default function MediaCard({ payload, atUri, source }) {
   const title = payload?.title || payload?.name || '';
   const description = payload?.description || payload?.caption || '';
@@ -25,7 +27,9 @@ export default function MediaCard({ payload, atUri, source }) {
               )}
             </h3>
           )}
-          {description && <p className="media-card-desc">{description}</p>}
+          {description && (
+            <p className="media-card-desc">{renderPlainTextWithTruncatedUrls(description)}</p>
+          )}
         </header>
       )}
       {visible.length > 0 && (

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { relativeTime } from '../lib/time.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { renderPostText } from '../lib/postRichText.jsx';
+import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import { ME_DID } from '../config.js';
 
@@ -258,7 +259,9 @@ function BskyProfilePreview({ view }) {
   return (
     <article className="reference-card-subject reference-card-subject-profile">
       {view.description && (
-        <p className="reference-card-subject-profile-desc">{view.description}</p>
+        <p className="reference-card-subject-profile-desc">
+          {renderPlainTextWithTruncatedUrls(view.description)}
+        </p>
       )}
     </article>
   );
@@ -271,7 +274,7 @@ function AtprotoRecordPreview({ record, source }) {
   if (!summary) return null;
   return (
     <article className="reference-card-subject reference-card-subject-atproto">
-      <p className="reference-card-subject-desc">{summary}</p>
+      <p className="reference-card-subject-desc">{renderPlainTextWithTruncatedUrls(summary)}</p>
     </article>
   );
 }

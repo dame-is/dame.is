@@ -1,3 +1,5 @@
+import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+
 /**
  * Renders an `app.bsky.feed.generator` record — a custom feed that the
  * user has published. Avatar (when the record carries one as a blob) is
@@ -35,7 +37,9 @@ export default function GeneratorCard({ payload, atUri }) {
               displayName
             )}
           </h3>
-          {description && <p className="generator-card-desc">{description}</p>}
+          {description && (
+            <p className="generator-card-desc">{renderPlainTextWithTruncatedUrls(description)}</p>
+          )}
         </div>
       </div>
     </article>
