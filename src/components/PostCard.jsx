@@ -109,7 +109,7 @@ export default function PostCard({ verb, payload, createdAt, atUri, variant = 't
       )}
       {embed && <PostEmbed embed={embed} did={authorDid} />}
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
-        <footer className="post-card-stats gutter">
+        <footer className="post-card-stats">
           {payload?.replyCount ? `${payload.replyCount} replies` : ''}
           {payload?.replyCount && (payload?.repostCount || payload?.likeCount) ? ' · ' : ''}
           {payload?.repostCount ? `${payload.repostCount} reposts` : ''}
