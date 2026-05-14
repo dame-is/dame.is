@@ -4,37 +4,17 @@ import { relativeTime } from '../lib/time.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
+import { getReplyHint } from '../lib/postReplyHint.js';
 import PostEmbed from './PostEmbed.jsx';
 
-/**
- * Pull a parent-post hint from the payload. Prefers the AppView's resolved
- * `payload.parent` (has handle + text), falls back to the `payload.reply`
- * record itself (URI only, lets us still link out).
- */
-function getReplyHint(payload) {
-  if (!payload) return null;
-  const parent = payload.parent;
-  if (parent?.$type === 'app.bsky.feed.defs#notFoundPost') {
-    return { kind: 'missing', label: 'a deleted post', uri: parent.uri || null };
-  }
-  if (parent?.$type === 'app.bsky.feed.defs#blockedPost') {
-    return { kind: 'missing', label: 'a blocked post', uri: parent.uri || null };
-  }
-  if (parent?.author?.handle) {
-    return {
-      kind: 'resolved',
-      handle: parent.author.handle,
-      uri: parent.uri,
-    };
-  }
-  // Last-ditch: we only have the at:// uri from the record's reply field.
-  if (payload.reply?.parent?.uri) {
-    return { kind: 'unresolved', uri: payload.reply.parent.uri };
-  }
-  return null;
-}
-
-export default function PostCard({ verb, payload, createdAt, atUri, variant = 'timeline' }) {
+export default function PostCard({
+  verb,
+  payload,
+  createdAt,
+  atUri,
+  variant = 'timeline',
+  suppressReplyBadge = false,
+}) {
   const text = payload?.text || '';
   const facets = payload?.facets || null;
   const ts = createdAt || payload?.indexedAt;
@@ -43,9 +23,10 @@ export default function PostCard({ verb, payload, createdAt, atUri, variant = 't
     || payload?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
   const recordHref = rkey ? `/${isRepost ? 'reposting' : 'posting'}/${rkey}` : null;
   const reply = getReplyHint(payload);
-  // Show the "↳ replying to …" badge in the timeline only. On the record
-  // page itself, the parent chain renders above and would duplicate it.
-  const showReplyBadge = reply && variant !== 'parent' && variant !== 'record';
+  // Inline "↳ replying to …" only when the feed verb column is not already
+  // showing that context (see FeedItem). Hidden on record/parent views.
+  const showReplyBadge =
+    reply && variant !== 'parent' && variant !== 'record' && !suppressReplyBadge;
   const embed = payload?.embed || payload?.embedRecord || null;
   const authorDid = payload?.author?.did;
   const isOriginalAuthorMe = authorDid === ME_DID;

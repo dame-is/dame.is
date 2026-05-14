@@ -70,6 +70,29 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   border-bottom-color: var(--accent-soft);
 }
 
+.feed-item.feed-item-reply-verb {
+  grid-template-columns: 5.25rem minmax(0, 1fr);
+}
+
+.feed-item-verb.feed-item-verb-reply {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  text-align: right;
+}
+
+.feed-item-verb-label-reply {
+  line-height: 1.35;
+  letter-spacing: 0.12em;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.feed-item-verb-reply-handle {
+  color: var(--ink-soft);
+  letter-spacing: 0.08em;
+}
+
 .feed-card {
   display: flex;
   flex-direction: column;
@@ -952,6 +975,9 @@ a.post-card-author-link:focus-visible {
     text-align: left;
     padding-top: 0;
     justify-self: start;
+  }
+  .feed-item-verb.feed-item-verb-reply {
+    align-items: flex-start;
   }
   .creating-card {
     grid-template-columns: 1fr;

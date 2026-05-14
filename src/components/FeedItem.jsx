@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { CornerDownRight } from 'lucide-react';
 import StatusEntry from './StatusEntry.jsx';
 import PostCard from './PostCard.jsx';
 import BlogCard from './BlogCard.jsx';
@@ -12,6 +13,7 @@ import CommentCard from './cards/CommentCard.jsx';
 import VoteCard from './cards/VoteCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
 import { rkeyFromAtUri } from '../lib/atproto.js';
+import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor } from '../lib/verbRegistry.js';
 
 /**
@@ -31,6 +33,23 @@ const RENDERERS = {
   CommentCard,
   VoteCard,
 };
+
+function postingReplyVerbLabel(reply) {
+  switch (reply.kind) {
+    case 'resolved':
+      return (
+        <>
+          replying to{' '}
+          <span className="feed-item-verb-reply-handle">@{reply.handle}</span>
+        </>
+      );
+    case 'missing':
+      return <>replying to {reply.label}</>;
+    case 'unresolved':
+    default:
+      return <>replying to a post</>;
+  }
+}
 
 /**
  * Per-record route. Verbs may declare a custom `recordHref` template in
@@ -58,20 +77,47 @@ export default function FeedItem({ item }) {
   const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
   if (!Component) return null;
   const href = hrefFor(item);
+  const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
+  const replyAsVerbColumn = Boolean(replyHint);
+  const verbClassName = [
+    'feed-item-verb',
+    'small-caps',
+    replyAsVerbColumn ? 'feed-item-verb-reply' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const verbInner = replyAsVerbColumn ? (
+    <>
+      <CornerDownRight size={15} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
+      <span className="feed-item-verb-label feed-item-verb-label-reply">
+        {postingReplyVerbLabel(replyHint)}
+      </span>
+    </>
+  ) : (
+    <>
+      <VerbIcon verb={item.verb} size={15} className="feed-item-verb-icon" />
+      <span className="feed-item-verb-label">{item.verb}</span>
+    </>
+  );
   return (
-    <li className={`feed-item feed-item-${item.verb}`} data-verb={item.verb}>
+    <li
+      className={`feed-item feed-item-${item.verb}${replyAsVerbColumn ? ' feed-item-reply-verb' : ''}`}
+      data-verb={item.verb}
+    >
       {href ? (
-        <Link className="feed-item-verb small-caps" to={href}>
-          <VerbIcon verb={item.verb} size={15} className="feed-item-verb-icon" />
-          <span className="feed-item-verb-label">{item.verb}</span>
+        <Link className={verbClassName} to={href}>
+          {verbInner}
         </Link>
       ) : (
-        <span className="feed-item-verb small-caps">
-          <VerbIcon verb={item.verb} size={15} className="feed-item-verb-icon" />
-          <span className="feed-item-verb-label">{item.verb}</span>
+        <span className={verbClassName}>
+          {verbInner}
         </span>
       )}
-      <Component {...item} verb={item.verb} />
+      <Component
+        {...item}
+        verb={item.verb}
+        suppressReplyBadge={replyAsVerbColumn}
+      />
     </li>
   );
 }
