@@ -50,9 +50,8 @@
 
 .dock-ribbon-mark {
   writing-mode: horizontal-tb;
-  font-family: var(--serif);
-  font-size: 1.2rem;
-  line-height: 1;
+  width: 20px;
+  height: 20px;
 }
 
 .dock-panel {
@@ -176,6 +175,16 @@
   color: var(--accent);
 }
 
+/* The theme + typeface button groups sit side-by-side in one row,
+   with no leading labels — the glyphs themselves identify the choice. */
+.dock-display-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  flex-wrap: wrap;
+}
+
 .dock-tool-key {
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
@@ -212,16 +221,29 @@
     padding: calc(var(--space-1) + 2px) 0;
   }
 
-  /* Collapse the ribbon to just the mark on small screens so it
-     doesn't eat a strip of vertical space, and tuck it into the
-     bottom-right corner above the safe area. */
+  /* On mobile the ribbon becomes a prominent floating navigation
+     button — a compass-marked circular tab pinned to the bottom-right
+     above the safe area. Bigger tap target, fully visible (no
+     translateX hide), and obviously navigational. */
   .dock-ribbon {
-    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2));
+    right: var(--space-3);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-3));
     writing-mode: horizontal-tb;
-    padding: var(--space-2) var(--space-2);
+    padding: 0;
     gap: 0;
-    border-top-left-radius: var(--radius-2);
-    border-bottom-left-radius: var(--radius-2);
+    width: 52px;
+    height: 52px;
+    border-radius: 999px;
+    transform: none;
+    box-shadow: 0 6px 18px var(--shadow), 0 0 0 1px var(--accent-soft);
+  }
+
+  .dock-ribbon::after {
+    display: none;
+  }
+
+  .dock-ribbon:hover {
+    transform: none;
   }
 
   .dock-ribbon-label {
@@ -229,6 +251,7 @@
   }
 
   .dock-ribbon-mark {
-    font-size: 1.4rem;
+    width: 24px;
+    height: 24px;
   }
 }

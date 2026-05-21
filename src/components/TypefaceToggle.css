@@ -1,12 +1,3 @@
-.typeface-toggle {
-  cursor: default;
-}
-
-.typeface-toggle:hover {
-  background: transparent;
-  color: var(--ink-soft);
-}
-
 .typeface-toggle-options {
   display: inline-flex;
   gap: var(--space-1);

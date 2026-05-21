@@ -16,23 +16,20 @@ const GLYPHS = {
 export default function ThemeToggle() {
   const { theme, setTheme, options } = useTheme();
   return (
-    <div className="dock-tool theme-toggle" role="group" aria-label="Theme">
-      <span className="dock-tool-label">Theme</span>
-      <span className="theme-toggle-options">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            className={`theme-toggle-option ${theme === opt ? 'is-active' : ''}`}
-            onClick={() => setTheme(opt)}
-            aria-pressed={theme === opt}
-            aria-label={LABELS[opt]}
-            title={LABELS[opt]}
-          >
-            <span aria-hidden="true">{GLYPHS[opt]}</span>
-          </button>
-        ))}
-      </span>
+    <div className="theme-toggle-options" role="group" aria-label="Theme">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          className={`theme-toggle-option ${theme === opt ? 'is-active' : ''}`}
+          onClick={() => setTheme(opt)}
+          aria-pressed={theme === opt}
+          aria-label={LABELS[opt]}
+          title={LABELS[opt]}
+        >
+          <span aria-hidden="true">{GLYPHS[opt]}</span>
+        </button>
+      ))}
     </div>
   );
 }
