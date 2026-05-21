@@ -239,11 +239,3 @@
     gap: var(--space-2);
   }
 }
-
-/* On collapsed state, hide the primary row's status signal on very narrow
-   screens so the title + handle have room. Tap-to-expand brings it back. */
-@media (max-width: 480px) {
-  .chrome-bar.is-collapsed .chrome-signals-primary {
-    display: none;
-  }
-}
