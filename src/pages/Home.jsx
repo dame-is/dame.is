@@ -1,17 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, { filterFeed } from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
+import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
+import { readFeedCache, writeFeedCache, isCacheFresh } from '../lib/feedCache.js';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
+
+const FEED_CACHE_KEY = 'unifiedFeed';
+const CACHE_TTL_MS = 30_000;
+const POLL_INTERVAL_MS = 60_000;
 
 function dayKey(iso) {
   return iso ? new Date(iso).toISOString().slice(0, 10) : '';
@@ -44,78 +51,154 @@ function collapseListens(items) {
 
 export default function Home() {
   const [params] = useSearchParams();
-  // `null` here means "feed hasn't resolved yet" — distinct from `[]`
-  // (loaded, but no records / no matches) so we can show a skeleton on
-  // first paint instead of the empty-state copy.
-  const [feed, setFeed] = useState(null);
-  const [loadedAt, setLoadedAt] = useState(null);
-  const [refreshState, setRefreshState] = useState('idle');
 
-  // Live-first hydration: kick off both the static `unifiedFeed.json`
-  // snapshot (built at deploy time) and the live PDS fetch in parallel,
-  // then render whichever resolves first — preferring live so visitors
-  // never see records that are minutes stale flash and then update.
-  //
-  // If the live fetch wins (the common path), the snapshot is only used
-  // as a backfill: we merge in any older rows the live cap dropped, but
-  // the user never sees the old data appear and then change.
-  //
-  // If the live fetch fails (network down, PDS unreachable), we fall
-  // back to whatever the snapshot returned so the page still renders.
-  useEffect(() => {
-    let cancelled = false;
+  // Hydrate synchronously from the in-memory cache so navigating
+  // Home → About → Home within the TTL re-renders the feed instantly
+  // with no skeleton flash.
+  const initialCache = readFeedCache(FEED_CACHE_KEY);
+  const [feed, setFeed] = useState(initialCache ? initialCache.items : null);
+  const [loadedAt, setLoadedAt] = useState(
+    initialCache && initialCache.loadedAt ? new Date(initialCache.loadedAt) : null,
+  );
+  const [refreshState, setRefreshState] = useState(initialCache ? 'ready' : 'idle');
 
-    async function run() {
-      const snapshotPromise = fetchSnapshot('unifiedFeed').catch(() => null);
+  const reduce = useReducedMotion();
 
-      setRefreshState('refreshing');
-      let live = null;
-      let liveError = null;
-      try {
-        const pds = await resolvePds(ME_DID);
-        const result = await buildUnifiedFeed({
-          pds,
-          me: ME_DID,
-          options: {
-            warn: (...args) => console.warn('[home]', ...args),
-          },
-        });
-        live = Array.isArray(result?.unified) ? result.unified : null;
-      } catch (err) {
-        liveError = err;
-        console.warn('[home] live refresh failed', err);
-      }
+  // URIs we've already shown the user. Anything missing on a refresh is
+  // a "new arrival" and gets the slide-in animation. Seeded from cache
+  // so the items we hydrated with don't animate on first paint.
+  const seenUrisRef = useRef(new Set());
+  // URIs whose `motion.li` should run the slide-in. Cleared after each
+  // render via a layout effect (see below).
+  const [newUris, setNewUris] = useState(() => new Set());
+  if (seenUrisRef.current.size === 0 && initialCache?.items) {
+    for (const item of initialCache.items) {
+      if (item?.atUri) seenUrisRef.current.add(item.atUri);
+    }
+  }
 
-      const seed = await snapshotPromise;
-      if (cancelled) return;
+  // The active refresh — we hold it on a ref so the polling tick can
+  // skip if one is already in flight, and `cancelled` cleanup can mark
+  // it stale on unmount.
+  const inflightRef = useRef(null);
 
-      if (live) {
-        // Merge the snapshot in *behind* the live results so older items
-        // beyond the live cap stay visible, but live always wins on dupes.
-        const merged = Array.isArray(seed) && seed.length
-          ? mergeByKey(seed, live, (item) => item?.atUri)
-          : live;
-        setFeed(merged);
-        setLoadedAt(new Date());
-        setRefreshState('ready');
-        return;
-      }
+  const runRefresh = useCallback(async () => {
+    if (inflightRef.current) return inflightRef.current;
 
-      // Live failed — fall back to the snapshot so the page still renders.
-      if (Array.isArray(seed)) {
-        setFeed(seed);
-        setLoadedAt(new Date());
-      } else {
-        setFeed([]);
-      }
-      setRefreshState(liveError ? 'error' : 'ready');
+    const token = { cancelled: false };
+    inflightRef.current = token;
+
+    setRefreshState('refreshing');
+
+    const snapshotPromise = fetchSnapshot(FEED_CACHE_KEY).catch(() => null);
+
+    let live = null;
+    let liveError = null;
+    try {
+      const pds = await resolvePds(ME_DID);
+      const result = await buildUnifiedFeed({
+        pds,
+        me: ME_DID,
+        options: {
+          warn: (...args) => console.warn('[home]', ...args),
+        },
+      });
+      live = Array.isArray(result?.unified) ? result.unified : null;
+    } catch (err) {
+      liveError = err;
+      console.warn('[home] live refresh failed', err);
     }
 
-    run();
-    return () => {
-      cancelled = true;
-    };
+    const seed = await snapshotPromise;
+
+    if (token.cancelled) {
+      if (inflightRef.current === token) inflightRef.current = null;
+      return null;
+    }
+
+    let nextFeed = null;
+    let nextRefreshState = 'ready';
+
+    if (live) {
+      nextFeed = Array.isArray(seed) && seed.length
+        ? mergeByKey(seed, live, (item) => item?.atUri)
+        : live;
+    } else if (Array.isArray(seed)) {
+      nextFeed = seed;
+      if (liveError) nextRefreshState = 'error';
+    } else {
+      nextFeed = [];
+      if (liveError) nextRefreshState = 'error';
+    }
+
+    // Diff against what the user has already seen. New URIs animate in;
+    // everything else re-renders in place via Motion's `initial={false}`.
+    const arrivals = new Set();
+    for (const item of nextFeed) {
+      const uri = item?.atUri;
+      if (uri && !seenUrisRef.current.has(uri)) arrivals.add(uri);
+    }
+
+    const now = new Date();
+    setFeed(nextFeed);
+    setLoadedAt(now);
+    setRefreshState(nextRefreshState);
+    // Only flag arrivals on background refreshes — the very first load
+    // (when seenUris is still empty) shouldn't slide every row in.
+    if (seenUrisRef.current.size > 0 && arrivals.size > 0) {
+      setNewUris(arrivals);
+    }
+    for (const uri of arrivals) seenUrisRef.current.add(uri);
+
+    writeFeedCache(FEED_CACHE_KEY, {
+      items: nextFeed,
+      loadedAt: now.getTime(),
+      fetchedAt: Date.now(),
+    });
+
+    if (inflightRef.current === token) inflightRef.current = null;
+    return nextFeed;
   }, []);
+
+  // Initial load / cache hydration → maybe refresh.
+  useEffect(() => {
+    if (!isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS)) {
+      runRefresh();
+    }
+    return () => {
+      if (inflightRef.current) inflightRef.current.cancelled = true;
+    };
+  }, [runRefresh]);
+
+  // Keep the feed alive: poll while the tab is visible.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      runRefresh();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [runRefresh]);
+
+  // Refresh when the tab comes back into focus after being hidden long
+  // enough for the cache to go stale.
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const onVisibility = () => {
+      if (document.hidden) return;
+      if (!isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS)) runRefresh();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [runRefresh]);
+
+  // Clear the arrival set once Motion has had a chance to play the
+  // entrance animation, so the same items don't re-animate on the next
+  // unrelated render (filter change, etc.).
+  useEffect(() => {
+    if (newUris.size === 0) return undefined;
+    const id = setTimeout(() => setNewUris(new Set()), 1200);
+    return () => clearTimeout(id);
+  }, [newUris]);
 
   const loading = feed === null;
   const safeFeed = feed || [];
@@ -131,6 +214,20 @@ export default function Home() {
   const threaded = useMemo(() => groupSelfReplyThreads(collapsed, ME_DID), [collapsed]);
   const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
 
+  // Stagger delays among the new arrivals (top-down cascade).
+  const arrivalIndex = useMemo(() => {
+    const map = new Map();
+    let i = 0;
+    for (const group of groups) {
+      for (const item of group.items) {
+        if (item?.atUri && newUris.has(item.atUri)) {
+          map.set(item.atUri, i++);
+        }
+      }
+    }
+    return map;
+  }, [groups, newUris]);
+
   return (
     <PageShell
       title="Latest"
@@ -139,6 +236,9 @@ export default function Home() {
       headTitle="Dame is&hellip;"
     >
       <FeedFilters counts={counts} />
+      {!loading && (
+        <FeedLiveStatus refreshState={refreshState} loadedAt={loadedAt} variant="top" />
+      )}
       {loading ? (
         <FeedSkeleton rows={8} />
       ) : filtered.length === 0 ? (
@@ -149,23 +249,40 @@ export default function Home() {
             <li key={group.dateKey} className="feed-day-group">
               <DayOfLifeHeader date={group.date} />
               <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
-                {group.items.map((item, i) => (
-                  <FeedItem key={(item.atUri || '') + i} item={item} />
-                ))}
+                <AnimatePresence initial={false}>
+                  {group.items.map((item, i) => {
+                    const uri = item?.atUri;
+                    const isNew = uri ? newUris.has(uri) : false;
+                    const stagger = isNew ? (arrivalIndex.get(uri) ?? 0) * 0.06 : 0;
+                    return (
+                      <motion.li
+                        key={uri || `fallback-${group.dateKey}-${i}`}
+                        layout
+                        initial={isNew && !reduce ? { opacity: 0, y: -24 } : false}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          duration: reduce ? 0 : 0.45,
+                          ease: [0.22, 0.61, 0.36, 1],
+                          delay: reduce ? 0 : stagger,
+                        }}
+                      >
+                        <FeedItem item={item} />
+                      </motion.li>
+                    );
+                  })}
+                </AnimatePresence>
               </ul>
             </li>
           ))}
         </ol>
       )}
       {!loading && loadedAt && (
-        <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
-          {filtered.length} of {safeFeed.length} records ·{' '}
-          {refreshState === 'refreshing'
-            ? 'fetching live records…'
-            : refreshState === 'error'
-              ? `live refresh failed · snapshot from ${loadedAt.toLocaleTimeString()}`
-              : `refreshed ${loadedAt.toLocaleTimeString()}`}
-        </p>
+        <FeedLiveStatus
+          refreshState={refreshState}
+          loadedAt={loadedAt}
+          variant="footer"
+          summary={`${filtered.length} of ${safeFeed.length} records`}
+        />
       )}
     </PageShell>
   );
