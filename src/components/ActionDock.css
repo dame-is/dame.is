@@ -221,29 +221,22 @@
     padding: calc(var(--space-1) + 2px) 0;
   }
 
-  /* On mobile the ribbon becomes a prominent floating navigation
-     button — a compass-marked circular tab pinned to the bottom-right
-     above the safe area. Bigger tap target, fully visible (no
-     translateX hide), and obviously navigational. */
+  /* On mobile the ribbon is a square tab pinned to the right edge of
+     the viewport — bigger than the old fleuron version, still poking
+     out past the edge like a bookmark, but now with a clearly
+     navigational compass icon. */
   .dock-ribbon {
-    right: var(--space-3);
-    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-3));
+    right: 0;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-4));
     writing-mode: horizontal-tb;
+    justify-content: center;
     padding: 0;
     gap: 0;
-    width: 52px;
-    height: 52px;
-    border-radius: 999px;
-    transform: none;
-    box-shadow: 0 6px 18px var(--shadow), 0 0 0 1px var(--accent-soft);
-  }
-
-  .dock-ribbon::after {
-    display: none;
-  }
-
-  .dock-ribbon:hover {
-    transform: none;
+    width: 56px;
+    height: 56px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    transform: translateX(10px);
   }
 
   .dock-ribbon-label {
@@ -251,7 +244,7 @@
   }
 
   .dock-ribbon-mark {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
   }
 }
