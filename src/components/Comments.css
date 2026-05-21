@@ -132,6 +132,7 @@ a.comment-author-name:focus-visible {
   color: var(--ink-soft);
   max-width: var(--measure);
   padding-left: calc(1.75rem + var(--space-3));
+  overflow-wrap: anywhere;
 }
 
 .comment-missing {

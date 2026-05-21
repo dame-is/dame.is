@@ -266,4 +266,5 @@ a.post-embed-quote {
   margin: 0;
   white-space: pre-wrap;
   color: var(--ink-soft);
+  overflow-wrap: anywhere;
 }

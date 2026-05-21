@@ -97,6 +97,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   max-width: var(--measure);
   flex: 1 1 auto;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .status-entry-prefix {
@@ -141,6 +142,9 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   white-space: pre-wrap;
   margin: 0;
   max-width: var(--measure);
+  /* Long unbroken strings (URLs, paths) would otherwise extend past the
+     flex item's width and force horizontal page scroll. */
+  overflow-wrap: anywhere;
 }
 
 .post-card-stats {
@@ -310,6 +314,7 @@ a.post-card-author-link:focus-visible {
   min-width: 0;
   font-family: var(--serif);
   color: var(--ink-soft);
+  overflow-wrap: anywhere;
 }
 
 .listen-row-text a {
@@ -679,6 +684,7 @@ a.post-card-author-link:focus-visible {
   font-size: var(--text-sm);
   white-space: pre-wrap;
   color: var(--ink-soft);
+  overflow-wrap: anywhere;
 }
 
 .reference-card-subject-profile {
@@ -899,6 +905,7 @@ a.post-card-author-link:focus-visible {
   font-size: var(--text-base);
   white-space: pre-wrap;
   max-width: var(--measure);
+  overflow-wrap: anywhere;
 }
 
 .comment-card-on {

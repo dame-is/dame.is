@@ -219,4 +219,5 @@
   white-space: pre-wrap;
   color: var(--ink);
   font-family: var(--sans);
+  overflow-wrap: anywhere;
 }
