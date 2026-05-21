@@ -1,34 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
-import { fetchSnapshot } from '../lib/snapshot.js';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { resolvePds, listRecords } from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong } from '../lib/time.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Blogging.css';
 
 export default function CreatingWork() {
   const { slug } = useParams();
-  const [record, setRecord] = useState(null);
-  const [missing, setMissing] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchSnapshot('creations').then((snap) => {
-      if (cancelled) return;
-      if (!Array.isArray(snap)) {
-        setMissing(true);
-        return;
-      }
-      const found = snap.find((r) => r?.value?.slug === slug);
-      if (found) setRecord(found);
-      else setMissing(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
+  const { items: record, status } = useLiveFeed({
+    name: 'creations',
+    strategy: 'snapshot-first',
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 });
+    },
+    mapItems: (snap) => {
+      if (!Array.isArray(snap)) return null;
+      return snap.find((r) => r?.value?.slug === slug) || null;
+    },
+    deps: [slug],
+  });
 
   const html = useMemo(() => {
     const v = record?.value;
@@ -36,23 +33,23 @@ export default function CreatingWork() {
     return renderMarkdown(v.body, v.bodyFormat || 'markdown');
   }, [record]);
 
-  if (missing && !record) {
+  if (status === 'loading') {
     return (
-      <PageShell title="Work not found" headTitle="Not found — Dame is…">
-        <p>
-          No <code>is.dame.creating.work</code> with slug <code>{slug}</code>.{' '}
-          <Link to="/creating">Back to the index.</Link>
-        </p>
+      <PageShell headTitle={`${slug} — Dame is…`}>
+        <article className="creating-work-page">
+          <CreatingWorkSkeleton />
+        </article>
       </PageShell>
     );
   }
 
   if (!record) {
     return (
-      <PageShell headTitle={`${slug} — Dame is…`}>
-        <article className="creating-work-page">
-          <CreatingWorkSkeleton />
-        </article>
+      <PageShell title="Work not found" headTitle="Not found — Dame is…">
+        <p>
+          No <code>is.dame.creating.work</code> with slug <code>{slug}</code>.{' '}
+          <Link to="/creating">Back to the index.</Link>
+        </p>
       </PageShell>
     );
   }

@@ -4,12 +4,15 @@ import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Comments from '../components/Comments.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
+import { resolvePds, listRecords } from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { findLeafletCommentsPost } from '../lib/leafletComments.js';
 import { getPostThread } from '../lib/atproto.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
 
 /**
@@ -25,36 +28,31 @@ import './Blogging.css';
  */
 export default function BlogPost() {
   const { slug: id } = useParams();
-  const [resolution, setResolution] = useState({ status: 'loading', kind: null, record: null });
+
+  const { items: resolution, status: feedStatus } = useLiveFeed({
+    strategy: 'snapshot-first',
+    fetchSnapshotOverride: async () => {
+      const [blogs, leaflets] = await Promise.all([
+        fetchSnapshot('blogs'),
+        fetchSnapshot('leaflets'),
+      ]);
+      return { blogs, leaflets };
+    },
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      const [blogs, leaflets] = await Promise.all([
+        listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 }),
+        listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, max: 200 }),
+      ]);
+      return { blogs, leaflets };
+    },
+    mapItems: (data) => resolveById(data, id),
+    deps: [id],
+  });
+
   const [commentsUri, setCommentsUri] = useState(null);
   const [replies, setReplies] = useState([]);
   const [repliesStatus, setRepliesStatus] = useState('idle');
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const [blogs, leaflets] = await Promise.all([
-        fetchSnapshot('blogs').then((s) => (Array.isArray(s) ? s : [])),
-        fetchSnapshot('leaflets').then((s) => (Array.isArray(s) ? s : [])),
-      ]);
-      if (cancelled) return;
-      const bySlug = blogs.find((r) => r?.value?.slug === id);
-      if (bySlug) {
-        setResolution({ status: 'found', kind: 'blog', record: bySlug });
-        return;
-      }
-      const byRkey = leaflets.find((r) => endsWithRkey(r?.uri, id));
-      if (byRkey) {
-        setResolution({ status: 'found', kind: 'leaflet', record: byRkey });
-        return;
-      }
-      setResolution({ status: 'missing', kind: null, record: null });
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
 
   // Comments resolution. For is.dame.blogging.post we honor an optional
   // `commentsUri` field. For leaflet docs we follow the convention of
@@ -62,7 +60,7 @@ export default function BlogPost() {
   // doc's rkey, then anchor replies to that post.
   useEffect(() => {
     let cancelled = false;
-    if (resolution.status !== 'found') return;
+    if (!resolution || !resolution.record) return;
     async function resolveCommentsUri() {
       if (resolution.kind === 'blog') {
         return resolution.record?.value?.commentsUri || null;
@@ -108,7 +106,7 @@ export default function BlogPost() {
     };
   }, [commentsUri]);
 
-  if (resolution.status === 'loading') {
+  if (feedStatus === 'loading') {
     return (
       <PageShell headTitle={`${id} — Dame is…`}>
         <article className="blog-article">
@@ -118,7 +116,7 @@ export default function BlogPost() {
     );
   }
 
-  if (resolution.status === 'missing') {
+  if (!resolution || !resolution.record) {
     return (
       <PageShell title="Post not found" headTitle="Not found — Dame is…">
         <p>
@@ -150,6 +148,17 @@ export default function BlogPost() {
       repliesStatus={repliesStatus}
     />
   );
+}
+
+function resolveById(data, id) {
+  if (!data) return null;
+  const blogs = Array.isArray(data.blogs) ? data.blogs : [];
+  const leaflets = Array.isArray(data.leaflets) ? data.leaflets : [];
+  const bySlug = blogs.find((r) => r?.value?.slug === id);
+  if (bySlug) return { kind: 'blog', record: bySlug };
+  const byRkey = leaflets.find((r) => endsWithRkey(r?.uri, id));
+  if (byRkey) return { kind: 'leaflet', record: byRkey };
+  return null;
 }
 
 function BlogPostBody({ record, id, commentsUri, replies, repliesStatus }) {

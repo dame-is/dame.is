@@ -37,8 +37,17 @@ function useCountUp(target, ms = 700) {
 export default function ProfileStats() {
   const { profile } = useProfile();
   const followers = useCountUp(profile?.followersCount ?? null);
-  if (typeof profile?.followersCount !== 'number') {
-    return null;
+  const hasValue = typeof profile?.followersCount === 'number';
+  // Render the row even while the snapshot/live fetch is in flight so the
+  // secondary chrome bar doesn't pop in a third line a beat after the other
+  // two — matches NowPlaying's placeholder pattern.
+  if (!hasValue) {
+    return (
+      <span className="chrome-signal chrome-signal-stats">
+        <span className="chrome-signal-label">followed by</span>
+        <span className="chrome-signal-value">&mdash;</span>
+      </span>
+    );
   }
   const label = followers === 1 ? 'follower' : 'followers';
   return (

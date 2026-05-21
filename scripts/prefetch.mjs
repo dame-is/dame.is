@@ -2,12 +2,26 @@
 // Build-time data fetcher.
 //
 // Reads from the AppView (Bluesky) + the user's PDS (resolved via plc.directory)
-// and writes JSON snapshots into public/data/. Each snapshot is also merged
-// into `unifiedFeed.json` for the home page.
+// and writes JSON snapshots into public/data/. Triggered on every deploy
+// (`npm run build`) and on a 6-hour Vercel cron via `api/rebuild.js`.
 //
 // Run with: `node scripts/prefetch.mjs`
 //
-// The actual feed shaping + orchestration logic now lives in
+// What the snapshots are for: a fast-first-paint cache and a network-
+// failure fallback — NOT the runtime source of truth. Every PDS-backed
+// page in `src/pages/` refreshes live in the browser via `useLiveFeed`
+// (or `useAtUri`) and overlays / replaces the snapshot data once the
+// live fetch resolves. The cron keeps the snapshot baseline within
+// ~6 hours of the PDS so first paint is never wildly stale.
+//
+// Two strategies live on top of these snapshots:
+//   - Feeds (Home, Posting, Logging) use 'live-first': skeleton during
+//     fetch, snapshot only as a fallback when the live fetch errors.
+//   - Static-ish surfaces (About, Sharing, Blogging, Creating, etc.)
+//     use 'snapshot-first': instant paint from the snapshot, live
+//     overlay swaps in within a beat.
+//
+// The actual feed shaping + orchestration logic lives in
 // `src/lib/feedBuilder.js`, which is shared with the browser so the home
 // page can re-run the same fetch on mount and surface records authored
 // after the most recent build.

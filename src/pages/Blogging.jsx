@@ -1,63 +1,56 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
-import { rkeyFromAtUri } from '../lib/atproto.js';
+import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { relativeTime } from '../lib/time.js';
-import { ME_DID } from '../config.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 import './Blogging.css';
 
 /**
- * The blog index. Reads from two snapshots and renders them in one
- * timestamp-sorted table of contents:
+ * The blog index. Backed by two collections under one URL shape:
  *
  *   - is.dame.blogging.post — own lexicon, addressed by `slug`
  *   - pub.leaflet.document  — leaflet.pub docs, addressed by rkey
  *
- * Each entry carries a `_kind` tag so we can render the right link target
- * and surface the right metadata fields without re-doing the type check
- * in every JSX expression.
+ * The snapshot file stores them separately under `blogs.json` / `leaflets.json`;
+ * the live path issues two `listRecords` calls in parallel. The mapper
+ * normalizes both into a single timestamp-sorted ToC.
  */
 export default function Blogging() {
-  // `null` = both snapshot fetches are still pending; `[]` = loaded.
-  const [entries, setEntries] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      fetchSnapshot('blogs').then((snap) => (Array.isArray(snap) ? snap : [])),
-      fetchSnapshot('leaflets').then((snap) => (Array.isArray(snap) ? snap : [])),
-    ]).then(([blogs, leaflets]) => {
-      if (cancelled) return;
-      const merged = [
-        ...blogs
-          .filter((r) => r?.value)
-          .map((r) => normalizeBlog(r)),
-        ...leaflets
-          .filter((r) => r?.value)
-          .map((r) => normalizeLeaflet(r)),
-      ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      setEntries(merged);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { items: entries, status } = useLiveFeed({
+    strategy: 'snapshot-first',
+    fetchSnapshotOverride: async () => {
+      const [blogs, leaflets] = await Promise.all([
+        fetchSnapshot('blogs'),
+        fetchSnapshot('leaflets'),
+      ]);
+      return { blogs, leaflets };
+    },
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      const [blogs, leaflets] = await Promise.all([
+        listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 }),
+        listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, max: 200 }),
+      ]);
+      return { blogs, leaflets };
+    },
+    mapItems: mergeBlogEntries,
+  });
 
-  const loading = entries === null;
+  const loading = status === 'loading';
   const safeEntries = entries || [];
   const filtered = useMemo(
     () =>
       safeEntries.filter((e) =>
-        matchesQuery(
-          [e.title, e.summary, e.id].filter(Boolean).join(' '),
-          q,
-        ),
+        matchesQuery([e.title, e.summary, e.id].filter(Boolean).join(' '), q),
       ),
     [safeEntries, q],
   );
@@ -105,6 +98,16 @@ export default function Blogging() {
       )}
     </PageShell>
   );
+}
+
+function mergeBlogEntries(data) {
+  if (!data) return [];
+  const blogs = Array.isArray(data.blogs) ? data.blogs : [];
+  const leaflets = Array.isArray(data.leaflets) ? data.leaflets : [];
+  return [
+    ...blogs.filter((r) => r?.value).map(normalizeBlog),
+    ...leaflets.filter((r) => r?.value).map(normalizeLeaflet),
+  ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
 function normalizeBlog(record) {

@@ -1,29 +1,32 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import { ProseSkeleton } from '../components/Skeleton.jsx';
-import { fetchSnapshot } from '../lib/snapshot.js';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { resolvePds, getRecord } from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
-import { ME_DID } from '../config.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 
 export default function Sharing() {
-  // 'loading' = fetch in flight, 'ready' = resolved (possibly with no
-  // record). Splitting the flag from `record` lets us draw skeleton
-  // prose on first paint instead of the empty-state copy.
-  const [status, setStatus] = useState('loading');
-  const [record, setRecord] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchSnapshot('pages').then((pages) => {
-      if (cancelled) return;
-      if (pages && pages.sharing) setRecord(pages.sharing);
-      setStatus('ready');
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // The snapshot stores all pages keyed by rkey; the live fetch goes
+  // directly for the single record. The mapper normalizes both into
+  // the same `{uri, cid, value}` shape.
+  const { items: record, status } = useLiveFeed({
+    name: 'pages',
+    strategy: 'snapshot-first',
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      return getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.page, rkey: 'sharing' });
+    },
+    mapItems: (data) => {
+      if (!data) return null;
+      // Snapshot shape: { home: {...}, sharing: {...}, ... }
+      if (data.sharing) return data.sharing;
+      // Live shape: { uri, cid, value }
+      if (data.uri || data.value) return data;
+      return null;
+    },
+  });
 
   const v = record?.value || {};
   const html = useMemo(() => {
