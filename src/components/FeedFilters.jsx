@@ -6,6 +6,11 @@ import VerbIcon from './VerbIcon.jsx';
 import FeedSearch from './FeedSearch.jsx';
 import './FeedFilters.css';
 
+// Sentinel for "show none" so an empty `verbs=` doesn't resolve back to
+// "all" (resolveActiveVerbs treats no-value-after-equals as a power-user
+// "show everything" shortcut).
+const NONE_SENTINEL = '__none__';
+
 /**
  * Search + filter button on the main feed. The verb chip grid lives behind
  * a modal so the filter affordance doesn't dominate the viewport — by
@@ -29,11 +34,36 @@ export default function FeedFilters({ counts }) {
     const next = new Set(activeVerbs);
     if (next.has(v)) next.delete(v);
     else next.add(v);
+    setVerbs(next);
+  }
+
+  function setVerbs(verbs) {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
       // Always write the explicit list once the user starts toggling, so
       // their choice doesn't drift if we ever change the defaults.
-      out.set('verbs', Array.from(next).join(','));
+      out.set('verbs', Array.from(verbs).join(','));
+      return out;
+    }, { replace: true });
+  }
+
+  function selectAll() {
+    setParams((prev) => {
+      const out = new URLSearchParams(prev);
+      // Empty value is the resolver's "all" shortcut — keeps the URL
+      // short instead of spelling out every verb in the list.
+      out.set('verbs', '');
+      return out;
+    }, { replace: true });
+  }
+
+  function selectNone() {
+    setParams((prev) => {
+      const out = new URLSearchParams(prev);
+      // Sentinel value: explicit "none". Empty list would resolve back to
+      // "all" in resolveActiveVerbs, so we use a marker the resolver
+      // recognizes.
+      out.set('verbs', NONE_SENTINEL);
       return out;
     }, { replace: true });
   }
@@ -55,22 +85,22 @@ export default function FeedFilters({ counts }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [modalOpen]);
 
-  const activeCount = usingDefaults ? 0 : activeVerbs.size;
+  const isCustomized = !usingDefaults;
 
   return (
     <div className="feed-filters">
       <FeedSearch label="Search the feed" />
       <button
         type="button"
-        className={`feed-filter-button ${activeCount ? 'is-active' : ''}`}
+        className={`feed-filter-button ${isCustomized ? 'is-active' : ''}`}
         onClick={() => setModalOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={modalOpen}
       >
         <SlidersHorizontal size={14} aria-hidden="true" className="feed-filter-button-icon" />
         <span className="small-caps">filter</span>
-        {activeCount > 0 && (
-          <span className="feed-filter-button-count gutter">{activeCount}</span>
+        {isCustomized && (
+          <span className="feed-filter-button-count gutter">{activeVerbs.size}</span>
         )}
       </button>
       {modalOpen && (
@@ -79,6 +109,9 @@ export default function FeedFilters({ counts }) {
           counts={counts}
           usingDefaults={usingDefaults}
           onToggleVerb={toggleVerb}
+          onSelectOnly={(v) => setVerbs(new Set([v]))}
+          onSelectAll={selectAll}
+          onSelectNone={selectNone}
           onReset={resetToDefault}
           onClose={() => setModalOpen(false)}
         />
@@ -87,7 +120,19 @@ export default function FeedFilters({ counts }) {
   );
 }
 
-function FilterModal({ activeVerbs, counts, usingDefaults, onToggleVerb, onReset, onClose }) {
+function FilterModal({
+  activeVerbs,
+  counts,
+  usingDefaults,
+  onToggleVerb,
+  onSelectOnly,
+  onSelectAll,
+  onSelectNone,
+  onReset,
+  onClose,
+}) {
+  const allActive = !usingDefaults && activeVerbs.size === VERBS.length;
+  const noneActive = !usingDefaults && activeVerbs.size === 0;
   return (
     <div className="feed-filter-modal" role="dialog" aria-modal="true" aria-label="Filter feed">
       <button
@@ -108,37 +153,63 @@ function FilterModal({ activeVerbs, counts, usingDefaults, onToggleVerb, onReset
             <X size={16} aria-hidden="true" />
           </button>
         </div>
+        <div className="feed-filter-modal-quick" role="group" aria-label="Quick selection">
+          <button
+            type="button"
+            className={`feed-filter-quick-pill ${allActive ? 'is-active' : ''}`}
+            onClick={onSelectAll}
+          >
+            <span className="small-caps">show all</span>
+          </button>
+          <button
+            type="button"
+            className={`feed-filter-quick-pill ${noneActive ? 'is-active' : ''}`}
+            onClick={onSelectNone}
+          >
+            <span className="small-caps">show none</span>
+          </button>
+          <button
+            type="button"
+            className={`feed-filter-quick-pill ${usingDefaults ? 'is-active' : ''}`}
+            onClick={onReset}
+          >
+            <span className="small-caps">defaults</span>
+          </button>
+        </div>
         <div className="feed-chips" role="group" aria-label="Filter by verb">
           {VERBS.map((v) => {
             const active = activeVerbs.has(v);
             const count = counts?.[v];
             return (
-              <button
+              <div
                 key={v}
-                type="button"
-                className={`feed-chip ${active ? 'is-active' : ''}`}
-                onClick={() => onToggleVerb(v)}
-                aria-pressed={active}
+                className={`feed-chip-wrap ${active ? 'is-active' : ''}`}
               >
-                <VerbIcon verb={v} size={13} className="feed-chip-icon" />
-                <span className="feed-chip-label small-caps">{v}</span>
-                {typeof count === 'number' && <span className="feed-chip-count gutter">{count}</span>}
-              </button>
+                <button
+                  type="button"
+                  className="feed-chip feed-chip-toggle"
+                  onClick={() => onToggleVerb(v)}
+                  aria-pressed={active}
+                >
+                  <VerbIcon verb={v} size={13} className="feed-chip-icon" />
+                  <span className="feed-chip-label small-caps">{v}</span>
+                  {typeof count === 'number' && (
+                    <span className="feed-chip-count gutter">{count}</span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="feed-chip-only"
+                  onClick={() => onSelectOnly(v)}
+                  aria-label={`Show only ${v}`}
+                  title={`Show only ${v}`}
+                >
+                  <span className="small-caps">only</span>
+                </button>
+              </div>
             );
           })}
         </div>
-        {!usingDefaults && (
-          <div className="feed-filter-modal-actions">
-            <button
-              type="button"
-              className="feed-filter-modal-reset"
-              onClick={onReset}
-            >
-              <X size={13} aria-hidden="true" className="feed-chip-icon" />
-              <span className="small-caps">reset to defaults</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -155,7 +226,9 @@ function FilterModal({ activeVerbs, counts, usingDefaults, onToggleVerb, onReset
  */
 function resolveActiveVerbs(params) {
   if (!params.has('verbs')) return new Set(DEFAULT_HOME_VERBS);
-  const raw = (params.get('verbs') || '').split(',').filter(Boolean);
+  const value = params.get('verbs') || '';
+  if (value === NONE_SENTINEL) return new Set();
+  const raw = value.split(',').filter(Boolean);
   if (raw.length === 0) return new Set(VERBS);
   return new Set(raw);
 }
