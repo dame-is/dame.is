@@ -43,57 +43,71 @@ function collapseListens(items) {
 
 export default function Home() {
   const [params] = useSearchParams();
-  // `null` here means "snapshot fetch hasn't resolved yet" — distinct
-  // from `[]` (loaded, but no records / no matches) so we can show a
-  // skeleton on first paint instead of the empty-state copy.
+  // `null` here means "feed hasn't resolved yet" — distinct from `[]`
+  // (loaded, but no records / no matches) so we can show a skeleton on
+  // first paint instead of the empty-state copy.
   const [feed, setFeed] = useState(null);
   const [loadedAt, setLoadedAt] = useState(null);
   const [refreshState, setRefreshState] = useState('idle');
 
-  // Two-stage hydration:
-  //   1. Read the static `unifiedFeed.json` snapshot the build wrote so
-  //      the first paint matches the deployed HTML.
-  //   2. Re-run the same fetch in the browser via `buildUnifiedFeed` so
-  //      records authored after the most recent build show up without
-  //      waiting for the next deploy.
+  // Live-first hydration: kick off both the static `unifiedFeed.json`
+  // snapshot (built at deploy time) and the live PDS fetch in parallel,
+  // then render whichever resolves first — preferring live so visitors
+  // never see records that are minutes stale flash and then update.
   //
-  // Live results are merged into the seed by `atUri`, preferring the
-  // fresh record (so edits and counter updates from the AppView win) but
-  // keeping older items the live fetch couldn't see (the registry caps
-  // each collection at a few hundred records — older snapshots may
-  // legitimately retain rows beyond that cap).
+  // If the live fetch wins (the common path), the snapshot is only used
+  // as a backfill: we merge in any older rows the live cap dropped, but
+  // the user never sees the old data appear and then change.
+  //
+  // If the live fetch fails (network down, PDS unreachable), we fall
+  // back to whatever the snapshot returned so the page still renders.
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
-      const seed = await fetchSnapshot('unifiedFeed');
-      if (!cancelled && Array.isArray(seed)) {
-        setFeed(seed);
-        setLoadedAt(new Date());
-      }
+      const snapshotPromise = fetchSnapshot('unifiedFeed').catch(() => null);
 
       setRefreshState('refreshing');
+      let live = null;
+      let liveError = null;
       try {
         const pds = await resolvePds(ME_DID);
-        const { unified } = await buildUnifiedFeed({
+        const result = await buildUnifiedFeed({
           pds,
           me: ME_DID,
           options: {
             warn: (...args) => console.warn('[home]', ...args),
           },
         });
-        if (cancelled) return;
-        if (Array.isArray(unified)) {
-          setFeed((prev) =>
-            mergeByKey(prev || seed || [], unified, (item) => item?.atUri),
-          );
-          setLoadedAt(new Date());
-        }
-        setRefreshState('ready');
+        live = Array.isArray(result?.unified) ? result.unified : null;
       } catch (err) {
+        liveError = err;
         console.warn('[home] live refresh failed', err);
-        if (!cancelled) setRefreshState('error');
       }
+
+      const seed = await snapshotPromise;
+      if (cancelled) return;
+
+      if (live) {
+        // Merge the snapshot in *behind* the live results so older items
+        // beyond the live cap stay visible, but live always wins on dupes.
+        const merged = Array.isArray(seed) && seed.length
+          ? mergeByKey(seed, live, (item) => item?.atUri)
+          : live;
+        setFeed(merged);
+        setLoadedAt(new Date());
+        setRefreshState('ready');
+        return;
+      }
+
+      // Live failed — fall back to the snapshot so the page still renders.
+      if (Array.isArray(seed)) {
+        setFeed(seed);
+        setLoadedAt(new Date());
+      } else {
+        setFeed([]);
+      }
+      setRefreshState(liveError ? 'error' : 'ready');
     }
 
     run();
