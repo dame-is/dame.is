@@ -109,16 +109,28 @@ function CompactBskyPost({ view }) {
   const externalHref = !localHref && view.uri && author.handle
     ? `https://bsky.app/profile/${author.handle}/post/${view.uri.split('/').pop()}`
     : null;
+  // The compact line intentionally drops avatar + display name — they make
+  // a tall, busy chip and the wrap is awkward when the name is long. The
+  // expand affordance reveals the full author header inside the preview.
+  const handleChip = author?.handle ? (
+    <span className="reference-card-author">
+      <span className="reference-card-author-handle">@{author.handle}</span>
+    </span>
+  ) : (
+    <span className="reference-card-author">
+      <span className="reference-card-author-handle">an unknown author</span>
+    </span>
+  );
   const link = localHref ? (
     <Link to={localHref} className="reference-card-compact-link">
-      <AuthorChip author={author} />
+      {handleChip}
     </Link>
   ) : externalHref ? (
     <a href={externalHref} target="_blank" rel="noreferrer noopener" className="reference-card-compact-link">
-      <AuthorChip author={author} />
+      {handleChip}
     </a>
   ) : (
-    <AuthorChip author={author} />
+    handleChip
   );
   return (
     <p className="reference-card-compact">
@@ -244,8 +256,28 @@ function BskyPostPreview({ view }) {
   const text = view.record?.text || '';
   const facets = view.record?.facets || null;
   const embed = view.embed || view.record?.embed || null;
+  const profileHref = author.handle ? `https://bsky.app/profile/${author.handle}` : null;
+  const hasAuthor = author.handle || author.displayName || author.avatar;
   return (
     <article className="reference-card-subject reference-card-subject-post">
+      {hasAuthor && (
+        <header className="reference-card-subject-head">
+          {profileHref ? (
+            <a
+              href={profileHref}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="reference-card-subject-author"
+            >
+              <AuthorChip author={author} />
+            </a>
+          ) : (
+            <span className="reference-card-subject-author">
+              <AuthorChip author={author} />
+            </span>
+          )}
+        </header>
+      )}
       {text && (
         <p className="reference-card-subject-text">{renderPostText(text, facets)}</p>
       )}
