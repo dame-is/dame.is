@@ -1,33 +1,29 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { SlidersHorizontal, X } from 'lucide-react';
 import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
 import VerbIcon from './VerbIcon.jsx';
 import FeedSearch from './FeedSearch.jsx';
 import './FeedFilters.css';
 
 /**
- * Chip-row collapse threshold. Showing all 13 verbs by default makes the
- * filter row dominate the viewport on narrow screens; collapsing past
- * the first few keeps the affordance discoverable without burying the
- * feed itself. Any verb that the user has already activated is always
- * visible regardless of position.
- */
-const VISIBLE_VERB_LIMIT = 5;
-
-/**
- * Verb-chip multi-select + free-text search, both synced to URL params:
+ * Search + filter button on the main feed. The verb chip grid lives behind
+ * a modal so the filter affordance doesn't dominate the viewport — by
+ * default the row is just a search input and a single "filter" button.
+ *
+ * Both controls sync to URL params:
  *   ?verbs=posting,blogging&q=mothing
  *
  * When the `verbs` param is absent, the default verb set from the
  * registry takes over (everything except the high-volume reference
  * verbs like `liking` and `voting`). To see those, the user has to
- * click their chip explicitly.
+ * click their chip explicitly in the modal.
  */
 export default function FeedFilters({ counts }) {
   const [params, setParams] = useSearchParams();
-  const [verbsExpanded, setVerbsExpanded] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const activeVerbs = resolveActiveVerbs(params);
+  const usingDefaults = !params.has('verbs');
 
   function toggleVerb(v) {
     const next = new Set(activeVerbs);
@@ -50,15 +46,70 @@ export default function FeedFilters({ counts }) {
     }, { replace: true });
   }
 
-  const visibleVerbs = computeVisibleVerbs(VERBS, activeVerbs, verbsExpanded);
-  const hiddenCount = VERBS.length - visibleVerbs.length;
-  const usingDefaults = !params.has('verbs');
+  useEffect(() => {
+    if (!modalOpen) return;
+    function onKey(e) {
+      if (e.key === 'Escape') setModalOpen(false);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [modalOpen]);
+
+  const activeCount = usingDefaults ? 0 : activeVerbs.size;
 
   return (
     <div className="feed-filters">
-      <div className="feed-filters-rows">
+      <FeedSearch label="Search the feed" />
+      <button
+        type="button"
+        className={`feed-filter-button ${activeCount ? 'is-active' : ''}`}
+        onClick={() => setModalOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={modalOpen}
+      >
+        <SlidersHorizontal size={14} aria-hidden="true" className="feed-filter-button-icon" />
+        <span className="small-caps">filter</span>
+        {activeCount > 0 && (
+          <span className="feed-filter-button-count gutter">{activeCount}</span>
+        )}
+      </button>
+      {modalOpen && (
+        <FilterModal
+          activeVerbs={activeVerbs}
+          counts={counts}
+          usingDefaults={usingDefaults}
+          onToggleVerb={toggleVerb}
+          onReset={resetToDefault}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function FilterModal({ activeVerbs, counts, usingDefaults, onToggleVerb, onReset, onClose }) {
+  return (
+    <div className="feed-filter-modal" role="dialog" aria-modal="true" aria-label="Filter feed">
+      <button
+        type="button"
+        className="feed-filter-modal-scrim"
+        onClick={onClose}
+        aria-label="Close filter"
+      />
+      <div className="feed-filter-modal-panel">
+        <div className="feed-filter-modal-header">
+          <span className="small-caps">filter by type</span>
+          <button
+            type="button"
+            className="feed-filter-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
         <div className="feed-chips" role="group" aria-label="Filter by verb">
-          {visibleVerbs.map((v) => {
+          {VERBS.map((v) => {
             const active = activeVerbs.has(v);
             const count = counts?.[v];
             return (
@@ -66,7 +117,7 @@ export default function FeedFilters({ counts }) {
                 key={v}
                 type="button"
                 className={`feed-chip ${active ? 'is-active' : ''}`}
-                onClick={() => toggleVerb(v)}
+                onClick={() => onToggleVerb(v)}
                 aria-pressed={active}
               >
                 <VerbIcon verb={v} size={13} className="feed-chip-icon" />
@@ -75,40 +126,20 @@ export default function FeedFilters({ counts }) {
               </button>
             );
           })}
-          {hiddenCount > 0 && (
+        </div>
+        {!usingDefaults && (
+          <div className="feed-filter-modal-actions">
             <button
               type="button"
-              className="feed-chip feed-chip-more"
-              onClick={() => setVerbsExpanded((e) => !e)}
-              aria-expanded={verbsExpanded}
-            >
-              {verbsExpanded ? (
-                <>
-                  <ChevronUp size={13} aria-hidden="true" className="feed-chip-icon" />
-                  <span className="small-caps">less</span>
-                </>
-              ) : (
-                <>
-                  <ChevronDown size={13} aria-hidden="true" className="feed-chip-icon" />
-                  <span className="small-caps">+{hiddenCount} more</span>
-                </>
-              )}
-            </button>
-          )}
-          {!usingDefaults && (
-            <button
-              type="button"
-              className="feed-chip feed-chip-clear"
-              onClick={resetToDefault}
-              title="Reset to default verbs"
+              className="feed-filter-modal-reset"
+              onClick={onReset}
             >
               <X size={13} aria-hidden="true" className="feed-chip-icon" />
-              <span className="small-caps">reset</span>
+              <span className="small-caps">reset to defaults</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-      <FeedSearch label="Search the feed" />
     </div>
   );
 }
@@ -127,22 +158,6 @@ function resolveActiveVerbs(params) {
   const raw = (params.get('verbs') || '').split(',').filter(Boolean);
   if (raw.length === 0) return new Set(VERBS);
   return new Set(raw);
-}
-
-/**
- * Which verb chips to render in collapsed mode. Always includes any
- * currently-active verb so the user never sees their selection vanish
- * behind the "+N more" toggle. Otherwise, the first VISIBLE_VERB_LIMIT
- * verbs from the registry order win.
- */
-function computeVisibleVerbs(allVerbs, activeVerbs, expanded) {
-  if (expanded) return allVerbs;
-  const initial = allVerbs.slice(0, VISIBLE_VERB_LIMIT);
-  if (activeVerbs.size === 0) return initial;
-  const set = new Set(initial);
-  for (const v of activeVerbs) set.add(v);
-  // Preserve registry order so the chip layout stays stable.
-  return allVerbs.filter((v) => set.has(v));
 }
 
 /**
