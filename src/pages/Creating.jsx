@@ -1,45 +1,40 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
-import { fetchSnapshot } from '../lib/snapshot.js';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { resolvePds, listRecords } from '../lib/atproto.js';
 import { relativeTime } from '../lib/time.js';
-import { ME_DID } from '../config.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
 import './Creating.css';
 
 export default function Creating() {
-  // `null` = snapshot still loading; `[]` = loaded but no works.
-  const [works, setWorks] = useState(null);
   const [kind, setKind] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchSnapshot('creations').then((snap) => {
-      if (cancelled) return;
-      if (!Array.isArray(snap)) {
-        setWorks([]);
-        return;
-      }
-      setWorks(
-        snap
-          .filter((r) => r?.value)
-          .sort((a, b) => {
-            const ax = a.value?.createdAt || '';
-            const bx = b.value?.createdAt || '';
-            return ax < bx ? 1 : -1;
-          }),
-      );
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { items: works, status } = useLiveFeed({
+    name: 'creations',
+    strategy: 'snapshot-first',
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 });
+    },
+    mapItems: (snap) => {
+      if (!Array.isArray(snap)) return [];
+      return snap
+        .filter((r) => r?.value)
+        .sort((a, b) => {
+          const ax = a.value?.createdAt || '';
+          const bx = b.value?.createdAt || '';
+          return ax < bx ? 1 : -1;
+        });
+    },
+  });
 
-  const loading = works === null;
+  const loading = status === 'loading';
   const safeWorks = works || [];
   const kinds = Array.from(new Set(safeWorks.map((r) => r.value?.kind).filter(Boolean)));
   const filtered = useMemo(

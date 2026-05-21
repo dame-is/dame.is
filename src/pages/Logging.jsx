@@ -1,47 +1,31 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
-import { fetchSnapshot } from '../lib/snapshot.js';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { groupByDay } from '../lib/time.js';
-import { ME_DID } from '../config.js';
+import { resolvePds, listRecords } from '../lib/atproto.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 
 export default function Logging() {
-  // `null` = snapshot still loading; `[]` = loaded but empty.
-  const [items, setItems] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchSnapshot('now').then((snap) => {
-      if (cancelled) return;
-      if (!Array.isArray(snap)) {
-        setItems([]);
-        return;
-      }
-      setItems(
-        snap
-          .filter((r) => r?.uri && r.value)
-          .map((r) => ({
-            verb: 'logging',
-            atUri: r.uri,
-            cid: r.cid,
-            createdAt: r.value?.createdAt,
-            payload: r.value,
-          })),
-      );
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { items, status, refreshedAt } = useLiveFeed({
+    name: 'now',
+    strategy: 'live-first',
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.now, max: 500 });
+    },
+    mapItems: toLoggingItems,
+  });
 
-  const loading = items === null;
+  const loading = status === 'loading';
   const safeItems = items || [];
   const filtered = useMemo(
     () =>
@@ -65,6 +49,8 @@ export default function Logging() {
       </div>
       {loading ? (
         <FeedSkeleton rows={5} label="Loading status updates" />
+      ) : status === 'error' ? (
+        <p className="feed-empty">Live refresh failed and no cached snapshot is available.</p>
       ) : groups.length === 0 ? (
         <p className="feed-empty">
           {q ? 'No status records match that search.' : 'No status records yet.'}
@@ -83,6 +69,26 @@ export default function Logging() {
           ))}
         </ol>
       )}
+      {!loading && refreshedAt && (
+        <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
+          {status === 'stale'
+            ? `live refresh failed · snapshot from ${refreshedAt.toLocaleTimeString()}`
+            : `refreshed ${refreshedAt.toLocaleTimeString()}`}
+        </p>
+      )}
     </PageShell>
   );
+}
+
+function toLoggingItems(records) {
+  if (!Array.isArray(records)) return [];
+  return records
+    .filter((r) => r?.uri && r.value)
+    .map((r) => ({
+      verb: 'logging',
+      atUri: r.uri,
+      cid: r.cid,
+      createdAt: r.value?.createdAt,
+      payload: r.value,
+    }));
 }

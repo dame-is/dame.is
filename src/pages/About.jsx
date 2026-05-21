@@ -1,25 +1,22 @@
-import { useEffect, useState } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import { useProfile } from '../hooks/useProfile.js';
-import { fetchSnapshot } from '../lib/snapshot.js';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { resolvePds, getRecord } from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
-import { ME_DID } from '../config.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import './About.css';
 
 export default function About() {
   const { profile } = useProfile();
-  const [extended, setExtended] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchSnapshot('extendedProfile').then((rec) => {
-      if (cancelled) return;
-      if (rec && (rec.uri || rec.value)) setExtended(rec);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { items: extended } = useLiveFeed({
+    name: 'extendedProfile',
+    strategy: 'snapshot-first',
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      return getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.profile, rkey: 'self' });
+    },
+    mapItems: (rec) => (rec && (rec.uri || rec.value) ? rec : null),
+  });
 
   const longBody = extended?.value?.body;
   const longFormat = extended?.value?.bodyFormat || 'markdown';

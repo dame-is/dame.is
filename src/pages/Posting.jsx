@@ -1,69 +1,29 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
-import { fetchSnapshot } from '../lib/snapshot.js';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { groupByDay } from '../lib/time.js';
+import { getAuthorFeed } from '../lib/atproto.js';
+import { blueskyPostToFeedItem } from '../lib/feedBuilder.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
 export default function Posting() {
-  // `null` = snapshot still loading; `[]` = loaded but empty.
-  const [items, setItems] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchSnapshot('posts').then((snap) => {
-      if (cancelled) return;
-      if (!Array.isArray(snap)) {
-        setItems([]);
-        return;
-      }
-      const mapped = snap
-        // Reposts are surfaced under the dedicated `reposting` verb (and
-        // their own per-record pages). The /posting index only shows
-        // posts Dame actually authored.
-        .filter((row) => row?.post?.uri && row?.reason?.$type !== 'app.bsky.feed.defs#reasonRepost')
-        .map((row) => {
-          const post = row.post;
-          return {
-            verb: 'posting',
-            atUri: post.uri,
-            cid: post.cid,
-            createdAt: post.record?.createdAt || post.indexedAt,
-            payload: {
-              text: post.record?.text || '',
-              author: {
-                handle: post.author?.handle,
-                displayName: post.author?.displayName,
-                avatar: post.author?.avatar,
-                did: post.author?.did,
-              },
-              replyCount: post.replyCount,
-              repostCount: post.repostCount,
-              likeCount: post.likeCount,
-              embed: post.embed || null,
-              embedRecord: post.record?.embed || null,
-              indexedAt: post.indexedAt,
-              reply: post.record?.reply || null,
-              parent: condenseParentView(row.reply?.parent),
-              root: condenseParentView(row.reply?.root),
-            },
-          };
-        });
-      setItems(mapped);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { items, status, refreshedAt } = useLiveFeed({
+    name: 'posts',
+    strategy: 'live-first',
+    fetchLive: () => getAuthorFeed(ME_DID, { max: 200 }),
+    mapItems: toPostingItems,
+  });
 
-  const loading = items === null;
+  const loading = status === 'loading';
   const safeItems = items || [];
   const filtered = useMemo(
     () => safeItems.filter((i) => matchesQuery(i.payload?.text, q)),
@@ -83,6 +43,8 @@ export default function Posting() {
       </div>
       {loading ? (
         <FeedSkeleton rows={6} label="Loading posts" />
+      ) : status === 'error' ? (
+        <p className="feed-empty">Live refresh failed and no cached snapshot is available.</p>
       ) : groups.length === 0 ? (
         <p className="feed-empty">{q ? 'No posts match that search.' : 'No posts yet.'}</p>
       ) : (
@@ -99,29 +61,29 @@ export default function Posting() {
           ))}
         </ol>
       )}
+      {!loading && refreshedAt && (
+        <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
+          {status === 'stale'
+            ? `live refresh failed · snapshot from ${refreshedAt.toLocaleTimeString()}`
+            : `refreshed ${refreshedAt.toLocaleTimeString()}`}
+        </p>
+      )}
     </PageShell>
   );
 }
 
-function condenseParentView(view) {
-  if (!view) return null;
-  if (view.$type === 'app.bsky.feed.defs#notFoundPost' || view.$type === 'app.bsky.feed.defs#blockedPost') {
-    return { $type: view.$type, uri: view.uri || null };
-  }
-  if (!view.uri) return null;
-  return {
-    uri: view.uri,
-    cid: view.cid || null,
-    author: view.author
-      ? {
-          did: view.author.did,
-          handle: view.author.handle,
-          displayName: view.author.displayName,
-          avatar: view.author.avatar,
-        }
-      : null,
-    record: view.record
-      ? { text: view.record.text || '', createdAt: view.record.createdAt || null }
-      : null,
-  };
+/**
+ * Reshape `getAuthorFeed` rows into FeedItem payloads. Reposts are
+ * surfaced under the dedicated `reposting` verb (and their own per-record
+ * pages), so /posting only shows posts Dame actually authored —
+ * `blueskyPostToFeedItem` already drops them by returning null.
+ *
+ * The snapshot file stores the same `getAuthorFeed` envelope shape, so
+ * this mapper handles both inputs uniformly.
+ */
+function toPostingItems(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => blueskyPostToFeedItem(row))
+    .filter((item) => item && item.atUri);
 }
