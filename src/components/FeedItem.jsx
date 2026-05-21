@@ -77,16 +77,29 @@ export default function FeedItem({ item }) {
   const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
   if (!Component) return null;
   const href = hrefFor(item);
-  const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
+  // When a post is a continuation of a self-reply thread that is already
+  // visible above it in the feed, the "↳ replying to @dame.is" label is
+  // redundant noise — the layout already says so. Show a quieter
+  // "continuing" marker instead, and let the parent post's badge / verb
+  // carry the conversational context.
+  const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
+  const replyHint =
+    item.verb === 'posting' && !threadContinuation ? getReplyHint(item.payload) : null;
   const replyAsVerbColumn = Boolean(replyHint);
   const verbClassName = [
     'feed-item-verb',
     'small-caps',
     replyAsVerbColumn ? 'feed-item-verb-reply' : '',
+    threadContinuation ? 'feed-item-verb-thread' : '',
   ]
     .filter(Boolean)
     .join(' ');
-  const verbInner = replyAsVerbColumn ? (
+  const verbInner = threadContinuation ? (
+    <>
+      <CornerDownRight size={15} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
+      <span className="feed-item-verb-label">continuing</span>
+    </>
+  ) : replyAsVerbColumn ? (
     <>
       <CornerDownRight size={15} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
       <span className="feed-item-verb-label feed-item-verb-label-reply">
@@ -99,10 +112,23 @@ export default function FeedItem({ item }) {
       <span className="feed-item-verb-label">{item.verb}</span>
     </>
   );
+  const liClassName = [
+    'feed-item',
+    `feed-item-${item.verb}`,
+    replyAsVerbColumn ? 'feed-item-reply-verb' : '',
+    item._thread ? 'feed-item-thread' : '',
+    item._thread?.isFirst ? 'feed-item-thread-first' : '',
+    item._thread?.isLast ? 'feed-item-thread-last' : '',
+    threadContinuation ? 'feed-item-thread-continuation' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
     <li
-      className={`feed-item feed-item-${item.verb}${replyAsVerbColumn ? ' feed-item-reply-verb' : ''}`}
+      className={liClassName}
       data-verb={item.verb}
+      data-thread-position={item._thread?.position}
+      data-thread-length={item._thread?.length}
     >
       {href ? (
         <Link className={verbClassName} to={href}>
@@ -116,7 +142,7 @@ export default function FeedItem({ item }) {
       <Component
         {...item}
         verb={item.verb}
-        suppressReplyBadge={replyAsVerbColumn}
+        suppressReplyBadge={replyAsVerbColumn || threadContinuation}
       />
     </li>
   );

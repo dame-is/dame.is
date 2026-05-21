@@ -9,6 +9,7 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { groupByDay } from '../lib/time.js';
 import { getAuthorFeed } from '../lib/atproto.js';
 import { blueskyPostToFeedItem } from '../lib/feedBuilder.js';
+import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -29,7 +30,8 @@ export default function Posting() {
     () => safeItems.filter((i) => matchesQuery(i.payload?.text, q)),
     [safeItems, q],
   );
-  const groups = groupByDay(filtered, (i) => i.createdAt);
+  const threaded = useMemo(() => groupSelfReplyThreads(filtered, ME_DID), [filtered]);
+  const groups = groupByDay(threaded, threadAwareDateKey);
 
   return (
     <PageShell

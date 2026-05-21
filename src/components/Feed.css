@@ -93,6 +93,24 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   letter-spacing: 0.08em;
 }
 
+/* Self-reply thread treatment.
+   Consecutive posts in a thread chain authored by Dame are rendered
+   oldest -> newest. To telegraph that visual grouping we soften the
+   inter-post rule (so the eye sees one conversation, not unrelated
+   feed rows) and quiet the "continuing" verb label on follow-on posts. */
+.feed-item-thread:not(.feed-item-thread-last) {
+  border-bottom-color: transparent;
+  padding-bottom: var(--space-2);
+}
+
+.feed-item-thread-continuation .feed-item-verb-thread {
+  color: var(--ink-faint);
+}
+
+.feed-item-thread-continuation .feed-item-verb-thread .feed-item-verb-icon {
+  color: var(--ink-faint);
+}
+
 .feed-card {
   display: flex;
   flex-direction: column;

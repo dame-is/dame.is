@@ -9,6 +9,7 @@ import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
+import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -127,7 +128,8 @@ export default function Home() {
 
   const filtered = useMemo(() => filterFeed(safeFeed, params), [safeFeed, params]);
   const collapsed = useMemo(() => collapseListens(filtered), [filtered]);
-  const groups = useMemo(() => groupByDay(collapsed, (i) => i.createdAt), [collapsed]);
+  const threaded = useMemo(() => groupSelfReplyThreads(collapsed, ME_DID), [collapsed]);
+  const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
 
   return (
     <PageShell
