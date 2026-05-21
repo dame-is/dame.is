@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { Compass } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
@@ -44,9 +45,9 @@ export default function ActionDock() {
         onClick={toggle}
         aria-expanded={open}
         aria-controls="action-dock-panel"
-        aria-label={open ? 'Close action dock' : 'Open action dock'}
+        aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
       >
-        <span className="dock-ribbon-mark" aria-hidden="true">&#x2767;</span>
+        <Compass className="dock-ribbon-mark" aria-hidden="true" strokeWidth={1.75} />
         <span className="dock-ribbon-label">{open ? 'close' : 'pages & tools'}</span>
       </button>
 
@@ -77,8 +78,10 @@ export default function ActionDock() {
 
         <div className="dock-section">
           <div className="dock-heading">Tools</div>
-          <ThemeToggle />
-          <TypefaceToggle />
+          <div className="dock-display-row">
+            <ThemeToggle />
+            <TypefaceToggle />
+          </div>
           <button
             type="button"
             className="dock-tool"

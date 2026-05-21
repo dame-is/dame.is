@@ -1,12 +1,3 @@
-.theme-toggle {
-  cursor: default;
-}
-
-.theme-toggle:hover {
-  background: transparent;
-  color: var(--ink-soft);
-}
-
 .theme-toggle-options {
   display: inline-flex;
   gap: var(--space-1);
