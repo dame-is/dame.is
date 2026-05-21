@@ -219,9 +219,12 @@
 }
 
 .feed-filter-modal-scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: color-mix(in srgb, var(--ink) 35%, transparent);
+  /* Fixed dark color (rather than color-mix with --ink) so the scrim
+     actually darkens the page in both light and dark themes — in dark
+     mode --ink is a light off-white, which makes the mix invisible. */
+  background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(2px);
   border: 0;
   cursor: pointer;
@@ -269,12 +272,17 @@
   border-color: var(--accent-soft);
 }
 
-.feed-filter-modal-actions {
+/* Quick-action pills (show all / none / defaults) -------------------- */
+
+.feed-filter-modal-quick {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--rule-soft);
 }
 
-.feed-filter-modal-reset {
+.feed-filter-quick-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
@@ -282,14 +290,87 @@
   border-radius: 0;
   border: 1px dashed var(--rule);
   background: var(--page);
-  color: var(--ink-faint);
+  color: var(--ink-muted);
   font-family: var(--sans);
   font-size: var(--text-xs);
   cursor: pointer;
-  transition: color 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.feed-filter-modal-reset:hover {
+.feed-filter-quick-pill:hover {
   color: var(--accent);
   border-color: var(--accent-soft);
+}
+
+.feed-filter-quick-pill.is-active {
+  background: var(--highlight);
+  color: var(--accent);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+/* Chip + per-chip "only" affordance ---------------------------------- */
+
+.feed-chip-wrap {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.feed-chip-wrap.is-active {
+  background: var(--highlight);
+  border-color: var(--accent);
+}
+
+/* Toggle area shares the chip look but lives inside the wrapper, so the
+   per-chip border belongs to the wrap and the "only" affordance sits
+   flush against the toggle without a doubled rule between them. */
+.feed-chip-wrap .feed-chip.feed-chip-toggle {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.feed-chip-wrap .feed-chip.feed-chip-toggle:hover {
+  border: 0;
+  background: transparent;
+}
+
+.feed-chip-wrap.is-active .feed-chip.feed-chip-toggle {
+  color: var(--accent);
+}
+
+.feed-chip-wrap.is-active .feed-chip.feed-chip-toggle .feed-chip-icon {
+  color: var(--accent);
+}
+
+.feed-chip-wrap.is-active .feed-chip.feed-chip-toggle .feed-chip-count {
+  color: var(--accent);
+  opacity: 0.75;
+}
+
+.feed-chip-only {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.6em;
+  border: 0;
+  border-left: 1px solid var(--rule-soft);
+  background: transparent;
+  color: var(--ink-faint);
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.feed-chip-wrap.is-active .feed-chip-only {
+  border-left-color: var(--accent-soft);
+}
+
+.feed-chip-only:hover {
+  color: var(--accent);
+  background: var(--highlight);
 }
