@@ -206,42 +206,84 @@
   opacity: 0.75;
 }
 
-/* Filter modal ------------------------------------------------------- */
+/* Filter sheet ------------------------------------------------------- */
 
+/* The wrapper is full-viewport so the transparent scrim button can catch
+   any outside click. The panel itself is what visually appears — on
+   mobile it's a bottom sheet (matches the ActionDock pattern), on
+   desktop it's a small centered popover. No dark backdrop: deliberately
+   matching the nav menu's lightness instead of fighting iOS Safari's
+   chrome for full-viewport dim coverage. */
 .feed-filter-modal {
   position: fixed;
   inset: 0;
   z-index: 70;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: var(--space-4);
+  padding: 0;
+  pointer-events: none;
 }
 
 .feed-filter-modal-scrim {
   position: fixed;
   inset: 0;
-  /* Fixed dark color (rather than color-mix with --ink) so the scrim
-     actually darkens the page in both light and dark themes — in dark
-     mode --ink is a light off-white, which makes the mix invisible. */
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
+  background: transparent;
   border: 0;
-  cursor: pointer;
+  cursor: default;
+  pointer-events: auto;
 }
 
 .feed-filter-modal-panel {
   position: relative;
-  width: min(480px, 100%);
-  max-height: calc(100vh - 2 * var(--space-4));
+  width: 100%;
+  max-width: 100%;
+  /* dvh tracks the live visual viewport on iOS so the sheet never
+     extends behind the URL bar / home indicator. */
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-5));
   overflow-y: auto;
   background: var(--page);
-  border: 1px solid var(--rule);
-  padding: var(--space-5);
-  box-shadow: 0 16px 40px var(--shadow);
+  border-top: 1px solid var(--rule);
+  padding: var(--space-4) var(--space-4) calc(env(safe-area-inset-bottom, 0px) + var(--space-4));
+  box-shadow: 0 -16px 40px var(--shadow);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  pointer-events: auto;
+}
+
+/* Above the mobile breakpoint, lift off the bottom edge and center as a
+   compact popover. Still no dim — the shadow + border carry elevation. */
+@media (min-width: 540px) {
+  .feed-filter-modal {
+    align-items: center;
+    padding: var(--space-4);
+  }
+  .feed-filter-modal-panel {
+    width: min(480px, 100%);
+    max-width: 100%;
+    max-height: calc(100dvh - 2 * var(--space-4));
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-3);
+    padding: var(--space-5);
+    box-shadow: 0 16px 40px var(--shadow);
+  }
+}
+
+.feed-filter-modal-grab {
+  align-self: center;
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--rule);
+  margin: 0 0 var(--space-1);
+}
+
+@media (min-width: 540px) {
+  /* No grab handle when it's not actually a bottom sheet anymore. */
+  .feed-filter-modal-grab {
+    display: none;
+  }
 }
 
 .feed-filter-modal-header {

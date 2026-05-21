@@ -142,6 +142,7 @@ function FilterModal({
         aria-label="Close filter"
       />
       <div className="feed-filter-modal-panel">
+        <div className="feed-filter-modal-grab" aria-hidden="true" />
         <div className="feed-filter-modal-header">
           <span className="small-caps">filter by type</span>
           <button
