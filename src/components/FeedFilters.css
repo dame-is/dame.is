@@ -2,7 +2,6 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   padding-bottom: var(--space-4);
   margin-bottom: var(--space-5);
@@ -10,14 +9,6 @@
 
 .feed-filters-search-only {
   justify-content: flex-start;
-}
-
-.feed-filters-rows {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .feed-chips {
@@ -108,6 +99,8 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .feed-search input {
@@ -120,14 +113,8 @@
   border-radius: 0;
   background: var(--page-edge);
   color: var(--ink);
-  width: 14rem;
-  max-width: 60vw;
-}
-
-.feed-search input:focus {
-  outline: none;
-  border-color: var(--accent-soft);
-  background: var(--page);
+  width: 100%;
+  max-width: 24rem;
 }
 
 .feed-search-icon {
@@ -141,6 +128,12 @@
 
 .feed-search:focus-within .feed-search-icon {
   color: var(--ink-soft);
+}
+
+.feed-search input:focus {
+  outline: none;
+  border-color: var(--accent-soft);
+  background: var(--page);
 }
 
 .feed-search-clear {
@@ -162,4 +155,141 @@
 
 .feed-search-clear:hover {
   color: var(--accent);
+}
+
+/* Filter button (opens the modal) ------------------------------------ */
+
+.feed-filter-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.35em 0.9em;
+  border-radius: 0;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-muted);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.feed-filter-button-icon {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+  transition: color 120ms ease;
+}
+
+.feed-filter-button:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.feed-filter-button:hover .feed-filter-button-icon {
+  color: var(--accent);
+}
+
+.feed-filter-button.is-active {
+  background: var(--highlight);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.feed-filter-button.is-active .feed-filter-button-icon {
+  color: var(--accent);
+}
+
+.feed-filter-button-count {
+  font-size: 0.85em;
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* Filter modal ------------------------------------------------------- */
+
+.feed-filter-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.feed-filter-modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+  backdrop-filter: blur(2px);
+  border: 0;
+  cursor: pointer;
+}
+
+.feed-filter-modal-panel {
+  position: relative;
+  width: min(480px, 100%);
+  max-height: calc(100vh - 2 * var(--space-4));
+  overflow-y: auto;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  padding: var(--space-5);
+  box-shadow: 0 16px 40px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.feed-filter-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--ink-faint);
+  letter-spacing: 0.14em;
+}
+
+.feed-filter-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-muted);
+  cursor: pointer;
+  border-radius: 0;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.feed-filter-modal-close:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.feed-filter-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.feed-filter-modal-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.35em 0.9em;
+  border-radius: 0;
+  border: 1px dashed var(--rule);
+  background: var(--page);
+  color: var(--ink-faint);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.feed-filter-modal-reset:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
 }
