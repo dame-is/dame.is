@@ -4,6 +4,8 @@
  * the underlying record, so `payload.members` (when populated) gives us
  * the count without an extra round-trip.
  */
+import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+
 export default function ListCard({ payload, atUri }) {
   const name = payload?.name || 'Untitled list';
   const purpose = payload?.purpose || '';
@@ -26,7 +28,9 @@ export default function ListCard({ payload, atUri }) {
           <span className="small-caps list-card-purpose">{purposeLabel(purpose)}</span>
         )}
       </header>
-      {description && <p className="list-card-desc">{description}</p>}
+      {description && (
+        <p className="list-card-desc">{renderPlainTextWithTruncatedUrls(description)}</p>
+      )}
       {count > 0 && (
         <p className="gutter list-card-count">
           {count} {count === 1 ? 'member' : 'members'}

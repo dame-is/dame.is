@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 
 export default function CreatingCard({ payload, atUri }) {
   const slug = payload?.slug;
@@ -20,7 +21,9 @@ export default function CreatingCard({ payload, atUri }) {
           </h3>
         </header>
         {kind && <span className="small-caps creating-card-kind">{kind}</span>}
-        {summary && <p className="creating-card-summary">{summary}</p>}
+        {summary && (
+          <p className="creating-card-summary">{renderPlainTextWithTruncatedUrls(summary)}</p>
+        )}
       </div>
     </article>
   );

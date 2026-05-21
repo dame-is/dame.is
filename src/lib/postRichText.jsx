@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { ME_DID } from '../config.js';
+import { isLikelyBareHttpUrl, truncateUrlDisplay } from './feedUrlFormat.jsx';
 
 /**
  * Render `app.bsky.feed.post#text` with its `facets` resolved into
@@ -89,17 +90,24 @@ function renderFeature(feature, text) {
   if (!feature) return text;
   switch (feature.$type) {
     case 'app.bsky.richtext.facet#link':
-    case 'pub.leaflet.richtext.facet#link':
+    case 'pub.leaflet.richtext.facet#link': {
+      const trimmed = text.trim();
+      const useTrunc = isLikelyBareHttpUrl(text);
+      const label = useTrunc ? truncateUrlDisplay(trimmed) : text;
+      const titleAttr =
+        useTrunc && label.length < trimmed.length ? trimmed : undefined;
       return (
         <a
           className="post-rich-link"
           href={feature.uri}
           target="_blank"
           rel="noreferrer noopener"
+          title={titleAttr}
         >
-          {text}
+          {label}
         </a>
       );
+    }
     case 'app.bsky.richtext.facet#mention': {
       // Strip a leading "@" so we can re-render it consistently as part of
       // the link label; the facet text usually already includes it.

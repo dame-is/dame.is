@@ -4,6 +4,8 @@
  * thing they comment on (`subject` / `on` / `target`). We surface the
  * comment text and a small "on …" hint linking to the parent.
  */
+import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+
 export default function CommentCard({ payload, atUri, source }) {
   const text = payload?.text || payload?.body || payload?.content || '';
   const subjectRef = payload?.subject || payload?.on || payload?.target || null;
@@ -12,7 +14,9 @@ export default function CommentCard({ payload, atUri, source }) {
 
   return (
     <article className="comment-card feed-card" data-at-uri={atUri}>
-      <p className="comment-card-text">{text || <em>—</em>}</p>
+      <p className="comment-card-text">
+        {text ? renderPlainTextWithTruncatedUrls(text) : <em>—</em>}
+      </p>
       {subjectUri && (
         <p className="comment-card-on gutter small-caps">
           on{' '}

@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { isLikelyBareHttpUrl, truncateUrlDisplay } from './feedUrlFormat.jsx';
 
 /**
  * Render leaflet `plaintext` + `facets` to React. Mirrors the bsky
@@ -82,19 +83,26 @@ function wrapWithFeatures(features, text) {
     .map((f) => f?.$type)
     .filter((t) => INLINE_FORMATS[t]);
 
-  let node = withLineBreaks(text);
+  const trimmed = text.trim();
+  const useTrunc = Boolean(link?.uri) && isLikelyBareHttpUrl(text);
+  const sourceText = useTrunc ? truncateUrlDisplay(trimmed) : text;
+
+  let node = withLineBreaks(sourceText);
   for (const t of formatTypes) {
     const Wrapper = INLINE_FORMATS[t];
     node = <Wrapper>{node}</Wrapper>;
   }
 
   if (link?.uri) {
+    const titleAttr =
+      useTrunc && sourceText.length < trimmed.length ? trimmed : undefined;
     return (
       <a
         className="post-rich-link"
         href={link.uri}
         target="_blank"
         rel="noreferrer noopener"
+        title={titleAttr}
       >
         {node}
       </a>
