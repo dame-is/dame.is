@@ -22,6 +22,8 @@
 //     rootAtUri: the atUri of the oldest post in the thread (for keys),
 //   }
 
+import { compareIsoDesc } from './time.js';
+
 const POSTING_VERB = 'posting';
 
 function selfReplyParentUri(item, myDid) {
@@ -95,12 +97,9 @@ export function groupSelfReplyThreads(items, myDid) {
       continue;
     }
     const groupSet = new Set(groupIndices);
-    const sorted = [...groupIndices].sort((a, b) => {
-      const aT = items[a].createdAt || '';
-      const bT = items[b].createdAt || '';
-      if (aT === bT) return 0;
-      return aT < bT ? -1 : 1;
-    });
+    const sorted = [...groupIndices].sort(
+      (a, b) => -compareIsoDesc(items[a].createdAt, items[b].createdAt),
+    );
     const anchorAt = items[sorted[sorted.length - 1]].createdAt;
     const rootAtUri = items[sorted[0]].atUri || null;
     sorted.forEach((idx, pos) => {

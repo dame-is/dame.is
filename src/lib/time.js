@@ -98,3 +98,24 @@ export function toIso(date) {
   const d = new Date(date);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
+
+/**
+ * Compare two ISO-ish timestamps chronologically, newest first. Returns a
+ * value suitable for `Array.prototype.sort`. Records without a timestamp
+ * (or with an unparseable one) sink to the bottom in stable input order.
+ *
+ * String comparison is unsafe when timestamps mix timezone offsets — e.g.
+ * `is.dame.now` records use `-04:00` while Bluesky posts use `Z`, so a
+ * later wall-clock time can sort before an earlier one. Parse before
+ * comparing.
+ */
+export function compareIsoDesc(a, b) {
+  const at = a ? Date.parse(a) : NaN;
+  const bt = b ? Date.parse(b) : NaN;
+  const aBad = !Number.isFinite(at);
+  const bBad = !Number.isFinite(bt);
+  if (aBad && bBad) return 0;
+  if (aBad) return 1;
+  if (bBad) return -1;
+  return bt - at;
+}

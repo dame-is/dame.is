@@ -5,7 +5,7 @@ import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
-import { relativeTime } from '../lib/time.js';
+import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
 import './Creating.css';
@@ -26,11 +26,7 @@ export default function Creating() {
       if (!Array.isArray(snap)) return [];
       return snap
         .filter((r) => r?.value)
-        .sort((a, b) => {
-          const ax = a.value?.createdAt || '';
-          const bx = b.value?.createdAt || '';
-          return ax < bx ? 1 : -1;
-        });
+        .sort((a, b) => compareIsoDesc(a.value?.createdAt, b.value?.createdAt));
     },
   });
 

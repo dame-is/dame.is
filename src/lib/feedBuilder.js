@@ -19,6 +19,7 @@ import {
 } from './atproto.js';
 import { VERB_REGISTRY } from './verbRegistry.js';
 import { createSubjectResolver } from './subjectResolver.js';
+import { compareIsoDesc } from './time.js';
 
 /**
  * Maps registry NSIDs to the legacy snapshot file names that the rest of
@@ -394,14 +395,7 @@ export async function aggregateListItems(lists, pds, did = ME_DID) {
  * without a timestamp sink to the bottom in stable input order.
  */
 export function sortUnifiedFeed(unified) {
-  unified.sort((a, b) => {
-    const ax = a.createdAt || '';
-    const bx = b.createdAt || '';
-    if (!ax && !bx) return 0;
-    if (!ax) return 1;
-    if (!bx) return -1;
-    return ax < bx ? 1 : -1;
-  });
+  unified.sort((a, b) => compareIsoDesc(a.createdAt, b.createdAt));
   return unified;
 }
 
