@@ -6,7 +6,7 @@ import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
-import { relativeTime } from '../lib/time.js';
+import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 import './Blogging.css';
@@ -107,7 +107,7 @@ function mergeBlogEntries(data) {
   return [
     ...blogs.filter((r) => r?.value).map(normalizeBlog),
     ...leaflets.filter((r) => r?.value).map(normalizeLeaflet),
-  ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  ].sort((a, b) => compareIsoDesc(a.createdAt, b.createdAt));
 }
 
 function normalizeBlog(record) {

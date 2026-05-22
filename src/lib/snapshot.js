@@ -1,6 +1,8 @@
 // Hybrid data model: synchronous JSON snapshot for first paint,
 // `useEffect` live refresh, merge by AT URI / id.
 
+import { compareIsoDesc } from './time.js';
+
 /**
  * Merge `live` items into `seed`, preferring fresh records and keeping
  * the time order (newest first by `createdAt`). De-dupes by `keyFn`.
@@ -15,14 +17,9 @@ export function mergeByKey(seed, live, keyFn) {
     const key = keyFn(item);
     if (key && !seen.has(key)) seen.set(key, item);
   }
-  return Array.from(seen.values()).sort((a, b) => {
-    const ax = pickCreatedAt(a);
-    const bx = pickCreatedAt(b);
-    if (!ax && !bx) return 0;
-    if (!ax) return 1;
-    if (!bx) return -1;
-    return ax < bx ? 1 : -1;
-  });
+  return Array.from(seen.values()).sort((a, b) =>
+    compareIsoDesc(pickCreatedAt(a), pickCreatedAt(b)),
+  );
 }
 
 function pickCreatedAt(item) {
