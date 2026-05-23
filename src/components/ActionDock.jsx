@@ -1,8 +1,7 @@
-import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { Bug } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
-import { useAtUri } from '../hooks/useAtUri.js';
 import ThemeToggle from './ThemeToggle.jsx';
 import TypefaceToggle from './TypefaceToggle.jsx';
 import SignInPanel from './SignInPanel.jsx';
@@ -22,19 +21,6 @@ const ROUTES = [
 export default function ActionDock() {
   const { open, closeDock } = useActionDock();
   const { openOverlay } = useDebugOverlay();
-  const { atUri } = useAtUri();
-  const [copied, setCopied] = useState(false);
-
-  function copyAtUri() {
-    if (!atUri) return;
-    navigator.clipboard?.writeText(atUri).then(
-      () => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1800);
-      },
-      () => {},
-    );
-  }
 
   return (
     <>
@@ -68,28 +54,19 @@ export default function ActionDock() {
           <div className="dock-display-row">
             <ThemeToggle />
             <TypefaceToggle />
+            <button
+              type="button"
+              className="dock-tool-icon"
+              onClick={() => {
+                openOverlay();
+                closeDock();
+              }}
+              aria-label="Atmosphere debug"
+              title="Atmosphere debug"
+            >
+              <Bug aria-hidden="true" strokeWidth={1.75} />
+            </button>
           </div>
-          <button
-            type="button"
-            className="dock-tool"
-            onClick={() => {
-              openOverlay();
-              closeDock();
-            }}
-          >
-            <span className="dock-tool-label">Atmosphere debug</span>
-            <kbd className="dock-tool-key">?</kbd>
-          </button>
-          <button
-            type="button"
-            className="dock-tool"
-            onClick={copyAtUri}
-            disabled={!atUri}
-            title={atUri || 'No backing record for this route'}
-          >
-            <span className="dock-tool-label">{copied ? 'AT URI copied' : 'Copy AT URI'}</span>
-            <span className="dock-tool-key">at://</span>
-          </button>
         </div>
 
         <hr className="dock-rule" />
