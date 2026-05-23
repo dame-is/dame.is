@@ -112,13 +112,12 @@ function CompactBskyPost({ view }) {
   // The compact line intentionally drops avatar + display name — they make
   // a tall, busy chip and the wrap is awkward when the name is long. The
   // expand affordance reveals the full author header inside the preview.
-  const handleChip = author?.handle ? (
-    <span className="reference-card-author">
-      <span className="reference-card-author-handle">@{author.handle}</span>
-    </span>
-  ) : (
-    <span className="reference-card-author">
-      <span className="reference-card-author-handle">an unknown author</span>
+  // Render the handle as a plain inline span (no inline-flex wrapper) so
+  // it shares a baseline with the leading "a post by" text instead of
+  // riding above it on the parent chip's vertical-align: middle.
+  const handleChip = (
+    <span className="reference-card-author-handle">
+      {author?.handle ? `@${author.handle}` : 'an unknown author'}
     </span>
   );
   const link = localHref ? (
