@@ -164,15 +164,26 @@
   outline: none;
 }
 
-.dock-tool-icon.is-open {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
 .dock-tool-icon svg {
   width: 16px;
   height: 16px;
+}
+
+/* Sheet-replace navigation: the menu and account views slide
+   horizontally within the stage. Hidden overflow keeps the off-screen
+   view from poking out during the transition. */
+.dock-stage {
+  position: relative;
+  overflow: hidden;
+}
+
+/* The account sub-view's header: back chevron + section heading on a
+   single row so the back affordance reads as a peer to the title. */
+.dock-subhead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 @media (max-width: 700px) {
