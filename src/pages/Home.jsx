@@ -8,7 +8,13 @@ import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
-import { readFeedCache, writeFeedCache, isCacheFresh } from '../lib/feedCache.js';
+import {
+  readFeedCache,
+  writeFeedCache,
+  isCacheFresh,
+  beginRefresh,
+  endRefresh,
+} from '../lib/feedCache.js';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
@@ -89,6 +95,7 @@ export default function Home() {
     inflightRef.current = token;
 
     setRefreshState('refreshing');
+    beginRefresh();
 
     const snapshotPromise = fetchSnapshot(FEED_CACHE_KEY).catch(() => null);
 
@@ -113,6 +120,7 @@ export default function Home() {
 
     if (token.cancelled) {
       if (inflightRef.current === token) inflightRef.current = null;
+      endRefresh();
       return null;
     }
 
@@ -157,6 +165,7 @@ export default function Home() {
     });
 
     if (inflightRef.current === token) inflightRef.current = null;
+    endRefresh();
     return nextFeed;
   }, []);
 
@@ -236,9 +245,6 @@ export default function Home() {
       headTitle="Dame is&hellip;"
     >
       <FeedFilters counts={counts} />
-      {!loading && (
-        <FeedLiveStatus refreshState={refreshState} loadedAt={loadedAt} variant="top" />
-      )}
       {loading ? (
         <FeedSkeleton rows={8} />
       ) : filtered.length === 0 ? (
@@ -280,7 +286,6 @@ export default function Home() {
         <FeedLiveStatus
           refreshState={refreshState}
           loadedAt={loadedAt}
-          variant="footer"
           summary={`${filtered.length} of ${safeFeed.length} records`}
         />
       )}
