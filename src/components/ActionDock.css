@@ -5,6 +5,18 @@
   width: var(--dock-w);
   max-width: min(var(--dock-w), 100%);
   padding: var(--space-4);
+  /* Smoothly interpolate the panel's width when crossing between
+     views that demand different room (the debug pane is much wider
+     than menu/account). */
+  transition: width 220ms ease, max-width 220ms ease;
+}
+
+/* The atmosphere debug pane carries dense readouts and a JSON dump,
+   so it needs the same wider envelope the old standalone overlay
+   used. Menu and account stay at the default --dock-w. */
+.dock-panel-view-debug {
+  width: min(560px, 100%);
+  max-width: min(560px, 100%);
 }
 
 .dock-section {
