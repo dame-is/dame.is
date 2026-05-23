@@ -50,6 +50,7 @@
   width: auto;
   height: auto;
   object-fit: contain;
+  border: 1px solid var(--rule);
   border-radius: var(--radius-2);
   background: var(--page-edge);
   box-shadow: 0 16px 40px var(--shadow);
