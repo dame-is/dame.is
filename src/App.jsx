@@ -19,11 +19,9 @@ const OauthCallback = lazy(() => import('./pages/OauthCallback.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import Footer from './components/Footer.jsx';
-import DebugOverlay from './components/DebugOverlay.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { TypefaceProvider } from './hooks/useTypeface.jsx';
-import { DebugOverlayProvider } from './hooks/useDebugOverlay.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 
@@ -72,7 +70,6 @@ export default function App() {
       <ChromeBarProvider>
       <AtprotoSessionProvider>
       <ActionDockProvider>
-        <DebugOverlayProvider>
           <div className="app-shell">
             <ChromeBar />
             <main className="layout">
@@ -110,9 +107,7 @@ export default function App() {
             </main>
             <Footer />
             <ActionDock />
-            <DebugOverlay />
           </div>
-        </DebugOverlayProvider>
       </ActionDockProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>

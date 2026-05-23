@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import RecordEditor from './RecordEditor.jsx';
-import Modal from './Modal.jsx';
 import { ME_DID } from '../config.js';
 import './DebugOverlay.css';
 
-export default function DebugOverlay() {
-  const { open, closeOverlay } = useDebugOverlay();
+/**
+ * Atmosphere debug content for the current route. Lives inside the
+ * ActionDock as the 'debug' sub-view — the dock owns the surrounding
+ * Modal, the back chevron, and the heading, so this component renders
+ * only the readouts, actions, and (optionally) the inline record editor.
+ */
+export default function DebugPane({ onClose }) {
   const { atUri, cid, lexicon, pds, record, route, rkey, slug, recordStatus } = useAtUri();
   const { agent, did, session, signIn } = useAtprotoSession();
   const [copied, setCopied] = useState(null);
@@ -24,8 +27,6 @@ export default function DebugOverlay() {
   const recordRkey = rkey || rkeyFromAtUri(recordUri);
   const recordCollection = lexicon || collectionFromAtUri(recordUri);
 
-  // Editable when: we know the record's atUri, the owner is the site's DID,
-  // we have a lexicon NSID + rkey, and the signed-in agent matches that DID.
   const isOwnRecord = recordOwnerDid === ME_DID;
   const canEdit = Boolean(
     isOwnRecord && recordRkey && recordCollection && agent && did === ME_DID,
@@ -45,20 +46,7 @@ export default function DebugOverlay() {
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={closeOverlay}
-      label="Atmosphere debug"
-      className="debug-overlay-panel"
-      scrimLabel="Close debug overlay"
-    >
-      <div className="debug-overlay-header">
-        <span className="small-caps">atmosphere · this page</span>
-        <button type="button" className="debug-overlay-close" onClick={closeOverlay} aria-label="Close">
-          ×
-        </button>
-      </div>
-
+    <div className="debug-pane">
       <dl>
         <Row label="route" value={route} copyValue={route} copied={copied} onCopy={copy} />
         <Row label="at uri" value={atUri} copyValue={atUri} mono copied={copied} onCopy={copy} />
@@ -104,7 +92,7 @@ export default function DebugOverlay() {
             compact
             onDeleted={() => {
               setEditing(false);
-              closeOverlay();
+              onClose?.();
               window.location.assign('/');
             }}
           />
@@ -117,7 +105,7 @@ export default function DebugOverlay() {
       ) : (
         <p className="debug-overlay-empty">{emptyStateText(recordStatus, { atUri, rkey, slug })}</p>
       )}
-    </Modal>
+    </div>
   );
 }
 
@@ -171,9 +159,6 @@ function Row({ label, value, copyValue, placeholder, mono, copied, onCopy }) {
 function emptyStateText(status, { atUri, rkey, slug }) {
   if (status === 'missing') return 'No backing record found for this route.';
   if (status === 'none') return 'No backing record for this route yet.';
-  // Default for 'loading' / 'idle' / undefined — and the legacy fallback for
-  // routes that hint at a record (atUri/rkey/slug) but haven't told us a
-  // status yet.
   if (status === 'loading' || atUri || rkey || slug) return 'Loading record…';
   return 'No backing record for this route yet.';
 }
