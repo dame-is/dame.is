@@ -22,6 +22,9 @@ const storedTypeface = typeof localStorage !== 'undefined' ? localStorage.getIte
 const initialTypeface = ['combo', 'serif', 'sans'].includes(storedTypeface) ? storedTypeface : 'combo';
 document.documentElement.setAttribute('data-typeface', initialTypeface);
 
+const storedCompact = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.compact') : null;
+document.documentElement.setAttribute('data-compact', storedCompact === 'true' ? 'true' : 'false');
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>

@@ -1055,3 +1055,64 @@ a.post-card-author-link:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* ----------------------------------------------------------------------
+   Compact mode (toggled by [data-compact='true'] on <html>).
+   Strips the gerund/verb column from feed rows so each item reads as
+   pure content, and tightens vertical rhythm between rows and day
+   groups. Per-card internals (PostCard, BlogCard, etc.) stay intact —
+   we're only shrinking the surrounding feed scaffolding.
+   ---------------------------------------------------------------------- */
+
+[data-compact='true'] .feed-list {
+  gap: var(--space-3);
+}
+
+[data-compact='true'] .feed-item,
+[data-compact='true'] .feed-item.feed-item-reply-verb {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+}
+
+/* Hide the verb-icon-plus-gerund column entirely. The verb-as-reply
+   variant ("replying to @handle") carries conversational context that
+   the card body doesn't repeat, so keep that one visible but flatten
+   it inline. */
+[data-compact='true'] .feed-item-verb:not(.feed-item-verb-reply):not(.feed-item-verb-thread) {
+  display: none;
+}
+
+[data-compact='true'] .feed-item-verb.feed-item-verb-reply,
+[data-compact='true'] .feed-item-verb.feed-item-verb-thread {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  text-align: left;
+  padding-top: 0;
+  justify-self: start;
+  font-size: calc(var(--text-xs) * 0.95);
+}
+
+[data-compact='true'] .day-header {
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+[data-compact='true'] .feed-day-group .feed-list[style] {
+  margin-top: var(--space-2) !important;
+}
+
+[data-compact='true'] .feed-card {
+  gap: var(--space-1);
+  padding-bottom: 0;
+}
+
+/* Tighten card internals that have their own vertical rhythm. */
+[data-compact='true'] .post-card-author {
+  margin-bottom: var(--space-1);
+}
+
+[data-compact='true'] .post-card-reply,
+[data-compact='true'] .post-card-repost {
+  margin-bottom: 0;
+}
