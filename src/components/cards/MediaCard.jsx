@@ -4,7 +4,9 @@
  * blobs plus optional title and description; the card surfaces a thumb
  * grid (or first frame for stories) with caption + link out.
  */
+import { useState } from 'react';
 import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+import Lightbox from '../Lightbox.jsx';
 
 export default function MediaCard({ payload, atUri, source }) {
   const title = payload?.title || payload?.name || '';
@@ -13,6 +15,10 @@ export default function MediaCard({ payload, atUri, source }) {
   const externalHref = canonicalViewer(atUri, source);
   const visible = items.slice(0, 4);
   const overflow = Math.max(0, items.length - visible.length);
+  const [lightbox, setLightbox] = useState({ open: false, index: 0 });
+  const lightboxImages = items
+    .filter((it) => it.url)
+    .map((it) => ({ src: it.url, alt: it.alt || '' }));
 
   return (
     <article className="media-card feed-card" data-at-uri={atUri}>
@@ -35,13 +41,12 @@ export default function MediaCard({ payload, atUri, source }) {
       {visible.length > 0 && (
         <div className="media-card-grid" data-count={visible.length}>
           {visible.map((it, i) => (
-            <a
+            <button
               key={i}
+              type="button"
               className="media-card-thumb"
-              href={externalHref || it.url || '#'}
-              target="_blank"
-              rel="noreferrer noopener"
-              aria-label={it.alt || 'Open image'}
+              onClick={() => setLightbox({ open: true, index: i })}
+              aria-label={it.alt ? `Open image: ${it.alt}` : 'Open image'}
             >
               {it.url ? (
                 <img
@@ -53,13 +58,19 @@ export default function MediaCard({ payload, atUri, source }) {
               ) : (
                 <span className="media-card-thumb-placeholder">image</span>
               )}
-            </a>
+            </button>
           ))}
           {overflow > 0 && (
             <span className="media-card-overflow gutter">+{overflow}</span>
           )}
         </div>
       )}
+      <Lightbox
+        open={lightbox.open}
+        onClose={() => setLightbox((s) => ({ ...s, open: false }))}
+        images={lightboxImages}
+        index={lightbox.index}
+      />
     </article>
   );
 }

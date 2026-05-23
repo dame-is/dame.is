@@ -864,6 +864,19 @@ a.post-card-author-link:focus-visible {
   overflow: hidden;
   border: 1px solid var(--rule-soft);
   background: var(--page-edge);
+  /* Reset button chrome — the anchor predecessor didn't carry UA padding,
+     font, or color. */
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: zoom-in;
+  width: 100%;
+}
+
+.media-card-thumb:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .media-card-thumb img {
