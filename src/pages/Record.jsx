@@ -9,7 +9,6 @@ import CreatingCard from '../components/CreatingCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
-import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, getPostThread } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { formatDateLong, formatTime, relativeTime } from '../lib/time.js';
@@ -33,13 +32,14 @@ import '../components/Feed.css';
  *
  * The mapping table lives in `src/lib/recordRoutes.js`.
  *
- * Strategy:
- *   1. Look up by rkey in the relevant snapshot for instant first paint.
- *   2. For our own PDS-backed records (logging / blogging / creating /
- *      listening) also fetch fresh from the PDS so the displayed copy is
- *      never stale. Bluesky posts skip the live fetch — the snapshot's
- *      AppView shape (handle, counts) is richer than the raw PDS record.
- *   3. If neither finds anything after a beat, render a "not found" page.
+ * Strategy: always fetch live, render a skeleton while pending. Every
+ * record the site addresses lives on Dame's PDS, so:
+ *   - posting → `getPostThread` on the AppView (one call → post view +
+ *     parents + replies), addressed as `at://<ME_DID>/app.bsky.feed.post/<rkey>`.
+ *   - reposting → `getRecord` on Dame's PDS for the `app.bsky.feed.repost`
+ *     record (the rkey *is* Dame's repost record's rkey), then
+ *     `getPostThread` on `subject.uri` for the original post + thread.
+ *   - everything else → `getRecord` on Dame's PDS for the record itself.
  */
 export default function Record({ verb, nsid, source }) {
   const { rkey } = useParams();
@@ -59,90 +59,88 @@ export default function Record({ verb, nsid, source }) {
   const [repliesStatus, setRepliesStatus] = useState('idle'); // idle | loading | ready | error
 
   useEffect(() => {
+    if (!collection || !rkey) return;
+    let cancelled = false;
     setItem(null);
     setMissing(false);
     setParents([]);
     setReplies([]);
-    setRepliesStatus('idle');
-  }, [verb, rkey]);
+    setRepliesStatus(verb === 'posting' || verb === 'reposting' ? 'loading' : 'idle');
 
-  // Single AppView round-trip resolves both halves of the conversation:
-  //   - parents (walk up `thread.parent…`) for the context block above
-  //   - replies (`thread.replies`) for the comments tree below
-  // This used to be split across two effects (and a third-party comments
-  // package). The seeded parent from the snapshot still paints first so the
-  // page never feels empty while the request is in flight.
-  useEffect(() => {
-    if (verb !== 'posting' && verb !== 'reposting') return;
-    if (!item?.atUri) return;
-    // For reposts, the conversation we want to render is the *original*
-    // post's thread (replies, parents, …) — not Dame's repost record,
-    // which has no thread of its own. The original post URI is stashed
-    // on `payload.subjectUri` by the prefetch reshape; fall back to
-    // `atUri` for plain authored posts.
-    const threadUri = item?.payload?.subjectUri || item.atUri;
-    const isReply = Boolean(item?.payload?.parent || item?.payload?.reply?.parent);
-
-    if (isReply && item.payload.parent?.uri && item.payload.parent.author) {
-      setParents([item.payload.parent]);
-    }
-
-    let cancelled = false;
-    setRepliesStatus('loading');
     async function load() {
       try {
-        const thread = await getPostThread(threadUri, {
-          parentHeight: 6,
-          depth: 6,
-        });
-        if (cancelled) return;
-        const chain = collectParents(thread?.thread);
-        if (chain.length) setParents(chain);
-        const childReplies = Array.isArray(thread?.thread?.replies)
-          ? thread.thread.replies
-          : [];
-        setReplies(childReplies);
-        setRepliesStatus('ready');
-      } catch {
-        if (!cancelled) setRepliesStatus('error');
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [verb, item?.atUri]);
+        if (verb === 'posting') {
+          const uri = `at://${ME_DID}/app.bsky.feed.post/${rkey}`;
+          const thread = await getPostThread(uri, { depth: 6, parentHeight: 6 });
+          if (cancelled) return;
+          const post = thread?.thread?.post;
+          if (!post) {
+            setMissing(true);
+            setRepliesStatus('error');
+            return;
+          }
+          setItem(postViewToFeedItem('posting', post));
+          applyThreadContext(thread.thread);
+          return;
+        }
 
-  useEffect(() => {
-    if (!collection || !rkey) return;
-    let cancelled = false;
-    let foundAnything = false;
-
-    async function load() {
-      const seed = await loadFromSnapshot(verb, rkey, collection);
-      if (cancelled) return;
-      if (seed) {
-        foundAnything = true;
-        setItem(seed);
-      }
-
-      if (verb !== 'posting' && verb !== 'reposting') {
-        try {
+        if (verb === 'reposting') {
           const pds = await resolvePds(ME_DID);
           if (cancelled) return;
-          const fresh = await getRecord(pds, { repo: ME_DID, collection, rkey });
+          const repost = await getRecord(pds, {
+            repo: ME_DID,
+            collection: 'app.bsky.feed.repost',
+            rkey,
+          });
           if (cancelled) return;
-          if (fresh?.value) {
-            foundAnything = true;
-            setItem(recordToFeedItem(verb, fresh));
+          const subjectUri = repost?.value?.subject?.uri;
+          if (!subjectUri) {
+            setMissing(true);
+            setRepliesStatus('error');
+            return;
           }
-        } catch {
-          // ignore; we'll fall back to the snapshot result
+          const thread = await getPostThread(subjectUri, { depth: 6, parentHeight: 6 });
+          if (cancelled) return;
+          const subjectPost = thread?.thread?.post;
+          if (!subjectPost) {
+            // Subject post is gone (deleted/blocked); still show a degraded
+            // card so the page isn't a flat 404.
+            setItem(repostMissingSubjectItem(repost));
+            setRepliesStatus('ready');
+            return;
+          }
+          setItem(repostToItem(repost, subjectPost));
+          applyThreadContext(thread.thread);
+          return;
         }
+
+        // Generic content / reference records on Dame's PDS.
+        const pds = await resolvePds(ME_DID);
+        if (cancelled) return;
+        const fresh = await getRecord(pds, { repo: ME_DID, collection, rkey });
+        if (cancelled) return;
+        if (!fresh?.value) {
+          setMissing(true);
+          return;
+        }
+        setItem(recordToFeedItem(verb, fresh));
+      } catch (err) {
+        if (cancelled) return;
+        // 4xx from the PDS / AppView almost always means "no such record".
+        // Other errors (network blip) still surface as missing — the user
+        // can refresh.
+        setMissing(true);
+        if (verb === 'posting' || verb === 'reposting') setRepliesStatus('error');
       }
 
-      if (cancelled) return;
-      if (!foundAnything) setMissing(true);
+      function applyThreadContext(threadNode) {
+        if (cancelled || !threadNode) return;
+        const chain = collectParents(threadNode);
+        if (chain.length) setParents(chain);
+        const childReplies = Array.isArray(threadNode.replies) ? threadNode.replies : [];
+        setReplies(childReplies);
+        setRepliesStatus('ready');
+      }
     }
 
     load();
@@ -566,99 +564,36 @@ function truncate(s, n) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Snapshot lookups                                                    */
+/* Feed-item shaping                                                   */
 /* ------------------------------------------------------------------ */
 
-async function loadFromSnapshot(verb, rkey, nsid) {
-  switch (verb) {
-    case 'posting':
-      return loadPostFromSnapshot('posting', rkey);
-    case 'reposting':
-      return loadRepostFromSnapshot(rkey);
-    case 'logging':
-      return loadByRkey('now', rkey, (r) => recordToFeedItem('logging', r));
-    case 'listening':
-      return loadByRkey('listening', rkey, (r) => recordToFeedItem('listening', r));
-    case 'blogging':
-      return (
-        (await loadByRkey('blogs', rkey, (r) => recordToFeedItem('blogging', r))) ||
-        loadByRkey('leaflets', rkey, (r) => recordToFeedItem('blogging', r))
-      );
-    case 'creating':
-      return loadByRkey('creations', rkey, (r) => recordToFeedItem('creating', r));
-    default: {
-      // Try the unified feed snapshot — every verb's records (with subjects
-      // pre-resolved) live here keyed by atUri, which makes a per-rkey hit
-      // cheap regardless of which NSID owns the record.
-      return loadFromUnifiedFeed(verb, rkey, nsid);
-    }
-  }
-}
-
-async function loadFromUnifiedFeed(verb, rkey, nsid) {
-  const snap = await fetchSnapshot('unifiedFeed');
-  if (!Array.isArray(snap)) return null;
-  const found = snap.find((row) => {
-    if (row.verb !== verb) return false;
-    const uri = row?.atUri || '';
-    if (!uri.endsWith(`/${rkey}`)) return false;
-    if (nsid && !uri.includes(`/${nsid}/`)) return false;
-    return true;
-  });
-  if (!found) return null;
-  // The unified feed already uses our internal feed-item shape — just
-  // attach the raw payload as `raw` so the JSON dump in
-  // GenericRecordBody has something to render.
+/**
+ * Reshape a Bluesky `postView` (as returned by getPostThread) into the
+ * internal feed-item shape that PostCard reads.
+ */
+function postViewToFeedItem(verb, post) {
   return {
-    verb: found.verb,
-    atUri: found.atUri,
-    cid: found.cid,
-    createdAt: found.createdAt,
-    source: found.source,
-    subject: found.subject,
-    payload: found.payload,
-    raw: { uri: found.atUri, cid: found.cid, value: found.payload },
-  };
-}
-
-async function loadByRkey(snapshotName, rkey, mapper) {
-  const snap = await fetchSnapshot(snapshotName);
-  if (!Array.isArray(snap)) return null;
-  const found = snap.find((r) => {
-    const m = String(r?.uri || '').match(/\/([^/]+)$/);
-    return m && m[1] === rkey;
-  });
-  return found ? mapper(found) : null;
-}
-
-async function loadPostFromSnapshot(verb, rkey) {
-  const snap = await fetchSnapshot('posts');
-  if (!Array.isArray(snap)) return null;
-  const found = snap.find((row) => {
-    const m = String(row?.post?.uri || '').match(/\/([^/]+)$/);
-    return m && m[1] === rkey;
-  });
-  if (!found?.post) return null;
-  const post = found.post;
-  return {
-    verb: 'posting',
+    verb,
     atUri: post.uri,
-    cid: post.cid,
-    createdAt: post.record?.createdAt || post.indexedAt,
+    cid: post.cid || null,
+    createdAt: post.record?.createdAt || post.indexedAt || null,
     payload: {
       text: post.record?.text || '',
       facets: post.record?.facets || null,
-      author: {
-        did: post.author?.did,
-        handle: post.author?.handle,
-        displayName: post.author?.displayName,
-        avatar: post.author?.avatar,
-      },
+      langs: post.record?.langs || null,
+      author: post.author
+        ? {
+            did: post.author.did,
+            handle: post.author.handle,
+            displayName: post.author.displayName,
+            avatar: post.author.avatar,
+          }
+        : null,
       replyCount: post.replyCount || 0,
       repostCount: post.repostCount || 0,
       likeCount: post.likeCount || 0,
       // Prefer the resolved view embed (with CDN URLs); keep the raw
-      // record embed as a fallback.
+      // record embed as a fallback so PostEmbed can still render it.
       embed: post.embed || null,
       embedRecord: post.record?.embed || null,
       indexedAt: post.indexedAt,
@@ -668,96 +603,72 @@ async function loadPostFromSnapshot(verb, rkey) {
 }
 
 /**
- * Load a single reposting feed-item from the `reposting-bsky.json`
- * snapshot (raw `app.bsky.feed.repost` records with `_subject` already
- * hydrated to the full original post view via `app.bsky.feed.getPosts`).
+ * Build a reposting feed item from Dame's raw `app.bsky.feed.repost`
+ * record and the hydrated subject post view.
  *
- * The rkey in `/reposting/{rkey}` is *Dame's* repost record rkey on her
- * own PDS, not the original post's rkey — so we match against
- * `record.uri`, not the subject URI.
- *
- * The returned item is shaped like an authored post (so PostCard can
- * render it inline), but `atUri` stays anchored to the repost record so
- * routing, debug overlays, and "back to /reposting/{rkey}" all stay
- * consistent. The original post's URI is preserved on
- * `payload.subjectUri` for the comments / thread lookup.
+ * `atUri` stays anchored to Dame's repost record so /reposting/{rkey}
+ * remains the canonical URL; `payload.subjectUri` points at the original
+ * post so PostCard's "by @handle" external link and the Comments thread
+ * lookup both target the right thing.
  */
-/**
- * Load a single reposting feed-item.
- *
- * The unified feed already contains reposting rows in PostCard-friendly
- * shape (text/author/embed lifted from the hydrated subject post, with
- * `payload.subjectUri` pointing at the original post for thread lookup),
- * so we read from there first. Falls back to the per-collection snapshot
- * (`app-bsky-feed-repost.json`) and reshapes on the fly when a record
- * exists on the PDS but didn't make the unified-feed age cutoff.
- *
- * The rkey in `/reposting/{rkey}` is *Dame's* repost record rkey on her
- * own PDS, not the original post's rkey — so we match against the
- * `at://…/app.bsky.feed.repost/{rkey}` form, not the subject URI.
- */
-async function loadRepostFromSnapshot(rkey) {
-  const fromUnified = await loadFromUnifiedFeed('reposting', rkey, 'app.bsky.feed.repost');
-  if (fromUnified) return fromUnified;
-
-  const snap = await fetchSnapshot('app-bsky-feed-repost');
-  if (!Array.isArray(snap)) return null;
-  const found = snap.find((r) => {
-    const m = String(r?.uri || '').match(/\/([^/]+)$/);
-    return m && m[1] === rkey;
-  });
-  if (!found) return null;
-  const subject = found._subject;
-  const view = subject?.kind === 'bsky.post' ? subject.view : null;
-  const ref = subject?.ref || found.value?.subject || null;
-  const repostedAt = found.value?.createdAt || found.indexedAt || null;
-  if (!view) {
-    return {
-      verb: 'reposting',
-      atUri: found.uri,
-      cid: found.cid || null,
-      createdAt: repostedAt,
-      payload: {
-        subjectRef: ref,
-        subjectMissing: true,
-        reason: {
-          $type: 'app.bsky.feed.defs#reasonRepost',
-          indexedAt: repostedAt,
-        },
-      },
-      raw: found,
-    };
-  }
+function repostToItem(repostRecord, subjectPost) {
+  const repostedAt = repostRecord.value?.createdAt || null;
   return {
     verb: 'reposting',
-    atUri: found.uri,
-    cid: view.cid || found.cid || null,
+    atUri: repostRecord.uri,
+    cid: subjectPost.cid || repostRecord.cid || null,
     createdAt: repostedAt,
     payload: {
-      text: view.record?.text || '',
-      facets: view.record?.facets || null,
-      author: view.author
+      text: subjectPost.record?.text || '',
+      facets: subjectPost.record?.facets || null,
+      langs: subjectPost.record?.langs || null,
+      author: subjectPost.author
         ? {
-            did: view.author.did,
-            handle: view.author.handle,
-            displayName: view.author.displayName,
-            avatar: view.author.avatar,
+            did: subjectPost.author.did,
+            handle: subjectPost.author.handle,
+            displayName: subjectPost.author.displayName,
+            avatar: subjectPost.author.avatar,
           }
         : null,
-      replyCount: view.replyCount || 0,
-      repostCount: view.repostCount || 0,
-      likeCount: view.likeCount || 0,
-      embed: view.embed || null,
-      embedRecord: view.record?.embed || null,
-      indexedAt: view.indexedAt,
-      subjectUri: view.uri,
-      subjectRef: ref,
+      replyCount: subjectPost.replyCount || 0,
+      repostCount: subjectPost.repostCount || 0,
+      likeCount: subjectPost.likeCount || 0,
+      embed: subjectPost.embed || null,
+      embedRecord: subjectPost.record?.embed || null,
+      indexedAt: subjectPost.indexedAt,
+      subjectUri: subjectPost.uri,
+      subjectRef: repostRecord.value?.subject || null,
       reason: {
         $type: 'app.bsky.feed.defs#reasonRepost',
         indexedAt: repostedAt,
       },
     },
-    raw: found,
+    raw: repostRecord,
+  };
+}
+
+/**
+ * Degraded reposting item for the case where the AppView returns no view
+ * for the subject (deleted, blocked, or its server is unreachable). We
+ * still know the repost happened — show that, with a "subject unavailable"
+ * hint inside PostCard.
+ */
+function repostMissingSubjectItem(repostRecord) {
+  const repostedAt = repostRecord.value?.createdAt || null;
+  return {
+    verb: 'reposting',
+    atUri: repostRecord.uri,
+    cid: repostRecord.cid || null,
+    createdAt: repostedAt,
+    payload: {
+      subjectRef: repostRecord.value?.subject || null,
+      subjectMissing: true,
+      reason: {
+        $type: 'app.bsky.feed.defs#reasonRepost',
+        indexedAt: repostedAt,
+      },
+    },
+    raw: repostRecord,
   };
 }
 
