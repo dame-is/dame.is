@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { Compass } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
+import { useActionDock } from '../hooks/useActionDock.jsx';
 import { isRefreshing, subscribeRefresh } from '../lib/feedCache.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
@@ -11,6 +13,7 @@ import './ChromeBar.css';
 
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
+  const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
   // Pulse the brand mark whenever any live feed is currently refreshing.
   const refreshing = useSyncExternalStore(subscribeRefresh, isRefreshing, () => false);
@@ -33,6 +36,16 @@ export default function ChromeBar() {
             <NowStatus />
           </div>
         </div>
+        <button
+          type="button"
+          className={`chrome-nav ${dockOpen ? 'is-open' : ''}`}
+          onClick={toggleDock}
+          aria-expanded={dockOpen}
+          aria-controls="action-dock-panel"
+          aria-label={dockOpen ? 'Close menu' : 'Open menu'}
+        >
+          <Compass className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+        </button>
         <button
           type="button"
           className="chrome-expand"
