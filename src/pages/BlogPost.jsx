@@ -178,7 +178,7 @@ function BlogPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       cid={record?.cid}
       headTitle={value?.title ? `${value.title} — Dame is…` : `${id} — Dame is…`}
     >
-      <article className="blog-article">
+      <article className="blog-article reveal">
         {created && (
           <div className="blog-article-meta">
             <span>{formatDateLong(created)}</span>
@@ -223,7 +223,7 @@ function LeafletPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       cid={record?.cid}
       headTitle={`${title} — Dame is…`}
     >
-      <article className="blog-article">
+      <article className="blog-article reveal">
         <div className="blog-article-meta">
           {created && <span>{formatDateLong(created)}</span>}
           {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}

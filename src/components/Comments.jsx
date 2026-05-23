@@ -48,7 +48,7 @@ function CommentsBody({ replies, status, emptyMessage }) {
     return <p className="feed-empty">{emptyMessage}</p>;
   }
   return (
-    <ul className="comments-tree">
+    <ul className="comments-tree reveal-stagger">
       {visible.map((node, i) => (
         <ReplyNode key={node.post?.uri || i} node={node} depth={0} />
       ))}

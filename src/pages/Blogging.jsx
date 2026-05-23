@@ -72,7 +72,7 @@ export default function Blogging() {
           {q ? 'No blog posts match that search.' : 'No blog posts yet.'}
         </p>
       ) : (
-        <ol className="blogging-toc">
+        <ol className="blogging-toc reveal-stagger">
           {filtered.map((e, i) => (
             <li key={e.uri || i} className="blogging-toc-entry">
               <Link to={e.href} className="blogging-toc-link">

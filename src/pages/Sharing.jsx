@@ -44,7 +44,7 @@ export default function Sharing() {
       {status === 'loading' ? (
         <ProseSkeleton paragraphs={4} />
       ) : html ? (
-        <div className="blog-prose" dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="blog-prose reveal" dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
         <p className="feed-empty">
           No <code>is.dame.page/sharing</code> record yet — write one and refresh.

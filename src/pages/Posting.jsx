@@ -50,7 +50,7 @@ export default function Posting() {
       ) : groups.length === 0 ? (
         <p className="feed-empty">{q ? 'No posts match that search.' : 'No posts yet.'}</p>
       ) : (
-        <ol className="feed-list">
+        <ol className="feed-list reveal-stagger">
           {groups.map((group) => (
             <li key={group.dateKey} className="feed-day-group">
               <DayOfLifeHeader date={group.date} />

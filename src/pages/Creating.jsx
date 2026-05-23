@@ -84,7 +84,7 @@ export default function Creating() {
           {q ? 'No works match that search.' : 'No works yet.'}
         </p>
       ) : (
-        <ul className="creating-grid">
+        <ul className="creating-grid reveal-stagger">
           {filtered.map((r, i) => {
             const v = r.value || {};
             const slug = v.slug;

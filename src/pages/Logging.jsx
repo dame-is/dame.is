@@ -56,7 +56,7 @@ export default function Logging() {
           {q ? 'No status records match that search.' : 'No status records yet.'}
         </p>
       ) : (
-        <ol className="feed-list">
+        <ol className="feed-list reveal-stagger">
           {groups.map((group) => (
             <li key={group.dateKey} className="feed-day-group">
               <DayOfLifeHeader date={group.date} />

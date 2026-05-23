@@ -63,7 +63,7 @@ export default function CreatingWork() {
       cid={record?.cid}
       headTitle={v?.title ? `${v.title} — Dame is…` : `${slug} — Dame is…`}
     >
-      <article className="creating-work-page">
+      <article className="creating-work-page reveal">
         <div className="blog-article-meta">
           {v?.kind && <span className="blog-article-tag">{v.kind}</span>}
           {v?.createdAt && <span>· {formatDateLong(v.createdAt)}</span>}

@@ -250,7 +250,7 @@ export default function Home() {
       ) : filtered.length === 0 ? (
         <p className="feed-empty">No records match these filters.</p>
       ) : (
-        <ol className="feed-list">
+        <ol className="feed-list reveal-stagger">
           {groups.map((group) => (
             <li key={group.dateKey} className="feed-day-group">
               <DayOfLifeHeader date={group.date} />

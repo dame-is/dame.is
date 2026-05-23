@@ -189,7 +189,9 @@ export default function Record({ verb, nsid, source }) {
         )}
 
         {item ? (
-          <RecordBody verb={verb} item={item} collection={collection} />
+          <div className="reveal">
+            <RecordBody verb={verb} item={item} collection={collection} />
+          </div>
         ) : (
           <RecordSkeleton />
         )}
