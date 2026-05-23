@@ -4,6 +4,15 @@
   min-height: 100vh;
 }
 
+/* On mobile the chrome bar is fixed to the viewport bottom, so reserve
+   space below page content equal to the bar's height plus any safe-area
+   inset (iOS home indicator). */
+@media (max-width: 700px) {
+  .app-shell {
+    padding-bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .layout {
   flex: 1;
   display: flex;
