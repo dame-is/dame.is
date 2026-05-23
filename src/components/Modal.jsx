@@ -49,7 +49,7 @@ export default function Modal({
   label,
   variant = 'centered',
   motionPreset = 'rise',
-  scrim = 'dim',
+  scrim = 'transparent',
   className = '',
   id,
   children,
