@@ -19,6 +19,7 @@ const ROUTES = [
   { to: '/blogging', label: 'Blogging' },
   { to: '/creating', label: 'Creating' },
   { to: '/sharing', label: 'Sharing' },
+  { to: '/exploring', label: 'Exploring' },
   { to: '/admin', label: 'Admin' },
 ];
 

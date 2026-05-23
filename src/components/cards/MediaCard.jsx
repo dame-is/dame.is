@@ -5,14 +5,17 @@
  * grid (or first frame for stories) with caption + link out.
  */
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+import { explorerPathFromAtUri } from '../../lib/atproto.js';
 import Lightbox from '../Lightbox.jsx';
 
 export default function MediaCard({ payload, atUri, source }) {
   const title = payload?.title || payload?.name || '';
   const description = payload?.description || payload?.caption || '';
   const items = pickItems(payload);
-  const externalHref = canonicalViewer(atUri, source);
+  const viewerHref = canonicalViewer(atUri, source);
+  const viewerIsInternal = typeof viewerHref === 'string' && viewerHref.startsWith('/');
   const visible = items.slice(0, 4);
   const overflow = Math.max(0, items.length - visible.length);
   const [lightbox, setLightbox] = useState({ open: false, index: 0 });
@@ -26,8 +29,12 @@ export default function MediaCard({ payload, atUri, source }) {
         <header className="media-card-head">
           {title && (
             <h3 className="media-card-title">
-              {externalHref ? (
-                <a href={externalHref} target="_blank" rel="noreferrer noopener">{title}</a>
+              {viewerHref ? (
+                viewerIsInternal ? (
+                  <Link to={viewerHref}>{title}</Link>
+                ) : (
+                  <a href={viewerHref} target="_blank" rel="noreferrer noopener">{title}</a>
+                )
               ) : (
                 title
               )}
@@ -109,5 +116,7 @@ function canonicalViewer(atUri, source) {
   if (!m) return null;
   const [, did, , rkey] = m;
   if (source === 'grain') return `https://grain.social/profile/${did}/gallery/${rkey}`;
-  return `https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`;
+  // Anything we don't have a bespoke external viewer for lands in our
+  // own explorer.
+  return explorerPathFromAtUri(atUri);
 }

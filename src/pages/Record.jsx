@@ -8,8 +8,9 @@ import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
+import AtUriLink from '../components/AtUriLink.jsx';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
-import { resolvePds, getRecord, getPostThread } from '../lib/atproto.js';
+import { resolvePds, getRecord, getPostThread, explorerPathFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { formatDateLong, formatTime, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
@@ -207,7 +208,9 @@ export default function Record({ verb, nsid, source }) {
         )}
 
         <p className="record-page-aturi gutter">
-          <code>{atUri}</code>
+          <AtUriLink uri={atUri}>
+            <code>{atUri}</code>
+          </AtUriLink>
         </p>
       </article>
     </PageShell>
@@ -251,7 +254,7 @@ function RecordBody({ verb, item, collection }) {
  *   - a raw JSON dump of the underlying record, styled like the
  *     atmosphere debug overlay,
  *   - an action row mirroring the debug overlay's affordances (copy AT
- *     URI, copy raw JSON, open in atproto-browser).
+ *     URI, copy raw JSON, open in the explorer).
  *
  * Specialized layouts are upgrades, not replacements — when a verb gets
  * its own branch above, the fallback simply stops being reached.
@@ -294,16 +297,11 @@ function RecordActionsRow({ atUri, recordJson }) {
       () => {},
     );
   }
+  const explorerPath = explorerPathFromAtUri(atUri);
   return (
     <div className="record-fallback-actions">
-      {atUri && (
-        <a
-          href={`https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          Open in atproto browser
-        </a>
+      {explorerPath && (
+        <Link to={explorerPath}>Open in explorer</Link>
       )}
       {atUri && (
         <button type="button" onClick={() => copy(atUri, 'uri')}>
