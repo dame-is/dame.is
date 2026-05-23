@@ -91,11 +91,11 @@ export default function PostCard({
       {embed && <PostEmbed embed={embed} did={authorDid} />}
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats">
-          {payload?.replyCount ? `${payload.replyCount} replies` : ''}
+          {payload?.replyCount ? `${payload.replyCount} ${payload.replyCount === 1 ? 'reply' : 'replies'}` : ''}
           {payload?.replyCount && (payload?.repostCount || payload?.likeCount) ? ' · ' : ''}
-          {payload?.repostCount ? `${payload.repostCount} reposts` : ''}
+          {payload?.repostCount ? `${payload.repostCount} ${payload.repostCount === 1 ? 'repost' : 'reposts'}` : ''}
           {payload?.repostCount && payload?.likeCount ? ' · ' : ''}
-          {payload?.likeCount ? `${payload.likeCount} likes` : ''}
+          {payload?.likeCount ? `${payload.likeCount} ${payload.likeCount === 1 ? 'like' : 'likes'}` : ''}
         </footer>
       ) : null}
     </article>
