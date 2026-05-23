@@ -125,6 +125,23 @@
   }
 }
 
+/* Compact mode: drop the verb-column placeholder and tighten row spacing
+   so the skeleton matches the compact layout it's standing in for, and
+   real data doesn't reflow the page when it arrives. */
+[data-compact='true'] .skeleton-feed {
+  gap: var(--space-3);
+}
+
+[data-compact='true'] .skeleton-feed-item {
+  grid-template-columns: 1fr;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+}
+
+[data-compact='true'] .skeleton-feed-verb {
+  display: none;
+}
+
 /* Variant: blogging table-of-contents row skeleton. */
 .skeleton-toc {
   list-style: none;

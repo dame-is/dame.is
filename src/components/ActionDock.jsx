@@ -6,6 +6,7 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import Modal from './Modal.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
 import TypefaceToggle from './TypefaceToggle.jsx';
+import CompactToggle from './CompactToggle.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
 import './ActionDock.css';
@@ -116,6 +117,7 @@ export default function ActionDock() {
                 <div className="dock-display-row">
                   <ThemeToggle />
                   <TypefaceToggle />
+                  <CompactToggle />
                   <button
                     type="button"
                     className="dock-tool-icon"

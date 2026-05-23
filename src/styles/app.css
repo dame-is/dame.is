@@ -27,6 +27,16 @@
   padding: var(--space-8) clamp(var(--space-5), 6vw, var(--space-9));
 }
 
+/* Route-level crossfade wrapper. Stretches the full content width so
+   the animated div doesn't shrink-wrap and shift its children, and
+   prevents margin collapse with the page below from snapping content
+   during the exit phase. */
+.route-transition {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
 .page {
   display: flex;
   flex-direction: column;

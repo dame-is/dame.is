@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Route } from 'react-router-dom';
 import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
 import Posting from './pages/Posting.jsx';
@@ -19,9 +19,11 @@ const OauthCallback = lazy(() => import('./pages/OauthCallback.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import Footer from './components/Footer.jsx';
+import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { TypefaceProvider } from './hooks/useTypeface.jsx';
+import { CompactProvider } from './hooks/useCompact.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 
@@ -67,6 +69,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <TypefaceProvider>
+      <CompactProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
       <ActionDockProvider>
@@ -74,7 +77,7 @@ export default function App() {
             <ChromeBar />
             <main className="layout">
               <div className="main">
-                <Routes>
+                <RouteTransition>
                   <Route path="/" element={<Home />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/posting" element={<Posting />} />
@@ -102,7 +105,7 @@ export default function App() {
                     }
                   />
                   <Route path="*" element={<NotFound />} />
-                </Routes>
+                </RouteTransition>
               </div>
             </main>
             <Footer />
@@ -111,6 +114,7 @@ export default function App() {
       </ActionDockProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>
+      </CompactProvider>
       </TypefaceProvider>
     </ThemeProvider>
   );
