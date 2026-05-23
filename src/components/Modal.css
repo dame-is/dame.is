@@ -2,10 +2,14 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  /* Container itself is click-through; only the scrim and panel catch
-     events. This way clicks on the panel never accidentally pass to the
-     scrim and dismiss the modal. */
+  /* When closed, the root is invisible AND non-blocking — clicks pass
+     straight through to whatever's behind. When open, the root catches
+     outside clicks (see handleRootClick in Modal.jsx) for dismissal. */
   pointer-events: none;
+}
+
+.modal-root.is-open {
+  pointer-events: auto;
 }
 
 .modal-variant-centered {
@@ -30,15 +34,13 @@
   display: block;
 }
 
+/* The scrim is purely a visual layer for the dim variant. Clicks pass
+   through it to the modal-root underneath, which owns dismissal. */
 .modal-scrim {
   position: absolute;
   inset: 0;
   z-index: 0;
-  border: 0;
-  padding: 0;
-  cursor: default;
-  pointer-events: auto;
-  background: transparent;
+  pointer-events: none;
 }
 
 /* The dim color and blur radius are driven by motion inline styles
@@ -47,10 +49,6 @@
    the static values before motion's initial state applies. */
 .modal-scrim-dim {
   background-color: rgba(0, 0, 0, 0);
-}
-
-.modal-scrim-transparent {
-  background: transparent;
 }
 
 .modal-panel {

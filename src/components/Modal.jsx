@@ -27,21 +27,21 @@ const PRESETS = {
 
 /**
  * Reusable overlay shell. Handles enter/exit animation via motion's
- * AnimatePresence (so the close transition is symmetric with the open),
- * scrim click + Escape key dismiss, and the dialog aria wiring.
+ * AnimatePresence, outside-click + Escape dismissal, and the dialog
+ * aria wiring.
  *
- * variant="centered" (default) flex-centers the panel in the viewport;
- * variant="anchored" leaves positioning entirely to the consumer's
- * `className` (use it for popovers anchored to a specific UI region).
+ * variant="centered" (default) flex-centers the panel; variant="anchored"
+ * leaves positioning to the consumer's `className`.
  *
- * The panel's content-specific styling (sizing, layout, internal spacing)
- * is the consumer's responsibility — pass it via `className`. Background,
- * border, radius, and shadow are provided by the base `.modal-panel` rule.
+ * Outside-click dismissal lives on the modal-root div itself (gated by
+ * `e.target === e.currentTarget`) rather than a separate scrim button.
+ * The transparent variant therefore renders zero scrim elements — no
+ * backdrop-filter compositor layer to tear down on close, which is what
+ * caused the underlying page to flash darker mid-transition.
  *
- * Note: the AnimatePresence wraps the scrim and panel directly — not the
- * outer modal-root wrapper. If the wrapper itself were the conditional
- * child, AnimatePresence would unmount it (and yank the motion children
- * with it) before exit animations could run, causing the close to flash.
+ * The dim variant adds a non-interactive motion.div as the visual layer,
+ * animating its backgroundColor and backdropFilter directly (not opacity)
+ * so both ramp smoothly to 0 instead of snapping off at unmount.
  */
 export default function Modal({
   open,
@@ -54,7 +54,6 @@ export default function Modal({
   id,
   children,
   closeOnEscape = true,
-  scrimLabel = 'Close',
 }) {
   const reduce = useReducedMotion();
 
@@ -71,48 +70,43 @@ export default function Modal({
   const ease = [0.32, 0.72, 0, 1];
   const panelDuration = reduce ? 0 : 0.24;
   const scrimDuration = reduce ? 0 : 0.24;
+  const isDim = scrim === 'dim';
 
-  // Scrim animates backgroundColor + backdropFilter directly instead of
-  // opacity. Animating opacity on a backdrop-filtered element causes a
-  // visible flash on close in Safari/Chrome: the compositor keeps the
-  // blur at full strength until the element is removed, then snaps it
-  // off. Driving the blur radius and dim color themselves means both
-  // properties truly interpolate to 0, so removal is invisible.
-  const dimStart = scrim === 'dim' ? 'rgba(0, 0, 0, 0)' : 'rgba(0, 0, 0, 0)';
-  const dimEnd = scrim === 'dim' ? 'rgba(0, 0, 0, 0.16)' : 'rgba(0, 0, 0, 0)';
-  const blurStart = 'blur(0px)';
-  const blurEnd = scrim === 'dim' ? 'blur(3px)' : 'blur(0px)';
+  function handleRootClick(e) {
+    if (!open || scrim === 'none') return;
+    // Only fire when the click actually lands on the root itself — not
+    // when it bubbled up from the panel or any descendant.
+    if (e.target === e.currentTarget) onClose?.();
+  }
 
   return (
     <div
       className={`modal-root modal-variant-${variant} ${open ? 'is-open' : ''}`}
       aria-hidden={!open}
+      onClick={handleRootClick}
     >
       <AnimatePresence>
-        {open && scrim !== 'none' && (
-          <motion.button
-            key="scrim"
-            type="button"
-            className={`modal-scrim modal-scrim-${scrim}`}
-            onClick={onClose}
-            aria-label={scrimLabel}
-            tabIndex={-1}
+        {open && isDim && (
+          <motion.div
+            key="scrim-dim"
+            className="modal-scrim modal-scrim-dim"
             initial={{
-              backgroundColor: dimStart,
-              backdropFilter: blurStart,
-              WebkitBackdropFilter: blurStart,
+              backgroundColor: 'rgba(0, 0, 0, 0)',
+              backdropFilter: 'blur(0px)',
+              WebkitBackdropFilter: 'blur(0px)',
             }}
             animate={{
-              backgroundColor: dimEnd,
-              backdropFilter: blurEnd,
-              WebkitBackdropFilter: blurEnd,
+              backgroundColor: 'rgba(0, 0, 0, 0.16)',
+              backdropFilter: 'blur(3px)',
+              WebkitBackdropFilter: 'blur(3px)',
             }}
             exit={{
-              backgroundColor: dimStart,
-              backdropFilter: blurStart,
-              WebkitBackdropFilter: blurStart,
+              backgroundColor: 'rgba(0, 0, 0, 0)',
+              backdropFilter: 'blur(0px)',
+              WebkitBackdropFilter: 'blur(0px)',
             }}
             transition={{ duration: scrimDuration, ease }}
+            aria-hidden="true"
           />
         )}
         {open && (
