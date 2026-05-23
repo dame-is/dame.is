@@ -164,6 +164,12 @@
   outline: none;
 }
 
+.dock-tool-icon.is-open {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .dock-tool-icon svg {
   width: 16px;
   height: 16px;
