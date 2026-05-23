@@ -1,6 +1,8 @@
+import { useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
+import { isRefreshing, subscribeRefresh } from '../lib/feedCache.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
@@ -10,14 +12,22 @@ import './ChromeBar.css';
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
   const reduce = useReducedMotion();
+  // Pulse the brand mark whenever any live feed is currently refreshing.
+  const refreshing = useSyncExternalStore(subscribeRefresh, isRefreshing, () => false);
 
   return (
     <header className={`chrome-bar ${expanded ? 'is-expanded' : 'is-collapsed'}`} role="banner">
       <div className="chrome-bar-row chrome-bar-primary">
         <div className="chrome-cluster">
           <Link to="/" className="chrome-title">
-            <span className="chrome-mark">&#x2767;</span>
+            <span
+              className={`chrome-mark${refreshing ? ' is-refreshing' : ''}`}
+              aria-hidden="true"
+            >
+              &#x2767;
+            </span>
             <span className="chrome-name">dame.is</span>
+            {refreshing && <span className="chrome-mark-sr-status">Updating live data</span>}
           </Link>
           <div className="chrome-signals chrome-signals-primary">
             <NowStatus />
