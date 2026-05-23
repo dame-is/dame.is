@@ -96,9 +96,9 @@ export default function Modal({
               WebkitBackdropFilter: 'blur(0px)',
             }}
             animate={{
-              backgroundColor: 'rgba(0, 0, 0, 0.16)',
-              backdropFilter: 'blur(3px)',
-              WebkitBackdropFilter: 'blur(3px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.08)',
+              backdropFilter: 'blur(2px)',
+              WebkitBackdropFilter: 'blur(2px)',
             }}
             exit={{
               backgroundColor: 'rgba(0, 0, 0, 0)',
