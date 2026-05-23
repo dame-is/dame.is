@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import './Modal.css';
 
@@ -84,7 +85,14 @@ export default function Modal({
     if (e.target === e.currentTarget) onClose?.();
   }
 
-  return (
+  // Portal to <body>. Inside the React tree, the Modal often ends up
+  // nested under elements that create a containing block — most notably
+  // the feed's <motion.li layout> entries (Framer Motion keeps a
+  // transform on those), which would otherwise trap our `position:
+  // fixed` modal-root inside the feed item's box.
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <div
       className={`modal-root modal-variant-${variant} ${open ? 'is-open' : ''}`}
       aria-hidden={!open}
@@ -131,6 +139,7 @@ export default function Modal({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </div>,
+    document.body,
   );
 }
