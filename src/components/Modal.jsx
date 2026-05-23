@@ -72,6 +72,17 @@ export default function Modal({
   const panelDuration = reduce ? 0 : 0.24;
   const scrimDuration = reduce ? 0 : 0.24;
 
+  // Scrim animates backgroundColor + backdropFilter directly instead of
+  // opacity. Animating opacity on a backdrop-filtered element causes a
+  // visible flash on close in Safari/Chrome: the compositor keeps the
+  // blur at full strength until the element is removed, then snaps it
+  // off. Driving the blur radius and dim color themselves means both
+  // properties truly interpolate to 0, so removal is invisible.
+  const dimStart = scrim === 'dim' ? 'rgba(0, 0, 0, 0)' : 'rgba(0, 0, 0, 0)';
+  const dimEnd = scrim === 'dim' ? 'rgba(0, 0, 0, 0.16)' : 'rgba(0, 0, 0, 0)';
+  const blurStart = 'blur(0px)';
+  const blurEnd = scrim === 'dim' ? 'blur(3px)' : 'blur(0px)';
+
   return (
     <div
       className={`modal-root modal-variant-${variant} ${open ? 'is-open' : ''}`}
@@ -86,9 +97,21 @@ export default function Modal({
             onClick={onClose}
             aria-label={scrimLabel}
             tabIndex={-1}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{
+              backgroundColor: dimStart,
+              backdropFilter: blurStart,
+              WebkitBackdropFilter: blurStart,
+            }}
+            animate={{
+              backgroundColor: dimEnd,
+              backdropFilter: blurEnd,
+              WebkitBackdropFilter: blurEnd,
+            }}
+            exit={{
+              backgroundColor: dimStart,
+              backdropFilter: blurStart,
+              WebkitBackdropFilter: blurStart,
+            }}
             transition={{ duration: scrimDuration, ease }}
           />
         )}

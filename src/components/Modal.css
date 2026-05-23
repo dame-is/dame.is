@@ -41,10 +41,12 @@
   background: transparent;
 }
 
+/* The dim color and blur radius are driven by motion inline styles
+   (see Modal.jsx) so the close animation can interpolate them to 0
+   smoothly. Setting them here too would cause a one-frame flash of
+   the static values before motion's initial state applies. */
 .modal-scrim-dim {
-  background: rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background-color: rgba(0, 0, 0, 0);
 }
 
 .modal-scrim-transparent {
