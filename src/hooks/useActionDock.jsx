@@ -20,15 +20,6 @@ export function ActionDockProvider({ children }) {
   const closeDock = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((prev) => !prev), []);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    function onKey(e) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
-
   const value = useMemo(() => ({ open, openDock, closeDock, toggle }), [open, openDock, closeDock, toggle]);
   return <ActionDockContext.Provider value={value}>{children}</ActionDockContext.Provider>;
 }
