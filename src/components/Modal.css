@@ -60,7 +60,13 @@
   background: var(--page);
   border: 1px solid var(--rule);
   border-radius: var(--radius-3);
-  box-shadow: 0 16px 40px var(--shadow);
+  /* Two-layer shadow: the tight 1px shadow defines a crisp edge, the
+     soft 24px shadow gives the floating depth. With no scrim behind
+     the panel, this is the only depth cue separating it from the
+     page, so it carries more weight than a typical card shadow. */
+  box-shadow:
+    0 1px 2px var(--shadow),
+    0 18px 48px var(--shadow);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
