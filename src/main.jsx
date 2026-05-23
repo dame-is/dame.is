@@ -11,6 +11,13 @@ const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('
 const initialTheme = storedTheme || 'system';
 document.documentElement.setAttribute('data-theme', initialTheme);
 
+const initialScheme = initialTheme === 'system'
+  ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  : initialTheme;
+const initialThemeColor = initialScheme === 'dark' ? '#161c12' : '#e6dec3';
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+if (themeColorMeta) themeColorMeta.setAttribute('content', initialThemeColor);
+
 const storedTypeface = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.typeface') : null;
 const initialTypeface = ['combo', 'serif', 'sans'].includes(storedTypeface) ? storedTypeface : 'combo';
 document.documentElement.setAttribute('data-typeface', initialTypeface);
