@@ -16,6 +16,8 @@ import { VERB_REGISTRY } from './lib/verbRegistry.js';
 // Lazy: the ATProto OAuth + Agent bundle is heavy and only used by the owner.
 const Admin = lazy(() => import('./pages/Admin.jsx'));
 const OauthCallback = lazy(() => import('./pages/OauthCallback.jsx'));
+// Lazy: the explorer transitively imports RecordEditor + @atproto/api.
+const Exploring = lazy(() => import('./pages/Exploring.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import Footer from './components/Footer.jsx';
@@ -96,6 +98,19 @@ export default function App() {
                       </Suspense>
                     }
                   />
+                  {['/exploring', '/exploring/:repo', '/exploring/:repo/:collection', '/exploring/:repo/:collection/:rkey'].map(
+                    (path) => (
+                      <Route
+                        key={path}
+                        path={path}
+                        element={
+                          <Suspense fallback={<p className="placeholder-card">Loading explorer…</p>}>
+                            <Exploring />
+                          </Suspense>
+                        }
+                      />
+                    ),
+                  )}
                   <Route
                     path="/oauth/callback"
                     element={

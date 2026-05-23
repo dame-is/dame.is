@@ -74,6 +74,14 @@ export default function DebugOverlay() {
             Open in atproto browser
           </a>
         )}
+        {recordOwnerDid && recordCollection && recordRkey && (
+          <a
+            href={`/exploring/${recordOwnerDid}/${recordCollection}/${encodeURIComponent(recordRkey)}`}
+            onClick={() => closeOverlay()}
+          >
+            Open in explorer
+          </a>
+        )}
         {atUri && (
           <button type="button" onClick={() => copy(atUri)}>
             {copied === atUri ? 'AT URI copied' : 'Copy AT URI'}

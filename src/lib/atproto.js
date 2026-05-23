@@ -19,7 +19,7 @@ async function fetchJson(url, init) {
  * Returns a URL string with no trailing slash.
  */
 export async function resolvePds(did) {
-  const doc = await fetchJson(`${PLC_DIRECTORY}/${encodeURIComponent(did)}`);
+  const doc = await getPlcDocument(did);
   const services = doc?.service || [];
   // Atproto PDS service id can be `#atproto_pds`.
   const pds =
@@ -27,6 +27,111 @@ export async function resolvePds(did) {
     services[0]?.serviceEndpoint;
   if (!pds) throw new Error(`No PDS endpoint for ${did}`);
   return pds.replace(/\/$/, '');
+}
+
+// ---------------------------------------------------------------------------
+// PLC directory — 30s in-memory cache so tab-switching on the explorer doesn't
+// hammer plc.directory.
+
+const PLC_DOC_TTL = 30_000;
+const _plcDocCache = new Map(); // did -> { doc, ts }
+const _plcAuditCache = new Map(); // did -> { log, ts }
+
+/**
+ * Fetch the DID document from the PLC directory. `did:plc:*` only — other
+ * DID methods (`did:web:*`) will throw.
+ */
+export async function getPlcDocument(did) {
+  if (!did) throw new Error('getPlcDocument: missing did');
+  const cached = _plcDocCache.get(did);
+  if (cached && Date.now() - cached.ts < PLC_DOC_TTL) return cached.doc;
+  const doc = await fetchJson(`${PLC_DIRECTORY}/${encodeURIComponent(did)}`);
+  _plcDocCache.set(did, { doc, ts: Date.now() });
+  return doc;
+}
+
+/**
+ * Fetch the PLC audit log for a `did:plc:*`. Returns an array of operations
+ * (oldest → newest).
+ */
+export async function getPlcAuditLog(did) {
+  if (!did) throw new Error('getPlcAuditLog: missing did');
+  const cached = _plcAuditCache.get(did);
+  if (cached && Date.now() - cached.ts < PLC_DOC_TTL) return cached.log;
+  const log = await fetchJson(`${PLC_DIRECTORY}/${encodeURIComponent(did)}/log/audit`);
+  _plcAuditCache.set(did, { log, ts: Date.now() });
+  return log;
+}
+
+/**
+ * AppView — `com.atproto.identity.resolveHandle`. Falls back to bsky.social
+ * if the appview can't resolve the handle.
+ */
+export async function resolveHandle(handle) {
+  const qs = `handle=${encodeURIComponent(handle)}`;
+  try {
+    const res = await fetchJson(`${APPVIEW}/xrpc/com.atproto.identity.resolveHandle?${qs}`);
+    if (res?.did) return res.did;
+  } catch {
+    // fall through
+  }
+  const res = await fetchJson(`https://bsky.social/xrpc/com.atproto.identity.resolveHandle?${qs}`);
+  return res?.did || null;
+}
+
+/**
+ * Normalize a user-supplied identifier (handle, DID, or PDS URL) into
+ * `{ did, handle, pds }`. Throws on failure.
+ *
+ *   - DID input: `resolvePds` + `describeRepo` for the canonical handle.
+ *   - Handle input: `resolveHandle` first, then DID flow.
+ */
+export async function resolveIdentifier(input) {
+  const trimmed = String(input || '').trim();
+  if (!trimmed) throw new Error('resolveIdentifier: empty input');
+
+  let did = null;
+  if (trimmed.startsWith('did:')) {
+    did = trimmed;
+  } else {
+    did = await resolveHandle(trimmed);
+    if (!did) throw new Error(`Could not resolve handle ${trimmed}`);
+  }
+
+  const pds = await resolvePds(did);
+  let handle = null;
+  try {
+    const desc = await describeRepo(pds, did);
+    handle = desc?.handle || null;
+  } catch {
+    // describeRepo failures are non-fatal; the caller can still browse by DID.
+  }
+  return { did, handle, pds };
+}
+
+/**
+ * PDS — `com.atproto.repo.describeRepo`. Returns
+ * `{ handle, did, didDoc, collections, handleIsCorrect }`.
+ */
+export async function describeRepo(pds, repo) {
+  const params = new URLSearchParams({ repo });
+  return fetchJson(`${pds}/xrpc/com.atproto.repo.describeRepo?${params}`);
+}
+
+/**
+ * PDS — `com.atproto.repo.listRecords` (single page). Returns
+ * `{ records, cursor }`. Use this when the caller wants to control
+ * pagination (e.g. the explorer's "Load more" button); the higher-level
+ * `listRecords` below auto-paginates and is dangerous for huge collections.
+ */
+export async function listRecordsPage(
+  pds,
+  { repo, collection, limit = 50, cursor, reverse = false } = {},
+) {
+  const params = new URLSearchParams({ repo, collection, limit: String(limit) });
+  if (reverse) params.set('reverse', 'true');
+  if (cursor) params.set('cursor', cursor);
+  return fetchJson(`${pds}/xrpc/com.atproto.repo.listRecords?${params}`);
 }
 
 /**
