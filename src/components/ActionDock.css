@@ -141,16 +141,29 @@
   padding: 0 0.4em;
 }
 
+@media (max-width: 700px) {
+  /* The chrome bar is bottom-docked on mobile, so the panel pops upward
+     out of the nav trigger instead of dropping down. */
+  .dock-panel {
+    top: auto;
+    bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px) + var(--space-2));
+    max-height: calc(100dvh - var(--chrome-h) - env(safe-area-inset-bottom, 0px) - var(--space-5));
+    transform: translateY(8px);
+  }
+
+  .dock-panel.is-open {
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 540px) {
-  /* On mobile the panel becomes a full-width sheet that hangs down from
-     beneath the chrome bar, matching the desktop drop-down anchor. */
+  /* On phone-width the panel becomes a full-width sheet floating just
+     above the bottom-docked chrome bar. */
   .dock-panel {
     left: var(--space-3);
     right: var(--space-3);
-    top: calc(var(--chrome-h) + var(--space-2));
     width: auto;
     max-width: none;
-    max-height: calc(100dvh - var(--chrome-h) - var(--space-5) - env(safe-area-inset-bottom, 0px));
     padding: var(--space-3) var(--space-4) var(--space-4);
     border-radius: var(--radius-3);
   }
