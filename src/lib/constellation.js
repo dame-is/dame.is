@@ -71,10 +71,14 @@ export function flattenSources(raw) {
     for (const [path, info] of Object.entries(paths)) {
       const count = info?.records ?? info?.count ?? 0;
       const distinctDids = info?.distinct_dids ?? info?.distinctDids ?? null;
+      // `/links/all` returns the path with a leading dot (e.g. ".subject"),
+      // but `getBacklinks` rejects that — its `source` param uses the
+      // unprefixed form (e.g. "app.bsky.graph.follow:subject"). Strip it.
+      const sourcePath = path.startsWith('.') ? path.slice(1) : path;
       out.push({
         collection,
         path,
-        source: `${collection}:${path}`,
+        source: `${collection}:${sourcePath}`,
         count,
         distinctDids,
       });

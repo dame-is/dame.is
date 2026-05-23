@@ -16,6 +16,7 @@ import {
 import {
   flattenSources,
   getBacklinkSources,
+  getBacklinks,
 } from '../lib/constellation.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import './Exploring.css';
@@ -566,9 +567,12 @@ function BacklinksTab({ target }) {
 
 function BacklinksPanel({ target }) {
   const [sources, setSources] = useState(undefined); // undefined=loading, null=unavailable, []=empty
+  const [open, setOpen] = useState(null); // source key currently expanded
+
   useEffect(() => {
     let cancelled = false;
     setSources(undefined);
+    setOpen(null);
     getBacklinkSources(target).then((raw) => {
       if (cancelled) return;
       if (raw === null) {
@@ -600,20 +604,115 @@ function BacklinksPanel({ target }) {
 
   return (
     <ul className="exploring-backlinks">
-      {sources.map((s) => (
-        <li key={s.source} className="exploring-backlink-row">
-          <code className="exploring-backlink-collection">{s.collection}</code>
-          <code className="exploring-backlink-path">{s.path}</code>
-          <span className="exploring-backlink-count">{s.count.toLocaleString()}</span>
-          {s.distinctDids != null && (
-            <span className="exploring-backlink-distinct">
-              {s.distinctDids.toLocaleString()} accounts
-            </span>
-          )}
-        </li>
-      ))}
+      {sources.map((s) => {
+        const isOpen = open === s.source;
+        return (
+          <li key={s.source} className={`exploring-backlink-item ${isOpen ? 'is-open' : ''}`}>
+            <button
+              type="button"
+              className="exploring-backlink-row"
+              onClick={() => setOpen(isOpen ? null : s.source)}
+              aria-expanded={isOpen}
+            >
+              <span className="exploring-backlink-caret" aria-hidden>{isOpen ? '▾' : '▸'}</span>
+              <code className="exploring-backlink-collection">{s.collection}</code>
+              <code className="exploring-backlink-path">{s.path}</code>
+              <span className="exploring-backlink-count">{s.count.toLocaleString()}</span>
+              {s.distinctDids != null && (
+                <span className="exploring-backlink-distinct">
+                  {s.distinctDids.toLocaleString()} accounts
+                </span>
+              )}
+            </button>
+            {isOpen && <BacklinkRecords target={target} source={s.source} />}
+          </li>
+        );
+      })}
     </ul>
   );
+}
+
+/**
+ * Paginated list of records linking to `target` via `source`. Lazy-loaded
+ * the first time its parent row is expanded.
+ */
+function BacklinkRecords({ target, source }) {
+  const [records, setRecords] = useState([]);
+  const [cursor, setCursor] = useState(null);
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const loadPage = useCallback(
+    async (after) => {
+      setLoading(true);
+      const res = await getBacklinks(target, source, { limit: 25, cursor: after || undefined });
+      if (res === null) {
+        setError(true);
+        setLoading(false);
+        setDone(true);
+        return;
+      }
+      const batch = Array.isArray(res?.records) ? res.records : [];
+      setRecords((prev) => (after ? [...prev, ...batch] : batch));
+      setCursor(res?.cursor || null);
+      if (!res?.cursor || batch.length === 0) setDone(true);
+      setLoading(false);
+    },
+    [target, source],
+  );
+
+  useEffect(() => {
+    setRecords([]);
+    setCursor(null);
+    setDone(false);
+    setError(false);
+    loadPage(null);
+  }, [loadPage]);
+
+  if (error) {
+    return <p className="exploring-muted exploring-backlink-records-error">Couldn&rsquo;t load linking records.</p>;
+  }
+
+  return (
+    <div className="exploring-backlink-records">
+      {records.length === 0 && loading && (
+        <p className="placeholder-card">Loading…</p>
+      )}
+      {records.length === 0 && !loading && (
+        <p className="exploring-muted">No linking records to show.</p>
+      )}
+      <ul className="exploring-backlink-record-list">
+        {records.map((r) => {
+          const atUri = `at://${r.did}/${r.collection}/${r.rkey}`;
+          return (
+            <li key={atUri} className="exploring-backlink-record-row">
+              <AtUriLink uri={atUri} className="exploring-backlink-record-link">
+                <code className="exploring-backlink-record-did">{shortDid(r.did)}</code>
+                <code className="exploring-backlink-record-rkey">{r.rkey}</code>
+              </AtUriLink>
+            </li>
+          );
+        })}
+      </ul>
+      {!done && records.length > 0 && (
+        <button
+          type="button"
+          className="admin-link-subtle exploring-backlink-records-more"
+          onClick={() => loadPage(cursor)}
+          disabled={loading}
+        >
+          {loading ? 'Loading…' : 'Load more'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function shortDid(did) {
+  if (typeof did !== 'string') return '';
+  if (!did.startsWith('did:plc:') || did.length <= 18) return did;
+  return `${did.slice(0, 12)}…${did.slice(-4)}`;
 }
 
 /* ------------------------------------------------------------------ */
