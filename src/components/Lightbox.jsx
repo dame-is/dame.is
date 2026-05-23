@@ -68,14 +68,6 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       className="lightbox-panel"
       scrimLabel="Close image"
     >
-      <button
-        type="button"
-        className="lightbox-close"
-        onClick={onClose}
-        aria-label="Close image"
-      >
-        <X size={20} aria-hidden="true" />
-      </button>
       {count > 1 && (
         <>
           <button
@@ -104,17 +96,23 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
           className="lightbox-image"
           decoding="async"
         />
-        {(alt || count > 1) && (
-          <figcaption className="lightbox-caption">
-            {alt && <span className="lightbox-caption-alt">{alt}</span>}
-            {count > 1 && (
-              <span className="lightbox-caption-count" aria-hidden="true">
-                {active + 1} / {count}
-              </span>
-            )}
-          </figcaption>
-        )}
       </figure>
+      <footer className="lightbox-footer">
+        {count > 1 && (
+          <span className="lightbox-footer-count" aria-hidden="true">
+            {active + 1} / {count}
+          </span>
+        )}
+        <button
+          type="button"
+          className="lightbox-close"
+          onClick={onClose}
+          aria-label="Close image"
+        >
+          <X size={18} aria-hidden="true" />
+          <span className="lightbox-close-label">Close</span>
+        </button>
+      </footer>
     </Modal>
   );
 }
