@@ -4,13 +4,17 @@
  * thing they comment on (`subject` / `on` / `target`). We surface the
  * comment text and a small "on …" hint linking to the parent.
  */
+import { Link } from 'react-router-dom';
 import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+import { explorerPathFromAtUri } from '../../lib/atproto.js';
 
 export default function CommentCard({ payload, atUri, source }) {
   const text = payload?.text || payload?.body || payload?.content || '';
   const subjectRef = payload?.subject || payload?.on || payload?.target || null;
   const subjectUri = typeof subjectRef === 'string' ? subjectRef : subjectRef?.uri;
-  const externalSubject = canonicalViewer(subjectUri, source);
+  const subjectHref = canonicalViewer(subjectUri, source);
+  const subjectInternal = typeof subjectHref === 'string' && subjectHref.startsWith('/');
+  const label = labelForSubject(subjectUri, source);
 
   return (
     <article className="comment-card feed-card" data-at-uri={atUri}>
@@ -20,12 +24,14 @@ export default function CommentCard({ payload, atUri, source }) {
       {subjectUri && (
         <p className="comment-card-on gutter small-caps">
           on{' '}
-          {externalSubject ? (
-            <a href={externalSubject} target="_blank" rel="noreferrer noopener">
-              {labelForSubject(subjectUri, source)}
-            </a>
+          {subjectHref ? (
+            subjectInternal ? (
+              <Link to={subjectHref}>{label}</Link>
+            ) : (
+              <a href={subjectHref} target="_blank" rel="noreferrer noopener">{label}</a>
+            )
           ) : (
-            labelForSubject(subjectUri, source)
+            label
           )}
         </p>
       )}
@@ -47,5 +53,6 @@ function canonicalViewer(uri, source) {
   const [, did, , rkey] = m;
   if (source === 'grain') return `https://grain.social/profile/${did}/gallery/${rkey}`;
   if (source === 'leaflet') return `https://leaflet.pub/${did}/${rkey}`;
-  return `https://atproto-browser.vercel.app/at?u=${encodeURIComponent(uri)}`;
+  // Anything else lands in our own explorer.
+  return explorerPathFromAtUri(uri);
 }

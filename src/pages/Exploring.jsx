@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
+import AtUriLink from '../components/AtUriLink.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_HANDLE } from '../config.js';
 import {
@@ -758,13 +759,6 @@ function RecordView({ identity, collection, rkey }) {
       {!record && !error && <p className="placeholder-card">Loading record…</p>}
 
       <div className="exploring-record-actions">
-        <a
-          href={`https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
-          Open in atproto browser
-        </a>
         {sitePath && (
           <Link to={sitePath} className="exploring-record-site-link">
             View on dame.is
@@ -833,7 +827,11 @@ function RecordMetaRow({ atUri, cid }) {
     <dl className="exploring-record-meta">
       <div>
         <dt className="small-caps">at uri</dt>
-        <dd><code>{atUri}</code></dd>
+        <dd>
+          <AtUriLink uri={atUri}>
+            <code>{atUri}</code>
+          </AtUriLink>
+        </dd>
       </div>
       {cid && (
         <div>

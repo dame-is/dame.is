@@ -50,30 +50,49 @@
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink);
-  word-break: break-all;
   margin: 0;
-}
-
-.debug-overlay-row-button {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: var(--space-3);
-  width: 100%;
+}
+
+.debug-overlay-row-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.debug-overlay-row-button,
+.debug-overlay-row-link {
+  display: inline;
   text-align: left;
   font-family: inherit;
   font-size: inherit;
   color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
   cursor: pointer;
+  text-decoration: none;
 }
 
-.debug-overlay-row-button:hover {
+.debug-overlay-row-button:hover,
+.debug-overlay-row-link:hover {
   color: var(--accent);
 }
 
 .debug-overlay-row-action {
   flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
   color: var(--ink-faint);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.debug-overlay-row-action:hover {
+  color: var(--accent);
 }
 
 .debug-overlay-json {

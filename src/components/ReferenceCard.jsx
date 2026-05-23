@@ -6,6 +6,7 @@ import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import { ME_DID } from '../config.js';
+import { explorerPathFromAtUri } from '../lib/atproto.js';
 
 /**
  * Renders the unified-feed entry for any reference-style record (likes,
@@ -184,7 +185,7 @@ function CompactAtproto({ record, ref, source }) {
   const v = record.value;
   const collection = collectionFromAtUri(record.uri);
   const title = v.title || v.name || v.displayName || v.repo || v.repoName || rkeyFromAtUri(record.uri) || 'a record';
-  const externalHref = canonicalViewerFor(record.uri, source);
+  const href = canonicalViewerFor(record.uri, source);
   const inner = (
     <span className="reference-card-author">
       {source && <span className="small-caps reference-card-author-source">{source}</span>}
@@ -194,8 +195,12 @@ function CompactAtproto({ record, ref, source }) {
   return (
     <p className="reference-card-compact">
       a {labelForCollection(collection, source)}{' '}
-      {externalHref ? (
-        <a href={externalHref} target="_blank" rel="noreferrer noopener" className="reference-card-compact-link">{inner}</a>
+      {href ? (
+        isInternalHref(href) ? (
+          <Link to={href} className="reference-card-compact-link">{inner}</Link>
+        ) : (
+          <a href={href} target="_blank" rel="noreferrer noopener" className="reference-card-compact-link">{inner}</a>
+        )
       ) : (
         inner
       )}
@@ -205,12 +210,16 @@ function CompactAtproto({ record, ref, source }) {
 
 function CompactMissing({ subject, source }) {
   const ref = subject?.ref || {};
-  const externalHref = canonicalViewerFor(ref.uri || ref.did, source);
+  const href = canonicalViewerFor(ref.uri || ref.did, source);
   const label = source ? `a ${source} record` : 'a record';
   return (
     <p className="reference-card-compact reference-card-missing">
-      {externalHref ? (
-        <a href={externalHref} target="_blank" rel="noreferrer noopener">{label}</a>
+      {href ? (
+        isInternalHref(href) ? (
+          <Link to={href}>{label}</Link>
+        ) : (
+          <a href={href} target="_blank" rel="noreferrer noopener">{label}</a>
+        )
       ) : (
         label
       )}{' '}
@@ -312,7 +321,7 @@ function AtprotoRecordPreview({ record, source }) {
 
 /**
  * Best-effort link to the canonical viewer for a referenced record.
- * Falls back to atproto-browser for anything unrecognized.
+ * Falls back to our own `/exploring/...` page for anything unrecognized.
  */
 function canonicalViewerFor(uri, source) {
   if (!uri) return null;
@@ -326,7 +335,12 @@ function canonicalViewerFor(uri, source) {
   if (source === 'tangled') return `https://tangled.org/${did}/${rkey}`;
   if (source === 'leaflet') return `https://leaflet.pub/${did}/${rkey}`;
   if (source === 'standard') return `https://standard.site/${did}/${rkey}`;
-  return `https://atproto-browser.vercel.app/at?u=${encodeURIComponent(uri)}`;
+  // No bespoke external viewer — point at our explorer.
+  return explorerPathFromAtUri(uri);
+}
+
+function isInternalHref(href) {
+  return typeof href === 'string' && href.startsWith('/');
 }
 
 function collectionFromAtUri(uri) {

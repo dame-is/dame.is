@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import RecordEditor from './RecordEditor.jsx';
 import Modal from './Modal.jsx';
 import { ME_DID } from '../config.js';
+import { explorerPathFromAtUri } from '../lib/atproto.js';
 import './DebugOverlay.css';
 
 export default function DebugOverlay() {
@@ -61,7 +63,16 @@ export default function DebugOverlay() {
 
       <dl>
         <Row label="route" value={route} copyValue={route} copied={copied} onCopy={copy} />
-        <Row label="at uri" value={atUri} copyValue={atUri} mono copied={copied} onCopy={copy} />
+        <Row
+          label="at uri"
+          value={atUri}
+          copyValue={atUri}
+          linkTo={explorerPathFromAtUri(atUri)}
+          onNavigate={closeOverlay}
+          mono
+          copied={copied}
+          onCopy={copy}
+        />
         <Row label="cid" value={recordCid} copyValue={recordCid} mono copied={copied} onCopy={copy} />
         <Row label="lexicon" value={lexicon} copyValue={lexicon} mono copied={copied} onCopy={copy} />
         <Row label="pds" value={pds} copyValue={pds} placeholder="resolving…" mono copied={copied} onCopy={copy} />
@@ -69,18 +80,13 @@ export default function DebugOverlay() {
       </dl>
 
       <div className="debug-overlay-actions">
-        {atUri && (
-          <a href={`https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`} target="_blank" rel="noreferrer noopener">
-            Open in atproto browser
-          </a>
-        )}
         {recordOwnerDid && recordCollection && recordRkey && (
-          <a
-            href={`/exploring/${recordOwnerDid}/${recordCollection}/${encodeURIComponent(recordRkey)}`}
+          <Link
+            to={`/exploring/${recordOwnerDid}/${recordCollection}/${encodeURIComponent(recordRkey)}`}
             onClick={() => closeOverlay()}
           >
             Open in explorer
-          </a>
+          </Link>
         )}
         {atUri && (
           <button type="button" onClick={() => copy(atUri)}>
@@ -149,27 +155,46 @@ function SignInToEditButton({ signIn }) {
   );
 }
 
-function Row({ label, value, copyValue, placeholder, mono, copied, onCopy }) {
+function Row({ label, value, copyValue, placeholder, mono, copied, onCopy, linkTo, onNavigate }) {
   const display = value || placeholder || '—';
   const canCopy = Boolean(copyValue);
   const isCopied = canCopy && copied === copyValue;
+
+  let displayNode;
+  if (linkTo) {
+    displayNode = (
+      <Link to={linkTo} className="debug-overlay-row-link" onClick={onNavigate}>
+        {display}
+      </Link>
+    );
+  } else if (canCopy) {
+    displayNode = (
+      <button
+        type="button"
+        onClick={() => onCopy(copyValue)}
+        className="debug-overlay-row-button"
+      >
+        {display}
+      </button>
+    );
+  } else {
+    displayNode = display;
+  }
+
   return (
     <div className="debug-overlay-row">
       <dt>{label}</dt>
       <dd className={mono ? '' : ''}>
-        {canCopy ? (
+        <span className="debug-overlay-row-value">{displayNode}</span>
+        {canCopy && (
           <button
             type="button"
             onClick={() => onCopy(copyValue)}
-            className="debug-overlay-row-button"
+            className="debug-overlay-row-action small-caps"
+            aria-label={`Copy ${label}`}
           >
-            <span>{display}</span>
-            <span className="debug-overlay-row-action small-caps">
-              {isCopied ? 'copied' : 'copy'}
-            </span>
+            {isCopied ? 'copied' : 'copy'}
           </button>
-        ) : (
-          display
         )}
       </dd>
     </div>

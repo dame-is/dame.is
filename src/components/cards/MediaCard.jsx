@@ -4,13 +4,16 @@
  * blobs plus optional title and description; the card surfaces a thumb
  * grid (or first frame for stories) with caption + link out.
  */
+import { Link } from 'react-router-dom';
 import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
+import { explorerPathFromAtUri } from '../../lib/atproto.js';
 
 export default function MediaCard({ payload, atUri, source }) {
   const title = payload?.title || payload?.name || '';
   const description = payload?.description || payload?.caption || '';
   const items = pickItems(payload);
-  const externalHref = canonicalViewer(atUri, source);
+  const viewerHref = canonicalViewer(atUri, source);
+  const viewerIsInternal = typeof viewerHref === 'string' && viewerHref.startsWith('/');
   const visible = items.slice(0, 4);
   const overflow = Math.max(0, items.length - visible.length);
 
@@ -20,8 +23,12 @@ export default function MediaCard({ payload, atUri, source }) {
         <header className="media-card-head">
           {title && (
             <h3 className="media-card-title">
-              {externalHref ? (
-                <a href={externalHref} target="_blank" rel="noreferrer noopener">{title}</a>
+              {viewerHref ? (
+                viewerIsInternal ? (
+                  <Link to={viewerHref}>{title}</Link>
+                ) : (
+                  <a href={viewerHref} target="_blank" rel="noreferrer noopener">{title}</a>
+                )
               ) : (
                 title
               )}
@@ -34,27 +41,39 @@ export default function MediaCard({ payload, atUri, source }) {
       )}
       {visible.length > 0 && (
         <div className="media-card-grid" data-count={visible.length}>
-          {visible.map((it, i) => (
-            <a
-              key={i}
-              className="media-card-thumb"
-              href={externalHref || it.url || '#'}
-              target="_blank"
-              rel="noreferrer noopener"
-              aria-label={it.alt || 'Open image'}
-            >
-              {it.url ? (
-                <img
-                  src={it.url}
-                  alt={it.alt || ''}
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : (
-                <span className="media-card-thumb-placeholder">image</span>
-              )}
-            </a>
-          ))}
+          {visible.map((it, i) => {
+            const inner = it.url ? (
+              <img src={it.url} alt={it.alt || ''} loading="lazy" decoding="async" />
+            ) : (
+              <span className="media-card-thumb-placeholder">image</span>
+            );
+            // Prefer the canonical record viewer (Grain page, or our
+            // explorer) when we have one; fall back to the bare image URL.
+            if (viewerIsInternal) {
+              return (
+                <Link
+                  key={i}
+                  to={viewerHref}
+                  className="media-card-thumb"
+                  aria-label={it.alt || 'Open image'}
+                >
+                  {inner}
+                </Link>
+              );
+            }
+            return (
+              <a
+                key={i}
+                className="media-card-thumb"
+                href={viewerHref || it.url || '#'}
+                target="_blank"
+                rel="noreferrer noopener"
+                aria-label={it.alt || 'Open image'}
+              >
+                {inner}
+              </a>
+            );
+          })}
           {overflow > 0 && (
             <span className="media-card-overflow gutter">+{overflow}</span>
           )}
@@ -98,5 +117,7 @@ function canonicalViewer(atUri, source) {
   if (!m) return null;
   const [, did, , rkey] = m;
   if (source === 'grain') return `https://grain.social/profile/${did}/gallery/${rkey}`;
-  return `https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`;
+  // Anything we don't have a bespoke external viewer for lands in our
+  // own explorer.
+  return explorerPathFromAtUri(atUri);
 }

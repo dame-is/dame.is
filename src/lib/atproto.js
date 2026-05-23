@@ -220,3 +220,24 @@ export function rkeyFromAtUri(atUri) {
   const m = String(atUri).match(/^at:\/\/[^/]+\/[^/]+\/([^/?#]+)/);
   return m ? m[1] : null;
 }
+
+/**
+ * Convert an `at://` URI (or a bare DID) into the corresponding
+ * `/exploring/...` SPA path. Returns `null` for empty/unparseable input.
+ *
+ *   at://did:plc:abc/app.bsky.feed.post/xyz  → /exploring/did:plc:abc/app.bsky.feed.post/xyz
+ *   at://did:plc:abc/app.bsky.feed.post      → /exploring/did:plc:abc/app.bsky.feed.post
+ *   at://did:plc:abc                         → /exploring/did:plc:abc
+ *   did:plc:abc                              → /exploring/did:plc:abc
+ */
+export function explorerPathFromAtUri(input) {
+  if (!input) return null;
+  const s = String(input);
+  if (s.startsWith('did:')) return `/exploring/${s}`;
+  const m = s.match(/^at:\/\/([^/]+)(?:\/([^/?#]+)(?:\/([^/?#]+))?)?/);
+  if (!m) return null;
+  const [, repo, collection, rkey] = m;
+  if (rkey) return `/exploring/${repo}/${collection}/${encodeURIComponent(rkey)}`;
+  if (collection) return `/exploring/${repo}/${collection}`;
+  return `/exploring/${repo}`;
+}
