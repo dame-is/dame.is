@@ -141,6 +141,34 @@
   padding: 0 0.4em;
 }
 
+/* Inline icon-only tool button — sits beside the theme/typeface toggle
+   groups in the display row, sized to match a single toggle option. */
+.dock-tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.dock-tool-icon:hover,
+.dock-tool-icon:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  outline: none;
+}
+
+.dock-tool-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 @media (max-width: 700px) {
   /* The chrome bar is bottom-docked on mobile, so the panel pops upward
      out of the nav trigger instead of dropping down. */
