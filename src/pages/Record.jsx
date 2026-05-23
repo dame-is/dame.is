@@ -19,6 +19,7 @@ import { musicLinksFor } from '../lib/musicLinks.js';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from '../components/PostEmbed.jsx';
+import Lightbox from '../components/Lightbox.jsx';
 import './Blogging.css';
 import './Record.css';
 import '../components/Feed.css';
@@ -323,6 +324,7 @@ function RecordActionsRow({ atUri, recordJson }) {
  */
 function AlbumArt({ payload }) {
   const result = useAlbumArt(payload, { size: 600 });
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   if (result.status !== 'hit') return null;
   const { art } = result;
   const release = payload?.releaseName || art.album || '';
@@ -333,15 +335,27 @@ function AlbumArt({ payload }) {
       : 'Album art';
   return (
     <figure className="listen-album-art">
-      <img
-        src={art.url}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        width="600"
-        height="600"
-      />
+      <button
+        type="button"
+        className="listen-album-art-trigger"
+        onClick={() => setLightboxOpen(true)}
+        aria-label={`Open ${alt.toLowerCase()}`}
+      >
+        <img
+          src={art.url}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          width="600"
+          height="600"
+        />
+      </button>
       {release && <figcaption className="listen-album-art-caption">{release}</figcaption>}
+      <Lightbox
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        images={[{ src: art.url, alt }]}
+      />
     </figure>
   );
 }

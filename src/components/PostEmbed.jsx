@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { relativeTime } from '../lib/time.js';
 import { renderPostText } from '../lib/postRichText.jsx';
+import Lightbox from './Lightbox.jsx';
 import './PostEmbed.css';
 
 /**
@@ -134,35 +136,47 @@ function normalizeRawImage(image, did) {
 
 function ImageGrid({ images }) {
   const list = (images || []).filter((im) => im?.thumb || im?.fullsize);
+  const [lightbox, setLightbox] = useState({ open: false, index: 0 });
   if (list.length === 0) return null;
+  const lightboxImages = list.map((im) => ({
+    src: im.fullsize || im.thumb,
+    alt: im.alt || '',
+  }));
   return (
-    <div
-      className="post-embed-images"
-      data-count={list.length}
-    >
-      {list.map((im, i) => (
-        <a
-          key={i}
-          className="post-embed-image"
-          href={im.fullsize || im.thumb}
-          target="_blank"
-          rel="noreferrer noopener"
-          aria-label={im.alt ? `Open image: ${im.alt}` : 'Open image'}
-        >
-          <img
-            src={im.thumb || im.fullsize}
-            alt={im.alt || ''}
-            loading="lazy"
-            decoding="async"
-            style={
-              im.aspectRatio
-                ? { aspectRatio: `${im.aspectRatio.width} / ${im.aspectRatio.height}` }
-                : undefined
-            }
-          />
-        </a>
-      ))}
-    </div>
+    <>
+      <div
+        className="post-embed-images"
+        data-count={list.length}
+      >
+        {list.map((im, i) => (
+          <button
+            key={i}
+            type="button"
+            className="post-embed-image"
+            onClick={() => setLightbox({ open: true, index: i })}
+            aria-label={im.alt ? `Open image: ${im.alt}` : 'Open image'}
+          >
+            <img
+              src={im.thumb || im.fullsize}
+              alt={im.alt || ''}
+              loading="lazy"
+              decoding="async"
+              style={
+                im.aspectRatio
+                  ? { aspectRatio: `${im.aspectRatio.width} / ${im.aspectRatio.height}` }
+                  : undefined
+              }
+            />
+          </button>
+        ))}
+      </div>
+      <Lightbox
+        open={lightbox.open}
+        onClose={() => setLightbox((s) => ({ ...s, open: false }))}
+        images={lightboxImages}
+        index={lightbox.index}
+      />
+    </>
   );
 }
 

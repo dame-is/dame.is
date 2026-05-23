@@ -452,6 +452,24 @@ a.post-card-author-link:focus-visible {
   gap: var(--space-2);
 }
 
+.listen-album-art-trigger {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  width: 100%;
+  max-width: 22rem;
+  border-radius: var(--radius-2, 8px);
+  line-height: 0;
+}
+
+.listen-album-art-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .listen-album-art img {
   display: block;
   width: 100%;
@@ -462,6 +480,10 @@ a.post-card-author-link:focus-visible {
   border: 1px solid var(--rule);
   border-radius: var(--radius-2, 8px);
   background: var(--page-edge);
+}
+
+.listen-album-art-trigger img {
+  max-width: 100%;
 }
 
 .listen-album-art-caption {

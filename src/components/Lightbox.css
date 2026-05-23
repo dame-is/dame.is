@@ -1,0 +1,142 @@
+/* Lightbox panel — overrides the default centered Modal panel so it can
+   span up to the viewport edges and display a contained image at full
+   size. The panel itself is transparent/borderless; the image carries
+   the visible surface. */
+
+.modal-panel.lightbox-panel {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  width: min(100%, 1200px);
+  max-width: 100%;
+  max-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: visible;
+}
+
+.modal-variant-centered:has(.lightbox-panel) {
+  padding: var(--space-2);
+}
+
+@media (max-width: 540px) {
+  .modal-variant-centered:has(.lightbox-panel) {
+    padding: var(--space-1, 4px);
+  }
+}
+
+.lightbox-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+
+.lightbox-image {
+  display: block;
+  max-width: 100%;
+  /* Leave headroom for the caption underneath so it doesn't get pushed
+     off-screen on short viewports. */
+  max-height: calc(100dvh - 6rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius-2);
+  background: var(--page-edge);
+  box-shadow: 0 16px 40px var(--shadow);
+}
+
+.lightbox-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-on-scrim, #fff);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  padding: 0 var(--space-3);
+  max-width: var(--measure);
+  text-align: center;
+}
+
+.lightbox-caption-alt {
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.lightbox-caption-count {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+/* Floating controls — positioned relative to the lightbox panel so they
+   sit at the viewport edges, not the image edges. */
+.lightbox-close,
+.lightbox-nav {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 120ms ease, transform 120ms ease;
+}
+
+.lightbox-close:hover,
+.lightbox-close:focus-visible,
+.lightbox-nav:hover,
+.lightbox-nav:focus-visible {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.lightbox-close {
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.lightbox-nav {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lightbox-nav:hover,
+.lightbox-nav:focus-visible {
+  transform: translateY(-50%) scale(1.05);
+}
+
+.lightbox-nav-prev {
+  left: var(--space-2);
+}
+
+.lightbox-nav-next {
+  right: var(--space-2);
+}
+
+@media (max-width: 540px) {
+  .lightbox-close,
+  .lightbox-nav {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+  .lightbox-image {
+    max-height: calc(100dvh - 5rem);
+  }
+}
