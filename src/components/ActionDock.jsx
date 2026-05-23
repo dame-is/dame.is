@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Compass } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
@@ -21,7 +20,7 @@ const ROUTES = [
 ];
 
 export default function ActionDock() {
-  const { open, toggle, closeDock } = useActionDock();
+  const { open, closeDock } = useActionDock();
   const { openOverlay } = useDebugOverlay();
   const { atUri } = useAtUri();
   const [copied, setCopied] = useState(false);
@@ -39,18 +38,6 @@ export default function ActionDock() {
 
   return (
     <>
-      <button
-        type="button"
-        className={`dock-ribbon ${open ? 'is-open' : ''}`}
-        onClick={toggle}
-        aria-expanded={open}
-        aria-controls="action-dock-panel"
-        aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
-      >
-        <Compass className="dock-ribbon-mark" aria-hidden="true" strokeWidth={1.75} />
-        <span className="dock-ribbon-label">{open ? 'close' : 'pages & tools'}</span>
-      </button>
-
       <aside
         id="action-dock-panel"
         className={`dock-panel ${open ? 'is-open' : ''}`}

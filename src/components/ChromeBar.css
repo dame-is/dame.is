@@ -167,7 +167,9 @@
   color: var(--accent);
 }
 
-/* Expand/collapse handle on the far right of the primary row */
+/* Right-side handles on the primary row: nav menu (opens the action dock
+   panel) sits to the left of the atmosphere expand/collapse chevron. */
+.chrome-nav,
 .chrome-expand {
   flex: 0 0 auto;
   display: inline-flex;
@@ -176,7 +178,6 @@
   width: 1.75rem;
   height: 1.75rem;
   padding: 0;
-  margin-right: calc(-1 * var(--space-2));
   border: 1px solid var(--rule);
   border-radius: 0;
   background: transparent;
@@ -185,12 +186,29 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
+.chrome-expand {
+  margin-right: calc(-1 * var(--space-2));
+}
+
+.chrome-nav:hover,
+.chrome-nav:focus-visible,
 .chrome-expand:hover,
 .chrome-expand:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   outline: none;
+}
+
+.chrome-nav.is-open {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.chrome-nav-glyph {
+  width: 1rem;
+  height: 1rem;
 }
 
 .chrome-expand-glyph {
