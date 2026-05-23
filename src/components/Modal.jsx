@@ -70,7 +70,12 @@ export default function Modal({
   const ease = [0.32, 0.72, 0, 1];
   const panelDuration = reduce ? 0 : 0.24;
   const scrimDuration = reduce ? 0 : 0.24;
-  const isDim = scrim === 'dim';
+  const isDim = scrim === 'dim' || scrim === 'dark';
+  // "dark" — pushes the scrim well past the default tint/blur, for
+  // surfaces like the image lightbox where the photo needs to read
+  // against the page rather than alongside it.
+  const dimColor = scrim === 'dark' ? 'rgba(0, 0, 0, 0.78)' : 'rgba(0, 0, 0, 0.08)';
+  const dimBlur = scrim === 'dark' ? 'blur(8px)' : 'blur(2px)';
 
   function handleRootClick(e) {
     if (!open || scrim === 'none') return;
@@ -89,16 +94,16 @@ export default function Modal({
         {open && isDim && (
           <motion.div
             key="scrim-dim"
-            className="modal-scrim modal-scrim-dim"
+            className={`modal-scrim modal-scrim-${scrim}`}
             initial={{
               backgroundColor: 'rgba(0, 0, 0, 0)',
               backdropFilter: 'blur(0px)',
               WebkitBackdropFilter: 'blur(0px)',
             }}
             animate={{
-              backgroundColor: 'rgba(0, 0, 0, 0.08)',
-              backdropFilter: 'blur(2px)',
-              WebkitBackdropFilter: 'blur(2px)',
+              backgroundColor: dimColor,
+              backdropFilter: dimBlur,
+              WebkitBackdropFilter: dimBlur,
             }}
             exit={{
               backgroundColor: 'rgba(0, 0, 0, 0)',

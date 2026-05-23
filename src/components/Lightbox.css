@@ -109,7 +109,7 @@
 
 /* Side-overlay navigation chevrons (multi-image only). They sit on the
    panel edges, not on the image, since the panel is wider than the
-   image on most viewports. */
+   image on most viewports. Squared to match the footer close button. */
 .lightbox-nav {
   position: absolute;
   top: 50%;
@@ -119,20 +119,20 @@
   width: 2.5rem;
   height: 2.5rem;
   padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-2);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
   cursor: pointer;
   z-index: 2;
   transform: translateY(-50%);
-  transition: background 120ms ease, transform 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 .lightbox-nav:hover,
 .lightbox-nav:focus-visible {
-  background: rgba(0, 0, 0, 0.7);
-  transform: translateY(-50%) scale(1.05);
+  background: rgba(0, 0, 0, 0.75);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 .lightbox-nav-prev {

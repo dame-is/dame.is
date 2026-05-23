@@ -64,7 +64,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       onClose={onClose}
       label={label}
       motionPreset="scale"
-      scrim="dim"
+      scrim="dark"
       className="lightbox-panel"
       scrimLabel="Close image"
     >
