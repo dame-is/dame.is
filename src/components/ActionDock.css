@@ -1,49 +1,10 @@
-/* The dock panel drops down from beneath the chrome bar, anchored to the
-   top-right where the nav trigger lives in ChromeBar. */
+/* The dock panel content lives inside <Modal variant="centered">, so
+   positioning, scrim, surface, and enter/exit animation are all owned
+   by the Modal. Rules here only style the panel's interior layout. */
 .dock-panel {
-  position: fixed;
-  top: calc(var(--chrome-h) + var(--space-2));
-  right: clamp(var(--space-4), 4vw, var(--space-6));
-  z-index: 49;
   width: var(--dock-w);
-  max-width: calc(100vw - var(--space-6));
-  max-height: calc(100dvh - var(--chrome-h) - var(--space-5));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  background: var(--page);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-3);
+  max-width: min(var(--dock-w), 100%);
   padding: var(--space-4);
-  box-shadow: 0 16px 40px var(--shadow);
-  transform: translateY(-8px);
-  opacity: 0;
-  pointer-events: none;
-  transition: transform 200ms ease, opacity 200ms ease;
-  /* Hide the scrollbar while keeping the panel scrollable. */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.dock-panel::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-.dock-panel.is-open {
-  transform: translateY(0);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.dock-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: transparent;
-  border: 0;
-  cursor: default;
 }
 
 .dock-section {
@@ -175,35 +136,12 @@
   height: 16px;
 }
 
-@media (max-width: 700px) {
-  /* The chrome bar is bottom-docked on mobile, so the panel pops upward
-     out of the nav trigger instead of dropping down. */
-  .dock-panel {
-    top: auto;
-    bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px) + var(--space-2));
-    max-height: calc(100dvh - var(--chrome-h) - env(safe-area-inset-bottom, 0px) - var(--space-5));
-    transform: translateY(8px);
-  }
-
-  .dock-panel.is-open {
-    transform: translateY(0);
-  }
-}
-
 @media (max-width: 540px) {
-  /* On phone-width the panel becomes a full-width sheet floating just
-     above the bottom-docked chrome bar. */
+  /* Tighter spacing on phones so more rows fit before scrolling. */
   .dock-panel {
-    left: var(--space-3);
-    right: var(--space-3);
-    width: auto;
-    max-width: none;
     padding: var(--space-3) var(--space-4) var(--space-4);
-    border-radius: var(--radius-3);
   }
 
-  /* Less internal whitespace inside the sheet so more rows are visible
-     before scrolling kicks in. */
   .dock-rule {
     margin: var(--space-2) 0;
   }

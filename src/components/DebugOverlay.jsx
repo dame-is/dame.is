@@ -3,6 +3,7 @@ import { useDebugOverlay } from '../hooks/useDebugOverlay.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import RecordEditor from './RecordEditor.jsx';
+import Modal from './Modal.jsx';
 import { ME_DID } from '../config.js';
 import './DebugOverlay.css';
 
@@ -12,8 +13,6 @@ export default function DebugOverlay() {
   const { agent, did, session, signIn } = useAtprotoSession();
   const [copied, setCopied] = useState(null);
   const [editing, setEditing] = useState(false);
-
-  if (!open) return null;
 
   const value = record?.value || record;
   const recordCid = cid || record?.cid || null;
@@ -46,76 +45,79 @@ export default function DebugOverlay() {
   }
 
   return (
-    <div className="debug-overlay" role="dialog" aria-modal="true" aria-label="Atmosphere debug">
-      <button className="debug-overlay-scrim" onClick={closeOverlay} aria-label="Close debug overlay" />
-      <aside className="debug-overlay-panel">
-        <div className="debug-overlay-header">
-          <span className="small-caps">atmosphere · this page</span>
-          <button type="button" className="debug-overlay-close" onClick={closeOverlay} aria-label="Close">
-            ×
-          </button>
-        </div>
+    <Modal
+      open={open}
+      onClose={closeOverlay}
+      label="Atmosphere debug"
+      className="debug-overlay-panel"
+      scrimLabel="Close debug overlay"
+    >
+      <div className="debug-overlay-header">
+        <span className="small-caps">atmosphere · this page</span>
+        <button type="button" className="debug-overlay-close" onClick={closeOverlay} aria-label="Close">
+          ×
+        </button>
+      </div>
 
-        <dl>
-          <Row label="route" value={route} copyValue={route} copied={copied} onCopy={copy} />
-          <Row label="at uri" value={atUri} copyValue={atUri} mono copied={copied} onCopy={copy} />
-          <Row label="cid" value={recordCid} copyValue={recordCid} mono copied={copied} onCopy={copy} />
-          <Row label="lexicon" value={lexicon} copyValue={lexicon} mono copied={copied} onCopy={copy} />
-          <Row label="pds" value={pds} copyValue={pds} placeholder="resolving…" mono copied={copied} onCopy={copy} />
-          <Row label="appview" value="public.api.bsky.app" copyValue="public.api.bsky.app" mono copied={copied} onCopy={copy} />
-        </dl>
+      <dl>
+        <Row label="route" value={route} copyValue={route} copied={copied} onCopy={copy} />
+        <Row label="at uri" value={atUri} copyValue={atUri} mono copied={copied} onCopy={copy} />
+        <Row label="cid" value={recordCid} copyValue={recordCid} mono copied={copied} onCopy={copy} />
+        <Row label="lexicon" value={lexicon} copyValue={lexicon} mono copied={copied} onCopy={copy} />
+        <Row label="pds" value={pds} copyValue={pds} placeholder="resolving…" mono copied={copied} onCopy={copy} />
+        <Row label="appview" value="public.api.bsky.app" copyValue="public.api.bsky.app" mono copied={copied} onCopy={copy} />
+      </dl>
 
-        <div className="debug-overlay-actions">
-          {atUri && (
-            <a href={`https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`} target="_blank" rel="noreferrer noopener">
-              Open in atproto browser
-            </a>
-          )}
-          {atUri && (
-            <button type="button" onClick={() => copy(atUri)}>
-              {copied === atUri ? 'AT URI copied' : 'Copy AT URI'}
-            </button>
-          )}
-          {recordJson && (
-            <button type="button" onClick={() => copy(recordJson, JSON_COPY_KEY)}>
-              {copied === JSON_COPY_KEY ? 'Record JSON copied' : 'Copy record JSON'}
-            </button>
-          )}
-          {canEdit && (
-            <button type="button" onClick={() => setEditing((e) => !e)}>
-              {editing ? 'Close editor' : 'Edit record'}
-            </button>
-          )}
-          {showSignInToEdit && (
-            <SignInToEditButton signIn={signIn} />
-          )}
-        </div>
-
-        {editing && canEdit ? (
-          <div className="debug-overlay-editor">
-            <RecordEditor
-              agent={agent}
-              did={ME_DID}
-              collection={recordCollection}
-              rkey={recordRkey}
-              compact
-              onDeleted={() => {
-                setEditing(false);
-                closeOverlay();
-                window.location.assign('/');
-              }}
-            />
-          </div>
-        ) : value ? (
-          <>
-            <div className="small-caps" style={{ marginTop: 'var(--space-3)' }}>raw record</div>
-            <pre className="debug-overlay-json">{recordJson}</pre>
-          </>
-        ) : (
-          <p className="debug-overlay-empty">{emptyStateText(recordStatus, { atUri, rkey, slug })}</p>
+      <div className="debug-overlay-actions">
+        {atUri && (
+          <a href={`https://atproto-browser.vercel.app/at?u=${encodeURIComponent(atUri)}`} target="_blank" rel="noreferrer noopener">
+            Open in atproto browser
+          </a>
         )}
-      </aside>
-    </div>
+        {atUri && (
+          <button type="button" onClick={() => copy(atUri)}>
+            {copied === atUri ? 'AT URI copied' : 'Copy AT URI'}
+          </button>
+        )}
+        {recordJson && (
+          <button type="button" onClick={() => copy(recordJson, JSON_COPY_KEY)}>
+            {copied === JSON_COPY_KEY ? 'Record JSON copied' : 'Copy record JSON'}
+          </button>
+        )}
+        {canEdit && (
+          <button type="button" onClick={() => setEditing((e) => !e)}>
+            {editing ? 'Close editor' : 'Edit record'}
+          </button>
+        )}
+        {showSignInToEdit && (
+          <SignInToEditButton signIn={signIn} />
+        )}
+      </div>
+
+      {editing && canEdit ? (
+        <div className="debug-overlay-editor">
+          <RecordEditor
+            agent={agent}
+            did={ME_DID}
+            collection={recordCollection}
+            rkey={recordRkey}
+            compact
+            onDeleted={() => {
+              setEditing(false);
+              closeOverlay();
+              window.location.assign('/');
+            }}
+          />
+        </div>
+      ) : value ? (
+        <>
+          <div className="small-caps" style={{ marginTop: 'var(--space-3)' }}>raw record</div>
+          <pre className="debug-overlay-json">{recordJson}</pre>
+        </>
+      ) : (
+        <p className="debug-overlay-empty">{emptyStateText(recordStatus, { atUri, rkey, slug })}</p>
+      )}
+    </Modal>
   );
 }
 

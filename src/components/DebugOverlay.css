@@ -1,27 +1,9 @@
-.debug-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: flex;
-  align-items: stretch;
-  justify-content: flex-end;
-}
-
-.debug-overlay-scrim {
-  position: absolute;
-  inset: 0;
-  background: color-mix(in srgb, var(--ink) 35%, transparent);
-  backdrop-filter: blur(2px);
-}
-
+/* Wrapped in <Modal variant="centered">; positioning, scrim, surface,
+   and animation come from the shared component. Only content layout
+   and the debug-specific typography live here. */
 .debug-overlay-panel {
-  position: relative;
   width: min(560px, 100%);
-  background: var(--page);
-  border-left: 1px solid var(--rule);
   padding: var(--space-6);
-  overflow-y: auto;
-  box-shadow: -16px 0 40px var(--shadow);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

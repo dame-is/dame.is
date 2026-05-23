@@ -1,0 +1,76 @@
+.modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  /* Container itself is click-through; only the scrim and panel catch
+     events. This way clicks on the panel never accidentally pass to the
+     scrim and dismiss the modal. */
+  pointer-events: none;
+}
+
+.modal-variant-centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+/* Anchored variant: consumer's className supplies position: fixed + the
+   coordinates. Useful for popovers tied to a specific trigger region
+   (e.g. a nav handle in the chrome bar). */
+.modal-variant-anchored {
+  display: block;
+}
+
+.modal-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  padding: 0;
+  cursor: default;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.modal-scrim-dim {
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-scrim-transparent {
+  background: transparent;
+}
+
+.modal-panel {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  background: var(--page);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-3);
+  box-shadow: 0 16px 40px var(--shadow);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Hide scrollbar while keeping the panel scrollable — matches the
+     ActionDock treatment so all panels share the same chromeless feel. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.modal-panel::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.modal-variant-centered .modal-panel {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 2 * var(--space-4));
+}
+
+.modal-variant-anchored .modal-panel {
+  position: fixed;
+}
