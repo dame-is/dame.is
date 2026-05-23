@@ -137,8 +137,12 @@
 }
 
 @media (max-width: 540px) {
-  /* Tighter spacing on phones so more rows fit before scrolling. */
+  /* On phones the 280px default leaves too much background visible;
+     let the panel fill the available column so the menu feels like
+     a real sheet. */
   .dock-panel {
+    width: 100%;
+    max-width: 100%;
     padding: var(--space-3) var(--space-4) var(--space-4);
   }
 

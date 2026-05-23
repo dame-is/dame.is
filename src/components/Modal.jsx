@@ -4,19 +4,19 @@ import './Modal.css';
 
 const PRESETS = {
   rise: {
-    initial: { opacity: 0, y: 12, scale: 0.98 },
+    initial: { opacity: 0, y: 10, scale: 0.985 },
     animate: { opacity: 1, y: 0, scale: 1 },
-    exit: { opacity: 0, y: 8, scale: 0.98 },
+    exit: { opacity: 0, y: 6, scale: 0.99 },
   },
   fall: {
-    initial: { opacity: 0, y: -12, scale: 0.98 },
+    initial: { opacity: 0, y: -10, scale: 0.985 },
     animate: { opacity: 1, y: 0, scale: 1 },
-    exit: { opacity: 0, y: -8, scale: 0.98 },
+    exit: { opacity: 0, y: -6, scale: 0.99 },
   },
   scale: {
     initial: { opacity: 0, scale: 0.96 },
     animate: { opacity: 1, scale: 1 },
-    exit: { opacity: 0, scale: 0.97 },
+    exit: { opacity: 0, scale: 0.98 },
   },
   fade: {
     initial: { opacity: 0 },
@@ -37,6 +37,11 @@ const PRESETS = {
  * The panel's content-specific styling (sizing, layout, internal spacing)
  * is the consumer's responsibility — pass it via `className`. Background,
  * border, radius, and shadow are provided by the base `.modal-panel` rule.
+ *
+ * Note: the AnimatePresence wraps the scrim and panel directly — not the
+ * outer modal-root wrapper. If the wrapper itself were the conditional
+ * child, AnimatePresence would unmount it (and yank the motion children
+ * with it) before exit animations could run, causing the close to flash.
  */
 export default function Modal({
   open,
@@ -63,27 +68,33 @@ export default function Modal({
   }, [open, closeOnEscape, onClose]);
 
   const preset = PRESETS[motionPreset] || PRESETS.rise;
-  const duration = reduce ? 0 : 0.26;
   const ease = [0.32, 0.72, 0, 1];
+  const panelDuration = reduce ? 0 : 0.24;
+  const scrimDuration = reduce ? 0 : 0.24;
 
   return (
-    <AnimatePresence>
-      {open && (
-        <div className={`modal-root modal-variant-${variant}`}>
-          {scrim !== 'none' && (
-            <motion.button
-              type="button"
-              className={`modal-scrim modal-scrim-${scrim}`}
-              onClick={onClose}
-              aria-label={scrimLabel}
-              tabIndex={-1}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reduce ? 0 : 0.22, ease }}
-            />
-          )}
+    <div
+      className={`modal-root modal-variant-${variant} ${open ? 'is-open' : ''}`}
+      aria-hidden={!open}
+    >
+      <AnimatePresence>
+        {open && scrim !== 'none' && (
+          <motion.button
+            key="scrim"
+            type="button"
+            className={`modal-scrim modal-scrim-${scrim}`}
+            onClick={onClose}
+            aria-label={scrimLabel}
+            tabIndex={-1}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: scrimDuration, ease }}
+          />
+        )}
+        {open && (
           <motion.div
+            key="panel"
             id={id}
             className={`modal-panel ${className}`}
             role="dialog"
@@ -92,12 +103,12 @@ export default function Modal({
             initial={preset.initial}
             animate={preset.animate}
             exit={preset.exit}
-            transition={{ duration, ease }}
+            transition={{ duration: panelDuration, ease }}
           >
             {children}
           </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

@@ -15,6 +15,14 @@
   padding: var(--space-4);
 }
 
+@media (max-width: 540px) {
+  /* Phones: drop the gutter from 16px to 8px so panels can grow
+     closer to the screen edges. */
+  .modal-variant-centered {
+    padding: var(--space-2);
+  }
+}
+
 /* Anchored variant: consumer's className supplies position: fixed + the
    coordinates. Useful for popovers tied to a specific trigger region
    (e.g. a nav handle in the chrome bar). */
@@ -34,9 +42,9 @@
 }
 
 .modal-scrim-dim {
-  background: rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 .modal-scrim-transparent {
@@ -68,7 +76,15 @@
 
 .modal-variant-centered .modal-panel {
   width: min(560px, 100%);
+  /* dvh tracks the live visual viewport on iOS, so the panel never
+     extends behind the URL bar or home indicator. */
   max-height: calc(100dvh - 2 * var(--space-4));
+}
+
+@media (max-width: 540px) {
+  .modal-variant-centered .modal-panel {
+    max-height: calc(100dvh - 2 * var(--space-2));
+  }
 }
 
 .modal-variant-anchored .modal-panel {
