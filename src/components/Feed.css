@@ -71,14 +71,17 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
 }
 
 .feed-item.feed-item-reply-verb {
-  grid-template-columns: 5.25rem minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
 }
 
 .feed-item-verb.feed-item-verb-reply {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.35rem;
-  text-align: right;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: left;
+  padding-top: 0;
+  justify-self: start;
 }
 
 .feed-item-verb-label-reply {
