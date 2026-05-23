@@ -1,35 +1,20 @@
 /* Animated loading skeletons.
 
-   Two layered animations make the placeholders feel alive without being
-   noisy:
+   The placeholder fill is a solid parchment-midtone that breathes between
+   two palette colors (`--rule-soft` and `--rule`) with a small opacity
+   pulse layered on top. No gradients — the rest of the site is drawn in
+   flat colors and hairline rules, so the skeletons match that voice.
 
-     1. A slow shimmer sweep — a horizontal gradient driven by
-        `background-position`. This is the dominant cue that something is
-        loading and the colors are pulled from the page palette so it
-        reads as "blank parchment" rather than "Material UI".
-
-     2. A breathing opacity wrapper — applied via Motion in JS. The
-        wrapper fades the whole skeleton column in, holds it, and fades
-        out as the real content swaps in. Per-block opacity is also
-        gently animated so a static page-edge fallback (when a user has
-        prefers-reduced-motion: reduce) still doesn't look like an error
-        state. */
+   Because both ends of the keyframe loop are the same color, the cycle
+   has no visible seam: the wash settles back to its resting state every
+   time. Lists of skeleton rows are staggered via `animation-delay` so
+   they breathe slightly out of phase instead of marching in lockstep. */
 
 .skeleton {
   display: inline-block;
   vertical-align: middle;
-  background: linear-gradient(
-    90deg,
-    var(--page-edge) 0%,
-    var(--rule-soft) 45%,
-    var(--rule) 50%,
-    var(--rule-soft) 55%,
-    var(--page-edge) 100%
-  );
-  background-size: 220% 100%;
-  background-repeat: no-repeat;
-  background-position: 100% 0;
-  animation: skeleton-shimmer 1.7s ease-in-out infinite;
+  background-color: var(--rule-soft);
+  animation: skeleton-breathe 2.8s ease-in-out infinite;
   border-radius: var(--radius-1, 0);
   /* Browsers don't read empty inline-block content as anything; force a
      baseline so the parent line-height keeps text-line skeletons aligned
@@ -43,16 +28,16 @@
   display: block;
 }
 
-@keyframes skeleton-shimmer {
-  0%   { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
+@keyframes skeleton-breathe {
+  0%, 100% { background-color: var(--rule-soft); opacity: 0.85; }
+  50%      { background-color: var(--rule);      opacity: 1;    }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
     animation: none;
-    background: var(--rule-soft);
-    opacity: 0.7;
+    background-color: var(--rule-soft);
+    opacity: 0.75;
   }
 }
 
@@ -311,3 +296,21 @@
 .skeleton-comments-text {
   padding-left: calc(1.75rem + var(--space-3));
 }
+
+/* Stagger the breathing across multi-item skeletons so the list doesn't
+   pulse in lockstep. Negative delays seed each row at a different phase
+   in the cycle without changing the cycle length. */
+.skeleton-feed-item:nth-child(3n)       .skeleton,
+.skeleton-toc-entry:nth-child(3n)       .skeleton,
+.skeleton-grid-cell:nth-child(3n)       .skeleton,
+.skeleton-comments-item:nth-child(3n)   .skeleton { animation-delay: -0.5s; }
+
+.skeleton-feed-item:nth-child(3n + 1)     .skeleton,
+.skeleton-toc-entry:nth-child(3n + 1)     .skeleton,
+.skeleton-grid-cell:nth-child(3n + 1)     .skeleton,
+.skeleton-comments-item:nth-child(3n + 1) .skeleton { animation-delay: -1.2s; }
+
+.skeleton-feed-item:nth-child(3n + 2)     .skeleton,
+.skeleton-toc-entry:nth-child(3n + 2)     .skeleton,
+.skeleton-grid-cell:nth-child(3n + 2)     .skeleton,
+.skeleton-comments-item:nth-child(3n + 2) .skeleton { animation-delay: -1.9s; }

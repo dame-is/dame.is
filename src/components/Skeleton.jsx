@@ -4,22 +4,22 @@ import './Skeleton.css';
 /**
  * Animated loading skeletons for record-driven pages.
  *
- * Two layered animations make the placeholders feel alive without being
- * noisy:
+ * Each `.skeleton` block is a flat parchment-midtone rectangle that
+ * slowly breathes between two palette colors (`--rule-soft` and
+ * `--rule`), with a small opacity pulse layered on top. No gradients —
+ * the rest of the site is drawn in solid colors and hairline rules, so
+ * the placeholders match that voice. Because the keyframe loop returns
+ * to its starting color, the cycle has no visible seam.
  *
- *   1. A slow shimmer sweep — a horizontal gradient on every individual
- *      `.skeleton` block (driven by CSS `background-position`). The
- *      gradient stops are pulled from the page palette so the effect
- *      reads as "blank parchment" rather than "Material UI".
+ * The outer `SkeletonShell` adds a short Motion fade-in (and fade-out
+ * when wrapped in `AnimatePresence`) so the skeleton column doesn't
+ * snap into or out of place when real content arrives.
  *
- *   2. A breathing fade — applied via Motion on the outer `SkeletonShell`.
- *      The wrapper fades the whole skeleton column in, then unmounts
- *      (still via Motion if wrapped in `AnimatePresence`) when real
- *      content arrives so the swap doesn't snap.
- *
- * The shimmer respects `prefers-reduced-motion` (CSS handles that), and
- * the Motion fade is short (~250ms) so reduced-motion users still get a
- * usable cue from the static gradient block.
+ * Multi-item skeletons (feed, TOC, grid, comments) are staggered via
+ * CSS `:nth-child` animation-delays so rows breathe slightly out of
+ * phase instead of pulsing in lockstep. The breathing respects
+ * `prefers-reduced-motion` (CSS falls back to a static, slightly faded
+ * block).
  */
 
 /**
