@@ -25,7 +25,7 @@ import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { TypefaceProvider } from './hooks/useTypeface.jsx';
-import { CompactProvider } from './hooks/useCompact.jsx';
+import { DensityProvider } from './hooks/useDensity.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 
@@ -71,7 +71,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <TypefaceProvider>
-      <CompactProvider>
+      <DensityProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
       <ActionDockProvider>
@@ -129,7 +129,7 @@ export default function App() {
       </ActionDockProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>
-      </CompactProvider>
+      </DensityProvider>
       </TypefaceProvider>
     </ThemeProvider>
   );

@@ -125,21 +125,32 @@
   }
 }
 
-/* Compact mode: drop the verb-column placeholder and tighten row spacing
-   so the skeleton matches the compact layout it's standing in for, and
-   real data doesn't reflow the page when it arrives. */
-[data-compact='true'] .skeleton-feed {
+/* Density modes (compact / tight): drop the verb-column placeholder and
+   tighten row spacing so the skeleton matches the layout it's standing
+   in for, and real data doesn't reflow the page when it arrives. */
+[data-density='compact'] .skeleton-feed,
+[data-density='tight'] .skeleton-feed {
   gap: var(--space-3);
 }
 
-[data-compact='true'] .skeleton-feed-item {
+[data-density='compact'] .skeleton-feed-item,
+[data-density='tight'] .skeleton-feed-item {
   grid-template-columns: 1fr;
   gap: var(--space-1);
   padding-bottom: var(--space-3);
 }
 
-[data-compact='true'] .skeleton-feed-verb {
+[data-density='compact'] .skeleton-feed-verb,
+[data-density='tight'] .skeleton-feed-verb {
   display: none;
+}
+
+[data-density='tight'] .skeleton-feed {
+  gap: var(--space-2);
+}
+
+[data-density='tight'] .skeleton-feed-item {
+  padding-bottom: var(--space-2);
 }
 
 /* Variant: blogging table-of-contents row skeleton. */

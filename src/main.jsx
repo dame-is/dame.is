@@ -22,8 +22,15 @@ const storedTypeface = typeof localStorage !== 'undefined' ? localStorage.getIte
 const initialTypeface = ['combo', 'serif', 'sans'].includes(storedTypeface) ? storedTypeface : 'combo';
 document.documentElement.setAttribute('data-typeface', initialTypeface);
 
-const storedCompact = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.compact') : null;
-document.documentElement.setAttribute('data-compact', storedCompact === 'true' ? 'true' : 'false');
+// Density: read the new tri-state key first, fall back to the legacy
+// boolean `dame.compact` so users with the old setting don't lose it.
+const VALID_DENSITY = ['normal', 'compact', 'tight'];
+let storedDensity = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.density') : null;
+if (!VALID_DENSITY.includes(storedDensity)) {
+  const legacyCompact = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.compact') : null;
+  storedDensity = legacyCompact === 'true' ? 'compact' : 'normal';
+}
+document.documentElement.setAttribute('data-density', storedDensity);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

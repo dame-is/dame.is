@@ -1,4 +1,9 @@
-.compact-toggle {
+.density-toggle-options {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.density-toggle-option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -8,26 +13,25 @@
   border: 1px solid var(--rule-soft);
   background: var(--page);
   color: var(--ink-muted);
-  font-size: 0.95rem;
   cursor: pointer;
   padding: 0;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.compact-toggle:hover,
-.compact-toggle:focus-visible {
+.density-toggle-option:hover,
+.density-toggle-option:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   outline: none;
 }
 
-.compact-toggle.is-active {
+.density-toggle-option.is-active {
   color: var(--page);
   background: var(--ink);
   border-color: var(--ink);
 }
 
-.compact-toggle-glyph {
-  width: 1rem;
-  height: 1rem;
+.density-toggle-glyph {
+  width: 0.95rem;
+  height: 0.95rem;
 }

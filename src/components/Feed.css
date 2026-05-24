@@ -576,6 +576,42 @@ a.post-card-author-link:focus-visible {
   text-align: center;
 }
 
+/* "Load more" CTA at the foot of the home feed. Pagination is purely
+   client-side — the next batch is already in memory, so the button only
+   reveals it, no spinner needed. */
+.feed-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-5);
+}
+
+.feed-load-more-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  padding: var(--space-2) var(--space-5);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.feed-load-more-btn:hover,
+.feed-load-more-btn:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  outline: none;
+}
+
+.feed-load-more-count {
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Footer "refreshed at" line ------------------------------------------ */
 
 .feed-live-status-footer {
@@ -1057,19 +1093,29 @@ a.post-card-author-link:focus-visible {
 }
 
 /* ----------------------------------------------------------------------
-   Compact mode (toggled by [data-compact='true'] on <html>).
-   Strips the gerund/verb column from feed rows so each item reads as
-   pure content, and tightens vertical rhythm between rows and day
-   groups. Per-card internals (PostCard, BlogCard, etc.) stay intact —
-   we're only shrinking the surrounding feed scaffolding.
+   Density modes (toggled by [data-density] on <html>).
+
+   `compact` strips the verb/gerund column and tightens the surrounding
+   feed scaffolding; per-card internals stay intact.
+
+   `tight` extends compact further: smaller body type, two-line text
+   clamp, no author avatars, no stats footer, very tight row gaps. The
+   result is a scannable list view for users who want a lot of items per
+   screen.
+
+   Rules shared by both modes use the comma selector; tight-only rules
+   come after.
    ---------------------------------------------------------------------- */
 
-[data-compact='true'] .feed-list {
+[data-density='compact'] .feed-list,
+[data-density='tight'] .feed-list {
   gap: var(--space-3);
 }
 
-[data-compact='true'] .feed-item,
-[data-compact='true'] .feed-item.feed-item-reply-verb {
+[data-density='compact'] .feed-item,
+[data-density='compact'] .feed-item.feed-item-reply-verb,
+[data-density='tight'] .feed-item,
+[data-density='tight'] .feed-item.feed-item-reply-verb {
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
   padding-bottom: var(--space-3);
@@ -1079,12 +1125,15 @@ a.post-card-author-link:focus-visible {
    variant ("replying to @handle") carries conversational context that
    the card body doesn't repeat, so keep that one visible but flatten
    it inline. */
-[data-compact='true'] .feed-item-verb:not(.feed-item-verb-reply):not(.feed-item-verb-thread) {
+[data-density='compact'] .feed-item-verb:not(.feed-item-verb-reply):not(.feed-item-verb-thread),
+[data-density='tight'] .feed-item-verb:not(.feed-item-verb-reply):not(.feed-item-verb-thread) {
   display: none;
 }
 
-[data-compact='true'] .feed-item-verb.feed-item-verb-reply,
-[data-compact='true'] .feed-item-verb.feed-item-verb-thread {
+[data-density='compact'] .feed-item-verb.feed-item-verb-reply,
+[data-density='compact'] .feed-item-verb.feed-item-verb-thread,
+[data-density='tight'] .feed-item-verb.feed-item-verb-reply,
+[data-density='tight'] .feed-item-verb.feed-item-verb-thread {
   flex-direction: row;
   align-items: center;
   gap: 0.35rem;
@@ -1094,25 +1143,110 @@ a.post-card-author-link:focus-visible {
   font-size: calc(var(--text-xs) * 0.95);
 }
 
-[data-compact='true'] .day-header {
+[data-density='compact'] .day-header,
+[data-density='tight'] .day-header {
   margin: var(--space-5) 0 var(--space-2);
 }
 
-[data-compact='true'] .feed-day-group .feed-list[style] {
+[data-density='compact'] .feed-day-group .feed-list[style],
+[data-density='tight'] .feed-day-group .feed-list[style] {
   margin-top: var(--space-2) !important;
 }
 
-[data-compact='true'] .feed-card {
+[data-density='compact'] .feed-card,
+[data-density='tight'] .feed-card {
   gap: var(--space-1);
   padding-bottom: 0;
 }
 
-/* Tighten card internals that have their own vertical rhythm. */
-[data-compact='true'] .post-card-author {
+[data-density='compact'] .post-card-author,
+[data-density='tight'] .post-card-author {
   margin-bottom: var(--space-1);
 }
 
-[data-compact='true'] .post-card-reply,
-[data-compact='true'] .post-card-repost {
+[data-density='compact'] .post-card-reply,
+[data-density='compact'] .post-card-repost,
+[data-density='tight'] .post-card-reply,
+[data-density='tight'] .post-card-repost {
   margin-bottom: 0;
+}
+
+/* Tight-only: aggressive minimal view. ------------------------------- */
+
+[data-density='tight'] .feed-list {
+  gap: var(--space-2);
+}
+
+[data-density='tight'] .feed-item,
+[data-density='tight'] .feed-item.feed-item-reply-verb {
+  padding-bottom: var(--space-2);
+}
+
+[data-density='tight'] .day-header {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: calc(var(--text-xs) * 0.9);
+}
+
+[data-density='tight'] .feed-day-group .feed-list[style] {
+  margin-top: var(--space-1) !important;
+}
+
+/* Smaller body type + two-line clamp keeps every row to roughly the
+   same height regardless of post length. */
+[data-density='tight'] .post-card-text,
+[data-density='tight'] .listen-row-text,
+[data-density='tight'] .status-entry-text,
+[data-density='tight'] .blog-card-summary,
+[data-density='tight'] .creating-card-summary,
+[data-density='tight'] .reference-card-compact,
+[data-density='tight'] .comment-card-text,
+[data-density='tight'] .media-card-desc {
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+[data-density='tight'] .blog-card-title,
+[data-density='tight'] .creating-card-title,
+[data-density='tight'] .media-card-title,
+[data-density='tight'] .list-card-title,
+[data-density='tight'] .generator-card-title {
+  font-size: var(--text-base);
+}
+
+/* Drop the stats footer (replies/reposts/likes) and any post-embed
+   in tight mode — they multiply row height. */
+[data-density='tight'] .post-card-stats,
+[data-density='tight'] .post-embed,
+[data-density='tight'] .listen-row-children,
+[data-density='tight'] .media-card-grid,
+[data-density='tight'] .reference-card-subject {
+  display: none;
+}
+
+/* Hide the original-author avatar block on reposts; keep the @handle
+   inline via the names span so attribution is still visible. */
+[data-density='tight'] .post-card-author-avatar {
+  display: none;
+}
+
+[data-density='tight'] .post-card-author {
+  margin-bottom: 0;
+  font-size: var(--text-xs);
+}
+
+[data-density='tight'] .post-card-author-name,
+[data-density='tight'] .post-card-author-handle {
+  font-size: var(--text-xs);
+}
+
+/* The reposted-by tag and reply-to tag both eat a row of their own —
+   keep them but shrink the type so they don't dwarf the post text. */
+[data-density='tight'] .post-card-reply,
+[data-density='tight'] .post-card-repost {
+  font-size: calc(var(--text-xs) * 0.9);
 }
