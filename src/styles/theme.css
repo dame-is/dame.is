@@ -5,7 +5,7 @@
 [data-theme='light'] {
   --page:        #f1ead4;   /* off-white with warm tan undertone */
   --page-edge:   #e6dec3;
-  --surface-raised: #d6c89f; /* deeper tan for chrome bars + modal panels — needs visible contrast against --page */
+  --surface-raised: #dfd3b0; /* tan, slightly deeper than --page-edge, for chrome bars + modal panels */
   --ink:         #1d2419;   /* dark greenish-black */
   --ink-soft:    #364034;
   --ink-muted:   #6f6e58;   /* tan-olive */
@@ -69,7 +69,7 @@
 [data-theme='dark'] {
   --page:        #1d2419;   /* dark greenish-black */
   --page-edge:   #161c12;
-  --surface-raised: #0a0d07; /* darker green-black for chrome bars + modal panels */
+  --surface-raised: #10140c; /* darker green-black, slightly deeper than --page-edge, for chrome bars + modal panels */
   --ink:         #ece4cb;   /* warm off-white */
   --ink-soft:    #d2c9ac;
   --ink-muted:   #9a9377;
@@ -89,7 +89,7 @@
   :root[data-theme='system'] {
     --page:        #1d2419;
     --page-edge:   #161c12;
-    --surface-raised: #0a0d07;
+    --surface-raised: #10140c;
     --ink:         #ece4cb;
     --ink-soft:    #d2c9ac;
     --ink-muted:   #9a9377;
