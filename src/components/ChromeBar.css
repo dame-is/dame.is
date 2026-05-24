@@ -1,20 +1,24 @@
 .chrome-bar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
   background: color-mix(in srgb, var(--page-edge) 92%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--rule);
   font-style: normal;
-  overflow: hidden;
 }
 
 .chrome-bar,
 .chrome-bar * {
   font-style: normal;
+}
+
+/* Top crumb bar: sticky at the top on all devices. */
+.chrome-bar-top {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--rule);
+  overflow: hidden;
 }
 
 .chrome-bar-row {
@@ -262,6 +266,83 @@
   line-height: 1;
 }
 
+/* Bottom mobile bar: hidden on desktop, fixed to the viewport bottom on
+   phones. Holds the global search input (left) and the compass nav button
+   (right). The top bar's compass is hidden on mobile so we don't ship two
+   nav handles. */
+.chrome-bar-bottom {
+  display: none;
+}
+
+.chrome-bottom-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0 clamp(var(--space-4), 4vw, var(--space-7));
+  min-height: var(--chrome-h);
+}
+
+.chrome-search {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chrome-search input {
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  padding: 0.45em 2em 0.45em 2.2em;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page-edge);
+  color: var(--ink);
+  width: 100%;
+}
+
+.chrome-search input:focus {
+  outline: none;
+  border-color: var(--accent-soft);
+  background: var(--page);
+}
+
+.chrome-search-icon {
+  position: absolute;
+  left: 0.7em;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+.chrome-search:focus-within .chrome-search-icon {
+  color: var(--ink-soft);
+}
+
+.chrome-search-clear {
+  position: absolute;
+  right: 0.4em;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.chrome-search-clear:hover {
+  color: var(--accent);
+}
+
 /* Truncated chrome-bar values render a single copy clipped by `max-width`.
    On hover/focus, JS animates the inner span by exactly the overflow amount
    (oscillating back and forth) so the hidden tail scrolls into view. No
@@ -294,6 +375,9 @@
   .chrome-bar-row {
     gap: var(--space-2);
   }
+  .chrome-bottom-row {
+    gap: var(--space-2);
+  }
   .chrome-signals-secondary {
     flex-direction: column;
     align-items: stretch;
@@ -310,33 +394,22 @@
     min-width: 0;
   }
 
-  /* Bottom-docked chrome bar on mobile: easier thumb reach. The bar pins
-     to the viewport bottom, expansion grows upward, and the nav panel
-     opens upward too (handled in ActionDock.css). */
-  .chrome-bar {
+  /* The compass nav lives in the bottom bar on mobile. Hide the top
+     bar's copy so the two don't both show at once. */
+  .chrome-nav-top {
+    display: none;
+  }
+
+  /* Show the bottom bar, fixed to the viewport bottom with the same
+     translucent backdrop as the top bar. */
+  .chrome-bar-bottom {
+    display: block;
     position: fixed;
-    top: auto;
     bottom: 0;
     left: 0;
     right: 0;
-    flex-direction: column-reverse;
-    border-bottom: 0;
+    z-index: 30;
     border-top: 1px solid var(--rule);
     padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  /* In column-reverse the secondary row sits visually above the primary
-     row, so the divider belongs at the secondary row's bottom edge. */
-  .chrome-bar-secondary {
-    border-top: 0;
-    border-bottom: 1px solid var(--rule-soft);
-  }
-
-  /* Flip the atmosphere chevron so it points "up" when collapsed (the
-     row expands upward) and "down" when expanded. We rotate the button;
-     the motion-managed inner SVG still animates its 0→180 toggle, which
-     combines with the parent rotation to yield up↔down. */
-  .chrome-expand {
-    transform: rotate(180deg);
   }
 }
