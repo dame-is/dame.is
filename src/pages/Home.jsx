@@ -25,10 +25,11 @@ import '../components/Feed.css';
 const FEED_CACHE_KEY = 'unifiedFeed';
 const CACHE_TTL_MS = 30_000;
 const POLL_INTERVAL_MS = 60_000;
-// First-paint cap per collection — keeps the initial PDS fan-out small
-// so the feed lands quickly. Background polls keep the same cap; deeper
-// history is revealed via "Load more" without re-fetching.
-const INITIAL_FETCH_MAX = 30;
+// First-paint cap per collection — matches AT Proto's per-request
+// listRecords ceiling, so each collection lands in a single round trip
+// with no extra pagination. Background polls keep the same cap; deeper
+// history isn't fetched, only `Load more` reveals what's already there.
+const INITIAL_FETCH_MAX = 100;
 // How many items the feed renders before showing the "Load more" CTA,
 // and how many additional items each click reveals.
 const INITIAL_VISIBLE = 100;
