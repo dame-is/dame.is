@@ -106,8 +106,8 @@ export default function ChromeBar() {
                   }}
                 >
                   <NowPlaying />
-                  <DayOfLifeTicker />
                   <ProfileStats />
+                  <DayOfLifeTicker />
                 </motion.div>
               </div>
             </motion.div>
