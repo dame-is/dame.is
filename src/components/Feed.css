@@ -1181,12 +1181,13 @@ a.post-card-author-link:focus-visible {
 }
 
 /* Drop the stats footer (replies/reposts/likes) and any post-embed
-   in tight mode — they multiply row height. */
+   in tight mode — they multiply row height. Don't hide content the
+   user can opt back in to via an expand button (listen-row-children,
+   reference-card-subject) — that would make those buttons appear to
+   do nothing in tight mode. */
 [data-density='tight'] .post-card-stats,
 [data-density='tight'] .post-embed,
-[data-density='tight'] .listen-row-children,
-[data-density='tight'] .media-card-grid,
-[data-density='tight'] .reference-card-subject {
+[data-density='tight'] .media-card-grid {
   display: none;
 }
 
