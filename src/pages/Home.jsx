@@ -31,8 +31,8 @@ const POLL_INTERVAL_MS = 60_000;
 const INITIAL_FETCH_MAX = 30;
 // How many items the feed renders before showing the "Load more" CTA,
 // and how many additional items each click reveals.
-const INITIAL_VISIBLE = 30;
-const LOAD_MORE_STEP = 30;
+const INITIAL_VISIBLE = 100;
+const LOAD_MORE_STEP = 100;
 // Snapshot is now a fallback only (shown when the live fetch errors).
 // Cap how much of it we render so an old, fat snapshot doesn't dominate
 // the page when the network is flaky.
