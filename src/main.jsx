@@ -19,7 +19,7 @@ const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 if (themeColorMeta) themeColorMeta.setAttribute('content', initialThemeColor);
 
 const storedTypeface = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.typeface') : null;
-const initialTypeface = ['combo', 'serif', 'sans'].includes(storedTypeface) ? storedTypeface : 'combo';
+const initialTypeface = ['combo', 'serif', 'sans'].includes(storedTypeface) ? storedTypeface : 'sans';
 document.documentElement.setAttribute('data-typeface', initialTypeface);
 
 // Density: read the new tri-state key first, fall back to the legacy
