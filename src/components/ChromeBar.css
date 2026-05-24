@@ -1,5 +1,5 @@
 .chrome-bar {
-  background: color-mix(in srgb, var(--page-edge) 92%, transparent);
+  background: var(--surface-raised);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   font-style: normal;

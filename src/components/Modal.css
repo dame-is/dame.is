@@ -55,7 +55,7 @@
   position: relative;
   z-index: 1;
   pointer-events: auto;
-  background: var(--page);
+  background: var(--surface-raised);
   border: 1px solid var(--rule);
   border-radius: var(--radius-3);
   /* Two-layer shadow: the tight 1px shadow defines a crisp edge, the
