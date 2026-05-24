@@ -280,8 +280,11 @@ export default function Home() {
 
   return (
     <PageShell
-      title={<>dame <span className="gerund">is</span></>}
-      intro="A design engineer and artist building tools and making things on the open web."
+      title={
+        <>
+          <span className="home-hero-lead">dame is</span> a design engineer and artist building tools and making things on the open web.
+        </>
+      }
       atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="Dame is&hellip;"
     >

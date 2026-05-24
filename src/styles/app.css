@@ -64,7 +64,15 @@
   margin-bottom: 0;
 }
 
-/* Home: visual break between the hero (page-title + intro) and the
+/* Home hero: the elevator pitch lives entirely inside the page-title
+   so the sentence flows at one size on one block. The "dame is" lead
+   is muted so the eye lands on what Dame *does*, not the brand
+   re-statement. */
+.home-hero-lead {
+  color: var(--ink-faint);
+}
+
+/* Home: visual break between the hero (page-title) and the
    "Latest" feed below it. Adds a touch of extra breathing room and a
    small-caps section heading that won't compete with the hero h1. */
 .home-latest {
