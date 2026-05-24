@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 const TypefaceContext = createContext(null);
 const STORAGE_KEY = 'dame.typeface';
 const VALID = ['combo', 'serif', 'sans'];
-const DEFAULT = 'sans';
+const DEFAULT = 'combo';
 
 function applyTypeface(typeface) {
   document.documentElement.setAttribute('data-typeface', typeface);
