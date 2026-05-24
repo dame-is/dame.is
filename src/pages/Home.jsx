@@ -6,6 +6,7 @@ import FeedFilters, { filterFeed } from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
+import HeroSentence from '../components/HeroSentence.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
@@ -280,11 +281,7 @@ export default function Home() {
 
   return (
     <PageShell
-      title={
-        <>
-          <span className="home-hero-lead">dame is</span> a design engineer and artist building tools and making things on the open web.
-        </>
-      }
+      title={<HeroSentence />}
       atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="Dame is&hellip;"
     >

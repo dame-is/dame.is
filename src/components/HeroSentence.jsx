@@ -1,0 +1,178 @@
+import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+
+/**
+ * The home-page hero is one combinatorial sentence:
+ *
+ *   dame is [a — role with article] [who — relative clause]
+ *
+ * Each part rotates independently, every few seconds, at organic
+ * intervals (random 4–8 s) so you almost never see the same pair
+ * twice in a row. "dame is" itself stays put as the muted lead.
+ *
+ * Pools are intentionally short and editable in-file — adding a new
+ * role or clause is a one-line append to the relevant const.
+ */
+const VARIANTS_A = [
+  'a design engineer',
+  'a creative technologist',
+  'a lepidopterist',
+  'an artist',
+];
+
+const VARIANTS_B = [
+  'who makes social software with open protocols',
+  'who sometimes stays up late mothing',
+];
+
+const EASE = [0.22, 0.61, 0.36, 1];
+
+export default function HeroSentence() {
+  const reduce = useReducedMotion();
+  // Random starting pair so returning visitors don't always see the
+  // same opener. Under reduced motion both pin to 0 for a predictable,
+  // non-surprising default.
+  const [indexA, setIndexA] = useState(() =>
+    reduce ? 0 : Math.floor(Math.random() * VARIANTS_A.length),
+  );
+  const [indexB, setIndexB] = useState(() =>
+    reduce ? 0 : Math.floor(Math.random() * VARIANTS_B.length),
+  );
+  const [paused, setPaused] = useState(false);
+  const [minHeight, setMinHeight] = useState(null);
+  const wrapRef = useRef(null);
+  const measureRef = useRef(null);
+
+  // Part-A timer: schedule the next swap whenever index, pause, or
+  // reduced-motion state changes. Random interval per round so two
+  // adjacent swaps never feel metronomic.
+  useEffect(() => {
+    if (reduce || paused) return;
+    const ms = 4000 + Math.random() * 4000;
+    const id = setTimeout(
+      () => setIndexA((i) => (i + 1) % VARIANTS_A.length),
+      ms,
+    );
+    return () => clearTimeout(id);
+  }, [indexA, paused, reduce]);
+
+  // Part-B timer: same logic, but a small phase offset (4500 base
+  // instead of 4000) so A and B drift independently rather than
+  // locking into a shared rhythm.
+  useEffect(() => {
+    if (reduce || paused) return;
+    const ms = 4500 + Math.random() * 4000;
+    const id = setTimeout(
+      () => setIndexB((i) => (i + 1) % VARIANTS_B.length),
+      ms,
+    );
+    return () => clearTimeout(id);
+  }, [indexB, paused, reduce]);
+
+  // Pause when the tab is hidden — otherwise the timer fires
+  // unattended and the user comes back to an arbitrary mid-cycle pair.
+  useEffect(() => {
+    function onVisibility() {
+      if (document.hidden) setPaused(true);
+      else setPaused(false);
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  // Reserve vertical space equal to the tallest A×B combination so the
+  // feed below the hero doesn't jump as variants cycle. Wrapping
+  // depends on both parts combined, so per-part measurement isn't
+  // enough — we measure every combination in the hidden layer.
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const measure = measureRef.current;
+    if (!wrap || !measure) return;
+
+    function recompute() {
+      let max = 0;
+      for (const child of measure.children) {
+        const h = child.getBoundingClientRect().height;
+        if (h > max) max = h;
+      }
+      if (max > 0) setMinHeight(max);
+    }
+
+    // The serif font loads asynchronously; measuring before fonts
+    // settle yields the (shorter) fallback's height and forces a
+    // shift on first cycle. Gate the first measure behind fonts.ready.
+    const fontsReady = document.fonts?.ready;
+    if (fontsReady && typeof fontsReady.then === 'function') {
+      fontsReady.then(recompute);
+    } else {
+      recompute();
+    }
+
+    // Re-measure on container resize (width changes alter wrapping,
+    // and therefore which combination is tallest).
+    const ro = new ResizeObserver(recompute);
+    ro.observe(wrap);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <span
+      ref={wrapRef}
+      className="hero-sentence"
+      style={minHeight ? { minHeight: `${minHeight}px` } : undefined}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
+      <span className="hero-sentence-lead">dame is</span>{' '}
+      <Rotator index={indexA} variants={VARIANTS_A} reduce={reduce} />{' '}
+      <Rotator index={indexB} variants={VARIANTS_B} reduce={reduce} />
+
+      {/* Each measure entry mirrors the live nested structure (lead +
+          two inline-block rotators) so wrapping at the rotator
+          boundaries matches the live render. A flat text equivalent
+          would let the browser break mid-phrase and report a shorter
+          height than the live layout — which then shows up as a feed
+          jump on narrow viewports. */}
+      <span
+        aria-hidden="true"
+        className="hero-sentence-measure"
+        ref={measureRef}
+      >
+        {VARIANTS_A.flatMap((a) =>
+          VARIANTS_B.map((b) => (
+            <span key={`${a}|${b}`}>
+              <span className="hero-sentence-lead">dame is</span>{' '}
+              <span className="hero-rotator">
+                <span className="hero-rotator-phrase">{a}</span>
+              </span>{' '}
+              <span className="hero-rotator">
+                <span className="hero-rotator-phrase">{b}</span>
+              </span>
+            </span>
+          )),
+        )}
+      </span>
+    </span>
+  );
+}
+
+function Rotator({ index, variants, reduce }) {
+  return (
+    <span className="hero-rotator">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={index}
+          className="hero-rotator-phrase"
+          initial={reduce ? false : { opacity: 0, y: -24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 24 }}
+          transition={{ duration: reduce ? 0 : 0.45, ease: EASE }}
+        >
+          {variants[index]}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}

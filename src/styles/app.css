@@ -59,12 +59,49 @@
   margin-bottom: 0;
 }
 
-/* Home hero: the elevator pitch lives entirely inside the page-title
-   so the sentence flows at one size on one block. The "dame is" lead
-   is muted so the eye lands on what Dame *does*, not the brand
-   re-statement. */
-.home-hero-lead {
+/* Home hero: a combinatorial sentence rendered by <HeroSentence>.
+   "dame is" stays muted; two independent rotators (Part A = role,
+   Part B = clause) slide-up/fade between variants. The wrapper
+   reserves a min-height equal to the tallest A×B combination so the
+   feed below the hero doesn't shift as variants cycle. */
+.hero-sentence {
+  position: relative;
+  display: block;
+  /* One-line fallback that paints before JS measures the real tallest
+     combination. The measurement effect only ever grows from here. */
+  min-height: 1.1em;
+}
+
+.hero-sentence-lead {
   color: var(--ink-faint);
+}
+
+.hero-rotator {
+  position: relative;
+  display: inline-block;
+  /* Align the rotator's top edge with the cap line of "dame is" so
+     descenders inside a phrase don't drop the whole inline-block down
+     a few pixels relative to the lead. */
+  vertical-align: top;
+}
+
+.hero-rotator-phrase {
+  display: inline-block;
+}
+
+/* The measure layer paints every A×B combination invisibly at the
+   live wrapper's width so the JS measurement sees real wrapping.
+   `visibility: hidden` (not `display: none`) — the latter reports
+   zero height and would defeat the reservation. */
+.hero-sentence-measure {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.hero-sentence-measure > span {
+  display: block;
 }
 
 /* Home: visual break between the hero (page-title) and the
