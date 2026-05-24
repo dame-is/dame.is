@@ -96,19 +96,19 @@ export default function FeedItem({ item }) {
     .join(' ');
   const verbInner = threadContinuation ? (
     <>
-      <CornerDownRight size={15} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
+      <CornerDownRight size={12} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
       <span className="feed-item-verb-label">continuing</span>
     </>
   ) : isReplyVerb ? (
     <>
-      <CornerDownRight size={15} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
+      <CornerDownRight size={12} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
       <span className="feed-item-verb-label feed-item-verb-label-reply">
         {postingReplyVerbLabel(replyHint)}
       </span>
     </>
   ) : (
     <>
-      <VerbIcon verb={item.verb} size={15} className="feed-item-verb-icon" />
+      <VerbIcon verb={item.verb} size={12} className="feed-item-verb-icon" />
       <span className="feed-item-verb-label">{item.verb}</span>
     </>
   );
