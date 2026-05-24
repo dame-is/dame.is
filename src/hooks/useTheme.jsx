@@ -4,13 +4,13 @@ const ThemeContext = createContext(null);
 const STORAGE_KEY = 'dame.theme';
 const VALID = ['light', 'dark', 'system'];
 
-// Matches --page-edge in theme.css. Used for the iOS Safari URL bar
+// Matches --surface-raised in theme.css. Used for the iOS Safari URL bar
 // surround / Android browser chrome so the OS UI blends with the dame.is
 // chrome bar instead of falling back to a system default that may not
 // match the active site theme.
 const THEME_COLOR = {
-  light: '#e6dec3',
-  dark: '#161c12',
+  light: '#e3d8ba',
+  dark: '#13180f',
 };
 
 function resolveScheme(theme) {
@@ -26,15 +26,30 @@ function applyTheme(theme) {
 
 function applyThemeColor(theme) {
   if (typeof document === 'undefined') return;
-  const scheme = resolveScheme(theme);
-  const color = THEME_COLOR[scheme] || THEME_COLOR.light;
-  let meta = document.querySelector('meta[name="theme-color"]');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.setAttribute('name', 'theme-color');
-    document.head.appendChild(meta);
+  const head = document.head;
+  // Wipe any existing theme-color metas (the two media-driven tags from
+  // index.html on initial load, or whatever we last injected) so we
+  // start clean and the OS doesn't see a stale combination.
+  head.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+
+  if (theme === 'system') {
+    // Hand the choice back to the OS via prefers-color-scheme so it
+    // tracks the system toggle without a JS round-trip.
+    for (const [scheme, content] of Object.entries(THEME_COLOR)) {
+      const meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      meta.setAttribute('media', `(prefers-color-scheme: ${scheme})`);
+      meta.setAttribute('content', content);
+      head.appendChild(meta);
+    }
+    return;
   }
-  meta.setAttribute('content', color);
+  // Explicit light/dark: a single tag without `media` pins the browser
+  // chrome to our choice regardless of the OS preference.
+  const meta = document.createElement('meta');
+  meta.setAttribute('name', 'theme-color');
+  meta.setAttribute('content', THEME_COLOR[theme] || THEME_COLOR.light);
+  head.appendChild(meta);
 }
 
 export function ThemeProvider({ children }) {
