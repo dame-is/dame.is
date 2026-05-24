@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { CornerDownRight } from 'lucide-react';
 import StatusEntry from './StatusEntry.jsx';
 import PostCard from './PostCard.jsx';
@@ -72,11 +72,29 @@ function hrefFor(item) {
  * page (or generic JSON fallback for verbs without a specialized one).
  */
 export default function FeedItem({ item }) {
+  const navigate = useNavigate();
   const cfg = verbConfig(item.verb);
   if (!cfg) return null;
   const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
   if (!Component) return null;
   const href = hrefFor(item);
+
+  // Make the whole row tappable as a convenience — handy on mobile where the
+  // verb badge / timestamp are small hit targets. We bail when the click
+  // landed on a nested interactive element (so links inside the card keep
+  // working), when text is being selected, or when the click was modified
+  // (Cmd/Ctrl/middle-click — let the browser open it in a new tab via the
+  // verb badge / timestamp links instead).
+  function handleRowClick(e) {
+    if (!href) return;
+    if (e.defaultPrevented) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (e.target.closest('a, button, input, textarea, label, select, [role="button"], [role="link"]')) return;
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (sel && sel.toString().length > 0) return;
+    navigate(href);
+  }
   // When a post is a continuation of a self-reply thread that is already
   // visible above it in the feed, the "↳ replying to @dame.is" label is
   // redundant noise — the layout already says so. Show a quieter
@@ -128,6 +146,7 @@ export default function FeedItem({ item }) {
       data-verb={item.verb}
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
+      onClick={href ? handleRowClick : undefined}
     >
       {href ? (
         <Link className={verbClassName} to={href}>
