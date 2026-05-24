@@ -68,26 +68,6 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       className="lightbox-panel"
       scrimLabel="Close image"
     >
-      {count > 1 && (
-        <>
-          <button
-            type="button"
-            className="lightbox-nav lightbox-nav-prev"
-            onClick={prev}
-            aria-label="Previous image"
-          >
-            <ChevronLeft size={28} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="lightbox-nav lightbox-nav-next"
-            onClick={next}
-            aria-label="Next image"
-          >
-            <ChevronRight size={28} aria-hidden="true" />
-          </button>
-        </>
-      )}
       <figure className="lightbox-figure">
         <img
           key={current.src}
@@ -99,9 +79,27 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       </figure>
       <footer className="lightbox-footer">
         {count > 1 && (
-          <span className="lightbox-footer-count" aria-hidden="true">
-            {active + 1} / {count}
-          </span>
+          <div className="lightbox-footer-nav">
+            <button
+              type="button"
+              className="lightbox-nav lightbox-nav-prev"
+              onClick={prev}
+              aria-label="Previous image"
+            >
+              <ChevronLeft size={18} aria-hidden="true" />
+            </button>
+            <span className="lightbox-footer-count" aria-hidden="true">
+              {active + 1} / {count}
+            </span>
+            <button
+              type="button"
+              className="lightbox-nav lightbox-nav-next"
+              onClick={next}
+              aria-label="Next image"
+            >
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
+          </div>
         )}
         <button
           type="button"

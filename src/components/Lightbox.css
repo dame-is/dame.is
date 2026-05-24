@@ -56,17 +56,24 @@
   box-shadow: 0 16px 40px var(--shadow);
 }
 
-/* Footer beneath the image — holds the close button (and the N/M
-   counter when multi-image). Kept off the image surface so it never
-   obscures content. */
+/* Footer beneath the image — holds the close button and (for
+   multi-image embeds) the prev/next nav with N/M counter. Everything
+   sits below the image so the photo is never obscured. */
 .lightbox-footer {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   width: 100%;
   max-width: 100%;
   padding: 0 var(--space-2);
+}
+
+.lightbox-footer-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .lightbox-footer-count {
@@ -77,6 +84,8 @@
   color: var(--ink-on-scrim, #fff);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   opacity: 0.85;
+  min-width: 3.25rem;
+  text-align: center;
 }
 
 .lightbox-close {
@@ -108,25 +117,20 @@
   display: inline-block;
 }
 
-/* Side-overlay navigation chevrons (multi-image only). They sit on the
-   panel edges, not on the image, since the panel is wider than the
-   image on most viewports. Squared to match the footer close button. */
+/* Footer nav chevrons (multi-image only). Same chrome as the close
+   button so the footer reads as a single control cluster. */
 .lightbox-nav {
-  position: absolute;
-  top: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-2);
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   cursor: pointer;
-  z-index: 2;
-  transform: translateY(-50%);
   transition: background 120ms ease, border-color 120ms ease;
 }
 
@@ -136,19 +140,7 @@
   border-color: rgba(255, 255, 255, 0.35);
 }
 
-.lightbox-nav-prev {
-  left: var(--space-2);
-}
-
-.lightbox-nav-next {
-  right: var(--space-2);
-}
-
 @media (max-width: 540px) {
-  .lightbox-nav {
-    width: 2.25rem;
-    height: 2.25rem;
-  }
   .lightbox-image {
     max-height: calc(100dvh - 7rem);
   }
