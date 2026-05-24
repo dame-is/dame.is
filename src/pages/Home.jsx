@@ -7,7 +7,7 @@ import FeedItem from '../components/FeedItem.jsx';
 import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
-import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
 import {
   readFeedCache,
   writeFeedCache,
@@ -25,6 +25,18 @@ import '../components/Feed.css';
 const FEED_CACHE_KEY = 'unifiedFeed';
 const CACHE_TTL_MS = 30_000;
 const POLL_INTERVAL_MS = 60_000;
+// First-paint cap per collection — keeps the initial PDS fan-out small
+// so the feed lands quickly. Background polls keep the same cap; deeper
+// history is revealed via "Load more" without re-fetching.
+const INITIAL_FETCH_MAX = 30;
+// How many items the feed renders before showing the "Load more" CTA,
+// and how many additional items each click reveals.
+const INITIAL_VISIBLE = 30;
+const LOAD_MORE_STEP = 30;
+// Snapshot is now a fallback only (shown when the live fetch errors).
+// Cap how much of it we render so an old, fat snapshot doesn't dominate
+// the page when the network is flaky.
+const SNAPSHOT_FALLBACK_MAX = 60;
 
 function dayKey(iso) {
   return iso ? new Date(iso).toISOString().slice(0, 10) : '';
@@ -70,6 +82,17 @@ export default function Home() {
 
   const reduce = useReducedMotion();
 
+  // How many items the feed is currently rendering. Starts at
+  // INITIAL_VISIBLE and grows by LOAD_MORE_STEP each click of the
+  // "Load more" CTA at the bottom of the feed. Resets when the active
+  // filter set changes so the user always starts from the top of the
+  // new view.
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+  const filterSig = params.toString();
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [filterSig]);
+
   // URIs we've already shown the user. Anything missing on a refresh is
   // a "new arrival" and gets the slide-in animation. Seeded from cache
   // so the items we hydrated with don't animate on first paint.
@@ -97,8 +120,10 @@ export default function Home() {
     setRefreshState('refreshing');
     beginRefresh();
 
-    const snapshotPromise = fetchSnapshot(FEED_CACHE_KEY).catch(() => null);
-
+    // Strategy: live wins. The prebuilt snapshot is a fallback only —
+    // we fetch it lazily and only render it if the live fetch fails.
+    // (Showing snapshot first then replacing with live made the feed
+    // visibly "twitch" as items reordered.)
     let live = null;
     let liveError = null;
     try {
@@ -108,6 +133,9 @@ export default function Home() {
         me: ME_DID,
         options: {
           warn: (...args) => console.warn('[home]', ...args),
+          initialMax: INITIAL_FETCH_MAX,
+          authorFeedMax: INITIAL_FETCH_MAX,
+          skipListMembers: true,
         },
       });
       live = Array.isArray(result?.unified) ? result.unified : null;
@@ -115,8 +143,6 @@ export default function Home() {
       liveError = err;
       console.warn('[home] live refresh failed', err);
     }
-
-    const seed = await snapshotPromise;
 
     if (token.cancelled) {
       if (inflightRef.current === token) inflightRef.current = null;
@@ -128,15 +154,23 @@ export default function Home() {
     let nextRefreshState = 'ready';
 
     if (live) {
-      nextFeed = Array.isArray(seed) && seed.length
-        ? mergeByKey(seed, live, (item) => item?.atUri)
-        : live;
-    } else if (Array.isArray(seed)) {
-      nextFeed = seed;
-      if (liveError) nextRefreshState = 'error';
+      nextFeed = live;
     } else {
-      nextFeed = [];
-      if (liveError) nextRefreshState = 'error';
+      // Live failed — fall back to the snapshot, capped so a fat old
+      // snapshot doesn't dwarf the user's actual "Load more" history.
+      const seed = await fetchSnapshot(FEED_CACHE_KEY).catch(() => null);
+      if (token.cancelled) {
+        if (inflightRef.current === token) inflightRef.current = null;
+        endRefresh();
+        return null;
+      }
+      if (Array.isArray(seed)) {
+        nextFeed = seed.slice(0, SNAPSHOT_FALLBACK_MAX);
+        nextRefreshState = liveError ? 'stale' : 'ready';
+      } else {
+        nextFeed = [];
+        nextRefreshState = liveError ? 'error' : 'ready';
+      }
     }
 
     // Diff against what the user has already seen. New URIs animate in;
@@ -219,7 +253,13 @@ export default function Home() {
   }, [safeFeed]);
 
   const filtered = useMemo(() => filterFeed(safeFeed, params), [safeFeed, params]);
-  const collapsed = useMemo(() => collapseListens(filtered), [filtered]);
+  // "Load more" pagination — the user only sees the first `visibleCount`
+  // filtered items at a time. Slicing here (before threading / day
+  // grouping) means thread chains never get split mid-conversation: each
+  // visible window is a clean prefix of the filtered timeline.
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const hasMore = filtered.length > visible.length;
+  const collapsed = useMemo(() => collapseListens(visible), [visible]);
   const threaded = useMemo(() => groupSelfReplyThreads(collapsed, ME_DID), [collapsed]);
   const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
 
@@ -282,11 +322,25 @@ export default function Home() {
           ))}
         </ol>
       )}
+      {!loading && hasMore && (
+        <div className="feed-load-more">
+          <button
+            type="button"
+            className="feed-load-more-btn"
+            onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
+          >
+            Load more
+            <span className="feed-load-more-count">
+              {' '}({visible.length} of {filtered.length})
+            </span>
+          </button>
+        </div>
+      )}
       {!loading && loadedAt && (
         <FeedLiveStatus
           refreshState={refreshState}
           loadedAt={loadedAt}
-          summary={`${filtered.length} of ${safeFeed.length} records`}
+          summary={`${visible.length} of ${filtered.length} shown · ${safeFeed.length} loaded`}
         />
       )}
     </PageShell>

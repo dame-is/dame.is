@@ -428,6 +428,15 @@ export async function buildUnifiedFeed({
   const log = options.log || (() => {});
   const warn = options.warn || ((..._args) => {});
   const authorFeedMax = options.authorFeedMax ?? 200;
+  // When set, every collection's listRecords cap is reduced to at most
+  // this value. Lets the browser request a small "first paint" payload
+  // (faster TTFP, smaller subject hydration fan-out) while the prefetch
+  // script keeps its full caps for the static snapshot.
+  const initialMax = options.initialMax ?? null;
+  const capFor = (c) => (initialMax ? Math.min(c.max || 200, initialMax) : c.max || 200);
+  // Skipping list-item aggregation on the first fetch shaves a 1000-row
+  // listRecords call; lists still render, just without `_members`.
+  const skipListMembers = options.skipListMembers === true;
 
   const resolver = options.subjectResolver || createSubjectResolver({ appview, warn });
 
@@ -466,7 +475,7 @@ export async function buildUnifiedFeed({
 
           const records = await safe(
             `listRecords:${c.nsid}`,
-            () => listRecords(pds, { repo: me, collection: c.nsid, max: c.max || 200 }),
+            () => listRecords(pds, { repo: me, collection: c.nsid, max: capFor(c) }),
             [],
           );
           transformRecords(records, c.nsid, pds, me);
@@ -479,7 +488,7 @@ export async function buildUnifiedFeed({
             );
           }
 
-          if (c.withMembers === 'app.bsky.graph.listitem') {
+          if (c.withMembers === 'app.bsky.graph.listitem' && !skipListMembers) {
             await safe(
               `aggregateListItems:${c.nsid}`,
               () => aggregateListItems(records, pds, me),
