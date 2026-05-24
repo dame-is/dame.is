@@ -1,7 +1,7 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Compass, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowUp, Compass, Search, SlidersHorizontal } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -121,11 +121,17 @@ export default function ChromeBar() {
 function ChromeBarBottom({ dockOpen, toggleDock }) {
   const [params] = useSearchParams();
   const [searchOpen, setSearchOpen] = useState(false);
+  const reduce = useReducedMotion();
+  const scrolledDown = useScrolledDown(400);
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
   // Trigger buttons highlight when the corresponding URL state is
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+  }
 
   return (
     <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
@@ -141,6 +147,23 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
+        <AnimatePresence initial={false}>
+          {scrolledDown && (
+            <motion.button
+              key="scroll-top"
+              type="button"
+              className="chrome-nav chrome-scroll-top"
+              onClick={scrollToTop}
+              aria-label="Scroll to top"
+              initial={reduce ? false : { opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
+              transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
+            >
+              <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            </motion.button>
+          )}
+        </AnimatePresence>
         {filterAvailable && (
           <button
             type="button"
@@ -167,4 +190,20 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
+}
+
+/** Tracks whether the window has scrolled past `threshold` pixels.
+ *  Used to gate the scroll-to-top button so it only appears when it
+ *  actually has somewhere to scroll to. */
+function useScrolledDown(threshold) {
+  const [down, setDown] = useState(false);
+  useEffect(() => {
+    function onScroll() {
+      setDown(window.scrollY > threshold);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  return down;
 }
