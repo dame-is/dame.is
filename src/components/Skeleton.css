@@ -70,10 +70,9 @@
 }
 
 .skeleton-feed-item {
-  display: grid;
-  grid-template-columns: 4.5rem 1fr;
-  gap: var(--space-4);
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--rule-soft);
 }
@@ -84,10 +83,9 @@
 }
 
 .skeleton-feed-verb {
-  justify-self: end;
+  align-self: flex-start;
   width: 3.4rem;
   height: 0.8rem;
-  margin-top: 0.4rem;
 }
 
 .skeleton-feed-body {
@@ -115,16 +113,6 @@
   max-width: var(--measure);
 }
 
-@media (max-width: 700px) {
-  .skeleton-feed-item {
-    grid-template-columns: 1fr;
-    gap: var(--space-2);
-  }
-  .skeleton-feed-verb {
-    justify-self: start;
-  }
-}
-
 /* Density modes (compact / tight): drop the verb-column placeholder and
    tighten row spacing so the skeleton matches the layout it's standing
    in for, and real data doesn't reflow the page when it arrives. */
@@ -135,7 +123,6 @@
 
 [data-density='compact'] .skeleton-feed-item,
 [data-density='tight'] .skeleton-feed-item {
-  grid-template-columns: 1fr;
   gap: var(--space-1);
   padding-bottom: var(--space-3);
 }

@@ -85,11 +85,11 @@ export default function FeedItem({ item }) {
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
   const replyHint =
     item.verb === 'posting' && !threadContinuation ? getReplyHint(item.payload) : null;
-  const replyAsVerbColumn = Boolean(replyHint);
+  const isReplyVerb = Boolean(replyHint);
   const verbClassName = [
     'feed-item-verb',
     'small-caps',
-    replyAsVerbColumn ? 'feed-item-verb-reply' : '',
+    isReplyVerb ? 'feed-item-verb-reply' : '',
     threadContinuation ? 'feed-item-verb-thread' : '',
   ]
     .filter(Boolean)
@@ -99,7 +99,7 @@ export default function FeedItem({ item }) {
       <CornerDownRight size={15} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
       <span className="feed-item-verb-label">continuing</span>
     </>
-  ) : replyAsVerbColumn ? (
+  ) : isReplyVerb ? (
     <>
       <CornerDownRight size={15} strokeWidth={1.75} className="feed-item-verb-icon" aria-hidden="true" />
       <span className="feed-item-verb-label feed-item-verb-label-reply">
@@ -115,7 +115,6 @@ export default function FeedItem({ item }) {
   const liClassName = [
     'feed-item',
     `feed-item-${item.verb}`,
-    replyAsVerbColumn ? 'feed-item-reply-verb' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
@@ -142,7 +141,7 @@ export default function FeedItem({ item }) {
       <Component
         {...item}
         verb={item.verb}
-        suppressReplyBadge={replyAsVerbColumn || threadContinuation}
+        suppressReplyBadge={isReplyVerb || threadContinuation}
       />
     </li>
   );
