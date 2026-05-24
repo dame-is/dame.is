@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Compass, Search, X } from 'lucide-react';
+import { Compass, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
+import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { isRefreshing, subscribeRefresh } from '../lib/feedCache.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
@@ -126,6 +127,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const [params, setParams] = useSearchParams();
   const q = params.get('q') || '';
   const searchable = SEARCHABLE_ROUTES.has(location.pathname);
+  const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
+  // Filters are "active" when the URL spells out a custom verb set —
+  // matches the trigger button styling that used to live in FeedFilters.
+  const filterCustomized = params.has('verbs');
 
   function setQ(value) {
     setParams(
@@ -169,6 +174,18 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             </button>
           )}
         </div>
+        {filterAvailable && (
+          <button
+            type="button"
+            className={`chrome-nav chrome-filter ${filterOpen || filterCustomized ? 'is-open' : ''}`}
+            onClick={toggleFilter}
+            aria-expanded={filterOpen}
+            aria-haspopup="dialog"
+            aria-label={filterOpen ? 'Close filters' : 'Open filters'}
+          >
+            <SlidersHorizontal className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          </button>
+        )}
         <button
           type="button"
           className={`chrome-nav chrome-nav-bottom ${dockOpen ? 'is-open' : ''}`}

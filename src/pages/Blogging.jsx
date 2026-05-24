@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
+import { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
@@ -62,9 +62,6 @@ export default function Blogging() {
       atUri={`at://${ME_DID}/is.dame.page/blogging`}
       headTitle="Blogging — Dame is&hellip;"
     >
-      <div className="feed-filters feed-filters-search-only">
-        <FeedSearch label="Search blog posts" />
-      </div>
       {loading ? (
         <BloggingTocSkeleton rows={5} />
       ) : filtered.length === 0 ? (

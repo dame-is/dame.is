@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
+import { matchesQuery } from '../components/FeedSearch.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
@@ -53,8 +53,8 @@ export default function Creating() {
       atUri={`at://${ME_DID}/is.dame.page/creating`}
       headTitle="Creating — Dame is&hellip;"
     >
-      <div className={`feed-filters ${kinds.length > 1 ? '' : 'feed-filters-search-only'}`}>
-        {kinds.length > 1 ? (
+      {kinds.length > 1 && (
+        <div className="feed-filters">
           <div className="feed-chips">
             <button
               type="button"
@@ -74,9 +74,8 @@ export default function Creating() {
               </button>
             ))}
           </div>
-        ) : null}
-        <FeedSearch label="Search works" />
-      </div>
+        </div>
+      )}
       {loading ? (
         <CreatingGridSkeleton cells={6} />
       ) : filtered.length === 0 ? (

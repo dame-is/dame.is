@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
 import VerbIcon from './VerbIcon.jsx';
-import FeedSearch from './FeedSearch.jsx';
 import Modal from './Modal.jsx';
+import { useFeedFilter, useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
 import './FeedFilters.css';
 
 // Sentinel for "show none" so an empty `verbs=` doesn't resolve back to
@@ -13,21 +12,16 @@ import './FeedFilters.css';
 const NONE_SENTINEL = '__none__';
 
 /**
- * Search + filter button on the main feed. The verb chip grid lives behind
- * a modal so the filter affordance doesn't dominate the viewport — by
- * default the row is just a search input and a single "filter" button.
- *
- * Both controls sync to URL params:
- *   ?verbs=posting,blogging&q=mothing
- *
- * When the `verbs` param is absent, the default verb set from the
- * registry takes over (everything except the high-volume reference
- * verbs like `liking` and `voting`). To see those, the user has to
- * click their chip explicitly in the modal.
+ * Verb-filter modal host. Renders nothing visible itself — the trigger
+ * lives in the bottom chrome bar. Mounting this component registers the
+ * filter affordance with the context so the chrome bar knows to show
+ * its filter button while the host is on screen.
  */
 export default function FeedFilters({ counts }) {
   const [params, setParams] = useSearchParams();
-  const [modalOpen, setModalOpen] = useState(false);
+  const { open, closeModal } = useFeedFilter();
+  useRegisterFeedFilter();
+
   const activeVerbs = resolveActiveVerbs(params);
   const usingDefaults = !params.has('verbs');
 
@@ -77,37 +71,19 @@ export default function FeedFilters({ counts }) {
     }, { replace: true });
   }
 
-  const isCustomized = !usingDefaults;
-
   return (
-    <div className="feed-filters">
-      <FeedSearch label="Search the feed" />
-      <button
-        type="button"
-        className={`feed-filter-button ${isCustomized ? 'is-active' : ''}`}
-        onClick={() => setModalOpen(true)}
-        aria-haspopup="dialog"
-        aria-expanded={modalOpen}
-      >
-        <SlidersHorizontal size={14} aria-hidden="true" className="feed-filter-button-icon" />
-        <span className="small-caps">filter</span>
-        {isCustomized && (
-          <span className="feed-filter-button-count gutter">{activeVerbs.size}</span>
-        )}
-      </button>
-      <FilterModal
-        open={modalOpen}
-        activeVerbs={activeVerbs}
-        counts={counts}
-        usingDefaults={usingDefaults}
-        onToggleVerb={toggleVerb}
-        onSelectOnly={(v) => setVerbs(new Set([v]))}
-        onSelectAll={selectAll}
-        onSelectNone={selectNone}
-        onReset={resetToDefault}
-        onClose={() => setModalOpen(false)}
-      />
-    </div>
+    <FilterModal
+      open={open}
+      activeVerbs={activeVerbs}
+      counts={counts}
+      usingDefaults={usingDefaults}
+      onToggleVerb={toggleVerb}
+      onSelectOnly={(v) => setVerbs(new Set([v]))}
+      onSelectAll={selectAll}
+      onSelectNone={selectNone}
+      onReset={resetToDefault}
+      onClose={closeModal}
+    />
   );
 }
 
@@ -214,7 +190,7 @@ function FilterModal({
  * for power users who want to clear the default filtering without
  * picking each chip individually.
  */
-function resolveActiveVerbs(params) {
+export function resolveActiveVerbs(params) {
   if (!params.has('verbs')) return new Set(DEFAULT_HOME_VERBS);
   const value = params.get('verbs') || '';
   if (value === NONE_SENTINEL) return new Set();

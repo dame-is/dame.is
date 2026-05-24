@@ -7,10 +7,6 @@
   margin-bottom: var(--space-5);
 }
 
-.feed-filters-search-only {
-  justify-content: flex-start;
-}
-
 .feed-chips {
   display: flex;
   flex-wrap: wrap;
@@ -93,117 +89,6 @@
 .feed-chip-more:hover {
   color: var(--accent);
   border-color: var(--accent-soft);
-}
-
-.feed-search {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.feed-search input {
-  appearance: none;
-  -webkit-appearance: none;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  padding: 0.35em 1.8em 0.35em 2em;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--page-edge);
-  color: var(--ink);
-  width: 100%;
-  max-width: 24rem;
-}
-
-.feed-search-icon {
-  position: absolute;
-  left: 0.6em;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ink-faint);
-  pointer-events: none;
-}
-
-.feed-search:focus-within .feed-search-icon {
-  color: var(--ink-soft);
-}
-
-.feed-search input:focus {
-  outline: none;
-  border-color: var(--accent-soft);
-  background: var(--page);
-}
-
-.feed-search-clear {
-  position: absolute;
-  right: 0.35em;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.6em;
-  height: 1.6em;
-  border: none;
-  background: transparent;
-  border-radius: 0;
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-
-.feed-search-clear:hover {
-  color: var(--accent);
-}
-
-/* Filter button (opens the modal) ------------------------------------ */
-
-.feed-filter-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-  padding: 0.35em 0.9em;
-  border-radius: 0;
-  border: 1px solid var(--rule);
-  background: var(--page);
-  color: var(--ink-muted);
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  flex: 0 0 auto;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.feed-filter-button-icon {
-  flex: 0 0 auto;
-  color: var(--ink-faint);
-  transition: color 120ms ease;
-}
-
-.feed-filter-button:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-}
-
-.feed-filter-button:hover .feed-filter-button-icon {
-  color: var(--accent);
-}
-
-.feed-filter-button.is-active {
-  background: var(--highlight);
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.feed-filter-button.is-active .feed-filter-button-icon {
-  color: var(--accent);
-}
-
-.feed-filter-button-count {
-  font-size: 0.85em;
-  color: inherit;
-  opacity: 0.75;
 }
 
 /* Filter sheet ------------------------------------------------------- */

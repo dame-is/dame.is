@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
-import FeedSearch, { matchesQuery } from '../components/FeedSearch.jsx';
+import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { groupByDay } from '../lib/time.js';
@@ -40,9 +40,6 @@ export default function Posting() {
       atUri={`at://${ME_DID}/is.dame.page/posting`}
       headTitle="Posting — Dame is&hellip;"
     >
-      <div className="feed-filters feed-filters-search-only">
-        <FeedSearch label="Search posts" />
-      </div>
       {loading ? (
         <FeedSkeleton rows={6} label="Loading posts" />
       ) : status === 'error' ? (

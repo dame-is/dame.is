@@ -27,6 +27,7 @@ import { ThemeProvider } from './hooks/useTheme.jsx';
 import { TypefaceProvider } from './hooks/useTypeface.jsx';
 import { DensityProvider } from './hooks/useDensity.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
+import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 
 /**
@@ -74,6 +75,7 @@ export default function App() {
       <DensityProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
+      <FeedFilterProvider>
       <ActionDockProvider>
           <div className="app-shell">
             <ChromeBar />
@@ -127,6 +129,7 @@ export default function App() {
             <ActionDock />
           </div>
       </ActionDockProvider>
+      </FeedFilterProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>
       </DensityProvider>
