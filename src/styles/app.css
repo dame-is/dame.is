@@ -64,6 +64,28 @@
   margin-bottom: 0;
 }
 
+/* Home: visual break between the hero (page-title + intro) and the
+   "Latest" feed below it. Adds a touch of extra breathing room and a
+   small-caps section heading that won't compete with the hero h1. */
+.home-latest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+.home-latest-title {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--ink-faint);
+  margin: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
 .placeholder-card {
   border: 1px dashed var(--rule);
   border-radius: var(--radius-3);

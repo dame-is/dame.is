@@ -280,70 +280,73 @@ export default function Home() {
 
   return (
     <PageShell
-      title="Latest"
-      intro="What Dame has been up to most recently. Powered by the AT Protocol."
+      title={<>dame <span className="gerund">is</span></>}
+      intro="A design engineer and artist building tools and making things on the open web."
       atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="Dame is&hellip;"
     >
-      <FeedFilters counts={counts} />
-      {loading ? (
-        <FeedSkeleton rows={8} />
-      ) : filtered.length === 0 ? (
-        <p className="feed-empty">No records match these filters.</p>
-      ) : (
-        <ol className="feed-list reveal-stagger">
-          {groups.map((group) => (
-            <li key={group.dateKey} className="feed-day-group">
-              <DayOfLifeHeader date={group.date} />
-              <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
-                <AnimatePresence initial={false}>
-                  {group.items.map((item, i) => {
-                    const uri = item?.atUri;
-                    const isNew = uri ? newUris.has(uri) : false;
-                    const stagger = isNew ? (arrivalIndex.get(uri) ?? 0) * 0.06 : 0;
-                    return (
-                      <motion.li
-                        key={uri || `fallback-${group.dateKey}-${i}`}
-                        layout
-                        initial={isNew && !reduce ? { opacity: 0, y: -24 } : false}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          duration: reduce ? 0 : 0.45,
-                          ease: [0.22, 0.61, 0.36, 1],
-                          delay: reduce ? 0 : stagger,
-                        }}
-                      >
-                        <FeedItem item={item} />
-                      </motion.li>
-                    );
-                  })}
-                </AnimatePresence>
-              </ul>
-            </li>
-          ))}
-        </ol>
-      )}
-      {!loading && hasMore && (
-        <div className="feed-load-more">
-          <button
-            type="button"
-            className="feed-load-more-btn"
-            onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
-          >
-            Load more
-            <span className="feed-load-more-count">
-              {' '}({visible.length} of {filtered.length})
-            </span>
-          </button>
-        </div>
-      )}
-      {!loading && loadedAt && (
-        <FeedLiveStatus
-          refreshState={refreshState}
-          loadedAt={loadedAt}
-          summary={`${visible.length} of ${filtered.length} shown · ${safeFeed.length} loaded`}
-        />
-      )}
+      <section className="home-latest">
+        <h2 className="home-latest-title">Latest</h2>
+        <FeedFilters counts={counts} />
+        {loading ? (
+          <FeedSkeleton rows={8} />
+        ) : filtered.length === 0 ? (
+          <p className="feed-empty">No records match these filters.</p>
+        ) : (
+          <ol className="feed-list reveal-stagger">
+            {groups.map((group) => (
+              <li key={group.dateKey} className="feed-day-group">
+                <DayOfLifeHeader date={group.date} />
+                <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
+                  <AnimatePresence initial={false}>
+                    {group.items.map((item, i) => {
+                      const uri = item?.atUri;
+                      const isNew = uri ? newUris.has(uri) : false;
+                      const stagger = isNew ? (arrivalIndex.get(uri) ?? 0) * 0.06 : 0;
+                      return (
+                        <motion.li
+                          key={uri || `fallback-${group.dateKey}-${i}`}
+                          layout
+                          initial={isNew && !reduce ? { opacity: 0, y: -24 } : false}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: reduce ? 0 : 0.45,
+                            ease: [0.22, 0.61, 0.36, 1],
+                            delay: reduce ? 0 : stagger,
+                          }}
+                        >
+                          <FeedItem item={item} />
+                        </motion.li>
+                      );
+                    })}
+                  </AnimatePresence>
+                </ul>
+              </li>
+            ))}
+          </ol>
+        )}
+        {!loading && hasMore && (
+          <div className="feed-load-more">
+            <button
+              type="button"
+              className="feed-load-more-btn"
+              onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
+            >
+              Load more
+              <span className="feed-load-more-count">
+                {' '}({visible.length} of {filtered.length})
+              </span>
+            </button>
+          </div>
+        )}
+        {!loading && loadedAt && (
+          <FeedLiveStatus
+            refreshState={refreshState}
+            loadedAt={loadedAt}
+            summary={`${visible.length} of ${filtered.length} shown · ${safeFeed.length} loaded`}
+          />
+        )}
+      </section>
     </PageShell>
   );
 }
