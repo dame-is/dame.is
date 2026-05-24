@@ -1,7 +1,7 @@
-import { useSyncExternalStore } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useSyncExternalStore } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Compass, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Compass, Search, SlidersHorizontal } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -10,11 +10,8 @@ import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
 import ProfileStats from './ProfileStats.jsx';
+import SearchModal from './SearchModal.jsx';
 import './ChromeBar.css';
-
-// Routes whose page component reads `?q=` and filters its own list. On any
-// other route, submitting the bottom search bar instead jumps to `/?q=…`.
-const SEARCHABLE_ROUTES = new Set(['/', '/posting', '/logging', '/blogging', '/creating']);
 
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
@@ -122,58 +119,28 @@ export default function ChromeBar() {
 }
 
 function ChromeBarBottom({ dockOpen, toggleDock }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [params, setParams] = useSearchParams();
-  const q = params.get('q') || '';
-  const searchable = SEARCHABLE_ROUTES.has(location.pathname);
+  const [params] = useSearchParams();
+  const [searchOpen, setSearchOpen] = useState(false);
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
-  // Filters are "active" when the URL spells out a custom verb set —
-  // matches the trigger button styling that used to live in FeedFilters.
+  // Trigger buttons highlight when the corresponding URL state is
+  // populated — search has a `?q=`, filter has a custom verb set.
+  const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
 
-  function setQ(value) {
-    setParams(
-      (prev) => {
-        const out = new URLSearchParams(prev);
-        if (value) out.set('q', value);
-        else out.delete('q');
-        return out;
-      },
-      { replace: true },
-    );
-  }
-
-  function handleSubmit(e) {
-    e.preventDefault();
-    if (!searchable && q) navigate(`/?q=${encodeURIComponent(q)}`);
-  }
-
   return (
-    <div className="chrome-bar chrome-bar-bottom" role="search">
-      <form className="chrome-bottom-row" onSubmit={handleSubmit}>
-        <div className="chrome-search">
-          <Search size={14} aria-hidden="true" className="chrome-search-icon" />
-          <input
-            type="search"
-            name="q"
-            placeholder="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label="Search the site"
-            enterKeyHint="search"
-          />
-          {q && (
-            <button
-              type="button"
-              className="chrome-search-clear"
-              onClick={() => setQ('')}
-              aria-label="Clear search"
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
-          )}
-        </div>
+    <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
+      <div className="chrome-bottom-row">
+        <button
+          type="button"
+          className={`chrome-nav chrome-search-btn ${searchOpen || searchActive ? 'is-open' : ''}`}
+          onClick={() => setSearchOpen(true)}
+          aria-expanded={searchOpen}
+          aria-haspopup="dialog"
+          aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
+        >
+          <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+        </button>
+        <div className="chrome-bottom-spacer" aria-hidden="true" />
         {filterAvailable && (
           <button
             type="button"
@@ -196,7 +163,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         >
           <Compass className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
-      </form>
+      </div>
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

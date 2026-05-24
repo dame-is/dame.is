@@ -1,0 +1,98 @@
+/* Wrapped in <Modal variant="centered">; the Modal owns positioning,
+   scrim, surface, and motion. Only the interior layout lives here. */
+.search-modal-panel {
+  width: min(560px, 100%);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.search-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.search-modal-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-modal-field input {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  font-family: var(--sans);
+  /* 1rem keeps iOS Safari from auto-zooming when the input focuses —
+     anything under 16px triggers the zoom on tap. */
+  font-size: var(--text-base);
+  line-height: 1.4;
+  padding: 0.7em 2.4em 0.7em 2.7em;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page-edge);
+  color: var(--ink);
+}
+
+.search-modal-field input:focus {
+  outline: none;
+  border-color: var(--accent-soft);
+  background: var(--page);
+}
+
+.search-modal-icon {
+  position: absolute;
+  left: 0.85em;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+.search-modal-field:focus-within .search-modal-icon {
+  color: var(--ink-soft);
+}
+
+.search-modal-clear {
+  position: absolute;
+  right: 0.5em;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8em;
+  height: 1.8em;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.search-modal-clear:hover,
+.search-modal-clear:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+.search-modal-hint {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  text-align: center;
+  margin: 0;
+}
+
+.search-modal-hint kbd {
+  font-family: var(--mono, var(--sans));
+  font-size: 0.95em;
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--page);
+  color: var(--ink-soft);
+  margin: 0 0.15em;
+}

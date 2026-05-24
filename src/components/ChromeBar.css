@@ -294,68 +294,11 @@
   display: none;
 }
 
-/* Cap the search input width on wider screens so the bar reads as a
-   toolbar instead of one long bleed-to-the-edge input field. */
-.chrome-search {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+/* Push the right-hand action cluster (filter + menu) away from the
+   search button on the left without forcing every layout to be a flex
+   space-between (which would also stretch the buttons themselves). */
+.chrome-bottom-spacer {
   flex: 1 1 auto;
-  min-width: 0;
-  max-width: 28rem;
-}
-
-.chrome-search input {
-  appearance: none;
-  -webkit-appearance: none;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  padding: 0.45em 2em 0.45em 2.2em;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--page-edge);
-  color: var(--ink);
-  width: 100%;
-}
-
-.chrome-search input:focus {
-  outline: none;
-  border-color: var(--accent-soft);
-  background: var(--page);
-}
-
-.chrome-search-icon {
-  position: absolute;
-  left: 0.7em;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ink-faint);
-  pointer-events: none;
-}
-
-.chrome-search:focus-within .chrome-search-icon {
-  color: var(--ink-soft);
-}
-
-.chrome-search-clear {
-  position: absolute;
-  right: 0.4em;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.6em;
-  height: 1.6em;
-  border: none;
-  background: transparent;
-  border-radius: 0;
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-
-.chrome-search-clear:hover {
-  color: var(--accent);
 }
 
 /* Truncated chrome-bar values render a single copy clipped by `max-width`.
@@ -407,11 +350,5 @@
     width: 100%;
     max-width: 100%;
     min-width: 0;
-  }
-
-  /* On phones let the search input grow into all the remaining row width
-     so the input stays useful at the cramped viewport. */
-  .chrome-search {
-    max-width: none;
   }
 }
