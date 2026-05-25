@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, { filterFeed } from '../components/FeedFilters.jsx';
@@ -294,6 +294,15 @@ export default function Home() {
       atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="Dame is&hellip;"
     >
+      <nav className="home-hero-cta" aria-label="Primary destinations">
+        <Link className="home-hero-cta-btn home-hero-cta-primary" to="/creating">
+          Browse Projects
+        </Link>
+        <Link className="home-hero-cta-btn" to="/blogging">
+          Read Blog
+        </Link>
+      </nav>
+
       <section className="home-latest">
         <h2 className="home-latest-title">Latest</h2>
         <FeedFilters counts={counts} />

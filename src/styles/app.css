@@ -122,6 +122,54 @@
   display: block;
 }
 
+/* Home hero CTAs: two destinations underneath the animated sentence.
+   The primary (Browse Projects) is filled in the accent color to match
+   the compass button's visual weight; the secondary (Read Blog) reads
+   as an outline. */
+.home-hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.home-hero-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 0.6em 1.1em;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.home-hero-cta-btn:hover,
+.home-hero-cta-btn:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+.home-hero-cta-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--page);
+}
+
+.home-hero-cta-primary:hover,
+.home-hero-cta-primary:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--page);
+}
+
 /* Home: visual break between the hero (page-title) and the
    "Latest" feed below it. Adds a touch of extra breathing room and a
    small-caps section heading that won't compete with the hero h1. */

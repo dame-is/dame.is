@@ -27,7 +27,6 @@ export default function About() {
 
   return (
     <PageShell
-      title={profile?.displayName || 'About'}
       headTitle="About — Dame is…"
       atUri={`at://${ME_DID}/is.dame.profile/self`}
     >
@@ -36,6 +35,9 @@ export default function About() {
           <img className="about-avatar" src={profile.avatar} alt={profile.displayName || 'Avatar'} loading="lazy" />
         )}
         <div className="about-meta">
+          {profile?.displayName && (
+            <h1 className="about-name">{profile.displayName}</h1>
+          )}
           <h2 className="about-handle">@{profile?.handle || 'dame.is'}</h2>
           {tagline && <p className="about-tagline">{tagline}</p>}
           {profile?.description && (

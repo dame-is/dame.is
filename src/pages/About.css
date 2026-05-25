@@ -21,6 +21,16 @@
   min-width: 16rem;
 }
 
+.about-name {
+  font-family: var(--serif);
+  font-size: var(--text-3xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 var(--space-1);
+  line-height: 1.1;
+}
+
 .about-handle {
   font-family: var(--mono-ui);
   font-size: var(--text-base);
