@@ -3,7 +3,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 const FilmGrainContext = createContext(null);
 const STORAGE_KEY = 'dame.grain';
 const VALID = ['on', 'off'];
-const DEFAULT = 'on';
+// Feature dormant — the toggle UI is hidden in ActionDock and the
+// default is off. The hook, component, and styles are kept around
+// so the grain can be revived later by re-rendering FilmGrainToggle.
+const DEFAULT = 'off';
 
 function applyGrain(grain) {
   document.documentElement.setAttribute('data-grain', grain);
