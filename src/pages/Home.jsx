@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { Shuffle } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, { feedFilterCounts, filterFeed } from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
@@ -152,6 +153,11 @@ export default function Home() {
   // skip if one is already in flight, and `cancelled` cleanup can mark
   // it stale on unmount.
   const inflightRef = useRef(null);
+
+  // HeroSentence registers its imperative shuffle handle here so the
+  // shuffle button in the hero CTA row can advance both rotators
+  // without owning the hero's state.
+  const shuffleRef = useRef(null);
 
   const runRefresh = useCallback(async () => {
     if (inflightRef.current) return inflightRef.current;
@@ -317,7 +323,7 @@ export default function Home() {
 
   return (
     <PageShell
-      title={<HeroSentence />}
+      title={<HeroSentence shuffleRef={shuffleRef} />}
       atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="Dame is&hellip;"
     >
@@ -328,6 +334,15 @@ export default function Home() {
         <Link className="home-hero-cta-btn" to="/blogging">
           Read Blog
         </Link>
+        <button
+          type="button"
+          className="home-hero-cta-btn home-hero-shuffle"
+          onClick={() => shuffleRef.current?.()}
+          aria-label="Shuffle the hero phrase"
+          title="Shuffle"
+        >
+          <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
       </nav>
 
       <section className="home-latest">

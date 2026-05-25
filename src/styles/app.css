@@ -111,6 +111,17 @@
   vertical-align: top;
 }
 
+/* Three-tone sentence: muted lead → high-contrast role → accent
+   clause. Each part of the sentence gets a distinct color so the
+   structure reads at a glance. */
+.hero-rotator-a {
+  color: var(--ink);
+}
+
+.hero-rotator-b {
+  color: var(--accent);
+}
+
 .hero-rotator-phrase {
   display: inline-block;
 }
@@ -184,6 +195,14 @@
   background: var(--accent-soft);
   border-color: var(--accent-soft);
   color: var(--page);
+}
+
+/* Icon-only shuffle button sits alongside the two text CTAs but
+   reads as a quieter utility action — square footprint, no label
+   text, same border treatment as the secondary text CTA. */
+.home-hero-shuffle {
+  padding: 0.6em;
+  aspect-ratio: 1;
 }
 
 /* Home: visual break between the hero (page-title) and the

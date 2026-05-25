@@ -44,7 +44,7 @@ const wordVariants = {
   exit: { opacity: 0, y: 18, transition: { duration: 0.3, ease: EASE } },
 };
 
-export default function HeroSentence() {
+export default function HeroSentence({ shuffleRef = null } = {}) {
   const reduce = useReducedMotion();
   // Random starting pair so returning visitors don't always see the
   // same opener. Under reduced motion both pin to 0 for a predictable,
@@ -55,6 +55,21 @@ export default function HeroSentence() {
   const [indexB, setIndexB] = useState(() =>
     reduce ? 0 : Math.floor(Math.random() * VARIANTS_B.length),
   );
+
+  // Imperative shuffle handle the parent (Home) wires to a button so
+  // users can advance the sentence manually instead of waiting for the
+  // next timed swap. Always picks a fresh A and B both — picking the
+  // same pair would feel like a broken button.
+  useEffect(() => {
+    if (!shuffleRef) return undefined;
+    shuffleRef.current = () => {
+      setIndexA((i) => pickDifferent(i, VARIANTS_A.length));
+      setIndexB((i) => pickDifferent(i, VARIANTS_B.length));
+    };
+    return () => {
+      if (shuffleRef.current) shuffleRef.current = null;
+    };
+  }, [shuffleRef]);
   const [paused, setPaused] = useState(false);
   const [minHeight, setMinHeight] = useState(null);
   const wrapRef = useRef(null);
@@ -143,8 +158,8 @@ export default function HeroSentence() {
       onBlurCapture={() => setPaused(false)}
     >
       <span className="hero-sentence-lead">dame is</span>{' '}
-      <Rotator index={indexA} pool={VARIANTS_A} reduce={reduce} />{' '}
-      <Rotator index={indexB} pool={VARIANTS_B} reduce={reduce} />
+      <Rotator index={indexA} pool={VARIANTS_A} reduce={reduce} className="hero-rotator-a" />{' '}
+      <Rotator index={indexB} pool={VARIANTS_B} reduce={reduce} className="hero-rotator-b" />
 
       {/* Each measure entry mirrors the live nested structure (lead +
           two inline-block rotators) so wrapping at the rotator
@@ -161,10 +176,10 @@ export default function HeroSentence() {
           VARIANTS_B.map((b) => (
             <span key={`${a}|${b}`}>
               <span className="hero-sentence-lead">dame is</span>{' '}
-              <span className="hero-rotator">
+              <span className="hero-rotator hero-rotator-a">
                 <span className="hero-rotator-phrase">{a}</span>
               </span>{' '}
-              <span className="hero-rotator">
+              <span className="hero-rotator hero-rotator-b">
                 <span className="hero-rotator-phrase">{b}</span>
               </span>
             </span>
@@ -175,14 +190,23 @@ export default function HeroSentence() {
   );
 }
 
-function Rotator({ index, pool, reduce }) {
+function pickDifferent(current, length) {
+  if (length <= 1) return 0;
+  let next;
+  do {
+    next = Math.floor(Math.random() * length);
+  } while (next === current);
+  return next;
+}
+
+function Rotator({ index, pool, reduce, className = '' }) {
   // Split the active phrase into words once per index change. Real
   // space text nodes between word spans preserve the wrap-anywhere
   // behavior the measure layer already counts on.
   const words = useMemo(() => pool[index].split(' '), [pool, index]);
 
   return (
-    <span className="hero-rotator">
+    <span className={`hero-rotator ${className}`}>
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
           key={index}
