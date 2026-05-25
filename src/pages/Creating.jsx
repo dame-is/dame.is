@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
-import { matchesQuery } from '../components/FeedSearch.jsx';
+import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
@@ -11,7 +11,6 @@ import '../components/FeedFilters.css';
 import './Creating.css';
 
 export default function Creating() {
-  const [kind, setKind] = useState(null);
   const [params] = useSearchParams();
   const q = params.get('q') || '';
 
@@ -32,18 +31,22 @@ export default function Creating() {
 
   const loading = status === 'loading';
   const safeWorks = works || [];
-  const kinds = Array.from(new Set(safeWorks.map((r) => r.value?.kind).filter(Boolean)));
+  const kinds = useMemo(
+    () => Array.from(new Set(safeWorks.map((r) => r.value?.kind).filter(Boolean))),
+    [safeWorks],
+  );
+  const counts = useMemo(() => {
+    const c = {};
+    for (const r of safeWorks) {
+      const k = r.value?.kind;
+      if (!k) continue;
+      c[k] = (c[k] || 0) + 1;
+    }
+    return c;
+  }, [safeWorks]);
   const filtered = useMemo(
-    () =>
-      safeWorks.filter((r) => {
-        const v = r.value || {};
-        if (kind && v.kind !== kind) return false;
-        return matchesQuery(
-          [v.title, v.summary, v.body, v.kind, v.slug].filter(Boolean).join(' '),
-          q,
-        );
-      }),
-    [safeWorks, kind, q],
+    () => filterCreatingItems(safeWorks, params, kinds),
+    [safeWorks, params, kinds],
   );
 
   return (
@@ -53,29 +56,7 @@ export default function Creating() {
       atUri={`at://${ME_DID}/is.dame.page/creating`}
       headTitle="Creating — Dame is&hellip;"
     >
-      {kinds.length > 1 && (
-        <div className="feed-filters">
-          <div className="feed-chips">
-            <button
-              type="button"
-              className={`feed-chip ${!kind ? 'is-active' : ''}`}
-              onClick={() => setKind(null)}
-            >
-              <span className="small-caps">all</span>
-            </button>
-            {kinds.map((k) => (
-              <button
-                key={k}
-                type="button"
-                className={`feed-chip ${kind === k ? 'is-active' : ''}`}
-                onClick={() => setKind(k)}
-              >
-                <span className="small-caps">{k}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <CreatingFilters kinds={kinds} counts={counts} />
       {loading ? (
         <CreatingGridSkeleton cells={6} />
       ) : filtered.length === 0 ? (

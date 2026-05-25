@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
-import { matchesQuery } from '../components/FeedSearch.jsx';
+import PostingFilters, { filterPostingItems, postingCategories } from '../components/PostingFilters.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { groupByDay } from '../lib/time.js';
@@ -15,7 +15,6 @@ import '../components/Feed.css';
 
 export default function Posting() {
   const [params] = useSearchParams();
-  const q = params.get('q') || '';
 
   const { items, status, refreshedAt } = useLiveFeed({
     name: 'posts',
@@ -27,11 +26,23 @@ export default function Posting() {
   const loading = status === 'loading';
   const safeItems = items || [];
   const filtered = useMemo(
-    () => safeItems.filter((i) => matchesQuery(i.payload?.text, q)),
-    [safeItems, q],
+    () => filterPostingItems(safeItems, params),
+    [safeItems, params],
   );
   const threaded = useMemo(() => groupSelfReplyThreads(filtered, ME_DID), [filtered]);
   const groups = groupByDay(threaded, threadAwareDateKey);
+
+  // Per-sub-type counts for the modal chips (counts reflect the full
+  // unfiltered set so they don't churn as the user toggles).
+  const counts = useMemo(() => {
+    const c = {};
+    for (const item of safeItems) {
+      const cats = postingCategories(item);
+      if (!cats) continue;
+      for (const t of cats) c[t] = (c[t] || 0) + 1;
+    }
+    return c;
+  }, [safeItems]);
 
   return (
     <PageShell
@@ -40,12 +51,13 @@ export default function Posting() {
       atUri={`at://${ME_DID}/is.dame.page/posting`}
       headTitle="Posting — Dame is&hellip;"
     >
+      <PostingFilters counts={counts} />
       {loading ? (
         <FeedSkeleton rows={6} label="Loading posts" />
       ) : status === 'error' ? (
         <p className="feed-empty">Live refresh failed and no cached snapshot is available.</p>
       ) : groups.length === 0 ? (
-        <p className="feed-empty">{q ? 'No posts match that search.' : 'No posts yet.'}</p>
+        <p className="feed-empty">{params.get('q') ? 'No posts match that search.' : 'No posts match these filters.'}</p>
       ) : (
         <ol className="feed-list reveal-stagger">
           {groups.map((group) => (
