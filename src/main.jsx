@@ -11,16 +11,21 @@ const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('
 const initialTheme = storedTheme || 'system';
 document.documentElement.setAttribute('data-theme', initialTheme);
 
+// Reconcile theme-color on first paint when the user has an explicit
+// stored theme that differs from the OS preference. Without this, the
+// media-driven tags in index.html would briefly tint Safari's chrome
+// according to the OS until <ThemeProvider> mounts and corrects it.
 const initialScheme = initialTheme === 'system'
   ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
   : initialTheme;
-const initialThemeColor = initialScheme === 'dark' ? '#161c12' : '#e6dec3';
-const themeColorMeta = document.querySelector('meta[name="theme-color"]');
-if (themeColorMeta) themeColorMeta.setAttribute('content', initialThemeColor);
+const initialThemeColor = initialScheme === 'dark' ? '#13180f' : '#e3d8ba';
+document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+const themeColorMeta = document.createElement('meta');
+themeColorMeta.setAttribute('name', 'theme-color');
+themeColorMeta.setAttribute('content', initialThemeColor);
+document.head.appendChild(themeColorMeta);
 
-const storedTypeface = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.typeface') : null;
-const initialTypeface = ['combo', 'serif', 'sans'].includes(storedTypeface) ? storedTypeface : 'combo';
-document.documentElement.setAttribute('data-typeface', initialTypeface);
+document.documentElement.setAttribute('data-typeface', 'combo');
 
 // Density: read the new tri-state key first, fall back to the legacy
 // boolean `dame.compact` so users with the old setting don't lose it.

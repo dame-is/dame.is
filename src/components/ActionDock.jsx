@@ -4,8 +4,6 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Bug, ChevronLeft, User } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import Modal from './Modal.jsx';
-import ThemeToggle from './ThemeToggle.jsx';
-import TypefaceToggle from './TypefaceToggle.jsx';
 import DensityToggle from './DensityToggle.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
@@ -116,8 +114,6 @@ export default function ActionDock() {
               <div className="dock-section">
                 <div className="dock-heading">Tools</div>
                 <div className="dock-display-row">
-                  <ThemeToggle />
-                  <TypefaceToggle />
                   <DensityToggle />
                   <button
                     type="button"

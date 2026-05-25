@@ -24,7 +24,6 @@ import Footer from './components/Footer.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
-import { TypefaceProvider } from './hooks/useTypeface.jsx';
 import { DensityProvider } from './hooks/useDensity.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
@@ -71,7 +70,6 @@ function generatedRecordRoutes() {
 export default function App() {
   return (
     <ThemeProvider>
-      <TypefaceProvider>
       <DensityProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
@@ -133,7 +131,6 @@ export default function App() {
       </AtprotoSessionProvider>
       </ChromeBarProvider>
       </DensityProvider>
-      </TypefaceProvider>
     </ThemeProvider>
   );
 }
