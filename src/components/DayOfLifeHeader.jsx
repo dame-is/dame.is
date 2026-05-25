@@ -17,12 +17,10 @@ export default function DayOfLifeHeader({ date, prefix = null, meta = null }) {
         <span className="day-header-rule" aria-hidden="true" />
         <span
           className="day-header-date"
-          tabIndex={0}
           title={absolute}
           aria-label={`${relative} (${absolute})`}
         >
-          <span className="day-header-date-relative" aria-hidden="true">{relative}</span>
-          <span className="day-header-date-absolute" aria-hidden="true">{absolute}</span>
+          {relative}
         </span>
       </h3>
       {meta && <p className="day-header-meta">{meta}</p>}
