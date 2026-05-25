@@ -4,6 +4,7 @@ import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
 import Posting from './pages/Posting.jsx';
 import Logging from './pages/Logging.jsx';
+import Listening from './pages/Listening.jsx';
 import Blogging from './pages/Blogging.jsx';
 import BlogPost from './pages/BlogPost.jsx';
 import Creating from './pages/Creating.jsx';
@@ -87,6 +88,7 @@ export default function App() {
                   <Route path="/about" element={<About />} />
                   <Route path="/posting" element={<Posting />} />
                   <Route path="/logging" element={<Logging />} />
+                  <Route path="/listening" element={<Listening />} />
                   <Route path="/blogging" element={<Blogging />} />
                   <Route path="/blogging/:slug" element={<BlogPost />} />
                   <Route path="/creating" element={<Creating />} />

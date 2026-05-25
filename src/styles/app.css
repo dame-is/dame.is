@@ -80,6 +80,18 @@
      keeps the y-axis visible so the word slide-up animation still
      reads. */
   overflow-x: clip;
+  /* Ruled-paper rules underneath every line of hero text — including
+     blank rows reserved by the JS-measured min-height. The repeating
+     gradient draws a single 1px line at the bottom of each 1.1em row
+     (matching the page-title's line-height), in a near-transparent
+     ink so the paper feel reads without competing with the text. */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(1.1em - 1px),
+    color-mix(in srgb, var(--ink) 14%, transparent) calc(1.1em - 1px),
+    color-mix(in srgb, var(--ink) 14%, transparent) 1.1em
+  );
 }
 
 .hero-sentence-lead {

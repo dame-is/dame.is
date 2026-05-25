@@ -17,6 +17,16 @@ import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor } from '../lib/verbRegistry.js';
 
 /**
+ * Per-verb label overrides for the feed's verb column. Most verbs read
+ * fine as their registry gerund ("posting", "blogging") but a few want
+ * a more natural phrase in front of the card content ("listening to
+ * <song>" instead of just "listening | <song>").
+ */
+const VERB_LABEL_OVERRIDES = {
+  listening: 'listening to',
+};
+
+/**
  * Renderer name (in the registry) -> component. Adding a new renderer
  * means importing it here and dropping it in this map.
  */
@@ -127,7 +137,7 @@ export default function FeedItem({ item }) {
   ) : (
     <>
       <VerbIcon verb={item.verb} size={12} className="feed-item-verb-icon" />
-      <span className="feed-item-verb-label">{item.verb}</span>
+      <span className="feed-item-verb-label">{VERB_LABEL_OVERRIDES[item.verb] || item.verb}</span>
     </>
   );
   const liClassName = [

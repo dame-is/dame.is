@@ -14,6 +14,7 @@ const ROUTES = [
   { to: '/about', label: 'About' },
   { to: '/posting', label: 'Posting' },
   { to: '/logging', label: 'Logging' },
+  { to: '/listening', label: 'Listening' },
   { to: '/blogging', label: 'Blogging' },
   { to: '/creating', label: 'Creating' },
   { to: '/sharing', label: 'Sharing' },
