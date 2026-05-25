@@ -9,7 +9,7 @@ export default function NowPlaying() {
   if (!play?.track) {
     return (
       <span className="chrome-signal chrome-signal-now-playing">
-        <span className="chrome-signal-label">listening</span>
+        <span className="chrome-signal-label">listening to</span>
         <span className="chrome-signal-value">&mdash;</span>
       </span>
     );
@@ -25,7 +25,7 @@ export default function NowPlaying() {
   );
   return (
     <span className="chrome-signal chrome-signal-now-playing">
-      <span className="chrome-signal-label">listening</span>
+      <span className="chrome-signal-label">listening to</span>
       <TickerText className="chrome-signal-value" title={tooltip}>
         {href ? (
           <Link to={href} className="chrome-signal-link">{inner}</Link>

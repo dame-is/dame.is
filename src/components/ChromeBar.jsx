@@ -9,7 +9,6 @@ import { useTheme } from '../hooks/useTheme.jsx';
 import { isRefreshing, subscribeRefresh } from '../lib/feedCache.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
-import DayOfLifeTicker from './DayOfLifeTicker.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import SearchModal from './SearchModal.jsx';
 import './ChromeBar.css';
@@ -106,7 +105,6 @@ export default function ChromeBar() {
                 >
                   <NowPlaying />
                   <ProfileStats />
-                  <DayOfLifeTicker />
                 </motion.div>
               </div>
             </motion.div>
