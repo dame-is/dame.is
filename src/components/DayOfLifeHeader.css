@@ -1,8 +1,3 @@
-/* Day-of-life headers are section dividers for each day's items, so
-   they sit a tier above the feed-item verb labels in the hierarchy.
-   Bumped to text-sm + weight 600 + full --ink so the eye reads them
-   as headings — the verb labels right below them stay at text-xs +
-   --ink-faint, keeping the contrast visible. */
 .day-header {
   display: flex;
   align-items: baseline;
@@ -12,13 +7,14 @@
   font-variant: all-small-caps;
   letter-spacing: 0.14em;
   color: var(--ink);
-  margin: var(--space-7) 0 var(--space-3);
+  margin: 0 0 var(--space-3);
   font-weight: 600;
 }
 
-.day-header:first-child {
-  margin-top: 0;
-}
+/* Subsequent day groups in a feed get a deeper top margin (applied on
+   the parent .feed-day-group, see Feed.css) so the break between one
+   day and the next reads as a section divider — the day-header itself
+   stays anchored to the top of its group. */
 
 /* Lead label for the very first day group on a feed — Home uses this
    to label the top-most day "Latest" instead of "Day 12,072". The

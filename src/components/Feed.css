@@ -22,6 +22,13 @@
   border-bottom: none;
 }
 
+/* Visual break between consecutive day sections. The outer feed-list
+   gap already separates groups; this adds more breathing room so the
+   day-header reads as a fresh section rather than continuous flow. */
+.feed-day-group + .feed-day-group {
+  margin-top: var(--space-7);
+}
+
 /* Verb badge — icon + gerund (or "replying to @handle", "continuing")
    above the card body, matching how reply hints already render. Sits at
    the row's start at every viewport width so the eye always finds the

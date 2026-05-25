@@ -28,7 +28,12 @@ export function relativeTime(date, now = new Date()) {
 }
 
 /**
- * Group items by their UTC date (yyyy-mm-dd) using `pickDate`.
+ * Group items by their *local* calendar date (yyyy-mm-dd) using `pickDate`.
+ * Local instead of UTC because the user reads the feed in their own
+ * time zone — a post made at 11pm EST should sit in that evening's
+ * group, not get bumped into the next day because UTC already rolled
+ * over.
+ *
  * Returns an array of `{ dateKey, date, items }` ordered by `dateKey desc`.
  */
 export function groupByDay(items, pickDate = (i) => i.createdAt) {
@@ -38,11 +43,18 @@ export function groupByDay(items, pickDate = (i) => i.createdAt) {
     if (!raw) continue;
     const d = new Date(raw);
     if (Number.isNaN(d.getTime())) continue;
-    const key = d.toISOString().slice(0, 10);
+    const key = localDateKey(d);
     if (!buckets.has(key)) buckets.set(key, { dateKey: key, date: d, items: [] });
     buckets.get(key).items.push(item);
   }
   return Array.from(buckets.values()).sort((a, b) => (a.dateKey < b.dateKey ? 1 : -1));
+}
+
+function localDateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 const MONTHS = [
@@ -54,14 +66,15 @@ const MONTHS = [
  * Long-form relative phrasing tuned for day-grouped headers, e.g.
  * "today", "yesterday", "3 days ago", "2 weeks ago", "5 months ago".
  *
- * Anchored to the start of `now`'s UTC day so two timestamps on the same
- * calendar day always read as "today" regardless of clock time.
+ * Anchored to the start of `now`'s *local* day — a post made at 11pm
+ * EST should read as "today" until midnight EST, not until UTC's idea
+ * of midnight (which is 7-8pm EST).
  */
 export function relativeDay(date, now = new Date()) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';
   const startOfDay = (x) =>
-    Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate());
+    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((startOfDay(now) - startOfDay(d)) / MS.d);
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
