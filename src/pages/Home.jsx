@@ -51,6 +51,37 @@ const SNAPSHOT_FALLBACK_MAX = 60;
  */
 const LISTEN_BATCH_GAP_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+/**
+ * Per-day summary line shown under each day header in the home feed.
+ * Counts:
+ *   - records  — real underlying records (listen batches expand to
+ *                their `count` so a session of 10 songs reads as 10
+ *                records, not 1).
+ *   - posts    — items whose verb is `posting`.
+ *   - engagements — sum of like/repost/reply counts across this day's
+ *                   posting items. Reflects how much activity those
+ *                   posts attracted on Bluesky.
+ * Parts with a zero count are omitted so quieter days read clean.
+ */
+function dayStatsLine(items) {
+  let records = 0;
+  let posts = 0;
+  let engagements = 0;
+  for (const item of items || []) {
+    records += item?.count || 1;
+    if (item?.verb === 'posting') {
+      posts += 1;
+      const p = item.payload || {};
+      engagements += (p.likeCount || 0) + (p.repostCount || 0) + (p.replyCount || 0);
+    }
+  }
+  const parts = [];
+  if (records) parts.push(`${records} ${records === 1 ? 'record' : 'records'}`);
+  if (posts) parts.push(`${posts} ${posts === 1 ? 'post' : 'posts'}`);
+  if (engagements) parts.push(`${engagements} ${engagements === 1 ? 'engagement' : 'engagements'}`);
+  return parts.join(' · ');
+}
+
 function collapseListens(items) {
   const out = [];
   let openBatch = null;
@@ -309,7 +340,11 @@ export default function Home() {
           <ol className="feed-list reveal-stagger">
             {groups.map((group, gi) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} prefix={gi === 0 ? 'Latest' : null} />
+                <DayOfLifeHeader
+                  date={group.date}
+                  prefix={gi === 0 ? 'Latest' : null}
+                  meta={dayStatsLine(group.items)}
+                />
                 <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
                   <AnimatePresence initial={false}>
                     {group.items.map((item, i) => {

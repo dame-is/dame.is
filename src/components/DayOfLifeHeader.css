@@ -1,3 +1,10 @@
+.day-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+}
+
 .day-header {
   display: flex;
   align-items: baseline;
@@ -7,8 +14,19 @@
   font-variant: all-small-caps;
   letter-spacing: 0.14em;
   color: var(--ink);
-  margin: 0 0 var(--space-3);
+  margin: 0;
   font-weight: 600;
+}
+
+/* Day summary stats — sit under the day-header rule as a quiet
+   secondary line. Mirrors the verb-label scale so it reads as
+   metadata, not heading. */
+.day-header-meta {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  margin: 0;
+  letter-spacing: 0.02em;
 }
 
 /* Subsequent day groups in a feed get a deeper top margin (applied on
