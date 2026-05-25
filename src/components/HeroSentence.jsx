@@ -15,14 +15,29 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
  */
 const VARIANTS_A = [
   'a design engineer',
-  'a creative technologist',
-  'a lepidopterist',
   'an artist',
+  'a lepidopterist',
+  'a sourdough baker',
+  'a weird little guy',
+  'a they/them',
+  'an Appalachian',
+  'a creative technologist',
+  'a tennis player',
+  'an interface designer',
 ];
 
 const VARIANTS_B = [
-  'who makes social software with open protocols',
   'who sometimes stays up late mothing',
+  'who makes social software with open protocols',
+  'who unconsciously hums christmas music all year round',
+  'who loves weird little beverages',
+  'who has a tan little dog named Cooper',
+  'who fostered two lost kune kune pigs that one time',
+  'who gave a talk titled “From Moths to Toilets” at a conference',
+  'who built anisota.net',
+  'who made a bespoke micro social network called Flushes',
+  'who thinks the future of social media is weird and not for everyone',
+  'who creates software to help people be offline more and online better',
 ];
 
 const EASE = [0.22, 0.61, 0.36, 1];
