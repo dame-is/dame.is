@@ -36,30 +36,22 @@ function applyThemeColor(theme) {
   meta.setAttribute('content', color);
   head.appendChild(meta);
 
-  // iOS Safari's status-bar / URL-bar tint is read at first paint and
-  // doesn't reliably refresh when the meta tag is swapped or mutated in
-  // place mid-session. Several workarounds chained here cover the
-  // widest range of iOS versions:
-  //   1) re-detach + re-append the meta on the next frame (forces a
-  //      fresh head mutation Safari is more likely to observe),
-  //   2) nudge `color-scheme` on <html> (forces native UI controls and
-  //      the chrome to re-resolve dark/light),
-  //   3) dispatch a no-op scroll so Safari runs the chrome
-  //      re-evaluation pass it normally runs on scroll boundaries.
+  // iOS Safari (incl. 26.x) only re-tints its status bar / URL bar
+  // surround when it sees a scroll-boundary repaint after the meta tag
+  // changes — sticky/fixed chrome means the page underneath those bars
+  // never naturally repaints on a theme toggle. So after re-inserting
+  // the meta, fire a real 1px scroll-and-back to provoke the chrome
+  // tint pass. Order: meta swap → rAF → meta re-append → scroll nudge.
   requestAnimationFrame(() => {
     if (!meta.isConnected) return;
     meta.remove();
     head.appendChild(meta);
-    const root = document.documentElement;
-    const prev = root.style.colorScheme;
-    root.style.colorScheme = scheme === 'dark' ? 'dark' : 'light';
-    if (prev !== undefined) {
-      requestAnimationFrame(() => {
-        root.style.colorScheme = prev;
-      });
-    }
     try {
-      window.scrollBy(0, 0);
+      const y = window.scrollY || window.pageYOffset || 0;
+      window.scrollTo(0, y + 1);
+      requestAnimationFrame(() => {
+        window.scrollTo(0, y);
+      });
     } catch {}
   });
 }

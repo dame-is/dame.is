@@ -1,7 +1,5 @@
 .chrome-bar {
   background: var(--surface-raised);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   font-style: normal;
 }
 
