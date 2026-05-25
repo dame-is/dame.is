@@ -1,0 +1,156 @@
+/* ============================================================
+   Film grain — subtle, embedded, organic.
+
+   Implementation notes
+   --------------------
+   - Static SVG <feTurbulence> noise rendered as a tiled CSS
+     background-image. Static (no seed change per frame), so the
+     browser decodes the SVG once and tiles a bitmap from then on:
+     zero per-frame cost.
+   - `mix-blend-mode: soft-light` is what makes the grain feel
+     EMBEDDED rather than overlaid: each grain particle is near-
+     50% gray, so soft-light gently lightens dark page areas and
+     darkens light ones — exactly how real film grain reads.
+   - Two layers (fine + coarse, different scales + seeds) break
+     up the regularity of a single feTurbulence and avoid the
+     "video-noise" look that one frequency gives off.
+   - Raised surfaces (chrome bars, modal panels, action dock)
+     get an additional, finer grain via `::before` pseudo so they
+     don't read as flat cutouts on top of an otherwise grainy
+     page. See `[data-grain="on"]` rules at the bottom.
+   - The `#` in the filter URL inside each SVG data URI MUST be
+     written as `%23` (the only required URL-encoding for a CSS
+     `data:image/svg+xml;utf8,...` value).
+   ============================================================ */
+
+.film-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* Sit above modals (z=60), the chrome bars (z=30), and anything
+     else in the app. The grain is the topmost "substrate" — the
+     whole image, including overlays, is filtered through it. */
+  z-index: 9999;
+  /* Hidden by default; the data-grain attribute on <html> below
+     turns it on. Avoids a one-frame flash of grain before the
+     user's saved preference is read in main.jsx. */
+  display: none;
+}
+
+[data-grain='on'] .film-grain {
+  display: block;
+}
+
+.film-grain-layer {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+}
+
+/* Fine grain — the primary layer. Small particles, near 50% gray,
+   soft-light blended so it dapples light areas and lifts dark
+   areas with the same noise pattern. Kept low so the page color
+   reads cleanly and text stays sharp. */
+.film-grain-fine {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='220' height='220' filter='url(%23g)'/></svg>");
+  background-size: 220px 220px;
+  mix-blend-mode: soft-light;
+  opacity: 0.22;
+}
+
+/* Coarse grain — a wider-period turbulence layered on top.
+   Modulates the fine grain into uneven clumps so the texture
+   doesn't read as a uniform field. Very low opacity so it shapes
+   the fine layer without becoming a visible pattern itself. */
+.film-grain-coarse {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 360'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.32' numOctaves='3' stitchTiles='stitch' seed='17'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='360' height='360' filter='url(%23g)'/></svg>");
+  background-size: 360px 360px;
+  mix-blend-mode: soft-light;
+  opacity: 0.09;
+}
+
+/* Dark mode opacities are much lower than light because
+   soft-light is asymmetric on near-black: bright grain pixels
+   lift dark colors significantly more than dark grain pixels
+   darken them, so even modest opacity here washes out the deep
+   green-black palette. These values keep the page color intact
+   while still giving a perceptible film texture. */
+[data-theme='dark'] .film-grain-fine {
+  opacity: 0.07;
+}
+
+[data-theme='dark'] .film-grain-coarse {
+  opacity: 0.03;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='system'] .film-grain-fine {
+    opacity: 0.07;
+  }
+  [data-theme='system'] .film-grain-coarse {
+    opacity: 0.03;
+  }
+}
+
+/* ----- Raised-surface grain ---------------------------------
+   Chrome bars and modal panels paint above the page on their
+   own warm/dark surface. Without a second grain pass they look
+   like a clean cutout floating in front of a grainy field.
+   A `::before` pseudo with its own finer turbulence anchored to
+   the surface (not the viewport) gives those surfaces their own
+   embedded texture. Different baseFrequency + seed than the
+   global layers so the two patterns don't moiré.
+   --------------------------------------------------------- */
+
+[data-grain='on'] .chrome-bar,
+[data-grain='on'] .modal-panel {
+  position: relative;
+}
+
+[data-grain='on'] .chrome-bar::before,
+[data-grain='on'] .modal-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='1.15' numOctaves='2' stitchTiles='stitch' seed='11'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='180' height='180' filter='url(%23g)'/></svg>");
+  background-size: 180px 180px;
+  background-repeat: repeat;
+  mix-blend-mode: soft-light;
+  opacity: 0.18;
+  /* Above the surface's own background, below the surface's
+     content (icons, text, controls). z-index 0 + the children's
+     implicit z-index of auto puts content on top. */
+  z-index: 0;
+  /* Inherit the surface's border-radius so the grain doesn't
+     bleed past rounded corners (modals can have radii via the
+     theme even though radius-3 is currently 0). */
+  border-radius: inherit;
+}
+
+[data-theme='dark'] [data-grain='on'] .chrome-bar::before,
+[data-theme='dark'] [data-grain='on'] .modal-panel::before {
+  opacity: 0.06;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='system'] [data-grain='on'] .chrome-bar::before,
+  [data-theme='system'] [data-grain='on'] .modal-panel::before {
+    opacity: 0.06;
+  }
+}
+
+/* Stack the surface's existing content above the new ::before
+   grain. The chrome bars use their natural source order to paint
+   children over ::before; setting position: relative + z-index: 1
+   on direct rows guards against any future child that establishes
+   its own stacking context with a lower z-index. */
+[data-grain='on'] .chrome-bar > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-grain='on'] .modal-panel > * {
+  position: relative;
+  z-index: 1;
+}

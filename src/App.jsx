@@ -21,6 +21,7 @@ const Exploring = lazy(() => import('./pages/Exploring.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import Footer from './components/Footer.jsx';
+import FilmGrain from './components/FilmGrain.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
@@ -28,6 +29,7 @@ import { DensityProvider } from './hooks/useDensity.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
+import { FilmGrainProvider } from './hooks/useFilmGrain.jsx';
 
 /**
  * Verbs whose record page is handled by a bespoke page component (not the
@@ -71,6 +73,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <DensityProvider>
+      <FilmGrainProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
       <FeedFilterProvider>
@@ -125,11 +128,13 @@ export default function App() {
             </main>
             <Footer />
             <ActionDock />
+            <FilmGrain />
           </div>
       </ActionDockProvider>
       </FeedFilterProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>
+      </FilmGrainProvider>
       </DensityProvider>
     </ThemeProvider>
   );
