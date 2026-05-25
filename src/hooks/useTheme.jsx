@@ -18,17 +18,14 @@ const THEME_COLOR = {
   dark: '#13180f',
 };
 
-function defaultByOS() {
-  if (typeof window === 'undefined' || !window.matchMedia) return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
+const DEFAULT_THEME = 'light';
 
 function migrateStoredTheme(stored) {
   if (VALID.includes(stored)) return stored;
-  // Legacy migration: old `system` value (or anything else) resolves
-  // to the OS preference's color variant. `light` and `dark` were
-  // already in the new VALID list, so they pass through unchanged.
-  return defaultByOS();
+  // Legacy / missing values land on the colored light theme so new
+  // visitors get a predictable first paint — they can cycle to dark
+  // (or either mono variant) from the chrome bar.
+  return DEFAULT_THEME;
 }
 
 function applyTheme(theme) {
@@ -62,7 +59,7 @@ function applyThemeColor(theme) {
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => {
-    if (typeof localStorage === 'undefined') return defaultByOS();
+    if (typeof localStorage === 'undefined') return DEFAULT_THEME;
     return migrateStoredTheme(localStorage.getItem(STORAGE_KEY));
   });
 

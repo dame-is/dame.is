@@ -19,11 +19,9 @@ const THEME_COLORS = {
   dark: '#13180f',
 };
 const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
-const osDark = typeof window !== 'undefined'
-  && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-const initialTheme = VALID_THEMES.includes(storedTheme)
-  ? storedTheme
-  : (osDark ? 'dark' : 'light');
+// Default to colored-light for new visitors (and legacy `system` /
+// other invalid values). Keep in sync with DEFAULT_THEME in useTheme.
+const initialTheme = VALID_THEMES.includes(storedTheme) ? storedTheme : 'light';
 document.documentElement.setAttribute('data-theme', initialTheme);
 
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
