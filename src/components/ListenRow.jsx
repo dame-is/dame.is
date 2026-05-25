@@ -19,7 +19,7 @@ export default function ListenRow({ payload, atUri, count, plays }) {
     <article className="listen-row feed-card" data-at-uri={atUri}>
       <div className="listen-row-head">
         <span className="listen-row-text">
-          <TrackLabel payload={payload} href={recordHref} />
+          <TrackLabel payload={payload} href={recordHref} plays={plays} />
         </span>
         {count > 1 && (
           canExpand ? (
@@ -54,16 +54,57 @@ export default function ListenRow({ payload, atUri, count, plays }) {
   );
 }
 
-function TrackLabel({ payload, href }) {
+// When a row represents a batched listening session, surface the
+// pool's variety in the top-line: latest track + a deduped list of
+// artists from across the batch (latest first). Single-play rows
+// keep the simple "track · artist" form.
+const ARTIST_DISPLAY_MAX = 4;
+
+function TrackLabel({ payload, href, plays }) {
   const track = payload?.trackName || payload?.track || '';
-  const artist = formatArtist(payload);
+  const isBatch = Array.isArray(plays) && plays.length > 1;
+  let artistLine;
+  if (isBatch) {
+    const artists = uniqueArtistNames(plays);
+    const shown = artists.slice(0, ARTIST_DISPLAY_MAX).join(', ');
+    const extra = artists.length > ARTIST_DISPLAY_MAX
+      ? ` + ${artists.length - ARTIST_DISPLAY_MAX} more`
+      : '';
+    artistLine = shown + extra;
+  } else {
+    artistLine = formatArtist(payload);
+  }
   const inner = (
     <>
       <strong>{track || <em>—</em>}</strong>
-      {artist ? ` · ${artist}` : ''}
+      {artistLine ? ` · ${artistLine}` : ''}
     </>
   );
   return href ? <Link to={href}>{inner}</Link> : <span>{inner}</span>;
+}
+
+function uniqueArtistNames(plays) {
+  const seen = new Set();
+  const out = [];
+  for (const play of plays) {
+    const arr = play?.payload?.artists;
+    if (Array.isArray(arr)) {
+      for (const a of arr) {
+        const name = a?.artistName;
+        if (name && !seen.has(name)) {
+          seen.add(name);
+          out.push(name);
+        }
+      }
+    } else if (play?.payload?.artist) {
+      const name = play.payload.artist;
+      if (!seen.has(name)) {
+        seen.add(name);
+        out.push(name);
+      }
+    }
+  }
+  return out;
 }
 
 function ChildPlay({ item }) {

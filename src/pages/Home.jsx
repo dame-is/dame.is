@@ -40,29 +40,38 @@ const LOAD_MORE_STEP = 100;
 // the page when the network is flaky.
 const SNAPSHOT_FALLBACK_MAX = 60;
 
-function dayKey(iso) {
-  return iso ? new Date(iso).toISOString().slice(0, 10) : '';
-}
 
 /**
- * Collapse runs of consecutive `listening` items on the same day into one
- * row with a count, so /  doesn't drown in single-track plays.
+ * Collapse `listening` items into session batches. Listens are merged
+ * when they fall within `LISTEN_BATCH_GAP_MS` of each other — the gap
+ * is measured listen-to-listen, so non-listening items interleaved in
+ * the feed (a post mid-session, etc.) don't fragment the batch. Day
+ * boundary doesn't matter; a session that crosses midnight still
+ * groups into one row.
  */
+const LISTEN_BATCH_GAP_MS = 4 * 60 * 60 * 1000; // 4 hours
+
 function collapseListens(items) {
   const out = [];
-  let run = null;
+  let openBatch = null;
+  let lastListenTime = 0;
   for (const item of items) {
     if (item.verb === 'listening') {
-      const key = dayKey(item.createdAt);
-      if (run && run.verb === 'listening' && dayKey(run.createdAt) === key) {
-        run.count = (run.count || 1) + 1;
-        run.plays.push(item);
+      const t = Date.parse(item.createdAt) || 0;
+      if (openBatch && Math.abs(lastListenTime - t) <= LISTEN_BATCH_GAP_MS) {
+        openBatch.count = (openBatch.count || 1) + 1;
+        openBatch.plays.push(item);
+        lastListenTime = t;
         continue;
       }
-      run = { ...item, count: 1, plays: [item] };
-      out.push(run);
+      const batch = { ...item, count: 1, plays: [item] };
+      openBatch = batch;
+      lastListenTime = t;
+      out.push(batch);
     } else {
-      run = null;
+      // Non-listening items pass through to the output but DON'T
+      // close the batch — the next listen within the gap window
+      // still merges into the same session.
       out.push(item);
     }
   }
