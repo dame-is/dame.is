@@ -70,6 +70,16 @@
   /* One-line fallback that paints before JS measures the real tallest
      combination. The measurement effect only ever grows from here. */
   min-height: 1.1em;
+  /* AnimatePresence mode="popLayout" inside the rotators absolute-
+     positions exiting phrases so the next phrase can take the natural
+     flow. If the exiting phrase is wider than the new one, that
+     absolute child momentarily extends past the rotator's right edge
+     — on narrow viewports that's enough to push the document past the
+     viewport and trigger a horizontal scrollbar. Clip the x-axis here
+     so the exit can't escape the hero's column. `clip` (not `hidden`)
+     keeps the y-axis visible so the word slide-up animation still
+     reads. */
+  overflow-x: clip;
 }
 
 .hero-sentence-lead {
