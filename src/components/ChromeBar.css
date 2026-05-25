@@ -225,10 +225,10 @@
   width: 1.75rem;
   height: 1.75rem;
   padding: 0;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--ink-faint);
   border-radius: 0;
   background: transparent;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
@@ -251,6 +251,28 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* The compass nav button is the menu trigger — promote it to a filled,
+   accent-tinted primary so it reads as the main action among the
+   bottom-bar controls. */
+.chrome-nav.chrome-nav-bottom {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--page);
+}
+
+.chrome-nav.chrome-nav-bottom:hover,
+.chrome-nav.chrome-nav-bottom:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--page);
+}
+
+.chrome-nav.chrome-nav-bottom.is-open {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--page);
 }
 
 .chrome-nav-glyph {
