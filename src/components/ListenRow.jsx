@@ -63,17 +63,20 @@ const ARTIST_DISPLAY_MAX = 4;
 function TrackLabel({ payload, href, plays }) {
   const track = payload?.trackName || payload?.track || '';
   const isBatch = Array.isArray(plays) && plays.length > 1;
-  let artistLine;
-  if (isBatch) {
-    const artists = uniqueArtistNames(plays);
+  const artists = isBatch ? uniqueArtistNames(plays) : null;
+  // When a batched session spans multiple unique artists, the song
+  // title from the most recent play isn't very representative — drop
+  // it and let the artist pool carry the line. Single-artist batches
+  // (and unbatched rows) still lead with "<track> · <artist>".
+  if (isBatch && artists.length > 1) {
     const shown = artists.slice(0, ARTIST_DISPLAY_MAX).join(', ');
     const extra = artists.length > ARTIST_DISPLAY_MAX
       ? ` + ${artists.length - ARTIST_DISPLAY_MAX} more`
       : '';
-    artistLine = shown + extra;
-  } else {
-    artistLine = formatArtist(payload);
+    const inner = <strong>{shown + extra}</strong>;
+    return href ? <Link to={href}>{inner}</Link> : <span>{inner}</span>;
   }
+  const artistLine = isBatch ? (artists[0] || '') : formatArtist(payload);
   const inner = (
     <>
       <strong>{track || <em>—</em>}</strong>
