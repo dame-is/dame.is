@@ -263,7 +263,7 @@ export default function Home() {
     return c;
   }, [safeFeed]);
 
-  const filtered = useMemo(() => filterFeed(safeFeed, params), [safeFeed, params]);
+  const filtered = useMemo(() => filterFeed(safeFeed, params, ME_DID), [safeFeed, params]);
   // "Load more" pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each

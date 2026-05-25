@@ -24,6 +24,7 @@ export default function FeedFilters({ counts }) {
 
   const activeVerbs = resolveActiveVerbs(params);
   const usingDefaults = !params.has('verbs');
+  const showOtherReplies = params.get('replies') === 'all';
 
   function toggleVerb(v) {
     const next = new Set(activeVerbs);
@@ -67,6 +68,16 @@ export default function FeedFilters({ counts }) {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
       out.delete('verbs');
+      out.delete('replies');
+      return out;
+    }, { replace: true });
+  }
+
+  function toggleOtherReplies() {
+    setParams((prev) => {
+      const out = new URLSearchParams(prev);
+      if (showOtherReplies) out.delete('replies');
+      else out.set('replies', 'all');
       return out;
     }, { replace: true });
   }
@@ -77,11 +88,13 @@ export default function FeedFilters({ counts }) {
       activeVerbs={activeVerbs}
       counts={counts}
       usingDefaults={usingDefaults}
+      showOtherReplies={showOtherReplies}
       onToggleVerb={toggleVerb}
       onSelectOnly={(v) => setVerbs(new Set([v]))}
       onSelectAll={selectAll}
       onSelectNone={selectNone}
       onReset={resetToDefault}
+      onToggleOtherReplies={toggleOtherReplies}
       onClose={closeModal}
     />
   );
@@ -92,11 +105,13 @@ function FilterModal({
   activeVerbs,
   counts,
   usingDefaults,
+  showOtherReplies,
   onToggleVerb,
   onSelectOnly,
   onSelectAll,
   onSelectNone,
   onReset,
+  onToggleOtherReplies,
   onClose,
 }) {
   const allActive = !usingDefaults && activeVerbs.size === VERBS.length;
@@ -141,6 +156,18 @@ function FilterModal({
           onClick={onReset}
         >
           <span className="small-caps">defaults</span>
+        </button>
+      </div>
+      <div className="feed-filter-modal-quick" role="group" aria-label="Reply options">
+        <button
+          type="button"
+          className={`feed-filter-quick-pill ${showOtherReplies ? 'is-active' : ''}`}
+          onClick={onToggleOtherReplies}
+          aria-pressed={showOtherReplies}
+        >
+          <span className="small-caps">
+            {showOtherReplies ? 'showing replies to others' : 'hiding replies to others'}
+          </span>
         </button>
       </div>
       <div className="feed-chips" role="group" aria-label="Filter by verb">
@@ -203,16 +230,34 @@ export function resolveActiveVerbs(params) {
  * Filter helper used by Home.jsx and any other consumer of the registry
  * unified feed. Honors the same default-verb fallback as the chip UI so
  * the visible feed and the visible chips agree about what's "active".
+ *
+ * `myDid` enables the "hide replies to others" default: a posting whose
+ * `reply.parent` belongs to anyone other than me is dropped. Replies to
+ * my own posts (self-reply threads) always pass — they're how threaded
+ * conversations stay legible in the feed. Pass `?replies=all` to opt
+ * back into seeing replies to other accounts.
  */
-export function filterFeed(items, params) {
+export function filterFeed(items, params, myDid = null) {
   const activeVerbs = resolveActiveVerbs(params);
   const q = (params.get('q') || '').trim().toLowerCase();
+  const showOtherReplies = params.get('replies') === 'all';
   return items.filter((item) => {
     if (!activeVerbs.has(item.verb)) return false;
+    if (!showOtherReplies && myDid && isReplyToOther(item, myDid)) return false;
     if (!q) return true;
     const hay = textForMatch(item).toLowerCase();
     return hay.includes(q);
   });
+}
+
+function isReplyToOther(item, myDid) {
+  if (item?.verb !== 'posting') return false;
+  const parentUri = item.payload?.reply?.parent?.uri;
+  if (!parentUri) return false;
+  const parentDid = item.payload?.parent?.author?.did;
+  if (parentDid) return parentDid !== myDid;
+  // Author not hydrated — fall back to URI inspection.
+  return !parentUri.startsWith(`at://${myDid}/`);
 }
 
 function textForMatch(item) {
