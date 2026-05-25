@@ -246,7 +246,7 @@ article.post-card > footer.post-card-stats {
 .post-card-author {
   display: flex;
   align-items: center;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
   min-width: 0;
 }
 
@@ -270,8 +270,8 @@ a.post-card-author-link:focus-visible {
 
 .post-card-author-avatar {
   display: block;
-  width: 1.6rem;
-  height: 1.6rem;
+  width: 2.2rem;
+  height: 2.2rem;
   border-radius: 0;
   border: 1px solid var(--rule-soft);
   background: var(--page-edge);
@@ -279,19 +279,22 @@ a.post-card-author-link:focus-visible {
   flex: 0 0 auto;
 }
 
+/* Stack the display name above the handle so a long display name +
+   long handle (the Bluesky norm) don't have to share one line and
+   either fight over space or push the timestamp around. Each row
+   still truncates with ellipsis when it can't fit. */
 .post-card-author-names {
   display: flex;
-  align-items: baseline;
-  gap: 0.4rem;
+  flex-direction: column;
   min-width: 0;
   flex: 1 1 auto;
+  overflow: hidden;
 }
 
 .post-card-author-name {
   font-family: var(--sans);
   font-size: var(--text-sm);
   color: var(--ink);
-  flex: 0 1 auto;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -299,7 +302,6 @@ a.post-card-author-link:focus-visible {
 }
 
 .post-card-author-handle {
-  flex: 0 1 auto;
   min-width: 0;
   font-size: var(--text-xs);
   color: var(--ink-faint);
