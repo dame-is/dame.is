@@ -1,10 +1,11 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowUp, Compass, Search, SlidersHorizontal } from 'lucide-react';
+import { ArrowUp, Compass, Moon, Search, SlidersHorizontal, Sun } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
+import { useTheme } from '../hooks/useTheme.jsx';
 import { isRefreshing, subscribeRefresh } from '../lib/feedCache.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
@@ -124,6 +125,13 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const reduce = useReducedMotion();
   const scrolledDown = useScrolledDown(400);
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
+  const { theme, setTheme } = useTheme();
+  // Treat `system` as whichever scheme is currently rendering — the
+  // test toggle just flips between explicit light and dark.
+  const resolved = theme === 'system'
+    ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : theme;
+  const otherTheme = resolved === 'dark' ? 'light' : 'dark';
   // Trigger buttons highlight when the corresponding URL state is
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
@@ -176,6 +184,18 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             <SlidersHorizontal className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           </button>
         )}
+        <button
+          type="button"
+          className="chrome-nav chrome-theme-toggle"
+          onClick={() => setTheme(otherTheme)}
+          aria-label={`Switch to ${otherTheme} mode`}
+        >
+          {resolved === 'dark' ? (
+            <Sun className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          ) : (
+            <Moon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          )}
+        </button>
         <button
           type="button"
           className={`chrome-nav chrome-nav-bottom ${dockOpen ? 'is-open' : ''}`}
