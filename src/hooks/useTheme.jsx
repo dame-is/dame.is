@@ -36,24 +36,20 @@ function applyThemeColor(theme) {
   meta.setAttribute('content', color);
   head.appendChild(meta);
 
-  // iOS Safari (incl. 26.x) only re-tints its status bar / URL bar
-  // surround when it sees a scroll-boundary repaint after the meta tag
-  // changes — sticky/fixed chrome means the page underneath those bars
-  // never naturally repaints on a theme toggle. So after re-inserting
-  // the meta, fire a real 1px scroll-and-back to provoke the chrome
-  // tint pass. Order: meta swap → rAF → meta re-append → scroll nudge.
-  requestAnimationFrame(() => {
-    if (!meta.isConnected) return;
-    meta.remove();
-    head.appendChild(meta);
-    try {
-      const y = window.scrollY || window.pageYOffset || 0;
-      window.scrollTo(0, y + 1);
-      requestAnimationFrame(() => {
-        window.scrollTo(0, y);
-      });
-    } catch {}
-  });
+  // iOS Safari re-evaluates its status bar / URL bar tint at the END of
+  // a user gesture (touchend). If the meta swap above happens during
+  // the gesture, Safari picks the new value up immediately; if it
+  // happens after (e.g. inside a useEffect that runs post-render),
+  // Safari uses the gesture's pre-update snapshot and doesn't refresh
+  // until the next gesture. Calling this both sync from setTheme and
+  // async from useEffect covers both timings.
+  try {
+    const y = window.scrollY || window.pageYOffset || 0;
+    window.scrollTo(0, y + 1);
+    requestAnimationFrame(() => {
+      window.scrollTo(0, y);
+    });
+  } catch {}
 }
 
 export function ThemeProvider({ children }) {
@@ -81,13 +77,21 @@ export function ThemeProvider({ children }) {
 
   const setTheme = useCallback((next) => {
     if (!VALID.includes(next)) return;
+    // Apply synchronously inside the click handler so iOS Safari sees
+    // the updated theme-color meta during the same user gesture and
+    // re-tints the status / URL bar surround on touchend. The useEffect
+    // below also calls applyTheme; that's harmless (idempotent) but
+    // happens too late for Safari's gesture-bound chrome refresh.
+    applyTheme(next);
     setThemeState(next);
   }, []);
 
   const cycle = useCallback(() => {
     setThemeState((prev) => {
       const idx = VALID.indexOf(prev);
-      return VALID[(idx + 1) % VALID.length];
+      const next = VALID[(idx + 1) % VALID.length];
+      applyTheme(next);
+      return next;
     });
   }, []);
 
