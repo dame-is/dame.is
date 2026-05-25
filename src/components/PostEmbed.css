@@ -228,22 +228,24 @@ a.post-embed-quote {
 }
 
 .post-embed-quote-avatar {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 2rem;
+  height: 2rem;
   object-fit: cover;
   border: 1px solid var(--rule-soft);
   background: var(--page);
   flex: 0 0 auto;
 }
 
+/* Stack the display name on its own row above the handle so neither
+   has to compete for the same line of width — that's what kept long
+   handles like @proptermalone.bsky.social from pushing the timestamp
+   off the right edge and forcing horizontal scroll on narrow pages. */
 .post-embed-quote-author {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
 }
 
 .post-embed-quote-name {
@@ -253,6 +255,7 @@ a.post-embed-quote {
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
 }
 
@@ -262,6 +265,7 @@ a.post-embed-quote {
   color: var(--ink-muted);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
 }
 
