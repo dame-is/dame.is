@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowUp, Compass, ListFilterPlus, Moon, Search, Sun } from 'lucide-react';
+import { ArrowDown, ArrowUp, Compass, ListFilterPlus, Moon, Search, Sun } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -121,7 +121,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const [params] = useSearchParams();
   const [searchOpen, setSearchOpen] = useState(false);
   const reduce = useReducedMotion();
-  const scrolledDown = useScrolledDown(400);
+  const atTop = useAtTopOfPage();
+  const scrolledPast = useScrolledPastFeedItems();
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
   const { theme, setTheme } = useTheme();
   // Treat `system` as whichever scheme is currently rendering — the
@@ -139,6 +140,14 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
   }
 
+  function scrollToBottom() {
+    const h = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight,
+    );
+    window.scrollTo({ top: h, behavior: reduce ? 'auto' : 'smooth' });
+  }
+
   return (
     <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
       <div className="chrome-bottom-row">
@@ -154,22 +163,32 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         </button>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
         <AnimatePresence initial={false}>
-          {scrolledDown && (
-            <motion.button
-              key="scroll-top"
-              type="button"
-              className="chrome-nav chrome-scroll-top"
-              onClick={scrollToTop}
-              aria-label="Scroll to top"
-              initial={reduce ? false : { opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.85 }}
+          {scrolledPast > 0 && (
+            <motion.span
+              key="scroll-count"
+              className="chrome-scroll-count gutter"
+              initial={reduce ? false : { opacity: 0, x: 6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, x: 6 }}
               transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
+              aria-label={`${scrolledPast} items scrolled past`}
             >
-              <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-            </motion.button>
+              {scrolledPast}
+            </motion.span>
           )}
         </AnimatePresence>
+        <button
+          type="button"
+          className="chrome-nav chrome-scroll-jump"
+          onClick={atTop ? scrollToBottom : scrollToTop}
+          aria-label={atTop ? 'Scroll to bottom' : 'Scroll to top'}
+        >
+          {atTop ? (
+            <ArrowDown className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          ) : (
+            <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          )}
+        </button>
         {filterAvailable && (
           <button
             type="button"
@@ -210,18 +229,54 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   );
 }
 
-/** Tracks whether the window has scrolled past `threshold` pixels.
- *  Used to gate the scroll-to-top button so it only appears when it
- *  actually has somewhere to scroll to. */
-function useScrolledDown(threshold) {
-  const [down, setDown] = useState(false);
+/** True while the window is scrolled to (or within 1px of) the top.
+ *  Drives the scroll-jump button's direction — scroll-to-bottom when
+ *  we're already at the top, scroll-to-top otherwise. */
+function useAtTopOfPage() {
+  const [atTop, setAtTop] = useState(true);
   useEffect(() => {
     function onScroll() {
-      setDown(window.scrollY > threshold);
+      setAtTop((window.scrollY || 0) <= 1);
     }
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [threshold]);
-  return down;
+  }, []);
+  return atTop;
+}
+
+/** Count of `.feed-item` elements whose bottom edge has passed above
+ *  the viewport — i.e. items the user has scrolled past. Returns 0 on
+ *  pages with no feed, so the count chip naturally hides itself.
+ *
+ *  Coalesced through requestAnimationFrame so a flurry of scroll
+ *  events on a long feed only triggers one DOM walk per frame. Also
+ *  recomputes on route change since the feed content swaps out. */
+function useScrolledPastFeedItems() {
+  const [count, setCount] = useState(0);
+  const location = useLocation();
+  useEffect(() => {
+    let frame = 0;
+    function update() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const items = document.querySelectorAll('.feed-item');
+        let n = 0;
+        for (const el of items) {
+          const r = el.getBoundingClientRect();
+          if (r.bottom < 0) n += 1;
+        }
+        setCount(n);
+      });
+    }
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [location.pathname]);
+  return count;
 }

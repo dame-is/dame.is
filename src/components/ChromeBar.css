@@ -326,6 +326,19 @@
   flex: 1 1 auto;
 }
 
+/* Count of feed items the user has scrolled past, shown to the left
+   of the scroll-jump button on feeds. Reads as quiet metadata, not a
+   tappable control. */
+.chrome-scroll-count {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  flex: 0 0 auto;
+}
+
 /* Truncated chrome-bar values render a single copy clipped by `max-width`.
    On hover/focus, JS animates the inner span by exactly the overflow amount
    (oscillating back and forth) so the hidden tail scrolls into view. No
