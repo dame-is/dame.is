@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowUp, Compass, Moon, Search, SlidersHorizontal, Sun } from 'lucide-react';
+import { ArrowUp, Compass, ListFilterPlus, Moon, Search, Sun } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -181,7 +181,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             aria-haspopup="dialog"
             aria-label={filterOpen ? 'Close filters' : 'Open filters'}
           >
-            <SlidersHorizontal className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           </button>
         )}
         <button
