@@ -124,13 +124,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const atTop = useAtTopOfPage();
   const scrolledPast = useScrolledPastFeedItems();
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
-  const { theme, setTheme } = useTheme();
-  // Treat `system` as whichever scheme is currently rendering — the
-  // test toggle just flips between explicit light and dark.
-  const resolved = theme === 'system'
-    ? (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : theme;
-  const otherTheme = resolved === 'dark' ? 'light' : 'dark';
+  const { theme, cycle: cycleTheme } = useTheme();
+  const inDarkTheme = theme === 'dark' || theme === 'dark-mono';
   // Trigger buttons highlight when the corresponding URL state is
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
@@ -204,10 +199,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         <button
           type="button"
           className="chrome-nav chrome-theme-toggle"
-          onClick={() => setTheme(otherTheme)}
-          aria-label={`Switch to ${otherTheme} mode`}
+          onClick={cycleTheme}
+          aria-label={`Cycle theme (current: ${theme})`}
+          title={`Theme: ${theme} — tap to cycle`}
         >
-          {resolved === 'dark' ? (
+          {inDarkTheme ? (
             <Sun className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           ) : (
             <Moon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />

@@ -85,24 +85,46 @@
   color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='system'] {
-    --page:        #1d2419;
-    --page-edge:   #161c12;
-    --surface-raised: #13180f;
-    --ink:         #ece4cb;
-    --ink-soft:    #d2c9ac;
-    --ink-muted:   #9a9377;
-    --ink-faint:   #6a6450;
-    --rule:        #3a4232;
-    --rule-soft:   #2a311f;
-    --accent:      #a3b486;
-    --accent-soft: #8a9f6e;
-    --tan:         #c9a87a;
-    --highlight:   rgba(163, 180, 134, 0.16);
-    --shadow:      rgba(0, 0, 0, 0.45);
-    color-scheme: dark;
-  }
+/* Monochrome variants — same brand-accent green, but every other
+   color drops its tan/olive warmth for a neutral grayscale palette.
+   Cycled to via the theme toggle alongside the regular colored
+   themes. */
+[data-theme='light-mono'] {
+  --page:        #f5f5f5;
+  --page-edge:   #ebebeb;
+  --surface-raised: #dedede;
+  --ink:         #1a1a1a;
+  --ink-soft:    #404040;
+  --ink-muted:   #707070;
+  --ink-faint:   #a0a0a0;
+  --rule:        #cccccc;
+  --rule-soft:   #dddddd;
+  --accent:      #5e7a47;
+  --accent-soft: #8a9f6e;
+  --tan:         #888888;
+  --highlight:   rgba(94, 122, 71, 0.16);
+  --shadow:      rgba(0, 0, 0, 0.14);
+
+  color-scheme: light;
+}
+
+[data-theme='dark-mono'] {
+  --page:        #181818;
+  --page-edge:   #101010;
+  --surface-raised: #0a0a0a;
+  --ink:         #f0f0f0;
+  --ink-soft:    #cccccc;
+  --ink-muted:   #888888;
+  --ink-faint:   #5a5a5a;
+  --rule:        #2e2e2e;
+  --rule-soft:   #232323;
+  --accent:      #a3b486;
+  --accent-soft: #8a9f6e;
+  --tan:         #888888;
+  --highlight:   rgba(163, 180, 134, 0.16);
+  --shadow:      rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
 }
 
 /* Typeface modes — switched via [data-typeface] on <html>.

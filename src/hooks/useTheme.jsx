@@ -2,21 +2,33 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 const ThemeContext = createContext(null);
 const STORAGE_KEY = 'dame.theme';
-const VALID = ['light', 'dark', 'system'];
 
-// Matches --surface-raised in theme.css. Used for the iOS Safari URL bar
-// surround / Android browser chrome so the OS UI blends with the dame.is
-// chrome bar instead of falling back to a system default that may not
-// match the active site theme.
+// Cycle order is intentional: each row of the toggle button advances
+// by one stop, walking the user through light-mono → light-color →
+// dark-mono → dark-color → back to light-mono.
+const VALID = ['light-mono', 'light', 'dark-mono', 'dark'];
+
+// Matches --surface-raised in theme.css. Used for the iOS Safari URL
+// bar surround / Android browser chrome so the OS UI blends with the
+// dame.is chrome bar instead of falling back to a system default.
 const THEME_COLOR = {
+  'light-mono': '#dedede',
   light: '#e3d8ba',
+  'dark-mono': '#0a0a0a',
   dark: '#13180f',
 };
 
-function resolveScheme(theme) {
-  if (theme !== 'system') return theme;
+function defaultByOS() {
   if (typeof window === 'undefined' || !window.matchMedia) return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function migrateStoredTheme(stored) {
+  if (VALID.includes(stored)) return stored;
+  // Legacy migration: old `system` value (or anything else) resolves
+  // to the OS preference's color variant. `light` and `dark` were
+  // already in the new VALID list, so they pass through unchanged.
+  return defaultByOS();
 }
 
 function applyTheme(theme) {
@@ -27,8 +39,7 @@ function applyTheme(theme) {
 function applyThemeColor(theme) {
   if (typeof document === 'undefined') return;
   const head = document.head;
-  const scheme = resolveScheme(theme);
-  const color = THEME_COLOR[scheme] || THEME_COLOR.light;
+  const color = THEME_COLOR[theme] || THEME_COLOR.light;
 
   head.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
   const meta = document.createElement('meta');
@@ -36,13 +47,10 @@ function applyThemeColor(theme) {
   meta.setAttribute('content', color);
   head.appendChild(meta);
 
-  // iOS Safari re-evaluates its status bar / URL bar tint at the END of
-  // a user gesture (touchend). If the meta swap above happens during
-  // the gesture, Safari picks the new value up immediately; if it
-  // happens after (e.g. inside a useEffect that runs post-render),
-  // Safari uses the gesture's pre-update snapshot and doesn't refresh
-  // until the next gesture. Calling this both sync from setTheme and
-  // async from useEffect covers both timings.
+  // iOS Safari re-evaluates its status bar / URL bar tint at the END
+  // of a user gesture (touchend). Nudging a 1px scroll provokes the
+  // re-tint pass; without this, the chrome stays on the previous
+  // theme's color until the next scroll/tap.
   try {
     const y = window.scrollY || window.pageYOffset || 0;
     window.scrollTo(0, y + 1);
@@ -54,9 +62,8 @@ function applyThemeColor(theme) {
 
 export function ThemeProvider({ children }) {
   const [theme, setThemeState] = useState(() => {
-    if (typeof localStorage === 'undefined') return 'system';
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return VALID.includes(stored) ? stored : 'system';
+    if (typeof localStorage === 'undefined') return defaultByOS();
+    return migrateStoredTheme(localStorage.getItem(STORAGE_KEY));
   });
 
   useEffect(() => {
@@ -66,22 +73,10 @@ export function ThemeProvider({ children }) {
     } catch {}
   }, [theme]);
 
-  useEffect(() => {
-    if (theme !== 'system') return;
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = () => applyThemeColor('system');
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, [theme]);
-
   const setTheme = useCallback((next) => {
     if (!VALID.includes(next)) return;
     // Apply synchronously inside the click handler so iOS Safari sees
-    // the updated theme-color meta during the same user gesture and
-    // re-tints the status / URL bar surround on touchend. The useEffect
-    // below also calls applyTheme; that's harmless (idempotent) but
-    // happens too late for Safari's gesture-bound chrome refresh.
+    // the updated theme-color meta during the same user gesture.
     applyTheme(next);
     setThemeState(next);
   }, []);
@@ -95,7 +90,10 @@ export function ThemeProvider({ children }) {
     });
   }, []);
 
-  const value = useMemo(() => ({ theme, setTheme, cycle, options: VALID }), [theme, setTheme, cycle]);
+  const value = useMemo(
+    () => ({ theme, setTheme, cycle, options: VALID }),
+    [theme, setTheme, cycle],
+  );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 

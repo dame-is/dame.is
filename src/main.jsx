@@ -7,22 +7,29 @@ import './styles/theme.css';
 import './styles/typography.css';
 import './styles/app.css';
 
+// Theme selection happens here (before React mounts) so the first
+// paint is in the correct palette. Four cycle stops, with legacy
+// values (`system`, missing) resolving to the OS preference's color
+// variant. Keep VALID_THEMES + THEME_COLORS in sync with useTheme.jsx.
+const VALID_THEMES = ['light-mono', 'light', 'dark-mono', 'dark'];
+const THEME_COLORS = {
+  'light-mono': '#dedede',
+  light: '#e3d8ba',
+  'dark-mono': '#0a0a0a',
+  dark: '#13180f',
+};
 const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
-const initialTheme = storedTheme || 'system';
+const osDark = typeof window !== 'undefined'
+  && window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+const initialTheme = VALID_THEMES.includes(storedTheme)
+  ? storedTheme
+  : (osDark ? 'dark' : 'light');
 document.documentElement.setAttribute('data-theme', initialTheme);
 
-// Reconcile theme-color on first paint when the user has an explicit
-// stored theme that differs from the OS preference. Without this, the
-// media-driven tags in index.html would briefly tint Safari's chrome
-// according to the OS until <ThemeProvider> mounts and corrects it.
-const initialScheme = initialTheme === 'system'
-  ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-  : initialTheme;
-const initialThemeColor = initialScheme === 'dark' ? '#13180f' : '#e3d8ba';
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
 const themeColorMeta = document.createElement('meta');
 themeColorMeta.setAttribute('name', 'theme-color');
-themeColorMeta.setAttribute('content', initialThemeColor);
+themeColorMeta.setAttribute('content', THEME_COLORS[initialTheme]);
 document.head.appendChild(themeColorMeta);
 
 document.documentElement.setAttribute('data-typeface', 'combo');
