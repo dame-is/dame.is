@@ -35,10 +35,22 @@
 }
 
 /* The scrim is purely a visual layer for the dim variant. Clicks pass
-   through it to the modal-root underneath, which owns dismissal. */
+   through it to the modal-root underneath, which owns dismissal.
+
+   We deliberately inset the scrim's top/bottom by --chrome-h so it
+   doesn't cover the chrome bars: iOS Safari samples the visible page
+   pixels at the top and bottom edges to tint its status / URL bar
+   surround, and a `backdrop-filter` over those edges creates a
+   composite layer that hides the chrome bar's actual color from the
+   sampler — so toggling theme inside a modal wouldn't refresh the iOS
+   chrome until the modal closed. Leaving the chrome bars uncovered
+   keeps that sampling live. */
 .modal-scrim {
   position: absolute;
-  inset: 0;
+  top: var(--chrome-h);
+  bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
   z-index: 0;
   pointer-events: none;
 }
@@ -49,6 +61,14 @@
    the static values before motion's initial state applies. */
 .modal-scrim-dim {
   background-color: rgba(0, 0, 0, 0);
+}
+
+/* Dark scrim is used for immersive surfaces like the image lightbox
+   where the chrome bars should also dim out — bypass the chrome-bar
+   inset and cover the full viewport again. */
+.modal-scrim-dark {
+  top: 0;
+  bottom: 0;
 }
 
 .modal-panel {
