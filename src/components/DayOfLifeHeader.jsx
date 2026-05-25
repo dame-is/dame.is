@@ -2,12 +2,15 @@ import { dayOfLife } from '../lib/dayOfLife.js';
 import { formatDateLong, relativeDay } from '../lib/time.js';
 import './DayOfLifeHeader.css';
 
-export default function DayOfLifeHeader({ date }) {
+export default function DayOfLifeHeader({ date, prefix = null }) {
   const day = dayOfLife(date);
   const absolute = formatDateLong(date);
   const relative = relativeDay(date);
   return (
     <h3 className="day-header">
+      {prefix && (
+        <span className="day-header-prefix">{prefix}</span>
+      )}
       <span className="day-header-num">Day {day.toLocaleString()}</span>
       <span className="day-header-rule" aria-hidden="true" />
       <span

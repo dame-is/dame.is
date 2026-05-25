@@ -1,25 +1,47 @@
+/* Day-of-life headers are section dividers for each day's items, so
+   they sit a tier above the feed-item verb labels in the hierarchy.
+   Bumped to text-sm + weight 600 + full --ink so the eye reads them
+   as headings — the verb labels right below them stay at text-xs +
+   --ink-faint, keeping the contrast visible. */
 .day-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-3);
   font-family: var(--sans);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-variant: all-small-caps;
-  letter-spacing: 0.16em;
-  color: var(--ink-muted);
+  letter-spacing: 0.14em;
+  color: var(--ink);
   margin: var(--space-7) 0 var(--space-3);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .day-header:first-child {
   margin-top: 0;
 }
 
+/* Optional lead-in for the very first day group on a feed — Home
+   uses this to fold "Latest" into the day header instead of stacking
+   a separate section title above it. */
+.day-header-prefix {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.day-header-prefix::after {
+  content: '·';
+  margin-left: 0.4em;
+  color: var(--ink-faint);
+}
+
 .day-header-num {
   font-family: var(--mono-ui);
   font-variant: normal;
   letter-spacing: 0;
-  color: var(--ink-soft);
+  color: var(--ink);
 }
 
 .day-header-rule {

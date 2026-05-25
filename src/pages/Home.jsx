@@ -300,7 +300,6 @@ export default function Home() {
       </nav>
 
       <section className="home-latest">
-        <h2 className="home-latest-title">Latest</h2>
         <FeedFilters counts={counts} />
         {loading ? (
           <FeedSkeleton rows={8} />
@@ -308,9 +307,9 @@ export default function Home() {
           <p className="feed-empty">No records match these filters.</p>
         ) : (
           <ol className="feed-list reveal-stagger">
-            {groups.map((group) => (
+            {groups.map((group, gi) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} />
+                <DayOfLifeHeader date={group.date} prefix={gi === 0 ? 'Latest' : null} />
                 <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
                   <AnimatePresence initial={false}>
                     {group.items.map((item, i) => {

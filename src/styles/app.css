@@ -84,7 +84,10 @@
      blank rows reserved by the JS-measured min-height. The repeating
      gradient draws a single 1px line at the bottom of each 1.1em row
      (matching the page-title's line-height), in a near-transparent
-     ink so the paper feel reads without competing with the text. */
+     ink so the paper feel reads without competing with the text. The
+     trailing `border-bottom` guarantees a closing rule under the last
+     row regardless of whether the box height is an exact multiple of
+     the line-height. */
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0,
@@ -92,6 +95,7 @@
     color-mix(in srgb, var(--ink) 14%, transparent) calc(1.1em - 1px),
     color-mix(in srgb, var(--ink) 14%, transparent) 1.1em
   );
+  border-bottom: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
 }
 
 .hero-sentence-lead {
@@ -190,18 +194,6 @@
   flex-direction: column;
   gap: var(--space-5);
   margin-top: var(--space-4);
-}
-
-.home-latest-title {
-  font-family: var(--sans);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--ink-faint);
-  margin: 0;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--rule-soft);
 }
 
 .placeholder-card {
