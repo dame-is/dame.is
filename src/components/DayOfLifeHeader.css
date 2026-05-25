@@ -20,21 +20,16 @@
   margin-top: 0;
 }
 
-/* Optional lead-in for the very first day group on a feed — Home
-   uses this to fold "Latest" into the day header instead of stacking
-   a separate section title above it. */
+/* Lead label for the very first day group on a feed — Home uses this
+   to label the top-most day "Latest" instead of "Day 12,072". The
+   relative date on the right ("Today" / "Yesterday" / "7d ago") still
+   carries the actual day-of-life via the absolute-date tooltip. */
 .day-header-prefix {
   font-family: var(--sans);
   font-variant: all-small-caps;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   color: var(--accent);
   font-weight: 600;
-}
-
-.day-header-prefix::after {
-  content: '·';
-  margin-left: 0.4em;
-  color: var(--ink-faint);
 }
 
 .day-header-num {

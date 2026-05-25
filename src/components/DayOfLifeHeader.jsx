@@ -8,10 +8,11 @@ export default function DayOfLifeHeader({ date, prefix = null }) {
   const relative = relativeDay(date);
   return (
     <h3 className="day-header">
-      {prefix && (
+      {prefix ? (
         <span className="day-header-prefix">{prefix}</span>
+      ) : (
+        <span className="day-header-num">Day {day.toLocaleString()}</span>
       )}
-      <span className="day-header-num">Day {day.toLocaleString()}</span>
       <span className="day-header-rule" aria-hidden="true" />
       <span
         className="day-header-date"
