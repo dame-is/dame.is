@@ -89,6 +89,14 @@
   display: inline-block;
 }
 
+/* Each word animates independently with a staggered slide-up + fade.
+   inline-block is required for the y-transform to take effect; the
+   real space text nodes between word spans (rendered in JSX) keep the
+   browser able to wrap at any word boundary. */
+.hero-rotator-word {
+  display: inline-block;
+}
+
 /* The measure layer paints every A×B combination invisibly at the
    live wrapper's width so the JS measurement sees real wrapping.
    `visibility: hidden` (not `display: none`) — the latter reports

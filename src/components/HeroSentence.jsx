@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 
 /**
@@ -26,6 +26,23 @@ const VARIANTS_B = [
 ];
 
 const EASE = [0.22, 0.61, 0.36, 1];
+
+// Motion variants for the word-by-word stagger inside each rotator.
+// The container itself has no visual animation — it just orchestrates
+// timing for its word children via `staggerChildren`. Children inherit
+// the variant name set on the parent (hidden / visible / exit) so the
+// same machinery drives both entry and exit.
+const phraseVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05 } },
+  exit: { transition: { staggerChildren: 0.04 } },
+};
+
+const wordVariants = {
+  hidden: { opacity: 0, y: -18, transition: { duration: 0.4, ease: EASE } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: EASE } },
+  exit: { opacity: 0, y: 18, transition: { duration: 0.3, ease: EASE } },
+};
 
 export default function HeroSentence() {
   const reduce = useReducedMotion();
@@ -126,8 +143,8 @@ export default function HeroSentence() {
       onBlurCapture={() => setPaused(false)}
     >
       <span className="hero-sentence-lead">dame is</span>{' '}
-      <Rotator index={indexA} variants={VARIANTS_A} reduce={reduce} />{' '}
-      <Rotator index={indexB} variants={VARIANTS_B} reduce={reduce} />
+      <Rotator index={indexA} pool={VARIANTS_A} reduce={reduce} />{' '}
+      <Rotator index={indexB} pool={VARIANTS_B} reduce={reduce} />
 
       {/* Each measure entry mirrors the live nested structure (lead +
           two inline-block rotators) so wrapping at the rotator
@@ -158,19 +175,34 @@ export default function HeroSentence() {
   );
 }
 
-function Rotator({ index, variants, reduce }) {
+function Rotator({ index, pool, reduce }) {
+  // Split the active phrase into words once per index change. Real
+  // space text nodes between word spans preserve the wrap-anywhere
+  // behavior the measure layer already counts on.
+  const words = useMemo(() => pool[index].split(' '), [pool, index]);
+
   return (
     <span className="hero-rotator">
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
           key={index}
           className="hero-rotator-phrase"
-          initial={reduce ? false : { opacity: 0, y: -24 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 24 }}
-          transition={{ duration: reduce ? 0 : 0.45, ease: EASE }}
+          variants={reduce ? undefined : phraseVariants}
+          initial={reduce ? false : 'hidden'}
+          animate={reduce ? undefined : 'visible'}
+          exit={reduce ? { opacity: 0 } : 'exit'}
         >
-          {variants[index]}
+          {words.map((word, i) => (
+            <Fragment key={i}>
+              <motion.span
+                className="hero-rotator-word"
+                variants={reduce ? undefined : wordVariants}
+              >
+                {word}
+              </motion.span>
+              {i < words.length - 1 && ' '}
+            </Fragment>
+          ))}
         </motion.span>
       </AnimatePresence>
     </span>
