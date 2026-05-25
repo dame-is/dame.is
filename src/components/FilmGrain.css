@@ -100,12 +100,14 @@
    the surface (not the viewport) gives those surfaces their own
    embedded texture. Different baseFrequency + seed than the
    global layers so the two patterns don't moiré.
-   --------------------------------------------------------- */
 
-[data-grain='on'] .chrome-bar,
-[data-grain='on'] .modal-panel {
-  position: relative;
-}
+   These surfaces already establish containing blocks for their
+   absolute children — chrome-bar-top via `position: sticky`,
+   chrome-bar-bottom via `position: fixed`, and modal-panel via
+   its own `position: relative` — so we don't add positioning
+   here. A `position: relative` override would have demoted the
+   bottom chrome bar from fixed back into normal flow.
+   --------------------------------------------------------- */
 
 [data-grain='on'] .chrome-bar::before,
 [data-grain='on'] .modal-panel::before {
