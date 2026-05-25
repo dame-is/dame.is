@@ -1107,6 +1107,50 @@ a.post-card-author-link:focus-visible {
   display: none;
 }
 
+/* Compact / tight: a few item types keep their type icon visible but
+   move it INLINE — sitting to the left of the card body instead of
+   stacking above it. The label text drops away (the icon alone is
+   enough at this density). Listening and reply/continuation items
+   benefit most since their type is the main signal differentiating
+   them from a plain post. */
+[data-density='compact'] .feed-item-listening,
+[data-density='compact'] .feed-item:has(.feed-item-verb-reply),
+[data-density='compact'] .feed-item:has(.feed-item-verb-thread),
+[data-density='tight'] .feed-item-listening,
+[data-density='tight'] .feed-item:has(.feed-item-verb-reply),
+[data-density='tight'] .feed-item:has(.feed-item-verb-thread) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-items: start;
+}
+
+[data-density='compact'] .feed-item-listening .feed-item-verb,
+[data-density='tight'] .feed-item-listening .feed-item-verb {
+  /* Override the global hide rule above for listening rows so the
+     headphones icon can sit in the left grid column. */
+  display: inline-flex;
+}
+
+[data-density='compact'] .feed-item-listening .feed-item-verb,
+[data-density='compact'] .feed-item-verb.feed-item-verb-reply,
+[data-density='compact'] .feed-item-verb.feed-item-verb-thread,
+[data-density='tight'] .feed-item-listening .feed-item-verb,
+[data-density='tight'] .feed-item-verb.feed-item-verb-reply,
+[data-density='tight'] .feed-item-verb.feed-item-verb-thread {
+  align-self: start;
+  padding-top: 0.2rem;
+}
+
+[data-density='compact'] .feed-item-listening .feed-item-verb-label,
+[data-density='compact'] .feed-item-verb.feed-item-verb-reply .feed-item-verb-label,
+[data-density='compact'] .feed-item-verb.feed-item-verb-thread .feed-item-verb-label,
+[data-density='tight'] .feed-item-listening .feed-item-verb-label,
+[data-density='tight'] .feed-item-verb.feed-item-verb-reply .feed-item-verb-label,
+[data-density='tight'] .feed-item-verb.feed-item-verb-thread .feed-item-verb-label {
+  display: none;
+}
+
 [data-density='compact'] .feed-item-verb.feed-item-verb-reply,
 [data-density='compact'] .feed-item-verb.feed-item-verb-thread,
 [data-density='tight'] .feed-item-verb.feed-item-verb-reply,

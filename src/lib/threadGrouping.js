@@ -141,6 +141,12 @@ export function threadAwareDateKey(item) {
  * members in the timeline while standalone replies get hidden — the
  * filter runs before `groupSelfReplyThreads`, so it can't read the
  * `_thread` annotation directly.
+ *
+ * Thread groups whose root post is itself a reply to someone else are
+ * EXCLUDED — even though the chain is technically self-replies after
+ * that root, the whole conversation is in a reply-to-other context,
+ * so it reads as replies (and gets hidden) when the user has chosen
+ * to filter replies out.
  */
 export function selfThreadMembers(items, myDid) {
   if (!Array.isArray(items) || items.length < 2 || !myDid) return new Set();
@@ -177,9 +183,32 @@ export function selfThreadMembers(items, myDid) {
     const r = find(i);
     sizes.set(r, (sizes.get(r) || 0) + 1);
   }
+
+  // Mark groups whose root (= a member with no in-feed self-reply
+  // parent) is itself a reply to someone other than me as "tainted".
+  // Tainted groups don't get kept in the result, so their continuing
+  // posts fall back to the reply bucket when filtering.
+  const tainted = new Set();
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (item?.verb !== 'posting') continue;
+    const parentUri = item.payload?.reply?.parent?.uri;
+    if (!parentUri) continue;
+    const selfParentUri = selfReplyParentUri(item, myDid);
+    const selfParentInFeed =
+      selfParentUri && indexByUri.has(selfParentUri);
+    if (selfParentInFeed) continue; // not the root of its chain
+    const parentDid = item.payload?.parent?.author?.did;
+    const isReplyToOther = parentDid
+      ? parentDid !== myDid
+      : !parentUri.startsWith(`at://${myDid}/`);
+    if (isReplyToOther) tainted.add(find(i));
+  }
+
   const out = new Set();
   for (let i = 0; i < items.length; i++) {
     const r = find(i);
+    if (tainted.has(r)) continue;
     if ((sizes.get(r) || 0) > 1 && items[i]?.atUri) {
       out.add(items[i].atUri);
     }
