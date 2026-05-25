@@ -30,23 +30,38 @@ function applyThemeColor(theme) {
   const scheme = resolveScheme(theme);
   const color = THEME_COLOR[scheme] || THEME_COLOR.light;
 
-  // Drop the media-driven tags from index.html (and any older injected
-  // tags) on first JS pass so we don't fight ourselves. From here on we
-  // own a single canonical meta tag — iOS Safari only re-tints reliably
-  // when an existing meta's `content` attribute mutates, not when tags
-  // get torn down and recreated. So in system mode the matchMedia
-  // listener below repaints by updating the same tag.
-  head.querySelectorAll('meta[name="theme-color"][media]').forEach((m) => m.remove());
+  head.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+  const meta = document.createElement('meta');
+  meta.setAttribute('name', 'theme-color');
+  meta.setAttribute('content', color);
+  head.appendChild(meta);
 
-  let meta = head.querySelector('meta[name="theme-color"]:not([media])');
-  if (!meta) {
-    meta = document.createElement('meta');
-    meta.setAttribute('name', 'theme-color');
+  // iOS Safari's status-bar / URL-bar tint is read at first paint and
+  // doesn't reliably refresh when the meta tag is swapped or mutated in
+  // place mid-session. Several workarounds chained here cover the
+  // widest range of iOS versions:
+  //   1) re-detach + re-append the meta on the next frame (forces a
+  //      fresh head mutation Safari is more likely to observe),
+  //   2) nudge `color-scheme` on <html> (forces native UI controls and
+  //      the chrome to re-resolve dark/light),
+  //   3) dispatch a no-op scroll so Safari runs the chrome
+  //      re-evaluation pass it normally runs on scroll boundaries.
+  requestAnimationFrame(() => {
+    if (!meta.isConnected) return;
+    meta.remove();
     head.appendChild(meta);
-  }
-  if (meta.getAttribute('content') !== color) {
-    meta.setAttribute('content', color);
-  }
+    const root = document.documentElement;
+    const prev = root.style.colorScheme;
+    root.style.colorScheme = scheme === 'dark' ? 'dark' : 'light';
+    if (prev !== undefined) {
+      requestAnimationFrame(() => {
+        root.style.colorScheme = prev;
+      });
+    }
+    try {
+      window.scrollBy(0, 0);
+    } catch {}
+  });
 }
 
 export function ThemeProvider({ children }) {
