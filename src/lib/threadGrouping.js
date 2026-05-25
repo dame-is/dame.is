@@ -133,3 +133,56 @@ export function groupSelfReplyThreads(items, myDid) {
 export function threadAwareDateKey(item) {
   return item?._thread?.anchorAt || item?.createdAt || null;
 }
+
+/**
+ * Set of atUris that participate in a visible self-reply thread of 2+
+ * posts (i.e., at least one self-reply edge between them is in the
+ * feed window). Used by the feed filter to keep continuing-thread
+ * members in the timeline while standalone replies get hidden — the
+ * filter runs before `groupSelfReplyThreads`, so it can't read the
+ * `_thread` annotation directly.
+ */
+export function selfThreadMembers(items, myDid) {
+  if (!Array.isArray(items) || items.length < 2 || !myDid) return new Set();
+
+  const indexByUri = new Map();
+  items.forEach((item, i) => {
+    if (item?.atUri) indexByUri.set(item.atUri, i);
+  });
+
+  const parent = items.map((_, i) => i);
+  function find(x) {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]];
+      x = parent[x];
+    }
+    return x;
+  }
+  function union(a, b) {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const parentUri = selfReplyParentUri(items[i], myDid);
+    if (!parentUri) continue;
+    const pIdx = indexByUri.get(parentUri);
+    if (pIdx === undefined) continue;
+    union(i, pIdx);
+  }
+
+  const sizes = new Map();
+  for (let i = 0; i < items.length; i++) {
+    const r = find(i);
+    sizes.set(r, (sizes.get(r) || 0) + 1);
+  }
+  const out = new Set();
+  for (let i = 0; i < items.length; i++) {
+    const r = find(i);
+    if ((sizes.get(r) || 0) > 1 && items[i]?.atUri) {
+      out.add(items[i].atUri);
+    }
+  }
+  return out;
+}

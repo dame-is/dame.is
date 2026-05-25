@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
+import { selfThreadMembers } from '../lib/threadGrouping.js';
 import VerbIcon from './VerbIcon.jsx';
 import Modal from './Modal.jsx';
 import { useFeedFilter, useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -24,7 +25,7 @@ export default function FeedFilters({ counts }) {
 
   const activeVerbs = resolveActiveVerbs(params);
   const usingDefaults = !params.has('verbs');
-  const showOtherReplies = params.get('replies') === 'all';
+  const showReplies = params.get('replies') === 'all';
 
   function toggleVerb(v) {
     const next = new Set(activeVerbs);
@@ -73,10 +74,10 @@ export default function FeedFilters({ counts }) {
     }, { replace: true });
   }
 
-  function toggleOtherReplies() {
+  function toggleReplies() {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
-      if (showOtherReplies) out.delete('replies');
+      if (showReplies) out.delete('replies');
       else out.set('replies', 'all');
       return out;
     }, { replace: true });
@@ -88,13 +89,13 @@ export default function FeedFilters({ counts }) {
       activeVerbs={activeVerbs}
       counts={counts}
       usingDefaults={usingDefaults}
-      showOtherReplies={showOtherReplies}
+      showReplies={showReplies}
       onToggleVerb={toggleVerb}
       onSelectOnly={(v) => setVerbs(new Set([v]))}
       onSelectAll={selectAll}
       onSelectNone={selectNone}
       onReset={resetToDefault}
-      onToggleOtherReplies={toggleOtherReplies}
+      onToggleReplies={toggleReplies}
       onClose={closeModal}
     />
   );
@@ -105,13 +106,13 @@ function FilterModal({
   activeVerbs,
   counts,
   usingDefaults,
-  showOtherReplies,
+  showReplies,
   onToggleVerb,
   onSelectOnly,
   onSelectAll,
   onSelectNone,
   onReset,
-  onToggleOtherReplies,
+  onToggleReplies,
   onClose,
 }) {
   const allActive = !usingDefaults && activeVerbs.size === VERBS.length;
@@ -161,12 +162,12 @@ function FilterModal({
       <div className="feed-filter-modal-quick" role="group" aria-label="Reply options">
         <button
           type="button"
-          className={`feed-filter-quick-pill ${showOtherReplies ? 'is-active' : ''}`}
-          onClick={onToggleOtherReplies}
-          aria-pressed={showOtherReplies}
+          className={`feed-filter-quick-pill ${showReplies ? 'is-active' : ''}`}
+          onClick={onToggleReplies}
+          aria-pressed={showReplies}
         >
           <span className="small-caps">
-            {showOtherReplies ? 'showing replies to others' : 'hiding replies to others'}
+            {showReplies ? 'showing all replies' : 'hiding replies'}
           </span>
         </button>
       </div>
@@ -231,33 +232,32 @@ export function resolveActiveVerbs(params) {
  * unified feed. Honors the same default-verb fallback as the chip UI so
  * the visible feed and the visible chips agree about what's "active".
  *
- * `myDid` enables the "hide replies to others" default: a posting whose
- * `reply.parent` belongs to anyone other than me is dropped. Replies to
- * my own posts (self-reply threads) always pass — they're how threaded
- * conversations stay legible in the feed. Pass `?replies=all` to opt
- * back into seeing replies to other accounts.
+ * By default replies are hidden — both replies to other accounts and
+ * standalone replies to my own posts. The exception is posts that
+ * participate in a visible self-reply thread of 2+ items: those are
+ * "continuing" their own conversation and read as regular posting in
+ * the feed. Pass `?replies=all` to opt into seeing every reply.
  */
 export function filterFeed(items, params, myDid = null) {
   const activeVerbs = resolveActiveVerbs(params);
   const q = (params.get('q') || '').trim().toLowerCase();
-  const showOtherReplies = params.get('replies') === 'all';
+  const showReplies = params.get('replies') === 'all';
+  const continuing = !showReplies && myDid
+    ? selfThreadMembers(items, myDid)
+    : null;
   return items.filter((item) => {
     if (!activeVerbs.has(item.verb)) return false;
-    if (!showOtherReplies && myDid && isReplyToOther(item, myDid)) return false;
+    if (!showReplies && isReply(item) && !continuing?.has(item.atUri)) {
+      return false;
+    }
     if (!q) return true;
     const hay = textForMatch(item).toLowerCase();
     return hay.includes(q);
   });
 }
 
-function isReplyToOther(item, myDid) {
-  if (item?.verb !== 'posting') return false;
-  const parentUri = item.payload?.reply?.parent?.uri;
-  if (!parentUri) return false;
-  const parentDid = item.payload?.parent?.author?.did;
-  if (parentDid) return parentDid !== myDid;
-  // Author not hydrated — fall back to URI inspection.
-  return !parentUri.startsWith(`at://${myDid}/`);
+function isReply(item) {
+  return item?.verb === 'posting' && Boolean(item.payload?.reply?.parent?.uri);
 }
 
 function textForMatch(item) {
