@@ -225,7 +225,10 @@
   width: 1.75rem;
   height: 1.75rem;
   padding: 0;
-  border: 1px solid var(--ink-faint);
+  /* Use the same hue as the chrome bar's own top/bottom hairlines so
+     the buttons feel like part of the bar's vocabulary. The icon
+     itself carries the contrast (--ink-soft). */
+  border: 1px solid var(--rule);
   border-radius: 0;
   background: transparent;
   color: var(--ink-soft);
