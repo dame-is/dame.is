@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import PageShell from '../components/PageShell.jsx';
-import FeedFilters, { filterFeed } from '../components/FeedFilters.jsx';
+import FeedFilters, { feedFilterCounts, filterFeed } from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
@@ -257,11 +257,7 @@ export default function Home() {
   const loading = feed === null;
   const safeFeed = feed || [];
 
-  const counts = useMemo(() => {
-    const c = {};
-    for (const item of safeFeed) c[item.verb] = (c[item.verb] || 0) + 1;
-    return c;
-  }, [safeFeed]);
+  const counts = useMemo(() => feedFilterCounts(safeFeed, ME_DID), [safeFeed]);
 
   const filtered = useMemo(() => filterFeed(safeFeed, params, ME_DID), [safeFeed, params]);
   // "Load more" pagination — the user only sees the first `visibleCount`

@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { CornerDownRight, X } from 'lucide-react';
 import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
 import { selfThreadMembers } from '../lib/threadGrouping.js';
 import VerbIcon from './VerbIcon.jsx';
@@ -11,6 +11,14 @@ import './FeedFilters.css';
 // "all" (resolveActiveVerbs treats no-value-after-equals as a power-user
 // "show everything" shortcut).
 const NONE_SENTINEL = '__none__';
+
+// Virtual filter category: replies to others (or standalone self-
+// replies that don't participate in a visible thread) read as their
+// own first-class chip even though the underlying records still carry
+// the `posting` verb. Including it here lets the chip share the same
+// toggle / "only" / count machinery as real verbs.
+const REPLYING = 'replying';
+const FILTER_KEYS = [REPLYING, ...VERBS];
 
 /**
  * Verb-filter modal host. Renders nothing visible itself — the trigger
@@ -25,7 +33,6 @@ export default function FeedFilters({ counts }) {
 
   const activeVerbs = resolveActiveVerbs(params);
   const usingDefaults = !params.has('verbs');
-  const showReplies = params.get('replies') === 'all';
 
   function toggleVerb(v) {
     const next = new Set(activeVerbs);
@@ -69,16 +76,9 @@ export default function FeedFilters({ counts }) {
     setParams((prev) => {
       const out = new URLSearchParams(prev);
       out.delete('verbs');
+      // Legacy `?replies=all` is no longer wired to anything; clear it
+      // on a defaults reset so an old URL doesn't linger forever.
       out.delete('replies');
-      return out;
-    }, { replace: true });
-  }
-
-  function toggleReplies() {
-    setParams((prev) => {
-      const out = new URLSearchParams(prev);
-      if (showReplies) out.delete('replies');
-      else out.set('replies', 'all');
       return out;
     }, { replace: true });
   }
@@ -89,13 +89,11 @@ export default function FeedFilters({ counts }) {
       activeVerbs={activeVerbs}
       counts={counts}
       usingDefaults={usingDefaults}
-      showReplies={showReplies}
       onToggleVerb={toggleVerb}
       onSelectOnly={(v) => setVerbs(new Set([v]))}
       onSelectAll={selectAll}
       onSelectNone={selectNone}
       onReset={resetToDefault}
-      onToggleReplies={toggleReplies}
       onClose={closeModal}
     />
   );
@@ -106,16 +104,14 @@ function FilterModal({
   activeVerbs,
   counts,
   usingDefaults,
-  showReplies,
   onToggleVerb,
   onSelectOnly,
   onSelectAll,
   onSelectNone,
   onReset,
-  onToggleReplies,
   onClose,
 }) {
-  const allActive = !usingDefaults && activeVerbs.size === VERBS.length;
+  const allActive = !usingDefaults && activeVerbs.size === FILTER_KEYS.length;
   const noneActive = !usingDefaults && activeVerbs.size === 0;
   return (
     <Modal
@@ -159,20 +155,8 @@ function FilterModal({
           <span className="small-caps">defaults</span>
         </button>
       </div>
-      <div className="feed-filter-modal-quick" role="group" aria-label="Reply options">
-        <button
-          type="button"
-          className={`feed-filter-quick-pill ${showReplies ? 'is-active' : ''}`}
-          onClick={onToggleReplies}
-          aria-pressed={showReplies}
-        >
-          <span className="small-caps">
-            {showReplies ? 'showing all replies' : 'hiding replies'}
-          </span>
-        </button>
-      </div>
       <div className="feed-chips" role="group" aria-label="Filter by verb">
-        {VERBS.map((v) => {
+        {FILTER_KEYS.map((v) => {
           const active = activeVerbs.has(v);
           const count = counts?.[v];
           return (
@@ -186,7 +170,11 @@ function FilterModal({
                 onClick={() => onToggleVerb(v)}
                 aria-pressed={active}
               >
-                <VerbIcon verb={v} size={13} className="feed-chip-icon" />
+                {v === REPLYING ? (
+                  <CornerDownRight size={13} strokeWidth={1.75} className="feed-chip-icon" aria-hidden="true" />
+                ) : (
+                  <VerbIcon verb={v} size={13} className="feed-chip-icon" />
+                )}
                 <span className="feed-chip-label small-caps">{v}</span>
                 {typeof count === 'number' && (
                   <span className="feed-chip-count gutter">{count}</span>
@@ -223,7 +211,7 @@ export function resolveActiveVerbs(params) {
   const value = params.get('verbs') || '';
   if (value === NONE_SENTINEL) return new Set();
   const raw = value.split(',').filter(Boolean);
-  if (raw.length === 0) return new Set(VERBS);
+  if (raw.length === 0) return new Set(FILTER_KEYS);
   return new Set(raw);
 }
 
@@ -232,32 +220,58 @@ export function resolveActiveVerbs(params) {
  * unified feed. Honors the same default-verb fallback as the chip UI so
  * the visible feed and the visible chips agree about what's "active".
  *
- * By default replies are hidden — both replies to other accounts and
- * standalone replies to my own posts. The exception is posts that
- * participate in a visible self-reply thread of 2+ items: those are
- * "continuing" their own conversation and read as regular posting in
- * the feed. Pass `?replies=all` to opt into seeing every reply.
+ * `replying` is a virtual filter key — posts whose `reply.parent` is
+ * set count toward Replying instead of Posting, unless they're part of
+ * a visible self-reply thread (then they're treated as Posting
+ * continuations). Toggling the Replying chip is what controls reply
+ * visibility; the legacy `?replies=all` URL param is no longer wired.
  */
 export function filterFeed(items, params, myDid = null) {
   const activeVerbs = resolveActiveVerbs(params);
   const q = (params.get('q') || '').trim().toLowerCase();
-  const showReplies = params.get('replies') === 'all';
-  const continuing = !showReplies && myDid
-    ? selfThreadMembers(items, myDid)
-    : null;
+  const continuing = myDid ? selfThreadMembers(items, myDid) : null;
   return items.filter((item) => {
-    if (!activeVerbs.has(item.verb)) return false;
-    if (!showReplies && isReply(item) && !continuing?.has(item.atUri)) {
-      return false;
-    }
+    if (!passesVerb(item, activeVerbs, continuing)) return false;
     if (!q) return true;
     const hay = textForMatch(item).toLowerCase();
     return hay.includes(q);
   });
 }
 
-function isReply(item) {
-  return item?.verb === 'posting' && Boolean(item.payload?.reply?.parent?.uri);
+/**
+ * True when `item` belongs to one of the active filter buckets. Posts
+ * route through either the `replying` or `posting` bucket depending on
+ * whether they're standalone replies; everything else falls back to
+ * the verb's own bucket.
+ */
+function passesVerb(item, activeVerbs, continuing) {
+  if (item?.verb === 'posting') {
+    const isStandaloneReply =
+      Boolean(item.payload?.reply?.parent?.uri) && !continuing?.has(item.atUri);
+    return activeVerbs.has(isStandaloneReply ? REPLYING : 'posting');
+  }
+  return activeVerbs.has(item?.verb);
+}
+
+/**
+ * Per-bucket counts for the chip badges. Posts split into `replying`
+ * (standalone replies) and `posting` (originals + thread
+ * continuations); other verbs count themselves.
+ */
+export function feedFilterCounts(items, myDid = null) {
+  const continuing = myDid ? selfThreadMembers(items, myDid) : null;
+  const out = {};
+  for (const item of items || []) {
+    if (item?.verb === 'posting') {
+      const isStandaloneReply =
+        Boolean(item.payload?.reply?.parent?.uri) && !continuing?.has(item.atUri);
+      const k = isStandaloneReply ? REPLYING : 'posting';
+      out[k] = (out[k] || 0) + 1;
+    } else if (item?.verb) {
+      out[item.verb] = (out[item.verb] || 0) + 1;
+    }
+  }
+  return out;
 }
 
 function textForMatch(item) {
