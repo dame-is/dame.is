@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowUp, Compass, ListFilterPlus, Moon, Search, Sun } from 'lucide-react';
+import { ArrowDown, ArrowUp, Compass, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -12,6 +12,16 @@ import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import SearchModal from './SearchModal.jsx';
 import './ChromeBar.css';
+
+// Per-theme glyph for the cycle button — each of the 4 stops gets a
+// distinct sun/moon variant so the current theme is readable at a
+// glance instead of being collapsed into a binary sun/moon swap.
+const THEME_ICON = {
+  'light-mono': Sun,
+  light: SunDim,
+  'dark-mono': Moon,
+  dark: MoonStar,
+};
 
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
@@ -125,7 +135,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const scrolledPast = useScrolledPastFeedItems();
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
   const { theme, cycle: cycleTheme } = useTheme();
-  const inDarkTheme = theme === 'dark' || theme === 'dark-mono';
+  const ThemeIcon = THEME_ICON[theme] || Sun;
   // Trigger buttons highlight when the corresponding URL state is
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
@@ -203,11 +213,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           aria-label={`Cycle theme (current: ${theme})`}
           title={`Theme: ${theme} — tap to cycle`}
         >
-          {inDarkTheme ? (
-            <Sun className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          ) : (
-            <Moon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          )}
+          <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
         <button
           type="button"
