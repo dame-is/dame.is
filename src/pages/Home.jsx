@@ -49,7 +49,7 @@ const SNAPSHOT_FALLBACK_MAX = 60;
  * boundary doesn't matter; a session that crosses midnight still
  * groups into one row.
  */
-const LISTEN_BATCH_GAP_MS = 4 * 60 * 60 * 1000; // 4 hours
+const LISTEN_BATCH_GAP_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 function collapseListens(items) {
   const out = [];
