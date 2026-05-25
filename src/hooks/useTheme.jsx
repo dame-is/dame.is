@@ -27,29 +27,26 @@ function applyTheme(theme) {
 function applyThemeColor(theme) {
   if (typeof document === 'undefined') return;
   const head = document.head;
-  // Wipe any existing theme-color metas (the two media-driven tags from
-  // index.html on initial load, or whatever we last injected) so we
-  // start clean and the OS doesn't see a stale combination.
-  head.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+  const scheme = resolveScheme(theme);
+  const color = THEME_COLOR[scheme] || THEME_COLOR.light;
 
-  if (theme === 'system') {
-    // Hand the choice back to the OS via prefers-color-scheme so it
-    // tracks the system toggle without a JS round-trip.
-    for (const [scheme, content] of Object.entries(THEME_COLOR)) {
-      const meta = document.createElement('meta');
-      meta.setAttribute('name', 'theme-color');
-      meta.setAttribute('media', `(prefers-color-scheme: ${scheme})`);
-      meta.setAttribute('content', content);
-      head.appendChild(meta);
-    }
-    return;
+  // Drop the media-driven tags from index.html (and any older injected
+  // tags) on first JS pass so we don't fight ourselves. From here on we
+  // own a single canonical meta tag — iOS Safari only re-tints reliably
+  // when an existing meta's `content` attribute mutates, not when tags
+  // get torn down and recreated. So in system mode the matchMedia
+  // listener below repaints by updating the same tag.
+  head.querySelectorAll('meta[name="theme-color"][media]').forEach((m) => m.remove());
+
+  let meta = head.querySelector('meta[name="theme-color"]:not([media])');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    head.appendChild(meta);
   }
-  // Explicit light/dark: a single tag without `media` pins the browser
-  // chrome to our choice regardless of the OS preference.
-  const meta = document.createElement('meta');
-  meta.setAttribute('name', 'theme-color');
-  meta.setAttribute('content', THEME_COLOR[theme] || THEME_COLOR.light);
-  head.appendChild(meta);
+  if (meta.getAttribute('content') !== color) {
+    meta.setAttribute('content', color);
+  }
 }
 
 export function ThemeProvider({ children }) {
