@@ -246,8 +246,28 @@ article.post-card > footer.post-card-stats {
 .post-card-author {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
   margin-bottom: var(--space-1);
   min-width: 0;
+}
+
+/* When a text-less repost parks the timestamp here, push it to the
+   right edge so it reads like the regular post-card-time treatment
+   on cards that do have text. */
+.post-card-author-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* Meta-only row for cards that have no text body — keeps the
+   timestamp on its own line aligned to the right edge instead of
+   collapsing onto the embed. */
+.post-card-row-meta {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0;
 }
 
 .post-card-author-link {
@@ -1119,9 +1139,11 @@ a.post-card-author-link:focus-visible {
    benefit most since their type is the main signal differentiating
    them from a plain post. */
 [data-density='compact'] .feed-item-listening,
+[data-density='compact'] .feed-item-following,
 [data-density='compact'] .feed-item:has(.feed-item-verb-reply),
 [data-density='compact'] .feed-item:has(.feed-item-verb-thread),
 [data-density='tight'] .feed-item-listening,
+[data-density='tight'] .feed-item-following,
 [data-density='tight'] .feed-item:has(.feed-item-verb-reply),
 [data-density='tight'] .feed-item:has(.feed-item-verb-thread) {
   display: grid;
@@ -1131,16 +1153,20 @@ a.post-card-author-link:focus-visible {
 }
 
 [data-density='compact'] .feed-item-listening .feed-item-verb,
-[data-density='tight'] .feed-item-listening .feed-item-verb {
-  /* Override the global hide rule above for listening rows so the
-     headphones icon can sit in the left grid column. */
+[data-density='compact'] .feed-item-following .feed-item-verb,
+[data-density='tight'] .feed-item-listening .feed-item-verb,
+[data-density='tight'] .feed-item-following .feed-item-verb {
+  /* Override the global hide rule above for these rows so their type
+     icon can sit in the left grid column. */
   display: inline-flex;
 }
 
 [data-density='compact'] .feed-item-listening .feed-item-verb,
+[data-density='compact'] .feed-item-following .feed-item-verb,
 [data-density='compact'] .feed-item-verb.feed-item-verb-reply,
 [data-density='compact'] .feed-item-verb.feed-item-verb-thread,
 [data-density='tight'] .feed-item-listening .feed-item-verb,
+[data-density='tight'] .feed-item-following .feed-item-verb,
 [data-density='tight'] .feed-item-verb.feed-item-verb-reply,
 [data-density='tight'] .feed-item-verb.feed-item-verb-thread {
   align-self: start;
@@ -1148,9 +1174,11 @@ a.post-card-author-link:focus-visible {
 }
 
 [data-density='compact'] .feed-item-listening .feed-item-verb-label,
+[data-density='compact'] .feed-item-following .feed-item-verb-label,
 [data-density='compact'] .feed-item-verb.feed-item-verb-reply .feed-item-verb-label,
 [data-density='compact'] .feed-item-verb.feed-item-verb-thread .feed-item-verb-label,
 [data-density='tight'] .feed-item-listening .feed-item-verb-label,
+[data-density='tight'] .feed-item-following .feed-item-verb-label,
 [data-density='tight'] .feed-item-verb.feed-item-verb-reply .feed-item-verb-label,
 [data-density='tight'] .feed-item-verb.feed-item-verb-thread .feed-item-verb-label {
   display: none;

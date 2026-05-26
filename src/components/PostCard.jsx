@@ -34,6 +34,15 @@ export default function PostCard({
   // authored by Dame — most commonly reposts, but also future cases like
   // quote posts surfaced here.
   const showOriginalAuthor = !isOriginalAuthorMe && payload?.author?.handle;
+  // For text-less posts (images, video, link cards, etc.) the
+  // post-card-row would render an empty box just to host the
+  // timestamp on the right — which leaves a gap above the embed and
+  // reads as a layout glitch. Skip the row in that case and (if this
+  // is a repost-style card) park the timestamp inline with the
+  // OriginalAuthorHeader; otherwise drop it onto its own minimal
+  // meta row so the time is still discoverable.
+  const showTimeInHeader = showOriginalAuthor && !text && ts && variant !== 'record';
+  const showStandaloneTime = !text && !showOriginalAuthor && ts && variant !== 'record';
 
   return (
     <article
@@ -59,6 +68,8 @@ export default function PostCard({
           // the outbound bsky.app link — `atUri` here is Dame's repost
           // record on her own PDS.
           subjectUri={payload?.subjectUri || atUri}
+          timestamp={showTimeInHeader ? ts : null}
+          timestampHref={recordHref}
         />
       )}
       {payload?.subjectMissing && (
@@ -66,17 +77,9 @@ export default function PostCard({
           <em>The reposted post is unavailable (deleted, blocked, or its server is unreachable).</em>
         </p>
       )}
-      {(text || (ts && variant !== 'record')) && (
+      {text && (
         <div className="post-card-row">
-          {text && (
-            <p className="post-card-text">{renderPostText(text, facets)}</p>
-          )}
-          {/*
-            On the record page itself the page-level meta header already shows
-            the timestamp (and a lot more), so showing it inside the card too
-            reads as a duplicate. Skip the in-card timestamp for `variant ===
-            'record'`.
-          */}
+          <p className="post-card-text">{renderPostText(text, facets)}</p>
           {ts && variant !== 'record' && (
             recordHref ? (
               <Link className="gutter post-card-time" to={recordHref}>
@@ -85,6 +88,17 @@ export default function PostCard({
             ) : (
               <span className="gutter post-card-time">{relativeTime(ts)}</span>
             )
+          )}
+        </div>
+      )}
+      {showStandaloneTime && (
+        <div className="post-card-row post-card-row-meta">
+          {recordHref ? (
+            <Link className="gutter post-card-time" to={recordHref}>
+              {relativeTime(ts)}
+            </Link>
+          ) : (
+            <span className="gutter post-card-time">{relativeTime(ts)}</span>
           )}
         </div>
       )}
@@ -135,8 +149,13 @@ function RepostBadge({ reason, variant }) {
 /**
  * Author header for posts that *aren't* Dame's own (today: reposts). Links
  * out to the author's bsky.app profile since we don't host their records.
+ *
+ * Optionally hosts the card's timestamp on the right edge — text-less
+ * cards (images / video / link card only) skip the separate text+time
+ * row, so the time gets parked here to keep it discoverable without
+ * leaving an empty gap above the embed.
  */
-function OriginalAuthorHeader({ author, subjectUri }) {
+function OriginalAuthorHeader({ author, subjectUri, timestamp = null, timestampHref = null }) {
   const handle = author?.handle;
   const displayName = author?.displayName;
   const avatar = author?.avatar;
@@ -180,6 +199,17 @@ function OriginalAuthorHeader({ author, subjectUri }) {
           )}
         </span>
       </Wrapper>
+      {timestamp && (
+        timestampHref ? (
+          <Link className="gutter post-card-time post-card-author-time" to={timestampHref}>
+            {relativeTime(timestamp)}
+          </Link>
+        ) : (
+          <span className="gutter post-card-time post-card-author-time">
+            {relativeTime(timestamp)}
+          </span>
+        )
+      )}
     </header>
   );
 }
