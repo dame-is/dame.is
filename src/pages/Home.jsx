@@ -21,12 +21,12 @@ import { groupByDay } from '../lib/time.js';
 import { resolvePds } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
+import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
 const FEED_CACHE_KEY = 'unifiedFeed';
 const CACHE_TTL_MS = 30_000;
-const POLL_INTERVAL_MS = 60_000;
 // First-paint cap per collection — matches AT Proto's per-request
 // listRecords ceiling, so each collection lands in a single round trip
 // with no extra pagination. Background polls keep the same cap; deeper
@@ -261,26 +261,11 @@ export default function Home() {
     };
   }, [runRefresh]);
 
-  // Keep the feed alive: poll while the tab is visible.
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
-      runRefresh();
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [runRefresh]);
-
-  // Refresh when the tab comes back into focus after being hidden long
-  // enough for the cache to go stale.
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
-    const onVisibility = () => {
-      if (document.hidden) return;
-      if (!isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS)) runRefresh();
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [runRefresh]);
+  // Keep the feed alive on the shared 30s refresh tick — same cadence
+  // as NowPlaying and NowStatus, so all the "live" surfaces update
+  // together. The tick already skips while the tab is hidden and
+  // fires on visibility return, so we don't need separate handlers.
+  useEffect(() => subscribeRefreshTick(runRefresh), [runRefresh]);
 
   // Clear the arrival set once Motion has had a chance to play the
   // entrance animation, so the same items don't re-animate on the next
