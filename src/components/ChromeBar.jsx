@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowUp, Compass, Home, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
+import { ArrowDown, ArrowUp, Compass, Home, Info, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -11,6 +11,7 @@ import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import SearchModal from './SearchModal.jsx';
+import InfoModal from './InfoModal.jsx';
 import './ChromeBar.css';
 
 // Per-theme glyph for the cycle button — each of the 4 stops gets a
@@ -131,6 +132,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const [params] = useSearchParams();
   const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const reduce = useReducedMotion();
   const atTop = useAtTopOfPage();
   const scrolledPast = useScrolledPastFeedItems();
@@ -177,6 +179,16 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           </Link>
         )}
+        <button
+          type="button"
+          className={`chrome-nav chrome-info-btn ${infoOpen ? 'is-open' : ''}`}
+          onClick={() => setInfoOpen(true)}
+          aria-expanded={infoOpen}
+          aria-haspopup="dialog"
+          aria-label="About this site"
+        >
+          <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+        </button>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
         <AnimatePresence initial={false}>
           {scrolledPast > 0 && (
@@ -238,6 +250,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         </button>
       </div>
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
     </div>
   );
 }
