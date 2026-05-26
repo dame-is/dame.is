@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { relativeTime } from '../lib/time.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import PostEmbed from './PostEmbed.jsx';
+import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID } from '../config.js';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 
@@ -38,7 +38,7 @@ export default function ReferenceCard({ payload, atUri, createdAt, source, subje
         <div className="reference-card-row-meta">
           {ts && (
             <span className="gutter reference-card-time">
-              {relativeTime(ts)}
+              <RelativeTimeText value={ts} />
             </span>
           )}
           {expandable && (

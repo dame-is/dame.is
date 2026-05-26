@@ -6,6 +6,7 @@ import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import PostEmbed from './PostEmbed.jsx';
+import RelativeTimeText from './RelativeTimeText.jsx';
 
 export default function PostCard({
   verb,
@@ -83,10 +84,10 @@ export default function PostCard({
           {ts && variant !== 'record' && (
             recordHref ? (
               <Link className="gutter post-card-time" to={recordHref}>
-                {relativeTime(ts)}
+                <RelativeTimeText value={ts} />
               </Link>
             ) : (
-              <span className="gutter post-card-time">{relativeTime(ts)}</span>
+              <span className="gutter post-card-time"><RelativeTimeText value={ts} /></span>
             )
           )}
         </div>
@@ -95,10 +96,10 @@ export default function PostCard({
         <div className="post-card-row post-card-row-meta">
           {recordHref ? (
             <Link className="gutter post-card-time" to={recordHref}>
-              {relativeTime(ts)}
+              <RelativeTimeText value={ts} />
             </Link>
           ) : (
-            <span className="gutter post-card-time">{relativeTime(ts)}</span>
+            <span className="gutter post-card-time"><RelativeTimeText value={ts} /></span>
           )}
         </div>
       )}
@@ -202,11 +203,11 @@ function OriginalAuthorHeader({ author, subjectUri, timestamp = null, timestampH
       {timestamp && (
         timestampHref ? (
           <Link className="gutter post-card-time post-card-author-time" to={timestampHref}>
-            {relativeTime(timestamp)}
+            <RelativeTimeText value={timestamp} />
           </Link>
         ) : (
           <span className="gutter post-card-time post-card-author-time">
-            {relativeTime(timestamp)}
+            <RelativeTimeText value={timestamp} />
           </span>
         )
       )}

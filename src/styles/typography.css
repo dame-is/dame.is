@@ -102,6 +102,15 @@ blockquote {
   letter-spacing: 0.02em;
 }
 
+/* The trailing " ago" on feed-item relative timestamps gets dropped
+   on narrow viewports to save horizontal room — "33m" instead of
+   "33m ago". Wider screens keep the full phrasing. */
+@media (max-width: 700px) {
+  .time-ago-suffix {
+    display: none;
+  }
+}
+
 .dropcap::first-letter {
   font-family: var(--serif);
   font-weight: 600;

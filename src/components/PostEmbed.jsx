@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
-import { relativeTime } from '../lib/time.js';
+import RelativeTimeText from './RelativeTimeText.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import Lightbox from './Lightbox.jsx';
 import './PostEmbed.css';
@@ -300,13 +300,13 @@ function QuoteRecord({ record, depth = 0 }) {
         {ts && (
           <span className="post-embed-quote-time gutter">
             {localHref ? (
-              <Link to={localHref}>{relativeTime(ts)}</Link>
+              <Link to={localHref}><RelativeTimeText value={ts} /></Link>
             ) : externalHref ? (
               <a href={externalHref} target="_blank" rel="noreferrer noopener">
-                {relativeTime(ts)}
+                <RelativeTimeText value={ts} />
               </a>
             ) : (
-              relativeTime(ts)
+              <RelativeTimeText value={ts} />
             )}
           </span>
         )}

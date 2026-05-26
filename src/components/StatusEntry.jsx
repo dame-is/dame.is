@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import { relativeTime } from '../lib/time.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
+import RelativeTimeText from './RelativeTimeText.jsx';
 
 export default function StatusEntry({ payload, atUri, createdAt }) {
   const text = (payload?.status || payload?.text || '').trim();
@@ -20,10 +20,10 @@ export default function StatusEntry({ payload, atUri, createdAt }) {
         {ts && (
           recordHref ? (
             <Link className="gutter status-entry-time" to={recordHref}>
-              {relativeTime(ts)}
+              <RelativeTimeText value={ts} />
             </Link>
           ) : (
-            <span className="gutter status-entry-time">{relativeTime(ts)}</span>
+            <span className="gutter status-entry-time"><RelativeTimeText value={ts} /></span>
           )
         )}
       </div>
