@@ -35,7 +35,7 @@ export default function InfoModal({ open, onClose }) {
           of the <em>AT Protocol</em>. It's where Dame writes, posts,
           plays music, ships projects, and keeps a running log of what
           they're up to. The data behind every record on this page is
-          portable, open, and not owned by this website.
+          portable, open, and not stuck on this website.
         </p>
 
         <h3>What is atproto?</h3>
