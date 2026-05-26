@@ -146,7 +146,17 @@
 }
 
 .hero-sentence-measure > span {
+  /* Stack every A×B combination at the same position so each child's
+     natural height can be measured without the children flowing down
+     the page. Static children of the absolute measure layer would
+     otherwise extend past the parent's `inset: 0` bounds and inflate
+     the document's scrollHeight — visible to the user as ~16k pixels
+     of empty space below the feed when scrolling to bottom. */
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
 }
 
 /* Home hero CTAs: two destinations underneath the animated sentence.

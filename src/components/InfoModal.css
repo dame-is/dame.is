@@ -1,0 +1,70 @@
+/* Wrapped in <Modal variant="centered">; the Modal owns positioning,
+   scrim, surface, and motion. Only the interior layout lives here. */
+.info-modal-panel {
+  width: min(560px, 100%);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.info-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+}
+
+.info-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.info-modal-close:hover,
+.info-modal-close:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+.info-modal-body {
+  font-family: var(--serif);
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.info-modal-body p {
+  margin: 0;
+  line-height: var(--leading);
+}
+
+.info-modal-body strong {
+  color: var(--ink);
+}
+
+.info-modal-body h3 {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  margin: var(--space-2) 0 0;
+}

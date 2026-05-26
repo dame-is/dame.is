@@ -1,13 +1,16 @@
 .page-footer {
+  /* Same max-width + horizontal padding as `.main` so the footer
+     (border-top included) lines up with the page's content column
+     instead of stretching edge-to-edge. */
+  width: 100%;
+  max-width: 72rem;
+  margin: var(--space-9) auto 0;
   border-top: 1px solid var(--rule);
   padding: var(--space-5) clamp(var(--space-5), 6vw, var(--space-9));
-  margin-top: var(--space-9);
   background: var(--page);
 }
 
 .page-footer-inner {
-  max-width: 72rem;
-  margin: 0 auto;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
