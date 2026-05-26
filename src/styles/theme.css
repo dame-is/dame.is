@@ -97,8 +97,12 @@
   --ink-soft:    #404040;
   --ink-muted:   #707070;
   --ink-faint:   #a0a0a0;
-  --rule:        #cccccc;
-  --rule-soft:   #dddddd;
+  --rule:        #bcbcbc;
+  /* Slightly darker than --surface-raised so soft hairlines (e.g.
+     between the chrome bar's primary and secondary rows) actually
+     read against the bar's bg — the colored themes get hue contrast
+     for free; mono needs explicit luminance separation. */
+  --rule-soft:   #c8c8c8;
   --accent:      #5e7a47;
   --accent-soft: #8a9f6e;
   --tan:         #888888;
