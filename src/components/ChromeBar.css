@@ -22,7 +22,7 @@
   border-bottom: 1px solid var(--rule);
   overflow: hidden;
   width: 100%;
-  max-width: 72rem;
+  max-width: 64rem;
   margin: 0 auto;
 }
 
@@ -30,14 +30,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  /* Inset and max-width match `.main` in app.css so the chrome bar's
-     content column lines up with the page content on wide screens.
-     The bar's background still spans the full viewport — only the
-     inner row centers at 72rem. */
+  /* Inner padding sized for the 64rem-capped bar — tighter than the
+     main column's clamp so the chrome content doesn't drift away
+     from the bar's hairline edges. */
   width: 100%;
-  max-width: 72rem;
+  max-width: 64rem;
   margin: 0 auto;
-  padding: 0 clamp(var(--space-5), 6vw, var(--space-9));
+  padding: 0 clamp(var(--space-4), 4vw, var(--space-6));
   min-height: var(--chrome-h);
 }
 
@@ -320,15 +319,15 @@
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   width: 100%;
-  max-width: 72rem;
+  max-width: 64rem;
   margin: 0 auto;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* On wide screens the chrome bars float as a 72rem-wide card with
+/* On wide screens the chrome bars float as a 64rem-wide card with
    the page background showing on either side; add left/right hairlines
    to close the box visually. */
-@media (min-width: 72rem) {
+@media (min-width: 64rem) {
   .chrome-bar-top,
   .chrome-bar-bottom {
     border-left: 1px solid var(--rule);
@@ -341,9 +340,9 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  max-width: 72rem;
+  max-width: 64rem;
   margin: 0 auto;
-  padding: 0 clamp(var(--space-5), 6vw, var(--space-9));
+  padding: 0 clamp(var(--space-4), 4vw, var(--space-6));
   min-height: var(--chrome-h);
 }
 
