@@ -164,16 +164,43 @@ function AuthorChip({ author }) {
 
 function CompactBskyProfile({ view }) {
   if (!view) return <p className="reference-card-compact">an unavailable profile</p>;
-  const href = view.handle ? `https://bsky.app/profile/${view.handle}` : null;
-  const chip = <AuthorChip author={view} />;
-  return (
-    <p className="reference-card-compact">
-      {href ? (
-        <a href={href} target="_blank" rel="noreferrer noopener" className="reference-card-compact-link">{chip}</a>
-      ) : (
-        chip
+  const handle = view.handle;
+  const displayName = view.displayName;
+  const avatar = view.avatar;
+  const href = handle ? `https://bsky.app/profile/${handle}` : null;
+  const inner = (
+    <>
+      {avatar && (
+        <img
+          className="reference-card-profile-avatar"
+          src={avatar}
+          alt=""
+          width={36}
+          height={36}
+          loading="lazy"
+        />
       )}
-    </p>
+      <span className="reference-card-profile-names">
+        {displayName && (
+          <span className="reference-card-profile-name">{displayName}</span>
+        )}
+        {handle && (
+          <span className="reference-card-profile-handle gutter">@{handle}</span>
+        )}
+      </span>
+    </>
+  );
+  return href ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      className="reference-card-profile"
+    >
+      {inner}
+    </a>
+  ) : (
+    <span className="reference-card-profile">{inner}</span>
   );
 }
 

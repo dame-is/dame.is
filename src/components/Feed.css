@@ -682,6 +682,64 @@ a.post-card-author-link:focus-visible {
   border-bottom-color: var(--accent-soft);
 }
 
+/* Following items show the followed account as an avatar + stacked
+   display-name / handle, mirroring the repost author header so the
+   two feel like the same kind of "card lead-in". */
+.reference-card-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  flex: 1 1 auto;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease;
+}
+
+a.reference-card-profile:hover,
+a.reference-card-profile:focus-visible {
+  border-bottom-color: var(--accent-soft);
+  outline: none;
+}
+
+.reference-card-profile-avatar {
+  display: block;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.reference-card-profile-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.reference-card-profile-name {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.reference-card-profile-handle {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 .reference-card-author {
   display: inline-flex;
   align-items: center;
