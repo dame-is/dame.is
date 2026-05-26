@@ -1,5 +1,7 @@
 .chrome-bar {
-  background: var(--surface-raised);
+  /* Background lives on the inner top/bottom containers below, not
+     here — the wide-screen treatment caps them at 72rem so the page
+     background shows through on either side. */
   font-style: normal;
 }
 
@@ -15,9 +17,13 @@
   z-index: 30;
   display: flex;
   flex-direction: column;
+  background: var(--surface-raised);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   overflow: hidden;
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
 }
 
 .chrome-bar-row {
@@ -310,9 +316,24 @@
   left: 0;
   right: 0;
   z-index: 30;
+  background: var(--surface-raised);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
+  width: 100%;
+  max-width: 72rem;
+  margin: 0 auto;
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* On wide screens the chrome bars float as a 72rem-wide card with
+   the page background showing on either side; add left/right hairlines
+   to close the box visually. */
+@media (min-width: 72rem) {
+  .chrome-bar-top,
+  .chrome-bar-bottom {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
 }
 
 .chrome-bottom-row {
