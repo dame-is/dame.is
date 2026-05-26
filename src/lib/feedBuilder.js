@@ -12,7 +12,7 @@
 // pure function that the prefetch script calls when it needs to write a
 // per-collection JSON snapshot or a combined per-verb file.
 
-import { ME_DID, APPVIEW } from '../config.js';
+import { ME_DID, APPVIEW, COLLECTIONS } from '../config.js';
 import {
   getAuthorFeed,
   listRecords,
@@ -296,6 +296,24 @@ export function transformRecords(records, nsid, pds, did = ME_DID) {
       if (!v) continue;
       annotateLeafletBlobs(v, pds, did);
       if (!v.summary) v.summary = leafletSynopsis(v);
+    }
+  }
+
+  if (nsid === 'site.standard.document') {
+    for (const r of records) {
+      const v = r?.value;
+      if (!v?.content) continue;
+      // site.standard.document wraps a pub.leaflet.content under `content`.
+      annotateLeafletBlobs(v.content, pds, did);
+      if (!v.summary) v.summary = leafletSynopsis(v.content);
+    }
+  }
+
+  if (nsid === COLLECTIONS.creating) {
+    for (const r of records) {
+      const v = r?.value;
+      if (!v?.content) continue;
+      annotateLeafletBlobs(v.content, pds, did);
     }
   }
 

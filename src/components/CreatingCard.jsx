@@ -1,12 +1,16 @@
 import { Link } from 'react-router-dom';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
+import { firstImageFromContent } from '../lib/creatingHelpers.js';
 
 export default function CreatingCard({ payload, atUri }) {
   const slug = payload?.slug;
   const title = payload?.title || slug || 'Untitled work';
-  const kind = payload?.kind;
+  const category = payload?.category || payload?.kind;
   const summary = payload?.summary;
-  const thumb = payload?.media?.find((m) => m?.kind === 'image' && m?.url);
+  const thumb =
+    firstImageFromContent(payload?.content) ||
+    payload?.media?.find((m) => m?.kind === 'image' && m?.url) ||
+    null;
   return (
     <article className="creating-card feed-card" data-at-uri={atUri}>
       {thumb && (
@@ -20,7 +24,7 @@ export default function CreatingCard({ payload, atUri }) {
             {slug ? <Link to={`/creating/${slug}`}>{title}</Link> : title}
           </h3>
         </header>
-        {kind && <span className="small-caps creating-card-kind">{kind}</span>}
+        {category && <span className="small-caps creating-card-kind">{category}</span>}
         {summary && (
           <p className="creating-card-summary">{renderPlainTextWithTruncatedUrls(summary)}</p>
         )}

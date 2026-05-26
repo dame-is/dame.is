@@ -7,39 +7,22 @@
       "key": "tid",
       "record": {
         "type": "object",
-        "required": ["title", "slug", "kind", "createdAt"],
+        "required": ["title", "slug", "createdAt"],
         "properties": {
-          "title":      { "type": "string", "maxLength": 300 },
-          "slug":       { "type": "string", "maxLength": 200 },
-          "kind":       { "type": "string", "enum": ["art", "software", "writing", "music", "video", "other"] },
-          "summary":    { "type": "string", "maxLength": 2000 },
-          "body":       { "type": "string", "maxLength": 200000 },
-          "bodyFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
-          "media":      {
+          "title":     { "type": "string", "maxLength": 300 },
+          "slug":      { "type": "string", "maxLength": 200 },
+          "category":  { "type": "string", "maxLength": 64 },
+          "tags":      {
             "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["url"],
-              "properties": {
-                "url":  { "type": "string", "format": "uri" },
-                "alt":  { "type": "string" },
-                "kind": { "type": "string", "enum": ["image", "video", "embed"] }
-              }
-            }
+            "items": { "type": "string", "maxLength": 64 }
           },
-          "links":      {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["label", "url"],
-              "properties": {
-                "label": { "type": "string" },
-                "url":   { "type": "string", "format": "uri" }
-              }
-            }
+          "summary":   { "type": "string", "maxLength": 2000 },
+          "content":   {
+            "type": "unknown",
+            "description": "A pub.leaflet.content value: { $type, pages: [{ $type, blocks: [...] }] }. Matches the body format used by site.standard.document and pub.leaflet.document so the renderer is shared."
           },
-          "createdAt":  { "type": "string", "format": "datetime" },
-          "updatedAt":  { "type": "string", "format": "datetime" }
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
         }
       }
     }

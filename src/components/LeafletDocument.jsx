@@ -98,7 +98,11 @@ function HeaderBlock({ block }) {
 }
 
 function ImageBlock({ block }) {
-  const url = block?.image?._url || null;
+  // `_url` is set by annotateLeafletBlobs once the blob ref is resolved
+  // against the PDS. `block.url` is the legacy escape hatch for records
+  // migrated from is.dame.creating.work's old media[] array, where images
+  // were stored as plain external URLs rather than blob refs.
+  const url = block?.image?._url || block?.url || null;
   if (!url) return null;
   const alt = block.alt || '';
   const ar = block.aspectRatio;

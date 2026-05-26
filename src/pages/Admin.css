@@ -298,3 +298,39 @@
   align-items: center;
   margin-top: var(--space-3);
 }
+
+/* Category field — text input with suggestion chips below. */
+.category-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.category-field-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.category-field-chip {
+  appearance: none;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: inherit;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.category-field-chip:hover {
+  background: var(--surface-3, rgba(0, 0, 0, 0.05));
+}
+
+.category-field-chip.is-active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}

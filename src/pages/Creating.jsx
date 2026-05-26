@@ -5,7 +5,9 @@ import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilt
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
+import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
+import { firstImageFromContent } from '../lib/creatingHelpers.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
 import './Creating.css';
@@ -19,7 +21,9 @@ export default function Creating() {
     strategy: 'snapshot-first',
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 });
+      const records = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 });
+      transformRecords(records, COLLECTIONS.creating, pds, ME_DID);
+      return records;
     },
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return [];
@@ -32,13 +36,13 @@ export default function Creating() {
   const loading = status === 'loading';
   const safeWorks = works || [];
   const kinds = useMemo(
-    () => Array.from(new Set(safeWorks.map((r) => r.value?.kind).filter(Boolean))),
+    () => Array.from(new Set(safeWorks.map((r) => r.value?.category || r.value?.kind).filter(Boolean))),
     [safeWorks],
   );
   const counts = useMemo(() => {
     const c = {};
     for (const r of safeWorks) {
-      const k = r.value?.kind;
+      const k = r.value?.category || r.value?.kind;
       if (!k) continue;
       c[k] = (c[k] || 0) + 1;
     }
@@ -68,7 +72,11 @@ export default function Creating() {
           {filtered.map((r, i) => {
             const v = r.value || {};
             const slug = v.slug;
-            const thumb = v.media?.find((m) => m?.kind === 'image' && m?.url);
+            const thumb =
+              firstImageFromContent(v.content) ||
+              v.media?.find((m) => m?.kind === 'image' && m?.url) ||
+              null;
+            const category = v.category || v.kind;
             return (
               <li key={r.uri || i} className="creating-grid-cell">
                 <Link to={`/creating/${slug}`} className="creating-grid-link">
@@ -78,7 +86,7 @@ export default function Creating() {
                     <div className="creating-grid-placeholder" aria-hidden="true">&#x2767;</div>
                   )}
                   <div className="creating-grid-meta">
-                    <span className="small-caps creating-grid-kind">{v.kind}</span>
+                    {category && <span className="small-caps creating-grid-kind">{category}</span>}
                     <h3 className="creating-grid-title">{v.title || slug}</h3>
                     {v.createdAt && <span className="gutter">{relativeTime(v.createdAt)}</span>}
                   </div>

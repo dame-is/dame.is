@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
+import BlocksEditor from './blocks/BlocksEditor.jsx';
 import '../pages/Admin.css';
 
 /**
@@ -73,9 +74,10 @@ export default function RecordEditor({
         });
         const fetched = (res?.data || res)?.value || {};
         if (cancelled) return;
+        const migrated = lex?.migrate ? lex.migrate(structuredClone(fetched)) : structuredClone(fetched);
         setOriginal(fetched);
-        setValue(structuredClone(fetched));
-        setRawText(JSON.stringify(fetched, null, 2));
+        setValue(migrated);
+        setRawText(JSON.stringify(migrated, null, 2));
         if (!lex) setRawMode(true);
       } catch (err) {
         if (!cancelled) setError(err?.message || String(err));
@@ -110,6 +112,7 @@ export default function RecordEditor({
     }
     if (lex?.fields) {
       for (const f of lex.fields) {
+        if (f.type === 'blocks') continue; // an empty pub.leaflet.content shell is still a valid body
         if (!f.required && (next[f.key] === '' || next[f.key] === undefined || next[f.key] === null)) {
           delete next[f.key];
         }
@@ -117,6 +120,9 @@ export default function RecordEditor({
           delete next[f.key];
         }
       }
+    }
+    if (Array.isArray(lex?.stripLegacyKeys)) {
+      for (const k of lex.stripLegacyKeys) delete next[k];
     }
     return next;
   }, [value, lex, rawMode, rawText, isNew]);
@@ -131,13 +137,14 @@ export default function RecordEditor({
         if (lex?.rkeyMode === 'fixed') {
           const chosen = rkeyDraft.trim();
           if (!chosen) throw new Error('Pick an rkey for this record.');
+          const finalRecord = lex.derive ? lex.derive(record, { rkey: chosen }) : record;
           await agent.com.atproto.repo.putRecord({
             repo: did,
             collection,
             rkey: chosen,
-            record,
+            record: finalRecord,
           });
-          onCreated?.({ rkey: chosen, record });
+          onCreated?.({ rkey: chosen, record: finalRecord });
           return;
         }
         const res = await agent.com.atproto.repo.createRecord({
@@ -147,21 +154,36 @@ export default function RecordEditor({
         });
         const data = res?.data || res;
         const newRkey = rkeyFromUri(data?.uri || '');
+        // If the lexicon has rkey-derived fields (e.g. site.standard.document.path),
+        // stamp them now and re-put the record. Cheap enough — one extra write
+        // on first save, then plain putRecord on every subsequent edit.
+        if (lex?.derive && newRkey) {
+          const finalRecord = lex.derive(record, { rkey: newRkey });
+          await agent.com.atproto.repo.putRecord({
+            repo: did,
+            collection,
+            rkey: newRkey,
+            record: finalRecord,
+          });
+          onCreated?.({ rkey: newRkey, record: finalRecord, uri: data?.uri });
+          return;
+        }
         onCreated?.({ rkey: newRkey, record, uri: data?.uri });
         return;
       }
+      const finalRecord = lex?.derive ? lex.derive(record, { rkey }) : record;
       await agent.com.atproto.repo.putRecord({
         repo: did,
         collection,
         rkey,
-        record,
+        record: finalRecord,
       });
-      setOriginal(record);
-      setValue(record);
-      setRawText(JSON.stringify(record, null, 2));
+      setOriginal(finalRecord);
+      setValue(finalRecord);
+      setRawText(JSON.stringify(finalRecord, null, 2));
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2400);
-      onSaved?.(record);
+      onSaved?.(finalRecord);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -239,7 +261,13 @@ export default function RecordEditor({
       {rawMode || !lex ? (
         <RawJsonEditor value={rawText} onChange={setRawText} />
       ) : (
-        <FormEditor lex={lex} value={value || {}} onChange={updateField} />
+        <FormEditor
+          lex={lex}
+          value={value || {}}
+          onChange={updateField}
+          agent={agent}
+          did={did}
+        />
       )}
 
       {error && <p className="admin-error">{error}</p>}
@@ -273,17 +301,24 @@ export default function RecordEditor({
 /* Field renderers                                                      */
 /* ------------------------------------------------------------------ */
 
-function FormEditor({ lex, value, onChange }) {
+function FormEditor({ lex, value, onChange, agent, did }) {
   return (
     <div className="admin-form">
       {lex.fields.map((f) => (
-        <Field key={f.key} field={f} value={value[f.key]} onChange={(v) => onChange(f.key, v)} />
+        <Field
+          key={f.key}
+          field={f}
+          value={value[f.key]}
+          onChange={(v) => onChange(f.key, v)}
+          agent={agent}
+          did={did}
+        />
       ))}
     </div>
   );
 }
 
-function Field({ field, value, onChange }) {
+function Field({ field, value, onChange, agent, did }) {
   const id = `record-editor-field-${field.key}`;
   let control;
   switch (field.type) {
@@ -370,6 +405,33 @@ function Field({ field, value, onChange }) {
       break;
     case 'json':
       control = <JsonField id={id} value={value} onChange={onChange} />;
+      break;
+    case 'category':
+      control = (
+        <CategoryField
+          id={id}
+          value={value}
+          onChange={onChange}
+          placeholder={field.placeholder}
+          suggestions={field.suggestions || []}
+        />
+      );
+      break;
+    case 'blocks':
+      control = (
+        <BlocksEditor agent={agent} did={did} value={value} onChange={onChange} />
+      );
+      break;
+    case 'publicationPicker':
+      control = (
+        <PublicationPickerField
+          id={id}
+          value={value}
+          onChange={onChange}
+          agent={agent}
+          did={did}
+        />
+      );
       break;
     default:
       control = (
@@ -511,4 +573,94 @@ function RawJsonEditor({ value, onChange }) {
 export function rkeyFromUri(uri) {
   const m = String(uri || '').match(/\/([^/]+)$/);
   return m ? m[1] : uri;
+}
+
+function CategoryField({ id, value, onChange, placeholder, suggestions }) {
+  return (
+    <div className="category-field">
+      <input
+        id={id}
+        className="admin-input"
+        type="text"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || ''}
+      />
+      {suggestions.length > 0 && (
+        <div className="category-field-suggestions">
+          {suggestions.map((s) => {
+            const active = (value || '').toLowerCase() === s.toLowerCase();
+            return (
+              <button
+                key={s}
+                type="button"
+                className={`category-field-chip${active ? ' is-active' : ''}`}
+                onClick={() => onChange(s)}
+              >
+                {s}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PublicationPickerField({ id, value, onChange, agent, did }) {
+  const [pubs, setPubs] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await agent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: 'site.standard.publication',
+          limit: 50,
+        });
+        const records = (res?.data || res)?.records || [];
+        if (!cancelled) setPubs(records);
+      } catch (err) {
+        if (!cancelled) setError(err?.message || String(err));
+      }
+    }
+    if (agent && did) load();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent, did]);
+
+  if (error) {
+    return <p className="admin-field-hint admin-error-inline">Couldn't load publications: {error}</p>;
+  }
+  if (pubs == null) {
+    return <p className="admin-field-hint">Loading publications…</p>;
+  }
+  if (pubs.length === 0) {
+    return (
+      <p className="admin-field-hint">
+        No site.standard.publication records found under this DID. Create one in standard.site first.
+      </p>
+    );
+  }
+  return (
+    <select
+      id={id}
+      className="admin-input"
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">— pick a publication —</option>
+      {pubs.map((r) => {
+        const title = r?.value?.title || rkeyFromUri(r.uri);
+        return (
+          <option key={r.uri} value={r.uri}>
+            {title}
+          </option>
+        );
+      })}
+    </select>
+  );
 }
