@@ -33,12 +33,17 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  /* Internal padding scaled for the 65rem-capped bar — tighter than
-     `.main`'s padding clamp since the bar itself is narrower. */
+  /* Bar is 65rem (7rem narrower than `.main`'s 72rem). When both
+     reach their max-widths, the bar sits 3.5rem inside the main
+     column on each side — so the chrome's own padding can be
+     `main_padding - 3.5rem` and chrome elements still land on the
+     main content's margin column. `6vw - 3.5rem` tracks `.main`'s
+     `6vw` padding scale; clamped with a small floor + 2.5rem cap
+     for the narrow + max-width extremes. */
   width: 100%;
   max-width: 65rem;
   margin: 0 auto;
-  padding: 0 clamp(var(--space-4), 4vw, var(--space-6));
+  padding: 0 clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
   min-height: var(--chrome-h);
 }
 
@@ -344,7 +349,7 @@
   width: 100%;
   max-width: 65rem;
   margin: 0 auto;
-  padding: 0 clamp(var(--space-4), 4vw, var(--space-6));
+  padding: 0 clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
   min-height: var(--chrome-h);
 }
 
