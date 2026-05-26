@@ -22,13 +22,13 @@
   border-bottom: 1px solid var(--rule);
   overflow: hidden;
   width: 100%;
-  /* Outer bar background extends just barely past the main content's
-     72rem column so the chrome reads as a layer hovering above the
-     page rather than being part of it. The inner row below stays at
-     72rem with the same padding clamp as `.main`, so the chrome
-     elements (icons, buttons) line up perfectly with the main
-     content's left/right margins. */
-  max-width: 74rem;
+  /* Outer bar extends 2rem past the main column's 72rem on each side
+     so the chrome bar's background visibly overhangs the page
+     content. The inner row below stays at 72rem with `.main`'s
+     padding clamp, so the chrome elements (icons, buttons) sit
+     exactly at the same x-coords as the main content's left/right
+     edges. */
+  max-width: 76rem;
   margin: 0 auto;
 }
 
@@ -36,10 +36,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  /* max-width + padding match `.main` in app.css so the chrome bar's
-     content column lines up with the page content on every viewport.
-     The outer chrome-bar-top container goes 2rem wider on each side
-     so the bar's background visibly extends past the main column. */
+  /* Inner row max-width + padding match `.main` exactly. Centered
+     inside the 76rem outer bar, the row sits 2rem inset from each
+     bar edge — so the bar's background visibly overhangs while the
+     chrome elements line up with the main content's margins. */
   width: 100%;
   max-width: 72rem;
   margin: 0 auto;
@@ -326,15 +326,15 @@
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   width: 100%;
-  max-width: 74rem;
+  max-width: 76rem;
   margin: 0 auto;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* On wide screens the chrome bars float as a 74rem-wide card with
+/* On wide screens the chrome bars float as a 76rem-wide card with
    the page background showing on either side; add left/right hairlines
    to close the box visually. */
-@media (min-width: 74rem) {
+@media (min-width: 76rem) {
   .chrome-bar-top,
   .chrome-bar-bottom {
     border-left: 1px solid var(--rule);
