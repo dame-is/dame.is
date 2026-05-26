@@ -233,6 +233,7 @@
   background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
+  text-decoration: none;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 

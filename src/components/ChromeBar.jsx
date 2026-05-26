@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowUp, Compass, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
+import { ArrowDown, ArrowUp, Compass, Home, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -129,6 +129,7 @@ export default function ChromeBar() {
 
 function ChromeBarBottom({ dockOpen, toggleDock }) {
   const [params] = useSearchParams();
+  const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
   const reduce = useReducedMotion();
   const atTop = useAtTopOfPage();
@@ -140,6 +141,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
+  const onHomePage = location.pathname === '/';
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
@@ -166,6 +168,15 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         >
           <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
+        {!onHomePage && (
+          <Link
+            to="/"
+            className="chrome-nav chrome-home-btn"
+            aria-label="Go home"
+          >
+            <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          </Link>
+        )}
         <div className="chrome-bottom-spacer" aria-hidden="true" />
         <AnimatePresence initial={false}>
           {scrolledPast > 0 && (
