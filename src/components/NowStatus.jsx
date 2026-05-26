@@ -5,12 +5,12 @@ import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import TickerText from './TickerText.jsx';
 
 function compactRelative(value) {
-  // "just now" → "now"; "5m ago" → "5m"; keeps the parenthetical short
-  // so the bar reads like a sentence: "dame.is <status> (5m)".
+  // "just now" stays as-is; everything else keeps the "ago" suffix so
+  // the bar reads like "dame.is <status> 5m ago" instead of the
+  // ambiguous "5m" which could be read as a future time.
   const full = relativeTime(value);
   if (!full) return '';
-  if (full === 'just now') return 'now';
-  return full.replace(/\s*ago$/, '');
+  return full;
 }
 
 export default function NowStatus() {
