@@ -34,14 +34,14 @@ export default function InfoModal({ open, onClose }) {
           <strong>dame.is</strong> is a personal website built on top
           of the <em>AT Protocol</em>. It's where Dame writes, posts,
           plays music, ships projects, and keeps a running log of what
-          she's up to — but the data behind every record on this page
-          is portable, open, and not owned by this website.
+          they're up to. The data behind every record on this page is
+          portable, open, and not owned by this website.
         </p>
 
         <h3>What is atproto?</h3>
         <p>
-          The Authenticated Transfer Protocol — <strong>atproto</strong>{' '}
-          for short — is an open networking protocol designed by Bluesky.
+          The Authenticated Transfer Protocol (<strong>atproto</strong>{' '}
+          for short) is an open networking protocol designed by Bluesky.
           It separates <em>where your data lives</em> from{' '}
           <em>which apps you use to read or write it</em>. Anyone can
           build an app on atproto and read from the same shared,
@@ -51,30 +51,20 @@ export default function InfoModal({ open, onClose }) {
         <h3>What's the Atmosphere?</h3>
         <p>
           "The Atmosphere" is the affectionate nickname for the
-          ecosystem of apps and services built on atproto — Bluesky,
-          Tangled, Grain, Leaflet, Flushes, and many others. Each app
-          is a different view into the same shared network of people
-          and records.
+          ecosystem of apps and services built on atproto, including
+          Bluesky, Tangled, Grain, Leaflet, Flushes, and many others.
+          Each app is a different view into the same shared network
+          of people and records.
         </p>
 
         <h3>Where does this content live?</h3>
         <p>
-          Every record you see on this site — posts, status updates,
-          songs played, blog entries, project pages — is stored on
-          Dame's own <strong>Personal Data Server</strong> (her PDS).
-          She owns it. This site is just one of many possible windows
-          into that data, and the data comes with her if she ever
-          moves PDSes or builds another frontend.
-        </p>
-
-        <h3>What can I do here?</h3>
-        <p>
-          Browse projects, read the blog, see what's playing in Dame's
-          ears, and follow what she's working on. The atmosphere bar
-          at the top shows live signals — current status, current
-          song. Below it, the feed unifies every kind of record into
-          one reverse-chronological view, filterable by type via the
-          chrome bar at the bottom.
+          Every record you see on this site (posts, status updates,
+          songs played, blog entries, project pages) is stored on
+          Dame's own <strong>Personal Data Server</strong> (their PDS).
+          They own it. This site is just one of many possible windows
+          into that data, and the data comes with them if they ever
+          move PDSes or build another frontend.
         </p>
       </div>
     </Modal>
