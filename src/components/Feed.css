@@ -635,7 +635,10 @@ a.post-card-author-link:focus-visible {
 /* Footer "refreshed at" line ------------------------------------------ */
 
 .feed-live-status-footer {
-  margin-top: var(--space-7);
+  /* `p` inherits a 65ch max-width from typography.css; without
+     auto margins the box stays left-aligned even with text-align
+     center. Pin to `auto` so the whole line centers in the column. */
+  margin: var(--space-7) auto 0;
   text-align: center;
 }
 
