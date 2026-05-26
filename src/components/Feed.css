@@ -347,6 +347,7 @@ a.post-card-author-link:focus-visible {
 .listen-row-head {
   display: flex;
   align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-3);
 }
 
@@ -371,7 +372,9 @@ a.post-card-author-link:focus-visible {
 .listen-row-count,
 .listen-row-toggle {
   flex: 0 0 auto;
+  margin-left: auto;
   color: var(--ink-faint);
+  white-space: nowrap;
 }
 
 .listen-row-toggle {
@@ -1101,9 +1104,11 @@ a.post-card-author-link:focus-visible {
 /* Hide the verb-icon-plus-gerund row entirely. The verb-as-reply
    variant ("replying to @handle") carries conversational context that
    the card body doesn't repeat, so keep that one visible but flatten
-   it inline. */
-[data-density='compact'] .feed-item-verb:not(.feed-item-verb-reply):not(.feed-item-verb-thread),
-[data-density='tight'] .feed-item-verb:not(.feed-item-verb-reply):not(.feed-item-verb-thread) {
+   it inline. `:where()` wraps the negations so they don't contribute
+   specificity — the listening-row override below can then re-show
+   that verb's icon without needing !important. */
+[data-density='compact'] .feed-item-verb:where(:not(.feed-item-verb-reply):not(.feed-item-verb-thread)),
+[data-density='tight'] .feed-item-verb:where(:not(.feed-item-verb-reply):not(.feed-item-verb-thread)) {
   display: none;
 }
 
