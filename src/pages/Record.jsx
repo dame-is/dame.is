@@ -9,6 +9,7 @@ import CreatingCard from '../components/CreatingCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
+import AturiActions from '../components/AturiActions.jsx';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
 import { resolvePds, getRecord, getPostThread, explorerPathFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
@@ -198,6 +199,8 @@ export default function Record({ verb, nsid, source }) {
         )}
 
         {item && <RecordMeta collection={collection} createdAt={createdAt} />}
+
+        {item && <AturiActions atUri={atUri} />}
 
         {(verb === 'posting' || verb === 'reposting') && item?.atUri && (
           <Comments

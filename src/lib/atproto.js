@@ -241,3 +241,61 @@ export function explorerPathFromAtUri(input) {
   if (collection) return `/exploring/${repo}/${collection}`;
   return `/exploring/${repo}`;
 }
+
+const ATURI_BASE = 'https://aturi.to';
+
+/**
+ * Parse an `at://repo/collection/rkey` URI (or bare DID) into its parts.
+ * Returns `null` for empty/unparseable input.
+ */
+function atUriParts(input) {
+  if (!input) return null;
+  const s = String(input);
+  if (s.startsWith('did:')) return { repo: s, collection: null, rkey: null };
+  const m = s.match(/^at:\/\/([^/]+)(?:\/([^/?#]+)(?:\/([^/?#]+))?)?/);
+  if (!m) return null;
+  return { repo: m[1], collection: m[2] || null, rkey: m[3] || null };
+}
+
+/**
+ * Build the aturi.to universal-link page URL for a record — the friendly
+ * "open this in the client of your choice" landing page. Mirrors aturi.to's
+ * own canonical `/profile/…` form, including its `post` / `lists` aliases.
+ *
+ *   at://did/app.bsky.feed.post/xyz   → https://aturi.to/profile/did/post/xyz
+ *   at://did/app.bsky.graph.list/xyz  → https://aturi.to/profile/did/lists/xyz
+ *   at://did/is.dame.blog/xyz         → https://aturi.to/profile/did/is.dame.blog/xyz
+ *   at://did                          → https://aturi.to/profile/did
+ */
+export function aturiUniversalUrl(input) {
+  const parts = atUriParts(input);
+  if (!parts) return null;
+  const { repo, collection, rkey } = parts;
+  if (collection && rkey) {
+    const tail =
+      collection === 'app.bsky.feed.post'
+        ? `post/${encodeURIComponent(rkey)}`
+        : collection === 'app.bsky.graph.list'
+          ? `lists/${encodeURIComponent(rkey)}`
+          : `${collection}/${encodeURIComponent(rkey)}`;
+    return `${ATURI_BASE}/profile/${repo}/${tail}`;
+  }
+  return `${ATURI_BASE}/profile/${repo}`;
+}
+
+/**
+ * Build the aturi.to Atmosphere Explorer URL for a record / collection /
+ * repo — the raw-data inspector view.
+ *
+ *   at://did/app.bsky.feed.post/xyz  → https://aturi.to/explore/did/app.bsky.feed.post/xyz
+ *   at://did/app.bsky.feed.post      → https://aturi.to/explore/did/app.bsky.feed.post
+ *   at://did                         → https://aturi.to/explore/did
+ */
+export function aturiExplorerUrl(input) {
+  const parts = atUriParts(input);
+  if (!parts) return null;
+  const { repo, collection, rkey } = parts;
+  if (collection && rkey) return `${ATURI_BASE}/explore/${repo}/${collection}/${encodeURIComponent(rkey)}`;
+  if (collection) return `${ATURI_BASE}/explore/${repo}/${collection}`;
+  return `${ATURI_BASE}/explore/${repo}`;
+}

@@ -37,6 +37,32 @@
   border-color: var(--accent-soft);
 }
 
+/* aturi.to hand-off links under a record (Open in… / Inspect Data). */
+.record-aturi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-4);
+}
+
+.record-aturi-actions a {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  padding: 0.4em 0.85em;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.record-aturi-actions a:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
 .record-fallback-json {
   border: 1px solid var(--rule-soft);
   padding: var(--space-3);
