@@ -15,6 +15,7 @@ export const PLC_DIRECTORY = 'https://plc.directory';
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
+const HERO_PHRASE_NSID = 'is.dame.hero.phrase';
 
 /**
  * Legacy verb-or-shorthand → NSID lookup. Existing call sites
@@ -31,6 +32,7 @@ export const COLLECTIONS = {
   listen: primaryNsid('listening'),
   page: PAGE_NSID,
   profile: PROFILE_NSID,
+  heroPhrase: HERO_PHRASE_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */

@@ -123,6 +123,14 @@ async function main() {
   }
   await writeJson('pages', pages);
 
+  // --- Hero phrases (is.dame.hero.phrase) -----------------------------------
+  const heroPhrases = await safe(
+    'listRecords:heroPhrase',
+    () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.heroPhrase, max: 200 }),
+    [],
+  );
+  await writeJson('hero', heroPhrases);
+
   // --- Registry-driven ingest (delegated to the shared builder) -------------
   const { unified, perCollection, perVerb, authorFeed, counts } = await buildUnifiedFeed({
     pds,

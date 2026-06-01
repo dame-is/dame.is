@@ -298,3 +298,78 @@
   align-items: center;
   margin-top: var(--space-3);
 }
+
+/* Page content (Local vs PDS) panels */
+.admin-page-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.admin-page-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+}
+
+.admin-page-panels .admin-page-panel {
+  margin: 0;
+}
+
+.admin-page-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.admin-page-panel-label {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+}
+
+.admin-page-panel-desc {
+  margin: 0;
+  font-family: var(--serif);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.admin-page-panel-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-top: var(--space-1);
+}
+
+.admin-badge {
+  flex-shrink: 0;
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.16em;
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-1);
+  border: 1px solid var(--rule);
+}
+
+.admin-badge-pds {
+  color: var(--page);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.admin-badge-local {
+  color: var(--ink-soft);
+  background: transparent;
+  border-color: var(--rule);
+}
+
+select.admin-input {
+  appearance: auto;
+  cursor: pointer;
+}

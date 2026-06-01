@@ -6,6 +6,7 @@ import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { usePageContent } from '../hooks/usePageContent.js';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -14,6 +15,7 @@ import '../components/Feed.css';
 export default function Logging() {
   const [params] = useSearchParams();
   const q = params.get('q') || '';
+  const { title, intro } = usePageContent('logging');
 
   const { items, status, refreshedAt } = useLiveFeed({
     name: 'now',
@@ -39,8 +41,8 @@ export default function Logging() {
 
   return (
     <PageShell
-      title="Logging"
-      intro="Status updates, archived. Each entry is one is.dame.now record."
+      title={title}
+      intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/logging`}
       headTitle="Logging — Dame is&hellip;"
     >

@@ -1,5 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { resolvePds, listRecords } from '../lib/atproto.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 
 /**
  * The home-page hero is one combinatorial sentence:
@@ -10,10 +13,12 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
  * intervals (random 4–8 s) so you almost never see the same pair
  * twice in a row. "dame is" itself stays put as the muted lead.
  *
- * Pools are intentionally short and editable in-file — adding a new
- * role or clause is a one-line append to the relevant const.
+ * Phrases live on the PDS as `is.dame.hero.phrase` records (managed in
+ * the admin panel) and are loaded at runtime. The in-file VARIANTS_A /
+ * VARIANTS_B arrays below are the fallback shown before/without any
+ * records, and the seed the admin "Seed defaults" button writes.
  */
-const VARIANTS_A = [
+export const VARIANTS_A = [
   'a design engineer',
   'an artist',
   'a lepidopterist',
@@ -26,7 +31,7 @@ const VARIANTS_A = [
   'an interface designer',
 ];
 
-const VARIANTS_B = [
+export const VARIANTS_B = [
   'who sometimes stays up late mothing',
   'who makes social software with open protocols',
   'who unconsciously hums christmas music all year round',
@@ -61,6 +66,36 @@ const wordVariants = {
 
 export default function HeroSentence({ shuffleRef = null } = {}) {
   const reduce = useReducedMotion();
+
+  // Phrases come from the PDS (`is.dame.hero.phrase`), snapshot-first with a
+  // live overlay. The in-file VARIANTS_* arrays are the fallback when the
+  // collection is empty or unreachable.
+  const { items: heroRecords } = useLiveFeed({
+    name: 'hero',
+    strategy: 'snapshot-first',
+    fetchLive: async () => {
+      const pds = await resolvePds(ME_DID);
+      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.heroPhrase, max: 200 });
+    },
+    mapItems: (snap) => (Array.isArray(snap) ? snap.filter((r) => r?.value) : []),
+  });
+
+  // Split records into the two pools by `part`, dropping disabled ones.
+  // Fallback is per-part: if the PDS has roles but no clauses, clauses use
+  // the in-file defaults rather than emptying the second half of the sentence.
+  const { poolA, poolB } = useMemo(() => {
+    const recs = heroRecords || [];
+    const enabled = recs.filter(
+      (r) => r.value?.enabled !== false && typeof r.value?.text === 'string' && r.value.text.trim(),
+    );
+    const roles = enabled.filter((r) => r.value.part === 'role').map((r) => r.value.text);
+    const clauses = enabled.filter((r) => r.value.part === 'clause').map((r) => r.value.text);
+    return {
+      poolA: roles.length ? roles : VARIANTS_A,
+      poolB: clauses.length ? clauses : VARIANTS_B,
+    };
+  }, [heroRecords]);
+
   // Random starting pair so returning visitors don't always see the
   // same opener. Under reduced motion both pin to 0 for a predictable,
   // non-surprising default.
@@ -71,6 +106,13 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
     reduce ? 0 : Math.floor(Math.random() * VARIANTS_B.length),
   );
 
+  // Pools are dynamic (they load and can change). Keep indices in range so
+  // `Rotator` never dereferences an out-of-bounds phrase.
+  useEffect(() => {
+    setIndexA((i) => (poolA.length ? i % poolA.length : 0));
+    setIndexB((i) => (poolB.length ? i % poolB.length : 0));
+  }, [poolA.length, poolB.length]);
+
   // Imperative shuffle handle the parent (Home) wires to a button so
   // users can advance the sentence manually instead of waiting for the
   // next timed swap. Always picks a fresh A and B both — picking the
@@ -78,13 +120,13 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   useEffect(() => {
     if (!shuffleRef) return undefined;
     shuffleRef.current = () => {
-      setIndexA((i) => pickDifferent(i, VARIANTS_A.length));
-      setIndexB((i) => pickDifferent(i, VARIANTS_B.length));
+      setIndexA((i) => pickDifferent(i, poolA.length));
+      setIndexB((i) => pickDifferent(i, poolB.length));
     };
     return () => {
       if (shuffleRef.current) shuffleRef.current = null;
     };
-  }, [shuffleRef]);
+  }, [shuffleRef, poolA.length, poolB.length]);
   const [paused, setPaused] = useState(false);
   const [minHeight, setMinHeight] = useState(null);
   const wrapRef = useRef(null);
@@ -97,11 +139,11 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
     if (reduce || paused) return;
     const ms = 4000 + Math.random() * 4000;
     const id = setTimeout(
-      () => setIndexA((i) => (i + 1) % VARIANTS_A.length),
+      () => setIndexA((i) => (i + 1) % poolA.length),
       ms,
     );
     return () => clearTimeout(id);
-  }, [indexA, paused, reduce]);
+  }, [indexA, paused, reduce, poolA.length]);
 
   // Part-B timer: same logic, but a small phase offset (4500 base
   // instead of 4000) so A and B drift independently rather than
@@ -110,11 +152,11 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
     if (reduce || paused) return;
     const ms = 4500 + Math.random() * 4000;
     const id = setTimeout(
-      () => setIndexB((i) => (i + 1) % VARIANTS_B.length),
+      () => setIndexB((i) => (i + 1) % poolB.length),
       ms,
     );
     return () => clearTimeout(id);
-  }, [indexB, paused, reduce]);
+  }, [indexB, paused, reduce, poolB.length]);
 
   // Pause when the tab is hidden — otherwise the timer fires
   // unattended and the user comes back to an arbitrary mid-cycle pair.
@@ -173,8 +215,8 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
       onBlurCapture={() => setPaused(false)}
     >
       <span className="hero-sentence-lead">dame is</span>{' '}
-      <Rotator index={indexA} pool={VARIANTS_A} reduce={reduce} className="hero-rotator-a" />{' '}
-      <Rotator index={indexB} pool={VARIANTS_B} reduce={reduce} className="hero-rotator-b" />
+      <Rotator index={indexA} pool={poolA} reduce={reduce} className="hero-rotator-a" />{' '}
+      <Rotator index={indexB} pool={poolB} reduce={reduce} className="hero-rotator-b" />
 
       {/* Each measure entry mirrors the live nested structure (lead +
           two inline-block rotators) so wrapping at the rotator
@@ -187,8 +229,8 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
         className="hero-sentence-measure"
         ref={measureRef}
       >
-        {VARIANTS_A.flatMap((a) =>
-          VARIANTS_B.map((b) => (
+        {poolA.flatMap((a) =>
+          poolB.map((b) => (
             <span key={`${a}|${b}`}>
               <span className="hero-sentence-lead">dame is</span>{' '}
               <span className="hero-rotator hero-rotator-a">
@@ -217,8 +259,12 @@ function pickDifferent(current, length) {
 function Rotator({ index, pool, reduce, className = '' }) {
   // Split the active phrase into words once per index change. Real
   // space text nodes between word spans preserve the wrap-anywhere
-  // behavior the measure layer already counts on.
-  const words = useMemo(() => pool[index].split(' '), [pool, index]);
+  // behavior the measure layer already counts on. Guard the lookup: the
+  // pool can change a render before the parent clamps `index` back in range.
+  const words = useMemo(() => {
+    const phrase = pool[index] ?? pool[0] ?? '';
+    return phrase.split(' ');
+  }, [pool, index]);
 
   return (
     <span className={`hero-rotator ${className}`}>

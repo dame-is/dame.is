@@ -2,9 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
+import PageContentPanel from '../components/PageContentPanel.jsx';
+import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { ME_DID } from '../config.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
+import { knownPageSlugs, pageSlugForCollection } from '../lib/pageRegistry.js';
 import './Admin.css';
 
 /**
@@ -24,6 +27,7 @@ export default function Admin() {
   const collection = params.get('c');
   const rkey = params.get('r');
   const mode = params.get('mode');
+  const view = params.get('view');
 
   if (loading) {
     return (
@@ -52,6 +56,9 @@ export default function Admin() {
     );
   }
 
+  if (view === 'pages') {
+    return <PagesOverview agent={agent} did={did} />;
+  }
   if (!collection) {
     return <CollectionPicker />;
   }
@@ -120,6 +127,16 @@ function CollectionPicker() {
       headTitle="Admin — Dame is…"
     >
       <ul className="admin-collection-list">
+        <li className="admin-collection-row">
+          <Link to="/admin?view=pages" className="admin-collection-link">
+            <span className="admin-collection-label">Site pages (Local vs PDS)</span>
+            <code className="admin-collection-nsid">is.dame.page</code>
+          </Link>
+          <p className="admin-collection-summary">
+            See which pages serve their title &amp; intro from the PDS vs hardcoded
+            defaults, and migrate or revert them.
+          </p>
+        </li>
         {knownCollections().map((nsid) => {
           const lex = LEXICONS[nsid];
           return (
@@ -175,6 +192,8 @@ function RecordList({ agent, did, collection }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const lex = lexiconFor(collection);
+  const pageSlug = pageSlugForCollection(collection);
+  const isHero = collection === COLLECTIONS.heroPhrase;
 
   const loadPage = useCallback(
     async (after) => {
@@ -201,12 +220,16 @@ function RecordList({ agent, did, collection }) {
     [agent, did, collection],
   );
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     setRecords([]);
     setCursor(undefined);
     setDone(false);
     loadPage(undefined);
   }, [loadPage]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   return (
     <PageShell
@@ -222,7 +245,12 @@ function RecordList({ agent, did, collection }) {
         >
           New record
         </Link>
+        {isHero && (
+          <HeroSeedButton agent={agent} did={did} existingCount={records.length} onSeeded={reload} />
+        )}
       </div>
+
+      {pageSlug && <PageContentPanel agent={agent} did={did} slug={pageSlug} />}
 
       {error && <p className="admin-error">{error}</p>}
 
@@ -281,6 +309,128 @@ function previewFor(value, lex) {
 function truncate(s, n) {
   if (!s) return '';
   return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + '…';
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero phrase seeding                                                  */
+/* ------------------------------------------------------------------ */
+
+function HeroSeedButton({ agent, did, existingCount, onSeeded }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function seed() {
+    if (existingCount > 0) {
+      if (
+        !window.confirm(
+          `This collection already has ${existingCount} record(s). Seed the built-in defaults anyway? This may create duplicates.`,
+        )
+      ) {
+        return;
+      }
+    } else if (!window.confirm('Create the built-in hero phrases as records on your PDS?')) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const seedPart = async (part, list) => {
+        for (const text of list) {
+          await agent.com.atproto.repo.createRecord({
+            repo: did,
+            collection: COLLECTIONS.heroPhrase,
+            record: {
+              $type: COLLECTIONS.heroPhrase,
+              part,
+              text,
+              enabled: true,
+              createdAt: new Date().toISOString(),
+            },
+          });
+        }
+      };
+      await seedPart('role', VARIANTS_A);
+      await seedPart('clause', VARIANTS_B);
+      onSeeded?.();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="admin-gate-button admin-gate-button-tight"
+        onClick={seed}
+        disabled={busy}
+      >
+        {busy ? 'Seeding…' : 'Seed defaults'}
+      </button>
+      {error && <p className="admin-error">{error}</p>}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Site pages overview                                                  */
+/* ------------------------------------------------------------------ */
+
+function PagesOverview({ agent, did }) {
+  const [existing, setExisting] = useState(null); // Set of slugs that have a record
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    agent.com.atproto.repo
+      .listRecords({ repo: did, collection: COLLECTIONS.page, limit: 100 })
+      .then((res) => {
+        const next = res?.data || res;
+        const set = new Set((next?.records || []).map((r) => rkeyFromUri(r.uri)));
+        if (!cancelled) setExisting(set);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(err?.message || String(err));
+          setExisting(new Set());
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent, did]);
+
+  return (
+    <PageShell
+      title="Site pages"
+      intro="Each page's title and intro can live in the site (Local) or as an is.dame.page record on your PDS."
+      headTitle="Site pages — Admin — Dame is…"
+    >
+      <div className="admin-toolbar">
+        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
+      </div>
+
+      {error && <p className="admin-error">{error}</p>}
+
+      {existing === null ? (
+        <p className="placeholder-card">Loading pages…</p>
+      ) : (
+        <div className="admin-page-panels">
+          {knownPageSlugs().map((slug) => (
+            <PageContentPanel
+              key={slug}
+              agent={agent}
+              did={did}
+              slug={slug}
+              exists={existing.has(slug)}
+            />
+          ))}
+        </div>
+      )}
+    </PageShell>
+  );
 }
 
 /* ------------------------------------------------------------------ */

@@ -6,6 +6,7 @@ import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import PostingFilters, { filterPostingItems, postingCategories } from '../components/PostingFilters.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { usePageContent } from '../hooks/usePageContent.js';
 import { groupByDay } from '../lib/time.js';
 import { getAuthorFeed } from '../lib/atproto.js';
 import { blueskyPostToFeedItem } from '../lib/feedBuilder.js';
@@ -15,6 +16,7 @@ import '../components/Feed.css';
 
 export default function Posting() {
   const [params] = useSearchParams();
+  const { title, intro } = usePageContent('posting');
 
   const { items, status, refreshedAt } = useLiveFeed({
     name: 'posts',
@@ -46,8 +48,8 @@ export default function Posting() {
 
   return (
     <PageShell
-      title="Posting"
-      intro="Bluesky posts, freshest first, grouped by day-of-life."
+      title={title}
+      intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/posting`}
       headTitle="Posting — Dame is&hellip;"
     >

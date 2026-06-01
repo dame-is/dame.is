@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
@@ -24,6 +25,7 @@ import './Blogging.css';
 export default function Blogging() {
   const [params] = useSearchParams();
   const q = params.get('q') || '';
+  const { title, intro } = usePageContent('blogging');
 
   const { items: entries, status } = useLiveFeed({
     strategy: 'snapshot-first',
@@ -57,8 +59,8 @@ export default function Blogging() {
 
   return (
     <PageShell
-      title="Blogging"
-      intro="A book of long-form posts. Each entry is an is.dame.blogging.post or pub.leaflet.document record."
+      title={title}
+      intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/blogging`}
       headTitle="Blogging — Dame is&hellip;"
     >

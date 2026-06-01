@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -13,6 +14,7 @@ import './Creating.css';
 export default function Creating() {
   const [params] = useSearchParams();
   const q = params.get('q') || '';
+  const { title, intro } = usePageContent('creating');
 
   const { items: works, status } = useLiveFeed({
     name: 'creations',
@@ -51,8 +53,8 @@ export default function Creating() {
 
   return (
     <PageShell
-      title="Creating"
-      intro="A portfolio of works — art, software, writing, music, and more."
+      title={title}
+      intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/creating`}
       headTitle="Creating — Dame is&hellip;"
     >

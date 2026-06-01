@@ -6,6 +6,7 @@ import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { usePageContent } from '../hooks/usePageContent.js';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -14,6 +15,7 @@ import '../components/Feed.css';
 export default function Listening() {
   const [params] = useSearchParams();
   const q = params.get('q') || '';
+  const { title, intro } = usePageContent('listening');
 
   const { items, status, refreshedAt } = useLiveFeed({
     name: 'listening',
@@ -47,8 +49,8 @@ export default function Listening() {
 
   return (
     <PageShell
-      title="Listening"
-      intro="Songs played, freshest first, grouped by day-of-life."
+      title={title}
+      intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/listening`}
       headTitle="Listening — Dame is&hellip;"
     >
