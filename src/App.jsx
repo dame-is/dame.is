@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
 import Posting from './pages/Posting.jsx';
@@ -131,6 +132,7 @@ export default function App() {
             <Footer />
             <ActionDock />
             <FilmGrain />
+            <Analytics />
           </div>
       </ActionDockProvider>
       </FeedFilterProvider>
