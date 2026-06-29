@@ -155,7 +155,18 @@ export function filterCreatingItems(items, params, allKinds) {
   const q = (params.get('q') || '').trim().toLowerCase();
   return items.filter((r) => {
     const v = r?.value || {};
-    if (v.kind && !active.has(v.kind)) return false;
-    return matchesQuery([v.title, v.summary, v.body, v.kind, v.slug].filter(Boolean).join(' '), q);
+    const category = v.category || v.kind;
+    if (category && !active.has(category)) return false;
+    const haystack = [
+      v.title,
+      v.summary,
+      v.body,
+      category,
+      v.slug,
+      ...(Array.isArray(v.tags) ? v.tags : []),
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return matchesQuery(haystack, q);
   });
 }

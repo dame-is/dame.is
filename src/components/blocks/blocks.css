@@ -1,0 +1,257 @@
+/* Shared visual chrome for the pub.leaflet.content block editor. */
+
+.blocks-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.blocks-editor-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.blocks-editor-item {
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  background: var(--surface-2, rgba(0, 0, 0, 0.015));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.blocks-editor-item-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.blocks-editor-item-type {
+  opacity: 0.7;
+  letter-spacing: 0.05em;
+}
+
+.blocks-editor-item-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.blocks-editor-item-buttons button {
+  min-width: 1.75rem;
+  padding: 0.125rem 0.375rem;
+}
+
+.blocks-editor-add {
+  border-top: 1px dashed var(--rule, rgba(0, 0, 0, 0.15));
+  padding-top: 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.blocks-editor-add-label {
+  opacity: 0.6;
+}
+
+.blocks-editor-add-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.blocks-editor-add-btn {
+  appearance: none;
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.2));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0.25rem 0.625rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.blocks-editor-add-btn:hover {
+  background: var(--surface-3, rgba(0, 0, 0, 0.05));
+}
+
+.blocks-editor-unknown {
+  font-size: 0.8em;
+  opacity: 0.7;
+  white-space: pre-wrap;
+}
+
+/* Rich text field (text block + heading + list item) */
+
+.rich-text-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.rich-text-toolbar {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.rich-text-toolbar-btn {
+  appearance: none;
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.2));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  min-width: 1.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.rich-text-toolbar-btn:hover:not(:disabled) {
+  background: var(--surface-3, rgba(0, 0, 0, 0.06));
+}
+
+.rich-text-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rich-text-textarea {
+  width: 100%;
+}
+
+.rich-text-facet-summary {
+  opacity: 0.6;
+  font-size: 0.8em;
+}
+
+/* Heading block */
+
+.heading-block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.heading-block-editor-level {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-input-narrow {
+  width: auto;
+  min-width: 5rem;
+}
+
+/* Image block */
+
+.image-block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.image-block-dropzone {
+  border: 2px dashed var(--rule, rgba(0, 0, 0, 0.2));
+  border-radius: 6px;
+  min-height: 8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0.5rem;
+}
+
+.image-block-dropzone.has-image {
+  border-style: solid;
+}
+
+.image-block-dropzone img {
+  max-width: 100%;
+  max-height: 24rem;
+  height: auto;
+  display: block;
+}
+
+.image-block-dropzone-empty {
+  opacity: 0.6;
+  text-align: center;
+  padding: 1rem;
+}
+
+.image-block-alt-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Website block */
+
+.website-block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.website-block-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  align-items: flex-start;
+}
+
+.website-block-preview-img {
+  max-width: 12rem;
+  max-height: 8rem;
+  height: auto;
+  display: block;
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.15));
+  border-radius: 4px;
+}
+
+/* List block */
+
+.list-block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.list-block-editor-toggle {
+  margin-bottom: 0.25rem;
+}
+
+.list-block-editor-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.list-block-editor-item {
+  border-left: 2px solid var(--rule, rgba(0, 0, 0, 0.12));
+  padding-left: 0.625rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.list-block-editor-item-controls {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.list-block-editor-nested {
+  margin-left: 0.625rem;
+}
+
+/* Code block + Bluesky-post block use only baseline admin classes. */
