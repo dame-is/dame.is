@@ -36,13 +36,14 @@ const PRESETS = {
  *
  * Outside-click dismissal lives on the modal-root div itself (gated by
  * `e.target === e.currentTarget`) rather than a separate scrim button.
- * The transparent variant therefore renders zero scrim elements — no
- * backdrop-filter compositor layer to tear down on close, which is what
- * caused the underlying page to flash darker mid-transition.
+ * Default modals therefore render zero scrim elements — no dim, no blur,
+ * no backdrop-filter compositor layer to tear down on close. The panel's
+ * own drop-shadow is the sole depth cue separating it from the page.
  *
- * The dim variant adds a non-interactive motion.div as the visual layer,
- * animating its backgroundColor and backdropFilter directly (not opacity)
- * so both ramp smoothly to 0 instead of snapping off at unmount.
+ * The "dark" variant (image lightbox) is the lone exception: it adds a
+ * non-interactive motion.div as the visual layer, animating its
+ * backgroundColor and backdropFilter directly (not opacity) so both ramp
+ * smoothly to 0 instead of snapping off at unmount.
  */
 export default function Modal({
   open,
@@ -71,12 +72,15 @@ export default function Modal({
   const ease = [0.32, 0.72, 0, 1];
   const panelDuration = reduce ? 0 : 0.24;
   const scrimDuration = reduce ? 0 : 0.24;
-  const isDim = scrim === 'dim' || scrim === 'dark';
-  // "dark" — pushes the scrim well past the default tint/blur, for
-  // surfaces like the image lightbox where the photo needs to read
-  // against the page rather than alongside it.
-  const dimColor = scrim === 'dark' ? 'rgba(0, 0, 0, 0.78)' : 'rgba(0, 0, 0, 0.08)';
-  const dimBlur = scrim === 'dark' ? 'blur(8px)' : 'blur(2px)';
+  // Only the "dark" variant paints a scrim — an immersive tint + blur for
+  // surfaces like the image lightbox where the photo needs to read against
+  // the page rather than alongside it. The default ("dim") and "none"
+  // modes render no visual layer; default modals lean on the panel's
+  // drop-shadow alone, while still dismissing on outside click because
+  // that's owned by modal-root (see handleRootClick), not the scrim.
+  const paintsScrim = scrim === 'dark';
+  const dimColor = 'rgba(0, 0, 0, 0.78)';
+  const dimBlur = 'blur(8px)';
 
   function handleRootClick(e) {
     if (!open || scrim === 'none') return;
@@ -99,7 +103,7 @@ export default function Modal({
       onClick={handleRootClick}
     >
       <AnimatePresence>
-        {open && isDim && (
+        {open && paintsScrim && (
           <motion.div
             key="scrim-dim"
             className={`modal-scrim modal-scrim-${scrim}`}
