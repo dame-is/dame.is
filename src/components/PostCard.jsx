@@ -103,7 +103,7 @@ export default function PostCard({
           )}
         </div>
       )}
-      {embed && <PostEmbed embed={embed} did={authorDid} />}
+      {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats">
           {payload?.replyCount ? `${payload.replyCount} ${payload.replyCount === 1 ? 'reply' : 'replies'}` : ''}

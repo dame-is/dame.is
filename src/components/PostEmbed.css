@@ -408,11 +408,74 @@ a.post-embed-quote {
   display: none;
 }
 
-/* tight: embeds are dropped entirely, matching the stats footer / media
-   grid already hidden for this density in Feed.css. */
-[data-density='tight'] .feed-item .post-embed-images,
-[data-density='tight'] .feed-item .post-embed-video,
-[data-density='tight'] .feed-item .post-embed-link-card,
-[data-density='tight'] .feed-item .post-embed-quote {
-  display: none;
+/* tight: the embed collapses to a one-line chip (rendered by
+   CollapsibleEmbed in PostEmbed.jsx) that the reader can expand on
+   demand — so a tight row stays scannable without hiding the fact that
+   an embed exists. The chip + expanded body are styled below. */
+
+.post-embed-collapsible {
+  margin-top: var(--space-2);
+}
+
+.post-embed-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  padding: 0.2rem 0.6rem;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  cursor: pointer;
+  max-width: 100%;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.post-embed-toggle:hover,
+.post-embed-toggle:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  outline: none;
+}
+
+.post-embed-toggle-icon {
+  color: var(--ink-faint);
+  flex: 0 0 auto;
+  transition: color 120ms ease;
+}
+
+.post-embed-toggle:hover .post-embed-toggle-icon,
+.post-embed-toggle:focus-visible .post-embed-toggle-icon {
+  color: var(--accent);
+}
+
+.post-embed-toggle-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.post-embed-toggle-caret {
+  color: var(--ink-faint);
+  flex: 0 0 auto;
+  transition: transform 120ms ease;
+}
+
+.post-embed-toggle-caret.is-open {
+  transform: rotate(180deg);
+}
+
+/* The expanded embed renders at its natural size — the reader asked to
+   see it. Zero the leading margin the embed type already carries so it
+   doesn't stack on top of the body's own gap. */
+.post-embed-collapsible-body {
+  margin-top: var(--space-2);
+}
+
+.post-embed-collapsible-body > * {
+  margin-top: 0;
 }
