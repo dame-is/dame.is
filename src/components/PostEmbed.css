@@ -295,3 +295,124 @@ a.post-embed-quote {
   color: var(--ink-soft);
   overflow-wrap: anywhere;
 }
+
+/* ----------------------------------------------------------------------
+   Density-aware embeds (toggled by [data-density] on <html>).
+
+   At full density an embed renders at its natural size. In the feed's
+   compact / tight views it should shrink in step with everything else
+   rather than dominating the row. These rules are scoped to `.feed-item`
+   so embeds on record/detail pages — where vertical space isn't at a
+   premium — keep their full size.
+
+   compact: a genuinely smaller version of each embed — shorter media,
+            a tighter link card, a trimmed quote.
+   tight:   embeds drop out entirely (matching the rest of tight's
+            aggressive minimal list view).
+   ---------------------------------------------------------------------- */
+
+/* Pull the embed closer to the post text — the larger normal-mode
+   rhythm reads as a gap when rows are dense. */
+[data-density='compact'] .feed-item .post-embed-images,
+[data-density='compact'] .feed-item .post-embed-video,
+[data-density='compact'] .feed-item .post-embed-link-card,
+[data-density='compact'] .feed-item .post-embed-quote {
+  margin-top: var(--space-2);
+}
+
+/* Images — cap the footprint. Single images shrink via a lower
+   max-height; multi-image grids shrink by capping the grid width and
+   tightening the gutters. */
+[data-density='compact'] .feed-item .post-embed-images {
+  gap: var(--space-1);
+  max-width: 22rem;
+}
+
+[data-density='compact'] .feed-item .post-embed-images[data-count='1'] .post-embed-image img {
+  max-height: 18rem;
+}
+
+/* Video — same height cap as a single image so the two read alike. */
+[data-density='compact'] .feed-item .post-embed-video {
+  max-height: 18rem;
+  max-width: 22rem;
+}
+
+[data-density='compact'] .feed-item .post-embed-video video,
+[data-density='compact'] .feed-item .post-embed-video img {
+  max-height: 18rem;
+}
+
+/* Link card — narrower thumbnail, tighter padding, smaller title, and
+   drop the description so it collapses to a compact one/two-line strip. */
+[data-density='compact'] .feed-item .post-embed-link-card {
+  grid-template-columns: minmax(0, 4.5rem) 1fr;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  max-width: 22rem;
+}
+
+[data-density='compact'] .feed-item .post-embed-link-card-thumb img {
+  max-height: 4.5rem;
+}
+
+[data-density='compact'] .feed-item .post-embed-link-card-title {
+  font-size: var(--text-sm);
+  -webkit-line-clamp: 2;
+}
+
+[data-density='compact'] .feed-item .post-embed-link-card-desc {
+  display: none;
+}
+
+/* On narrow viewports the link card stacks to one column (see the
+   max-width: 480px block above) and the thumbnail grows tall. Keep the
+   compact card single-column too but with a much shorter thumbnail so it
+   doesn't balloon back to full height. */
+@media (max-width: 480px) {
+  [data-density='compact'] .feed-item .post-embed-link-card {
+    grid-template-columns: 1fr;
+  }
+  [data-density='compact'] .feed-item .post-embed-link-card-thumb img {
+    max-height: 8rem;
+  }
+}
+
+/* Quote — tighter box and a clamped body so a long quoted post doesn't
+   stretch the row. */
+[data-density='compact'] .feed-item .post-embed-quote {
+  gap: var(--space-1);
+  padding: var(--space-2);
+  max-width: 22rem;
+}
+
+[data-density='compact'] .feed-item .post-embed-quote-avatar {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+[data-density='compact'] .feed-item .post-embed-quote-text {
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* A quote embed can itself carry nested media; hide it in compact so the
+   quote stays a compact strip rather than nesting a second media block. */
+[data-density='compact'] .feed-item .post-embed-quote .post-embed-images,
+[data-density='compact'] .feed-item .post-embed-quote .post-embed-video,
+[data-density='compact'] .feed-item .post-embed-quote .post-embed-link-card {
+  display: none;
+}
+
+/* tight: embeds are dropped entirely, matching the stats footer / media
+   grid already hidden for this density in Feed.css. */
+[data-density='tight'] .feed-item .post-embed-images,
+[data-density='tight'] .feed-item .post-embed-video,
+[data-density='tight'] .feed-item .post-embed-link-card,
+[data-density='tight'] .feed-item .post-embed-quote {
+  display: none;
+}
