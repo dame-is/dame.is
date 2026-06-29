@@ -34,8 +34,9 @@
   display: block;
 }
 
-/* The scrim is purely a visual layer for the dim variant. Clicks pass
-   through it to the modal-root underneath, which owns dismissal.
+/* The scrim is purely a visual layer for the "dark" lightbox variant —
+   default modals render no scrim at all. Clicks pass through it to the
+   modal-root underneath, which owns dismissal.
 
    We deliberately inset the scrim's top/bottom by --chrome-h so it
    doesn't cover the chrome bars: iOS Safari samples the visible page
@@ -58,12 +59,9 @@
 /* The dim color and blur radius are driven by motion inline styles
    (see Modal.jsx) so the close animation can interpolate them to 0
    smoothly. Setting them here too would cause a one-frame flash of
-   the static values before motion's initial state applies. */
-.modal-scrim-dim {
-  background-color: rgba(0, 0, 0, 0);
-}
+   the static values before motion's initial state applies.
 
-/* Dark scrim is used for immersive surfaces like the image lightbox
+   Dark scrim is used for immersive surfaces like the image lightbox
    where the chrome bars should also dim out — bypass the chrome-bar
    inset and cover the full viewport again. */
 .modal-scrim-dark {
