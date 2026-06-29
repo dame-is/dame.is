@@ -128,3 +128,12 @@ blockquote {
   margin: var(--space-6) 0;
 }
 
+
+/* Paragraph break inside rendered post text (see renderPostText). A blank
+   line in the source ("\n\n") becomes one of these block spacers instead of
+   a doubled <br>, giving a small paragraph gap — visible separation without
+   a full empty line's worth of dead space. */
+.post-para-break {
+  display: block;
+  height: 0.5em;
+}
