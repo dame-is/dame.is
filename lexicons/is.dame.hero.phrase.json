@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.hero.phrase",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["part", "text", "createdAt"],
+        "properties": {
+          "part":      { "type": "string", "enum": ["role", "clause"], "description": "Which pool the phrase belongs to. \"role\" fills 'dame is [a design engineer]'; \"clause\" fills 'who [makes social software]'." },
+          "text":      { "type": "string", "maxLength": 200, "description": "The phrase. For role, include the article (e.g. \"an artist\"); for clause, start with \"who …\"." },
+          "enabled":   { "type": "boolean", "default": true, "description": "When false, the phrase is excluded from the rotation." },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

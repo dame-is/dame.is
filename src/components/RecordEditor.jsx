@@ -356,6 +356,27 @@ function Field({ field, value, onChange }) {
         />
       );
       break;
+    case 'select':
+      control = (
+        <select
+          id={id}
+          className="admin-input"
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {!field.required && <option value="">—</option>}
+          {(field.options || []).map((opt) => {
+            const val = typeof opt === 'string' ? opt : opt.value;
+            const lbl = typeof opt === 'string' ? opt : opt.label ?? opt.value;
+            return (
+              <option key={val} value={val}>
+                {lbl}
+              </option>
+            );
+          })}
+        </select>
+      );
+      break;
     case 'boolean':
       control = (
         <label className="admin-checkbox">

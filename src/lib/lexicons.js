@@ -18,6 +18,7 @@ import { COLLECTIONS } from '../config.js';
  *   - json:      raw JSON; stored as parsed object/array
  *   - boolean:   checkbox
  *   - number:    numeric input
+ *   - select:    dropdown; pass `options` as string[] or { value, label }[]
  *
  * Optional flags per field:
  *   - required        — must be present to submit
@@ -99,6 +100,37 @@ export const LEXICONS = {
       { key: 'tagline', label: 'Tagline', type: 'text' },
       { key: 'bio', label: 'Bio (Markdown)', type: 'markdown' },
       ...COMMON_TIMESTAMPS,
+    ],
+  },
+
+  [COLLECTIONS.heroPhrase]: {
+    label: 'Hero phrase',
+    summary:
+      'Rotating phrases for the home hero sentence. "role" fills "dame is [a design engineer]"; "clause" fills "who [makes social software]".',
+    rkeyMode: 'tid',
+    typeFieldValue: COLLECTIONS.heroPhrase,
+    fields: [
+      {
+        key: 'part',
+        label: 'Part',
+        type: 'select',
+        required: true,
+        default: 'role',
+        options: [
+          { value: 'role', label: 'Role — "a design engineer"' },
+          { value: 'clause', label: 'Clause — "who makes…"' },
+        ],
+      },
+      {
+        key: 'text',
+        label: 'Phrase',
+        type: 'text',
+        required: true,
+        maxLength: 200,
+        hint: 'Role: include the article, e.g. "an artist". Clause: start with "who…".',
+      },
+      { key: 'enabled', label: 'Enabled (shown in rotation)', type: 'boolean', default: true },
+      { key: 'createdAt', label: 'Created at', type: 'datetime', default: 'now', required: true },
     ],
   },
 
