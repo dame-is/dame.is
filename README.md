@@ -19,7 +19,6 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
 - `is.dame.now` — short status updates ("dame.is hiking").
 - `is.dame.page` — page-content records keyed by literal page name.
 - `is.dame.profile` — extended long-form bio at `at://{me}/is.dame.profile/self`.
-- `is.dame.blogging.post` — long-form blog posts.
 - `is.dame.creating.work` — portfolio works (art, software, writing, music…).
 - `is.dame.annotating` — stretch lexicon for book-style margin notes.
 

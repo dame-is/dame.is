@@ -58,21 +58,6 @@ export const LEXICONS = {
     ],
   },
 
-  [COLLECTIONS.blogging]: {
-    label: 'Blog post',
-    summary: 'Long-form entries rendered on /blogging.',
-    rkeyMode: 'tid',
-    typeFieldValue: COLLECTIONS.blogging,
-    fields: [
-      { key: 'title', label: 'Title', type: 'text', required: true },
-      { key: 'slug', label: 'Slug', type: 'text', required: true, placeholder: 'a-short-url-friendly-id' },
-      { key: 'summary', label: 'Summary', type: 'textarea', hint: 'Optional. Used on listing pages.' },
-      { key: 'body', label: 'Body (Markdown)', type: 'markdown', required: true },
-      { key: 'tags', label: 'Tags', type: 'tags' },
-      ...COMMON_TIMESTAMPS,
-    ],
-  },
-
   [COLLECTIONS.creating]: {
     label: 'Created work',
     summary: 'Portfolio items shown on /creating. Body is a pub.leaflet.content block document.',
@@ -95,9 +80,11 @@ export const LEXICONS = {
     migrate: migrateLegacyCreating,
   },
 
+  // COLLECTIONS.blogging resolves to this NSID — the blog now lives on
+  // standard.site. Labeled "Blog post" in the admin per the site owner.
   'site.standard.document': {
-    label: 'Standard.site post',
-    summary: 'A blog post published via standard.site. Body is a pub.leaflet.content block document.',
+    label: 'Blog post',
+    summary: 'Long-form blog posts published via standard.site, rendered on /blogging.',
     rkeyMode: 'tid',
     typeFieldValue: 'site.standard.document',
     fields: [

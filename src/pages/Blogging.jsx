@@ -15,12 +15,14 @@ import './Blogging.css';
 /**
  * The blog index. Backed by two collections under one URL shape:
  *
- *   - is.dame.blogging.post — own lexicon, addressed by `slug`
- *   - pub.leaflet.document  — leaflet.pub docs, addressed by rkey
+ *   - site.standard.document — standard.site docs, addressed by rkey
+ *   - pub.leaflet.document   — leaflet.pub docs, addressed by rkey
  *
- * The snapshot file stores them separately under `blogs.json` / `leaflets.json`;
- * the live path issues two `listRecords` calls in parallel. The mapper
- * normalizes both into a single timestamp-sorted ToC.
+ * Both store leaflet-format block content and are addressed by rkey. The
+ * snapshot file stores them separately under `blogs.json` / `leaflets.json`
+ * (standard docs now take the legacy `blogs` slot); the live path issues two
+ * `listRecords` calls in parallel. The mapper normalizes both into a single
+ * timestamp-sorted ToC.
  */
 export default function Blogging() {
   const [params] = useSearchParams();
@@ -104,22 +106,22 @@ function mergeBlogEntries(data) {
   const blogs = Array.isArray(data.blogs) ? data.blogs : [];
   const leaflets = Array.isArray(data.leaflets) ? data.leaflets : [];
   return [
-    ...blogs.filter((r) => r?.value).map(normalizeBlog),
+    ...blogs.filter((r) => r?.value).map(normalizeStandard),
     ...leaflets.filter((r) => r?.value).map(normalizeLeaflet),
   ].sort((a, b) => compareIsoDesc(a.createdAt, b.createdAt));
 }
 
-function normalizeBlog(record) {
+function normalizeStandard(record) {
   const v = record.value || {};
-  const slug = v.slug || rkeyFromAtUri(record.uri);
+  const rkey = rkeyFromAtUri(record.uri);
   return {
-    kind: 'blog',
+    kind: 'standard',
     uri: record.uri,
-    id: slug,
-    title: v.title || slug || 'Untitled',
-    summary: v.summary,
-    createdAt: v.createdAt || '',
-    href: `/blogging/${slug}`,
+    id: rkey,
+    title: v.title || rkey || 'Untitled',
+    summary: v.description || '',
+    createdAt: v.publishedAt || v.createdAt || '',
+    href: `/blogging/${rkey}`,
   };
 }
 

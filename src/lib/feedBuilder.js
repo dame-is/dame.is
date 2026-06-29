@@ -28,7 +28,10 @@ import { compareIsoDesc } from './time.js';
  */
 export const LEGACY_SNAPSHOT_NAME = {
   'is.dame.now': 'now',
-  'is.dame.blogging.post': 'blogs',
+  // The blog now lives on standard.site; its documents take the legacy
+  // `blogs.json` slot so existing consumers (Blogging, BlogPost, useAtUri)
+  // keep reading the same snapshot name.
+  'site.standard.document': 'blogs',
   'pub.leaflet.document': 'leaflets',
   'is.dame.creating.work': 'creations',
   'fm.teal.alpha.feed.play': 'listening',

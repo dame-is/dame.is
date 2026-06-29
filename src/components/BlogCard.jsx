@@ -4,12 +4,11 @@ import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 
 /**
  * Compact card for a long-form entry inside the unified Home feed.
- * Handles all five "blogging" sources currently in the registry:
- *   - is.dame.blogging.post  — addressed by `slug`, native /blogging page
+ * Handles all four "blogging" sources currently in the registry:
+ *   - site.standard.document  — standard.site doc, addressed by rkey, native /blogging page
+ *   - site.standard.publication — standard.site publication (links out)
  *   - pub.leaflet.document   — addressed by rkey, native /blogging page (mirrored)
  *   - pub.leaflet.publication — leaflet publication (links out to leaflet)
- *   - site.standard.document  — standard.site document (links out)
- *   - site.standard.publication — standard.site publication (links out)
  *
  * The `source` prop is set by the prefetch step; falling back to the
  * record's `$type` keeps live-merged AppView responses working too.
@@ -68,15 +67,16 @@ function pickSummary(payload, nsid) {
 }
 
 function blogHref({ payload, rkey, nsid, source }) {
-  // Records mirrored to the /blogging index get a same-site link.
-  if (nsid === 'is.dame.blogging.post' && payload?.slug) {
-    return `/blogging/${payload.slug}`;
+  // Documents we host natively on the /blogging index get a same-site link
+  // (both standard.site and leaflet docs are addressed by rkey).
+  if (nsid === 'site.standard.document' && rkey) {
+    return `/blogging/${rkey}`;
   }
   if (nsid === 'pub.leaflet.document' && rkey) {
     return `/blogging/${rkey}`;
   }
-  // Everything else links out to its native viewer. We don't host a
-  // first-class reader for leaflet publications or standard.site yet, but
+  // Publications (and anything else) link out to their native viewer. We
+  // don't host a first-class reader for leaflet/standard publications, but
   // the `Record` page (via `/{nsid}/{rkey}`) gives a deep-linkable JSON
   // fallback if a visitor wants to inspect the raw record.
   if (source === 'leaflet' || source === 'standard') {
