@@ -131,6 +131,45 @@
   color-scheme: dark;
 }
 
+/* Raised-surface ink re-tuning.
+
+   The --ink-muted / --ink-faint steps are calibrated for text on
+   --page. Chrome bars, modal panels, and the dock menu all sit on
+   --surface-raised, which is a noticeable step away from --page — far
+   enough that those muted steps lose contrast against it. It shows up
+   most in the nav: the small-caps signal labels ("listening to",
+   "followed by"), the timestamps, and the status text all but
+   disappear into the bar, worst of all on the light themes where the
+   raised surface is a midtone.
+
+   Re-tune muted + faint per theme so they keep their contrast against
+   --surface-raised (muted lands ~4.5:1, faint ~3.3:1+), while leaving
+   the on-page values untouched. Scoped to the raised surfaces so the
+   adjustment only applies where the background actually warrants it. */
+[data-theme='light'] .chrome-bar,
+[data-theme='light'] .modal-panel {
+  --ink-muted: #5b5a46;
+  --ink-faint: #74705c;
+}
+
+[data-theme='light-mono'] .chrome-bar,
+[data-theme='light-mono'] .modal-panel {
+  --ink-muted: #5e5e5e;
+  --ink-faint: #767676;
+}
+
+/* Dark themes keep their muted step (already high-contrast on the very
+   dark raised surface); only the faint step needs a lift. */
+[data-theme='dark'] .chrome-bar,
+[data-theme='dark'] .modal-panel {
+  --ink-faint: #857f68;
+}
+
+[data-theme='dark-mono'] .chrome-bar,
+[data-theme='dark-mono'] .modal-panel {
+  --ink-faint: #6c6c6c;
+}
+
 /* Typeface modes — switched via [data-typeface] on <html>.
    "combo" (default) keeps the serif/sans split; "serif" and "sans"
    collapse both stacks to a single family for a unified voice. */
