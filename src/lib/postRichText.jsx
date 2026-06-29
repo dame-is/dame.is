@@ -156,18 +156,26 @@ function renderFeature(feature, text) {
 
 function withLineBreaks(text) {
   if (!text) return null;
-  // Collapse runs of consecutive newlines into a single line break. Authors
-  // often separate paragraphs with a blank line ("\n\n"), which would
-  // otherwise render as <br><br> — a full empty line that reads as an
-  // oversized gap in the compact feed. One <br> keeps the break visible
-  // without the extra dead space.
-  const normalized = text.replace(/\n{2,}/g, '\n');
-  if (!normalized.includes('\n')) return normalized;
-  const parts = normalized.split('\n');
+  if (!text.includes('\n')) return text;
+  // Distinguish a single line break from a paragraph break. Splitting on
+  // (\n+) keeps the newline runs as their own array entries so we can tell
+  // them apart: one "\n" is a plain line break (<br>), while a blank line
+  // ("\n\n" or more) is a paragraph break. We render the paragraph break as
+  // a block spacer rather than <br><br> so it gets a small, controlled gap
+  // — visible separation without the oversized full-empty-line dead space.
+  const parts = text.split(/(\n+)/);
   const out = [];
   parts.forEach((part, i) => {
-    if (part) out.push(<Fragment key={`s-${i}`}>{part}</Fragment>);
-    if (i < parts.length - 1) out.push(<br key={`br-${i}`} />);
+    if (part === '') return;
+    if (part[0] === '\n') {
+      if (part.length >= 2) {
+        out.push(<span className="post-para-break" key={`p-${i}`} />);
+      } else {
+        out.push(<br key={`br-${i}`} />);
+      }
+      return;
+    }
+    out.push(<Fragment key={`s-${i}`}>{part}</Fragment>);
   });
   return out;
 }
