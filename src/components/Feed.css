@@ -1327,13 +1327,16 @@ a.reference-card-profile:focus-visible {
   font-size: var(--text-base);
 }
 
-/* Drop the stats footer (replies/reposts/likes) and any post-embed
-   in tight mode — they multiply row height. Don't hide content the
-   user can opt back in to via an expand button (listen-row-children,
-   reference-card-subject) — that would make those buttons appear to
-   do nothing in tight mode. */
+/* Drop the stats footer (replies/reposts/likes) in tight mode — it
+   multiplies row height. Don't hide content the user can opt back in
+   to via an expand button (listen-row-children, reference-card-subject)
+   — that would make those buttons appear to do nothing in tight mode.
+
+   Post embeds (images / link cards / video / quotes) are tightened and
+   hidden per-density in PostEmbed.css alongside the rest of the embed
+   styling — the leaf classes there (.post-embed-images, etc.) are the
+   real hooks; there is no `.post-embed` wrapper element. */
 [data-density='tight'] .post-card-stats,
-[data-density='tight'] .post-embed,
 [data-density='tight'] .media-card-grid {
   display: none;
 }
