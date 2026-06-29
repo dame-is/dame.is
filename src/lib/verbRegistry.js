@@ -64,11 +64,10 @@ export const VERB_REGISTRY = [
     renderer: 'BlogCard',
     pastTense: 'blogged',
     collections: [
-      { nsid: 'is.dame.blogging.post', source: 'dame', kind: 'content', max: 200 },
-      { nsid: 'pub.leaflet.document', source: 'leaflet', kind: 'content', max: 100 },
-      { nsid: 'pub.leaflet.publication', source: 'leaflet', kind: 'content', max: 50 },
       { nsid: 'site.standard.document', source: 'standard', kind: 'content', max: 100 },
       { nsid: 'site.standard.publication', source: 'standard', kind: 'content', max: 50 },
+      { nsid: 'pub.leaflet.document', source: 'leaflet', kind: 'content', max: 100 },
+      { nsid: 'pub.leaflet.publication', source: 'leaflet', kind: 'content', max: 50 },
     ],
   },
   {

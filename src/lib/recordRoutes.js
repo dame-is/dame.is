@@ -16,7 +16,7 @@ import { COLLECTIONS } from '../config.js';
 
 /**
  * Verb → primary collection (NSID). For multi-source verbs (e.g. blogging,
- * which spans is.dame.blogging.post + pub.leaflet.document + …) this is
+ * which spans site.standard.document + pub.leaflet.document + …) this is
  * the first collection in the registry, used as the default for routes
  * like `/blogging/:rkey` that don't specify a source.
  */

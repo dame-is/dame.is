@@ -12,7 +12,7 @@
     { "source": "/app.bsky.feed.post/:rkey", "destination": "/index.html" },
     { "source": "/fm.teal.alpha.feed.play/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.now/:rkey", "destination": "/index.html" },
-    { "source": "/is.dame.blogging.post/:rkey", "destination": "/index.html" },
+    { "source": "/site.standard.document/:rkey", "destination": "/index.html" },
     { "source": "/pub.leaflet.document/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.creating.work/:rkey", "destination": "/index.html" },
     { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }

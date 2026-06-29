@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
@@ -7,7 +7,6 @@ import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
-import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { findLeafletCommentsPost } from '../lib/leafletComments.js';
@@ -17,14 +16,14 @@ import './Blogging.css';
 
 /**
  * Single blog-post page. The same URL — `/blogging/:id` — fronts two
- * lexicons:
+ * lexicons, both addressed by rkey and both storing leaflet-format block
+ * content:
  *
- *   - is.dame.blogging.post  — looked up by the record's `slug` field
- *   - pub.leaflet.document   — looked up by rkey (leaflet has no slug)
+ *   - site.standard.document — standard.site docs
+ *   - pub.leaflet.document   — leaflet.pub docs
  *
- * Resolution order is slug-first so existing links keep working; only if
- * no slug match is found do we treat `:id` as an rkey and search the
- * leaflet snapshot. The result drives a per-kind renderer below.
+ * `:id` is matched as an rkey against the standard-doc snapshot first, then
+ * the leaflet snapshot. The result drives a per-kind renderer below.
  */
 export default function BlogPost() {
   const { slug: id } = useParams();
@@ -54,15 +53,15 @@ export default function BlogPost() {
   const [replies, setReplies] = useState([]);
   const [repliesStatus, setRepliesStatus] = useState('idle');
 
-  // Comments resolution. For is.dame.blogging.post we honor an optional
-  // `commentsUri` field. For leaflet docs we follow the convention of
-  // looking up an authored Bluesky post whose link facets point at the
-  // doc's rkey, then anchor replies to that post.
+  // Comments resolution. Standard docs may carry an optional `commentsUri`
+  // field. For leaflet docs we follow the convention of looking up an
+  // authored Bluesky post whose link facets point at the doc's rkey, then
+  // anchor replies to that post.
   useEffect(() => {
     let cancelled = false;
     if (!resolution || !resolution.record) return;
     async function resolveCommentsUri() {
-      if (resolution.kind === 'blog') {
+      if (resolution.kind === 'standard') {
         return resolution.record?.value?.commentsUri || null;
       }
       if (resolution.kind === 'leaflet') {
@@ -140,7 +139,7 @@ export default function BlogPost() {
   }
 
   return (
-    <BlogPostBody
+    <StandardPostBody
       record={resolution.record}
       id={id}
       commentsUri={commentsUri}
@@ -154,50 +153,36 @@ function resolveById(data, id) {
   if (!data) return null;
   const blogs = Array.isArray(data.blogs) ? data.blogs : [];
   const leaflets = Array.isArray(data.leaflets) ? data.leaflets : [];
-  const bySlug = blogs.find((r) => r?.value?.slug === id);
-  if (bySlug) return { kind: 'blog', record: bySlug };
+  const standard = blogs.find((r) => endsWithRkey(r?.uri, id));
+  if (standard) return { kind: 'standard', record: standard };
   const byRkey = leaflets.find((r) => endsWithRkey(r?.uri, id));
   if (byRkey) return { kind: 'leaflet', record: byRkey };
   return null;
 }
 
-function BlogPostBody({ record, id, commentsUri, replies, repliesStatus }) {
-  const value = record?.value;
-  const html = useMemo(() => {
-    if (!value?.body) return '';
-    return renderMarkdown(value.body, value.bodyFormat || 'markdown');
-  }, [value]);
-  const created = value?.createdAt;
-  const updated = value?.updatedAt || created;
+function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
+  const value = record?.value || {};
+  const created = value.publishedAt || value.createdAt;
   const dayNum = created ? dayOfLife(created) : null;
+  const title = value.title || id;
+  const description = value.description;
 
   return (
     <PageShell
-      title={value?.title || id}
+      title={title}
       atUri={record?.uri}
       cid={record?.cid}
-      headTitle={value?.title ? `${value.title} — Dame is…` : `${id} — Dame is…`}
+      headTitle={`${title} — Dame is…`}
     >
       <article className="blog-article reveal">
-        {created && (
-          <div className="blog-article-meta">
-            <span>{formatDateLong(created)}</span>
-            {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}
-            <span>· {relativeTime(updated)}</span>
-            {Array.isArray(value?.tags) && value.tags.length > 0 && (
-              <span className="blog-article-tags">
-                {value.tags.map((t) => (
-                  <span key={t} className="blog-article-tag">{t}</span>
-                ))}
-              </span>
-            )}
-          </div>
-        )}
-        {html ? (
-          <div className="blog-prose" dangerouslySetInnerHTML={{ __html: html }} />
-        ) : (
-          <p className="feed-empty">This post has no body yet.</p>
-        )}
+        <div className="blog-article-meta">
+          {created && <span>{formatDateLong(created)}</span>}
+          {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}
+          {created && <span>· {relativeTime(created)}</span>}
+          <span className="blog-article-tag">standard.site</span>
+        </div>
+        {description && <p className="blog-article-description">{description}</p>}
+        <LeafletDocument doc={value.content} />
         {commentsUri && (
           <Comments
             atUri={commentsUri}

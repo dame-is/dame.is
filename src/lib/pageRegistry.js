@@ -27,7 +27,7 @@ export const PAGE_REGISTRY = {
     label: 'Blogging',
     title: 'Blogging',
     intro:
-      'A book of long-form posts. Each entry is an is.dame.blogging.post or pub.leaflet.document record.',
+      'A book of long-form posts. Each entry is a site.standard.document or pub.leaflet.document record.',
     collection: COLLECTIONS.blogging,
   },
   logging: {

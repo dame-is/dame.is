@@ -212,16 +212,17 @@ async function loadFromSnapshots(info) {
     return ext && ext.uri ? ext : null;
   }
   if (info.lexicon === COLLECTIONS.blogging && info.slug) {
+    // `/blogging/:id` fronts both standard.site and leaflet docs, both
+    // addressed by rkey. Match the standard-doc snapshot first, then leaflet.
+    const wanted = info.slug;
     const blogs = await fetchSnapshot('blogs');
-    const bySlug = Array.isArray(blogs)
-      ? blogs.find((r) => r?.value?.slug === info.slug) || null
+    const byStandard = Array.isArray(blogs)
+      ? blogs.find((r) => endsWithRkey(r?.uri, wanted)) || null
       : null;
-    if (bySlug) return bySlug;
-    // Fall back to a leaflet doc addressed by rkey under the same URL
-    // shape — `/blogging/:id` fronts both lexicons.
+    if (byStandard) return mirrorLeafletTimestamps(byStandard);
     const leaflets = await fetchSnapshot('leaflets');
     return Array.isArray(leaflets)
-      ? leaflets.find((r) => endsWithRkey(r?.uri, info.slug)) || null
+      ? mirrorLeafletTimestamps(leaflets.find((r) => endsWithRkey(r?.uri, wanted)) || null)
       : null;
   }
   if (info.lexicon === COLLECTIONS.leaflet && (info.rkey || info.slug)) {
@@ -288,11 +289,12 @@ async function fetchRecordFromPds(pds, info) {
     return getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.profile, rkey: 'self' }).catch(() => null);
   }
   if (info.lexicon === COLLECTIONS.blogging && info.slug) {
+    const wanted = info.slug;
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 }).catch(() => []);
-    const bySlug = recs.find((r) => r?.value?.slug === info.slug) || null;
-    if (bySlug) return bySlug;
+    const byStandard = recs.find((r) => endsWithRkey(r?.uri, wanted)) || null;
+    if (byStandard) return mirrorLeafletTimestamps(byStandard);
     const leaflets = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, max: 200 }).catch(() => []);
-    const found = leaflets.find((r) => endsWithRkey(r?.uri, info.slug)) || null;
+    const found = leaflets.find((r) => endsWithRkey(r?.uri, wanted)) || null;
     return mirrorLeafletTimestamps(found);
   }
   if (info.lexicon === COLLECTIONS.leaflet) {
