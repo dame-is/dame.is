@@ -156,8 +156,14 @@ function renderFeature(feature, text) {
 
 function withLineBreaks(text) {
   if (!text) return null;
-  if (!text.includes('\n')) return text;
-  const parts = text.split('\n');
+  // Collapse runs of consecutive newlines into a single line break. Authors
+  // often separate paragraphs with a blank line ("\n\n"), which would
+  // otherwise render as <br><br> — a full empty line that reads as an
+  // oversized gap in the compact feed. One <br> keeps the break visible
+  // without the extra dead space.
+  const normalized = text.replace(/\n{2,}/g, '\n');
+  if (!normalized.includes('\n')) return normalized;
+  const parts = normalized.split('\n');
   const out = [];
   parts.forEach((part, i) => {
     if (part) out.push(<Fragment key={`s-${i}`}>{part}</Fragment>);
