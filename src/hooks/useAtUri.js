@@ -122,26 +122,10 @@ function deriveFromRoute(pathname, override) {
     };
   }
 
-  // Generic single-record routes — /:verb-or-nsid/:rkey
-  for (const segment of RECORD_ROUTE_SEGMENTS) {
-    const m = matchPath(`/${segment}/:rkey`, pathname);
-    if (!m) continue;
-    const collection = VERB_TO_COLLECTION[segment] || segment;
-    const rkey = m.params.rkey;
-    // Posts may live under another author's DID; we leave the URI unset for
-    // now and let the page render its own AT URI hint after lookup.
-    const repoDid = collection === 'app.bsky.feed.post' ? null : ME_DID;
-    return {
-      atUri: repoDid ? `at://${repoDid}/${collection}/${rkey}` : null,
-      cid: null,
-      lexicon: collection,
-      rkey,
-      record: null,
-      route: pathname,
-    };
-  }
-
-  // Single-record routes
+  // Slug-routed pages first — `/blogging/:slug` and `/creating/:slug` are
+  // addressed by a human slug, NOT the rkey, so they must be matched before
+  // the generic `/:verb/:rkey` loop below (which would otherwise treat the
+  // slug as an rkey under the verb's primary collection and never resolve).
   const blogMatch = matchPath('/blogging/:slug', pathname);
   if (blogMatch) {
     return {
@@ -160,6 +144,25 @@ function deriveFromRoute(pathname, override) {
       cid: null,
       lexicon: COLLECTIONS.creating,
       slug: workMatch.params.slug,
+      record: null,
+      route: pathname,
+    };
+  }
+
+  // Generic single-record routes — /:verb-or-nsid/:rkey
+  for (const segment of RECORD_ROUTE_SEGMENTS) {
+    const m = matchPath(`/${segment}/:rkey`, pathname);
+    if (!m) continue;
+    const collection = VERB_TO_COLLECTION[segment] || segment;
+    const rkey = m.params.rkey;
+    // Posts may live under another author's DID; we leave the URI unset for
+    // now and let the page render its own AT URI hint after lookup.
+    const repoDid = collection === 'app.bsky.feed.post' ? null : ME_DID;
+    return {
+      atUri: repoDid ? `at://${repoDid}/${collection}/${rkey}` : null,
+      cid: null,
+      lexicon: collection,
+      rkey,
       record: null,
       route: pathname,
     };
