@@ -12,41 +12,90 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  /* Spacing is driven per-item below so previews sit at a tight, uniform
-     rhythm (their rendered blocks carry the full document margins, which
-     would otherwise compound with a list gap). */
-  gap: 0;
+  /* Small gap between the (now dashed-bordered) blocks. Rendered block
+     margins are zeroed below so they don't compound into large gaps. */
+  gap: 0.3rem;
 }
 
 .blocks-editor-item {
-  border: 1px solid var(--rule, rgba(0, 0, 0, 0.12));
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  border: 1px dashed var(--rule-soft, rgba(0, 0, 0, 0.16));
   border-radius: 0;
-  padding: 0.625rem 0.75rem;
-  background: var(--surface-2, rgba(0, 0, 0, 0.015));
+  background: transparent;
+  padding: 0.1rem 0.4rem 0.1rem 0.1rem;
+}
+
+.blocks-editor-main {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding: 0.2rem 0.35rem;
 }
 
 /* Collapsed (preview) block — reads as the live document; click to edit. */
-.blocks-editor-item.is-preview {
-  border-color: transparent;
-  background: transparent;
-  padding: 0.35rem 0.75rem;
+.blocks-editor-item.is-preview .blocks-editor-main {
   gap: 0;
+}
+
+.blocks-editor-click {
   cursor: text;
-  transition: background 100ms ease;
 }
 
 .blocks-editor-item.is-preview:hover,
-.blocks-editor-item.is-preview:focus-visible {
-  background: var(--surface-2, rgba(0, 0, 0, 0.04));
-  outline: none;
+.blocks-editor-item.is-preview:focus-within {
+  background: var(--surface-2, rgba(0, 0, 0, 0.03));
 }
 
-/* An editing block is a bordered box — give it room from its neighbours. */
+/* An editing block reads as a firmer, solid box. */
 .blocks-editor-item.is-active {
-  margin: 0.5rem 0;
+  border-style: solid;
+  border-color: var(--rule, rgba(0, 0, 0, 0.2));
+  background: var(--surface-2, rgba(0, 0, 0, 0.015));
+  margin: 0.35rem 0;
+}
+
+/* Drag handle — subtle until you hover the block. */
+.blocks-editor-handle {
+  flex: 0 0 auto;
+  width: 1.1rem;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  color: var(--ink-faint, rgba(0, 0, 0, 0.35));
+  font-size: 0.9rem;
+  line-height: 1;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.blocks-editor-item:hover .blocks-editor-handle,
+.blocks-editor-item.is-active .blocks-editor-handle,
+.blocks-editor-handle:focus-visible {
+  opacity: 1;
+}
+
+.blocks-editor-handle:active {
+  cursor: grabbing;
+}
+
+.blocks-editor-item.is-dragging {
+  opacity: 0.4;
+}
+
+/* Insertion indicator while dragging. */
+.blocks-editor-item.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent, #5e7a47);
+}
+
+.blocks-editor-item.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent, #5e7a47);
 }
 
 .blocks-editor-preview-body {
