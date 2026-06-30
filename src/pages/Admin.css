@@ -19,7 +19,7 @@
   color: var(--ink);
   background: var(--page);
   border: 1px solid var(--rule);
-  border-radius: var(--radius-2);
+  border-radius: 0;
   outline: none;
   transition: border-color 120ms ease;
 }
@@ -57,7 +57,7 @@
   color: var(--page);
   background: var(--ink);
   border: 1px solid var(--ink);
-  border-radius: var(--radius-2);
+  border-radius: 0;
   cursor: pointer;
   text-decoration: none;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
@@ -97,7 +97,7 @@
   background: rgba(168, 140, 95, 0.08);
   border: 1px solid var(--rule-soft);
   padding: var(--space-3);
-  border-radius: var(--radius-2);
+  border-radius: 0;
 }
 
 .admin-error-inline {
@@ -313,7 +313,7 @@
   padding: var(--space-4);
   margin: var(--space-4) 0;
   border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-2);
+  border-radius: 0;
 }
 
 .admin-page-panels .admin-page-panel {
@@ -353,7 +353,7 @@
   letter-spacing: 0.16em;
   font-size: var(--text-xs);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-1);
+  border-radius: 0;
   border: 1px solid var(--rule);
 }
 
@@ -372,6 +372,29 @@
 select.admin-input {
   appearance: auto;
   cursor: pointer;
+}
+
+/* Editor reading preview */
+.record-preview {
+  border: 1px solid var(--rule-soft);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.record-preview-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  line-height: 1.15;
+}
+
+.record-preview-lead {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  color: var(--ink-soft);
 }
 
 /* Category field — text input with suggestion chips below. */
@@ -396,7 +419,7 @@ select.admin-input {
   font-size: var(--text-xs);
   letter-spacing: 0.05em;
   padding: 0.125rem 0.5rem;
-  border-radius: 999px;
+  border-radius: 0;
   cursor: pointer;
 }
 

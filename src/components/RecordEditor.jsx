@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
+import { renderMarkdown } from '../lib/markdown.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
+import LeafletDocument from './LeafletDocument.jsx';
 import '../pages/Admin.css';
 
 /**
@@ -45,6 +47,7 @@ export default function RecordEditor({
     lex?.rkeyMode === 'fixed' ? lex.rkeyDefault || '' : '',
   );
   const [rawMode, setRawMode] = useState(initialMode === 'raw' || !lex);
+  const [preview, setPreview] = useState(false);
   const [rawText, setRawText] = useState('');
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
@@ -227,13 +230,22 @@ export default function RecordEditor({
   return (
     <div className={`record-editor${compact ? ' record-editor-compact' : ''}`}>
       <div className="admin-toolbar admin-toolbar-inline">
-        {lex && (
+        {lex && !preview && (
           <button
             type="button"
             className="admin-link-subtle"
             onClick={toggleRawMode}
           >
             {rawMode ? 'Use form' : 'Edit JSON'}
+          </button>
+        )}
+        {lex && (
+          <button
+            type="button"
+            className="admin-link-subtle"
+            onClick={() => setPreview((p) => !p)}
+          >
+            {preview ? 'Back to editor' : 'Preview'}
           </button>
         )}
       </div>
@@ -258,7 +270,9 @@ export default function RecordEditor({
         </div>
       )}
 
-      {rawMode || !lex ? (
+      {preview && lex ? (
+        <RecordPreview lex={lex} record={previewRecordFor(rawMode, rawText, value)} />
+      ) : rawMode || !lex ? (
         <RawJsonEditor value={rawText} onChange={setRawText} />
       ) : (
         <FormEditor
@@ -314,6 +328,64 @@ function FormEditor({ lex, value, onChange, agent, did }) {
           did={did}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * Choose what to preview. In form mode the live `value` is authoritative; in
+ * raw-JSON mode parse the textarea (falling back to `value` if it's mid-edit
+ * and not valid JSON yet).
+ */
+function previewRecordFor(rawMode, rawText, value) {
+  if (rawMode) {
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return value || {};
+    }
+  }
+  return value || {};
+}
+
+/**
+ * Render a record roughly as it appears on the site: title + lead, then any
+ * `blocks` body via the shared LeafletDocument renderer and any `markdown`
+ * body via the markdown pipeline. Other fields (timestamps, pickers) are
+ * omitted — this is a reading preview, not a field dump.
+ */
+function RecordPreview({ lex, record }) {
+  const v = record || {};
+  const fields = lex?.fields || [];
+  const lead = v.description ?? v.intro ?? v.tagline ?? v.summary ?? '';
+
+  const bodies = fields
+    .map((f) => {
+      if (f.type === 'blocks' && v[f.key]) {
+        return <LeafletDocument key={f.key} doc={v[f.key]} />;
+      }
+      if (f.type === 'markdown' && v[f.key]) {
+        const html = renderMarkdown(v[f.key], v.bodyFormat || 'markdown');
+        return (
+          <div
+            key={f.key}
+            className="blog-prose"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        );
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  const empty = !v.title && !lead && bodies.length === 0;
+
+  return (
+    <div className="record-preview blog-article">
+      {v.title && <h1 className="record-preview-title">{v.title}</h1>}
+      {lead && <p className="record-preview-lead">{lead}</p>}
+      {bodies}
+      {empty && <p className="admin-field-hint">Nothing to preview yet.</p>}
     </div>
   );
 }
@@ -675,10 +747,12 @@ function PublicationPickerField({ id, value, onChange, agent, did }) {
     >
       <option value="">— pick a publication —</option>
       {pubs.map((r) => {
-        const title = r?.value?.title || rkeyFromUri(r.uri);
+        // site.standard.publication records carry a `name`; fall back to a
+        // legacy `title`, then the rkey if neither is present.
+        const label = r?.value?.name || r?.value?.title || rkeyFromUri(r.uri);
         return (
           <option key={r.uri} value={r.uri}>
-            {title}
+            {label}
           </option>
         );
       })}
