@@ -9,6 +9,7 @@
 .blocks-editor-toolbar {
   display: flex;
   justify-content: flex-end;
+  gap: 0.9rem;
   margin-bottom: -0.4rem;
 }
 
