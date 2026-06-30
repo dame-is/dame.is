@@ -596,6 +596,68 @@ a.post-card-author-link:focus-visible {
   text-align: center;
 }
 
+/* "Checking for recent activity" banner — shown above the feed while a
+   live refresh confirms whether the first paint (snapshot / cache) is up
+   to date. A small spinner + message header sits over a couple of
+   skeleton rows so the top of the column reads as "newer items may be
+   loading here". */
+.feed-checking {
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.feed-checking-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+
+.feed-checking-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.feed-checking-title {
+  font-family: var(--sans);
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+}
+
+.feed-checking-sub {
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+
+.feed-checking-spinner {
+  flex: 0 0 auto;
+  width: 0.85em;
+  height: 0.85em;
+  margin-top: 0.15em;
+  border: 1.5px solid var(--rule);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: feed-checking-spin 0.8s linear infinite;
+}
+
+@keyframes feed-checking-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-checking-spinner {
+    animation: none;
+    border-top-color: var(--accent);
+    opacity: 0.7;
+  }
+}
+
 /* "Load more" CTA at the foot of the home feed. Pagination is purely
    client-side — the next batch is already in memory, so the button only
    reveals it, no spinner needed. */

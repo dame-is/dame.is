@@ -3,7 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Shuffle } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
-import FeedFilters, { feedFilterCounts, filterFeed } from '../components/FeedFilters.jsx';
+import FeedFilters, {
+  feedFilterCounts,
+  filterFeed,
+  resolveActiveVerbs,
+} from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
@@ -51,6 +55,18 @@ const SNAPSHOT_FALLBACK_MAX = 60;
  * groups into one row.
  */
 const LISTEN_BATCH_GAP_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+/**
+ * True when every verb in `need` was part of the `have` fetch set — i.e.
+ * the data we already hold can satisfy the requested filter without a new
+ * live fetch. `have` may be undefined (older cache shape) → not covered.
+ */
+function verbsCovered(have, need) {
+  if (!have) return false;
+  const set = have instanceof Set ? have : new Set(have);
+  for (const v of need) if (!set.has(v)) return false;
+  return true;
+}
 
 /**
  * Per-day summary line shown under each day header in the home feed.
@@ -113,6 +129,26 @@ function collapseListens(items) {
 export default function Home() {
   const [params] = useSearchParams();
 
+  // Which verbs the active filter set actually needs fetched. `replying`
+  // is a virtual filter over `posting` records, so it folds onto posting.
+  // The default view (DEFAULT_HOME_VERBS) omits `liking` / `voting`, so
+  // those — and their slow per-record subject hydration — are never
+  // fetched until the user opts in via the filter chips.
+  const activeVerbs = useMemo(() => resolveActiveVerbs(params), [params]);
+  const fetchVerbs = useMemo(() => {
+    const s = new Set();
+    for (const v of activeVerbs) s.add(v === 'replying' ? 'posting' : v);
+    return s;
+  }, [activeVerbs]);
+  const fetchVerbsKey = useMemo(
+    () => Array.from(fetchVerbs).sort().join(','),
+    [fetchVerbs],
+  );
+  // Latest-value ref so the polling tick / refresh closure always fetch
+  // the currently-active verb set without re-subscribing.
+  const fetchVerbsRef = useRef(fetchVerbs);
+  fetchVerbsRef.current = fetchVerbs;
+
   // Hydrate synchronously from the in-memory cache so navigating
   // Home → About → Home within the TTL re-renders the feed instantly
   // with no skeleton flash.
@@ -122,6 +158,16 @@ export default function Home() {
     initialCache && initialCache.loadedAt ? new Date(initialCache.loadedAt) : null,
   );
   const [refreshState, setRefreshState] = useState(initialCache ? 'ready' : 'idle');
+  // Verbs the most recent *live* result covered. Drives the "checking for
+  // recent activity" banner: while a refresh is in flight for verbs we
+  // can't yet show (first paint from snapshot, or a newly-enabled verb),
+  // we surface the banner; routine 30s background refreshes don't.
+  const [liveVerbs, setLiveVerbs] = useState(() => initialCache?.fetchedVerbs || []);
+  // What produced the currently-displayed `feed`: 'none' (nothing yet),
+  // 'cache' (in-memory hydrate), 'snapshot' (static first paint), or
+  // 'live'. The snapshot painter only acts while this is 'none', and a
+  // resolved live refresh always wins the race.
+  const feedSourceRef = useRef(initialCache ? 'cache' : 'none');
 
   const reduce = useReducedMotion();
 
@@ -165,13 +211,17 @@ export default function Home() {
     const token = { cancelled: false };
     inflightRef.current = token;
 
+    // Snapshot the verb set for this run so the cache + coverage record
+    // it accurately even if the active filter changes mid-flight.
+    const verbs = Array.from(fetchVerbsRef.current);
+
     setRefreshState('refreshing');
     beginRefresh();
 
-    // Strategy: live wins. The prebuilt snapshot is a fallback only —
-    // we fetch it lazily and only render it if the live fetch fails.
-    // (Showing snapshot first then replacing with live made the feed
-    // visibly "twitch" as items reordered.)
+    // Strategy: live wins. The static snapshot is painted instantly on
+    // first load by a separate effect (see below); here we fetch the
+    // live feed and, once it resolves, replace whatever's showing. The
+    // snapshot is also the error fallback if the live fetch fails.
     let live = null;
     let liveError = null;
     try {
@@ -184,6 +234,7 @@ export default function Home() {
           initialMax: INITIAL_FETCH_MAX,
           authorFeedMax: INITIAL_FETCH_MAX,
           skipListMembers: true,
+          verbs,
         },
       });
       live = Array.isArray(result?.unified) ? result.unified : null;
@@ -230,9 +281,11 @@ export default function Home() {
     }
 
     const now = new Date();
+    feedSourceRef.current = 'live';
     setFeed(nextFeed);
     setLoadedAt(now);
     setRefreshState(nextRefreshState);
+    setLiveVerbs(verbs);
     // Only flag arrivals on background refreshes — the very first load
     // (when seenUris is still empty) shouldn't slide every row in.
     if (seenUrisRef.current.size > 0 && arrivals.size > 0) {
@@ -244,6 +297,7 @@ export default function Home() {
       items: nextFeed,
       loadedAt: now.getTime(),
       fetchedAt: Date.now(),
+      fetchedVerbs: verbs,
     });
 
     if (inflightRef.current === token) inflightRef.current = null;
@@ -251,15 +305,52 @@ export default function Home() {
     return nextFeed;
   }, []);
 
-  // Initial load / cache hydration → maybe refresh.
+  // First paint: when there's no usable in-memory cache, render the
+  // prebuilt /data/unifiedFeed.json snapshot as soon as it lands so the
+  // user sees real (if possibly-stale) content instead of a bare
+  // skeleton while the live fetch runs. The snapshot holds every verb,
+  // so it can satisfy any filter; the live refresh always wins the race
+  // (guarded by feedSourceRef) and reconciles to the latest.
   useEffect(() => {
-    if (!isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS)) {
+    if (feedSourceRef.current !== 'none') return undefined;
+    let cancelled = false;
+    fetchSnapshot(FEED_CACHE_KEY)
+      .then((snap) => {
+        if (cancelled || feedSourceRef.current !== 'none' || !Array.isArray(snap)) return;
+        feedSourceRef.current = 'snapshot';
+        // Seed seenUris so snapshot rows don't animate; genuinely new
+        // items from the live fetch still slide in.
+        for (const item of snap) {
+          if (item?.atUri) seenUrisRef.current.add(item.atUri);
+        }
+        setFeed(snap);
+        setLoadedAt((cur) => cur || new Date());
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Trigger a live refresh on mount and whenever the active verb set
+  // changes. Skips the fetch when the in-memory cache is still fresh AND
+  // already covers the requested verbs (e.g. narrowing the filter to a
+  // subset we've loaded → pure client-side filter, no round trip).
+  useEffect(() => {
+    const entry = readFeedCache(FEED_CACHE_KEY);
+    const fresh = isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS);
+    const covered = entry && verbsCovered(entry.fetchedVerbs, fetchVerbsRef.current);
+    if (!entry || !fresh || !covered) {
       runRefresh();
     }
     return () => {
       if (inflightRef.current) inflightRef.current.cancelled = true;
     };
-  }, [runRefresh]);
+    // fetchVerbsKey re-runs this when the filter widens; fetchVerbsRef
+    // carries the current set into the closure.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchVerbsKey, runRefresh]);
 
   // Keep the feed alive on the shared 30s refresh tick — same cadence
   // as NowPlaying and NowStatus, so all the "live" surfaces update
@@ -278,6 +369,15 @@ export default function Home() {
 
   const loading = feed === null;
   const safeFeed = feed || [];
+  // Show the prominent "checking for recent activity" banner only while a
+  // refresh is in flight for verbs the displayed feed can't yet vouch for
+  // — i.e. the snapshot/cache first paint, or a just-enabled verb. Once a
+  // live result covers the active set, routine 30s background refreshes
+  // fall back to the quiet footer indicator instead.
+  const checking =
+    !loading &&
+    refreshState === 'refreshing' &&
+    !verbsCovered(liveVerbs, fetchVerbs);
 
   const counts = useMemo(() => feedFilterCounts(safeFeed, ME_DID), [safeFeed]);
 
@@ -332,10 +432,28 @@ export default function Home() {
 
       <section className="home-latest">
         <FeedFilters counts={counts} />
+        {checking && (
+          <div className="feed-checking">
+            <p className="feed-checking-msg" role="status" aria-live="polite">
+              <span className="feed-checking-spinner" aria-hidden="true" />
+              <span className="feed-checking-copy">
+                <span className="feed-checking-title small-caps">
+                  Checking for recent activity&hellip;
+                </span>
+                <span className="feed-checking-sub">
+                  Showing saved activity below — it may not be the latest yet.
+                </span>
+              </span>
+            </p>
+            <FeedSkeleton rows={2} label="Checking for recent activity" />
+          </div>
+        )}
         {loading ? (
           <FeedSkeleton rows={8} />
         ) : filtered.length === 0 ? (
-          <p className="feed-empty">No records match these filters.</p>
+          checking ? null : (
+            <p className="feed-empty">No records match these filters.</p>
+          )
         ) : (
           <ol className="feed-list reveal-stagger">
             {groups.map((group, gi) => (

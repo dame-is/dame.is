@@ -458,6 +458,14 @@ export async function buildUnifiedFeed({
   // Skipping list-item aggregation on the first fetch shaves a 1000-row
   // listRecords call; lists still render, just without `_members`.
   const skipListMembers = options.skipListMembers === true;
+  // When provided, restrict the ingest to these verb names (registry
+  // `verb` values). The browser passes only the verbs the active filter
+  // set will actually render, so first paint doesn't pay to fetch +
+  // hydrate high-cost reference verbs (likes, votes — resolved one
+  // getRecord at a time through the PLC) that are hidden by default.
+  // Omitted (e.g. the prefetch script) → every verb is fetched.
+  const wantVerbs = Array.isArray(options.verbs) ? new Set(options.verbs) : null;
+  const includeVerb = (verb) => !wantVerbs || wantVerbs.has(verb);
 
   const resolver = options.subjectResolver || createSubjectResolver({ appview, warn });
 
@@ -476,11 +484,15 @@ export async function buildUnifiedFeed({
   const perVerb = {};
 
   // --- Bluesky author feed (special-cased: gives reply context + counts) ----
-  const authorFeed = await safe(
-    'getAuthorFeed',
-    () => getAuthorFeed(me, { appview, max: authorFeedMax }),
-    [],
-  );
+  // `posting` owns the author feed; skip the call entirely when posts
+  // aren't in the requested verb set.
+  const authorFeed = includeVerb('posting')
+    ? await safe(
+        'getAuthorFeed',
+        () => getAuthorFeed(me, { appview, max: authorFeedMax }),
+        [],
+      )
+    : [];
   counts.posts = authorFeed.length;
   for (const item of authorFeed) {
     const f = blueskyPostToFeedItem(item);
@@ -489,7 +501,7 @@ export async function buildUnifiedFeed({
 
   // --- Registry-driven ingest, fanned out in parallel by verb -------------
   const verbResults = await Promise.all(
-    VERB_REGISTRY.map(async (verbConfig) => {
+    VERB_REGISTRY.filter((vc) => includeVerb(vc.verb)).map(async (verbConfig) => {
       const collectionResults = await Promise.all(
         verbConfig.collections.map(async (c) => {
           if (c.kind === 'appviewFeed') return { c, records: [] };
