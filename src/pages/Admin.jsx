@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import PageContentPanel from '../components/PageContentPanel.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { ME_DID, COLLECTIONS } from '../config.js';
+import { ME_DID, COLLECTIONS, PORTFOLIO_PUBLICATION } from '../config.js';
 import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
+
+const STANDARD_DOC = 'site.standard.document';
 import { knownPageSlugs, pageSlugForCollection } from '../lib/pageRegistry.js';
 import './Admin.css';
 
@@ -63,7 +65,15 @@ export default function Admin() {
     return <CollectionPicker />;
   }
   if (mode === 'new') {
-    return <RecordEditorPage agent={agent} did={did} collection={collection} rkey={null} />;
+    return (
+      <RecordEditorPage
+        agent={agent}
+        did={did}
+        collection={collection}
+        rkey={null}
+        preset={params.get('for')}
+      />
+    );
   }
   if (rkey) {
     return <RecordEditorPage agent={agent} did={did} collection={collection} rkey={rkey} />;
@@ -120,12 +130,44 @@ function SignInGate({ signIn }) {
 /* ------------------------------------------------------------------ */
 
 function CollectionPicker() {
+  const all = knownCollections();
+  const primary = all.filter((nsid) => !LEXICONS[nsid]?.legacy);
+  const legacy = all.filter((nsid) => LEXICONS[nsid]?.legacy);
+
+  const renderRow = (nsid) => {
+    const lex = LEXICONS[nsid];
+    return (
+      <li key={nsid} className={`admin-collection-row${lex.legacy ? ' admin-collection-row-legacy' : ''}`}>
+        <Link to={`/admin?c=${encodeURIComponent(nsid)}`} className="admin-collection-link">
+          <span className="admin-collection-label">{lex.label}</span>
+          <code className="admin-collection-nsid">{nsid}</code>
+        </Link>
+        {lex.summary && <p className="admin-collection-summary">{lex.summary}</p>}
+      </li>
+    );
+  };
+
   return (
     <PageShell
       title="Collections"
       intro="Pick a collection to browse and edit records on your PDS."
       headTitle="Admin — Dame is…"
     >
+      <div className="admin-quick-actions">
+        <Link
+          className="admin-gate-button"
+          to={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&mode=new&for=creating`}
+        >
+          New creative work
+        </Link>
+        <Link
+          className="admin-gate-button"
+          to={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&mode=new`}
+        >
+          New blog post
+        </Link>
+      </div>
+
       <ul className="admin-collection-list">
         <li className="admin-collection-row">
           <Link to="/admin?view=pages" className="admin-collection-link">
@@ -137,22 +179,18 @@ function CollectionPicker() {
             defaults, and migrate or revert them.
           </p>
         </li>
-        {knownCollections().map((nsid) => {
-          const lex = LEXICONS[nsid];
-          return (
-            <li key={nsid} className="admin-collection-row">
-              <Link to={`/admin?c=${encodeURIComponent(nsid)}`} className="admin-collection-link">
-                <span className="admin-collection-label">{lex.label}</span>
-                <code className="admin-collection-nsid">{nsid}</code>
-              </Link>
-              {lex.summary && <p className="admin-collection-summary">{lex.summary}</p>}
-            </li>
-          );
-        })}
+        {primary.map(renderRow)}
         <li className="admin-collection-row admin-collection-row-custom">
           <CustomCollectionInput />
         </li>
       </ul>
+
+      {legacy.length > 0 && (
+        <>
+          <div className="admin-collection-legacy-heading small-caps">Legacy</div>
+          <ul className="admin-collection-list">{legacy.map(renderRow)}</ul>
+        </>
+      )}
     </PageShell>
   );
 }
@@ -437,12 +475,22 @@ function PagesOverview({ agent, did }) {
 /* Record editor page wrapper                                           */
 /* ------------------------------------------------------------------ */
 
-function RecordEditorPage({ agent, did, collection, rkey }) {
+function RecordEditorPage({ agent, did, collection, rkey, preset = null }) {
   const lex = lexiconFor(collection);
   const isNew = !rkey;
-  const title = isNew
-    ? `New ${lex?.label || collection}`
-    : `${lex?.label || collection}`;
+  const isCreatingPreset = preset === 'creating' && collection === STANDARD_DOC;
+  // A "New creative work" preset pre-selects the portfolio publication so the
+  // doc lands on /creating. (No-op until PORTFOLIO_PUBLICATION is set.)
+  const initialValue = useMemo(
+    () => (isCreatingPreset && PORTFOLIO_PUBLICATION ? { site: PORTFOLIO_PUBLICATION } : null),
+    [isCreatingPreset],
+  );
+  const newLabel = isCreatingPreset
+    ? 'creative work'
+    : collection === STANDARD_DOC
+      ? 'blog post'
+      : lex?.label || collection;
+  const title = isNew ? `New ${newLabel}` : `${lex?.label || collection}`;
   const headTitle = `${title} — Admin — Dame is…`;
 
   return (
@@ -454,11 +502,18 @@ function RecordEditorPage({ agent, did, collection, rkey }) {
         <code className="admin-collection-nsid">{collection}</code>
         {!isNew && <code className="admin-record-rkey">{rkey}</code>}
       </div>
+      {isCreatingPreset && !PORTFOLIO_PUBLICATION && (
+        <p className="admin-field-hint">
+          No portfolio publication is configured yet — set <code>PORTFOLIO_PUBLICATION</code> in
+          config, or pick the publication manually below.
+        </p>
+      )}
       <RecordEditor
         agent={agent}
         did={did}
         collection={collection}
         rkey={rkey}
+        initialValue={initialValue}
         onCreated={({ rkey: newRkey }) => {
           window.location.assign(
             `/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(newRkey)}`,

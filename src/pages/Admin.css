@@ -432,3 +432,25 @@ select.admin-input {
   color: var(--paper);
   border-color: var(--ink);
 }
+
+/* Collection picker: quick "New …" actions + legacy grouping. */
+.admin-quick-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.admin-collection-legacy-heading {
+  margin: var(--space-5) 0 var(--space-2);
+  color: var(--ink-faint);
+}
+
+.admin-collection-row-legacy {
+  opacity: 0.62;
+}
+
+.admin-collection-row-legacy:hover,
+.admin-collection-row-legacy:focus-within {
+  opacity: 1;
+}

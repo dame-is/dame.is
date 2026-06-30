@@ -59,8 +59,10 @@ export const LEXICONS = {
   },
 
   [COLLECTIONS.creating]: {
-    label: 'Created work',
-    summary: 'Portfolio items shown on /creating. Body is a pub.leaflet.content block document.',
+    label: 'Created work (legacy)',
+    summary:
+      'Legacy portfolio type. New creative works are site.standard.document records in the portfolio publication — use "New creative work" above. Kept here to view/edit or migrate old records.',
+    legacy: true,
     rkeyMode: 'tid',
     typeFieldValue: COLLECTIONS.creating,
     fields: [
