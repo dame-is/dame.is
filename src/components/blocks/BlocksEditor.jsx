@@ -30,12 +30,14 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
   const [dragIndex, setDragIndex] = useState(null);
   const [dropIndex, setDropIndex] = useState(null); // insertion slot (0..length)
   const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const rootRef = useRef(null);
   const activeItemRef = useRef(null);
-  // Document-level undo history of whole-content snapshots. Consecutive text
-  // edits to the same block coalesce into one entry so undo steps by edit
+  // Document-level undo/redo: stacks of whole-content snapshots. Consecutive
+  // text edits to the same block coalesce into one entry so undo steps by edit
   // session (and by structural op), not by keystroke.
   const historyRef = useRef([]);
+  const futureRef = useRef([]);
   const coalesceRef = useRef(null);
 
   const commit = useCallback(
@@ -47,6 +49,9 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
         setCanUndo(true);
       }
       coalesceRef.current = meta.kind === 'text' ? meta.blockIndex : null;
+      // A fresh edit invalidates the redo stack.
+      futureRef.current = [];
+      setCanRedo(false);
       onChange({
         ...content,
         pages: [{ ...content.pages[0], blocks: nextBlocks }],
@@ -58,11 +63,24 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
   const undo = useCallback(() => {
     const prev = historyRef.current.pop();
     if (prev == null) return;
+    futureRef.current.push(content);
+    setCanRedo(true);
     coalesceRef.current = null;
     setCanUndo(historyRef.current.length > 0);
     setActiveIndex(null);
     onChange(prev);
-  }, [onChange]);
+  }, [content, onChange]);
+
+  const redo = useCallback(() => {
+    const next = futureRef.current.pop();
+    if (next == null) return;
+    historyRef.current.push(content);
+    setCanUndo(true);
+    setCanRedo(futureRef.current.length > 0);
+    coalesceRef.current = null;
+    setActiveIndex(null);
+    onChange(next);
+  }, [content, onChange]);
 
   const updateBlock = useCallback(
     (index, nextBlock) => {
@@ -209,12 +227,18 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
 
   const handleRootKeyDown = useCallback(
     (e) => {
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const isZ = e.key === 'z' || e.key === 'Z';
+      const isY = e.key === 'y' || e.key === 'Y';
+      if (isZ && !e.shiftKey) {
         e.preventDefault();
         undo();
+      } else if ((isZ && e.shiftKey) || isY) {
+        e.preventDefault();
+        redo();
       }
     },
-    [undo],
+    [undo, redo],
   );
 
   return (
@@ -228,6 +252,15 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
           title="Undo (⌘/Ctrl+Z) — reorders, deletes, type changes"
         >
           ↶ Undo
+        </button>
+        <button
+          type="button"
+          className="admin-link-subtle"
+          onClick={redo}
+          disabled={!canRedo}
+          title="Redo (⌘/Ctrl+Shift+Z)"
+        >
+          ↷ Redo
         </button>
       </div>
       <ol className="blocks-editor-list">
