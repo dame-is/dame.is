@@ -39,6 +39,11 @@ export const FORMAT_TYPES = {
 };
 export const LINK_TYPE = 'pub.leaflet.richtext.facet#link';
 
+/** Reverse of FORMAT_TYPES: facet $type → short key used in the editor DOM. */
+export const KEY_FOR_TYPE = Object.fromEntries(
+  Object.entries(FORMAT_TYPES).map(([key, type]) => [type, key]),
+);
+
 /**
  * Toggle a feature on/off across a byte range. If every byte in the
  * range already has the feature, it's removed; otherwise it's added.
@@ -73,6 +78,12 @@ export function toggleFeature(facets, byteStart, byteEnd, feature) {
 
   // Fill the gap with bare segments if the range wasn't fully covered.
   const inRange = split.filter((s) => s.start >= byteStart && s.end <= byteEnd);
+  // No existing segment overlaps the range at all (e.g. the first mark on a
+  // fresh block, or formatting an unformatted region past every facet) — the
+  // whole range is a gap, so seed it as one bare segment.
+  if (inRange.length === 0) {
+    split.push({ start: byteStart, end: byteEnd, features: [] });
+  }
   const fillStart = inRange.length ? Math.min(...inRange.map((s) => s.start)) : byteStart;
   const fillEnd = inRange.length ? Math.max(...inRange.map((s) => s.end)) : byteEnd;
   if (fillStart > byteStart) {
@@ -126,7 +137,7 @@ export function applyLink(facets, byteStart, byteEnd, uri) {
   return applyFeatureAlways(stripped, byteStart, byteEnd, { $type: LINK_TYPE, uri });
 }
 
-function applyFeatureAlways(facets, byteStart, byteEnd, feature) {
+export function applyFeatureAlways(facets, byteStart, byteEnd, feature) {
   const segments = facetsToSegments(facets);
   const split = [];
   for (const s of segments) {
@@ -157,6 +168,108 @@ function applyFeatureAlways(facets, byteStart, byteEnd, feature) {
     }
   }
   return segmentsToFacets(split);
+}
+
+/** Force-remove a feature across a byte range (no toggle semantics). */
+export function removeFeatureAlways(facets, byteStart, byteEnd, feature) {
+  if (byteEnd <= byteStart) return facets;
+  const segments = facetsToSegments(facets);
+  const split = [];
+  for (const s of segments) {
+    if (s.end <= byteStart || s.start >= byteEnd) {
+      split.push(s);
+      continue;
+    }
+    if (s.start < byteStart) split.push({ start: s.start, end: byteStart, features: s.features });
+    const innerStart = Math.max(s.start, byteStart);
+    const innerEnd = Math.min(s.end, byteEnd);
+    split.push({ start: innerStart, end: innerEnd, features: removeFeature(s.features, feature) });
+    if (s.end > byteEnd) split.push({ start: byteEnd, end: s.end, features: s.features });
+  }
+  return segmentsToFacets(split);
+}
+
+/** Feature $types that cover the ENTIRE [byteStart, byteEnd) range. */
+export function featureTypesForRange(facets, byteStart, byteEnd) {
+  if (byteEnd <= byteStart) return [];
+  const types = new Set();
+  for (const f of facets || []) {
+    for (const ft of f.features || []) if (ft?.$type) types.add(ft.$type);
+  }
+  return Array.from(types).filter((t) => rangeFullyCovered(facets, byteStart, byteEnd, t));
+}
+
+function rangeFullyCovered(facets, bs, be, type) {
+  const intervals = (facets || [])
+    .filter((f) => (f.features || []).some((x) => x?.$type === type))
+    .map((f) => [Math.max(f.index.byteStart, bs), Math.min(f.index.byteEnd, be)])
+    .filter(([a, b]) => b > a)
+    .sort((a, b) => a[0] - b[0]);
+  let cursor = bs;
+  for (const [a, b] of intervals) {
+    if (a > cursor) return false;
+    cursor = Math.max(cursor, b);
+    if (cursor >= be) return true;
+  }
+  return cursor >= be;
+}
+
+/**
+ * Break text + facets into contiguous runs covering the whole string, each
+ * carrying the features active across it. Gap-free, so the editor can render
+ * a flat span-per-run structure (and parse it back the same way).
+ */
+export function facetRuns(text, facets) {
+  const safe = typeof text === 'string' ? text : '';
+  if (!safe) return [];
+  const totalBytes = ENCODER.encode(safe).length;
+  const valid = Array.isArray(facets)
+    ? facets.filter((f) => f?.index?.byteStart != null && f?.index?.byteEnd != null)
+    : [];
+  const points = new Set([0, totalBytes]);
+  for (const f of valid) {
+    if (f.index.byteStart >= 0 && f.index.byteStart <= totalBytes) points.add(f.index.byteStart);
+    if (f.index.byteEnd >= 0 && f.index.byteEnd <= totalBytes) points.add(f.index.byteEnd);
+  }
+  const sorted = Array.from(points).sort((a, b) => a - b);
+  const runs = [];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const bs = sorted[i];
+    const be = sorted[i + 1];
+    if (be <= bs) continue;
+    const features = [];
+    for (const f of valid) {
+      if (f.index.byteStart <= bs && f.index.byteEnd >= be) {
+        for (const ft of f.features || []) {
+          if (ft?.$type && !features.some((x) => x.$type === ft.$type)) features.push(ft);
+        }
+      }
+    }
+    runs.push({ text: safe.slice(bytesToChars(safe, bs), bytesToChars(safe, be)), features });
+  }
+  return runs;
+}
+
+/**
+ * Inverse of facetRuns: ordered runs whose text concatenates to `text` →
+ * merged, gap-free leaflet facets.
+ */
+export function runsToFacets(text, runs) {
+  const safe = typeof text === 'string' ? text : '';
+  let charPos = 0;
+  const byteSegs = [];
+  for (const r of runs || []) {
+    const len = r.text ? r.text.length : 0;
+    if (len > 0 && Array.isArray(r.features) && r.features.length) {
+      byteSegs.push({
+        start: charsToBytes(safe, charPos),
+        end: charsToBytes(safe, charPos + len),
+        features: r.features,
+      });
+    }
+    charPos += len;
+  }
+  return segmentsToFacets(byteSegs);
 }
 
 function hasFeature(features, target) {
