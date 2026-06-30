@@ -1,18 +1,43 @@
 # Portfolio export → PDS
 
 Tools for migrating the creative works from the old Adobe Portfolio site
-(<https://dame.work/art>) into `is.dame.creating.work` records on your PDS —
-the same collection the `/creating` page and the in-app block editor read.
+(<https://dame.work/art>) into **`site.standard.document`** records on your
+PDS — the portable standard.site type the `/creating` page and the in-app
+block editor now use. Each work belongs to a dedicated **portfolio
+publication**; that's what makes it render on `/creating` (not `/blogging`).
 
-Two steps:
+Steps:
 
+0. **`create-publication.mjs`** creates the portfolio `site.standard.publication`
+   once, and prints an `at://` URI to paste into `PORTFOLIO_PUBLICATION` in
+   `src/config.js`.
 1. **`extract.mjs`** scrapes the old site into `works.json` — a clean,
    human-editable file you review and tweak.
-2. **`upload.mjs`** reads `works.json` and publishes each work to your PDS,
-   re-hosting every image as a PDS blob so nothing stays tied to Adobe.
+2. **`upload.mjs`** reads `works.json` and publishes each work as a standard
+   document, re-hosting every image as a PDS blob so nothing stays tied to Adobe.
+
+Already have `is.dame.creating.work` records from before? **`migrate-creating.mjs`**
+converts them to standard documents (reusing their existing image blobs).
 
 `works.json` is already generated and committed, so you can skip straight to
 step 2 (or open the file and edit first).
+
+## 0. Create the portfolio publication (once)
+
+```sh
+DAME_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx \
+  node scripts/portfolio/create-publication.mjs --name "Creative Works"
+```
+
+Paste the printed `at://…` URI into `src/config.js`:
+
+```js
+export const PORTFOLIO_PUBLICATION = 'at://did:plc:…/site.standard.publication/…';
+```
+
+Until this is set the site keeps its prior behavior (legacy `is.dame.creating.work`
+on `/creating`, every standard doc treated as a blog post), so it's safe to
+deploy the code change before creating the publication.
 
 ## What was captured
 
@@ -98,20 +123,37 @@ DAME_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx node scripts/portfolio/upload.mjs
 
 For each work it builds the `pub.leaflet.content` body, downloads every image
 from the old CDN, re-uploads it to your PDS as a blob, and creates one
-`is.dame.creating.work` record (server-assigned TID rkey; the public URL is
-keyed off `slug`).
+`site.standard.document` record in the portfolio publication (server-assigned
+TID rkey; the public URL is `/creating/<slug>`, stored as the doc's `path`).
+The work's `category` becomes the first entry of the native `tags` array.
 
 ### Options
 
 | Flag | Effect |
 |---|---|
-| `--dry-run` | Build and report, write nothing. |
+| `--dry-run` | Build and report, write nothing (works without a publication set). |
 | `--print` | With `--dry-run`, print the full record JSON. |
 | `--only=slug[,slug]` | Publish a subset. |
 | `--keep-cdn-urls` | Reference Adobe CDN URLs instead of uploading blobs (fast, but breaks when the old site goes down — not recommended). |
 | `--force` | Publish even if a record with that slug already exists. |
+| `--legacy` | Publish as `is.dame.creating.work` instead of a standard doc (not recommended). |
+| `--publication=at://…` | Portfolio publication URI (otherwise read from config / `DAME_PORTFOLIO_PUBLICATION`). |
 | `--handle=dame.is` | Account handle (default `dame.is`). |
 | `--pds=https://…` | Use this PDS directly instead of resolving it. |
+
+## 3. Migrate existing legacy records (optional)
+
+If you already published any `is.dame.creating.work` records, convert them to
+standard documents (their image blobs are reused — nothing is re-uploaded):
+
+```sh
+node scripts/portfolio/migrate-creating.mjs --dry-run --print
+DAME_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx node scripts/portfolio/migrate-creating.mjs
+# add --delete to remove each legacy record after its standard doc is created
+```
+
+By default it keeps both records (`/creating` reads either); `--delete` removes
+the legacy one once migrated. Re-runnable — skips works already migrated.
 
 ### Notes
 
