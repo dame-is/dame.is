@@ -121,12 +121,44 @@ function contentTypeFor(url, headerType) {
   );
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Retry a flaky network op with exponential backoff. The PDS occasionally
+ * returns a transient 5xx / 429 under load; we retry those but fail fast on
+ * a real 4xx (bad request, auth, etc.).
+ */
+async function withRetry(label, fn, { tries = 5, baseMs = 1000 } = {}) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const status = err?.status || err?.statusCode;
+      if (status && status >= 400 && status < 500 && status !== 429) throw err;
+      if (i < tries - 1) {
+        const wait = baseMs * 2 ** i;
+        process.stdout.write(`\n  [retry ${i + 1}/${tries - 1}] ${label}: ${err?.message || err} — waiting ${wait}ms\n`);
+        await sleep(wait);
+      }
+    }
+  }
+  throw lastErr;
+}
+
 async function uploadImage(agent, url) {
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (portfolio-export)' } });
-  if (!res.ok) throw new Error(`fetch image ${res.status}: ${url}`);
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  const encoding = contentTypeFor(url, res.headers.get('content-type'));
-  const out = await agent.com.atproto.repo.uploadBlob(bytes, { encoding });
+  const bytes = await withRetry(`fetch ${url.split('/').pop()?.slice(0, 24)}`, async () => {
+    const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (portfolio-export)' } });
+    if (!res.ok) {
+      const e = new Error(`fetch image ${res.status}`);
+      e.status = res.status;
+      throw e;
+    }
+    return new Uint8Array(await res.arrayBuffer());
+  });
+  const encoding = contentTypeFor(url, null);
+  const out = await withRetry('uploadBlob', () => agent.com.atproto.repo.uploadBlob(bytes, { encoding }));
   return { blob: out.data.blob, bytes: bytes.length };
 }
 
@@ -231,31 +263,43 @@ async function main() {
     published = await existingSlugs(agent, did);
   }
 
+  const failed = [];
   for (const work of works) {
     if (!FORCE && published.has(work.slug)) {
       console.log(`\n[skip] ${work.slug} — already published (use --force to re-add)`);
       continue;
     }
-    const stats = { images: 0, bytes: 0 };
-    process.stdout.write(`\n[work] ${work.slug} `);
-    const content = await buildContent(agent, work, stats);
-    const record = buildRecord(work, content);
+    try {
+      const stats = { images: 0, bytes: 0 };
+      process.stdout.write(`\n[work] ${work.slug} `);
+      const content = await buildContent(agent, work, stats);
+      const record = buildRecord(work, content);
 
-    if (DRY_RUN) {
-      console.log(`\n  would create ${COLLECTION} (${content.pages[0].blocks.length} blocks, ${stats.images} images)`);
-      if (PRINT) console.log(JSON.stringify(record, null, 2));
-      continue;
+      if (DRY_RUN) {
+        console.log(`\n  would create ${COLLECTION} (${content.pages[0].blocks.length} blocks, ${stats.images} images)`);
+        if (PRINT) console.log(JSON.stringify(record, null, 2));
+        continue;
+      }
+
+      const res = await withRetry('createRecord', () =>
+        agent.com.atproto.repo.createRecord({ repo: did, collection: COLLECTION, record }),
+      );
+      console.log(`\n  ✓ ${res.data.uri} (${stats.images} images, ${(stats.bytes / 1e6).toFixed(1)} MB)`);
+    } catch (err) {
+      // One bad work shouldn't abort the rest — log it and move on. Re-running
+      // skips the works that did publish and retries the failures.
+      console.log(`\n  ✗ ${work.slug} failed: ${err?.message || err}`);
+      failed.push(work.slug);
     }
-
-    const res = await agent.com.atproto.repo.createRecord({
-      repo: did,
-      collection: COLLECTION,
-      record,
-    });
-    console.log(`\n  ✓ ${res.data.uri} (${stats.images} images, ${(stats.bytes / 1e6).toFixed(1)} MB)`);
   }
 
-  console.log('\n[upload] done.');
+  if (failed.length) {
+    console.log(`\n[upload] done with ${failed.length} failure(s): ${failed.join(', ')}`);
+    console.log('[upload] re-run the same command to retry just those.');
+    process.exitCode = 1;
+  } else {
+    console.log('\n[upload] done.');
+  }
 }
 
 main().catch((err) => {
