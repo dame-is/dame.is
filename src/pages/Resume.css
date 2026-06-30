@@ -1,0 +1,353 @@
+.resume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: var(--measure);
+}
+
+/* --- Header ---------------------------------------------------------- */
+.resume-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.resume-headline-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.resume-title {
+  font-family: var(--serif);
+  font-size: var(--text-3xl);
+  margin: 0;
+  line-height: var(--leading-tight);
+}
+
+.resume-headline {
+  font-family: var(--sans);
+  font-size: var(--text-lg);
+  color: var(--accent);
+  margin: var(--space-1) 0 0;
+}
+
+.resume-print-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  transition: border-color 200ms ease, color 200ms ease;
+}
+
+.resume-print-btn:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.resume-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+.resume-contact li {
+  position: relative;
+  display: inline-flex;
+}
+
+.resume-contact li + li::before {
+  content: "·";
+  margin-right: var(--space-3);
+  color: var(--ink-faint);
+}
+
+.resume-contact a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.resume-contact a:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+/* --- Version switcher ------------------------------------------------ */
+.resume-versions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.resume-version-chip {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  color: var(--ink-soft);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-soft);
+  border-radius: 999px;
+  transition: border-color 200ms ease, color 200ms ease, background 200ms ease;
+}
+
+.resume-version-chip:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink);
+}
+
+.resume-version-chip.is-active {
+  color: var(--page);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* --- Sections ------------------------------------------------------- */
+.resume-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.resume-section-title {
+  font-size: var(--text-sm);
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  margin: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.resume-summary .blog-prose {
+  font-size: var(--text-base);
+}
+
+.resume-orgs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.resume-org {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.resume-org-name {
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  margin: 0;
+}
+
+.resume-org-name a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.resume-org-name a:hover {
+  border-color: var(--accent-soft);
+}
+
+/* A role within an organization. Multiple roles at one org share a left
+   rule so the grouping reads as a single tenure. */
+.resume-role {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--rule-soft);
+}
+
+.resume-role-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.resume-role-title {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: var(--text-base);
+  margin: 0;
+  color: var(--ink);
+}
+
+.resume-role-dates {
+  flex: none;
+  white-space: nowrap;
+}
+
+.resume-role-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+}
+
+.resume-record-link {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 160ms ease, color 160ms ease;
+}
+
+.resume-role:hover .resume-record-link {
+  opacity: 1;
+}
+
+.resume-record-link:hover {
+  color: var(--accent);
+}
+
+.resume-role-summary {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.resume-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+}
+
+.resume-highlight {
+  font-size: var(--text-sm);
+  line-height: var(--leading);
+  color: var(--ink-soft);
+}
+
+.resume-highlight::marker {
+  color: var(--accent-soft);
+}
+
+.resume-highlight.is-featured {
+  color: var(--ink);
+}
+
+/* A subtle leading dot for quantified achievements. */
+.resume-highlight.is-metric::marker {
+  content: "◆  ";
+  color: var(--accent);
+}
+
+/* --- Skills --------------------------------------------------------- */
+.resume-skills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.resume-skill-group {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.resume-skill-cat {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin: 0;
+}
+
+.resume-skill-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.resume-skill {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  padding: 2px var(--space-2);
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-1);
+}
+
+.resume-footnote {
+  margin: var(--space-4) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+  max-width: none;
+}
+
+@media (max-width: 640px) {
+  .resume-skill-group {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+  .resume-role-head {
+    gap: var(--space-1);
+  }
+}
+
+/* --- Print: a clean one-document resume ----------------------------- */
+@media print {
+  .resume-print-btn,
+  .resume-versions,
+  .resume-record-link,
+  .resume-footnote {
+    display: none !important;
+  }
+
+  .resume {
+    gap: 1.2rem;
+    max-width: none;
+    color: #000;
+  }
+
+  .resume-section {
+    break-inside: avoid;
+  }
+
+  .resume-role,
+  .resume-org {
+    break-inside: avoid;
+  }
+
+  .resume-highlight,
+  .resume-role-title,
+  .resume-org-name,
+  .resume-title {
+    color: #000;
+  }
+
+  .resume-contact a {
+    border: none;
+  }
+}

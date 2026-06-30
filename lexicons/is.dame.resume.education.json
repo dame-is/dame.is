@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.resume.education",
+  "description": "One education entry — a degree, program, or course of study. The canonical, version-independent record an is.dame.resume references by AT URI, mirroring is.dame.resume.job so education can be selected and tailored the same way work history is.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "Record key is a human-readable slug so resume backlinks read clearly and re-imports are idempotent.",
+      "record": {
+        "type": "object",
+        "required": ["institution", "createdAt"],
+        "properties": {
+          "institution":    { "type": "string", "maxLength": 200 },
+          "institutionUrl": { "type": "string", "format": "uri" },
+          "area":           { "type": "string", "maxLength": 200, "description": "Field of study, e.g. \"Mass Communication / Media Studies\"." },
+          "studyType":      { "type": "string", "maxLength": 200, "description": "Degree / credential, e.g. \"Bachelor of Arts - BA\"." },
+          "location":       { "type": "string", "maxLength": 200 },
+          "startDate":      { "type": "string", "maxLength": 10, "description": "Partial date, \"YYYY\" or \"YYYY-MM\"." },
+          "endDate":        { "type": "string", "maxLength": 10 },
+          "current":        { "type": "boolean", "default": false },
+          "summary":        { "type": "string", "maxLength": 2000 },
+          "highlights":     {
+            "type": "array",
+            "maxLength": 50,
+            "description": "Honors, activities, coursework. Shares the is.dame.resume.job#highlight shape so the renderer and selection logic are identical.",
+            "items": { "type": "ref", "ref": "is.dame.resume.job#highlight" }
+          },
+          "createdAt":      { "type": "string", "format": "datetime" },
+          "updatedAt":      { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

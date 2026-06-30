@@ -131,6 +131,21 @@ async function main() {
   );
   await writeJson('hero', heroPhrases);
 
+  // --- Resume (is.dame.resume + backlinked jobs + education) ----------------
+  // One combined snapshot so /resume paints instantly; the page re-fetches
+  // all three collections live and resolves the backlinks in the browser.
+  const [resumes, resumeJobs, resumeEducation] = await Promise.all([
+    safe('listRecords:resume', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resume, max: 50 }), []),
+    safe('listRecords:resumeJob', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeJob, max: 200 }), []),
+    safe('listRecords:resumeEducation', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeEducation, max: 100 }), []),
+  ]);
+  await writeJson('resume', {
+    builtAt: new Date().toISOString(),
+    resumes,
+    jobs: resumeJobs,
+    education: resumeEducation,
+  });
+
   // --- Registry-driven ingest (delegated to the shared builder) -------------
   const { unified, perCollection, perVerb, authorFeed, counts } = await buildUnifiedFeed({
     pds,

@@ -1,0 +1,106 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.resume",
+  "description": "A single resume / CV version. A resume owns no employment facts of its own — it is a curated, ordered view that backlinks to is.dame.resume.job and is.dame.resume.education records and, per entry, selects which highlight bullets to show. Keep many of these to maintain audience-tailored variants (e.g. \"primary\", \"product-design\") that all stay in sync with the underlying jobs.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "Record key is the resume's slug (e.g. \"primary\"); it doubles as the /resume/<slug> URL.",
+      "record": {
+        "type": "object",
+        "required": ["title", "slug", "createdAt"],
+        "properties": {
+          "title":      { "type": "string", "maxLength": 200, "description": "Internal/display name for this version, e.g. \"Primary résumé\" or \"Product & design\"." },
+          "slug":       { "type": "string", "maxLength": 120, "description": "URL slug. Should match the record key." },
+          "headline":   { "type": "string", "maxLength": 200, "description": "Professional headline, e.g. \"Creative Technologist & Product Designer\"." },
+          "summary":    { "type": "string", "maxLength": 5000, "description": "Professional summary / objective." },
+          "summaryFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
+          "visibility": { "type": "string", "enum": ["public", "unlisted", "private"], "default": "private", "description": "Website display intent (NOT privacy — the record is always publicly fetchable). \"public\": listed and rendered. \"unlisted\": reachable at its URL but not indexed. \"private\": not rendered on the site." },
+          "featured":   { "type": "boolean", "default": false, "description": "Marks the default resume shown at /resume when no slug is given. At most one should be true." },
+          "entries":    {
+            "type": "array",
+            "maxLength": 100,
+            "description": "Work-history section: ordered backlinks to jobs, each selecting which of that job's highlights to show.",
+            "items": { "type": "ref", "ref": "#entry" }
+          },
+          "education":  {
+            "type": "array",
+            "maxLength": 50,
+            "description": "Education section: ordered backlinks to is.dame.resume.education records.",
+            "items": { "type": "ref", "ref": "#educationEntry" }
+          },
+          "skills":     {
+            "type": "array",
+            "maxLength": 50,
+            "description": "Skill groups shown on this resume. Authored inline (rather than backlinked) because skill emphasis is the most audience-specific part of a resume.",
+            "items": { "type": "ref", "ref": "#skillGroup" }
+          },
+          "contact":    { "type": "ref", "ref": "#contact", "description": "Contact block for this version. Omit to fall back to the site profile." },
+          "createdAt":  { "type": "string", "format": "datetime" },
+          "updatedAt":  { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "entry": {
+      "type": "object",
+      "description": "A backlink from a resume to one job, plus this resume's tailoring of it.",
+      "required": ["job"],
+      "properties": {
+        "job":          { "type": "string", "format": "at-uri", "description": "AT URI of an is.dame.resume.job record. A bare URI (not a strongRef) so the entry always tracks the job's latest version." },
+        "highlightIds": {
+          "type": "array",
+          "maxLength": 50,
+          "items": { "type": "string", "maxLength": 64 },
+          "description": "Which of the job's highlight ids to include, in this order. Omit to include every non-private highlight in its natural order."
+        },
+        "titleOverride":   { "type": "string", "maxLength": 200, "description": "Optional per-resume retitling of the role (e.g. condensing for a one-pager). Falls back to the job's title." },
+        "summaryOverride": { "type": "string", "maxLength": 2000, "description": "Optional per-resume role summary. Falls back to the job's summary." }
+      }
+    },
+    "educationEntry": {
+      "type": "object",
+      "required": ["education"],
+      "properties": {
+        "education":    { "type": "string", "format": "at-uri", "description": "AT URI of an is.dame.resume.education record." },
+        "highlightIds": {
+          "type": "array",
+          "maxLength": 50,
+          "items": { "type": "string", "maxLength": 64 }
+        }
+      }
+    },
+    "skillGroup": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "category": { "type": "string", "maxLength": 120, "description": "Optional group label, e.g. \"AI & tooling\", \"Marketing\"." },
+        "items":    {
+          "type": "array",
+          "maxLength": 100,
+          "items": { "type": "string", "maxLength": 80 }
+        }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "properties": {
+        "email":    { "type": "string", "maxLength": 320 },
+        "phone":    { "type": "string", "maxLength": 40 },
+        "location": { "type": "string", "maxLength": 200 },
+        "links":    {
+          "type": "array",
+          "maxLength": 20,
+          "items": {
+            "type": "object",
+            "required": ["label", "url"],
+            "properties": {
+              "label": { "type": "string", "maxLength": 80 },
+              "url":   { "type": "string", "format": "uri" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

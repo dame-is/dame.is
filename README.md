@@ -20,6 +20,12 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
 - `is.dame.page` — page-content records keyed by literal page name.
 - `is.dame.profile` — extended long-form bio at `at://{me}/is.dame.profile/self`.
 - `is.dame.creating.work` — portfolio works (art, software, writing, music…).
+- `is.dame.resume` / `is.dame.resume.job` / `is.dame.resume.education` —
+  a backlinked resume model: many resume versions curate shared job/education
+  records and pick which highlight bullets to show. See
+  [`lexicons/RESUME.md`](lexicons/RESUME.md); renders at `/resume`. Bulk-import
+  from a LinkedIn/resume PDF with
+  [`scripts/import-resume.mjs`](scripts/import-resume.mjs).
 - `is.dame.annotating` — stretch lexicon for book-style margin notes.
 
 Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.

@@ -156,6 +156,102 @@ export const LEXICONS = {
     ],
   },
 
+  [COLLECTIONS.resumeJob]: {
+    label: 'Resume · job',
+    summary:
+      'A canonical position in your work history. Owns the achievement bullets (highlights); resumes backlink here and pick which bullets to show.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'ipfs-content-manager',
+    typeFieldValue: COLLECTIONS.resumeJob,
+    fields: [
+      { key: 'organization', label: 'Organization', type: 'text', required: true },
+      { key: 'organizationUrl', label: 'Organization URL', type: 'text' },
+      { key: 'title', label: 'Title', type: 'text', required: true },
+      {
+        key: 'employmentType', label: 'Employment type', type: 'select',
+        options: ['full-time', 'part-time', 'contract', 'freelance', 'self-employed', 'internship', 'volunteer'],
+      },
+      { key: 'location', label: 'Location', type: 'text' },
+      { key: 'locationType', label: 'Location type', type: 'select', options: ['on-site', 'remote', 'hybrid'] },
+      { key: 'startDate', label: 'Start date', type: 'text', placeholder: 'YYYY or YYYY-MM', required: true },
+      { key: 'endDate', label: 'End date', type: 'text', placeholder: 'YYYY or YYYY-MM (blank if current)' },
+      { key: 'current', label: 'Current role', type: 'boolean', default: false },
+      { key: 'summary', label: 'Summary', type: 'textarea' },
+      {
+        key: 'highlights', label: 'Highlights', type: 'json',
+        hint: 'Array of { id, text, visibility?, featured?, metric?, tags? }. Each id must be unique within this job.',
+      },
+      { key: 'skills', label: 'Skills', type: 'tags' },
+      ...COMMON_TIMESTAMPS,
+    ],
+  },
+
+  [COLLECTIONS.resumeEducation]: {
+    label: 'Resume · education',
+    summary: 'A canonical education entry. Resumes backlink here, the same way they reference jobs.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'private-university-ba',
+    typeFieldValue: COLLECTIONS.resumeEducation,
+    fields: [
+      { key: 'institution', label: 'Institution', type: 'text', required: true },
+      { key: 'institutionUrl', label: 'Institution URL', type: 'text' },
+      { key: 'area', label: 'Area of study', type: 'text' },
+      { key: 'studyType', label: 'Degree / credential', type: 'text' },
+      { key: 'location', label: 'Location', type: 'text' },
+      { key: 'startDate', label: 'Start date', type: 'text', placeholder: 'YYYY or YYYY-MM' },
+      { key: 'endDate', label: 'End date', type: 'text', placeholder: 'YYYY or YYYY-MM' },
+      { key: 'current', label: 'In progress', type: 'boolean', default: false },
+      { key: 'summary', label: 'Summary', type: 'textarea' },
+      {
+        key: 'highlights', label: 'Highlights', type: 'json',
+        hint: 'Optional array of { id, text, … } for honors / coursework. Same shape as a job highlight.',
+      },
+      ...COMMON_TIMESTAMPS,
+    ],
+  },
+
+  [COLLECTIONS.resume]: {
+    label: 'Resume',
+    summary:
+      'A resume version. Owns no job facts — it backlinks to jobs/education and selects which highlights to show. Keep several for audience-tailored variants.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'primary',
+    typeFieldValue: COLLECTIONS.resume,
+    fields: [
+      { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Primary résumé' },
+      { key: 'slug', label: 'Slug', type: 'text', required: true, hint: 'Should match the record key; drives /resume/<slug>.' },
+      { key: 'headline', label: 'Headline', type: 'text' },
+      { key: 'summary', label: 'Summary (Markdown)', type: 'markdown' },
+      {
+        key: 'visibility', label: 'Visibility', type: 'select', default: 'private',
+        hint: 'Site display intent — not privacy. Every PDS record is public.',
+        options: [
+          { value: 'public', label: 'Public — listed + rendered' },
+          { value: 'unlisted', label: 'Unlisted — reachable by URL, not indexed' },
+          { value: 'private', label: 'Private — not rendered on the site' },
+        ],
+      },
+      { key: 'featured', label: 'Featured (default at /resume)', type: 'boolean', default: false },
+      {
+        key: 'entries', label: 'Entries (jobs)', type: 'json',
+        hint: 'Array of { job: at-uri, highlightIds?: string[], titleOverride?, summaryOverride? }, in display order.',
+      },
+      {
+        key: 'education', label: 'Education', type: 'json',
+        hint: 'Array of { education: at-uri, highlightIds?: string[] }.',
+      },
+      {
+        key: 'skills', label: 'Skill groups', type: 'json',
+        hint: 'Array of { category?: string, items: string[] }.',
+      },
+      {
+        key: 'contact', label: 'Contact', type: 'json',
+        hint: 'Optional { email?, phone?, location?, links?: [{ label, url }] }. Omit to fall back to the profile.',
+      },
+      ...COMMON_TIMESTAMPS,
+    ],
+  },
+
   'app.bsky.feed.post': {
     label: 'Bluesky post',
     summary: 'Plain text posts. Embeds are out of scope for the templated editor — use raw JSON.',
