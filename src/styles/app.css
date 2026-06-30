@@ -241,6 +241,15 @@
   margin-top: var(--space-4);
 }
 
+/* Groups the "checking" notice with the feed list so the notice isn't a
+   direct child of `.home-latest`'s flex `gap` (an un-animatable gap that
+   would snap shut when the notice collapses out). No gap here — the
+   notice carries its own bottom spacing, which collapses with it. */
+.home-feed-region {
+  display: flex;
+  flex-direction: column;
+}
+
 .placeholder-card {
   border: 1px dashed var(--rule);
   border-radius: var(--radius-3);

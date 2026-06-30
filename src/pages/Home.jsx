@@ -483,40 +483,46 @@ export default function Home() {
 
       <section className="home-latest">
         <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
-        <AnimatePresence initial={false}>
-          {checking && (
-            <motion.div
-              key="feed-checking"
-              initial={reduce ? false : { opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
-              transition={{ duration: reduce ? 0.15 : 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div className="feed-checking">
-                <p className="feed-checking-msg" role="status" aria-live="polite">
-                  <span className="feed-checking-spinner" aria-hidden="true" />
-                  <span className="feed-checking-copy">
-                    <span className="feed-checking-title small-caps">
-                      Checking for recent activity&hellip;
-                    </span>
-                    {!loading && filtered.length > 0 && (
-                      <span className="feed-checking-sub">
-                        Showing saved activity below — it may not be the latest yet.
+        {/* The notice + feed list share one flex child so the notice
+            isn't a direct child of `.home-latest` — otherwise the parent's
+            flex `gap` around it can't animate and snaps shut when the
+            notice unmounts. Inside here the notice's collapse is the only
+            thing that moves, and its spacing rides along in the wrapper. */}
+        <div className="home-feed-region">
+          <AnimatePresence initial={false}>
+            {checking && (
+              <motion.div
+                key="feed-checking"
+                initial={reduce ? false : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                transition={{ duration: reduce ? 0.15 : 0.32, ease: [0.22, 0.61, 0.36, 1] }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="feed-checking">
+                  <p className="feed-checking-msg" role="status" aria-live="polite">
+                    <span className="feed-checking-spinner" aria-hidden="true" />
+                    <span className="feed-checking-copy">
+                      <span className="feed-checking-title small-caps">
+                        Checking for recent activity&hellip;
                       </span>
-                    )}
-                  </span>
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {loading ? null : filtered.length === 0 ? (
-          checking ? null : (
-            <p className="feed-empty">No records match these filters.</p>
-          )
-        ) : (
-          <ol className="feed-list reveal-stagger">
+                      {!loading && filtered.length > 0 && (
+                        <span className="feed-checking-sub">
+                          Showing saved activity below — it may not be the latest yet.
+                        </span>
+                      )}
+                    </span>
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {loading ? null : filtered.length === 0 ? (
+            checking ? null : (
+              <p className="feed-empty">No records match these filters.</p>
+            )
+          ) : (
+            <ol className="feed-list reveal-stagger">
             {groups.map((group, gi) => (
               <li key={group.dateKey} className="feed-day-group">
                 <DayOfLifeHeader
@@ -551,7 +557,8 @@ export default function Home() {
               </li>
             ))}
           </ol>
-        )}
+          )}
+        </div>
         {!loading && hasMore && (
           <div className="feed-load-more">
             <button
