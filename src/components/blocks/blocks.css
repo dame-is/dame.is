@@ -436,3 +436,16 @@
 }
 
 /* Code block + Bluesky-post block use only baseline admin classes. */
+
+/* Link-card editor: "Fetch metadata" action + inline hint. */
+.website-block-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.website-block-actions .admin-field-hint {
+  margin: 0;
+}

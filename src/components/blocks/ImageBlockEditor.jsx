@@ -90,7 +90,17 @@ export default function ImageBlockEditor({ block, agent, did, onChange }) {
           type="text"
           value={block.alt || ''}
           onChange={(e) => onChange({ ...block, alt: e.target.value })}
-          placeholder="Describe the image"
+          placeholder="Describe the image (for screen readers)"
+        />
+      </label>
+      <label className="admin-field-label image-block-alt-label">
+        Caption
+        <input
+          className="admin-input"
+          type="text"
+          value={block.caption || ''}
+          onChange={(e) => onChange({ ...block, caption: e.target.value })}
+          placeholder="Visible caption (optional)"
         />
       </label>
     </div>

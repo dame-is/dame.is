@@ -221,3 +221,80 @@
   font-family: var(--sans);
   overflow-wrap: anywhere;
 }
+
+/* Gallery — a run of consecutive image blocks laid out as a grid so a photo
+   set reads as one unit. Two-up by default; single images keep full width. */
+.leaflet-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+}
+
+.leaflet-gallery .leaflet-image {
+  margin: 0;
+}
+
+.leaflet-gallery[data-count="3"],
+.leaflet-gallery[data-count="5"],
+.leaflet-gallery[data-count="6"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 34rem) {
+  .leaflet-gallery {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Inline video / embed — responsive 16:9 frame. */
+.leaflet-embed {
+  margin: var(--space-5) 0;
+}
+
+.leaflet-embed-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+}
+
+.leaflet-embed-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* Minimal, theme-friendly syntax tokens for highlight.js output. Muted so
+   code reads as code without fighting the atmospheric palette. */
+.leaflet-code.hljs .hljs-comment,
+.leaflet-code.hljs .hljs-quote {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.leaflet-code.hljs .hljs-keyword,
+.leaflet-code.hljs .hljs-selector-tag,
+.leaflet-code.hljs .hljs-built_in,
+.leaflet-code.hljs .hljs-literal {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.leaflet-code.hljs .hljs-string,
+.leaflet-code.hljs .hljs-attr,
+.leaflet-code.hljs .hljs-regexp {
+  color: var(--ink-muted);
+}
+
+.leaflet-code.hljs .hljs-number,
+.leaflet-code.hljs .hljs-title,
+.leaflet-code.hljs .hljs-type,
+.leaflet-code.hljs .hljs-attribute {
+  color: var(--ink-muted);
+}

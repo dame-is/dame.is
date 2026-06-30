@@ -42,13 +42,35 @@ export default function LeafletDocument({ doc }) {
 
 function LeafletPage({ page }) {
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
-  return (
-    <Fragment>
-      {blocks.map((wrap, i) => (
-        <LeafletBlock key={i} block={wrap?.block} />
-      ))}
-    </Fragment>
-  );
+  const out = [];
+  let i = 0;
+  while (i < blocks.length) {
+    const block = blocks[i]?.block;
+    // Collapse a run of consecutive image blocks into a gallery grid so a
+    // photo set reads as one unit instead of a tall stack.
+    if (block?.$type === 'pub.leaflet.blocks.image') {
+      const run = [];
+      while (i < blocks.length && blocks[i]?.block?.$type === 'pub.leaflet.blocks.image') {
+        run.push(blocks[i].block);
+        i += 1;
+      }
+      if (run.length >= 2) {
+        out.push(
+          <div className="leaflet-gallery" data-count={run.length} key={`g-${i}`}>
+            {run.map((b, j) => (
+              <LeafletBlock key={j} block={b} />
+            ))}
+          </div>,
+        );
+      } else {
+        out.push(<LeafletBlock key={`b-${i}`} block={run[0]} />);
+      }
+      continue;
+    }
+    out.push(<LeafletBlock key={`b-${i}`} block={block} />);
+    i += 1;
+  }
+  return <Fragment>{out}</Fragment>;
 }
 
 export function LeafletBlock({ block }) {
@@ -105,6 +127,9 @@ function ImageBlock({ block }) {
   const url = block?.image?._url || block?.url || null;
   if (!url) return null;
   const alt = block.alt || '';
+  // `caption` is the visible caption; `alt` stays the screen-reader text.
+  // Legacy blocks doubled `alt` as the caption, so fall back to it.
+  const caption = block.caption || alt;
   const ar = block.aspectRatio;
   const style = ar?.width && ar?.height
     ? { aspectRatio: `${ar.width} / ${ar.height}` }
@@ -118,14 +143,62 @@ function ImageBlock({ block }) {
         decoding="async"
         style={style}
       />
-      {alt && <figcaption className="leaflet-image-caption">{alt}</figcaption>}
+      {caption && <figcaption className="leaflet-image-caption">{caption}</figcaption>}
     </figure>
   );
+}
+
+/**
+ * If a URL is a known video host, return an embeddable player src so a
+ * `website` block whose `src` is a YouTube/Vimeo link plays inline.
+ */
+export function videoEmbedSrc(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      const v = u.searchParams.get('v');
+      if (v) return `https://www.youtube.com/embed/${v}`;
+      const m = u.pathname.match(/^\/(?:embed|shorts)\/([\w-]+)/);
+      if (m) return `https://www.youtube.com/embed/${m[1]}`;
+    }
+    if (host === 'youtu.be') {
+      const id = u.pathname.slice(1).split('/')[0];
+      if (id) return `https://www.youtube.com/embed/${id}`;
+    }
+    if (host === 'vimeo.com') {
+      const id = u.pathname.split('/').filter(Boolean)[0];
+      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
+    }
+  } catch {
+    /* not a URL */
+  }
+  return null;
 }
 
 function WebsiteBlock({ block }) {
   const href = block.src;
   if (!href) return null;
+
+  // Known video hosts render as an inline player instead of a link card.
+  const embed = videoEmbedSrc(href);
+  if (embed) {
+    return (
+      <figure className="leaflet-embed">
+        <div className="leaflet-embed-frame">
+          <iframe
+            src={embed}
+            title={block.title || 'Embedded video'}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+        {block.title && <figcaption className="leaflet-image-caption">{block.title}</figcaption>}
+      </figure>
+    );
+  }
+
   let host = href;
   try {
     host = new URL(href).hostname.replace(/^www\./, '');
@@ -160,9 +233,38 @@ function WebsiteBlock({ block }) {
 
 function CodeBlock({ block }) {
   const code = block.plaintext || block.code || '';
+  const lang = block.language || '';
+  // highlight.js is lazy-loaded so it never weighs down pages without code.
+  const [html, setHtml] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!code.trim()) return undefined;
+    import('highlight.js/lib/common')
+      .then(({ default: hljs }) => {
+        if (cancelled) return;
+        try {
+          const res =
+            lang && hljs.getLanguage(lang)
+              ? hljs.highlight(code, { language: lang })
+              : hljs.highlightAuto(code);
+          setHtml(res.value);
+        } catch {
+          setHtml(null);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [code, lang]);
+
   return (
-    <pre className="leaflet-code">
-      <code>{code}</code>
+    <pre className="leaflet-code hljs">
+      {html ? (
+        <code dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <code>{code}</code>
+      )}
     </pre>
   );
 }
