@@ -6,6 +6,36 @@
   gap: 0.75rem;
 }
 
+.blocks-editor-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -0.4rem;
+}
+
+/* Per-block quick delete — appears on the far right on hover. */
+.blocks-editor-delete {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint, rgba(0, 0, 0, 0.35));
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease, color 100ms ease;
+}
+
+.blocks-editor-item:hover .blocks-editor-delete,
+.blocks-editor-delete:focus-visible {
+  opacity: 1;
+}
+
+.blocks-editor-delete:hover {
+  color: var(--tan, #a88c5f);
+}
+
 .blocks-editor-list {
   list-style: none;
   padding: 0;
@@ -194,6 +224,14 @@
   display: flex;
   gap: 0.25rem;
   flex-wrap: wrap;
+  align-items: stretch;
+}
+
+.rich-text-toolbar-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--rule-soft, rgba(0, 0, 0, 0.18));
+  margin: 0.15rem 0.15rem;
 }
 
 .rich-text-toolbar-btn {
