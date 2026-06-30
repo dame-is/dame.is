@@ -51,7 +51,7 @@ function LeafletPage({ page }) {
   );
 }
 
-function LeafletBlock({ block }) {
+export function LeafletBlock({ block }) {
   if (!block) return null;
   switch (block.$type) {
     case 'pub.leaflet.blocks.text':
