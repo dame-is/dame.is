@@ -3,28 +3,26 @@ import { RichTextField } from './TextBlockEditor.jsx';
 export default function HeadingBlockEditor({ block, onChange }) {
   const level = clampLevel(block.level);
   return (
-    <div className="heading-block-editor">
-      <div className="heading-block-editor-level">
-        <label className="admin-field-hint">Level</label>
-        <select
-          className="admin-input admin-input-narrow"
-          value={level}
-          onChange={(e) => onChange({ ...block, level: Number(e.target.value) })}
-        >
-          {[1, 2, 3, 4, 5, 6].map((n) => (
-            <option key={n} value={n}>H{n}</option>
-          ))}
-        </select>
-      </div>
-      <RichTextField
-        text={block.plaintext || ''}
-        facets={block.facets || []}
-        rows={2}
-        onChange={({ text, facets }) =>
-          onChange({ ...block, plaintext: text, facets })
+    <RichTextField
+      text={block.plaintext || ''}
+      facets={block.facets || []}
+      rows={2}
+      blockType="heading"
+      headingLevel={level}
+      onConvert={({ type, level: nextLevel }) => {
+        if (type === 'text') {
+          // Drop to a body paragraph, keeping the text + marks.
+          onChange({
+            $type: 'pub.leaflet.blocks.text',
+            plaintext: block.plaintext || '',
+            facets: block.facets || [],
+          });
+        } else {
+          onChange({ ...block, level: clampLevel(nextLevel) });
         }
-      />
-    </div>
+      }}
+      onChange={({ text, facets }) => onChange({ ...block, plaintext: text, facets })}
+    />
   );
 }
 

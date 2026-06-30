@@ -29,11 +29,24 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
   const [activeIndex, setActiveIndex] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dropIndex, setDropIndex] = useState(null); // insertion slot (0..length)
+  const [canUndo, setCanUndo] = useState(false);
   const rootRef = useRef(null);
   const activeItemRef = useRef(null);
+  // Document-level undo history of whole-content snapshots. Consecutive text
+  // edits to the same block coalesce into one entry so undo steps by edit
+  // session (and by structural op), not by keystroke.
+  const historyRef = useRef([]);
+  const coalesceRef = useRef(null);
 
-  const updateBlocks = useCallback(
-    (nextBlocks) => {
+  const commit = useCallback(
+    (nextBlocks, meta = {}) => {
+      const coalesce = meta.kind === 'text' && coalesceRef.current === meta.blockIndex;
+      if (!coalesce) {
+        historyRef.current.push(content);
+        if (historyRef.current.length > 200) historyRef.current.shift();
+        setCanUndo(true);
+      }
+      coalesceRef.current = meta.kind === 'text' ? meta.blockIndex : null;
       onChange({
         ...content,
         pages: [{ ...content.pages[0], blocks: nextBlocks }],
@@ -42,13 +55,24 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
     [content, onChange],
   );
 
+  const undo = useCallback(() => {
+    const prev = historyRef.current.pop();
+    if (prev == null) return;
+    coalesceRef.current = null;
+    setCanUndo(historyRef.current.length > 0);
+    setActiveIndex(null);
+    onChange(prev);
+  }, [onChange]);
+
   const updateBlock = useCallback(
     (index, nextBlock) => {
+      // A same-type edit is text (coalesces); a $type change is structural.
+      const kind = blocks[index]?.block?.$type === nextBlock?.$type ? 'text' : 'structural';
       const next = blocks.slice();
       next[index] = { $type: WRAPPER_TYPE, block: nextBlock };
-      updateBlocks(next);
+      commit(next, { kind, blockIndex: index });
     },
-    [blocks, updateBlocks],
+    [blocks, commit],
   );
 
   const insertBlock = useCallback(
@@ -58,18 +82,18 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
       const index = atIndex == null ? next.length : atIndex;
       if (atIndex == null) next.push(wrapped);
       else next.splice(atIndex, 0, wrapped);
-      updateBlocks(next);
+      commit(next, { kind: 'structural' });
       setActiveIndex(index); // jump straight into editing the new block
     },
-    [blocks, updateBlocks],
+    [blocks, commit],
   );
 
   const insertMany = useCallback(
     (newBlocks) => {
       const next = blocks.concat(newBlocks.map((b) => ({ $type: WRAPPER_TYPE, block: b })));
-      updateBlocks(next);
+      commit(next, { kind: 'structural' });
     },
-    [blocks, updateBlocks],
+    [blocks, commit],
   );
 
   const removeBlock = useCallback(
@@ -82,10 +106,10 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
           block: { $type: 'pub.leaflet.blocks.text', plaintext: '', facets: [] },
         });
       }
-      updateBlocks(next);
+      commit(next, { kind: 'structural' });
       setActiveIndex(null);
     },
-    [blocks, updateBlocks],
+    [blocks, commit],
   );
 
   const moveBlock = useCallback(
@@ -94,10 +118,10 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
       if (target < 0 || target >= blocks.length) return;
       const next = blocks.slice();
       [next[index], next[target]] = [next[target], next[index]];
-      updateBlocks(next);
+      commit(next, { kind: 'structural' });
       setActiveIndex(target); // follow the block that moved
     },
-    [blocks, updateBlocks],
+    [blocks, commit],
   );
 
   // Move a block from `from` to an insertion slot (0..length).
@@ -109,10 +133,10 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
       let target = from < insertion ? insertion - 1 : insertion;
       target = Math.max(0, Math.min(target, next.length));
       next.splice(target, 0, moved);
-      updateBlocks(next);
+      commit(next, { kind: 'structural' });
       setActiveIndex(null);
     },
-    [blocks, updateBlocks],
+    [blocks, commit],
   );
 
   const handleDragStart = useCallback((e, i) => {
@@ -175,14 +199,37 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
     return () => document.removeEventListener('mousedown', onDown);
   }, [activeIndex]);
 
-  // Drop focus into the block that just became active.
+  // Drop focus into the block that just became active — and again if its type
+  // changes underfoot (e.g. converting text → heading swaps the editor).
+  const activeType = activeIndex != null ? blocks[activeIndex]?.block?.$type : null;
   useEffect(() => {
     if (activeIndex == null) return;
     focusFirstField(activeItemRef.current);
-  }, [activeIndex]);
+  }, [activeIndex, activeType]);
+
+  const handleRootKeyDown = useCallback(
+    (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        undo();
+      }
+    },
+    [undo],
+  );
 
   return (
-    <div className="blocks-editor" ref={rootRef}>
+    <div className="blocks-editor" ref={rootRef} onKeyDown={handleRootKeyDown}>
+      <div className="blocks-editor-toolbar">
+        <button
+          type="button"
+          className="admin-link-subtle"
+          onClick={undo}
+          disabled={!canUndo}
+          title="Undo (⌘/Ctrl+Z) — reorders, deletes, type changes"
+        >
+          ↶ Undo
+        </button>
+      </div>
       <ol className="blocks-editor-list">
         {blocks.map((wrap, i) => {
           const block = wrap?.block || {};
@@ -258,15 +305,6 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
                       </button>
                       <button
                         type="button"
-                        className="admin-link-subtle"
-                        onClick={() => removeBlock(i)}
-                        aria-label="Delete block"
-                        title="Delete"
-                      >
-                        ✕
-                      </button>
-                      <button
-                        type="button"
                         className="admin-link-subtle blocks-editor-done"
                         onClick={() => setActiveIndex(null)}
                         title="Done editing this block"
@@ -299,6 +337,20 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
                   <BlockPreview block={block} />
                 </div>
               )}
+
+              <button
+                type="button"
+                className="blocks-editor-delete"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeBlock(i);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                aria-label="Delete block"
+                title="Delete block"
+              >
+                ✕
+              </button>
             </li>
           );
         })}

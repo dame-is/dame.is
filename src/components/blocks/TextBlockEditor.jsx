@@ -18,6 +18,17 @@ export default function TextBlockEditor({ block, onChange }) {
     <RichTextField
       text={block.plaintext || ''}
       facets={block.facets || []}
+      blockType="text"
+      onConvert={({ type, level }) => {
+        if (type === 'heading') {
+          onChange({
+            $type: 'pub.leaflet.blocks.header',
+            plaintext: block.plaintext || '',
+            facets: block.facets || [],
+            level: level || 2,
+          });
+        }
+      }}
       onChange={({ text, facets }) => onChange({ ...block, plaintext: text, facets })}
       rows={4}
     />
@@ -48,7 +59,15 @@ const FORMAT_BUTTONS = [
  * with no selection to arm formatting for whatever you type next, and
  * reflects the formatting under the caret / selection.
  */
-export function RichTextField({ text, facets, onChange, rows = 4 }) {
+export function RichTextField({
+  text,
+  facets,
+  onChange,
+  rows = 4,
+  blockType = null,
+  headingLevel = null,
+  onConvert = null,
+}) {
   const editorRef = useRef(null);
   const lastEmittedRef = useRef('');
   const pendingCaretRef = useRef(null);
@@ -248,6 +267,28 @@ export function RichTextField({ text, facets, onChange, rows = 4 }) {
   return (
     <div className="rich-text-field">
       <div className="rich-text-toolbar" role="toolbar" aria-label="Formatting">
+        {onConvert && (
+          <>
+            <ToolbarButton
+              title="Body text"
+              active={blockType === 'text'}
+              onClick={() => onConvert({ type: 'text' })}
+            >
+              ¶
+            </ToolbarButton>
+            {[1, 2, 3].map((lvl) => (
+              <ToolbarButton
+                key={lvl}
+                title={`Heading ${lvl}`}
+                active={blockType === 'heading' && headingLevel === lvl}
+                onClick={() => onConvert({ type: 'heading', level: lvl })}
+              >
+                {`H${lvl}`}
+              </ToolbarButton>
+            ))}
+            <span className="rich-text-toolbar-divider" aria-hidden="true" />
+          </>
+        )}
         {FORMAT_BUTTONS.map((b) => (
           <ToolbarButton key={b.key} title={b.title} active={!!active[b.key]} onClick={() => onToolbar(b.key)}>
             {b.node}
