@@ -12,6 +12,20 @@ export const GITHUB_REPO = 'dame-is/dame.is';
 export const APPVIEW = 'https://public.api.bsky.app';
 export const PLC_DIRECTORY = 'https://plc.directory';
 
+/**
+ * Creative works and blog posts are both `site.standard.document` records;
+ * the publication they belong to (their `site` field) decides which surface
+ * they appear on. This is the `at://` URI of the publication that holds the
+ * portfolio / creative works — every `site.standard.document` pointing at it
+ * renders on `/creating`; all other standard docs render on `/blogging`.
+ *
+ * Create it once with `node scripts/portfolio/create-publication.mjs` and
+ * paste the printed `at://` URI here. While it stays `null` the site keeps
+ * its legacy behavior: `/creating` shows only `is.dame.creating.work`
+ * records and every `site.standard.document` is treated as a blog post.
+ */
+export const PORTFOLIO_PUBLICATION = null;
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';

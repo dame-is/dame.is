@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
+import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
 import '../pages/Admin.css';
 
@@ -515,6 +516,9 @@ function Field({ field, value, onChange, agent, did }) {
         <BlocksEditor agent={agent} did={did} value={value} onChange={onChange} />
       );
       break;
+    case 'image':
+      control = <ImageField id={id} value={value} onChange={onChange} agent={agent} />;
+      break;
     case 'publicationPicker':
       control = (
         <PublicationPickerField
@@ -695,6 +699,80 @@ function CategoryField({ id, value, onChange, placeholder, suggestions }) {
             );
           })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Single-blob image field (e.g. a document's `coverImage`). Click or drop to
+ * upload to the PDS; stores the returned BlobRef. Mirrors ImageBlockEditor's
+ * upload flow but for one top-level field rather than a content block.
+ */
+function ImageField({ id, value, onChange, agent }) {
+  const [status, setStatus] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const fileRef = useRef(null);
+
+  useEffect(() => () => previewUrl && URL.revokeObjectURL(previewUrl), [previewUrl]);
+
+  async function handleFile(file) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setStatus("That doesn't look like an image.");
+      return;
+    }
+    setStatus('Uploading…');
+    const local = URL.createObjectURL(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(local);
+    try {
+      const { blob } = await uploadImageFile(agent, file);
+      onChange(blob);
+      setStatus(null);
+    } catch (err) {
+      setStatus(`Upload failed: ${err?.message || err}`);
+    }
+  }
+
+  const displayUrl = previewUrl || value?._url || null;
+
+  return (
+    <div className="image-block-editor">
+      <div
+        className={`image-block-dropzone${displayUrl ? ' has-image' : ''}`}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          handleFile(e.dataTransfer?.files?.[0]);
+        }}
+        onClick={() => fileRef.current?.click()}
+        role="button"
+        tabIndex={0}
+      >
+        {displayUrl ? (
+          <img src={displayUrl} alt="" />
+        ) : (
+          <div className="image-block-dropzone-empty">Click to upload or drop an image</div>
+        )}
+        <input
+          id={id}
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (file) handleFile(file);
+          }}
+        />
+      </div>
+      {status && <p className="admin-field-hint">{status}</p>}
+      {value && (
+        <button type="button" className="admin-link-subtle" onClick={() => onChange(undefined)}>
+          Remove image
+        </button>
       )}
     </div>
   );

@@ -8,6 +8,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
+import { isPortfolioDoc } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 import './Blogging.css';
@@ -106,7 +107,8 @@ function mergeBlogEntries(data) {
   const blogs = Array.isArray(data.blogs) ? data.blogs : [];
   const leaflets = Array.isArray(data.leaflets) ? data.leaflets : [];
   return [
-    ...blogs.filter((r) => r?.value).map(normalizeStandard),
+    // Portfolio standard-docs live on /creating, not the blog.
+    ...blogs.filter((r) => r?.value && !isPortfolioDoc(r.value)).map(normalizeStandard),
     ...leaflets.filter((r) => r?.value).map(normalizeLeaflet),
   ].sort((a, b) => compareIsoDesc(a.createdAt, b.createdAt));
 }

@@ -80,21 +80,47 @@ export const LEXICONS = {
     migrate: migrateLegacyCreating,
   },
 
-  // COLLECTIONS.blogging resolves to this NSID — the blog now lives on
-  // standard.site. Labeled "Blog post" in the admin per the site owner.
+  // COLLECTIONS.blogging resolves to this NSID. One form serves both blog
+  // posts and creative works — the publication you pick decides the surface:
+  // the portfolio publication renders on /creating, anything else on /blogging.
   'site.standard.document': {
-    label: 'Blog post',
-    summary: 'Long-form blog posts published via standard.site, rendered on /blogging.',
+    label: 'Document (blog post / creative work)',
+    summary:
+      'standard.site documents. Pick the portfolio publication to publish a creative work (rendered on /creating); pick the blog publication for a blog post (/blogging).',
     rkeyMode: 'tid',
     typeFieldValue: 'site.standard.document',
     fields: [
       { key: 'title',       label: 'Title',        type: 'text',     required: true },
       { key: 'description', label: 'Description',  type: 'textarea', hint: 'Shown in feed cards and search results.' },
-      { key: 'site',        label: 'Publication',  type: 'publicationPicker', required: true },
+      {
+        key: 'site', label: 'Publication', type: 'publicationPicker', required: true,
+        hint: 'Portfolio publication → /creating. Blog publication → /blogging.',
+      },
+      {
+        key: 'path', label: 'Path (slug)', type: 'text', placeholder: '/my-work',
+        hint: 'URL slug. Leave blank to derive from the record key.',
+      },
+      {
+        key: 'tags', label: 'Tags', type: 'tags',
+        hint: 'For creative works the first tag is treated as the primary category.',
+      },
+      {
+        key: 'coverImage', label: 'Cover image', type: 'image',
+        hint: 'Optional thumbnail / hero shown on cards and at the top of the work.',
+      },
       { key: 'content',     label: 'Body',         type: 'blocks' },
+      {
+        key: 'links', label: 'Links', type: 'json',
+        hint: 'Optional external links (standard.site union — raw JSON).',
+      },
+      {
+        key: 'draft', label: 'Draft — hidden from public feeds (admin still sees it)',
+        type: 'boolean',
+      },
       { key: 'publishedAt', label: 'Published at', type: 'datetime', default: 'now', required: true },
     ],
-    derive: (record, { rkey }) => (rkey ? { ...record, path: `/${rkey}` } : record),
+    // Keep a user-entered path; otherwise derive one from the record key.
+    derive: (record, { rkey }) => (rkey ? { ...record, path: record.path || `/${rkey}` } : record),
   },
 
   [COLLECTIONS.page]: {

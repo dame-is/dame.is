@@ -85,6 +85,14 @@ export const VERB_REGISTRY = [
     icon: 'Hammer',
     renderer: 'CreatingCard',
     pastTense: 'created',
+    // Creative works are addressed by a human slug. Standard docs keep it in
+    // `path`, legacy is.dame.creating.work in `slug`; fall back to the rkey.
+    // (Slug logic is inlined to avoid a config ↔ registry import cycle.)
+    recordHref: ({ payload, rkey }) => {
+      const raw = payload?.slug || payload?.path || rkey || '';
+      const slug = String(raw).replace(/^\/+/, '');
+      return slug ? `/creating/${encodeURIComponent(slug)}` : null;
+    },
     collections: [
       { nsid: 'is.dame.creating.work', source: 'dame', kind: 'content', max: 200 },
     ],

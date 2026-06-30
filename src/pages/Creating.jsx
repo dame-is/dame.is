@@ -5,13 +5,35 @@ import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilt
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
-import { firstImageFromContent } from '../lib/creatingHelpers.js';
+import { coverThumb } from '../lib/creatingHelpers.js';
+import { isPortfolioDoc, workSlug, workCategory } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
 import './Creating.css';
+
+const STANDARD_DOC = 'site.standard.document';
+
+/**
+ * Creative works now live as `site.standard.document` records in the
+ * portfolio publication; legacy `is.dame.creating.work` records are read
+ * alongside them so nothing is orphaned during the migration. Standard docs
+ * arrive via the `blogs` snapshot (filtered to the portfolio publication);
+ * legacy works via `creations`.
+ */
+async function loadWorks() {
+  const pds = await resolvePds(ME_DID);
+  const [stdDocs, legacy] = await Promise.all([
+    listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }),
+    listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }),
+  ]);
+  transformRecords(stdDocs, STANDARD_DOC, pds, ME_DID);
+  transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
+  return [...stdDocs.filter((r) => isPortfolioDoc(r?.value)), ...legacy];
+}
 
 export default function Creating() {
   const [params] = useSearchParams();
@@ -19,14 +41,16 @@ export default function Creating() {
   const { title, intro } = usePageContent('creating');
 
   const { items: works, status } = useLiveFeed({
-    name: 'creations',
     strategy: 'snapshot-first',
-    fetchLive: async () => {
-      const pds = await resolvePds(ME_DID);
-      const records = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 });
-      transformRecords(records, COLLECTIONS.creating, pds, ME_DID);
-      return records;
+    fetchSnapshotOverride: async () => {
+      const [creations, blogs] = await Promise.all([
+        fetchSnapshot('creations'),
+        fetchSnapshot('blogs'),
+      ]);
+      const std = Array.isArray(blogs) ? blogs.filter((r) => isPortfolioDoc(r?.value)) : [];
+      return [...std, ...(Array.isArray(creations) ? creations : [])];
     },
+    fetchLive: loadWorks,
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return [];
       return snap
@@ -38,13 +62,13 @@ export default function Creating() {
   const loading = status === 'loading';
   const safeWorks = works || [];
   const kinds = useMemo(
-    () => Array.from(new Set(safeWorks.map((r) => r.value?.category || r.value?.kind).filter(Boolean))),
+    () => Array.from(new Set(safeWorks.map((r) => workCategory(r.value)).filter(Boolean))),
     [safeWorks],
   );
   const counts = useMemo(() => {
     const c = {};
     for (const r of safeWorks) {
-      const k = r.value?.category || r.value?.kind;
+      const k = workCategory(r.value);
       if (!k) continue;
       c[k] = (c[k] || 0) + 1;
     }
@@ -73,12 +97,9 @@ export default function Creating() {
         <ul className="creating-grid reveal-stagger">
           {filtered.map((r, i) => {
             const v = r.value || {};
-            const slug = v.slug;
-            const thumb =
-              firstImageFromContent(v.content) ||
-              v.media?.find((m) => m?.kind === 'image' && m?.url) ||
-              null;
-            const category = v.category || v.kind;
+            const slug = workSlug(v);
+            const thumb = coverThumb(v);
+            const category = workCategory(v);
             return (
               <li key={r.uri || i} className="creating-grid-cell">
                 <Link to={`/creating/${slug}`} className="creating-grid-link">
