@@ -89,6 +89,11 @@ export default function CreatingWork() {
       atUri={record?.uri}
       cid={record?.cid}
       headTitle={v?.title ? `${v.title} — Dame is…` : `${slug} — Dame is…`}
+      eyebrow={
+        <Link to="/creating" className="page-back small-caps">
+          ← Portfolio
+        </Link>
+      }
     >
       <article className="creating-work-page reveal">
         <div className="blog-article-meta">

@@ -4,6 +4,9 @@ import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS } from '../lib/recordRoutes.js';
+import { isPortfolioDoc, workSlug } from '../lib/publications.js';
+
+const STANDARD_DOC = 'site.standard.document';
 
 /**
  * Given the current route, derive the AT URI of its backing record and load
@@ -212,18 +215,12 @@ async function loadFromSnapshots(info) {
     return ext && ext.uri ? ext : null;
   }
   if (info.lexicon === COLLECTIONS.blogging && info.slug) {
-    // `/blogging/:id` fronts both standard.site and leaflet docs, both
-    // addressed by rkey. Match the standard-doc snapshot first, then leaflet.
-    const wanted = info.slug;
+    // `/blogging/:id` is backed by site.standard.document, addressed by rkey.
     const blogs = await fetchSnapshot('blogs');
-    const byStandard = Array.isArray(blogs)
-      ? blogs.find((r) => endsWithRkey(r?.uri, wanted)) || null
+    const found = Array.isArray(blogs)
+      ? blogs.find((r) => endsWithRkey(r?.uri, info.slug)) || null
       : null;
-    if (byStandard) return mirrorLeafletTimestamps(byStandard);
-    const leaflets = await fetchSnapshot('leaflets');
-    return Array.isArray(leaflets)
-      ? mirrorLeafletTimestamps(leaflets.find((r) => endsWithRkey(r?.uri, wanted)) || null)
-      : null;
+    return mirrorLeafletTimestamps(found);
   }
   if (info.lexicon === COLLECTIONS.leaflet && (info.rkey || info.slug)) {
     const wanted = info.rkey || info.slug;
@@ -233,8 +230,15 @@ async function loadFromSnapshots(info) {
       : null;
   }
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
+    // Portfolio works are site.standard.document records (in `blogs`, matched
+    // by path) plus any legacy is.dame.creating.work (in `creations`).
+    const blogs = await fetchSnapshot('blogs');
+    const std = Array.isArray(blogs)
+      ? blogs.find((r) => isPortfolioDoc(r?.value) && workSlug(r.value) === info.slug)
+      : null;
+    if (std) return mirrorLeafletTimestamps(std);
     const works = await fetchSnapshot('creations');
-    return Array.isArray(works) ? works.find((r) => r?.value?.slug === info.slug) || null : null;
+    return Array.isArray(works) ? works.find((r) => workSlug(r?.value) === info.slug) || null : null;
   }
 
   // By-rkey lookups for the generic record routes.
@@ -289,13 +293,8 @@ async function fetchRecordFromPds(pds, info) {
     return getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.profile, rkey: 'self' }).catch(() => null);
   }
   if (info.lexicon === COLLECTIONS.blogging && info.slug) {
-    const wanted = info.slug;
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 }).catch(() => []);
-    const byStandard = recs.find((r) => endsWithRkey(r?.uri, wanted)) || null;
-    if (byStandard) return mirrorLeafletTimestamps(byStandard);
-    const leaflets = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.leaflet, max: 200 }).catch(() => []);
-    const found = leaflets.find((r) => endsWithRkey(r?.uri, wanted)) || null;
-    return mirrorLeafletTimestamps(found);
+    return mirrorLeafletTimestamps(recs.find((r) => endsWithRkey(r?.uri, info.slug)) || null);
   }
   if (info.lexicon === COLLECTIONS.leaflet) {
     const wanted = info.rkey || info.slug;
@@ -304,8 +303,11 @@ async function fetchRecordFromPds(pds, info) {
     return mirrorLeafletTimestamps(rec);
   }
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
+    const std = await listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }).catch(() => []);
+    const byStd = std.find((r) => isPortfolioDoc(r?.value) && workSlug(r.value) === info.slug) || null;
+    if (byStd) return mirrorLeafletTimestamps(byStd);
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }).catch(() => []);
-    return recs.find((r) => r?.value?.slug === info.slug) || null;
+    return recs.find((r) => workSlug(r?.value) === info.slug) || null;
   }
   // Generic by-rkey live fetch for our own PDS-backed collections. Skip
   // app.bsky.feed.post — those records may live under another author's repo.

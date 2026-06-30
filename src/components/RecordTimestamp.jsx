@@ -11,7 +11,12 @@ import { relativeTime } from '../lib/time.js';
 export default function RecordTimestamp() {
   const { record } = useAtUri();
   const value = record?.value || record;
-  const createdAt = value?.createdAt;
+  // Different lexicons name their primary timestamp differently —
+  // site.standard.document / leaflet use `publishedAt`, teal.fm uses
+  // `playedTime`. Mirror the feed-item resolution so the footer populates
+  // for every record type, not just is.dame.* (which carry `createdAt`).
+  const createdAt =
+    value?.createdAt || value?.publishedAt || value?.playedTime || record?.indexedAt;
   const updatedAt = value?.updatedAt || createdAt;
 
   if (!createdAt) {

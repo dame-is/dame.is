@@ -66,8 +66,6 @@ export const VERB_REGISTRY = [
     collections: [
       { nsid: 'site.standard.document', source: 'standard', kind: 'content', max: 100 },
       { nsid: 'site.standard.publication', source: 'standard', kind: 'content', max: 50 },
-      { nsid: 'pub.leaflet.document', source: 'leaflet', kind: 'content', max: 100 },
-      { nsid: 'pub.leaflet.publication', source: 'leaflet', kind: 'content', max: 50 },
     ],
   },
   {

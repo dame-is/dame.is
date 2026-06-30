@@ -26,8 +26,7 @@ export const PAGE_REGISTRY = {
     slug: 'blogging',
     label: 'Blogging',
     title: 'Blogging',
-    intro:
-      'A book of long-form posts. Each entry is a site.standard.document or pub.leaflet.document record.',
+    intro: 'A book of long-form posts. Each entry is a site.standard.document record.',
     collection: COLLECTIONS.blogging,
   },
   logging: {
