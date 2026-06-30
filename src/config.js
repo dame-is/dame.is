@@ -24,7 +24,7 @@ export const PLC_DIRECTORY = 'https://plc.directory';
  * its legacy behavior: `/creating` shows only `is.dame.creating.work`
  * records and every `site.standard.document` is treated as a blog post.
  */
-export const PORTFOLIO_PUBLICATION = null;
+export const PORTFOLIO_PUBLICATION = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/site.standard.publication/3mpjrojpfzg2d';
 
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
