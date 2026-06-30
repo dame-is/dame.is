@@ -29,6 +29,7 @@ import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { DensityProvider } from './hooks/useDensity.jsx';
+import { TypefaceProvider } from './hooks/useTypeface.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
@@ -76,6 +77,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <DensityProvider>
+      <TypefaceProvider>
       <FilmGrainProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
@@ -142,6 +144,7 @@ export default function App() {
       </AtprotoSessionProvider>
       </ChromeBarProvider>
       </FilmGrainProvider>
+      </TypefaceProvider>
       </DensityProvider>
     </ThemeProvider>
   );

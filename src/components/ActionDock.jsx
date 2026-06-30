@@ -5,6 +5,7 @@ import { Bug, ChevronLeft, User } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import Modal from './Modal.jsx';
 import DensityToggle from './DensityToggle.jsx';
+import TypefaceToggle from './TypefaceToggle.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
 import './ActionDock.css';
@@ -117,6 +118,7 @@ export default function ActionDock() {
                 <div className="dock-heading">Tools</div>
                 <div className="dock-display-row">
                   <DensityToggle />
+                  <TypefaceToggle />
                   <button
                     type="button"
                     className="dock-tool-icon"
