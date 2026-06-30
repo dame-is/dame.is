@@ -4,29 +4,49 @@ import PageShell from '../components/PageShell.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
-import { resolvePds, listRecords } from '../lib/atproto.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
+import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong } from '../lib/time.js';
+import { isPortfolioDoc, workSlug, workCategory } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Blogging.css';
+
+const STANDARD_DOC = 'site.standard.document';
 
 export default function CreatingWork() {
   const { slug } = useParams();
 
   const { items: record, status } = useLiveFeed({
-    name: 'creations',
     strategy: 'snapshot-first',
+    fetchSnapshotOverride: async () => {
+      const [creations, blogs] = await Promise.all([
+        fetchSnapshot('creations'),
+        fetchSnapshot('blogs'),
+      ]);
+      const std = Array.isArray(blogs) ? blogs.filter((r) => isPortfolioDoc(r?.value)) : [];
+      return [...std, ...(Array.isArray(creations) ? creations : [])];
+    },
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      const records = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 });
-      transformRecords(records, COLLECTIONS.creating, pds, ME_DID);
-      return records;
+      const [stdDocs, legacy] = await Promise.all([
+        listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }),
+        listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }),
+      ]);
+      transformRecords(stdDocs, STANDARD_DOC, pds, ME_DID);
+      transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
+      return [...stdDocs.filter((r) => isPortfolioDoc(r?.value)), ...legacy];
     },
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return null;
-      return snap.find((r) => r?.value?.slug === slug) || null;
+      return (
+        snap.find((r) => r?.value && workSlug(r.value) === slug) ||
+        // Fall back to the rkey so URI-derived links resolve too.
+        snap.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
+        null
+      );
     },
     deps: [slug],
   });
@@ -72,12 +92,14 @@ export default function CreatingWork() {
     >
       <article className="creating-work-page reveal">
         <div className="blog-article-meta">
-          {(v?.category || v?.kind) && (
-            <span className="blog-article-tag">{v.category || v.kind}</span>
+          {workCategory(v) && (
+            <span className="blog-article-tag">{workCategory(v)}</span>
           )}
           {v?.createdAt && <span>· {formatDateLong(v.createdAt)}</span>}
         </div>
-        {v?.summary && <p className="page-intro">{v.summary}</p>}
+        {(v?.summary || v?.description) && (
+          <p className="page-intro">{v.summary || v.description}</p>
+        )}
         {v?.content?.pages ? (
           <LeafletDocument doc={v.content} />
         ) : (

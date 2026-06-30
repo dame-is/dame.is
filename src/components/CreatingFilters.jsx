@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import Modal from './Modal.jsx';
 import { useFeedFilter, useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { matchesQuery } from './FeedSearch.jsx';
+import { workCategory, workSlug } from '../lib/publications.js';
 import './FeedFilters.css';
 
 /**
@@ -155,14 +156,15 @@ export function filterCreatingItems(items, params, allKinds) {
   const q = (params.get('q') || '').trim().toLowerCase();
   return items.filter((r) => {
     const v = r?.value || {};
-    const category = v.category || v.kind;
+    const category = workCategory(v);
     if (category && !active.has(category)) return false;
     const haystack = [
       v.title,
       v.summary,
+      v.description,
       v.body,
       category,
-      v.slug,
+      workSlug(v),
       ...(Array.isArray(v.tags) ? v.tags : []),
     ]
       .filter(Boolean)

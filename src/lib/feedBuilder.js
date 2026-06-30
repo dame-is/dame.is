@@ -18,6 +18,7 @@ import {
   listRecords,
 } from './atproto.js';
 import { VERB_REGISTRY } from './verbRegistry.js';
+import { isPortfolioDoc } from './publications.js';
 import { createSubjectResolver } from './subjectResolver.js';
 import { compareIsoDesc } from './time.js';
 
@@ -87,6 +88,17 @@ export function toFeedItem(verb, record, { source, subject } = {}) {
   const subj = subject || record._subject;
   if (subj) item.subject = subj;
   return item;
+}
+
+/**
+ * Creative works and blog posts share the `site.standard.document` type;
+ * the publication they belong to decides the surface. A standard doc in the
+ * portfolio publication rides the `creating` verb; everything else keeps the
+ * verb its collection declares.
+ */
+export function effectiveVerb(verb, nsid, value) {
+  if (nsid === 'site.standard.document' && isPortfolioDoc(value)) return 'creating';
+  return verb;
 }
 
 export function blueskyPostToFeedItem(item) {
@@ -305,6 +317,9 @@ export function transformRecords(records, nsid, pds, did = ME_DID) {
   if (nsid === 'site.standard.document') {
     for (const r of records) {
       const v = r?.value;
+      if (!v) continue;
+      // A standard doc carries an optional top-level coverImage blob.
+      annotateBlobUrl(v.coverImage, pds, did);
       if (!v?.content) continue;
       // site.standard.document wraps a pub.leaflet.content under `content`.
       annotateLeafletBlobs(v.content, pds, did);
@@ -315,12 +330,25 @@ export function transformRecords(records, nsid, pds, did = ME_DID) {
   if (nsid === COLLECTIONS.creating) {
     for (const r of records) {
       const v = r?.value;
+      if (!v) continue;
+      annotateBlobUrl(v.coverImage, pds, did);
       if (!v?.content) continue;
       annotateLeafletBlobs(v.content, pds, did);
     }
   }
 
   return records;
+}
+
+/**
+ * Bake a `_url` onto a single top-level blob ref (e.g. a document's
+ * `coverImage`) so the client can render it without re-resolving the PDS.
+ * Mirrors the blob handling inside `annotateLeafletBlobs`.
+ */
+export function annotateBlobUrl(blob, pds, did = ME_DID) {
+  const cid = pickBlobCid(blob);
+  if (!cid || !blob) return;
+  blob._url = `${pds}/xrpc/com.atproto.sync.getBlob?did=${encodeURIComponent(did)}&cid=${encodeURIComponent(cid)}`;
 }
 
 /**
@@ -506,12 +534,19 @@ export async function buildUnifiedFeed({
         verbConfig.collections.map(async (c) => {
           if (c.kind === 'appviewFeed') return { c, records: [] };
 
-          const records = await safe(
+          const fetched = await safe(
             `listRecords:${c.nsid}`,
             () => listRecords(pds, { repo: me, collection: c.nsid, max: capFor(c) }),
             [],
           );
-          transformRecords(records, c.nsid, pds, me);
+          transformRecords(fetched, c.nsid, pds, me);
+          // Drafts must never reach public surfaces — the snapshots written
+          // from these records are world-readable. The admin reads the PDS
+          // live (authenticated), so it still sees drafts.
+          const records =
+            c.kind === 'content'
+              ? fetched.filter((r) => r?.value?.draft !== true)
+              : fetched;
 
           if (c.kind === 'reference') {
             await safe(
@@ -544,7 +579,8 @@ export async function buildUnifiedFeed({
         const trimmed = applyAgeCutoff(records, c.maxAgeDays);
         verbAggregate.push(
           ...trimmed.map((r) => {
-            const item = toFeedItem(verbConfig.verb, r, {
+            const verb = effectiveVerb(verbConfig.verb, c.nsid, r.value);
+            const item = toFeedItem(verb, r, {
               source: c.source,
               subject: r._subject || null,
             });
@@ -564,9 +600,13 @@ export async function buildUnifiedFeed({
     }),
   );
 
-  for (const { verbConfig, deduped } of verbResults) {
-    perVerb[verbConfig.verb] = deduped;
-    unified.push(...deduped);
+  // Group by each item's *effective* verb (not the collection's declared
+  // verb) so portfolio standard-docs land under `creating`, not `blogging`.
+  for (const { deduped } of verbResults) {
+    for (const item of deduped) {
+      (perVerb[item.verb] ||= []).push(item);
+      unified.push(item);
+    }
   }
 
   sortUnifiedFeed(unified);

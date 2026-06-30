@@ -11,6 +11,7 @@ import { formatDateLong, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { findLeafletCommentsPost } from '../lib/leafletComments.js';
 import { getPostThread } from '../lib/atproto.js';
+import { isPortfolioDoc } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
 
@@ -153,7 +154,8 @@ function resolveById(data, id) {
   if (!data) return null;
   const blogs = Array.isArray(data.blogs) ? data.blogs : [];
   const leaflets = Array.isArray(data.leaflets) ? data.leaflets : [];
-  const standard = blogs.find((r) => endsWithRkey(r?.uri, id));
+  // Portfolio standard-docs are creative works, not blog posts.
+  const standard = blogs.find((r) => endsWithRkey(r?.uri, id) && !isPortfolioDoc(r?.value));
   if (standard) return { kind: 'standard', record: standard };
   const byRkey = leaflets.find((r) => endsWithRkey(r?.uri, id));
   if (byRkey) return { kind: 'leaflet', record: byRkey };

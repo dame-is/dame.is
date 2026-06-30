@@ -3,6 +3,7 @@ import { uploadImageFile } from './ImageBlockEditor.jsx';
 
 export default function WebsiteBlockEditor({ block, agent, onChange }) {
   const [status, setStatus] = useState(null);
+  const [unfurling, setUnfurling] = useState(false);
   const fileRef = useRef(null);
 
   async function handlePreviewFile(file) {
@@ -14,6 +15,28 @@ export default function WebsiteBlockEditor({ block, agent, onChange }) {
       setStatus(null);
     } catch (err) {
       setStatus(`Upload failed: ${err?.message || err}`);
+    }
+  }
+
+  // Pull title/description from the linked page's Open Graph tags via the
+  // /api/unfurl serverless endpoint, so link cards aren't filled by hand.
+  async function fetchMetadata() {
+    if (!block.src) return;
+    setUnfurling(true);
+    try {
+      const res = await fetch(`/api/unfurl?url=${encodeURIComponent(block.src)}`);
+      const data = await res.json();
+      if (data && (data.title || data.description)) {
+        onChange({
+          ...block,
+          title: block.title || data.title || '',
+          description: block.description || data.description || '',
+        });
+      }
+    } catch {
+      /* leave fields as-is on failure */
+    } finally {
+      setUnfurling(false);
     }
   }
 
@@ -31,6 +54,17 @@ export default function WebsiteBlockEditor({ block, agent, onChange }) {
           placeholder="https://example.com"
         />
       </label>
+      <div className="website-block-actions">
+        <button
+          type="button"
+          className="admin-link-subtle"
+          onClick={fetchMetadata}
+          disabled={!block.src || unfurling}
+        >
+          {unfurling ? 'Fetching…' : 'Fetch metadata'}
+        </button>
+        <span className="admin-field-hint">YouTube / Vimeo URLs render as an inline player.</span>
+      </div>
       <label className="admin-field-label">
         Title
         <input

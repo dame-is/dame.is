@@ -1,16 +1,14 @@
 import { Link } from 'react-router-dom';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
-import { firstImageFromContent } from '../lib/creatingHelpers.js';
+import { coverThumb } from '../lib/creatingHelpers.js';
+import { workSlug, workCategory } from '../lib/publications.js';
 
 export default function CreatingCard({ payload, atUri }) {
-  const slug = payload?.slug;
+  const slug = workSlug(payload);
   const title = payload?.title || slug || 'Untitled work';
-  const category = payload?.category || payload?.kind;
-  const summary = payload?.summary;
-  const thumb =
-    firstImageFromContent(payload?.content) ||
-    payload?.media?.find((m) => m?.kind === 'image' && m?.url) ||
-    null;
+  const category = workCategory(payload);
+  const summary = payload?.summary || payload?.description;
+  const thumb = coverThumb(payload);
   return (
     <article className="creating-card feed-card" data-at-uri={atUri}>
       {thumb && (

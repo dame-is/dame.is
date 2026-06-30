@@ -1,4 +1,24 @@
-// Helpers for working with is.dame.creating.work record values.
+// Helpers for working with creative-work record values — both the legacy
+// `is.dame.creating.work` shape and the `site.standard.document` shape that
+// now backs the portfolio.
+
+/**
+ * Best thumbnail for a creative work, in priority order:
+ *   1. an explicit `coverImage` blob (standard.document) — the author's pick
+ *   2. the first image block in the body
+ *   3. a legacy `media[]` image URL
+ * Returns `{ url, alt }` or null.
+ */
+export function coverThumb(value) {
+  if (value?.coverImage?._url) return { url: value.coverImage._url, alt: value.title || '' };
+  const fromContent = firstImageFromContent(value?.content);
+  if (fromContent) return fromContent;
+  const legacy = Array.isArray(value?.media)
+    ? value.media.find((m) => m?.kind === 'image' && m?.url)
+    : null;
+  if (legacy) return { url: legacy.url, alt: legacy.alt || '' };
+  return null;
+}
 
 /**
  * Find the first image block in a pub.leaflet.content value and return
