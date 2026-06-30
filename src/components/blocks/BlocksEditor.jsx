@@ -27,6 +27,8 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
   const blocks = content.pages[0].blocks;
 
   const [activeIndex, setActiveIndex] = useState(null);
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dropIndex, setDropIndex] = useState(null); // insertion slot (0..length)
   const rootRef = useRef(null);
   const activeItemRef = useRef(null);
 
@@ -98,6 +100,71 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
     [blocks, updateBlocks],
   );
 
+  // Move a block from `from` to an insertion slot (0..length).
+  const moveTo = useCallback(
+    (from, insertion) => {
+      if (from == null) return;
+      const next = blocks.slice();
+      const [moved] = next.splice(from, 1);
+      let target = from < insertion ? insertion - 1 : insertion;
+      target = Math.max(0, Math.min(target, next.length));
+      next.splice(target, 0, moved);
+      updateBlocks(next);
+      setActiveIndex(null);
+    },
+    [blocks, updateBlocks],
+  );
+
+  const handleDragStart = useCallback((e, i) => {
+    setActiveIndex(null); // collapse any open editor while dragging
+    setDragIndex(i);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', String(i));
+    } catch {
+      /* some browsers disallow setData here; index lives in state anyway */
+    }
+    const li = e.currentTarget.closest('li');
+    if (li) {
+      try {
+        e.dataTransfer.setDragImage(li, 16, 16);
+      } catch {
+        /* setDragImage unsupported — fall back to the default handle image */
+      }
+    }
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDragIndex(null);
+    setDropIndex(null);
+  }, []);
+
+  const slotFor = (e, i) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return e.clientY > rect.top + rect.height / 2 ? i + 1 : i;
+  };
+
+  const handleDragOver = useCallback(
+    (e, i) => {
+      if (dragIndex == null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDropIndex(slotFor(e, i));
+    },
+    [dragIndex],
+  );
+
+  const handleDrop = useCallback(
+    (e, i) => {
+      if (dragIndex == null) return;
+      e.preventDefault();
+      moveTo(dragIndex, slotFor(e, i));
+      setDragIndex(null);
+      setDropIndex(null);
+    },
+    [dragIndex, moveTo],
+  );
+
   // Collapse the active editor when the user clicks outside the editor.
   useEffect(() => {
     if (activeIndex == null) return undefined;
@@ -120,76 +187,118 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
         {blocks.map((wrap, i) => {
           const block = wrap?.block || {};
           const isActive = i === activeIndex;
-          if (!isActive) {
-            return (
-              <li
-                key={i}
-                className="blocks-editor-item is-preview"
-                onClick={() => setActiveIndex(i)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setActiveIndex(i);
-                  }
-                }}
-                aria-label={`Edit ${labelFor(block.$type)} block`}
-              >
-                <BlockPreview block={block} />
-              </li>
-            );
-          }
+          // Drop indicator, suppressed for no-op drops back into the same slot.
+          const showBefore =
+            dragIndex != null &&
+            dropIndex === i &&
+            dropIndex !== dragIndex &&
+            dropIndex !== dragIndex + 1;
+          const showAfter =
+            dragIndex != null &&
+            i === blocks.length - 1 &&
+            dropIndex === blocks.length &&
+            dropIndex !== dragIndex + 1;
+          const cls = [
+            'blocks-editor-item',
+            isActive ? 'is-active' : 'is-preview',
+            dragIndex === i ? 'is-dragging' : '',
+            showBefore ? 'drop-before' : '',
+            showAfter ? 'drop-after' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+
           return (
-            <li key={i} ref={activeItemRef} className="blocks-editor-item is-active">
-              <div className="blocks-editor-item-controls">
-                <span className="blocks-editor-item-type small-caps">{labelFor(block.$type)}</span>
-                <div className="blocks-editor-item-buttons">
-                  <button
-                    type="button"
-                    className="admin-link-subtle"
-                    onClick={() => moveBlock(i, -1)}
-                    disabled={i === 0}
-                    aria-label="Move up"
-                    title="Move up"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-link-subtle"
-                    onClick={() => moveBlock(i, 1)}
-                    disabled={i === blocks.length - 1}
-                    aria-label="Move down"
-                    title="Move down"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-link-subtle"
-                    onClick={() => removeBlock(i)}
-                    aria-label="Delete block"
-                    title="Delete"
-                  >
-                    ✕
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-link-subtle blocks-editor-done"
-                    onClick={() => setActiveIndex(null)}
-                    title="Done editing this block"
-                  >
-                    Done
-                  </button>
-                </div>
+            <li
+              key={i}
+              ref={isActive ? activeItemRef : null}
+              className={cls}
+              onDragOver={(e) => handleDragOver(e, i)}
+              onDrop={(e) => handleDrop(e, i)}
+            >
+              <div
+                className="blocks-editor-handle"
+                draggable
+                onDragStart={(e) => handleDragStart(e, i)}
+                onDragEnd={handleDragEnd}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                role="button"
+                tabIndex={-1}
+                aria-label="Drag to reorder"
+                title="Drag to reorder"
+              >
+                ⠿
               </div>
-              <BlockBody
-                block={block}
-                agent={agent}
-                did={did}
-                onChange={(next) => updateBlock(i, next)}
-              />
+
+              {isActive ? (
+                <div className="blocks-editor-main">
+                  <div className="blocks-editor-item-controls">
+                    <span className="blocks-editor-item-type small-caps">{labelFor(block.$type)}</span>
+                    <div className="blocks-editor-item-buttons">
+                      <button
+                        type="button"
+                        className="admin-link-subtle"
+                        onClick={() => moveBlock(i, -1)}
+                        disabled={i === 0}
+                        aria-label="Move up"
+                        title="Move up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-link-subtle"
+                        onClick={() => moveBlock(i, 1)}
+                        disabled={i === blocks.length - 1}
+                        aria-label="Move down"
+                        title="Move down"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-link-subtle"
+                        onClick={() => removeBlock(i)}
+                        aria-label="Delete block"
+                        title="Delete"
+                      >
+                        ✕
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-link-subtle blocks-editor-done"
+                        onClick={() => setActiveIndex(null)}
+                        title="Done editing this block"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                  <BlockBody
+                    block={block}
+                    agent={agent}
+                    did={did}
+                    onChange={(next) => updateBlock(i, next)}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="blocks-editor-main blocks-editor-click"
+                  onClick={() => setActiveIndex(i)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setActiveIndex(i);
+                    }
+                  }}
+                  aria-label={`Edit ${labelFor(block.$type)} block`}
+                >
+                  <BlockPreview block={block} />
+                </div>
+              )}
             </li>
           );
         })}
