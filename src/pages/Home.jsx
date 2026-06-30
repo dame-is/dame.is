@@ -483,23 +483,34 @@ export default function Home() {
 
       <section className="home-latest">
         <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
-        {checking && (
-          <div className={`feed-checking ${!loading && filtered.length > 0 ? 'has-content' : ''}`.trim()}>
-            <p className="feed-checking-msg" role="status" aria-live="polite">
-              <span className="feed-checking-spinner" aria-hidden="true" />
-              <span className="feed-checking-copy">
-                <span className="feed-checking-title small-caps">
-                  Checking for recent activity&hellip;
-                </span>
-                {!loading && filtered.length > 0 && (
-                  <span className="feed-checking-sub">
-                    Showing saved activity below — it may not be the latest yet.
+        <AnimatePresence initial={false}>
+          {checking && (
+            <motion.div
+              key="feed-checking"
+              initial={reduce ? false : { opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+              transition={{ duration: reduce ? 0.15 : 0.32, ease: [0.22, 0.61, 0.36, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="feed-checking">
+                <p className="feed-checking-msg" role="status" aria-live="polite">
+                  <span className="feed-checking-spinner" aria-hidden="true" />
+                  <span className="feed-checking-copy">
+                    <span className="feed-checking-title small-caps">
+                      Checking for recent activity&hellip;
+                    </span>
+                    {!loading && filtered.length > 0 && (
+                      <span className="feed-checking-sub">
+                        Showing saved activity below — it may not be the latest yet.
+                      </span>
+                    )}
                   </span>
-                )}
-              </span>
-            </p>
-          </div>
-        )}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {loading ? null : filtered.length === 0 ? (
           checking ? null : (
             <p className="feed-empty">No records match these filters.</p>

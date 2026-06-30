@@ -599,15 +599,11 @@ a.post-card-author-link:focus-visible {
 /* "Checking for recent activity" notice — shown above the feed while a
    live refresh confirms whether what's displayed (snapshot / cache, or
    nothing yet on a cold load) is up to date. Just a small spinner +
-   message; no skeleton placeholder. The divider rule only appears when
-   there's already content beneath the notice. */
+   message; no skeleton placeholder. Its mount/unmount is animated by
+   Motion in Home.jsx (height + opacity collapse), so the margin lives on
+   this inner element where the collapsing wrapper can absorb it. */
 .feed-checking {
   margin-bottom: var(--space-5);
-}
-
-.feed-checking.has-content {
-  padding-bottom: var(--space-5);
-  border-bottom: 1px solid var(--rule-soft);
 }
 
 .feed-checking-msg {
