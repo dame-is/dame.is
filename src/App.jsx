@@ -10,6 +10,7 @@ import Blogging from './pages/Blogging.jsx';
 import BlogPost from './pages/BlogPost.jsx';
 import Creating from './pages/Creating.jsx';
 import CreatingWork from './pages/CreatingWork.jsx';
+import Resume from './pages/Resume.jsx';
 import Sharing from './pages/Sharing.jsx';
 import Record from './pages/Record.jsx';
 import NotFound from './pages/NotFound.jsx';
@@ -94,6 +95,8 @@ export default function App() {
                   <Route path="/blogging/:slug" element={<BlogPost />} />
                   <Route path="/creating" element={<Creating />} />
                   <Route path="/creating/:slug" element={<CreatingWork />} />
+                  <Route path="/resume" element={<Resume />} />
+                  <Route path="/resume/:slug" element={<Resume />} />
                   <Route path="/sharing" element={<Sharing />} />
                   {generatedRecordRoutes()}
                   <Route

@@ -58,6 +58,13 @@ export const PAGE_REGISTRY = {
     intro: 'Things worth handing off.',
     collection: null,
   },
+  resume: {
+    slug: 'resume',
+    label: 'Resume',
+    title: 'Resume',
+    intro: 'A decade of building social software, brands, and communities. Each entry backlinks to a job record on my PDS.',
+    collection: null,
+  },
 };
 
 export function pageDefault(slug) {

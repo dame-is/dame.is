@@ -1,0 +1,60 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.resume.job",
+  "description": "One position / role in a work history — the canonical, version-independent record of a job. Resume documents (is.dame.resume) reference these by AT URI and choose which highlights to surface, so the same job can be reused and tailored across many resumes without duplicating its facts.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "Record key is a human-readable slug (e.g. \"ipfs-content-manager\") so backlinks from resumes read clearly and re-imports are idempotent.",
+      "record": {
+        "type": "object",
+        "required": ["organization", "title", "startDate", "createdAt"],
+        "properties": {
+          "organization":    { "type": "string", "maxLength": 200, "description": "Employer / client / project name." },
+          "organizationUrl": { "type": "string", "format": "uri", "description": "Optional link to the organization." },
+          "title":           { "type": "string", "maxLength": 200, "description": "Role title held at this organization." },
+          "employmentType":  { "type": "string", "enum": ["full-time", "part-time", "contract", "freelance", "self-employed", "internship", "volunteer"] },
+          "location":        { "type": "string", "maxLength": 200 },
+          "locationType":    { "type": "string", "enum": ["on-site", "remote", "hybrid"] },
+          "startDate":       { "type": "string", "maxLength": 10, "description": "Partial date, \"YYYY\" or \"YYYY-MM\". Day-level precision is unnecessary for a resume." },
+          "endDate":         { "type": "string", "maxLength": 10, "description": "Same format as startDate. Omit (and set current=true) for an ongoing role." },
+          "current":         { "type": "boolean", "default": false, "description": "True when this is an ongoing role. Renders as \"– Present\"." },
+          "summary":         { "type": "string", "maxLength": 2000, "description": "Optional one-line framing of the role, shown above its highlights." },
+          "highlights":      {
+            "type": "array",
+            "maxLength": 50,
+            "description": "Achievement bullets. Each carries a stable local id so a resume can select, reorder, and reuse a subset (\"tailoring\") without copying text.",
+            "items": { "type": "ref", "ref": "#highlight" }
+          },
+          "skills":          {
+            "type": "array",
+            "maxLength": 50,
+            "items": { "type": "string", "maxLength": 64 },
+            "description": "Skills exercised in this role. Aggregated across selected jobs to build a resume's skill list."
+          },
+          "createdAt":       { "type": "string", "format": "datetime" },
+          "updatedAt":       { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "highlight": {
+      "type": "object",
+      "description": "A single achievement / responsibility bullet, individually addressable within its job.",
+      "required": ["id", "text"],
+      "properties": {
+        "id":         { "type": "string", "maxLength": 64, "description": "Stable id, unique within this job. Referenced from is.dame.resume entries[].highlightIds." },
+        "text":       { "type": "string", "maxLength": 2000 },
+        "visibility": { "type": "string", "enum": ["public", "unlisted", "private"], "default": "public", "description": "Display intent for the website. NOT a privacy control — every PDS record is publicly fetchable. \"private\" bullets are never rendered on the site; \"unlisted\" render only when a resume explicitly selects them." },
+        "featured":   { "type": "boolean", "default": false, "description": "Emphasis flag — surfaced first / styled as a lead achievement." },
+        "metric":     { "type": "boolean", "default": false, "description": "Marks a quantified, outcome-bearing bullet (useful for impact-first resumes)." },
+        "tags":       {
+          "type": "array",
+          "maxLength": 20,
+          "items": { "type": "string", "maxLength": 64 },
+          "description": "Free-form labels (e.g. \"growth\", \"leadership\", \"writing\") used to filter/tailor which bullets a given resume pulls in."
+        }
+      }
+    }
+  }
+}

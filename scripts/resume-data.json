@@ -1,0 +1,224 @@
+{
+  "$comment": "Source data for scripts/import-resume.mjs. Converted from Dame's LinkedIn/resume PDF. Edit here, then re-run the importer to sync your PDS. Record keys (rkey) double as URL slugs and AT-URI tails. createdAt/updatedAt are stamped by the importer at write time. Light copyedits were applied to bullet text (grammar/typos only); numbers and facts are verbatim from the source.",
+
+  "jobs": [
+    {
+      "rkey": "atpotato-creative-technologist",
+      "organization": "atpotato",
+      "title": "Creative Technologist & Product Designer",
+      "employmentType": "self-employed",
+      "location": "United States",
+      "locationType": "remote",
+      "startDate": "2025-01",
+      "current": true,
+      "skills": ["Product design", "AT Protocol", "Bluesky", "Brand strategy", "Content creation"],
+      "highlights": [
+        { "id": "anisota", "text": "Created anisota.net, an experimental social media app and independent interface for Bluesky inspired by card games, microblogging, and mindfulness.", "featured": true, "tags": ["product", "design", "atproto"] },
+        { "id": "reach", "text": "Released Bluesky / ATProto projects that gained significant community attention, accumulating 100,000+ unique visitors and half a million page views since launch.", "featured": true, "metric": true, "tags": ["growth", "atproto"] },
+        { "id": "clients", "text": "Provided content creation, brand strategy, and messaging services to various tech clients.", "tags": ["content", "strategy", "freelance"] },
+        { "id": "guide", "text": "Wrote and published a long-form guide, \"How to use Bluesky to grow your brand.\"", "tags": ["writing", "content"] }
+      ]
+    },
+    {
+      "rkey": "ipfs-content-manager",
+      "organization": "IPFS",
+      "title": "Content Manager",
+      "employmentType": "full-time",
+      "locationType": "remote",
+      "startDate": "2022-07",
+      "endDate": "2024-06",
+      "skills": ["Content strategy", "Technical writing", "Community management"],
+      "highlights": [
+        { "id": "strategy", "text": "Spearheaded a new content strategy, boosting audience engagement by 45% and doubling link click-through rates.", "featured": true, "metric": true, "tags": ["content", "growth"] },
+        { "id": "guides", "text": "Authored comprehensive guides demystifying decentralized technology for diverse audiences.", "tags": ["writing", "content"] },
+        { "id": "multichannel", "text": "Managed multi-channel communications across social media, web content, newsletters, and a Discord community, ensuring message alignment and impact.", "tags": ["content", "community"] }
+      ]
+    },
+    {
+      "rkey": "rainbow-content-community-manager",
+      "organization": "Rainbow",
+      "title": "Content & Community Manager",
+      "employmentType": "full-time",
+      "locationType": "remote",
+      "startDate": "2021-05",
+      "endDate": "2022-03",
+      "skills": ["Community management", "Customer support", "Knowledge base", "Social media"],
+      "highlights": [
+        { "id": "twitter", "text": "Increased organic Twitter following by 462% (8K to 45K followers) in six months through targeted educational content and live community engagement.", "featured": true, "metric": true, "tags": ["growth", "community"] },
+        { "id": "kb", "text": "Wrote and managed comprehensive product education materials, including a complete user knowledge base.", "tags": ["writing", "content"] },
+        { "id": "support", "text": "Recruited the customer support team and provided hands-on training to align messaging and strategy across each member.", "tags": ["leadership", "community"] },
+        { "id": "onboarding", "text": "Led personalized 1:1 onboarding for influencers and celebrities, plus live group education for key audience segments.", "tags": ["community", "leadership"] }
+      ]
+    },
+    {
+      "rkey": "teal-digital-marketer",
+      "organization": "Teal",
+      "title": "Digital Marketer",
+      "employmentType": "full-time",
+      "locationType": "remote",
+      "startDate": "2020-09",
+      "endDate": "2021-03",
+      "skills": ["HubSpot", "Zapier", "Product Hunt", "A/B testing", "Email marketing"],
+      "highlights": [
+        { "id": "audience", "text": "Grew the audience by 200% leveraging engaging content and meme marketing strategies.", "metric": true, "tags": ["growth", "content"] },
+        { "id": "producthunt", "text": "Launched the app on Product Hunt, driving a 400% increase in signups and reaching 196% of goal.", "featured": true, "metric": true, "tags": ["growth", "launch"] },
+        { "id": "ops", "text": "Oversaw marketing operations through HubSpot and Zapier.", "tags": ["marketing", "ops"] },
+        { "id": "newsletter", "text": "Grew newsletter open rates by 10–15% through A/B testing subject lines.", "metric": true, "tags": ["content", "growth"] },
+        { "id": "crossfunctional", "text": "Collaborated with cross-functional teams to support product development.", "tags": ["product", "collaboration"] }
+      ]
+    },
+    {
+      "rkey": "therapy-brands-strategic-marketing-manager",
+      "organization": "Therapy Brands",
+      "title": "Strategic Marketing Manager",
+      "employmentType": "full-time",
+      "startDate": "2019-09",
+      "endDate": "2020-08",
+      "skills": ["Marketing strategy", "Crisis communications", "Team leadership", "Budget management"],
+      "highlights": [
+        { "id": "comms", "text": "Led communications strategy for five B2B SaaS healthcare brands, managing a $1M marketing budget and surpassing lead goals by 167%.", "featured": true, "metric": true, "tags": ["strategy", "leadership"] },
+        { "id": "team", "text": "Managed a remote team that was the top-performing marketing team of the quarter multiple times in a row.", "metric": true, "tags": ["leadership"] },
+        { "id": "crisis", "text": "Handled crisis communications for a telehealth brand during the COVID-19 pandemic.", "tags": ["strategy", "comms"] }
+      ]
+    },
+    {
+      "rkey": "therapy-brands-creative-specialist",
+      "organization": "Therapy Brands",
+      "title": "Creative Specialist",
+      "employmentType": "full-time",
+      "startDate": "2018-01",
+      "endDate": "2019-09",
+      "skills": ["Branding", "Web design", "HubSpot", "CRM"],
+      "highlights": [
+        { "id": "rebrand", "text": "Revitalized corporate branding and website, significantly contributing to a 245% increase in ARR.", "featured": true, "metric": true, "tags": ["design", "brand"] },
+        { "id": "campaign", "text": "Executed high-impact campaigns, including a $2,000 direct-mail campaign that yielded $70,000 in new ARR.", "metric": true, "tags": ["marketing"] },
+        { "id": "crm", "text": "Managed extensive HubSpot CRM automations and workflows.", "tags": ["marketing", "ops"] }
+      ]
+    },
+    {
+      "rkey": "self-employed-marketer-designer",
+      "organization": "Self-employed",
+      "title": "Marketer & Designer",
+      "employmentType": "self-employed",
+      "startDate": "2015-10",
+      "endDate": "2018-01",
+      "skills": ["Branding", "Marketing", "Design"],
+      "highlights": [
+        { "id": "nonprofit", "text": "Completed a major rebrand and revitalized messaging for a 30+ year old non-profit.", "tags": ["design", "brand"] },
+        { "id": "clients", "text": "Provided marketing and design services to clients across the USA.", "tags": ["freelance", "design"] },
+        { "id": "finances", "text": "Handled business finances, contracts, and budgets.", "tags": ["ops"] }
+      ]
+    },
+    {
+      "rkey": "sbc-church-communications-director",
+      "organization": "SBC Church",
+      "title": "Communications Director",
+      "employmentType": "full-time",
+      "startDate": "2015-06",
+      "endDate": "2016-06",
+      "skills": ["Editorial", "Print design", "Photography", "Video"],
+      "highlights": [
+        { "id": "channels", "text": "Managed social and print communication channels to drive engagement with the church's audience, visitors, and stakeholders.", "tags": ["content", "comms"] },
+        { "id": "magazine", "text": "Served as editorial director and lead designer for a monthly print magazine.", "featured": true, "tags": ["design", "writing", "leadership"] },
+        { "id": "documenting", "text": "Documented community events through photography and video production.", "tags": ["photography", "video"] }
+      ]
+    },
+    {
+      "rkey": "self-employed-photographer-videographer",
+      "organization": "Self-Employed",
+      "title": "Photographer & Videographer",
+      "employmentType": "self-employed",
+      "startDate": "2010",
+      "endDate": "2015",
+      "skills": ["Photography", "Videography", "Portraiture"],
+      "highlights": [
+        { "id": "events", "text": "Documented local events, from weddings to community work days.", "tags": ["photography", "video"] },
+        { "id": "portraits", "text": "Captured high-quality portraits and headshots for professionals, graduates, and families.", "tags": ["photography"] }
+      ]
+    }
+  ],
+
+  "education": [
+    {
+      "rkey": "private-university-ba",
+      "institution": "Private University",
+      "studyType": "Bachelor of Arts - BA",
+      "area": "Mass Communication / Media Studies",
+      "highlights": []
+    }
+  ],
+
+  "resumes": [
+    {
+      "rkey": "primary",
+      "slug": "primary",
+      "title": "Primary résumé",
+      "headline": "Creative Technologist & Product Designer",
+      "summary": "Creative technologist and product designer who builds independent social software on the AT Protocol and has spent a decade growing audiences, brands, and communities for tech companies. I work across the whole stack of making something people care about — product and design, content and brand strategy, and the marketing that carries it.",
+      "visibility": "public",
+      "featured": true,
+      "contact": {
+        "email": "contact@dame.is",
+        "location": "United States",
+        "links": [
+          { "label": "Website", "url": "https://dame.is" },
+          { "label": "Bluesky", "url": "https://bsky.app/profile/dame.is" },
+          { "label": "LinkedIn", "url": "https://www.linkedin.com/in/dame-is" }
+        ]
+      },
+      "skills": [
+        { "category": "AI & tooling", "items": ["Anthropic Claude", "Cursor AI", "Artificial Intelligence (AI)"] },
+        { "category": "Product & design", "items": ["Product design", "Branding", "Web design", "AT Protocol", "Bluesky"] },
+        { "category": "Content & community", "items": ["Content strategy", "Copywriting", "Community management", "Social media", "Technical writing"] },
+        { "category": "Marketing & growth", "items": ["Audience growth", "HubSpot", "Zapier", "A/B testing", "Product Hunt launches", "Crisis communications"] },
+        { "category": "Creative", "items": ["Photography", "Video production", "Editorial", "Print design"] }
+      ],
+      "entries": [
+        { "job": "atpotato-creative-technologist" },
+        { "job": "ipfs-content-manager" },
+        { "job": "rainbow-content-community-manager" },
+        { "job": "teal-digital-marketer" },
+        { "job": "therapy-brands-strategic-marketing-manager" },
+        { "job": "therapy-brands-creative-specialist" },
+        { "job": "self-employed-marketer-designer" },
+        { "job": "sbc-church-communications-director" },
+        { "job": "self-employed-photographer-videographer" }
+      ],
+      "education": [
+        { "education": "private-university-ba" }
+      ]
+    },
+    {
+      "rkey": "product-design",
+      "slug": "product-design",
+      "title": "Product & design",
+      "headline": "Product Designer & Creative Technologist",
+      "summary": "Product designer and creative technologist focused on building and shipping independent social software, brands, and the content that introduces them. Selected, design-forward highlights from a decade of work.",
+      "visibility": "public",
+      "featured": false,
+      "contact": {
+        "email": "contact@dame.is",
+        "location": "United States",
+        "links": [
+          { "label": "Website", "url": "https://dame.is" },
+          { "label": "Bluesky", "url": "https://bsky.app/profile/dame.is" }
+        ]
+      },
+      "skills": [
+        { "category": "Product & design", "items": ["Product design", "Branding", "Web design", "AT Protocol", "Bluesky"] },
+        { "category": "AI & tooling", "items": ["Anthropic Claude", "Cursor AI"] },
+        { "category": "Content", "items": ["Content strategy", "Copywriting", "Editorial"] }
+      ],
+      "entries": [
+        { "job": "atpotato-creative-technologist", "highlightIds": ["anisota", "reach", "guide"] },
+        { "job": "ipfs-content-manager", "highlightIds": ["strategy", "guides"] },
+        { "job": "rainbow-content-community-manager", "highlightIds": ["twitter", "kb"] },
+        { "job": "therapy-brands-creative-specialist", "highlightIds": ["rebrand", "campaign"] },
+        { "job": "sbc-church-communications-director", "highlightIds": ["magazine", "documenting"] }
+      ],
+      "education": [
+        { "education": "private-university-ba" }
+      ]
+    }
+  ]
+}

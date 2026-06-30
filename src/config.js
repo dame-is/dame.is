@@ -16,6 +16,9 @@ export const PLC_DIRECTORY = 'https://plc.directory';
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
 const HERO_PHRASE_NSID = 'is.dame.hero.phrase';
+const RESUME_NSID = 'is.dame.resume';
+const RESUME_JOB_NSID = 'is.dame.resume.job';
+const RESUME_EDUCATION_NSID = 'is.dame.resume.education';
 
 /**
  * Legacy verb-or-shorthand → NSID lookup. Existing call sites
@@ -33,6 +36,9 @@ export const COLLECTIONS = {
   page: PAGE_NSID,
   profile: PROFILE_NSID,
   heroPhrase: HERO_PHRASE_NSID,
+  resume: RESUME_NSID,
+  resumeJob: RESUME_JOB_NSID,
+  resumeEducation: RESUME_EDUCATION_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */
