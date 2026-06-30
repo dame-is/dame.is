@@ -38,6 +38,7 @@ export default function RecordEditor({
   onDeleted,
   onCreated,
   initialMode = 'form',
+  initialValue = null,
 }) {
   const lex = lexiconFor(collection);
   const isNew = !rkey;
@@ -59,7 +60,9 @@ export default function RecordEditor({
   useEffect(() => {
     let cancelled = false;
     if (isNew) {
-      const draft = blankRecordFor(collection);
+      // Merge any caller-supplied presets (e.g. a default publication for a
+      // new creative work) over the lexicon's blank defaults.
+      const draft = { ...blankRecordFor(collection), ...(initialValue || {}) };
       setValue(draft);
       setOriginal(draft);
       setRawText(JSON.stringify(draft, null, 2));
@@ -93,7 +96,7 @@ export default function RecordEditor({
     return () => {
       cancelled = true;
     };
-  }, [agent, did, collection, rkey, isNew, lex]);
+  }, [agent, did, collection, rkey, isNew, lex, initialValue]);
 
   const updateField = useCallback((key, next) => {
     setValue((prev) => ({ ...(prev || {}), [key]: next }));

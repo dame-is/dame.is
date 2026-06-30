@@ -103,7 +103,22 @@ async function main() {
       continue;
     }
 
-    const res = await agent.com.atproto.repo.createRecord({ repo: did, collection: STANDARD_DOC, record });
+    let res;
+    let attempt = 0;
+    // Retry transient PDS 5xx/429 with backoff; fail fast on a real 4xx.
+    for (;;) {
+      try {
+        res = await agent.com.atproto.repo.createRecord({ repo: did, collection: STANDARD_DOC, record });
+        break;
+      } catch (err) {
+        const status = err?.status || err?.statusCode;
+        if ((status && status >= 400 && status < 500 && status !== 429) || attempt >= 4) throw err;
+        const wait = 1000 * 2 ** attempt;
+        attempt += 1;
+        console.log(`  [retry ${attempt}/4] ${slug}: ${err?.message || err} — waiting ${wait}ms`);
+        await new Promise((r) => setTimeout(r, wait));
+      }
+    }
     created += 1;
     console.log(`  ✓ ${res.data.uri}`);
 

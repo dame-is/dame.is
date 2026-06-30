@@ -74,7 +74,7 @@ export default function CreatingWork() {
     return (
       <PageShell title="Work not found" headTitle="Not found — Dame is…">
         <p>
-          No <code>is.dame.creating.work</code> with slug <code>{slug}</code>.{' '}
+          No creative work with slug <code>{slug}</code>.{' '}
           <Link to="/creating">Back to the index.</Link>
         </p>
       </PageShell>
