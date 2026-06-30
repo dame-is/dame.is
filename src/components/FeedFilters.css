@@ -76,6 +76,15 @@
   color: var(--ink-faint);
 }
 
+/* Count estimated from the static snapshot (verb not yet fetched live).
+   The leading "~" already signals approximation; italics reinforce it
+   and the dotted underline hints there's a tooltip explaining why. */
+.feed-chip-count.is-estimate {
+  font-style: italic;
+  cursor: help;
+  border-bottom: 1px dotted var(--rule);
+}
+
 .feed-chip-clear {
   border-style: dashed;
   color: var(--ink-faint);

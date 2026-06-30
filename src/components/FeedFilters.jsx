@@ -26,7 +26,7 @@ const FILTER_KEYS = [REPLYING, ...VERBS];
  * filter affordance with the context so the chrome bar knows to show
  * its filter button while the host is on screen.
  */
-export default function FeedFilters({ counts }) {
+export default function FeedFilters({ counts, estimatedVerbs }) {
   const [params, setParams] = useSearchParams();
   const { open, closeModal } = useFeedFilter();
   useRegisterFeedFilter();
@@ -88,6 +88,7 @@ export default function FeedFilters({ counts }) {
       open={open}
       activeVerbs={activeVerbs}
       counts={counts}
+      estimatedVerbs={estimatedVerbs}
       usingDefaults={usingDefaults}
       onToggleVerb={toggleVerb}
       onSelectOnly={(v) => setVerbs(new Set([v]))}
@@ -103,6 +104,7 @@ function FilterModal({
   open,
   activeVerbs,
   counts,
+  estimatedVerbs,
   usingDefaults,
   onToggleVerb,
   onSelectOnly,
@@ -159,6 +161,7 @@ function FilterModal({
         {FILTER_KEYS.map((v) => {
           const active = activeVerbs.has(v);
           const count = counts?.[v];
+          const isEstimate = estimatedVerbs?.has(v);
           return (
             <div
               key={v}
@@ -177,7 +180,18 @@ function FilterModal({
                 )}
                 <span className="feed-chip-label small-caps">{v}</span>
                 {typeof count === 'number' && (
-                  <span className="feed-chip-count gutter">{count}</span>
+                  <span
+                    className={`feed-chip-count gutter ${isEstimate ? 'is-estimate' : ''}`.trim()}
+                    title={
+                      isEstimate
+                        ? 'Estimated from the latest saved snapshot — enable this filter to load the exact count'
+                        : undefined
+                    }
+                    aria-label={isEstimate ? `about ${count}, estimated from snapshot` : undefined}
+                  >
+                    {isEstimate ? '~' : ''}
+                    {count}
+                  </span>
                 )}
               </button>
               <button

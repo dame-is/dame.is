@@ -68,6 +68,22 @@ function verbsCovered(have, need) {
   return true;
 }
 
+// The unified snapshot is static per deploy, so memoize the fetch for the
+// session: it backs both the instant first paint and the "estimated from
+// snapshot" chip counts for verbs we haven't fetched live. At most one
+// network round trip per page load; failures clear the memo so a later
+// mount can retry.
+let _unifiedSnapshotPromise = null;
+function loadUnifiedSnapshot() {
+  if (!_unifiedSnapshotPromise) {
+    _unifiedSnapshotPromise = fetchSnapshot(FEED_CACHE_KEY).catch((err) => {
+      _unifiedSnapshotPromise = null;
+      throw err;
+    });
+  }
+  return _unifiedSnapshotPromise;
+}
+
 /**
  * Per-day summary line shown under each day header in the home feed.
  * Counts:
@@ -168,6 +184,9 @@ export default function Home() {
   // 'live'. The snapshot painter only acts while this is 'none', and a
   // resolved live refresh always wins the race.
   const feedSourceRef = useRef(initialCache ? 'cache' : 'none');
+  // The static snapshot, kept around to estimate chip counts for verbs we
+  // haven't fetched live (e.g. liking / voting on the default view).
+  const [snapshotFeed, setSnapshotFeed] = useState(null);
 
   const reduce = useReducedMotion();
 
@@ -257,7 +276,7 @@ export default function Home() {
     } else {
       // Live failed — fall back to the snapshot, capped so a fat old
       // snapshot doesn't dwarf the user's actual "Load more" history.
-      const seed = await fetchSnapshot(FEED_CACHE_KEY).catch(() => null);
+      const seed = await loadUnifiedSnapshot().catch(() => null);
       if (token.cancelled) {
         if (inflightRef.current === token) inflightRef.current = null;
         endRefresh();
@@ -305,18 +324,20 @@ export default function Home() {
     return nextFeed;
   }, []);
 
-  // First paint: when there's no usable in-memory cache, render the
-  // prebuilt /data/unifiedFeed.json snapshot as soon as it lands so the
-  // user sees real (if possibly-stale) content instead of a bare
-  // skeleton while the live fetch runs. The snapshot holds every verb,
-  // so it can satisfy any filter; the live refresh always wins the race
-  // (guarded by feedSourceRef) and reconciles to the latest.
+  // Load the prebuilt /data/unifiedFeed.json snapshot once on mount. It
+  // serves two jobs: (1) first paint — when there's no usable in-memory
+  // cache, render it the instant it lands so the user sees real (if
+  // possibly-stale) content instead of a bare skeleton while the live
+  // fetch runs; (2) estimated chip counts for verbs we don't fetch live.
+  // The snapshot holds every verb, so it can satisfy any filter; the live
+  // refresh always wins the first-paint race (guarded by feedSourceRef).
   useEffect(() => {
-    if (feedSourceRef.current !== 'none') return undefined;
     let cancelled = false;
-    fetchSnapshot(FEED_CACHE_KEY)
+    loadUnifiedSnapshot()
       .then((snap) => {
-        if (cancelled || feedSourceRef.current !== 'none' || !Array.isArray(snap)) return;
+        if (cancelled || !Array.isArray(snap)) return;
+        setSnapshotFeed(snap);
+        if (feedSourceRef.current !== 'none') return;
         feedSourceRef.current = 'snapshot';
         // Seed seenUris so snapshot rows don't animate; genuinely new
         // items from the live fetch still slide in.
@@ -379,7 +400,36 @@ export default function Home() {
     refreshState === 'refreshing' &&
     !verbsCovered(liveVerbs, fetchVerbs);
 
-  const counts = useMemo(() => feedFilterCounts(safeFeed, ME_DID), [safeFeed]);
+  // Chip counts. Verbs covered by the latest live fetch get exact counts
+  // from the displayed feed; verbs we haven't fetched live (e.g. liking /
+  // voting on the default view) fall back to a count estimated from the
+  // static snapshot, flagged so the UI can mark it as approximate.
+  const liveCounts = useMemo(() => feedFilterCounts(safeFeed, ME_DID), [safeFeed]);
+  const snapshotCounts = useMemo(
+    () => (snapshotFeed ? feedFilterCounts(snapshotFeed, ME_DID) : null),
+    [snapshotFeed],
+  );
+  const { counts, estimatedVerbs } = useMemo(() => {
+    const liveSet = new Set(liveVerbs);
+    // A filter key is "live-known" when its underlying fetch verb was in
+    // the latest live result. `replying` is a virtual view of `posting`.
+    const isLive = (key) => liveSet.has(key === 'replying' ? 'posting' : key);
+    const out = {};
+    const est = new Set();
+    const keys = new Set([
+      ...Object.keys(liveCounts),
+      ...(snapshotCounts ? Object.keys(snapshotCounts) : []),
+    ]);
+    for (const key of keys) {
+      if (isLive(key)) {
+        if (typeof liveCounts[key] === 'number') out[key] = liveCounts[key];
+      } else if (snapshotCounts && typeof snapshotCounts[key] === 'number') {
+        out[key] = snapshotCounts[key];
+        est.add(key);
+      }
+    }
+    return { counts: out, estimatedVerbs: est };
+  }, [liveCounts, snapshotCounts, liveVerbs]);
 
   const filtered = useMemo(() => filterFeed(safeFeed, params, ME_DID), [safeFeed, params]);
   // "Load more" pagination — the user only sees the first `visibleCount`
@@ -431,7 +481,7 @@ export default function Home() {
       </nav>
 
       <section className="home-latest">
-        <FeedFilters counts={counts} />
+        <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
         {checking && (
           <div className="feed-checking">
             <p className="feed-checking-msg" role="status" aria-live="polite">
