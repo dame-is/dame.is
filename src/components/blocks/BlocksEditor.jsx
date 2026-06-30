@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TextBlockEditor from './TextBlockEditor.jsx';
 import HeadingBlockEditor from './HeadingBlockEditor.jsx';
 import ImageBlockEditor, { uploadImageFile } from './ImageBlockEditor.jsx';
@@ -6,6 +6,7 @@ import WebsiteBlockEditor from './WebsiteBlockEditor.jsx';
 import CodeBlockEditor from './CodeBlockEditor.jsx';
 import ListBlockEditor from './ListBlockEditor.jsx';
 import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
+import { LeafletBlock } from '../LeafletDocument.jsx';
 import './blocks.css';
 
 const WRAPPER_TYPE = 'pub.leaflet.pages.linearDocument#block';
@@ -14,12 +15,20 @@ const CONTENT_TYPE = 'pub.leaflet.content';
 
 /**
  * Editor for a `pub.leaflet.content` body. Produces records compatible
- * with site.standard.document and pub.leaflet.document. Walks the first
- * (and only) page's blocks array; everything happens inline.
+ * with site.standard.document and pub.leaflet.document.
+ *
+ * The body reads as a live preview of the rendered document; clicking a
+ * block swaps that one block into its WYSIWYG editor. Only one block edits
+ * at a time — clicking another block (or "Done", or away from the editor)
+ * collapses the active block back to its preview.
  */
 export default function BlocksEditor({ agent, did, value, onChange }) {
   const content = useMemo(() => ensureShape(value), [value]);
   const blocks = content.pages[0].blocks;
+
+  const [activeIndex, setActiveIndex] = useState(null);
+  const rootRef = useRef(null);
+  const activeItemRef = useRef(null);
 
   const updateBlocks = useCallback(
     (nextBlocks) => {
@@ -44,9 +53,11 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
     (block, atIndex = null) => {
       const next = blocks.slice();
       const wrapped = { $type: WRAPPER_TYPE, block };
+      const index = atIndex == null ? next.length : atIndex;
       if (atIndex == null) next.push(wrapped);
       else next.splice(atIndex, 0, wrapped);
       updateBlocks(next);
+      setActiveIndex(index); // jump straight into editing the new block
     },
     [blocks, updateBlocks],
   );
@@ -70,6 +81,7 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
         });
       }
       updateBlocks(next);
+      setActiveIndex(null);
     },
     [blocks, updateBlocks],
   );
@@ -81,17 +93,55 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
       const next = blocks.slice();
       [next[index], next[target]] = [next[target], next[index]];
       updateBlocks(next);
+      setActiveIndex(target); // follow the block that moved
     },
     [blocks, updateBlocks],
   );
 
+  // Collapse the active editor when the user clicks outside the editor.
+  useEffect(() => {
+    if (activeIndex == null) return undefined;
+    function onDown(e) {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setActiveIndex(null);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [activeIndex]);
+
+  // Drop focus into the block that just became active.
+  useEffect(() => {
+    if (activeIndex == null) return;
+    focusFirstField(activeItemRef.current);
+  }, [activeIndex]);
+
   return (
-    <div className="blocks-editor">
+    <div className="blocks-editor" ref={rootRef}>
       <ol className="blocks-editor-list">
         {blocks.map((wrap, i) => {
           const block = wrap?.block || {};
+          const isActive = i === activeIndex;
+          if (!isActive) {
+            return (
+              <li
+                key={i}
+                className="blocks-editor-item is-preview"
+                onClick={() => setActiveIndex(i)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setActiveIndex(i);
+                  }
+                }}
+                aria-label={`Edit ${labelFor(block.$type)} block`}
+              >
+                <BlockPreview block={block} />
+              </li>
+            );
+          }
           return (
-            <li key={i} className="blocks-editor-item">
+            <li key={i} ref={activeItemRef} className="blocks-editor-item is-active">
               <div className="blocks-editor-item-controls">
                 <span className="blocks-editor-item-type small-caps">{labelFor(block.$type)}</span>
                 <div className="blocks-editor-item-buttons">
@@ -123,6 +173,14 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
                     title="Delete"
                   >
                     ✕
+                  </button>
+                  <button
+                    type="button"
+                    className="admin-link-subtle blocks-editor-done"
+                    onClick={() => setActiveIndex(null)}
+                    title="Done editing this block"
+                  >
+                    Done
                   </button>
                 </div>
               </div>
@@ -164,6 +222,76 @@ function BlockBody({ block, agent, did, onChange }) {
           {JSON.stringify(block, null, 2)}
         </pre>
       );
+  }
+}
+
+/**
+ * Read-only render of a single block for the collapsed (preview) state.
+ * Reuses the published renderer so the body genuinely reads as the live
+ * document; empty blocks show a click-to-edit hint so they stay reachable.
+ */
+function BlockPreview({ block }) {
+  if (isBlockEmpty(block)) {
+    return (
+      <div className="blocks-editor-preview blocks-editor-preview-empty">
+        {`Empty ${labelFor(block.$type)} — click to edit`}
+      </div>
+    );
+  }
+  // An uploaded image only has a render URL once the record is re-read, so a
+  // fresh blob can't be drawn yet — show a neutral note instead of a blank.
+  if (block.$type === 'pub.leaflet.blocks.image' && !(block.image?._url || block.url)) {
+    return (
+      <div className="blocks-editor-preview blocks-editor-preview-empty">
+        Image — click to edit
+      </div>
+    );
+  }
+  return (
+    <div className="blocks-editor-preview">
+      <div className="blocks-editor-preview-body">
+        <LeafletBlock block={block} />
+      </div>
+    </div>
+  );
+}
+
+function isBlockEmpty(block) {
+  switch (block?.$type) {
+    case 'pub.leaflet.blocks.text':
+    case 'pub.leaflet.blocks.header':
+      return !(block.plaintext || '').trim();
+    case 'pub.leaflet.blocks.image':
+      return !(block.image || block.url);
+    case 'pub.leaflet.blocks.website':
+      return !block.src;
+    case 'pub.leaflet.blocks.code':
+      return !(block.plaintext || block.code || '').trim();
+    case 'pub.leaflet.blocks.bskyPost':
+      return !block.postRef?.uri;
+    case 'pub.leaflet.blocks.unorderedList':
+    case 'pub.leaflet.blocks.orderedList':
+      return !(block.children || []).some((it) => (it?.content?.plaintext || '').trim());
+    default:
+      return false;
+  }
+}
+
+/** Focus (and place the caret at the end of) the first editable field. */
+function focusFirstField(container) {
+  if (!container) return;
+  const el = container.querySelector(
+    '[contenteditable="true"], input:not([type="file"]), textarea, select',
+  );
+  if (!el) return;
+  el.focus();
+  if (el.isContentEditable) {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
   }
 }
 

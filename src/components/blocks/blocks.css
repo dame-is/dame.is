@@ -25,6 +25,37 @@
   gap: 0.5rem;
 }
 
+/* Collapsed (preview) block — reads as the live document; click to edit. */
+.blocks-editor-item.is-preview {
+  border-color: transparent;
+  background: transparent;
+  padding: 0.25rem 0.75rem;
+  gap: 0;
+  cursor: text;
+  transition: background 100ms ease;
+}
+
+.blocks-editor-item.is-preview:hover,
+.blocks-editor-item.is-preview:focus-visible {
+  background: var(--surface-2, rgba(0, 0, 0, 0.04));
+  outline: none;
+}
+
+.blocks-editor-preview-body {
+  pointer-events: none;
+}
+
+.blocks-editor-preview-empty {
+  color: var(--ink-faint, rgba(0, 0, 0, 0.45));
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.blocks-editor-done {
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+}
+
 .blocks-editor-item-controls {
   display: flex;
   align-items: center;
