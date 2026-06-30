@@ -121,13 +121,59 @@
   cursor: not-allowed;
 }
 
-.rich-text-textarea {
-  width: 100%;
+.rich-text-toolbar-btn.is-active:not(:disabled) {
+  background: var(--ink);
+  color: var(--page);
+  border-color: var(--ink);
 }
 
-.rich-text-facet-summary {
-  opacity: 0.6;
-  font-size: 0.8em;
+/* contentEditable WYSIWYG surface */
+.rich-text-editable {
+  width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: text;
+  line-height: 1.55;
+}
+
+.rich-text-editable:focus {
+  border-color: var(--accent);
+}
+
+.rich-text-editable:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-faint, rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+
+/* Inline mark styles — mirror the published renderer so the editor is WYSIWYG. */
+.rich-text-editable .rt-bold {
+  font-weight: 700;
+}
+.rich-text-editable .rt-italic {
+  font-style: italic;
+}
+.rich-text-editable .rt-underline {
+  text-decoration: underline;
+}
+.rich-text-editable .rt-strikethrough {
+  text-decoration: line-through;
+}
+.rich-text-editable .rt-underline.rt-strikethrough {
+  text-decoration: underline line-through;
+}
+.rich-text-editable .rt-code {
+  font-family: var(--mono, monospace);
+  font-size: 0.9em;
+  background: var(--surface-3, rgba(0, 0, 0, 0.06));
+  padding: 0 0.15em;
+}
+.rich-text-editable .rt-highlight {
+  background: var(--highlight, #fbe7a1);
+}
+.rich-text-editable .rt-link {
+  color: var(--accent, #5e7a47);
+  text-decoration: underline;
 }
 
 /* Heading block */
