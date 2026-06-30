@@ -12,7 +12,6 @@ import FeedItem from '../components/FeedItem.jsx';
 import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
-import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
   readFeedCache,
@@ -390,15 +389,17 @@ export default function Home() {
 
   const loading = feed === null;
   const safeFeed = feed || [];
-  // Show the prominent "checking for recent activity" banner only while a
-  // refresh is in flight for verbs the displayed feed can't yet vouch for
-  // — i.e. the snapshot/cache first paint, or a just-enabled verb. Once a
-  // live result covers the active set, routine 30s background refreshes
-  // fall back to the quiet footer indicator instead.
+  // Show the "checking for recent activity" notice while we don't yet have
+  // live-confirmed data for the active verbs — i.e. the very first load
+  // (nothing rendered yet) or while a refresh is in flight for verbs the
+  // displayed feed can't vouch for (snapshot/cache first paint, or a
+  // just-enabled verb). Once a live result covers the active set, routine
+  // 30s background refreshes fall back to the quiet footer indicator. The
+  // notice replaces the old skeleton placeholder entirely — any content we
+  // already have (snapshot/cache) renders beneath it.
   const checking =
-    !loading &&
-    refreshState === 'refreshing' &&
-    !verbsCovered(liveVerbs, fetchVerbs);
+    loading ||
+    (refreshState === 'refreshing' && !verbsCovered(liveVerbs, fetchVerbs));
 
   // Chip counts. Verbs covered by the latest live fetch get exact counts
   // from the displayed feed; verbs we haven't fetched live (e.g. liking /
@@ -483,24 +484,23 @@ export default function Home() {
       <section className="home-latest">
         <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
         {checking && (
-          <div className="feed-checking">
+          <div className={`feed-checking ${!loading && filtered.length > 0 ? 'has-content' : ''}`.trim()}>
             <p className="feed-checking-msg" role="status" aria-live="polite">
               <span className="feed-checking-spinner" aria-hidden="true" />
               <span className="feed-checking-copy">
                 <span className="feed-checking-title small-caps">
                   Checking for recent activity&hellip;
                 </span>
-                <span className="feed-checking-sub">
-                  Showing saved activity below — it may not be the latest yet.
-                </span>
+                {!loading && filtered.length > 0 && (
+                  <span className="feed-checking-sub">
+                    Showing saved activity below — it may not be the latest yet.
+                  </span>
+                )}
               </span>
             </p>
-            <FeedSkeleton rows={2} label="Checking for recent activity" />
           </div>
         )}
-        {loading ? (
-          <FeedSkeleton rows={8} />
-        ) : filtered.length === 0 ? (
+        {loading ? null : filtered.length === 0 ? (
           checking ? null : (
             <p className="feed-empty">No records match these filters.</p>
           )

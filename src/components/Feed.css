@@ -596,13 +596,16 @@ a.post-card-author-link:focus-visible {
   text-align: center;
 }
 
-/* "Checking for recent activity" banner — shown above the feed while a
-   live refresh confirms whether the first paint (snapshot / cache) is up
-   to date. A small spinner + message header sits over a couple of
-   skeleton rows so the top of the column reads as "newer items may be
-   loading here". */
+/* "Checking for recent activity" notice — shown above the feed while a
+   live refresh confirms whether what's displayed (snapshot / cache, or
+   nothing yet on a cold load) is up to date. Just a small spinner +
+   message; no skeleton placeholder. The divider rule only appears when
+   there's already content beneath the notice. */
 .feed-checking {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
+}
+
+.feed-checking.has-content {
   padding-bottom: var(--space-5);
   border-bottom: 1px solid var(--rule-soft);
 }
@@ -611,7 +614,7 @@ a.post-card-author-link:focus-visible {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  margin: 0 0 var(--space-4);
+  margin: 0;
 }
 
 .feed-checking-copy {
