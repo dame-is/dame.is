@@ -34,13 +34,14 @@ import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ME_DID, COLLECTIONS, APPVIEW } from '../src/config.js';
+import { ME_DID, COLLECTIONS, APPVIEW, INATURALIST_USER } from '../src/config.js';
 import {
   resolvePds,
   getProfile,
   listRecords,
   getRecord,
 } from '../src/lib/atproto.js';
+import { fetchMothData } from '../src/lib/inaturalist.js';
 import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
 import {
   buildUnifiedFeed,
@@ -145,6 +146,17 @@ async function main() {
     jobs: resumeJobs,
     education: resumeEducation,
   });
+
+  // --- Mothing (iNaturalist) ------------------------------------------------
+  // External API, not the PDS — but snapshotted the same way so /mothing
+  // paints instantly and has a fallback if iNaturalist is unreachable at
+  // runtime. Location data is stripped by `fetchMothData`.
+  const mothing = await safe(
+    'fetchMothData',
+    () => fetchMothData({ user: INATURALIST_USER }),
+    { user: INATURALIST_USER, stats: null, observations: [] },
+  );
+  await writeJson('mothing', { builtAt: new Date().toISOString(), ...mothing });
 
   // --- Registry-driven ingest (delegated to the shared builder) -------------
   const { unified, perCollection, perVerb, authorFeed, counts } = await buildUnifiedFeed({

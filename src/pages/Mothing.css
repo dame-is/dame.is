@@ -1,0 +1,154 @@
+/* /mothing — iNaturalist moth showcase. Mirrors the Creating grid idiom. */
+
+.mothing-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.mothing-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mothing-stat-value {
+  font-family: var(--serif);
+  font-size: var(--text-2xl);
+  line-height: 1;
+  color: var(--ink);
+}
+
+.mothing-stat-dates {
+  font-size: var(--text-lg);
+}
+
+.mothing-stat-label {
+  letter-spacing: 0.16em;
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
+.mothing-toplist {
+  margin: 0 0 var(--space-5);
+  color: var(--ink-soft, var(--ink));
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.mothing-toplist-lead {
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  margin-right: var(--space-2);
+}
+
+.mothing-toplist-count {
+  color: var(--accent);
+}
+
+.mothing-toplist-sep {
+  color: var(--rule-soft);
+}
+
+.mothing-filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.mothing-filter {
+  font: inherit;
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-pill, 999px);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+}
+
+.mothing-filter:hover {
+  border-color: var(--accent-soft);
+}
+
+.mothing-filter.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mothing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mothing-link {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: var(--ink);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+  background: var(--page-edge);
+  height: 100%;
+  transition: transform 200ms ease, border-color 200ms ease;
+}
+
+.mothing-link:hover {
+  border-color: var(--accent-soft);
+  transform: translateY(-2px);
+}
+
+.mothing-link img {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  object-fit: cover;
+  background: var(--page);
+  display: block;
+}
+
+.mothing-placeholder {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.25rem;
+  background: var(--page);
+}
+
+.mothing-meta {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.mothing-name {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  margin: 0;
+  line-height: 1.25;
+}
+
+.mothing-sci {
+  font-style: italic;
+  font-size: var(--text-sm);
+  color: var(--ink-soft, var(--ink));
+}
+
+.mothing-sub {
+  font-size: var(--text-xs);
+}
+
+.mothing-source {
+  margin-top: var(--space-6);
+  font-size: var(--text-xs);
+}
