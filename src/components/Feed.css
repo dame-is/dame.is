@@ -589,6 +589,60 @@ a.post-card-author-link:focus-visible {
   max-width: var(--measure);
 }
 
+/* MothCard — mirrors CreatingCard's thumb + body layout. */
+.moth-card {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) 1fr;
+  gap: var(--space-4);
+}
+
+.moth-card:not(:has(.moth-card-thumb)) {
+  grid-template-columns: 1fr;
+}
+
+.moth-card-thumb {
+  display: block;
+}
+
+.moth-card-thumb img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
+}
+
+.moth-card-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.moth-card-title {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.moth-card-sci {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.moth-card-grade {
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.moth-card-desc {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}
+
 .feed-empty {
   color: var(--ink-muted);
   font-style: italic;
