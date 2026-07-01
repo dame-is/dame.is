@@ -31,7 +31,6 @@
     { "source": "/ethos", "destination": "/sharing", "permanent": true },
     { "source": "/skeet-tools", "destination": "https://cred.blue/resources", "permanent": true },
     { "source": "/ratingalttext", "destination": "https://cred.blue/alt-text", "permanent": true },
-    { "source": "/curating/:path*", "destination": "https://www.are.na/dame/:path*", "permanent": true },
     { "source": "/flushing", "destination": "https://flushes.app/profile/dame.is", "permanent": true }
   ]
 }

@@ -43,6 +43,12 @@ import {
 } from '../src/lib/atproto.js';
 import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
 import {
+  fetchChannelMeta,
+  fetchAllBlocks,
+  arenaChannelUrl,
+  arenaAccessToken,
+} from '../src/lib/arena.js';
+import {
   buildUnifiedFeed,
   backfillTimestamps,
   shouldWriteCombinedVerbFile,
@@ -145,6 +151,59 @@ async function main() {
     jobs: resumeJobs,
     education: resumeEducation,
   });
+
+  // --- Curating (is.dame.arena.channel → are.na gallery snapshots) ----------
+  // Guest tier is 30 req/min; an ARENA_ACCESS_TOKEN (read-only personal
+  // token, set in the Vercel env) unlocks the account tier, so the
+  // inter-request spacing adapts to whichever budget we have.
+  const arenaAuthed = Boolean(arenaAccessToken());
+  const arenaDelayMs = arenaAuthed ? 250 : 2100;
+  const arenaChannelRecords = await safe(
+    'listRecords:arenaChannel',
+    () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.arenaChannel, max: 100 }),
+    [],
+  );
+  const enabledGalleries = arenaChannelRecords
+    .map((r) => ({ rkey: String(r.uri || '').split('/').pop(), value: r.value || {} }))
+    .filter((g) => g.rkey && g.value.arenaSlug && g.value.enabled !== false)
+    .sort((a, b) => (a.value.order ?? 0) - (b.value.order ?? 0));
+  log(`arena: ${enabledGalleries.length} enabled channel(s), auth=${arenaAuthed}`);
+
+  const galleries = [];
+  for (const g of enabledGalleries) {
+    const snap = await safe(
+      `arena:${g.value.arenaSlug}`,
+      async () => {
+        const meta = await fetchChannelMeta(g.value.arenaSlug);
+        const { blocks, truncated } = await fetchAllBlocks(g.value.arenaSlug, {
+          delayMs: arenaDelayMs,
+        });
+        return { meta, blocks, truncated };
+      },
+      null,
+    );
+    if (!snap) continue; // channel fetch failed → skip it; the build proceeds
+
+    const gallery = {
+      slug: g.rkey,
+      arenaSlug: g.value.arenaSlug,
+      title: g.value.title || snap.meta?.title || g.rkey,
+      description: g.value.description || snap.meta?.description || '',
+      blockCount: snap.blocks.length,
+      arenaUrl: arenaChannelUrl(g.value.arenaSlug),
+      cover: snap.blocks[0]?.thumb || null,
+      order: g.value.order ?? 0,
+    };
+    galleries.push(gallery);
+    await writeJson(`curating-${g.rkey}`, {
+      builtAt: new Date().toISOString(),
+      gallery,
+      truncated: snap.truncated,
+      blocks: snap.blocks,
+    });
+  }
+  // Written even when empty so the index page's snapshot never 404s.
+  await writeJson('curating', { builtAt: new Date().toISOString(), galleries });
 
   // --- Registry-driven ingest (delegated to the shared builder) -------------
   const { unified, perCollection, perVerb, authorFeed, counts } = await buildUnifiedFeed({

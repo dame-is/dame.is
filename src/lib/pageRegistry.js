@@ -50,6 +50,13 @@ export const PAGE_REGISTRY = {
     intro: 'Songs played, freshest first, grouped by day-of-life.',
     collection: COLLECTIONS.listen,
   },
+  curating: {
+    slug: 'curating',
+    label: 'Curating',
+    title: 'Curating',
+    intro: 'Galleries of images collected on Are.na.',
+    collection: COLLECTIONS.arenaChannel,
+  },
   sharing: {
     slug: 'sharing',
     label: 'Sharing',

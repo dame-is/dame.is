@@ -280,6 +280,27 @@ export const LEXICONS = {
     ],
   },
 
+  [COLLECTIONS.arenaChannel]: {
+    label: 'Are.na gallery',
+    summary:
+      'Publishes an Are.na channel as a gallery at /curating/<rkey>. The rkey is the site slug; arenaSlug points at the channel on are.na.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'weird-dogs-only',
+    typeFieldValue: COLLECTIONS.arenaChannel,
+    fields: [
+      {
+        key: 'arenaSlug', label: 'Are.na channel slug', type: 'text', required: true,
+        placeholder: 'weird-dog-photos-only',
+        hint: 'The slug from are.na/<user>/<slug>. The record key is the site slug shown at /curating/<rkey>.',
+      },
+      { key: 'title', label: 'Title override', type: 'text', hint: 'Blank = channel title from are.na.' },
+      { key: 'description', label: 'Description override', type: 'textarea', hint: 'Blank = channel description from are.na.' },
+      { key: 'order', label: 'Order', type: 'number', default: 0, hint: 'Lower numbers sort first on /curating.' },
+      { key: 'enabled', label: 'Enabled (shown on the site)', type: 'boolean', default: true },
+      ...COMMON_TIMESTAMPS,
+    ],
+  },
+
   'app.bsky.feed.post': {
     label: 'Bluesky post',
     summary: 'Plain text posts. Embeds are out of scope for the templated editor — use raw JSON.',

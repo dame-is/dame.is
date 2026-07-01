@@ -33,6 +33,7 @@ const HERO_PHRASE_NSID = 'is.dame.hero.phrase';
 const RESUME_NSID = 'is.dame.resume';
 const RESUME_JOB_NSID = 'is.dame.resume.job';
 const RESUME_EDUCATION_NSID = 'is.dame.resume.education';
+const ARENA_CHANNEL_NSID = 'is.dame.arena.channel';
 
 /**
  * Legacy verb-or-shorthand → NSID lookup. Existing call sites
@@ -53,6 +54,7 @@ export const COLLECTIONS = {
   resume: RESUME_NSID,
   resumeJob: RESUME_JOB_NSID,
   resumeEducation: RESUME_EDUCATION_NSID,
+  arenaChannel: ARENA_CHANNEL_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */
