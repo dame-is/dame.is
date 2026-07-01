@@ -226,9 +226,24 @@ export function mothingSummaryValue(stats, { now, user = INATURALIST_USER } = {}
   });
 }
 
+/**
+ * Turn a plain 'YYYY-MM-DD' observation date into a stable, location-free
+ * timestamp for `createdAt` — noon UTC, which reveals nothing about where.
+ * Deriving from the observation date (not the mirror run) keeps the record
+ * idempotent and lets the home feed order moths by when they were seen
+ * instead of clumping them all at the last sync.
+ */
+export function observedTimestamp(observedDate) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(observedDate || ''))
+    ? `${observedDate}T12:00:00.000Z`
+    : null;
+}
+
 /** One `is.dame.mothing.observation/<inatId>` record value. */
 export function mothingObservationValue(obs, { now } = {}) {
-  const ts = now || new Date().toISOString();
+  // Stable timestamp from the observation date; fall back to the run time
+  // only for the rare observation with no date at all.
+  const ts = observedTimestamp(obs.observedDate) || now || new Date().toISOString();
   const taxon = obs.taxon || {};
   return stripUndefined({
     $type: MOTHING_OBSERVATION_NSID,

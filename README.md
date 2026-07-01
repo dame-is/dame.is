@@ -33,7 +33,9 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   iNaturalist observation is keyed by its iNat id. **No location data is ever
   mirrored** — coordinates, place names, and timezone are stripped in
   [`src/lib/inaturalist.js`](src/lib/inaturalist.js). Sync with
-  [`scripts/mirror-inaturalist.mjs`](scripts/mirror-inaturalist.mjs).
+  [`scripts/mirror-inaturalist.mjs`](scripts/mirror-inaturalist.mjs). Once
+  mirrored, observations also appear in the home feed under the `mothing`
+  verb, ordered by observation date.
 
 Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.
 

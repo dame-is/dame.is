@@ -13,6 +13,7 @@ import {
   Vote,
   Camera,
   FileText,
+  Bug,
 } from 'lucide-react';
 import { verbConfig } from '../lib/verbRegistry.js';
 
@@ -36,6 +37,7 @@ const LUCIDE_BY_NAME = {
   Vote,
   Camera,
   FileText,
+  Bug,
 };
 
 /**
