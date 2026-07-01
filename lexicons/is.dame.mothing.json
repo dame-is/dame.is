@@ -1,0 +1,50 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.mothing",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "description": "A singleton summary of Dame's mothing (moth observation) activity, mirrored from iNaturalist. Contains no location data.",
+      "record": {
+        "type": "object",
+        "required": ["source", "updatedAt"],
+        "properties": {
+          "source":            { "type": "string", "description": "Origin of the mirrored data, e.g. 'inaturalist'." },
+          "user":              { "type": "string", "description": "The iNaturalist username the data was mirrored from." },
+          "profileUrl":        { "type": "string", "format": "uri" },
+          "observationCount":  { "type": "integer" },
+          "speciesCount":      { "type": "integer", "description": "Distinct species-rank taxa observed." },
+          "distinctTaxaCount": { "type": "integer", "description": "Distinct taxa at any rank." },
+          "qualityGrades": {
+            "type": "object",
+            "description": "Observation counts by iNaturalist quality grade.",
+            "properties": {
+              "research": { "type": "integer" },
+              "needsId":  { "type": "integer" },
+              "casual":   { "type": "integer" }
+            }
+          },
+          "earliestDate": { "type": "string", "description": "Date of the earliest observation (YYYY-MM-DD)." },
+          "latestDate":   { "type": "string", "description": "Date of the most recent observation (YYYY-MM-DD)." },
+          "topSpecies": {
+            "type": "array",
+            "description": "Most-observed taxa, most first.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "taxonId":    { "type": "integer" },
+                "name":       { "type": "string" },
+                "commonName": { "type": "string" },
+                "rank":       { "type": "string" },
+                "count":      { "type": "integer" }
+              }
+            }
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

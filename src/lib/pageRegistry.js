@@ -64,6 +64,13 @@ export const PAGE_REGISTRY = {
     intro: 'Things worth handing off.',
     collection: null,
   },
+  mothing: {
+    slug: 'mothing',
+    label: 'Mothing',
+    title: 'Mothing',
+    intro: 'Moths I’ve found and photographed, pulled from iNaturalist. A running field notebook of the winged things drawn to the light.',
+    collection: null,
+  },
   resume: {
     slug: 'resume',
     label: 'Resume',
