@@ -12,11 +12,24 @@ import './Lightbox.css';
  * appear. The image itself doesn't dismiss on click so the reader can
  * actually rest their eyes on it; close happens via scrim, Escape, or
  * the explicit close button.
+ *
+ * Each entry is `{ src, alt }` plus optional extras:
+ *   - `width` / `height`: intrinsic dimensions. Passed through as <img>
+ *     attributes so the browser reserves the final display box before the
+ *     file arrives — without them the image pops from a dot to full size.
+ *   - `thumb`: a small already-cached variant painted behind the full image
+ *     while it loads (grid thumbnails are ideal).
+ *   - `sourceUrl` / `searchUrl`: render a caption row under the image with
+ *     a link to the original source and/or a reverse-image search.
  */
 export default function Lightbox({ open, onClose, images, index = 0 }) {
   const list = Array.isArray(images) ? images.filter((im) => im?.src) : [];
   const count = list.length;
   const [active, setActive] = useState(index);
+  const [loadedSrcs, setLoadedSrcs] = useState(() => new Set());
+  const markLoaded = useCallback((src) => {
+    setLoadedSrcs((prev) => (prev.has(src) ? prev : new Set(prev).add(src)));
+  }, []);
 
   // Sync external index changes (e.g. opening to a different starting
   // image without unmounting). Also re-clamp when the source list shrinks.
@@ -52,6 +65,25 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   if (count === 0) return null;
   const current = list[active] || list[0];
   const alt = current.alt || '';
+  // With intrinsic dimensions we can size the box before the file arrives:
+  // natural width, clamped by the panel width and by the viewport-height
+  // budget (transferred through the aspect ratio). Without them the image
+  // sizes itself on load, as before.
+  const ratio = current.width > 0 && current.height > 0 ? current.width / current.height : null;
+  const reserveStyle = ratio
+    ? {
+        width: `min(${current.width}px, 100%, calc(var(--lightbox-maxh) * ${ratio.toFixed(5)}))`,
+        aspectRatio: `${current.width} / ${current.height}`,
+      }
+    : null;
+  const placeholderStyle =
+    current.thumb && !loadedSrcs.has(current.src)
+      ? {
+          backgroundImage: `url(${current.thumb})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }
+      : null;
   const label = alt
     ? `Image: ${alt}`
     : count > 1
@@ -73,9 +105,42 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
           key={current.src}
           src={current.src}
           alt={alt}
+          width={current.width || undefined}
+          height={current.height || undefined}
           className="lightbox-image"
           decoding="async"
+          onLoad={() => markLoaded(current.src)}
+          ref={(el) => {
+            // onLoad can be missed for cache hits that complete before
+            // React attaches the handler; the ref callback catches those.
+            if (el?.complete && el.naturalWidth) markLoaded(current.src);
+          }}
+          style={reserveStyle || placeholderStyle ? { ...reserveStyle, ...placeholderStyle } : undefined}
         />
+        {(current.sourceUrl || current.searchUrl) && (
+          <figcaption className="lightbox-caption">
+            {current.sourceUrl && (
+              <a
+                href={current.sourceUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="lightbox-caption-link"
+              >
+                source ↗
+              </a>
+            )}
+            {current.searchUrl && (
+              <a
+                href={current.searchUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="lightbox-caption-link"
+              >
+                reverse image search ↗
+              </a>
+            )}
+          </figcaption>
+        )}
       </figure>
       <footer className="lightbox-footer">
         {count > 1 && (

@@ -9,16 +9,7 @@
 // deliberately not VITE_-prefixed so Vite can never inline it into the
 // client bundle.
 
-import { ME_HANDLE } from '../config.js';
-
 const ARENA_API = 'https://api.are.na/v3';
-
-/** Are.na profile slug used for "view on are.na" links. */
-export const ARENA_USER = ME_HANDLE.split('.')[0];
-
-export function arenaChannelUrl(arenaSlug) {
-  return `https://www.are.na/${ARENA_USER}/${encodeURIComponent(arenaSlug)}`;
-}
 
 /** Build-time only: undefined in the browser. */
 export function arenaAccessToken() {
