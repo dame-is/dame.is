@@ -26,6 +26,10 @@
 //   - A channel whose are.na updated_at matches the stored copy is skipped
 //     entirely (no contents requests), so nightly runs only pay for what
 //     changed since yesterday.
+//   - To exclude a channel from backups permanently, set skip_backup = true
+//     on its arena_channels row (Supabase table editor). Its contents,
+//     blocks, and media stop being fetched; previously backed-up rows stay
+//     until you delete them yourself.
 //   - Blocks are upserted by id and never deleted; when a block vanishes
 //     from every channel it is flagged removed_at (see the
 //     arena_reconcile_removed function). Same for channels.
@@ -220,25 +224,35 @@ async function main() {
     stats.channels_total = channels.length;
     log(`${channels.length} channel(s) on the account`);
 
-    // 2. Which ones changed since the last run?
+    // 2. Which ones changed since the last run? (Owner-flagged skips are
+    //    excluded here, before any contents/media work happens.)
     const stored = new Map();
+    const skipped = new Set();
     if (!DRY_RUN) {
-      const rows = await sb('/rest/v1/arena_channels?select=id,updated_at_arena');
-      for (const r of rows) stored.set(r.id, r.updated_at_arena);
+      const rows = await sb('/rest/v1/arena_channels?select=id,updated_at_arena,skip_backup');
+      for (const r of rows) {
+        stored.set(r.id, r.updated_at_arena);
+        if (r.skip_backup) skipped.add(r.id);
+      }
     }
     const changed = channels.filter((ch) => {
+      if (skipped.has(ch.id)) return false;
       const prev = stored.get(ch.id);
       return !prev || new Date(prev).getTime() !== new Date(ch.updated_at).getTime();
     });
     stats.channels_changed = changed.length;
-    log(`${changed.length} changed since last backup`);
+    log(`${changed.length} changed since last backup${skipped.size ? `, ${skipped.size} flagged skip_backup` : ''}`);
 
     // 3. Upsert the channel list itself (refreshes titles/meta cheaply).
+    //    Skipped channels are left untouched — refreshing their
+    //    updated_at_arena would make a later un-skip look like "no change"
+    //    and their contents would never be re-fetched.
     const now = new Date().toISOString();
-    if (!DRY_RUN && channels.length > 0) {
+    const upsertable = channels.filter((ch) => !skipped.has(ch.id));
+    if (!DRY_RUN && upsertable.length > 0) {
       await sbUpsert(
         'arena_channels',
-        channels.map((ch) => ({
+        upsertable.map((ch) => ({
           id: ch.id,
           slug: ch.slug,
           title: ch.title || null,
