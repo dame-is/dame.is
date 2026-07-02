@@ -16,6 +16,7 @@
           "observationCount":  { "type": "integer" },
           "speciesCount":      { "type": "integer", "description": "Distinct species-rank taxa observed." },
           "distinctTaxaCount": { "type": "integer", "description": "Distinct taxa at any rank." },
+          "sessionCount":      { "type": "integer", "description": "Distinct mothing sessions (nights at the light, 8pm–3am)." },
           "qualityGrades": {
             "type": "object",
             "description": "Observation counts by iNaturalist quality grade.",

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { fetchMothData, photoUrl } from '../lib/inaturalist.js';
+import { fetchMothData, photoUrl, buildSessions } from '../lib/inaturalist.js';
 import { ME_DID, INATURALIST_USER } from '../config.js';
 import './Mothing.css';
 
@@ -17,11 +17,16 @@ function formatDate(d) {
   return `${MONTHS[Number(mo) - 1]} ${Number(day)}, ${y}`;
 }
 
-const QUALITY_LABEL = {
-  research: 'Research grade',
-  needs_id: 'Needs ID',
-  casual: 'Casual',
-};
+// Local 'HH:MM' → '8:47pm'. Wall-clock only; carries no location.
+function formatTime(hhmm) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(hhmm || ''));
+  if (!m) return '';
+  let h = Number(m[1]);
+  const min = m[2];
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  return `${h}:${min}${ampm}`;
+}
 
 function StatBlock({ value, label }) {
   if (value == null) return null;
@@ -41,14 +46,9 @@ function MothCard({ obs }) {
   const showSci = sci && sci !== title;
   return (
     <li className="mothing-cell">
-      <a
-        className="mothing-link"
-        href={obs.url}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <a className="mothing-link" href={obs.url} target="_blank" rel="noopener noreferrer">
         {src ? (
-          <img src={src} alt={obs.taxon?.commonName || obs.taxon?.name || 'Moth observation'} loading="lazy" />
+          <img src={src} alt={title} loading="lazy" />
         ) : (
           <div className="mothing-placeholder" aria-hidden="true">&#x1F98B;</div>
         )}
@@ -56,7 +56,7 @@ function MothCard({ obs }) {
           <h3 className="mothing-name">{title}</h3>
           {showSci && <span className="mothing-sci">{sci}</span>}
           <span className="gutter mothing-sub">
-            {obs.observedDate ? formatDate(obs.observedDate) : ''}
+            {obs.observedTime ? formatTime(obs.observedTime) : formatDate(obs.observedDate)}
             {obs.qualityGrade === 'research' ? ' · Research grade' : ''}
           </span>
         </div>
@@ -65,9 +65,29 @@ function MothCard({ obs }) {
   );
 }
 
+function SessionHeader({ session }) {
+  const parts = [`${session.observationCount} moth${session.observationCount === 1 ? '' : 's'}`];
+  if (session.speciesCount) parts.push(`${session.speciesCount} species`);
+  if (session.firstTime) {
+    parts.push(
+      session.lastTime && session.lastTime !== session.firstTime
+        ? `${formatTime(session.firstTime)}–${formatTime(session.lastTime)}`
+        : formatTime(session.firstTime),
+    );
+  }
+  return (
+    <header className="mothing-session-head">
+      <div className="mothing-session-headrow">
+        <span className="small-caps mothing-session-num">Session #{session.number}</span>
+        <h2 className="mothing-session-title">Night of {formatDate(session.date)}</h2>
+      </div>
+      <span className="gutter mothing-session-stats">{parts.join(' · ')}</span>
+    </header>
+  );
+}
+
 export default function Mothing() {
   const { title, intro } = usePageContent('mothing');
-  const [gradeFilter, setGradeFilter] = useState('all');
 
   const { items, status } = useLiveFeed({
     name: 'mothing',
@@ -86,12 +106,7 @@ export default function Mothing() {
   const stats = items?.stats || null;
   const observations = items?.observations || [];
 
-  const filtered = useMemo(() => {
-    if (gradeFilter === 'all') return observations;
-    const want = gradeFilter === 'research' ? 'research' : gradeFilter === 'needsId' ? 'needs_id' : 'casual';
-    return observations.filter((o) => o.qualityGrade === want);
-  }, [observations, gradeFilter]);
-
+  const { sessions, orphans } = useMemo(() => buildSessions(observations), [observations]);
   const grades = stats?.qualityGrades || {};
 
   return (
@@ -103,6 +118,7 @@ export default function Mothing() {
     >
       {stats && (
         <section className="mothing-stats" aria-label="Mothing stats">
+          <StatBlock value={stats.sessionCount ?? sessions.length} label="sessions" />
           <StatBlock value={stats.observationCount} label="observations" />
           <StatBlock value={stats.speciesCount} label="species" />
           <StatBlock value={grades.research} label="research grade" />
@@ -130,40 +146,42 @@ export default function Mothing() {
         </p>
       )}
 
-      {observations.length > 0 && (
-        <div className="mothing-filters" role="group" aria-label="Filter by quality grade">
-          {[
-            { key: 'all', label: `All ${stats?.observationCount ? `(${stats.observationCount})` : ''}`.trim() },
-            { key: 'research', label: `Research${grades.research ? ` (${grades.research})` : ''}` },
-            { key: 'needsId', label: `Needs ID${grades.needsId ? ` (${grades.needsId})` : ''}` },
-            { key: 'casual', label: `Casual${grades.casual ? ` (${grades.casual})` : ''}` },
-          ].map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className={`mothing-filter${gradeFilter === f.key ? ' is-active' : ''}`}
-              onClick={() => setGradeFilter(f.key)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      )}
-
       {loading && observations.length === 0 ? (
         <p className="placeholder-card">Loading moths&hellip;</p>
-      ) : filtered.length === 0 ? (
-        <p className="feed-empty">
-          {observations.length === 0
-            ? 'No moth observations yet.'
-            : 'No observations match that filter.'}
-        </p>
+      ) : observations.length === 0 ? (
+        <p className="feed-empty">No moth observations yet.</p>
       ) : (
-        <ul className="mothing-grid reveal-stagger">
-          {filtered.map((obs) => (
-            <MothCard key={obs.id} obs={obs} />
+        <div className="mothing-sessions">
+          {sessions.map((session) => (
+            <section key={session.date} className="mothing-session">
+              <SessionHeader session={session} />
+              <ul className="mothing-grid reveal-stagger">
+                {session.observations.map((obs) => (
+                  <MothCard key={obs.id} obs={obs} />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+
+          {orphans.length > 0 && (
+            <section className="mothing-session">
+              <header className="mothing-session-head">
+                <div className="mothing-session-headrow">
+                  <span className="small-caps mothing-session-num">Outside sessions</span>
+                  <h2 className="mothing-session-title">Daytime &amp; untimed</h2>
+                </div>
+                <span className="gutter mothing-session-stats">
+                  {orphans.length} observation{orphans.length === 1 ? '' : 's'}
+                </span>
+              </header>
+              <ul className="mothing-grid reveal-stagger">
+                {orphans.map((obs) => (
+                  <MothCard key={obs.id} obs={obs} />
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       )}
 
       <p className="mothing-source gutter">
@@ -171,7 +189,7 @@ export default function Mothing() {
         <a href={stats?.profileUrl || `https://www.inaturalist.org/people/${INATURALIST_USER}`} target="_blank" rel="noopener noreferrer">
           iNaturalist
         </a>
-        . Location data is intentionally omitted.
+        . A mothing session is one night at the light (8pm&ndash;3am). Location data is intentionally omitted.
       </p>
     </PageShell>
   );

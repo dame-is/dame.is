@@ -13,7 +13,8 @@
           "inatId":       { "type": "integer", "description": "The iNaturalist observation id." },
           "uuid":         { "type": "string" },
           "url":          { "type": "string", "format": "uri", "description": "Canonical iNaturalist observation URL." },
-          "observedDate": { "type": "string", "description": "Date of observation (YYYY-MM-DD). Time-of-day and timezone are omitted by design." },
+          "observedDate": { "type": "string", "description": "Date of observation (YYYY-MM-DD)." },
+          "observedTime": { "type": "string", "description": "Local time of observation (HH:MM), timezone offset stripped by design so it reveals when-in-the-day but never where." },
           "qualityGrade": { "type": "string", "description": "iNaturalist quality grade: research | needs_id | casual." },
           "description":  { "type": "string", "maxLength": 5000 },
           "taxon": {
