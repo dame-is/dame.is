@@ -5,7 +5,7 @@ import Lightbox from '../components/Lightbox.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, getRecord } from '../lib/atproto.js';
-import { fetchChannelMeta, fetchAllBlocks, arenaChannelUrl } from '../lib/arena.js';
+import { fetchChannelMeta, fetchAllBlocks } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Curating.css';
 
@@ -20,6 +20,10 @@ function hostname(url) {
   } catch {
     return null;
   }
+}
+
+function reverseSearchUrl(imageUrl) {
+  return `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
 }
 
 export default function CuratingChannel() {
@@ -56,7 +60,6 @@ export default function CuratingChannel() {
           title: v.title || meta?.title || slug,
           description: v.description || meta?.description || '',
           blockCount: blocks.length,
-          arenaUrl: arenaChannelUrl(v.arenaSlug),
         },
         truncated,
         blocks,
@@ -112,20 +115,11 @@ export default function CuratingChannel() {
       }
     >
       <div className="curating-channel-meta gutter">
-        <span>{gallery.blockCount} blocks</span>
-        <span aria-hidden="true">·</span>
-        <a href={gallery.arenaUrl} target="_blank" rel="noreferrer noopener">
-          view on are.na ↗
-        </a>
+        <span>{gallery.blockCount} images</span>
       </div>
 
       {blocks.length === 0 ? (
-        <p className="feed-empty">
-          No images in this channel yet.{' '}
-          <a href={gallery.arenaUrl} target="_blank" rel="noreferrer noopener">
-            See it on are.na.
-          </a>
-        </p>
+        <p className="feed-empty">No images in this gallery yet.</p>
       ) : (
         <>
           <ul className="curating-block-grid reveal-stagger">
@@ -154,18 +148,22 @@ export default function CuratingChannel() {
           </ul>
           {truncated && (
             <p className="curating-truncated gutter">
-              Showing the first {blocks.length} blocks —{' '}
-              <a href={gallery.arenaUrl} target="_blank" rel="noreferrer noopener">
-                see the rest on are.na
-              </a>
-              .
+              Showing the first {blocks.length} images.
             </p>
           )}
           <Lightbox
             open={lightbox >= 0}
             index={Math.max(0, lightbox)}
             onClose={() => setLightbox(-1)}
-            images={blocks.map((b) => ({ src: b.large, alt: b.alt }))}
+            images={blocks.map((b) => ({
+              src: b.large,
+              alt: b.alt,
+              width: b.width || undefined,
+              height: b.height || undefined,
+              thumb: b.thumb?.src || undefined,
+              sourceUrl: b.sourceUrl || undefined,
+              searchUrl: reverseSearchUrl(b.large),
+            }))}
           />
         </>
       )}

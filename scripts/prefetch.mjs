@@ -46,7 +46,6 @@ import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
 import {
   fetchChannelMeta,
   fetchAllBlocks,
-  arenaChannelUrl,
   arenaAccessToken,
 } from '../src/lib/arena.js';
 import {
@@ -191,7 +190,6 @@ async function main() {
       title: g.value.title || snap.meta?.title || g.rkey,
       description: g.value.description || snap.meta?.description || '',
       blockCount: snap.blocks.length,
-      arenaUrl: arenaChannelUrl(g.value.arenaSlug),
       cover: snap.blocks[0]?.thumb || null,
       order: g.value.order ?? 0,
     };

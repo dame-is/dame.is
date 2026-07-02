@@ -54,7 +54,7 @@ export const PAGE_REGISTRY = {
     slug: 'curating',
     label: 'Curating',
     title: 'Curating',
-    intro: 'Galleries of images collected on Are.na.',
+    intro: 'Galleries of images I’ve been collecting.',
     collection: COLLECTIONS.arenaChannel,
   },
   sharing: {

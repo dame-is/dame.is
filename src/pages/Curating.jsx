@@ -5,12 +5,7 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
-import {
-  fetchChannelMeta,
-  fetchChannelPage,
-  normalizeBlock,
-  arenaChannelUrl,
-} from '../lib/arena.js';
+import { fetchChannelMeta, fetchChannelPage, normalizeBlock } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Curating.css';
@@ -54,7 +49,6 @@ async function loadGalleries() {
         title: g.value.title || meta?.title || g.rkey,
         description: g.value.description || meta?.description || '',
         blockCount: meta?.counts?.blocks ?? null,
-        arenaUrl: arenaChannelUrl(g.value.arenaSlug),
         cover,
         order: g.value.order ?? 0,
       });
@@ -105,10 +99,9 @@ export default function Curating() {
                   <div className="creating-grid-placeholder" aria-hidden="true">&#x273A;</div>
                 )}
                 <div className="creating-grid-meta">
-                  <span className="small-caps creating-grid-kind">are.na</span>
                   <h3 className="creating-grid-title">{g.title}</h3>
                   {g.blockCount != null && (
-                    <span className="gutter">{g.blockCount} blocks</span>
+                    <span className="gutter">{g.blockCount} images</span>
                   )}
                 </div>
               </Link>

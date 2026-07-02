@@ -45,8 +45,11 @@
   display: block;
   max-width: 100%;
   /* Leave headroom for the footer (close button) underneath so it
-     doesn't get pushed off-screen on short viewports. */
-  max-height: calc(100dvh - 8rem);
+     doesn't get pushed off-screen on short viewports. The budget is a
+     variable because entries with known dimensions also use it to
+     reserve the display box inline before the image loads. */
+  --lightbox-maxh: calc(100dvh - 8rem);
+  max-height: var(--lightbox-maxh);
   width: auto;
   height: auto;
   object-fit: contain;
@@ -54,6 +57,37 @@
   border-radius: var(--radius-2);
   background: var(--page-edge);
   box-shadow: 0 16px 40px var(--shadow);
+}
+
+/* Optional caption row directly under the image — source / reverse-image
+   search links for the current photo. Same scrim-friendly chrome as the
+   footer text so it reads as part of the control cluster. */
+.lightbox-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.lightbox-caption-link {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: var(--ink-on-scrim, #fff);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  opacity: 0.8;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.lightbox-caption-link:hover,
+.lightbox-caption-link:focus-visible {
+  opacity: 1;
 }
 
 /* Footer beneath the image — holds the close button and (for
@@ -142,6 +176,6 @@
 
 @media (max-width: 540px) {
   .lightbox-image {
-    max-height: calc(100dvh - 7rem);
+    --lightbox-maxh: calc(100dvh - 7rem);
   }
 }
