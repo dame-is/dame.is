@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { fetchMothData, photoUrl, buildSessions } from '../lib/inaturalist.js';
+import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
 import { ME_DID, INATURALIST_USER } from '../config.js';
 import './Mothing.css';
 
@@ -92,7 +93,23 @@ export default function Mothing() {
   const { items, status } = useLiveFeed({
     name: 'mothing',
     strategy: 'snapshot-first',
-    fetchLive: () => fetchMothData({ user: INATURALIST_USER }),
+    // The snapshot is refreshed on every build (≤6h old). Before re-pulling
+    // all observations, take a cheap signature and, if it matches the
+    // snapshot's, reuse the snapshot instead of downloading everything again.
+    fetchLive: async () => {
+      const snap = await fetchSnapshot('mothing');
+      if (snap?.sync?.latestUpdatedAt) {
+        try {
+          const sig = await fetchMothSignature({ user: INATURALIST_USER });
+          if (sig.count === snap.sync.count && sig.latestUpdatedAt === snap.sync.latestUpdatedAt) {
+            return snap; // nothing changed upstream — no full pull needed
+          }
+        } catch {
+          // Signature check failed — fall through to a normal full fetch.
+        }
+      }
+      return fetchMothData({ user: INATURALIST_USER });
+    },
     mapItems: (data) => {
       if (!data) return null;
       return {

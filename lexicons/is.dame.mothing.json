@@ -28,6 +28,7 @@
           },
           "earliestDate": { "type": "string", "description": "Date of the earliest observation (YYYY-MM-DD)." },
           "latestDate":   { "type": "string", "description": "Date of the most recent observation (YYYY-MM-DD)." },
+          "lastSyncedAt": { "type": "string", "format": "datetime", "description": "UTC instant of the most recent upstream edit seen; the incremental mirror's freshness marker." },
           "topSpecies": {
             "type": "array",
             "description": "Most-observed taxa, most first.",

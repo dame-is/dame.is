@@ -23,13 +23,31 @@ import {
 
 const PER_PAGE = 200; // iNaturalist's max page size.
 
+// iNaturalist asks API consumers to identify themselves. Sent from Node
+// (prefetch / mirror / cron); browsers forbid setting User-Agent and silently
+// drop it, which is fine — this is politeness for the server-side callers.
+const USER_AGENT = 'dame.is-mothing/1.0 (+https://dame.is/mothing; iNaturalist mirror)';
+
 async function fetchJson(url) {
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`iNaturalist HTTP ${res.status} for ${url} :: ${text.slice(0, 160)}`);
   }
   return res.json();
+}
+
+/**
+ * Normalize an iNaturalist `updated_at` (which carries a tz offset — a coarse
+ * location hint) to a UTC instant string. Used only as an opaque freshness
+ * signature; never persisted to a PDS record.
+ */
+export function toUtcInstant(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 /**
@@ -211,10 +229,13 @@ function nightMinutes(o) {
 }
 
 /**
- * Fetch every moth observation for a user, newest first, and normalize it.
- * Auto-paginates up to `max`. Location is stripped by `normalizeObservation`.
+ * Fetch moth observations for a user, newest first, and normalize them.
+ * Auto-paginates up to `max`. Pass `since` (an ISO instant) to fetch only
+ * observations changed since then via iNaturalist's `updated_since` — the
+ * incremental path the mirror uses so it re-pulls only what actually moved.
+ * Location is stripped by `normalizeObservation`.
  */
-export async function fetchMothObservations({ user = INATURALIST_USER, max = 1000 } = {}) {
+export async function fetchMothObservations({ user = INATURALIST_USER, max = 1000, since = null } = {}) {
   const out = [];
   let page = 1;
   while (out.length < max) {
@@ -225,6 +246,7 @@ export async function fetchMothObservations({ user = INATURALIST_USER, max = 100
       order: 'desc',
       order_by: 'observed_on',
     });
+    if (since) params.set('updated_since', since);
     const data = await fetchJson(`${INATURALIST_API}/observations?${params}`);
     const batch = Array.isArray(data?.results) ? data.results : [];
     for (const o of batch) {
@@ -236,6 +258,95 @@ export async function fetchMothObservations({ user = INATURALIST_USER, max = 100
     page += 1;
   }
   return out;
+}
+
+/**
+ * A cheap freshness signature for the moth set: one tiny request that returns
+ * the total count plus the most-recent edit instant (in UTC). Comparing this
+ * against a stored signature tells us whether a full pull is even needed —
+ * without downloading every observation.
+ */
+export async function fetchMothSignature({ user = INATURALIST_USER } = {}) {
+  const params = new URLSearchParams({
+    ...baseParams(user),
+    per_page: '1',
+    order: 'desc',
+    order_by: 'updated_at',
+  });
+  const data = await fetchJson(`${INATURALIST_API}/observations?${params}`);
+  return {
+    count: data?.total_results ?? 0,
+    latestUpdatedAt: toUtcInstant(data?.results?.[0]?.updated_at) || null,
+  };
+}
+
+/**
+ * Fetch just the current observation ids (authoritative set). Used by the
+ * mirror to reconcile deletions — iNaturalist's `updated_since` never reports
+ * removals, so when counts disagree we diff against the live id list.
+ */
+export async function fetchMothIds({ user = INATURALIST_USER, max = 10000 } = {}) {
+  const ids = [];
+  let page = 1;
+  while (ids.length < max) {
+    const params = new URLSearchParams({
+      ...baseParams(user),
+      per_page: String(PER_PAGE),
+      page: String(page),
+      order: 'asc',
+      order_by: 'id',
+      only_id: 'true',
+    });
+    const data = await fetchJson(`${INATURALIST_API}/observations?${params}`);
+    const batch = Array.isArray(data?.results) ? data.results : [];
+    for (const o of batch) if (o?.id != null) ids.push(o.id);
+    const total = data?.total_results ?? ids.length;
+    if (batch.length === 0 || ids.length >= total) break;
+    page += 1;
+  }
+  return ids;
+}
+
+/**
+ * Reconstruct a normalized observation from a stored
+ * `is.dame.mothing.observation` record value. Lets the mirror rebuild the
+ * full set from the PDS copy and overlay only the changed observations,
+ * instead of re-downloading everything from iNaturalist.
+ */
+export function observationFromRecord(v) {
+  if (!v) return null;
+  const observedTime = v.observedTime || null;
+  const observedHour = observedTime
+    ? Number(observedTime.slice(0, 2))
+    : Number.isInteger(v.observedHour)
+      ? v.observedHour
+      : null;
+  const t = v.taxon || {};
+  return {
+    id: v.inatId,
+    uuid: v.uuid || null,
+    url: v.url || null,
+    observedDate: v.observedDate || null,
+    observedTime,
+    observedHour,
+    qualityGrade: v.qualityGrade || null,
+    description: v.description || null,
+    taxon: {
+      id: t.id ?? null,
+      name: t.name || null,
+      commonName: t.commonName || null,
+      rank: t.rank || null,
+      iconicTaxon: t.iconicTaxon || null,
+    },
+    photos: Array.isArray(v.photos)
+      ? v.photos.map((p) => ({
+          id: p.id,
+          url: p.url,
+          licenseCode: p.licenseCode || null,
+          attribution: p.attribution || null,
+        }))
+      : [],
+  };
 }
 
 /**
@@ -310,9 +421,12 @@ export function computeStats(observations, { user = INATURALIST_USER } = {}) {
  * caller stamps).
  */
 export async function fetchMothData({ user = INATURALIST_USER, max = 1000 } = {}) {
+  // Signature first, so a change during pagination trips the next comparison
+  // (self-healing) rather than being silently baked into a stale snapshot.
+  const sync = await fetchMothSignature({ user }).catch(() => null);
   const observations = await fetchMothObservations({ user, max });
   const stats = computeStats(observations, { user });
-  return { user, stats, observations };
+  return { user, stats, observations, sync };
 }
 
 /* ------------------------------------------------------------------ */

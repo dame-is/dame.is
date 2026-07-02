@@ -46,16 +46,25 @@ Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.
 The page paints from the build-time `public/data/mothing.json` snapshot and
 refreshes live from the iNaturalist API in the browser.
 
-To also keep an owned copy on the PDS, run the mirror (idempotent):
+To also keep an owned copy on the PDS, run the mirror:
 
 ```sh
 BSKY_IDENTIFIER=dame.is BSKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx \
-  node scripts/mirror-inaturalist.mjs           # add --prune to drop removed obs
+  node scripts/mirror-inaturalist.mjs           # --full to force a complete resync
 ```
 
-A daily Vercel cron (`/api/mirror-mothing`, see `vercel.json`) does the same
-using `BSKY_APP_PASSWORD` (+ optional `BSKY_IDENTIFIER`) from the environment;
-set `CRON_SECRET` to lock the endpoint down.
+The mirror is incremental: a cheap freshness check (one small request) skips
+the run entirely when nothing changed; otherwise it re-pulls only observations
+changed since the last sync (via iNaturalist's `updated_since`), writes just
+those plus the refreshed summary, and deletes records for observations removed
+upstream. `--dry-run` plans without writing; `--full` ignores the freshness
+marker. A daily Vercel cron (`/api/mirror-mothing`, see `vercel.json`) runs the
+same sync using `BSKY_APP_PASSWORD` (+ optional `BSKY_IDENTIFIER`); set
+`CRON_SECRET` to lock the endpoint down.
+
+The `/mothing` page applies the same freshness check in the browser: it paints
+from the snapshot and only re-pulls the full observation set from iNaturalist
+when the cheap signature says something actually changed.
 
 ## Local development
 
