@@ -11,6 +11,13 @@
 
 const ARENA_API = 'https://api.are.na/v3';
 
+// Courtesy identification for build-time requests so are.na can see who
+// is calling. Node only — browsers forbid setting User-Agent, but their
+// requests already carry an Origin/Referer of dame.is.
+const ARENA_USER_AGENT = 'dame.is prefetch (+https://dame.is)';
+
+const IS_NODE = typeof process !== 'undefined' && Boolean(process.versions?.node);
+
 /** Build-time only: undefined in the browser. */
 export function arenaAccessToken() {
   return typeof process !== 'undefined' ? process.env?.ARENA_ACCESS_TOKEN : undefined;
@@ -18,8 +25,11 @@ export function arenaAccessToken() {
 
 async function arenaJson(path) {
   const token = arenaAccessToken();
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (IS_NODE) headers['User-Agent'] = ARENA_USER_AGENT;
   const res = await fetch(`${ARENA_API}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    headers: Object.keys(headers).length ? headers : undefined,
   });
   if (!res.ok) {
     const err = new Error(`are.na HTTP ${res.status} for ${path}`);
