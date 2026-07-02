@@ -65,17 +65,18 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   if (count === 0) return null;
   const current = list[active] || list[0];
   const alt = current.alt || '';
-  // With intrinsic dimensions we can size the box before the file arrives:
-  // natural width, clamped by the panel width and by the viewport-height
-  // budget (transferred through the aspect ratio). Without them the image
-  // sizes itself on load, as before.
+  const hasCaption = Boolean(current.sourceUrl || current.searchUrl);
+  // With intrinsic dimensions we can size the frame before the file
+  // arrives: natural width, clamped by the panel width and by the
+  // viewport-height budget (transferred through the aspect ratio, minus
+  // the caption bar when there is one). Without them the image sizes
+  // itself on load, as before.
   const ratio = current.width > 0 && current.height > 0 ? current.width / current.height : null;
-  const reserveStyle = ratio
+  const frameStyle = ratio
     ? {
-        width: `min(${current.width}px, 100%, calc(var(--lightbox-maxh) * ${ratio.toFixed(5)}))`,
-        aspectRatio: `${current.width} / ${current.height}`,
+        width: `min(${current.width}px, 100%, calc((var(--lightbox-maxh) - var(--lightbox-caption-h, 0rem)) * ${ratio.toFixed(5)}))`,
       }
-    : null;
+    : undefined;
   const placeholderStyle =
     current.thumb && !loadedSrcs.has(current.src)
       ? {
@@ -84,6 +85,13 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
           backgroundPosition: 'center',
         }
       : null;
+  const imageStyle = ratio
+    ? {
+        width: '100%',
+        aspectRatio: `${current.width} / ${current.height}`,
+        ...placeholderStyle,
+      }
+    : placeholderStyle || undefined;
   const label = alt
     ? `Image: ${alt}`
     : count > 1
@@ -101,46 +109,51 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       scrimLabel="Close image"
     >
       <figure className="lightbox-figure">
-        <img
-          key={current.src}
-          src={current.src}
-          alt={alt}
-          width={current.width || undefined}
-          height={current.height || undefined}
-          className="lightbox-image"
-          decoding="async"
-          onLoad={() => markLoaded(current.src)}
-          ref={(el) => {
-            // onLoad can be missed for cache hits that complete before
-            // React attaches the handler; the ref callback catches those.
-            if (el?.complete && el.naturalWidth) markLoaded(current.src);
-          }}
-          style={reserveStyle || placeholderStyle ? { ...reserveStyle, ...placeholderStyle } : undefined}
-        />
-        {(current.sourceUrl || current.searchUrl) && (
-          <figcaption className="lightbox-caption">
-            {current.sourceUrl && (
-              <a
-                href={current.sourceUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="lightbox-caption-link"
-              >
-                source ↗
-              </a>
-            )}
-            {current.searchUrl && (
-              <a
-                href={current.searchUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="lightbox-caption-link"
-              >
-                reverse image search ↗
-              </a>
-            )}
-          </figcaption>
-        )}
+        <div
+          className={`lightbox-frame${hasCaption ? ' has-caption' : ''}`}
+          style={frameStyle}
+        >
+          <img
+            key={current.src}
+            src={current.src}
+            alt={alt}
+            width={current.width || undefined}
+            height={current.height || undefined}
+            className="lightbox-image"
+            decoding="async"
+            onLoad={() => markLoaded(current.src)}
+            ref={(el) => {
+              // onLoad can be missed for cache hits that complete before
+              // React attaches the handler; the ref callback catches those.
+              if (el?.complete && el.naturalWidth) markLoaded(current.src);
+            }}
+            style={imageStyle}
+          />
+          {hasCaption && (
+            <div className="lightbox-caption">
+              {current.sourceUrl && (
+                <a
+                  href={current.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="lightbox-caption-link"
+                >
+                  source
+                </a>
+              )}
+              {current.searchUrl && (
+                <a
+                  href={current.searchUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="lightbox-caption-link"
+                >
+                  reverse image search
+                </a>
+              )}
+            </div>
+          )}
+        </div>
       </figure>
       <footer className="lightbox-footer">
         {count > 1 && (
