@@ -6,6 +6,7 @@ import StatusEntry from '../components/StatusEntry.jsx';
 import ListenRow from '../components/ListenRow.jsx';
 import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
+import MothCard from '../components/cards/MothCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
@@ -248,6 +249,8 @@ function RecordBody({ verb, item, collection }) {
       return <BlogCard {...item} />;
     case 'creating':
       return <CreatingCard {...item} />;
+    case 'mothing':
+      return <MothCard {...item} />;
     default:
       return <GenericRecordBody verb={verb} item={item} collection={collection} />;
   }

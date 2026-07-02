@@ -12,6 +12,18 @@ export const GITHUB_REPO = 'dame-is/dame.is';
 export const APPVIEW = 'https://public.api.bsky.app';
 export const PLC_DIRECTORY = 'https://plc.directory';
 
+// --- iNaturalist / mothing -------------------------------------------------
+// The /mothing page + PDS mirror pull moth observations from iNaturalist.
+// "Moths" = Lepidoptera (47157) minus butterflies (Papilionoidea, 47224),
+// since iNat has no single "moths" taxon. Location data is intentionally
+// never ingested — see src/lib/inaturalist.js.
+export const INATURALIST_USER = 'anisota';
+export const INATURALIST_API = 'https://api.inaturalist.org/v1';
+export const LEPIDOPTERA_TAXON_ID = 47157; // moths + butterflies
+export const BUTTERFLY_TAXON_ID = 47224; // Papilionoidea, excluded
+export const MOTHING_NSID = 'is.dame.mothing';
+export const MOTHING_OBSERVATION_NSID = 'is.dame.mothing.observation';
+
 /**
  * Creative works and blog posts are both `site.standard.document` records;
  * the publication they belong to (their `site` field) decides which surface

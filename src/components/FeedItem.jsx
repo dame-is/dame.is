@@ -7,6 +7,7 @@ import ListenRow from './ListenRow.jsx';
 import CreatingCard from './CreatingCard.jsx';
 import ReferenceCard from './ReferenceCard.jsx';
 import MediaCard from './cards/MediaCard.jsx';
+import MothCard from './cards/MothCard.jsx';
 import ListCard from './cards/ListCard.jsx';
 import GeneratorCard from './cards/GeneratorCard.jsx';
 import CommentCard from './cards/CommentCard.jsx';
@@ -38,6 +39,7 @@ const RENDERERS = {
   CreatingCard,
   ReferenceCard,
   MediaCard,
+  MothCard,
   ListCard,
   GeneratorCard,
   CommentCard,

@@ -27,8 +27,35 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   from a LinkedIn/resume PDF with
   [`scripts/import-resume.mjs`](scripts/import-resume.mjs).
 - `is.dame.annotating` — stretch lexicon for book-style margin notes.
+- `is.dame.mothing` / `is.dame.mothing.observation` — a mirror of moth
+  observations from iNaturalist, rendered at `/mothing`. The summary singleton
+  lives at `at://{me}/is.dame.mothing/self`; one observation record per
+  iNaturalist observation is keyed by its iNat id. **No location data is ever
+  mirrored** — coordinates, place names, and timezone are stripped in
+  [`src/lib/inaturalist.js`](src/lib/inaturalist.js). Sync with
+  [`scripts/mirror-inaturalist.mjs`](scripts/mirror-inaturalist.mjs). Once
+  mirrored, observations also appear in the home feed under the `mothing`
+  verb, ordered by observation date.
 
 Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.
+
+## Mothing / iNaturalist
+
+`/mothing` reads moth observations for the iNaturalist user configured in
+`src/config.js` (`INATURALIST_USER`), scoped to Lepidoptera minus butterflies.
+The page paints from the build-time `public/data/mothing.json` snapshot and
+refreshes live from the iNaturalist API in the browser.
+
+To also keep an owned copy on the PDS, run the mirror (idempotent):
+
+```sh
+BSKY_IDENTIFIER=dame.is BSKY_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx \
+  node scripts/mirror-inaturalist.mjs           # add --prune to drop removed obs
+```
+
+A daily Vercel cron (`/api/mirror-mothing`, see `vercel.json`) does the same
+using `BSKY_APP_PASSWORD` (+ optional `BSKY_IDENTIFIER`) from the environment;
+set `CRON_SECRET` to lock the endpoint down.
 
 ## Local development
 
