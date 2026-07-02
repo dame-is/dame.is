@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord } from '../lib/atproto.js';
 import { fetchChannelMeta, fetchAllBlocks } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -52,7 +53,17 @@ export default function CuratingChannel() {
       const v = record?.value || {};
       if (!v.arenaSlug || v.enabled === false) return NOT_FOUND;
       const meta = await fetchChannelMeta(v.arenaSlug);
-      const { blocks, truncated } = await fetchAllBlocks(v.arenaSlug);
+      // The meta call carries the channel's updated_at; when it matches
+      // the snapshot we already painted from, reuse those blocks instead
+      // of re-paginating the whole channel (the expensive part).
+      const snap = await fetchSnapshot(`curating-${slug}`).catch(() => null);
+      const snapIsCurrent =
+        snap?.gallery?.arenaSlug === v.arenaSlug &&
+        Boolean(snap?.gallery?.updatedAt) &&
+        snap.gallery.updatedAt === meta?.updated_at;
+      const { blocks, truncated } = snapIsCurrent
+        ? { blocks: snap.blocks || [], truncated: !!snap.truncated }
+        : await fetchAllBlocks(v.arenaSlug);
       return {
         gallery: {
           slug,
@@ -60,6 +71,7 @@ export default function CuratingChannel() {
           title: v.title || meta?.title || slug,
           description: v.description || meta?.description || '',
           blockCount: blocks.length,
+          updatedAt: meta?.updated_at || null,
         },
         truncated,
         blocks,
