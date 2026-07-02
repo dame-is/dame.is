@@ -39,16 +39,34 @@
   width: 100%;
   max-height: 100%;
   min-height: 0;
+  /* Height budget for the image: leave headroom for the footer (close
+     button) underneath so it doesn't get pushed off-screen on short
+     viewports. A variable because entries with known dimensions also use
+     it to reserve the frame width inline before the image loads. */
+  --lightbox-maxh: calc(100dvh - 8rem);
+}
+
+/* Wrapper around the image and its optional attached caption bar, so the
+   two share a width, radius, and shadow and read as one surface. */
+.lightbox-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
+  min-height: 0;
+}
+
+.lightbox-frame.has-caption {
+  align-items: stretch;
+  border-radius: var(--radius-2);
+  box-shadow: 0 16px 40px var(--shadow);
+  /* Reserved by the frame-width calc so image + caption stay in budget. */
+  --lightbox-caption-h: 2.5rem;
 }
 
 .lightbox-image {
   display: block;
   max-width: 100%;
-  /* Leave headroom for the footer (close button) underneath so it
-     doesn't get pushed off-screen on short viewports. The budget is a
-     variable because entries with known dimensions also use it to
-     reserve the display box inline before the image loads. */
-  --lightbox-maxh: calc(100dvh - 8rem);
   max-height: var(--lightbox-maxh);
   width: auto;
   height: auto;
@@ -59,18 +77,27 @@
   box-shadow: 0 16px 40px var(--shadow);
 }
 
-/* Optional caption row directly under the image — source / reverse-image
-   search links for the current photo. Same scrim-friendly chrome as the
-   footer text so it reads as part of the control cluster. */
+.lightbox-frame.has-caption .lightbox-image {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
+}
+
+/* Caption bar attached beneath the image — source / reverse-image search
+   links for the current photo. Continues the image's border and rounds
+   off its bottom corners. */
 .lightbox-caption {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: var(--space-3);
-  width: 100%;
-  margin-top: var(--space-2);
-  padding: 0 var(--space-2);
+  gap: var(--space-4);
+  min-height: 2.5rem;
+  padding: var(--space-1) var(--space-3);
+  background: var(--page-edge);
+  border: 1px solid var(--rule);
+  border-top: 1px solid var(--rule-soft);
+  border-radius: 0 0 var(--radius-2) var(--radius-2);
 }
 
 .lightbox-caption-link {
@@ -78,9 +105,8 @@
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: lowercase;
-  color: var(--ink-on-scrim, #fff);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-  opacity: 0.8;
+  color: var(--ink);
+  opacity: 0.75;
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -175,7 +201,7 @@
 }
 
 @media (max-width: 540px) {
-  .lightbox-image {
+  .lightbox-figure {
     --lightbox-maxh: calc(100dvh - 7rem);
   }
 }

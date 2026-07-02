@@ -51,6 +51,7 @@ async function loadGalleries() {
         blockCount: meta?.counts?.blocks ?? null,
         cover,
         order: g.value.order ?? 0,
+        updatedAt: meta?.updated_at || null,
       });
     } catch {
       // A channel that fails live just keeps its snapshot presence (if any).
