@@ -74,12 +74,25 @@ export function normalizeObservation(o) {
           attribution: p.attribution || null,
         }))
     : [];
+  // Local time-of-day only. iNaturalist's `time_observed_at` carries a tz
+  // offset (a coarse location hint) — we keep just the wall-clock "HH:MM"
+  // from it, which says *when* in the observer's day, never *where*.
+  const details = o.observed_on_details || {};
+  let observedHour = Number.isInteger(details.hour) ? details.hour : null;
+  let observedTime = null;
+  const wall = /T(\d{2}):(\d{2})/.exec(o.time_observed_at || '');
+  if (wall) {
+    observedTime = `${wall[1]}:${wall[2]}`;
+    if (observedHour == null) observedHour = Number(wall[1]);
+  }
   return {
     id: o.id,
     uuid: o.uuid || null,
     url: o.uri || (o.id ? `https://www.inaturalist.org/observations/${o.id}` : null),
     // Date only — never the tz-bearing `time_observed_at` / `created_at`.
     observedDate: o.observed_on_details?.date || o.observed_on || null,
+    observedTime, // local "HH:MM", offset stripped (or null)
+    observedHour, // local hour 0–23 (or null)
     qualityGrade: o.quality_grade || null,
     description: o.description || null,
     taxon: {
@@ -91,6 +104,110 @@ export function normalizeObservation(o) {
     },
     photos,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Mothing sessions                                                   */
+/*                                                                    */
+/* A "mothing session" is one night at the light: observations whose  */
+/* local time falls in the 8pm→3am window count as the same session,  */
+/* keyed by the evening's date (an after-midnight obs belongs to the  */
+/* night that began the previous evening). Uses local time-of-day     */
+/* only, so it reveals nothing about location.                        */
+/* ------------------------------------------------------------------ */
+
+export const SESSION_START_HOUR = 20; // 8pm — a session opens
+export const SESSION_END_HOUR = 3; // 3am — and closes
+
+function previousDay(dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateStr || ''));
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The session date (the evening a night belongs to) for one observation, or
+ * `null` when it falls outside the night window or has no known time.
+ */
+export function sessionDateFor(observedDate, observedHour) {
+  if (!observedDate || observedHour == null) return null;
+  if (observedHour >= SESSION_START_HOUR) return observedDate; // evening
+  if (observedHour < SESSION_END_HOUR) return previousDay(observedDate); // after midnight
+  return null; // daytime — not a mothing session
+}
+
+/**
+ * Group observations into numbered mothing sessions (oldest night = #1).
+ * Returns `{ sessions, sessionCount, orphans }` where `sessions` is sorted
+ * newest-first for display and each carries its own little stat block.
+ * `orphans` are daytime / untimed observations that aren't part of a night.
+ */
+export function buildSessions(observations) {
+  const obs = Array.isArray(observations) ? observations : [];
+  const byDate = new Map(); // sessionDate -> observations[]
+  const orphans = [];
+  for (const o of obs) {
+    const key = sessionDateFor(o.observedDate, o.observedHour);
+    if (!key) {
+      orphans.push(o);
+      continue;
+    }
+    if (!byDate.has(key)) byDate.set(key, []);
+    byDate.get(key).push(o);
+  }
+
+  // Number sessions chronologically (oldest = 1) for a stable ordinal.
+  const ascendingDates = Array.from(byDate.keys()).sort();
+  const numberByDate = new Map(ascendingDates.map((d, i) => [d, i + 1]));
+
+  const sessions = ascendingDates
+    .map((date) => summarizeSession(date, numberByDate.get(date), byDate.get(date)))
+    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)); // newest first
+
+  return { sessions, sessionCount: sessions.length, orphans };
+}
+
+function summarizeSession(date, number, observations) {
+  const items = observations
+    .slice()
+    // Within a night, order by local time (evening → after-midnight).
+    .sort((a, b) => nightMinutes(a) - nightMinutes(b));
+  const species = new Set();
+  let research = 0;
+  const timed = items.filter((o) => o.observedTime);
+  for (const o of items) {
+    if (o.taxon?.id != null && (o.taxon.rank === 'species' || o.taxon.rank === 'subspecies')) {
+      species.add(o.taxon.id);
+    }
+    if (o.qualityGrade === 'research') research += 1;
+  }
+  return {
+    number,
+    date, // the evening's date (YYYY-MM-DD)
+    observations: items,
+    observationCount: items.length,
+    speciesCount: species.size,
+    researchCount: research,
+    firstTime: timed[0]?.observedTime || null,
+    lastTime: timed[timed.length - 1]?.observedTime || null,
+  };
+}
+
+// Minutes since the session opened at 8pm, from the observation's local
+// time, so an evening time (20:00–23:59) sorts before an after-midnight one
+// (00:00–02:59) and same-hour observations order by minute.
+function nightMinutes(o) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(o?.observedTime || ''));
+  const minutesOfDay =
+    m != null
+      ? Number(m[1]) * 60 + Number(m[2])
+      : o?.observedHour != null
+        ? o.observedHour * 60
+        : null;
+  if (minutesOfDay == null) return Number.MAX_SAFE_INTEGER;
+  return (minutesOfDay - SESSION_START_HOUR * 60 + 1440) % 1440;
 }
 
 /**
@@ -167,11 +284,14 @@ export function computeStats(observations, { user = INATURALIST_USER } = {}) {
       count: e.count,
     }));
 
+  const { sessionCount } = buildSessions(obs);
+
   return {
     user,
     observationCount: obs.length,
     speciesCount: speciesIds.size,
     distinctTaxaCount: distinctTaxa.size,
+    sessionCount,
     withPhotos,
     qualityGrades: grades,
     earliestDate: earliest,
@@ -217,6 +337,7 @@ export function mothingSummaryValue(stats, { now, user = INATURALIST_USER } = {}
     observationCount: stats?.observationCount ?? 0,
     speciesCount: stats?.speciesCount ?? 0,
     distinctTaxaCount: stats?.distinctTaxaCount ?? 0,
+    sessionCount: stats?.sessionCount ?? undefined,
     qualityGrades: stats?.qualityGrades || undefined,
     earliestDate: stats?.earliestDate || undefined,
     latestDate: stats?.latestDate || undefined,
@@ -227,23 +348,24 @@ export function mothingSummaryValue(stats, { now, user = INATURALIST_USER } = {}
 }
 
 /**
- * Turn a plain 'YYYY-MM-DD' observation date into a stable, location-free
- * timestamp for `createdAt` — noon UTC, which reveals nothing about where.
- * Deriving from the observation date (not the mirror run) keeps the record
- * idempotent and lets the home feed order moths by when they were seen
- * instead of clumping them all at the last sync.
+ * Turn a plain observation date + local time into a stable, location-free
+ * timestamp for `createdAt`. The local wall-clock is labeled `Z` — it is not
+ * a true UTC instant (that would need the tz offset we deliberately drop),
+ * but it reveals nothing about where and gives the feed correct ordering,
+ * including within a single night. Deriving from the observation (not the
+ * mirror run) keeps the record idempotent across syncs.
  */
-export function observedTimestamp(observedDate) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(observedDate || ''))
-    ? `${observedDate}T12:00:00.000Z`
-    : null;
+export function observedTimestamp(observedDate, observedTime) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(observedDate || ''))) return null;
+  const time = /^\d{2}:\d{2}$/.test(String(observedTime || '')) ? observedTime : '12:00';
+  return `${observedDate}T${time}:00.000Z`;
 }
 
 /** One `is.dame.mothing.observation/<inatId>` record value. */
 export function mothingObservationValue(obs, { now } = {}) {
-  // Stable timestamp from the observation date; fall back to the run time
-  // only for the rare observation with no date at all.
-  const ts = observedTimestamp(obs.observedDate) || now || new Date().toISOString();
+  // Stable timestamp from the observation date + local time; fall back to the
+  // run time only for the rare observation with no date at all.
+  const ts = observedTimestamp(obs.observedDate, obs.observedTime) || now || new Date().toISOString();
   const taxon = obs.taxon || {};
   return stripUndefined({
     $type: MOTHING_OBSERVATION_NSID,
@@ -251,6 +373,7 @@ export function mothingObservationValue(obs, { now } = {}) {
     uuid: obs.uuid || undefined,
     url: obs.url || undefined,
     observedDate: obs.observedDate || undefined,
+    observedTime: obs.observedTime || undefined,
     qualityGrade: obs.qualityGrade || undefined,
     description: obs.description || undefined,
     taxon: stripUndefined({
