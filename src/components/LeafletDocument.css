@@ -3,6 +3,9 @@
   font-size: 1.05rem;
   line-height: 1.6;
   color: var(--ink);
+  /* Long unbreakable tokens (bare URLs, AT URIs, NSIDs) must wrap instead of
+     pushing the column wide and forcing a horizontal scroll. */
+  overflow-wrap: break-word;
 }
 
 .leaflet-paragraph {
