@@ -367,9 +367,10 @@ function buildCrumbs(pathname) {
 
 /** True once the window is scrolled past `threshold` px from the top.
  *  Drives the tertiary breadcrumb: it slides down as you leave the top of
- *  the page and folds back up on return. Threshold roughly tracks the
- *  chrome bar's own height so the crumb doesn't flicker on tiny nudges. */
-function useScrolledDown(threshold = 64) {
+ *  the page and folds back up on return. The threshold is a few hundred px
+ *  so the crumb only appears once you've deliberately scrolled into the
+ *  page, not on the first small nudge away from the top. */
+function useScrolledDown(threshold = 220) {
   const [down, setDown] = useState(false);
   useEffect(() => {
     function onScroll() {
