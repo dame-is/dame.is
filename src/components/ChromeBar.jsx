@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
+import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -31,6 +32,16 @@ export default function ChromeBar() {
   const location = useLocation();
   // Pulse the brand mark whenever any live feed is currently refreshing.
   const refreshing = useSyncExternalStore(subscribeRefresh, isRefreshing, () => false);
+  // Brand mark: Dame's live Bluesky avatar (regenerated hourly to track the
+  // sun). Falls back to the floral glyph while it loads or if it fails.
+  const avatar = useAvatar();
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  const showAvatar = avatar && !avatarBroken;
+  // A new hourly avatar URL gets a fresh chance to load — clear any prior
+  // load failure whenever the URL turns over.
+  useEffect(() => {
+    setAvatarBroken(false);
+  }, [avatar]);
 
   // Tertiary chrome: a breadcrumb that slides down out of the top bar once
   // the page is scrolled away from its top, orienting you to where you are.
@@ -49,10 +60,20 @@ export default function ChromeBar() {
           <div className="chrome-cluster">
             <Link to="/" className="chrome-title">
               <span
-                className={`chrome-mark${refreshing ? ' is-refreshing' : ''}`}
+                className={`chrome-mark${refreshing ? ' is-refreshing' : ''}${showAvatar ? ' chrome-mark-avatar' : ''}`}
                 aria-hidden="true"
               >
-                &#x2767;
+                {showAvatar ? (
+                  <img
+                    key={avatar}
+                    className="chrome-mark-img"
+                    src={avatar}
+                    alt=""
+                    onError={() => setAvatarBroken(true)}
+                  />
+                ) : (
+                  '❧'
+                )}
               </span>
               <span className="chrome-name">dame.is</span>
               {refreshing && <span className="chrome-mark-sr-status">Updating live data</span>}
