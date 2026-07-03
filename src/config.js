@@ -38,6 +38,14 @@ export const MOTHING_OBSERVATION_NSID = 'is.dame.mothing.observation';
  */
 export const PORTFOLIO_PUBLICATION = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/site.standard.publication/3mpjrojpfzg2d';
 
+/**
+ * The blog publication ("dame's leaflets"). Standard docs pointing here render
+ * on `/blogging`. Used as the `site` value when migrating the legacy Eleventy
+ * markdown blog posts into `site.standard.document` records (see
+ * `src/lib/legacyBlog.js` and the admin "Legacy blog migration" panel).
+ */
+export const BLOG_PUBLICATION = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/site.standard.publication/3lpq72oeo3c2y';
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
