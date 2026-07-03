@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
@@ -7,7 +7,6 @@ import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
-import { isRefreshing, subscribeRefresh } from '../lib/feedCache.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
@@ -30,10 +29,9 @@ export default function ChromeBar() {
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
   const location = useLocation();
-  // Pulse the brand mark whenever any live feed is currently refreshing.
-  const refreshing = useSyncExternalStore(subscribeRefresh, isRefreshing, () => false);
   // Brand mark: Dame's live Bluesky avatar (regenerated hourly to track the
-  // sun). Falls back to the floral glyph while it loads or if it fails.
+  // sun). While it's loading — or if it ever fails — the mark simply isn't
+  // rendered rather than falling back to a glyph.
   const avatar = useAvatar();
   const [avatarBroken, setAvatarBroken] = useState(false);
   const showAvatar = avatar && !avatarBroken;
@@ -59,11 +57,8 @@ export default function ChromeBar() {
         <div className="chrome-bar-row chrome-bar-primary">
           <div className="chrome-cluster">
             <Link to="/" className="chrome-title">
-              <span
-                className={`chrome-mark${refreshing ? ' is-refreshing' : ''}${showAvatar ? ' chrome-mark-avatar' : ''}`}
-                aria-hidden="true"
-              >
-                {showAvatar ? (
+              {showAvatar && (
+                <span className="chrome-mark chrome-mark-avatar" aria-hidden="true">
                   <img
                     key={avatar}
                     className="chrome-mark-img"
@@ -71,12 +66,9 @@ export default function ChromeBar() {
                     alt=""
                     onError={() => setAvatarBroken(true)}
                   />
-                ) : (
-                  '❧'
-                )}
-              </span>
+                </span>
+              )}
               <span className="chrome-name">dame.is</span>
-              {refreshing && <span className="chrome-mark-sr-status">Updating live data</span>}
             </Link>
             <div className="chrome-signals chrome-signals-primary">
               <NowStatus />
