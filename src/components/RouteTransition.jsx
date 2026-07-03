@@ -1,4 +1,5 @@
-import { useLocation, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useLocation, useNavigationType, Routes } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 /**
@@ -18,7 +19,15 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
  */
 export default function RouteTransition({ children }) {
   const location = useLocation();
+  const navType = useNavigationType();
   const reduce = useReducedMotion();
+
+  // Reset scroll to the top on forward navigation so a new page starts at its
+  // top rather than inheriting the previous page's scroll offset. POP (back /
+  // forward) is left alone so the browser can restore the prior position.
+  useEffect(() => {
+    if (navType !== 'POP') window.scrollTo(0, 0);
+  }, [location.pathname, navType]);
 
   if (reduce) {
     return <Routes location={location}>{children}</Routes>;

@@ -67,6 +67,12 @@
 }
 
 .blog-article {
+  /* `width: 100%` is load-bearing: `.page` is a flex column, and the auto
+     margins below otherwise defeat flex stretch, letting the article size to
+     its max-content (clamped to --measure) and overflow narrow viewports.
+     Pinning width to the column keeps --measure a cap, not a floor. Mirrors
+     the same fix already applied to the sibling `.page-title` below. */
+  width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
 }
