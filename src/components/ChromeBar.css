@@ -95,9 +95,12 @@
   left: 0;
   right: 0;
   background: var(--surface-raised);
-  border-bottom: 1px solid var(--rule);
+  /* Keep this strip out of the browser's scroll-anchoring calculation so its
+     collapse never nudges the scroll position. */
+  overflow-anchor: none;
   /* inline `overflow: hidden` on the element animates the height reveal so
-     the strip unrolls downward from under the bar. */
+     the strip unrolls downward from under the bar. The bottom rule lives on
+     the inner row (not here) so nothing paints when collapsed to height 0. */
 }
 
 @media (min-width: 65rem) {
@@ -109,6 +112,7 @@
 
 .chrome-bar-tertiary {
   border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule);
   overflow: hidden;
   min-height: 0;
 }
