@@ -78,6 +78,75 @@
   padding: var(--space-3) 0;
 }
 
+/* Tertiary chrome: the scroll-driven breadcrumb strip. Sits below the
+   secondary (atmosphere) row when both are visible, separated by the same
+   soft hairline. Kept short so it reads as quiet orientation metadata. */
+.chrome-bar-tertiary {
+  border-top: 1px solid var(--rule-soft);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.chrome-breadcrumb {
+  width: 100%;
+  padding: var(--space-2) 0;
+  min-width: 0;
+}
+
+.chrome-crumbs {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 0.4em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  min-width: 0;
+}
+
+.chrome-crumb {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  min-width: 0;
+}
+
+.chrome-crumb-sep {
+  color: var(--ink-faint);
+  user-select: none;
+}
+
+.chrome-crumb-root {
+  color: var(--ink-faint);
+}
+
+.chrome-crumb-link {
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 120ms ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.chrome-crumb-link:hover,
+.chrome-crumb-link:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+.chrome-crumb-current {
+  color: var(--ink);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .chrome-title {
   display: inline-flex;
   align-items: baseline;

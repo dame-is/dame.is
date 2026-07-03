@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowUp, Compass, Home, Info, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -28,8 +28,16 @@ export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
+  const location = useLocation();
   // Pulse the brand mark whenever any live feed is currently refreshing.
   const refreshing = useSyncExternalStore(subscribeRefresh, isRefreshing, () => false);
+
+  // Tertiary chrome: a breadcrumb that slides down out of the top bar once
+  // the page is scrolled away from its top, orienting you to where you are.
+  // It only exists off the home page, and folds back up on the way to the top.
+  const crumbs = buildCrumbs(location.pathname);
+  const scrolledDown = useScrolledDown();
+  const showBreadcrumb = crumbs.length > 0 && scrolledDown;
 
   return (
     <>
@@ -121,6 +129,65 @@ export default function ChromeBar() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {showBreadcrumb && (
+            <motion.div
+              key="tertiary"
+              id="chrome-bar-tertiary"
+              className="chrome-bar-tertiary-wrap"
+              initial={{ height: 0 }}
+              animate={{ height: 'auto' }}
+              exit={{ height: 0 }}
+              transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="chrome-bar-row chrome-bar-tertiary">
+                <motion.nav
+                  className="chrome-breadcrumb"
+                  aria-label="Breadcrumb"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{
+                    duration: reduce ? 0 : 0.24,
+                    ease: [0.22, 0.61, 0.36, 1],
+                    delay: reduce ? 0 : 0.04,
+                  }}
+                >
+                  <ol className="chrome-crumbs">
+                    <li className="chrome-crumb">
+                      <Link to="/" className="chrome-crumb-link chrome-crumb-root" aria-label="Home">
+                        /
+                      </Link>
+                    </li>
+                    {crumbs.map((c, i) => {
+                      const last = i === crumbs.length - 1;
+                      return (
+                        <li key={c.to} className="chrome-crumb">
+                          {i > 0 && (
+                            <span className="chrome-crumb-sep" aria-hidden="true">
+                              /
+                            </span>
+                          )}
+                          {last ? (
+                            <span className="chrome-crumb-current" aria-current="page">
+                              {c.label}
+                            </span>
+                          ) : (
+                            <Link to={c.to} className="chrome-crumb-link">
+                              {c.label}
+                            </Link>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </motion.nav>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       <ChromeBarBottom dockOpen={dockOpen} toggleDock={toggleDock} />
@@ -131,6 +198,7 @@ export default function ChromeBar() {
 function ChromeBarBottom({ dockOpen, toggleDock }) {
   const [params] = useSearchParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchOpen, setSearchOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const reduce = useReducedMotion();
@@ -144,6 +212,19 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
   const onHomePage = location.pathname === '/';
+  // A "sub page" is anything nested one level deeper than a section index
+  // (e.g. /curating/:slug, /creating/:slug) — those get a back handle in
+  // the bottom bar that walks up to the section index (the breadcrumb parent).
+  const crumbs = buildCrumbs(location.pathname);
+  const isSubPage = crumbs.length >= 2;
+  const parentPath = isSubPage ? crumbs[crumbs.length - 2].to : '/';
+
+  function goBack() {
+    // Prefer real history so the back button mirrors the browser's, but fall
+    // back to the breadcrumb parent when this was a fresh/deep-linked load.
+    if (window.history.length > 1) navigate(-1);
+    else navigate(parentPath);
+  }
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
@@ -190,6 +271,16 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
+        {isSubPage && (
+          <button
+            type="button"
+            className="chrome-nav chrome-back-btn"
+            onClick={goBack}
+            aria-label="Go back"
+          >
+            <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          </button>
+        )}
         <AnimatePresence initial={false}>
           {scrolledPast > 0 && (
             <motion.span
@@ -253,6 +344,42 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
     </div>
   );
+}
+
+/** Split a pathname into breadcrumb crumbs, each `{ label, to }` where
+ *  `to` is the cumulative path up to and including that segment. The home
+ *  root (`/`) is rendered separately as the leading slash, so this returns
+ *  an empty array on the home page. Segments are URL-decoded for display. */
+function buildCrumbs(pathname) {
+  const parts = pathname.split('/').filter(Boolean);
+  const crumbs = [];
+  let acc = '';
+  for (const p of parts) {
+    acc += `/${p}`;
+    let label = p;
+    try {
+      label = decodeURIComponent(p);
+    } catch {}
+    crumbs.push({ label, to: acc });
+  }
+  return crumbs;
+}
+
+/** True once the window is scrolled past `threshold` px from the top.
+ *  Drives the tertiary breadcrumb: it slides down as you leave the top of
+ *  the page and folds back up on return. Threshold roughly tracks the
+ *  chrome bar's own height so the crumb doesn't flicker on tiny nudges. */
+function useScrolledDown(threshold = 64) {
+  const [down, setDown] = useState(false);
+  useEffect(() => {
+    function onScroll() {
+      setDown((window.scrollY || 0) > threshold);
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [threshold]);
+  return down;
 }
 
 /** True while the window is scrolled to (or within 1px of) the top.
