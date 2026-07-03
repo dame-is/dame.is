@@ -200,6 +200,23 @@
   transition: color 240ms ease;
 }
 
+/* When the mark is Dame's live avatar rather than the floral glyph, center
+   it against the wordmark's line box instead of sitting on the baseline. */
+.chrome-mark.chrome-mark-avatar {
+  align-self: center;
+  font-size: 1em;
+}
+
+.chrome-mark-img {
+  display: block;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--surface-2, rgba(0, 0, 0, 0.06));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
 .chrome-mark.is-refreshing {
   animation: chrome-mark-pulse 1.6s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
 }

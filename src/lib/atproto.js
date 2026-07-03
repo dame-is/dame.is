@@ -137,9 +137,11 @@ export async function listRecordsPage(
 /**
  * AppView — `app.bsky.actor.getProfile`.
  */
-export async function getProfile(actor, { appview = APPVIEW } = {}) {
+export async function getProfile(actor, { appview = APPVIEW, cache } = {}) {
   const url = `${appview}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`;
-  return fetchJson(url);
+  // `cache: 'no-store'` lets callers that need a *current* value (e.g. the
+  // hourly-changing avatar) bypass the browser HTTP cache.
+  return fetchJson(url, cache ? { cache } : undefined);
 }
 
 /**
