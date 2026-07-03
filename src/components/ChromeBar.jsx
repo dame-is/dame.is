@@ -130,32 +130,36 @@ export default function ChromeBar() {
           )}
         </AnimatePresence>
 
-        <AnimatePresence initial={false}>
-          {showBreadcrumb && (
-            <motion.div
-              key="tertiary"
-              id="chrome-bar-tertiary"
-              className="chrome-bar-tertiary-wrap"
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div className="chrome-bar-row chrome-bar-tertiary">
-                <motion.nav
-                  className="chrome-breadcrumb"
-                  aria-label="Breadcrumb"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{
-                    duration: reduce ? 0 : 0.24,
-                    ease: [0.22, 0.61, 0.36, 1],
-                    delay: reduce ? 0 : 0.04,
-                  }}
-                >
-                  <ol className="chrome-crumbs">
+        {/* Breadcrumb stays mounted the whole time we're off the home page and
+            only its height/opacity animate on scroll. Mounting/unmounting a DOM
+            node synchronously inside the scroll handler (as AnimatePresence did)
+            interrupted the browser's momentum scroll on the way up — the node
+            removal stalled the scroll. Persisting the node avoids that entirely
+            while keeping the same unroll look. */}
+        {crumbs.length > 0 && (
+          <motion.div
+            id="chrome-bar-tertiary"
+            className="chrome-bar-tertiary-wrap"
+            initial={false}
+            animate={{ height: showBreadcrumb ? 'auto' : 0 }}
+            transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
+            style={{ overflow: 'hidden' }}
+            inert={showBreadcrumb ? undefined : ''}
+            aria-hidden={showBreadcrumb ? undefined : true}
+          >
+            <div className="chrome-bar-row chrome-bar-tertiary">
+              <motion.nav
+                className="chrome-breadcrumb"
+                aria-label="Breadcrumb"
+                initial={false}
+                animate={{ opacity: showBreadcrumb ? 1 : 0, y: showBreadcrumb ? 0 : -6 }}
+                transition={{
+                  duration: reduce ? 0 : 0.24,
+                  ease: [0.22, 0.61, 0.36, 1],
+                  delay: reduce ? 0 : (showBreadcrumb ? 0.04 : 0),
+                }}
+              >
+                <ol className="chrome-crumbs">
                     <li className="chrome-crumb">
                       <Link to="/" className="chrome-crumb-link chrome-crumb-root" aria-label="Home">
                         /
@@ -182,12 +186,11 @@ export default function ChromeBar() {
                         </li>
                       );
                     })}
-                  </ol>
-                </motion.nav>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                </ol>
+              </motion.nav>
+            </div>
+          </motion.div>
+        )}
       </header>
 
       <ChromeBarBottom dockOpen={dockOpen} toggleDock={toggleDock} />
@@ -373,12 +376,20 @@ function buildCrumbs(pathname) {
 function useScrolledDown(threshold = 220) {
   const [down, setDown] = useState(false);
   useEffect(() => {
+    let frame = 0;
     function onScroll() {
-      setDown((window.scrollY || 0) > threshold);
+      // Coalesce through rAF so the state flip (and the height animation it
+      // drives) never runs synchronously inside the scroll event, keeping
+      // momentum scrolling smooth as the breadcrumb expands/collapses.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setDown((window.scrollY || 0) > threshold));
     }
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+    };
   }, [threshold]);
   return down;
 }
