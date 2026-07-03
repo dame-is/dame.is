@@ -9,6 +9,7 @@ import { resolvePds, listRecords } from '../lib/atproto.js';
 import { formatDateLong, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { getPostThread } from '../lib/atproto.js';
+import { transformRecords } from '../lib/feedBuilder.js';
 import { isPortfolioDoc } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
@@ -32,7 +33,16 @@ export default function BlogPost() {
     strategy: 'snapshot-first',
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 });
+      const records = await listRecords(pds, {
+        repo: ME_DID,
+        collection: COLLECTIONS.blogging,
+        max: 200,
+      });
+      // Bake `_url` onto image/cover blob refs (and a summary) so live-fetched
+      // posts — ones not yet in the prefetched snapshot — render their images.
+      // The snapshot path already does this at build time via transformRecords.
+      transformRecords(records, COLLECTIONS.blogging, pds, ME_DID);
+      return records;
     },
     mapItems: (data) => resolveById(data, id),
     deps: [id],
