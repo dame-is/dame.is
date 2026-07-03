@@ -21,6 +21,32 @@ const FACET = {
   code: { $type: 'pub.leaflet.richtext.facet#code' },
 };
 
+// marked HTML-escapes the `.text` of inline tokens (text, codespan, image alt
+// & title) — correct when it renders to HTML, but leaflet `plaintext` is shown
+// verbatim, so `"` must be a real quote, not `&quot;`. Decode named + numeric
+// entities in one left-to-right pass so `&amp;quot;` stays `&quot;`.
+const NAMED_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+export function decodeEntities(s) {
+  if (!s || s.indexOf('&') === -1) return s;
+  return s.replace(/&(#x[0-9a-f]+|#[0-9]+|[a-z][a-z0-9]*);/gi, (m, body) => {
+    if (body[0] === '#') {
+      const code =
+        body[1].toLowerCase() === 'x'
+          ? parseInt(body.slice(2), 16)
+          : parseInt(body.slice(1), 10);
+      if (!Number.isFinite(code) || code <= 0) return m;
+      try {
+        return String.fromCodePoint(code);
+      } catch {
+        return m;
+      }
+    }
+    const key = body.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, key) ? NAMED_ENTITIES[key] : m;
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Front matter                                                         */
 /* ------------------------------------------------------------------ */
@@ -171,10 +197,10 @@ function blockquoteBlocks(t) {
 function imageBlock(t) {
   const block = {
     $type: 'pub.leaflet.blocks.image',
-    alt: t.text || '',
+    alt: decodeEntities(t.text || ''),
     _src: t.href, // resolved to a blob ref at migrate time
   };
-  if (t.title) block.caption = t.title;
+  if (t.title) block.caption = decodeEntities(t.title);
   return block;
 }
 
@@ -238,7 +264,8 @@ export function inlineToRichText(tokens, baseFeatures = []) {
   let text = '';
   const facets = [];
 
-  const append = (str, features) => {
+  const append = (raw, features) => {
+    const str = decodeEntities(raw);
     if (!str) return;
     const start = byteLen(text);
     text += str;
