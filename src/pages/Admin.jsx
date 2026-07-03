@@ -10,6 +10,8 @@ import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
 
 const STANDARD_DOC = 'site.standard.document';
 import { knownPageSlugs, pageSlugForCollection } from '../lib/pageRegistry.js';
+import { LEGACY_POSTS, migratedSlugs, migratePost } from '../lib/legacyBlog.js';
+import { formatDateLong } from '../lib/time.js';
 import './Admin.css';
 
 /**
@@ -60,6 +62,9 @@ export default function Admin() {
 
   if (view === 'pages') {
     return <PagesOverview agent={agent} did={did} />;
+  }
+  if (view === 'legacy-blogs') {
+    return <LegacyBlogMigration agent={agent} did={did} />;
   }
   if (!collection) {
     return <CollectionPicker />;
@@ -177,6 +182,16 @@ function CollectionPicker() {
           <p className="admin-collection-summary">
             See which pages serve their title &amp; intro from the PDS vs hardcoded
             defaults, and migrate or revert them.
+          </p>
+        </li>
+        <li className="admin-collection-row">
+          <Link to="/admin?view=legacy-blogs" className="admin-collection-link">
+            <span className="admin-collection-label">Legacy blog migration</span>
+            <code className="admin-collection-nsid">{STANDARD_DOC}</code>
+          </Link>
+          <p className="admin-collection-summary">
+            The old Eleventy markdown blog posts, ready to publish to your PDS as
+            standard.site documents with one click.
           </p>
         </li>
         {primary.map(renderRow)}
@@ -467,6 +482,164 @@ function PagesOverview({ agent, did }) {
           ))}
         </div>
       )}
+    </PageShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Legacy blog migration                                                */
+/* ------------------------------------------------------------------ */
+
+function LegacyBlogMigration({ agent, did }) {
+  // Per-slug migration state: { status, message, href }.
+  const [state, setState] = useState({});
+  const [migrated, setMigrated] = useState(null); // Set of already-migrated slugs
+  const [loadError, setLoadError] = useState(null);
+  const [runningAll, setRunningAll] = useState(false);
+
+  const refreshMigrated = useCallback(async () => {
+    try {
+      const slugs = LEGACY_POSTS.map((p) => p.slug);
+      const res = await agent.com.atproto.repo.listRecords({
+        repo: did,
+        collection: STANDARD_DOC,
+        limit: 100,
+      });
+      const records = (res?.data || res)?.records || [];
+      setMigrated(migratedSlugs(records, slugs));
+    } catch (err) {
+      setLoadError(err?.message || String(err));
+      setMigrated(new Set());
+    }
+  }, [agent, did]);
+
+  useEffect(() => {
+    refreshMigrated();
+  }, [refreshMigrated]);
+
+  const runOne = useCallback(
+    async (post) => {
+      setState((s) => ({ ...s, [post.slug]: { status: 'running', message: 'Starting…' } }));
+      try {
+        const result = await migratePost({
+          agent,
+          did,
+          post,
+          onProgress: (message) =>
+            setState((s) => ({ ...s, [post.slug]: { status: 'running', message } })),
+        });
+        setState((s) => ({
+          ...s,
+          [post.slug]: { status: 'done', message: 'Migrated.', href: result.href },
+        }));
+        setMigrated((prev) => new Set(prev).add(post.slug));
+        return true;
+      } catch (err) {
+        setState((s) => ({
+          ...s,
+          [post.slug]: { status: 'error', message: err?.message || String(err) },
+        }));
+        return false;
+      }
+    },
+    [agent, did],
+  );
+
+  const runAll = useCallback(async () => {
+    setRunningAll(true);
+    // Sequential — image uploads are the bottleneck and this keeps the PDS
+    // write load gentle and the progress readable.
+    for (const post of LEGACY_POSTS) {
+      if (migrated?.has(post.slug)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      await runOne(post);
+    }
+    setRunningAll(false);
+  }, [migrated, runOne]);
+
+  const pendingCount = LEGACY_POSTS.filter((p) => !migrated?.has(p.slug)).length;
+
+  return (
+    <PageShell
+      title="Legacy blog migration"
+      intro="Publish the pre-rewrite Eleventy markdown posts to your PDS as standard.site blog documents. Images are uploaded as blobs and each post keeps its original slug, so old /blog links keep working. Re-running a migration overwrites the existing record rather than duplicating it."
+      headTitle="Legacy blog migration — Admin — Dame is…"
+    >
+      <div className="admin-toolbar">
+        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
+        <button
+          type="button"
+          className="admin-gate-button admin-gate-button-tight"
+          onClick={runAll}
+          disabled={runningAll || migrated == null || pendingCount === 0}
+        >
+          {runningAll
+            ? 'Migrating…'
+            : pendingCount === 0
+              ? 'All migrated'
+              : `Migrate all (${pendingCount})`}
+        </button>
+      </div>
+
+      {loadError && <p className="admin-error">Couldn’t check existing posts: {loadError}</p>}
+
+      <ul className="admin-record-list legacy-blog-list">
+        {LEGACY_POSTS.map((post) => {
+          const st = state[post.slug];
+          const isMigrated = migrated?.has(post.slug);
+          const busy = st?.status === 'running' || runningAll;
+          return (
+            <li key={post.slug} className="admin-record-row legacy-blog-row">
+              <div className="legacy-blog-main">
+                <div className="legacy-blog-head">
+                  <span className="legacy-blog-title">{post.title}</span>
+                  {isMigrated && <span className="small-caps legacy-blog-badge">migrated</span>}
+                </div>
+                <div className="legacy-blog-meta small-caps">
+                  {formatDateLong(post.publishedAt)}
+                  <span className="legacy-blog-dot">·</span>
+                  <code className="admin-record-rkey">/blogging/{post.slug}</code>
+                  {post.images.length > 0 && (
+                    <>
+                      <span className="legacy-blog-dot">·</span>
+                      {post.images.length} image{post.images.length === 1 ? '' : 's'}
+                    </>
+                  )}
+                </div>
+                {post.description && (
+                  <p className="legacy-blog-excerpt">{post.description}</p>
+                )}
+                {st?.message && (
+                  <p
+                    className={`legacy-blog-status${st.status === 'error' ? ' admin-error-inline' : ''}${
+                      st.status === 'done' ? ' admin-success' : ''
+                    }`}
+                  >
+                    {st.message}{' '}
+                    {st.status === 'done' && st.href && (
+                      <Link to={st.href} className="admin-link-subtle">View →</Link>
+                    )}
+                  </p>
+                )}
+              </div>
+              <div className="legacy-blog-actions">
+                <button
+                  type="button"
+                  className="admin-gate-button admin-gate-button-tight"
+                  onClick={() => runOne(post)}
+                  disabled={busy}
+                >
+                  {st?.status === 'running'
+                    ? 'Migrating…'
+                    : isMigrated
+                      ? 'Re-migrate'
+                      : 'Migrate'}
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </PageShell>
   );
 }
