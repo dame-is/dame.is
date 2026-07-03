@@ -20,7 +20,11 @@
   background: var(--surface-raised);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
-  overflow: hidden;
+  /* `visible` (not `hidden`) so the tertiary breadcrumb — absolutely
+     positioned at the header's bottom edge — can spill below the bar
+     instead of being clipped. The secondary/atmosphere wrap still clips
+     its own height animation via its inline `overflow: hidden`. */
+  overflow: visible;
   width: 100%;
   /* Chrome bar caps at 65rem — narrower than the page's 72rem main
      column, so on wide screens the bar sits as a tighter strip
@@ -78,9 +82,31 @@
   padding: var(--space-3) 0;
 }
 
-/* Tertiary chrome: the scroll-driven breadcrumb strip. Sits below the
-   secondary (atmosphere) row when both are visible, separated by the same
-   soft hairline. Kept short so it reads as quiet orientation metadata. */
+/* Tertiary chrome: the scroll-driven breadcrumb strip. It's absolutely
+   positioned at the header's bottom edge (top: 100%) rather than sitting in
+   the header's normal flow — so revealing it grows nothing in the document
+   and the page content beneath never shifts/jerks mid-scroll. It overlays
+   the top sliver of content while shown, reading as an extension of the
+   chrome. Anchored below the whole header, it naturally lands beneath the
+   secondary row when that's expanded too. */
+.chrome-bar-tertiary-wrap {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--rule);
+  /* inline `overflow: hidden` on the element animates the height reveal so
+     the strip unrolls downward from under the bar. */
+}
+
+@media (min-width: 65rem) {
+  .chrome-bar-tertiary-wrap {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
+}
+
 .chrome-bar-tertiary {
   border-top: 1px solid var(--rule-soft);
   overflow: hidden;
