@@ -6,6 +6,7 @@ import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
+import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { isPortfolioDoc } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -28,7 +29,15 @@ export default function Blogging() {
     strategy: 'snapshot-first',
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.blogging, max: 200 });
+      const records = await listRecords(pds, {
+        repo: ME_DID,
+        collection: COLLECTIONS.blogging,
+        max: 200,
+      });
+      // Match the snapshot path: bake blob `_url`s (and a summary fallback) so
+      // live-fetched posts render consistently with prefetched ones.
+      transformRecords(records, COLLECTIONS.blogging, pds, ME_DID);
+      return records;
     },
     mapItems: mergeBlogEntries,
   });
