@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
-import { getProfile } from '../lib/atproto.js';
+import { getProfile, resolvePds } from '../lib/atproto.js';
 import './SignInPanel.css';
 
 /**
@@ -19,6 +19,7 @@ export default function SignInPanel({ onAction }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [handle, setHandle] = useState(null);
+  const [pds, setPds] = useState(null);
 
   useEffect(() => {
     setHandle(null);
@@ -29,6 +30,22 @@ export default function SignInPanel({ onAction }) {
         if (cancelled) return;
         const h = profile?.handle;
         if (h && h !== 'handle.invalid') setHandle(h);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [did]);
+
+  // Resolve the signed-in user's PDS so we can link out to the account
+  // management page it hosts at `/account`.
+  useEffect(() => {
+    setPds(null);
+    if (!did) return undefined;
+    let cancelled = false;
+    resolvePds(did)
+      .then((url) => {
+        if (!cancelled) setPds(url);
       })
       .catch(() => {});
     return () => {
@@ -75,6 +92,18 @@ export default function SignInPanel({ onAction }) {
             <code className="signin-did" title={did || ''}>{shortDid(did)}</code>
           )}
         </div>
+        {pds && (
+          <a
+            className="dock-tool signin-account-link"
+            href={`${pds}/account`}
+            target="_blank"
+            rel="noreferrer noopener"
+            onClick={() => onAction?.()}
+          >
+            <span className="dock-tool-label">Account</span>
+            <span className="dock-tool-key" aria-hidden="true">↗</span>
+          </a>
+        )}
         <button type="button" className="dock-tool" onClick={handleSignOut}>
           <span className="dock-tool-label">Sign out</span>
           <span className="dock-tool-key">×</span>
