@@ -48,6 +48,35 @@
   max-width: 100%;
 }
 
+/* Head row for text-less posts (images / embed only): the verb gerund
+   sits at the start and the hoisted timestamp at the end, sharing one
+   line instead of leaving the time on a lonely row above the embed. */
+.feed-item-head {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.feed-item-head .feed-item-verb {
+  align-self: baseline;
+}
+
+.feed-item-head-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* The hoisted time is a copy of the card's own standalone-time row; show
+   exactly one. In normal density the hoisted copy wins, so hide the
+   in-card row. */
+[data-density='normal'] .feed-item:has(.feed-item-head-time) .post-card-row-meta {
+  display: none;
+}
+
 .feed-item-verb-icon {
   color: var(--ink-muted);
   transition: color 120ms ease;
@@ -1305,6 +1334,21 @@ a.reference-card-profile:focus-visible {
    that verb's icon without needing !important. */
 [data-density='compact'] .feed-item-verb:where(:not(.feed-item-verb-reply):not(.feed-item-verb-thread)),
 [data-density='tight'] .feed-item-verb:where(:not(.feed-item-verb-reply):not(.feed-item-verb-thread)) {
+  display: none;
+}
+
+/* Compact / tight strip the verb column entirely, so the "gerund + time
+   on one line" treatment doesn't apply. Dissolve the head wrapper so the
+   verb badge is a direct child of .feed-item again (the verb-grid rules
+   below rely on that), drop the hoisted time out of flow, and let the
+   card's own standalone-time row carry the timestamp as before. */
+[data-density='compact'] .feed-item-head,
+[data-density='tight'] .feed-item-head {
+  display: contents;
+}
+
+[data-density='compact'] .feed-item-head-time,
+[data-density='tight'] .feed-item-head-time {
   display: none;
 }
 

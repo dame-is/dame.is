@@ -8,6 +8,20 @@ import { getReplyHint } from '../lib/postReplyHint.js';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 
+/**
+ * True when a post has no text body and no foreign-author header, so its
+ * timestamp would otherwise render as a lonely right-aligned row above the
+ * embed (see `showStandaloneTime` below). FeedItem uses this to hoist that
+ * timestamp up onto the verb line instead, keeping the two on one row.
+ */
+export function postCardShowsStandaloneTime({ payload, createdAt, variant = 'timeline' } = {}) {
+  const text = payload?.text || '';
+  const ts = createdAt || payload?.indexedAt;
+  const isOriginalAuthorMe = payload?.author?.did === ME_DID;
+  const showOriginalAuthor = !isOriginalAuthorMe && payload?.author?.handle;
+  return Boolean(!text && !showOriginalAuthor && ts && variant !== 'record');
+}
+
 export default function PostCard({
   verb,
   payload,
@@ -43,6 +57,10 @@ export default function PostCard({
   // OriginalAuthorHeader; otherwise drop it onto its own minimal
   // meta row so the time is still discoverable.
   const showTimeInHeader = showOriginalAuthor && !text && ts && variant !== 'record';
+  // For text-less posts the feed hoists this timestamp up onto the verb
+  // line (see FeedItem + Feed.css); in `normal` density the in-card row
+  // below is hidden by CSS, and in compact/tight — where the verb column
+  // is stripped — this row is what stays visible.
   const showStandaloneTime = !text && !showOriginalAuthor && ts && variant !== 'record';
 
   return (
