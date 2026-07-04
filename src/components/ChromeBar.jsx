@@ -257,6 +257,18 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   return (
     <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
       <div className="chrome-bottom-row">
+        {filterAvailable && (
+          <button
+            type="button"
+            className={`chrome-nav chrome-filter ${filterOpen || filterCustomized ? 'is-open' : ''}`}
+            onClick={toggleFilter}
+            aria-expanded={filterOpen}
+            aria-haspopup="dialog"
+            aria-label={filterOpen ? 'Close filters' : 'Open filters'}
+          >
+            <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          </button>
+        )}
         <button
           type="button"
           className={`chrome-nav chrome-search-btn ${searchOpen || searchActive ? 'is-open' : ''}`}
@@ -267,15 +279,6 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
         >
           <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
-        {!onHomePage && (
-          <Link
-            to="/"
-            className="chrome-nav chrome-home-btn"
-            aria-label="Go home"
-          >
-            <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          </Link>
-        )}
         <button
           type="button"
           className={`chrome-nav chrome-info-btn ${infoOpen ? 'is-open' : ''}`}
@@ -324,17 +327,14 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           )}
         </button>
-        {filterAvailable && (
-          <button
-            type="button"
-            className={`chrome-nav chrome-filter ${filterOpen || filterCustomized ? 'is-open' : ''}`}
-            onClick={toggleFilter}
-            aria-expanded={filterOpen}
-            aria-haspopup="dialog"
-            aria-label={filterOpen ? 'Close filters' : 'Open filters'}
+        {!onHomePage && (
+          <Link
+            to="/"
+            className="chrome-nav chrome-home-btn"
+            aria-label="Go home"
           >
-            <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          </button>
+            <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          </Link>
         )}
         <button
           type="button"
