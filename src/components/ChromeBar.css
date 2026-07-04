@@ -94,27 +94,31 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: var(--surface-raised);
-  /* Keep this strip out of the browser's scroll-anchoring calculation so its
-     collapse never nudges the scroll position. */
+  /* A fixed-height clip (height auto = the strip's natural height, since the
+     strip slides via transform without affecting layout). The strip slides
+     within this box; the box itself is transparent so when the strip is
+     translated up out of view, the page content shows through. */
+  overflow: hidden;
+  /* Keep this strip out of the browser's scroll-anchoring calculation so it
+     never nudges the scroll position. */
   overflow-anchor: none;
-  /* inline `overflow: hidden` on the element animates the height reveal so
-     the strip unrolls downward from under the bar. The bottom rule lives on
-     the inner row (not here) so nothing paints when collapsed to height 0. */
-}
-
-@media (min-width: 65rem) {
-  .chrome-bar-tertiary-wrap {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
 }
 
 .chrome-bar-tertiary {
+  background: var(--surface-raised);
   border-top: 1px solid var(--rule-soft);
   border-bottom: 1px solid var(--rule);
-  overflow: hidden;
   min-height: 0;
+  /* Promote to its own compositor layer so the slide is a pure transform —
+     no layout, no repaint of the page, nothing that can stall scrolling. */
+  will-change: transform;
+}
+
+@media (min-width: 65rem) {
+  .chrome-bar-tertiary {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
 }
 
 .chrome-breadcrumb {

@@ -143,66 +143,60 @@ export default function ChromeBar() {
           )}
         </AnimatePresence>
 
-        {/* Breadcrumb stays mounted the whole time we're off the home page and
-            only its height/opacity animate on scroll. Mounting/unmounting a DOM
-            node synchronously inside the scroll handler (as AnimatePresence did)
-            interrupted the browser's momentum scroll on the way up — the node
-            removal stalled the scroll. Persisting the node avoids that entirely
-            while keeping the same unroll look. */}
+        {/* Breadcrumb stays mounted the whole time we're off the home page,
+            and the reveal animates ONLY transform + opacity — never height.
+            A height:auto animation forces a layout measurement/reflow on the
+            frame it starts, and a reflow mid-scroll hands scrolling back to
+            the main thread and stalls the momentum. transform/opacity run on
+            the compositor and can't interrupt the scroll. The strip slides
+            down from behind the bar inside a fixed clip (`overflow: hidden`
+            on the wrap) instead of growing the box. */}
         {crumbs.length > 0 && (
-          <motion.div
+          <div
             id="chrome-bar-tertiary"
             className="chrome-bar-tertiary-wrap"
-            initial={false}
-            animate={{ height: showBreadcrumb ? 'auto' : 0 }}
-            transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
-            style={{ overflow: 'hidden' }}
             inert={showBreadcrumb ? undefined : ''}
             aria-hidden={showBreadcrumb ? undefined : true}
+            style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
           >
-            <div className="chrome-bar-row chrome-bar-tertiary">
-              <motion.nav
-                className="chrome-breadcrumb"
-                aria-label="Breadcrumb"
-                initial={false}
-                animate={{ opacity: showBreadcrumb ? 1 : 0, y: showBreadcrumb ? 0 : -6 }}
-                transition={{
-                  duration: reduce ? 0 : 0.24,
-                  ease: [0.22, 0.61, 0.36, 1],
-                  delay: reduce ? 0 : (showBreadcrumb ? 0.04 : 0),
-                }}
-              >
+            <motion.div
+              className="chrome-bar-row chrome-bar-tertiary"
+              initial={false}
+              animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
+              transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
                 <ol className="chrome-crumbs">
-                    <li className="chrome-crumb">
-                      <Link to="/" className="chrome-crumb-link chrome-crumb-root" aria-label="Home">
-                        /
-                      </Link>
-                    </li>
-                    {crumbs.map((c, i) => {
-                      const last = i === crumbs.length - 1;
-                      return (
-                        <li key={c.to} className="chrome-crumb">
-                          {i > 0 && (
-                            <span className="chrome-crumb-sep" aria-hidden="true">
-                              /
-                            </span>
-                          )}
-                          {last ? (
-                            <span className="chrome-crumb-current" aria-current="page">
-                              {c.label}
-                            </span>
-                          ) : (
-                            <Link to={c.to} className="chrome-crumb-link">
-                              {c.label}
-                            </Link>
-                          )}
-                        </li>
-                      );
-                    })}
+                  <li className="chrome-crumb">
+                    <Link to="/" className="chrome-crumb-link chrome-crumb-root" aria-label="Home">
+                      /
+                    </Link>
+                  </li>
+                  {crumbs.map((c, i) => {
+                    const last = i === crumbs.length - 1;
+                    return (
+                      <li key={c.to} className="chrome-crumb">
+                        {i > 0 && (
+                          <span className="chrome-crumb-sep" aria-hidden="true">
+                            /
+                          </span>
+                        )}
+                        {last ? (
+                          <span className="chrome-crumb-current" aria-current="page">
+                            {c.label}
+                          </span>
+                        ) : (
+                          <Link to={c.to} className="chrome-crumb-link">
+                            {c.label}
+                          </Link>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ol>
-              </motion.nav>
-            </div>
-          </motion.div>
+              </nav>
+            </motion.div>
+          </div>
         )}
       </header>
 
