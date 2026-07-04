@@ -251,6 +251,15 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   return (
     <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
       <div className="chrome-bottom-row">
+        <button
+          type="button"
+          className="chrome-nav chrome-theme-toggle"
+          onClick={cycleTheme}
+          aria-label={`Cycle theme (current: ${theme})`}
+          title={`Theme: ${theme} — tap to cycle`}
+        >
+          <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+        </button>
         {filterAvailable && (
           <button
             type="button"
@@ -330,15 +339,6 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           </Link>
         )}
-        <button
-          type="button"
-          className="chrome-nav chrome-theme-toggle"
-          onClick={cycleTheme}
-          aria-label={`Cycle theme (current: ${theme})`}
-          title={`Theme: ${theme} — tap to cycle`}
-        >
-          <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-        </button>
         <button
           type="button"
           className={`chrome-nav chrome-nav-bottom ${dockOpen ? 'is-open' : ''}`}
