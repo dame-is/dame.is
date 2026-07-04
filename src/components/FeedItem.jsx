@@ -1,7 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { CornerDownRight } from 'lucide-react';
 import StatusEntry from './StatusEntry.jsx';
-import PostCard from './PostCard.jsx';
+import PostCard, { postCardShowsStandaloneTime } from './PostCard.jsx';
+import RelativeTimeText from './RelativeTimeText.jsx';
 import BlogCard from './BlogCard.jsx';
 import ListenRow from './ListenRow.jsx';
 import CreatingCard from './CreatingCard.jsx';
@@ -142,6 +143,15 @@ export default function FeedItem({ item }) {
       <span className="feed-item-verb-label">{VERB_LABEL_OVERRIDES[item.verb] || item.verb}</span>
     </>
   );
+  // Text-less posts (images / embed only) would otherwise render their
+  // timestamp on a lonely row above the embed. Hoist a copy up here so it
+  // sits on the same line as the verb gerund ("posting", "reposting",
+  // "replying to @handle", …) instead. In `normal` density this hoisted
+  // time is shown and the card's own row is hidden; in compact/tight —
+  // where the verb column is stripped — this hoisted copy is hidden and
+  // the card's in-place timestamp is what remains (see Feed.css).
+  const hoistTime = cfg.renderer === 'PostCard' && postCardShowsStandaloneTime(item);
+  const hoistTs = hoistTime ? item.createdAt || item.payload?.indexedAt : null;
   const liClassName = [
     'feed-item',
     `feed-item-${item.verb}`,
@@ -160,15 +170,33 @@ export default function FeedItem({ item }) {
       data-thread-length={item._thread?.length}
       onClick={href ? handleRowClick : undefined}
     >
-      {href ? (
-        <Link className={verbClassName} to={href}>
-          {verbInner}
-        </Link>
-      ) : (
-        <span className={verbClassName}>
-          {verbInner}
-        </span>
-      )}
+      {(() => {
+        const verbEl = href ? (
+          <Link className={verbClassName} to={href}>
+            {verbInner}
+          </Link>
+        ) : (
+          <span className={verbClassName}>
+            {verbInner}
+          </span>
+        );
+        if (!hoistTime) return verbEl;
+        const timeEl = href ? (
+          <Link className="gutter post-card-time feed-item-head-time" to={href}>
+            <RelativeTimeText value={hoistTs} />
+          </Link>
+        ) : (
+          <span className="gutter post-card-time feed-item-head-time">
+            <RelativeTimeText value={hoistTs} />
+          </span>
+        );
+        return (
+          <div className="feed-item-head">
+            {verbEl}
+            {timeEl}
+          </div>
+        );
+      })()}
       <Component
         {...item}
         verb={item.verb}
