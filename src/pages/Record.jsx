@@ -365,7 +365,7 @@ function AlbumArt({ payload }) {
       <Lightbox
         open={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
-        images={[{ src: art.url, alt }]}
+        images={[{ src: art.url, alt, thumb: art.url, width: 600, height: 600 }]}
       />
     </figure>
   );

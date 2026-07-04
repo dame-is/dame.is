@@ -19,9 +19,12 @@ export default function MediaCard({ payload, atUri, source }) {
   const visible = items.slice(0, 4);
   const overflow = Math.max(0, items.length - visible.length);
   const [lightbox, setLightbox] = useState({ open: false, index: 0 });
+  // thumb === src here (same CDN URL as the grid), so the lightbox paints
+  // the cached pixels instantly on open rather than flashing while it
+  // re-fetches.
   const lightboxImages = items
     .filter((it) => it.url)
-    .map((it) => ({ src: it.url, alt: it.alt || '' }));
+    .map((it) => ({ src: it.url, alt: it.alt || '', thumb: it.url }));
 
   return (
     <article className="media-card feed-card" data-at-uri={atUri}>
