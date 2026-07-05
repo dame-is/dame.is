@@ -46,21 +46,27 @@
   margin-top: var(--space-4);
 }
 
-.record-aturi-actions a {
+.record-aturi-actions a,
+.record-aturi-actions button {
   font-family: var(--sans);
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
   padding: 0.4em 0.85em;
   border: 1px solid var(--rule);
+  border-radius: 0;
   background: var(--page);
   color: var(--ink-soft);
   text-decoration: none;
+  cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.record-aturi-actions a:hover {
+.record-aturi-actions a:hover,
+.record-aturi-actions button:hover,
+.record-aturi-actions button:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
+  outline: none;
 }
 
 .record-fallback-json {

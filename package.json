@@ -13,6 +13,7 @@
   "dependencies": {
     "@atproto/api": "^0.19.17",
     "@atproto/oauth-client-browser": "^0.3.42",
+    "@aturi.to/waypoints": "^0.1.1",
     "@vercel/analytics": "^2.0.1",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.14.0",

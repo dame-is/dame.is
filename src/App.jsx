@@ -37,6 +37,7 @@ import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 import { FilmGrainProvider } from './hooks/useFilmGrain.jsx';
+import { WaypointsModalProvider } from './hooks/useWaypointsModal.jsx';
 
 /**
  * Verbs whose record page is handled by a bespoke page component (not the
@@ -86,6 +87,7 @@ export default function App() {
       <AtprotoSessionProvider>
       <FeedFilterProvider>
       <ActionDockProvider>
+      <WaypointsModalProvider>
           <div className="app-shell">
             <ChromeBar />
             <main className="layout">
@@ -145,6 +147,7 @@ export default function App() {
             <FilmGrain />
             <Analytics />
           </div>
+      </WaypointsModalProvider>
       </ActionDockProvider>
       </FeedFilterProvider>
       </AtprotoSessionProvider>
