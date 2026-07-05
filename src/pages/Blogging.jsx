@@ -7,7 +7,7 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { relativeTime, compareIsoDesc } from '../lib/time.js';
+import { relativeTime, formatDateFull, compareIsoDesc } from '../lib/time.js';
 import { isPortfolioDoc } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
@@ -76,7 +76,9 @@ export default function Blogging() {
                   {e.summary && <p className="blogging-toc-summary">{e.summary}</p>}
                 </span>
                 <span className="blogging-toc-meta gutter">
-                  {e.createdAt ? relativeTime(e.createdAt) : ''}
+                  {e.createdAt
+                    ? `${relativeTime(e.createdAt)} • ${formatDateFull(e.createdAt)}`
+                    : ''}
                 </span>
               </Link>
             </li>

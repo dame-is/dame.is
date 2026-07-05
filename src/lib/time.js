@@ -97,6 +97,16 @@ export function formatDateLong(date) {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
 
+/**
+ * US-style long date, e.g. "March 7, 2025". Pairs with `relativeTime` in
+ * the blog index meta line.
+ */
+export function formatDateFull(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
 export function formatTime(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';

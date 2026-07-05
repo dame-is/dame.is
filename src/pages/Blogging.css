@@ -25,8 +25,15 @@
   color: var(--ink);
 }
 
-.blogging-toc-link:hover {
-  background: var(--page-edge);
+/* Only devices that truly hover get an affordance, and it's a subtle title
+   underline rather than a full-width background box — the box read as a
+   button and left a sticky highlight on touch. */
+@media (hover: hover) {
+  .blogging-toc-link:hover .blogging-toc-title {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
 }
 
 .blogging-toc-num {
@@ -152,12 +159,17 @@
 @media (max-width: 700px) {
   .blogging-toc-link {
     grid-template-columns: 1fr;
+    gap: var(--space-2);
   }
   .blogging-toc-num {
     display: none;
   }
   .blogging-toc-meta {
     text-align: left;
+    /* In the stacked single-column layout the meta is its own row, so the
+       baseline nudge (meant for the desktop 3-column row) just piles space
+       above the timestamp. */
+    padding-top: 0;
   }
 }
 
