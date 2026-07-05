@@ -141,8 +141,7 @@
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
-  color: var(--ink-on-scrim, #fff);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  color: var(--scrim-ink, #fff);
   opacity: 0.85;
   min-width: 3.25rem;
   text-align: center;

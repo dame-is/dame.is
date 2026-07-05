@@ -18,6 +18,16 @@
   --highlight:   rgba(94, 122, 71, 0.16);
   --shadow:      rgba(29, 36, 25, 0.14);
 
+  /* Lightbox backdrop — theme-aware. Light themes get a bright frosted
+     scrim so the photo reads against a light surround; dark themes get a
+     near-black one. --scrim-clear shares the same RGB as --scrim so the
+     open/close fade only ramps alpha (no muddy gray midtones). --scrim-ink
+     is the bare-text tone (e.g. the N/M counter) that stays legible on
+     that backdrop. */
+  --scrim:       rgba(230, 222, 195, 0.86);
+  --scrim-clear: rgba(230, 222, 195, 0);
+  --scrim-ink:   rgba(29, 36, 25, 0.9);
+
   --bg:    var(--page);
   --fg:    var(--ink);
   --muted: var(--ink-muted);
@@ -82,6 +92,10 @@
   --highlight:   rgba(163, 180, 134, 0.16);
   --shadow:      rgba(0, 0, 0, 0.45);
 
+  --scrim:       rgba(0, 0, 0, 0.78);
+  --scrim-clear: rgba(0, 0, 0, 0);
+  --scrim-ink:   rgba(236, 228, 203, 0.9);
+
   color-scheme: dark;
 }
 
@@ -109,6 +123,10 @@
   --highlight:   rgba(94, 122, 71, 0.16);
   --shadow:      rgba(0, 0, 0, 0.14);
 
+  --scrim:       rgba(235, 235, 235, 0.86);
+  --scrim-clear: rgba(235, 235, 235, 0);
+  --scrim-ink:   rgba(26, 26, 26, 0.9);
+
   color-scheme: light;
 }
 
@@ -127,6 +145,10 @@
   --tan:         #888888;
   --highlight:   rgba(163, 180, 134, 0.16);
   --shadow:      rgba(0, 0, 0, 0.45);
+
+  --scrim:       rgba(0, 0, 0, 0.82);
+  --scrim-clear: rgba(0, 0, 0, 0);
+  --scrim-ink:   rgba(240, 240, 240, 0.9);
 
   color-scheme: dark;
 }

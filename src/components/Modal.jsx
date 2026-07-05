@@ -15,9 +15,9 @@ const PRESETS = {
     exit: { opacity: 0, y: -6, scale: 0.99 },
   },
   scale: {
-    initial: { opacity: 0, scale: 0.96 },
+    initial: { opacity: 0, scale: 0.92 },
     animate: { opacity: 1, scale: 1 },
-    exit: { opacity: 0, scale: 0.98 },
+    exit: { opacity: 0, scale: 0.96 },
   },
   fade: {
     initial: { opacity: 0 },
@@ -79,7 +79,12 @@ export default function Modal({
   // drop-shadow alone, while still dismissing on outside click because
   // that's owned by modal-root (see handleRootClick), not the scrim.
   const paintsScrim = scrim === 'dark';
-  const dimColor = 'rgba(0, 0, 0, 0.78)';
+  // Theme-aware backdrop: --scrim is a near-black tint in dark themes and a
+  // bright frosted tint in light themes, so the photo reads against a
+  // surround that matches the mode. --scrim-clear is the same color at zero
+  // alpha, so the enter/exit fade only ramps opacity (no gray midtones).
+  const dimColor = 'var(--scrim)';
+  const dimColorClear = 'var(--scrim-clear)';
   const dimBlur = 'blur(8px)';
 
   function handleRootClick(e) {
@@ -108,7 +113,7 @@ export default function Modal({
             key="scrim-dim"
             className={`modal-scrim modal-scrim-${scrim}`}
             initial={{
-              backgroundColor: 'rgba(0, 0, 0, 0)',
+              backgroundColor: dimColorClear,
               backdropFilter: 'blur(0px)',
               WebkitBackdropFilter: 'blur(0px)',
             }}
@@ -118,7 +123,7 @@ export default function Modal({
               WebkitBackdropFilter: dimBlur,
             }}
             exit={{
-              backgroundColor: 'rgba(0, 0, 0, 0)',
+              backgroundColor: dimColorClear,
               backdropFilter: 'blur(0px)',
               WebkitBackdropFilter: 'blur(0px)',
             }}

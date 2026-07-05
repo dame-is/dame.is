@@ -237,9 +237,16 @@ function ImageGrid({ images }) {
   const list = (images || []).filter((im) => im?.thumb || im?.fullsize);
   const [lightbox, setLightbox] = useState({ open: false, index: 0 });
   if (list.length === 0) return null;
+  // Pass the already-cached grid thumbnail plus intrinsic dimensions so the
+  // lightbox paints the exact pixels the reader tapped immediately — the
+  // frame is pre-sized and the full-res file swaps in on load, instead of a
+  // blank box that pops to size (the "flash" on open).
   const lightboxImages = list.map((im) => ({
     src: im.fullsize || im.thumb,
     alt: im.alt || '',
+    thumb: im.thumb || undefined,
+    width: im.aspectRatio?.width || undefined,
+    height: im.aspectRatio?.height || undefined,
   }));
   return (
     <>
