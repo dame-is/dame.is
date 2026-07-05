@@ -54,13 +54,17 @@
 .feed-item-head {
   display: flex;
   flex-direction: row;
-  align-items: baseline;
+  /* Center rather than baseline-align: the verb is an icon + small-caps
+     cluster and the time is lowercase mono with a descender, so their
+     text baselines don't optically center. Centering lines up the two
+     clusters' vertical midpoints instead. */
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
 }
 
 .feed-item-head .feed-item-verb {
-  align-self: baseline;
+  align-self: center;
 }
 
 .feed-item-head-time {
