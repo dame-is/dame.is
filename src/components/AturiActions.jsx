@@ -1,25 +1,28 @@
-import { aturiUniversalUrl, aturiExplorerUrl } from '../lib/atproto.js';
+import { aturiExplorerUrl } from '../lib/atproto.js';
+import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 
 /**
- * Small row of links under a record that hand off to aturi.to:
- *   - "Open in…"     → the universal-link landing page (pick any client)
- *   - "Inspect Data" → the Atmosphere Explorer raw-record view
+ * Small row of actions under a record:
+ *   - "Open in…"     → opens the in-site waypoints picker (choose any client),
+ *                       powered by @aturi.to/waypoints.
+ *   - "Inspect Data" → the Atmosphere Explorer raw-record view on aturi.to.
  *
- * Renders nothing when the URI can't be parsed.
+ * Renders nothing when the URI can't be turned into either action.
  */
 export default function AturiActions({ atUri }) {
-  const openUrl = aturiUniversalUrl(atUri);
+  const { openWaypoints } = useWaypointsModal();
   const inspectUrl = aturiExplorerUrl(atUri);
-  if (!openUrl && !inspectUrl) return null;
+  const canOpen = typeof atUri === 'string' && atUri.startsWith('at://');
+  if (!canOpen && !inspectUrl) return null;
   return (
     <div className="record-aturi-actions">
-      {openUrl && (
-        <a href={openUrl} target="_blank" rel="noreferrer noopener">
+      {canOpen && (
+        <button type="button" onClick={() => openWaypoints(atUri)}>
           Open in…
-        </a>
+        </button>
       )}
       {inspectUrl && (
-        <a href={inspectUrl} target="_blank" rel="noreferrer noopener">
+        <a href={inspectUrl} target="_blank" rel="noreferrer noopener" data-no-waypoints>
           Inspect Data
         </a>
       )}

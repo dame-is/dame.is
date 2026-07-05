@@ -1,0 +1,208 @@
+/* Interior of the "Open in…" picker. The <Modal> shell owns positioning,
+   surface, scrim, and motion — only the layout of the picker lives here.
+   Styling follows the same language as InfoModal: small-caps header, hairline
+   rules, accent-on-hover. */
+
+.waypoints-modal-panel {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+}
+
+.waypoints-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.waypoints-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.waypoints-modal-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.waypoints-modal-heading .small-caps {
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+}
+
+.waypoints-modal-subtitle {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waypoints-modal-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.waypoints-modal-close:hover,
+.waypoints-modal-close:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+.waypoints-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+}
+
+.waypoints-modal-note {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* --- groups --------------------------------------------------------------- */
+
+.waypoints-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.waypoints-group-title {
+  margin: 0;
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+
+.waypoints-group.is-recommended .waypoints-group-title {
+  color: var(--accent);
+}
+
+.waypoints-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.waypoints-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+.waypoints-row-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.waypoints-group.is-recommended .waypoints-row-open {
+  border-color: var(--accent-soft);
+}
+
+.waypoints-row-open:hover,
+.waypoints-row-open:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+.waypoints-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waypoints-row-arrow {
+  flex: none;
+  color: var(--ink-faint);
+  transition: color 120ms ease;
+}
+
+.waypoints-row-open:hover .waypoints-row-arrow,
+.waypoints-row-open:focus-visible .waypoints-row-arrow {
+  color: var(--accent);
+}
+
+.waypoints-row-copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.waypoints-row-copy:hover,
+.waypoints-row-copy:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
+}
+
+/* --- original-link fallback ---------------------------------------------- */
+
+.waypoints-modal-original {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-5) var(--space-5);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.waypoints-modal-original:hover,
+.waypoints-modal-original:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
