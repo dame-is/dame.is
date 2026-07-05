@@ -14,11 +14,87 @@ import {
   resolveUrl,
   SUPPORTED_HOSTS,
   WAYPOINT_CATEGORIES_DATA,
+  WAYPOINT_DESTINATIONS_DATA,
   CATEGORY_ORDER,
 } from '@aturi.to/waypoints';
 import { resolveHandle } from './atproto.js';
 
 const SUPPORTED_HOST_SET = new Set(SUPPORTED_HOSTS);
+
+// --- Waypoint policy -------------------------------------------------------
+// The upstream catalog returns a URL for nearly every client on every record
+// (most non-native apps fall back to a plain profile link), so left unfiltered
+// the picker lists ~24 destinations for a single Bluesky post. We trim it to a
+// curated set:
+//
+//   - aturiExplore  — universal raw-record explorer; always offered.
+//   - bluesky / reddwarf / anisota — Bluesky clients; offered for Bluesky
+//     records (app.bsky.*) and bare profiles / repos.
+//   - leaflet / anisotaReader — publication readers; offered for blog and
+//     standard-site documents (pub.leaflet.*, site.standard.*).
+//   - grain, streamplace, semble, tangled, margin, popfeed, sifa, blento —
+//     app-specific; offered only when the record itself is native to that app
+//     (its collection sits under the app's own lexicon).
+//
+// Every other catalog entry (Bluepy, Blacksky, Witchsky, Catsky, Deer,
+// Pinkleap, the Aturi universal link, Offprint, pckt, PDSls, atp.tools) is
+// intentionally hidden.
+
+const ALWAYS_WAYPOINTS = new Set(['aturiExplore']);
+const BLUESKY_CLIENT_WAYPOINTS = new Set(['bluesky', 'reddwarf', 'anisota']);
+// App-specific destinations, shown only when the record is native to them.
+// The native NSID prefixes come from the catalog's own `expectedCollections`
+// (minus the generic `app.bsky.` prefix, so plain Bluesky records don't count).
+const NATIVE_WAYPOINTS = new Set([
+  'leaflet',
+  'anisotaReader',
+  'grain',
+  'streamplace',
+  'semble',
+  'tangled',
+  'margin',
+  'popfeed',
+  'sifa',
+  'blento',
+]);
+
+function isNativeToRecord(id, collection) {
+  if (!collection) return false;
+  const expected = WAYPOINT_DESTINATIONS_DATA[id]?.expectedCollections || [];
+  return expected.some((prefix) => prefix !== 'app.bsky.' && collection.startsWith(prefix));
+}
+
+/**
+ * Decide whether a waypoint should be offered for a given resolved record,
+ * per the site policy above.
+ */
+function isWaypointAllowed(id, parsed) {
+  const collection = parsed?.collection || null;
+  if (ALWAYS_WAYPOINTS.has(id)) return true;
+  if (BLUESKY_CLIENT_WAYPOINTS.has(id)) {
+    return !collection || collection.startsWith('app.bsky.');
+  }
+  if (NATIVE_WAYPOINTS.has(id)) return isNativeToRecord(id, collection);
+  return false;
+}
+
+/**
+ * Apply the site waypoint policy to a raw resolve result — trimming both the
+ * `waypoints` list and the `recommended.ids` to the allowed set.
+ */
+function applyWaypointPolicy(result) {
+  if (!result) return result;
+  const waypoints = (result.waypoints || []).filter((w) => isWaypointAllowed(w.id, result.parsed));
+  const allowedIds = new Set(waypoints.map((w) => w.id));
+  return {
+    ...result,
+    waypoints,
+    recommended: {
+      ...result.recommended,
+      ids: (result.recommended?.ids || []).filter((id) => allowedIds.has(id)),
+    },
+  };
+}
 
 /**
  * Cheap, synchronous test for "is this a link the waypoints modal should
@@ -55,9 +131,9 @@ export function isWaypointHref(href) {
  */
 export async function resolveWaypoints(href) {
   const s = String(href || '');
-  if (s.startsWith('at://')) return resolveAtUri(s);
+  if (s.startsWith('at://')) return applyWaypointPolicy(resolveAtUri(s));
   try {
-    return await resolveUrl(s, { resolveHandle });
+    return applyWaypointPolicy(await resolveUrl(s, { resolveHandle }));
   } catch {
     return null;
   }
