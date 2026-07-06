@@ -386,6 +386,12 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             to="/"
             className="chrome-nav chrome-home-btn"
             aria-label="Go home"
+            onClick={() => {
+              // Collapse the open menu on the way home so it animates
+              // out (via the dock's AnimatePresence exit) instead of
+              // being left open over the freshly-loaded home page.
+              if (dockOpen) toggleDock();
+            }}
           >
             <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           </Link>
