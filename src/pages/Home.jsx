@@ -114,6 +114,41 @@ function dayStatsLine(items) {
   return parts.join(' · ');
 }
 
+/**
+ * The most recent day's summary line doubles as the live-refresh
+ * indicator. While a refresh is confirming the latest activity the line
+ * reads "Fetching latest activity…"; once the live result lands it
+ * cross-fades to that day's real engagement/stats. This keeps the signal
+ * to a single quiet line under the date instead of a separate banner.
+ */
+function DayActivityMeta({ checking, stats, reduce }) {
+  const fade = {
+    initial: reduce ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: reduce ? 0 : 0.28, ease: 'easeOut' },
+  };
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      {checking ? (
+        <motion.span
+          key="fetching"
+          className="feed-activity-fetching"
+          role="status"
+          aria-live="polite"
+          {...fade}
+        >
+          Fetching latest activity&hellip;
+        </motion.span>
+      ) : (
+        <motion.span key="stats" {...fade}>
+          {stats}
+        </motion.span>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function collapseListens(items) {
   const out = [];
   let openBatch = null;
@@ -483,51 +518,33 @@ export default function Home() {
 
       <section className="home-latest">
         <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />
-        {/* The notice + feed list share one flex child so the notice
-            isn't a direct child of `.home-latest` — otherwise the parent's
-            flex `gap` around it can't animate and snaps shut when the
-            notice unmounts. Inside here the notice's collapse is the only
-            thing that moves, and its spacing rides along in the wrapper. */}
+        {/* One flex child holds the whole feed body (or the cold-load
+            fetching line) so its spacing rides in the wrapper rather than
+            in the parent's animatable flex `gap`. */}
         <div className="home-feed-region">
-          <AnimatePresence initial={false}>
-            {checking && (
-              <motion.div
-                key="feed-checking"
-                initial={reduce ? false : { opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
-                transition={{ duration: reduce ? 0.15 : 0.32, ease: [0.22, 0.61, 0.36, 1] }}
-                style={{ overflow: 'hidden' }}
-              >
-                <div className="feed-checking">
-                  <p className="feed-checking-msg" role="status" aria-live="polite">
-                    <span className="feed-checking-spinner" aria-hidden="true" />
-                    <span className="feed-checking-copy">
-                      <span className="feed-checking-title small-caps">
-                        Checking for recent activity&hellip;
-                      </span>
-                      {!loading && filtered.length > 0 && (
-                        <span className="feed-checking-sub">
-                          Showing saved activity below — it may not be the latest yet.
-                        </span>
-                      )}
-                    </span>
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          {loading ? null : filtered.length === 0 ? (
-            checking ? null : (
-              <p className="feed-empty">No records match these filters.</p>
-            )
+          {loading || (checking && filtered.length === 0) ? (
+            <p className="feed-activity-standalone" role="status" aria-live="polite">
+              Fetching latest activity&hellip;
+            </p>
+          ) : filtered.length === 0 ? (
+            <p className="feed-empty">No records match these filters.</p>
           ) : (
             <ol className="feed-list reveal-stagger">
-            {groups.map((group) => (
+            {groups.map((group, gi) => (
               <li key={group.dateKey} className="feed-day-group">
                 <DayOfLifeHeader
                   date={group.date}
-                  meta={dayStatsLine(group.items)}
+                  meta={
+                    gi === 0 ? (
+                      <DayActivityMeta
+                        checking={checking}
+                        stats={dayStatsLine(group.items)}
+                        reduce={reduce}
+                      />
+                    ) : (
+                      dayStatsLine(group.items)
+                    )
+                  }
                 />
                 <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
                   <AnimatePresence initial={false}>

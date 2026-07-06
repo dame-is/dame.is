@@ -78,7 +78,7 @@ export default function SignInPanel({ onAction }) {
         {isOwner && (
           <Link to="/admin" className="dock-tool" onClick={onAction}>
             <span className="dock-tool-label">Admin</span>
-            <span className="dock-tool-key">↗</span>
+            <span className="dock-tool-key">&rsaquo;</span>
           </Link>
         )}
         <button type="button" className="dock-tool" onClick={handleSignOut}>

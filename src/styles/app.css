@@ -17,6 +17,19 @@
   stroke-width: 1.5;
 }
 
+/* iOS Safari zooms the viewport in whenever a focused text field's
+   font-size is under 16px. Hold every form control at 16px on phone
+   widths so tapping into an input never triggers that jarring zoom.
+   !important so it wins over the per-field type-scale sizes (e.g. the
+   sign-in field's --text-sm) without having to touch each one. */
+@media (max-width: 700px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 .layout {
   flex: 1;
   display: flex;
@@ -221,14 +234,16 @@
 
 .home-hero-cta-primary {
   background: var(--accent);
-  border-color: var(--accent);
+  /* Keep the same contrasting hairline every other button carries, rather
+     than a border the colour of the fill (which reads as borderless). */
+  border-color: var(--rule);
   color: var(--page);
 }
 
 .home-hero-cta-primary:hover,
 .home-hero-cta-primary:focus-visible {
   background: var(--accent-soft);
-  border-color: var(--accent-soft);
+  border-color: var(--rule);
   color: var(--page);
 }
 
