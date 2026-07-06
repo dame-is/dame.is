@@ -35,16 +35,3 @@
   width: 0.95rem;
   height: 0.95rem;
 }
-
-/* Typeface toggle reuses the density button group, but its options
-   render letterforms ("Aa") instead of SVG glyphs so each button
-   previews the font family it selects. Color inherits from the
-   button, so the is-active state flips the letters too. */
-.typeface-toggle-glyph {
-  display: inline-flex;
-  align-items: baseline;
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.01em;
-}

@@ -30,15 +30,6 @@ themeColorMeta.setAttribute('name', 'theme-color');
 themeColorMeta.setAttribute('content', THEME_COLORS[initialTheme]);
 document.head.appendChild(themeColorMeta);
 
-// Typeface: apply the saved preference before React mounts so the first
-// paint uses the chosen family instead of flashing the default "combo"
-// (serif/sans split) until <TypefaceProvider> hydrates. Keep VALID_TYPEFACE
-// + the default in sync with useTypeface.jsx.
-const VALID_TYPEFACE = ['combo', 'serif', 'sans'];
-let storedTypeface = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.typeface') : null;
-if (!VALID_TYPEFACE.includes(storedTypeface)) storedTypeface = 'combo';
-document.documentElement.setAttribute('data-typeface', storedTypeface);
-
 // Density: read the new tri-state key first, fall back to the legacy
 // boolean `dame.compact` so users with the old setting don't lose it.
 const VALID_DENSITY = ['normal', 'compact', 'tight'];

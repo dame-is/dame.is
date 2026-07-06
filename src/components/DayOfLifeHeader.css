@@ -5,22 +5,21 @@
   margin: 0 0 var(--space-5);
 }
 
+/* Day-group heading — a larger serif date line ("Yesterday, May 12,
+   2025") that reads clearly as a section break above the feed items,
+   rather than the old small-caps label + hairline rule. */
 .day-header {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  letter-spacing: -0.005em;
   color: var(--ink);
   margin: 0;
-  font-weight: 600;
 }
 
-/* Day summary stats — sit under the day-header rule as a quiet
-   secondary line. Mirrors the verb-label scale so it reads as
-   metadata, not heading. */
+/* Day summary stats (Home) or the day-of-life count (other feeds) —
+   a quiet secondary line under the date heading. */
 .day-header-meta {
   font-family: var(--sans);
   font-size: var(--text-xs);
@@ -33,38 +32,3 @@
    the parent .feed-day-group, see Feed.css) so the break between one
    day and the next reads as a section divider — the day-header itself
    stays anchored to the top of its group. */
-
-/* Lead label for the very first day group on a feed — Home uses this
-   to label the top-most day "Latest" instead of "Day 12,072". The
-   relative date on the right ("Today" / "Yesterday" / "7d ago") still
-   carries the actual day-of-life via the absolute-date tooltip. */
-.day-header-prefix {
-  font-family: var(--sans);
-  font-variant: all-small-caps;
-  letter-spacing: 0.14em;
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.day-header-num {
-  font-family: var(--mono-ui);
-  font-variant: normal;
-  letter-spacing: 0;
-  color: var(--ink);
-}
-
-.day-header-rule {
-  flex: 1;
-  height: 1px;
-  background: var(--rule);
-}
-
-.day-header-date {
-  color: var(--ink-faint);
-  text-align: right;
-  white-space: nowrap;
-  flex: 0 0 auto;
-  /* The exact date is still available via the wrapper's `title`
-     attribute, so it remains discoverable without sizing this column
-     for the longest possible string and shortening the rule. */
-}
