@@ -84,16 +84,21 @@
   border-color: var(--rule-soft);
 }
 
+/* The page list reads like ruled notebook paper: a hairline opens the
+   list and each entry sits on its own rule, with the page label riding
+   the line on the left and its path on the right like a ledger column. */
 .dock-routes {
   display: flex;
   flex-direction: column;
+  border-top: 1px solid var(--rule-soft);
 }
 
 .dock-route {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
   border-radius: var(--radius-2);
   text-decoration: none;
   color: var(--ink);

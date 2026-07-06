@@ -332,6 +332,15 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
+/* The bottom bar's icon buttons carry a lighter chip fill so they read as
+   raised buttons instead of blending into the chrome: --page sits a step
+   up from the bar's own --surface-raised in both themes. Every visible
+   .chrome-nav lives in the bottom bar; the top atmosphere chevron is
+   .chrome-expand, which keeps its flush, transparent treatment. */
+.chrome-nav {
+  background: var(--page);
+}
+
 .chrome-expand {
   margin-right: calc(-1 * var(--space-2));
 }
@@ -346,10 +355,18 @@
   outline: none;
 }
 
+/* Over the chip fill, hover/active must stay an opaque lighten — a
+   see-through accent tint would let the darker bar show through and read
+   as the button getting *darker* on hover. Mix the accent into --page. */
+.chrome-nav:hover,
+.chrome-nav:focus-visible {
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
 .chrome-nav.is-open {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--page));
 }
 
 /* The compass nav button is the menu trigger — promote it to a filled,
@@ -357,20 +374,22 @@
    bottom-bar controls. */
 .chrome-nav.chrome-nav-bottom {
   background: var(--accent);
-  border-color: var(--accent);
+  /* Contrasting hairline (matching every other bottom-bar button) instead
+     of a border the colour of the accent fill. */
+  border-color: var(--rule);
   color: var(--page);
 }
 
 .chrome-nav.chrome-nav-bottom:hover,
 .chrome-nav.chrome-nav-bottom:focus-visible {
   background: var(--accent-soft);
-  border-color: var(--accent-soft);
+  border-color: var(--rule);
   color: var(--page);
 }
 
 .chrome-nav.chrome-nav-bottom.is-open {
   background: var(--accent-soft);
-  border-color: var(--accent-soft);
+  border-color: var(--rule);
   color: var(--page);
 }
 
