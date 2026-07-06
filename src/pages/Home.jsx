@@ -523,11 +523,10 @@ export default function Home() {
             )
           ) : (
             <ol className="feed-list reveal-stagger">
-            {groups.map((group, gi) => (
+            {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
                 <DayOfLifeHeader
                   date={group.date}
-                  prefix={gi === 0 ? 'Latest' : null}
                   meta={dayStatsLine(group.items)}
                 />
                 <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>

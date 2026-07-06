@@ -35,13 +35,16 @@
   --font-crimson: 'Crimson Pro', 'Source Serif 4', 'Iowan Old Style', 'Charter', Georgia, serif;
   --font-atkinson: 'Atkinson Hyperlegible', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 
+  /* The site speaks in a single serif voice — both the serif and the
+     "sans" role resolve to Crimson Pro. --font-atkinson is kept only as
+     an available stack, not wired to any role. */
   --serif:  var(--font-crimson);
-  --sans:   var(--font-atkinson);
+  --sans:   var(--font-crimson);
   --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  /* UI-chrome mono (paths, kbd badges, identifiers, etc.). Follows the
-     typeface mode in serif/sans so the chrome reads as a single voice,
-     while real code surfaces (<code>, <pre>) keep --mono. */
-  --mono-ui: var(--mono);
+  /* UI-chrome mono (paths, kbd badges, identifiers, etc.) reads in the
+     serif voice so the chrome matches the rest of the site, while real
+     code surfaces (<code>, <pre>) keep --mono. */
+  --mono-ui: var(--font-crimson);
 
   --measure: 65ch;
   --leading: 1.6;
@@ -190,27 +193,6 @@
 [data-theme='dark-mono'] .chrome-bar,
 [data-theme='dark-mono'] .modal-panel {
   --ink-faint: #6c6c6c;
-}
-
-/* Typeface modes — switched via [data-typeface] on <html>.
-   "combo" (default) keeps the serif/sans split; "serif" and "sans"
-   collapse both stacks to a single family for a unified voice. */
-[data-typeface='serif'] {
-  --serif:   var(--font-crimson);
-  --sans:    var(--font-crimson);
-  --mono-ui: var(--font-crimson);
-}
-
-[data-typeface='sans'] {
-  --serif:   var(--font-atkinson);
-  --sans:    var(--font-atkinson);
-  --mono-ui: var(--font-atkinson);
-}
-
-[data-typeface='combo'] {
-  --serif:   var(--font-crimson);
-  --sans:    var(--font-atkinson);
-  --mono-ui: var(--mono);
 }
 
 html, body {

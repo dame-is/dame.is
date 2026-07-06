@@ -91,6 +91,24 @@ export function relativeDay(date, now = new Date()) {
   return y === 1 ? '1 year ago' : `${y} years ago`;
 }
 
+/**
+ * Header label for a day group, e.g. "Yesterday, May 12, 2025" or
+ * "Today, July 6, 2026". Combines the capitalized relative phrasing with
+ * the full calendar date. Uses *local* date parts so the label matches
+ * the local calendar bucketing done by `groupByDay` — a late-night post
+ * that reads as "yesterday" locally must also show its local date, not
+ * the UTC one it may have rolled into.
+ */
+export function formatDayLabel(date, now = new Date()) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const full = `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  const rel = relativeDay(d, now);
+  if (!rel) return full;
+  const cap = rel.charAt(0).toUpperCase() + rel.slice(1);
+  return `${cap}, ${full}`;
+}
+
 export function formatDateLong(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';

@@ -94,8 +94,8 @@
   color: var(--accent);
 }
 
-/* The theme + typeface button groups sit side-by-side in one row,
-   with no leading labels — the glyphs themselves identify the choice. */
+/* The display/tool button groups sit side-by-side in one row, with no
+   leading labels — the glyphs themselves identify the choice. */
 .dock-display-row {
   display: flex;
   align-items: center;
@@ -114,7 +114,7 @@
   padding: 0 0.4em;
 }
 
-/* Inline icon-only tool button — sits beside the theme/typeface toggle
+/* Inline icon-only tool button — sits beside the display toggle
    groups in the display row, sized to match a single toggle option. */
 .dock-tool-icon {
   display: inline-flex;
