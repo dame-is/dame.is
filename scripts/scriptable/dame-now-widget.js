@@ -54,6 +54,8 @@ const THEMES = {
     ink: new Color('#1d2419'),
     inkMuted: new Color('#6f6e58'),
     inkFaint: new Color('#9d9784'),
+    // Even fainter than inkFaint, for the tiny update stamp.
+    stamp: new Color('#9d9784', 0.6),
     accent: new Color('#5e7a47'),
     rule: new Color('#cabf9f'),
   },
@@ -62,6 +64,7 @@ const THEMES = {
     ink: new Color('#ece4cb'),
     inkMuted: new Color('#9a9377'),
     inkFaint: new Color('#6a6450'),
+    stamp: new Color('#6a6450', 0.7),
     accent: new Color('#a3b486'),
     rule: new Color('#3a4232'),
   },
@@ -260,8 +263,8 @@ function addHeader(widget, updatedAt, { compact }) {
   row.layoutHorizontally();
 
   const stamp = row.addText(`updated ${formatUpdated(updatedAt, compact)}`);
-  stamp.font = mono(9);
-  stamp.textColor = theme.inkFaint;
+  stamp.font = mono(7);
+  stamp.textColor = theme.stamp;
   stamp.lineLimit = 1;
 
   row.addSpacer();
@@ -276,13 +279,13 @@ function addHairline(widget) {
 }
 
 // One status row: "dame.is" (faint) + body (ink) on the left, mono time right.
-// Bottom-aligned so the status sits on the same baseline as the "dame.is"
-// prefix. The body renders at full size (no scale-down) and wraps if long,
-// which keeps its type size matched to the prefix.
+// Top-aligned so "dame.is" lines up with the FIRST line of the status; when
+// the status wraps, the extra lines flow downward rather than pushing the row
+// upward. Body and prefix share a type size so they stay matched.
 function addStatusRow(widget, item, { size }) {
   const row = widget.addStack();
   row.layoutHorizontally();
-  row.bottomAlignContent();
+  row.topAlignContent();
   row.spacing = 6;
 
   const prefix = row.addText('dame.is');
@@ -344,7 +347,7 @@ function renderList(widget, data, { big }) {
     return;
   }
 
-  const size = big ? 17 : 14;
+  const size = big ? 15 : 13;
   const shown = data.items.slice(0, cfg.count);
   shown.forEach((item, i) => {
     if (i > 0) {
