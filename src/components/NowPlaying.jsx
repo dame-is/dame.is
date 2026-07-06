@@ -15,12 +15,12 @@ export default function NowPlaying() {
     );
   }
   const ago = play.playedAt ? relativeTime(play.playedAt) : '';
-  const tooltip = `${play.track}${play.artist ? ' · ' + play.artist : ''}${ago ? ' · ' + ago : ''}`;
+  const tooltip = `${play.track}${play.artist ? ' by ' + play.artist : ''}${ago ? ' · ' + ago : ''}`;
   const href = recordPathFromAtUri(play.atUri);
   const inner = (
     <>
       <strong>{play.track}</strong>
-      {play.artist ? ` · ${play.artist}` : ''}
+      {play.artist ? ` by ${play.artist}` : ''}
     </>
   );
   return (
