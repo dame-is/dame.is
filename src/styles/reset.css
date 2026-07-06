@@ -23,6 +23,21 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Hide native scrollbars everywhere — the document, menus, modals, and
+   any inner scroll region. Scrolling still works; only the visual bar
+   is removed. The page's document scroll gets a custom accent-colored
+   indicator instead (see <WindowScrollbar>). */
+* {
+  scrollbar-width: none;        /* Firefox */
+  -ms-overflow-style: none;     /* legacy Edge */
+}
+
+*::-webkit-scrollbar {          /* WebKit / Blink */
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
 img, picture, video, canvas, svg {
   display: block;
   max-width: 100%;

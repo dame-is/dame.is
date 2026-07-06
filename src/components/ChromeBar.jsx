@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, MoonStar, Search, SunDim } from 'lucide-react';
@@ -37,6 +37,25 @@ export default function ChromeBar() {
     setAvatarBroken(false);
   }, [avatar]);
 
+  // Publish the top bar's live rendered height as `--chrome-top-h` on
+  // <html>. The atmosphere-expand row grows the header, so this tracks
+  // that (and viewport-driven reflow) via ResizeObserver. Consumers:
+  // the action-dock sheet (fills from here down to the bottom bar so it
+  // fully conceals the page and butts against the top chrome) and the
+  // custom window scrollbar (inset to the content region between bars).
+  const topRef = useRef(null);
+  useEffect(() => {
+    const el = topRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const apply = () => {
+      document.documentElement.style.setProperty('--chrome-top-h', `${el.offsetHeight}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Tertiary chrome: a breadcrumb that slides down out of the top bar once
   // the page is scrolled away from its top, orienting you to where you are.
   // It only exists off the home page, and folds back up on the way to the top.
@@ -47,6 +66,7 @@ export default function ChromeBar() {
   return (
     <>
       <header
+        ref={topRef}
         className={`chrome-bar chrome-bar-top ${expanded ? 'is-expanded' : 'is-collapsed'}`}
         role="banner"
       >

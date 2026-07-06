@@ -32,21 +32,27 @@
 
 /* .dock-panel: the visible surface. Matches the chrome bar's raised
    surface and hairlines so the sheet + bar read as one continuous
-   card. Capped in height with its own scroll so long views (the
-   route list, the debug dump) never push past the top bar. */
+   card. Its height is the exact gap between the top chrome (whatever
+   its live height — collapsed or atmosphere-expanded, via
+   --chrome-top-h) and the bottom bar, so the open sheet fully conceals
+   the page and its top edge butts cleanly against the top chrome. Own
+   scroll when a view (the route list, the debug dump) overflows. */
 .dock-panel {
   pointer-events: auto;
-  background: var(--surface-raised);
-  border-top: 1px solid var(--rule);
+  /* Deeper than the bar's --surface-raised so the expanded sheet reads
+     as its own layer above the toolbar. */
+  background: var(--surface-deep);
+  /* No border-top: the sheet's top edge butts against the top chrome's
+     own border-bottom, and a border here would double it into a 2px
+     line. The top chrome's hairline is the single divider. */
   /* Crisp divider between the expanded sheet and the button row below.
      Lives on the sheet's bottom edge (the sheet paints above the bar,
      z 31 > 30, so it wins over the bar's own hidden top border). */
   border-bottom: 1px solid var(--rule);
   padding: var(--space-4);
-  max-height: min(72dvh, calc(100dvh - var(--chrome-h) - 4rem));
+  height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: 0 -8px 24px var(--shadow);
 }
 
 /* On wide screens the chrome bars float as a 65rem card with side
