@@ -43,11 +43,33 @@ const DEFAULTS = {
   // Optional: name of an Apple Shortcut to run on tap instead of opening the
   // site. When set, the latest status text is passed as the shortcut's input.
   shortcut: '',
+  // Optional: set post=1 to show a "＋ new" button in the header that posts a
+  // new is.dame.now status to your PDS on tap. Credentials are stored in the
+  // device Keychain (see below) — never in this file.
+  post: '',
 };
 
 const PLC_DIRECTORY = 'https://plc.directory';
 const PDS_FALLBACK = 'https://pds.atpota.to'; // last-known PDS if PLC is unreachable
 const CACHE_FILE = 'dame-now-widget-cache.json';
+
+// Keychain keys for the posting flow. Secrets live only on this device; the
+// script (and the repo it lives in) never contains them.
+const KEY_ID = 'dame.now.identifier';
+const KEY_PW = 'dame.now.appPassword';
+const KEY_HOOK = 'dame.now.deployHook';
+
+// Optional in-script credentials. LEAVE THESE EMPTY in the committed file —
+// filling them in here and pushing would leak your app password to the repo.
+// If you'd rather not use the Keychain, you can paste your credentials into
+// *your on-device Scriptable copy only*. Caveat: re-pasting the script from the
+// repo (e.g. to pick up an update) overwrites them, whereas Keychain values
+// survive. When these are blank, posting falls back to the Keychain.
+const LOCAL = {
+  identifier: '', // e.g. 'dame.is'
+  appPassword: '', // e.g. 'xxxx-xxxx-xxxx-xxxx'
+  deployHook: '', // optional Vercel deploy hook URL
+};
 
 // Palette lifted straight from the site's theme.css (earthy: warm off-white
 // page, greenish-black ink, mossy-green accent). One set per appearance.
@@ -109,6 +131,13 @@ function parseParams(raw) {
 
 const cfg = parseParams(args.widgetParameter);
 const theme = Device.isUsingDarkAppearance() ? THEMES.dark : THEMES.light;
+const postEnabled = cfg.post && cfg.post !== '0' && cfg.post !== 'false';
+
+// URL that re-runs this script inside the Scriptable app in "post" mode. Uses
+// the script's own name, so it works whatever the user named it.
+function postRunUrl() {
+  return `scriptable:///run/${encodeURIComponent(Script.name())}?mode=post`;
+}
 
 // ---------------------------------------------------------------------------
 // AT Protocol helpers — plain fetch + JSON. No SDK, no URLSearchParams (not
@@ -255,9 +284,8 @@ function tapUrl(items) {
       `&input=text&text=${encodeURIComponent(latest)}`
     );
   }
-  const base = cfg.site.replace(/\/$/, '');
-  const rkey = items[0] && items[0].rkey;
-  return rkey ? `${base}/logging/${rkey}` : `${base}/logging`;
+  // Otherwise just open the site's home page.
+  return cfg.site.replace(/\/$/, '') || '/';
 }
 
 // When this widget's data was last pulled. Compact = time only (for the small
@@ -270,9 +298,12 @@ function formatUpdated(date, compact) {
 }
 
 // Header: the last data-update stamp, left-aligned, in the site's muted mono.
+// When posting is enabled, a "＋ new" button sits on the right with its own tap
+// target (iOS 17+), so the rest of the widget keeps its normal tap behavior.
 function addHeader(widget, updatedAt, { compact }) {
   const row = widget.addStack();
   row.layoutHorizontally();
+  row.centerAlignContent();
 
   const stamp = row.addText(`updated ${formatUpdated(updatedAt, compact)}`);
   stamp.font = mono(7);
@@ -280,6 +311,14 @@ function addHeader(widget, updatedAt, { compact }) {
   stamp.lineLimit = 1;
 
   row.addSpacer();
+
+  if (postEnabled) {
+    const plus = row.addText(compact ? '＋' : '＋ new');
+    plus.font = mono(9);
+    plus.textColor = theme.accent;
+    plus.lineLimit = 1;
+    plus.url = postRunUrl();
+  }
 }
 
 // A 1px hairline in the site's --rule color.
@@ -400,15 +439,156 @@ async function buildWidget() {
 }
 
 // ---------------------------------------------------------------------------
+// Posting — create a new is.dame.now record on your PDS (runs in-app only).
+// Credentials come from the device Keychain, never from this file.
+// ---------------------------------------------------------------------------
+
+function readKeychain(key) {
+  return Keychain.contains(key) ? Keychain.get(key) : '';
+}
+
+// Prompt once for credentials and store them in the Keychain. Returns
+// { identifier, password, hook } or null if the user cancels.
+async function ensureCreds() {
+  // 1) In-script constants, if you chose to fill them in on-device.
+  if (LOCAL.identifier && LOCAL.appPassword) {
+    return {
+      identifier: LOCAL.identifier,
+      password: LOCAL.appPassword,
+      hook: LOCAL.deployHook || '',
+    };
+  }
+  // 2) Keychain.
+  const identifier = readKeychain(KEY_ID);
+  const password = readKeychain(KEY_PW);
+  if (identifier && password) {
+    return { identifier, password, hook: readKeychain(KEY_HOOK) };
+  }
+
+  // 3) Prompt once, then store in the Keychain.
+  const a = new Alert();
+  a.title = 'Set up posting';
+  a.message =
+    "Stored only in this device's Keychain — never in the script or the repo. " +
+    'Create an app password at bsky.app → Settings → App Passwords (enable ' +
+    'write access).';
+  a.addTextField('handle or email', identifier || 'dame.is');
+  a.addSecureTextField('app password (xxxx-xxxx-xxxx-xxxx)', '');
+  a.addTextField('deploy hook URL (optional)', readKeychain(KEY_HOOK));
+  a.addAction('Save');
+  a.addCancelAction('Cancel');
+  if ((await a.presentAlert()) !== 0) return null;
+
+  const id = (a.textFieldValue(0) || '').trim();
+  const pw = (a.textFieldValue(1) || '').trim();
+  const hook = (a.textFieldValue(2) || '').trim();
+  if (!id || !pw) {
+    await note('Setup incomplete', 'Need both a handle and an app password.');
+    return null;
+  }
+  Keychain.set(KEY_ID, id);
+  Keychain.set(KEY_PW, pw);
+  if (hook) Keychain.set(KEY_HOOK, hook);
+  else if (Keychain.contains(KEY_HOOK)) Keychain.remove(KEY_HOOK);
+  return { identifier: id, password: pw, hook };
+}
+
+async function postJson(url, body, jwt) {
+  const req = new Request(url);
+  req.method = 'POST';
+  req.headers = {
+    'Content-Type': 'application/json',
+    ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+  };
+  req.body = JSON.stringify(body);
+  const res = await req.loadJSON();
+  return res || {};
+}
+
+async function createSession(pds, identifier, password) {
+  const res = await postJson(`${pds}/xrpc/com.atproto.server.createSession`, {
+    identifier,
+    password,
+  });
+  if (!res.accessJwt || !res.did) {
+    throw new Error(res.message || res.error || 'sign-in failed');
+  }
+  return res;
+}
+
+async function createNowRecord(pds, jwt, did, status) {
+  const res = await postJson(
+    `${pds}/xrpc/com.atproto.repo.createRecord`,
+    {
+      repo: did,
+      collection: cfg.collection,
+      record: { $type: cfg.collection, status, createdAt: new Date().toISOString() },
+    },
+    jwt,
+  );
+  if (!res.uri) throw new Error(res.message || res.error || 'could not create record');
+  return res;
+}
+
+async function pingHook(url) {
+  const req = new Request(url);
+  req.method = 'POST';
+  await req.load();
+}
+
+async function note(title, message) {
+  const a = new Alert();
+  a.title = title;
+  if (message) a.message = message;
+  a.addAction('OK');
+  await a.presentAlert();
+}
+
+async function runPostFlow() {
+  const creds = await ensureCreds();
+  if (!creds) return;
+
+  const a = new Alert();
+  a.title = 'New dame.is status';
+  a.message = 'Renders as "dame.is <status>".';
+  a.addTextField('what are you up to?');
+  a.addAction('Post');
+  a.addCancelAction('Cancel');
+  if ((await a.presentAlert()) !== 0) return;
+
+  const status = (a.textFieldValue(0) || '').trim();
+  if (!status) {
+    await note('Nothing posted', 'The status was empty.');
+    return;
+  }
+
+  try {
+    const pds = await resolvePds(cfg.did);
+    const session = await createSession(pds, creds.identifier, creds.password);
+    await createNowRecord(pds, session.accessJwt, session.did, status);
+    if (creds.hook) {
+      try {
+        await pingHook(creds.hook);
+      } catch (_) {
+        // rebuild is best-effort; the record is already live on the PDS
+      }
+    }
+    await note('Posted', `dame.is ${status}`);
+  } catch (e) {
+    await note('Post failed', String((e && e.message) || e));
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
 
-const widget = await buildWidget();
-
 if (config.runsInWidget) {
-  Script.setWidget(widget);
+  Script.setWidget(await buildWidget());
+} else if ((args.queryParameters && args.queryParameters.mode) === 'post') {
+  await runPostFlow();
 } else {
-  await widget.presentMedium();
+  await (await buildWidget()).presentMedium();
 }
 
 Script.complete();
