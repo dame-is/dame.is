@@ -218,16 +218,21 @@ async function loadItems() {
     const items = await listNow(pds, cfg.did, Math.max(want, 1));
     if (items.length) {
       writeCache(items);
-      return { items, stale: false };
+      return { items, stale: false, updatedAt: new Date() };
     }
   } catch (_) {
     // fall through to cache
   }
   const cached = readCache();
   if (cached && cached.items && cached.items.length) {
-    return { items: cached.items, stale: true };
+    const savedAt = cached.savedAt ? new Date(cached.savedAt) : null;
+    return {
+      items: cached.items,
+      stale: true,
+      updatedAt: savedAt && Number.isFinite(savedAt.getTime()) ? savedAt : null,
+    };
   }
-  return { items: [], stale: false };
+  return { items: [], stale: false, updatedAt: new Date() };
 }
 
 // ---------------------------------------------------------------------------
@@ -240,8 +245,18 @@ function tapUrl(items) {
   return rkey ? `${base}/logging/${rkey}` : `${base}/logging`;
 }
 
-// Uppercase, letter-spaced metadata label like the site's `.metadata` class.
-function addHeader(widget, stale) {
+// When this widget's data was last pulled. Compact = time only (for the small
+// widget); otherwise "Jul 6, 2:41 PM".
+function formatUpdated(date, compact) {
+  if (!date) return 'no data';
+  const df = new DateFormatter();
+  df.dateFormat = compact ? 'h:mm a' : 'MMM d, h:mm a';
+  return df.string(date);
+}
+
+// Header: the site's uppercase, letter-spaced metadata label on the left; the
+// last data-update stamp on the right.
+function addHeader(widget, updatedAt, { compact }) {
   const row = widget.addStack();
   row.layoutHorizontally();
   row.centerAlignContent();
@@ -252,9 +267,10 @@ function addHeader(widget, stale) {
 
   row.addSpacer();
 
-  const site = row.addText(stale ? 'offline' : 'dame.is');
-  site.font = mono(9);
-  site.textColor = theme.inkFaint;
+  const stamp = row.addText(`updated ${formatUpdated(updatedAt, compact)}`);
+  stamp.font = mono(9);
+  stamp.textColor = theme.inkFaint;
+  stamp.lineLimit = 1;
 }
 
 // A 1px hairline in the site's --rule color.
@@ -266,10 +282,13 @@ function addHairline(widget) {
 }
 
 // One status row: "dame.is" (faint) + body (ink) on the left, mono time right.
+// Bottom-aligned so the status sits on the same baseline as the "dame.is"
+// prefix. The body renders at full size (no scale-down) and wraps if long,
+// which keeps its type size matched to the prefix.
 function addStatusRow(widget, item, { size }) {
   const row = widget.addStack();
   row.layoutHorizontally();
-  row.topAlignContent();
+  row.bottomAlignContent();
   row.spacing = 6;
 
   const prefix = row.addText('dame.is');
@@ -280,8 +299,7 @@ function addStatusRow(widget, item, { size }) {
   const body = row.addText(item.status || '—');
   body.font = serif(size);
   body.textColor = theme.ink;
-  body.lineLimit = size >= 17 ? 3 : 2;
-  body.minimumScaleFactor = 0.7;
+  body.lineLimit = 2;
 
   row.addSpacer();
 
@@ -297,7 +315,7 @@ function addStatusRow(widget, item, { size }) {
 function renderSmall(widget, data) {
   const item = (data.items && data.items[0]) || { status: 'no updates yet', createdAt: null };
 
-  addHeader(widget, data.stale);
+  addHeader(widget, data.updatedAt, { compact: true });
   widget.addSpacer(10);
 
   const prefix = widget.addText('dame.is');
@@ -321,7 +339,7 @@ function renderSmall(widget, data) {
 }
 
 function renderList(widget, data, { big }) {
-  addHeader(widget, data.stale);
+  addHeader(widget, data.updatedAt, { compact: false });
   widget.addSpacer(big ? 12 : 9);
 
   if (!data.items.length) {
