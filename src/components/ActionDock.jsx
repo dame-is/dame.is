@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Bug, ChevronLeft, User } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
-import Modal from './Modal.jsx';
 import DensityToggle from './DensityToggle.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
@@ -75,17 +75,49 @@ export default function ActionDock() {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, view, openDock, closeDock]);
 
-  return (
-    <Modal
-      open={open}
-      onClose={closeDock}
-      label="Site menu"
-      id="action-dock-panel"
-      className={`dock-panel dock-panel-view-${view}`}
-      scrimLabel="Close menu"
-      closeOnEscape={false}
-    >
-      <div className="dock-stage">
+  if (typeof document === 'undefined') return null;
+
+  // The dock is a sheet that expands UPWARD out of the bottom chrome
+  // bar — the mirror of the top bar's expand-down rows. A motion.div
+  // pinned above the bar animates height 0 ↔ auto with overflow
+  // hidden, so the panel unfurls upward instead of overlaying as a
+  // centered modal. A transparent (non-dimming) backdrop below the
+  // bars catches outside clicks to close, keeping the toolbar itself
+  // tappable. Portalled to <body> so no transformed feed ancestor can
+  // trap its fixed positioning.
+  return createPortal(
+    <>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="dock-backdrop"
+            className="dock-backdrop"
+            onClick={closeDock}
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reduce ? 0 : 0.2 }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="dock-sheet"
+            className="dock-sheet-wrap"
+            initial={{ height: 0 }}
+            animate={{ height: 'auto' }}
+            exit={{ height: 0 }}
+            transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
+          >
+            <div
+              id="action-dock-panel"
+              className={`dock-panel dock-panel-view-${view}`}
+              role="dialog"
+              aria-label="Site menu"
+            >
+              <div className="dock-stage">
         <AnimatePresence initial={false} mode="wait">
           {view === 'menu' && (
             <motion.div
@@ -194,7 +226,12 @@ export default function ActionDock() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
-    </Modal>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>,
+    document.body,
   );
 }

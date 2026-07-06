@@ -3,28 +3,33 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 const ThemeContext = createContext(null);
 const STORAGE_KEY = 'dame.theme';
 
-// Cycle order is intentional: each row of the toggle button advances
-// by one stop, walking the user through light-mono → light-color →
-// dark-mono → dark-color → back to light-mono.
-const VALID = ['light-mono', 'light', 'dark-mono', 'dark'];
+// Two themes: warm light and dark green. The toggle flips between them.
+const VALID = ['light', 'dark'];
+
+// Retired monochrome variants map to their color equivalent so a
+// returning visitor who last used a mono theme keeps its light/dark
+// polarity instead of being reset to the default.
+const THEME_ALIAS = {
+  'light-mono': 'light',
+  'dark-mono': 'dark',
+};
 
 // Matches --surface-raised in theme.css. Used for the iOS Safari URL
 // bar surround / Android browser chrome so the OS UI blends with the
 // dame.is chrome bar instead of falling back to a system default.
 const THEME_COLOR = {
-  'light-mono': '#dedede',
   light: '#e3d8ba',
-  'dark-mono': '#0a0a0a',
   dark: '#13180f',
 };
 
 const DEFAULT_THEME = 'light';
 
 function migrateStoredTheme(stored) {
-  if (VALID.includes(stored)) return stored;
-  // Legacy / missing values land on the colored light theme so new
-  // visitors get a predictable first paint — they can cycle to dark
-  // (or either mono variant) from the chrome bar.
+  const resolved = THEME_ALIAS[stored] || stored;
+  if (VALID.includes(resolved)) return resolved;
+  // Legacy / missing values land on the light theme so new visitors
+  // get a predictable first paint — they can flip to dark from the
+  // chrome bar.
   return DEFAULT_THEME;
 }
 

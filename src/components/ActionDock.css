@@ -1,22 +1,61 @@
-/* The dock panel content lives inside <Modal variant="centered">, so
-   positioning, scrim, surface, and enter/exit animation are all owned
-   by the Modal. Rules here only style the panel's interior layout. */
-.dock-panel {
-  width: var(--dock-w);
-  max-width: min(var(--dock-w), 100%);
-  padding: var(--space-4);
-  /* Smoothly interpolate the panel's width when crossing between
-     views that demand different room (the debug pane is much wider
-     than menu/account). */
-  transition: width 220ms ease, max-width 220ms ease;
+/* The dock is a sheet that expands upward out of the bottom chrome
+   bar — the mirror of the top bar's expand-down rows.
+
+   .dock-backdrop: a transparent, non-dimming click-catcher below the
+   chrome bars (z 29 < bars' 30) so tapping the page closes the sheet
+   while the toolbar buttons stay live. No visual tint — the sheet
+   reads as part of the chrome, like the top-bar expansions do. */
+.dock-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: transparent;
 }
 
-/* The atmosphere debug pane carries dense readouts and a JSON dump,
-   so it needs the same wider envelope the old standalone overlay
-   used. Menu and account stay at the default --dock-w. */
-.dock-panel-view-debug {
-  width: min(560px, 100%);
-  max-width: min(560px, 100%);
+/* .dock-sheet-wrap: the animated clip box, pinned directly on top of
+   the bottom bar and centered on the same 65rem card. Framer animates
+   its height 0 ↔ auto; overflow:hidden means the panel inside unfurls
+   upward out of the bar. Sits above the bars (z 31) so its top edge
+   and shadow overlap the page cleanly. */
+.dock-sheet-wrap {
+  position: fixed;
+  bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 65rem;
+  margin: 0 auto;
+  z-index: 31;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* .dock-panel: the visible surface. Matches the chrome bar's raised
+   surface and hairlines so the sheet + bar read as one continuous
+   card. Capped in height with its own scroll so long views (the
+   route list, the debug dump) never push past the top bar. */
+.dock-panel {
+  pointer-events: auto;
+  background: var(--surface-raised);
+  border-top: 1px solid var(--rule);
+  /* Crisp divider between the expanded sheet and the button row below.
+     Lives on the sheet's bottom edge (the sheet paints above the bar,
+     z 31 > 30, so it wins over the bar's own hidden top border). */
+  border-bottom: 1px solid var(--rule);
+  padding: var(--space-4);
+  max-height: min(72dvh, calc(100dvh - var(--chrome-h) - 4rem));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: 0 -8px 24px var(--shadow);
+}
+
+/* On wide screens the chrome bars float as a 65rem card with side
+   hairlines; the sheet closes its box to match. */
+@media (min-width: 65rem) {
+  .dock-panel {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
 }
 
 .dock-section {
@@ -160,12 +199,9 @@
 }
 
 @media (max-width: 540px) {
-  /* On phones the 280px default leaves too much background visible;
-     let the panel fill the available column so the menu feels like
-     a real sheet. */
+  /* Tighten the sheet's padding on phones and give routes a slightly
+     taller tap target. */
   .dock-panel {
-    width: 100%;
-    max-width: 100%;
     padding: var(--space-3) var(--space-4) var(--space-4);
   }
 

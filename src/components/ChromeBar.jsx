@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, Moon, MoonStar, Search, Sun, SunDim } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, MoonStar, Search, SunDim } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -14,13 +14,9 @@ import SearchModal from './SearchModal.jsx';
 import InfoModal from './InfoModal.jsx';
 import './ChromeBar.css';
 
-// Per-theme glyph for the cycle button — each of the 4 stops gets a
-// distinct sun/moon variant so the current theme is readable at a
-// glance instead of being collapsed into a binary sun/moon swap.
+// Per-theme glyph for the toggle button: sun for light, moon for dark.
 const THEME_ICON = {
-  'light-mono': Sun,
   light: SunDim,
-  'dark-mono': Moon,
   dark: MoonStar,
 };
 
@@ -216,7 +212,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const scrolledPast = useScrolledPastFeedItems();
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
   const { theme, cycle: cycleTheme } = useTheme();
-  const ThemeIcon = THEME_ICON[theme] || Sun;
+  const ThemeIcon = THEME_ICON[theme] || SunDim;
   // Trigger buttons highlight when the corresponding URL state is
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
@@ -255,8 +251,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           type="button"
           className="chrome-nav chrome-theme-toggle"
           onClick={cycleTheme}
-          aria-label={`Cycle theme (current: ${theme})`}
-          title={`Theme: ${theme} — tap to cycle`}
+          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (current: ${theme})`}
+          title={`Theme: ${theme} — tap to switch`}
         >
           <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>

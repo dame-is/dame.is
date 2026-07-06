@@ -13,7 +13,10 @@
   gap: var(--space-1);
   align-items: stretch;
   padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--rule-soft);
+  /* Hairline separator: half the strength of --rule-soft (blended
+     toward the page) so consecutive items read as a gentle rhythm
+     rather than hard-ruled rows. */
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 50%, transparent);
   min-width: 0;
 }
 
