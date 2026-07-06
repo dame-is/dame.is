@@ -7,8 +7,13 @@ file here is a self-contained script you paste into the app.
 
 Shows the most recent `is.dame.now` status update(s) — the same records behind
 [dame.is/logging](https://dame.is/logging) — pulled live from the AT Protocol
-PDS. `now` records are public, so there's no login: the widget reads them with
-`com.atproto.repo.listRecords`.
+PDS. `now` records are public, so there's no login and no Bluesky AppView: the
+widget resolves the PDS host from the PLC directory and reads records straight
+from it with `com.atproto.repo.listRecords`, exactly like the site does.
+
+The look mirrors the site — flat earthy palette, a serif voice (Charter, the
+closest iOS system serif to the site's Crimson Pro), mono timestamps, square
+corners, hairline rules — and follows the phone's light/dark appearance.
 
 ### Install
 
@@ -31,8 +36,7 @@ In **Edit Widget → Parameter**, pass `key=value` pairs separated by `;`:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `handle` | `dame.is` | Handle to resolve for the repo. |
-| `did` | `did:plc:gq4fo3u6tqzzdkjlwzpb23tj` | Fallback DID if handle resolution fails. |
+| `did` | `did:plc:gq4fo3u6tqzzdkjlwzpb23tj` | The repo (DID) whose `now` records to read. |
 | `count` | `4` | How many updates to show (medium/large). |
 | `site` | `https://dame.is` | Where a tap opens (deep-links to the record when possible). |
 
