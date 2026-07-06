@@ -213,10 +213,6 @@
   --mono-ui: var(--mono);
 }
 
-/* <body> must keep an opaque page background: the film-grain
-   texture is painted as body background-image layers whose bottom
-   mottle layer soft-light-blends with this background-color (see
-   FilmGrain.css). */
 html, body {
   background: var(--page);
   color: var(--ink);

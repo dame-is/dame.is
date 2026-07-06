@@ -6,7 +6,6 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import Modal from './Modal.jsx';
 import DensityToggle from './DensityToggle.jsx';
 import TypefaceToggle from './TypefaceToggle.jsx';
-import FilmGrainToggle from './FilmGrainToggle.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
 import './ActionDock.css';
@@ -122,7 +121,6 @@ export default function ActionDock() {
                 <div className="dock-display-row">
                   <DensityToggle />
                   <TypefaceToggle />
-                  <FilmGrainToggle />
                   <button
                     type="button"
                     className="dock-tool-icon"

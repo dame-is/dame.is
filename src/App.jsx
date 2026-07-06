@@ -27,7 +27,6 @@ const Exploring = lazy(() => import('./pages/Exploring.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import Footer from './components/Footer.jsx';
-import FilmGrain from './components/FilmGrain.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
@@ -36,7 +35,6 @@ import { TypefaceProvider } from './hooks/useTypeface.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
-import { FilmGrainProvider } from './hooks/useFilmGrain.jsx';
 import { WaypointsModalProvider } from './hooks/useWaypointsModal.jsx';
 
 /**
@@ -82,7 +80,6 @@ export default function App() {
     <ThemeProvider>
       <DensityProvider>
       <TypefaceProvider>
-      <FilmGrainProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
       <FeedFilterProvider>
@@ -144,7 +141,6 @@ export default function App() {
             </main>
             <Footer />
             <ActionDock />
-            <FilmGrain />
             <Analytics />
           </div>
       </WaypointsModalProvider>
@@ -152,7 +148,6 @@ export default function App() {
       </FeedFilterProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>
-      </FilmGrainProvider>
       </TypefaceProvider>
       </DensityProvider>
     </ThemeProvider>
