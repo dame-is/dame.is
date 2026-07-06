@@ -254,23 +254,17 @@ function formatUpdated(date, compact) {
   return df.string(date);
 }
 
-// Header: the site's uppercase, letter-spaced metadata label on the left; the
-// last data-update stamp on the right.
+// Header: the last data-update stamp, left-aligned, in the site's muted mono.
 function addHeader(widget, updatedAt, { compact }) {
   const row = widget.addStack();
   row.layoutHorizontally();
-  row.centerAlignContent();
-
-  const label = row.addText('N O W');
-  label.font = mono(9);
-  label.textColor = theme.inkMuted;
-
-  row.addSpacer();
 
   const stamp = row.addText(`updated ${formatUpdated(updatedAt, compact)}`);
   stamp.font = mono(9);
   stamp.textColor = theme.inkFaint;
   stamp.lineLimit = 1;
+
+  row.addSpacer();
 }
 
 // A 1px hairline in the site's --rule color.
