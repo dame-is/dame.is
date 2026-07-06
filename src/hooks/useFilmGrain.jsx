@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const FilmGrainContext = createContext(null);
-const STORAGE_KEY = 'dame.grain';
+// Versioned key: while the feature was dormant the provider persisted
+// 'off' under the old `dame.grain` key on every visit, so that key
+// can't distinguish "user chose off" from "dormant default". Starting
+// fresh under .v2 gives everyone the on-by-default grain again.
+const STORAGE_KEY = 'dame.grain.v2';
 const VALID = ['on', 'off'];
-// Feature dormant — the toggle UI is hidden in ActionDock and the
-// default is off. The hook, component, and styles are kept around
-// so the grain can be revived later by re-rendering FilmGrainToggle.
-const DEFAULT = 'off';
+const DEFAULT = 'on';
 
 function applyGrain(grain) {
   document.documentElement.setAttribute('data-grain', grain);
