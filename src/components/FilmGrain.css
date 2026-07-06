@@ -3,24 +3,33 @@
 
    Implementation notes
    --------------------
-   - Each layer is its own `position: fixed` element (siblings, no
-     wrapper). A wrapper with a z-index would form a stacking
-     context and its children's `mix-blend-mode` would blend against
-     the wrapper's transparent backdrop — i.e. not blend at all.
-     As root-level siblings the layers blend with the actual page.
+   - The grain field is painted as multi-layer background-image on
+     <body> itself, composited with background-blend-mode. This is
+     the one mechanism that is by definition BEHIND all content and
+     paints identically in every engine: an earlier version used
+     negative-z-index fixed overlay elements, which Chromium slots
+     above the root background but iOS WebKit hides entirely.
+     Static tiled bitmaps, no extra elements, no compositing work.
+   - Layer order (first = topmost): light specks, dark specks,
+     mottle. The mottle is the bottom image layer so its soft-light
+     background-blend-mode blends with the body's background-color —
+     the paper tone — which is also why <body> must keep an opaque
+     `background: var(--page)` (see theme.css).
+   - Per-layer strength is baked into each tile as an SVG rect
+     `opacity` attribute (background layers have no opacity knob),
+     so light and dark themes get separate tile sets.
    - Tiles are static SVG feTurbulence rendered as CSS backgrounds:
      decoded once, tiled as bitmaps, zero per-frame cost.
    - `color-interpolation-filters='sRGB'` on every tile filter:
      the default linearRGB washes turbulence toward flat mid-gray
      and the texture all but disappears.
    - The speck layers map noise luminance to alpha and push it
-     through a steep gamma (feFuncA exponent 4.5–5.5), so only
-     sparse clusters survive — particles of varied size and shape,
-     like film grain or paper fiber, not uniform pixel hiss. Dark
-     and light speck fields use different seeds and tile sizes so
-     their overlap stays irregular.
-   - The mottle layer is very-low-frequency turbulence, soft-light
-     blended: broad, cloudy tone variation like handmade paper.
+     through a steep gamma (feFuncA exponent 6–7) so only sparse
+     clusters survive — fine, crisp particles of varied size, like
+     film grain or paper fiber, not uniform pixel hiss. The dark
+     tile merges in a sparser scatter of larger flecks (real grain
+     isn't monosized). Different seeds + tile sizes per field keep
+     the overlap irregular.
    - Text "ink" is roughened by the #film-grain-ink displacement
      filter defined in FilmGrain.jsx — sub-pixel edge displacement
      (scale 1.1 at baseFrequency 1.1), enough to fuzz the glyph
@@ -38,74 +47,35 @@
   overflow: hidden;
 }
 
-.film-grain-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  /* BEHIND all content (negative z-index in the root stacking
-     context): the grain textures the paper the page is printed on,
-     while text, images, and raised surfaces sit cleanly on top.
-     Negative-z elements paint above the <html> canvas background
-     but below in-flow elements' backgrounds — which is why the
-     page color must live on <html> only, with <body> transparent
-     (see theme.css); an opaque body fill would cover these layers
-     entirely. Raised surfaces get their own grain pass via
-     pseudo-elements below. */
-  z-index: -1;
+/* ----- Paper grain on the page background ------------------- */
+
+[data-grain='on'] body {
+  /* light specks / dark specks (fine + coarse merged) / mottle */
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.5' exponent='7' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)' opacity='0.16'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch' seed='19' result='n1'/><feColorMatrix in='n1' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m1'/><feComponentTransfer in='m1' result='s1'><feFuncA type='gamma' amplitude='1.3' exponent='6' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='s1' operator='in' result='fine'/><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch' seed='71' result='n2'/><feColorMatrix in='n2' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m2'/><feComponentTransfer in='m2' result='s2'><feFuncA type='gamma' amplitude='0.6' exponent='7' offset='0'/></feComponentTransfer><feComposite in='fill' in2='s2' operator='in' result='coarse'/><feMerge><feMergeNode in='coarse'/><feMergeNode in='fine'/></feMerge></filter><rect width='340' height='340' filter='url(%23g)' opacity='0.13'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.008' numOctaves='5' stitchTiles='stitch' seed='47'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='900' height='900' filter='url(%23g)' opacity='0.55'/></svg>");
+  background-size: 320px 320px, 340px 340px, 900px 900px;
   background-repeat: repeat;
-  /* Hidden until the saved preference is applied in main.jsx, so
-     there's no one-frame flash of grain before it's read. */
-  display: none;
+  background-blend-mode: normal, normal, soft-light;
 }
 
-[data-grain='on'] .film-grain-layer {
-  display: block;
+/* Dark theme: same fields, much quieter — light particles read loud
+   on near-black, and heavy soft-light flattens the deep green. */
+[data-theme='dark'][data-grain='on'] body {
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.5' exponent='7' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)' opacity='0.06'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch' seed='19' result='n1'/><feColorMatrix in='n1' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m1'/><feComponentTransfer in='m1' result='s1'><feFuncA type='gamma' amplitude='1.3' exponent='6' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='s1' operator='in' result='fine'/><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch' seed='71' result='n2'/><feColorMatrix in='n2' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m2'/><feComponentTransfer in='m2' result='s2'><feFuncA type='gamma' amplitude='0.6' exponent='7' offset='0'/></feComponentTransfer><feComposite in='fill' in2='s2' operator='in' result='coarse'/><feMerge><feMergeNode in='coarse'/><feMergeNode in='fine'/></feMerge></filter><rect width='340' height='340' filter='url(%23g)' opacity='0.1'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.008' numOctaves='5' stitchTiles='stitch' seed='47'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='900' height='900' filter='url(%23g)' opacity='0.3'/></svg>");
 }
-
-/* Paper mottle — broad, cloudy unevenness. Soft-light works here
-   because the layer is a root-level sibling of the page content:
-   it genuinely darkens/lightens what's beneath it. */
-.film-grain-mottle {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.008' numOctaves='5' stitchTiles='stitch' seed='47'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='900' height='900' filter='url(%23g)'/></svg>");
-  background-size: 900px 900px;
-  mix-blend-mode: soft-light;
-  opacity: 0.55;
-}
-
-/* Dark specks — fine, crisp warm-black particles, normal blend.
-   High baseFrequency (1.2) + few octaves + a steep gamma keep the
-   particles small and hard-edged rather than soft and blobby.
-   The same tile carries a second, sparser scatter of slightly
-   larger flecks (baseFrequency 0.5, alpha scaled to ~half) merged
-   under the fine field: real grain isn't monosized, and the
-   occasional bigger fleck keeps the fine speckle from reading as
-   uniform digital noise — without costing a fourth composited
-   layer. */
-.film-grain-specks-dark {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch' seed='19' result='n1'/><feColorMatrix in='n1' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m1'/><feComponentTransfer in='m1' result='s1'><feFuncA type='gamma' amplitude='1.3' exponent='6' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='s1' operator='in' result='fine'/><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch' seed='71' result='n2'/><feColorMatrix in='n2' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m2'/><feComponentTransfer in='m2' result='s2'><feFuncA type='gamma' amplitude='0.6' exponent='7' offset='0'/></feComponentTransfer><feComposite in='fill' in2='s2' operator='in' result='coarse'/><feMerge><feMergeNode in='coarse'/><feMergeNode in='fine'/></feMerge></filter><rect width='340' height='340' filter='url(%23g)'/></svg>");
-  background-size: 340px 340px;
-  opacity: 0.13;
-}
-
-/* Light specks — warm-white counterpart, different seed + tile size
-   so the two fields stay out of phase. */
-.film-grain-specks-light {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.5' exponent='7' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)'/></svg>");
-  background-size: 320px 320px;
-  opacity: 0.16;
-}
-
-/* Dark theme: light particles read much louder on near-black, and
-   the deep green flattens under too much soft-light — pull all three
-   layers down. */
-[data-theme='dark'] .film-grain-mottle { opacity: 0.3; }
-[data-theme='dark'] .film-grain-specks-dark { opacity: 0.1; }
-[data-theme='dark'] .film-grain-specks-light { opacity: 0.06; }
 
 @media (prefers-color-scheme: dark) {
-  [data-theme='system'] .film-grain-mottle { opacity: 0.3; }
-  [data-theme='system'] .film-grain-specks-dark { opacity: 0.1; }
-  [data-theme='system'] .film-grain-specks-light { opacity: 0.06; }
+  [data-theme='system'][data-grain='on'] body {
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.5' exponent='7' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)' opacity='0.06'/></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch' seed='19' result='n1'/><feColorMatrix in='n1' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m1'/><feComponentTransfer in='m1' result='s1'><feFuncA type='gamma' amplitude='1.3' exponent='6' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='s1' operator='in' result='fine'/><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch' seed='71' result='n2'/><feColorMatrix in='n2' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m2'/><feComponentTransfer in='m2' result='s2'><feFuncA type='gamma' amplitude='0.6' exponent='7' offset='0'/></feComponentTransfer><feComposite in='fill' in2='s2' operator='in' result='coarse'/><feMerge><feMergeNode in='coarse'/><feMergeNode in='fine'/></feMerge></filter><rect width='340' height='340' filter='url(%23g)' opacity='0.1'/></svg>"),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.008' numOctaves='5' stitchTiles='stitch' seed='47'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='900' height='900' filter='url(%23g)' opacity='0.3'/></svg>");
+  }
 }
 
 /* ----- Ink roughen -------------------------------------------
@@ -118,15 +88,17 @@
    covers their span/div innards), cards, the hero, the footer, and
    the loose text rows.
 
-   The `:not(:is(...) *)` guard excludes any match nested inside
-   another match — e.g. a <p> inside a filtered <li> — so no text
-   is displaced twice (2×1.1px reads as smear, not fuzz). Keep the
-   guard list identical to the match list.
+   The chrome bars get the filter on their in-flow CHILDREN, never
+   on the sticky/fixed bar itself: a filtered sticky element
+   re-rasterizes every scroll frame (~10fps of measured cost), but
+   filtered children are cached once and just ride along as the bar
+   composites.
 
-   The chrome bars stay excluded: they're sticky/fixed, so a filter
-   on them re-rasterizes every scroll frame (~10fps of measured
-   cost); their surface texture comes from the pseudo-element grain
-   below instead.
+   A higher-specificity descendant rule resets `filter` on matches
+   nested inside other matches — e.g. a <p> inside a filtered <li> —
+   so no text is displaced twice (2×1.1px reads as smear, not fuzz).
+   Keep the two selector lists identical.
+
    Safe re: containing blocks — none of these have fixed-position
    descendants (modals and the lightbox portal to <body>). */
 [data-grain='on'] .main
@@ -141,21 +113,30 @@
 [data-grain='on'] .main
   :is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, pre,
       .hero-sentence, .feed-card, .feed-checking, .feed-load-more, .home-hero-cta),
+[data-grain='on'] .chrome-bar > *,
 [data-grain='on'] .page-footer,
 [data-grain='on'] .modal-panel {
   filter: url(#film-grain-ink);
 }
 
 /* ----- Raised-surface grain ---------------------------------
-   With the grain field behind the page, opaque raised surfaces
-   (chrome bars, modal panels) would read as clean plastic cutouts
-   on textured paper. Give their backgrounds a speck pass via
-   pseudo-elements: the texture sits above the surface's fill but
-   below its content, so bar/modal text stays crisp on a grained
-   surface. These are plain tiled bitmaps — no filter — so the
-   sticky bars stay cheap during scroll. The surfaces establish
-   their own containing blocks already (sticky/fixed/relative), so
-   no positioning is added here. */
+   With the grain field on the page background, opaque raised
+   surfaces (chrome bars, modal panels) would read as clean plastic
+   cutouts on textured paper. Give their backgrounds a faint speck
+   pass via a ::before pseudo at z-index -1: negative-z children
+   paint ABOVE their stacking-context root's own background but
+   below all of its content, so no layout or stacking overrides on
+   the surface's children are needed (an earlier version forced
+   `position: relative` on them, which yanked the absolutely
+   positioned breadcrumb strip into flow and grew the header).
+   `isolation: isolate` guarantees the surface is a stacking
+   context without affecting layout. Plain tiled bitmaps — no
+   filter — so the sticky bars stay cheap during scroll. */
+[data-grain='on'] .chrome-bar,
+[data-grain='on'] .modal-panel {
+  isolation: isolate;
+}
+
 [data-grain='on'] .chrome-bar::before,
 [data-grain='on'] .modal-panel::before {
   content: '';
@@ -167,37 +148,33 @@
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch' seed='19'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.3' exponent='6' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='280' height='280' filter='url(%23g)'/></svg>");
   background-size: 320px 320px, 280px 280px;
   background-repeat: repeat;
-  opacity: 0.14;
-  z-index: 0;
+  opacity: 0.07;
+  z-index: -1;
   border-radius: inherit;
 }
 
-[data-theme='dark'] [data-grain='on'] .chrome-bar::before,
-[data-theme='dark'] [data-grain='on'] .modal-panel::before {
-  opacity: 0.07;
+/* Both attributes live on <html>, so these are compound selectors
+   (no descendant combinator). */
+[data-theme='dark'][data-grain='on'] .chrome-bar::before,
+[data-theme='dark'][data-grain='on'] .modal-panel::before {
+  opacity: 0.04;
 }
 
 @media (prefers-color-scheme: dark) {
-  [data-theme='system'] [data-grain='on'] .chrome-bar::before,
-  [data-theme='system'] [data-grain='on'] .modal-panel::before {
-    opacity: 0.07;
+  [data-theme='system'][data-grain='on'] .chrome-bar::before,
+  [data-theme='system'][data-grain='on'] .modal-panel::before {
+    opacity: 0.04;
   }
 }
 
-/* Stack surface content above the ::before grain. */
-[data-grain='on'] .chrome-bar > *,
-[data-grain='on'] .modal-panel > * {
-  position: relative;
-  z-index: 1;
-}
-
 @media print {
-  .film-grain-layer { display: none !important; }
+  [data-grain='on'] body { background-image: none; }
   [data-grain='on'] .chrome-bar::before,
   [data-grain='on'] .modal-panel::before { content: none; }
   [data-grain='on'] .main
     :is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, pre,
         .hero-sentence, .feed-card, .feed-checking, .feed-load-more, .home-hero-cta),
+  [data-grain='on'] .chrome-bar > *,
   [data-grain='on'] .page-footer,
   [data-grain='on'] .modal-panel { filter: none; }
 }
