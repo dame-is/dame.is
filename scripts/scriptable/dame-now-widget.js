@@ -40,6 +40,9 @@ const DEFAULTS = {
   collection: 'is.dame.now',
   count: 4, // how many recent updates to show in medium/large widgets
   site: 'https://dame.is', // tapping opens here (record page when possible)
+  // Optional: name of an Apple Shortcut to run on tap instead of opening the
+  // site. When set, the latest status text is passed as the shortcut's input.
+  shortcut: '',
 };
 
 const PLC_DIRECTORY = 'https://plc.directory';
@@ -243,6 +246,15 @@ async function loadItems() {
 // ---------------------------------------------------------------------------
 
 function tapUrl(items) {
+  // Opt-in: run an Apple Shortcut on tap (foregrounds the Shortcuts app),
+  // passing the latest status as its input. Falls back to opening the site.
+  if (cfg.shortcut) {
+    const latest = (items[0] && items[0].status) || '';
+    return (
+      `shortcuts://run-shortcut?name=${encodeURIComponent(cfg.shortcut)}` +
+      `&input=text&text=${encodeURIComponent(latest)}`
+    );
+  }
   const base = cfg.site.replace(/\/$/, '');
   const rkey = items[0] && items[0].rkey;
   return rkey ? `${base}/logging/${rkey}` : `${base}/logging`;

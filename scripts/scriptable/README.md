@@ -39,6 +39,7 @@ In **Edit Widget → Parameter**, pass `key=value` pairs separated by `;`:
 | `did` | `did:plc:gq4fo3u6tqzzdkjlwzpb23tj` | The repo (DID) whose `now` records to read. |
 | `count` | `4` | How many updates to show (medium/large). |
 | `site` | `https://dame.is` | Where a tap opens (deep-links to the record when possible). |
+| `shortcut` | *(none)* | Name of an Apple Shortcut to run on tap instead of opening `site`. |
 
 Example — show five updates:
 
@@ -46,6 +47,19 @@ Example — show five updates:
 count=5
 ```
 
+### Run a Shortcut on tap
+
+Set `shortcut` to the exact name of a Shortcut and tapping the widget runs it
+(via the `shortcuts://run-shortcut` URL scheme) instead of opening the site.
+The latest status text is passed as the Shortcut's input (available as
+"Shortcut Input" inside the Shortcut). Note: this briefly foregrounds the
+Shortcuts app — a Scriptable widget can't run a Shortcut silently in the
+background the way a native App Intent widget can.
+
+```
+shortcut=Log a status
+```
+
 The PDS host is always resolved live from the PLC directory, so a PDS migration
 needs no edit. The last successful fetch is cached on-device, so the widget
-still shows something when offline (marked `offline`).
+still shows something when offline.
