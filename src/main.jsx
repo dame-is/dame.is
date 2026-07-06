@@ -51,12 +51,14 @@ document.documentElement.setAttribute('data-density', storedDensity);
 
 // Film grain: apply the saved preference before React mounts so the
 // overlay paints (or doesn't) on the first frame instead of flashing
-// in once <FilmGrainProvider> hydrates. Feature is currently dormant —
-// the toggle UI is hidden and the default is off; keep this read so a
-// future revival picks up any preference users had previously set.
+// in once <FilmGrainProvider> hydrates. The key is versioned (.v2)
+// because during the feature's dormant phase every visit persisted
+// 'off' under the old `dame.grain` key — reading that key would pin
+// grain off for everyone who visited in that window. Keep the key +
+// default in sync with useFilmGrain.jsx.
 const VALID_GRAIN = ['on', 'off'];
-let storedGrain = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.grain') : null;
-if (!VALID_GRAIN.includes(storedGrain)) storedGrain = 'off';
+let storedGrain = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.grain.v2') : null;
+if (!VALID_GRAIN.includes(storedGrain)) storedGrain = 'on';
 document.documentElement.setAttribute('data-grain', storedGrain);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
