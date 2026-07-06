@@ -244,6 +244,110 @@
   height: 0.65rem;
 }
 
+/* Variant: mothing page skeleton. Mirrors the .mothing-stats row and the
+   per-session .mothing-grid of 1:1 cards so the snapshot lands without
+   reflowing the page. */
+.skeleton-mothing-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.skeleton-mothing-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeleton-mothing-stat-value {
+  height: 1.5rem;
+}
+
+.skeleton-mothing-stat-label {
+  width: 3.5rem;
+  height: 0.65rem;
+}
+
+.skeleton-mothing-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.skeleton-mothing-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.skeleton-mothing-headrow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.skeleton-mothing-num {
+  width: 4.5rem;
+  height: 0.7rem;
+}
+
+.skeleton-mothing-title {
+  height: 1.3em;
+}
+
+.skeleton-mothing-headstats {
+  width: 8rem;
+  height: 0.7rem;
+}
+
+.skeleton-mothing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: var(--space-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.skeleton-mothing-cell {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+  background: var(--page-edge);
+}
+
+.skeleton-mothing-thumb {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  display: block;
+}
+
+.skeleton-mothing-meta {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeleton-mothing-name {
+  height: 1.05em;
+}
+
+.skeleton-mothing-sci {
+  height: 0.85em;
+}
+
+.skeleton-mothing-sub {
+  width: 45%;
+  height: 0.7rem;
+}
+
 /* Variant: single-record / blog-post / work skeleton. Lives inside the
    page article so it gets the .record-page measure and gutters. */
 .skeleton-record {
@@ -318,16 +422,19 @@
 .skeleton-feed-item:nth-child(3n)       .skeleton,
 .skeleton-toc-entry:nth-child(3n)       .skeleton,
 .skeleton-grid-cell:nth-child(3n)       .skeleton,
+.skeleton-mothing-cell:nth-child(3n)    .skeleton,
 .skeleton-comments-item:nth-child(3n)   .skeleton { animation-delay: -0.5s; }
 
 .skeleton-feed-item:nth-child(3n + 1)     .skeleton,
 .skeleton-toc-entry:nth-child(3n + 1)     .skeleton,
 .skeleton-grid-cell:nth-child(3n + 1)     .skeleton,
+.skeleton-mothing-cell:nth-child(3n + 1)  .skeleton,
 .skeleton-comments-item:nth-child(3n + 1) .skeleton { animation-delay: -1.2s; }
 
 .skeleton-feed-item:nth-child(3n + 2)     .skeleton,
 .skeleton-toc-entry:nth-child(3n + 2)     .skeleton,
 .skeleton-grid-cell:nth-child(3n + 2)     .skeleton,
+.skeleton-mothing-cell:nth-child(3n + 2)  .skeleton,
 .skeleton-comments-item:nth-child(3n + 2) .skeleton { animation-delay: -1.9s; }
 
 /* -------------------------------------------------------------------- */
