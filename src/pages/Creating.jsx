@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
@@ -16,6 +17,11 @@ import '../components/FeedFilters.css';
 import './Creating.css';
 
 const STANDARD_DOC = 'site.standard.document';
+
+// How many leading covers to preload before revealing the grid — roughly
+// the first couple of rows, enough for a clean first paint. The rest keep
+// lazy-loading in the grid.
+const COVER_WAIT = 12;
 
 /**
  * Creative works now live as `site.standard.document` records in the
@@ -79,6 +85,21 @@ export default function Creating() {
     [safeWorks, params, kinds],
   );
 
+  // Hold the skeleton until the first rows' cover images are ready, so the
+  // grid doesn't swap in with blank cells that pop as they download. Once
+  // revealed we stay revealed — later filter/search changes just re-render
+  // the grid (their covers are already cached) rather than re-skeletoning.
+  const coverUrls = useMemo(
+    () => filtered.slice(0, COVER_WAIT).map((r) => coverThumb(r.value)?.url).filter(Boolean),
+    [filtered],
+  );
+  const coversReady = useImagesReady(coverUrls);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (!loading && coversReady) setRevealed(true);
+  }, [loading, coversReady]);
+  const showSkeleton = loading || (filtered.length > 0 && !revealed);
+
   return (
     <PageShell
       title={title}
@@ -87,7 +108,7 @@ export default function Creating() {
       headTitle="Creating — Dame is&hellip;"
     >
       <CreatingFilters kinds={kinds} counts={counts} />
-      {loading ? (
+      {showSkeleton ? (
         <CreatingGridSkeleton cells={6} />
       ) : filtered.length === 0 ? (
         <p className="feed-empty">
