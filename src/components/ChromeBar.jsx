@@ -47,29 +47,54 @@ export default function ChromeBar() {
   const scrolledDown = useScrolledDown();
   const showBreadcrumb = crumbs.length > 0 && scrolledDown;
 
-  // Publish the top chrome's live occupied height as `--chrome-top-h` on
-  // <html>. This is the header (primary row + the atmosphere-expand row)
-  // PLUS the breadcrumb strip when it's shown — the strip is absolutely
-  // positioned below the header, so it doesn't grow the header box and
-  // has to be added explicitly. Consumers: the action-dock sheet (fills
-  // from here down to the bottom bar so it fully conceals the page and
-  // butts against the whole top chrome) and the custom window scrollbar
-  // (inset to the content region between the bars). Re-runs on
-  // showBreadcrumb changes and on any size change (ResizeObserver).
+  // Publish the top chrome's live occupied bottom as `--chrome-top-h` on
+  // <html> — the y-coordinate where the top chrome ends and the content
+  // region begins. It's the breadcrumb strip's bottom when the strip is
+  // shown (the strip sits below the header), else the header's own
+  // bottom. Consumers: the action-dock sheet (fills from here down to
+  // the bottom bar so it fully conceals the page and butts against the
+  // whole top chrome) and the custom window scrollbar (inset to the
+  // content region between the bars).
+  //
+  // Measured from getBoundingClientRect().bottom, not summed
+  // offsetHeights: the rect gives the real VIEWPORT position, so it
+  // absorbs any top inset (iOS safe area / URL bar) that a height sum
+  // would miss and leave as a gap. The breadcrumb WRAP is read (not the
+  // inner strip) because the wrap isn't transformed — only the strip
+  // slides inside it — so the wrap's rect is the settled bottom even
+  // mid-animation. Floor so any sub-pixel bias tucks the sheet a hair
+  // under the chrome rather than leaving a seam. Re-measures on
+  // showBreadcrumb change, size changes, and scroll (the strip reveals
+  // on scroll and the iOS URL bar resizes there), rAF-throttled.
   useEffect(() => {
     const el = topRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    if (!el) return undefined;
     const apply = () => {
-      let h = el.offsetHeight;
       const crumb = crumbRef.current;
-      if (showBreadcrumb && crumb) h += crumb.offsetHeight;
-      document.documentElement.style.setProperty('--chrome-top-h', `${h}px`);
+      const bottom =
+        showBreadcrumb && crumb
+          ? crumb.getBoundingClientRect().bottom
+          : el.getBoundingClientRect().bottom;
+      document.documentElement.style.setProperty('--chrome-top-h', `${Math.max(0, Math.floor(bottom))}px`);
     };
     apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    if (crumbRef.current) ro.observe(crumbRef.current);
-    return () => ro.disconnect();
+    let raf = 0;
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; apply(); });
+    };
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    if (ro) {
+      ro.observe(el);
+      if (crumbRef.current) ro.observe(crumbRef.current);
+    }
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [showBreadcrumb]);
 
   return (
