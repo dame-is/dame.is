@@ -53,6 +53,34 @@
   border: 1px solid var(--rule-soft);
 }
 
+/* Wraps the image when it opens the document lightbox — a bare button
+   reset that keeps the image's own box, with a zoom affordance and a
+   focus ring for keyboard users. */
+.leaflet-image-button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius-2);
+}
+
+.leaflet-image-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.leaflet-image-button img {
+  transition: border-color 120ms ease;
+}
+
+.leaflet-image-button:hover img,
+.leaflet-image-button:focus-visible img {
+  border-color: var(--accent-soft);
+}
+
 .leaflet-image-caption {
   margin-top: var(--space-2);
   font-family: var(--sans);
