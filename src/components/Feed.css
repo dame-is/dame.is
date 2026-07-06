@@ -686,64 +686,38 @@ a.post-card-author-link:focus-visible {
   text-align: center;
 }
 
-/* "Checking for recent activity" notice — shown above the feed while a
-   live refresh confirms whether what's displayed (snapshot / cache, or
-   nothing yet on a cold load) is up to date. Just a small spinner +
-   message; no skeleton placeholder. Its mount/unmount is animated by
-   Motion in Home.jsx (height + opacity collapse), so the margin lives on
-   this inner element where the collapsing wrapper can absorb it. */
-.feed-checking {
-  margin-bottom: var(--space-5);
-}
-
-.feed-checking-msg {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+/* Live-refresh indicator. Rather than a separate banner above the feed,
+   the most recent day's summary line reads "Fetching latest activity…"
+   while a refresh confirms the latest, then cross-fades to that day's
+   real stats (see DayActivityMeta in Home.jsx). On a cold load — before
+   any day group exists — the same copy stands alone in the feed region.
+   Both stay in the quiet meta voice so the signal takes minimal space. */
+.feed-activity-standalone {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
   margin: 0;
 }
 
-.feed-checking-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
+.feed-activity-fetching {
+  color: var(--ink-muted);
+  animation: feed-activity-pulse 1.6s ease-in-out infinite;
 }
 
-.feed-checking-title {
-  font-family: var(--sans);
-  letter-spacing: 0.14em;
-  color: var(--ink-soft);
-  font-size: var(--text-xs);
+.feed-activity-standalone {
+  animation: feed-activity-pulse 1.6s ease-in-out infinite;
 }
 
-.feed-checking-sub {
-  color: var(--ink-faint);
-  font-size: var(--text-xs);
-}
-
-.feed-checking-spinner {
-  flex: 0 0 auto;
-  width: 0.85em;
-  height: 0.85em;
-  margin-top: 0.15em;
-  border: 1.5px solid var(--rule);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: feed-checking-spin 0.8s linear infinite;
-}
-
-@keyframes feed-checking-spin {
-  to {
-    transform: rotate(360deg);
-  }
+@keyframes feed-activity-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .feed-checking-spinner {
+  .feed-activity-fetching,
+  .feed-activity-standalone {
     animation: none;
-    border-top-color: var(--accent);
-    opacity: 0.7;
   }
 }
 
