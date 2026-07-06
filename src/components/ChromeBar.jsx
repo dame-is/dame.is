@@ -37,24 +37,8 @@ export default function ChromeBar() {
     setAvatarBroken(false);
   }, [avatar]);
 
-  // Publish the top bar's live rendered height as `--chrome-top-h` on
-  // <html>. The atmosphere-expand row grows the header, so this tracks
-  // that (and viewport-driven reflow) via ResizeObserver. Consumers:
-  // the action-dock sheet (fills from here down to the bottom bar so it
-  // fully conceals the page and butts against the top chrome) and the
-  // custom window scrollbar (inset to the content region between bars).
   const topRef = useRef(null);
-  useEffect(() => {
-    const el = topRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const apply = () => {
-      document.documentElement.style.setProperty('--chrome-top-h', `${el.offsetHeight}px`);
-    };
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const crumbRef = useRef(null);
 
   // Tertiary chrome: a breadcrumb that slides down out of the top bar once
   // the page is scrolled away from its top, orienting you to where you are.
@@ -62,6 +46,31 @@ export default function ChromeBar() {
   const crumbs = buildCrumbs(location.pathname);
   const scrolledDown = useScrolledDown();
   const showBreadcrumb = crumbs.length > 0 && scrolledDown;
+
+  // Publish the top chrome's live occupied height as `--chrome-top-h` on
+  // <html>. This is the header (primary row + the atmosphere-expand row)
+  // PLUS the breadcrumb strip when it's shown — the strip is absolutely
+  // positioned below the header, so it doesn't grow the header box and
+  // has to be added explicitly. Consumers: the action-dock sheet (fills
+  // from here down to the bottom bar so it fully conceals the page and
+  // butts against the whole top chrome) and the custom window scrollbar
+  // (inset to the content region between the bars). Re-runs on
+  // showBreadcrumb changes and on any size change (ResizeObserver).
+  useEffect(() => {
+    const el = topRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const apply = () => {
+      let h = el.offsetHeight;
+      const crumb = crumbRef.current;
+      if (showBreadcrumb && crumb) h += crumb.offsetHeight;
+      document.documentElement.style.setProperty('--chrome-top-h', `${h}px`);
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    if (crumbRef.current) ro.observe(crumbRef.current);
+    return () => ro.disconnect();
+  }, [showBreadcrumb]);
 
   return (
     <>
@@ -169,6 +178,7 @@ export default function ChromeBar() {
             on the wrap) instead of growing the box. */}
         {crumbs.length > 0 && (
           <div
+            ref={crumbRef}
             id="chrome-bar-tertiary"
             className="chrome-bar-tertiary-wrap"
             inert={showBreadcrumb ? undefined : ''}
