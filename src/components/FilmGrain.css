@@ -42,9 +42,16 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  /* Above modals (z=60) and chrome bars (z=30): the texture is the
-     topmost substrate the whole image is seen through. */
-  z-index: 9999;
+  /* BEHIND all content (negative z-index in the root stacking
+     context): the grain textures the paper the page is printed on,
+     while text, images, and raised surfaces sit cleanly on top.
+     Negative-z elements paint above the <html> canvas background
+     but below in-flow elements' backgrounds — which is why the
+     page color must live on <html> only, with <body> transparent
+     (see theme.css); an opaque body fill would cover these layers
+     entirely. Raised surfaces get their own grain pass via
+     pseudo-elements below. */
+  z-index: -1;
   background-repeat: repeat;
   /* Hidden until the saved preference is applied in main.jsx, so
      there's no one-frame flash of grain before it's read. */
@@ -102,25 +109,95 @@
 }
 
 /* ----- Ink roughen -------------------------------------------
-   Sub-pixel displacement so display type feels printed, not
-   rendered. Deliberately NOT applied to the whole page: a filter
-   on `.main` rasterizes the full page height through the SVG
-   pipeline and scroll drops from 60fps to ~20fps. Headings, the
-   hero sentence, and the small fixed surfaces are each a cheap,
-   bounded filter region, and they're where the letterpress feel
-   actually registers — body text at reading sizes just blurs.
-   The chrome bars are deliberately excluded: they're sticky/fixed,
-   so a filter on them re-rasterizes every scroll frame (~10fps of
-   measured cost), and their small sans UI text gains nothing.
+   Sub-pixel displacement so type feels printed, not rendered.
+   Deliberately NOT applied as one whole-page filter: a filter on
+   `.main` rasterizes the full page height through the SVG pipeline
+   and scroll drops from 60fps to ~20fps. Instead every text-bearing
+   building block is its own small, independently cached filter
+   region: prose elements, list items (feed items are <li>s, which
+   covers their span/div innards), cards, the hero, the footer, and
+   the loose text rows.
+
+   The `:not(:is(...) *)` guard excludes any match nested inside
+   another match — e.g. a <p> inside a filtered <li> — so no text
+   is displaced twice (2×1.1px reads as smear, not fuzz). Keep the
+   guard list identical to the match list.
+
+   The chrome bars stay excluded: they're sticky/fixed, so a filter
+   on them re-rasterizes every scroll frame (~10fps of measured
+   cost); their surface texture comes from the pseudo-element grain
+   below instead.
    Safe re: containing blocks — none of these have fixed-position
    descendants (modals and the lightbox portal to <body>). */
-[data-grain='on'] .main :is(h1, h2, h3, h4, .hero-sentence),
+[data-grain='on'] .main
+  :is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, pre,
+      .hero-sentence, .feed-card, .feed-checking, .feed-load-more, .home-hero-cta)
+  :is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, pre,
+      .hero-sentence, .feed-card, .feed-checking, .feed-load-more, .home-hero-cta) {
+  /* nested matches: ancestor already applies the filter */
+  filter: none;
+}
+
+[data-grain='on'] .main
+  :is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, pre,
+      .hero-sentence, .feed-card, .feed-checking, .feed-load-more, .home-hero-cta),
+[data-grain='on'] .page-footer,
 [data-grain='on'] .modal-panel {
   filter: url(#film-grain-ink);
 }
 
+/* ----- Raised-surface grain ---------------------------------
+   With the grain field behind the page, opaque raised surfaces
+   (chrome bars, modal panels) would read as clean plastic cutouts
+   on textured paper. Give their backgrounds a speck pass via
+   pseudo-elements: the texture sits above the surface's fill but
+   below its content, so bar/modal text stays crisp on a grained
+   surface. These are plain tiled bitmaps — no filter — so the
+   sticky bars stay cheap during scroll. The surfaces establish
+   their own containing blocks already (sticky/fixed/relative), so
+   no positioning is added here. */
+[data-grain='on'] .chrome-bar::before,
+[data-grain='on'] .modal-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.5' exponent='7' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)'/></svg>"),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch' seed='19'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.3' exponent='6' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='280' height='280' filter='url(%23g)'/></svg>");
+  background-size: 320px 320px, 280px 280px;
+  background-repeat: repeat;
+  opacity: 0.14;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+[data-theme='dark'] [data-grain='on'] .chrome-bar::before,
+[data-theme='dark'] [data-grain='on'] .modal-panel::before {
+  opacity: 0.07;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme='system'] [data-grain='on'] .chrome-bar::before,
+  [data-theme='system'] [data-grain='on'] .modal-panel::before {
+    opacity: 0.07;
+  }
+}
+
+/* Stack surface content above the ::before grain. */
+[data-grain='on'] .chrome-bar > *,
+[data-grain='on'] .modal-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
 @media print {
   .film-grain-layer { display: none !important; }
-  [data-grain='on'] .main :is(h1, h2, h3, h4, .hero-sentence),
+  [data-grain='on'] .chrome-bar::before,
+  [data-grain='on'] .modal-panel::before { content: none; }
+  [data-grain='on'] .main
+    :is(h1, h2, h3, h4, h5, h6, p, li, blockquote, figcaption, dt, dd, pre,
+        .hero-sentence, .feed-card, .feed-checking, .feed-load-more, .home-hero-cta),
+  [data-grain='on'] .page-footer,
   [data-grain='on'] .modal-panel { filter: none; }
 }
