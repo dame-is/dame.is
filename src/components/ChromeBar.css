@@ -108,7 +108,9 @@
 }
 
 .chrome-bar-tertiary {
-  background: var(--surface-raised);
+  /* Deeper than the bars, matching the other expanded chrome panels
+     (atmosphere row, nav sheet). */
+  background: var(--surface-deep);
   border-top: 1px solid var(--rule-soft);
   border-bottom: 1px solid var(--rule);
   min-height: 0;
