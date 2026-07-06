@@ -213,7 +213,15 @@
   --mono-ui: var(--mono);
 }
 
-html, body {
+/* The page color lives on <html> ONLY. The film-grain layers are
+   negative-z-index fixed elements, which paint above the root
+   (html) background but *below* the backgrounds of in-flow
+   elements like <body> — an opaque body fill would hide the grain
+   completely. Keep body transparent (see FilmGrain.css). */
+html {
   background: var(--page);
+}
+
+html, body {
   color: var(--ink);
 }
