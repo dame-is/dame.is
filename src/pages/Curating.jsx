@@ -1,7 +1,9 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
@@ -9,6 +11,10 @@ import { fetchChannelMeta, fetchChannelPage, normalizeBlock } from '../lib/arena
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Curating.css';
+
+// How many leading covers to preload before revealing the grid — roughly
+// the first couple of rows. The rest keep lazy-loading in the grid.
+const COVER_WAIT = 12;
 
 /**
  * Which galleries exist is an `is.dame.arena.channel` record per channel
@@ -73,6 +79,20 @@ export default function Curating() {
   const loading = status === 'loading';
   const list = galleries || [];
 
+  // Hold the skeleton until the first rows' gallery covers are ready, so
+  // the grid doesn't swap in with blank cells that pop as they download.
+  // Once revealed we stay revealed.
+  const coverUrls = useMemo(
+    () => list.slice(0, COVER_WAIT).map((g) => g.cover?.src).filter(Boolean),
+    [list],
+  );
+  const coversReady = useImagesReady(coverUrls);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    if (!loading && coversReady) setRevealed(true);
+  }, [loading, coversReady]);
+  const showSkeleton = loading || (list.length > 0 && !revealed);
+
   return (
     <PageShell
       title={title}
@@ -80,7 +100,7 @@ export default function Curating() {
       atUri={`at://${ME_DID}/is.dame.page/curating`}
       headTitle="Curating — Dame is&hellip;"
     >
-      {loading ? (
+      {showSkeleton ? (
         <CreatingGridSkeleton cells={6} />
       ) : list.length === 0 ? (
         <p className="feed-empty">No galleries yet.</p>
