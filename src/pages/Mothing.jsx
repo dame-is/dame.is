@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import PageShell from '../components/PageShell.jsx';
+import { MothingSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
@@ -58,7 +59,6 @@ function MothCard({ obs }) {
           {showSci && <span className="mothing-sci">{sci}</span>}
           <span className="gutter mothing-sub">
             {obs.observedTime ? formatTime(obs.observedTime) : formatDate(obs.observedDate)}
-            {obs.qualityGrade === 'research' ? ' · Research grade' : ''}
           </span>
         </div>
       </a>
@@ -124,7 +124,6 @@ export default function Mothing() {
   const observations = items?.observations || [];
 
   const { sessions, orphans } = useMemo(() => buildSessions(observations), [observations]);
-  const grades = stats?.qualityGrades || {};
 
   return (
     <PageShell
@@ -138,7 +137,6 @@ export default function Mothing() {
           <StatBlock value={stats.sessionCount ?? sessions.length} label="sessions" />
           <StatBlock value={stats.observationCount} label="observations" />
           <StatBlock value={stats.speciesCount} label="species" />
-          <StatBlock value={grades.research} label="research grade" />
           {stats.earliestDate && (
             <div className="mothing-stat mothing-stat-range">
               <span className="mothing-stat-value mothing-stat-dates">
@@ -164,7 +162,7 @@ export default function Mothing() {
       )}
 
       {loading && observations.length === 0 ? (
-        <p className="placeholder-card">Loading moths&hellip;</p>
+        <MothingSkeleton sessions={2} cells={4} />
       ) : observations.length === 0 ? (
         <p className="feed-empty">No moth observations yet.</p>
       ) : (

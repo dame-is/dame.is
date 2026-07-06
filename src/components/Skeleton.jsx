@@ -263,6 +263,64 @@ export function CreatingWorkSkeleton() {
 }
 
 /**
+ * Skeleton for the Mothing page. Mirrors the real layout so nothing
+ * reflows once the snapshot lands: a `.mothing-stats` row, then a couple
+ * of session blocks — each a `.mothing-session-head` above a
+ * `.mothing-grid` of 1:1 moth cards (thumb + name / sci / time meta).
+ */
+export function MothingSkeleton({ sessions = 2, cells = 4 }) {
+  return (
+    <SkeletonShell label="Loading moths">
+      <div className="skeleton-mothing-stats">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="skeleton-mothing-stat">
+            <Skeleton
+              className="skeleton-mothing-stat-value"
+              style={{ width: i === 3 ? '9rem' : `${2.5 + ((i * 5) % 3)}rem` }}
+            />
+            <Skeleton className="skeleton-mothing-stat-label" />
+          </div>
+        ))}
+      </div>
+      <div className="skeleton-mothing-sessions">
+        {Array.from({ length: sessions }, (_, s) => (
+          <section key={s} className="skeleton-mothing-session">
+            <div className="skeleton-mothing-head">
+              <div className="skeleton-mothing-headrow">
+                <Skeleton className="skeleton-mothing-num" />
+                <Skeleton
+                  className="skeleton-mothing-title"
+                  style={{ width: `${9 + ((s * 4) % 5)}rem` }}
+                />
+              </div>
+              <Skeleton className="skeleton-mothing-headstats" />
+            </div>
+            <ul className="skeleton-mothing-grid">
+              {Array.from({ length: cells }, (_, i) => (
+                <li key={i} className="skeleton-mothing-cell">
+                  <Skeleton className="skeleton-mothing-thumb" />
+                  <div className="skeleton-mothing-meta">
+                    <Skeleton
+                      className="skeleton-mothing-name"
+                      style={{ width: `${55 + ((i * 9) % 30)}%` }}
+                    />
+                    <Skeleton
+                      className="skeleton-mothing-sci"
+                      style={{ width: `${40 + ((i * 7) % 25)}%` }}
+                    />
+                    <Skeleton className="skeleton-mothing-sub" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </SkeletonShell>
+  );
+}
+
+/**
  * Skeleton for a comments tree. Mirrors the .comment layout (avatar +
  * byline + body) so the placeholder doesn't reflow once replies arrive.
  */
