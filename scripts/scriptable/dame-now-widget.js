@@ -314,8 +314,15 @@ function addStatusRow(widget, item, { size }) {
 
   const t = relativeTime(item.createdAt);
   if (t) {
-    const time = row.addText(t);
-    time.font = mono(Math.max(9, size - 7));
+    // The mono timestamp is smaller than the serif status, so top-aligning it
+    // would leave its baseline floating above the text. Wrap it in a column
+    // with a small top spacer that drops it onto the status's first-line
+    // baseline. The offset ≈ the ascent gap between the two fonts.
+    const col = row.addStack();
+    col.layoutVertically();
+    col.addSpacer(Math.max(2, Math.round(size * 0.28)));
+    const time = col.addText(t);
+    time.font = mono(9);
     time.textColor = theme.inkFaint;
     time.lineLimit = 1;
   }
