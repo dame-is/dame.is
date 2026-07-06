@@ -75,6 +75,12 @@ export default function SignInPanel({ onAction }) {
             <code className="signin-did" title={did || ''}>{shortDid(did)}</code>
           )}
         </div>
+        {isOwner && (
+          <Link to="/admin" className="dock-tool" onClick={onAction}>
+            <span className="dock-tool-label">Admin</span>
+            <span className="dock-tool-key">↗</span>
+          </Link>
+        )}
         <button type="button" className="dock-tool" onClick={handleSignOut}>
           <span className="dock-tool-label">Sign out</span>
           <span className="dock-tool-key">×</span>

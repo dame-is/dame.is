@@ -433,6 +433,25 @@
   display: none;
 }
 
+/* Left cluster of the bottom bar. Holds one of two interchangeable button
+   groups: the page controls (theme/filter/search/info) or — while the nav
+   dock is open — the dock's tools (density/debug/account). They cross-fade
+   in place via AnimatePresence (mode="wait"), so only one occupies the slot
+   at a time and the right-hand cluster (pinned past the flex spacer) never
+   shifts. */
+.chrome-bottom-left {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.chrome-bottom-cluster {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 /* Push the right-hand action cluster (filter + menu) away from the
    search button on the left without forcing every layout to be a flex
    space-between (which would also stretch the buttons themselves). */
@@ -504,6 +523,9 @@
     gap: var(--space-2);
   }
   .chrome-bottom-row {
+    gap: var(--space-2);
+  }
+  .chrome-bottom-cluster {
     gap: var(--space-2);
   }
   /* `.main` tightens to `var(--space-4)` at this width — track it so the

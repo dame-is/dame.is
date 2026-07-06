@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, MoonStar, Search, SunDim } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, MoonStar, Search, SunDim, User } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -10,6 +10,7 @@ import { useTheme } from '../hooks/useTheme.jsx';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
+import DensityToggle from './DensityToggle.jsx';
 import SearchModal from './SearchModal.jsx';
 import InfoModal from './InfoModal.jsx';
 import './ChromeBar.css';
@@ -260,6 +261,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const [params] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const { view, setView } = useActionDock();
   const [searchOpen, setSearchOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const reduce = useReducedMotion();
@@ -302,47 +304,98 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   return (
     <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
       <div className="chrome-bottom-row">
-        <button
-          type="button"
-          className="chrome-nav chrome-theme-toggle"
-          onClick={cycleTheme}
-          aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (current: ${theme})`}
-          title={`Theme: ${theme} — tap to switch`}
-        >
-          <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-        </button>
-        {filterAvailable && (
-          <button
-            type="button"
-            className={`chrome-nav chrome-filter ${filterOpen || filterCustomized ? 'is-open' : ''}`}
-            onClick={toggleFilter}
-            aria-expanded={filterOpen}
-            aria-haspopup="dialog"
-            aria-label={filterOpen ? 'Close filters' : 'Open filters'}
-          >
-            <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          </button>
-        )}
-        <button
-          type="button"
-          className={`chrome-nav chrome-search-btn ${searchOpen || searchActive ? 'is-open' : ''}`}
-          onClick={() => setSearchOpen(true)}
-          aria-expanded={searchOpen}
-          aria-haspopup="dialog"
-          aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
-        >
-          <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-        </button>
-        <button
-          type="button"
-          className={`chrome-nav chrome-info-btn ${infoOpen ? 'is-open' : ''}`}
-          onClick={() => setInfoOpen(true)}
-          aria-expanded={infoOpen}
-          aria-haspopup="dialog"
-          aria-label="About this site"
-        >
-          <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-        </button>
+        {/* Left cluster. While the nav dock is open, the page-level controls
+            (theme / filter / search / info) hand off to the dock's tools
+            (density / debug / account) — they animate in and temporarily
+            take the same spot, then swap back when the dock closes. The
+            debug/account tools drive the open sheet's sub-view. */}
+        <div className="chrome-bottom-left">
+          <AnimatePresence mode="wait" initial={false}>
+            {dockOpen ? (
+              <motion.div
+                key="tools"
+                className="chrome-bottom-cluster"
+                initial={reduce ? false : { opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: 5 }}
+                transition={{ duration: reduce ? 0 : 0.16, ease: [0.22, 0.61, 0.36, 1] }}
+              >
+                <DensityToggle />
+                <button
+                  type="button"
+                  className={`chrome-nav chrome-tool-debug ${view === 'debug' ? 'is-open' : ''}`}
+                  onClick={() => setView(view === 'debug' ? 'menu' : 'debug')}
+                  aria-pressed={view === 'debug'}
+                  aria-label="Atmosphere debug"
+                  title="Atmosphere debug"
+                >
+                  <Bug className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                </button>
+                <button
+                  type="button"
+                  className={`chrome-nav chrome-tool-account ${view === 'account' ? 'is-open' : ''}`}
+                  onClick={() => setView(view === 'account' ? 'menu' : 'account')}
+                  aria-pressed={view === 'account'}
+                  aria-label="Account"
+                  title="Account"
+                >
+                  <User className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                </button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="default"
+                className="chrome-bottom-cluster"
+                initial={reduce ? false : { opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: 5 }}
+                transition={{ duration: reduce ? 0 : 0.16, ease: [0.22, 0.61, 0.36, 1] }}
+              >
+                <button
+                  type="button"
+                  className="chrome-nav chrome-theme-toggle"
+                  onClick={cycleTheme}
+                  aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (current: ${theme})`}
+                  title={`Theme: ${theme} — tap to switch`}
+                >
+                  <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                </button>
+                {filterAvailable && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-filter ${filterOpen || filterCustomized ? 'is-open' : ''}`}
+                    onClick={toggleFilter}
+                    aria-expanded={filterOpen}
+                    aria-haspopup="dialog"
+                    aria-label={filterOpen ? 'Close filters' : 'Open filters'}
+                  >
+                    <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={`chrome-nav chrome-search-btn ${searchOpen || searchActive ? 'is-open' : ''}`}
+                  onClick={() => setSearchOpen(true)}
+                  aria-expanded={searchOpen}
+                  aria-haspopup="dialog"
+                  aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
+                >
+                  <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                </button>
+                <button
+                  type="button"
+                  className={`chrome-nav chrome-info-btn ${infoOpen ? 'is-open' : ''}`}
+                  onClick={() => setInfoOpen(true)}
+                  aria-expanded={infoOpen}
+                  aria-haspopup="dialog"
+                  aria-label="About this site"
+                >
+                  <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
         {isSubPage && (
           <button

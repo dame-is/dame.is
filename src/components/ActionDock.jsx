@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Bug, ChevronLeft, User } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
-import DensityToggle from './DensityToggle.jsx';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
 import './ActionDock.css';
@@ -12,31 +11,21 @@ import './ActionDock.css';
 const ROUTES = [
   { to: '/', label: 'Home' },
   { to: '/about', label: 'About' },
-  { to: '/posting', label: 'Posting' },
-  { to: '/logging', label: 'Logging' },
-  { to: '/listening', label: 'Listening' },
   { to: '/blogging', label: 'Blogging' },
   { to: '/creating', label: 'Creating' },
   { to: '/curating', label: 'Curating' },
   { to: '/mothing', label: 'Mothing' },
   { to: '/resume', label: 'Resume' },
-  { to: '/sharing', label: 'Sharing' },
-  { to: '/exploring', label: 'Exploring' },
-  { to: '/admin', label: 'Admin' },
 ];
 
 export default function ActionDock() {
-  const { open, openDock, closeDock } = useActionDock();
   // Sheet-replace navigation: the dock has three interchangeable views.
-  // 'menu' is the root; the User icon pushes to 'account' and the Bug
-  // icon pushes to 'debug'. Each sub-view has a back chevron header.
-  const [view, setView] = useState('menu');
+  // 'menu' is the root; the tool buttons (now relocated into the bottom
+  // chrome bar) push to 'account' and 'debug'. Each sub-view has a back
+  // chevron header. `view`/`setView` live in the dock context so the bar
+  // can drive them.
+  const { open, view, setView, openDock, closeDock } = useActionDock();
   const reduce = useReducedMotion();
-
-  // Always start at the menu view when the dock reopens.
-  useEffect(() => {
-    if (!open) setView('menu');
-  }, [open]);
 
   // Esc pops the sub-view first; only closes the dock once we're back
   // at the root menu. The Modal's built-in Esc handler is disabled
@@ -143,33 +132,6 @@ export default function ActionDock() {
                     </NavLink>
                   ))}
                 </nav>
-              </div>
-
-              <hr className="dock-rule" />
-
-              <div className="dock-section">
-                <div className="dock-heading">Tools</div>
-                <div className="dock-display-row">
-                  <DensityToggle />
-                  <button
-                    type="button"
-                    className="dock-tool-icon"
-                    onClick={() => setView('debug')}
-                    aria-label="Open atmosphere debug"
-                    title="Atmosphere debug"
-                  >
-                    <Bug aria-hidden="true" strokeWidth={1.75} />
-                  </button>
-                  <button
-                    type="button"
-                    className="dock-tool-icon"
-                    onClick={() => setView('account')}
-                    aria-label="Open account"
-                    title="Account"
-                  >
-                    <User aria-hidden="true" strokeWidth={1.75} />
-                  </button>
-                </div>
               </div>
             </motion.div>
           )}
