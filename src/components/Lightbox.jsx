@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Modal from './Modal.jsx';
 import './Lightbox.css';
@@ -27,6 +29,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   const count = list.length;
   const [active, setActive] = useState(index);
   const [loadedSrcs, setLoadedSrcs] = useState(() => new Set());
+  const reduce = useReducedMotion();
   const markLoaded = useCallback((src) => {
     setLoadedSrcs((prev) => (prev.has(src) ? prev : new Set(prev).add(src)));
   }, []);
@@ -65,16 +68,14 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   if (count === 0) return null;
   const current = list[active] || list[0];
   const alt = current.alt || '';
-  const hasCaption = Boolean(current.sourceUrl || current.searchUrl);
   // With intrinsic dimensions we can size the frame before the file
   // arrives: natural width, clamped by the panel width and by the
-  // viewport-height budget (transferred through the aspect ratio, minus
-  // the caption bar when there is one). Without them the image sizes
-  // itself on load, as before.
+  // viewport-height budget (transferred through the aspect ratio).
+  // Without them the image sizes itself on load, as before.
   const ratio = current.width > 0 && current.height > 0 ? current.width / current.height : null;
   const frameStyle = ratio
     ? {
-        width: `min(${current.width}px, 100%, calc((var(--lightbox-maxh) - var(--lightbox-caption-h, 0rem)) * ${ratio.toFixed(5)}))`,
+        width: `min(${current.width}px, 100%, calc(var(--lightbox-maxh) * ${ratio.toFixed(5)}))`,
       }
     : undefined;
   const placeholderStyle =
@@ -99,6 +100,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       : 'Image';
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -110,7 +112,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
     >
       <figure className="lightbox-figure">
         <div
-          className={`lightbox-frame${hasCaption ? ' has-caption' : ''}`}
+          className="lightbox-frame"
           style={frameStyle}
         >
           <img
@@ -129,66 +131,94 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
             }}
             style={imageStyle}
           />
-          {hasCaption && (
-            <div className="lightbox-caption">
-              {current.sourceUrl && (
-                <a
-                  href={current.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="lightbox-caption-link"
-                >
-                  source
-                </a>
-              )}
-              {current.searchUrl && (
-                <a
-                  href={current.searchUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="lightbox-caption-link"
-                >
-                  reverse image search
-                </a>
-              )}
-            </div>
-          )}
         </div>
       </figure>
-      <footer className="lightbox-footer">
-        {count > 1 && (
-          <div className="lightbox-footer-nav">
-            <button
-              type="button"
-              className="lightbox-nav lightbox-nav-prev"
-              onClick={prev}
-              aria-label="Previous image"
-            >
-              <ChevronLeft size={18} aria-hidden="true" />
-            </button>
-            <span className="lightbox-footer-count" aria-hidden="true">
-              {active + 1} / {count}
-            </span>
-            <button
-              type="button"
-              className="lightbox-nav lightbox-nav-next"
-              onClick={next}
-              aria-label="Next image"
-            >
-              <ChevronRight size={18} aria-hidden="true" />
-            </button>
-          </div>
-        )}
-        <button
-          type="button"
-          className="lightbox-close"
-          onClick={onClose}
-          aria-label="Close image"
-        >
-          <X size={18} aria-hidden="true" />
-          <span className="lightbox-close-label">Close</span>
-        </button>
-      </footer>
     </Modal>
+      {/* Control bar — pinned to the viewport bottom at the exact
+          position + height of the bottom chrome nav, on the same raised
+          surface, so the nav appears to morph into the photo controls
+          when the lightbox opens (and back on close). Portalled to
+          <body> because the Modal panel carries a scale transform, which
+          would otherwise trap this fixed bar inside the panel's box. It
+          sits above the Modal scrim (z 60) so it reads as the persistent
+          chrome the rest of the page dims behind. */}
+      {createPortal(
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              key="lightbox-controls"
+              className="lightbox-controls"
+              role="group"
+              aria-label="Image controls"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+              transition={{ duration: reduce ? 0 : 0.26, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <div className="lightbox-controls-row">
+                <div className="lightbox-controls-cluster lightbox-controls-links">
+                  {current.sourceUrl && (
+                    <a
+                      href={current.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="lightbox-controls-link"
+                    >
+                      source
+                    </a>
+                  )}
+                  {current.searchUrl && (
+                    <a
+                      href={current.searchUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="lightbox-controls-link"
+                    >
+                      reverse image search
+                    </a>
+                  )}
+                </div>
+
+                <div className="lightbox-controls-spacer" aria-hidden="true" />
+
+                {count > 1 && (
+                  <div className="lightbox-controls-cluster lightbox-controls-nav">
+                    <button
+                      type="button"
+                      className="lightbox-ctl"
+                      onClick={prev}
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="lightbox-ctl-glyph" aria-hidden="true" />
+                    </button>
+                    <span className="lightbox-controls-count" aria-hidden="true">
+                      {active + 1} / {count}
+                    </span>
+                    <button
+                      type="button"
+                      className="lightbox-ctl"
+                      onClick={next}
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="lightbox-ctl-glyph" aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="lightbox-ctl lightbox-ctl-close"
+                  onClick={onClose}
+                  aria-label="Close image"
+                >
+                  <X className="lightbox-ctl-glyph" aria-hidden="true" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
   );
 }

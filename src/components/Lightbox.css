@@ -20,13 +20,18 @@
   overflow: visible;
 }
 
+/* Reserve the control-bar band at the bottom so the flex-centered image
+   centers in the space ABOVE the bar rather than the full viewport —
+   keeps the photo clear of the fixed controls. */
 .modal-variant-centered:has(.lightbox-panel) {
   padding: var(--space-2);
+  padding-bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px) + var(--space-3));
 }
 
 @media (max-width: 540px) {
   .modal-variant-centered:has(.lightbox-panel) {
     padding: var(--space-1, 4px);
+    padding-bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px) + var(--space-2));
   }
 }
 
@@ -39,11 +44,12 @@
   width: 100%;
   max-height: 100%;
   min-height: 0;
-  /* Height budget for the image: leave headroom for the footer (close
-     button) underneath so it doesn't get pushed off-screen on short
-     viewports. A variable because entries with known dimensions also use
-     it to reserve the frame width inline before the image loads. */
-  --lightbox-maxh: calc(100dvh - 8rem);
+  /* Height budget for the image: leave headroom for the fixed control
+     bar (the height of the chrome nav) plus breathing room top and
+     bottom, so the photo never sits under the controls. A variable
+     because entries with known dimensions also use it to reserve the
+     frame width inline before the image loads. */
+  --lightbox-maxh: calc(100dvh - var(--chrome-h) - 4rem);
 }
 
 /* Wrapper around the image and its optional attached caption bar, so the
@@ -54,14 +60,6 @@
   align-items: center;
   max-width: 100%;
   min-height: 0;
-}
-
-.lightbox-frame.has-caption {
-  align-items: stretch;
-  border-radius: var(--radius-2);
-  box-shadow: 0 16px 40px var(--shadow);
-  /* Reserved by the frame-width calc so image + caption stay in budget. */
-  --lightbox-caption-h: 2.5rem;
 }
 
 .lightbox-image {
@@ -77,130 +75,128 @@
   box-shadow: 0 16px 40px var(--shadow);
 }
 
-.lightbox-frame.has-caption .lightbox-image {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  box-shadow: none;
+/* Control bar — sits exactly where the bottom chrome nav is (fixed to
+   the viewport bottom, same 65rem card, same raised surface + height)
+   so the nav appears to morph into the photo controls. Above the Modal
+   scrim (z 60). Holds the source / reverse-search links (left), and the
+   prev/counter/next + close cluster (right). */
+.lightbox-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 70;
+  width: 100%;
+  max-width: 65rem;
+  margin: 0 auto;
+  background: var(--surface-raised);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Caption bar attached beneath the image — source / reverse-image search
-   links for the current photo. Continues the image's border and rounds
-   off its bottom corners. */
-.lightbox-caption {
+@media (min-width: 65rem) {
+  .lightbox-controls {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
+}
+
+.lightbox-controls-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  min-height: 2.5rem;
-  padding: var(--space-1) var(--space-3);
-  background: var(--page-edge);
-  border: 1px solid var(--rule);
-  border-top: 1px solid var(--rule-soft);
-  border-radius: 0 0 var(--radius-2) var(--radius-2);
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 65rem;
+  margin: 0 auto;
+  padding: 0 clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
+  min-height: var(--chrome-h);
 }
 
-.lightbox-caption-link {
+.lightbox-controls-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+}
+
+.lightbox-controls-spacer {
+  flex: 1 1 auto;
+}
+
+.lightbox-controls-links {
+  gap: var(--space-4);
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.lightbox-controls-link {
   font-family: var(--sans);
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: lowercase;
-  color: var(--ink);
-  opacity: 0.75;
+  color: var(--ink-muted);
   text-decoration: underline;
   text-underline-offset: 0.2em;
+  transition: color 120ms ease;
 }
 
-.lightbox-caption-link:hover,
-.lightbox-caption-link:focus-visible {
-  opacity: 1;
+.lightbox-controls-link:hover,
+.lightbox-controls-link:focus-visible {
+  color: var(--accent);
 }
 
-/* Footer beneath the image — holds the close button and (for
-   multi-image embeds) the prev/next nav with N/M counter. Everything
-   sits below the image so the photo is never obscured. */
-.lightbox-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  width: 100%;
-  max-width: 100%;
-  padding: 0 var(--space-2);
-}
-
-.lightbox-footer-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.lightbox-footer-count {
+.lightbox-controls-count {
   font-family: var(--sans);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
-  color: var(--scrim-ink, #fff);
-  opacity: 0.85;
+  color: var(--ink-muted);
   min-width: 3.25rem;
   text-align: center;
 }
 
-.lightbox-close {
+/* Control buttons mirror the chrome-nav vocabulary: square, hairline
+   border, ink glyph, accent on hover. Close is the accent-filled
+   primary, matching the compass's promoted styling in the real nav. */
+.lightbox-ctl {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5em;
-  height: 2.25rem;
-  padding: 0 var(--space-3);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-2);
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
-}
-
-.lightbox-close:hover,
-.lightbox-close:focus-visible {
-  background: rgba(0, 0, 0, 0.75);
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
-.lightbox-close-label {
-  display: inline-block;
-}
-
-/* Footer nav chevrons (multi-image only). Same chrome as the close
-   button so the footer reads as a single control cluster. */
-.lightbox-nav {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: var(--radius-2);
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.lightbox-nav:hover,
-.lightbox-nav:focus-visible {
-  background: rgba(0, 0, 0, 0.75);
-  border-color: rgba(255, 255, 255, 0.35);
+.lightbox-ctl:hover,
+.lightbox-ctl:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline: none;
 }
 
-@media (max-width: 540px) {
-  .lightbox-figure {
-    --lightbox-maxh: calc(100dvh - 7rem);
-  }
+.lightbox-ctl-close {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--page);
+}
+
+.lightbox-ctl-close:hover,
+.lightbox-ctl-close:focus-visible {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--page);
+}
+
+.lightbox-ctl-glyph {
+  width: 1rem;
+  height: 1rem;
 }

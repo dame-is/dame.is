@@ -8,6 +8,15 @@
   padding-bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
 }
 
+/* Finer icon strokes site-wide. Lucide renders its stroke-width as a
+   presentation attribute (default 2, most call sites pass 1.75); an
+   author CSS rule on the shared .lucide class overrides them all with
+   a single lighter value, so every icon — current and future — reads
+   as a finer line without touching each call site. */
+.lucide {
+  stroke-width: 1.5;
+}
+
 .layout {
   flex: 1;
   display: flex;

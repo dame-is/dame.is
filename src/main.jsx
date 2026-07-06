@@ -8,20 +8,21 @@ import './styles/typography.css';
 import './styles/app.css';
 
 // Theme selection happens here (before React mounts) so the first
-// paint is in the correct palette. Four cycle stops, with legacy
-// values (`system`, missing) resolving to the OS preference's color
-// variant. Keep VALID_THEMES + THEME_COLORS in sync with useTheme.jsx.
-const VALID_THEMES = ['light-mono', 'light', 'dark-mono', 'dark'];
+// paint is in the correct palette. Two themes; retired monochrome
+// variants alias to their color equivalent, and legacy/missing values
+// fall to light. Keep VALID_THEMES + THEME_COLORS + THEME_ALIASES in
+// sync with useTheme.jsx.
+const VALID_THEMES = ['light', 'dark'];
+const THEME_ALIASES = { 'light-mono': 'light', 'dark-mono': 'dark' };
 const THEME_COLORS = {
-  'light-mono': '#dedede',
   light: '#e3d8ba',
-  'dark-mono': '#0a0a0a',
   dark: '#13180f',
 };
 const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
-// Default to colored-light for new visitors (and legacy `system` /
-// other invalid values). Keep in sync with DEFAULT_THEME in useTheme.
-const initialTheme = VALID_THEMES.includes(storedTheme) ? storedTheme : 'light';
+const resolvedStoredTheme = THEME_ALIASES[storedTheme] || storedTheme;
+// Default to light for new visitors (and legacy `system` / other
+// invalid values). Keep in sync with DEFAULT_THEME in useTheme.
+const initialTheme = VALID_THEMES.includes(resolvedStoredTheme) ? resolvedStoredTheme : 'light';
 document.documentElement.setAttribute('data-theme', initialTheme);
 
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
