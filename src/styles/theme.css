@@ -6,6 +6,11 @@
   --page:        #f1ead4;   /* off-white with warm tan undertone */
   --page-edge:   #e6dec3;
   --surface-raised: #e3d8ba; /* tan, slightly deeper than --page-edge, for chrome bars + modal panels */
+  /* One step deeper than --surface-raised, for the EXPANDED chrome
+     panels (top atmosphere row, bottom nav sheet) so they read as a
+     distinct layer. Mixing --ink in auto-adapts per theme: darker on
+     light (dark ink), lighter on dark (off-white ink). */
+  --surface-deep: color-mix(in srgb, var(--surface-raised) 91%, var(--ink) 9%);
   --ink:         #1d2419;   /* dark greenish-black */
   --ink-soft:    #364034;
   --ink-muted:   #6f6e58;   /* tan-olive */

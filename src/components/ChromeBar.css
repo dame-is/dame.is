@@ -74,6 +74,9 @@
 
 .chrome-bar-secondary {
   border-top: 1px solid var(--rule-soft);
+  /* Deeper than the primary row's --surface-raised so the expanded
+     atmosphere row reads as its own layer (matches the nav sheet). */
+  background: var(--surface-deep);
   overflow: hidden;
 }
 

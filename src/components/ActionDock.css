@@ -39,8 +39,12 @@
    scroll when a view (the route list, the debug dump) overflows. */
 .dock-panel {
   pointer-events: auto;
-  background: var(--surface-raised);
-  border-top: 1px solid var(--rule);
+  /* Deeper than the bar's --surface-raised so the expanded sheet reads
+     as its own layer above the toolbar. */
+  background: var(--surface-deep);
+  /* No border-top: the sheet's top edge butts against the top chrome's
+     own border-bottom, and a border here would double it into a 2px
+     line. The top chrome's hairline is the single divider. */
   /* Crisp divider between the expanded sheet and the button row below.
      Lives on the sheet's bottom edge (the sheet paints above the bar,
      z 31 > 30, so it wins over the bar's own hidden top border). */
