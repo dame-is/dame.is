@@ -40,6 +40,7 @@ In **Edit Widget → Parameter**, pass `key=value` pairs separated by `;`:
 | `count` | `4` | How many updates to show (medium/large). |
 | `site` | `https://dame.is` | Where a tap opens (deep-links to the record when possible). |
 | `shortcut` | *(none)* | Name of an Apple Shortcut to run on tap instead of opening `site`. |
+| `post` | *(off)* | Set `post=1` to show a "＋ new" button that posts a new status. |
 
 Example — show five updates:
 
@@ -59,6 +60,42 @@ background the way a native App Intent widget can.
 ```
 shortcut=Log a status
 ```
+
+### Post a new status on tap
+
+Set `post=1` and the header shows a small **＋ new** button. Tapping it opens
+Scriptable, prompts you for a status, and writes a new `is.dame.now` record to
+your PDS. The rest of the widget still opens `site` (or runs `shortcut`) — only
+the ＋ triggers posting.
+
+```
+post=1
+```
+
+**Credentials never live in the script.** The first time you post, you're
+prompted for your handle, an app password, and (optionally) a deploy-hook URL.
+These are stored in the device **Keychain** only — not in `dame-now-widget.js`,
+so nothing secret is ever committed to the repo. Do **not** hardcode an app
+password into the file; it would be pushed to GitHub.
+
+Setup steps:
+
+1. Create an app password at **bsky.app → Settings → App Passwords** (enable
+   write access so it can create records).
+2. Add `post=1` to the widget's **Parameter**.
+3. Tap **＋ new** → enter your handle + app password (+ optional deploy hook) →
+   they're saved to the Keychain.
+
+Posting writes straight to your PDS via `com.atproto.server.createSession` +
+`com.atproto.repo.createRecord`, so the new status is live immediately (the site
+reads the PDS directly). If you also provide a **deploy hook URL** (Vercel →
+Settings → Git → Deploy Hooks), it's pinged after each post to rebuild the
+static snapshot too. To change or clear stored credentials, tap ＋ new again
+after removing them, or use Scriptable's Keychain — the keys are
+`dame.now.identifier`, `dame.now.appPassword`, and `dame.now.deployHook`.
+
+> The ＋ button is its own tap target, which requires iOS 17+. On older iOS the
+> whole widget falls back to its normal tap (opening `site`).
 
 The PDS host is always resolved live from the PLC directory, so a PDS migration
 needs no edit. The last successful fetch is cached on-device, so the widget
