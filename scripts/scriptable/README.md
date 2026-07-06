@@ -72,11 +72,17 @@ the ＋ triggers posting.
 post=1
 ```
 
-**Credentials never live in the script.** The first time you post, you're
+**Keep credentials out of the committed file.** The first time you post, you're
 prompted for your handle, an app password, and (optionally) a deploy-hook URL.
-These are stored in the device **Keychain** only — not in `dame-now-widget.js`,
-so nothing secret is ever committed to the repo. Do **not** hardcode an app
-password into the file; it would be pushed to GitHub.
+These are stored in the device **Keychain** only, so nothing secret is committed
+to the repo.
+
+If you'd rather not use the Keychain, there's a `LOCAL = { identifier,
+appPassword, deployHook }` block near the top of the script you can fill in — but
+**only in your on-device Scriptable copy, never in the committed file** (pushing
+real values would leak your app password). Note that re-pasting the script from
+the repo to pick up an update will overwrite that block, whereas Keychain values
+survive updates — which is why the Keychain is the recommended path.
 
 Setup steps:
 

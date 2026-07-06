@@ -59,6 +59,18 @@ const KEY_ID = 'dame.now.identifier';
 const KEY_PW = 'dame.now.appPassword';
 const KEY_HOOK = 'dame.now.deployHook';
 
+// Optional in-script credentials. LEAVE THESE EMPTY in the committed file —
+// filling them in here and pushing would leak your app password to the repo.
+// If you'd rather not use the Keychain, you can paste your credentials into
+// *your on-device Scriptable copy only*. Caveat: re-pasting the script from the
+// repo (e.g. to pick up an update) overwrites them, whereas Keychain values
+// survive. When these are blank, posting falls back to the Keychain.
+const LOCAL = {
+  identifier: '', // e.g. 'dame.is'
+  appPassword: '', // e.g. 'xxxx-xxxx-xxxx-xxxx'
+  deployHook: '', // optional Vercel deploy hook URL
+};
+
 // Palette lifted straight from the site's theme.css (earthy: warm off-white
 // page, greenish-black ink, mossy-green accent). One set per appearance.
 const THEMES = {
@@ -439,12 +451,22 @@ function readKeychain(key) {
 // Prompt once for credentials and store them in the Keychain. Returns
 // { identifier, password, hook } or null if the user cancels.
 async function ensureCreds() {
+  // 1) In-script constants, if you chose to fill them in on-device.
+  if (LOCAL.identifier && LOCAL.appPassword) {
+    return {
+      identifier: LOCAL.identifier,
+      password: LOCAL.appPassword,
+      hook: LOCAL.deployHook || '',
+    };
+  }
+  // 2) Keychain.
   const identifier = readKeychain(KEY_ID);
   const password = readKeychain(KEY_PW);
   if (identifier && password) {
     return { identifier, password, hook: readKeychain(KEY_HOOK) };
   }
 
+  // 3) Prompt once, then store in the Keychain.
   const a = new Alert();
   a.title = 'Set up posting';
   a.message =
