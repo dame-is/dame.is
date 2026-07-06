@@ -1,158 +1,118 @@
 /* ============================================================
-   Film grain — subtle, embedded, organic.
+   Film grain — organic paper texture + printed-ink text.
 
    Implementation notes
    --------------------
-   - Static SVG <feTurbulence> noise rendered as a tiled CSS
-     background-image. Static (no seed change per frame), so the
-     browser decodes the SVG once and tiles a bitmap from then on:
-     zero per-frame cost.
-   - `mix-blend-mode: soft-light` is what makes the grain feel
-     EMBEDDED rather than overlaid: each grain particle is near-
-     50% gray, so soft-light gently lightens dark page areas and
-     darkens light ones — exactly how real film grain reads.
-   - Two layers (fine + coarse, different scales + seeds) break
-     up the regularity of a single feTurbulence and avoid the
-     "video-noise" look that one frequency gives off.
-   - Raised surfaces (chrome bars, modal panels, action dock)
-     get an additional, finer grain via `::before` pseudo so they
-     don't read as flat cutouts on top of an otherwise grainy
-     page. See `[data-grain="on"]` rules at the bottom.
-   - The `#` in the filter URL inside each SVG data URI MUST be
-     written as `%23` (the only required URL-encoding for a CSS
-     `data:image/svg+xml;utf8,...` value).
+   - Each layer is its own `position: fixed` element (siblings, no
+     wrapper). A wrapper with a z-index would form a stacking
+     context and its children's `mix-blend-mode` would blend against
+     the wrapper's transparent backdrop — i.e. not blend at all.
+     As root-level siblings the layers blend with the actual page.
+   - Tiles are static SVG feTurbulence rendered as CSS backgrounds:
+     decoded once, tiled as bitmaps, zero per-frame cost.
+   - `color-interpolation-filters='sRGB'` on every tile filter:
+     the default linearRGB washes turbulence toward flat mid-gray
+     and the texture all but disappears.
+   - The speck layers map noise luminance to alpha and push it
+     through a steep gamma (feFuncA exponent 4.5–5.5), so only
+     sparse clusters survive — particles of varied size and shape,
+     like film grain or paper fiber, not uniform pixel hiss. Dark
+     and light speck fields use different seeds and tile sizes so
+     their overlap stays irregular.
+   - The mottle layer is very-low-frequency turbulence, soft-light
+     blended: broad, cloudy tone variation like handmade paper.
+   - Text "ink" is roughened by the #film-grain-ink displacement
+     filter defined in FilmGrain.jsx — sub-pixel edge displacement
+     (scale 1.1 at baseFrequency 1.1), enough to fuzz the glyph
+     edge antialiasing without visibly warping letterforms.
+   - The `#` inside each data URI MUST be written as `%23`.
    ============================================================ */
 
-.film-grain {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  /* Sit above modals (z=60), the chrome bars (z=30), and anything
-     else in the app. The grain is the topmost "substrate" — the
-     whole image, including overlays, is filtered through it. */
-  z-index: 9999;
-  /* Hidden by default; the data-grain attribute on <html> below
-     turns it on. Avoids a one-frame flash of grain before the
-     user's saved preference is read in main.jsx. */
-  display: none;
-}
-
-[data-grain='on'] .film-grain {
-  display: block;
+.film-grain-defs {
+  /* Keep the filter defs mounted and renderable: display:none would
+     void the url(#film-grain-ink) references and Chrome would stop
+     painting the filtered elements entirely. */
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 
 .film-grain-layer {
-  position: absolute;
-  inset: 0;
-  background-repeat: repeat;
-}
-
-/* Fine grain — the primary layer. Small particles, near 50% gray,
-   soft-light blended so it dapples light areas and lifts dark
-   areas with the same noise pattern. Kept low so the page color
-   reads cleanly and text stays sharp. */
-.film-grain-fine {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' seed='5'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='220' height='220' filter='url(%23g)'/></svg>");
-  background-size: 220px 220px;
-  mix-blend-mode: soft-light;
-  opacity: 0.22;
-}
-
-/* Coarse grain — a wider-period turbulence layered on top.
-   Modulates the fine grain into uneven clumps so the texture
-   doesn't read as a uniform field. Very low opacity so it shapes
-   the fine layer without becoming a visible pattern itself. */
-.film-grain-coarse {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 360'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.32' numOctaves='3' stitchTiles='stitch' seed='17'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='360' height='360' filter='url(%23g)'/></svg>");
-  background-size: 360px 360px;
-  mix-blend-mode: soft-light;
-  opacity: 0.09;
-}
-
-/* Dark mode opacities are much lower than light because
-   soft-light is asymmetric on near-black: bright grain pixels
-   lift dark colors significantly more than dark grain pixels
-   darken them, so even modest opacity here washes out the deep
-   green-black palette. These values keep the page color intact
-   while still giving a perceptible film texture. */
-[data-theme='dark'] .film-grain-fine {
-  opacity: 0.07;
-}
-
-[data-theme='dark'] .film-grain-coarse {
-  opacity: 0.03;
-}
-
-@media (prefers-color-scheme: dark) {
-  [data-theme='system'] .film-grain-fine {
-    opacity: 0.07;
-  }
-  [data-theme='system'] .film-grain-coarse {
-    opacity: 0.03;
-  }
-}
-
-/* ----- Raised-surface grain ---------------------------------
-   Chrome bars and modal panels paint above the page on their
-   own warm/dark surface. Without a second grain pass they look
-   like a clean cutout floating in front of a grainy field.
-   A `::before` pseudo with its own finer turbulence anchored to
-   the surface (not the viewport) gives those surfaces their own
-   embedded texture. Different baseFrequency + seed than the
-   global layers so the two patterns don't moiré.
-
-   These surfaces already establish containing blocks for their
-   absolute children — chrome-bar-top via `position: sticky`,
-   chrome-bar-bottom via `position: fixed`, and modal-panel via
-   its own `position: relative` — so we don't add positioning
-   here. A `position: relative` override would have demoted the
-   bottom chrome bar from fixed back into normal flow.
-   --------------------------------------------------------- */
-
-[data-grain='on'] .chrome-bar::before,
-[data-grain='on'] .modal-panel::before {
-  content: '';
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='1.15' numOctaves='2' stitchTiles='stitch' seed='11'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='180' height='180' filter='url(%23g)'/></svg>");
-  background-size: 180px 180px;
+  /* Above modals (z=60) and chrome bars (z=30): the texture is the
+     topmost substrate the whole image is seen through. */
+  z-index: 9999;
   background-repeat: repeat;
-  mix-blend-mode: soft-light;
-  opacity: 0.18;
-  /* Above the surface's own background, below the surface's
-     content (icons, text, controls). z-index 0 + the children's
-     implicit z-index of auto puts content on top. */
-  z-index: 0;
-  /* Inherit the surface's border-radius so the grain doesn't
-     bleed past rounded corners (modals can have radii via the
-     theme even though radius-3 is currently 0). */
-  border-radius: inherit;
+  /* Hidden until the saved preference is applied in main.jsx, so
+     there's no one-frame flash of grain before it's read. */
+  display: none;
 }
 
-[data-theme='dark'] [data-grain='on'] .chrome-bar::before,
-[data-theme='dark'] [data-grain='on'] .modal-panel::before {
-  opacity: 0.06;
+[data-grain='on'] .film-grain-layer {
+  display: block;
 }
+
+/* Paper mottle — broad, cloudy unevenness. Soft-light works here
+   because the layer is a root-level sibling of the page content:
+   it genuinely darkens/lightens what's beneath it. */
+.film-grain-mottle {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.008' numOctaves='5' stitchTiles='stitch' seed='47'/><feColorMatrix values='0.4 0 0 0 0.3 0.4 0 0 0 0.3 0.4 0 0 0 0.3 0 0 0 0 1'/></filter><rect width='900' height='900' filter='url(%23g)'/></svg>");
+  background-size: 900px 900px;
+  mix-blend-mode: soft-light;
+  opacity: 0.55;
+}
+
+/* Dark specks — sparse warm-black particles, normal blend. */
+.film-grain-specks-dark {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='4' stitchTiles='stitch' seed='19'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1' exponent='4.5' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='280' height='280' filter='url(%23g)'/></svg>");
+  background-size: 280px 280px;
+  opacity: 0.12;
+}
+
+/* Light specks — warm-white counterpart, different seed + tile size
+   so the two fields stay out of phase. */
+.film-grain-specks-light {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.58' numOctaves='4' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.2' exponent='5.5' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)'/></svg>");
+  background-size: 320px 320px;
+  opacity: 0.16;
+}
+
+/* Dark theme: light particles read much louder on near-black, and
+   the deep green flattens under too much soft-light — pull all three
+   layers down. */
+[data-theme='dark'] .film-grain-mottle { opacity: 0.3; }
+[data-theme='dark'] .film-grain-specks-dark { opacity: 0.1; }
+[data-theme='dark'] .film-grain-specks-light { opacity: 0.06; }
 
 @media (prefers-color-scheme: dark) {
-  [data-theme='system'] [data-grain='on'] .chrome-bar::before,
-  [data-theme='system'] [data-grain='on'] .modal-panel::before {
-    opacity: 0.06;
-  }
+  [data-theme='system'] .film-grain-mottle { opacity: 0.3; }
+  [data-theme='system'] .film-grain-specks-dark { opacity: 0.1; }
+  [data-theme='system'] .film-grain-specks-light { opacity: 0.06; }
 }
 
-/* Stack the surface's existing content above the new ::before
-   grain. The chrome bars use their natural source order to paint
-   children over ::before; setting position: relative + z-index: 1
-   on direct rows guards against any future child that establishes
-   its own stacking context with a lower z-index. */
-[data-grain='on'] .chrome-bar > * {
-  position: relative;
-  z-index: 1;
+/* ----- Ink roughen -------------------------------------------
+   Sub-pixel displacement so display type feels printed, not
+   rendered. Deliberately NOT applied to the whole page: a filter
+   on `.main` rasterizes the full page height through the SVG
+   pipeline and scroll drops from 60fps to ~20fps. Headings, the
+   hero sentence, and the small fixed surfaces are each a cheap,
+   bounded filter region, and they're where the letterpress feel
+   actually registers — body text at reading sizes just blurs.
+   The chrome bars are deliberately excluded: they're sticky/fixed,
+   so a filter on them re-rasterizes every scroll frame (~10fps of
+   measured cost), and their small sans UI text gains nothing.
+   Safe re: containing blocks — none of these have fixed-position
+   descendants (modals and the lightbox portal to <body>). */
+[data-grain='on'] .main :is(h1, h2, h3, h4, .hero-sentence),
+[data-grain='on'] .modal-panel {
+  filter: url(#film-grain-ink);
 }
 
-[data-grain='on'] .modal-panel > * {
-  position: relative;
-  z-index: 1;
+@media print {
+  .film-grain-layer { display: none !important; }
+  [data-grain='on'] .main :is(h1, h2, h3, h4, .hero-sentence),
+  [data-grain='on'] .modal-panel { filter: none; }
 }
