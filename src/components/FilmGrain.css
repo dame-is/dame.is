@@ -65,17 +65,25 @@
   opacity: 0.55;
 }
 
-/* Dark specks — sparse warm-black particles, normal blend. */
+/* Dark specks — fine, crisp warm-black particles, normal blend.
+   High baseFrequency (1.2) + few octaves + a steep gamma keep the
+   particles small and hard-edged rather than soft and blobby.
+   The same tile carries a second, sparser scatter of slightly
+   larger flecks (baseFrequency 0.5, alpha scaled to ~half) merged
+   under the fine field: real grain isn't monosized, and the
+   occasional bigger fleck keeps the fine speckle from reading as
+   uniform digital noise — without costing a fourth composited
+   layer. */
 .film-grain-specks-dark {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='280' height='280'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='4' stitchTiles='stitch' seed='19'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1' exponent='4.5' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='280' height='280' filter='url(%23g)'/></svg>");
-  background-size: 280px 280px;
-  opacity: 0.12;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch' seed='19' result='n1'/><feColorMatrix in='n1' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m1'/><feComponentTransfer in='m1' result='s1'><feFuncA type='gamma' amplitude='1.3' exponent='6' offset='0'/></feComponentTransfer><feFlood flood-color='%23241f12' result='fill'/><feComposite in='fill' in2='s1' operator='in' result='fine'/><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' stitchTiles='stitch' seed='71' result='n2'/><feColorMatrix in='n2' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='m2'/><feComponentTransfer in='m2' result='s2'><feFuncA type='gamma' amplitude='0.6' exponent='7' offset='0'/></feComponentTransfer><feComposite in='fill' in2='s2' operator='in' result='coarse'/><feMerge><feMergeNode in='coarse'/><feMergeNode in='fine'/></feMerge></filter><rect width='340' height='340' filter='url(%23g)'/></svg>");
+  background-size: 340px 340px;
+  opacity: 0.13;
 }
 
 /* Light specks — warm-white counterpart, different seed + tile size
    so the two fields stay out of phase. */
 .film-grain-specks-light {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='0.58' numOctaves='4' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.2' exponent='5.5' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320'><filter id='g' color-interpolation-filters='sRGB'><feTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2' stitchTiles='stitch' seed='31'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.45 0.45 0.45 0 0' result='mask'/><feComponentTransfer in='mask' result='shaped'><feFuncA type='gamma' amplitude='1.5' exponent='7' offset='0'/></feComponentTransfer><feFlood flood-color='%23fff8e0' result='fill'/><feComposite in='fill' in2='shaped' operator='in'/></filter><rect width='320' height='320' filter='url(%23g)'/></svg>");
   background-size: 320px 320px;
   opacity: 0.16;
 }
