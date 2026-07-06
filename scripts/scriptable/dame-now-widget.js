@@ -284,9 +284,8 @@ function tapUrl(items) {
       `&input=text&text=${encodeURIComponent(latest)}`
     );
   }
-  const base = cfg.site.replace(/\/$/, '');
-  const rkey = items[0] && items[0].rkey;
-  return rkey ? `${base}/logging/${rkey}` : `${base}/logging`;
+  // Otherwise just open the site's home page.
+  return cfg.site.replace(/\/$/, '') || '/';
 }
 
 // When this widget's data was last pulled. Compact = time only (for the small
