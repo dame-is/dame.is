@@ -9,7 +9,6 @@ import FeedFilters, {
   resolveActiveVerbs,
 } from '../components/FeedFilters.jsx';
 import FeedItem from '../components/FeedItem.jsx';
-import FeedLiveStatus from '../components/FeedLiveStatus.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
@@ -26,6 +25,7 @@ import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
+import { useFeedFooter } from '../hooks/useFeedFooter.jsx';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -483,6 +483,17 @@ export default function Home() {
   // visible window is a clean prefix of the filtered timeline.
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   const hasMore = filtered.length > visible.length;
+
+  // The feed has no single backing record, so hand the global footer the
+  // newest visible record's instant — it reports "latest record …" in place
+  // of the record page's "written … · updated …" pair. Feed is sorted
+  // newest-first, so the head item is the most recent.
+  const { setLatestRecordAt } = useFeedFooter();
+  const latestRecordAt = filtered[0]?.createdAt || null;
+  useEffect(() => {
+    setLatestRecordAt(latestRecordAt);
+    return () => setLatestRecordAt(null);
+  }, [latestRecordAt, setLatestRecordAt]);
   const collapsed = useMemo(() => collapseListens(visible), [visible]);
   const threaded = useMemo(() => groupSelfReplyThreads(collapsed, ME_DID), [collapsed]);
   const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
@@ -592,18 +603,8 @@ export default function Home() {
               onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
             >
               Load more
-              <span className="feed-load-more-count">
-                {' '}({visible.length} of {filtered.length})
-              </span>
             </button>
           </div>
-        )}
-        {!loading && loadedAt && (
-          <FeedLiveStatus
-            refreshState={refreshState}
-            loadedAt={loadedAt}
-            summary={`${visible.length} of ${filtered.length} shown · ${safeFeed.length} loaded`}
-          />
         )}
       </section>
     </PageShell>
