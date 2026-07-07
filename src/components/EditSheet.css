@@ -1,8 +1,14 @@
-/* Quick-edit sheet. Built exactly like the nav dock (see ActionDock.css): a
-   fixed clip box pinned above the bottom chrome — and above the edit action
-   bar (--edit-bar-h) — animating height 0 ↔ auto so the panel unfurls upward.
-   Sits a layer above the dock/edit-bar (z 32) since it's the frontmost
-   interaction when open. */
+/* Quick-edit sheet. A fixed clip box that animates height 0 ↔ auto so the
+   panel unfurls upward out of the bottom chrome.
+
+   Crucially the sheet fills the WHOLE region down to the bottom chrome bar
+   (not just down to the top of the edit action bar), and the opaque edit
+   action bar — one z-layer above (z 33) — simply OVERLAYS the sheet's lower
+   strip. The panel reserves that strip with `padding-bottom: var(--edit-bar-h)`
+   so its footer clears the bar. This makes the sheet↔bar seam robust: even if
+   the measured --edit-bar-h is a little off (iOS safe-area / font reflow), the
+   worst case is a hair of the sheet's own surface showing — never a gap that
+   reveals the dimmed page behind. */
 .edit-sheet-backdrop {
   position: fixed;
   inset: 0;
@@ -12,7 +18,7 @@
 
 .edit-sheet-wrap {
   position: fixed;
-  bottom: calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   width: 100%;
@@ -28,17 +34,15 @@
   display: flex;
   flex-direction: column;
   background: var(--surface-deep);
-  border-bottom: 1px solid var(--rule);
-  /* Fixed height (exactly like the nav dock): the gap between the top chrome
-     and the bottom bar + edit action bar. Because the height is deterministic
-     — not driven by the record's content — the height:0→auto reveal is smooth
-     (no jump when the record finishes loading), the sheet fills right up to
-     the top chrome (no gap), and its bottom butts against the edit action bar
-     (no gap). The record editor scrolls inside the fixed body. */
+  /* Fixed height: top chrome → bottom chrome bar. Deterministic (not
+     content-driven) so the height:0→auto reveal is smooth and fills right up
+     to the top chrome. The bottom `--edit-bar-h` slice is covered by the
+     action bar that overlays it. */
   height: calc(
-    100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
+    100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) -
       env(safe-area-inset-bottom, 0px)
   );
+  padding-bottom: var(--edit-bar-h, 0px);
   overflow: hidden;
 }
 
