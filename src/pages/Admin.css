@@ -479,26 +479,91 @@ select.admin-input {
   border-color: var(--ink);
 }
 
-/* Collection picker: quick "New …" actions + legacy grouping. */
+/* Collection picker: quick "New …" actions + grouped surfaces. */
 .admin-quick-actions {
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: var(--space-5);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--rule-soft);
 }
 
-.admin-collection-legacy-heading {
-  margin: var(--space-5) 0 var(--space-2);
+/* The first quick action reads as the primary; the rest are quieter. */
+.admin-quick-actions .admin-gate-button:not(:first-child) {
+  color: var(--ink);
+  background: transparent;
+  border-color: var(--rule);
+}
+
+.admin-quick-actions .admin-gate-button:not(:first-child):hover:not(:disabled) {
+  color: var(--page);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.admin-collection-group {
+  margin-top: var(--space-6);
+}
+
+.admin-collection-group:first-of-type {
+  margin-top: 0;
+}
+
+.admin-collection-group-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-collection-group-heading {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.2em;
+  color: var(--ink-muted);
+}
+
+.admin-collection-group-note {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  max-width: var(--measure);
+}
+
+.admin-collection-group-legacy .admin-collection-group-heading {
   color: var(--ink-faint);
 }
 
 .admin-collection-row-legacy {
-  opacity: 0.62;
+  opacity: 0.66;
 }
 
 .admin-collection-row-legacy:hover,
 .admin-collection-row-legacy:focus-within {
   opacity: 1;
+}
+
+/* Merged Site-pages view: two stacked sections. */
+.admin-page-section {
+  margin-top: var(--space-7);
+}
+
+.admin-page-section:first-of-type {
+  margin-top: var(--space-5);
+}
+
+.admin-page-section > .admin-collection-group-heading {
+  display: block;
+  margin-bottom: var(--space-1);
+}
+
+.admin-page-section > .admin-collection-group-note {
+  margin-bottom: var(--space-4);
 }
 
 /* Legacy blog migration panel. */

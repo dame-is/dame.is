@@ -66,6 +66,34 @@ export default function Admin() {
   if (view === 'listening') {
     return <ListeningManager agent={agent} did={did} />;
   }
+  if (view === 'blogging') {
+    return (
+      <RecordList
+        agent={agent}
+        did={did}
+        collection={STANDARD_DOC}
+        title="Blogging"
+        intro="Long-form blog posts — standard.site documents published to the blog publication."
+        pageSlug="blogging"
+        newHref={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&mode=new`}
+        recordFilter={(v) => v?.site !== PORTFOLIO_PUBLICATION}
+      />
+    );
+  }
+  if (view === 'creating') {
+    return (
+      <RecordList
+        agent={agent}
+        did={did}
+        collection={STANDARD_DOC}
+        title="Creating"
+        intro="Creative works — standard.site documents published to the portfolio publication, rendered on /creating."
+        pageSlug="creating"
+        newHref={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&mode=new&for=creating`}
+        recordFilter={(v) => v?.site === PORTFOLIO_PUBLICATION}
+      />
+    );
+  }
   if (view === 'legacy-blogs') {
     return <LegacyBlogMigration agent={agent} did={did} />;
   }
@@ -137,31 +165,93 @@ function SignInGate({ signIn }) {
 /* Collection picker                                                    */
 /* ------------------------------------------------------------------ */
 
-function CollectionPicker() {
-  const all = knownCollections();
-  const primary = all.filter((nsid) => !LEXICONS[nsid]?.legacy);
-  const legacy = all.filter((nsid) => LEXICONS[nsid]?.legacy);
+/**
+ * Curated navigation for the collection picker. Each entry names a destination
+ * with its "proper" page name; `nsid` is shown as a subtle mono caption and,
+ * for plain collections, drives the `/admin?c=` link. `to` overrides the
+ * destination for the bespoke manager views (Blogging, Creating, Listening,
+ * Site pages, Legacy blog migration).
+ */
+const PICKER_GROUPS = [
+  {
+    key: 'content',
+    heading: 'Content',
+    note: 'The gerund surfaces — everything that shows up in the feed.',
+    items: [
+      { to: '/admin?view=blogging', label: 'Blogging', nsid: STANDARD_DOC,
+        summary: 'Long-form blog posts published to the blog publication.' },
+      { to: '/admin?view=creating', label: 'Creating', nsid: STANDARD_DOC,
+        summary: 'Creative works published to the portfolio publication (rendered on /creating).' },
+      { collection: COLLECTIONS.now, label: 'Logging',
+        summary: 'Short "what I am doing right now" status updates.' },
+      { collection: 'app.bsky.feed.post', label: 'Posting',
+        summary: 'Bluesky posts. Embeds are edited as raw JSON.' },
+      { to: '/admin?view=listening', label: 'Listening', nsid: COLLECTIONS.listen,
+        summary: 'Every play on your PDS — multi-select to bulk-delete, or open one in the editor.' },
+      { collection: COLLECTIONS.arenaChannel, label: 'Curating',
+        summary: 'Are.na channels published as galleries at /curating.' },
+    ],
+  },
+  {
+    key: 'site',
+    heading: 'Site',
+    note: 'Page chrome and identity records.',
+    items: [
+      { to: '/admin?view=pages', label: 'Site pages', nsid: COLLECTIONS.page,
+        summary: 'Titles, intros, and page bodies — see which serve from the PDS vs local defaults, and edit the raw records.' },
+      { collection: COLLECTIONS.profile, label: 'About',
+        summary: 'The extended profile (rkey "self") that backs /about.' },
+      { collection: COLLECTIONS.heroPhrase, label: 'Hero phrases',
+        summary: 'Rotating phrases for the home hero sentence.' },
+    ],
+  },
+  {
+    key: 'resume',
+    heading: 'Resume',
+    note: 'Backlinked job, education, and resume records.',
+    items: [
+      { collection: COLLECTIONS.resume, label: 'Resume',
+        summary: 'Resume versions — each selects which jobs, education, and highlights to show.' },
+      { collection: COLLECTIONS.resumeJob, label: 'Jobs',
+        summary: 'Canonical positions and their achievement bullets (highlights).' },
+      { collection: COLLECTIONS.resumeEducation, label: 'Education',
+        summary: 'Canonical education entries.' },
+    ],
+  },
+];
 
-  const renderRow = (nsid) => {
-    const lex = LEXICONS[nsid];
+function CollectionPicker() {
+  // Any lexicon flagged legacy, plus the legacy blog migration tool, live in
+  // the collapsed-feeling Legacy group at the bottom.
+  const legacyNsids = knownCollections().filter((nsid) => LEXICONS[nsid]?.legacy);
+
+  const renderItem = (item) => {
+    const nsid = item.nsid || item.collection;
+    const to = item.to || `/admin?c=${encodeURIComponent(item.collection)}`;
     return (
-      <li key={nsid} className={`admin-collection-row${lex.legacy ? ' admin-collection-row-legacy' : ''}`}>
-        <Link to={`/admin?c=${encodeURIComponent(nsid)}`} className="admin-collection-link">
-          <span className="admin-collection-label">{lex.label}</span>
-          <code className="admin-collection-nsid">{nsid}</code>
+      <li key={item.label + nsid} className="admin-collection-row">
+        <Link to={to} className="admin-collection-link">
+          <span className="admin-collection-label">{item.label}</span>
+          {nsid && <code className="admin-collection-nsid">{nsid}</code>}
         </Link>
-        {lex.summary && <p className="admin-collection-summary">{lex.summary}</p>}
+        {item.summary && <p className="admin-collection-summary">{item.summary}</p>}
       </li>
     );
   };
 
   return (
     <PageShell
-      title="Collections"
-      intro="Pick a collection to browse and edit records on your PDS."
+      title="Admin"
+      intro="Browse and edit the records that make up the site. Pick a surface below, or start something new."
       headTitle="Admin — Dame is…"
     >
       <div className="admin-quick-actions">
+        <Link
+          className="admin-gate-button"
+          to={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&mode=new`}
+        >
+          New blog post
+        </Link>
         <Link
           className="admin-gate-button"
           to={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&mode=new&for=creating`}
@@ -170,55 +260,65 @@ function CollectionPicker() {
         </Link>
         <Link
           className="admin-gate-button"
-          to={`/admin?c=${encodeURIComponent(STANDARD_DOC)}&mode=new`}
+          to={`/admin?c=${encodeURIComponent(COLLECTIONS.now)}&mode=new`}
         >
-          New blog post
+          New status
         </Link>
       </div>
 
-      <ul className="admin-collection-list">
-        <li className="admin-collection-row">
-          <Link to="/admin?view=pages" className="admin-collection-link">
-            <span className="admin-collection-label">Site pages (Local vs PDS)</span>
-            <code className="admin-collection-nsid">is.dame.page</code>
-          </Link>
-          <p className="admin-collection-summary">
-            See which pages serve their title &amp; intro from the PDS vs hardcoded
-            defaults, and migrate or revert them.
-          </p>
-        </li>
-        <li className="admin-collection-row">
-          <Link to="/admin?view=listening" className="admin-collection-link">
-            <span className="admin-collection-label">Listening (multi-select)</span>
-            <code className="admin-collection-nsid">{COLLECTIONS.listen}</code>
-          </Link>
-          <p className="admin-collection-summary">
-            Browse your plays with checkboxes — multi-select to bulk-delete, or
-            open any single play in the record editor.
-          </p>
-        </li>
-        <li className="admin-collection-row">
-          <Link to="/admin?view=legacy-blogs" className="admin-collection-link">
-            <span className="admin-collection-label">Legacy blog migration</span>
-            <code className="admin-collection-nsid">{STANDARD_DOC}</code>
-          </Link>
-          <p className="admin-collection-summary">
-            The old Eleventy markdown blog posts, ready to publish to your PDS as
-            standard.site documents with one click.
-          </p>
-        </li>
-        {primary.map(renderRow)}
-        <li className="admin-collection-row admin-collection-row-custom">
-          <CustomCollectionInput />
-        </li>
-      </ul>
+      {PICKER_GROUPS.map((group) => (
+        <section className="admin-collection-group" key={group.key}>
+          <div className="admin-collection-group-head">
+            <h2 className="admin-collection-group-heading small-caps">{group.heading}</h2>
+            {group.note && <p className="admin-collection-group-note">{group.note}</p>}
+          </div>
+          <ul className="admin-collection-list">{group.items.map(renderItem)}</ul>
+        </section>
+      ))}
 
-      {legacy.length > 0 && (
-        <>
-          <div className="admin-collection-legacy-heading small-caps">Legacy</div>
-          <ul className="admin-collection-list">{legacy.map(renderRow)}</ul>
-        </>
-      )}
+      <section className="admin-collection-group admin-collection-group-legacy">
+        <div className="admin-collection-group-head">
+          <h2 className="admin-collection-group-heading small-caps">Legacy</h2>
+          <p className="admin-collection-group-note">
+            Old record types and one-time migration tools.
+          </p>
+        </div>
+        <ul className="admin-collection-list">
+          <li className="admin-collection-row admin-collection-row-legacy">
+            <Link to="/admin?view=legacy-blogs" className="admin-collection-link">
+              <span className="admin-collection-label">Legacy blog migration</span>
+              <code className="admin-collection-nsid">{STANDARD_DOC}</code>
+            </Link>
+            <p className="admin-collection-summary">
+              The old Eleventy markdown blog posts, ready to publish to your PDS as
+              standard.site documents with one click.
+            </p>
+          </li>
+          {legacyNsids.map((nsid) => {
+            const lex = LEXICONS[nsid];
+            return (
+              <li key={nsid} className="admin-collection-row admin-collection-row-legacy">
+                <Link to={`/admin?c=${encodeURIComponent(nsid)}`} className="admin-collection-link">
+                  <span className="admin-collection-label">{lex.label}</span>
+                  <code className="admin-collection-nsid">{nsid}</code>
+                </Link>
+                {lex.summary && <p className="admin-collection-summary">{lex.summary}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      <section className="admin-collection-group">
+        <div className="admin-collection-group-head">
+          <h2 className="admin-collection-group-heading small-caps">Other</h2>
+        </div>
+        <ul className="admin-collection-list">
+          <li className="admin-collection-row admin-collection-row-custom">
+            <CustomCollectionInput />
+          </li>
+        </ul>
+      </section>
     </PageShell>
   );
 }
@@ -251,15 +351,27 @@ function CustomCollectionInput() {
 /* Record list                                                          */
 /* ------------------------------------------------------------------ */
 
-function RecordList({ agent, did, collection }) {
+function RecordList({
+  agent,
+  did,
+  collection,
+  title,
+  intro,
+  recordFilter,
+  newHref,
+  pageSlug: pageSlugOverride,
+}) {
   const [records, setRecords] = useState([]);
   const [cursor, setCursor] = useState(undefined);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const lex = lexiconFor(collection);
-  const pageSlug = pageSlugForCollection(collection);
+  const pageSlug =
+    pageSlugOverride !== undefined ? pageSlugOverride : pageSlugForCollection(collection);
   const isHero = collection === COLLECTIONS.heroPhrase;
+  const heading = title || lex?.label || collection;
+  const newRecordHref = newHref || `/admin?c=${encodeURIComponent(collection)}&mode=new`;
 
   const loadPage = useCallback(
     async (after) => {
@@ -297,16 +409,21 @@ function RecordList({ agent, did, collection }) {
     reload();
   }, [reload]);
 
+  const visibleRecords = recordFilter
+    ? records.filter((rec) => recordFilter(rec.value))
+    : records;
+
   return (
     <PageShell
-      title={lex?.label || collection}
-      headTitle={`${lex?.label || collection} — Admin — Dame is…`}
+      title={heading}
+      intro={intro}
+      headTitle={`${heading} — Admin — Dame is…`}
     >
       <div className="admin-toolbar">
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
         <code className="admin-collection-nsid">{collection}</code>
         <Link
-          to={`/admin?c=${encodeURIComponent(collection)}&mode=new`}
+          to={newRecordHref}
           className="admin-gate-button admin-gate-button-tight"
         >
           New record
@@ -320,12 +437,12 @@ function RecordList({ agent, did, collection }) {
 
       {error && <p className="admin-error">{error}</p>}
 
-      {records.length === 0 && !loading && !error && (
+      {visibleRecords.length === 0 && !loading && !error && (
         <p className="placeholder-card">No records yet in this collection.</p>
       )}
 
       <ul className="admin-record-list">
-        {records.map((rec) => {
+        {visibleRecords.map((rec) => {
           const r = rkeyFromUri(rec.uri);
           return (
             <li key={rec.uri} className="admin-record-row">
@@ -445,7 +562,7 @@ function HeroSeedButton({ agent, did, existingCount, onSeeded }) {
 /* ------------------------------------------------------------------ */
 
 function PagesOverview({ agent, did }) {
-  const [existing, setExisting] = useState(null); // Set of slugs that have a record
+  const [records, setRecords] = useState(null); // is.dame.page records on the PDS
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -454,13 +571,12 @@ function PagesOverview({ agent, did }) {
       .listRecords({ repo: did, collection: COLLECTIONS.page, limit: 100 })
       .then((res) => {
         const next = res?.data || res;
-        const set = new Set((next?.records || []).map((r) => rkeyFromUri(r.uri)));
-        if (!cancelled) setExisting(set);
+        if (!cancelled) setRecords(next?.records || []);
       })
       .catch((err) => {
         if (!cancelled) {
           setError(err?.message || String(err));
-          setExisting(new Set());
+          setRecords([]);
         }
       });
     return () => {
@@ -468,33 +584,94 @@ function PagesOverview({ agent, did }) {
     };
   }, [agent, did]);
 
+  const existing = useMemo(
+    () => new Set((records || []).map((r) => rkeyFromUri(r.uri))),
+    [records],
+  );
+  // Records whose slug isn't one of the known page surfaces — surfaced in the
+  // raw records section so they're still reachable/editable.
+  const known = new Set(knownPageSlugs());
+  const extraRecords = (records || []).filter((r) => !known.has(rkeyFromUri(r.uri)));
+
   return (
     <PageShell
       title="Site pages"
-      intro="Each page's title and intro can live in the site (Local) or as an is.dame.page record on your PDS."
+      intro="Each page's title and intro can live in the site (Local) or as an is.dame.page record on your PDS. Manage that split here, then edit the raw records below."
       headTitle="Site pages — Admin — Dame is…"
     >
       <div className="admin-toolbar">
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
+        <code className="admin-collection-nsid">{COLLECTIONS.page}</code>
+        <Link
+          to={`/admin?c=${encodeURIComponent(COLLECTIONS.page)}&mode=new`}
+          className="admin-gate-button admin-gate-button-tight"
+        >
+          New page record
+        </Link>
       </div>
 
       {error && <p className="admin-error">{error}</p>}
 
-      {existing === null ? (
-        <p className="placeholder-card">Loading pages…</p>
-      ) : (
-        <div className="admin-page-panels">
-          {knownPageSlugs().map((slug) => (
-            <PageContentPanel
-              key={slug}
-              agent={agent}
-              did={did}
-              slug={slug}
-              exists={existing.has(slug)}
-            />
-          ))}
-        </div>
-      )}
+      <section className="admin-page-section">
+        <h2 className="admin-collection-group-heading small-caps">Local vs PDS</h2>
+        <p className="admin-collection-group-note">
+          Which pages serve their title &amp; intro from a PDS record vs the
+          hardcoded defaults. Migrate or revert any of them.
+        </p>
+        {records === null ? (
+          <p className="placeholder-card">Loading pages…</p>
+        ) : (
+          <div className="admin-page-panels">
+            {knownPageSlugs().map((slug) => (
+              <PageContentPanel
+                key={slug}
+                agent={agent}
+                did={did}
+                slug={slug}
+                exists={existing.has(slug)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="admin-page-section">
+        <h2 className="admin-collection-group-heading small-caps">Page records</h2>
+        <p className="admin-collection-group-note">
+          The raw <code>{COLLECTIONS.page}</code> records on your PDS, including any
+          page slugs beyond the built-in surfaces above.
+        </p>
+        {records === null ? (
+          <p className="placeholder-card">Loading records…</p>
+        ) : records.length === 0 ? (
+          <p className="placeholder-card">No page records on your PDS yet.</p>
+        ) : (
+          <ul className="admin-record-list">
+            {records.map((rec) => {
+              const r = rkeyFromUri(rec.uri);
+              return (
+                <li key={rec.uri} className="admin-record-row">
+                  <Link
+                    to={`/admin?c=${encodeURIComponent(COLLECTIONS.page)}&r=${encodeURIComponent(r)}`}
+                    className="admin-record-link"
+                  >
+                    <code className="admin-record-rkey">{r}</code>
+                    <span className="admin-record-preview">
+                      {rec.value?.title || rec.value?.intro || ''}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {extraRecords.length > 0 && (
+          <p className="admin-field-hint">
+            {extraRecords.length} record{extraRecords.length === 1 ? '' : 's'} outside the
+            built-in page surfaces.
+          </p>
+        )}
+      </section>
     </PageShell>
   );
 }

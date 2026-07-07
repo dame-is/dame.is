@@ -48,8 +48,8 @@ const COMMON_TIMESTAMPS = [
 
 export const LEXICONS = {
   [COLLECTIONS.now]: {
-    label: 'Status update',
-    summary: 'Short "what I am doing right now" entries shown in the chrome bar and on /logging.',
+    label: 'Logging',
+    summary: 'Short "what I am doing right now" status updates shown in the chrome bar and on /logging.',
     rkeyMode: 'tid',
     typeFieldValue: COLLECTIONS.now,
     fields: [
@@ -86,7 +86,7 @@ export const LEXICONS = {
   // posts and creative works — the publication you pick decides the surface:
   // the portfolio publication renders on /creating, anything else on /blogging.
   'site.standard.document': {
-    label: 'Document (blog post / creative work)',
+    label: 'Document',
     summary:
       'standard.site documents. Pick the portfolio publication to publish a creative work (rendered on /creating); pick the blog publication for a blog post (/blogging).',
     rkeyMode: 'tid',
@@ -140,8 +140,8 @@ export const LEXICONS = {
   },
 
   [COLLECTIONS.profile]: {
-    label: 'Extended profile',
-    summary: 'A single record with rkey "self" that backs /about.',
+    label: 'About',
+    summary: 'The extended profile — a single record with rkey "self" that backs /about.',
     rkeyMode: 'fixed',
     rkeyPlaceholder: 'self',
     rkeyDefault: 'self',
@@ -154,7 +154,7 @@ export const LEXICONS = {
   },
 
   [COLLECTIONS.heroPhrase]: {
-    label: 'Hero phrase',
+    label: 'Hero phrases',
     summary:
       'Rotating phrases for the home hero sentence. "role" fills "dame is [a design engineer]"; "clause" fills "who [makes social software]".',
     rkeyMode: 'tid',
@@ -281,7 +281,7 @@ export const LEXICONS = {
   },
 
   [COLLECTIONS.arenaChannel]: {
-    label: 'Are.na gallery',
+    label: 'Curating',
     summary:
       'Publishes an Are.na channel as a gallery at /curating/<rkey>. The rkey is the site slug; arenaSlug points at the channel on are.na.',
     rkeyMode: 'fixed',
@@ -302,7 +302,7 @@ export const LEXICONS = {
   },
 
   'app.bsky.feed.post': {
-    label: 'Bluesky post',
+    label: 'Posting',
     summary: 'Plain text posts. Embeds are out of scope for the templated editor — use raw JSON.',
     rkeyMode: 'tid',
     typeFieldValue: 'app.bsky.feed.post',

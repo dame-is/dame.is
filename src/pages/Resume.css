@@ -232,17 +232,22 @@
 }
 
 .resume-highlights {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  /* Restore list markers: the global reset strips list-style, and a flex
+     container would blockify the <li>s and drop their ::marker entirely. */
+  list-style: disc outside;
   margin: var(--space-1) 0 0;
   padding-left: var(--space-4);
 }
 
 .resume-highlight {
+  display: list-item;
   font-size: var(--text-sm);
   line-height: var(--leading);
   color: var(--ink-soft);
+}
+
+.resume-highlight + .resume-highlight {
+  margin-top: var(--space-2);
 }
 
 .resume-highlight::marker {
