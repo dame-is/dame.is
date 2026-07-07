@@ -70,7 +70,7 @@ export function getOauthClient() {
       client_id: `${origin}/oauth-client-metadata.json`,
       client_name: 'dame.is',
       client_uri: origin,
-      logo_uri: `${origin}/images/favicon.ico`,
+      logo_uri: `${origin}/api/favicon`,
       redirect_uris: [`${origin}${redirectPath}`],
       scope: SCOPE,
       grant_types: ['authorization_code', 'refresh_token'],
