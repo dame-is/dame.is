@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, MoonStar, Pencil, Search, SunDim, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Moon, Pencil, Search, Sun, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -20,8 +20,8 @@ import './ChromeBar.css';
 
 // Per-theme glyph for the toggle button: sun for light, moon for dark.
 const THEME_ICON = {
-  light: SunDim,
-  dark: MoonStar,
+  light: Sun,
+  dark: Moon,
 };
 
 export default function ChromeBar() {
@@ -272,7 +272,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const scrolledPast = useScrolledPastFeedItems();
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
   const { theme, cycle: cycleTheme } = useTheme();
-  const ThemeIcon = THEME_ICON[theme] || SunDim;
+  const ThemeIcon = THEME_ICON[theme] || Sun;
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
   // EditModeBar + useEditMode).
