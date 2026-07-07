@@ -52,7 +52,7 @@ export default function Resume() {
 
   if (status === 'loading') {
     return (
-      <PageShell headTitle="Resume — Dame is…" atUri={`at://${ME_DID}/is.dame.page/resume`}>
+      <PageShell headTitle="For hire — Dame is…" atUri={`at://${ME_DID}/is.dame.page/resume`}>
         <p className="placeholder-card">Loading resume…</p>
       </PageShell>
     );
@@ -62,14 +62,14 @@ export default function Resume() {
     return (
       <PageShell
         title={pageTitle}
-        headTitle="Resume — Dame is…"
+        headTitle="For hire — Dame is…"
         atUri={`at://${ME_DID}/is.dame.page/resume`}
       >
         <p className="feed-empty">
           {slug ? (
             <>
               No resume version <code>{slug}</code>.{' '}
-              <Link to="/resume">See the default resume.</Link>
+              <Link to="/for-hire">See the default resume.</Link>
             </>
           ) : (
             'No resume published yet.'
@@ -84,7 +84,7 @@ export default function Resume() {
 
   return (
     <PageShell
-      headTitle={`${v.headline || pageTitle || 'Resume'} — Dame is…`}
+      headTitle={`${v.headline || pageTitle || 'For hire'} — Dame is…`}
       atUri={resolved.uri}
       cid={resolved.cid}
     >
@@ -92,7 +92,7 @@ export default function Resume() {
         <header className="resume-header">
           <div className="resume-headline-row">
             <div>
-              <h1 className="resume-title">{pageTitle || 'Resume'}</h1>
+              <h1 className="resume-title">{pageTitle || 'For hire'}</h1>
               {v.headline && <p className="resume-headline">{v.headline}</p>}
             </div>
             <button
@@ -134,7 +134,7 @@ export default function Resume() {
                 return (
                   <Link
                     key={r.uri}
-                    to={`/resume/${s}`}
+                    to={`/for-hire/${s}`}
                     className={`resume-version-chip ${active ? 'is-active' : ''}`}
                     aria-current={active ? 'page' : undefined}
                   >

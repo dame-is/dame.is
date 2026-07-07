@@ -98,7 +98,7 @@ export default function App() {
               <div className="main">
                 <RouteTransition>
                   <Route path="/" element={<Home />} />
-                  <Route path="/about" element={<About />} />
+                  <Route path="/themself" element={<About />} />
                   <Route path="/posting" element={<Posting />} />
                   <Route path="/logging" element={<Logging />} />
                   <Route path="/listening" element={<Listening />} />
@@ -108,8 +108,8 @@ export default function App() {
                   <Route path="/creating/:slug" element={<CreatingWork />} />
                   <Route path="/curating" element={<Curating />} />
                   <Route path="/curating/:slug" element={<CuratingChannel />} />
-                  <Route path="/resume" element={<Resume />} />
-                  <Route path="/resume/:slug" element={<Resume />} />
+                  <Route path="/for-hire" element={<Resume />} />
+                  <Route path="/for-hire/:slug" element={<Resume />} />
                   <Route path="/sharing" element={<Sharing />} />
                   <Route path="/mothing" element={<Mothing />} />
                   {generatedRecordRoutes()}

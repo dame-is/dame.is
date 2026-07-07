@@ -73,8 +73,8 @@ export const PAGE_REGISTRY = {
   },
   resume: {
     slug: 'resume',
-    label: 'Resume',
-    title: 'Resume',
+    label: 'For hire',
+    title: 'For hire',
     intro: 'A decade of building social software, brands, and communities. Each entry backlinks to a job record on my PDS.',
     collection: null,
   },
