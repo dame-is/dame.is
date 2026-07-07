@@ -73,6 +73,26 @@ export function EditModeProvider({ children }) {
     });
   }, []);
 
+  // Add every item in a group to the selection (e.g. all the plays behind a
+  // collapsed listening batch), keyed by atUri.
+  const selectMany = useCallback((items) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      for (const it of items || []) {
+        if (it?.atUri) next.set(it.atUri, it);
+      }
+      return next;
+    });
+  }, []);
+
+  const deselectMany = useCallback((uris) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      for (const u of uris || []) next.delete(u);
+      return next;
+    });
+  }, []);
+
   const isSelected = useCallback((uri) => selected.has(uri), [selected]);
 
   const markRemoved = useCallback((uris) => {
@@ -95,6 +115,8 @@ export function EditModeProvider({ children }) {
       selectedCount: selected.size,
       isSelected,
       toggleSelect,
+      selectMany,
+      deselectMany,
       clearSelection,
       removedUris,
       markRemoved,
@@ -107,6 +129,8 @@ export function EditModeProvider({ children }) {
       selected,
       isSelected,
       toggleSelect,
+      selectMany,
+      deselectMany,
       clearSelection,
       removedUris,
       markRemoved,

@@ -446,6 +446,64 @@ a.post-card-author-link:focus-visible {
   gap: var(--space-3);
 }
 
+/* Owner edit-mode selection for plays. The group header and each song row
+   read as tappable targets, each with a leading check box: filled when
+   selected, a dash on the group when only some of its songs are. */
+.listen-row-selectable .listen-row-head {
+  cursor: pointer;
+  align-items: center;
+}
+
+.listen-row-selectable.is-selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.listen-row-select-mark {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 1px solid var(--accent-soft);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--page);
+}
+
+.listen-row-select-mark.is-all {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.listen-row-select-dash {
+  width: 0.5rem;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.listen-row-child {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.listen-row-child > .listen-row-child-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.listen-row-selectable .listen-row-child {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.listen-row-child.is-selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .listen-row-text {
   flex: 1;
   min-width: 0;
