@@ -42,7 +42,7 @@ export default function handler(req, res) {
     client_id: `${origin}/oauth-client-metadata.json`,
     client_name: 'dame.is',
     client_uri: origin,
-    logo_uri: `${origin}/images/favicon.ico`,
+    logo_uri: `${origin}/api/favicon`,
     redirect_uris: [`${origin}/oauth/callback`],
     scope: 'atproto transition:generic',
     grant_types: ['authorization_code', 'refresh_token'],
