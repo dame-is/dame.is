@@ -9,8 +9,10 @@
    own font-size, so the period always equals one rendered line box
    regardless of font-size or density.
 
-   `--paper-baseline` phases the pattern down so a rule falls just under
-   each line's baseline (text sits *on* the line, like ruled paper). */
+   `--paper-baseline` phases the pattern down so a rule falls just below
+   each line — in the leading gap under the descenders, so the rule reads
+   as clearly beneath the type (not cutting through it) and stays legible
+   against the text. */
 
 :root,
 [data-theme='light'] {
@@ -33,7 +35,7 @@
 [data-paper='ruled'] .leaflet-paragraph,
 [data-paper='dots'] .leaflet-paragraph {
   --paper-lh: var(--leading);
-  --paper-baseline: 1.12em; /* ~baseline within a 1.6 line box */
+  --paper-baseline: 1.4em; /* just below the baseline of a 1.6 line box, in the leading gap */
 }
 
 /* `data-paper` and `data-density` both live on <html>, so this must be a
@@ -41,7 +43,7 @@
 [data-paper='ruled'][data-density='tight'] .post-card-text,
 [data-paper='dots'][data-density='tight'] .post-card-text {
   --paper-lh: var(--leading-tight);
-  --paper-baseline: 0.98em; /* baseline within the tighter 1.3 line box */
+  --paper-baseline: 1.15em; /* just below the baseline of the tighter 1.3 line box */
 }
 
 /* ── Ruled ─────────────────────────────────────────────────────────
