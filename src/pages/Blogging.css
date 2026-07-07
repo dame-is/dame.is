@@ -144,6 +144,31 @@
   border: 1px solid var(--rule-soft);
 }
 
+/* Restore list markers — the global reset strips list-style from every
+   ul/ol, which would leave markdown bullet/number lists unmarked. */
+.blog-prose ul,
+.blog-prose ol {
+  margin: var(--space-4) 0;
+  padding-left: var(--space-5);
+}
+
+.blog-prose ul {
+  list-style: disc outside;
+}
+
+.blog-prose ol {
+  list-style: decimal outside;
+}
+
+.blog-prose li {
+  display: list-item;
+  margin-bottom: var(--space-2);
+}
+
+.blog-prose li::marker {
+  color: var(--accent-soft);
+}
+
 .blog-prose .first-paragraph::first-letter,
 .blog-prose > p:first-of-type::first-letter {
   font-family: var(--serif);
