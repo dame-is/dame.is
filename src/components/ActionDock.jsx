@@ -14,6 +14,7 @@ const ROUTES = [
   { to: '/for-hire', label: 'for hire' },
   { to: '/blogging', label: 'blogging' },
   { to: '/creating', label: 'creating' },
+  { to: '/listening', label: 'listening' },
   { to: '/curating', label: 'curating' },
   { to: '/mothing', label: 'mothing' },
 ];

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
+import ListeningStats from '../components/ListeningStats.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
@@ -24,7 +25,7 @@ export default function Listening() {
     strategy: 'live-first',
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.listen, max: 500 });
+      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.listen, max: 1000 });
     },
     mapItems: toListeningItems,
   });
@@ -32,6 +33,12 @@ export default function Listening() {
   const { removedUris } = useEditMode();
   const loading = status === 'loading';
   const safeItems = items || [];
+  // Stats reflect all listening (minus any owner-removed plays), independent
+  // of the feed's text search below.
+  const statsItems = useMemo(
+    () => safeItems.filter((i) => !removedUris.has(i.atUri)),
+    [safeItems, removedUris],
+  );
   const filtered = useMemo(
     () =>
       safeItems.filter((i) => {
@@ -61,6 +68,7 @@ export default function Listening() {
       atUri={`at://${ME_DID}/is.dame.page/listening`}
       headTitle="Listening — Dame is&hellip;"
     >
+      {!loading && statsItems.length > 0 && <ListeningStats items={statsItems} />}
       {loading ? (
         <FeedSkeleton rows={6} label="Loading plays" />
       ) : status === 'error' ? (
