@@ -9,7 +9,9 @@
   left: 0;
   right: 0;
   bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
-  z-index: 31;
+  /* Above the quick-edit sheet (z 32): the bar is opaque and overlays the
+     sheet's reserved bottom strip so their seam never opens a gap. */
+  z-index: 33;
   width: 100%;
   max-width: 65rem;
   margin: 0 auto;
