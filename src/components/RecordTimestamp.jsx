@@ -1,4 +1,5 @@
 import { useAtUri } from '../hooks/useAtUri.js';
+import { useFeedFooter } from '../hooks/useFeedFooter.jsx';
 import { relativeTime } from '../lib/time.js';
 
 /**
@@ -7,8 +8,24 @@ import { relativeTime } from '../lib/time.js';
  *
  * Replaces the old GitHub `last-commit` footer — freshness now comes from
  * the PDS record backing the page, not from git.
+ *
+ * Feed pages have no single backing record, so they instead publish the
+ * newest visible record's instant via useFeedFooter; when that's present it
+ * wins and the footer reports "latest record …" rather than an empty pair.
  */
 export default function RecordTimestamp() {
+  const { latestRecordAt } = useFeedFooter();
+  if (latestRecordAt) {
+    return (
+      <span className="record-timestamp gutter" title={`latest record: ${latestRecordAt}`}>
+        latest record {relativeTime(latestRecordAt)}
+      </span>
+    );
+  }
+  return <RouteRecordTimestamp />;
+}
+
+function RouteRecordTimestamp() {
   const { record } = useAtUri();
   const value = record?.value || record;
   // Different lexicons name their primary timestamp differently —

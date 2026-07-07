@@ -39,6 +39,7 @@ import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 import { WaypointsModalProvider } from './hooks/useWaypointsModal.jsx';
+import { FeedFooterProvider } from './hooks/useFeedFooter.jsx';
 import { EditModeProvider } from './hooks/useEditMode.jsx';
 
 /**
@@ -90,6 +91,7 @@ export default function App() {
       <ChromePanelProvider>
       <WaypointsModalProvider>
       <EditModeProvider>
+      <FeedFooterProvider>
           <div className="app-shell">
             <ChromeBar />
             <main className="layout">
@@ -151,6 +153,7 @@ export default function App() {
             <WindowScrollbar />
             <Analytics />
           </div>
+      </FeedFooterProvider>
       </EditModeProvider>
       </WaypointsModalProvider>
       </ChromePanelProvider>

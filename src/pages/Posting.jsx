@@ -7,6 +7,7 @@ import PostingFilters, { filterPostingItems, postingCategories } from '../compon
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { groupByDay } from '../lib/time.js';
 import { getAuthorFeed } from '../lib/atproto.js';
 import { blueskyPostToFeedItem } from '../lib/feedBuilder.js';
@@ -33,6 +34,9 @@ export default function Posting() {
   );
   const threaded = useMemo(() => groupSelfReplyThreads(filtered, ME_DID), [filtered]);
   const groups = groupByDay(threaded, threadAwareDateKey);
+
+  // Feed page: report the newest visible record's time in the global footer.
+  usePublishLatestRecord(useMemo(() => newestInstant(filtered), [filtered]));
 
   // Per-sub-type counts for the modal chips (counts reflect the full
   // unfiltered set so they don't churn as the user toggles).

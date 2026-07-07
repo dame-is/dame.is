@@ -7,6 +7,7 @@ import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -38,6 +39,9 @@ export default function Logging() {
     [safeItems, q],
   );
   const groups = groupByDay(filtered, (i) => i.createdAt);
+
+  // Feed page: report the newest visible record's time in the global footer.
+  usePublishLatestRecord(useMemo(() => newestInstant(filtered), [filtered]));
 
   return (
     <PageShell
