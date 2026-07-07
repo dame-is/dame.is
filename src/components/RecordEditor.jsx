@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
@@ -27,8 +27,16 @@ import '../pages/Admin.css';
  *   - onCreated:   called with `{ rkey }` after a successful create
  *   - initialMode: 'form' (default) or 'raw' — useful when callers want to
  *                  drop the user straight into JSON editing.
+ *   - hideActions: when true, the internal Save/Delete button row is not
+ *                  rendered — the caller drives save/delete via the imperative
+ *                  ref instead (see the quick-edit sheet's action bar).
+ *   - onStatus:    called with `{ saving, deleting, loading, isNew }` whenever
+ *                  those change, so an external controller can reflect state.
+ *
+ * Ref (imperative handle): `{ save(), remove() }` — trigger a save or delete
+ * from outside the component.
  */
-export default function RecordEditor({
+const RecordEditor = forwardRef(function RecordEditor({
   agent,
   did,
   collection,
@@ -39,7 +47,9 @@ export default function RecordEditor({
   onCreated,
   initialMode = 'form',
   initialValue = null,
-}) {
+  hideActions = false,
+  onStatus,
+}, ref) {
   const lex = lexiconFor(collection);
   const isNew = !rkey;
 
@@ -227,6 +237,26 @@ export default function RecordEditor({
     setRawMode((m) => !m);
   }
 
+  // Expose save/delete imperatively so an external controller (the quick-edit
+  // sheet's action bar) can drive them. Stable handle backed by refs so it
+  // always calls the latest closures.
+  const saveRef = useRef(null);
+  const deleteRef = useRef(null);
+  saveRef.current = handleSave;
+  deleteRef.current = handleDelete;
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: () => saveRef.current?.(),
+      remove: () => deleteRef.current?.(),
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    onStatus?.({ saving, deleting, loading, isNew });
+  }, [saving, deleting, loading, isNew, onStatus]);
+
   if (loading) {
     return <p className="placeholder-card">Loading record…</p>;
   }
@@ -291,29 +321,33 @@ export default function RecordEditor({
       {error && <p className="admin-error">{error}</p>}
       {savedFlash && <p className="admin-success">Saved.</p>}
 
-      <div className="admin-actions">
-        <button
-          type="button"
-          className="admin-gate-button"
-          onClick={handleSave}
-          disabled={saving || deleting}
-        >
-          {saving ? 'Saving…' : isNew ? 'Create' : 'Save'}
-        </button>
-        {!isNew && (
+      {!hideActions && (
+        <div className="admin-actions">
           <button
             type="button"
-            className="admin-gate-button admin-danger"
-            onClick={handleDelete}
+            className="admin-gate-button"
+            onClick={handleSave}
             disabled={saving || deleting}
           >
-            {deleting ? 'Deleting…' : 'Delete'}
+            {saving ? 'Saving…' : isNew ? 'Create' : 'Save'}
           </button>
-        )}
-      </div>
+          {!isNew && (
+            <button
+              type="button"
+              className="admin-gate-button admin-danger"
+              onClick={handleDelete}
+              disabled={saving || deleting}
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
-}
+});
+
+export default RecordEditor;
 
 /* ------------------------------------------------------------------ */
 /* Field renderers                                                      */

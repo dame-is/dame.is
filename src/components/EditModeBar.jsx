@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { FileEdit, PencilLine, Trash2, XCircle } from 'lucide-react';
+import { FileEdit, PencilLine, Save, Trash2, X, XCircle } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -55,6 +55,9 @@ export default function EditModeBar() {
     markRemoved,
     openEditSheet,
     pageRecord,
+    editSheet,
+    sheetEditor,
+    closeEditSheet,
   } = useEditMode();
   const { agent, did } = useAtprotoSession();
   const { closeDock } = useActionDock();
@@ -83,6 +86,13 @@ export default function EditModeBar() {
     closeDock();
     openEditSheet(atUri);
   }
+
+  // While the quick-edit sheet is open, the bar hosts its Save / Delete
+  // controls (the sheet's own editor buttons are hidden) so editing the
+  // record's fields or JSON is committed straight from the action bar. The
+  // Save/Delete controls appear once the editor controller is published.
+  const editing = !!editSheet;
+  const busyEditor = sheetEditor?.saving || sheetEditor?.deleting;
 
   // Publish the bar's live height on <html> as `--edit-bar-h`. The nav dock
   // reads it to lift its sheet so it expands from on top of this bar rather
@@ -165,7 +175,9 @@ export default function EditModeBar() {
             aria-label="Edit mode actions"
           >
             <div className="edit-mode-bar-status">
-              {selectedCount > 0 ? (
+              {editing ? (
+                <span className="edit-mode-bar-count">Editing record</span>
+              ) : selectedCount > 0 ? (
                 <span className="edit-mode-bar-count">
                   <strong>{selectedCount}</strong> selected
                 </span>
@@ -175,50 +187,88 @@ export default function EditModeBar() {
               {error && <span className="edit-mode-bar-error">{error}</span>}
             </div>
             <div className="edit-mode-bar-actions">
-              {selectedCount > 0 && (
-                <button
-                  type="button"
-                  className="edit-mode-bar-btn edit-mode-bar-clear"
-                  onClick={clearSelection}
-                  disabled={busy}
-                >
-                  <XCircle size={15} strokeWidth={1.75} aria-hidden="true" />
-                  <span>Clear</span>
-                </button>
-              )}
-              {/* Quick-edit: the single selected record, or — with nothing
-                  selected — the current page's own record. */}
-              {selectedCount === 1 && selectedEditable && (
-                <button
-                  type="button"
-                  className="edit-mode-bar-btn"
-                  onClick={() => openSheet(selectedUri)}
-                  disabled={busy}
-                >
-                  <PencilLine size={15} strokeWidth={1.75} aria-hidden="true" />
-                  <span>Edit</span>
-                </button>
-              )}
-              {selectedCount === 0 && pageUri && (
-                <button
-                  type="button"
-                  className="edit-mode-bar-btn"
-                  onClick={() => openSheet(pageUri)}
-                >
-                  <FileEdit size={15} strokeWidth={1.75} aria-hidden="true" />
-                  <span>Edit page</span>
-                </button>
-              )}
-              {selectedCount > 0 && (
-                <button
-                  type="button"
-                  className="edit-mode-bar-btn edit-mode-bar-delete"
-                  onClick={handleDelete}
-                  disabled={busy}
-                >
-                  <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
-                  <span>{busy ? 'Deleting…' : 'Delete'}</span>
-                </button>
+              {editing ? (
+                <>
+                  <button
+                    type="button"
+                    className="edit-mode-bar-btn edit-mode-bar-clear"
+                    onClick={closeEditSheet}
+                    disabled={busyEditor}
+                  >
+                    <X size={15} strokeWidth={1.75} aria-hidden="true" />
+                    <span>Close</span>
+                  </button>
+                  {sheetEditor?.canDelete && (
+                    <button
+                      type="button"
+                      className="edit-mode-bar-btn edit-mode-bar-delete"
+                      onClick={() => sheetEditor.remove()}
+                      disabled={busyEditor || sheetEditor.loading}
+                    >
+                      <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
+                      <span>{sheetEditor.deleting ? 'Deleting…' : 'Delete'}</span>
+                    </button>
+                  )}
+                  {sheetEditor && (
+                    <button
+                      type="button"
+                      className="edit-mode-bar-btn edit-mode-bar-save"
+                      onClick={() => sheetEditor.save()}
+                      disabled={busyEditor || sheetEditor.loading}
+                    >
+                      <Save size={15} strokeWidth={1.75} aria-hidden="true" />
+                      <span>{sheetEditor.saving ? 'Saving…' : 'Save'}</span>
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {selectedCount > 0 && (
+                    <button
+                      type="button"
+                      className="edit-mode-bar-btn edit-mode-bar-clear"
+                      onClick={clearSelection}
+                      disabled={busy}
+                    >
+                      <XCircle size={15} strokeWidth={1.75} aria-hidden="true" />
+                      <span>Clear</span>
+                    </button>
+                  )}
+                  {/* Quick-edit: the single selected record, or — with nothing
+                      selected — the current page's own record. */}
+                  {selectedCount === 1 && selectedEditable && (
+                    <button
+                      type="button"
+                      className="edit-mode-bar-btn"
+                      onClick={() => openSheet(selectedUri)}
+                      disabled={busy}
+                    >
+                      <PencilLine size={15} strokeWidth={1.75} aria-hidden="true" />
+                      <span>Edit</span>
+                    </button>
+                  )}
+                  {selectedCount === 0 && pageUri && (
+                    <button
+                      type="button"
+                      className="edit-mode-bar-btn"
+                      onClick={() => openSheet(pageUri)}
+                    >
+                      <FileEdit size={15} strokeWidth={1.75} aria-hidden="true" />
+                      <span>Edit page</span>
+                    </button>
+                  )}
+                  {selectedCount > 0 && (
+                    <button
+                      type="button"
+                      className="edit-mode-bar-btn edit-mode-bar-delete"
+                      onClick={handleDelete}
+                      disabled={busy}
+                    >
+                      <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
+                      <span>{busy ? 'Deleting…' : 'Delete'}</span>
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

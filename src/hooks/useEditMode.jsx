@@ -41,6 +41,10 @@ export function EditModeProvider({ children }) {
   const [pageRecord, setPageRecord] = useState(null);
   // The record currently open in the quick-edit sheet: { atUri } or null.
   const [editSheet, setEditSheet] = useState(null);
+  // A controller published by the open sheet's RecordEditor so the edit
+  // action bar can drive save/delete: { save, remove, saving, deleting,
+  // loading, canDelete } or null.
+  const [sheetEditor, setSheetEditor] = useState(null);
   const location = useLocation();
 
   const clearSelection = useCallback(() => {
@@ -152,6 +156,8 @@ export function EditModeProvider({ children }) {
       editSheet,
       openEditSheet,
       closeEditSheet,
+      sheetEditor,
+      setSheetEditor,
     }),
     [
       active,
@@ -171,6 +177,8 @@ export function EditModeProvider({ children }) {
       editSheet,
       openEditSheet,
       closeEditSheet,
+      sheetEditor,
+      setSheetEditor,
     ],
   );
 

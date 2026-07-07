@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -25,10 +25,21 @@ function parseAtUri(uri) {
  * A footer link hands off to the full editor in the admin panel.
  */
 export default function EditSheet() {
-  const { editSheet, closeEditSheet, markRemoved, clearSelection, exit } = useEditMode();
+  const { editSheet, closeEditSheet, markRemoved, clearSelection, exit, setSheetEditor } =
+    useEditMode();
   const { agent, did } = useAtprotoSession();
   const { open: dockOpen } = useActionDock();
   const reduce = useReducedMotion();
+  // Imperative handle into the editor + its live status, so the edit action
+  // bar can host the Save / Delete controls instead of the sheet itself.
+  const editorRef = useRef(null);
+  const [editorStatus, setEditorStatus] = useState({
+    saving: false,
+    deleting: false,
+    loading: true,
+    isNew: false,
+  });
+  const handleStatus = useCallback((s) => setEditorStatus(s), []);
 
   // The nav dock and this sheet share the same slot above the chrome; if the
   // menu opens, fold the sheet away so they never stack.
@@ -46,14 +57,32 @@ export default function EditSheet() {
     return () => window.removeEventListener('keydown', onKey);
   }, [editSheet, closeEditSheet]);
 
-  if (typeof document === 'undefined') return null;
-
   const parts = editSheet ? parseAtUri(editSheet.atUri) : null;
   // Only the owner's own records are quick-editable here.
   const editable = parts && parts.repo === ME_DID && agent && did === ME_DID;
   const lex = parts ? lexiconFor(parts.collection) : null;
   const adminHref =
     parts && `/admin?c=${encodeURIComponent(parts.collection)}&r=${encodeURIComponent(parts.rkey)}`;
+
+  // Publish the editor controller (save/delete + status) to the action bar
+  // while an editable sheet is open; clear it otherwise and on unmount.
+  useEffect(() => {
+    if (!editSheet || !editable) {
+      setSheetEditor(null);
+      return undefined;
+    }
+    setSheetEditor({
+      save: () => editorRef.current?.save(),
+      remove: () => editorRef.current?.remove(),
+      saving: editorStatus.saving,
+      deleting: editorStatus.deleting,
+      loading: editorStatus.loading,
+      canDelete: !editorStatus.isNew,
+    });
+    return () => setSheetEditor(null);
+  }, [editSheet, editable, editorStatus, setSheetEditor]);
+
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
     <>
@@ -101,11 +130,14 @@ export default function EditSheet() {
                 {editable ? (
                   <RecordEditor
                     key={editSheet.atUri}
+                    ref={editorRef}
                     agent={agent}
                     did={did}
                     collection={parts.collection}
                     rkey={parts.rkey}
                     compact
+                    hideActions
+                    onStatus={handleStatus}
                     onDeleted={() => {
                       markRemoved(editSheet.atUri);
                       clearSelection();
