@@ -176,6 +176,15 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
   padding-bottom: var(--space-2);
 }
 
+/* Pull a self-reply continuation up toward its parent. The feed list's
+   uniform space-5 gap is too airy for posts that belong to one thread, so
+   trim most of it back — the pair reads as a grouped conversation, not two
+   unrelated rows. (Flex `gap` can't be set per item, hence the negative
+   margin.) The parent already drops its bottom rule + padding above. */
+.feed-item-thread-continuation {
+  margin-top: calc(-1 * var(--space-4));
+}
+
 .feed-item-thread-continuation .feed-item-verb-thread {
   color: var(--ink-faint);
 }
