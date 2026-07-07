@@ -21,11 +21,6 @@
   color: var(--ink-muted);
 }
 
-.page-footer-mark {
-  color: var(--accent-soft);
-  font-size: 1rem;
-}
-
 .page-footer-meta {
   font-size: var(--text-xs);
   color: var(--ink-faint);
