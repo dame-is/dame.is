@@ -35,6 +35,7 @@ import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { DensityProvider } from './hooks/useDensity.jsx';
+import { PaperProvider } from './hooks/usePaper.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
@@ -84,6 +85,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <DensityProvider>
+      <PaperProvider>
       <ChromeBarProvider>
       <AtprotoSessionProvider>
       <FeedFilterProvider>
@@ -161,6 +163,7 @@ export default function App() {
       </FeedFilterProvider>
       </AtprotoSessionProvider>
       </ChromeBarProvider>
+      </PaperProvider>
       </DensityProvider>
     </ThemeProvider>
   );
