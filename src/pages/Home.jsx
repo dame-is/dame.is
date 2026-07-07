@@ -25,6 +25,7 @@ import { resolvePds } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
+import { useEditMode } from '../hooks/useEditMode.jsx';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -467,7 +468,15 @@ export default function Home() {
     return { counts: out, estimatedVerbs: est };
   }, [liveCounts, snapshotCounts, liveVerbs]);
 
-  const filtered = useMemo(() => filterFeed(safeFeed, params, ME_DID), [safeFeed, params]);
+  // Records the owner deleted this session are dropped optimistically so
+  // the feed reflects the change immediately, ahead of the next live fetch
+  // (which won't return them anyway).
+  const { removedUris } = useEditMode();
+  const filtered = useMemo(() => {
+    const base = filterFeed(safeFeed, params, ME_DID);
+    if (!removedUris || removedUris.size === 0) return base;
+    return base.filter((item) => !removedUris.has(item.atUri));
+  }, [safeFeed, params, removedUris]);
   // "Load more" pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each

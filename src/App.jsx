@@ -26,6 +26,7 @@ const OauthCallback = lazy(() => import('./pages/OauthCallback.jsx'));
 const Exploring = lazy(() => import('./pages/Exploring.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
+import EditModeBar from './components/EditModeBar.jsx';
 import Footer from './components/Footer.jsx';
 import WindowScrollbar from './components/WindowScrollbar.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
@@ -36,6 +37,7 @@ import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
 import { FeedFilterProvider } from './hooks/useFeedFilter.jsx';
 import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 import { WaypointsModalProvider } from './hooks/useWaypointsModal.jsx';
+import { EditModeProvider } from './hooks/useEditMode.jsx';
 
 /**
  * Verbs whose record page is handled by a bespoke page component (not the
@@ -84,6 +86,7 @@ export default function App() {
       <FeedFilterProvider>
       <ActionDockProvider>
       <WaypointsModalProvider>
+      <EditModeProvider>
           <div className="app-shell">
             <ChromeBar />
             <main className="layout">
@@ -140,9 +143,11 @@ export default function App() {
             </main>
             <Footer />
             <ActionDock />
+            <EditModeBar />
             <WindowScrollbar />
             <Analytics />
           </div>
+      </EditModeProvider>
       </WaypointsModalProvider>
       </ActionDockProvider>
       </FeedFilterProvider>

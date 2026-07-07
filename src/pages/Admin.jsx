@@ -63,6 +63,9 @@ export default function Admin() {
   if (view === 'pages') {
     return <PagesOverview agent={agent} did={did} />;
   }
+  if (view === 'listening') {
+    return <ListeningManager agent={agent} did={did} />;
+  }
   if (view === 'legacy-blogs') {
     return <LegacyBlogMigration agent={agent} did={did} />;
   }
@@ -182,6 +185,16 @@ function CollectionPicker() {
           <p className="admin-collection-summary">
             See which pages serve their title &amp; intro from the PDS vs hardcoded
             defaults, and migrate or revert them.
+          </p>
+        </li>
+        <li className="admin-collection-row">
+          <Link to="/admin?view=listening" className="admin-collection-link">
+            <span className="admin-collection-label">Listening (multi-select)</span>
+            <code className="admin-collection-nsid">{COLLECTIONS.listen}</code>
+          </Link>
+          <p className="admin-collection-summary">
+            Browse your plays with checkboxes — multi-select to bulk-delete, or
+            open any single play in the record editor.
           </p>
         </li>
         <li className="admin-collection-row">
@@ -640,6 +653,189 @@ function LegacyBlogMigration({ agent, did }) {
           );
         })}
       </ul>
+    </PageShell>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Listening manager (multi-select bulk edit / delete)                  */
+/* ------------------------------------------------------------------ */
+
+/** Short human label for a play record value: "Track · Artist". */
+function playLabel(value) {
+  if (!value || typeof value !== 'object') return '';
+  const track = value.trackName || value.track || '';
+  const artist = Array.isArray(value.artists)
+    ? value.artists.map((a) => a?.artistName).filter(Boolean).join(', ')
+    : value.artist || '';
+  return [track, artist].filter(Boolean).join(' · ') || '(untitled play)';
+}
+
+function ListeningManager({ agent, did }) {
+  const collection = COLLECTIONS.listen;
+  const [records, setRecords] = useState([]);
+  const [cursor, setCursor] = useState(undefined);
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  // Set of selected rkeys.
+  const [selected, setSelected] = useState(() => new Set());
+  const [deleting, setDeleting] = useState(false);
+
+  const loadPage = useCallback(
+    async (after) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await agent.com.atproto.repo.listRecords({
+          repo: did,
+          collection,
+          limit: 100,
+          cursor: after || undefined,
+        });
+        const next = res?.data || res;
+        const batch = next?.records || [];
+        setRecords((prev) => (after ? [...prev, ...batch] : batch));
+        setCursor(next?.cursor);
+        if (!next?.cursor || batch.length === 0) setDone(true);
+      } catch (err) {
+        setError(err?.message || String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [agent, did, collection],
+  );
+
+  useEffect(() => {
+    setRecords([]);
+    setCursor(undefined);
+    setDone(false);
+    setSelected(new Set());
+    loadPage(undefined);
+  }, [loadPage]);
+
+  const toggle = useCallback((rkey) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(rkey)) next.delete(rkey);
+      else next.add(rkey);
+      return next;
+    });
+  }, []);
+
+  const allRkeys = useMemo(() => records.map((r) => rkeyFromUri(r.uri)), [records]);
+  const allSelected = allRkeys.length > 0 && allRkeys.every((k) => selected.has(k));
+
+  const toggleAll = useCallback(() => {
+    setSelected((prev) => {
+      if (allRkeys.length > 0 && allRkeys.every((k) => prev.has(k))) return new Set();
+      return new Set(allRkeys);
+    });
+  }, [allRkeys]);
+
+  async function bulkDelete() {
+    const rkeys = Array.from(selected);
+    if (rkeys.length === 0) return;
+    const noun = rkeys.length === 1 ? 'play' : 'plays';
+    if (!window.confirm(`Delete ${rkeys.length} ${noun}? This cannot be undone.`)) return;
+    setDeleting(true);
+    setError(null);
+    const deleted = new Set();
+    try {
+      for (const rkey of rkeys) {
+        // eslint-disable-next-line no-await-in-loop
+        await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey });
+        deleted.add(rkey);
+      }
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setRecords((prev) => prev.filter((r) => !deleted.has(rkeyFromUri(r.uri))));
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const k of deleted) next.delete(k);
+        return next;
+      });
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <PageShell
+      title="Listening"
+      intro="Every play on your PDS. Select rows to bulk-delete, or open one in the record editor."
+      headTitle="Listening — Admin — Dame is…"
+    >
+      <div className="admin-toolbar">
+        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
+        <code className="admin-collection-nsid">{collection}</code>
+      </div>
+
+      {error && <p className="admin-error">{error}</p>}
+
+      <div className="admin-multiselect-toolbar">
+        <label className="admin-checkbox">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleAll}
+            disabled={records.length === 0}
+          />
+          <span>{allSelected ? 'Deselect all' : 'Select all loaded'}</span>
+        </label>
+        <span className="admin-multiselect-count">
+          {selected.size > 0 ? `${selected.size} selected` : `${records.length} loaded`}
+        </span>
+        <button
+          type="button"
+          className="admin-gate-button admin-gate-button-tight admin-danger"
+          onClick={bulkDelete}
+          disabled={deleting || selected.size === 0}
+        >
+          {deleting ? 'Deleting…' : `Delete${selected.size ? ` (${selected.size})` : ''}`}
+        </button>
+      </div>
+
+      {records.length === 0 && !loading && !error && (
+        <p className="placeholder-card">No plays yet.</p>
+      )}
+
+      <ul className="admin-record-list">
+        {records.map((rec) => {
+          const rkey = rkeyFromUri(rec.uri);
+          const checked = selected.has(rkey);
+          return (
+            <li
+              key={rec.uri}
+              className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
+            >
+              <label className="admin-checkbox admin-multiselect-check">
+                <input type="checkbox" checked={checked} onChange={() => toggle(rkey)} />
+                <span className="admin-record-preview">{playLabel(rec.value)}</span>
+              </label>
+              <Link
+                to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey)}`}
+                className="admin-link-subtle admin-multiselect-edit"
+              >
+                Edit →
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      {!done && records.length > 0 && (
+        <button
+          type="button"
+          className="admin-gate-button admin-gate-button-tight"
+          disabled={loading}
+          onClick={() => loadPage(cursor)}
+        >
+          {loading ? 'Loading…' : 'Load more'}
+        </button>
+      )}
+      {loading && records.length === 0 && <p className="placeholder-card">Loading plays…</p>}
     </PageShell>
   );
 }

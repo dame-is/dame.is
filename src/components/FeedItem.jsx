@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { CornerDownRight } from 'lucide-react';
+import { Check, CornerDownRight } from 'lucide-react';
+import { useEditMode } from '../hooks/useEditMode.jsx';
 import StatusEntry from './StatusEntry.jsx';
 import PostCard, { postCardShowsStandaloneTime } from './PostCard.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
@@ -86,11 +87,29 @@ function hrefFor(item) {
  */
 export default function FeedItem({ item }) {
   const navigate = useNavigate();
+  const edit = useEditMode();
   const cfg = verbConfig(item.verb);
   if (!cfg) return null;
   const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
   if (!Component) return null;
   const href = hrefFor(item);
+
+  // Owner edit mode: rows become selectable instead of navigable. A tap
+  // anywhere on the row (including on nested links, intercepted in the
+  // capture phase) toggles selection; the EditModeBar handles the bulk
+  // delete / edit actions on whatever is selected.
+  const selectable = edit.active && !!item.atUri;
+  const selected = selectable && edit.isSelected(item.atUri);
+
+  function handleSelectCapture(e) {
+    if (!selectable) return;
+    // Let a deliberate text selection through rather than hijacking it.
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (sel && sel.toString().length > 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    edit.toggleSelect(item);
+  }
 
   // Make the whole row tappable as a convenience — handy on mobile where the
   // verb badge / timestamp are small hit targets. We bail when the click
@@ -159,6 +178,8 @@ export default function FeedItem({ item }) {
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
     threadContinuation ? 'feed-item-thread-continuation' : '',
+    selectable ? 'feed-item-selectable' : '',
+    selected ? 'is-selected' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -168,8 +189,19 @@ export default function FeedItem({ item }) {
       data-verb={item.verb}
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
-      onClick={href ? handleRowClick : undefined}
+      onClickCapture={selectable ? handleSelectCapture : undefined}
+      onClick={!selectable && href ? handleRowClick : undefined}
+      role={selectable ? 'button' : undefined}
+      aria-pressed={selectable ? selected : undefined}
     >
+      {selectable && (
+        <span
+          className={`feed-item-select-mark${selected ? ' is-selected' : ''}`}
+          aria-hidden="true"
+        >
+          {selected && <Check size={12} strokeWidth={2.5} />}
+        </span>
+      )}
       {(() => {
         const verbEl = href ? (
           <Link className={verbClassName} to={href}>
