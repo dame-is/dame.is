@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Repeat2 } from 'lucide-react';
 import { relativeTime } from '../lib/time.js';
@@ -5,8 +6,40 @@ import { rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
+import { usePaper } from '../hooks/usePaper.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
+
+/**
+ * Flags a text element with `data-multiline` when it wraps to more than one
+ * line, so the ruled/dot paper texture only paints behind posts long enough
+ * to read as lined paper (a lone rule under a one-line status looks like a
+ * stray underline). Inert while paper is 'blank' — no observers, no attr.
+ */
+function useMultilineFlag(enabled, text) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    if (!enabled) {
+      el.removeAttribute('data-multiline');
+      return undefined;
+    }
+    const measure = () => {
+      const lh = parseFloat(getComputedStyle(el).lineHeight);
+      const multiline = Number.isFinite(lh)
+        ? el.offsetHeight > lh * 1.5
+        : el.getClientRects().length > 1;
+      if (multiline) el.setAttribute('data-multiline', 'true');
+      else el.removeAttribute('data-multiline');
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [enabled, text]);
+  return ref;
+}
 
 /**
  * True when a post has no text body and no foreign-author header, so its
@@ -63,6 +96,9 @@ export default function PostCard({
   // is stripped — this row is what stays visible.
   const showStandaloneTime = !text && !showOriginalAuthor && ts && variant !== 'record';
 
+  const { paper } = usePaper();
+  const textRef = useMultilineFlag(paper !== 'blank' && Boolean(text), text);
+
   return (
     <article
       className={`post-card feed-card post-card-${variant}`}
@@ -98,7 +134,7 @@ export default function PostCard({
       )}
       {text && (
         <div className="post-card-row">
-          <p className="post-card-text">{renderPostText(text, facets)}</p>
+          <p className="post-card-text" ref={textRef}>{renderPostText(text, facets)}</p>
           {ts && variant !== 'record' && (
             recordHref ? (
               <Link className="gutter post-card-time" to={recordHref}>

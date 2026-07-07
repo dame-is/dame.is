@@ -6,6 +6,7 @@ import './styles/reset.css';
 import './styles/theme.css';
 import './styles/typography.css';
 import './styles/app.css';
+import './styles/paper.css';
 
 // Theme selection happens here (before React mounts) so the first
 // paint is in the correct palette. Two themes; retired monochrome
@@ -40,6 +41,13 @@ if (!VALID_DENSITY.includes(storedDensity)) {
   storedDensity = legacyCompact === 'true' ? 'compact' : 'normal';
 }
 document.documentElement.setAttribute('data-density', storedDensity);
+
+// Paper texture behind long-form text (blank / ruled / dots). Set before
+// the first paint so ruled/dots users don't flash a blank page. Keep in
+// sync with usePaper.jsx.
+const VALID_PAPER = ['blank', 'ruled', 'dots'];
+const storedPaper = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.paper') : null;
+document.documentElement.setAttribute('data-paper', VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank');
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
