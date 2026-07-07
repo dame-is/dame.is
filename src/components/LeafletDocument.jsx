@@ -1,12 +1,48 @@
-import { Fragment, useEffect, useState } from 'react';
+import { createContext, Fragment, useContext, useEffect, useMemo, useState } from 'react';
 import { renderLeafletText } from '../lib/leafletRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
 import PostEmbed from './PostEmbed.jsx';
+import Lightbox from './Lightbox.jsx';
 import { Link } from 'react-router-dom';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { ME_DID } from '../config.js';
 import { relativeTime } from '../lib/time.js';
 import './LeafletDocument.css';
+
+// Lets an ImageBlock deep in the tree open the document's shared lightbox
+// at its own image. Null when a block is rendered outside a full document
+// (e.g. the admin block-editor preview) — there the image stays static.
+const LeafletLightboxContext = createContext(null);
+
+function imageBlockUrl(block) {
+  // `_url` is set by annotateLeafletBlobs once the blob ref is resolved
+  // against the PDS. `block.url` is the legacy escape hatch for records
+  // migrated from is.dame.creating.work's old media[] array, where images
+  // were stored as plain external URLs rather than blob refs.
+  return block?.image?._url || block?.url || null;
+}
+
+function collectImages(pages) {
+  const out = [];
+  for (const page of pages) {
+    const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
+    for (const entry of blocks) {
+      const block = entry?.block;
+      if (block?.$type !== 'pub.leaflet.blocks.image') continue;
+      const url = imageBlockUrl(block);
+      if (!url) continue;
+      const ar = block.aspectRatio;
+      out.push({
+        src: url,
+        alt: block.alt || '',
+        width: ar?.width || undefined,
+        height: ar?.height || undefined,
+        searchUrl: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(url)}`,
+      });
+    }
+  }
+  return out;
+}
 
 /**
  * Renders a `pub.leaflet.document` value — the body of a leaflet.pub
@@ -28,15 +64,38 @@ import './LeafletDocument.css';
  */
 export default function LeafletDocument({ doc }) {
   const pages = Array.isArray(doc?.pages) ? doc.pages : [];
+  const images = useMemo(() => collectImages(pages), [pages]);
+  const indexBySrc = useMemo(() => {
+    const m = new Map();
+    images.forEach((im, i) => {
+      if (!m.has(im.src)) m.set(im.src, i);
+    });
+    return m;
+  }, [images]);
+  const [lightbox, setLightbox] = useState(-1);
+
   if (pages.length === 0) {
     return <p className="feed-empty">This document has no body yet.</p>;
   }
+
+  const ctx = { openImage: (src) => setLightbox(indexBySrc.get(src) ?? -1) };
+
   return (
-    <div className="leaflet-doc">
-      {pages.map((page, pi) => (
-        <LeafletPage key={pi} page={page} />
-      ))}
-    </div>
+    <LeafletLightboxContext.Provider value={ctx}>
+      <div className="leaflet-doc">
+        {pages.map((page, pi) => (
+          <LeafletPage key={pi} page={page} />
+        ))}
+      </div>
+      {images.length > 0 && (
+        <Lightbox
+          open={lightbox >= 0}
+          index={Math.max(0, lightbox)}
+          onClose={() => setLightbox(-1)}
+          images={images}
+        />
+      )}
+    </LeafletLightboxContext.Provider>
   );
 }
 
@@ -120,11 +179,8 @@ function HeaderBlock({ block }) {
 }
 
 function ImageBlock({ block }) {
-  // `_url` is set by annotateLeafletBlobs once the blob ref is resolved
-  // against the PDS. `block.url` is the legacy escape hatch for records
-  // migrated from is.dame.creating.work's old media[] array, where images
-  // were stored as plain external URLs rather than blob refs.
-  const url = block?.image?._url || block?.url || null;
+  const lightbox = useContext(LeafletLightboxContext);
+  const url = imageBlockUrl(block);
   if (!url) return null;
   const alt = block.alt || '';
   // `caption` is the visible caption; `alt` stays the screen-reader text.
@@ -134,15 +190,29 @@ function ImageBlock({ block }) {
   const style = ar?.width && ar?.height
     ? { aspectRatio: `${ar.width} / ${ar.height}` }
     : undefined;
+  const img = (
+    <img
+      src={url}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      style={style}
+    />
+  );
   return (
     <figure className="leaflet-image">
-      <img
-        src={url}
-        alt={alt}
-        loading="lazy"
-        decoding="async"
-        style={style}
-      />
+      {lightbox?.openImage ? (
+        <button
+          type="button"
+          className="leaflet-image-button"
+          onClick={() => lightbox.openImage(url)}
+          aria-label={alt ? `View image: ${alt}` : 'View image'}
+        >
+          {img}
+        </button>
+      ) : (
+        img
+      )}
       {caption && <figcaption className="leaflet-image-caption">{caption}</figcaption>}
     </figure>
   );
