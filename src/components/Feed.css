@@ -25,6 +25,45 @@
   border-bottom: none;
 }
 
+/* Owner edit mode: rows read as tappable selection targets. A quiet ring
+   in the row's own gutter marks the hit area; selecting fills it and tints
+   the row so a multi-select reads at a glance. */
+.feed-item-selectable {
+  position: relative;
+  cursor: pointer;
+  padding-left: calc(var(--space-5) + 4px);
+  border-radius: 4px;
+  transition: background 120ms ease;
+}
+
+.feed-item-selectable:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.feed-item-selectable.is-selected {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.feed-item-select-mark {
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid var(--accent-soft);
+  border-radius: 4px;
+  background: var(--page);
+  color: var(--page);
+}
+
+.feed-item-select-mark.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 /* Visual break between consecutive day sections. The outer feed-list
    gap already separates groups; this adds more breathing room so the
    day-header reads as a fresh section rather than continuous flow. */

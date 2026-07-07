@@ -243,6 +243,52 @@
   color: var(--ink);
 }
 
+/* Multi-select record management (e.g. the listening manager): a sticky-feeling
+   action row above a list of checkbox rows. */
+.admin-multiselect-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--space-2);
+}
+
+.admin-multiselect-count {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  margin-left: auto;
+}
+
+.admin-multiselect-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-2);
+}
+
+.admin-multiselect-row.is-selected {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.admin-multiselect-check {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.admin-multiselect-check .admin-record-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-multiselect-edit {
+  flex-shrink: 0;
+}
+
 .admin-form {
   display: flex;
   flex-direction: column;

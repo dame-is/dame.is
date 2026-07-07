@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, MoonStar, Search, SunDim, User } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, MoonStar, Pencil, Search, SunDim, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
+import { useEditMode } from '../hooks/useEditMode.jsx';
+import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
+import { ME_DID } from '../config.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
@@ -270,6 +273,12 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
   const { theme, cycle: cycleTheme } = useTheme();
   const ThemeIcon = THEME_ICON[theme] || SunDim;
+  // The edit-mode toggle only exists for the site owner. It sits beside the
+  // Info button and flips the site into a selectable "edit mode" (see
+  // EditModeBar + useEditMode).
+  const { did } = useAtprotoSession();
+  const { active: editActive, toggle: toggleEdit, exit: exitEdit } = useEditMode();
+  const isOwner = did === ME_DID;
   // Trigger buttons highlight when the corresponding URL state is
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
@@ -392,6 +401,29 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 >
                   <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
+                {isOwner && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-edit-btn ${editActive ? 'is-open' : ''}`}
+                    onClick={toggleEdit}
+                    aria-pressed={editActive}
+                    aria-label={editActive ? 'Exit edit mode' : 'Enter edit mode'}
+                    title={editActive ? 'Exit edit mode' : 'Edit mode'}
+                  >
+                    <Pencil className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
+                {isOwner && editActive && (
+                  <button
+                    type="button"
+                    className="chrome-nav chrome-edit-exit"
+                    onClick={exitEdit}
+                    aria-label="Close edit mode without saving"
+                    title="Close edit mode"
+                  >
+                    <X className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

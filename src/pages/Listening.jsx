@@ -7,6 +7,7 @@ import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { useEditMode } from '../hooks/useEditMode.jsx';
 import { groupByDay } from '../lib/time.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -27,11 +28,13 @@ export default function Listening() {
     mapItems: toListeningItems,
   });
 
+  const { removedUris } = useEditMode();
   const loading = status === 'loading';
   const safeItems = items || [];
   const filtered = useMemo(
     () =>
       safeItems.filter((i) => {
+        if (removedUris.has(i.atUri)) return false;
         const p = i.payload || {};
         const hay = [
           p.trackName,
@@ -43,7 +46,7 @@ export default function Listening() {
           .join(' ');
         return matchesQuery(hay, q);
       }),
-    [safeItems, q],
+    [safeItems, q, removedUris],
   );
   const groups = groupByDay(filtered, (i) => i.createdAt);
 
