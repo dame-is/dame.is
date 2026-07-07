@@ -40,6 +40,9 @@ const DEFAULTS = {
   collection: 'is.dame.now',
   count: 4, // how many recent updates to show in medium/large widgets
   site: 'https://dame.is', // tapping opens here (record page when possible)
+  // 'auto' (default) tracks the system light/dark appearance; force it with
+  // theme=light or theme=dark.
+  theme: '',
   // Optional: name of an Apple Shortcut to run on tap instead of opening the
   // site. When set, the latest status text is passed as the shortcut's input.
   shortcut: '',
@@ -130,7 +133,24 @@ function parseParams(raw) {
 }
 
 const cfg = parseParams(args.widgetParameter);
-const theme = Device.isUsingDarkAppearance() ? THEMES.dark : THEMES.light;
+
+// Build the active palette. `Device.isUsingDarkAppearance()` is unreliable in
+// the widget process (it's read once and cached, so the home-screen widget
+// won't re-theme when the system flips), so for 'auto' we hand each color to
+// `Color.dynamic(light, dark)` and let iOS pick per appearance at render time.
+// theme=light / theme=dark force a fixed palette.
+function buildTheme() {
+  const { light, dark } = THEMES;
+  if (cfg.theme === 'light') return light;
+  if (cfg.theme === 'dark') return dark;
+  const out = {};
+  for (const key of Object.keys(light)) {
+    out[key] = Color.dynamic(light[key], dark[key]);
+  }
+  return out;
+}
+
+const theme = buildTheme();
 const postEnabled = cfg.post && cfg.post !== '0' && cfg.post !== 'false';
 
 // URL that re-runs this script inside the Scriptable app in "post" mode. Uses

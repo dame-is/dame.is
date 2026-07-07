@@ -39,6 +39,7 @@ In **Edit Widget → Parameter**, pass `key=value` pairs separated by `;`:
 | `did` | `did:plc:gq4fo3u6tqzzdkjlwzpb23tj` | The repo (DID) whose `now` records to read. |
 | `count` | `4` | How many updates to show (medium/large). |
 | `site` | `https://dame.is` | Home page a tap opens. |
+| `theme` | `auto` | `auto` tracks system light/dark; force with `light` or `dark`. |
 | `shortcut` | *(none)* | Name of an Apple Shortcut to run on tap instead of opening `site`. |
 | `post` | *(off)* | Set `post=1` to show a "＋ new" button that posts a new status. |
 
