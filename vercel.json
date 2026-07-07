@@ -21,6 +21,10 @@
   "redirects": [
     { "source": "/index", "destination": "/", "permanent": true },
     { "source": "/home", "destination": "/", "permanent": true },
+    { "source": "/about", "destination": "/themself", "permanent": true },
+    { "source": "/resume", "destination": "/for-hire", "permanent": true },
+    { "source": "/resume/:path*", "destination": "/for-hire/:path*", "permanent": true },
+    { "source": "/work", "destination": "/for-hire", "permanent": true },
     { "source": "/blog", "destination": "/blogging", "permanent": true },
     { "source": "/blog/:path*", "destination": "/blogging/:path*", "permanent": true },
     { "source": "/writing/blogs", "destination": "/blogging", "permanent": true },

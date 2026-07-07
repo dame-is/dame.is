@@ -9,13 +9,13 @@ import DebugPane from './DebugPane.jsx';
 import './ActionDock.css';
 
 const ROUTES = [
-  { to: '/', label: 'Home' },
-  { to: '/about', label: 'About' },
-  { to: '/blogging', label: 'Blogging' },
-  { to: '/creating', label: 'Creating' },
-  { to: '/curating', label: 'Curating' },
-  { to: '/mothing', label: 'Mothing' },
-  { to: '/resume', label: 'Resume' },
+  { to: '/', label: 'home' },
+  { to: '/themself', label: 'themself' },
+  { to: '/for-hire', label: 'for hire' },
+  { to: '/blogging', label: 'blogging' },
+  { to: '/creating', label: 'creating' },
+  { to: '/curating', label: 'curating' },
+  { to: '/mothing', label: 'mothing' },
 ];
 
 export default function ActionDock() {
@@ -117,7 +117,7 @@ export default function ActionDock() {
               transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
             >
               <div className="dock-section">
-                <div className="dock-heading">Pages</div>
+                <div className="dock-heading">Dame is&hellip;</div>
                 <nav className="dock-routes">
                   {ROUTES.map((r) => (
                     <NavLink

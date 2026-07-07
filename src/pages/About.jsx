@@ -27,7 +27,7 @@ export default function About() {
 
   return (
     <PageShell
-      headTitle="About — Dame is…"
+      headTitle="Themself — Dame is…"
       atUri={`at://${ME_DID}/is.dame.profile/self`}
     >
       <section className="about-card">

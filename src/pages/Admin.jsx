@@ -200,7 +200,7 @@ const PICKER_GROUPS = [
       { to: '/admin?view=pages', label: 'Site pages', nsid: COLLECTIONS.page,
         summary: 'Titles, intros, and page bodies — see which serve from the PDS vs local defaults, and edit the raw records.' },
       { collection: COLLECTIONS.profile, label: 'About',
-        summary: 'The extended profile (rkey "self") that backs /about.' },
+        summary: 'The extended profile (rkey "self") that backs /themself.' },
       { collection: COLLECTIONS.heroPhrase, label: 'Hero phrases',
         summary: 'Rotating phrases for the home hero sentence.' },
     ],

@@ -179,7 +179,7 @@ function deriveFromRoute(pathname, override) {
       route: pathname,
     };
   }
-  if (pathname === '/about') {
+  if (pathname === '/themself') {
     return {
       atUri: `at://${ME_DID}/${COLLECTIONS.profile}/self`,
       cid: null,

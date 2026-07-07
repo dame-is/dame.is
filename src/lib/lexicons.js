@@ -141,7 +141,7 @@ export const LEXICONS = {
 
   [COLLECTIONS.profile]: {
     label: 'About',
-    summary: 'The extended profile — a single record with rkey "self" that backs /about.',
+    summary: 'The extended profile — a single record with rkey "self" that backs /themself.',
     rkeyMode: 'fixed',
     rkeyPlaceholder: 'self',
     rkeyDefault: 'self',
@@ -247,7 +247,7 @@ export const LEXICONS = {
     typeFieldValue: COLLECTIONS.resume,
     fields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Primary résumé' },
-      { key: 'slug', label: 'Slug', type: 'text', required: true, hint: 'Should match the record key; drives /resume/<slug>.' },
+      { key: 'slug', label: 'Slug', type: 'text', required: true, hint: 'Should match the record key; drives /for-hire/<slug>.' },
       { key: 'headline', label: 'Headline', type: 'text' },
       { key: 'summary', label: 'Summary (Markdown)', type: 'markdown' },
       {
@@ -259,7 +259,7 @@ export const LEXICONS = {
           { value: 'private', label: 'Private — not rendered on the site' },
         ],
       },
-      { key: 'featured', label: 'Featured (default at /resume)', type: 'boolean', default: false },
+      { key: 'featured', label: 'Featured (default at /for-hire)', type: 'boolean', default: false },
       {
         key: 'entries', label: 'Entries (jobs)', type: 'json',
         hint: 'Array of { job: at-uri, highlightIds?: string[], titleOverride?, summaryOverride? }, in display order.',
