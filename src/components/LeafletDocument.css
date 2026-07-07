@@ -104,8 +104,33 @@
   padding-left: 1.5em;
 }
 
+/* Restore list markers — the global reset strips list-style from every
+   ul/ol, which left leaflet list blocks rendering as plain indented text.
+   The same class serves both ordered and unordered lists (see ListBlock). */
+ul.leaflet-list {
+  list-style: disc outside;
+}
+
+ol.leaflet-list {
+  list-style: decimal outside;
+}
+
+/* Vary the bullet by nesting depth the way browsers do by default. */
+ul.leaflet-list ul.leaflet-list {
+  list-style-type: circle;
+}
+
+ul.leaflet-list ul.leaflet-list ul.leaflet-list {
+  list-style-type: square;
+}
+
 .leaflet-list li {
+  display: list-item;
   margin-bottom: var(--space-2);
+}
+
+.leaflet-list li::marker {
+  color: var(--accent-soft);
 }
 
 /* Website / link card — visual cousin of post-embed-link-card. */

@@ -111,15 +111,44 @@ blockquote {
   }
 }
 
-.dropcap::first-letter {
+/* Drop cap — the shared treatment behind every first-paragraph initial
+   letter (blog posts, the resume summary, the about page). Centralized here
+   so all three surfaces stay in lockstep.
+
+   `initial-letter` is the metric-correct tool for this: it sizes AND sinks
+   the letter to an exact number of line boxes — cap-height flush with the
+   first line's cap, baseline resting on the third line's baseline — so the
+   cap occupies the same visual height (three lines) at every viewport size,
+   independent of the serif's own proportions. A plain `font-size` float can't
+   promise that: its height is whatever the glyph's em box happens to be. */
+.dropcap::first-letter,
+.blog-prose > p:first-of-type::first-letter,
+.blog-prose .first-paragraph::first-letter,
+.about-longform > p:first-of-type::first-letter {
   font-family: var(--serif);
   font-weight: 600;
-  font-size: 4.2em;
-  float: left;
-  line-height: 0.85;
-  padding-right: 0.08em;
-  padding-top: 0.12em;
   color: var(--accent);
+  -webkit-initial-letter: 3;
+  initial-letter: 3;
+  /* Gap between the cap and the text that wraps around it. */
+  margin-right: 0.1em;
+}
+
+/* Firefox has no `initial-letter` support yet — approximate with the classic
+   float. Sized in `em` so it still scales with the paragraph text at every
+   breakpoint (just without the exact-line-count guarantee above). */
+@supports not ((initial-letter: 3) or (-webkit-initial-letter: 3)) {
+  .dropcap::first-letter,
+  .blog-prose > p:first-of-type::first-letter,
+  .blog-prose .first-paragraph::first-letter,
+  .about-longform > p:first-of-type::first-letter {
+    float: left;
+    font-size: 3.3em;
+    line-height: 0.82;
+    padding-top: 0.02em;
+    padding-right: 0.08em;
+    margin-right: 0;
+  }
 }
 
 .hairline {
