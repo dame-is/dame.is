@@ -108,13 +108,26 @@ export const VERB_REGISTRY = [
   {
     verb: 'mothing',
     icon: 'Bug',
-    renderer: 'MothCard',
+    renderer: 'ObservationCard',
     // Observation records are mirrored from iNaturalist onto the PDS by
     // scripts/mirror-inaturalist.mjs; each carries its own iNat URL, so the
     // feed links out there rather than to a bespoke record page.
     pastTense: 'spotted',
     collections: [
       { nsid: 'is.dame.mothing.observation', source: 'inaturalist', kind: 'content', max: 500 },
+    ],
+  },
+  {
+    verb: 'observing',
+    icon: 'Binoculars',
+    renderer: 'ObservationCard',
+    // Every non-moth iNaturalist observation (birds, plants, fungi,
+    // butterflies, other insects…). Mirrored alongside moths by
+    // scripts/mirror-inaturalist.mjs, which splits each observation by
+    // taxonomy; like mothing, each record links out to its iNat observation.
+    pastTense: 'observed',
+    collections: [
+      { nsid: 'is.dame.observing.observation', source: 'inaturalist', kind: 'content', max: 500 },
     ],
   },
   {
@@ -222,6 +235,7 @@ export const DEFAULT_HOME_VERBS = [
   'creating',
   'photographing',
   'mothing',
+  'observing',
   'reposting',
   'following',
   'listing',
@@ -289,6 +303,7 @@ export const VERB_LABELS = {
   creating: 'a work',
   photographing: 'a photo',
   mothing: 'a moth',
+  observing: 'an observation',
   liking: 'a like',
   reposting: 'a repost',
   following: 'a follow',

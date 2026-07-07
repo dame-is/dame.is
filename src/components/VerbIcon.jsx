@@ -14,6 +14,7 @@ import {
   Camera,
   FileText,
   Bug,
+  Binoculars,
 } from 'lucide-react';
 import { verbConfig } from '../lib/verbRegistry.js';
 
@@ -38,6 +39,7 @@ const LUCIDE_BY_NAME = {
   Camera,
   FileText,
   Bug,
+  Binoculars,
 };
 
 /**

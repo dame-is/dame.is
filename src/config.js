@@ -23,6 +23,12 @@ export const LEPIDOPTERA_TAXON_ID = 47157; // moths + butterflies
 export const BUTTERFLY_TAXON_ID = 47224; // Papilionoidea, excluded
 export const MOTHING_NSID = 'is.dame.mothing';
 export const MOTHING_OBSERVATION_NSID = 'is.dame.mothing.observation';
+// Everything else on iNaturalist — every observation that isn't a moth
+// (butterflies, birds, plants, fungi, other insects…) — mirrors here and
+// rides the `observing` verb in the home feed. Same privacy guarantees as
+// mothing: no location is ever stored. See src/lib/inaturalist.js.
+export const OBSERVING_NSID = 'is.dame.observing';
+export const OBSERVING_OBSERVATION_NSID = 'is.dame.observing.observation';
 
 /**
  * Creative works and blog posts are both `site.standard.document` records;

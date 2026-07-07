@@ -1,6 +1,7 @@
-// Vercel serverless function: mirror moth observations from iNaturalist onto
-// the PDS. Wired into vercel.json as a daily cron; the same work can be run
-// locally with `node scripts/mirror-inaturalist.mjs`.
+// Vercel serverless function: mirror every iNaturalist observation onto the
+// PDS, split by taxonomy into the mothing (moths) and observing (everything
+// else) collections. Wired into vercel.json as a daily cron; the same work
+// can be run locally with `node scripts/mirror-inaturalist.mjs`.
 //
 // Incremental: a cheap freshness check skips the run when nothing changed;
 // otherwise only changed/new observations are re-pulled and written, and
@@ -13,9 +14,9 @@
 
 import { AtpAgent } from '@atproto/api';
 
-import { ME_HANDLE, INATURALIST_USER, MOTHING_NSID } from '../src/config.js';
+import { ME_HANDLE, INATURALIST_USER, OBSERVING_NSID } from '../src/config.js';
 import { resolveIdentifier } from '../src/lib/atproto.js';
-import { syncMothingMirror } from '../src/lib/mothingMirror.js';
+import { syncInaturalistMirror } from '../src/lib/inaturalistMirror.js';
 
 export const config = { maxDuration: 60 };
 
@@ -39,11 +40,11 @@ export default async function handler(req, res) {
     const agent = new AtpAgent({ service: pds });
     await agent.login({ identifier, password });
 
-    const report = await syncMothingMirror({
+    const report = await syncInaturalistMirror({
       agent,
       did,
       user: INATURALIST_USER,
-      log: (...a) => console.log('[mirror-mothing]', ...a),
+      log: (...a) => console.log('[mirror-inat]', ...a),
     });
 
     return res.status(report.failed ? 207 : 200).json({
@@ -55,8 +56,10 @@ export default async function handler(req, res) {
       deleted: report.deleted ?? 0,
       failed: report.failed ?? 0,
       observations: report.observations,
+      moths: report.moths,
+      observing: report.observing,
       species: report.species,
-      summary: `at://${did}/${MOTHING_NSID}/self`,
+      summary: `at://${did}/${OBSERVING_NSID}/self`,
       at: new Date().toISOString(),
     });
   } catch (err) {

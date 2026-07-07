@@ -1,23 +1,27 @@
 /**
- * Renders a mothing observation (`is.dame.mothing.observation`) in the home
- * feed. The record is mirrored from iNaturalist and carries no location — a
- * thumbnail, the taxon name (common + scientific), and a link out to the
- * iNaturalist observation. The feed row's own timestamp shows when it was
- * observed (the record's `createdAt` is derived from the observation date).
+ * Renders one iNaturalist observation in the home feed — shared by the
+ * `mothing` (`is.dame.mothing.observation`) and `observing`
+ * (`is.dame.observing.observation`) verbs, which store the identical shape
+ * and differ only by taxonomy. The record is mirrored from iNaturalist and
+ * carries no location — a thumbnail, the taxon name (common + scientific),
+ * and a link out to the iNaturalist observation. The feed row's own timestamp
+ * shows when it was observed (the record's `createdAt` is derived from the
+ * observation date).
  */
 import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
 import { photoUrl } from '../../lib/inaturalist.js';
 
-export default function MothCard({ payload, atUri }) {
+export default function ObservationCard({ payload, atUri, verb }) {
   const obs = payload || {};
   const photos = Array.isArray(obs.photos) ? obs.photos : [];
   const first = photos[0];
   const src = first ? photoUrl(first, 'medium') : null;
   const common = obs.taxon?.commonName;
   const sci = obs.taxon?.name;
-  const title = common || sci || 'Unidentified moth';
+  const fallback = verb === 'mothing' ? 'Unidentified moth' : 'Unidentified organism';
+  const title = common || sci || fallback;
   const showSci = sci && sci !== title;
-  const alt = common || sci || 'Moth observation';
+  const alt = common || sci || (verb === 'mothing' ? 'Moth observation' : 'iNaturalist observation');
 
   return (
     <article className="moth-card feed-card" data-at-uri={atUri}>

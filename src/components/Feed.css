@@ -722,7 +722,8 @@ a.post-card-author-link:focus-visible {
   max-width: var(--measure);
 }
 
-/* MothCard — mirrors CreatingCard's thumb + body layout. */
+/* ObservationCard (mothing + observing verbs) — mirrors CreatingCard's
+   thumb + body layout. Class prefix kept as `moth-card` for continuity. */
 .moth-card {
   display: grid;
   grid-template-columns: minmax(0, 9rem) 1fr;

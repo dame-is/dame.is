@@ -1,0 +1,49 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.observing",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "description": "A singleton summary of Dame's whole iNaturalist observing activity, mirrored from iNaturalist. Doubles as the incremental mirror's freshness marker across every observation (moths included). Contains no location data.",
+      "record": {
+        "type": "object",
+        "required": ["source", "updatedAt"],
+        "properties": {
+          "source":            { "type": "string", "description": "Origin of the mirrored data, e.g. 'inaturalist'." },
+          "user":              { "type": "string", "description": "The iNaturalist username the data was mirrored from." },
+          "profileUrl":        { "type": "string", "format": "uri" },
+          "observationCount":  { "type": "integer", "description": "Non-moth observations mirrored under the observing verb." },
+          "speciesCount":      { "type": "integer", "description": "Distinct species-rank non-moth taxa observed." },
+          "distinctTaxaCount": { "type": "integer", "description": "Distinct non-moth taxa at any rank." },
+          "qualityGrades": {
+            "type": "object",
+            "description": "Non-moth observation counts by iNaturalist quality grade.",
+            "properties": {
+              "research": { "type": "integer" },
+              "needsId":  { "type": "integer" },
+              "casual":   { "type": "integer" }
+            }
+          },
+          "iconicTaxa": {
+            "type": "array",
+            "description": "Non-moth observation counts by iNaturalist iconic taxon (Aves, Plantae, Insecta…), most first.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name":  { "type": "string" },
+                "count": { "type": "integer" }
+              }
+            }
+          },
+          "earliestDate": { "type": "string", "description": "Date of the earliest non-moth observation (YYYY-MM-DD)." },
+          "latestDate":   { "type": "string", "description": "Date of the most recent non-moth observation (YYYY-MM-DD)." },
+          "syncTotalCount": { "type": "integer", "description": "Total iNaturalist observation count across every taxon (moths + everything else); the incremental mirror's freshness signature." },
+          "lastSyncedAt":   { "type": "string", "format": "datetime", "description": "UTC instant of the most recent upstream edit seen across all observations; the incremental mirror's freshness marker." },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
