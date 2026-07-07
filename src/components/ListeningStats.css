@@ -1,0 +1,258 @@
+/* Listening stats dashboard — the rich header on /listening.
+   Flat, ruled, serif; leans on the same tan rules + mossy accent as the
+   rest of the site. No border-radius (the theme pins --radius-* to 0). */
+
+.listen-stats {
+  margin-bottom: var(--space-7);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.listen-stats-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.listen-stats-title {
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  margin: 0;
+  color: var(--ink);
+}
+
+/* Segmented 7 / 30 toggle. */
+.listen-stats-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+}
+
+.listen-stats-tab {
+  font-family: var(--mono-ui);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  font-size: var(--text-xs);
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  border: 0;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.listen-stats-tab + .listen-stats-tab {
+  border-left: 1px solid var(--rule);
+}
+
+.listen-stats-tab:hover {
+  color: var(--ink);
+}
+
+.listen-stats-tab.is-active {
+  background: var(--accent);
+  color: var(--page);
+}
+
+.listen-stats-empty {
+  color: var(--ink-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* ---- Headline tiles ---------------------------------------------- */
+
+.listen-stats-tiles {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  margin-bottom: var(--space-6);
+}
+
+.listen-stat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: var(--space-4) var(--space-2);
+  background: var(--bg);
+  text-align: center;
+  min-width: 0;
+}
+
+.listen-stat-value {
+  font-family: var(--serif);
+  font-size: var(--text-2xl);
+  line-height: 1;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.listen-stat-label {
+  font-family: var(--mono-ui);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.listen-stat-sub {
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+/* ---- Ranked lists ------------------------------------------------ */
+
+.listen-stats-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.listen-rank {
+  min-width: 0;
+}
+
+.listen-rank-title {
+  font-family: var(--mono-ui);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  margin: 0 0 var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.listen-rank-empty {
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+.listen-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.listen-rank-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.listen-rank-num {
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  width: 1.1rem;
+  flex: 0 0 auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.listen-rank-cover {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  object-fit: cover;
+  background: var(--rule-soft);
+  border: 1px solid var(--rule-soft);
+}
+
+.listen-rank-cover-empty {
+  background: linear-gradient(135deg, var(--rule-soft), var(--surface-raised));
+}
+
+.listen-rank-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+  line-height: var(--leading-tight);
+}
+
+.listen-rank-primary {
+  display: block;
+  max-width: 100%;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* When the label is a link (tracks / artists / albums), the anchor is the
+   flex item — give it min-width:0 so the primary span can ellipsis-clip
+   instead of shoving the play count off the row. */
+.listen-rank-text a {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.listen-rank-text a:hover .listen-rank-primary,
+.listen-rank-text a:focus-visible .listen-rank-primary {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+}
+
+.listen-rank-secondary {
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listen-rank-count {
+  flex: 0 0 auto;
+  font-family: var(--mono-ui);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.listen-rank-count-unit {
+  color: var(--ink-faint);
+  margin-left: 0.05rem;
+}
+
+/* ---- Responsive -------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .listen-stats-cols {
+    grid-template-columns: 1fr;
+    gap: var(--space-5);
+  }
+}
+
+@media (max-width: 560px) {
+  /* Tiles reflow to a tidy 2-across (last one spans the row) so the big
+     numbers stay legible on phones instead of shrinking to nothing. */
+  .listen-stats-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .listen-stat-tile:last-child {
+    grid-column: 1 / -1;
+  }
+  .listen-stat-value {
+    font-size: var(--text-xl);
+  }
+}
