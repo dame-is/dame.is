@@ -27,6 +27,7 @@ const Exploring = lazy(() => import('./pages/Exploring.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import EditModeBar from './components/EditModeBar.jsx';
+import EditSheet from './components/EditSheet.jsx';
 import Footer from './components/Footer.jsx';
 import WindowScrollbar from './components/WindowScrollbar.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
@@ -144,6 +145,7 @@ export default function App() {
             <Footer />
             <ActionDock />
             <EditModeBar />
+            <EditSheet />
             <WindowScrollbar />
             <Analytics />
           </div>

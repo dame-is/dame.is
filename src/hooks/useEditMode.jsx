@@ -35,23 +35,47 @@ export function EditModeProvider({ children }) {
   const [active, setActive] = useState(false);
   const [selected, setSelected] = useState(() => new Map());
   const [removedUris, setRemovedUris] = useState(() => new Set());
+  // The record backing the current page (from PageShell's `atUri`), tagged
+  // with the path it was registered on so a stale value from a mid-transition
+  // page never leaks onto the next route. Used by the quick-edit sheet.
+  const [pageRecord, setPageRecord] = useState(null);
+  // The record currently open in the quick-edit sheet: { atUri } or null.
+  const [editSheet, setEditSheet] = useState(null);
   const location = useLocation();
 
   const clearSelection = useCallback(() => {
     setSelected((prev) => (prev.size === 0 ? prev : new Map()));
   }, []);
 
+  const closeEditSheet = useCallback(() => setEditSheet(null), []);
+  const openEditSheet = useCallback((atUri) => {
+    if (atUri) setEditSheet({ atUri });
+  }, []);
+
   const enter = useCallback(() => setActive(true), []);
   const exit = useCallback(() => {
     setActive(false);
     clearSelection();
+    setEditSheet(null);
   }, [clearSelection]);
   const toggle = useCallback(() => {
     setActive((prev) => {
-      if (prev) clearSelection();
+      if (prev) {
+        clearSelection();
+        setEditSheet(null);
+      }
       return !prev;
     });
   }, [clearSelection]);
+
+  // PageShell calls this with its backing record (or null). We stamp the
+  // current pathname so consumers can confirm the record actually belongs to
+  // the route they're on.
+  const pathRef = useRef(location.pathname);
+  pathRef.current = location.pathname;
+  const registerPageRecord = useCallback((rec) => {
+    setPageRecord(rec && rec.atUri ? { ...rec, path: pathRef.current } : null);
+  }, []);
 
   // A selection from one page shouldn't linger onto the next. Clearing on
   // pathname change keeps the action bar's count honest as you navigate.
@@ -60,6 +84,9 @@ export function EditModeProvider({ children }) {
     if (firstPath.current === location.pathname) return;
     firstPath.current = location.pathname;
     clearSelection();
+    // A quick-edit sheet is tied to the record it opened for; close it when
+    // the route changes so it never hangs over an unrelated page.
+    setEditSheet(null);
   }, [location.pathname, clearSelection]);
 
   const toggleSelect = useCallback((item) => {
@@ -120,6 +147,11 @@ export function EditModeProvider({ children }) {
       clearSelection,
       removedUris,
       markRemoved,
+      pageRecord,
+      registerPageRecord,
+      editSheet,
+      openEditSheet,
+      closeEditSheet,
     }),
     [
       active,
@@ -134,6 +166,11 @@ export function EditModeProvider({ children }) {
       clearSelection,
       removedUris,
       markRemoved,
+      pageRecord,
+      registerPageRecord,
+      editSheet,
+      openEditSheet,
+      closeEditSheet,
     ],
   );
 
