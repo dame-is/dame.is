@@ -1,14 +1,13 @@
-/* Wrapped in <Modal variant="centered">; the Modal owns positioning,
-   scrim, surface, and motion. Only the interior layout lives here. */
-.info-modal-panel {
-  width: min(560px, 100%);
-  padding: var(--space-5);
+/* Interior of the info bottom sheet. BottomSheet owns positioning, the
+   surface, and the expand animation; only the prose layout lives here. */
+.info-sheet-panel {
+  padding: var(--space-4) clamp(var(--space-4), calc(6vw - 3.5rem), 2.5rem);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.info-modal-header {
+.info-sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -19,7 +18,7 @@
   color: var(--ink-faint);
 }
 
-.info-modal-close {
+.info-sheet-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -28,21 +27,21 @@
   padding: 0;
   border: 1px solid var(--rule);
   border-radius: 0;
-  background: transparent;
+  background: var(--page);
   color: var(--ink-soft);
   cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.info-modal-close:hover,
-.info-modal-close:focus-visible {
+.info-sheet-close:hover,
+.info-sheet-close:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
   outline: none;
 }
 
-.info-modal-body {
+.info-sheet-body {
   font-family: var(--serif);
   color: var(--ink-soft);
   display: flex;
@@ -50,16 +49,16 @@
   gap: var(--space-4);
 }
 
-.info-modal-body p {
+.info-sheet-body p {
   margin: 0;
   line-height: var(--leading);
 }
 
-.info-modal-body strong {
+.info-sheet-body strong {
   color: var(--ink);
 }
 
-.info-modal-body h3 {
+.info-sheet-body h3 {
   font-family: var(--sans);
   font-variant: all-small-caps;
   letter-spacing: 0.14em;

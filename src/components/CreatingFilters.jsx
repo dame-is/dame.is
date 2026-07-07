@@ -1,7 +1,8 @@
 import { useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
-import Modal from './Modal.jsx';
-import { useFeedFilter, useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
+import BottomSheet from './BottomSheet.jsx';
+import { useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { matchesQuery } from './FeedSearch.jsx';
 import { workCategory, workSlug } from '../lib/publications.js';
 import './FeedFilters.css';
@@ -14,7 +15,8 @@ import './FeedFilters.css';
  */
 export default function CreatingFilters({ kinds, counts }) {
   const [params, setParams] = useSearchParams();
-  const { open, closeModal } = useFeedFilter();
+  const { panel, closePanel } = useChromePanel();
+  const open = panel === 'filter';
   useRegisterFeedFilter();
 
   const active = resolveActiveKinds(params, kinds);
@@ -66,19 +68,13 @@ export default function CreatingFilters({ kinds, counts }) {
   if (!kinds || kinds.length < 2) return null;
 
   return (
-    <Modal
-      open={open}
-      onClose={closeModal}
-      label="Filter projects"
-      className="feed-filter-modal-panel"
-      scrimLabel="Close filter"
-    >
+    <BottomSheet open={open} onClose={closePanel} label="Filter projects" id="chrome-filter-sheet" className="feed-filter-sheet-panel">
       <div className="feed-filter-modal-header">
         <span className="small-caps">filter by kind</span>
         <button
           type="button"
           className="feed-filter-modal-close"
-          onClick={closeModal}
+          onClick={closePanel}
           aria-label="Close"
         >
           <X size={16} aria-hidden="true" />
@@ -137,7 +133,7 @@ export default function CreatingFilters({ kinds, counts }) {
           );
         })}
       </div>
-    </Modal>
+    </BottomSheet>
   );
 }
 

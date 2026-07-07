@@ -32,6 +32,7 @@ import Footer from './components/Footer.jsx';
 import WindowScrollbar from './components/WindowScrollbar.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
+import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
 import { DensityProvider } from './hooks/useDensity.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
@@ -86,6 +87,7 @@ export default function App() {
       <AtprotoSessionProvider>
       <FeedFilterProvider>
       <ActionDockProvider>
+      <ChromePanelProvider>
       <WaypointsModalProvider>
       <EditModeProvider>
           <div className="app-shell">
@@ -151,6 +153,7 @@ export default function App() {
           </div>
       </EditModeProvider>
       </WaypointsModalProvider>
+      </ChromePanelProvider>
       </ActionDockProvider>
       </FeedFilterProvider>
       </AtprotoSessionProvider>

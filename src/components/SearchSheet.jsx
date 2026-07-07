@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, X } from 'lucide-react';
-import Modal from './Modal.jsx';
-import './SearchModal.css';
+import BottomSheet from './BottomSheet.jsx';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import './SearchSheet.css';
 
 // Routes whose page component reads `?q=` and filters its own list. On
 // any other route, submitting the search instead jumps to `/?q=…` so the
@@ -10,20 +11,18 @@ import './SearchModal.css';
 const SEARCHABLE_ROUTES = new Set(['/', '/posting', '/logging', '/blogging', '/creating']);
 
 /**
- * Search palette opened from the bottom chrome bar's search button.
+ * Global search, expanded up out of the bottom chrome bar's search button
+ * (see useChromePanel). Rather than a centered modal, the field unfurls from
+ * the bar itself — the same motion as the nav dock and the other chrome
+ * panels — so every bottom-chrome affordance behaves alike.
  *
- * The input sits inside a modal (rather than directly in the bar) for
- * two reasons:
- *   1. Tapping a tiny input in a fixed bottom bar triggers iOS's
- *      focus-zoom whenever the field is below 16px, and the bar's
- *      typography otherwise wants to stay smaller than that.
- *   2. A modal gives the input the space + scale of a real search
- *      surface, matching how the filter modal works.
- *
- * Query is committed to the URL on submit (not on every keystroke) so
- * the page behind the scrim isn't churning while the user types.
+ * The field keeps a 16px/1rem font so iOS Safari doesn't auto-zoom on focus.
+ * Query is committed to the URL on submit (not on every keystroke) so the
+ * page behind the panel isn't churning while the user types.
  */
-export default function SearchModal({ open, onClose }) {
+export default function SearchSheet() {
+  const { panel, closePanel } = useChromePanel();
+  const open = panel === 'search';
   const navigate = useNavigate();
   const location = useLocation();
   const [params, setParams] = useSearchParams();
@@ -31,18 +30,17 @@ export default function SearchModal({ open, onClose }) {
   const [draft, setDraft] = useState(currentQ);
   const inputRef = useRef(null);
 
-  // Re-sync draft whenever the modal opens so the field reflects any
-  // ?q= changes that happened while it was closed (e.g. user cleared
-  // search via the back/forward buttons).
+  // Re-sync draft whenever the panel opens so the field reflects any ?q=
+  // changes that happened while it was closed (e.g. cleared via back/forward).
   useEffect(() => {
     if (open) setDraft(currentQ);
   }, [open, currentQ]);
 
-  // Auto-focus the input on open. Slight delay so the panel's mount
-  // animation can complete before the keyboard slides up on mobile.
+  // Auto-focus the input on open. Slight delay so the panel's expand
+  // animation can settle before the keyboard slides up on mobile.
   useEffect(() => {
-    if (!open) return;
-    const id = setTimeout(() => inputRef.current?.focus(), 80);
+    if (!open) return undefined;
+    const id = setTimeout(() => inputRef.current?.focus(), 120);
     return () => clearTimeout(id);
   }, [open]);
 
@@ -64,7 +62,7 @@ export default function SearchModal({ open, onClose }) {
         { replace: true },
       );
     }
-    onClose?.();
+    closePanel();
   }
 
   function handleSubmit(e) {
@@ -78,16 +76,10 @@ export default function SearchModal({ open, onClose }) {
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      label="Search"
-      className="search-modal-panel"
-      scrimLabel="Close search"
-    >
-      <form className="search-modal-form" onSubmit={handleSubmit} role="search">
-        <div className="search-modal-field">
-          <Search size={18} aria-hidden="true" className="search-modal-icon" />
+    <BottomSheet open={open} onClose={closePanel} label="Search" id="chrome-search-sheet" className="search-sheet-panel">
+      <form className="search-sheet-form" onSubmit={handleSubmit} role="search">
+        <div className="search-sheet-field">
+          <Search size={18} aria-hidden="true" className="search-sheet-icon" />
           <input
             ref={inputRef}
             type="search"
@@ -104,7 +96,7 @@ export default function SearchModal({ open, onClose }) {
           {draft && (
             <button
               type="button"
-              className="search-modal-clear"
+              className="search-sheet-clear"
               onClick={handleClear}
               aria-label="Clear search"
             >
@@ -112,10 +104,10 @@ export default function SearchModal({ open, onClose }) {
             </button>
           )}
         </div>
-        <p className="search-modal-hint gutter">
+        <p className="search-sheet-hint gutter">
           Press <kbd>Enter</kbd> to search · <kbd>Esc</kbd> to close
         </p>
       </form>
-    </Modal>
+    </BottomSheet>
   );
 }

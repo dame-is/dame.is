@@ -1,0 +1,74 @@
+/* Shared bottom-chrome sheet — see BottomSheet.jsx. Positioning + surface
+   mirror the nav dock (ActionDock.css) and edit sheet (EditSheet.css) so
+   every upward-expanding chrome surface reads as one system.
+
+   .bottom-sheet-backdrop: a transparent, non-dimming click-catcher below the
+   chrome bars (z 29 < bars' 30) so tapping the page closes the panel while
+   the toolbar buttons stay live. No visual tint — the panel reads as part of
+   the chrome, like the top-bar expansions do. */
+.bottom-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: transparent;
+}
+
+/* The animated clip box, pinned directly on top of the bottom bar — and
+   above the owner edit action bar when it's open (--edit-bar-h, else 0) —
+   centered on the same 65rem card. Framer animates its height 0 ↔ auto;
+   overflow:hidden means the panel inside unfurls upward out of the bar.
+   Sits above the bars (z 31) so its top edge overlaps the page cleanly. */
+.bottom-sheet-wrap {
+  position: fixed;
+  bottom: calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 65rem;
+  margin: 0 auto;
+  z-index: 31;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bottom-sheet-panel {
+  pointer-events: auto;
+  /* Deeper than the bar's --surface-raised so the expanded panel reads as
+     its own layer above the toolbar. */
+  background: var(--surface-deep);
+  /* Crisp divider between the panel and the button row below. */
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Compact: content-height, capped to the gap between top + bottom chrome so
+   a tall panel scrolls instead of growing under the top bar. A top hairline
+   divides it from the page showing above. */
+.bottom-sheet-panel-compact {
+  border-top: 1px solid var(--rule);
+  max-height: calc(
+    100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
+      env(safe-area-inset-bottom, 0px)
+  );
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Fill: occupies the whole gap up to the top chrome, butting its border
+   (no top hairline — the top chrome's own border-bottom is the divider). */
+.bottom-sheet-panel-fill {
+  height: calc(
+    100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
+      env(safe-area-inset-bottom, 0px)
+  );
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* On wide screens the chrome bars float as a 65rem card with side hairlines;
+   the panel closes its box to match. */
+@media (min-width: 65rem) {
+  .bottom-sheet-panel {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
+}

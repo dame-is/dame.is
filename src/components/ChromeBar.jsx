@@ -6,6 +6,7 @@ import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -14,8 +15,8 @@ import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import DensityToggle from './DensityToggle.jsx';
-import SearchModal from './SearchModal.jsx';
-import InfoModal from './InfoModal.jsx';
+import SearchSheet from './SearchSheet.jsx';
+import InfoSheet from './InfoSheet.jsx';
 import './ChromeBar.css';
 
 // Per-theme glyph for the toggle button: sun for light, moon for dark.
@@ -265,12 +266,17 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { view, setView } = useActionDock();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [infoOpen, setInfoOpen] = useState(false);
+  // Search / filter / info all expand up out of this bar as mutually
+  // exclusive panels coordinated by useChromePanel (which also folds the
+  // nav dock away, and vice versa) — see BottomSheet + useChromePanel.
+  const { panel, togglePanel, closePanel } = useChromePanel();
+  const searchPanelOpen = panel === 'search';
+  const filterPanelOpen = panel === 'filter';
+  const infoPanelOpen = panel === 'info';
   const reduce = useReducedMotion();
   const atTop = useAtTopOfPage();
   const scrolledPast = useScrolledPastFeedItems();
-  const { available: filterAvailable, open: filterOpen, toggleModal: toggleFilter } = useFeedFilter();
+  const { available: filterAvailable } = useFeedFilter();
   const { theme, cycle: cycleTheme } = useTheme();
   const ThemeIcon = THEME_ICON[theme] || Sun;
   // The edit-mode toggle only exists for the site owner. It sits beside the
@@ -284,6 +290,14 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
   const onHomePage = location.pathname === '/';
+
+  // If the route stops exposing filters while the filter panel is open
+  // (e.g. navigating away from a feed), fold it away — the trigger button
+  // is about to disappear from the bar.
+  useEffect(() => {
+    if (!filterAvailable && filterPanelOpen) closePanel();
+  }, [filterAvailable, filterPanelOpen, closePanel]);
+
   // A "sub page" is anything nested one level deeper than a section index
   // (e.g. /curating/:slug, /creating/:slug) — those get a back handle in
   // the bottom bar that walks up to the section index (the breadcrumb parent).
@@ -372,31 +386,31 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 {filterAvailable && (
                   <button
                     type="button"
-                    className={`chrome-nav chrome-filter ${filterOpen || filterCustomized ? 'is-open' : ''}`}
-                    onClick={toggleFilter}
-                    aria-expanded={filterOpen}
-                    aria-haspopup="dialog"
-                    aria-label={filterOpen ? 'Close filters' : 'Open filters'}
+                    className={`chrome-nav chrome-filter ${filterPanelOpen || filterCustomized ? 'is-open' : ''}`}
+                    onClick={() => togglePanel('filter')}
+                    aria-expanded={filterPanelOpen}
+                    aria-controls="chrome-filter-sheet"
+                    aria-label={filterPanelOpen ? 'Close filters' : 'Open filters'}
                   >
                     <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
                 <button
                   type="button"
-                  className={`chrome-nav chrome-search-btn ${searchOpen || searchActive ? 'is-open' : ''}`}
-                  onClick={() => setSearchOpen(true)}
-                  aria-expanded={searchOpen}
-                  aria-haspopup="dialog"
+                  className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}`}
+                  onClick={() => togglePanel('search')}
+                  aria-expanded={searchPanelOpen}
+                  aria-controls="chrome-search-sheet"
                   aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
                 >
                   <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
                 <button
                   type="button"
-                  className={`chrome-nav chrome-info-btn ${infoOpen ? 'is-open' : ''}`}
-                  onClick={() => setInfoOpen(true)}
-                  aria-expanded={infoOpen}
-                  aria-haspopup="dialog"
+                  className={`chrome-nav chrome-info-btn ${infoPanelOpen ? 'is-open' : ''}`}
+                  onClick={() => togglePanel('info')}
+                  aria-expanded={infoPanelOpen}
+                  aria-controls="chrome-info-sheet"
                   aria-label="About this site"
                 >
                   <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
@@ -405,7 +419,12 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                   <button
                     type="button"
                     className={`chrome-nav chrome-edit-btn ${editActive ? 'is-open' : ''}`}
-                    onClick={toggleEdit}
+                    onClick={() => {
+                      // Entering/leaving edit mode owns the bottom chrome —
+                      // fold any open search/filter/info panel away first.
+                      closePanel();
+                      toggleEdit();
+                    }}
                     aria-pressed={editActive}
                     aria-label={editActive ? 'Exit edit mode' : 'Enter edit mode'}
                     title={editActive ? 'Exit edit mode' : 'Edit mode'}
@@ -492,8 +511,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           <Compass className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
       </div>
-      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
+      <SearchSheet />
+      <InfoSheet />
     </div>
   );
 }
