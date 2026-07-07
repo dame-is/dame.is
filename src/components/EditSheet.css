@@ -29,14 +29,17 @@
   flex-direction: column;
   background: var(--surface-deep);
   border-bottom: 1px solid var(--rule);
-  /* Cap the sheet to the space between the top chrome and the bars/edit bar,
-     then let the record editor scroll within it. Short records stay short. */
-  max-height: calc(
+  /* Fixed height (exactly like the nav dock): the gap between the top chrome
+     and the bottom bar + edit action bar. Because the height is deterministic
+     — not driven by the record's content — the height:0→auto reveal is smooth
+     (no jump when the record finishes loading), the sheet fills right up to
+     the top chrome (no gap), and its bottom butts against the edit action bar
+     (no gap). The record editor scrolls inside the fixed body. */
+  height: calc(
     100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
-      env(safe-area-inset-bottom, 0px) - var(--space-4)
+      env(safe-area-inset-bottom, 0px)
   );
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
 }
 
 @media (min-width: 65rem) {
@@ -46,12 +49,10 @@
   }
 }
 
-/* Sticky header so the record label + close stay put while the editor body
-   scrolls under them. */
+/* Fixed header + footer with a scrolling body between them (flex column in a
+   fixed-height, overflow-hidden panel). */
 .edit-sheet-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -109,12 +110,15 @@
 }
 
 .edit-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: var(--space-4);
 }
 
 .edit-sheet-foot {
-  position: sticky;
-  bottom: 0;
+  flex: 0 0 auto;
   padding: var(--space-3) var(--space-4);
   background: var(--surface-deep);
   border-top: 1px solid var(--rule-soft);

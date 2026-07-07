@@ -105,6 +105,21 @@
   cursor: default;
 }
 
+/* Save is the primary commit action while quick-editing — fill it with the
+   accent so it reads as the main affordance among the bar's controls. */
+.edit-mode-bar-save {
+  color: var(--page);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.edit-mode-bar-save:hover:not(:disabled),
+.edit-mode-bar-save:focus-visible:not(:disabled) {
+  color: var(--page);
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+}
+
 /* Delete is the destructive primary — tint it so it's unmistakable, but keep
    it quiet until hovered so an accidental tap is less likely. */
 .edit-mode-bar-delete {
