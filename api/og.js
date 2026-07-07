@@ -1,13 +1,14 @@
 // Vercel serverless function: dynamic Open Graph card generator, powered by
-// @vercel/og (satori + resvg). Renders the 1200×630 paper/book card defined in
-// og/design.js, with the current Eastern-hour sky-avatar baked into the top
-// chrome bar so cards drift through the day like the favicon and live avatar.
+// @vercel/og (satori + resvg). Renders the 1200×630 "notebook / design-layout"
+// card defined in og/design.js, with the current Eastern-hour sky-avatar baked
+// in beside the breadcrumb so cards drift through the day like the favicon and
+// the live avatar.
 //
 // Usage (from the per-page meta injected by middleware.js):
-//   /api/og?page=/blogging          → looks up copy from og/pages.js
+//   /api/og?page=/blogging          → looks up copy + NSID from og/pages.js
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
-//   /api/og                         → the default home card
+//   /api/og                         → the home "index" card
 //
 // Node runtime (matches the rest of /api). @vercel/og runs fine here; we pull
 // the PNG bytes off the ImageResponse and stream them through `res`.
@@ -15,23 +16,24 @@
 import { ImageResponse } from '@vercel/og';
 import { FONTS } from '../og/assets/fonts.js';
 import { ICONS } from '../og/assets/icons.js';
-import { currentAvatarKey, secondsUntilNextHour } from '../og/time.js';
+import { currentAvatarKey, secondsUntilNextHour, folio } from '../og/time.js';
 import { ogElement } from '../og/design.js';
-import { pageMeta, SITE } from '../og/pages.js';
+import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
 
-const font = (id, weight, style = 'normal') => ({
-  name: 'Crimson Pro',
-  data: Buffer.from(FONTS[id], 'base64'),
-  weight,
-  style,
-});
+// The card uses two families: Crimson Pro (serif) for the breadcrumb / title /
+// description and IBM Plex Mono for the folio + NSID marginalia.
+const crimson = (id, weight, style = 'normal') => ({ name: 'Crimson Pro', data: Buffer.from(FONTS[id], 'base64'), weight, style });
+const plex = (id, weight) => ({ name: 'IBM Plex Mono', data: Buffer.from(FONTS[id], 'base64'), weight, style: 'normal' });
 
 const FONT_SET = [
-  font('300', 300),
-  font('400', 400),
-  font('600', 600),
-  font('700', 700),
-  font('400i', 400, 'italic'),
+  crimson('300', 300),
+  crimson('400', 400),
+  crimson('600', 600),
+  crimson('700', 700),
+  crimson('400i', 400, 'italic'),
+  crimson('600i', 600, 'italic'),
+  plex('mono400', 400),
+  plex('mono500', 500),
 ];
 
 export default async function handler(req, res) {
@@ -39,32 +41,37 @@ export default async function handler(req, res) {
     const q = req.query || {};
     const theme = q.theme === 'dark' ? 'dark' : 'light';
 
-    // Copy: an explicit `page` wins (canonical per-page card), otherwise fall
-    // back to ad-hoc title/subtitle params, otherwise the home default.
+    // Copy + routing: an explicit `page` wins (canonical per-page card),
+    // otherwise ad-hoc title/subtitle params, otherwise the home index card.
+    let pathname = '/';
     let label = '';
     let subtitle = '';
+    let nsid = DEFAULT.nsid;
     if (q.page) {
-      const meta = pageMeta(String(q.page));
+      pathname = cleanPath(String(q.page));
+      const meta = pageMeta(pathname);
       label = meta.label;
       subtitle = meta.desc;
+      nsid = meta.nsid;
     } else if (q.title || q.subtitle) {
       label = String(q.title || '');
       subtitle = String(q.subtitle || '');
-    } else {
-      const meta = pageMeta('/');
-      label = meta.label;
-      subtitle = meta.desc;
+      pathname = label ? `/${label.toLowerCase().replace(/\s+/g, '-')}` : '/';
     }
 
     const key = currentAvatarKey();
     const avatarUri = ICONS[key] ? `data:image/png;base64,${ICONS[key]}` : null;
 
     const element = ogElement({
+      pathname,
       label,
       subtitle,
+      nsid,
+      segs: segsFor(pathname),
       avatarUri,
+      folio: folio(),
       theme,
-      tagline: SITE.tagline.replace(/\.$/, ''),
+      homeIndex: HOME_INDEX,
     });
 
     const image = new ImageResponse(element, {

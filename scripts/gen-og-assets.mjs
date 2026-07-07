@@ -22,15 +22,24 @@ const ROOT = resolve(__dirname, '..');
 const OUT = resolve(ROOT, 'og/assets');
 const SKY = resolve(ROOT, 'images/sky-avatars');
 
-// Crimson Pro — the site's serif (src/styles/theme.css --font-crimson).
-// Fetched as static woff from the Fontsource CDN (satori accepts woff).
-const FONT_BASE = 'https://cdn.jsdelivr.net/npm/@fontsource/crimson-pro@5/files';
+// Two families, both fetched as static woff from the Fontsource CDN (satori
+// accepts woff):
+//   • Crimson Pro — the site's serif (src/styles/theme.css --font-crimson),
+//     for the breadcrumb, big title, and description.
+//   • IBM Plex Mono — the site's mono (--mono), for the notebook folio
+//     (day-of-life) and the AT-Protocol NSID marginalia.
+// The `id` keys are what api/og.js maps back to {name, weight, style}.
+const CRIMSON = 'https://cdn.jsdelivr.net/npm/@fontsource/crimson-pro@5/files';
+const PLEX = 'https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono@5/files';
 const FONT_SPECS = [
-  { id: '300', file: 'crimson-pro-latin-300-normal.woff' },
-  { id: '400', file: 'crimson-pro-latin-400-normal.woff' },
-  { id: '600', file: 'crimson-pro-latin-600-normal.woff' },
-  { id: '700', file: 'crimson-pro-latin-700-normal.woff' },
-  { id: '400i', file: 'crimson-pro-latin-400-italic.woff' },
+  { id: '300', url: `${CRIMSON}/crimson-pro-latin-300-normal.woff` },
+  { id: '400', url: `${CRIMSON}/crimson-pro-latin-400-normal.woff` },
+  { id: '600', url: `${CRIMSON}/crimson-pro-latin-600-normal.woff` },
+  { id: '700', url: `${CRIMSON}/crimson-pro-latin-700-normal.woff` },
+  { id: '400i', url: `${CRIMSON}/crimson-pro-latin-400-italic.woff` },
+  { id: '600i', url: `${CRIMSON}/crimson-pro-latin-600-italic.woff` },
+  { id: 'mono400', url: `${PLEX}/ibm-plex-mono-latin-400-normal.woff` },
+  { id: 'mono500', url: `${PLEX}/ibm-plex-mono-latin-500-normal.woff` },
 ];
 
 // Favicon (+ apple-touch) + the small brand mark in the OG chrome bar all
@@ -41,9 +50,9 @@ const ICON_SIZE = 96;
 
 async function fonts() {
   const out = {};
-  for (const { id, file } of FONT_SPECS) {
-    const res = await fetch(`${FONT_BASE}/${file}`);
-    if (!res.ok) throw new Error(`font fetch ${file}: ${res.status}`);
+  for (const { id, url } of FONT_SPECS) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`font fetch ${url}: ${res.status}`);
     out[id] = Buffer.from(await res.arrayBuffer()).toString('base64');
   }
   return out;

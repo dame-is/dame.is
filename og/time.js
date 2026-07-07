@@ -40,6 +40,21 @@ export function avatarKeys() {
   return KEYS.slice();
 }
 
+// Dame's birthdate (mirrors src/config.js BIRTHDATE). The OG cards print a
+// notebook "folio" — the current day-of-life — in the bottom margin, so every
+// card is quietly stamped with which day of the life/project it was made on.
+const BIRTH_MS = Date.parse('1993-05-07T00:00:00Z');
+
+/** Day-of-life: whole days since the birthdate (day 1 = the birthday). */
+export function dayOfLife(now = new Date()) {
+  return Math.floor((now.getTime() - BIRTH_MS) / 86_400_000) + 1;
+}
+
+/** The folio string for the card margin, with thousands separators. */
+export function folio(now = new Date()) {
+  return dayOfLife(now).toLocaleString('en-US');
+}
+
 /**
  * Seconds remaining until the top of the next hour (Eastern minutes/seconds
  * track UTC minutes/seconds, so we can compute this from UTC). Used to set
