@@ -112,14 +112,6 @@
   color: var(--accent);
 }
 
-.blog-article-description {
-  font-family: var(--serif);
-  font-size: var(--text-md);
-  font-style: italic;
-  color: var(--ink-soft);
-  margin: 0 0 var(--space-5);
-}
-
 .blog-prose {
   font-family: var(--serif);
   font-size: 1.05rem;

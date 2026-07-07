@@ -142,7 +142,6 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
   const created = value.publishedAt || value.createdAt;
   const dayNum = created ? dayOfLife(created) : null;
   const title = value.title || id;
-  const description = value.description;
 
   return (
     <PageShell
@@ -163,7 +162,9 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
           {created && <span>· {relativeTime(created)}</span>}
           <span className="blog-article-tag">standard.site</span>
         </div>
-        {description && <p className="blog-article-description">{description}</p>}
+        {/* The `description` field is intentionally not rendered here — it's the
+            open-graph / feed-summary blurb, and on the post itself it just
+            duplicated the opening lines of the body. */}
         <LeafletDocument doc={value.content} />
         {commentsUri && (
           <Comments

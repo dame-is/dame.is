@@ -102,8 +102,11 @@ export default function CreatingWork() {
           )}
           {v?.createdAt && <span>· {formatDateLong(v.createdAt)}</span>}
         </div>
-        {(v?.summary || v?.description) && (
-          <p className="page-intro">{v.summary || v.description}</p>
+        {/* Only the legacy `summary` shows as an on-page intro. The standard.site
+            `description` is the open-graph / feed-summary blurb and isn't
+            rendered on the work itself. */}
+        {v?.summary && (
+          <p className="page-intro">{v.summary}</p>
         )}
         {v?.content?.pages ? (
           <LeafletDocument doc={v.content} />
