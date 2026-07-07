@@ -19,9 +19,45 @@ import {
   BUTTERFLY_TAXON_ID,
   MOTHING_NSID,
   MOTHING_OBSERVATION_NSID,
+  OBSERVING_NSID,
+  OBSERVING_OBSERVATION_NSID,
 } from '../config.js';
 
 const PER_PAGE = 200; // iNaturalist's max page size.
+
+/**
+ * A "scope" pins an iNaturalist query to a slice of the observations. Two
+ * matter to the site:
+ *   - MOTH_SCOPE: Lepidoptera minus butterflies — the /mothing surface.
+ *   - ALL_SCOPE (null): every observation, of any taxon — what the PDS mirror
+ *     pulls before splitting each one into the mothing / observing verbs.
+ * A scope is `{ taxonId?, withoutTaxonId? }` (or null for "everything").
+ */
+export const MOTH_SCOPE = { taxonId: LEPIDOPTERA_TAXON_ID, withoutTaxonId: BUTTERFLY_TAXON_ID };
+export const ALL_SCOPE = null;
+
+/** Build the taxon-filter query params for a scope (empty for ALL_SCOPE). */
+function scopeParams(user = INATURALIST_USER, scope = MOTH_SCOPE) {
+  const p = { user_login: user };
+  if (scope?.taxonId) p.taxon_id = String(scope.taxonId);
+  if (scope?.withoutTaxonId) p.without_taxon_id = String(scope.withoutTaxonId);
+  return p;
+}
+
+/**
+ * Is this a moth? Moths are Lepidoptera (47157) minus butterflies
+ * (Papilionoidea, 47224). Decided from the raw iNaturalist taxon's ancestry
+ * (`ancestor_ids`, which includes the taxon's own id) so a single all-taxa
+ * pull can be split into the mothing / observing verbs without a second
+ * query. Butterflies, non-Lepidoptera, and untaxoned observations are not
+ * moths — they ride the `observing` verb. Taxonomy is public, not location.
+ */
+export function isMothTaxon(taxon) {
+  if (!taxon) return false;
+  const ids = new Set(Array.isArray(taxon.ancestor_ids) ? taxon.ancestor_ids : []);
+  if (taxon.id != null) ids.add(taxon.id);
+  return ids.has(LEPIDOPTERA_TAXON_ID) && !ids.has(BUTTERFLY_TAXON_ID);
+}
 
 // iNaturalist asks API consumers to identify themselves. Sent from Node
 // (prefetch / mirror / cron); browsers forbid setting User-Agent and silently
@@ -48,18 +84,6 @@ export function toUtcInstant(iso) {
   if (!iso) return null;
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
-}
-
-/**
- * The base query params that define "my moths": one user, Lepidoptera,
- * butterflies excluded. Shared by every endpoint so the scope never drifts.
- */
-function baseParams(user = INATURALIST_USER) {
-  return {
-    user_login: user,
-    taxon_id: String(LEPIDOPTERA_TAXON_ID),
-    without_taxon_id: String(BUTTERFLY_TAXON_ID),
-  };
 }
 
 /**
@@ -113,6 +137,9 @@ export function normalizeObservation(o) {
     observedHour, // local hour 0–23 (or null)
     qualityGrade: o.quality_grade || null,
     description: o.description || null,
+    // Derived from the (now-discarded) taxon ancestry so the mirror can route
+    // a single all-taxa pull to the mothing vs observing verb. Not persisted.
+    isMoth: isMothTaxon(t),
     taxon: {
       id: t.id ?? null,
       name: t.name || o.species_guess || null,
@@ -229,18 +256,19 @@ function nightMinutes(o) {
 }
 
 /**
- * Fetch moth observations for a user, newest first, and normalize them.
- * Auto-paginates up to `max`. Pass `since` (an ISO instant) to fetch only
- * observations changed since then via iNaturalist's `updated_since` — the
+ * Fetch observations for a user within `scope`, newest first, and normalize
+ * them. Auto-paginates up to `max`. Pass `since` (an ISO instant) to fetch
+ * only observations changed since then via iNaturalist's `updated_since` — the
  * incremental path the mirror uses so it re-pulls only what actually moved.
- * Location is stripped by `normalizeObservation`.
+ * Location is stripped by `normalizeObservation`; each result carries an
+ * `isMoth` flag derived from taxon ancestry.
  */
-export async function fetchMothObservations({ user = INATURALIST_USER, max = 1000, since = null } = {}) {
+export async function fetchObservations({ user = INATURALIST_USER, max = 1000, since = null, scope = MOTH_SCOPE } = {}) {
   const out = [];
   let page = 1;
   while (out.length < max) {
     const params = new URLSearchParams({
-      ...baseParams(user),
+      ...scopeParams(user, scope),
       per_page: String(Math.min(PER_PAGE, max - out.length)),
       page: String(page),
       order: 'desc',
@@ -261,14 +289,14 @@ export async function fetchMothObservations({ user = INATURALIST_USER, max = 100
 }
 
 /**
- * A cheap freshness signature for the moth set: one tiny request that returns
- * the total count plus the most-recent edit instant (in UTC). Comparing this
+ * A cheap freshness signature for a scope: one tiny request that returns the
+ * total count plus the most-recent edit instant (in UTC). Comparing this
  * against a stored signature tells us whether a full pull is even needed —
  * without downloading every observation.
  */
-export async function fetchMothSignature({ user = INATURALIST_USER } = {}) {
+export async function fetchSignature({ user = INATURALIST_USER, scope = MOTH_SCOPE } = {}) {
   const params = new URLSearchParams({
-    ...baseParams(user),
+    ...scopeParams(user, scope),
     per_page: '1',
     order: 'desc',
     order_by: 'updated_at',
@@ -281,16 +309,17 @@ export async function fetchMothSignature({ user = INATURALIST_USER } = {}) {
 }
 
 /**
- * Fetch just the current observation ids (authoritative set). Used by the
- * mirror to reconcile deletions — iNaturalist's `updated_since` never reports
- * removals, so when counts disagree we diff against the live id list.
+ * Fetch just the current observation ids for a scope (authoritative set).
+ * Used by the mirror to reconcile deletions — iNaturalist's `updated_since`
+ * never reports removals, so when counts disagree we diff against the live
+ * id list.
  */
-export async function fetchMothIds({ user = INATURALIST_USER, max = 10000 } = {}) {
+export async function fetchObservationIds({ user = INATURALIST_USER, max = 10000, scope = MOTH_SCOPE } = {}) {
   const ids = [];
   let page = 1;
   while (ids.length < max) {
     const params = new URLSearchParams({
-      ...baseParams(user),
+      ...scopeParams(user, scope),
       per_page: String(PER_PAGE),
       page: String(page),
       order: 'asc',
@@ -306,6 +335,13 @@ export async function fetchMothIds({ user = INATURALIST_USER, max = 10000 } = {}
   }
   return ids;
 }
+
+/* Moth-scoped aliases: the /mothing surface (page + snapshot) pulls only the
+ * Lepidoptera-minus-butterflies slice. The PDS mirror instead pulls ALL_SCOPE
+ * and splits locally. */
+export const fetchMothObservations = (opts = {}) => fetchObservations({ scope: MOTH_SCOPE, ...opts });
+export const fetchMothSignature = (opts = {}) => fetchSignature({ scope: MOTH_SCOPE, ...opts });
+export const fetchMothIds = (opts = {}) => fetchObservationIds({ scope: MOTH_SCOPE, ...opts });
 
 /**
  * Reconstruct a normalized observation from a stored
@@ -475,14 +511,18 @@ export function observedTimestamp(observedDate, observedTime) {
   return `${observedDate}T${time}:00.000Z`;
 }
 
-/** One `is.dame.mothing.observation/<inatId>` record value. */
-export function mothingObservationValue(obs, { now } = {}) {
+/**
+ * One observation record value under `$type`, keyed downstream by the iNat
+ * id. The mothing and observing observation lexicons share the exact same
+ * shape — only the `$type` differs — so both go through here.
+ */
+function observationRecordValue($type, obs, { now } = {}) {
   // Stable timestamp from the observation date + local time; fall back to the
   // run time only for the rare observation with no date at all.
   const ts = observedTimestamp(obs.observedDate, obs.observedTime) || now || new Date().toISOString();
   const taxon = obs.taxon || {};
   return stripUndefined({
-    $type: MOTHING_OBSERVATION_NSID,
+    $type,
     inatId: obs.id,
     uuid: obs.uuid || undefined,
     url: obs.url || undefined,
@@ -510,25 +550,80 @@ export function mothingObservationValue(obs, { now } = {}) {
   });
 }
 
+/** One `is.dame.mothing.observation/<inatId>` record value. */
+export function mothingObservationValue(obs, opts = {}) {
+  return observationRecordValue(MOTHING_OBSERVATION_NSID, obs, opts);
+}
+
+/** One `is.dame.observing.observation/<inatId>` record value. */
+export function observingObservationValue(obs, opts = {}) {
+  return observationRecordValue(OBSERVING_OBSERVATION_NSID, obs, opts);
+}
+
 /**
- * Build the full set of writes for a mirror run: the summary singleton plus
- * one record per observation, keyed by iNaturalist id for idempotency.
- * Returns `{ summary: {collection, rkey, value}, records: [...] }`.
+ * Lean stats for the observing (non-moth) slice — no mothing-session math.
+ * `iconicTaxa` breaks the count down by iNaturalist iconic taxon so the
+ * summary reads like "34 birds, 28 plants, 12 fungi…".
  */
-export function buildMirrorWrites({ observations, stats, now } = {}) {
-  const ts = now || new Date().toISOString();
+export function computeObservingStats(observations, { user = INATURALIST_USER } = {}) {
+  const obs = Array.isArray(observations) ? observations : [];
+  const grades = { research: 0, needsId: 0, casual: 0 };
+  const speciesIds = new Set();
+  const distinctTaxa = new Set();
+  const iconicTally = new Map();
+  let earliest = null;
+  let latest = null;
+
+  for (const o of obs) {
+    if (o.qualityGrade === 'research') grades.research += 1;
+    else if (o.qualityGrade === 'needs_id') grades.needsId += 1;
+    else if (o.qualityGrade === 'casual') grades.casual += 1;
+
+    const t = o.taxon || {};
+    if (t.id != null) {
+      distinctTaxa.add(t.id);
+      if (t.rank === 'species' || t.rank === 'subspecies') speciesIds.add(t.id);
+    }
+    if (t.iconicTaxon) iconicTally.set(t.iconicTaxon, (iconicTally.get(t.iconicTaxon) || 0) + 1);
+    if (o.observedDate) {
+      if (!earliest || o.observedDate < earliest) earliest = o.observedDate;
+      if (!latest || o.observedDate > latest) latest = o.observedDate;
+    }
+  }
+
+  const iconicTaxa = Array.from(iconicTally.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+
   return {
-    summary: {
-      collection: MOTHING_NSID,
-      rkey: 'self',
-      value: mothingSummaryValue(stats, { now: ts }),
-    },
-    records: (observations || [])
-      .filter((o) => o && o.id != null)
-      .map((o) => ({
-        collection: MOTHING_OBSERVATION_NSID,
-        rkey: String(o.id),
-        value: mothingObservationValue(o, { now: ts }),
-      })),
+    user,
+    observationCount: obs.length,
+    speciesCount: speciesIds.size,
+    distinctTaxaCount: distinctTaxa.size,
+    qualityGrades: grades,
+    iconicTaxa,
+    earliestDate: earliest,
+    latestDate: latest,
+    profileUrl: `https://www.inaturalist.org/people/${user}`,
   };
+}
+
+/** The `is.dame.observing/self` summary record value (non-moth slice). */
+export function observingSummaryValue(stats, { now, user = INATURALIST_USER } = {}) {
+  const ts = now || new Date().toISOString();
+  return stripUndefined({
+    $type: OBSERVING_NSID,
+    source: 'inaturalist',
+    user,
+    profileUrl: stats?.profileUrl || `https://www.inaturalist.org/people/${user}`,
+    observationCount: stats?.observationCount ?? 0,
+    speciesCount: stats?.speciesCount ?? 0,
+    distinctTaxaCount: stats?.distinctTaxaCount ?? 0,
+    qualityGrades: stats?.qualityGrades || undefined,
+    iconicTaxa: stats?.iconicTaxa?.length ? stats.iconicTaxa : undefined,
+    earliestDate: stats?.earliestDate || undefined,
+    latestDate: stats?.latestDate || undefined,
+    createdAt: ts,
+    updatedAt: ts,
+  });
 }

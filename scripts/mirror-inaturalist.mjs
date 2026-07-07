@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-// Mirror moth observations from iNaturalist onto your PDS.
+// Mirror your iNaturalist observations onto your PDS.
 //
-// Writes one `is.dame.mothing/self` summary record plus one
-// `is.dame.mothing.observation/<inatId>` record per observation, so your
-// moth log lives as first-class atproto data you own. Location is never
-// mirrored — `src/lib/inaturalist.js` strips coordinates, place names, and
-// timezone before anything is built.
+// Pulls every observation once and splits each by taxonomy: moths
+// (Lepidoptera minus butterflies) become `is.dame.mothing.observation`
+// records, everything else becomes `is.dame.observing.observation` records,
+// plus an `is.dame.mothing/self` and `is.dame.observing/self` summary. So
+// your whole nature log lives as first-class atproto data you own, and each
+// entry rides the right home-feed verb (mothing vs observing). Location is
+// never mirrored — `src/lib/inaturalist.js` strips coordinates, place names,
+// and timezone before anything is built.
 //
 // Incremental by default: a cheap freshness check skips the run entirely when
 // nothing changed; otherwise it re-pulls only observations changed since the
@@ -25,9 +28,9 @@
 
 import { AtpAgent } from '@atproto/api';
 
-import { ME_HANDLE, INATURALIST_USER, MOTHING_NSID } from '../src/config.js';
+import { ME_HANDLE, INATURALIST_USER, OBSERVING_NSID } from '../src/config.js';
 import { resolveIdentifier } from '../src/lib/atproto.js';
-import { syncMothingMirror } from '../src/lib/mothingMirror.js';
+import { syncInaturalistMirror } from '../src/lib/inaturalistMirror.js';
 
 const log = (...a) => console.log('[mirror-inat]', ...a);
 const die = (msg) => {
@@ -86,7 +89,7 @@ async function main() {
     log('no app password — dry-run planning with public reads only.');
   }
 
-  const report = await syncMothingMirror({
+  const report = await syncInaturalistMirror({
     agent,
     did,
     user: INATURALIST_USER,
@@ -98,7 +101,7 @@ async function main() {
   if (report.noop) {
     log('up to date — nothing to do.');
   } else {
-    log(`done — summary at://${did}/${MOTHING_NSID}/self`);
+    log(`done — summaries at://${did}/${OBSERVING_NSID}/self (+ is.dame.mothing/self)`);
   }
   if (report.failed) process.exitCode = 1;
 }

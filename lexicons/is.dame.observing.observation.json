@@ -1,0 +1,49 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.observing.observation",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "A single non-moth iNaturalist observation (bird, plant, fungus, butterfly, other insect…), mirrored and keyed by the iNaturalist observation id. Moths mirror separately as is.dame.mothing.observation. Location data (coordinates, place names, timezone) is intentionally never stored.",
+      "record": {
+        "type": "object",
+        "required": ["inatId", "createdAt"],
+        "properties": {
+          "inatId":       { "type": "integer", "description": "The iNaturalist observation id." },
+          "uuid":         { "type": "string" },
+          "url":          { "type": "string", "format": "uri", "description": "Canonical iNaturalist observation URL." },
+          "observedDate": { "type": "string", "description": "Date of observation (YYYY-MM-DD)." },
+          "observedTime": { "type": "string", "description": "Local time of observation (HH:MM), timezone offset stripped by design so it reveals when-in-the-day but never where." },
+          "qualityGrade": { "type": "string", "description": "iNaturalist quality grade: research | needs_id | casual." },
+          "description":  { "type": "string", "maxLength": 5000 },
+          "taxon": {
+            "type": "object",
+            "properties": {
+              "id":          { "type": "integer" },
+              "name":        { "type": "string", "description": "Scientific name." },
+              "commonName":  { "type": "string" },
+              "rank":        { "type": "string" },
+              "iconicTaxon": { "type": "string", "description": "iNaturalist iconic taxon, e.g. Aves, Plantae, Insecta, Fungi." }
+            }
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["url"],
+              "properties": {
+                "id":          { "type": "integer" },
+                "url":         { "type": "string", "format": "uri", "description": "iNaturalist-hosted photo URL (square size; other sizes derived by swapping the size segment)." },
+                "licenseCode": { "type": "string" },
+                "attribution": { "type": "string" }
+              }
+            }
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
