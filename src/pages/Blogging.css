@@ -169,17 +169,8 @@
   color: var(--accent-soft);
 }
 
-.blog-prose .first-paragraph::first-letter,
-.blog-prose > p:first-of-type::first-letter {
-  font-family: var(--serif);
-  font-weight: 600;
-  font-size: 4.2em;
-  float: left;
-  line-height: 0.85;
-  padding-right: 0.08em;
-  padding-top: 0.12em;
-  color: var(--accent);
-}
+/* The first-paragraph drop cap is defined once, globally, in
+   typography.css (shared with the resume summary and about page). */
 
 @media (max-width: 700px) {
   .blogging-toc-link {
