@@ -1,7 +1,10 @@
-/* Floating owner edit-mode action bar. Rides just above the fixed bottom
-   chrome bar, mirroring its centered 65rem card so the two read as one
-   stacked control surface. */
-.edit-mode-bar {
+/* Owner edit-mode action bar. Like the nav dock, it's a sheet that expands
+   UPWARD out of the bottom chrome bar: the wrap is a fixed clip box pinned
+   directly on top of the bar and centered on the same 65rem card; Framer
+   animates its height 0 ↔ auto and `overflow: hidden` unfurls the surface
+   inside upward so it reads as an extension of the bar rather than a floating
+   panel. */
+.edit-mode-bar-wrap {
   position: fixed;
   left: 0;
   right: 0;
@@ -10,6 +13,7 @@
   width: 100%;
   max-width: 65rem;
   margin: 0 auto;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -21,9 +25,20 @@
   gap: var(--space-3);
   min-height: 2.75rem;
   padding: var(--space-2) var(--space-4);
+  /* Match the bottom bar's own raised surface + hairlines so the expanded
+     strip looks continuous with the chrome it grows out of. */
   background: var(--surface-raised);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
+}
+
+/* On wide screens the chrome bars float as a 65rem card with side hairlines;
+   close the strip's box to match. */
+@media (min-width: 65rem) {
+  .edit-mode-bar-inner {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
 }
 
 .edit-mode-bar-status {

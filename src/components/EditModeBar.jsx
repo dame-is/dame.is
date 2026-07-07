@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { PencilLine, Trash2, XCircle } from 'lucide-react';
@@ -52,8 +52,36 @@ export default function EditModeBar() {
   const reduce = useReducedMotion();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const innerRef = useRef(null);
 
   const isOwner = did === ME_DID;
+
+  // Publish the bar's live height on <html> as `--edit-bar-h`. The nav dock
+  // reads it to lift its sheet so it expands from on top of this bar rather
+  // than straight off the bottom chrome. Measured from the inner surface
+  // (full height regardless of the wrap's height-clip animation); reset to 0
+  // whenever edit mode is off so the dock falls back to the bar.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!active) {
+      root.style.setProperty('--edit-bar-h', '0px');
+      return undefined;
+    }
+    const el = innerRef.current;
+    const apply = () => {
+      const h = el ? el.getBoundingClientRect().height : 0;
+      root.style.setProperty('--edit-bar-h', `${Math.max(0, Math.ceil(h))}px`);
+    };
+    apply();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+    if (ro && el) ro.observe(el);
+    window.addEventListener('resize', apply);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', apply);
+      root.style.setProperty('--edit-bar-h', '0px');
+    };
+  }, [active]);
 
   async function handleDelete() {
     if (!agent || !isOwner || selectedCount === 0) return;
@@ -103,18 +131,21 @@ export default function EditModeBar() {
   }
 
   return (
-    <AnimatePresence>
+    <AnimatePresence initial={false}>
       {active && (
         <motion.div
-          className="edit-mode-bar"
-          role="toolbar"
-          aria-label="Edit mode actions"
-          initial={reduce ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 12 }}
-          transition={{ duration: reduce ? 0 : 0.22, ease: [0.22, 0.61, 0.36, 1] }}
+          className="edit-mode-bar-wrap"
+          initial={{ height: 0 }}
+          animate={{ height: 'auto' }}
+          exit={{ height: 0 }}
+          transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
         >
-          <div className="edit-mode-bar-inner">
+          <div
+            className="edit-mode-bar-inner"
+            ref={innerRef}
+            role="toolbar"
+            aria-label="Edit mode actions"
+          >
             <div className="edit-mode-bar-status">
               {selectedCount > 0 ? (
                 <span className="edit-mode-bar-count">

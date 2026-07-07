@@ -98,7 +98,13 @@ export default function FeedItem({ item }) {
   // anywhere on the row (including on nested links, intercepted in the
   // capture phase) toggles selection; the EditModeBar handles the bulk
   // delete / edit actions on whatever is selected.
-  const selectable = edit.active && !!item.atUri;
+  //
+  // Listening rows are the exception: a batch stands in for many teal play
+  // records, so ListenRow owns its own per-song / whole-group selection and
+  // FeedItem steps aside (no row-level select, and the verb badge stops
+  // linking so nothing navigates out mid-selection).
+  const listeningEdit = edit.active && item.verb === 'listening';
+  const selectable = edit.active && !!item.atUri && !listeningEdit;
   const selected = selectable && edit.isSelected(item.atUri);
 
   function handleSelectCapture(e) {
@@ -190,7 +196,7 @@ export default function FeedItem({ item }) {
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
       onClickCapture={selectable ? handleSelectCapture : undefined}
-      onClick={!selectable && href ? handleRowClick : undefined}
+      onClick={!selectable && !listeningEdit && href ? handleRowClick : undefined}
       role={selectable ? 'button' : undefined}
       aria-pressed={selectable ? selected : undefined}
     >
@@ -203,7 +209,7 @@ export default function FeedItem({ item }) {
         </span>
       )}
       {(() => {
-        const verbEl = href ? (
+        const verbEl = href && !listeningEdit ? (
           <Link className={verbClassName} to={href}>
             {verbInner}
           </Link>

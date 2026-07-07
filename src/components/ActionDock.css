@@ -19,7 +19,10 @@
    and shadow overlap the page cleanly. */
 .dock-sheet-wrap {
   position: fixed;
-  bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
+  /* Sits above the bottom bar AND above the owner edit-mode bar when it's
+     open (--edit-bar-h, else 0), so the sheet expands from on top of the
+     edit bar rather than overlapping it. */
+  bottom: calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   width: 100%;
@@ -50,7 +53,7 @@
      z 31 > 30, so it wins over the bar's own hidden top border). */
   border-bottom: 1px solid var(--rule);
   padding: var(--space-4);
-  height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) - env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
   overscroll-behavior: contain;
 }

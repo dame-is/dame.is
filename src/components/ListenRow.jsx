@@ -1,28 +1,102 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { formatTime } from '../lib/time.js';
+import { useEditMode } from '../hooks/useEditMode.jsx';
+
+/** The individually-addressable teal play records behind a row: a collapsed
+ *  batch exposes them as `plays`; a lone row is its own single play. */
+function playItemsOf({ payload, atUri, plays, createdAt }) {
+  if (Array.isArray(plays) && plays.length) return plays;
+  if (atUri) return [{ verb: 'listening', atUri, payload, createdAt: createdAt || payload?.playedTime }];
+  return [];
+}
+
+/** A small check box shown beside a selectable play (or play group) in edit
+ *  mode: filled when fully selected, a dash when only some of a group is. */
+function SelectMark({ state }) {
+  return (
+    <span className={`listen-row-select-mark is-${state}`} aria-hidden="true">
+      {state === 'all' && <Check size={11} strokeWidth={2.5} />}
+      {state === 'some' && <span className="listen-row-select-dash" />}
+    </span>
+  );
+}
 
 /**
  * Single play row. The unified feed collapses runs of consecutive plays into
  * a single row with a `count` and a `plays` array of the underlying records —
  * see `collapseListens` in pages/Home.jsx. When `plays` is present and
  * `count > 1`, the row exposes an inline expand/collapse affordance.
+ *
+ * In owner edit mode the row becomes selectable: tapping the group selects
+ * every teal play record behind it at once (and reveals the song list), or
+ * you can expand and tap individual songs to select them one by one.
  */
-export default function ListenRow({ payload, atUri, count, plays }) {
+export default function ListenRow(props) {
+  const { payload, atUri, count, plays } = props;
+  const edit = useEditMode();
   const [expanded, setExpanded] = useState(false);
 
   const recordHref = recordPathFromAtUri(atUri);
   const canExpand = (count || 0) > 1 && Array.isArray(plays) && plays.length > 1;
 
+  const playItems = playItemsOf(props);
+  const isBatch = canExpand;
+  const selectable = edit.active && playItems.length > 0;
+  // A batch auto-reveals its songs in edit mode so each is tappable; a manual
+  // expand still works when not selecting.
+  const showChildren = isBatch && (expanded || (selectable && isBatch));
+
+  const selectedInGroup = selectable
+    ? playItems.filter((p) => p.atUri && edit.isSelected(p.atUri)).length
+    : 0;
+  const groupState =
+    selectedInGroup === 0 ? 'none' : selectedInGroup === playItems.length ? 'all' : 'some';
+
+  function toggleGroup(e) {
+    if (!selectable) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (isBatch) {
+      if (groupState === 'all') edit.deselectMany(playItems.map((p) => p.atUri).filter(Boolean));
+      else edit.selectMany(playItems);
+    } else {
+      edit.toggleSelect(playItems[0]);
+    }
+  }
+
+  function toggleOne(play, e) {
+    if (!selectable) return;
+    e.preventDefault();
+    e.stopPropagation();
+    edit.toggleSelect(play);
+  }
+
+  const articleClass = [
+    'listen-row',
+    'feed-card',
+    selectable ? 'listen-row-selectable' : '',
+    selectable && groupState === 'all' ? 'is-selected' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <article className="listen-row feed-card" data-at-uri={atUri}>
-      <div className="listen-row-head">
+    <article className={articleClass} data-at-uri={atUri}>
+      <div
+        className="listen-row-head"
+        onClickCapture={selectable ? toggleGroup : undefined}
+        role={selectable ? 'button' : undefined}
+        aria-pressed={selectable ? groupState !== 'none' : undefined}
+      >
+        {selectable && <SelectMark state={groupState} />}
         <span className="listen-row-text">
           <TrackLabel payload={payload} href={recordHref} plays={plays} />
         </span>
         {count > 1 && (
-          canExpand ? (
+          canExpand && !selectable ? (
             <button
               type="button"
               className="listen-row-toggle gutter"
@@ -41,13 +115,23 @@ export default function ListenRow({ payload, atUri, count, plays }) {
         )}
       </div>
 
-      {expanded && canExpand && (
+      {showChildren && (
         <ol className="listen-row-children">
-          {plays.map((play) => (
-            <li key={play.atUri || play.cid} className="listen-row-child">
-              <ChildPlay item={play} />
-            </li>
-          ))}
+          {plays.map((play) => {
+            const childSelected = selectable && play.atUri && edit.isSelected(play.atUri);
+            return (
+              <li
+                key={play.atUri || play.cid}
+                className={`listen-row-child${childSelected ? ' is-selected' : ''}`}
+                onClickCapture={selectable ? (e) => toggleOne(play, e) : undefined}
+                role={selectable ? 'button' : undefined}
+                aria-pressed={selectable ? !!childSelected : undefined}
+              >
+                {selectable && <SelectMark state={childSelected ? 'all' : 'none'} />}
+                <ChildPlay item={play} />
+              </li>
+            );
+          })}
         </ol>
       )}
     </article>
