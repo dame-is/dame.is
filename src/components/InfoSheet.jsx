@@ -1,35 +1,33 @@
 import { X } from 'lucide-react';
-import Modal from './Modal.jsx';
-import './InfoModal.css';
+import BottomSheet from './BottomSheet.jsx';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import './InfoSheet.css';
 
 /**
- * "What is this site?" modal opened from the bottom chrome bar's
- * info button. Plain prose — atmosphere, atproto, PDS, what you can
- * actually do here. Written as a primer for first-time visitors who
- * don't yet have the vocabulary for any of it.
+ * "What is this site?" primer, expanded up out of the bottom chrome bar's
+ * info button (see useChromePanel). Plain prose — atmosphere, atproto, PDS,
+ * what you can actually do here — written for first-time visitors who don't
+ * yet have the vocabulary for any of it.
  */
-export default function InfoModal({ open, onClose }) {
+export default function InfoSheet() {
+  const { panel, closePanel } = useChromePanel();
+  const open = panel === 'info';
+
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      label="About this site"
-      className="info-modal-panel"
-      scrimLabel="Close info"
-    >
-      <div className="info-modal-header">
+    <BottomSheet open={open} onClose={closePanel} label="About this site" id="chrome-info-sheet" className="info-sheet-panel">
+      <div className="info-sheet-header">
         <span className="small-caps">about this site</span>
         <button
           type="button"
-          className="info-modal-close"
-          onClick={onClose}
+          className="info-sheet-close"
+          onClick={closePanel}
           aria-label="Close"
         >
           <X size={16} aria-hidden="true" />
         </button>
       </div>
 
-      <div className="info-modal-body">
+      <div className="info-sheet-body">
         <p>
           <strong>dame.is</strong> is a personal website built on top
           of the <em>AT Protocol</em>. It's where Dame writes, posts,
@@ -67,6 +65,6 @@ export default function InfoModal({ open, onClose }) {
           move PDSes or build another frontend.
         </p>
       </div>
-    </Modal>
+    </BottomSheet>
   );
 }

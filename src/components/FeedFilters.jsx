@@ -3,8 +3,9 @@ import { CornerDownRight, X } from 'lucide-react';
 import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
 import { selfThreadMembers } from '../lib/threadGrouping.js';
 import VerbIcon from './VerbIcon.jsx';
-import Modal from './Modal.jsx';
-import { useFeedFilter, useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
+import BottomSheet from './BottomSheet.jsx';
+import { useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import './FeedFilters.css';
 
 // Sentinel for "show none" so an empty `verbs=` doesn't resolve back to
@@ -28,7 +29,8 @@ const FILTER_KEYS = [REPLYING, ...VERBS];
  */
 export default function FeedFilters({ counts, estimatedVerbs }) {
   const [params, setParams] = useSearchParams();
-  const { open, closeModal } = useFeedFilter();
+  const { panel, closePanel } = useChromePanel();
+  const open = panel === 'filter';
   useRegisterFeedFilter();
 
   const activeVerbs = resolveActiveVerbs(params);
@@ -95,7 +97,7 @@ export default function FeedFilters({ counts, estimatedVerbs }) {
       onSelectAll={selectAll}
       onSelectNone={selectNone}
       onReset={resetToDefault}
-      onClose={closeModal}
+      onClose={closePanel}
     />
   );
 }
@@ -116,13 +118,7 @@ function FilterModal({
   const allActive = !usingDefaults && activeVerbs.size === FILTER_KEYS.length;
   const noneActive = !usingDefaults && activeVerbs.size === 0;
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      label="Filter feed"
-      className="feed-filter-modal-panel"
-      scrimLabel="Close filter"
-    >
+    <BottomSheet open={open} onClose={onClose} label="Filter feed" id="chrome-filter-sheet" className="feed-filter-sheet-panel">
       <div className="feed-filter-modal-header">
         <span className="small-caps">filter by type</span>
         <button
@@ -207,7 +203,7 @@ function FilterModal({
           );
         })}
       </div>
-    </Modal>
+    </BottomSheet>
   );
 }
 

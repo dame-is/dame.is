@@ -1,26 +1,25 @@
-/* Wrapped in <Modal variant="centered">; the Modal owns positioning,
-   scrim, surface, and motion. Only the interior layout lives here. */
-.search-modal-panel {
-  width: min(560px, 100%);
-  padding: var(--space-5);
+/* Interior of the search bottom sheet. BottomSheet owns positioning, the
+   surface, and the expand animation; only the field layout lives here. */
+.search-sheet-panel {
+  padding: var(--space-4) clamp(var(--space-4), calc(6vw - 3.5rem), 2.5rem);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
-.search-modal-form {
+.search-sheet-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.search-modal-field {
+.search-sheet-field {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.search-modal-field input {
+.search-sheet-field input {
   appearance: none;
   -webkit-appearance: none;
   width: 100%;
@@ -36,13 +35,13 @@
   color: var(--ink);
 }
 
-.search-modal-field input:focus {
+.search-sheet-field input:focus {
   outline: none;
   border-color: var(--accent-soft);
   background: var(--page);
 }
 
-.search-modal-icon {
+.search-sheet-icon {
   position: absolute;
   left: 0.85em;
   top: 50%;
@@ -51,11 +50,11 @@
   pointer-events: none;
 }
 
-.search-modal-field:focus-within .search-modal-icon {
+.search-sheet-field:focus-within .search-sheet-icon {
   color: var(--ink-soft);
 }
 
-.search-modal-clear {
+.search-sheet-clear {
   position: absolute;
   right: 0.5em;
   top: 50%;
@@ -72,21 +71,20 @@
   cursor: pointer;
 }
 
-.search-modal-clear:hover,
-.search-modal-clear:focus-visible {
+.search-sheet-clear:hover,
+.search-sheet-clear:focus-visible {
   color: var(--accent);
   outline: none;
 }
 
-.search-modal-hint {
+.search-sheet-hint {
   font-family: var(--sans);
   font-size: var(--text-xs);
   color: var(--ink-faint);
-  text-align: center;
   margin: 0;
 }
 
-.search-modal-hint kbd {
+.search-sheet-hint kbd {
   font-family: var(--mono, var(--sans));
   font-size: 0.95em;
   padding: 0.1em 0.4em;
