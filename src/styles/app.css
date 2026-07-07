@@ -234,16 +234,17 @@
 
 .home-hero-cta-primary {
   background: var(--accent);
-  /* Keep the same contrasting hairline every other button carries, rather
-     than a border the colour of the fill (which reads as borderless). */
-  border-color: var(--rule);
+  /* Border is a slightly darker shade of the fill itself (not a contrasting
+     tan hairline) so it reads as a soft edge on the same colour rather than
+     an outline in a different hue. Mixing toward black keeps it theme-aware. */
+  border-color: color-mix(in srgb, var(--accent) 80%, #000);
   color: var(--page);
 }
 
 .home-hero-cta-primary:hover,
 .home-hero-cta-primary:focus-visible {
   background: var(--accent-soft);
-  border-color: var(--rule);
+  border-color: color-mix(in srgb, var(--accent-soft) 80%, #000);
   color: var(--page);
 }
 
