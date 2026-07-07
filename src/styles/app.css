@@ -4,8 +4,14 @@
   min-height: 100vh;
   /* The bottom chrome bar is fixed to the viewport bottom on every
      breakpoint, so reserve space below page content equal to the bar's
-     height plus any safe-area inset (iOS home indicator). */
-  padding-bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
+     height plus any safe-area inset (iOS home indicator). The footer strip
+     rides just above the bar and slides up out of it near the page's end
+     (--chrome-bottom-footer-h, measured live) — reserve its height too so
+     the revealed strip lands in its own band instead of over the last line
+     of content (which, unlike the top, can't scroll out from under it). */
+  padding-bottom: calc(
+    var(--chrome-h) + var(--chrome-bottom-footer-h, 0px) + env(safe-area-inset-bottom, 0px)
+  );
 }
 
 /* Finer icon strokes site-wide. Lucide renders its stroke-width as a

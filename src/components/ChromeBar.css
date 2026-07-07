@@ -437,6 +437,47 @@
   }
 }
 
+/* Footer strip: the bottom-bar mirror of the top bar's tertiary breadcrumb.
+   Absolutely positioned at the bar's TOP edge (bottom: 100%) rather than in
+   flow — so revealing it grows nothing in the document and the page content
+   beneath never shifts mid-scroll. The strip slides up from behind the bar
+   inside this fixed clip; the wrap is transparent, so while the strip is
+   tucked away the page content shows through. Anchored to the bar, it
+   inherits the bar's 65rem card + stacking context automatically. */
+.chrome-bar-footer-wrap {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  /* Keep this strip out of the browser's scroll-anchoring so it never nudges
+     the scroll position as it reveals. */
+  overflow-anchor: none;
+}
+
+.chrome-bar-footer {
+  /* Deeper than the bar, matching the breadcrumb + the other expanded chrome
+     panels so the revealed strip reads as an extension of the bottom chrome. */
+  background: var(--surface-deep);
+  /* Hairline facing the content above. The bar's own border-top divides the
+     strip from the button row below it, so no border-bottom here (a second
+     line would double it). */
+  border-top: 1px solid var(--rule);
+  /* Compact chrome rhythm; horizontal padding tracks the chrome content
+     column, same as the button row (see the breakpoint overrides below). */
+  padding: var(--space-3) clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
+  /* Promote to its own compositor layer so the slide is a pure transform —
+     no layout, no repaint of the page, nothing that can stall scrolling. */
+  will-change: transform;
+}
+
+@media (min-width: 65rem) {
+  .chrome-bar-footer {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
+}
+
 .chrome-bottom-row {
   display: flex;
   align-items: center;
@@ -526,7 +567,8 @@
    the wider 72rem main column above this width.) */
 @media (max-width: 65rem) {
   .chrome-bar-row,
-  .chrome-bottom-row {
+  .chrome-bottom-row,
+  .chrome-bar-footer {
     padding-left: clamp(var(--space-5), 6vw, var(--space-9));
     padding-right: clamp(var(--space-5), 6vw, var(--space-9));
   }
@@ -550,7 +592,8 @@
   /* `.main` tightens to `var(--space-4)` at this width — track it so the
      chrome margins stay locked to the content column. */
   .chrome-bar-row,
-  .chrome-bottom-row {
+  .chrome-bottom-row,
+  .chrome-bar-footer {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
   }
