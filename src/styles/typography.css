@@ -131,7 +131,7 @@ blockquote {
   -webkit-initial-letter: 3;
   initial-letter: 3;
   /* Gap between the cap and the text that wraps around it. */
-  margin-right: 0.1em;
+  margin-right: 0.18em;
 }
 
 /* Firefox has no `initial-letter` support yet — approximate with the classic
@@ -146,7 +146,7 @@ blockquote {
     font-size: 3.3em;
     line-height: 0.82;
     padding-top: 0.02em;
-    padding-right: 0.08em;
+    padding-right: 0.12em;
     margin-right: 0;
   }
 }
