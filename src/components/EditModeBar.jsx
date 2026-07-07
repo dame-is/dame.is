@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { PencilLine, Trash2, XCircle } from 'lucide-react';
+import { FileEdit, PencilLine, Trash2, XCircle } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
+import { useActionDock } from '../hooks/useActionDock.jsx';
 import { ME_DID } from '../config.js';
 import './EditModeBar.css';
 
@@ -46,15 +47,42 @@ function deleteTargetsForItem(item) {
  *                editor for that record.
  */
 export default function EditModeBar() {
-  const { active, selectedItems, selectedCount, clearSelection, markRemoved, exit } = useEditMode();
+  const {
+    active,
+    selectedItems,
+    selectedCount,
+    clearSelection,
+    markRemoved,
+    openEditSheet,
+    pageRecord,
+  } = useEditMode();
   const { agent, did } = useAtprotoSession();
-  const navigate = useNavigate();
+  const { closeDock } = useActionDock();
+  const location = useLocation();
   const reduce = useReducedMotion();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const innerRef = useRef(null);
 
   const isOwner = did === ME_DID;
+
+  // The single selected record, if exactly one is chosen and it lives in the
+  // owner's repo (only those are quick-editable here).
+  const selectedUri = selectedCount === 1 ? selectedItems[0]?.atUri : null;
+  const selectedEditable = selectedUri && parseAtUri(selectedUri)?.repo === ME_DID;
+  // The current page's own record — offered when nothing is selected so the
+  // owner can quick-edit "this page" (blog post, home page record, …). Guard
+  // on the stamped path so a stale value can't leak across a route change.
+  const pageUri =
+    pageRecord && pageRecord.path === location.pathname && parseAtUri(pageRecord.atUri)?.repo === ME_DID
+      ? pageRecord.atUri
+      : null;
+
+  function openSheet(atUri) {
+    if (!atUri) return;
+    closeDock();
+    openEditSheet(atUri);
+  }
 
   // Publish the bar's live height on <html> as `--edit-bar-h`. The nav dock
   // reads it to lift its sheet so it expands from on top of this bar rather
@@ -120,16 +148,6 @@ export default function EditModeBar() {
     }
   }
 
-  function handleEditSingle() {
-    if (selectedCount !== 1) return;
-    const parts = parseAtUri(selectedItems[0]?.atUri);
-    if (!parts) return;
-    exit();
-    navigate(
-      `/admin?c=${encodeURIComponent(parts.collection)}&r=${encodeURIComponent(parts.rkey)}`,
-    );
-  }
-
   return (
     <AnimatePresence initial={false}>
       {active && (
@@ -168,26 +186,40 @@ export default function EditModeBar() {
                   <span>Clear</span>
                 </button>
               )}
-              {selectedCount === 1 && (
+              {/* Quick-edit: the single selected record, or — with nothing
+                  selected — the current page's own record. */}
+              {selectedCount === 1 && selectedEditable && (
                 <button
                   type="button"
                   className="edit-mode-bar-btn"
-                  onClick={handleEditSingle}
+                  onClick={() => openSheet(selectedUri)}
                   disabled={busy}
                 >
                   <PencilLine size={15} strokeWidth={1.75} aria-hidden="true" />
                   <span>Edit</span>
                 </button>
               )}
-              <button
-                type="button"
-                className="edit-mode-bar-btn edit-mode-bar-delete"
-                onClick={handleDelete}
-                disabled={busy || selectedCount === 0}
-              >
-                <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
-                <span>{busy ? 'Deleting…' : 'Delete'}</span>
-              </button>
+              {selectedCount === 0 && pageUri && (
+                <button
+                  type="button"
+                  className="edit-mode-bar-btn"
+                  onClick={() => openSheet(pageUri)}
+                >
+                  <FileEdit size={15} strokeWidth={1.75} aria-hidden="true" />
+                  <span>Edit page</span>
+                </button>
+              )}
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  className="edit-mode-bar-btn edit-mode-bar-delete"
+                  onClick={handleDelete}
+                  disabled={busy}
+                >
+                  <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
+                  <span>{busy ? 'Deleting…' : 'Delete'}</span>
+                </button>
+              )}
             </div>
           </div>
         </motion.div>

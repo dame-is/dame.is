@@ -1,0 +1,137 @@
+/* Quick-edit sheet. Built exactly like the nav dock (see ActionDock.css): a
+   fixed clip box pinned above the bottom chrome — and above the edit action
+   bar (--edit-bar-h) — animating height 0 ↔ auto so the panel unfurls upward.
+   Sits a layer above the dock/edit-bar (z 32) since it's the frontmost
+   interaction when open. */
+.edit-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+.edit-sheet-wrap {
+  position: fixed;
+  bottom: calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px));
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 65rem;
+  margin: 0 auto;
+  z-index: 32;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.edit-sheet-panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-deep);
+  border-bottom: 1px solid var(--rule);
+  /* Cap the sheet to the space between the top chrome and the bars/edit bar,
+     then let the record editor scroll within it. Short records stay short. */
+  max-height: calc(
+    100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
+      env(safe-area-inset-bottom, 0px) - var(--space-4)
+  );
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 65rem) {
+  .edit-sheet-panel {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+  }
+}
+
+/* Sticky header so the record label + close stay put while the editor body
+   scrolls under them. */
+.edit-sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-deep);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.edit-sheet-titles {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.edit-sheet-title {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.16em;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.edit-sheet-rkey {
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-sheet-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.edit-sheet-close:hover,
+.edit-sheet-close:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  outline: none;
+}
+
+.edit-sheet-body {
+  padding: var(--space-4);
+}
+
+.edit-sheet-foot {
+  position: sticky;
+  bottom: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-deep);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.edit-sheet-admin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.edit-sheet-admin-link:hover,
+.edit-sheet-admin-link:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
