@@ -78,6 +78,27 @@ export const PAGE_REGISTRY = {
     intro: 'A decade of building social software, brands, and communities. Each entry backlinks to a job record on my PDS.',
     collection: null,
   },
+  about: {
+    slug: 'about',
+    label: 'About this site',
+    title: 'About this site',
+    // The "What is this site?" primer shown in the bottom-bar info sheet.
+    // Authored as markdown so it can migrate onto the PDS and be edited there.
+    body: `**dame.is** is a personal website built on top of the *AT Protocol*. It's where Dame writes, posts, plays music, ships projects, and keeps a running log of what they're up to. The data behind every record on this page is portable, open, and not stuck on this website.
+
+### What is atproto?
+
+The Authenticated Transfer Protocol (**atproto** for short) is an open networking protocol designed by Bluesky. It separates *where your data lives* from *which apps you use to read or write it*. Anyone can build an app on atproto and read from the same shared, user-owned data layer.
+
+### What's the Atmosphere?
+
+"The Atmosphere" is the affectionate nickname for the ecosystem of apps and services built on atproto, including Bluesky, Tangled, Grain, Leaflet, Flushes, and many others. Each app is a different view into the same shared network of people and records.
+
+### Where does this content live?
+
+Every record you see on this site (posts, status updates, songs played, blog entries, project pages) is stored on Dame's own **Personal Data Server** (their PDS). They own it. This site is just one of many possible windows into that data, and the data comes with them if they ever move PDSes or build another frontend.`,
+    collection: null,
+  },
 };
 
 export function pageDefault(slug) {

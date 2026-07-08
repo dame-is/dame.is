@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "key": "literal:home | literal:posting | literal:logging | literal:sharing | literal:blogging | literal:creating | literal:listening | tid",
+      "key": "literal:home | literal:posting | literal:logging | literal:sharing | literal:blogging | literal:creating | literal:listening | literal:curating | literal:mothing | literal:resume | literal:about | tid",
       "record": {
         "type": "object",
         "required": ["title", "createdAt"],
