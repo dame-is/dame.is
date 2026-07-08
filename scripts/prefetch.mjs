@@ -47,6 +47,7 @@ import {
   fetchChannelMeta,
   fetchAllBlocks,
   arenaAccessToken,
+  pickCoverThumb,
 } from '../src/lib/arena.js';
 import {
   buildUnifiedFeed,
@@ -190,7 +191,7 @@ async function main() {
       title: g.value.title || snap.meta?.title || g.rkey,
       description: g.value.description || snap.meta?.description || '',
       blockCount: snap.blocks.length,
-      cover: snap.blocks[0]?.thumb || null,
+      cover: pickCoverThumb(snap.blocks, g.value.coverBlockId),
       order: g.value.order ?? 0,
       // Channel-level change marker: lets the client skip re-paginating
       // contents when the channel hasn't changed since this snapshot.
