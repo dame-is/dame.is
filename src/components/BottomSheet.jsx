@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import './BottomSheet.css';
 
 /**
@@ -35,6 +36,10 @@ export default function BottomSheet({
   children,
 }) {
   const reduce = useReducedMotion();
+  const panelRef = useRef(null);
+  // Keep a touch-drag on the open sheet from scrolling the page behind it
+  // when the panel's content fits without overflowing.
+  usePreventScrollChain(panelRef, open);
 
   useEffect(() => {
     if (!open || !closeOnEscape) return undefined;
@@ -74,6 +79,7 @@ export default function BottomSheet({
             transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
           >
             <div
+              ref={panelRef}
               id={id}
               className={`bottom-sheet-panel bottom-sheet-panel-${size} ${className}`.trim()}
               role="dialog"

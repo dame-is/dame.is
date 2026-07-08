@@ -6,6 +6,7 @@ import { ExternalLink, X } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
+import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import RecordEditor from './RecordEditor.jsx';
 import { lexiconFor } from '../lib/lexicons.js';
 import { ME_DID } from '../config.js';
@@ -33,6 +34,10 @@ export default function EditSheet() {
   // Imperative handle into the editor + its live status, so the edit action
   // bar can host the Save / Delete controls instead of the sheet itself.
   const editorRef = useRef(null);
+  // Keep a touch-drag inside the sheet body from scrolling the page behind
+  // it when the form fits without overflowing.
+  const bodyRef = useRef(null);
+  usePreventScrollChain(bodyRef, !!editSheet);
   const [editorStatus, setEditorStatus] = useState({
     saving: false,
     deleting: false,
@@ -126,7 +131,7 @@ export default function EditSheet() {
                 </button>
               </div>
 
-              <div className="edit-sheet-body">
+              <div ref={bodyRef} className="edit-sheet-body">
                 {editable ? (
                   <RecordEditor
                     key={editSheet.atUri}
