@@ -1,15 +1,19 @@
 // Tiny isomorphic Are.na v3 client. No SDK — just fetch + JSON, so it runs
 // in both `scripts/prefetch.mjs` (Node) and the browser.
 //
-// Public channels need no auth and the API sends `access-control-allow-origin:
-// *`, so the browser's live refresh works unauthenticated (guest tier,
-// 30 req/min — a gallery page view makes at most ~11 requests). At build time
-// an optional read-only personal access token (ARENA_ACCESS_TOKEN) raises the
-// rate ceiling to the account's tier (premium = 300/min). The env var is
-// deliberately not VITE_-prefixed so Vite can never inline it into the
-// client bundle.
+// A read-only personal access token (ARENA_ACCESS_TOKEN) raises the rate
+// ceiling from the 30 req/min guest tier to the account's tier. It is applied
+// two ways so both the build and the live site are authenticated, while the
+// secret never reaches the client bundle:
+//   - Node (build-time prefetch): sent straight to api.are.na as a Bearer.
+//   - Browser (live refresh): requests go through our same-origin `/api/arena`
+//     serverless proxy, which injects the token server-side.
+// The env var is deliberately not VITE_-prefixed so Vite can never inline it.
 
 const ARENA_API = 'https://api.are.na/v3';
+
+// Browser calls hit the serverless proxy instead of api.are.na directly.
+const ARENA_PROXY = '/api/arena';
 
 // Courtesy identification for build-time requests so are.na can see who
 // is calling. Node only — browsers forbid setting User-Agent, but their
@@ -18,17 +22,30 @@ const ARENA_USER_AGENT = 'dame.is prefetch (+https://dame.is)';
 
 const IS_NODE = typeof process !== 'undefined' && Boolean(process.versions?.node);
 
-/** Build-time only: undefined in the browser. */
+/**
+ * Build-time only: undefined in the browser. Accepts a few common env-var
+ * names so a token set under any of them is picked up.
+ */
 export function arenaAccessToken() {
-  return typeof process !== 'undefined' ? process.env?.ARENA_ACCESS_TOKEN : undefined;
+  if (typeof process === 'undefined') return undefined;
+  const env = process.env || {};
+  return env.ARENA_ACCESS_TOKEN || env.ARENA_TOKEN || env.ARENA_API_KEY || undefined;
 }
 
 async function arenaJson(path) {
-  const token = arenaAccessToken();
   const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  if (IS_NODE) headers['User-Agent'] = ARENA_USER_AGENT;
-  const res = await fetch(`${ARENA_API}${path}`, {
+  let url;
+  if (IS_NODE) {
+    // Build time: talk to are.na directly, authenticating with the token.
+    const token = arenaAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    headers['User-Agent'] = ARENA_USER_AGENT;
+    url = `${ARENA_API}${path}`;
+  } else {
+    // Browser: go through the same-origin proxy, which adds the token.
+    url = `${ARENA_PROXY}?path=${encodeURIComponent(path)}`;
+  }
+  const res = await fetch(url, {
     headers: Object.keys(headers).length ? headers : undefined,
   });
   if (!res.ok) {

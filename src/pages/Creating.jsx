@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import MasonryGrid from '../components/MasonryGrid.jsx';
 import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
@@ -17,37 +18,6 @@ import '../components/FeedFilters.css';
 import './Creating.css';
 
 const STANDARD_DOC = 'site.standard.document';
-
-// Masonry column sizing — keep in step with `.creating-grid` in Creating.css.
-const MASONRY_MIN_COL_REM = 16;
-const MASONRY_GAP_REM = 1.5; // --space-5
-
-/**
- * Responsive masonry column count from the container's own width. Distributing
- * items round-robin across this many columns (item i → column i % n) keeps the
- * tight, non-aligned masonry look while preserving left-to-right reading order
- * — newest across the top row rather than straight down the first column.
- */
-function useMasonryColumns() {
-  const ref = useRef(null);
-  const [cols, setCols] = useState(1);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return undefined;
-    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    const minCol = MASONRY_MIN_COL_REM * rem;
-    const gap = MASONRY_GAP_REM * rem;
-    const measure = () => {
-      const w = el.clientWidth;
-      if (w > 0) setCols(Math.max(1, Math.floor((w + gap) / (minCol + gap))));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, cols];
-}
 
 function WorkCard({ record }) {
   const v = record.value || {};
@@ -154,15 +124,6 @@ export default function Creating() {
   }, [loading, coversReady]);
   const showSkeleton = loading || (filtered.length > 0 && !revealed);
 
-  // Deal the (newest-first) works round-robin into responsive columns so the
-  // masonry reads left-to-right, newest along the top.
-  const [gridRef, columnCount] = useMasonryColumns();
-  const columns = useMemo(() => {
-    const buckets = Array.from({ length: columnCount }, () => []);
-    filtered.forEach((r, i) => buckets[i % columnCount].push(r));
-    return buckets;
-  }, [filtered, columnCount]);
-
   return (
     <PageShell
       title={title}
@@ -178,15 +139,10 @@ export default function Creating() {
           {q ? 'No works match that search.' : 'No works yet.'}
         </p>
       ) : (
-        <div className="creating-grid" ref={gridRef}>
-          {columns.map((col, ci) => (
-            <ul className="creating-grid-col reveal-stagger" key={ci}>
-              {col.map((r, i) => (
-                <WorkCard key={r.uri || `${ci}-${i}`} record={r} />
-              ))}
-            </ul>
-          ))}
-        </div>
+        <MasonryGrid
+          items={filtered}
+          renderItem={(r, i) => <WorkCard key={r.uri || i} record={r} />}
+        />
       )}
     </PageShell>
   );

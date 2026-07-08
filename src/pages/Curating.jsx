@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import MasonryGrid from '../components/MasonryGrid.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
@@ -105,8 +106,9 @@ export default function Curating() {
       ) : list.length === 0 ? (
         <p className="feed-empty">No galleries yet.</p>
       ) : (
-        <ul className="creating-grid reveal-stagger">
-          {list.map((g) => (
+        <MasonryGrid
+          items={list}
+          renderItem={(g) => (
             <li key={g.slug} className="creating-grid-cell">
               <Link to={`/curating/${g.slug}`} className="creating-grid-link">
                 {g.cover?.src ? (
@@ -127,8 +129,8 @@ export default function Curating() {
                 </div>
               </Link>
             </li>
-          ))}
-        </ul>
+          )}
+        />
       )}
     </PageShell>
   );
