@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
@@ -27,6 +27,47 @@ export default function ActionDock() {
   // can drive them.
   const { open, view, setView, openDock, closeDock } = useActionDock();
   const reduce = useReducedMotion();
+  const panelRef = useRef(null);
+
+  // Keep a touch-drag on the open sheet from scrolling the page behind it.
+  // The panel fully conceals the page, but it's a `position: fixed` scroll
+  // container whose content often fits without overflowing (e.g. the short
+  // route list). When there's nothing to scroll, `overscroll-behavior:
+  // contain` has nothing to contain, so iOS treats a tap-drag as a page
+  // scroll — the concealed window slides underneath and the sheet visibly
+  // jitters. Swallow any touchmove that would chain to the window: the whole
+  // gesture when the panel can't scroll, and the boundary-overscroll frames
+  // (drag down at the top / up at the bottom) when it can. Attached
+  // non-passively so preventDefault actually takes — React's synthetic
+  // touchmove is passive and can't cancel the scroll.
+  useEffect(() => {
+    if (!open) return undefined;
+    const el = panelRef.current;
+    if (!el) return undefined;
+    let startY = 0;
+    const onTouchStart = (e) => {
+      startY = e.touches[0]?.clientY ?? 0;
+    };
+    const onTouchMove = (e) => {
+      // Leave pinch-zoom and other multi-touch gestures alone.
+      if (e.touches.length > 1) return;
+      const dy = (e.touches[0]?.clientY ?? 0) - startY;
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      if (scrollHeight <= clientHeight) {
+        e.preventDefault();
+        return;
+      }
+      const atTop = scrollTop <= 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight;
+      if ((atTop && dy > 0) || (atBottom && dy < 0)) e.preventDefault();
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [open]);
 
   // Esc pops the sub-view first; only closes the dock once we're back
   // at the root menu. The Modal's built-in Esc handler is disabled
@@ -102,6 +143,7 @@ export default function ActionDock() {
             transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
           >
             <div
+              ref={panelRef}
               id="action-dock-panel"
               className={`dock-panel dock-panel-view-${view}`}
               role="dialog"
