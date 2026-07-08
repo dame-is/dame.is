@@ -295,6 +295,10 @@ export const LEXICONS = {
       },
       { key: 'title', label: 'Title override', type: 'text', hint: 'Blank = channel title from are.na.' },
       { key: 'description', label: 'Description override', type: 'textarea', hint: 'Blank = channel description from are.na.' },
+      {
+        key: 'coverBlockId', label: 'Cover image', type: 'arenaCover',
+        hint: 'Pick which image fronts this gallery on /curating. Blank = the first image in the channel.',
+      },
       { key: 'order', label: 'Order', type: 'number', default: 0, hint: 'Lower numbers sort first on /curating.' },
       { key: 'enabled', label: 'Enabled (shown on the site)', type: 'boolean', default: true },
       ...COMMON_TIMESTAMPS,

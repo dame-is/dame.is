@@ -8,7 +8,7 @@ import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
-import { fetchChannelMeta, fetchChannelPage, normalizeBlock } from '../lib/arena.js';
+import { fetchChannelMeta, fetchChannelPage, normalizeBlock, pickCoverThumb } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Curating.css';
@@ -47,8 +47,11 @@ async function loadGalleries() {
       const meta = await fetchChannelMeta(g.value.arenaSlug);
       let cover = snapCovers.get(g.rkey) || null;
       if (!cover) {
+        // No snapshot cover yet — derive one from the first page, honouring the
+        // author's chosen cover block when it happens to be on that page.
         const page = await fetchChannelPage(g.value.arenaSlug, 1, 10);
-        cover = (page?.data || []).map(normalizeBlock).find(Boolean)?.thumb || null;
+        const blocks = (page?.data || []).map(normalizeBlock).filter(Boolean);
+        cover = pickCoverThumb(blocks, g.value.coverBlockId);
       }
       galleries.push({
         slug: g.rkey,

@@ -99,6 +99,20 @@ export function normalizeBlock(block) {
   };
 }
 
+/**
+ * Pick a gallery's cover thumbnail from its normalized blocks. Honours an
+ * author-chosen `coverBlockId` (the are.na block id) when that block is present;
+ * otherwise falls back to the first block — the historical default.
+ */
+export function pickCoverThumb(blocks, coverBlockId) {
+  const list = Array.isArray(blocks) ? blocks : [];
+  if (coverBlockId != null && coverBlockId !== '') {
+    const chosen = list.find((b) => String(b?.id) === String(coverBlockId));
+    if (chosen?.thumb) return chosen.thumb;
+  }
+  return list[0]?.thumb || null;
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**

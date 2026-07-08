@@ -3,6 +3,7 @@ import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { resolvePds } from '../lib/atproto.js';
 import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
+import { fetchAllBlocks } from '../lib/arena.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
@@ -442,6 +443,7 @@ function FormEditor({ lex, value, onChange, agent, did, coverPreview, onSetCover
           key={f.key}
           field={f}
           value={value[f.key]}
+          record={value}
           onChange={(v) => onChange(f.key, v)}
           agent={agent}
           did={did}
@@ -511,7 +513,7 @@ function RecordPreview({ lex, record }) {
   );
 }
 
-function Field({ field, value, onChange, agent, did, onSetCover, externalPreview }) {
+function Field({ field, value, record, onChange, agent, did, onSetCover, externalPreview }) {
   const id = `record-editor-field-${field.key}`;
   let control;
   switch (field.type) {
@@ -651,6 +653,11 @@ function Field({ field, value, onChange, agent, did, onSetCover, externalPreview
           agent={agent}
           externalPreview={externalPreview}
         />
+      );
+      break;
+    case 'arenaCover':
+      control = (
+        <ArenaCoverField value={value} onChange={onChange} arenaSlug={record?.arenaSlug} />
       );
       break;
     case 'publicationPicker':
@@ -907,6 +914,83 @@ function ImageField({ id, value, onChange, agent, externalPreview }) {
         <button type="button" className="admin-link-subtle" onClick={() => onChange(undefined)}>
           Remove image
         </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Cover picker for an are.na gallery (`is.dame.arena.channel`). Loads the
+ * channel's images (through the same-origin proxy) and lets the author click
+ * one to front the gallery; the stored value is that block's are.na id.
+ */
+function ArenaCoverField({ value, onChange, arenaSlug }) {
+  const [blocks, setBlocks] = useState(null);
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const slug = (arenaSlug || '').trim();
+    if (!slug) {
+      setBlocks(null);
+      setStatus('Enter the are.na channel slug first, then reopen this record to pick a cover.');
+      return undefined;
+    }
+    setStatus('Loading images…');
+    setBlocks(null);
+    // Cap the pull so a huge channel doesn't hammer the API — enough to choose from.
+    fetchAllBlocks(slug, { maxPages: 2 })
+      .then(({ blocks: bs, truncated }) => {
+        if (cancelled) return;
+        setBlocks(bs);
+        setStatus(
+          bs.length === 0
+            ? 'No images found in that channel.'
+            : truncated
+              ? `Showing the first ${bs.length} images.`
+              : null,
+        );
+      })
+      .catch((err) => {
+        if (!cancelled) setStatus(`Could not load images: ${err?.message || err}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [arenaSlug]);
+
+  return (
+    <div className="arena-cover-field">
+      <div className="arena-cover-actions">
+        <span className="admin-field-hint">
+          {value ? 'Selected image fronts the gallery.' : 'Using the first image (default).'}
+        </span>
+        {value != null && value !== '' && (
+          <button type="button" className="admin-link-subtle" onClick={() => onChange(undefined)}>
+            Use first image
+          </button>
+        )}
+      </div>
+      {status && <p className="admin-field-hint">{status}</p>}
+      {Array.isArray(blocks) && blocks.length > 0 && (
+        <ul className="arena-cover-grid">
+          {blocks.map((b) => {
+            const selected = String(b.id) === String(value);
+            return (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  className={`arena-cover-thumb${selected ? ' is-selected' : ''}`}
+                  onClick={() => onChange(selected ? undefined : b.id)}
+                  title={b.title || 'Untitled block'}
+                  aria-pressed={selected}
+                >
+                  <img src={b.thumb?.src} alt={b.alt || ''} loading="lazy" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

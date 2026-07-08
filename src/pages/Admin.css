@@ -390,6 +390,63 @@
   gap: var(--space-2);
 }
 
+/* are.na gallery cover picker (is.dame.arena.channel → coverBlockId). */
+.arena-cover-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.arena-cover-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.arena-cover-actions .admin-field-hint {
+  margin: 0;
+}
+
+.arena-cover-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
+  gap: var(--space-2);
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.arena-cover-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--rule-soft);
+  border-radius: 0;
+  background: var(--page);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.arena-cover-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.arena-cover-thumb:hover {
+  border-color: var(--accent-soft);
+}
+
+.arena-cover-thumb.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .admin-field-label {
   font-family: var(--sans);
   font-variant: all-small-caps;
