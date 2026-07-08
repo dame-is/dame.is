@@ -22,7 +22,10 @@
 // 1 day so a freshly released track can recover once its art is indexed.
 
 const ALBUM_ART_ENDPOINT = '/api/albumart';
-const CACHE_KEY = 'dame:albumArtCache:v1';
+// v2: v1 read/wrote the cache on mismatched fields (stored `artworkUrl100`,
+// checked `url`), so every hit was read back as a miss and covers vanished
+// on reload. Bumping the key discards those poisoned entries.
+const CACHE_KEY = 'dame:albumArtCache:v2';
 const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -58,7 +61,7 @@ function cacheGet(key) {
   const cache = readCache();
   const entry = cache[key];
   if (!entry) return undefined;
-  const ttl = entry.url ? HIT_TTL_MS : MISS_TTL_MS;
+  const ttl = entry.artworkUrl100 ? HIT_TTL_MS : MISS_TTL_MS;
   if (Date.now() - (entry.t || 0) > ttl) return undefined;
   return entry;
 }
@@ -178,7 +181,7 @@ export async function albumArtFor(payload, { size = 600 } = {}) {
 
   const cached = cacheGet(key);
   if (cached) {
-    if (!cached.url) return null;
+    if (!cached.artworkUrl100) return null;
     return {
       ...cached,
       url: upscaleArtwork(cached.artworkUrl100, size),
@@ -192,7 +195,7 @@ export async function albumArtFor(payload, { size = 600 } = {}) {
     try {
       const hit = await resolveResult(payload);
       if (!hit?.artworkUrl100) {
-        cacheSet(key, { url: null });
+        cacheSet(key, { artworkUrl100: null });
         return null;
       }
       const entry = {
