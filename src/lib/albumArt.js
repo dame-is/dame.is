@@ -9,17 +9,19 @@
 //      play came from Apple). Exact match when present.
 //   3. trackName + first artistName. Last-resort fuzzy text search.
 //
-// We hit Apple's open iTunes Search/Lookup API for all three. It's free,
-// requires no auth, is CORS-friendly, and returns an `artworkUrl100` that
-// can be upscaled by swapping the `100x100bb.jpg` segment for a larger
-// size — Apple actually serves whatever resolution you ask for.
+// The lookup goes through our own `/api/albumart` serverless proxy rather
+// than hitting iTunes from the browser directly: Apple's API sends no CORS
+// header, so a direct fetch is blocked and every cover falls back to a
+// blank placeholder. The proxy also CDN-caches results, so the first viewer
+// of a track warms the art for everyone. Apple returns an `artworkUrl100`
+// that can be upscaled by swapping the `100x100bb.jpg` segment for a larger
+// size — Apple serves whatever resolution the URL asks for.
 //
-// Results are cached in localStorage so we don't re-hit Apple on every
-// re-render or page navigation. Hits are kept for 30 days, misses for 1
-// day so a freshly released track can recover once its art is indexed.
+// Results are also cached in localStorage so we don't re-hit the proxy on
+// every re-render or page navigation. Hits are kept for 30 days, misses for
+// 1 day so a freshly released track can recover once its art is indexed.
 
-const ITUNES_LOOKUP = 'https://itunes.apple.com/lookup';
-const ITUNES_SEARCH = 'https://itunes.apple.com/search';
+const ALBUM_ART_ENDPOINT = '/api/albumart';
 const CACHE_KEY = 'dame:albumArtCache:v1';
 const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 24 * 60 * 60 * 1000;
@@ -125,45 +127,28 @@ function cacheKeyFor(payload) {
 
 async function fetchJson(url) {
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`iTunes ${res.status}`);
+  if (!res.ok) throw new Error(`album art ${res.status}`);
   return res.json();
 }
 
 /**
- * Resolve a payload to a result row from iTunes Search/Lookup. Walks the
- * identifier ladder: ISRC → Apple song id → free-text search.
+ * Resolve a payload to an artwork row via our `/api/albumart` proxy, which
+ * walks the identifier ladder (ISRC → Apple song id → free-text search)
+ * server-side. Returns a row with `artworkUrl100`, or null on a miss.
  */
 async function resolveResult(payload) {
-  const isrc = payload?.isrc;
-  if (isrc) {
-    const data = await fetchJson(
-      `${ITUNES_LOOKUP}?isrc=${encodeURIComponent(isrc)}&entity=song&limit=1`,
-    );
-    const hit = (data?.results || []).find((r) => r?.artworkUrl100);
-    if (hit) return hit;
-  }
-
+  const params = new URLSearchParams();
+  if (payload?.isrc) params.set('isrc', String(payload.isrc));
   const songId = appleSongIdFrom(payload);
-  if (songId) {
-    const data = await fetchJson(
-      `${ITUNES_LOOKUP}?id=${encodeURIComponent(songId)}&entity=song&limit=1`,
-    );
-    const hit = (data?.results || []).find((r) => r?.artworkUrl100);
-    if (hit) return hit;
-  }
-
+  if (songId) params.set('appleId', songId);
   const track = trackTitle(payload);
+  if (track) params.set('track', track);
   const artist = firstArtist(payload);
-  if (track) {
-    const term = [track, artist].filter(Boolean).join(' ');
-    const data = await fetchJson(
-      `${ITUNES_SEARCH}?term=${encodeURIComponent(term)}&entity=song&limit=1`,
-    );
-    const hit = (data?.results || []).find((r) => r?.artworkUrl100);
-    if (hit) return hit;
-  }
+  if (artist) params.set('artist', artist);
+  if (![...params.keys()].length) return null;
 
-  return null;
+  const data = await fetchJson(`${ALBUM_ART_ENDPOINT}?${params}`);
+  return data?.found && data.artworkUrl100 ? data : null;
 }
 
 /**
@@ -212,9 +197,9 @@ export async function albumArtFor(payload, { size = 600 } = {}) {
       }
       const entry = {
         artworkUrl100: hit.artworkUrl100,
-        track: hit.trackName || null,
-        artist: hit.artistName || null,
-        album: hit.collectionName || null,
+        track: hit.track || null,
+        artist: hit.artist || null,
+        album: hit.album || null,
         source: 'itunes',
       };
       cacheSet(key, entry);
