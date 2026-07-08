@@ -46,10 +46,15 @@ export function usePageContent(slug) {
   const record = items && (items.uri || items.value) ? items : null;
   const v = record?.value || {};
 
-  const html = useMemo(
-    () => (v.body ? renderMarkdown(v.body, v.bodyFormat || 'markdown') : ''),
-    [v.body, v.bodyFormat],
-  );
+  // When a PDS record exists, its body wins (even if empty — the owner may
+  // have deliberately cleared it). Otherwise fall back to the local default
+  // body so pages authored entirely in the registry (e.g. the info sheet)
+  // still render before/without a migration.
+  const html = useMemo(() => {
+    const body = record ? v.body : def.body;
+    const fmt = (record ? v.bodyFormat : def.bodyFormat) || 'markdown';
+    return body ? renderMarkdown(body, fmt) : '';
+  }, [record, v.body, v.bodyFormat, def.body, def.bodyFormat]);
 
   return {
     title: v.title || def.title,

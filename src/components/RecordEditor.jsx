@@ -7,6 +7,12 @@ import { fetchAllBlocks } from '../lib/arena.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
+import {
+  HighlightsField,
+  RecordRefsField,
+  SkillGroupsField,
+  ContactField,
+} from './resumeFields.jsx';
 import '../pages/Admin.css';
 
 /**
@@ -197,7 +203,9 @@ const RecordEditor = forwardRef(function RecordEditor({
         if (!f.required && (next[f.key] === '' || next[f.key] === undefined || next[f.key] === null)) {
           delete next[f.key];
         }
-        if (f.type === 'tags' && Array.isArray(next[f.key]) && next[f.key].length === 0 && !f.required) {
+        // Drop empty arrays (tags, highlights, resume entries, skill groups, …)
+        // for optional fields so records stay clean.
+        if (Array.isArray(next[f.key]) && next[f.key].length === 0 && !f.required) {
           delete next[f.key];
         }
       }
@@ -621,6 +629,20 @@ function Field({ field, value, record, onChange, agent, did, onSetCover, externa
       break;
     case 'json':
       control = <JsonField id={id} value={value} onChange={onChange} />;
+      break;
+    case 'highlights':
+      control = <HighlightsField value={value} onChange={onChange} />;
+      break;
+    case 'recordRefs':
+      control = (
+        <RecordRefsField field={field} value={value} onChange={onChange} agent={agent} did={did} />
+      );
+      break;
+    case 'skillGroups':
+      control = <SkillGroupsField value={value} onChange={onChange} />;
+      break;
+    case 'contact':
+      control = <ContactField value={value} onChange={onChange} />;
       break;
     case 'category':
       control = (
