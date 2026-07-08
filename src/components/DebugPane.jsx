@@ -5,6 +5,7 @@ import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import RecordEditor from './RecordEditor.jsx';
 import { ME_DID } from '../config.js';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
+import { BUILD_ID } from '../lib/appVersion.js';
 import './DebugOverlay.css';
 
 /**
@@ -65,6 +66,7 @@ export default function DebugPane({ onClose }) {
         <Row label="lexicon" value={lexicon} copyValue={lexicon} mono copied={copied} onCopy={copy} />
         <Row label="pds" value={pds} copyValue={pds} placeholder="resolving…" mono copied={copied} onCopy={copy} />
         <Row label="appview" value="public.api.bsky.app" copyValue="public.api.bsky.app" mono copied={copied} onCopy={copy} />
+        <Row label="build" value={BUILD_ID} copyValue={BUILD_ID} mono copied={copied} onCopy={copy} />
       </dl>
 
       <div className="debug-overlay-actions">
