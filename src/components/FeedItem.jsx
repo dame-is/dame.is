@@ -85,7 +85,7 @@ function hrefFor(item) {
  * registry. The verb badge doubles as the link to the underlying record
  * page (or generic JSON fallback for verbs without a specialized one).
  */
-export default function FeedItem({ item }) {
+export default function FeedItem({ item, showVerb = true }) {
   const navigate = useNavigate();
   const edit = useEditMode();
   const cfg = verbConfig(item.verb);
@@ -175,7 +175,7 @@ export default function FeedItem({ item }) {
   // time is shown and the card's own row is hidden; in compact/tight —
   // where the verb column is stripped — this hoisted copy is hidden and
   // the card's in-place timestamp is what remains (see Feed.css).
-  const hoistTime = cfg.renderer === 'PostCard' && postCardShowsStandaloneTime(item);
+  const hoistTime = showVerb && cfg.renderer === 'PostCard' && postCardShowsStandaloneTime(item);
   const hoistTs = hoistTime ? item.createdAt || item.payload?.indexedAt : null;
   const liClassName = [
     'feed-item',
@@ -208,7 +208,7 @@ export default function FeedItem({ item }) {
           {selected && <Check size={12} strokeWidth={2.5} />}
         </span>
       )}
-      {(() => {
+      {showVerb && (() => {
         const verbEl = href && !listeningEdit ? (
           <Link className={verbClassName} to={href}>
             {verbInner}
@@ -238,7 +238,7 @@ export default function FeedItem({ item }) {
       <Component
         {...item}
         verb={item.verb}
-        suppressReplyBadge={isReplyVerb || threadContinuation}
+        suppressReplyBadge={showVerb ? isReplyVerb || threadContinuation : threadContinuation}
       />
     </li>
   );

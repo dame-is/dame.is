@@ -16,6 +16,11 @@
   padding: var(--space-2) var(--space-3);
   font-family: var(--sans);
   font-size: var(--text-sm);
+  /* Some inputs sit *inside* their <label class="admin-field-label">, which
+     carries `font-variant: all-small-caps`; without this reset the typed
+     value renders as small caps (e.g. link-card URL/title/description). */
+  font-variant: normal;
+  text-transform: none;
   color: var(--ink);
   background: var(--page);
   border: 1px solid var(--rule);

@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
+import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
 import './ActionDock.css';
@@ -27,6 +28,10 @@ export default function ActionDock() {
   // can drive them.
   const { open, view, setView, openDock, closeDock } = useActionDock();
   const reduce = useReducedMotion();
+  const panelRef = useRef(null);
+  // Keep a touch-drag on the open sheet from scrolling the concealed page
+  // behind it (the route list often fits without overflowing).
+  usePreventScrollChain(panelRef, open);
 
   // Esc pops the sub-view first; only closes the dock once we're back
   // at the root menu. The Modal's built-in Esc handler is disabled
@@ -102,6 +107,7 @@ export default function ActionDock() {
             transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
           >
             <div
+              ref={panelRef}
               id="action-dock-panel"
               className={`dock-panel dock-panel-view-${view}`}
               role="dialog"

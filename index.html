@@ -2,12 +2,41 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/images/favicon.ico" />
+    <!-- Icons rotate hourly to match Dame's sun-tracking avatar (see api/favicon.js).
+         The larger sizes + web manifest (api/manifest.js) make the site installable
+         as a PWA with the current-hour sky avatar as its app icon. -->
+    <link rel="icon" type="image/png" href="/api/favicon" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/api/favicon?size=192" />
+    <link rel="manifest" href="/api/manifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#e3d8ba" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#13180f" media="(prefers-color-scheme: dark)" />
+    <!-- iOS / Android standalone install hints -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="dame.is" />
     <title>Dame is…</title>
     <meta name="description" content="An atmospheric website by dame, built atop the AT Protocol." />
+
+    <!--
+      Baseline Open Graph / Twitter tags — the fallback card for any route.
+      middleware.js overrides og:title/description/image per page for the main
+      surfaces so crawlers see page-specific dynamic cards.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="dame.is" />
+    <meta property="og:url" content="https://dame.is/" />
+    <meta property="og:title" content="Dame is…" />
+    <meta property="og:description" content="An atmospheric website by dame, built atop the AT Protocol." />
+    <meta property="og:image" content="https://dame.is/api/og" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Dame is… — an atmospheric website built atop the AT Protocol." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dame is…" />
+    <meta name="twitter:description" content="An atmospheric website by dame, built atop the AT Protocol." />
+    <meta name="twitter:image" content="https://dame.is/api/og" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

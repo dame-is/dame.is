@@ -157,7 +157,11 @@ function TrackLabel({ payload, href, plays }) {
     const extra = artists.length > ARTIST_DISPLAY_MAX
       ? ` + ${artists.length - ARTIST_DISPLAY_MAX} more`
       : '';
-    const inner = <strong>{shown + extra}</strong>;
+    // No single track leads a multi-artist session, so the artist pool
+    // carries the line on its own — in regular weight, matching how the
+    // artist reads in a normal "<track> · <artist>" row (bold is reserved
+    // for the track title, which isn't shown here).
+    const inner = shown + extra;
     return href ? <Link to={href}>{inner}</Link> : <span>{inner}</span>;
   }
   const artistLine = isBatch ? (artists[0] || '') : formatArtist(payload);

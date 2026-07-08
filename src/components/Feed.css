@@ -701,6 +701,9 @@ a.post-card-author-link:focus-visible {
 }
 
 .creating-card-thumb img {
+  /* Full cover at its natural aspect ratio (no crop); width fills the column. */
+  width: 100%;
+  height: auto;
   border-radius: var(--radius-2);
   border: 1px solid var(--rule-soft);
 }

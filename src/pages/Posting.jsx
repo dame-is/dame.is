@@ -71,7 +71,7 @@ export default function Posting() {
               <DayOfLifeHeader date={group.date} />
               <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
                 {group.items.map((item) => (
-                  <FeedItem key={item.atUri} item={item} />
+                  <FeedItem key={item.atUri} item={item} showVerb={false} />
                 ))}
               </ul>
             </li>

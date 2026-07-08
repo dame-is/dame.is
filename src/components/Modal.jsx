@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import './Modal.css';
 
 const PRESETS = {
@@ -58,6 +59,10 @@ export default function Modal({
   closeOnEscape = true,
 }) {
   const reduce = useReducedMotion();
+  const panelRef = useRef(null);
+  // Keep a touch-drag on the panel from scrolling the page behind it when
+  // its content fits without overflowing.
+  usePreventScrollChain(panelRef, open);
 
   useEffect(() => {
     if (!open || !closeOnEscape) return;
@@ -134,6 +139,7 @@ export default function Modal({
         {open && (
           <motion.div
             key="panel"
+            ref={panelRef}
             id={id}
             className={`modal-panel ${className}`}
             role="dialog"

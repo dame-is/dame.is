@@ -388,6 +388,13 @@
   align-items: flex-start;
 }
 
+.website-block-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
 .website-block-preview-img {
   max-width: 12rem;
   max-height: 8rem;

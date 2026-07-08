@@ -1,3 +1,30 @@
+/* Horizontal inset shared by every chrome surface — the top/bottom bars,
+   the atmosphere & breadcrumb rows, and the nav dock sheet — so their
+   content columns line up with each other AND with the page body (`.main`)
+   and its nav menu items. The bars/sheet cap at 65rem while `.main` caps at
+   72rem, so each side of the bar sits 3.5rem inside the main column;
+   subtracting 3.5rem from `.main`'s own `6vw` padding lands chrome content
+   on the same column (`6vw - 3.5rem`, clamped with a small floor + 2.5rem
+   cap for the narrow + max-width extremes). Below the 65rem cap the bars are
+   full-bleed exactly like `.main`, so the inset tracks `.main`'s padding
+   directly at each of its breakpoints. Kept on :root — not the chrome
+   scope — because the dock sheet is portalled to <body>, outside .chrome-bar. */
+:root {
+  --chrome-pad-x: clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
+}
+
+@media (max-width: 65rem) {
+  :root {
+    --chrome-pad-x: clamp(var(--space-5), 6vw, var(--space-9));
+  }
+}
+
+@media (max-width: 700px) {
+  :root {
+    --chrome-pad-x: var(--space-4);
+  }
+}
+
 .chrome-bar {
   /* Background lives on the inner top/bottom containers below, not
      here — the wide-screen treatment caps them at 72rem so the page
@@ -37,17 +64,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  /* Bar is 65rem (7rem narrower than `.main`'s 72rem). When both
-     reach their max-widths, the bar sits 3.5rem inside the main
-     column on each side — so the chrome's own padding can be
-     `main_padding - 3.5rem` and chrome elements still land on the
-     main content's margin column. `6vw - 3.5rem` tracks `.main`'s
-     `6vw` padding scale; clamped with a small floor + 2.5rem cap
-     for the narrow + max-width extremes. */
   width: 100%;
   max-width: 65rem;
   margin: 0 auto;
-  padding: 0 clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
+  /* Shared inset that keeps chrome content on the same column as `.main`
+     and the nav dock — see `--chrome-pad-x` at the top of this file. */
+  padding: 0 var(--chrome-pad-x);
   min-height: var(--chrome-h);
 }
 
@@ -341,10 +363,6 @@
   background: var(--page);
 }
 
-.chrome-expand {
-  margin-right: calc(-1 * var(--space-2));
-}
-
 .chrome-nav:hover,
 .chrome-nav:focus-visible,
 .chrome-expand:hover,
@@ -464,8 +482,8 @@
      line would double it). */
   border-top: 1px solid var(--rule);
   /* Compact chrome rhythm; horizontal padding tracks the chrome content
-     column, same as the button row (see the breakpoint overrides below). */
-  padding: var(--space-3) clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
+     column via the shared --chrome-pad-x, same as the button row. */
+  padding: var(--space-3) var(--chrome-pad-x);
   /* Promote to its own compositor layer so the slide is a pure transform —
      no layout, no repaint of the page, nothing that can stall scrolling. */
   will-change: transform;
@@ -485,7 +503,7 @@
   width: 100%;
   max-width: 65rem;
   margin: 0 auto;
-  padding: 0 clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
+  padding: 0 var(--chrome-pad-x);
   min-height: var(--chrome-h);
 }
 
@@ -560,25 +578,6 @@
   will-change: transform;
 }
 
-/* Below the 65rem cap the chrome bars are full-bleed, exactly like `.main`.
-   Match `.main`'s own horizontal padding so the header/dock content lines
-   up with the page's content column. (The base `6vw - 3.5rem` padding only
-   makes sense once the bar is actually capped at 65rem and sits inset from
-   the wider 72rem main column above this width.) */
-@media (max-width: 65rem) {
-  .chrome-bar-row,
-  .chrome-bottom-row,
-  .chrome-bar-footer {
-    padding-left: clamp(var(--space-5), 6vw, var(--space-9));
-    padding-right: clamp(var(--space-5), 6vw, var(--space-9));
-  }
-  /* Drop the top-right chevron's outdent here so the right margin stays
-     symmetric with the left and matches the page's content edge. */
-  .chrome-expand {
-    margin-right: 0;
-  }
-}
-
 @media (max-width: 700px) {
   .chrome-bar-row {
     gap: var(--space-2);
@@ -588,14 +587,6 @@
   }
   .chrome-bottom-cluster {
     gap: var(--space-2);
-  }
-  /* `.main` tightens to `var(--space-4)` at this width — track it so the
-     chrome margins stay locked to the content column. */
-  .chrome-bar-row,
-  .chrome-bottom-row,
-  .chrome-bar-footer {
-    padding-left: var(--space-4);
-    padding-right: var(--space-4);
   }
   .chrome-signals-secondary {
     flex-direction: column;

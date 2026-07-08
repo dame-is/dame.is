@@ -20,6 +20,7 @@ import {
   endRefresh,
 } from '../lib/feedCache.js';
 import { groupByDay } from '../lib/time.js';
+import { collapseListens } from '../lib/listenSessions.js';
 import { resolvePds } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
@@ -45,16 +46,6 @@ const LOAD_MORE_STEP = 100;
 // the page when the network is flaky.
 const SNAPSHOT_FALLBACK_MAX = 60;
 
-
-/**
- * Collapse `listening` items into session batches. Listens are merged
- * when they fall within `LISTEN_BATCH_GAP_MS` of each other — the gap
- * is measured listen-to-listen, so non-listening items interleaved in
- * the feed (a post mid-session, etc.) don't fragment the batch. Day
- * boundary doesn't matter; a session that crosses midnight still
- * groups into one row.
- */
-const LISTEN_BATCH_GAP_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 /**
  * True when every verb in `need` was part of the `have` fetch set — i.e.
@@ -150,32 +141,6 @@ function DayActivityMeta({ checking, stats, reduce }) {
   );
 }
 
-function collapseListens(items) {
-  const out = [];
-  let openBatch = null;
-  let lastListenTime = 0;
-  for (const item of items) {
-    if (item.verb === 'listening') {
-      const t = Date.parse(item.createdAt) || 0;
-      if (openBatch && Math.abs(lastListenTime - t) <= LISTEN_BATCH_GAP_MS) {
-        openBatch.count = (openBatch.count || 1) + 1;
-        openBatch.plays.push(item);
-        lastListenTime = t;
-        continue;
-      }
-      const batch = { ...item, count: 1, plays: [item] };
-      openBatch = batch;
-      lastListenTime = t;
-      out.push(batch);
-    } else {
-      // Non-listening items pass through to the output but DON'T
-      // close the batch — the next listen within the gap window
-      // still merges into the same session.
-      out.push(item);
-    }
-  }
-  return out;
-}
 
 export default function Home() {
   const [params] = useSearchParams();
