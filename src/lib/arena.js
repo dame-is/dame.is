@@ -70,11 +70,27 @@ export function fetchChannelPage(arenaSlug, page = 1, per = 100) {
 
 /**
  * Normalize an are.na block to the compact shape the gallery pages (and
- * snapshots) use. Returns null for block types the gallery can't render —
- * Text, Media, Attachment, nested Channels, and Links without a preview
- * image.
+ * snapshots) use. Handles Image and Link blocks (with a preview image) and
+ * Text blocks (rendered as a text tile). Returns null for everything else —
+ * Media, Attachment, nested Channels, and images/links without a preview.
  */
 export function normalizeBlock(block) {
+  if (!block) return null;
+
+  // Text block → a text tile (are.na channels often mix single words / notes
+  // in with the images). content is `{ markdown, html, plain }` on v3.
+  if (block.type === 'Text') {
+    const text = arenaText(block.content).trim();
+    if (!text) return null;
+    return {
+      id: block.id,
+      type: 'text',
+      text,
+      position: block.connection?.position ?? null,
+      connectedAt: block.connection?.connected_at || null,
+    };
+  }
+
   const img = block?.image;
   if (!img?.src) return null;
   if (block.type !== 'Image' && block.type !== 'Link') return null;
@@ -94,9 +110,24 @@ export function normalizeBlock(block) {
     height: img.height || null,
     aspectRatio: img.aspect_ratio || null,
     sourceUrl: block.source?.url || null,
+    // The page title behind a Link block ("Polysemy - Wikipedia").
+    sourceTitle: block.source?.title || block.title || '',
     position: block.connection?.position ?? null,
     connectedAt: block.connection?.connected_at || null,
   };
+}
+
+/**
+ * are.na v3 returns rich-text fields (e.g. a channel description) as a
+ * `{ markdown, html, plain }` object — or a plain string on older/simple
+ * shapes. Coerce either into a display string (preferring the plain text) so
+ * it's never handed to React as an object child.
+ */
+export function arenaText(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return value.plain || value.markdown || '';
+  return String(value);
 }
 
 /**
@@ -110,7 +141,8 @@ export function pickCoverThumb(blocks, coverBlockId) {
     const chosen = list.find((b) => String(b?.id) === String(coverBlockId));
     if (chosen?.thumb) return chosen.thumb;
   }
-  return list[0]?.thumb || null;
+  // First block that actually has a thumbnail — text tiles have none.
+  return list.find((b) => b?.thumb)?.thumb || null;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

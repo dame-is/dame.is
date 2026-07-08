@@ -8,7 +8,7 @@ import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
-import { fetchChannelMeta, fetchChannelPage, normalizeBlock, pickCoverThumb } from '../lib/arena.js';
+import { fetchChannelMeta, fetchChannelPage, normalizeBlock, pickCoverThumb, arenaText } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Curating.css';
@@ -56,8 +56,8 @@ async function loadGalleries() {
       galleries.push({
         slug: g.rkey,
         arenaSlug: g.value.arenaSlug,
-        title: g.value.title || meta?.title || g.rkey,
-        description: g.value.description || meta?.description || '',
+        title: g.value.title || arenaText(meta?.title) || g.rkey,
+        description: g.value.description || arenaText(meta?.description) || '',
         blockCount: meta?.counts?.blocks ?? null,
         cover,
         order: g.value.order ?? 0,
@@ -127,7 +127,7 @@ export default function Curating() {
                 <div className="creating-grid-meta">
                   <h3 className="creating-grid-title">{g.title}</h3>
                   {g.blockCount != null && (
-                    <span className="gutter">{g.blockCount} images</span>
+                    <span className="gutter">{g.blockCount} {g.blockCount === 1 ? 'block' : 'blocks'}</span>
                   )}
                 </div>
               </Link>
