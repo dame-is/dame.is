@@ -108,11 +108,22 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
         title: block.title || data?.title || '',
         description: block.description || data?.description || '',
       };
-      if (data?.image) setDetected(data.image);
-      if (data?.image && !block.previewImage) {
+      // Resolve a relative og:image ("/cover.png") against the page URL — the
+      // proxy needs an absolute http(s) URL. (The unfurl endpoint already does
+      // this; this is a belt-and-braces fallback for cached/older responses.)
+      let image = data?.image || '';
+      if (image) {
+        try {
+          image = new URL(image, src).href;
+        } catch {
+          image = '';
+        }
+      }
+      if (image) setDetected(image);
+      if (image && !block.previewImage) {
         try {
           setStatus('Fetching preview image…');
-          next.previewImage = await fetchAndUploadImage(data.image);
+          next.previewImage = await fetchAndUploadImage(image);
           setStatus(null);
         } catch {
           setStatus('Metadata loaded, but the preview image could not be fetched.');
