@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { CornerDownRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import PostCard from '../components/PostCard.jsx';
 import StatusEntry from '../components/StatusEntry.jsx';
@@ -61,6 +62,9 @@ export default function Record({ verb, nsid, source }) {
   // own nested `replies`). Drives the comments tree below the record.
   const [replies, setReplies] = useState([]);
   const [repliesStatus, setRepliesStatus] = useState('idle'); // idle | loading | ready | error
+  // The author's own linear self-reply continuation of this post, lifted out
+  // of `replies` and stacked in the main post area (oldest → newest).
+  const [selfThread, setSelfThread] = useState([]);
 
   useEffect(() => {
     if (!collection || !rkey) return;
@@ -69,6 +73,7 @@ export default function Record({ verb, nsid, source }) {
     setMissing(false);
     setParents([]);
     setReplies([]);
+    setSelfThread([]);
     setRepliesStatus(verb === 'posting' || verb === 'reposting' ? 'loading' : 'idle');
 
     async function load() {
@@ -141,8 +146,12 @@ export default function Record({ verb, nsid, source }) {
         if (cancelled || !threadNode) return;
         const chain = collectParents(threadNode);
         if (chain.length) setParents(chain);
-        const childReplies = Array.isArray(threadNode.replies) ? threadNode.replies : [];
-        setReplies(childReplies);
+        // Lift the author's own linear self-reply chain into the main post
+        // area; everything else stays in the replies tree.
+        const authorDid = threadNode.post?.author?.did || ME_DID;
+        const { thread, leftover } = splitSelfThread(threadNode, authorDid);
+        setSelfThread(thread.map((node) => postViewToFeedItem('posting', node.post)));
+        setReplies(leftover);
         setRepliesStatus('ready');
       }
     }
@@ -202,6 +211,14 @@ export default function Record({ verb, nsid, source }) {
           </div>
         ) : (
           <RecordSkeleton />
+        )}
+
+        {item && selfThread.length > 0 && (
+          <div className="record-self-thread" aria-label="Thread continues">
+            {selfThread.map((post) => (
+              <SelfThreadPost key={post.atUri} item={post} />
+            ))}
+          </div>
         )}
 
         {item && <RecordMeta collection={collection} createdAt={createdAt} />}
@@ -457,6 +474,103 @@ function ParentPostCard({ parent, isRoot }) {
         {text ? renderPostText(text, facets) : <em>—</em>}
       </p>
       {embed && <PostEmbed embed={embed} did={did} />}
+    </article>
+  );
+}
+
+function isRenderableReplyNode(node) {
+  if (!node) return false;
+  if (node.$type === 'app.bsky.feed.defs#notFoundPost') return true;
+  if (node.$type === 'app.bsky.feed.defs#blockedPost') return true;
+  return Boolean(node.post);
+}
+
+/**
+ * A post record page for one of the author's own posts often sits at the head
+ * of a self-reply thread — the author replied to their own post to keep a
+ * thought going. Those continuation posts read as one linear piece, so we
+ * lift them out of the replies tree and stack them in the main post area.
+ *
+ * Walks down from the focused post following a *single* self-reply at each
+ * level. It stops as soon as a level has zero self-replies (the thread ended)
+ * or more than one (the author branched — no longer a linear thread, so which
+ * branch "continues" is ambiguous and we leave everything in replies).
+ *
+ * Returns:
+ *   thread   — continuation `threadViewPost` nodes, oldest → newest
+ *   leftover — every reply node NOT on the lifted chain, ready to feed the
+ *              Comments tree: other people's replies to any post in the
+ *              thread, plus all replies hanging off the thread's tail.
+ */
+function splitSelfThread(rootNode, authorDid) {
+  const thread = [];
+  const leftover = [];
+  if (!rootNode || !authorDid) return { thread, leftover };
+  let cursor = rootNode;
+  const seen = new Set(); // guard against a malformed cyclic thread view
+  while (cursor && cursor.post?.uri && !seen.has(cursor.post.uri)) {
+    seen.add(cursor.post.uri);
+    const replies = (cursor.replies || []).filter(isRenderableReplyNode);
+    const selfReplies = replies.filter((r) => r.post?.author?.did === authorDid);
+    if (selfReplies.length === 1) {
+      const next = selfReplies[0];
+      // Siblings of the continuation (replies by others at this level) stay
+      // in the replies section.
+      for (const r of replies) if (r !== next) leftover.push(r);
+      thread.push(next);
+      cursor = next;
+    } else {
+      // 0 → thread ended here; 2+ → branched, not linear. Either way, every
+      // reply hanging off this node belongs in the replies section.
+      leftover.push(...replies);
+      break;
+    }
+  }
+  return { thread, leftover };
+}
+
+/**
+ * One continuation post in the author's self-reply thread, rendered as a
+ * full-size post in the main area (not a nested reply). A dotted rule and a
+ * "↳ continued" marker tie it to the post above; the timestamp links to the
+ * post's own record page.
+ */
+function SelfThreadPost({ item }) {
+  const text = item.payload?.text || '';
+  const facets = item.payload?.facets || null;
+  const embed = item.payload?.embed || item.payload?.embedRecord || null;
+  const author = item.payload?.author || null;
+  const authorDid = author?.did;
+  const ts = item.createdAt || item.payload?.indexedAt;
+  // Local permalink only for the author's own posts (the only records this
+  // site hosts); a reposted foreign thread links its continuations out to
+  // bsky.app instead, matching the parent-chain treatment above.
+  const isMine = authorDid === ME_DID;
+  const localHref = isMine ? recordPathFromAtUri(item.atUri) : null;
+  const externalHref = !isMine && author?.handle && item.atUri
+    ? `https://bsky.app/profile/${author.handle}/post/${item.atUri.split('/').pop()}`
+    : null;
+  return (
+    <article className="record-thread-post" data-at-uri={item.atUri}>
+      <header className="record-thread-head">
+        <span className="record-thread-cont small-caps">
+          <CornerDownRight size={12} strokeWidth={1.75} aria-hidden="true" />
+          continued
+        </span>
+        {ts && (
+          <span className="gutter record-thread-time">
+            {localHref ? (
+              <Link to={localHref}>{relativeTime(ts)}</Link>
+            ) : externalHref ? (
+              <a href={externalHref} target="_blank" rel="noreferrer noopener">{relativeTime(ts)}</a>
+            ) : (
+              relativeTime(ts)
+            )}
+          </span>
+        )}
+      </header>
+      {text && <p className="record-thread-text">{renderPostText(text, facets)}</p>}
+      {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
     </article>
   );
 }
