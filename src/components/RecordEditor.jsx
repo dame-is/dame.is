@@ -66,6 +66,14 @@ const RecordEditor = forwardRef(function RecordEditor({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  // A transient object URL so a cover image set from inside a link card shows
+  // in the cover field right away (a fresh blob has no `_url` until reload).
+  const [coverPreview, setCoverPreview] = useState(null);
+  const coverPreviewRef = useRef(null);
+  coverPreviewRef.current = coverPreview;
+  useEffect(() => () => {
+    if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -315,6 +323,14 @@ const RecordEditor = forwardRef(function RecordEditor({
           onChange={updateField}
           agent={agent}
           did={did}
+          coverPreview={coverPreview}
+          onSetCover={(key, blob, previewUrl) => {
+            updateField(key, blob);
+            setCoverPreview((prev) => {
+              if (prev && prev !== previewUrl) URL.revokeObjectURL(prev);
+              return previewUrl || null;
+            });
+          }}
         />
       )}
 
@@ -353,7 +369,14 @@ export default RecordEditor;
 /* Field renderers                                                      */
 /* ------------------------------------------------------------------ */
 
-function FormEditor({ lex, value, onChange, agent, did }) {
+function FormEditor({ lex, value, onChange, agent, did, coverPreview, onSetCover }) {
+  // If this record type carries a top-level image field (e.g. a document's
+  // coverImage), link cards can offer to reuse their preview image as it.
+  const coverField = lex.fields.find((f) => f.type === 'image');
+  const setCover = coverField
+    ? (blob, previewUrl) => onSetCover(coverField.key, blob, previewUrl)
+    : null;
+
   return (
     <div className="admin-form">
       {lex.fields.map((f) => (
@@ -364,6 +387,8 @@ function FormEditor({ lex, value, onChange, agent, did }) {
           onChange={(v) => onChange(f.key, v)}
           agent={agent}
           did={did}
+          onSetCover={f.type === 'blocks' ? setCover : undefined}
+          externalPreview={coverField && f.key === coverField.key ? coverPreview : undefined}
         />
       ))}
     </div>
@@ -428,7 +453,7 @@ function RecordPreview({ lex, record }) {
   );
 }
 
-function Field({ field, value, onChange, agent, did }) {
+function Field({ field, value, onChange, agent, did, onSetCover, externalPreview }) {
   const id = `record-editor-field-${field.key}`;
   let control;
   switch (field.type) {
@@ -550,11 +575,25 @@ function Field({ field, value, onChange, agent, did }) {
       break;
     case 'blocks':
       control = (
-        <BlocksEditor agent={agent} did={did} value={value} onChange={onChange} />
+        <BlocksEditor
+          agent={agent}
+          did={did}
+          value={value}
+          onChange={onChange}
+          onSetCover={onSetCover}
+        />
       );
       break;
     case 'image':
-      control = <ImageField id={id} value={value} onChange={onChange} agent={agent} />;
+      control = (
+        <ImageField
+          id={id}
+          value={value}
+          onChange={onChange}
+          agent={agent}
+          externalPreview={externalPreview}
+        />
+      );
       break;
     case 'publicationPicker':
       control = (
@@ -746,7 +785,7 @@ function CategoryField({ id, value, onChange, placeholder, suggestions }) {
  * upload to the PDS; stores the returned BlobRef. Mirrors ImageBlockEditor's
  * upload flow but for one top-level field rather than a content block.
  */
-function ImageField({ id, value, onChange, agent }) {
+function ImageField({ id, value, onChange, agent, externalPreview }) {
   const [status, setStatus] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileRef = useRef(null);
@@ -772,7 +811,7 @@ function ImageField({ id, value, onChange, agent }) {
     }
   }
 
-  const displayUrl = previewUrl || value?._url || null;
+  const displayUrl = previewUrl || value?._url || externalPreview || null;
 
   return (
     <div className="image-block-editor">

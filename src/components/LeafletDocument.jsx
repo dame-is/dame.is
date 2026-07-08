@@ -247,8 +247,11 @@ export function videoEmbedSrc(url) {
 }
 
 function WebsiteBlock({ block }) {
-  const href = block.src;
-  if (!href) return null;
+  const raw = block.src;
+  if (!raw) return null;
+  // Authors can enter a bare host ("anisota.net"); make the link (and the
+  // hostname parse below) work by assuming https when no scheme is present.
+  const href = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`;
 
   // Known video hosts render as an inline player instead of a link card.
   const embed = videoEmbedSrc(href);

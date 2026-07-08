@@ -22,7 +22,7 @@ const CONTENT_TYPE = 'pub.leaflet.content';
  * at a time — clicking another block (or "Done", or away from the editor)
  * collapses the active block back to its preview.
  */
-export default function BlocksEditor({ agent, did, value, onChange }) {
+export default function BlocksEditor({ agent, did, value, onChange, onSetCover }) {
   const content = useMemo(() => ensureShape(value), [value]);
   const blocks = content.pages[0].blocks;
 
@@ -351,6 +351,7 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
                     agent={agent}
                     did={did}
                     onChange={(next) => updateBlock(i, next)}
+                    onSetCover={onSetCover}
                   />
                 </div>
               ) : (
@@ -393,7 +394,7 @@ export default function BlocksEditor({ agent, did, value, onChange }) {
   );
 }
 
-function BlockBody({ block, agent, did, onChange }) {
+function BlockBody({ block, agent, did, onChange, onSetCover }) {
   switch (block.$type) {
     case 'pub.leaflet.blocks.text':
       return <TextBlockEditor block={block} onChange={onChange} />;
@@ -402,7 +403,15 @@ function BlockBody({ block, agent, did, onChange }) {
     case 'pub.leaflet.blocks.image':
       return <ImageBlockEditor block={block} agent={agent} did={did} onChange={onChange} />;
     case 'pub.leaflet.blocks.website':
-      return <WebsiteBlockEditor block={block} agent={agent} did={did} onChange={onChange} />;
+      return (
+        <WebsiteBlockEditor
+          block={block}
+          agent={agent}
+          did={did}
+          onChange={onChange}
+          onSetCover={onSetCover}
+        />
+      );
     case 'pub.leaflet.blocks.code':
       return <CodeBlockEditor block={block} onChange={onChange} />;
     case 'pub.leaflet.blocks.unorderedList':
