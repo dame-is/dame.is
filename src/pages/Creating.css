@@ -5,22 +5,25 @@
   margin-bottom: var(--space-5);
 }
 
-/* Masonry via CSS multi-columns: cards flow down each column and pack
-   tightly against their neighbours, so the varying cover heights read as an
-   irregular mosaic rather than rows aligned to the tallest card. */
+/* Masonry as side-by-side flex columns. Works are dealt round-robin into the
+   columns (see Creating.jsx) so they read left-to-right — newest along the top
+   row — while each column still packs tightly to its own varying heights,
+   giving the irregular mosaic instead of rows aligned to the tallest card. */
 .creating-grid {
-  columns: 16rem;
-  column-gap: var(--space-5);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+}
+
+.creating-grid-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.creating-grid-cell {
-  break-inside: avoid;
-  /* Column layout has no row gap, so the inter-card rhythm lives on the cell.
-     A card must not straddle a column break. */
-  margin-bottom: var(--space-5);
 }
 
 .creating-grid-link {
