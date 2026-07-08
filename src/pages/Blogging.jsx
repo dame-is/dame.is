@@ -76,9 +76,12 @@ export default function Blogging() {
                   {e.summary && <p className="blogging-toc-summary">{e.summary}</p>}
                 </span>
                 <span className="blogging-toc-meta gutter">
-                  {e.createdAt
-                    ? `${relativeTime(e.createdAt)} • ${formatDateFull(e.createdAt)}`
-                    : ''}
+                  {e.createdAt && (
+                    <>
+                      <span className="blogging-toc-rel">{relativeTime(e.createdAt)}</span>
+                      <span className="blogging-toc-date">{formatDateFull(e.createdAt)}</span>
+                    </>
+                  )}
                 </span>
               </Link>
             </li>
