@@ -16,6 +16,7 @@ import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import DensityToggle from './DensityToggle.jsx';
 import PaperToggle from './PaperToggle.jsx';
+import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
 import InfoSheet from './InfoSheet.jsx';
 import './ChromeBar.css';
@@ -345,7 +346,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 transition={{ duration: reduce ? 0 : 0.16, ease: [0.22, 0.61, 0.36, 1] }}
               >
                 <DensityToggle />
-                <PaperToggle />
+                {PAPER_ENABLED && <PaperToggle />}
                 <button
                   type="button"
                   className={`chrome-nav chrome-tool-debug ${view === 'debug' ? 'is-open' : ''}`}

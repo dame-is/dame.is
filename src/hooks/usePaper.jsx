@@ -3,6 +3,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 const PaperContext = createContext(null);
 const STORAGE_KEY = 'dame.paper';
 
+// Feature flag. The paper-texture feature (ruled lines / dot grid) is
+// paused for now — every page renders blank, the way it used to. Flip
+// this to `true` to bring the whole thing back: the chrome toggle
+// reappears (see ChromeBar), the stored preference is honoured again
+// (it's never overwritten while disabled, so returning users keep their
+// old choice), and the textures paint. Keep in sync with main.jsx.
+export const PAPER_ENABLED = false;
+
 // Three paper textures painted faintly behind long-form text content
 // (multiline feed posts, blog/document prose):
 //   - blank : no texture, a clean page (the default)
@@ -22,9 +30,15 @@ function readInitial() {
 }
 
 export function PaperProvider({ children }) {
-  const [paper, setPaperState] = useState(readInitial);
+  const [paper, setPaperState] = useState(() => (PAPER_ENABLED ? readInitial() : 'blank'));
 
   useEffect(() => {
+    // While disabled, always render blank and leave the stored preference
+    // untouched so it comes back if the feature is re-enabled later.
+    if (!PAPER_ENABLED) {
+      applyPaper('blank');
+      return;
+    }
     applyPaper(paper);
     try {
       localStorage.setItem(STORAGE_KEY, paper);

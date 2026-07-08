@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
+import { PAPER_ENABLED } from './hooks/usePaper.jsx';
 import './styles/reset.css';
 import './styles/theme.css';
 import './styles/typography.css';
@@ -43,11 +44,16 @@ if (!VALID_DENSITY.includes(storedDensity)) {
 document.documentElement.setAttribute('data-density', storedDensity);
 
 // Paper texture behind long-form text (blank / ruled / dots). Set before
-// the first paint so ruled/dots users don't flash a blank page. Keep in
-// sync with usePaper.jsx.
+// the first paint so ruled/dots users don't flash a blank page. The
+// feature is currently paused (PAPER_ENABLED = false), so this always
+// resolves to blank; the stored preference is left in place for when it
+// returns. Keep in sync with usePaper.jsx.
 const VALID_PAPER = ['blank', 'ruled', 'dots'];
 const storedPaper = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.paper') : null;
-document.documentElement.setAttribute('data-paper', VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank');
+document.documentElement.setAttribute(
+  'data-paper',
+  PAPER_ENABLED && VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank',
+);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
