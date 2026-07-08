@@ -26,11 +26,21 @@
   margin: 0 auto;
   z-index: 32;
   overflow: hidden;
+  /* Bottom-anchor the panel inside the height-animating clip so its bottom
+     edge (and the divider to the button row) holds steady the whole time
+     instead of being clipped away mid-animation — see EditSheet.jsx / the
+     matching note in BottomSheet.css. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   pointer-events: none;
 }
 
 .edit-sheet-panel {
   pointer-events: auto;
+  /* Full height inside the bottom-anchored clip — clipped from the top on
+     reveal rather than shrunk, so the head/body/foot don't reflow. */
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   background: var(--surface-deep);
