@@ -16,7 +16,15 @@
     { "source": "/site.standard.document/:rkey", "destination": "/index.html" },
     { "source": "/pub.leaflet.document/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.creating.work/:rkey", "destination": "/index.html" },
-    { "source": "/((?!api/|assets/).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|assets/|version.json).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/version.json",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
   ],
   "redirects": [
     { "source": "/index", "destination": "/", "permanent": true },

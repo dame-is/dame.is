@@ -25,6 +25,7 @@ const OauthCallback = lazy(() => import('./pages/OauthCallback.jsx'));
 // Lazy: the explorer transitively imports RecordEditor + @atproto/api.
 const Exploring = lazy(() => import('./pages/Exploring.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
+import AutoUpdater from './components/AutoUpdater.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import EditModeBar from './components/EditModeBar.jsx';
 import EditSheet from './components/EditSheet.jsx';
@@ -151,6 +152,7 @@ export default function App() {
             <EditModeBar />
             <EditSheet />
             <WindowScrollbar />
+            <AutoUpdater />
             <Analytics />
           </div>
       </FeedFooterProvider>
