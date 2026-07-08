@@ -5,13 +5,22 @@
   margin-bottom: var(--space-5);
 }
 
+/* Masonry via CSS multi-columns: cards flow down each column and pack
+   tightly against their neighbours, so the varying cover heights read as an
+   irregular mosaic rather than rows aligned to the tallest card. */
 .creating-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
-  gap: var(--space-5);
+  columns: 16rem;
+  column-gap: var(--space-5);
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.creating-grid-cell {
+  break-inside: avoid;
+  /* Column layout has no row gap, so the inter-card rhythm lives on the cell.
+     A card must not straddle a column break. */
+  margin-bottom: var(--space-5);
 }
 
 .creating-grid-link {
