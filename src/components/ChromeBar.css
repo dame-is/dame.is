@@ -477,10 +477,14 @@
   /* Deeper than the bar, matching the breadcrumb + the other expanded chrome
      panels so the revealed strip reads as an extension of the bottom chrome. */
   background: var(--surface-deep);
-  /* Hairline facing the content above. The bar's own border-top divides the
-     strip from the button row below it, so no border-bottom here (a second
-     line would double it). */
+  /* Hairlines on both edges — like the top bar's breadcrumb, flipped. The top
+     divides the strip from the page content above; the bottom is the divider
+     to the button row. The strip is pinned to the bar's top edge
+     (bottom: 100%), so it paints OVER the bar's own border-top — this
+     border-bottom is what actually draws that divider, exactly as the nav
+     dock and bottom sheets carry their own. */
   border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
   /* Compact chrome rhythm; horizontal padding tracks the chrome content
      column via the shared --chrome-pad-x, same as the button row. */
   padding: var(--space-3) var(--chrome-pad-x);
