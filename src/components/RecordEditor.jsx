@@ -1,10 +1,51 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
+import { resolvePds } from '../lib/atproto.js';
+import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
 import '../pages/Admin.css';
+
+/**
+ * `agent.com.atproto.repo.getRecord` returns blobs as `BlobRef` instances.
+ * `structuredClone` mangles those into invalid plain objects (losing `toJSON`
+ * and `ref.$link`), which then get re-put as garbage — silently stripping the
+ * image. A JSON round-trip instead runs each BlobRef's `toJSON`, yielding the
+ * plain `{$type:'blob', ref:{$link}, …}` wire form: safe to clone, and
+ * re-hydrated correctly by the client on save.
+ */
+function toPlainRecord(value) {
+  return JSON.parse(JSON.stringify(value ?? {}));
+}
+
+/** Deep-remove our `_url` display annotations so they never reach the PDS. */
+function stripUrlAnnotations(value) {
+  if (Array.isArray(value)) return value.map(stripUrlAnnotations);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k === '_url') continue;
+      out[k] = stripUrlAnnotations(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Bake `_url` display URLs onto a record's blob refs (top-level image fields
+ * and any image/preview blobs inside `blocks` bodies) so existing images show
+ * in the editor. Mirrors the feed builder's read-path annotation.
+ */
+function annotateRecordBlobs(record, lex, pds, did) {
+  if (!record || !pds) return;
+  for (const f of lex?.fields || []) {
+    if (f.type === 'image') annotateBlobUrl(record[f.key], pds, did);
+    if (f.type === 'blocks') annotateLeafletBlobs(record[f.key], pds, did);
+  }
+}
 
 /**
  * Reusable record editor (form + raw JSON + save/delete) shared by the admin
@@ -66,6 +107,14 @@ const RecordEditor = forwardRef(function RecordEditor({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  // A transient object URL so a cover image set from inside a link card shows
+  // in the cover field right away (a fresh blob has no `_url` until reload).
+  const [coverPreview, setCoverPreview] = useState(null);
+  const coverPreviewRef = useRef(null);
+  coverPreviewRef.current = coverPreview;
+  useEffect(() => () => {
+    if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,10 +140,24 @@ const RecordEditor = forwardRef(function RecordEditor({
         });
         const fetched = (res?.data || res)?.value || {};
         if (cancelled) return;
-        const migrated = lex?.migrate ? lex.migrate(structuredClone(fetched)) : structuredClone(fetched);
+        // Normalize BlobRef instances to plain JSON *before* any clone/migrate
+        // (structuredClone would corrupt them and strip images on save).
+        const plain = toPlainRecord(fetched);
+        const migrated = lex?.migrate ? lex.migrate(plain) : plain;
+        // Bake display URLs onto blob refs so existing images render in the
+        // editor. Best-effort: a failed PDS resolve just leaves them blank.
+        let pds = null;
+        try {
+          pds = await resolvePds(did);
+        } catch {
+          /* display-only; the record still loads and saves fine */
+        }
+        if (cancelled) return;
+        if (pds) annotateRecordBlobs(migrated, lex, pds, did);
         setOriginal(fetched);
         setValue(migrated);
-        setRawText(JSON.stringify(migrated, null, 2));
+        // The raw-JSON view and payload must stay clean of `_url` annotations.
+        setRawText(JSON.stringify(stripUrlAnnotations(migrated), null, 2));
         if (!lex) setRawMode(true);
       } catch (err) {
         if (!cancelled) setError(err?.message || String(err));
@@ -141,7 +204,10 @@ const RecordEditor = forwardRef(function RecordEditor({
     if (Array.isArray(lex?.stripLegacyKeys)) {
       for (const k of lex.stripLegacyKeys) delete next[k];
     }
-    return next;
+    // Normalize first (runs BlobRef.toJSON on freshly uploaded blobs → clean
+    // wire form; a plain recursive walk would mangle those instances), then
+    // drop the `_url` display annotations so they never reach the PDS.
+    return stripUrlAnnotations(toPlainRecord(next));
   }, [value, lex, rawMode, rawText, isNew]);
 
   async function handleSave() {
@@ -315,6 +381,14 @@ const RecordEditor = forwardRef(function RecordEditor({
           onChange={updateField}
           agent={agent}
           did={did}
+          coverPreview={coverPreview}
+          onSetCover={(key, blob, previewUrl) => {
+            updateField(key, blob);
+            setCoverPreview((prev) => {
+              if (prev && prev !== previewUrl) URL.revokeObjectURL(prev);
+              return previewUrl || null;
+            });
+          }}
         />
       )}
 
@@ -353,7 +427,14 @@ export default RecordEditor;
 /* Field renderers                                                      */
 /* ------------------------------------------------------------------ */
 
-function FormEditor({ lex, value, onChange, agent, did }) {
+function FormEditor({ lex, value, onChange, agent, did, coverPreview, onSetCover }) {
+  // If this record type carries a top-level image field (e.g. a document's
+  // coverImage), link cards can offer to reuse their preview image as it.
+  const coverField = lex.fields.find((f) => f.type === 'image');
+  const setCover = coverField
+    ? (blob, previewUrl) => onSetCover(coverField.key, blob, previewUrl)
+    : null;
+
   return (
     <div className="admin-form">
       {lex.fields.map((f) => (
@@ -364,6 +445,8 @@ function FormEditor({ lex, value, onChange, agent, did }) {
           onChange={(v) => onChange(f.key, v)}
           agent={agent}
           did={did}
+          onSetCover={f.type === 'blocks' ? setCover : undefined}
+          externalPreview={coverField && f.key === coverField.key ? coverPreview : undefined}
         />
       ))}
     </div>
@@ -428,7 +511,7 @@ function RecordPreview({ lex, record }) {
   );
 }
 
-function Field({ field, value, onChange, agent, did }) {
+function Field({ field, value, onChange, agent, did, onSetCover, externalPreview }) {
   const id = `record-editor-field-${field.key}`;
   let control;
   switch (field.type) {
@@ -550,11 +633,25 @@ function Field({ field, value, onChange, agent, did }) {
       break;
     case 'blocks':
       control = (
-        <BlocksEditor agent={agent} did={did} value={value} onChange={onChange} />
+        <BlocksEditor
+          agent={agent}
+          did={did}
+          value={value}
+          onChange={onChange}
+          onSetCover={onSetCover}
+        />
       );
       break;
     case 'image':
-      control = <ImageField id={id} value={value} onChange={onChange} agent={agent} />;
+      control = (
+        <ImageField
+          id={id}
+          value={value}
+          onChange={onChange}
+          agent={agent}
+          externalPreview={externalPreview}
+        />
+      );
       break;
     case 'publicationPicker':
       control = (
@@ -746,7 +843,7 @@ function CategoryField({ id, value, onChange, placeholder, suggestions }) {
  * upload to the PDS; stores the returned BlobRef. Mirrors ImageBlockEditor's
  * upload flow but for one top-level field rather than a content block.
  */
-function ImageField({ id, value, onChange, agent }) {
+function ImageField({ id, value, onChange, agent, externalPreview }) {
   const [status, setStatus] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileRef = useRef(null);
@@ -772,7 +869,7 @@ function ImageField({ id, value, onChange, agent }) {
     }
   }
 
-  const displayUrl = previewUrl || value?._url || null;
+  const displayUrl = previewUrl || value?._url || externalPreview || null;
 
   return (
     <div className="image-block-editor">

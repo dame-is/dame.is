@@ -32,9 +32,10 @@
 }
 
 .creating-grid-link img {
-  aspect-ratio: 4/3;
+  /* Show the cover at its own aspect ratio rather than cropping it to a
+     fixed box. Width fills the card; height follows the image. */
   width: 100%;
-  object-fit: cover;
+  height: auto;
   background: var(--page);
 }
 
