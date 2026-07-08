@@ -28,11 +28,23 @@
   margin: 0 auto;
   z-index: 31;
   overflow: hidden;
+  /* Bottom-anchor the panel inside the height-animating clip so its
+     border-bottom divider sits at the clip's bottom the whole time. Anchored
+     at the top instead, the panel overflows the clip's BOTTOM mid-animation,
+     clipping the divider away while the opaque panel still covers the bar's
+     own border-top — the seam then vanishes until the animation settles. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   pointer-events: none;
 }
 
 .bottom-sheet-panel {
   pointer-events: auto;
+  /* Full height inside the bottom-anchored clip: the clip reveals the panel
+     from the bar upward, clipping its TOP rather than shrinking it, so the
+     divider holds and the content doesn't reflow mid-animation. */
+  flex: 0 0 auto;
   /* Deeper than the bar's --surface-raised so the expanded panel reads as
      its own layer above the toolbar. */
   background: var(--surface-deep);

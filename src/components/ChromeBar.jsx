@@ -28,6 +28,10 @@ const THEME_ICON = {
   dark: Moon,
 };
 
+// The home handle is a router <Link>; wrap it so it can participate in the
+// bottom bar's presence/layout animation (fade in/out, slide to make room).
+const MotionLink = motion.create(Link);
+
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
@@ -360,6 +364,20 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     window.scrollTo({ top: h, behavior: reduce ? 'auto' : 'smooth' });
   }
 
+  // Shared enter/exit for the bottom bar's on-demand controls (back, home,
+  // the scrolled-past count). They cross-fade rather than sliding in on a
+  // transform, and `layout` on the whole right cluster eases the persistent
+  // buttons (scroll-jump, menu) over to fill the gap instead of letting them
+  // jump — so a control never just pops in or out. `layout` is dropped under
+  // reduced-motion so nothing translates.
+  const controlFade = {
+    initial: reduce ? false : { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: reduce ? 0 : 0.2, ease: [0.22, 0.61, 0.36, 1] },
+  };
+  const layoutProp = reduce ? undefined : true;
+
   return (
     <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
       <div className="chrome-bottom-row">
@@ -374,10 +392,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
               <motion.div
                 key="tools"
                 className="chrome-bottom-cluster"
-                initial={reduce ? false : { opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduce ? { opacity: 0 } : { opacity: 0, y: 5 }}
-                transition={{ duration: reduce ? 0 : 0.16, ease: [0.22, 0.61, 0.36, 1] }}
+                initial={reduce ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
                 <DensityToggle />
                 {PAPER_ENABLED && <PaperToggle />}
@@ -406,10 +424,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
               <motion.div
                 key="default"
                 className="chrome-bottom-cluster"
-                initial={reduce ? false : { opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduce ? { opacity: 0 } : { opacity: 0, y: 5 }}
-                transition={{ duration: reduce ? 0 : 0.16, ease: [0.22, 0.61, 0.36, 1] }}
+                initial={reduce ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
                 <button
                   type="button"
@@ -485,32 +503,38 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           </AnimatePresence>
         </div>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
-        {!onHomePage && (
-          <button
-            type="button"
-            className="chrome-nav chrome-back-btn"
-            onClick={goBack}
-            aria-label="Go back"
-          >
-            <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          </button>
-        )}
-        <AnimatePresence initial={false}>
+        {/* Right cluster. The on-demand controls (back, count, home) fade in
+            and out inside a popLayout presence; the persistent scroll-jump and
+            menu buttons carry `layout` so they slide over to fill the freed
+            space rather than jumping when a control comes or goes. */}
+        <AnimatePresence mode="popLayout" initial={false}>
+          {!onHomePage && (
+            <motion.button
+              key="back"
+              layout={layoutProp}
+              type="button"
+              className="chrome-nav chrome-back-btn"
+              onClick={goBack}
+              aria-label="Go back"
+              {...controlFade}
+            >
+              <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            </motion.button>
+          )}
           {scrolledPast > 0 && (
             <motion.span
               key="scroll-count"
+              layout={layoutProp}
               className="chrome-scroll-count gutter"
-              initial={reduce ? false : { opacity: 0, x: 6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, x: 6 }}
-              transition={{ duration: reduce ? 0 : 0.18, ease: 'easeOut' }}
               aria-label={`${scrolledPast} items scrolled past`}
+              {...controlFade}
             >
               {scrolledPast}
             </motion.span>
           )}
         </AnimatePresence>
-        <button
+        <motion.button
+          layout={layoutProp}
           type="button"
           className="chrome-nav chrome-scroll-jump"
           onClick={atTop ? scrollToBottom : scrollToTop}
@@ -521,23 +545,29 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           ) : (
             <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
           )}
-        </button>
-        {!onHomePage && (
-          <Link
-            to="/"
-            className="chrome-nav chrome-home-btn"
-            aria-label="Go home"
-            onClick={() => {
-              // Collapse the open menu on the way home so it animates
-              // out (via the dock's AnimatePresence exit) instead of
-              // being left open over the freshly-loaded home page.
-              if (dockOpen) toggleDock();
-            }}
-          >
-            <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          </Link>
-        )}
-        <button
+        </motion.button>
+        <AnimatePresence mode="popLayout" initial={false}>
+          {!onHomePage && (
+            <MotionLink
+              key="home"
+              layout={layoutProp}
+              to="/"
+              className="chrome-nav chrome-home-btn"
+              aria-label="Go home"
+              onClick={() => {
+                // Collapse the open menu on the way home so it animates
+                // out (via the dock's AnimatePresence exit) instead of
+                // being left open over the freshly-loaded home page.
+                if (dockOpen) toggleDock();
+              }}
+              {...controlFade}
+            >
+              <Home className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            </MotionLink>
+          )}
+        </AnimatePresence>
+        <motion.button
+          layout={layoutProp}
           type="button"
           className={`chrome-nav chrome-nav-bottom ${dockOpen ? 'is-open' : ''}`}
           onClick={toggleDock}
@@ -546,7 +576,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           aria-label={dockOpen ? 'Close menu' : 'Open menu'}
         >
           <Compass className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-        </button>
+        </motion.button>
       </div>
 
       {/* Footer strip: the bottom-bar mirror of the top bar's breadcrumb.
