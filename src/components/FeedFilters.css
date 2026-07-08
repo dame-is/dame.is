@@ -108,7 +108,10 @@
    65rem chrome card rather than sitting as a narrow centered modal. */
 .feed-filter-sheet-panel {
   width: 100%;
-  padding: var(--space-4) clamp(var(--space-4), calc(6vw - 3.5rem), 2.5rem);
+  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
+     so the filter grid lines up with the nav dock, breadcrumb, and the
+     bottom-bar buttons at every breakpoint. */
+  padding: var(--space-4) var(--chrome-pad-x);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

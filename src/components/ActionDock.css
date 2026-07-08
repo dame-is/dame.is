@@ -57,6 +57,12 @@
      the page body; vertical padding stays a flat --space-4. */
   padding: var(--space-4) var(--chrome-pad-x);
   height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) - env(safe-area-inset-bottom, 0px));
+  /* The panel fills the whole gap up to the top chrome, but the menu is
+     short — sit its content at the BOTTOM of that space so the routes land
+     near the bottom bar (and the thumb) instead of floating up by the top
+     chrome. Block-level align-content; when a view overflows (debug dump),
+     the scroll container keeps the top reachable. */
+  align-content: end;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
