@@ -1,41 +1,39 @@
-/* Interior of the "Open in…" picker. The <Modal> shell owns positioning,
-   surface, scrim, and motion — only the layout of the picker lives here.
-   Styling follows the same language as InfoModal: small-caps header, hairline
-   rules, accent-on-hover. */
+/* Interior of the "Open in…" picker. The <BottomSheet> shell owns
+   positioning, the surface, and the expand-up animation; only the layout of
+   the picker lives here. Structure + spacing follow the sibling InfoSheet so
+   every bottom sheet reads as one family. */
 
-.waypoints-modal-panel {
-  width: min(440px, 100%);
+.waypoints-sheet {
+  /* Match InfoSheet's inset so the picker's content column lines up with the
+     other bottom sheets (and the bottom bar's buttons that trigger them). */
+  padding: var(--space-4) clamp(var(--space-4), calc(6vw - 3.5rem), 2.5rem);
   display: flex;
   flex-direction: column;
+  gap: var(--space-4);
 }
 
-.waypoints-modal {
-  display: flex;
-  flex-direction: column;
-}
-
-.waypoints-modal-header {
+.waypoints-sheet-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-5) var(--space-5) var(--space-4);
-  border-bottom: 1px solid var(--rule-soft);
 }
 
-.waypoints-modal-heading {
+.waypoints-sheet-heading {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
 }
 
-.waypoints-modal-heading .small-caps {
+.waypoints-sheet-heading .small-caps {
+  font-family: var(--sans);
   font-size: var(--text-xs);
   letter-spacing: 0.16em;
+  color: var(--ink-faint);
 }
 
-.waypoints-modal-subtitle {
+.waypoints-sheet-subtitle {
   font-family: var(--sans);
   font-size: var(--text-xs);
   color: var(--ink-faint);
@@ -44,7 +42,7 @@
   white-space: nowrap;
 }
 
-.waypoints-modal-close {
+.waypoints-sheet-close {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -54,28 +52,27 @@
   padding: 0;
   border: 1px solid var(--rule);
   border-radius: 0;
-  background: transparent;
+  background: var(--page);
   color: var(--ink-soft);
   cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.waypoints-modal-close:hover,
-.waypoints-modal-close:focus-visible {
+.waypoints-sheet-close:hover,
+.waypoints-sheet-close:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
   outline: none;
 }
 
-.waypoints-modal-body {
+.waypoints-sheet-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
 }
 
-.waypoints-modal-note {
+.waypoints-sheet-note {
   margin: 0;
   font-family: var(--sans);
   font-size: var(--text-sm);
@@ -125,7 +122,7 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--rule);
-  background: transparent;
+  background: var(--page);
   color: var(--ink);
   font-family: var(--sans);
   font-size: var(--text-sm);
@@ -142,7 +139,7 @@
 .waypoints-row-open:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
   outline: none;
 }
 
@@ -172,7 +169,7 @@
   padding: 0;
   border: 1px solid var(--rule);
   border-radius: 0;
-  background: transparent;
+  background: var(--page);
   color: var(--ink-soft);
   cursor: pointer;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
@@ -182,17 +179,16 @@
 .waypoints-row-copy:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
   outline: none;
 }
 
 /* --- original-link fallback ---------------------------------------------- */
 
-.waypoints-modal-original {
+.waypoints-sheet-original {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-3) var(--space-5) var(--space-5);
   font-family: var(--sans);
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
@@ -201,8 +197,8 @@
   transition: color 120ms ease;
 }
 
-.waypoints-modal-original:hover,
-.waypoints-modal-original:focus-visible {
+.waypoints-sheet-original:hover,
+.waypoints-sheet-original:focus-visible {
   color: var(--accent);
   outline: none;
 }

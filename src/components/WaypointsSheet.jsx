@@ -1,20 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Copy, Check, ArrowUpRight } from 'lucide-react';
-import Modal from './Modal.jsx';
+import BottomSheet from './BottomSheet.jsx';
 import { resolveWaypoints, groupWaypoints, describeResolved } from '../lib/waypoints.js';
-import './WaypointsModal.css';
+import './WaypointsSheet.css';
 
 /**
  * The "Open in…" picker. Given an outbound Atmosphere link (or `at://` URI),
  * it resolves the record to the set of clients that can open it and lets the
  * visitor choose one — powered by @aturi.to/waypoints.
  *
+ * Expands up out of the bottom chrome bar as a <BottomSheet>, the same surface
+ * behind the search / info / filter panels and the nav dock — rather than a
+ * centered modal, so every dismissable surface reads as one system.
+ *
  * Rendered once at the app root by <WaypointsModalProvider>; `href` is set by
  * the global link interceptor (or an imperative `openWaypoints()` call). The
  * whole subtree carries `data-no-waypoints` so its own links don't re-trigger
  * the interceptor.
  */
-export default function WaypointsModal({ open, href, onClose }) {
+export default function WaypointsSheet({ open, href, onClose }) {
   const [status, setStatus] = useState('idle'); // idle | loading | ready | empty | error
   const [sections, setSections] = useState({ recommended: [], groups: [] });
   const [subtitle, setSubtitle] = useState('');
@@ -52,7 +56,7 @@ export default function WaypointsModal({ open, href, onClose }) {
     };
   }, [open, href]);
 
-  // Reset the transient "copied" checkmark whenever the modal closes.
+  // Reset the transient "copied" checkmark whenever the sheet closes.
   useEffect(() => {
     if (!open) {
       setCopiedUrl(null);
@@ -74,16 +78,16 @@ export default function WaypointsModal({ open, href, onClose }) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} label="Open in…" className="waypoints-modal-panel">
-      <div className="waypoints-modal" data-no-waypoints>
-        <div className="waypoints-modal-header">
-          <div className="waypoints-modal-heading">
+    <BottomSheet open={open} onClose={onClose} label="Open in…" id="waypoints-sheet">
+      <div className="waypoints-sheet" data-no-waypoints>
+        <div className="waypoints-sheet-header">
+          <div className="waypoints-sheet-heading">
             <span className="small-caps">open in…</span>
-            {subtitle && <span className="waypoints-modal-subtitle">{subtitle}</span>}
+            {subtitle && <span className="waypoints-sheet-subtitle">{subtitle}</span>}
           </div>
           <button
             type="button"
-            className="waypoints-modal-close"
+            className="waypoints-sheet-close"
             onClick={onClose}
             aria-label="Close"
           >
@@ -91,19 +95,19 @@ export default function WaypointsModal({ open, href, onClose }) {
           </button>
         </div>
 
-        <div className="waypoints-modal-body">
+        <div className="waypoints-sheet-body">
           {status === 'loading' && (
-            <p className="waypoints-modal-note">Resolving destinations…</p>
+            <p className="waypoints-sheet-note">Resolving destinations…</p>
           )}
 
           {status === 'error' && (
-            <p className="waypoints-modal-note">
+            <p className="waypoints-sheet-note">
               Couldn't resolve this link into Atmosphere clients.
             </p>
           )}
 
           {status === 'empty' && (
-            <p className="waypoints-modal-note">
+            <p className="waypoints-sheet-note">
               No other clients can open this link.
             </p>
           )}
@@ -136,7 +140,7 @@ export default function WaypointsModal({ open, href, onClose }) {
 
         {isHttp && status !== 'loading' && (
           <a
-            className="waypoints-modal-original"
+            className="waypoints-sheet-original"
             href={href}
             target="_blank"
             rel="noreferrer noopener"
@@ -147,7 +151,7 @@ export default function WaypointsModal({ open, href, onClose }) {
           </a>
         )}
       </div>
-    </Modal>
+    </BottomSheet>
   );
 }
 
