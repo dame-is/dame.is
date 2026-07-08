@@ -2,12 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Favicon rotates hourly to match Dame's sun-tracking avatar (see api/favicon.js). -->
+    <!-- Icons rotate hourly to match Dame's sun-tracking avatar (see api/favicon.js).
+         The larger sizes + web manifest (api/manifest.js) make the site installable
+         as a PWA with the current-hour sky avatar as its app icon. -->
     <link rel="icon" type="image/png" href="/api/favicon" />
-    <link rel="apple-touch-icon" href="/api/favicon" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/api/favicon?size=192" />
+    <link rel="manifest" href="/api/manifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#e3d8ba" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#13180f" media="(prefers-color-scheme: dark)" />
+    <!-- iOS / Android standalone install hints -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="dame.is" />
     <title>Dame is…</title>
     <meta name="description" content="An atmospheric website by dame, built atop the AT Protocol." />
 
