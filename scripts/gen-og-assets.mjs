@@ -42,11 +42,17 @@ const FONT_SPECS = [
   { id: 'mono500', url: `${PLEX}/ibm-plex-mono-latin-500-normal.woff` },
 ];
 
-// Favicon (+ apple-touch) + the small brand mark in the OG chrome bar all
-// draw from one 96px PNG set — crisp on retina tabs, universal browser
-// support. An avatar-forward OG variant would want a larger JPEG set; add it
-// back here if that layout is ever chosen.
+// The browser-tab favicon + the small brand mark in the OG cards draw from a
+// 96px PNG set — crisp on retina tabs, universal support.
 const ICON_SIZE = 96;
+
+// Installed-app (PWA) + apple-touch icons need bigger art than a favicon. The
+// sky-avatars are opaque, so we ship them as JPEG (a 512px PNG set is ~15 MB
+// because of the film grain; JPEG is ~1 MB) at the two standard PWA sizes.
+// Served hourly-rotating from /api/favicon?size=… and referenced by the web
+// manifest (/api/manifest) + the apple-touch-icon link.
+const APP_ICON_SIZES = [192, 512];
+const APP_ICON_QUALITY = 86;
 
 async function fonts() {
   const out = {};
@@ -59,13 +65,17 @@ async function fonts() {
 }
 
 async function avatars() {
-  const icons = {};
+  const icons = {};                 // 96px PNG — favicon + OG mark
+  const appIcons = {};              // { '192': {key: b64}, '512': {…} } JPEG — PWA
+  for (const size of APP_ICON_SIZES) appIcons[String(size)] = {};
   for (const key of avatarKeys()) {
-    const src = resolve(SKY, `${key}.jpg`);
-    const raw = await readFile(src);
+    const raw = await readFile(resolve(SKY, `${key}.jpg`));
     icons[key] = (await sharp(raw).resize(ICON_SIZE, ICON_SIZE, { fit: 'cover' }).png().toBuffer()).toString('base64');
+    for (const size of APP_ICON_SIZES) {
+      appIcons[String(size)][key] = (await sharp(raw).resize(size, size, { fit: 'cover' }).jpeg({ quality: APP_ICON_QUALITY }).toBuffer()).toString('base64');
+    }
   }
-  return { icons };
+  return { icons, appIcons };
 }
 
 function moduleSource(name, obj, note) {
@@ -81,12 +91,15 @@ async function main() {
   const FONTS = await fonts();
   await writeFile(resolve(OUT, 'fonts.js'), moduleSource('FONTS', FONTS, 'Crimson Pro woff fonts, base64.'));
 
-  const { icons } = await avatars();
-  await writeFile(resolve(OUT, 'icons.js'), moduleSource('ICONS', icons, `${ICON_SIZE}px sky-avatar PNGs, base64 (favicon + apple-touch + OG mark).`));
+  const { icons, appIcons } = await avatars();
+  await writeFile(resolve(OUT, 'icons.js'), moduleSource('ICONS', icons, `${ICON_SIZE}px sky-avatar PNGs, base64 (favicon + OG mark).`));
+  await writeFile(resolve(OUT, 'app-icons.js'), moduleSource('APP_ICONS', appIcons, `PWA/apple-touch sky-avatar JPEGs, base64, by size (${APP_ICON_SIZES.join('/')}px).`));
 
   const sum = (o) => Object.values(o).reduce((n, v) => n + Buffer.byteLength(v, 'base64'), 0);
-  console.log('fonts.js  ', (sum(FONTS) / 1024).toFixed(0), 'KB decoded');
-  console.log('icons.js  ', (sum(icons) / 1024).toFixed(0), 'KB decoded');
+  const sumNested = (o) => Object.values(o).reduce((n, m) => n + sum(m), 0);
+  console.log('fonts.js     ', (sum(FONTS) / 1024).toFixed(0), 'KB decoded');
+  console.log('icons.js     ', (sum(icons) / 1024).toFixed(0), 'KB decoded');
+  console.log('app-icons.js ', (sumNested(appIcons) / 1024).toFixed(0), 'KB decoded');
   console.log('done →', OUT);
 }
 
