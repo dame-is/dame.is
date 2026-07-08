@@ -35,7 +35,7 @@ export default function Admin() {
 
   if (loading) {
     return (
-      <PageShell title="Admin" headTitle="Admin — Dame is…">
+      <PageShell title="Admin" headTitle="Admin — dame.is">
         <p className="placeholder-card">Restoring session…</p>
       </PageShell>
     );
@@ -43,7 +43,7 @@ export default function Admin() {
 
   if (!session) {
     return (
-      <PageShell title="Admin" headTitle="Admin — Dame is…">
+      <PageShell title="Admin" headTitle="Admin — dame.is">
         <SignInGate signIn={signIn} />
       </PageShell>
     );
@@ -51,7 +51,7 @@ export default function Admin() {
 
   if (did !== ME_DID) {
     return (
-      <PageShell title="Admin" headTitle="Admin — Dame is…">
+      <PageShell title="Admin" headTitle="Admin — dame.is">
         <p className="placeholder-card">
           Signed in as <code>{did}</code>, but this editor is restricted to{' '}
           <code>{ME_DID}</code>.
@@ -243,7 +243,7 @@ function CollectionPicker() {
     <PageShell
       title="Admin"
       intro="Browse and edit the records that make up the site. Pick a surface below, or start something new."
-      headTitle="Admin — Dame is…"
+      headTitle="Admin — dame.is"
     >
       <div className="admin-quick-actions">
         <Link
@@ -417,7 +417,7 @@ function RecordList({
     <PageShell
       title={heading}
       intro={intro}
-      headTitle={`${heading} — Admin — Dame is…`}
+      headTitle={`${heading} — Admin — dame.is`}
     >
       <div className="admin-toolbar">
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
@@ -597,7 +597,7 @@ function PagesOverview({ agent, did }) {
     <PageShell
       title="Site pages"
       intro="Each page's title and intro can live in the site (Local) or as an is.dame.page record on your PDS. Manage that split here, then edit the raw records below."
-      headTitle="Site pages — Admin — Dame is…"
+      headTitle="Site pages — Admin — dame.is"
     >
       <div className="admin-toolbar">
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
@@ -753,7 +753,7 @@ function LegacyBlogMigration({ agent, did }) {
     <PageShell
       title="Legacy blog migration"
       intro="Publish the pre-rewrite Eleventy markdown posts to your PDS as standard.site blog documents. Images are uploaded as blobs and each post keeps its original slug, so old /blog links keep working. Re-running a migration overwrites the existing record rather than duplicating it."
-      headTitle="Legacy blog migration — Admin — Dame is…"
+      headTitle="Legacy blog migration — Admin — dame.is"
     >
       <div className="admin-toolbar">
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
@@ -942,7 +942,7 @@ function ListeningManager({ agent, did }) {
     <PageShell
       title="Listening"
       intro="Every play on your PDS. Select rows to bulk-delete, or open one in the record editor."
-      headTitle="Listening — Admin — Dame is…"
+      headTitle="Listening — Admin — dame.is"
     >
       <div className="admin-toolbar">
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
@@ -1037,7 +1037,7 @@ function RecordEditorPage({ agent, did, collection, rkey, preset = null }) {
       ? 'blog post'
       : lex?.label || collection;
   const title = isNew ? `New ${newLabel}` : `${lex?.label || collection}`;
-  const headTitle = `${title} — Admin — Dame is…`;
+  const headTitle = `${title} — Admin — dame.is`;
 
   return (
     <PageShell title={title} headTitle={headTitle}>

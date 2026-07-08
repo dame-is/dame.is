@@ -99,7 +99,7 @@ export default function BlogPost() {
 
   if (feedStatus === 'loading') {
     return (
-      <PageShell headTitle={`${id} — Dame is…`}>
+      <PageShell headTitle={`${id} — dame.is`}>
         <article className="blog-article">
           <BlogPostSkeleton paragraphs={4} />
         </article>
@@ -109,7 +109,7 @@ export default function BlogPost() {
 
   if (!resolution || !resolution.record) {
     return (
-      <PageShell title="Post not found" headTitle="Not found — Dame is…">
+      <PageShell title="Post not found" headTitle="Not found — dame.is">
         <p>
           No blog post with id <code>{id}</code>.{' '}
           <Link to="/blogging">Back to the index.</Link>
@@ -148,7 +148,7 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       title={title}
       atUri={record?.uri}
       cid={record?.cid}
-      headTitle={`${title} — Dame is…`}
+      headTitle={`${title} — dame.is`}
       eyebrow={
         <Link to="/blogging" className="page-back small-caps">
           ← Blog

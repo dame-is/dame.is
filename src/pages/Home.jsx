@@ -475,7 +475,7 @@ export default function Home() {
     <PageShell
       title={<HeroSentence shuffleRef={shuffleRef} />}
       atUri={`at://${ME_DID}/is.dame.page/home`}
-      headTitle="Dame is&hellip;"
+      headTitle="dame.is"
     >
       <nav className="home-hero-cta" aria-label="Primary destinations">
         <Link className="home-hero-cta-btn home-hero-cta-primary" to="/creating">

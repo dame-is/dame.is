@@ -130,7 +130,7 @@ export default function Mothing() {
       title={title}
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/mothing`}
-      headTitle="Mothing — Dame is&hellip;"
+      headTitle="dame.is mothing"
     >
       {stats && (
         <section className="mothing-stats" aria-label="Mothing stats">

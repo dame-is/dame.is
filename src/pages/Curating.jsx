@@ -98,7 +98,7 @@ export default function Curating() {
       title={title}
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/curating`}
-      headTitle="Curating — Dame is&hellip;"
+      headTitle="dame.is curating"
     >
       {showSkeleton ? (
         <CreatingGridSkeleton cells={6} />

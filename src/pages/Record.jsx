@@ -164,7 +164,7 @@ export default function Record({ verb, nsid, source }) {
 
   if (!collection) {
     return (
-      <PageShell title="Unknown record type" headTitle="Not found — Dame is…">
+      <PageShell title="Unknown record type" headTitle="Not found — dame.is">
         <p>
           No collection mapped for verb <code>{verb}</code>.{' '}
           <Link to="/">Back to the timeline.</Link>
@@ -175,7 +175,7 @@ export default function Record({ verb, nsid, source }) {
 
   if (missing && !item) {
     return (
-      <PageShell title="Record not found" headTitle="Not found — Dame is…">
+      <PageShell title="Record not found" headTitle="Not found — dame.is">
         <p>
           No <code>{collection}</code> record with rkey <code>{rkey}</code>.{' '}
           <Link to={`/${verb}`}>Back to {verb}.</Link>
@@ -665,36 +665,36 @@ function titleFor(verb, item) {
  * short-form, by snapshotting the body text.
  */
 function headTitleFor(verb, item) {
-  if (!item) return `${VERB_LABELS[verb] || verb} — Dame is…`;
+  if (!item) return `${VERB_LABELS[verb] || verb} — dame.is`;
   switch (verb) {
     case 'blogging':
-      return `${item.payload?.title || 'Untitled'} — Dame is…`;
+      return `${item.payload?.title || 'Untitled'} — dame.is`;
     case 'creating':
-      return `${item.payload?.title || 'Untitled work'} — Dame is…`;
+      return `${item.payload?.title || 'Untitled work'} — dame.is`;
     case 'listening': {
       const track = item.payload?.trackName;
       const artist = Array.isArray(item.payload?.artists)
         ? item.payload.artists.map((a) => a?.artistName).filter(Boolean).join(', ')
         : item.payload?.artist;
       const both = [track, artist].filter(Boolean).join(' · ');
-      return `${both || 'A play'} — Dame is…`;
+      return `${both || 'A play'} — dame.is`;
     }
     case 'posting': {
       const text = (item.payload?.text || '').trim();
-      return `${text ? truncate(text, 80) : 'A post'} — Dame is…`;
+      return `${text ? truncate(text, 80) : 'A post'} — dame.is`;
     }
     case 'reposting': {
       const handle = item.payload?.author?.handle;
       const text = (item.payload?.text || '').trim();
       const snippet = text ? truncate(text, 60) : 'a post';
-      return `Reposted: ${handle ? `@${handle} — ` : ''}${snippet} — Dame is…`;
+      return `Reposted: ${handle ? `@${handle} — ` : ''}${snippet} — dame.is`;
     }
     case 'logging': {
       const text = (item.payload?.status || item.payload?.text || '').trim();
-      return `${text ? truncate(text, 80) : 'A status'} — Dame is…`;
+      return `${text ? truncate(text, 80) : 'A status'} — dame.is`;
     }
     default:
-      return `${VERB_LABELS[verb] || verb} — Dame is…`;
+      return `${VERB_LABELS[verb] || verb} — dame.is`;
   }
 }
 

@@ -57,7 +57,7 @@ export default function Blogging() {
       title={title}
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/blogging`}
-      headTitle="Blogging — Dame is&hellip;"
+      headTitle="dame.is blogging"
     >
       {loading ? (
         <BloggingTocSkeleton rows={5} />
