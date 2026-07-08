@@ -83,9 +83,9 @@
 
 .comment-author {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
   min-width: 0;
 }
 
