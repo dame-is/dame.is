@@ -127,6 +127,13 @@
   color: var(--accent);
 }
 
+/* The list's top hairline (.dock-routes) plus each row's border-bottom draw
+   the ruled lines; the last row's bottom rule would sit right above the
+   panel's own bottom edge, so drop it to close the list cleanly. */
+.dock-route:last-child {
+  border-bottom: none;
+}
+
 .dock-route-label {
   font-family: var(--serif);
   font-size: var(--text-base);

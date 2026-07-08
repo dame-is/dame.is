@@ -26,7 +26,10 @@
   justify-content: space-between;
   gap: var(--space-3);
   min-height: 2.75rem;
-  padding: var(--space-2) var(--space-4);
+  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
+     so "Tap items to select" and the action buttons line up with the
+     bottom-bar buttons, the nav dock, and the breadcrumb. */
+  padding: var(--space-2) var(--chrome-pad-x);
   /* Match the bottom bar's own raised surface + hairlines so the expanded
      strip looks continuous with the chrome it grows out of. */
   background: var(--surface-raised);

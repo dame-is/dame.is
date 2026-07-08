@@ -8,6 +8,7 @@ import {
   useState,
 } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useActionDock } from './useActionDock.jsx';
 
 const EditModeContext = createContext(null);
 
@@ -46,6 +47,7 @@ export function EditModeProvider({ children }) {
   // loading, canDelete } or null.
   const [sheetEditor, setSheetEditor] = useState(null);
   const location = useLocation();
+  const { open: dockOpen } = useActionDock();
 
   const clearSelection = useCallback(() => {
     setSelected((prev) => (prev.size === 0 ? prev : new Map()));
@@ -92,6 +94,15 @@ export function EditModeProvider({ children }) {
     // the route changes so it never hangs over an unrelated page.
     setEditSheet(null);
   }, [location.pathname, clearSelection]);
+
+  // The nav dock and the quick-edit sheet share the bottom-chrome slot, and
+  // the dock opens on top of everything — so opening the dock folds the
+  // quick-edit sheet away (it would otherwise sit hidden behind the dock).
+  // Mirrors useChromePanel's dock↔panel rule; edit MODE (and its action bar)
+  // stays put — the dock rides above the bar via --edit-bar-h.
+  useEffect(() => {
+    if (dockOpen) setEditSheet(null);
+  }, [dockOpen]);
 
   const toggleSelect = useCallback((item) => {
     const uri = item?.atUri;

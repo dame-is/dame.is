@@ -14,7 +14,7 @@ export default function InfoSheet() {
   const open = panel === 'info';
 
   return (
-    <BottomSheet open={open} onClose={closePanel} label="About this site" id="chrome-info-sheet" className="info-sheet-panel">
+    <BottomSheet open={open} onClose={closePanel} label="About this site" id="chrome-info-sheet" size="fill" className="info-sheet-panel">
       <div className="info-sheet-header">
         <span className="small-caps">about this site</span>
         <button
