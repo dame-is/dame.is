@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import WaypointsModal from '../components/WaypointsModal.jsx';
+import WaypointsSheet from '../components/WaypointsSheet.jsx';
 import { isWaypointHref } from '../lib/waypoints.js';
 
 const WaypointsModalContext = createContext(null);
@@ -66,7 +66,7 @@ export function WaypointsModalProvider({ children }) {
   return (
     <WaypointsModalContext.Provider value={value}>
       {children}
-      <WaypointsModal open={href != null} href={href} onClose={close} />
+      <WaypointsSheet open={href != null} href={href} onClose={close} />
     </WaypointsModalContext.Provider>
   );
 }
