@@ -165,13 +165,14 @@ export function resolveResume(resumeRecord, jobs, education) {
 const renderable = (r) => r?.value && (r.value.visibility || 'public') !== 'private';
 
 /**
- * Choose the resume to show at /resume (no slug): the featured one, else the
- * first public one, else any renderable one. `private` resumes are skipped.
+ * Choose the single active resume shown at /for-hire: the one flagged
+ * `featured` (set from the admin panel), else the first public one, else any
+ * renderable one. `private` resumes are skipped.
  */
 export function pickDefaultResume(resumes) {
   const list = (resumes || []).filter(renderable);
   return (
-    list.find((r) => r.value.featured && r.value.visibility !== 'unlisted') ||
+    list.find((r) => r.value.featured) ||
     list.find((r) => (r.value.visibility || 'public') === 'public') ||
     list[0] ||
     null
@@ -184,12 +185,5 @@ export function findResumeBySlug(resumes, slug) {
     (resumes || [])
       .filter(renderable)
       .find((r) => (r.value.slug || rkeyFromAtUri(r.uri)) === slug) || null
-  );
-}
-
-/** Public, listed resumes (for the version switcher). */
-export function listPublicResumes(resumes) {
-  return (resumes || []).filter(
-    (r) => r?.value && (r.value.visibility || 'public') === 'public',
   );
 }

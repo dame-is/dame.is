@@ -435,6 +435,10 @@ function RecordList({
 
       {pageSlug && <PageContentPanel agent={agent} did={did} slug={pageSlug} />}
 
+      {collection === COLLECTIONS.resume && records.length > 0 && (
+        <ResumeActiveSelector agent={agent} did={did} records={records} onChanged={reload} />
+      )}
+
       {error && <p className="admin-error">{error}</p>}
 
       {visibleRecords.length === 0 && !loading && !error && (
@@ -492,6 +496,92 @@ function previewFor(value, lex) {
 function truncate(s, n) {
   if (!s) return '';
   return s.length <= n ? s : s.slice(0, n - 1).trimEnd() + '…';
+}
+
+/* ------------------------------------------------------------------ */
+/* Active resume selector                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Picks which resume version is "active" — the single one shown at /for-hire.
+ * Active-ness is stored as the `featured` flag on the resume record; choosing
+ * one here sets `featured: true` on it and clears it on every other version,
+ * so at most one is ever active.
+ */
+function ResumeActiveSelector({ agent, did, records, onChanged }) {
+  const [busy, setBusy] = useState(null); // rkey currently being set
+  const [error, setError] = useState(null);
+
+  const activeRkey = useMemo(() => {
+    const found = records.find((rec) => rec.value?.featured);
+    return found ? rkeyFromUri(found.uri) : null;
+  }, [records]);
+
+  async function setActive(rkey) {
+    if (busy) return;
+    setBusy(rkey);
+    setError(null);
+    try {
+      // Flip only the records whose featured flag needs to change.
+      for (const rec of records) {
+        const r = rkeyFromUri(rec.uri);
+        const shouldBeActive = r === rkey;
+        const isActive = !!rec.value?.featured;
+        if (shouldBeActive === isActive) continue;
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: COLLECTIONS.resume,
+          rkey: r,
+          record: {
+            ...rec.value,
+            featured: shouldBeActive,
+            updatedAt: new Date().toISOString(),
+          },
+        });
+      }
+      onChanged?.();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="admin-active-resume">
+      <p className="admin-active-resume-label small-caps">Active version</p>
+      <p className="admin-active-resume-note">
+        The one version shown on <code>/for-hire</code>.
+      </p>
+      <ul className="admin-active-resume-list">
+        {records.map((rec) => {
+          const r = rkeyFromUri(rec.uri);
+          const isActive = r === activeRkey;
+          const label = rec.value?.title || rec.value?.slug || r;
+          const vis = rec.value?.visibility || 'private';
+          return (
+            <li key={rec.uri} className="admin-active-resume-item">
+              <button
+                type="button"
+                className={`admin-active-resume-btn ${isActive ? 'is-active' : ''}`}
+                onClick={() => !isActive && setActive(r)}
+                disabled={!!busy || isActive}
+                aria-pressed={isActive}
+              >
+                <span className="admin-active-resume-radio" aria-hidden="true" />
+                <span className="admin-active-resume-name">{label}</span>
+                {vis !== 'public' && (
+                  <span className="admin-active-resume-vis">{vis}</span>
+                )}
+                {busy === r && <span className="admin-active-resume-vis">saving…</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {error && <p className="admin-error">{error}</p>}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
