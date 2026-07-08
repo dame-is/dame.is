@@ -1,10 +1,51 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
+import { resolvePds } from '../lib/atproto.js';
+import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
 import '../pages/Admin.css';
+
+/**
+ * `agent.com.atproto.repo.getRecord` returns blobs as `BlobRef` instances.
+ * `structuredClone` mangles those into invalid plain objects (losing `toJSON`
+ * and `ref.$link`), which then get re-put as garbage — silently stripping the
+ * image. A JSON round-trip instead runs each BlobRef's `toJSON`, yielding the
+ * plain `{$type:'blob', ref:{$link}, …}` wire form: safe to clone, and
+ * re-hydrated correctly by the client on save.
+ */
+function toPlainRecord(value) {
+  return JSON.parse(JSON.stringify(value ?? {}));
+}
+
+/** Deep-remove our `_url` display annotations so they never reach the PDS. */
+function stripUrlAnnotations(value) {
+  if (Array.isArray(value)) return value.map(stripUrlAnnotations);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      if (k === '_url') continue;
+      out[k] = stripUrlAnnotations(v);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Bake `_url` display URLs onto a record's blob refs (top-level image fields
+ * and any image/preview blobs inside `blocks` bodies) so existing images show
+ * in the editor. Mirrors the feed builder's read-path annotation.
+ */
+function annotateRecordBlobs(record, lex, pds, did) {
+  if (!record || !pds) return;
+  for (const f of lex?.fields || []) {
+    if (f.type === 'image') annotateBlobUrl(record[f.key], pds, did);
+    if (f.type === 'blocks') annotateLeafletBlobs(record[f.key], pds, did);
+  }
+}
 
 /**
  * Reusable record editor (form + raw JSON + save/delete) shared by the admin
@@ -99,10 +140,24 @@ const RecordEditor = forwardRef(function RecordEditor({
         });
         const fetched = (res?.data || res)?.value || {};
         if (cancelled) return;
-        const migrated = lex?.migrate ? lex.migrate(structuredClone(fetched)) : structuredClone(fetched);
+        // Normalize BlobRef instances to plain JSON *before* any clone/migrate
+        // (structuredClone would corrupt them and strip images on save).
+        const plain = toPlainRecord(fetched);
+        const migrated = lex?.migrate ? lex.migrate(plain) : plain;
+        // Bake display URLs onto blob refs so existing images render in the
+        // editor. Best-effort: a failed PDS resolve just leaves them blank.
+        let pds = null;
+        try {
+          pds = await resolvePds(did);
+        } catch {
+          /* display-only; the record still loads and saves fine */
+        }
+        if (cancelled) return;
+        if (pds) annotateRecordBlobs(migrated, lex, pds, did);
         setOriginal(fetched);
         setValue(migrated);
-        setRawText(JSON.stringify(migrated, null, 2));
+        // The raw-JSON view and payload must stay clean of `_url` annotations.
+        setRawText(JSON.stringify(stripUrlAnnotations(migrated), null, 2));
         if (!lex) setRawMode(true);
       } catch (err) {
         if (!cancelled) setError(err?.message || String(err));
@@ -149,7 +204,10 @@ const RecordEditor = forwardRef(function RecordEditor({
     if (Array.isArray(lex?.stripLegacyKeys)) {
       for (const k of lex.stripLegacyKeys) delete next[k];
     }
-    return next;
+    // Normalize first (runs BlobRef.toJSON on freshly uploaded blobs → clean
+    // wire form; a plain recursive walk would mangle those instances), then
+    // drop the `_url` display annotations so they never reach the PDS.
+    return stripUrlAnnotations(toPlainRecord(next));
   }, [value, lex, rawMode, rawText, isNew]);
 
   async function handleSave() {
