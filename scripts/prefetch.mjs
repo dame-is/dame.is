@@ -48,6 +48,7 @@ import {
   fetchAllBlocks,
   arenaAccessToken,
   pickCoverThumb,
+  arenaText,
 } from '../src/lib/arena.js';
 import {
   buildUnifiedFeed,
@@ -188,8 +189,8 @@ async function main() {
     const gallery = {
       slug: g.rkey,
       arenaSlug: g.value.arenaSlug,
-      title: g.value.title || snap.meta?.title || g.rkey,
-      description: g.value.description || snap.meta?.description || '',
+      title: g.value.title || arenaText(snap.meta?.title) || g.rkey,
+      description: g.value.description || arenaText(snap.meta?.description) || '',
       blockCount: snap.blocks.length,
       cover: pickCoverThumb(snap.blocks, g.value.coverBlockId),
       order: g.value.order ?? 0,

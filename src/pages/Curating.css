@@ -41,6 +41,33 @@
   object-fit: contain;
 }
 
+/* Text block → a square tile with the word(s) centred (are.na channels often
+   mix text notes in with the images). */
+.curating-text-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: var(--space-3);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-3);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.curating-text-card span {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  line-height: 1.3;
+  color: var(--ink);
+  text-align: center;
+  /* Long notes stay contained; a single word (the common case) sits centred. */
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
 .curating-block-domain {
   display: block;
   padding-top: var(--space-1);

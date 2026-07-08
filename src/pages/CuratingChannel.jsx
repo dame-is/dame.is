@@ -6,7 +6,7 @@ import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord } from '../lib/atproto.js';
-import { fetchChannelMeta, fetchAllBlocks } from '../lib/arena.js';
+import { fetchChannelMeta, fetchAllBlocks, arenaText } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Curating.css';
 
@@ -68,8 +68,8 @@ export default function CuratingChannel() {
         gallery: {
           slug,
           arenaSlug: v.arenaSlug,
-          title: v.title || meta?.title || slug,
-          description: v.description || meta?.description || '',
+          title: v.title || arenaText(meta?.title) || slug,
+          description: v.description || arenaText(meta?.description) || '',
           blockCount: blocks.length,
           updatedAt: meta?.updated_at || null,
         },
@@ -114,11 +114,13 @@ export default function CuratingChannel() {
   }
 
   const { gallery, blocks, truncated } = items;
+  // Only image/link blocks are lightbox-navigable; text tiles are not.
+  const visualBlocks = blocks.filter((b) => b.type !== 'text');
 
   return (
     <PageShell
-      title={gallery.title}
-      intro={gallery.description || undefined}
+      title={arenaText(gallery.title) || undefined}
+      intro={arenaText(gallery.description) || undefined}
       headTitle={`${gallery.title} — dame.is`}
       eyebrow={
         <Link to="/curating" className="page-back small-caps">
@@ -127,23 +129,39 @@ export default function CuratingChannel() {
       }
     >
       <div className="curating-channel-meta gutter">
-        <span>{gallery.blockCount} images</span>
+        <span>{gallery.blockCount} {gallery.blockCount === 1 ? 'block' : 'blocks'}</span>
       </div>
 
       {blocks.length === 0 ? (
-        <p className="feed-empty">No images in this gallery yet.</p>
+        <p className="feed-empty">No blocks in this gallery yet.</p>
       ) : (
         <>
           <ul className="curating-block-grid reveal-stagger">
-            {blocks.map((b, i) => {
-              const domain = b.type === 'link' && b.sourceUrl ? hostname(b.sourceUrl) : null;
+            {blocks.map((b) => {
+              if (b.type === 'text') {
+                return (
+                  <li key={b.id} className="curating-block">
+                    <div className="curating-text-card">
+                      <span>{b.text}</span>
+                    </div>
+                  </li>
+                );
+              }
+              // Image / link tile — opens the lightbox at its position among
+              // the visual (non-text) blocks. A link tile is captioned with
+              // the page title, falling back to its domain.
+              const vIndex = visualBlocks.indexOf(b);
+              const caption =
+                b.type === 'link'
+                  ? b.sourceTitle || b.title || (b.sourceUrl ? hostname(b.sourceUrl) : null)
+                  : null;
               return (
                 <li key={b.id} className="curating-block">
                   <button
                     type="button"
                     className="curating-block-button"
-                    onClick={() => setLightbox(i)}
-                    aria-label={b.alt ? `View image: ${b.alt}` : `View image ${i + 1}`}
+                    onClick={() => setLightbox(vIndex)}
+                    aria-label={b.alt ? `View image: ${b.alt}` : `View image ${vIndex + 1}`}
                   >
                     <img
                       src={b.thumb.src}
@@ -152,7 +170,7 @@ export default function CuratingChannel() {
                       loading="lazy"
                       decoding="async"
                     />
-                    {domain && <span className="curating-block-domain gutter">{domain}</span>}
+                    {caption && <span className="curating-block-domain gutter">{caption}</span>}
                   </button>
                 </li>
               );
@@ -160,14 +178,14 @@ export default function CuratingChannel() {
           </ul>
           {truncated && (
             <p className="curating-truncated gutter">
-              Showing the first {blocks.length} images.
+              Showing the first {blocks.length} blocks.
             </p>
           )}
           <Lightbox
             open={lightbox >= 0}
             index={Math.max(0, lightbox)}
             onClose={() => setLightbox(-1)}
-            images={blocks.map((b) => ({
+            images={visualBlocks.map((b) => ({
               src: b.large,
               alt: b.alt,
               width: b.width || undefined,

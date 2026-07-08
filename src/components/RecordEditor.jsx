@@ -964,12 +964,14 @@ function ArenaCoverField({ value, onChange, arenaSlug }) {
     fetchAllBlocks(slug, { maxPages: 2 })
       .then(({ blocks: bs, truncated }) => {
         if (cancelled) return;
-        setBlocks(bs);
+        // Only image/link blocks can be a cover — text tiles have no thumbnail.
+        const pickable = bs.filter((b) => b.thumb?.src);
+        setBlocks(pickable);
         setStatus(
-          bs.length === 0
+          pickable.length === 0
             ? 'No images found in that channel.'
             : truncated
-              ? `Showing the first ${bs.length} images.`
+              ? `Showing the first ${pickable.length} images.`
               : null,
         );
       })
