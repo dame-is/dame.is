@@ -11,6 +11,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { groupByDay } from '../lib/time.js';
+import { collapseListens } from '../lib/listenSessions.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
@@ -56,7 +57,18 @@ export default function Listening() {
       }),
     [safeItems, q, removedUris],
   );
-  const groups = groupByDay(filtered, (i) => i.createdAt);
+  // Merge consecutive plays into "listening sessions" (same batching the
+  // home feed uses) so a run of songs reads as one compact, expandable row
+  // instead of one row per track. Plays are newest-first from the PDS, but
+  // sort defensively so a play whose recorded time drifts from its rkey
+  // doesn't split a session.
+  const sessions = useMemo(() => {
+    const sorted = [...filtered].sort(
+      (a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0),
+    );
+    return collapseListens(sorted);
+  }, [filtered]);
+  const groups = groupByDay(sessions, (i) => i.createdAt);
 
   // Feed page: report the newest visible record's time in the global footer.
   usePublishLatestRecord(useMemo(() => newestInstant(filtered), [filtered]));
@@ -84,7 +96,7 @@ export default function Listening() {
               <DayOfLifeHeader date={group.date} />
               <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
                 {group.items.map((item) => (
-                  <FeedItem key={item.atUri} item={item} />
+                  <FeedItem key={item.atUri} item={item} showVerb={false} />
                 ))}
               </ul>
             </li>
