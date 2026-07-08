@@ -139,13 +139,9 @@
   /* Promote to its own compositor layer so the slide is a pure transform —
      no layout, no repaint of the page, nothing that can stall scrolling. */
   will-change: transform;
-}
-
-@media (min-width: 65rem) {
-  .chrome-bar-tertiary {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
+  /* Side hairlines (≥65rem) come from the shared `.chrome-bar-row` rule near
+     the bottom of this file, so they land at the exact same x as the header's
+     own side hairlines rather than inset by the bar's border. */
 }
 
 .chrome-breadcrumb {
@@ -444,12 +440,18 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* On wide screens the chrome bars float as a 65rem-wide card with
-   the page background showing on either side; add left/right hairlines
-   to close the box visually. */
+/* On wide screens the chrome bars float as a 65rem-wide card with the page
+   background showing on either side; left/right hairlines close the box
+   visually. They live on the INNER rows (`.chrome-bar-row` for the top,
+   `.chrome-bottom-row` for the bottom) — not the outer bar — so they sit at
+   the true 65rem edge and line up with the scroll-revealed strips
+   (`.chrome-bar-tertiary` breadcrumb, `.chrome-bar-footer`), which carry
+   their own side hairlines one layer in. Putting them on the outer bar would
+   inset those strips' borders by the bar's own 1px border and leave a
+   hairline jog. The bars still own the top/bottom hairlines. */
 @media (min-width: 65rem) {
-  .chrome-bar-top,
-  .chrome-bar-bottom {
+  .chrome-bar-row,
+  .chrome-bottom-row {
     border-left: 1px solid var(--rule);
     border-right: 1px solid var(--rule);
   }
