@@ -10,7 +10,6 @@ import {
   resolveResume,
   pickDefaultResume,
   findResumeBySlug,
-  listPublicResumes,
 } from '../lib/resumeHelpers.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Resume.css';
@@ -42,8 +41,6 @@ export default function Resume() {
     const chosen = slug ? findResumeBySlug(resumes, slug) : pickDefaultResume(resumes);
     return chosen ? resolveResume(chosen, items?.jobs, items?.education) : null;
   }, [resumes, items, slug]);
-
-  const versions = useMemo(() => listPublicResumes(resumes), [resumes]);
 
   const summaryHtml = useMemo(() => {
     const v = resolved?.value;
@@ -123,26 +120,6 @@ export default function Resume() {
                 </li>
               ))}
             </ul>
-          )}
-
-          {versions.length > 1 && (
-            <nav className="resume-versions" aria-label="Resume versions">
-              <span className="small-caps">Versions</span>
-              {versions.map((r) => {
-                const s = r.value.slug;
-                const active = s === resolved.slug;
-                return (
-                  <Link
-                    key={r.uri}
-                    to={`/for-hire/${s}`}
-                    className={`resume-version-chip ${active ? 'is-active' : ''}`}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    {r.value.title || s}
-                  </Link>
-                );
-              })}
-            </nav>
           )}
         </header>
 
