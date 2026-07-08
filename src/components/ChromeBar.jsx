@@ -332,12 +332,14 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     };
   }, []);
 
-  // A "sub page" is anything nested one level deeper than a section index
-  // (e.g. /curating/:slug, /creating/:slug) — those get a back handle in
-  // the bottom bar that walks up to the section index (the breadcrumb parent).
+  // Every page except home gets a back handle in the bottom bar. It walks
+  // back through history (mirroring the browser's back button) so you can
+  // return to wherever you came from — including home → /blogging → back →
+  // home, not just deep sub-pages like /creating/:slug. On a fresh or
+  // deep-linked load with no in-app history, it falls back to the breadcrumb
+  // parent: the section index for a sub-page, else home.
   const crumbs = buildCrumbs(location.pathname);
-  const isSubPage = crumbs.length >= 2;
-  const parentPath = isSubPage ? crumbs[crumbs.length - 2].to : '/';
+  const parentPath = crumbs.length >= 2 ? crumbs[crumbs.length - 2].to : '/';
 
   function goBack() {
     // Prefer real history so the back button mirrors the browser's, but fall
@@ -483,7 +485,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           </AnimatePresence>
         </div>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
-        {isSubPage && (
+        {!onHomePage && (
           <button
             type="button"
             className="chrome-nav chrome-back-btn"
