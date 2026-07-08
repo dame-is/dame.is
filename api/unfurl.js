@@ -70,6 +70,16 @@ export default async function handler(req, res) {
       description: metaContent(html, ['og:description', 'twitter:description', 'description']),
       image: metaContent(html, ['og:image', 'twitter:image']),
     };
+    // og:image is often a relative path ("/cover.png") or protocol-relative
+    // ("//host/cover.png"); resolve it against the final (post-redirect) page
+    // URL so callers always get an absolute http(s) URL they can fetch.
+    if (out.image) {
+      try {
+        out.image = new URL(out.image, upstream.url || url).href;
+      } catch {
+        out.image = '';
+      }
+    }
     res.setHeader('cache-control', 'public, max-age=3600');
     return res.status(200).json(out);
   } catch (err) {
