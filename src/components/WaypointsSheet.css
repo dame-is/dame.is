@@ -4,9 +4,10 @@
    every bottom sheet reads as one family. */
 
 .waypoints-sheet {
-  /* Match InfoSheet's inset so the picker's content column lines up with the
-     other bottom sheets (and the bottom bar's buttons that trigger them). */
-  padding: var(--space-4) clamp(var(--space-4), calc(6vw - 3.5rem), 2.5rem);
+  /* Track the chrome bars' shared column (--chrome-pad-x), like the other
+     bottom sheets, so the picker's content lines up with the nav dock,
+     breadcrumb, and the bottom-bar buttons that trigger them. */
+  padding: var(--space-4) var(--chrome-pad-x);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

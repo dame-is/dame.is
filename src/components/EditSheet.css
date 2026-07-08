@@ -61,7 +61,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
+     so the sheet's header/body/footer line up with the nav dock, breadcrumb,
+     and bottom-bar buttons — same as the other bottom sheets. */
+  padding: var(--space-3) var(--chrome-pad-x);
   background: var(--surface-deep);
   border-bottom: 1px solid var(--rule-soft);
 }
@@ -118,12 +121,12 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-4);
+  padding: var(--space-4) var(--chrome-pad-x);
 }
 
 .edit-sheet-foot {
   flex: 0 0 auto;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--chrome-pad-x);
   background: var(--surface-deep);
   border-top: 1px solid var(--rule-soft);
 }
