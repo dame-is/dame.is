@@ -22,7 +22,7 @@ export const SITE = {
 
 export const DEFAULT = {
   label: '',
-  title: 'Dame is…',
+  title: 'dame.is',
   desc: 'An atmospheric website by dame, built atop the AT Protocol.',
   nsid: 'is.dame.page',
 };
@@ -30,67 +30,67 @@ export const DEFAULT = {
 export const PAGES = {
   '/': {
     label: '',
-    title: 'Dame is…',
+    title: 'dame.is',
     desc: 'An atmospheric personal website — statuses, posts, blogs, listens, and creations, interleaved and built atop the AT Protocol.',
     nsid: 'is.dame.page',
   },
   '/themself': {
     label: 'themself',
-    title: 'Dame is… themself',
+    title: 'dame.is themself',
     desc: 'Who dame is — a longer look at the person behind the pixels, drawn live from the AT Protocol.',
     nsid: 'is.dame.profile',
   },
   '/for-hire': {
     label: 'for hire',
-    title: 'Dame is… for hire',
+    title: 'dame.is for hire',
     desc: "Dame's résumé and work history — design, strategy, and building on the open social web.",
     nsid: 'is.dame.resume',
   },
   '/blogging': {
     label: 'blogging',
-    title: 'Dame is… blogging',
+    title: 'dame.is blogging',
     desc: 'Long-form essays on the open social web, atproto, and building in public.',
     nsid: 'site.standard.document',
   },
   '/creating': {
     label: 'creating',
-    title: 'Dame is… creating',
+    title: 'dame.is creating',
     desc: 'A portfolio of creative work — projects, experiments, and things made along the way.',
     nsid: 'is.dame.creating.work',
   },
   '/curating': {
     label: 'curating',
-    title: 'Dame is… curating',
+    title: 'dame.is curating',
     desc: 'Collected references and inspirations — channels of things worth keeping.',
     nsid: 'is.dame.arena.channel',
   },
   '/listening': {
     label: 'listening',
-    title: 'Dame is… listening',
+    title: 'dame.is listening',
     desc: 'A live scrobble of what dame is playing, streamed from the AT Protocol.',
     nsid: 'fm.teal.alpha.feed.play',
   },
   '/posting': {
     label: 'posting',
-    title: 'Dame is… posting',
+    title: 'dame.is posting',
     desc: "Dame's Bluesky posts, grouped by day and mirrored from the AT Protocol.",
     nsid: 'app.bsky.feed.post',
   },
   '/logging': {
     label: 'logging',
-    title: 'Dame is… logging',
+    title: 'dame.is logging',
     desc: 'Status updates and small signals of life, logged to the AT Protocol.',
     nsid: 'is.dame.now',
   },
   '/mothing': {
     label: 'mothing',
-    title: 'Dame is… mothing',
+    title: 'dame.is mothing',
     desc: 'Moths at the light — observations logged from nights spent watching the dark.',
     nsid: 'is.dame.mothing.observation',
   },
   '/sharing': {
     label: 'sharing',
-    title: 'Dame is… sharing',
+    title: 'dame.is sharing',
     desc: "Dame's ethos and the things worth passing on.",
     nsid: 'is.dame.page',
   },

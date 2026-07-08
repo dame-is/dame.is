@@ -6,7 +6,7 @@ export default function NotFound() {
     <PageShell
       title="Nowhere to be found"
       intro="No record exists at this URL."
-      headTitle="Not found — Dame is…"
+      headTitle="Not found — dame.is"
     >
       <p>
         Try the <Link to="/">home page</Link>.

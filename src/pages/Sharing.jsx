@@ -14,7 +14,7 @@ export default function Sharing() {
       title={title}
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/sharing`}
-      headTitle="Sharing — Dame is&hellip;"
+      headTitle="dame.is sharing"
     >
       {loading ? (
         <ProseSkeleton paragraphs={4} />

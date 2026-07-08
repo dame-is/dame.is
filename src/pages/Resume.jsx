@@ -52,7 +52,7 @@ export default function Resume() {
 
   if (status === 'loading') {
     return (
-      <PageShell headTitle="For hire — Dame is…" atUri={`at://${ME_DID}/is.dame.page/resume`}>
+      <PageShell headTitle="dame.is for hire" atUri={`at://${ME_DID}/is.dame.page/resume`}>
         <p className="placeholder-card">Loading resume…</p>
       </PageShell>
     );
@@ -62,7 +62,7 @@ export default function Resume() {
     return (
       <PageShell
         title={pageTitle}
-        headTitle="For hire — Dame is…"
+        headTitle="dame.is for hire"
         atUri={`at://${ME_DID}/is.dame.page/resume`}
       >
         <p className="feed-empty">
@@ -84,7 +84,7 @@ export default function Resume() {
 
   return (
     <PageShell
-      headTitle={`${v.headline || pageTitle || 'For hire'} — Dame is…`}
+      headTitle={`${v.headline || pageTitle || 'For hire'} — dame.is`}
       atUri={resolved.uri}
       cid={resolved.cid}
     >

@@ -12,7 +12,8 @@
 // home route and all nested/dynamic routes stay fully static — no middleware
 // cost, no risk of breaking client-side navigation.
 
-import { pageMeta } from './og/pages.js';
+import { pageMeta, SITE, cleanPath, segsFor } from './og/pages.js';
+import { recordMeta } from './og/records.js';
 
 const ORIGIN = 'https://dame.is';
 
@@ -21,8 +22,11 @@ export const config = {
     '/themself',
     '/for-hire',
     '/blogging',
+    '/blogging/:slug',
     '/creating',
+    '/creating/:slug',
     '/curating',
+    '/curating/:slug',
     '/listening',
     '/posting',
     '/logging',
@@ -54,8 +58,31 @@ function setMeta(html, keyAttr, keyVal, content) {
 export default async function middleware(request) {
   try {
     const url = new URL(request.url);
-    const path = url.pathname.replace(/\/+$/, '') || '/';
-    const meta = pageMeta(path);
+    const path = cleanPath(url.pathname);
+    const segs = segsFor(path);
+
+    // Two title conventions:
+    //   • top-level surfaces → the page's own "dame.is {label}" (from pages.js)
+    //   • record/leaf pages   → "{record title} — dame.is", resolved live from
+    //     the PDS; the OG image falls back to the parent section's card.
+    // A record route whose record can't be fetched degrades to the section's
+    // own card + title, so crawlers never see the generic home card there.
+    let title;
+    let desc;
+    let ogImage;
+    if (segs.length === 2) {
+      const sectionPath = `/${segs[0]}`;
+      const section = pageMeta(sectionPath);
+      const rec = await recordMeta(path);
+      title = rec ? `${rec.title} — ${SITE.domain}` : section.title;
+      desc = (rec && rec.description) || section.desc;
+      ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(sectionPath)}`;
+    } else {
+      const meta = pageMeta(path);
+      title = meta.title;
+      desc = meta.desc;
+      ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(path)}`;
+    }
 
     // Pull the built SPA shell. The matcher never matches /index.html, so this
     // subrequest can't loop back through the middleware.
@@ -66,17 +93,16 @@ export default async function middleware(request) {
     let html = await shellRes.text();
 
     const canonical = `${ORIGIN}${path}`;
-    const ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(path)}`;
 
-    html = html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeAttr(meta.title)}</title>`);
-    html = setMeta(html, 'name', 'description', meta.desc);
+    html = html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeAttr(title)}</title>`);
+    html = setMeta(html, 'name', 'description', desc);
     html = setMeta(html, 'property', 'og:url', canonical);
-    html = setMeta(html, 'property', 'og:title', meta.title);
-    html = setMeta(html, 'property', 'og:description', meta.desc);
+    html = setMeta(html, 'property', 'og:title', title);
+    html = setMeta(html, 'property', 'og:description', desc);
     html = setMeta(html, 'property', 'og:image', ogImage);
-    html = setMeta(html, 'property', 'og:image:alt', `${meta.title} — dame.is`);
-    html = setMeta(html, 'name', 'twitter:title', meta.title);
-    html = setMeta(html, 'name', 'twitter:description', meta.desc);
+    html = setMeta(html, 'property', 'og:image:alt', title);
+    html = setMeta(html, 'name', 'twitter:title', title);
+    html = setMeta(html, 'name', 'twitter:description', desc);
     html = setMeta(html, 'name', 'twitter:image', ogImage);
 
     return new Response(html, {

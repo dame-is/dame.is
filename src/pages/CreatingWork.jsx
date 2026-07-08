@@ -62,7 +62,7 @@ export default function CreatingWork() {
 
   if (status === 'loading') {
     return (
-      <PageShell headTitle={`${slug} — Dame is…`}>
+      <PageShell headTitle={`${slug} — dame.is`}>
         <article className="creating-work-page">
           <CreatingWorkSkeleton />
         </article>
@@ -72,7 +72,7 @@ export default function CreatingWork() {
 
   if (!record) {
     return (
-      <PageShell title="Work not found" headTitle="Not found — Dame is…">
+      <PageShell title="Work not found" headTitle="Not found — dame.is">
         <p>
           No creative work with slug <code>{slug}</code>.{' '}
           <Link to="/creating">Back to the index.</Link>
@@ -88,7 +88,7 @@ export default function CreatingWork() {
       title={v?.title || slug}
       atUri={record?.uri}
       cid={record?.cid}
-      headTitle={v?.title ? `${v.title} — Dame is…` : `${slug} — Dame is…`}
+      headTitle={v?.title ? `${v.title} — dame.is` : `${slug} — dame.is`}
       eyebrow={
         <Link to="/creating" className="page-back small-caps">
           ← Portfolio

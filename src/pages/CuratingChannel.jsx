@@ -88,7 +88,7 @@ export default function CuratingChannel() {
 
   if (status === 'loading') {
     return (
-      <PageShell headTitle={`${slug} — Dame is…`}>
+      <PageShell headTitle={`${slug} — dame.is`}>
         <CreatingGridSkeleton cells={9} />
       </PageShell>
     );
@@ -99,7 +99,7 @@ export default function CuratingChannel() {
     return (
       <PageShell
         title={missing ? 'Gallery not found' : 'Gallery unavailable'}
-        headTitle="Not found — Dame is…"
+        headTitle="Not found — dame.is"
       >
         <p>
           {missing ? (
@@ -119,7 +119,7 @@ export default function CuratingChannel() {
     <PageShell
       title={gallery.title}
       intro={gallery.description || undefined}
-      headTitle={`${gallery.title} — Dame is…`}
+      headTitle={`${gallery.title} — dame.is`}
       eyebrow={
         <Link to="/curating" className="page-back small-caps">
           ← Curating

@@ -78,7 +78,7 @@ export default function Listening() {
       title={title}
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/listening`}
-      headTitle="Listening — Dame is&hellip;"
+      headTitle="dame.is listening"
     >
       {!loading && statsItems.length > 0 && <ListeningStats items={statsItems} />}
       {loading ? (

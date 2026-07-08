@@ -63,7 +63,7 @@ export default function Exploring() {
   return (
     <PageShell
       title="Exploring"
-      headTitle={`${title} — Exploring — Dame is…`}
+      headTitle={`${title} — Exploring — dame.is`}
     >
       <SearchBox initial={repoInput} />
 

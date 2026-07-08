@@ -55,7 +55,7 @@ export default function Posting() {
       title={title}
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/posting`}
-      headTitle="Posting — Dame is&hellip;"
+      headTitle="dame.is posting"
     >
       <PostingFilters counts={counts} />
       {loading ? (

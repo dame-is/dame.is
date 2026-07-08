@@ -168,7 +168,7 @@ export default function Creating() {
       title={title}
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/creating`}
-      headTitle="Creating — Dame is&hellip;"
+      headTitle="dame.is creating"
     >
       <CreatingFilters kinds={kinds} counts={counts} />
       {showSkeleton ? (
