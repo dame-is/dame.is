@@ -1,13 +1,9 @@
 .page-footer {
-  /* Same max-width + horizontal padding as `.main` so the footer
-     (border-top included) lines up with the page's content column
-     instead of stretching edge-to-edge. */
+  /* The footer now rides the bottom chrome as a scroll-revealed strip — the
+     vertical mirror of the top bar's breadcrumb (see `.chrome-bar-footer` in
+     ChromeBar.css). The strip owns the surface, hairline, and horizontal
+     padding; the footer element itself is just the content row that fills it. */
   width: 100%;
-  max-width: 72rem;
-  margin: var(--space-9) auto 0;
-  border-top: 1px solid var(--rule);
-  padding: var(--space-5) clamp(var(--space-5), 6vw, var(--space-9));
-  background: var(--page);
 }
 
 .page-footer-inner {

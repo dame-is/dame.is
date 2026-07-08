@@ -28,7 +28,6 @@ import ChromeBar from './components/ChromeBar.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import EditModeBar from './components/EditModeBar.jsx';
 import EditSheet from './components/EditSheet.jsx';
-import Footer from './components/Footer.jsx';
 import WindowScrollbar from './components/WindowScrollbar.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
@@ -148,7 +147,6 @@ export default function App() {
                 </RouteTransition>
               </div>
             </main>
-            <Footer />
             <ActionDock />
             <EditModeBar />
             <EditSheet />

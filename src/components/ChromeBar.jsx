@@ -19,6 +19,7 @@ import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
 import InfoSheet from './InfoSheet.jsx';
+import Footer from './Footer.jsx';
 import './ChromeBar.css';
 
 // Per-theme glyph for the toggle button: sun for light, moon for dark.
@@ -278,6 +279,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const reduce = useReducedMotion();
   const atTop = useAtTopOfPage();
   const scrolledPast = useScrolledPastFeedItems();
+  // The footer rides the bottom chrome the way the breadcrumb rides the top:
+  // it slides up out of the bar once you reach the last stretch of the page.
+  const nearBottom = useNearPageBottom();
+  const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
   const { theme, cycle: cycleTheme } = useTheme();
   const ThemeIcon = THEME_ICON[theme] || Sun;
@@ -299,6 +304,33 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   useEffect(() => {
     if (!filterAvailable && filterPanelOpen) closePanel();
   }, [filterAvailable, filterPanelOpen, closePanel]);
+
+  // Publish the footer strip's height as `--chrome-bottom-footer-h` on
+  // <html> so the app shell can reserve matching room below the page
+  // content — the mirror of how the fixed bottom bar reserves --chrome-h.
+  // Without it the strip, revealed at the page's end, would overlay the
+  // last line of content (which, unlike the top, can't scroll out from
+  // under it). The strip is always mounted and only slides via transform,
+  // so `offsetHeight` is its settled height whether revealed or tucked
+  // away. Re-measures on size changes (content reflow, viewport resize).
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      document.documentElement.style.setProperty(
+        '--chrome-bottom-footer-h',
+        `${Math.max(0, Math.ceil(el.offsetHeight))}px`,
+      );
+    };
+    apply();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', apply);
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', apply);
+    };
+  }, []);
 
   // A "sub page" is anything nested one level deeper than a section index
   // (e.g. /curating/:slug, /creating/:slug) — those get a back handle in
@@ -514,6 +546,30 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           <Compass className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
         </button>
       </div>
+
+      {/* Footer strip: the bottom-bar mirror of the top bar's breadcrumb.
+          Anchored to the bar's top edge (bottom: 100%) inside a fixed clip
+          and revealed with a pure transform + opacity — never a height
+          animation — so the page never reflows mid-scroll. Stays mounted the
+          whole time (so its height stays measurable) and only slides up into
+          view once you reach the last stretch of the page. */}
+      <div
+        className="chrome-bar-footer-wrap"
+        inert={nearBottom ? undefined : ''}
+        aria-hidden={nearBottom ? undefined : true}
+        style={{ pointerEvents: nearBottom ? 'auto' : 'none' }}
+      >
+        <motion.div
+          ref={footerRef}
+          className="chrome-bar-footer"
+          initial={false}
+          animate={{ y: nearBottom ? '0%' : '100%', opacity: nearBottom ? 1 : 0 }}
+          transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
+        >
+          <Footer />
+        </motion.div>
+      </div>
+
       <SearchSheet />
       <InfoSheet />
     </div>
@@ -563,6 +619,48 @@ function useScrolledDown(threshold = 220) {
     };
   }, [threshold]);
   return down;
+}
+
+/** True once the window is scrolled into the last `fraction` of its
+ *  scrollable range (default 5%, i.e. ~95% down). Drives the footer strip:
+ *  it slides up out of the bottom chrome as you reach the page's end and
+ *  folds back down on the way up — the vertical mirror of the breadcrumb.
+ *
+ *  A page too short to meaningfully scroll counts as "at the end" so the
+ *  footer stays revealed, matching the old always-in-flow footer. Coalesced
+ *  through requestAnimationFrame so the state flip (and the transform it
+ *  drives) never runs synchronously inside the scroll event. */
+function useNearPageBottom(fraction = 0.05) {
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    function onScroll() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const viewport = window.innerHeight || 0;
+        const full = Math.max(
+          document.documentElement.scrollHeight,
+          document.body.scrollHeight,
+        );
+        const maxScroll = full - viewport;
+        if (maxScroll <= 4) {
+          setNear(true);
+          return;
+        }
+        const remaining = maxScroll - (window.scrollY || 0);
+        setNear(remaining <= maxScroll * fraction);
+      });
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [fraction]);
+  return near;
 }
 
 /** True while the window is scrolled to (or within 1px of) the top.
