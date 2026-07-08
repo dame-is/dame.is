@@ -71,6 +71,15 @@
   align-self: start;
   padding-top: 0.4em;
   white-space: nowrap;
+  /* On wide screens the two timestamps stack — the full date on top, the
+     relative "Xmo ago" beneath it — right-aligned in the meta gutter.
+     `column-reverse` keeps the source order (relative, date) so the mobile
+     inline fallback below reads "Xmo ago • date" without extra markup. */
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 0.15em;
+  text-align: right;
 }
 
 .blog-article {
@@ -173,11 +182,21 @@
     display: none;
   }
   .blogging-toc-meta {
-    text-align: left;
     /* In the stacked single-column layout the meta is its own row, so the
        baseline nudge (meant for the desktop 3-column row) just piles space
-       above the timestamp. */
+       above the timestamp. The two timestamps collapse back onto one line,
+       separated by a bullet (see ::after below) rather than stacked. */
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 0.4em;
+    text-align: left;
     padding-top: 0;
+  }
+  .blogging-toc-rel::after {
+    content: '•';
+    margin-left: 0.4em;
+    color: var(--ink-faint);
   }
 }
 
