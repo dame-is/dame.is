@@ -17,7 +17,7 @@ export default function RecordTimestamp() {
   const { latestRecordAt } = useFeedFooter();
   if (latestRecordAt) {
     return (
-      <span className="record-timestamp gutter" title={`latest record: ${latestRecordAt}`}>
+      <span className="record-timestamp small-caps" title={`latest record: ${latestRecordAt}`}>
         latest record {relativeTime(latestRecordAt)}
       </span>
     );
@@ -37,7 +37,7 @@ function RouteRecordTimestamp() {
   const updatedAt = value?.updatedAt || createdAt;
 
   if (!createdAt) {
-    return <span className="record-timestamp gutter">written &mdash; · updated &mdash;</span>;
+    return <span className="record-timestamp small-caps">written &mdash; · updated &mdash;</span>;
   }
 
   const written = relativeTime(createdAt);
@@ -46,7 +46,7 @@ function RouteRecordTimestamp() {
 
   return (
     <span
-      className="record-timestamp gutter"
+      className="record-timestamp small-caps"
       title={`createdAt: ${createdAt}\nupdatedAt: ${updatedAt}`}
     >
       written {written}
