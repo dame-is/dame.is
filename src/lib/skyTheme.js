@@ -67,39 +67,43 @@ const SKY_BANDS = [
 
 // The page-lightness envelope, one value per hour — a hand-eased solar
 // arc rather than a formula, because the shape matters more than the
-// math: the night core (9pm–4am) is near-flat dark, first light barely
-// stirs at 5–6am, sunrise (6am→7am→8am) is the steepest climb of the
-// day, the daylight hours drift gently to a crest at 1pm (solar noon in
-// EDT) and back, and sunset (5pm→6pm→7pm) is the mirror-image plunge.
-// Bulk of day and night: small increments. Sunrise/sunset: the drama.
+// math. Calibrated to Eastern-timezone daylight (the hour itself already
+// resolves in America/New_York): the night core (10pm–4am) is near-flat
+// dark, dawn stirs at 5–6am, sunrise climbs through 7–8am, the daylight
+// hours hold bright — cresting at 1pm, solar noon in EDT — and stay
+// bright through 5pm. The light doesn't start leaving until 6pm, then
+// steps down through sunset (7pm) and twilight (8pm) into night. Both
+// twilight ramps are spread over three hours — an S-curve, not a cliff —
+// so no single increment slams from day to night. Bulk of day and night:
+// small increments. Sunrise/sunset shoulders: the biggest steps.
 //
 // An hour is "daylight" (dark ink on a light page) when its value is
-// ≥ 0.5; the flip points (7am, 6pm) match where the avatar's wordmark
-// switches polarity.
+// ≥ 0.5; the flip points (7am, 7pm) are where each S-curve crosses the
+// middle.
 const SUN_CURVE = [
   0.095, // 12am
   0.09,  // 1am — deepest night
   0.09,  // 2am
   0.095, // 3am
   0.10,  // 4am
-  0.115, // 5am — first light on the horizon
-  0.16,  // 6am — pre-sunrise glow
-  0.66,  // 7am — sunrise: the big jump
-  0.78,  // 8am
-  0.82,  // 9am
-  0.845, // 10am
+  0.13,  // 5am — first light on the horizon
+  0.26,  // 6am — dawn glow building
+  0.60,  // 7am — sunrise crosses into day
+  0.74,  // 8am — morning settles in
+  0.81,  // 9am
+  0.85,  // 10am
   0.86,  // 11am
   0.875, // 12pm
   0.88,  // 1pm — solar noon
   0.875, // 2pm
-  0.86,  // 3pm
-  0.83,  // 4pm
-  0.76,  // 5pm — late sun, still clearly day
-  0.24,  // 6pm — sunset: the big drop
-  0.15,  // 7pm — dusk
-  0.115, // 8pm
-  0.10,  // 9pm
-  0.09,  // 10pm
+  0.87,  // 3pm
+  0.86,  // 4pm
+  0.83,  // 5pm — still full daylight
+  0.70,  // 6pm — the light starts to leave
+  0.38,  // 7pm — sunset crosses into night
+  0.22,  // 8pm — twilight fading
+  0.13,  // 9pm
+  0.10,  // 10pm
   0.09,  // 11pm
 ];
 
@@ -206,9 +210,12 @@ export function paletteForHour(hour) {
       '--sky-surface-raised': hsl(hue, s, l - 0.08),
       '--sky-surface-deep': hsl(hue, s, l - 0.03),
       '--sky-ink': rgbToHex(ink),
+      // The muted/faint steps ride the page lightness down through the
+      // dimmer shoulder hours (7am, 6pm) so secondary text keeps its
+      // contrast when the page isn't at full brightness.
       '--sky-ink-soft': hsl(hue, 0.18, 0.22),
-      '--sky-ink-muted': hsl(hue, 0.15, 0.34),
-      '--sky-ink-faint': hsl(hue, 0.12, 0.46),
+      '--sky-ink-muted': hsl(hue, 0.15, Math.min(0.34, l - 0.32)),
+      '--sky-ink-faint': hsl(hue, 0.12, Math.min(0.46, l - 0.18)),
       '--sky-rule': hsl(hue, s * 0.45, l - 0.18),
       '--sky-rule-soft': hsl(hue, s * 0.5, l - 0.1),
       // Deep-sky accent (from the frame's top band) and a horizon accent
@@ -223,8 +230,8 @@ export function paletteForHour(hour) {
       '--sky-scrim-ink': rgba(ink, 0.9),
       // Muted/faint re-tuned for text sitting on --surface-raised
       // (mirrors the [data-theme] .chrome-bar rules in theme.css).
-      '--sky-ink-muted-raised': hsl(hue, 0.16, 0.28),
-      '--sky-ink-faint-raised': hsl(hue, 0.13, 0.38),
+      '--sky-ink-muted-raised': hsl(hue, 0.16, Math.min(0.28, l - 0.34)),
+      '--sky-ink-faint-raised': hsl(hue, 0.13, Math.min(0.38, l - 0.24)),
       '--sky-paper-rule': rgba(ink, 0.07),
       '--sky-paper-dot': rgba(ink, 0.1),
     };
@@ -248,9 +255,12 @@ export function paletteForHour(hour) {
       '--sky-surface-raised': hsl(bh, s, Math.max(l - 0.045, 0.035)),
       '--sky-surface-deep': hsl(bh, s, Math.max(l - 0.075, 0.02)),
       '--sky-ink': rgbToHex(ink),
+      // Muted/faint ride the page lightness up through the brighter
+      // shoulder hours (6am dawn, 7pm sunset) so secondary text keeps
+      // its contrast against the not-fully-dark page.
       '--sky-ink-soft': hsl(bh, 0.11, 0.78),
-      '--sky-ink-muted': hsl(bh, 0.09, 0.61),
-      '--sky-ink-faint': hsl(bh, 0.08, 0.45),
+      '--sky-ink-muted': hsl(bh, 0.09, Math.max(0.61, l + 0.26)),
+      '--sky-ink-faint': hsl(bh, 0.08, Math.max(0.45, l + 0.13)),
       '--sky-rule': hsl(bh, Math.min(s + 0.05, 0.35), l + 0.12),
       '--sky-rule-soft': hsl(bh, Math.min(s + 0.03, 0.3), l + 0.06),
       '--sky-accent': rgbToHex(accent),
@@ -263,8 +273,8 @@ export function paletteForHour(hour) {
       '--sky-scrim-ink': rgba(ink, 0.9),
       // Night muted already clears the darker raised surface; only faint
       // needs a lift (same shape as the static dark theme's re-tune).
-      '--sky-ink-muted-raised': hsl(bh, 0.09, 0.61),
-      '--sky-ink-faint-raised': hsl(bh, 0.08, 0.52),
+      '--sky-ink-muted-raised': hsl(bh, 0.09, Math.max(0.61, l + 0.26)),
+      '--sky-ink-faint-raised': hsl(bh, 0.08, Math.max(0.52, l + 0.18)),
       '--sky-paper-rule': rgba(ink, 0.055),
       '--sky-paper-dot': rgba(ink, 0.08),
     };
