@@ -10,7 +10,7 @@ import { formatDateLong, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { isPortfolioDoc } from '../lib/publications.js';
+import { showOnBlog } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
 
@@ -132,8 +132,9 @@ export default function BlogPost() {
 function resolveById(data, id) {
   // `data` is the `blogs` array of site.standard.document records.
   const blogs = Array.isArray(data) ? data : [];
-  // Portfolio standard-docs are creative works, not blog posts.
-  const standard = blogs.find((r) => endsWithRkey(r?.uri, id) && !isPortfolioDoc(r?.value));
+  // Blog-homed docs, plus any portfolio doc cross-posted to the blog with a
+  // `blog` tag — so a dual-listed work resolves at /blogging/:rkey too.
+  const standard = blogs.find((r) => endsWithRkey(r?.uri, id) && showOnBlog(r?.value));
   return standard ? { kind: 'standard', record: standard } : null;
 }
 
@@ -149,11 +150,6 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       atUri={record?.uri}
       cid={record?.cid}
       headTitle={`${title} — dame.is`}
-      eyebrow={
-        <Link to="/blogging" className="page-back small-caps">
-          ← Blog
-        </Link>
-      }
     >
       <article className="blog-article reveal">
         <div className="blog-article-meta">

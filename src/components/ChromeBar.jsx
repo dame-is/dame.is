@@ -88,7 +88,15 @@ export default function ChromeBar() {
   const crumbs = buildCrumbs(location.pathname);
   const scrolledDown = useScrolledDown();
   const dayLabel = useCurrentDayLabel();
-  const showBreadcrumb = scrolledDown && (crumbs.length > 0 || !!dayLabel);
+  // Individual (detail) pages — anything two or more segments deep, e.g.
+  // /blogging/:slug, /creating/:slug, /curating/:slug, or a generic record —
+  // pin the breadcrumb open as their standing back-affordance (it replaces
+  // the old per-page "← Section" eyebrow), so the trail is always there and a
+  // dual-listed doc keeps whichever feed it was opened from as its parent
+  // crumb. Feed/index pages keep the scroll-triggered reveal.
+  const isDetailPage = crumbs.length >= 2;
+  const showBreadcrumb =
+    isDetailPage || (scrolledDown && (crumbs.length > 0 || !!dayLabel));
 
   // Right edge of the strip: the AT Protocol collection you're looking
   // at. On feed pages it tracks the record at the top of the scroll
