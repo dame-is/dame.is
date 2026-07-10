@@ -212,6 +212,29 @@
   text-align: right;
 }
 
+/* On mobile, an individual (detail) page's breadcrumb trail and its NSID can
+   each run long — the slug wraps to a second line and the NSID would otherwise
+   be squeezed against the right edge and ellipsized ("SITE.STANDARD.DOC…").
+   Let the strip wrap and drop the NSID onto its own line beneath the trail,
+   left-aligned and shown in full, instead of clipping it. Scoped to detail
+   pages (`.is-detail`); feed pages keep the compact right-aligned NSID that
+   tracks the scrolled record. */
+@media (max-width: 700px) {
+  .chrome-bar-tertiary.is-detail {
+    flex-wrap: wrap;
+  }
+  .chrome-bar-tertiary.is-detail .chrome-crumb-nsid {
+    flex-basis: 100%;
+    margin-left: 0;
+    padding-top: 0;
+    text-align: left;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+}
+
 .chrome-crumb-sep {
   color: var(--ink-faint);
   user-select: none;

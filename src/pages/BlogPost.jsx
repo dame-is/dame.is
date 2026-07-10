@@ -6,7 +6,7 @@ import Comments from '../components/Comments.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
-import { formatDateLong, relativeTime } from '../lib/time.js';
+import { formatDateFull, relativeDay } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
@@ -153,10 +153,9 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
     >
       <article className="blog-article reveal">
         <div className="blog-article-meta">
-          {created && <span>{formatDateLong(created)}</span>}
-          {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}
-          {created && <span>· {relativeTime(created)}</span>}
-          <span className="blog-article-tag">standard.site</span>
+          {created && <span>{relativeDay(created)}</span>}
+          {created && <span>{formatDateFull(created)}</span>}
+          {dayNum && <span>Day {dayNum.toLocaleString()}</span>}
         </div>
         {/* The `description` field is intentionally not rendered here — it's the
             open-graph / feed-summary blurb, and on the post itself it just
