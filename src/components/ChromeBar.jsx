@@ -285,7 +285,7 @@ export default function ChromeBar() {
           style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
         >
           <motion.div
-            className="chrome-bar-row chrome-bar-tertiary"
+            className={`chrome-bar-row chrome-bar-tertiary ${isDetailPage ? 'is-detail' : ''}`}
             initial={false}
             animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
             transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
