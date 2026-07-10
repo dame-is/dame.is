@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import PageContentPanel from '../components/PageContentPanel.jsx';
+import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID, COLLECTIONS, PORTFOLIO_PUBLICATION } from '../config.js';
@@ -36,7 +37,7 @@ export default function Admin() {
   if (loading) {
     return (
       <PageShell title="Admin" headTitle="Admin — dame.is">
-        <p className="placeholder-card">Restoring session…</p>
+        <AdminRecordListSkeleton toolbar rows={5} label="Restoring session" />
       </PageShell>
     );
   }
@@ -441,26 +442,28 @@ function RecordList({
 
       {error && <p className="admin-error">{error}</p>}
 
-      {visibleRecords.length === 0 && !loading && !error && (
+      {loading && records.length === 0 ? (
+        <AdminRecordListSkeleton rows={8} />
+      ) : visibleRecords.length === 0 && !error ? (
         <p className="placeholder-card">No records yet in this collection.</p>
+      ) : (
+        <ul className="admin-record-list reveal-stagger">
+          {visibleRecords.map((rec) => {
+            const r = rkeyFromUri(rec.uri);
+            return (
+              <li key={rec.uri} className="admin-record-row">
+                <Link
+                  to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
+                  className="admin-record-link"
+                >
+                  <code className="admin-record-rkey">{r}</code>
+                  <span className="admin-record-preview">{previewFor(rec.value, lex)}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
-
-      <ul className="admin-record-list">
-        {visibleRecords.map((rec) => {
-          const r = rkeyFromUri(rec.uri);
-          return (
-            <li key={rec.uri} className="admin-record-row">
-              <Link
-                to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
-                className="admin-record-link"
-              >
-                <code className="admin-record-rkey">{r}</code>
-                <span className="admin-record-preview">{previewFor(rec.value, lex)}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
 
       {!done && records.length > 0 && (
         <button
@@ -472,7 +475,6 @@ function RecordList({
           {loading ? 'Loading…' : 'Load more'}
         </button>
       )}
-      {loading && records.length === 0 && <p className="placeholder-card">Loading records…</p>}
     </PageShell>
   );
 }
@@ -709,9 +711,9 @@ function PagesOverview({ agent, did }) {
           hardcoded defaults. Migrate or revert any of them.
         </p>
         {records === null ? (
-          <p className="placeholder-card">Loading pages…</p>
+          <AdminPagePanelsSkeleton panels={knownPageSlugs().length || 4} />
         ) : (
-          <div className="admin-page-panels">
+          <div className="admin-page-panels reveal">
             {knownPageSlugs().map((slug) => (
               <PageContentPanel
                 key={slug}
@@ -732,11 +734,11 @@ function PagesOverview({ agent, did }) {
           page slugs beyond the built-in surfaces above.
         </p>
         {records === null ? (
-          <p className="placeholder-card">Loading records…</p>
+          <AdminRecordListSkeleton rows={4} label="Loading page records" />
         ) : records.length === 0 ? (
           <p className="placeholder-card">No page records on your PDS yet.</p>
         ) : (
-          <ul className="admin-record-list">
+          <ul className="admin-record-list reveal-stagger">
             {records.map((rec) => {
               const r = rkeyFromUri(rec.uri);
               return (
@@ -1064,33 +1066,35 @@ function ListeningManager({ agent, did }) {
         </button>
       </div>
 
-      {records.length === 0 && !loading && !error && (
+      {loading && records.length === 0 ? (
+        <AdminRecordListSkeleton rows={8} label="Loading plays" />
+      ) : records.length === 0 && !error ? (
         <p className="placeholder-card">No plays yet.</p>
-      )}
-
-      <ul className="admin-record-list">
-        {records.map((rec) => {
-          const rkey = rkeyFromUri(rec.uri);
-          const checked = selected.has(rkey);
-          return (
-            <li
-              key={rec.uri}
-              className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
-            >
-              <label className="admin-checkbox admin-multiselect-check">
-                <input type="checkbox" checked={checked} onChange={() => toggle(rkey)} />
-                <span className="admin-record-preview">{playLabel(rec.value)}</span>
-              </label>
-              <Link
-                to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey)}`}
-                className="admin-link-subtle admin-multiselect-edit"
+      ) : (
+        <ul className="admin-record-list reveal-stagger">
+          {records.map((rec) => {
+            const rkey = rkeyFromUri(rec.uri);
+            const checked = selected.has(rkey);
+            return (
+              <li
+                key={rec.uri}
+                className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
               >
-                Edit →
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                <label className="admin-checkbox admin-multiselect-check">
+                  <input type="checkbox" checked={checked} onChange={() => toggle(rkey)} />
+                  <span className="admin-record-preview">{playLabel(rec.value)}</span>
+                </label>
+                <Link
+                  to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey)}`}
+                  className="admin-link-subtle admin-multiselect-edit"
+                >
+                  Edit →
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {!done && records.length > 0 && (
         <button
@@ -1102,7 +1106,6 @@ function ListeningManager({ agent, did }) {
           {loading ? 'Loading…' : 'Load more'}
         </button>
       )}
-      {loading && records.length === 0 && <p className="placeholder-card">Loading plays…</p>}
     </PageShell>
   );
 }
