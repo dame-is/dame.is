@@ -19,7 +19,7 @@ import VerbIcon from './VerbIcon.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
-import { verbConfig, recordHrefFor } from '../lib/verbRegistry.js';
+import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
 
 /**
  * Per-verb label overrides for the feed's verb column. Most verbs read
@@ -220,6 +220,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards' }) {
     <li
       className={liClassName}
       data-verb={item.verb}
+      data-nsid={nsidFromAtUri(item.atUri) || undefined}
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
       onClickCapture={selectable ? handleSelectCapture : undefined}
