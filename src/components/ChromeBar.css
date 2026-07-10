@@ -674,3 +674,14 @@
     min-width: 0;
   }
 }
+
+/* Print: the fixed chrome bars (and their expanding sheets) are screen
+   navigation — never part of a printed page. Hiding them here also keeps
+   the resume's bottom-bar print button out of the printout it triggers. */
+@media print {
+  .chrome-bar,
+  .dock-sheet-wrap,
+  .dock-backdrop {
+    display: none !important;
+  }
+}

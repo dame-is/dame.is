@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Printer } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
@@ -87,21 +86,9 @@ export default function Resume() {
     >
       <article className="resume reveal">
         <header className="resume-header">
-          <div className="resume-headline-row">
-            <div>
-              <h1 className="resume-title">{pageTitle || 'For hire'}</h1>
-              {v.headline && <p className="resume-headline">{v.headline}</p>}
-            </div>
-            <button
-              type="button"
-              className="resume-print-btn"
-              onClick={() => window.print()}
-              aria-label="Print this resume"
-              title="Print / save as PDF"
-            >
-              <Printer size={16} strokeWidth={1.75} aria-hidden="true" />
-              <span>Print</span>
-            </button>
+          <div>
+            <h1 className="resume-title">{pageTitle || 'For hire'}</h1>
+            {v.headline && <p className="resume-headline">{v.headline}</p>}
           </div>
 
           {contact && (
