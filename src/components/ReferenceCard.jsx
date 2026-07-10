@@ -77,7 +77,11 @@ function canExpand(subject) {
       return Boolean(v?.record?.text || v?.embed || v?.record?.embed);
     }
     case 'atproto':
-      return Boolean(subject.record?.value?.description || subject.record?.value?.summary);
+      return Boolean(
+        subject.record?.value?.description ||
+        subject.record?.value?.summary ||
+        subject.record?.value?.text,
+      );
     case 'bsky.profile':
     default:
       return false;
@@ -211,7 +215,15 @@ function CompactAtproto({ record, ref, source }) {
   }
   const v = record.value;
   const collection = collectionFromAtUri(record.uri);
-  const title = v.title || v.name || v.displayName || v.repo || v.repoName || rkeyFromAtUri(record.uri) || 'a record';
+  const title =
+    v.title ||
+    v.name ||
+    v.displayName ||
+    v.repo ||
+    v.repoName ||
+    snippet(v.text) ||
+    rkeyFromAtUri(record.uri) ||
+    'a record';
   const href = canonicalViewerFor(record.uri, source);
   const inner = (
     <span className="reference-card-author">
@@ -264,8 +276,18 @@ function labelForCollection(collection, source) {
   if (collection === 'sh.tangled.repo') return 'repo';
   if (collection === 'site.standard.document') return 'document';
   if (collection === 'site.standard.publication') return 'publication';
+  // Anisota reference subjects — the `anisota` source chip beside the title
+  // already carries the network, so the noun stays plain.
+  if (collection === 'net.anisota.feed.post') return 'post';
   if (source) return 'record';
   return 'record';
+}
+
+/** First ~80 chars of a post body, for use as a reference title. */
+function snippet(text) {
+  const t = (text || '').trim().replace(/\s+/g, ' ');
+  if (!t) return null;
+  return t.length <= 80 ? t : t.slice(0, 79).trimEnd() + '…';
 }
 
 /* ------------------------------------------------------------------ */
@@ -337,7 +359,7 @@ function BskyProfilePreview({ view }) {
 function AtprotoRecordPreview({ record, source }) {
   if (!record?.value) return null;
   const v = record.value;
-  const summary = v.description || v.summary || v.about || '';
+  const summary = v.description || v.summary || v.about || v.text || '';
   if (!summary) return null;
   return (
     <article className="reference-card-subject reference-card-subject-atproto">

@@ -1,5 +1,5 @@
 /* Generic record-page fallback. Used when a verb has no specialized
-   layout (e.g. liking, following, voting, …) — renders a resolved
+   layout (e.g. liking, following, feeding, …) — renders a resolved
    subject preview, the action row, and a raw JSON dump. The JSON box
    reuses the .debug-overlay-json styling so the look matches the
    atmosphere debug overlay. */

@@ -1346,18 +1346,74 @@ a.reference-card-profile:focus-visible {
   border-bottom-color: var(--ink-muted);
 }
 
-/* VoteCard ------------------------------------------------------------ */
+/* AnisotaLabCard (crafting verb) -------------------------------------- */
 
-.vote-card-wrap {
+.lab-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.vote-card-choice {
+.lab-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.lab-card-kind {
+  letter-spacing: 0.14em;
   color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.lab-card-title {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.lab-card-text {
+  margin: 0;
+  font-family: var(--serif);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: var(--measure);
+}
+
+.lab-card-desc {
+  margin: 0;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}
+
+.lab-card-meta {
+  margin: 0;
+  color: var(--ink-faint);
   letter-spacing: 0.14em;
   font-size: var(--text-xs);
+}
+
+.lab-card-figure {
+  margin: 0;
+}
+
+.lab-card-figure img {
+  display: block;
+  width: 100%;
+  max-width: 20rem;
+  height: auto;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
+}
+
+/* Sigils are single-stroke line figures on transparency — keep them compact
+   and give them a calm field so the one line reads. */
+.lab-card-figure-sigil img {
+  max-width: 14rem;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  padding: var(--space-3);
 }
 
 /* BlogCard source tag ------------------------------------------------- */

@@ -14,7 +14,7 @@ import ObservationCard from './cards/ObservationCard.jsx';
 import ListCard from './cards/ListCard.jsx';
 import GeneratorCard from './cards/GeneratorCard.jsx';
 import CommentCard from './cards/CommentCard.jsx';
-import VoteCard from './cards/VoteCard.jsx';
+import AnisotaLabCard from './cards/AnisotaLabCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { rkeyFromAtUri } from '../lib/atproto.js';
@@ -47,7 +47,7 @@ const RENDERERS = {
   ListCard,
   GeneratorCard,
   CommentCard,
-  VoteCard,
+  AnisotaLabCard,
 };
 
 function postingReplyVerbLabel(reply) {
