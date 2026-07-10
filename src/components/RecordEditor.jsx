@@ -7,6 +7,7 @@ import { fetchAllBlocks } from '../lib/arena.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
+import { AdminEditorSkeleton } from './Skeleton.jsx';
 import {
   HighlightsField,
   RecordRefsField,
@@ -333,11 +334,11 @@ const RecordEditor = forwardRef(function RecordEditor({
   }, [saving, deleting, loading, isNew, onStatus]);
 
   if (loading) {
-    return <p className="placeholder-card">Loading record…</p>;
+    return <AdminEditorSkeleton fields={compact ? 3 : 4} />;
   }
 
   return (
-    <div className={`record-editor${compact ? ' record-editor-compact' : ''}`}>
+    <div className={`record-editor reveal${compact ? ' record-editor-compact' : ''}`}>
       <div className="admin-toolbar admin-toolbar-inline">
         {lex && !preview && (
           <button

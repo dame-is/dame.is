@@ -389,6 +389,155 @@
   padding-left: calc(1.75rem + var(--space-3));
 }
 
+/* Variant: admin record list. Mirrors .admin-record-list rows — a fixed
+   rkey column beside a flexible preview line, with the same hairline
+   dividers and row padding so the swap to real rows doesn't reflow. */
+.skeleton-admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.skeleton-admin-toolbar-back {
+  width: 8rem;
+  height: 0.85rem;
+}
+
+.skeleton-admin-toolbar-nsid {
+  width: 11rem;
+  height: 0.75rem;
+}
+
+.skeleton-admin-toolbar-btn {
+  width: 6.5rem;
+  height: 1.6rem;
+  margin-left: auto;
+}
+
+.skeleton-admin-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-admin-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.skeleton-admin-row:first-child {
+  border-top: 0;
+}
+
+.skeleton-admin-rkey {
+  flex: 0 0 auto;
+  width: 9ch;
+  height: 0.8rem;
+}
+
+.skeleton-admin-preview {
+  flex: 1 1 auto;
+  height: 1.05em;
+  max-width: var(--measure);
+}
+
+/* Variant: admin "Local vs PDS" page panels. Mirrors .admin-page-panel —
+   a bordered block with a label + badge head, a description line, and an
+   actions row. */
+.skeleton-admin-panels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.skeleton-admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--rule-soft);
+}
+
+.skeleton-admin-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.skeleton-admin-panel-label {
+  height: 1.2rem;
+}
+
+.skeleton-admin-panel-badge {
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 1.2rem;
+}
+
+.skeleton-admin-panel-desc {
+  height: 0.85em;
+}
+
+.skeleton-admin-panel-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.skeleton-admin-panel-btn {
+  width: 4.5rem;
+  height: 1.6rem;
+}
+
+/* Variant: admin record-editor form. Mirrors the .admin-form field stack —
+   a small-caps label above each input, the last field a tall textarea,
+   then an actions row. */
+.skeleton-admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.skeleton-admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeleton-admin-field-label {
+  height: 0.7rem;
+}
+
+.skeleton-admin-field-input {
+  width: 100%;
+  height: 2.25rem;
+}
+
+.skeleton-admin-field-input-tall {
+  height: 9rem;
+}
+
+.skeleton-admin-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.skeleton-admin-action-btn {
+  width: 5.5rem;
+  height: 2.1rem;
+}
+
 /* Stagger the breathing across multi-item skeletons so the list doesn't
    pulse in lockstep. Negative delays seed each row at a different phase
    in the cycle without changing the cycle length. */
@@ -396,18 +545,24 @@
 .skeleton-toc-entry:nth-child(3n)       .skeleton,
 .skeleton-grid-cell:nth-child(3n)       .skeleton,
 .skeleton-mothing-cell:nth-child(3n)    .skeleton,
+.skeleton-admin-row:nth-child(3n)       .skeleton,
+.skeleton-admin-panel:nth-child(3n)     .skeleton,
 .skeleton-comments-item:nth-child(3n)   .skeleton { animation-delay: -0.5s; }
 
 .skeleton-feed-item:nth-child(3n + 1)     .skeleton,
 .skeleton-toc-entry:nth-child(3n + 1)     .skeleton,
 .skeleton-grid-cell:nth-child(3n + 1)     .skeleton,
 .skeleton-mothing-cell:nth-child(3n + 1)  .skeleton,
+.skeleton-admin-row:nth-child(3n + 1)     .skeleton,
+.skeleton-admin-panel:nth-child(3n + 1)   .skeleton,
 .skeleton-comments-item:nth-child(3n + 1) .skeleton { animation-delay: -1.2s; }
 
 .skeleton-feed-item:nth-child(3n + 2)     .skeleton,
 .skeleton-toc-entry:nth-child(3n + 2)     .skeleton,
 .skeleton-grid-cell:nth-child(3n + 2)     .skeleton,
 .skeleton-mothing-cell:nth-child(3n + 2)  .skeleton,
+.skeleton-admin-row:nth-child(3n + 2)     .skeleton,
+.skeleton-admin-panel:nth-child(3n + 2)   .skeleton,
 .skeleton-comments-item:nth-child(3n + 2) .skeleton { animation-delay: -1.9s; }
 
 /* -------------------------------------------------------------------- */

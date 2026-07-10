@@ -2,33 +2,47 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
-import { getProfile } from '../lib/atproto.js';
+import { getProfile, resolvePds } from '../lib/atproto.js';
+import { Skeleton } from './Skeleton.jsx';
 import './SignInPanel.css';
 
 /**
- * Sign-in surface that lives inside the ActionDock's Tools section.
+ * Sign-in surface that lives inside the ActionDock's Account view.
  *
  *   - Signed out → a tiny handle / DID / PDS-URL field that kicks off the
  *     OAuth flow.
- *   - Signed in → identity readout + sign out. If the signed-in DID is the
- *     site owner, also expose a link to /admin.
+ *   - Signed in → an identity card: avatar, name/handle, a follower /
+ *     following / posts stat row, a did / pds ledger, and the account
+ *     actions (Admin for the owner, Sign out). The profile and PDS are
+ *     fetched lazily, so each block fades from a skeleton into the real
+ *     value as it resolves.
  */
 export default function SignInPanel({ onAction }) {
   const { session, did, loading, signIn, signOut } = useAtprotoSession();
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [handle, setHandle] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [pdsHost, setPdsHost] = useState(null);
 
   useEffect(() => {
-    setHandle(null);
+    setProfile(null);
+    setPdsHost(null);
     if (!did) return undefined;
     let cancelled = false;
+    setProfileLoading(true);
     getProfile(did)
-      .then((profile) => {
-        if (cancelled) return;
-        const h = profile?.handle;
-        if (h && h !== 'handle.invalid') setHandle(h);
+      .then((p) => {
+        if (!cancelled && p) setProfile(p);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+    resolvePds(did)
+      .then((pds) => {
+        if (!cancelled && pds) setPdsHost(prettyHost(pds));
       })
       .catch(() => {});
     return () => {
@@ -65,26 +79,80 @@ export default function SignInPanel({ onAction }) {
 
   if (session) {
     const isOwner = did === ME_DID;
+    const handle =
+      profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
+    const displayName = profile?.displayName?.trim() || null;
+
     return (
-      <div className="signin-panel">
-        <div className="signin-status">
-          <span className="small-caps signin-status-label">signed in</span>
-          {handle ? (
-            <span className="signin-handle" title={did || ''}>@{handle}</span>
-          ) : (
-            <code className="signin-did" title={did || ''}>{shortDid(did)}</code>
-          )}
+      <div className="account-panel">
+        <div className="account-identity">
+          <span className="account-avatar">
+            {profile?.avatar ? (
+              <img src={profile.avatar} alt="" className="account-avatar-img" />
+            ) : profileLoading ? (
+              <Skeleton style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <span className="account-avatar-empty" aria-hidden="true">@</span>
+            )}
+          </span>
+          <span className="account-identity-text">
+            <span className="small-caps account-eyebrow">signed in</span>
+            {displayName && <span className="account-name reveal">{displayName}</span>}
+            {handle ? (
+              <span className="account-handle reveal" title={did || ''}>
+                @{handle}
+              </span>
+            ) : profileLoading ? (
+              <Skeleton width="9rem" height="1.05em" />
+            ) : (
+              <code className="account-handle account-handle-did" title={did || ''}>
+                {shortDid(did)}
+              </code>
+            )}
+          </span>
         </div>
-        {isOwner && (
-          <Link to="/admin" className="dock-tool" onClick={onAction}>
-            <span className="dock-tool-label">Admin</span>
-            <span className="dock-tool-key">&rsaquo;</span>
-          </Link>
-        )}
-        <button type="button" className="dock-tool" onClick={handleSignOut}>
-          <span className="dock-tool-label">Sign out</span>
-          <span className="dock-tool-key">×</span>
-        </button>
+
+        <dl className="account-stats">
+          <AccountStat label="followers" value={profile?.followersCount} loading={profileLoading} />
+          <AccountStat label="following" value={profile?.followsCount} loading={profileLoading} />
+          <AccountStat label="posts" value={profile?.postsCount} loading={profileLoading} />
+        </dl>
+
+        <dl className="account-meta">
+          <div className="account-meta-row">
+            <dt className="small-caps">did</dt>
+            <dd>
+              <code>{did}</code>
+            </dd>
+          </div>
+          <div className="account-meta-row">
+            <dt className="small-caps">pds</dt>
+            <dd>
+              {pdsHost ? (
+                <code className="reveal">{pdsHost}</code>
+              ) : (
+                <Skeleton width="7rem" height="0.8em" />
+              )}
+            </dd>
+          </div>
+        </dl>
+
+        <nav className="account-actions">
+          {isOwner && (
+            <Link to="/admin" className="account-action" onClick={onAction}>
+              <span className="account-action-label">Admin</span>
+              <span className="account-action-glyph" aria-hidden="true">
+                &rsaquo;
+              </span>
+            </Link>
+          )}
+          <button type="button" className="account-action" onClick={handleSignOut}>
+            <span className="account-action-label">Sign out</span>
+            <span className="account-action-glyph" aria-hidden="true">
+              ×
+            </span>
+          </button>
+        </nav>
       </div>
     );
   }
@@ -111,6 +179,34 @@ export default function SignInPanel({ onAction }) {
       {error && <p className="signin-error">{error}</p>}
     </form>
   );
+}
+
+/**
+ * One stat in the account identity row — a large serif count above a
+ * small-caps label, or a skeleton while the profile is still loading.
+ */
+function AccountStat({ label, value, loading }) {
+  const hasValue = typeof value === 'number';
+  return (
+    <div className="account-stat">
+      <dt className="account-stat-label small-caps">{label}</dt>
+      <dd className="account-stat-value">
+        {hasValue ? (
+          <span className="reveal">{value.toLocaleString()}</span>
+        ) : loading ? (
+          <Skeleton width="2.5rem" height="1.1em" />
+        ) : (
+          '—'
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function prettyHost(url) {
+  return String(url || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
 }
 
 function shortDid(did) {
