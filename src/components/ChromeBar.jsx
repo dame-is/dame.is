@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Search, SwatchBook, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, SwatchBook, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { useAvatar } from '../hooks/useAvatar.js';
@@ -313,6 +313,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
   const onHomePage = location.pathname === '/';
+  // The resume (/for-hire) page exposes a print / save-as-PDF control in the
+  // bottom bar's page-level cluster — it replaces the old in-page print button
+  // and only shows while a resume is on screen.
+  const onResumePage =
+    location.pathname === '/for-hire' || location.pathname.startsWith('/for-hire/');
 
   // If the route stops exposing filters while the filter panel is open
   // (e.g. navigating away from a feed), fold it away — the trigger button
@@ -498,6 +503,17 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 >
                   <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
+                {onResumePage && (
+                  <button
+                    type="button"
+                    className="chrome-nav chrome-print-btn"
+                    onClick={() => window.print()}
+                    aria-label="Print or save this resume as PDF"
+                    title="Print / save as PDF"
+                  >
+                    <Printer className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
                 {isOwner && (
                   <button
                     type="button"

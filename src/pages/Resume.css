@@ -12,13 +12,6 @@
   gap: var(--space-3);
 }
 
-.resume-headline-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
 .resume-title {
   font-family: var(--serif);
   font-size: var(--text-3xl);
@@ -31,27 +24,6 @@
   font-size: var(--text-lg);
   color: var(--accent);
   margin: var(--space-1) 0 0;
-}
-
-.resume-print-btn {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  background: var(--page-edge);
-  border: 1px solid var(--rule-soft);
-  border-radius: 0;
-  cursor: pointer;
-  transition: border-color 200ms ease, color 200ms ease;
-}
-
-.resume-print-btn:hover {
-  border-color: var(--accent-soft);
-  color: var(--ink);
 }
 
 .resume-contact {
@@ -292,7 +264,6 @@
 
 /* --- Print: a clean one-document resume ----------------------------- */
 @media print {
-  .resume-print-btn,
   .resume-record-link,
   .resume-footnote {
     display: none !important;

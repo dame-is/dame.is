@@ -116,7 +116,7 @@
   height: 3rem;
   overflow: hidden;
   border: 1px solid var(--rule-soft);
-  border-radius: 50%;
+  border-radius: var(--radius-2);
   background: var(--page-edge);
 }
 
