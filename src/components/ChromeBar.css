@@ -222,11 +222,22 @@
 @media (max-width: 700px) {
   .chrome-bar-tertiary.is-detail {
     flex-wrap: wrap;
+    /* Mobile chrome rows carry gap: var(--space-2); once the row wraps that
+       becomes a row-gap that stacks on top of the trail's own padding-bottom,
+       doubling the space above the NSID. Zero it so the NSID's small
+       padding-top is the only gap. */
+    row-gap: 0;
+  }
+  /* Drop the trail's bottom padding when the NSID stacks beneath it, so the
+     NSID sits close under the breadcrumb — reading as its caption rather than
+     a separate row. */
+  .chrome-bar-tertiary.is-detail .chrome-breadcrumb {
+    padding-bottom: 0;
   }
   .chrome-bar-tertiary.is-detail .chrome-crumb-nsid {
     flex-basis: 100%;
     margin-left: 0;
-    padding-top: 0;
+    padding-top: var(--space-1);
     text-align: left;
     white-space: normal;
     overflow: visible;
