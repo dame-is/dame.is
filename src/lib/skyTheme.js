@@ -14,12 +14,13 @@
 // From those two anchors, paletteForHour() derives the full set of theme
 // tokens (page, surfaces, ink ramp, rules, accents, scrims) with the same
 // relative steps the static light/dark themes use in styles/theme.css.
-// Daylight hours (7am–5pm) get dark ink on a sky-colored page; the rest
-// get light ink on a deep-sky page — mirroring the avatar's own wordmark
-// flip. Lightness is clamped into a readable range per polarity so every
-// hour keeps body-text contrast, while hue and saturation stay true to
-// the frame, which is what makes adjacent hours read as one incremental
-// step in the day's arc.
+// Hue and saturation stay true to the frame, but the page's LIGHTNESS is
+// driven by SUN_CURVE — a hand-eased solar arc — so the app background
+// physically tracks the sun: near-flat dark through the night, a steep
+// climb across sunrise, a gentle crest at solar noon, and a steep fall
+// at sunset. Hours whose curve value sits above the midpoint get dark
+// ink on a light sky page; the rest get light ink on a deep-sky page —
+// mirroring the avatar's own wordmark flip.
 //
 // applySkyTheme(hour) writes the palette as --sky-* custom properties on
 // <html>; styles/theme.css maps the real tokens onto those vars inside
@@ -64,11 +65,43 @@ const SKY_BANDS = [
   { top: '#0a0b10', bottom: '#0a0b0c' }, // 11pm
 ];
 
-// Daylight (dark ink on a light sky page) runs 7am–5pm; everything else
-// is a night palette (light ink on a deep sky page). The flip points
-// match where the avatar's own wordmark switches polarity.
-const FIRST_DAY_HOUR = 7;
-const LAST_DAY_HOUR = 17;
+// The page-lightness envelope, one value per hour — a hand-eased solar
+// arc rather than a formula, because the shape matters more than the
+// math: the night core (9pm–4am) is near-flat dark, first light barely
+// stirs at 5–6am, sunrise (6am→7am→8am) is the steepest climb of the
+// day, the daylight hours drift gently to a crest at 1pm (solar noon in
+// EDT) and back, and sunset (5pm→6pm→7pm) is the mirror-image plunge.
+// Bulk of day and night: small increments. Sunrise/sunset: the drama.
+//
+// An hour is "daylight" (dark ink on a light page) when its value is
+// ≥ 0.5; the flip points (7am, 6pm) match where the avatar's wordmark
+// switches polarity.
+const SUN_CURVE = [
+  0.095, // 12am
+  0.09,  // 1am — deepest night
+  0.09,  // 2am
+  0.095, // 3am
+  0.10,  // 4am
+  0.115, // 5am — first light on the horizon
+  0.16,  // 6am — pre-sunrise glow
+  0.66,  // 7am — sunrise: the big jump
+  0.78,  // 8am
+  0.82,  // 9am
+  0.845, // 10am
+  0.86,  // 11am
+  0.875, // 12pm
+  0.88,  // 1pm — solar noon
+  0.875, // 2pm
+  0.86,  // 3pm
+  0.83,  // 4pm
+  0.76,  // 5pm — late sun, still clearly day
+  0.24,  // 6pm — sunset: the big drop
+  0.15,  // 7pm — dusk
+  0.115, // 8pm
+  0.10,  // 9pm
+  0.09,  // 10pm
+  0.09,  // 11pm
+];
 
 /* ---------- small color kit (hex ⇄ rgb ⇄ hsl) ---------- */
 
@@ -142,57 +175,69 @@ export function paletteForHour(hour) {
   const topRgb = hexToRgb(top);
   const botRgb = hexToRgb(bottom);
   const base = topRgb.map((v, i) => (v + botRgb[i]) / 2);
-  const [bh, bs, bl] = rgbToHsl(base);
+  const [bh, bs] = rgbToHsl(base);
   const [th, ts] = rgbToHsl(topRgb);
   const [hh, hs] = rgbToHsl(botRgb); // horizon band
-  const day = h24 >= FIRST_DAY_HOUR && h24 <= LAST_DAY_HOUR;
+  const sun = SUN_CURVE[h24];
+  const day = sun >= 0.5;
 
   let vars;
   let themeColor;
 
   if (day) {
-    // Sky-colored page, dark ink. Lightness is lifted into a readable
-    // band; hue + saturation carry the hour's identity.
-    const s = Math.min(bs, 0.7);
-    const l = clamp(bl, 0.7, 0.84);
-    const ink = hslToRgb([bh, 0.25, 0.11]);
+    // Sky-colored page, dark ink. The sun curve sets the lightness —
+    // that's the whole arc: morning and late-afternoon pages sit lower,
+    // noon crests brightest. Hue and saturation come from the frame.
+    // Near-gray frames (7am's blue + gold bands cancel each other out)
+    // borrow the top band's hue so sunrise reads as a pale morning blue
+    // instead of mud.
+    let hue = bh;
+    let s = Math.min(bs, 0.7);
+    if (bs < 0.15) {
+      hue = th;
+      s = clamp((bs + ts) / 2, 0.2, 0.4);
+    }
+    const l = sun;
+    const ink = hslToRgb([hue, 0.25, 0.1]);
     const accent = hslToRgb([th, clamp(ts, 0.35, 0.8), 0.3]);
     vars = {
-      '--sky-page': hsl(bh, s, l),
-      '--sky-page-edge': hsl(bh, s, l - 0.06),
-      '--sky-surface-raised': hsl(bh, s, l - 0.08),
-      '--sky-surface-deep': hsl(bh, s, l - 0.03),
+      '--sky-page': hsl(hue, s, l),
+      '--sky-page-edge': hsl(hue, s, l - 0.06),
+      '--sky-surface-raised': hsl(hue, s, l - 0.08),
+      '--sky-surface-deep': hsl(hue, s, l - 0.03),
       '--sky-ink': rgbToHex(ink),
-      '--sky-ink-soft': hsl(bh, 0.18, 0.24),
-      '--sky-ink-muted': hsl(bh, 0.15, 0.36),
-      '--sky-ink-faint': hsl(bh, 0.12, 0.48),
-      '--sky-rule': hsl(bh, s * 0.45, l - 0.18),
-      '--sky-rule-soft': hsl(bh, s * 0.5, l - 0.1),
+      '--sky-ink-soft': hsl(hue, 0.18, 0.22),
+      '--sky-ink-muted': hsl(hue, 0.15, 0.34),
+      '--sky-ink-faint': hsl(hue, 0.12, 0.46),
+      '--sky-rule': hsl(hue, s * 0.45, l - 0.18),
+      '--sky-rule-soft': hsl(hue, s * 0.5, l - 0.1),
       // Deep-sky accent (from the frame's top band) and a horizon accent
       // (from its bottom band) — the sky-mode stand-ins for moss + tan.
       '--sky-accent': rgbToHex(accent),
       '--sky-accent-soft': hsl(th, clamp(ts * 0.6, 0.25, 0.55), 0.45),
       '--sky-tan': hsl(hh, clamp(hs, 0.3, 0.65), 0.38),
       '--sky-highlight': rgba(accent, 0.16),
-      '--sky-shadow': rgba(hslToRgb([bh, 0.3, 0.09]), 0.16),
-      '--sky-scrim': rgba(hslToRgb([bh, s, l - 0.04]), 0.86),
-      '--sky-scrim-clear': rgba(hslToRgb([bh, s, l - 0.04]), 0),
+      '--sky-shadow': rgba(hslToRgb([hue, 0.3, 0.09]), 0.16),
+      '--sky-scrim': rgba(hslToRgb([hue, s, l - 0.04]), 0.86),
+      '--sky-scrim-clear': rgba(hslToRgb([hue, s, l - 0.04]), 0),
       '--sky-scrim-ink': rgba(ink, 0.9),
       // Muted/faint re-tuned for text sitting on --surface-raised
       // (mirrors the [data-theme] .chrome-bar rules in theme.css).
-      '--sky-ink-muted-raised': hsl(bh, 0.16, 0.3),
-      '--sky-ink-faint-raised': hsl(bh, 0.13, 0.4),
+      '--sky-ink-muted-raised': hsl(hue, 0.16, 0.28),
+      '--sky-ink-faint-raised': hsl(hue, 0.13, 0.38),
       '--sky-paper-rule': rgba(ink, 0.07),
       '--sky-paper-dot': rgba(ink, 0.1),
     };
     themeColor = vars['--sky-surface-raised'];
   } else {
-    // Deep-sky page, light ink. The accent comes from the horizon band,
-    // so pre-dawn glows amber, dusk glows orchid, and dead-of-night
-    // (horizon too desaturated to mean anything) falls back to a pale
-    // moonlit cast of the sky's own hue.
+    // Deep-sky page, light ink, lightness from the sun curve (a hair
+    // above black at 6pm's sunset drop, settling to the flat night
+    // core). The accent comes from the horizon band, so pre-dawn glows
+    // amber, dusk glows orchid, and dead-of-night (horizon too
+    // desaturated to mean anything) falls back to a pale moonlit cast
+    // of the sky's own hue.
     const s = Math.min(bs, 0.45);
-    const l = clamp(bl, 0.09, 0.15);
+    const l = sun;
     const ink = hslToRgb([bh, 0.14, 0.89]);
     const glowHue = hs < 0.1 ? bh : hh;
     const glowSat = hs < 0.1 ? 0.22 : hs;
