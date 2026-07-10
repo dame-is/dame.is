@@ -2,17 +2,19 @@ import { Link } from 'react-router-dom';
 
 /**
  * A flat, day-group-less ledger table for single-type feed pages (blogging,
- * creating, …). Reuses the home feed's ledger type + rules (the `.feed-ledger`
- * / `.ledger-*` styles in Feed.css) but drops the redundant verb column —
- * every row on these pages is the same kind — and reads as one continuous
- * compact table of "title · when" instead of the day-grouped activity ledger.
+ * creating, curating, mothing, …). Reuses the home feed's ledger type + rules
+ * (the `.feed-ledger` / `.ledger-*` styles in Feed.css) but drops the
+ * redundant verb column — every row on these pages is the same kind — and
+ * reads as one continuous compact table of "title · meta".
  *
- * Each row is `{ key, href, title, kind?, time?, nsid? }`:
- *   - href   destination for the whole row (title + time both link to it)
- *   - kind   optional small-caps tag ahead of the title (e.g. a work category)
- *   - time   optional short/relative timestamp, flush right
- *   - nsid   optional collection, stamped as data-nsid so the chrome strip can
- *            read the record type at the top of the scroll (like FeedItem does)
+ * Each row is `{ key, href, title, kind?, secondary?, time?, external?, nsid? }`:
+ *   - href       destination for the whole row (title + right cell both link)
+ *   - kind       optional small-caps tag ahead of the title (e.g. a category)
+ *   - secondary  optional muted suffix after the title (e.g. a scientific name)
+ *   - time       optional right-column string (a relative time, a count, …)
+ *   - external   render an external <a target=_blank> instead of a router Link
+ *   - nsid       optional collection, stamped as data-nsid so the chrome strip
+ *                can read the record type at the top of the scroll
  */
 export default function FlatLedger({ rows }) {
   return (
@@ -26,18 +28,37 @@ export default function FlatLedger({ rows }) {
           <div className="ledger-body">
             <p className="ledger-text">
               {row.kind && <span className="ledger-kind small-caps">{row.kind}</span>}
-              <Link to={row.href}>{row.title}</Link>
+              <RowLink row={row}>
+                {row.title}
+                {row.secondary && <span className="ledger-count"> ({row.secondary})</span>}
+              </RowLink>
             </p>
           </div>
           {row.time ? (
-            <Link className="ledger-time" to={row.href}>
+            <RowLink row={row} className="ledger-time">
               {row.time}
-            </Link>
+            </RowLink>
           ) : (
             <span className="ledger-time" />
           )}
         </li>
       ))}
     </ol>
+  );
+}
+
+/** A row's link — an external <a> (iNaturalist, are.na, …) or a router Link. */
+function RowLink({ row, className, children }) {
+  if (row.external) {
+    return (
+      <a className={className} href={row.href} target="_blank" rel="noreferrer noopener">
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link className={className} to={row.href}>
+      {children}
+    </Link>
   );
 }

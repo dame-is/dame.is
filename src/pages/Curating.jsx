@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import MasonryGrid from '../components/MasonryGrid.jsx';
-import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
+import FlatLedger from '../components/FlatLedger.jsx';
+import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { fetchChannelMeta, fetchChannelPage, normalizeBlock, pickCoverThumb, arenaText } from '../lib/arena.js';
@@ -80,12 +82,15 @@ export default function Curating() {
     mapItems: (d) => (Array.isArray(d?.galleries) ? d.galleries : null),
   });
 
+  const { layout } = useFeedLayout();
+  const ledger = layout === 'ledger';
   const loading = status === 'loading';
   const list = galleries || [];
 
   // Hold the skeleton until the first rows' gallery covers are ready, so
   // the grid doesn't swap in with blank cells that pop as they download.
-  // Once revealed we stay revealed.
+  // Once revealed we stay revealed. The ledger shows no covers, so it needn't
+  // wait on them.
   const coverUrls = useMemo(
     () => list.slice(0, COVER_WAIT).map((g) => g.cover?.src).filter(Boolean),
     [list],
@@ -95,7 +100,7 @@ export default function Curating() {
   useEffect(() => {
     if (!loading && coversReady) setRevealed(true);
   }, [loading, coversReady]);
-  const showSkeleton = loading || (list.length > 0 && !revealed);
+  const showSkeleton = ledger ? loading : loading || (list.length > 0 && !revealed);
 
   return (
     <PageShell
@@ -105,9 +110,26 @@ export default function Curating() {
       headTitle="dame.is curating"
     >
       {showSkeleton ? (
-        <CreatingGridSkeleton cells={6} />
+        ledger ? (
+          <FeedSkeleton rows={6} label="Loading galleries" />
+        ) : (
+          <CreatingGridSkeleton cells={6} />
+        )
       ) : list.length === 0 ? (
         <p className="feed-empty">No galleries yet.</p>
+      ) : ledger ? (
+        <FlatLedger
+          rows={list.map((g) => ({
+            key: g.slug,
+            href: `/curating/${g.slug}`,
+            title: g.title,
+            time:
+              g.blockCount != null
+                ? `${g.blockCount} ${g.blockCount === 1 ? 'block' : 'blocks'}`
+                : null,
+            nsid: COLLECTIONS.arenaChannel,
+          }))}
+        />
       ) : (
         <MasonryGrid
           items={list}

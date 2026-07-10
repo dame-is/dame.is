@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 import PageShell from '../components/PageShell.jsx';
-import { MothingSkeleton } from '../components/Skeleton.jsx';
+import FlatLedger from '../components/FlatLedger.jsx';
+import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
-import { ME_DID, INATURALIST_USER } from '../config.js';
+import { ME_DID, INATURALIST_USER, MOTHING_OBSERVATION_NSID } from '../config.js';
+import '../components/Feed.css';
 import './Mothing.css';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -87,8 +90,32 @@ function SessionHeader({ session }) {
   );
 }
 
+/** Compact per-session summary for the ledger day-header (count · species). */
+function sessionLedgerMeta(session) {
+  const parts = [`${session.observationCount} moth${session.observationCount === 1 ? '' : 's'}`];
+  if (session.speciesCount) parts.push(`${session.speciesCount} species`);
+  return parts.join(' · ');
+}
+
+/** One iNaturalist observation as a flat-ledger row (external link out). */
+function mothLedgerRow(obs) {
+  const name = obs.taxon?.commonName || obs.taxon?.name || 'Unidentified moth';
+  const sci = obs.taxon?.name;
+  return {
+    key: obs.id,
+    href: obs.url,
+    external: true,
+    title: name,
+    secondary: sci && sci !== name ? sci : null,
+    time: obs.observedTime ? formatTime(obs.observedTime) : formatDate(obs.observedDate),
+    nsid: MOTHING_OBSERVATION_NSID,
+  };
+}
+
 export default function Mothing() {
   const { title, intro } = usePageContent('mothing');
+  const { layout } = useFeedLayout();
+  const ledger = layout === 'ledger';
 
   const { items, status } = useLiveFeed({
     name: 'mothing',
@@ -162,9 +189,36 @@ export default function Mothing() {
       )}
 
       {loading && observations.length === 0 ? (
-        <MothingSkeleton sessions={2} cells={4} />
+        ledger ? (
+          <FeedSkeleton rows={6} label="Loading observations" />
+        ) : (
+          <MothingSkeleton sessions={2} cells={4} />
+        )
       ) : observations.length === 0 ? (
         <p className="feed-empty">No moth observations yet.</p>
+      ) : ledger ? (
+        <div className="feed-ledger">
+          {sessions.map((session) => (
+            <section key={session.date} className="feed-day-group">
+              <header className="day-section-header">
+                <h3 className="day-header">Night of {formatDate(session.date)}</h3>
+                <p className="day-header-meta">{sessionLedgerMeta(session)}</p>
+              </header>
+              <FlatLedger rows={session.observations.map(mothLedgerRow)} />
+            </section>
+          ))}
+          {orphans.length > 0 && (
+            <section className="feed-day-group">
+              <header className="day-section-header">
+                <h3 className="day-header">Daytime &amp; untimed</h3>
+                <p className="day-header-meta">
+                  {orphans.length} observation{orphans.length === 1 ? '' : 's'}
+                </p>
+              </header>
+              <FlatLedger rows={orphans.map(mothLedgerRow)} />
+            </section>
+          )}
+        </div>
       ) : (
         <div className="mothing-sessions">
           {sessions.map((session) => (
