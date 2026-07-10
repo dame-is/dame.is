@@ -99,10 +99,12 @@ export function ThemeProvider({ children }) {
     return migrateStoredTheme(localStorage.getItem(STORAGE_KEY));
   });
 
-  // Sky mode's clock. `liveHour` tracks the real Eastern hour; the
+  // The site's sky clock. `liveHour` tracks the real Eastern hour; the
   // override (driven by the temporary test button in the bottom bar)
-  // freezes the palette on an arbitrary hour so each step can be
-  // inspected. Leaving sky mode drops the override.
+  // freezes it on an arbitrary hour so each step can be inspected.
+  // Leaving sky mode drops the override. The hour drives the sky
+  // theme's palette AND the chrome-bar avatar mark (which follows the
+  // hourly sky frames in every theme).
   const [liveHour, setLiveHour] = useState(() => easternHour());
   const [skyOverride, setSkyOverride] = useState(null);
   const skyHour = skyOverride ?? liveHour;
@@ -128,12 +130,12 @@ export function ThemeProvider({ children }) {
     } catch {}
   }, [theme, skyHour]);
 
-  // While in sky mode, tick the palette over at the top of each Eastern
-  // hour (minutes/seconds track UTC, so the boundary is computable
-  // locally). Timers sleep in background tabs, so visibility-return also
-  // re-reads the clock — same pattern as the avatar's refresh tick.
+  // Tick the clock over at the top of each Eastern hour (minutes/seconds
+  // track UTC, so the boundary is computable locally). Runs in EVERY
+  // theme — the avatar mark follows the hour even when the palette is a
+  // static light/dark. Timers sleep in background tabs, so
+  // visibility-return also re-reads the clock.
   useEffect(() => {
-    if (theme !== 'sky') return undefined;
     let timer;
     const schedule = () => {
       // Small pad past the boundary so a clamped/early timer can't land
@@ -152,7 +154,7 @@ export function ThemeProvider({ children }) {
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [theme]);
+  }, []);
 
   const setTheme = useCallback((next) => {
     if (!VALID.includes(next)) return;

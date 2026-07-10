@@ -4,7 +4,6 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, SwatchBook, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
-import { useAvatar } from '../hooks/useAvatar.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -33,18 +32,15 @@ export default function ChromeBar() {
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
   const location = useLocation();
-  // Brand mark: Dame's live Bluesky avatar (regenerated hourly to track the
-  // sun). While the first one is loading — or if it ever fails — the mark
-  // simply isn't rendered rather than falling back to a glyph.
-  //
-  // TEMPORARY (sky-theme testing): while the bottom-bar hour chip is
-  // overriding the sky clock, the mark swaps to the bundled sky-avatar
-  // frame for the overridden hour, so the avatar steps through the day
-  // in lockstep with the palette. Remove alongside the chip.
-  const liveAvatar = useAvatar();
-  const { theme, skyHour, skyOverridden } = useTheme();
-  const targetAvatar =
-    (theme === 'sky' && skyOverridden ? skyAvatarUrl(skyHour) : null) || liveAvatar;
+  // Brand mark: the bundled sky-avatar frame for the current Eastern
+  // hour — the same art the live Bluesky avatar cycles through, served
+  // locally instead of fetched from the profile, so the mark is always
+  // in lockstep with the site's own clock (and with the sky theme's
+  // palette). useTheme's hour ticks over hourly in every theme; while
+  // the TEMPORARY bottom-bar chip is overriding the clock in sky mode,
+  // the mark steps with it.
+  const { skyHour } = useTheme();
+  const targetAvatar = skyAvatarUrl(skyHour);
 
   // The mark never paints a half-loaded image: an incoming URL is fetched
   // and decoded off-screen, and only swapped in — on the SAME persistent
