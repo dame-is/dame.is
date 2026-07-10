@@ -1,0 +1,54 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.arena.mirror.channel",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "An are.na channel mirrored onto the owner's PDS. The record key is the are.na channel id, making syncs idempotent and giving a stable two-way id map for future write-back. Collection NSIDs are derived from the mirror's configurable nsidBase; this file documents the default base (is.dame.arena.mirror).",
+      "record": {
+        "type": "object",
+        "required": ["title", "createdAt", "origin"],
+        "properties": {
+          "title":       { "type": "string" },
+          "description": { "type": "string", "description": "Channel description, markdown." },
+          "slug":        { "type": "string", "description": "are.na channel slug at sync time (slugs can change; origin.arenaId is the stable id)." },
+          "visibility":  { "type": "string", "description": "are.na visibility at sync time (public, closed, private). Private channels are only mirrored when the sync opts in — PDS records are public.", "knownValues": ["public", "closed", "private"] },
+          "owner":       { "type": "ref", "ref": "#arenaUser" },
+          "counts": {
+            "type": "object",
+            "description": "Content counts reported by are.na at sync time.",
+            "properties": {
+              "blocks":   { "type": "integer" },
+              "channels": { "type": "integer" },
+              "contents": { "type": "integer" }
+            }
+          },
+          "createdAt": { "type": "string", "format": "datetime", "description": "When the channel was created on are.na." },
+          "updatedAt": { "type": "string", "format": "datetime", "description": "are.na's updated_at at sync time." },
+          "origin":    { "type": "ref", "ref": "#origin" }
+        }
+      }
+    },
+    "arenaUser": {
+      "type": "object",
+      "description": "A compact are.na user reference, kept for provenance and for mapping are.na identities to DIDs in a future AppView.",
+      "required": ["arenaId", "slug"],
+      "properties": {
+        "arenaId": { "type": "integer" },
+        "slug":    { "type": "string" },
+        "name":    { "type": "string" }
+      }
+    },
+    "origin": {
+      "type": "object",
+      "description": "Provenance of a mirrored record. Records WITHOUT an origin.arenaId were created atmosphere-side (future write-back) and are never touched by the mirror's deletion pass.",
+      "required": ["arenaId", "syncedAt"],
+      "properties": {
+        "arenaId":  { "type": "integer", "description": "The are.na id this record mirrors." },
+        "url":      { "type": "string", "format": "uri", "description": "Canonical are.na URL." },
+        "syncedAt": { "type": "string", "format": "datetime" }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "arena-pds-mirror",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mirror an are.na account — channels, blocks, connections, media — into atproto records on your PDS.",
+  "exports": {
+    ".": "./index.js"
+  },
+  "peerDependencies": {
+    "@atproto/api": ">=0.13.0"
+  }
+}
