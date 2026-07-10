@@ -1394,7 +1394,7 @@ a.reference-card-profile:focus-visible {
    longest gerund ("photographing") at the mono x-small size. */
 .feed-ledger {
   --ledger-verb-col: 6.5rem;
-  --ledger-time-col: 4.5rem;
+  --ledger-time-col: 4rem;
   --ledger-col-gap: var(--space-3);
 }
 
@@ -1473,7 +1473,7 @@ a.ledger-verb:focus-visible {
 
 .ledger-time {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * 0.85);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   /* formatTime yields "9:41 AM"; the ledger reads lowercase. */
@@ -1696,17 +1696,18 @@ a.ledger-verb:focus-visible {
 }
 
 @media (max-width: 600px) {
+  /* Narrower label columns give the content column the extra width;
+     the label type steps down further so even the longest gerund
+     ("photographing") still fits its column on one line. */
   .feed-ledger {
-    --ledger-verb-col: 5.75rem;
-    --ledger-time-col: 3.9rem;
+    --ledger-verb-col: 5rem;
+    --ledger-time-col: 3.5rem;
     --ledger-col-gap: var(--space-2);
   }
 
-  /* Slightly smaller type so the longest gerunds and full dates still
-     fit their narrower mobile columns on one line. */
   .feed-ledger .ledger-verb,
   .feed-ledger .ledger-time {
-    font-size: calc(var(--text-xs) * 0.9);
+    font-size: calc(var(--text-xs) * 0.8);
   }
 
   .feed-ledger .day-header {
