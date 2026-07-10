@@ -1744,6 +1744,14 @@ a.ledger-verb:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+/* When the rows carry a category (creating's works), it sits in its own fixed
+   left column — exactly like the gerund column in the home feed ledger — so
+   every title lines up down the page instead of being pushed right by a
+   variable-width inline tag. Rows without a category keep an empty cell. */
+.feed-ledger-flat-kinded .feed-item-ledger {
+  grid-template-columns: var(--ledger-verb-col) minmax(0, 1fr) auto;
+}
+
 /* Whole-row links read as calm ledger text (ink title, faint time) — the
    accent only comes up on hover — rather than a page full of green links. */
 .feed-ledger-flat .ledger-body a {
@@ -1762,14 +1770,12 @@ a.ledger-time:focus-visible {
   color: var(--accent);
 }
 
-/* A kind tag ahead of the title (e.g. a work's category), in the same quiet
-   mono small-caps as the verb column it stands in for. */
-.ledger-kind {
-  font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.9);
-  letter-spacing: 0.06em;
-  color: var(--ink-faint);
-  margin-right: 0.5em;
+/* The category cell reuses the verb column's own type (.ledger-verb); this
+   just guards against a long medium ("photography", "presentation") colliding
+   with the title — it wraps inside its column instead. */
+.ledger-kind-col {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ledger-track a {

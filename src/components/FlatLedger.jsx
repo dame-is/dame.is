@@ -17,17 +17,27 @@ import { Link } from 'react-router-dom';
  *                can read the record type at the top of the scroll
  */
 export default function FlatLedger({ rows }) {
+  // When any row carries a category, give it its own fixed left column — the
+  // way the home feed ledger columns its gerund — so every title lines up.
+  const kinded = rows.some((row) => row.kind);
   return (
-    <ol className="feed-list feed-ledger feed-ledger-flat reveal-stagger">
+    <ol
+      className={`feed-list feed-ledger feed-ledger-flat${kinded ? ' feed-ledger-flat-kinded' : ''} reveal-stagger`}
+    >
       {rows.map((row, i) => (
         <li
           key={row.key || i}
           className="feed-item feed-item-ledger"
           data-nsid={row.nsid || undefined}
         >
+          {kinded &&
+            (row.kind ? (
+              <span className="ledger-verb ledger-kind-col">{row.kind}</span>
+            ) : (
+              <span className="ledger-verb" aria-hidden="true" />
+            ))}
           <div className="ledger-body">
             <p className="ledger-text">
-              {row.kind && <span className="ledger-kind small-caps">{row.kind}</span>}
               <RowLink row={row}>
                 {row.title}
                 {row.secondary && <span className="ledger-count"> ({row.secondary})</span>}
