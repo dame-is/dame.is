@@ -100,7 +100,11 @@ export default function Listening() {
           <ol className="feed-list reveal-stagger">
             {groups.map((group) => (
               <li key={group.dateKey} className="feed-day-group">
-                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
+                <DayOfLifeHeader
+                  date={group.date}
+                  variant={ledger ? 'ledger' : 'default'}
+                  meta={listeningDayMeta(group.items)}
+                />
                 <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
                   {group.items.map((item) => (
                     <FeedItem
@@ -125,6 +129,40 @@ export default function Listening() {
       )}
     </PageShell>
   );
+}
+
+/**
+ * Per-day summary for the listening ledger's day header — replaces the
+ * generic "day of life" count with what was actually played that day:
+ * songs, minutes, and unique artists. `sessions` are the collapsed
+ * listening batches shown under the header; each carries its underlying
+ * `plays`, so the numbers stay in step with the (possibly search-filtered)
+ * rows below. Durations are stored in seconds.
+ */
+function listeningDayMeta(sessions) {
+  let songs = 0;
+  let seconds = 0;
+  const artists = new Set();
+  for (const session of sessions) {
+    const plays = session.plays || [session];
+    for (const play of plays) {
+      const p = play.payload || {};
+      songs += 1;
+      const dur = Number(p.duration);
+      if (Number.isFinite(dur) && dur > 0) seconds += dur;
+      const list = Array.isArray(p.artists)
+        ? p.artists
+        : p.artist
+        ? [{ artistName: p.artist }]
+        : [];
+      for (const a of list) {
+        if (a?.artistName) artists.add(a.artistName.toLowerCase());
+      }
+    }
+  }
+  const minutes = Math.round(seconds / 60);
+  const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? '' : 's'}`;
+  return `${plural(songs, 'song')}, ${minutes.toLocaleString()} min, ${plural(artists.size, 'artist')}`;
 }
 
 function toListeningItems(records) {
