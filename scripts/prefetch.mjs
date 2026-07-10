@@ -225,7 +225,10 @@ async function main() {
     pds,
     me: ME_DID,
     appview: APPVIEW,
-    options: { log, warn },
+    // leanMedia: keep the big inline PNG/SVG data-URLs out of the static
+    // snapshot JSON (the live in-memory feed and the record page still show
+    // the real media).
+    options: { log, warn, leanMedia: true },
   });
 
   await writeJson('posts', authorFeed);

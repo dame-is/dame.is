@@ -266,7 +266,7 @@ function RecordBody({ verb, item, collection }) {
     case 'observing':
       return <ObservationCard {...item} />;
     case 'crafting':
-      return <AnisotaLabCard {...item} />;
+      return <AnisotaLabCard {...item} variant="record" />;
     default:
       return <GenericRecordBody verb={verb} item={item} collection={collection} />;
   }

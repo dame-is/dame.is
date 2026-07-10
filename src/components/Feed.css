@@ -1416,6 +1416,106 @@ a.reference-card-profile:focus-visible {
   padding: var(--space-3);
 }
 
+/* Word Magnets poem — cream tiles re-laid faithfully from the saved board
+   (see src/lib/anisotaLab.js). The field is a container so the tile font,
+   emitted in cqw, scales with the field width; overflow hides anything the
+   6% padding pushes past the frame. */
+.lab-poem-field {
+  position: relative;
+  width: 100%;
+  max-width: 24rem;
+  margin: 0;
+  container-type: inline-size;
+  overflow: hidden;
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
+}
+
+.lab-poem-tile {
+  position: absolute;
+  font-size: var(--tile-font);
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
+  transform-origin: center;
+  padding: 0.28em 0.5em;
+  line-height: 1;
+  white-space: nowrap;
+  font-family: var(--serif);
+  /* Cream paper magnets — their own physical object, so they read the same in
+     every dame.is theme rather than tracking the page palette. */
+  background: linear-gradient(#fbf7ee, #efe7d6);
+  color: #1a1714;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+.lab-poem-tile.is-fragment {
+  background: linear-gradient(#efe7d6, #e4d9c2);
+  color: #4a3f30;
+  font-style: italic;
+}
+
+/* Erasure poem — the source post's original text with redacted words blacked
+   out by an ink bar, the surviving found poem beneath. */
+.lab-redaction {
+  margin: 0;
+  font-family: var(--serif);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: var(--measure);
+  line-height: 1.85;
+}
+
+.lab-redaction-word.is-redacted {
+  position: relative;
+  color: transparent;
+}
+
+.lab-redaction-word.is-redacted::after {
+  content: '';
+  position: absolute;
+  top: 0.06em;
+  bottom: 0.06em;
+  left: -0.04em;
+  right: -0.04em;
+  background: var(--ink);
+  pointer-events: none;
+}
+
+.lab-redaction-found {
+  margin: var(--space-3) 0 0;
+  font-style: italic;
+  color: var(--ink-soft);
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+/* "view on anisota" link on the single-record page. */
+.lab-card-source {
+  align-self: flex-start;
+  color: var(--accent);
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.lab-card-source:hover {
+  border-bottom-color: var(--accent-soft);
+}
+
+/* The single-record page gives each piece more room than the feed card. */
+.lab-card-record .lab-poem-field {
+  max-width: 34rem;
+}
+
+.lab-card-record .lab-card-figure img {
+  max-width: 30rem;
+}
+
+.lab-card-record .lab-card-figure-sigil img {
+  max-width: 22rem;
+}
+
 /* BlogCard source tag ------------------------------------------------- */
 
 .blog-card-source {
