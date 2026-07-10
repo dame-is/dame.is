@@ -58,6 +58,7 @@ export default function EditModeBar() {
     editSheet,
     sheetEditor,
     closeEditSheet,
+    pageEditor,
   } = useEditMode();
   const { agent, did } = useAtprotoSession();
   const { closeDock } = useActionDock();
@@ -87,12 +88,19 @@ export default function EditModeBar() {
     openEditSheet(atUri);
   }
 
-  // While the quick-edit sheet is open, the bar hosts its Save / Delete
-  // controls (the sheet's own editor buttons are hidden) so editing the
-  // record's fields or JSON is committed straight from the action bar. The
-  // Save/Delete controls appear once the editor controller is published.
-  const editing = !!editSheet;
-  const busyEditor = sheetEditor?.saving || sheetEditor?.deleting;
+  // The bar hosts a record editor's Save / Delete / Close controls (the
+  // editor's own buttons are hidden) whenever one publishes a controller: the
+  // quick-edit sheet (`sheetEditor`) or the full admin editor page
+  // (`pageEditor`). The sheet wins if both are somehow present.
+  const onSheet = !!editSheet;
+  const ctl = onSheet ? sheetEditor : pageEditor;
+  const editing = onSheet || !!pageEditor;
+  const busyEditor = ctl?.saving || ctl?.deleting;
+
+  function closeEditor() {
+    if (onSheet) closeEditSheet();
+    else pageEditor?.close?.();
+  }
 
   // Publish the bar's live height on <html> as `--edit-bar-h`. The nav dock
   // reads it to lift its sheet so it expands from on top of this bar rather
@@ -101,7 +109,7 @@ export default function EditModeBar() {
   // whenever edit mode is off so the dock falls back to the bar.
   useEffect(() => {
     const root = document.documentElement;
-    if (!active) {
+    if (!active && !editing) {
       root.style.setProperty('--edit-bar-h', '0px');
       return undefined;
     }
@@ -119,7 +127,7 @@ export default function EditModeBar() {
       window.removeEventListener('resize', apply);
       root.style.setProperty('--edit-bar-h', '0px');
     };
-  }, [active]);
+  }, [active, editing]);
 
   async function handleDelete() {
     if (!agent || !isOwner || selectedCount === 0) return;
@@ -160,7 +168,7 @@ export default function EditModeBar() {
 
   return (
     <AnimatePresence initial={false}>
-      {active && (
+      {(active || editing) && (
         <motion.div
           className="edit-mode-bar-wrap"
           initial={{ height: 0 }}
@@ -192,32 +200,40 @@ export default function EditModeBar() {
                   <button
                     type="button"
                     className="edit-mode-bar-btn edit-mode-bar-clear"
-                    onClick={closeEditSheet}
+                    onClick={closeEditor}
                     disabled={busyEditor}
                   >
                     <X size={15} strokeWidth={1.75} aria-hidden="true" />
                     <span>Close</span>
                   </button>
-                  {sheetEditor?.canDelete && (
+                  {ctl?.canDelete && (
                     <button
                       type="button"
                       className="edit-mode-bar-btn edit-mode-bar-delete"
-                      onClick={() => sheetEditor.remove()}
-                      disabled={busyEditor || sheetEditor.loading}
+                      onClick={() => ctl.remove()}
+                      disabled={busyEditor || ctl.loading}
                     >
                       <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
-                      <span>{sheetEditor.deleting ? 'Deleting…' : 'Delete'}</span>
+                      <span>{ctl.deleting ? 'Deleting…' : 'Delete'}</span>
                     </button>
                   )}
-                  {sheetEditor && (
+                  {ctl && (
                     <button
                       type="button"
                       className="edit-mode-bar-btn edit-mode-bar-save"
-                      onClick={() => sheetEditor.save()}
-                      disabled={busyEditor || sheetEditor.loading}
+                      onClick={() => ctl.save()}
+                      disabled={busyEditor || ctl.loading}
                     >
                       <Save size={15} strokeWidth={1.75} aria-hidden="true" />
-                      <span>{sheetEditor.saving ? 'Saving…' : 'Save'}</span>
+                      <span>
+                        {ctl.saving
+                          ? ctl.isNew
+                            ? 'Creating…'
+                            : 'Saving…'
+                          : ctl.isNew
+                            ? 'Create'
+                            : 'Save'}
+                      </span>
                     </button>
                   )}
                 </>

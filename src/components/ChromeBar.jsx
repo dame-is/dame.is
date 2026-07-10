@@ -137,6 +137,17 @@ export default function ChromeBar() {
           ? crumb.getBoundingClientRect().bottom
           : el.getBoundingClientRect().bottom;
       document.documentElement.style.setProperty('--chrome-top-h', `${Math.max(0, Math.floor(bottom))}px`);
+      // On individual pages the breadcrumb is pinned open (not just revealed on
+      // scroll), so unlike the feed pages — where it slides over already-
+      // scrolled content — it would otherwise hang over the top of the page's
+      // own content (the title). Publish its height as `--chrome-crumb-pin-h`
+      // so the content column can reserve that much extra top padding; 0 on
+      // pages where the strip only rides over on scroll.
+      const pinnedH = isDetailPage && crumb ? crumb.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty(
+        '--chrome-crumb-pin-h',
+        `${Math.max(0, Math.ceil(pinnedH))}px`,
+      );
     };
     apply();
     let raf = 0;
@@ -156,7 +167,7 @@ export default function ChromeBar() {
       window.removeEventListener('resize', schedule);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [showBreadcrumb]);
+  }, [showBreadcrumb, isDetailPage]);
 
   return (
     <>
