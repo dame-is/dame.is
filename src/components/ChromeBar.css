@@ -180,11 +180,13 @@
 .chrome-crumb-day {
   flex: 0 1 auto;
   padding: var(--space-2) 0;
-  font-family: var(--mono);
+  /* Same small-caps voice as the atmosphere row's "LISTENING TO" /
+     "FOLLOWED BY" labels (.chrome-signal-label) one bar up. */
+  font-family: var(--sans);
+  font-variant: all-small-caps;
   font-size: var(--text-xs);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.12em;
   color: var(--ink-faint);
-  text-transform: lowercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
