@@ -13,6 +13,7 @@ import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { coverThumb } from '../lib/creatingHelpers.js';
 import { isPortfolioDoc, workSlug, workCategory } from '../lib/publications.js';
+import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
 import './Creating.css';
@@ -25,7 +26,7 @@ function WorkCard({ record }) {
   const thumb = coverThumb(v);
   const category = workCategory(v);
   return (
-    <li className="creating-grid-cell">
+    <li className="creating-grid-cell" data-nsid={nsidFromAtUri(record.uri) || undefined}>
       <Link to={`/creating/${slug}`} className="creating-grid-link">
         {thumb ? (
           <img src={thumb.url} alt={thumb.alt || ''} loading="lazy" />
