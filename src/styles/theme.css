@@ -115,24 +115,24 @@
    fallbacks are the midnight palette so any pre-JS flash lands on a
    quiet near-black rather than an unstyled page. */
 [data-theme='sky'] {
-  --page:           var(--sky-page, #171717);
-  --page-edge:      var(--sky-page-edge, #121212);
-  --surface-raised: var(--sky-surface-raised, #0b0c0c);
+  --page:           var(--sky-page, #181919);
+  --page-edge:      var(--sky-page-edge, #131313);
+  --surface-raised: var(--sky-surface-raised, #0d0d0d);
   --surface-deep:   var(--sky-surface-deep, #050505);
   --ink:            var(--sky-ink, #dfe7e7);
   --ink-soft:       var(--sky-ink-soft, #c1cdcd);
   --ink-muted:      var(--sky-ink-muted, #93a5a5);
   --ink-faint:      var(--sky-ink-faint, #6a7c7c);
-  --rule:           var(--sky-rule, #323939);
-  --rule-soft:      var(--sky-rule-soft, #252828);
+  --rule:           var(--sky-rule, #333a3a);
+  --rule-soft:      var(--sky-rule-soft, #262929);
   --accent:         var(--sky-accent, #9cc9c9);
   --accent-soft:    var(--sky-accent-soft, #79afaf);
   --tan:            var(--sky-tan, #8cbaba);
   --highlight:      var(--sky-highlight, rgba(156, 201, 201, 0.16));
   --shadow:         var(--sky-shadow, rgba(0, 0, 0, 0.45));
 
-  --scrim:          var(--sky-scrim, rgba(8, 8, 8, 0.8));
-  --scrim-clear:    var(--sky-scrim-clear, rgba(8, 8, 8, 0));
+  --scrim:          var(--sky-scrim, rgba(9, 9, 9, 0.8));
+  --scrim-clear:    var(--sky-scrim-clear, rgba(9, 9, 9, 0));
   --scrim-ink:      var(--sky-scrim-ink, rgba(223, 231, 231, 0.9));
 
   /* Daylight hours override this to `light` via an inline style set by
