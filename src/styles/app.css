@@ -66,22 +66,6 @@
   gap: var(--space-5);
 }
 
-/* Eyebrow: a small back/breadcrumb link above the page title. */
-.page-eyebrow {
-  margin-bottom: var(--space-3);
-}
-
-.page-back {
-  color: var(--ink-muted);
-  text-decoration: none;
-  transition: color 120ms ease;
-}
-
-.page-back:hover,
-.page-back:focus-visible {
-  color: var(--accent);
-}
-
 .page-title {
   font-family: var(--serif);
   font-weight: 600;

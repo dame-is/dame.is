@@ -122,11 +122,6 @@ export default function CuratingChannel() {
       title={arenaText(gallery.title) || undefined}
       intro={arenaText(gallery.description) || undefined}
       headTitle={`${gallery.title} — dame.is`}
-      eyebrow={
-        <Link to="/curating" className="page-back small-caps">
-          ← Curating
-        </Link>
-      }
     >
       <div className="curating-channel-meta gutter">
         <span>{gallery.blockCount} {gallery.blockCount === 1 ? 'block' : 'blocks'}</span>

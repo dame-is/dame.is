@@ -1,23 +1,62 @@
 // Classify `site.standard.document` records by the publication they belong
 // to. Creative works and blog posts share the same record type; their `site`
 // field (an `at://` URI pointing at a `site.standard.publication`) is what
-// decides where they surface. See `PORTFOLIO_PUBLICATION` in config.js.
+// decides their *home* feed. See `PORTFOLIO_PUBLICATION` in config.js.
+//
+// A doc can also be cross-posted so it's a first-class member of *both*
+// /creating and /blogging. That's opt-in via a reserved, directional tag on
+// the record: `blog` (or `blogging`) additionally surfaces a portfolio-homed
+// doc on the blog; `creating` (or `portfolio`) additionally surfaces a
+// blog-homed doc on /creating. The `site` field stays the doc's canonical
+// home either way — the tag is purely additive.
 
 import { PORTFOLIO_PUBLICATION } from '../config.js';
 
-/** True when a standard-document value belongs to the portfolio publication. */
+// Reserved cross-post tags, matched case-insensitively and kept out of the
+// visible category (see `workCategory`) so they never render as a medium chip.
+const BLOG_TAGS = new Set(['blog', 'blogging']);
+const CREATING_TAGS = new Set(['creating', 'portfolio']);
+const RESERVED_TAGS = new Set([...BLOG_TAGS, ...CREATING_TAGS]);
+
+function tagList(value) {
+  return Array.isArray(value?.tags) ? value.tags : [];
+}
+
+function hasAnyTag(value, set) {
+  return tagList(value).some((t) => set.has(String(t).trim().toLowerCase()));
+}
+
+/** True when a standard-document value's home publication is the portfolio. */
 export function isPortfolioDoc(value) {
   if (!PORTFOLIO_PUBLICATION) return false;
   return value?.site === PORTFOLIO_PUBLICATION;
 }
 
 /**
- * True when a standard-document value should render on the blog. Anything
- * that isn't a portfolio doc is a blog post — including, while
+ * True when a standard-document value's home feed is the blog. Anything not
+ * homed in the portfolio is a blog post — including, while
  * `PORTFOLIO_PUBLICATION` is unset, everything (legacy behavior).
  */
 export function isBlogDoc(value) {
   return !isPortfolioDoc(value);
+}
+
+/**
+ * True when a standard-document value should surface on /creating — either
+ * the portfolio is its home publication, or a blog-homed doc opts in with a
+ * directional `creating`/`portfolio` tag.
+ */
+export function showOnCreating(value) {
+  return isPortfolioDoc(value) || hasAnyTag(value, CREATING_TAGS);
+}
+
+/**
+ * True when a standard-document value should surface on /blogging — either
+ * the blog is its home feed, or a portfolio-homed doc opts in with a
+ * directional `blog` tag.
+ */
+export function showOnBlog(value) {
+  return isBlogDoc(value) || hasAnyTag(value, BLOG_TAGS);
 }
 
 /**
@@ -39,6 +78,9 @@ export function workSlug(value) {
 export function workCategory(value) {
   if (value?.category) return value.category;
   if (value?.kind) return value.kind;
-  const tags = Array.isArray(value?.tags) ? value.tags : [];
-  return tags[0] || '';
+  // Skip reserved cross-post tags so a `blog`/`creating` marker never shows
+  // up as the work's medium; the first real tag stands in as the category.
+  return (
+    tagList(value).find((t) => !RESERVED_TAGS.has(String(t).trim().toLowerCase())) || ''
+  );
 }

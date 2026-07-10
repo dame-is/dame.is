@@ -8,11 +8,11 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
-import { resolvePds, listRecords } from '../lib/atproto.js';
+import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { coverThumb } from '../lib/creatingHelpers.js';
-import { isPortfolioDoc, workSlug, workCategory } from '../lib/publications.js';
+import { showOnCreating, workSlug, workCategory } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
@@ -22,7 +22,9 @@ const STANDARD_DOC = 'site.standard.document';
 
 function WorkCard({ record }) {
   const v = record.value || {};
-  const slug = workSlug(v);
+  // Blog-homed docs cross-posted here may lack a `path`; fall back to the
+  // rkey so the link still resolves at /creating/:slug.
+  const slug = workSlug(v) || rkeyFromAtUri(record.uri);
   const thumb = coverThumb(v);
   const category = workCategory(v);
   return (
@@ -52,8 +54,9 @@ const COVER_WAIT = 12;
  * Creative works now live as `site.standard.document` records in the
  * portfolio publication; legacy `is.dame.creating.work` records are read
  * alongside them so nothing is orphaned during the migration. Standard docs
- * arrive via the `blogs` snapshot (filtered to the portfolio publication);
- * legacy works via `creations`.
+ * arrive via the `blogs` snapshot, filtered by `showOnCreating` (portfolio-
+ * homed docs, plus any blog-homed doc cross-posted here with a `creating`
+ * tag); legacy works via `creations`.
  */
 async function loadWorks() {
   const pds = await resolvePds(ME_DID);
@@ -63,7 +66,7 @@ async function loadWorks() {
   ]);
   transformRecords(stdDocs, STANDARD_DOC, pds, ME_DID);
   transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
-  return [...stdDocs.filter((r) => isPortfolioDoc(r?.value)), ...legacy];
+  return [...stdDocs.filter((r) => showOnCreating(r?.value)), ...legacy];
 }
 
 export default function Creating() {
@@ -78,7 +81,7 @@ export default function Creating() {
         fetchSnapshot('creations'),
         fetchSnapshot('blogs'),
       ]);
-      const std = Array.isArray(blogs) ? blogs.filter((r) => isPortfolioDoc(r?.value)) : [];
+      const std = Array.isArray(blogs) ? blogs.filter((r) => showOnCreating(r?.value)) : [];
       return [...std, ...(Array.isArray(creations) ? creations : [])];
     },
     fetchLive: loadWorks,

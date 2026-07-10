@@ -9,7 +9,7 @@ import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong } from '../lib/time.js';
-import { isPortfolioDoc, workSlug, workCategory } from '../lib/publications.js';
+import { showOnCreating, workSlug, workCategory } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Blogging.css';
@@ -26,7 +26,7 @@ export default function CreatingWork() {
         fetchSnapshot('creations'),
         fetchSnapshot('blogs'),
       ]);
-      const std = Array.isArray(blogs) ? blogs.filter((r) => isPortfolioDoc(r?.value)) : [];
+      const std = Array.isArray(blogs) ? blogs.filter((r) => showOnCreating(r?.value)) : [];
       return [...std, ...(Array.isArray(creations) ? creations : [])];
     },
     fetchLive: async () => {
@@ -37,7 +37,7 @@ export default function CreatingWork() {
       ]);
       transformRecords(stdDocs, STANDARD_DOC, pds, ME_DID);
       transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
-      return [...stdDocs.filter((r) => isPortfolioDoc(r?.value)), ...legacy];
+      return [...stdDocs.filter((r) => showOnCreating(r?.value)), ...legacy];
     },
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return null;
@@ -89,11 +89,6 @@ export default function CreatingWork() {
       atUri={record?.uri}
       cid={record?.cid}
       headTitle={v?.title ? `${v.title} — dame.is` : `${slug} — dame.is`}
-      eyebrow={
-        <Link to="/creating" className="page-back small-caps">
-          ← Portfolio
-        </Link>
-      }
     >
       <article className="creating-work-page reveal">
         <div className="blog-article-meta">

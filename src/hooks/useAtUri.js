@@ -4,7 +4,7 @@ import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS } from '../lib/recordRoutes.js';
-import { isPortfolioDoc, workSlug } from '../lib/publications.js';
+import { showOnCreating, workSlug } from '../lib/publications.js';
 
 const STANDARD_DOC = 'site.standard.document';
 
@@ -238,11 +238,16 @@ async function loadFromSnapshots(info) {
       : null;
   }
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
-    // Portfolio works are site.standard.document records (in `blogs`, matched
-    // by path) plus any legacy is.dame.creating.work (in `creations`).
+    // Creative works are site.standard.document records (in `blogs`, matched
+    // by path — or rkey for a blog-homed doc cross-posted here without one)
+    // plus any legacy is.dame.creating.work (in `creations`).
     const blogs = await fetchSnapshot('blogs');
     const std = Array.isArray(blogs)
-      ? blogs.find((r) => isPortfolioDoc(r?.value) && workSlug(r.value) === info.slug)
+      ? blogs.find(
+          (r) =>
+            showOnCreating(r?.value) &&
+            (workSlug(r.value) === info.slug || rkeyFromAtUri(r?.uri) === info.slug),
+        )
       : null;
     if (std) return mirrorLeafletTimestamps(std);
     const works = await fetchSnapshot('creations');
@@ -312,7 +317,12 @@ async function fetchRecordFromPds(pds, info) {
   }
   if (info.lexicon === COLLECTIONS.creating && info.slug) {
     const std = await listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }).catch(() => []);
-    const byStd = std.find((r) => isPortfolioDoc(r?.value) && workSlug(r.value) === info.slug) || null;
+    const byStd =
+      std.find(
+        (r) =>
+          showOnCreating(r?.value) &&
+          (workSlug(r.value) === info.slug || rkeyFromAtUri(r?.uri) === info.slug),
+      ) || null;
     if (byStd) return mirrorLeafletTimestamps(byStd);
     const recs = await listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }).catch(() => []);
     return recs.find((r) => workSlug(r?.value) === info.slug) || null;

@@ -8,7 +8,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, formatDateFull, compareIsoDesc } from '../lib/time.js';
-import { isPortfolioDoc } from '../lib/publications.js';
+import { showOnBlog } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
@@ -16,9 +16,10 @@ import './Blogging.css';
 
 /**
  * The blog index. Backed by `site.standard.document` records (in the
- * `blogs` snapshot), addressed by rkey. Portfolio standard-docs are filtered
- * out — they live on /creating. (pub.leaflet.document is deprecated and no
- * longer fetched.)
+ * `blogs` snapshot), addressed by rkey. Portfolio-homed standard-docs are
+ * filtered out — they live on /creating — unless one opts back in with a
+ * `blog` cross-post tag (see `showOnBlog`). (pub.leaflet.document is
+ * deprecated and no longer fetched.)
  */
 export default function Blogging() {
   const [params] = useSearchParams();
@@ -102,8 +103,9 @@ function mergeBlogEntries(data) {
   // records. (pub.leaflet.document is deprecated and no longer fetched.)
   const blogs = Array.isArray(data) ? data : [];
   return blogs
-    // Portfolio standard-docs live on /creating, not the blog.
-    .filter((r) => r?.value && !isPortfolioDoc(r.value))
+    // Blog-homed docs plus any portfolio doc cross-posted with a `blog` tag.
+    // Portfolio-only docs live on /creating.
+    .filter((r) => r?.value && showOnBlog(r.value))
     .map(normalizeStandard)
     .sort((a, b) => compareIsoDesc(a.createdAt, b.createdAt));
 }

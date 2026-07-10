@@ -195,11 +195,6 @@ export default function Record({ verb, nsid, source }) {
       atUri={atUri}
       cid={cid}
       headTitle={headTitleFor(verb, item)}
-      eyebrow={
-        <Link to={`/${verb}`} className="page-back small-caps">
-          ← {verb}
-        </Link>
-      }
     >
       <article className="record-page">
         {(verb === 'posting' || verb === 'reposting') && parents.length > 0 && (
