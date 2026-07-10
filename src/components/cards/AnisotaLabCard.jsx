@@ -1,23 +1,31 @@
 /**
  * Renders a creative piece made in the Anisota Lab — the `crafting` verb.
  * One card handles every studio's output plus authored spells, branching on
- * the record's collection (derived from its at:// URI):
+ * the record's collection (derived from its at:// URI). Each type is rendered
+ * faithfully to how Anisota itself displays it (the layout / tokenise math is
+ * ported in src/lib/anisotaLab.js):
  *
- *   net.anisota.lab.poetry     — a Word Magnets poem (assembled text)
- *   net.anisota.lab.redaction  — an erasure/found poem (surviving words)
- *   net.anisota.lab.sigil      — a sigil, drawn as a standalone SVG
- *   net.anisota.lab.carving    — a relief print (PNG data-URL thumbnail)
+ *   net.anisota.lab.poetry     — Word Magnets poem, re-laid from tiles + board
+ *   net.anisota.lab.redaction  — erasure poem, original text with words blacked out
+ *   net.anisota.lab.sigil      — a sigil, its standalone SVG (sandboxed <img>)
+ *   net.anisota.lab.carving    — a relief print (PNG data-URL)
  *   net.anisota.lab.inkblot    — a symmetric inkblot (PNG data-URL)
  *   net.anisota.lab.petri      — a petri culture (PNG data-URL)
  *   net.anisota.lab.synth      — a multitrack synth loop (tempo/steps meta)
  *   net.anisota.spell.custom   — an authored spell (name + description)
  *
- * The bulky reproduction data (tile layouts, gouge paths, event grids…) is
- * stripped upstream in feedBuilder.transformRecords — only the finished
- * text / figure / print reaches this card.
+ * `variant="record"` is the larger treatment used on the single-record page,
+ * which also surfaces a "view on anisota" link to the piece's page there.
  */
 import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
 import { nsidFromAtUri } from '../../lib/verbRegistry.js';
+import {
+  computePoemLayout,
+  tokenizePost,
+  isRedactable,
+  sigilSvgDataUrl,
+  anisotaWorkUrl,
+} from '../../lib/anisotaLab.js';
 
 /** Short, lowercase label for each Lab collection — shown in small caps. */
 const KIND_LABEL = {
@@ -31,21 +39,37 @@ const KIND_LABEL = {
   'net.anisota.spell.custom': 'spell',
 };
 
-export default function AnisotaLabCard({ payload, atUri }) {
+export default function AnisotaLabCard({ payload, atUri, variant = 'feed' }) {
   const v = payload || {};
   const nsid = nsidFromAtUri(atUri);
   const kind = KIND_LABEL[nsid] || 'lab piece';
   // Inkblots carry no user name (their rkey is their identity), so only the
   // kind label leads them; every other piece can front its title.
   const title = nsid === 'net.anisota.lab.inkblot' ? null : v.name || null;
+  const isRecord = variant === 'record';
+  const anisotaUrl = isRecord ? anisotaWorkUrl(atUri) : null;
 
   return (
-    <article className="lab-card feed-card" data-at-uri={atUri} data-nsid={nsid || undefined}>
+    <article
+      className={`lab-card feed-card lab-card-${isRecord ? 'record' : 'feed'}`}
+      data-at-uri={atUri}
+      data-nsid={nsid || undefined}
+    >
       <header className="lab-card-head">
         <span className="small-caps lab-card-kind">{kind}</span>
         {title && <h3 className="lab-card-title">{title}</h3>}
       </header>
       <LabBody nsid={nsid} value={v} />
+      {anisotaUrl && (
+        <a
+          className="lab-card-source small-caps"
+          href={anisotaUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          view on anisota →
+        </a>
+      )}
     </article>
   );
 }
@@ -53,8 +77,10 @@ export default function AnisotaLabCard({ payload, atUri }) {
 function LabBody({ nsid, value: v }) {
   switch (nsid) {
     case 'net.anisota.lab.poetry':
+      return <PoemBody value={v} />;
+
     case 'net.anisota.lab.redaction':
-      return v.text ? <p className="lab-card-text">{v.text}</p> : null;
+      return <RedactionBody value={v} />;
 
     case 'net.anisota.spell.custom':
       return v.description ? (
@@ -72,7 +98,7 @@ function LabBody({ nsid, value: v }) {
     }
 
     case 'net.anisota.lab.sigil': {
-      const src = sigilSvgSrc(v.svg);
+      const src = sigilSvgDataUrl(v.svg);
       return src ? (
         <div className="lab-card-figure lab-card-figure-sigil">
           <img src={src} alt={v.name ? `Sigil: ${v.name}` : 'A sigil'} loading="lazy" />
@@ -95,14 +121,64 @@ function LabBody({ nsid, value: v }) {
 }
 
 /**
- * A sigil is stored as a standalone SVG document. Render it through an
- * `<img>` data URL rather than inlining the markup, so the figure can't run
- * scripts even though it's the owner's own record. Returns null for anything
- * that isn't actually an SVG.
+ * A Word Magnets poem, re-laid from its saved tile layout. Poems that carry a
+ * `board` snapshot render as positioned cream tiles exactly as arranged; older
+ * poems (no board) fall back to the assembled `text`.
  */
-function sigilSvgSrc(svg) {
-  if (typeof svg !== 'string' || !svg.includes('<svg')) return null;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+function PoemBody({ value: v }) {
+  const layout = computePoemLayout(v.tiles, v.board);
+  if (!layout) {
+    return v.text ? <p className="lab-card-text">{v.text}</p> : null;
+  }
+  return (
+    <div
+      className="lab-poem-field"
+      style={{ aspectRatio: String(layout.fieldAspect), '--tile-font': `${layout.fontCqw}cqw` }}
+      role="img"
+      aria-label={v.text ? `Poem: ${v.text}` : 'A poem'}
+    >
+      {layout.tiles.map((tile, i) => (
+        <span
+          key={i}
+          className={`lab-poem-tile${tile.fragment ? ' is-fragment' : ''}`}
+          style={{ left: `${tile.left}%`, top: `${tile.top}%`, '--rot': `${tile.rot}deg` }}
+          aria-hidden="true"
+        >
+          {tile.word}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * An erasure poem: the source post's original text with the redacted words
+ * blacked out, and the surviving found poem beneath. Falls back to the
+ * surviving `text` alone when no `original` snapshot was saved.
+ */
+function RedactionBody({ value: v }) {
+  const original = typeof v.original === 'string' ? v.original : '';
+  const redacted = Array.isArray(v.redacted) ? new Set(v.redacted) : new Set();
+  if (!original) {
+    return v.text ? <p className="lab-card-text">{v.text}</p> : null;
+  }
+  const tokens = tokenizePost(original);
+  return (
+    <div className="lab-redaction-wrap">
+      <p className="lab-redaction" aria-label={v.text ? `Erasure poem: ${v.text}` : 'An erasure poem'}>
+        {tokens.map((t, i) =>
+          isRedactable(t) && redacted.has(t.index) ? (
+            <span key={i} className="lab-redaction-word is-redacted" aria-hidden="true">
+              {t.text}
+            </span>
+          ) : (
+            <span key={i}>{t.text}</span>
+          ),
+        )}
+      </p>
+      {v.text && <p className="lab-redaction-found">{v.text}</p>}
+    </div>
+  );
 }
 
 /** Only render `image` fields that are self-contained data URLs. */
