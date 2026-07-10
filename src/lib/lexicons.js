@@ -110,16 +110,16 @@ export const LEXICONS = {
         key: 'coverImage', label: 'Cover image', type: 'image',
         hint: 'Optional thumbnail / hero shown on cards and at the top of the work.',
       },
-      { key: 'content',     label: 'Body',         type: 'blocks' },
-      {
-        key: 'links', label: 'Links', type: 'json',
-        hint: 'Optional external links (standard.site union — raw JSON).',
-      },
       {
         key: 'draft', label: 'Draft — hidden from public feeds (admin still sees it)',
         type: 'boolean',
       },
       { key: 'publishedAt', label: 'Published at', type: 'datetime', default: 'now', required: true },
+      { key: 'content',     label: 'Body',         type: 'blocks' },
+      {
+        key: 'links', label: 'Links', type: 'json',
+        hint: 'Optional external links (standard.site union — raw JSON).',
+      },
     ],
     // Keep a user-entered path; otherwise derive one from the record key.
     derive: (record, { rkey }) => (rkey ? { ...record, path: record.path || `/${rkey}` } : record),

@@ -8,9 +8,12 @@
      rides just above the bar and slides up out of it near the page's end
      (--chrome-bottom-footer-h, measured live) — reserve its height too so
      the revealed strip lands in its own band instead of over the last line
-     of content (which, unlike the top, can't scroll out from under it). */
+     of content (which, unlike the top, can't scroll out from under it). The
+     owner edit-mode action bar (--edit-bar-h, 0 when off) rides above the bar
+     too — reserve it so the admin editor's last field clears it. */
   padding-bottom: calc(
-    var(--chrome-h) + var(--chrome-bottom-footer-h, 0px) + env(safe-area-inset-bottom, 0px)
+    var(--chrome-h) + var(--edit-bar-h, 0px) + var(--chrome-bottom-footer-h, 0px) +
+      env(safe-area-inset-bottom, 0px)
   );
 }
 
@@ -47,7 +50,14 @@
   width: 100%;
   max-width: 72rem;
   margin: 0 auto;
-  padding: var(--space-8) clamp(var(--space-5), 6vw, var(--space-9));
+  /* `--chrome-crumb-pin-h` is the height of the top breadcrumb strip when it's
+     pinned open (individual/detail pages); it's an absolutely-positioned
+     overlay that would otherwise hang over the page title, so reserve that
+     much extra top padding. 0 on feed/index pages, where the strip only rides
+     over content on scroll. */
+  padding: calc(var(--space-8) + var(--chrome-crumb-pin-h, 0px))
+    clamp(var(--space-5), 6vw, var(--space-9))
+    var(--space-8);
 }
 
 /* Route-level crossfade wrapper. Stretches the full content width so
@@ -294,7 +304,7 @@
 
 @media (max-width: 700px) {
   .main {
-    padding: var(--space-6) var(--space-4);
+    padding: calc(var(--space-6) + var(--chrome-crumb-pin-h, 0px)) var(--space-4) var(--space-6);
   }
   .page-title {
     font-size: var(--text-3xl);

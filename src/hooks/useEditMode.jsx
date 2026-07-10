@@ -46,6 +46,11 @@ export function EditModeProvider({ children }) {
   // action bar can drive save/delete: { save, remove, saving, deleting,
   // loading, canDelete } or null.
   const [sheetEditor, setSheetEditor] = useState(null);
+  // The same shape, published by the full admin record editor page so its
+  // Save / Delete / Close live in the bottom-chrome action bar instead of at
+  // the foot of the page. Independent of `sheetEditor` (different source, so
+  // the two never race to null each other). Also carries `close` + `isNew`.
+  const [pageEditor, setPageEditor] = useState(null);
   const location = useLocation();
   const { open: dockOpen } = useActionDock();
 
@@ -169,6 +174,8 @@ export function EditModeProvider({ children }) {
       closeEditSheet,
       sheetEditor,
       setSheetEditor,
+      pageEditor,
+      setPageEditor,
     }),
     [
       active,
@@ -190,6 +197,8 @@ export function EditModeProvider({ children }) {
       closeEditSheet,
       sheetEditor,
       setSheetEditor,
+      pageEditor,
+      setPageEditor,
     ],
   );
 

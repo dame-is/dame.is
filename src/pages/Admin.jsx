@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import PageContentPanel from '../components/PageContentPanel.jsx';
 import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
+import { useEditMode } from '../hooks/useEditMode.jsx';
 import { ME_DID, COLLECTIONS, PORTFOLIO_PUBLICATION } from '../config.js';
 import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
 
@@ -1131,11 +1132,41 @@ function RecordEditorPage({ agent, did, collection, rkey, preset = null }) {
       : lex?.label || collection;
   const title = isNew ? `New ${newLabel}` : `${lex?.label || collection}`;
   const headTitle = `${title} — Admin — dame.is`;
+  const listHref = `/admin?c=${encodeURIComponent(collection)}`;
+  const navigate = useNavigate();
+
+  // The editor's Save / Delete / Close ride in the bottom-chrome edit action
+  // bar (EditModeBar) rather than at the foot of the page — mirroring the
+  // quick-edit sheet. Drive the editor imperatively via a ref and publish its
+  // live status so the bar can label + disable its controls.
+  const editorRef = useRef(null);
+  const { setPageEditor } = useEditMode();
+  const [status, setStatus] = useState({
+    saving: false,
+    deleting: false,
+    loading: !isNew,
+    isNew,
+  });
+  const handleStatus = useCallback((s) => setStatus(s), []);
+
+  useEffect(() => {
+    setPageEditor({
+      save: () => editorRef.current?.save(),
+      remove: () => editorRef.current?.remove(),
+      close: () => navigate(listHref),
+      saving: status.saving,
+      deleting: status.deleting,
+      loading: status.loading,
+      canDelete: !status.isNew,
+      isNew: status.isNew,
+    });
+    return () => setPageEditor(null);
+  }, [setPageEditor, status, listHref, navigate]);
 
   return (
     <PageShell title={title} headTitle={headTitle}>
       <div className="admin-toolbar">
-        <Link to={`/admin?c=${encodeURIComponent(collection)}`} className="admin-link-subtle">
+        <Link to={listHref} className="admin-link-subtle">
           ← Back to list
         </Link>
         <code className="admin-collection-nsid">{collection}</code>
@@ -1148,18 +1179,21 @@ function RecordEditorPage({ agent, did, collection, rkey, preset = null }) {
         </p>
       )}
       <RecordEditor
+        ref={editorRef}
         agent={agent}
         did={did}
         collection={collection}
         rkey={rkey}
         initialValue={initialValue}
+        hideActions
+        onStatus={handleStatus}
         onCreated={({ rkey: newRkey }) => {
           window.location.assign(
             `/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(newRkey)}`,
           );
         }}
         onDeleted={() => {
-          window.location.assign(`/admin?c=${encodeURIComponent(collection)}`);
+          window.location.assign(listHref);
         }}
       />
     </PageShell>
