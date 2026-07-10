@@ -180,11 +180,13 @@
 .chrome-crumb-day {
   flex: 0 1 auto;
   padding: var(--space-2) 0;
-  font-family: var(--mono);
+  /* Same small-caps voice as the atmosphere row's "LISTENING TO" /
+     "FOLLOWED BY" labels (.chrome-signal-label) one bar up. */
+  font-family: var(--sans);
+  font-variant: all-small-caps;
   font-size: var(--text-xs);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.12em;
   color: var(--ink-faint);
-  text-transform: lowercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -193,16 +195,16 @@
 
 /* The AT Protocol collection in view, pinned to the strip's right edge —
    the top visible feed record's NSID on feed pages, the page's own
-   backing record elsewhere. */
+   backing record elsewhere. Same small-caps voice as the day label. */
 .chrome-crumb-nsid {
   flex: 0 1 auto;
   margin-left: auto;
   padding: var(--space-2) 0;
-  font-family: var(--mono);
+  font-family: var(--sans);
+  font-variant: all-small-caps;
   font-size: var(--text-xs);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.12em;
   color: var(--ink-faint);
-  text-transform: lowercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -304,6 +306,14 @@
 .chrome-signals-secondary {
   flex-wrap: wrap;
   row-gap: var(--space-3);
+}
+
+/* FOLLOWED BY anchors the atmosphere row's right edge on desktop;
+   narrow screens keep the wrapped, left-aligned stack. */
+@media (min-width: 701px) {
+  .chrome-signals-secondary .chrome-signal-stats {
+    margin-left: auto;
+  }
 }
 
 .chrome-signal {
