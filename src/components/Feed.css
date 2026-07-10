@@ -1654,6 +1654,14 @@ a.ledger-verb:focus-visible {
   height: 1.25rem;
 }
 
+/* The author chip's name/handle stack inherits the body's roomy
+   leading; pull the two lines together so the condensed quote head
+   stays one tight cluster. */
+.ledger-embed .post-embed-quote-name,
+.ledger-embed .post-embed-quote-handle {
+  line-height: 1.25;
+}
+
 .ledger-embed .post-embed-quote-text {
   font-size: var(--text-sm);
   display: -webkit-box;
