@@ -145,7 +145,9 @@
 }
 
 .chrome-breadcrumb {
-  width: 100%;
+  /* Content-sized so the day label can sit right after the trail; may
+     shrink (the crumbs ellipsize) when the two compete for width. */
+  flex: 0 1 auto;
   padding: var(--space-2) 0;
   min-width: 0;
 }
@@ -167,6 +169,24 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.4em;
+  min-width: 0;
+}
+
+/* Current day-section indicator on feed pages — rides the crumb spot,
+   left-aligned: alone on the home page, after the trail on sub-pages
+   (the row's own gap separates the two). Carries the strip's vertical
+   padding itself so the row keeps its height when it's the only
+   content. */
+.chrome-crumb-day {
+  flex: 0 1 auto;
+  padding: var(--space-2) 0;
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   min-width: 0;
 }
 

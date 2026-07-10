@@ -56,10 +56,14 @@ export default function ChromeBar() {
 
   // Tertiary chrome: a breadcrumb that slides down out of the top bar once
   // the page is scrolled away from its top, orienting you to where you are.
-  // It only exists off the home page, and folds back up on the way to the top.
+  // On day-grouped feed pages (home included) the strip also carries the
+  // date header of the section currently scrolled under the chrome, so it
+  // reveals on the home page too once you're past the first day header.
+  // It folds back up on the way to the top.
   const crumbs = buildCrumbs(location.pathname);
   const scrolledDown = useScrolledDown();
-  const showBreadcrumb = crumbs.length > 0 && scrolledDown;
+  const dayLabel = useCurrentDayLabel();
+  const showBreadcrumb = scrolledDown && (crumbs.length > 0 || !!dayLabel);
 
   // Publish the top chrome's live occupied bottom as `--chrome-top-h` on
   // <html> — the y-coordinate where the top chrome ends and the content
@@ -207,29 +211,33 @@ export default function ChromeBar() {
           )}
         </AnimatePresence>
 
-        {/* Breadcrumb stays mounted the whole time we're off the home page,
-            and the reveal animates ONLY transform + opacity — never height.
-            A height:auto animation forces a layout measurement/reflow on the
-            frame it starts, and a reflow mid-scroll hands scrolling back to
-            the main thread and stalls the momentum. transform/opacity run on
-            the compositor and can't interrupt the scroll. The strip slides
-            down from behind the bar inside a fixed clip (`overflow: hidden`
-            on the wrap) instead of growing the box. */}
-        {crumbs.length > 0 && (
-          <div
-            ref={crumbRef}
-            id="chrome-bar-tertiary"
-            className="chrome-bar-tertiary-wrap"
-            inert={showBreadcrumb ? undefined : ''}
-            aria-hidden={showBreadcrumb ? undefined : true}
-            style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
+        {/* Breadcrumb strip stays mounted on every page (home shows just
+            the root crumb plus the current day), and the reveal animates
+            ONLY transform + opacity — never height. A height:auto animation
+            forces a layout measurement/reflow on the frame it starts, and a
+            reflow mid-scroll hands scrolling back to the main thread and
+            stalls the momentum. transform/opacity run on the compositor and
+            can't interrupt the scroll. The strip slides down from behind
+            the bar inside a fixed clip (`overflow: hidden` on the wrap)
+            instead of growing the box. */}
+        <div
+          ref={crumbRef}
+          id="chrome-bar-tertiary"
+          className="chrome-bar-tertiary-wrap"
+          inert={showBreadcrumb ? undefined : ''}
+          aria-hidden={showBreadcrumb ? undefined : true}
+          style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
+        >
+          <motion.div
+            className="chrome-bar-row chrome-bar-tertiary"
+            initial={false}
+            animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
+            transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
           >
-            <motion.div
-              className="chrome-bar-row chrome-bar-tertiary"
-              initial={false}
-              animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
-              transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
-            >
+            {/* On the home page (no crumbs) the day label stands alone in
+                the crumb spot; on sub-pages it follows the trail, all
+                left-aligned. */}
+            {crumbs.length > 0 && (
               <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
                 <ol className="chrome-crumbs">
                   <li className="chrome-crumb">
@@ -260,9 +268,10 @@ export default function ChromeBar() {
                   })}
                 </ol>
               </nav>
-            </motion.div>
-          </div>
-        )}
+            )}
+            {dayLabel && <span className="chrome-crumb-day">{dayLabel}</span>}
+          </motion.div>
+        </div>
       </header>
 
       <ChromeBarBottom dockOpen={dockOpen} toggleDock={toggleDock} />
@@ -651,6 +660,53 @@ function buildCrumbs(pathname) {
  *  the page and folds back up on return. The threshold is a few hundred px
  *  so the crumb only appears once you've deliberately scrolled into the
  *  page, not on the first small nudge away from the top. */
+/** Text of the day header whose section is currently scrolled under the
+ *  top chrome, or null while above the first day header (and on pages
+ *  without day-grouped feeds). Reads the DOM directly — day headers carry
+ *  stable classes on every feed page (home, listening, posting, logging)
+ *  — so no page-side wiring is needed. The headers are re-queried on each
+ *  scroll frame; a feed renders at most a few dozen of them, and querying
+ *  live keeps freshly-loaded groups ("Load more", background refresh)
+ *  accurate without observers. */
+function useCurrentDayLabel() {
+  const [label, setLabel] = useState(null);
+  const location = useLocation();
+  useEffect(() => {
+    let frame = 0;
+    const apply = () => {
+      const headers = document.querySelectorAll('.day-section-header .day-header');
+      let current = null;
+      if (headers.length) {
+        // The strip's own reveal grows --chrome-top-h, which nudges this
+        // threshold down a touch once shown — harmless hysteresis at the
+        // section boundary.
+        const chromeBottom =
+          parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-h'),
+          ) || 0;
+        for (const h of headers) {
+          if (h.getBoundingClientRect().top < chromeBottom + 12) current = h;
+          else break;
+        }
+      }
+      setLabel(current ? current.textContent : null);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(apply);
+    };
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [location.pathname]);
+  return label;
+}
+
 function useScrolledDown(threshold = 220) {
   const [down, setDown] = useState(false);
   useEffect(() => {
