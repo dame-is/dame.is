@@ -91,9 +91,9 @@ export default function PostCard({
   // meta row so the time is still discoverable.
   const showTimeInHeader = showOriginalAuthor && !text && ts && variant !== 'record';
   // For text-less posts the feed hoists this timestamp up onto the verb
-  // line (see FeedItem + Feed.css); in `normal` density the in-card row
-  // below is hidden by CSS, and in compact/tight — where the verb column
-  // is stripped — this row is what stays visible.
+  // line (see FeedItem + Feed.css), which hides the in-card row below;
+  // outside the verb-column feed (showVerb=false surfaces) this row is
+  // what keeps the time visible.
   const showStandaloneTime = !text && !showOriginalAuthor && ts && variant !== 'record';
 
   const { paper } = usePaper();
@@ -157,7 +157,7 @@ export default function PostCard({
           )}
         </div>
       )}
-      {embed && <PostEmbed embed={embed} did={authorDid} collapsible />}
+      {embed && <PostEmbed embed={embed} did={authorDid} />}
       {(payload?.replyCount || payload?.repostCount || payload?.likeCount) ? (
         <footer className="post-card-stats">
           {payload?.replyCount ? `${payload.replyCount} ${payload.replyCount === 1 ? 'reply' : 'replies'}` : ''}

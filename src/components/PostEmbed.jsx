@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Images, Film, Link2, Quote, ChevronDown } from 'lucide-react';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
-import { useDensity } from '../hooks/useDensity.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import Lightbox from './Lightbox.jsx';
@@ -20,105 +18,13 @@ import './PostEmbed.css';
  *      the CDN URL.
  *
  * Pass the post's author `did` so we can build CDN URLs for raw embeds.
- *
- * `collapsible` is set by the feed card renderers. In the feed's `tight`
- * density it swaps the embed for a small labeled chip the reader can
- * expand on demand — keeping rows scannable without losing the signal
- * that an embed exists. At every other density (and everywhere
- * `collapsible` is unset, e.g. record/detail pages) the embed renders
- * inline as usual; compact sizing is handled in CSS.
  */
-export default function PostEmbed({ embed, did, depth = 0, collapsible = false }) {
+export default function PostEmbed({ embed, did, depth = 0 }) {
   if (!embed) return null;
-  const content = renderEmbed(embed, did, depth);
-  if (!content) return null;
-  if (collapsible) {
-    return <CollapsibleEmbed embed={embed}>{content}</CollapsibleEmbed>;
-  }
-  return content;
+  return renderEmbed(embed, did, depth);
 }
 
-/**
- * In `tight` density a feed embed collapses to a one-line chip
- * (icon + label + caret) that toggles the real embed open. Other
- * densities render the embed inline untouched.
- */
-function CollapsibleEmbed({ embed, children }) {
-  const { density } = useDensity();
-  const [open, setOpen] = useState(false);
-  if (density !== 'tight') return children;
-  const summary = embedSummary(embed);
-  // Unknown embed type — nothing useful to label, so just show it.
-  if (!summary) return children;
-  const { Icon, label } = summary;
-  return (
-    <div className="post-embed-collapsible">
-      <button
-        type="button"
-        className="post-embed-toggle"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <Icon size={13} strokeWidth={1.75} className="post-embed-toggle-icon" aria-hidden="true" />
-        <span className="post-embed-toggle-label">{label}</span>
-        <ChevronDown
-          size={13}
-          strokeWidth={1.75}
-          className={`post-embed-toggle-caret ${open ? 'is-open' : ''}`}
-          aria-hidden="true"
-        />
-      </button>
-      {open && <div className="post-embed-collapsible-body">{children}</div>}
-    </div>
-  );
-}
-
-/**
- * One-line descriptor (icon + label) for an embed, used by the tight-mode
- * collapse chip. Returns null for embed types we don't summarize.
- */
-function embedSummary(embed) {
-  if (!embed) return null;
-  switch (embed.$type) {
-    case 'app.bsky.embed.images#view':
-    case 'app.bsky.embed.images': {
-      const n = (embed.images || []).length || 0;
-      return { Icon: Images, label: n === 1 ? '1 image' : `${n} images` };
-    }
-    case 'app.bsky.embed.video#view':
-    case 'app.bsky.embed.video':
-      return { Icon: Film, label: 'Video' };
-    case 'app.bsky.embed.external#view':
-    case 'app.bsky.embed.external': {
-      let host = 'Link';
-      try {
-        host = new URL(embed.external?.uri).hostname.replace(/^www\./, '');
-      } catch {
-        /* ignore */
-      }
-      return { Icon: Link2, label: host };
-    }
-    case 'app.bsky.embed.record#view':
-    case 'app.bsky.embed.record':
-      return { Icon: Quote, label: 'Quoted post' };
-    case 'app.bsky.embed.recordWithMedia#view':
-    case 'app.bsky.embed.recordWithMedia': {
-      const media = embed.media ? embedSummary(embed.media) : null;
-      return {
-        Icon: media?.Icon || Quote,
-        label: media ? `${media.label} + quote` : 'Quoted post',
-      };
-    }
-    default:
-      return null;
-  }
-}
-
-/**
- * Resolves an embed object to its rendered element. Split out from the
- * default export so `PostEmbed` can optionally wrap the result in the
- * tight-mode collapse chip.
- */
+/** Resolves an embed object to its rendered element. */
 function renderEmbed(embed, did, depth) {
   const type = embed.$type;
   switch (type) {

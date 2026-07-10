@@ -14,7 +14,7 @@ import { ME_DID } from '../config.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
-import DensityToggle from './DensityToggle.jsx';
+import LayoutToggle from './LayoutToggle.jsx';
 import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
@@ -383,7 +383,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       <div className="chrome-bottom-row">
         {/* Left cluster. While the nav dock is open, the page-level controls
             (theme / filter / search / info) hand off to the dock's tools
-            (density / debug / account) — they animate in and temporarily
+            (layout / debug / account) — they animate in and temporarily
             take the same spot, then swap back when the dock closes. The
             debug/account tools drive the open sheet's sub-view. */}
         <div className="chrome-bottom-left">
@@ -397,7 +397,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
-                <DensityToggle />
+                <LayoutToggle />
                 {PAPER_ENABLED && <PaperToggle />}
                 <button
                   type="button"

@@ -26,6 +26,7 @@ import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
@@ -436,7 +437,15 @@ export default function Home() {
   // Records the owner deleted this session are dropped optimistically so
   // the feed reflects the change immediately, ahead of the next live fetch
   // (which won't return them anyway).
-  const { removedUris } = useEditMode();
+  const { removedUris, active: editActive } = useEditMode();
+
+  // Which of the two feed layouts to render: the default card view, or
+  // the condensed multi-column "ledger" (toggled from the nav dock).
+  // Owner edit mode always gets the full cards — the selection UI
+  // (per-song listen selection, select marks) lives in the card
+  // renderers, so the ledger steps aside while it's active.
+  const { layout } = useFeedLayout();
+  const ledger = layout === 'ledger' && !editActive;
   const filtered = useMemo(() => {
     const base = filterFeed(safeFeed, params, ME_DID);
     if (!removedUris || removedUris.size === 0) return base;
@@ -500,7 +509,7 @@ export default function Home() {
         {/* One flex child holds the whole feed body (or the cold-load
             fetching line) so its spacing rides in the wrapper rather than
             in the parent's animatable flex `gap`. */}
-        <div className="home-feed-region">
+        <div className={`home-feed-region${ledger ? ' feed-ledger' : ''}`}>
           {loading || (checking && filtered.length === 0) ? (
             <p className="feed-activity-standalone" role="status" aria-live="polite">
               Fetching latest activity&hellip;
@@ -513,6 +522,7 @@ export default function Home() {
               <li key={group.dateKey} className="feed-day-group">
                 <DayOfLifeHeader
                   date={group.date}
+                  variant={ledger ? 'ledger' : 'default'}
                   meta={
                     gi === 0 ? (
                       <DayActivityMeta
@@ -525,7 +535,13 @@ export default function Home() {
                     )
                   }
                 />
-                <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
+                {/* The ledger's day header carries its own bottom rule, so
+                    the list sits flush beneath it; the card layout keeps a
+                    breathing gap. */}
+                <ul
+                  className="feed-list"
+                  style={ledger ? undefined : { marginTop: 'var(--space-3)' }}
+                >
                   <AnimatePresence initial={false}>
                     {group.items.map((item, i) => {
                       const uri = item?.atUri;
@@ -543,7 +559,7 @@ export default function Home() {
                             delay: reduce ? 0 : stagger,
                           }}
                         >
-                          <FeedItem item={item} />
+                          <FeedItem item={item} layout={ledger ? 'ledger' : 'default'} />
                         </motion.li>
                       );
                     })}
