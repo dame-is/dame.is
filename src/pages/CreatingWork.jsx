@@ -9,7 +9,7 @@ import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { formatDateLong } from '../lib/time.js';
-import { showOnCreating, workSlug, workCategory } from '../lib/publications.js';
+import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Blogging.css';
@@ -41,10 +41,13 @@ export default function CreatingWork() {
     },
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return null;
+      // Drafts are hidden from public surfaces; a drafted work must not
+      // resolve by direct URL either (the live fetch would otherwise find it).
+      const visible = snap.filter((r) => r?.value && !isDraft(r.value));
       return (
-        snap.find((r) => r?.value && workSlug(r.value) === slug) ||
+        visible.find((r) => workSlug(r.value) === slug) ||
         // Fall back to the rkey so URI-derived links resolve too.
-        snap.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
+        visible.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
         null
       );
     },

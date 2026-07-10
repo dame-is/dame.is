@@ -33,6 +33,18 @@ export function isPortfolioDoc(value) {
 }
 
 /**
+ * True when a record value is marked a draft. Drafts are hidden from every
+ * public surface. The snapshot builder already drops them when it writes the
+ * world-readable JSON (see feedBuilder), but the live PDS fetch that pages run
+ * to confirm/refresh the snapshot returns *all* records — `listRecords` has no
+ * notion of drafts — so each public surface must re-apply this filter or a
+ * drafted work reappears the moment the live fetch overlays the snapshot.
+ */
+export function isDraft(value) {
+  return value?.draft === true;
+}
+
+/**
  * True when a standard-document value's home feed is the blog. Anything not
  * homed in the portfolio is a blog post — including, while
  * `PORTFOLIO_PUBLICATION` is unset, everything (legacy behavior).
