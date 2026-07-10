@@ -109,7 +109,9 @@ function ledgerEmbed(item) {
   if (payload.subjectMissing) return null;
   const embed = payload.embed || payload.embedRecord || null;
   if (!embed) return null;
-  return { embed, did: payload.author?.did };
+  // Anisota post embeds have no author view; their blobs live on Dame's PDS.
+  const did = payload.author?.did || (item.source === 'anisota' ? ME_DID : undefined);
+  return { embed, did };
 }
 
 function summarize(item, listenControls) {
@@ -119,6 +121,11 @@ function summarize(item, listenControls) {
       return plain(payload.status || payload.text, 'a status');
     case 'posting':
     case 'reposting':
+      // An Anisota repost is a reference (a pointer at another post), not an
+      // authored post — summarise its subject like a like does.
+      if (item.source === 'anisota' && item.subject) {
+        return summarizeSubject(item.subject, item.source);
+      }
       return summarizePost(item);
     case 'blogging':
       return plain(payload.title || payload.name, 'an untitled entry');
@@ -143,15 +150,10 @@ function summarize(item, listenControls) {
       return plain(payload.displayName, 'an untitled feed');
     case 'commenting':
       return plain(payload.text || payload.body || payload.content, 'a comment');
-    case 'voting': {
-      const choice =
-        payload.option ||
-        payload.optionLabel ||
-        payload.choice ||
-        (typeof payload.optionIndex === 'number' ? `option ${payload.optionIndex + 1}` : null);
-      if (choice) return <>chose {choice}</>;
-      return summarizeSubject(item.subject, item.source);
-    }
+    case 'crafting':
+      // Anisota Lab piece — lead with its title, else a poem/erasure's text,
+      // else a spell's description; falls back to a generic placeholder.
+      return plain(payload.name || payload.text || payload.description, 'a lab piece');
     default:
       return <Placeholder>a record</Placeholder>;
   }
@@ -349,7 +351,13 @@ function summarizeSubject(subject, source) {
     case 'atproto': {
       const value = subject.record?.value;
       if (!value) return <Placeholder>{source ? `a ${source} record` : 'a record'}</Placeholder>;
-      const title = value.title || value.name || value.displayName || value.repo || value.repoName;
+      const title =
+        value.title ||
+        value.name ||
+        value.displayName ||
+        value.repo ||
+        value.repoName ||
+        (value.text ? value.text.trim().replace(/\s+/g, ' ').slice(0, 80) : null);
       if (!title) return <Placeholder>{source ? `a ${source} record` : 'a record'}</Placeholder>;
       return (
         <>

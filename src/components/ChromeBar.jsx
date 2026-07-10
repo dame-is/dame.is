@@ -28,6 +28,11 @@ import './ChromeBar.css';
 // bottom bar's presence/layout animation (fade in/out, slide to make room).
 const MotionLink = motion.create(Link);
 
+// Feed search is built and wired (SearchSheet + the `?q=` filter), but its
+// trigger is temporarily hidden from the bottom chrome. Flip this back to
+// `true` to restore the search button — nothing else needs to change.
+const SEARCH_ENABLED = false;
+
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
@@ -495,16 +500,18 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
-                <button
-                  type="button"
-                  className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}`}
-                  onClick={() => togglePanel('search')}
-                  aria-expanded={searchPanelOpen}
-                  aria-controls="chrome-search-sheet"
-                  aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
-                >
-                  <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                </button>
+                {SEARCH_ENABLED && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}`}
+                    onClick={() => togglePanel('search')}
+                    aria-expanded={searchPanelOpen}
+                    aria-controls="chrome-search-sheet"
+                    aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
+                  >
+                    <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`chrome-nav chrome-info-btn ${infoPanelOpen ? 'is-open' : ''}`}
@@ -559,11 +566,25 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           </AnimatePresence>
         </div>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
-        {/* Right cluster. The on-demand controls (back, count, home) fade in
+        {/* Right cluster. The on-demand controls (count, back, home) fade in
             and out inside a popLayout presence; the persistent scroll-jump and
             menu buttons carry `layout` so they slide over to fill the freed
-            space rather than jumping when a control comes or goes. */}
+            space rather than jumping when a control comes or goes. The
+            scrolled-past count sits to the LEFT of the back button so the back
+            button always lands directly beside the scroll-jump arrow instead
+            of being pushed away by the count. */}
         <AnimatePresence mode="popLayout" initial={false}>
+          {scrolledPast > 0 && (
+            <motion.span
+              key="scroll-count"
+              layout={layoutProp}
+              className="chrome-scroll-count gutter"
+              aria-label={`${scrolledPast} items scrolled past`}
+              {...controlFade}
+            >
+              {scrolledPast}
+            </motion.span>
+          )}
           {!onHomePage && (
             <motion.button
               key="back"
@@ -576,17 +597,6 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             >
               <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
             </motion.button>
-          )}
-          {scrolledPast > 0 && (
-            <motion.span
-              key="scroll-count"
-              layout={layoutProp}
-              className="chrome-scroll-count gutter"
-              aria-label={`${scrolledPast} items scrolled past`}
-              {...controlFade}
-            >
-              {scrolledPast}
-            </motion.span>
           )}
         </AnimatePresence>
         <motion.button

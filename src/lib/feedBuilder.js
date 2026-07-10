@@ -337,8 +337,40 @@ export function transformRecords(records, nsid, pds, did = ME_DID) {
     }
   }
 
+  // Anisota Lab pieces carry bulky reproduction data (tile layouts, gouge
+  // paths, synth event grids, reaction-diffusion recipes, redaction masks…)
+  // that the feed never renders — only the finished text / figure / print is
+  // shown. Drop those fields so they don't bloat the unified snapshot or the
+  // browser's localStorage feed cache. The record page fetches the full
+  // record live, so nothing is lost there.
+  if (ANISOTA_LAB_HEAVY_FIELDS[nsid]) {
+    const heavy = ANISOTA_LAB_HEAVY_FIELDS[nsid];
+    for (const r of records) {
+      const v = r?.value;
+      if (!v) continue;
+      for (const key of heavy) delete v[key];
+    }
+  }
+
   return records;
 }
+
+/**
+ * Per-collection lists of reproduction-only fields stripped from Anisota Lab
+ * records before they enter the feed (see transformRecords). Everything the
+ * card actually renders — name, text, image, svg, method, description — is
+ * kept; only the reopen-the-studio payloads are dropped.
+ */
+const ANISOTA_LAB_HEAVY_FIELDS = {
+  'net.anisota.lab.poetry': ['tiles', 'board', 'sources'],
+  'net.anisota.lab.sigil': ['points', 'meta'],
+  'net.anisota.lab.carving': ['strokes'],
+  'net.anisota.lab.inkblot': ['params'],
+  'net.anisota.lab.redaction': ['redacted', 'original'],
+  'net.anisota.lab.synth': ['tracks', 'fx'],
+  'net.anisota.lab.petri': ['drops', 'params'],
+  'net.anisota.spell.custom': ['conditions', 'effects', 'source', 'trigger'],
+};
 
 /**
  * Bake a `_url` onto a single top-level blob ref (e.g. a document's

@@ -2,13 +2,24 @@ import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Repeat2 } from 'lucide-react';
 import { relativeTime } from '../lib/time.js';
-import { rkeyFromAtUri } from '../lib/atproto.js';
+import { rkeyFromAtUri, explorerPathFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { usePaper } from '../hooks/usePaper.jsx';
 import PostEmbed from './PostEmbed.jsx';
+import ReferenceCard from './ReferenceCard.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
+
+/**
+ * Whether a feed item is an Anisota post/reply (`net.anisota.feed.post`),
+ * which PostCard renders source-aware: no Bluesky author view, no engagement
+ * counts, and a record link out to the generic explorer (there's no bespoke
+ * `/posting/{rkey}` page for Anisota records — see verbRegistry).
+ */
+function isAnisotaPost({ source, atUri }) {
+  return source === 'anisota' && !String(atUri || '').includes('/net.anisota.feed.repost/');
+}
 
 /**
  * Flags a text element with `data-multiline` when it wraps to more than one
@@ -47,7 +58,11 @@ function useMultilineFlag(enabled, text) {
  * embed (see `showStandaloneTime` below). FeedItem uses this to hoist that
  * timestamp up onto the verb line instead, keeping the two on one row.
  */
-export function postCardShowsStandaloneTime({ payload, createdAt, variant = 'timeline' } = {}) {
+export function postCardShowsStandaloneTime({ payload, createdAt, variant = 'timeline', source, subject } = {}) {
+  // Anisota reposts are references rendered by ReferenceCard (which shows its
+  // own time), not a real PostCard row — so never hoist a duplicate onto the
+  // verb line for them.
+  if (source === 'anisota' && subject) return false;
   const text = payload?.text || '';
   const ts = createdAt || payload?.indexedAt;
   const isOriginalAuthorMe = payload?.author?.did === ME_DID;
@@ -60,23 +75,49 @@ export default function PostCard({
   payload,
   createdAt,
   atUri,
+  source,
+  subject,
   variant = 'timeline',
   suppressReplyBadge = false,
 }) {
+  // An Anisota repost is a plain reference (a pointer at another Anisota
+  // post), not a hydrated Bluesky post — hand it to ReferenceCard, which
+  // already knows how to preview an arbitrary atproto subject.
+  if (source === 'anisota' && subject && verb === 'reposting') {
+    return (
+      <ReferenceCard
+        payload={payload}
+        atUri={atUri}
+        createdAt={createdAt}
+        source={source}
+        subject={subject}
+        verb={verb}
+      />
+    );
+  }
+
+  const anisota = isAnisotaPost({ source, atUri });
   const text = payload?.text || '';
   const facets = payload?.facets || null;
   const ts = createdAt || payload?.indexedAt;
   const rkey = rkeyFromAtUri(atUri);
   const isRepost = verb === 'reposting'
     || payload?.reason?.$type === 'app.bsky.feed.defs#reasonRepost';
-  const recordHref = rkey ? `/${isRepost ? 'reposting' : 'posting'}/${rkey}` : null;
+  // Anisota posts have no bespoke record page; link them to the explorer.
+  const recordHref = anisota
+    ? explorerPathFromAtUri(atUri)
+    : rkey
+      ? `/${isRepost ? 'reposting' : 'posting'}/${rkey}`
+      : null;
   const reply = getReplyHint(payload);
   // Inline "↳ replying to …" only when the feed verb column is not already
   // showing that context (see FeedItem). Hidden on record/parent views.
   const showReplyBadge =
     reply && variant !== 'parent' && variant !== 'record' && !suppressReplyBadge;
   const embed = payload?.embed || payload?.embedRecord || null;
-  const authorDid = payload?.author?.did;
+  // Anisota posts are authored on Dame's own PDS with no embedded author
+  // view, so fall back to ME_DID to resolve their embed blob CDN URLs.
+  const authorDid = payload?.author?.did || (anisota ? ME_DID : undefined);
   const isOriginalAuthorMe = authorDid === ME_DID;
   // The "by @handle" header line is interesting whenever the post wasn't
   // authored by Dame — most commonly reposts, but also future cases like

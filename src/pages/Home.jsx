@@ -143,9 +143,9 @@ export default function Home() {
 
   // Which verbs the active filter set actually needs fetched. `replying`
   // is a virtual filter over `posting` records, so it folds onto posting.
-  // The default view (DEFAULT_HOME_VERBS) omits `liking` / `voting`, so
-  // those — and their slow per-record subject hydration — are never
-  // fetched until the user opts in via the filter chips.
+  // The default view (DEFAULT_HOME_VERBS) omits `liking`, so that verb —
+  // and its slow per-record subject hydration — is never fetched until the
+  // user opts in via the filter chips.
   const activeVerbs = useMemo(() => resolveActiveVerbs(params), [params]);
   const fetchVerbs = useMemo(() => {
     const s = new Set();
@@ -181,7 +181,7 @@ export default function Home() {
   // resolved live refresh always wins the race.
   const feedSourceRef = useRef(initialCache ? 'cache' : 'none');
   // The static snapshot, kept around to estimate chip counts for verbs we
-  // haven't fetched live (e.g. liking / voting on the default view).
+  // haven't fetched live (e.g. liking on the default view).
   const [snapshotFeed, setSnapshotFeed] = useState(null);
 
   const reduce = useReducedMotion();
@@ -399,9 +399,9 @@ export default function Home() {
     (refreshState === 'refreshing' && !verbsCovered(liveVerbs, fetchVerbs));
 
   // Chip counts. Verbs covered by the latest live fetch get exact counts
-  // from the displayed feed; verbs we haven't fetched live (e.g. liking /
-  // voting on the default view) fall back to a count estimated from the
-  // static snapshot, flagged so the UI can mark it as approximate.
+  // from the displayed feed; verbs we haven't fetched live (e.g. liking on
+  // the default view) fall back to a count estimated from the static
+  // snapshot, flagged so the UI can mark it as approximate.
   const liveCounts = useMemo(() => feedFilterCounts(safeFeed, ME_DID), [safeFeed]);
   const snapshotCounts = useMemo(
     () => (snapshotFeed ? feedFilterCounts(snapshotFeed, ME_DID) : null),
