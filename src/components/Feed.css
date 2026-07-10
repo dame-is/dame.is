@@ -1423,10 +1423,11 @@ a.reference-card-profile:focus-visible {
 /* One record, one ruled row. The two label columns are fixed-width so
    they align down the whole page (each row is its own grid). Baseline
    alignment keeps the small mono labels sitting on the serif summary's
-   first line. */
+   first line. The verb column is sized to the longest gerund
+   ("photographing", "listening to") at the mono x-small size. */
 .feed-ledger .feed-item-ledger {
   display: grid;
-  grid-template-columns: 6.5rem 4.5rem minmax(0, 1fr);
+  grid-template-columns: 7rem 4.5rem minmax(0, 1fr);
   column-gap: var(--space-3);
   align-items: baseline;
   padding: var(--space-3) 0;
@@ -1442,6 +1443,11 @@ a.reference-card-profile:focus-visible {
   color: var(--ink-faint);
   text-decoration: none;
   transition: color 120ms ease;
+  /* Safety valve: a gerund that outgrows the fixed column wraps inside
+     it ("listening to" breaks at the space) instead of colliding with
+     the time column. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 a.ledger-verb:hover,
@@ -1500,7 +1506,14 @@ a.ledger-verb:focus-visible {
 
 @media (max-width: 600px) {
   .feed-ledger .feed-item-ledger {
-    grid-template-columns: 5.25rem 3.9rem minmax(0, 1fr);
+    grid-template-columns: 6rem 3.9rem minmax(0, 1fr);
     column-gap: var(--space-2);
+  }
+
+  /* Slightly smaller labels so the longest gerunds still fit the
+     narrower mobile column on one line. */
+  .feed-ledger .ledger-verb,
+  .feed-ledger .ledger-time {
+    font-size: calc(var(--text-xs) * 0.9);
   }
 }

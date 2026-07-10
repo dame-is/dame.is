@@ -19,35 +19,21 @@ import { ME_DID } from '../config.js';
  * treatment.
  */
 
-/* Verb column labels. Mirrors the screenshot's mixed register — nouns
-   for the things themselves ("post", "feed"), past tense for actions
-   taken on something else ("listened", "followed"). Kept ≤9 characters
-   so the fixed verb column never wraps. */
+/* Verb column labels are the same gerunds the site is named around
+   ("dame.is …ing") — the registry verb itself, with the same overrides
+   the card layout's verb column uses: "listening to" reads as a phrase,
+   replies become "replying", and self-thread follow-ons "continuing". */
 const LEDGER_VERB_LABELS = {
-  logging: 'logged',
-  posting: 'post',
-  blogging: 'blogged',
-  listening: 'listened',
-  creating: 'created',
-  photographing: 'photos',
-  mothing: 'spotted',
-  observing: 'observed',
-  liking: 'liked',
-  reposting: 'reposted',
-  following: 'followed',
-  listing: 'curated',
-  feeding: 'feed',
-  commenting: 'commented',
-  voting: 'voted',
+  listening: 'listening to',
 };
 
 export default function FeedLedgerRow({ item, href }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
   const label = threadContinuation
-    ? 'thread'
+    ? 'continuing'
     : replyHint
-      ? 'reply'
+      ? 'replying'
       : LEDGER_VERB_LABELS[item.verb] || item.verb;
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
