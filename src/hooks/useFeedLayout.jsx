@@ -1,44 +1,35 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 const FeedLayoutContext = createContext(null);
 const STORAGE_KEY = 'dame.feedLayout';
-// Older builds stored a tri-state density ('normal' | 'compact' | 'tight')
-// and, before that, a boolean `dame.compact`. Both fold into the two-mode
-// layout below.
-const LEGACY_DENSITY_KEY = 'dame.density';
-const LEGACY_COMPACT_KEY = 'dame.compact';
-const VALID = ['default', 'ledger'];
-const DEFAULT = 'default';
+const VALID = ['ledger', 'cards'];
+const DEFAULT = 'ledger';
 
 /**
- * Migrate the retired density preferences into the two-mode
- * `dame.feedLayout`. Anyone who had opted into a denser view
- * ('compact' / 'tight' / legacy boolean) lands on the ledger layout;
- * everyone else keeps the default. Once `dame.feedLayout` is written,
- * the legacy keys are ignored on subsequent reads.
+ * Resolve the stored layout preference. Only explicit choices count:
+ * the brief cards-by-default era auto-wrote `'default'` (the card
+ * view's old name) on every visit, so that value — like the retired
+ * `dame.density` / `dame.compact` keys, whose denser modes map to
+ * today's ledger default anyway — doesn't override it.
  */
 function readInitial() {
   if (typeof localStorage === 'undefined') return DEFAULT;
   const stored = localStorage.getItem(STORAGE_KEY);
   if (VALID.includes(stored)) return stored;
-  const density = localStorage.getItem(LEGACY_DENSITY_KEY);
-  if (density === 'compact' || density === 'tight') return 'ledger';
-  if (localStorage.getItem(LEGACY_COMPACT_KEY) === 'true') return 'ledger';
   return DEFAULT;
 }
 
 export function FeedLayoutProvider({ children }) {
   const [layout, setLayoutState] = useState(readInitial);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, layout);
-    } catch {}
-  }, [layout]);
-
+  // Persist only on an explicit pick — never the default — so a future
+  // change of default reaches everyone who hasn't chosen otherwise.
   const setLayout = useCallback((next) => {
     if (!VALID.includes(next)) return;
     setLayoutState(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next);
+    } catch {}
   }, []);
 
   const value = useMemo(

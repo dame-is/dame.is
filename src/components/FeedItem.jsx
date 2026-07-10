@@ -19,7 +19,7 @@ import VerbIcon from './VerbIcon.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
-import { verbConfig, recordHrefFor } from '../lib/verbRegistry.js';
+import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
 
 /**
  * Per-verb label overrides for the feed's verb column. Most verbs read
@@ -87,14 +87,14 @@ function hrefFor(item) {
  * registry. The verb badge doubles as the link to the underlying record
  * page (or generic JSON fallback for verbs without a specialized one).
  *
- * `layout` switches the row treatment: 'default' renders the full card
+ * `layout` switches the row treatment: 'cards' renders the full card
  * (verb badge + per-verb component), 'ledger' renders the condensed
  * multi-column row (see FeedLedgerRow.jsx). Home decides which to pass
- * — including falling back to 'default' while owner edit mode is
- * active, so this component never has to reconcile ledger rows with
- * the selection UI.
+ * — including falling back to 'cards' while owner edit mode is active,
+ * so this component never has to reconcile ledger rows with the
+ * selection UI.
  */
-export default function FeedItem({ item, showVerb = true, layout = 'default' }) {
+export default function FeedItem({ item, showVerb = true, layout = 'cards' }) {
   const navigate = useNavigate();
   const edit = useEditMode();
   // Ledger-only: whether a collapsed listening session is showing its
@@ -220,6 +220,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
     <li
       className={liClassName}
       data-verb={item.verb}
+      data-nsid={nsidFromAtUri(item.atUri) || undefined}
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
       onClickCapture={selectable ? handleSelectCapture : undefined}

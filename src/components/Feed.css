@@ -1460,9 +1460,6 @@ a.reference-card-profile:focus-visible {
   color: var(--ink-faint);
   text-decoration: none;
   transition: color 120ms ease;
-  /* Labels hug the summary column's left edge rather than the page
-     margin, mirroring the right-aligned time on the other side. */
-  text-align: right;
   /* Safety valve: a gerund that outgrows the fixed column wraps inside
      it instead of colliding with the time column. */
   min-width: 0;

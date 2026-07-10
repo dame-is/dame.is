@@ -184,10 +184,30 @@
   font-size: var(--text-xs);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
+  text-transform: lowercase;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+
+/* The AT Protocol collection in view, pinned to the strip's right edge —
+   the top visible feed record's NSID on feed pages, the page's own
+   backing record elsewhere. */
+.chrome-crumb-nsid {
+  flex: 0 1 auto;
+  margin-left: auto;
+  padding: var(--space-2) 0;
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  text-transform: lowercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  text-align: right;
 }
 
 .chrome-crumb-sep {

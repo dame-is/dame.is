@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Moon, Pencil, Search, Sun, SunMoon, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
+import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -64,6 +65,14 @@ export default function ChromeBar() {
   const scrolledDown = useScrolledDown();
   const dayLabel = useCurrentDayLabel();
   const showBreadcrumb = scrolledDown && (crumbs.length > 0 || !!dayLabel);
+
+  // Right edge of the strip: the AT Protocol collection you're looking
+  // at. On feed pages it tracks the record at the top of the scroll
+  // position; elsewhere it's the page's own backing record (registered
+  // by PageShell).
+  const { pageRecord } = useEditMode();
+  const feedNsid = useTopFeedNsid();
+  const stripNsid = feedNsid || nsidFromAtUri(pageRecord?.atUri);
 
   // Publish the top chrome's live occupied bottom as `--chrome-top-h` on
   // <html> — the y-coordinate where the top chrome ends and the content
@@ -270,6 +279,7 @@ export default function ChromeBar() {
               </nav>
             )}
             {dayLabel && <span className="chrome-crumb-day">{dayLabel}</span>}
+            {stripNsid && <span className="chrome-crumb-nsid">{stripNsid}</span>}
           </motion.div>
         </div>
       </header>
@@ -705,6 +715,47 @@ function useCurrentDayLabel() {
     };
   }, [location.pathname]);
   return label;
+}
+
+/** NSID of the feed record at the top of the scroll position — the first
+ *  feed row still (partly) visible below the chrome — or null on pages
+ *  without feed rows. Same DOM-driven, rAF-throttled sweep as
+ *  useCurrentDayLabel above; rows publish their collection via the
+ *  `data-nsid` attribute FeedItem stamps on each <li>. */
+function useTopFeedNsid() {
+  const [nsid, setNsid] = useState(null);
+  const location = useLocation();
+  useEffect(() => {
+    let frame = 0;
+    const apply = () => {
+      const chromeBottom =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-h'),
+        ) || 0;
+      let current = null;
+      for (const el of document.querySelectorAll('.feed-item[data-nsid]')) {
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0 && rect.bottom > chromeBottom + 12) {
+          current = el.dataset.nsid;
+          break;
+        }
+      }
+      setNsid(current);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(apply);
+    };
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [location.pathname]);
+  return nsid;
 }
 
 function useScrolledDown(threshold = 220) {

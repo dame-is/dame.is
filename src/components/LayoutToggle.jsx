@@ -3,19 +3,19 @@ import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import './LayoutToggle.css';
 
 const LABELS = {
-  default: 'Feed layout: default',
   ledger: 'Feed layout: ledger',
+  cards: 'Feed layout: cards',
 };
 
 const GLYPHS = {
-  default: Rows2,
   ledger: Table2,
+  cards: Rows2,
 };
 
 /**
- * Two-way switch for the home feed's layout: `default` keeps the full
- * card treatment, `ledger` swaps in the condensed multi-column
- * typographic view (see FeedLedgerRow.jsx).
+ * Two-way switch for the home feed's layout: `ledger` (the default) is
+ * the condensed multi-column typographic view (see FeedLedgerRow.jsx),
+ * `cards` the full card treatment.
  */
 export default function LayoutToggle() {
   const { layout, setLayout, options } = useFeedLayout();

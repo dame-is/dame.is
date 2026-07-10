@@ -285,7 +285,8 @@ export function recordHrefFor(verb, { atUri, rkey, slug, source, payload } = {})
   return `/${nsid}/${encodeURIComponent(rkey)}`;
 }
 
-function nsidFromAtUri(atUri) {
+/** Collection NSID out of an at:// URI (e.g. "app.bsky.feed.post"). */
+export function nsidFromAtUri(atUri) {
   if (!atUri) return null;
   const m = String(atUri).match(/^at:\/\/[^/]+\/([^/]+)\//);
   return m ? m[1] : null;
