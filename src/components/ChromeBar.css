@@ -479,6 +479,9 @@
   font-size: 0.72rem;
   letter-spacing: 0.05em;
   font-variant-numeric: tabular-nums;
+  /* Hour keys are lowercase in data ("4pm"); the chip reads as a label,
+     so render it in caps: 4PM, 11AM. */
+  text-transform: uppercase;
 }
 
 /* The compass nav button is the menu trigger — promote it to a filled,
