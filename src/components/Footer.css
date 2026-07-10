@@ -21,3 +21,11 @@
   font-size: var(--text-xs);
   color: var(--ink-faint);
 }
+
+/* "written … · updated …" — mono reads optically larger than the
+   surrounding chrome text at the same size, so it steps down to the
+   0.85× scale the ledger's time labels use, landing it visually level
+   with the breadcrumb strip's content. */
+.page-footer .record-timestamp {
+  font-size: calc(var(--text-xs) * 0.85);
+}
