@@ -34,8 +34,8 @@ export default function ChromeBar() {
   const reduce = useReducedMotion();
   const location = useLocation();
   // Brand mark: Dame's live Bluesky avatar (regenerated hourly to track the
-  // sun). While it's loading — or if it ever fails — the mark simply isn't
-  // rendered rather than falling back to a glyph.
+  // sun). While the first one is loading — or if it ever fails — the mark
+  // simply isn't rendered rather than falling back to a glyph.
   //
   // TEMPORARY (sky-theme testing): while the bottom-bar hour chip is
   // overriding the sky clock, the mark swaps to the bundled sky-avatar
@@ -43,15 +43,37 @@ export default function ChromeBar() {
   // in lockstep with the palette. Remove alongside the chip.
   const liveAvatar = useAvatar();
   const { theme, skyHour, skyOverridden } = useTheme();
-  const avatar =
+  const targetAvatar =
     (theme === 'sky' && skyOverridden ? skyAvatarUrl(skyHour) : null) || liveAvatar;
-  const [avatarBroken, setAvatarBroken] = useState(false);
-  const showAvatar = avatar && !avatarBroken;
-  // A new hourly avatar URL gets a fresh chance to load — clear any prior
-  // load failure whenever the URL turns over.
+
+  // The mark never paints a half-loaded image: an incoming URL is fetched
+  // and decoded off-screen, and only swapped in — on the SAME persistent
+  // <img> — once it can paint instantly. So an avatar change (the hourly
+  // turnover, or stepping the sky-hour chip) holds the previous frame
+  // instead of flashing an empty square while the next one loads. A URL
+  // that fails to load is never committed; the old frame just stays.
+  const [avatar, setAvatar] = useState(null);
   useEffect(() => {
-    setAvatarBroken(false);
-  }, [avatar]);
+    if (!targetAvatar) {
+      setAvatar(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const img = new Image();
+    const commit = () => {
+      if (!cancelled) setAvatar(targetAvatar);
+    };
+    // decode() resolves once the bitmap is paint-ready (not merely
+    // fetched); onload is the fallback where decode isn't supported.
+    // Committing twice is a harmless same-value setState.
+    img.onload = commit;
+    img.src = targetAvatar;
+    if (img.decode) img.decode().then(commit).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [targetAvatar]);
+  const showAvatar = !!avatar;
 
   const topRef = useRef(null);
   const crumbRef = useRef(null);
@@ -139,12 +161,14 @@ export default function ChromeBar() {
             <Link to="/" className="chrome-title">
               {showAvatar && (
                 <span className="chrome-mark chrome-mark-avatar" aria-hidden="true">
+                  {/* No key: the element persists across src swaps so the
+                      old frame stays painted right up to the instant the
+                      pre-decoded next frame replaces it. */}
                   <img
-                    key={avatar}
                     className="chrome-mark-img"
                     src={avatar}
                     alt=""
-                    onError={() => setAvatarBroken(true)}
+                    onError={() => setAvatar(null)}
                   />
                 </span>
               )}
