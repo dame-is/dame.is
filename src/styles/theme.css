@@ -108,6 +108,38 @@
   color-scheme: dark;
 }
 
+/* Sky theme: the palette drifts through the day in lockstep with the
+   hourly sky avatar. All tokens are computed per Eastern hour by
+   src/lib/skyTheme.js and written onto <html> as --sky-* custom
+   properties; this block just maps the real tokens onto them. The
+   fallbacks are the midnight palette so any pre-JS flash lands on a
+   quiet near-black rather than an unstyled page. */
+[data-theme='sky'] {
+  --page:           var(--sky-page, #171717);
+  --page-edge:      var(--sky-page-edge, #121212);
+  --surface-raised: var(--sky-surface-raised, #0b0c0c);
+  --surface-deep:   var(--sky-surface-deep, #050505);
+  --ink:            var(--sky-ink, #dfe7e7);
+  --ink-soft:       var(--sky-ink-soft, #c1cdcd);
+  --ink-muted:      var(--sky-ink-muted, #93a5a5);
+  --ink-faint:      var(--sky-ink-faint, #6a7c7c);
+  --rule:           var(--sky-rule, #323939);
+  --rule-soft:      var(--sky-rule-soft, #252828);
+  --accent:         var(--sky-accent, #9cc9c9);
+  --accent-soft:    var(--sky-accent-soft, #79afaf);
+  --tan:            var(--sky-tan, #8cbaba);
+  --highlight:      var(--sky-highlight, rgba(156, 201, 201, 0.16));
+  --shadow:         var(--sky-shadow, rgba(0, 0, 0, 0.45));
+
+  --scrim:          var(--sky-scrim, rgba(8, 8, 8, 0.8));
+  --scrim-clear:    var(--sky-scrim-clear, rgba(8, 8, 8, 0));
+  --scrim-ink:      var(--sky-scrim-ink, rgba(223, 231, 231, 0.9));
+
+  /* Daylight hours override this to `light` via an inline style set by
+     skyTheme.js (inline wins over this static fallback). */
+  color-scheme: dark;
+}
+
 /* Raised-surface ink re-tuning.
 
    The --ink-muted / --ink-faint steps are calibrated for text on
@@ -134,6 +166,15 @@
 [data-theme='dark'] .chrome-bar,
 [data-theme='dark'] .modal-panel {
   --ink-faint: #857f68;
+}
+
+/* Sky theme's raised-surface re-tune, computed per hour alongside the
+   rest of the palette (day hours deepen both steps; night hours only
+   lift the faint step, mirroring the static themes above). */
+[data-theme='sky'] .chrome-bar,
+[data-theme='sky'] .modal-panel {
+  --ink-muted: var(--sky-ink-muted-raised, var(--sky-ink-muted, #93a5a5));
+  --ink-faint: var(--sky-ink-faint-raised, var(--sky-ink-faint, #7b8e8e));
 }
 
 html, body {

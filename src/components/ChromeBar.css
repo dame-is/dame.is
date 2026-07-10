@@ -383,6 +383,20 @@
   background: color-mix(in srgb, var(--accent) 20%, var(--page));
 }
 
+/* TEMPORARY: sky-theme test chip beside the theme toggle. A text button
+   (the current hour key, e.g. "3pm") rather than a glyph, since the
+   label IS the state being tested. Remove with the button in
+   ChromeBar.jsx once the sky theme has been vetted. */
+.chrome-nav.chrome-sky-hour {
+  width: auto;
+  min-width: 1.75rem;
+  padding: 0 0.45rem;
+  font-family: var(--mono-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The compass nav button is the menu trigger — promote it to a filled,
    accent-tinted primary so it reads as the main action among the
    bottom-bar controls. */
