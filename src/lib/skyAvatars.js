@@ -5,10 +5,10 @@
 // rewrite swallows them — same reason api/favicon.js embeds its art).
 // Only the frame actually displayed is ever fetched.
 //
-// Used by the chrome-bar brand mark while the TEMPORARY sky-theme hour
-// chip is overriding the clock: the mark swaps from the live Bluesky
-// avatar to the frame matching the overridden hour, so avatar + palette
-// step through the day together. Remove alongside the chip.
+// This is the source of the chrome-bar brand mark: the mark renders the
+// frame for useTheme's current hour rather than fetching the avatar off
+// the Bluesky profile, so it turns over hourly in lockstep with the sky
+// theme's palette (and steps with the temporary test chip's override).
 
 import { avatarKeys } from '../../og/time.js';
 
