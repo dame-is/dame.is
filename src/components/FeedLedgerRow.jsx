@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { formatTime } from '../lib/time.js';
 import { renderPostText } from '../lib/postRichText.jsx';
@@ -88,15 +87,18 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
         const playTs = play?.createdAt || play?.payload?.playedTime || null;
         const playHref = recordPathFromAtUri(play?.atUri);
         const line = trackLine(play?.payload);
+        // Each play is its own compact sub-row spanning the summary + time
+        // columns, split from the one above by a thin dashed rule (see
+        // .ledger-track-row in Feed.css) so the song list reads tight.
         return (
-          <Fragment key={play?.atUri || playTs}>
+          <div className="ledger-track-row" key={play?.atUri || playTs}>
             <p className="ledger-text ledger-track">
               {playHref ? <Link to={playHref}>{line || <em>—</em>}</Link> : line || <em>—</em>}
             </p>
             <span className="ledger-time ledger-track-time">
               {playTs ? formatTime(playTs) : ''}
             </span>
-          </Fragment>
+          </div>
         );
       })}
     </>

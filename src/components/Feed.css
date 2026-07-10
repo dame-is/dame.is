@@ -1702,17 +1702,72 @@ a.ledger-verb:focus-visible {
   margin-left: 0.35em;
 }
 
-/* Expanded tracks reuse the row's grid: each play's "track — artist"
-   line lands in the summary column and its time in the right-aligned
-   time column, with the verb column left empty. Auto-placement makes
-   one implicit grid row per track. */
+/* Expanded tracks: one compact sub-row per play, spanning the summary +
+   time columns (the verb column stays empty on the left). A thin dashed
+   rule tops each one so the songs read as a tight ruled list rather than a
+   loose run of lines. Flex keeps "track — artist" at the left and the time
+   flush right, aligned to the session row's own time column. */
+.ledger-track-row {
+  grid-column: 2 / 4;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ledger-col-gap);
+  padding-top: 0.3em;
+  margin-top: 0.3em;
+  border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 55%, transparent);
+}
+
 .ledger-track {
-  grid-column: 2;
   font-size: var(--text-sm);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ledger-track-time {
-  grid-column: 3;
+  flex: 0 0 auto;
+}
+
+/* Flat ledger — the single-type feed pages (blogging, creating, …) reuse the
+   ledger's type + rules but drop the redundant verb column (every row is the
+   same kind) and don't day-group, so the rows read as one continuous compact
+   table of "title · when". Two columns: the title stretches, a short relative
+   time sits flush right. */
+.feed-ledger-flat {
+  gap: 0;
+}
+
+.feed-ledger-flat .feed-item-ledger {
+  grid-template-columns: minmax(0, 1fr) var(--ledger-time-col);
+}
+
+/* Whole-row links read as calm ledger text (ink title, faint time) — the
+   accent only comes up on hover — rather than a page full of green links. */
+.feed-ledger-flat .ledger-body a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.feed-ledger-flat .ledger-time {
+  text-decoration: none;
+}
+
+.feed-ledger-flat .ledger-body a:hover,
+.feed-ledger-flat .ledger-body a:focus-visible,
+a.ledger-time:hover,
+a.ledger-time:focus-visible {
+  color: var(--accent);
+}
+
+/* A kind tag ahead of the title (e.g. a work's category), in the same quiet
+   mono small-caps as the verb column it stands in for. */
+.ledger-kind {
+  font-family: var(--mono);
+  font-size: calc(var(--text-xs) * 0.9);
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  margin-right: 0.5em;
 }
 
 .ledger-track a {

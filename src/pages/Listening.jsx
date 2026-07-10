@@ -9,6 +9,7 @@ import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
@@ -31,7 +32,12 @@ export default function Listening() {
     mapItems: toListeningItems,
   });
 
-  const { removedUris } = useEditMode();
+  const { removedUris, active: editActive } = useEditMode();
+  const { layout } = useFeedLayout();
+  // Match the home feed: the compact ledger is the default, but owner edit
+  // mode steps aside to the full cards (their selection UI isn't wired into
+  // the ledger rows).
+  const ledger = layout === 'ledger' && !editActive;
   const loading = status === 'loading';
   const safeItems = items || [];
   // Stats reflect all listening (minus any owner-removed plays), independent
@@ -90,18 +96,25 @@ export default function Listening() {
           {q ? 'No songs match that search.' : 'No plays yet.'}
         </p>
       ) : (
-        <ol className="feed-list reveal-stagger">
-          {groups.map((group) => (
-            <li key={group.dateKey} className="feed-day-group">
-              <DayOfLifeHeader date={group.date} />
-              <ul className="feed-list" style={{ marginTop: 'var(--space-3)' }}>
-                {group.items.map((item) => (
-                  <FeedItem key={item.atUri} item={item} showVerb={false} />
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ol>
+        <div className={ledger ? 'feed-ledger' : undefined}>
+          <ol className="feed-list reveal-stagger">
+            {groups.map((group) => (
+              <li key={group.dateKey} className="feed-day-group">
+                <DayOfLifeHeader date={group.date} variant={ledger ? 'ledger' : 'default'} />
+                <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
+                  {group.items.map((item) => (
+                    <FeedItem
+                      key={item.atUri}
+                      item={item}
+                      showVerb={false}
+                      layout={ledger ? 'ledger' : 'cards'}
+                    />
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
       {!loading && refreshedAt && (
         <p className="gutter feed-loaded-at" style={{ marginTop: 'var(--space-7)', textAlign: 'center' }}>
