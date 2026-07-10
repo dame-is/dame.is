@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import FlatLedger from '../components/FlatLedger.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
@@ -44,6 +46,8 @@ export default function Blogging() {
     mapItems: mergeBlogEntries,
   });
 
+  const { layout } = useFeedLayout();
+  const ledger = layout === 'ledger';
   const loading = status === 'loading';
   const safeEntries = entries || [];
   const filtered = useMemo(
@@ -67,6 +71,16 @@ export default function Blogging() {
         <p className="feed-empty">
           {q ? 'No blog posts match that search.' : 'No blog posts yet.'}
         </p>
+      ) : ledger ? (
+        <FlatLedger
+          rows={filtered.map((e, i) => ({
+            key: e.uri || i,
+            href: e.href,
+            title: e.title,
+            time: e.createdAt ? relativeTime(e.createdAt) : null,
+            nsid: nsidFromAtUri(e.uri),
+          }))}
+        />
       ) : (
         <ol className="blogging-toc reveal-stagger">
           {filtered.map((e, i) => (

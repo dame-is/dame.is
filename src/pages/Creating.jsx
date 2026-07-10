@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import MasonryGrid from '../components/MasonryGrid.jsx';
+import FlatLedger from '../components/FlatLedger.jsx';
 import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
-import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
+import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
@@ -93,6 +95,8 @@ export default function Creating() {
     },
   });
 
+  const { layout } = useFeedLayout();
+  const ledger = layout === 'ledger';
   const loading = status === 'loading';
   const safeWorks = works || [];
   const kinds = useMemo(
@@ -126,7 +130,9 @@ export default function Creating() {
   useEffect(() => {
     if (!loading && coversReady) setRevealed(true);
   }, [loading, coversReady]);
-  const showSkeleton = loading || (filtered.length > 0 && !revealed);
+  // The ledger table shows no cover art, so it needn't wait on cover preloads
+  // the way the grid does — it paints as soon as the works are loaded.
+  const showSkeleton = ledger ? loading : loading || (filtered.length > 0 && !revealed);
 
   return (
     <PageShell
@@ -137,11 +143,30 @@ export default function Creating() {
     >
       <CreatingFilters kinds={kinds} counts={counts} />
       {showSkeleton ? (
-        <CreatingGridSkeleton cells={6} />
+        ledger ? (
+          <FeedSkeleton rows={6} label="Loading works" />
+        ) : (
+          <CreatingGridSkeleton cells={6} />
+        )
       ) : filtered.length === 0 ? (
         <p className="feed-empty">
           {q ? 'No works match that search.' : 'No works yet.'}
         </p>
+      ) : ledger ? (
+        <FlatLedger
+          rows={filtered.map((r, i) => {
+            const v = r.value || {};
+            const slug = workSlug(v) || rkeyFromAtUri(r.uri);
+            return {
+              key: r.uri || i,
+              href: `/creating/${slug}`,
+              title: v.title || slug,
+              kind: workCategory(v),
+              time: v.createdAt ? relativeTime(v.createdAt) : null,
+              nsid: nsidFromAtUri(r.uri),
+            };
+          })}
+        />
       ) : (
         <MasonryGrid
           items={filtered}
