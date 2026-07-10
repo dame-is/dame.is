@@ -78,10 +78,9 @@ export default function ChromeBar() {
   // <html> — the y-coordinate where the top chrome ends and the content
   // region begins. It's the breadcrumb strip's bottom when the strip is
   // shown (the strip sits below the header), else the header's own
-  // bottom. Consumers: the action-dock sheet (fills from here down to
+  // bottom. Consumer: the action-dock sheet (fills from here down to
   // the bottom bar so it fully conceals the page and butts against the
-  // whole top chrome) and the custom window scrollbar (inset to the
-  // content region between the bars).
+  // whole top chrome).
   //
   // Measured from getBoundingClientRect().bottom, not summed
   // offsetHeights: the rect gives the real VIEWPORT position, so it

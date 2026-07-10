@@ -29,7 +29,6 @@ import AutoUpdater from './components/AutoUpdater.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import EditModeBar from './components/EditModeBar.jsx';
 import EditSheet from './components/EditSheet.jsx';
-import WindowScrollbar from './components/WindowScrollbar.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
@@ -151,7 +150,6 @@ export default function App() {
             <ActionDock />
             <EditModeBar />
             <EditSheet />
-            <WindowScrollbar />
             <AutoUpdater />
             <Analytics />
           </div>
