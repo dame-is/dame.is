@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Search, SwatchBook, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
-import { nsidFromAtUri } from '../lib/verbRegistry.js';
+import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -60,11 +60,14 @@ export default function ChromeBar() {
 
   // Right edge of the strip: the AT Protocol collection you're looking
   // at. On feed pages it tracks the record at the top of the scroll
-  // position; elsewhere it's the page's own backing record (registered
-  // by PageShell).
+  // position. Verb routes (/listening, /blogging, …) fall back to their
+  // registry collection — the records the feed is OF — rather than the
+  // page's own is.dame.page record; only non-verb pages report their
+  // backing record (registered by PageShell).
   const { pageRecord } = useEditMode();
   const feedNsid = useTopFeedNsid();
-  const stripNsid = feedNsid || nsidFromAtUri(pageRecord?.atUri);
+  const routeVerbNsid = primaryNsid(location.pathname.split('/')[1] || '');
+  const stripNsid = feedNsid || routeVerbNsid || nsidFromAtUri(pageRecord?.atUri);
 
   // Publish the top chrome's live occupied bottom as `--chrome-top-h` on
   // <html> — the y-coordinate where the top chrome ends and the content
