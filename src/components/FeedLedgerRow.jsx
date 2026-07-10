@@ -6,6 +6,7 @@ import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import PostEmbed from './PostEmbed.jsx';
+import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID } from '../config.js';
 
 /**
@@ -55,8 +56,11 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
       : LEDGER_VERB_LABELS[item.verb] || item.verb;
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
-  const summary = summarize(item, { expanded, onToggle });
-  const embed = ledgerEmbed(item);
+  // Reposts skip the inline "@handle: text" summary entirely — the
+  // original post renders as a quote-style box instead (see RepostQuote).
+  const isRepost = item.verb === 'reposting';
+  const summary = isRepost ? null : summarize(item, { expanded, onToggle });
+  const embed = isRepost ? null : ledgerEmbed(item);
   return (
     <>
       {/* Label-less rows (thread continuations) keep an empty verb cell
@@ -71,6 +75,7 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
         <span className="ledger-verb">{label}</span>
       )}
       <div className="ledger-body">
+        {isRepost && <RepostQuote item={item} />}
         {summary && <p className="ledger-text">{summary}</p>}
         {embed && (
           <div className="ledger-embed">
@@ -101,15 +106,86 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
 /**
  * Post embeds (images / video / link card / quote) ride along under the
  * summary line in a condensed, height-capped form (see the .ledger-embed
- * rules in Feed.css). Only posting/reposting rows carry one.
+ * rules in Feed.css). Only posting rows carry one — reposts render their
+ * whole payload as a quote box instead (RepostQuote below).
  */
 function ledgerEmbed(item) {
-  if (item.verb !== 'posting' && item.verb !== 'reposting') return null;
+  if (item.verb !== 'posting') return null;
   const payload = item.payload || {};
-  if (payload.subjectMissing) return null;
   const embed = payload.embed || payload.embedRecord || null;
   if (!embed) return null;
   return { embed, did: payload.author?.did };
+}
+
+/**
+ * A repost's body: the original post styled like a quote embed —
+ * mirrors PostEmbed's QuoteRecord markup so it inherits the condensed
+ * quote treatment wholesale. The head's timestamp links out to the
+ * original on bsky.app; unlike a quote nested inside a post, the box
+ * IS the row's content, so its text stays unclamped and its own media
+ * renders (see the .ledger-repost overrides in Feed.css).
+ */
+function RepostQuote({ item }) {
+  const payload = item.payload || {};
+  if (payload.subjectMissing) {
+    return (
+      <p className="ledger-text">
+        <Placeholder>an unavailable post</Placeholder>
+      </p>
+    );
+  }
+  const author = payload.author || {};
+  const ts = payload.indexedAt || null;
+  const externalHref =
+    author.handle && payload.subjectUri
+      ? `https://bsky.app/profile/${author.handle}/post/${String(payload.subjectUri).split('/').pop()}`
+      : author.handle
+        ? `https://bsky.app/profile/${author.handle}`
+        : null;
+  const embed = payload.embed || payload.embedRecord || null;
+  return (
+    <div className="ledger-embed ledger-repost">
+      <article className="post-embed-quote">
+        <header className="post-embed-quote-head">
+          {author.avatar && (
+            <img
+              className="post-embed-quote-avatar"
+              src={author.avatar}
+              alt=""
+              width={20}
+              height={20}
+              loading="lazy"
+            />
+          )}
+          <span className="post-embed-quote-author">
+            {author.displayName && (
+              <span className="post-embed-quote-name">{author.displayName}</span>
+            )}
+            {author.handle && (
+              <span className="post-embed-quote-handle">@{author.handle}</span>
+            )}
+          </span>
+          {ts && (
+            <span className="post-embed-quote-time gutter">
+              {externalHref ? (
+                <a href={externalHref} target="_blank" rel="noreferrer noopener">
+                  <RelativeTimeText value={ts} />
+                </a>
+              ) : (
+                <RelativeTimeText value={ts} />
+              )}
+            </span>
+          )}
+        </header>
+        {payload.text && (
+          <p className="post-embed-quote-text">
+            {renderPostText(payload.text, payload.facets || null)}
+          </p>
+        )}
+        {embed && <PostEmbed embed={embed} did={author.did} />}
+      </article>
+    </div>
+  );
 }
 
 function summarize(item, listenControls) {
