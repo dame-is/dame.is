@@ -59,7 +59,6 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
       ) : (
         <span className="ledger-verb">{label}</span>
       )}
-      <span className="ledger-time">{ts ? formatTime(ts) : ''}</span>
       <div className="ledger-body">
         {summary && <p className="ledger-text">{summary}</p>}
         {embed && (
@@ -68,18 +67,19 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
           </div>
         )}
       </div>
+      <span className="ledger-time">{ts ? formatTime(ts) : ''}</span>
       {expanded && isListenBatch(item) && item.plays.map((play) => {
         const playTs = play?.createdAt || play?.payload?.playedTime || null;
         const playHref = recordPathFromAtUri(play?.atUri);
         const line = trackLine(play?.payload);
         return (
           <Fragment key={play?.atUri || playTs}>
-            <span className="ledger-time ledger-track-time">
-              {playTs ? formatTime(playTs) : ''}
-            </span>
             <p className="ledger-text ledger-track">
               {playHref ? <Link to={playHref}>{line || <em>—</em>}</Link> : line || <em>—</em>}
             </p>
+            <span className="ledger-time ledger-track-time">
+              {playTs ? formatTime(playTs) : ''}
+            </span>
           </Fragment>
         );
       })}
