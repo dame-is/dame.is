@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Check, CornerDownRight } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
@@ -15,7 +16,7 @@ import GeneratorCard from './cards/GeneratorCard.jsx';
 import CommentCard from './cards/CommentCard.jsx';
 import VoteCard from './cards/VoteCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
-import FeedLedgerRow from './FeedLedgerRow.jsx';
+import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor } from '../lib/verbRegistry.js';
@@ -96,6 +97,9 @@ function hrefFor(item) {
 export default function FeedItem({ item, showVerb = true, layout = 'default' }) {
   const navigate = useNavigate();
   const edit = useEditMode();
+  // Ledger-only: whether a collapsed listening session is showing its
+  // full track list (see handleRowClick / FeedLedgerRow).
+  const [ledgerExpanded, setLedgerExpanded] = useState(false);
   const cfg = verbConfig(item.verb);
   if (!cfg) return null;
   const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
@@ -129,6 +133,11 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
   // verb badge / card component entirely; the whole row still
   // navigates via handleRowClick below.
   const ledger = layout === 'ledger';
+  // In the ledger, a collapsed listening session repurposes the row tap:
+  // instead of navigating, it expands/collapses the session's track list
+  // (each expanded track links to its own record page, and the verb cell
+  // still links to the session's record).
+  const ledgerListenBatch = ledger && isListenBatch(item);
 
   // Make the whole row tappable as a convenience — handy on mobile where the
   // verb badge / timestamp are small hit targets. We bail when the click
@@ -137,13 +146,17 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
   // (Cmd/Ctrl/middle-click — let the browser open it in a new tab via the
   // verb badge / timestamp links instead).
   function handleRowClick(e) {
-    if (!href) return;
+    if (!href && !ledgerListenBatch) return;
     if (e.defaultPrevented) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (e.target.closest('a, button, input, textarea, label, select, [role="button"], [role="link"]')) return;
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
     if (sel && sel.toString().length > 0) return;
+    if (ledgerListenBatch) {
+      setLedgerExpanded((v) => !v);
+      return;
+    }
     navigate(href);
   }
   // When a post is a continuation of a self-reply thread that is already
@@ -193,6 +206,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
     'feed-item',
     `feed-item-${item.verb}`,
     ledger ? 'feed-item-ledger' : '',
+    ledgerListenBatch ? 'feed-item-ledger-expandable' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
@@ -209,7 +223,11 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
       onClickCapture={selectable ? handleSelectCapture : undefined}
-      onClick={!selectable && !listeningEdit && href ? handleRowClick : undefined}
+      onClick={
+        !selectable && !listeningEdit && (href || ledgerListenBatch)
+          ? handleRowClick
+          : undefined
+      }
       role={selectable ? 'button' : undefined}
       aria-pressed={selectable ? selected : undefined}
     >
@@ -221,7 +239,14 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
           {selected && <Check size={12} strokeWidth={2.5} />}
         </span>
       )}
-      {ledger && <FeedLedgerRow item={item} href={href} />}
+      {ledger && (
+        <FeedLedgerRow
+          item={item}
+          href={href}
+          expanded={ledgerExpanded}
+          onToggle={ledgerListenBatch ? () => setLedgerExpanded((v) => !v) : null}
+        />
+      )}
       {!ledger && showVerb && (() => {
         const verbEl = href && !listeningEdit ? (
           <Link className={verbClassName} to={href}>

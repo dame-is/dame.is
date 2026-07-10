@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { formatTime } from '../lib/time.js';
 import { renderPostText } from '../lib/postRichText.jsx';
@@ -20,10 +21,24 @@ import { ME_DID } from '../config.js';
  * treatment.
  */
 
+/**
+ * A collapsed listening session (many plays batched into one row) can
+ * expand into its full track list. FeedItem owns the expanded state —
+ * tapping anywhere on the row toggles it — and passes it down here.
+ */
+export function isListenBatch(item) {
+  return (
+    item.verb === 'listening' &&
+    (item.count || 0) > 1 &&
+    Array.isArray(item.plays) &&
+    item.plays.length > 1
+  );
+}
+
 /* Verb column labels are the same gerunds the site is named around
    ("dame.is …ing") — the registry verb itself, with replies shown as
    "replying" and self-thread follow-ons as "continuing". */
-export default function FeedLedgerRow({ item, href }) {
+export default function FeedLedgerRow({ item, href, expanded = false, onToggle = null }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
   const label = threadContinuation
@@ -33,7 +48,7 @@ export default function FeedLedgerRow({ item, href }) {
       : item.verb;
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
-  const summary = summarize(item);
+  const summary = summarize(item, { expanded, onToggle });
   const embed = ledgerEmbed(item);
   return (
     <>
@@ -53,6 +68,21 @@ export default function FeedLedgerRow({ item, href }) {
           </div>
         )}
       </div>
+      {expanded && isListenBatch(item) && item.plays.map((play) => {
+        const playTs = play?.createdAt || play?.payload?.playedTime || null;
+        const playHref = recordPathFromAtUri(play?.atUri);
+        const line = trackLine(play?.payload);
+        return (
+          <Fragment key={play?.atUri || playTs}>
+            <span className="ledger-time ledger-track-time">
+              {playTs ? formatTime(playTs) : ''}
+            </span>
+            <p className="ledger-text ledger-track">
+              {playHref ? <Link to={playHref}>{line || <em>—</em>}</Link> : line || <em>—</em>}
+            </p>
+          </Fragment>
+        );
+      })}
     </>
   );
 }
@@ -71,7 +101,7 @@ function ledgerEmbed(item) {
   return { embed, did: payload.author?.did };
 }
 
-function summarize(item) {
+function summarize(item, listenControls) {
   const payload = item.payload || {};
   switch (item.verb) {
     case 'logging':
@@ -82,7 +112,7 @@ function summarize(item) {
     case 'blogging':
       return plain(payload.title || payload.name, 'an untitled entry');
     case 'listening':
-      return summarizeListen(item);
+      return summarizeListen(item, listenControls);
     case 'creating':
       return plain(payload.title || payload.slug, 'an untitled work');
     case 'photographing': {
@@ -157,7 +187,7 @@ function summarizePost(item) {
       >
         @{author.handle}
       </a>
-      {body && <> — {body}</>}
+      {body && <>: {body}</>}
     </>
   );
 }
@@ -165,17 +195,36 @@ function summarizePost(item) {
 /**
  * "track — artist" for a single play; a collapsed session leads with
  * its artist pool (dedup'd, latest first) plus the song count, same
- * logic as ListenRow's top line.
+ * logic as ListenRow's top line. When the session is expandable the
+ * song count doubles as the accessible expand/collapse toggle —
+ * FeedItem also toggles on taps anywhere else in the row.
  */
-function summarizeListen(item) {
+function summarizeListen(item, { expanded = false, onToggle = null } = {}) {
   const payload = item.payload || {};
-  const plays = Array.isArray(item.plays) ? item.plays : [];
-  const isBatch = (item.count || 0) > 1 && plays.length > 1;
+  const isBatch = isListenBatch(item);
   const countTag = isBatch ? (
-    <span className="ledger-count"> · {item.count} songs</span>
+    <span className="ledger-count">
+      {' · '}
+      {onToggle ? (
+        <button
+          type="button"
+          className="ledger-count-toggle"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Hide' : 'Show'} all ${item.count} songs`}
+        >
+          {item.count} songs
+          <span className="ledger-count-caret" aria-hidden="true">
+            {expanded ? '−' : '+'}
+          </span>
+        </button>
+      ) : (
+        `${item.count} songs`
+      )}
+    </span>
   ) : null;
   if (isBatch) {
-    const artists = uniqueArtistNames(plays);
+    const artists = uniqueArtistNames(item.plays);
     if (artists.length > 1) {
       const shown = artists.slice(0, 4).join(', ');
       const extra = artists.length > 4 ? ` + ${artists.length - 4} more` : '';
@@ -187,17 +236,29 @@ function summarizeListen(item) {
       );
     }
   }
-  const track = payload.trackName || payload.track || '';
-  const artist = Array.isArray(payload.artists)
+  const line = trackLine(payload);
+  if (!line) return <Placeholder>a play</Placeholder>;
+  return (
+    <>
+      {line}
+      {countTag}
+    </>
+  );
+}
+
+/** "track — artist" fragment shared by the summary line and the
+    expanded per-track rows. Null when the play has neither. */
+function trackLine(payload) {
+  const track = payload?.trackName || payload?.track || '';
+  const artist = Array.isArray(payload?.artists)
     ? payload.artists.map((a) => a?.artistName).filter(Boolean).join(', ')
-    : payload.artist || '';
-  if (!track && !artist) return <Placeholder>a play</Placeholder>;
+    : payload?.artist || '';
+  if (!track && !artist) return null;
   return (
     <>
       {track}
       {track && artist ? ' — ' : ''}
       {artist && <span className="ledger-accent">{artist}</span>}
-      {countTag}
     </>
   );
 }
