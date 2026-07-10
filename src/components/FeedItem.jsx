@@ -15,6 +15,7 @@ import GeneratorCard from './cards/GeneratorCard.jsx';
 import CommentCard from './cards/CommentCard.jsx';
 import VoteCard from './cards/VoteCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
+import FeedLedgerRow from './FeedLedgerRow.jsx';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor } from '../lib/verbRegistry.js';
@@ -84,8 +85,15 @@ function hrefFor(item) {
  * Polymorphic dispatcher — pick the component for `item.verb` from the
  * registry. The verb badge doubles as the link to the underlying record
  * page (or generic JSON fallback for verbs without a specialized one).
+ *
+ * `layout` switches the row treatment: 'default' renders the full card
+ * (verb badge + per-verb component), 'ledger' renders the condensed
+ * multi-column row (see FeedLedgerRow.jsx). Home decides which to pass
+ * — including falling back to 'default' while owner edit mode is
+ * active, so this component never has to reconcile ledger rows with
+ * the selection UI.
  */
-export default function FeedItem({ item, showVerb = true }) {
+export default function FeedItem({ item, showVerb = true, layout = 'default' }) {
   const navigate = useNavigate();
   const edit = useEditMode();
   const cfg = verbConfig(item.verb);
@@ -116,6 +124,11 @@ export default function FeedItem({ item, showVerb = true }) {
     e.stopPropagation();
     edit.toggleSelect(item);
   }
+
+  // Condensed ledger row — verb · time · one-line summary. Skips the
+  // verb badge / card component entirely; the whole row still
+  // navigates via handleRowClick below.
+  const ledger = layout === 'ledger';
 
   // Make the whole row tappable as a convenience — handy on mobile where the
   // verb badge / timestamp are small hit targets. We bail when the click
@@ -171,15 +184,15 @@ export default function FeedItem({ item, showVerb = true }) {
   // Text-less posts (images / embed only) would otherwise render their
   // timestamp on a lonely row above the embed. Hoist a copy up here so it
   // sits on the same line as the verb gerund ("posting", "reposting",
-  // "replying to @handle", …) instead. In `normal` density this hoisted
-  // time is shown and the card's own row is hidden; in compact/tight —
-  // where the verb column is stripped — this hoisted copy is hidden and
-  // the card's in-place timestamp is what remains (see Feed.css).
+  // "replying to @handle", …) instead; the card's own standalone-time
+  // row is hidden by CSS whenever this hoisted copy exists (see
+  // Feed.css).
   const hoistTime = showVerb && cfg.renderer === 'PostCard' && postCardShowsStandaloneTime(item);
   const hoistTs = hoistTime ? item.createdAt || item.payload?.indexedAt : null;
   const liClassName = [
     'feed-item',
     `feed-item-${item.verb}`,
+    ledger ? 'feed-item-ledger' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
@@ -208,7 +221,8 @@ export default function FeedItem({ item, showVerb = true }) {
           {selected && <Check size={12} strokeWidth={2.5} />}
         </span>
       )}
-      {showVerb && (() => {
+      {ledger && <FeedLedgerRow item={item} href={href} />}
+      {!ledger && showVerb && (() => {
         const verbEl = href && !listeningEdit ? (
           <Link className={verbClassName} to={href}>
             {verbInner}
@@ -235,11 +249,13 @@ export default function FeedItem({ item, showVerb = true }) {
           </div>
         );
       })()}
-      <Component
-        {...item}
-        verb={item.verb}
-        suppressReplyBadge={showVerb ? isReplyVerb || threadContinuation : threadContinuation}
-      />
+      {!ledger && (
+        <Component
+          {...item}
+          verb={item.verb}
+          suppressReplyBadge={showVerb ? isReplyVerb || threadContinuation : threadContinuation}
+        />
+      )}
     </li>
   );
 }

@@ -33,16 +33,6 @@ themeColorMeta.setAttribute('name', 'theme-color');
 themeColorMeta.setAttribute('content', THEME_COLORS[initialTheme]);
 document.head.appendChild(themeColorMeta);
 
-// Density: read the new tri-state key first, fall back to the legacy
-// boolean `dame.compact` so users with the old setting don't lose it.
-const VALID_DENSITY = ['normal', 'compact', 'tight'];
-let storedDensity = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.density') : null;
-if (!VALID_DENSITY.includes(storedDensity)) {
-  const legacyCompact = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.compact') : null;
-  storedDensity = legacyCompact === 'true' ? 'compact' : 'normal';
-}
-document.documentElement.setAttribute('data-density', storedDensity);
-
 // Paper texture behind long-form text (blank / ruled / dots). Set before
 // the first paint so ruled/dots users don't flash a blank page. The
 // feature is currently paused (PAPER_ENABLED = false), so this always

@@ -109,6 +109,21 @@ export function formatDayLabel(date, now = new Date()) {
   return `${cap}, ${full}`;
 }
 
+/**
+ * Short header label for the ledger feed layout: "Today" / "Yesterday"
+ * for the two most recent days, then just the local calendar date
+ * ("July 3, 2026") — the condensed rows don't leave room for the long
+ * combined form that `formatDayLabel` produces.
+ */
+export function formatDayShortLabel(date, now = new Date()) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const rel = relativeDay(d, now);
+  if (rel === 'today') return 'Today';
+  if (rel === 'yesterday') return 'Yesterday';
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+
 export function formatDateLong(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';

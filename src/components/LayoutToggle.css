@@ -1,9 +1,9 @@
-.density-toggle-options {
+.layout-toggle-options {
   display: inline-flex;
   gap: var(--space-1);
 }
 
-.density-toggle-option {
+.layout-toggle-option {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -18,20 +18,20 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.density-toggle-option:hover,
-.density-toggle-option:focus-visible {
+.layout-toggle-option:hover,
+.layout-toggle-option:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   outline: none;
 }
 
-.density-toggle-option.is-active {
+.layout-toggle-option.is-active {
   color: var(--page);
   background: var(--ink);
   border-color: var(--ink);
 }
 
-.density-toggle-glyph {
+.layout-toggle-glyph {
   width: 0.95rem;
   height: 0.95rem;
 }

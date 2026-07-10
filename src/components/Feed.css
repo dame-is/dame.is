@@ -117,9 +117,8 @@
 }
 
 /* The hoisted time is a copy of the card's own standalone-time row; show
-   exactly one. In normal density the hoisted copy wins, so hide the
-   in-card row. */
-[data-density='normal'] .feed-item:has(.feed-item-head-time) .post-card-row-meta {
+   exactly one — the hoisted copy wins. */
+.feed-item:has(.feed-item-head-time) .post-card-row-meta {
   display: none;
 }
 
@@ -1376,225 +1375,132 @@ a.reference-card-profile:focus-visible {
   }
 }
 
+
 /* ----------------------------------------------------------------------
-   Density modes (toggled by [data-density] on <html>).
+   Ledger layout — the home feed's second layout (toggled from the nav
+   dock, see LayoutToggle / useFeedLayout). A condensed multi-column
+   typographic view: every record is one hairline-ruled row of three
+   aligned columns — verb · time · one-line summary — with no icons,
+   avatars, embeds, or stats.
 
-   `compact` strips the verb/gerund column and tightens the surrounding
-   feed scaffolding; per-card internals stay intact.
-
-   `tight` extends compact further: smaller body type, two-line text
-   clamp, no author avatars, no stats footer, very tight row gaps. The
-   result is a scannable list view for users who want a lot of items per
-   screen.
-
-   Rules shared by both modes use the comma selector; tight-only rules
-   come after.
+   Everything is scoped under .feed-ledger, which Home puts on the feed
+   region while the layout is active (and drops during owner edit mode,
+   which needs the full cards). The row cells themselves come from
+   FeedLedgerRow.jsx.
    ---------------------------------------------------------------------- */
 
-[data-density='compact'] .feed-list,
-[data-density='tight'] .feed-list {
-  gap: var(--space-3);
+/* Rows are separated by their own rules, not flex gaps. */
+.feed-ledger .feed-list {
+  gap: 0;
 }
 
-[data-density='compact'] .feed-item,
-[data-density='tight'] .feed-item {
-  gap: var(--space-1);
-  padding-bottom: var(--space-3);
-}
-
-/* Hide the verb-icon-plus-gerund row entirely. The verb-as-reply
-   variant ("replying to @handle") carries conversational context that
-   the card body doesn't repeat, so keep that one visible but flatten
-   it inline. `:where()` wraps the negations so they don't contribute
-   specificity — the listening-row override below can then re-show
-   that verb's icon without needing !important. */
-[data-density='compact'] .feed-item-verb:where(:not(.feed-item-verb-reply):not(.feed-item-verb-thread)),
-[data-density='tight'] .feed-item-verb:where(:not(.feed-item-verb-reply):not(.feed-item-verb-thread)) {
-  display: none;
-}
-
-/* Compact / tight strip the verb column entirely, so the "gerund + time
-   on one line" treatment doesn't apply. Dissolve the head wrapper so the
-   verb badge is a direct child of .feed-item again (the verb-grid rules
-   below rely on that), drop the hoisted time out of flow, and let the
-   card's own standalone-time row carry the timestamp as before. */
-[data-density='compact'] .feed-item-head,
-[data-density='tight'] .feed-item-head {
-  display: contents;
-}
-
-[data-density='compact'] .feed-item-head-time,
-[data-density='tight'] .feed-item-head-time {
-  display: none;
-}
-
-/* Compact / tight: a few item types keep their type icon visible but
-   move it INLINE — sitting to the left of the card body instead of
-   stacking above it. The label text drops away (the icon alone is
-   enough at this density). Listening and reply/continuation items
-   benefit most since their type is the main signal differentiating
-   them from a plain post. */
-[data-density='compact'] .feed-item-listening,
-[data-density='compact'] .feed-item-following,
-[data-density='compact'] .feed-item:has(.feed-item-verb-reply),
-[data-density='compact'] .feed-item:has(.feed-item-verb-thread),
-[data-density='tight'] .feed-item-listening,
-[data-density='tight'] .feed-item-following,
-[data-density='tight'] .feed-item:has(.feed-item-verb-reply),
-[data-density='tight'] .feed-item:has(.feed-item-verb-thread) {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  column-gap: var(--space-2);
-  align-items: start;
-}
-
-[data-density='compact'] .feed-item-listening .feed-item-verb,
-[data-density='compact'] .feed-item-following .feed-item-verb,
-[data-density='tight'] .feed-item-listening .feed-item-verb,
-[data-density='tight'] .feed-item-following .feed-item-verb {
-  /* Override the global hide rule above for these rows so their type
-     icon can sit in the left grid column. */
-  display: inline-flex;
-}
-
-[data-density='compact'] .feed-item-listening .feed-item-verb,
-[data-density='compact'] .feed-item-following .feed-item-verb,
-[data-density='compact'] .feed-item-verb.feed-item-verb-reply,
-[data-density='compact'] .feed-item-verb.feed-item-verb-thread,
-[data-density='tight'] .feed-item-listening .feed-item-verb,
-[data-density='tight'] .feed-item-following .feed-item-verb,
-[data-density='tight'] .feed-item-verb.feed-item-verb-reply,
-[data-density='tight'] .feed-item-verb.feed-item-verb-thread {
-  align-self: start;
-  padding-top: 0.2rem;
-}
-
-[data-density='compact'] .feed-item-listening .feed-item-verb-label,
-[data-density='compact'] .feed-item-following .feed-item-verb-label,
-[data-density='compact'] .feed-item-verb.feed-item-verb-reply .feed-item-verb-label,
-[data-density='compact'] .feed-item-verb.feed-item-verb-thread .feed-item-verb-label,
-[data-density='tight'] .feed-item-listening .feed-item-verb-label,
-[data-density='tight'] .feed-item-following .feed-item-verb-label,
-[data-density='tight'] .feed-item-verb.feed-item-verb-reply .feed-item-verb-label,
-[data-density='tight'] .feed-item-verb.feed-item-verb-thread .feed-item-verb-label {
-  display: none;
-}
-
-[data-density='compact'] .feed-item-verb.feed-item-verb-reply,
-[data-density='compact'] .feed-item-verb.feed-item-verb-thread,
-[data-density='tight'] .feed-item-verb.feed-item-verb-reply,
-[data-density='tight'] .feed-item-verb.feed-item-verb-thread {
-  gap: 0.35rem;
-  font-size: calc(var(--text-xs) * 0.95);
-}
-
-[data-density='compact'] .day-header,
-[data-density='tight'] .day-header {
-  margin: var(--space-5) 0 var(--space-2);
-}
-
-[data-density='compact'] .feed-day-group .feed-list[style],
-[data-density='tight'] .feed-day-group .feed-list[style] {
-  margin-top: var(--space-2) !important;
-}
-
-[data-density='compact'] .feed-card,
-[data-density='tight'] .feed-card {
-  gap: var(--space-1);
-  padding-bottom: 0;
-}
-
-[data-density='compact'] .post-card-author,
-[data-density='tight'] .post-card-author {
-  margin-bottom: var(--space-1);
-}
-
-[data-density='compact'] .post-card-reply,
-[data-density='compact'] .post-card-repost,
-[data-density='tight'] .post-card-reply,
-[data-density='tight'] .post-card-repost {
+/* Day header becomes a single line: the (short) date on the left, the
+   day's stats right-aligned, with a full-strength rule anchoring the
+   day's table of rows beneath it. */
+.feed-ledger .day-section-header {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
   margin-bottom: 0;
-}
-
-/* Tight-only: aggressive minimal view. ------------------------------- */
-
-[data-density='tight'] .feed-list {
-  gap: var(--space-2);
-}
-
-[data-density='tight'] .feed-item {
   padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
 }
 
-[data-density='tight'] .day-header {
-  margin: var(--space-3) 0 var(--space-1);
-  font-size: calc(var(--text-xs) * 0.9);
+.feed-ledger .day-header {
+  font-size: var(--text-lg);
 }
 
-[data-density='tight'] .feed-day-group .feed-list[style] {
-  margin-top: var(--space-1) !important;
+.feed-ledger .day-header-meta {
+  font-family: var(--mono);
+  font-size: calc(var(--text-xs) * 0.95);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  text-align: right;
 }
 
-/* Smaller body type + two-line clamp keeps every row to roughly the
-   same height regardless of post length. */
-[data-density='tight'] .post-card-text,
-[data-density='tight'] .listen-row-text,
-[data-density='tight'] .status-entry-text,
-[data-density='tight'] .blog-card-summary,
-[data-density='tight'] .creating-card-summary,
-[data-density='tight'] .reference-card-compact,
-[data-density='tight'] .comment-card-text,
-[data-density='tight'] .media-card-desc {
-  font-size: var(--text-sm);
-  line-height: var(--leading-tight);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* One record, one ruled row. The two label columns are fixed-width so
+   they align down the whole page (each row is its own grid). Baseline
+   alignment keeps the small mono labels sitting on the serif summary's
+   first line. */
+.feed-ledger .feed-item-ledger {
+  display: grid;
+  grid-template-columns: 6.5rem 4.5rem minmax(0, 1fr);
+  column-gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  margin-top: 0; /* cancel the thread-continuation pull-up */
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
 }
 
-[data-density='tight'] .blog-card-title,
-[data-density='tight'] .creating-card-title,
-[data-density='tight'] .media-card-title,
-[data-density='tight'] .list-card-title,
-[data-density='tight'] .generator-card-title {
+.ledger-verb {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+a.ledger-verb:hover,
+a.ledger-verb:focus-visible {
+  color: var(--accent);
+}
+
+.ledger-time {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+  /* formatTime yields "9:41 AM"; the ledger reads lowercase. */
+  text-transform: lowercase;
+}
+
+.ledger-body {
+  font-family: var(--serif);
   font-size: var(--text-base);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  margin: 0;
+  min-width: 0;
+  max-width: var(--measure);
+  overflow-wrap: anywhere;
 }
 
-/* Drop the stats footer (replies/reposts/likes) in tight mode — it
-   multiplies row height. Don't hide content the user can opt back in
-   to via an expand button (listen-row-children, reference-card-subject)
-   — that would make those buttons appear to do nothing in tight mode.
-
-   Post embeds (images / link cards / video / quotes) are tightened and
-   hidden per-density in PostEmbed.css alongside the rest of the embed
-   styling — the leaf classes there (.post-embed-images, etc.) are the
-   real hooks; there is no `.post-embed` wrapper element. */
-[data-density='tight'] .post-card-stats,
-[data-density='tight'] .media-card-grid {
-  display: none;
+/* Links and link-like emphasis inside a summary read as quiet accents —
+   color only, no underline until hover. */
+.ledger-body a {
+  color: var(--accent);
+  text-decoration: none;
 }
 
-/* Hide the original-author avatar block on reposts; keep the @handle
-   inline via the names span so attribution is still visible. */
-[data-density='tight'] .post-card-author-avatar {
-  display: none;
+.ledger-body a:hover,
+.ledger-body a:focus-visible {
+  text-decoration: underline;
 }
 
-[data-density='tight'] .post-card-author {
-  margin-bottom: 0;
-  font-size: var(--text-xs);
+.ledger-accent,
+.ledger-handle {
+  color: var(--accent);
 }
 
-[data-density='tight'] .post-card-author-name,
-[data-density='tight'] .post-card-author-handle {
-  font-size: var(--text-xs);
+/* Secondary fragments inside a summary (song counts, scientific names). */
+.ledger-count {
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
 }
 
-/* The reposted-by tag and reply-to tag both eat a row of their own —
-   keep them but shrink the type so they don't dwarf the post text. */
-[data-density='tight'] .post-card-reply,
-[data-density='tight'] .post-card-repost {
-  font-size: calc(var(--text-xs) * 0.9);
+/* Muted placeholder when a record has no text of its own ("an image",
+   "a gallery", "an unavailable post"). */
+.ledger-placeholder {
+  color: var(--ink-muted);
+}
+
+@media (max-width: 600px) {
+  .feed-ledger .feed-item-ledger {
+    grid-template-columns: 5.25rem 3.9rem minmax(0, 1fr);
+    column-gap: var(--space-2);
+  }
 }

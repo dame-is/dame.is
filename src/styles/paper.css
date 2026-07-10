@@ -44,13 +44,6 @@
   --paper-drop: 0.2em;
 }
 
-/* `data-paper` and `data-density` both live on <html>, so this must be a
-   compound (same-element) selector, not a descendant combinator. */
-[data-paper='ruled'][data-density='tight'] .post-card-text,
-[data-paper='dots'][data-density='tight'] .post-card-text {
-  --paper-drop: 0.16em;
-}
-
 /* ── Ruled ─────────────────────────────────────────────────────────
    A 1px rule anchored to the bottom of each line box (1lh − drop), with
    the repeat period equal to one rendered line (1lh) so exactly one rule
