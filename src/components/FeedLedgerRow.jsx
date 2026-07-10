@@ -4,6 +4,7 @@ import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import PostEmbed from './PostEmbed.jsx';
 import { ME_DID } from '../config.js';
 
 /**
@@ -20,13 +21,8 @@ import { ME_DID } from '../config.js';
  */
 
 /* Verb column labels are the same gerunds the site is named around
-   ("dame.is …ing") — the registry verb itself, with the same overrides
-   the card layout's verb column uses: "listening to" reads as a phrase,
-   replies become "replying", and self-thread follow-ons "continuing". */
-const LEDGER_VERB_LABELS = {
-  listening: 'listening to',
-};
-
+   ("dame.is …ing") — the registry verb itself, with replies shown as
+   "replying" and self-thread follow-ons as "continuing". */
 export default function FeedLedgerRow({ item, href }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
@@ -34,9 +30,11 @@ export default function FeedLedgerRow({ item, href }) {
     ? 'continuing'
     : replyHint
       ? 'replying'
-      : LEDGER_VERB_LABELS[item.verb] || item.verb;
+      : item.verb;
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
+  const summary = summarize(item);
+  const embed = ledgerEmbed(item);
   return (
     <>
       {href ? (
@@ -47,9 +45,30 @@ export default function FeedLedgerRow({ item, href }) {
         <span className="ledger-verb">{label}</span>
       )}
       <span className="ledger-time">{ts ? formatTime(ts) : ''}</span>
-      <p className="ledger-body">{summarize(item)}</p>
+      <div className="ledger-body">
+        {summary && <p className="ledger-text">{summary}</p>}
+        {embed && (
+          <div className="ledger-embed">
+            <PostEmbed embed={embed.embed} did={embed.did} />
+          </div>
+        )}
+      </div>
     </>
   );
+}
+
+/**
+ * Post embeds (images / video / link card / quote) ride along under the
+ * summary line in a condensed, height-capped form (see the .ledger-embed
+ * rules in Feed.css). Only posting/reposting rows carry one.
+ */
+function ledgerEmbed(item) {
+  if (item.verb !== 'posting' && item.verb !== 'reposting') return null;
+  const payload = item.payload || {};
+  if (payload.subjectMissing) return null;
+  const embed = payload.embed || payload.embedRecord || null;
+  if (!embed) return null;
+  return { embed, did: payload.author?.did };
 }
 
 function summarize(item) {
@@ -110,19 +129,21 @@ function Placeholder({ children }) {
 
 /**
  * Posts keep their rich text (links / mentions render as anchors).
- * Text-less posts fall back to a muted noun for the embed; foreign
- * authors (reposts) get a leading @handle so attribution survives the
- * loss of the card's author header.
+ * Text-less posts return null when an embed exists — the condensed
+ * embed below carries the row on its own. Foreign authors (reposts)
+ * get a leading @handle so attribution survives the loss of the
+ * card's author header.
  */
 function summarizePost(item) {
   const payload = item.payload || {};
   if (payload.subjectMissing) return <Placeholder>an unavailable post</Placeholder>;
   const text = payload.text || '';
-  const body = text ? (
-    renderPostText(text, payload.facets || null)
-  ) : (
-    <Placeholder>{embedNoun(payload.embed || payload.embedRecord)}</Placeholder>
-  );
+  const hasEmbed = Boolean(payload.embed || payload.embedRecord);
+  const body = text
+    ? renderPostText(text, payload.facets || null)
+    : hasEmbed
+      ? null
+      : <Placeholder>a post</Placeholder>;
   const author = payload.author;
   const foreignAuthor = author?.did && author.did !== ME_DID && author?.handle;
   if (!foreignAuthor) return body;
@@ -136,33 +157,9 @@ function summarizePost(item) {
       >
         @{author.handle}
       </a>
-      {' — '}
-      {body}
+      {body && <> — {body}</>}
     </>
   );
-}
-
-function embedNoun(embed) {
-  switch (embed?.$type) {
-    case 'app.bsky.embed.images#view':
-    case 'app.bsky.embed.images': {
-      const n = (embed.images || []).length || 0;
-      return n > 1 ? `${n} images` : 'an image';
-    }
-    case 'app.bsky.embed.video#view':
-    case 'app.bsky.embed.video':
-      return 'a video';
-    case 'app.bsky.embed.external#view':
-    case 'app.bsky.embed.external':
-      return 'a link';
-    case 'app.bsky.embed.record#view':
-    case 'app.bsky.embed.record':
-    case 'app.bsky.embed.recordWithMedia#view':
-    case 'app.bsky.embed.recordWithMedia':
-      return 'a quote post';
-    default:
-      return 'a post';
-  }
 }
 
 /**
