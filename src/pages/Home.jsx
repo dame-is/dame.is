@@ -554,7 +554,7 @@ export default function Home() {
                             delay: reduce ? 0 : stagger,
                           }}
                         >
-                          <FeedItem item={item} layout={ledger ? 'ledger' : 'default'} />
+                          <FeedItem item={item} layout={ledger ? 'ledger' : 'cards'} />
                         </motion.li>
                       );
                     })}
