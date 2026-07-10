@@ -10,7 +10,7 @@ import { formatDateFull, relativeDay } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { showOnBlog } from '../lib/publications.js';
+import { showOnBlog, isDraft } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
 
@@ -133,8 +133,11 @@ function resolveById(data, id) {
   // `data` is the `blogs` array of site.standard.document records.
   const blogs = Array.isArray(data) ? data : [];
   // Blog-homed docs, plus any portfolio doc cross-posted to the blog with a
-  // `blog` tag — so a dual-listed work resolves at /blogging/:rkey too.
-  const standard = blogs.find((r) => endsWithRkey(r?.uri, id) && showOnBlog(r?.value));
+  // `blog` tag — so a dual-listed work resolves at /blogging/:rkey too. Drafts
+  // stay hidden even by direct URL (the live fetch would otherwise find them).
+  const standard = blogs.find(
+    (r) => endsWithRkey(r?.uri, id) && !isDraft(r?.value) && showOnBlog(r?.value),
+  );
   return standard ? { kind: 'standard', record: standard } : null;
 }
 

@@ -10,7 +10,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, formatDateFull, compareIsoDesc } from '../lib/time.js';
-import { showOnBlog } from '../lib/publications.js';
+import { showOnBlog, isDraft } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
@@ -118,8 +118,9 @@ function mergeBlogEntries(data) {
   const blogs = Array.isArray(data) ? data : [];
   return blogs
     // Blog-homed docs plus any portfolio doc cross-posted with a `blog` tag.
-    // Portfolio-only docs live on /creating.
-    .filter((r) => r?.value && showOnBlog(r.value))
+    // Portfolio-only docs live on /creating. Drafts stay hidden — the live PDS
+    // fetch returns them, so filter here where snapshot and live both pass.
+    .filter((r) => r?.value && !isDraft(r.value) && showOnBlog(r.value))
     .map(normalizeStandard)
     .sort((a, b) => compareIsoDesc(a.createdAt, b.createdAt));
 }

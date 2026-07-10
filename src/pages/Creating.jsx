@@ -14,7 +14,7 @@ import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { coverThumb } from '../lib/creatingHelpers.js';
-import { showOnCreating, workSlug, workCategory } from '../lib/publications.js';
+import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
@@ -89,8 +89,11 @@ export default function Creating() {
     fetchLive: loadWorks,
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return [];
+      // Runs against both the snapshot and the live payload, so this is the
+      // single gate that keeps drafts off the feed regardless of source — the
+      // live PDS fetch (loadWorks) otherwise re-includes drafted works.
       return snap
-        .filter((r) => r?.value)
+        .filter((r) => r?.value && !isDraft(r.value))
         .sort((a, b) => compareIsoDesc(a.value?.createdAt, b.value?.createdAt));
     },
   });
