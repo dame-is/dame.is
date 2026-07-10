@@ -36,30 +36,40 @@ export function isListenBatch(item) {
 }
 
 /* Verb column labels are the same gerunds the site is named around
-   ("dame.is …ing") — the registry verb itself, with replies shown as
-   "replying" and self-thread follow-ons as "continuing". */
+   ("dame.is …ing") — the registry verb itself, with two exceptions:
+   replies show "replying", and logging statuses show "dame.is" (the
+   status text completes the sentence, mirroring StatusEntry's prefix).
+   Self-thread follow-ons show no label at all — the dashed rule above
+   the row (see Feed.css) marks them as connected to the post above. */
+const LEDGER_VERB_LABELS = {
+  logging: 'dame.is',
+};
+
 export default function FeedLedgerRow({ item, href, expanded = false, onToggle = null }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
   const label = threadContinuation
-    ? 'continuing'
+    ? null
     : replyHint
       ? 'replying'
-      : item.verb;
+      : LEDGER_VERB_LABELS[item.verb] || item.verb;
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
   const summary = summarize(item, { expanded, onToggle });
   const embed = ledgerEmbed(item);
   return (
     <>
-      {href ? (
+      {/* Label-less rows (thread continuations) keep an empty verb cell
+          so grid auto-placement still lands the summary in column 2. */}
+      {!label ? (
+        <span className="ledger-verb" aria-hidden="true" />
+      ) : href ? (
         <Link className="ledger-verb" to={href}>
           {label}
         </Link>
       ) : (
         <span className="ledger-verb">{label}</span>
       )}
-      <span className="ledger-time">{ts ? formatTime(ts) : ''}</span>
       <div className="ledger-body">
         {summary && <p className="ledger-text">{summary}</p>}
         {embed && (
@@ -68,18 +78,19 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
           </div>
         )}
       </div>
+      <span className="ledger-time">{ts ? formatTime(ts) : ''}</span>
       {expanded && isListenBatch(item) && item.plays.map((play) => {
         const playTs = play?.createdAt || play?.payload?.playedTime || null;
         const playHref = recordPathFromAtUri(play?.atUri);
         const line = trackLine(play?.payload);
         return (
           <Fragment key={play?.atUri || playTs}>
-            <span className="ledger-time ledger-track-time">
-              {playTs ? formatTime(playTs) : ''}
-            </span>
             <p className="ledger-text ledger-track">
               {playHref ? <Link to={playHref}>{line || <em>—</em>}</Link> : line || <em>—</em>}
             </p>
+            <span className="ledger-time ledger-track-time">
+              {playTs ? formatTime(playTs) : ''}
+            </span>
           </Fragment>
         );
       })}

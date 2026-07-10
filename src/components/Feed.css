@@ -1403,27 +1403,26 @@ a.reference-card-profile:focus-visible {
   gap: 0;
 }
 
-/* Day header becomes a single line on the rows' grid: the (short) date
-   stretches across the verb + time columns, the day's stats sit
-   right-aligned in the summary column, and a full-strength rule anchors
-   the day's table of rows beneath it. */
+/* Day header is a single line: the (short) date on the left — never
+   shrunk, so it can't wrap mid-date — the day's stats right-aligned,
+   and a full-strength rule anchoring the day's table of rows beneath
+   it. */
 .feed-ledger .day-section-header {
-  display: grid;
-  grid-template-columns: var(--ledger-verb-col) var(--ledger-time-col) minmax(0, 1fr);
-  column-gap: var(--ledger-col-gap);
+  flex-direction: row;
   align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
   margin-bottom: 0;
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--rule);
 }
 
 .feed-ledger .day-header {
-  grid-column: 1 / 3;
+  flex: 0 0 auto;
   font-size: var(--text-lg);
 }
 
 .feed-ledger .day-header-meta {
-  grid-column: 3;
   font-family: var(--mono);
   font-size: calc(var(--text-xs) * 0.95);
   letter-spacing: 0.02em;
@@ -1431,18 +1430,27 @@ a.reference-card-profile:focus-visible {
   text-align: right;
 }
 
-/* One record, one ruled row. The two label columns are fixed-width so
-   they align down the whole page (each row is its own grid). Baseline
-   alignment keeps the small mono labels sitting on the serif summary's
-   first line. */
+/* One record, one ruled row: verb · summary · time, with the time
+   right-aligned on the row's far edge. The two label columns are
+   fixed-width so they align down the whole page (each row is its own
+   grid). Baseline alignment keeps the small mono labels sitting on the
+   serif summary's first line. */
 .feed-ledger .feed-item-ledger {
   display: grid;
-  grid-template-columns: var(--ledger-verb-col) var(--ledger-time-col) minmax(0, 1fr);
+  grid-template-columns: var(--ledger-verb-col) minmax(0, 1fr) var(--ledger-time-col);
   column-gap: var(--ledger-col-gap);
   align-items: baseline;
   padding: var(--space-3) 0;
   margin-top: 0; /* cancel the thread-continuation pull-up */
   border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+
+/* Self-thread continuations carry no verb label; instead the rule
+   separating them from the post they continue goes dashed — i.e. the
+   PREVIOUS row's bottom border. Rows sit inside Home's motion.li
+   wrappers, so the sibling hop happens on those. */
+.feed-ledger .feed-list > li:has(+ li .feed-item-thread-continuation) .feed-item-ledger {
+  border-bottom-style: dashed;
 }
 
 .ledger-verb {
@@ -1470,6 +1478,8 @@ a.ledger-verb:focus-visible {
   color: var(--ink-faint);
   /* formatTime yields "9:41 AM"; the ledger reads lowercase. */
   text-transform: lowercase;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .ledger-body {
@@ -1535,17 +1545,17 @@ a.ledger-verb:focus-visible {
   margin-left: 0.35em;
 }
 
-/* Expanded tracks reuse the row's grid: each play's time lands in the
-   time column and its "track — artist" line in the summary column,
-   with the verb column left empty. Auto-placement makes one implicit
-   grid row per track. */
-.ledger-track-time {
+/* Expanded tracks reuse the row's grid: each play's "track — artist"
+   line lands in the summary column and its time in the right-aligned
+   time column, with the verb column left empty. Auto-placement makes
+   one implicit grid row per track. */
+.ledger-track {
   grid-column: 2;
+  font-size: var(--text-sm);
 }
 
-.ledger-track {
+.ledger-track-time {
   grid-column: 3;
-  font-size: var(--text-sm);
 }
 
 .ledger-track a {
@@ -1642,6 +1652,14 @@ a.ledger-verb:focus-visible {
 .ledger-embed .post-embed-quote-avatar {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+/* The author chip's name/handle stack inherits the body's roomy
+   leading; pull the two lines together so the condensed quote head
+   stays one tight cluster. */
+.ledger-embed .post-embed-quote-name,
+.ledger-embed .post-embed-quote-handle {
+  line-height: 1.25;
 }
 
 .ledger-embed .post-embed-quote-text {
