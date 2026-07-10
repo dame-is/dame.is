@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Moon, Pencil, Search, Sun, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Moon, Pencil, Search, Sun, SunMoon, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { useAvatar } from '../hooks/useAvatar.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -22,10 +22,12 @@ import InfoSheet from './InfoSheet.jsx';
 import Footer from './Footer.jsx';
 import './ChromeBar.css';
 
-// Per-theme glyph for the toggle button: sun for light, moon for dark.
+// Per-theme glyph for the toggle button: sun for light, moon for dark,
+// sun-and-moon for the hour-tracking sky theme.
 const THEME_ICON = {
   light: Sun,
   dark: Moon,
+  sky: SunMoon,
 };
 
 // The home handle is a router <Link>; wrap it so it can participate in the
@@ -288,8 +290,9 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const nearBottom = useNearPageBottom();
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
-  const { theme, cycle: cycleTheme } = useTheme();
+  const { theme, cycle: cycleTheme, options: themeOptions, skyHourKey, advanceSkyHour } = useTheme();
   const ThemeIcon = THEME_ICON[theme] || Sun;
+  const nextTheme = themeOptions[(themeOptions.indexOf(theme) + 1) % themeOptions.length];
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
   // EditModeBar + useEditMode).
@@ -433,11 +436,27 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                   type="button"
                   className="chrome-nav chrome-theme-toggle"
                   onClick={cycleTheme}
-                  aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (current: ${theme})`}
+                  aria-label={`Switch to ${nextTheme} theme (current: ${theme})`}
                   title={`Theme: ${theme} — tap to switch`}
                 >
                   <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
+                {/* TEMPORARY: sky-theme test chip. Shows the hour whose
+                    palette is on screen; each tap advances one hour
+                    (wrapping at midnight) so all 24 increments can be
+                    stepped through in place. Remove once the sky theme
+                    has been vetted. */}
+                {theme === 'sky' && (
+                  <button
+                    type="button"
+                    className="chrome-nav chrome-sky-hour"
+                    onClick={advanceSkyHour}
+                    aria-label={`Advance sky theme by one hour (showing ${skyHourKey})`}
+                    title={`Sky theme test — tap to advance one hour (showing ${skyHourKey})`}
+                  >
+                    {skyHourKey}
+                  </button>
+                )}
                 {filterAvailable && (
                   <button
                     type="button"
