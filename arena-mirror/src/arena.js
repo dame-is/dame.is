@@ -12,10 +12,12 @@ const ARENA_API = 'https://api.are.na/v3';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class ArenaClient {
-  constructor({ token, userAgent = 'arena-pds-mirror', delayMs = 350, log = () => {} } = {}) {
+  constructor({ token, userAgent = 'arena-pds-mirror', delayMs = null, log = () => {} } = {}) {
     this.token = token || null;
     this.userAgent = userAgent;
-    this.delayMs = delayMs;
+    // Default spacing tracks the auth tier: unauthenticated callers get 30
+    // req/min, so pace just under that; a token's tier is comfortably higher.
+    this.delayMs = delayMs ?? (this.token ? 250 : 2100);
     this.log = log;
     this._lastRequestAt = 0;
     this.requestCount = 0;
@@ -32,35 +34,37 @@ export class ArenaClient {
     const headers = { Accept: 'application/json', 'User-Agent': this.userAgent };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
 
+    const MAX_ATTEMPTS = 5;
     for (let attempt = 0; ; attempt++) {
       await this._throttle();
       this.requestCount++;
       let res;
+      let retryWaitMs = null;
+      let failure = null;
       try {
         res = await fetch(url, { headers, signal: AbortSignal.timeout(30_000) });
       } catch (err) {
-        if (attempt >= 4) throw new Error(`are.na request failed for ${path}: ${err.message}`);
-        await sleep(2000 * 2 ** attempt);
-        continue;
+        failure = `request failed (${err.message})`;
+        retryWaitMs = 2000 * 2 ** attempt;
       }
-      if (res.status === 429) {
-        if (attempt >= 4) throw new Error(`are.na rate limited (429) for ${path}`);
-        const retryAfter = Number(res.headers.get('retry-after')) || 15;
-        this.log(`rate limited — waiting ${retryAfter}s`);
-        await sleep(retryAfter * 1000);
-        continue;
+      if (res) {
+        if (res.status === 429) {
+          failure = 'rate limited (429)';
+          retryWaitMs = (Number(res.headers.get('retry-after')) || 15) * 1000;
+          this.log(`rate limited — waiting ${Math.round(retryWaitMs / 1000)}s`);
+        } else if (res.status >= 500) {
+          failure = `HTTP ${res.status}`;
+          retryWaitMs = 2000 * 2 ** attempt;
+        } else if (!res.ok) {
+          const err = new Error(`are.na HTTP ${res.status} for ${path}`);
+          err.status = res.status;
+          throw err;
+        } else {
+          return res.json();
+        }
       }
-      if (res.status >= 500) {
-        if (attempt >= 4) throw new Error(`are.na HTTP ${res.status} for ${path}`);
-        await sleep(2000 * 2 ** attempt);
-        continue;
-      }
-      if (!res.ok) {
-        const err = new Error(`are.na HTTP ${res.status} for ${path}`);
-        err.status = res.status;
-        throw err;
-      }
-      return res.json();
+      if (attempt >= MAX_ATTEMPTS - 1) throw new Error(`are.na ${failure} for ${path}`);
+      await sleep(retryWaitMs);
     }
   }
 
@@ -110,20 +114,16 @@ export class ArenaClient {
   async fetchBinary(url, { maxBytes } = {}) {
     const res = await fetch(url, {
       headers: { 'User-Agent': this.userAgent },
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(60_000),
     });
     if (!res.ok) throw new Error(`media HTTP ${res.status} for ${url}`);
     const declared = Number(res.headers.get('content-length')) || null;
     if (maxBytes && declared && declared > maxBytes) {
-      const err = new Error(`media exceeds cap (${declared} > ${maxBytes} bytes)`);
-      err.tooLarge = true;
-      throw err;
+      throw new Error(`media exceeds cap (${declared} > ${maxBytes} bytes)`);
     }
     const bytes = new Uint8Array(await res.arrayBuffer());
     if (maxBytes && bytes.byteLength > maxBytes) {
-      const err = new Error(`media exceeds cap (${bytes.byteLength} > ${maxBytes} bytes)`);
-      err.tooLarge = true;
-      throw err;
+      throw new Error(`media exceeds cap (${bytes.byteLength} > ${maxBytes} bytes)`);
     }
     return { bytes, contentType: res.headers.get('content-type') || 'application/octet-stream' };
   }

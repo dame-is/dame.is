@@ -49,10 +49,11 @@ export default async function handler(req, res) {
     const agent = new AtpAgent({ service: pds });
     await agent.login({ identifier, password });
 
+    const user = process.env.ARENA_MIRROR_USER || ARENA_USER;
     const report = await syncArenaMirror({
       agent,
       did,
-      user: process.env.ARENA_MIRROR_USER || ARENA_USER,
+      user,
       token:
         process.env.ARENA_ACCESS_TOKEN || process.env.ARENA_TOKEN || process.env.ARENA_API_KEY,
       blockScope: process.env.ARENA_MIRROR_SCOPE || 'connected',
@@ -66,7 +67,7 @@ export default async function handler(req, res) {
       log: (...a) => console.log('[mirror-arena]', ...a),
     });
 
-    return res.status(report.writes?.failed ? 207 : 200).json({ ok: true, user: ARENA_USER, ...report });
+    return res.status(report.writes?.failed ? 207 : 200).json({ ok: true, user, ...report });
   } catch (err) {
     console.error('[mirror-arena] failed:', err);
     return res.status(500).json({ error: err?.message || 'mirror failed' });

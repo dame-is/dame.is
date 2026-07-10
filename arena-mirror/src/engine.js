@@ -72,6 +72,13 @@ export async function syncArenaMirror(options) {
     !o.channels || o.channels.includes(ch.slug) || o.channels.includes(String(ch.id));
 
   // --- 2. sync state + cheap no-op shortcut ---------------------------------
+  // One definition of per-channel "unchanged": the persisted entry and the
+  // comparison are built from the same mapper.
+  const freshnessEntry = (ch) => ({
+    arenaId: ch.id,
+    updatedAt: ch.updated_at || null,
+    contents: ch.counts?.contents ?? null,
+  });
   const state = await getRecord(agent, did, cols.sync, 'self');
   const freshnessValid = Boolean(state && state.settings === signature && !o.full);
   const stateEntries = new Map(
@@ -79,24 +86,35 @@ export async function syncArenaMirror(options) {
   );
   const isFresh = (ch) => {
     const entry = stateEntries.get(asId(ch.id));
-    return Boolean(
-      entry && entry.updatedAt === ch.updated_at && entry.contents === (ch.counts?.contents ?? null),
-    );
+    const want = freshnessEntry(ch);
+    return Boolean(entry && entry.updatedAt === want.updatedAt && entry.contents === want.contents);
   };
 
   if (freshnessValid && !state.partial && !o.channels) {
     const sameSet =
       scoped.length === stateEntries.size && scoped.every((ch) => stateEntries.has(asId(ch.id)));
     if (sameSet && scoped.every(isFresh)) {
-      log('no channel changed since last sync — skipping.');
-      return { noop: true, channelsSeen: scoped.length, privateSkipped: privateSkipped.length, arenaRequests: client.requestCount };
+      // Freshness says nothing changed upstream — but confirm the mirror
+      // records themselves still exist before trusting the state record
+      // (they could have been wiped by hand while the sync record survived).
+      const probe = await agent.com.atproto.repo.listRecords({ repo: did, collection: cols.channel, limit: 1 });
+      if (probe?.data?.records?.length || stateEntries.size === 0) {
+        log('no channel changed since last sync — skipping.');
+        return { noop: true, channelsSeen: scoped.length, privateSkipped: privateSkipped.length, arenaRequests: client.requestCount };
+      }
+      log('sync state says fresh but no mirror records exist — re-walking everything.');
+      stateEntries.clear();
     }
   }
 
   // --- 3. what the PDS already holds ----------------------------------------
-  const existingChannels = indexByRkey(await listCollection(agent, did, cols.channel));
-  const existingBlocks = indexByRkey(await listCollection(agent, did, cols.block));
-  const existingConns = indexByRkey(await listCollection(agent, did, cols.connection));
+  const [existingChannels, existingBlocks, existingConns] = (
+    await Promise.all([
+      listCollection(agent, did, cols.channel),
+      listCollection(agent, did, cols.block),
+      listCollection(agent, did, cols.connection),
+    ])
+  ).map(indexByRkey);
   const localOnly = existingChannels.localOnly + existingBlocks.localOnly + existingConns.localOnly;
   log(
     `pds: ${existingChannels.map.size} channel, ${existingBlocks.map.size} block, ` +
@@ -134,19 +152,38 @@ export async function syncArenaMirror(options) {
   };
 
   // Carry an existing blob forward when the upstream file hasn't changed;
-  // fetch a new one only in blobs mode. Blobs are never proactively stripped
-  // by a references-mode run — that mode just stops acquiring new ones.
+  // fetch a new one only in blobs mode. A blob is never dropped outright:
+  // when a refresh can't happen (too large, download failed, references
+  // mode), the previous blob rides along with the metadata it was captured
+  // under, and the metadata mismatch retries the refresh on a later run.
   const handleMedia = async (candidate, media, existing) => {
     if (!media || !candidate[media.field]) return;
     const target = candidate[media.field];
     const prior = existing?.[media.field];
-    if (prior?.blob && prior.updatedAt === target.updatedAt && prior.fileSize === target.fileSize) {
+    const unchanged =
+      prior?.blob &&
+      prior[media.urlKey] === target[media.urlKey] &&
+      prior.updatedAt === target.updatedAt &&
+      prior.fileSize === target.fileSize;
+    if (unchanged) {
       target.blob = prior.blob;
       blobs.reused++;
       return;
     }
-    if (o.mediaMode !== 'blobs') return;
+    const keepPrior = () => {
+      if (!prior?.blob) return;
+      target.blob = prior.blob;
+      if (prior.updatedAt != null) target.updatedAt = prior.updatedAt;
+      if (prior.fileSize != null) target.fileSize = prior.fileSize;
+      if (prior[media.urlKey] != null) target[media.urlKey] = prior[media.urlKey];
+    };
+    if (o.mediaMode !== 'blobs') {
+      keepPrior();
+      if (prior?.blob) blobs.reused++;
+      return;
+    }
     if (media.fileSize && media.fileSize > o.maxBlobBytes) {
+      keepPrior();
       blobs.fallback++;
       return;
     }
@@ -158,26 +195,30 @@ export async function syncArenaMirror(options) {
     try {
       const dl = await client.fetchBinary(media.url, { maxBytes: o.maxBlobBytes });
       const ref = await uploadBlob(agent, dl.bytes, target.contentType || dl.contentType);
-      if (ref) {
-        target.blob = ref;
-        blobs.uploaded++;
-        blobs.uploadedBytes += dl.bytes.byteLength;
-      } else {
-        blobs.fallback++;
-      }
+      if (!ref) throw new Error('uploadBlob returned no ref');
+      target.blob = ref;
+      blobs.uploaded++;
+      blobs.uploadedBytes += dl.bytes.byteLength;
     } catch (err) {
+      keepPrior();
       blobs.fallback++;
-      log(`  blob skipped for block ${media.url} (${err.message}) — kept as reference`);
+      log(`  blob refresh skipped for ${media.url} (${err.message}) — ${prior?.blob ? 'kept previous blob' : 'reference only'}`);
     }
   };
 
   // Fresh channels aren't walked; their existing connection records are, by
   // definition of freshness, still the upstream truth — reuse them for the
-  // deletion accounting.
+  // deletion accounting. Grouped once up front instead of rescanning every
+  // connection per channel.
+  const connsByChannelUri = new Map();
+  for (const value of existingConns.map.values()) {
+    if (!value?.channel) continue;
+    let bucket = connsByChannelUri.get(value.channel);
+    if (!bucket) connsByChannelUri.set(value.channel, (bucket = []));
+    bucket.push(value);
+  }
   const creditExistingChannel = (ch) => {
-    const chUri = channelUriFor(ch.id);
-    for (const value of existingConns.map.values()) {
-      if (value?.channel !== chUri) continue;
+    for (const value of connsByChannelUri.get(channelUriFor(ch.id)) || []) {
       if (value?.origin?.arenaId != null) liveConnIds.add(asId(value.origin.arenaId));
       if (value?.target?.type === 'block' && value.target.uri && value.target.arenaId != null) {
         mirroredBlockIds.add(asId(value.target.arenaId));
@@ -185,9 +226,12 @@ export async function syncArenaMirror(options) {
     }
   };
 
+  const overBudget = () => Boolean(o.timeBudgetMs && Date.now() - startedAt > o.timeBudgetMs);
+  let suspectChannels = 0;
+
   for (const ch of scoped) {
     const chId = asId(ch.id);
-    if (o.timeBudgetMs && Date.now() - startedAt > o.timeBudgetMs) {
+    if (overBudget()) {
       partial = true;
       channelsUnvisited++;
       continue; // keep counting the rest as unvisited
@@ -205,8 +249,19 @@ export async function syncArenaMirror(options) {
     const ops = [];
     decideOp(ops, cols.channel, chId, channelValue(ch, { type: cols.channel, now: ts }), existingChannels.map);
 
+    let itemsYielded = 0;
+    let abortedMidWalk = false;
     for await (const item of client.channelContents(ch.id)) {
+      // Checked per item, not just per channel, so one huge channel (or slow
+      // blob fetches) can't blow past a serverless deadline before the sync
+      // state is persisted.
+      if (overBudget()) {
+        partial = true;
+        abortedMidWalk = true;
+        break;
+      }
       if (item?.id == null) continue;
+      itemsYielded++;
       if (item.state && item.state !== 'available') continue;
       const conn = item.connection;
       if (conn?.id == null) continue;
@@ -242,24 +297,50 @@ export async function syncArenaMirror(options) {
       );
     }
 
+    // A walk that yielded suspiciously little (transient empty/truncated
+    // response) must not become deletion authority or be marked fresh —
+    // otherwise one flaky response wipes the channel's records and the wipe
+    // sticks. Nested channels aren't served by v3 /contents, so compare
+    // against counts.blocks, not counts.contents.
+    const expectedBlocks = ch.counts?.blocks ?? null;
+    const suspectWalk = !abortedMidWalk && expectedBlocks != null && itemsYielded < expectedBlocks;
+    if (suspectWalk) {
+      suspectChannels++;
+      creditExistingChannel(ch);
+      log(
+        `channel "${ch.title}" (${ch.slug}): contents yielded ${itemsYielded} of ${expectedBlocks} expected block(s) — ` +
+          'applying upserts but keeping existing records and re-walking next run.',
+      );
+    }
+
+    let chFailed = 0;
     if (!o.dryRun && ops.length) {
       const res = await applyOps(agent, did, ops, { log });
+      chFailed = res.fail;
       writes.failed += res.fail;
     }
     channelsWalked++;
-    completed.set(chId, {
-      arenaId: ch.id,
-      updatedAt: ch.updated_at || null,
-      contents: ch.counts?.contents ?? null,
-    });
-    log(`channel "${ch.title}" (${ch.slug}): ${ops.length} write(s).`);
+    // Only a complete, fully-written walk earns a freshness entry; anything
+    // else must be retried next run.
+    if (!abortedMidWalk && !suspectWalk && chFailed === 0) {
+      completed.set(chId, freshnessEntry(ch));
+    }
+    log(`channel "${ch.title}" (${ch.slug}): ${ops.length} write(s)${chFailed ? `, ${chFailed} FAILED` : ''}.`);
+    // After a mid-walk abort the loop keeps going only to tally the rest as
+    // unvisited — the top-of-loop budget check short-circuits each of them.
   }
 
   // --- 5. deletion pass (complete runs only) ---------------------------------
   const subset = Boolean(o.channels);
-  const deletesAllowed = !subset && !partial && scoped.length > 0;
-  if (!deletesAllowed && scoped.length === 0 && existingChannels.map.size > 0) {
+  let deletesAllowed = !subset && !partial && scoped.length > 0;
+  if (scoped.length === 0 && existingChannels.map.size > 0) {
     log('warning: are.na reports zero in-scope channels but the PDS holds mirror records — refusing to delete anything.');
+  }
+  if (o.includePrivate && !client.token && deletesAllowed) {
+    // Without a token are.na silently omits private channels, which would
+    // read as "deleted upstream" and wipe their records.
+    deletesAllowed = false;
+    log('warning: includePrivate is on but no are.na token is set — private channels are invisible this run, skipping deletions to protect their records.');
   }
   if (deletesAllowed) {
     const stale = [];
@@ -267,20 +348,31 @@ export async function syncArenaMirror(options) {
       if (value?.origin?.arenaId == null) continue;
       if (!scopedIds.has(asId(value.origin.arenaId))) stale.push({ type: 'delete', collection: cols.channel, rkey });
     }
-    for (const [rkey, value] of existingBlocks.map) {
-      if (value?.origin?.arenaId == null) continue;
-      if (!mirroredBlockIds.has(asId(value.origin.arenaId))) stale.push({ type: 'delete', collection: cols.block, rkey });
-    }
-    for (const [rkey, value] of existingConns.map) {
-      if (value?.origin?.arenaId == null) continue;
-      if (!liveConnIds.has(asId(value.origin.arenaId))) stale.push({ type: 'delete', collection: cols.connection, rkey });
-    }
-    if (o.dryRun) {
-      writes.deleted = stale.length;
-    } else if (stale.length) {
-      const res = await applyOps(agent, did, stale, { log });
-      writes.deleted = res.ok;
-      writes.failed += res.fail;
+    // A sudden mass channel disappearance is more likely an enumeration
+    // hiccup (or auth change) than a real purge; require --full to confirm.
+    const staleChannelCount = stale.length;
+    if (!o.full && staleChannelCount > 3 && staleChannelCount > existingChannels.map.size * 0.2) {
+      log(
+        `warning: deletion pass would remove ${staleChannelCount} of ${existingChannels.map.size} channel records — ` +
+          'skipping deletions this run; use --full to confirm a real mass removal.',
+      );
+      deletesAllowed = false;
+    } else {
+      for (const [rkey, value] of existingBlocks.map) {
+        if (value?.origin?.arenaId == null) continue;
+        if (!mirroredBlockIds.has(asId(value.origin.arenaId))) stale.push({ type: 'delete', collection: cols.block, rkey });
+      }
+      for (const [rkey, value] of existingConns.map) {
+        if (value?.origin?.arenaId == null) continue;
+        if (!liveConnIds.has(asId(value.origin.arenaId))) stale.push({ type: 'delete', collection: cols.connection, rkey });
+      }
+      if (o.dryRun) {
+        writes.deleted = stale.length;
+      } else if (stale.length) {
+        const res = await applyOps(agent, did, stale, { log });
+        writes.deleted = res.ok;
+        writes.failed += res.fail;
+      }
     }
   }
 
@@ -312,6 +404,7 @@ export async function syncArenaMirror(options) {
     channelsWalked,
     channelsFresh,
     channelsUnvisited,
+    suspectChannels: suspectChannels || undefined,
     blocksExternal,
     writes,
     blobs,

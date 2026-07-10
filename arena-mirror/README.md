@@ -52,8 +52,11 @@ suppressor for future bidirectional sync. Full field docs live in
   imagery on link/embed/attachment blocks (screenshots, oEmbed thumbnails) is
   always reference-only; blobs are spent on primary artifacts.
 - Switching modes never destroys blobs: a `references` run carries existing
-  blobs forward and simply stops acquiring new ones. A blob is only dropped
-  when the upstream file itself changed.
+  blobs forward and simply stops acquiring new ones. When a blob *should* be
+  refreshed (the upstream file changed) but can't be — references mode,
+  oversized, download failed — the previous blob is kept alongside the
+  metadata it was captured under, and the mismatch retries the refresh on a
+  later blobs-mode run. A capture, once made, is never silently discarded.
 
 **Scope — `blockScope`**
 - `connected` (default): every block in your channels is mirrored, including
@@ -82,16 +85,23 @@ new settings instead of serving a mix.
   and compares `updated_at` + contents count against the sync record. Nothing
   changed → no-op. Otherwise only changed channels are walked, and only
   records that actually differ are written.
-- **Resumable.** Give the engine a `timeBudgetMs` and it stops cleanly between
-  channels when time runs out, persists progress, and resumes next run —
-  which is how a first backfill of a large account survives serverless
-  execution limits. (Better: run the first backfill from a laptop with the
-  CLI, no budget.)
+- **Resumable.** Give the engine a `timeBudgetMs` and it stops cleanly — the
+  budget is checked between channels *and* between items inside a walk —
+  persists progress, and resumes next run, which is how a first backfill of a
+  large account survives serverless execution limits. (Better: run the first
+  backfill from a laptop with the CLI, no budget.) A channel only earns its
+  freshness marker when its walk completed, its contents looked complete, and
+  every write succeeded; anything less is retried next run.
 - **Deletion-safe.** Records deleted on are.na are deleted from the PDS, but
   only on complete runs (never on partial/subset runs, where the mirror can't
   see the whole picture), never for records without `origin.arenaId` (those
   belong to future write-back, not to the mirror), and never when are.na
-  suddenly reports zero channels for the account.
+  suddenly reports zero channels for the account. Two more tripwires: if the
+  pass would remove more than ~20% of channel records at once it refuses
+  (an enumeration hiccup looks exactly like a purge — rerun with `--full` to
+  confirm a real one), and if `includePrivate` is on but no are.na token is
+  present, deletions are skipped entirely, since private channels are
+  invisible to a tokenless run and would read as deleted.
 - **Polite.** are.na has no webhooks, so this is polling: requests are spaced
   out, 429s honour `Retry-After`, transient errors retry with backoff. An
   [are.na personal access token](https://www.are.na/developers) raises the

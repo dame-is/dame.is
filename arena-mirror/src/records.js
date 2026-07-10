@@ -44,9 +44,8 @@ export const blockUrl = (id) => `https://www.are.na/block/${id}`;
 
 /** are.na channel JSON → channel record value. */
 export function channelValue(ch, { type, now }) {
-  return compact({
+  const value = compact({
     $type: type,
-    title: ch.title || '',
     description: arenaMarkdown(ch.description) || null,
     slug: ch.slug || null,
     visibility: ch.visibility || null,
@@ -62,6 +61,9 @@ export function channelValue(ch, { type, now }) {
     updatedAt: ch.updated_at || null,
     origin: { arenaId: ch.id, url: channelUrl(ch), syncedAt: now },
   });
+  // Required by the lexicon, so it must survive compact() even when empty.
+  value.title = ch.title || '';
+  return value;
 }
 
 function imageValue(img) {
@@ -98,7 +100,7 @@ function attachmentValue(att) {
  * (screenshots, oEmbed thumbnails), not the thing being saved.
  */
 export function blockValue(block, { type, now }) {
-  const kind = String(block.type || '').toLowerCase();
+  const kind = String(block.type || 'unknown').toLowerCase();
   const value = compact({
     $type: type,
     kind,
@@ -131,11 +133,14 @@ export function blockValue(block, { type, now }) {
     origin: { arenaId: block.id, url: blockUrl(block.id), syncedAt: now },
   });
 
+  // The primary artifact the engine may capture as a blob. `urlKey` names the
+  // property inside the record's media object that holds the file URL, which
+  // the engine also uses to detect file replacement.
   let media = null;
   if (kind === 'image' && value.image) {
-    media = { field: 'image', url: value.image.src, fileSize: value.image.fileSize ?? null, updatedAt: value.image.updatedAt ?? null };
+    media = { field: 'image', urlKey: 'src', url: value.image.src, fileSize: value.image.fileSize ?? null };
   } else if (kind === 'attachment' && value.attachment) {
-    media = { field: 'attachment', url: value.attachment.url, fileSize: value.attachment.fileSize ?? null, updatedAt: value.attachment.updatedAt ?? null };
+    media = { field: 'attachment', urlKey: 'url', url: value.attachment.url, fileSize: value.attachment.fileSize ?? null };
   }
   return { value, media };
 }

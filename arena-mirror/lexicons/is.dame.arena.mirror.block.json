@@ -8,7 +8,7 @@
       "description": "An are.na block mirrored onto the owner's PDS. The record key is the are.na block id. A block connected into several channels has exactly one block record; each placement is an is.dame.arena.mirror.connection record. Reference URLs and metadata are always stored, so a record renders the same whether or not media was also captured as a blob.",
       "record": {
         "type": "object",
-        "required": ["kind", "creator", "createdAt", "origin"],
+        "required": ["kind", "createdAt", "origin"],
         "properties": {
           "kind":        { "type": "string", "description": "are.na block class.", "knownValues": ["image", "text", "link", "attachment", "embed"] },
           "title":       { "type": "string" },
@@ -67,7 +67,7 @@
               "height":     { "type": "integer" }
             }
           },
-          "creator":   { "type": "ref", "ref": "is.dame.arena.mirror.channel#arenaUser", "description": "Who created the block on are.na — not necessarily the repo owner when mirroring connected blocks." },
+          "creator":   { "type": "ref", "ref": "is.dame.arena.mirror.channel#arenaUser", "description": "Who created the block on are.na — not necessarily the repo owner when mirroring connected blocks. Absent when the creator's account is gone." },
           "createdAt": { "type": "string", "format": "datetime", "description": "When the block was created on are.na." },
           "updatedAt": { "type": "string", "format": "datetime" },
           "origin":    { "type": "ref", "ref": "is.dame.arena.mirror.channel#origin" }

@@ -46,9 +46,12 @@ export function normalizeOptions(opts = {}) {
     throw new Error('arena-mirror: maxBlobBytes must be a positive number');
   }
 
-  const channels = Array.isArray(opts.channels) && opts.channels.length
-    ? opts.channels.map((s) => String(s).trim()).filter(Boolean)
-    : null;
+  let channels = null;
+  if (Array.isArray(opts.channels) && opts.channels.length) {
+    channels = opts.channels.map((s) => String(s).trim()).filter(Boolean);
+    // A subset that names nothing would silently sync nothing — refuse it.
+    if (!channels.length) throw new Error('arena-mirror: `channels` was given but contains no slugs/ids');
+  }
 
   return {
     user,
