@@ -77,34 +77,29 @@ function loadUnifiedSnapshot() {
 }
 
 /**
- * Per-day summary line shown under each day header in the home feed.
- * Counts:
- *   - records  — real underlying records (listen batches expand to
- *                their `count` so a session of 10 songs reads as 10
- *                records, not 1).
- *   - posts    — items whose verb is `posting`.
- *   - engagements — sum of like/repost/reply counts across this day's
- *                   posting items. Reflects how much activity those
- *                   posts attracted on Bluesky.
+ * Per-day summary line shown beside each day header in the home feed,
+ * e.g. "59 items, 120 interactions".
+ *   - items — real underlying records (listen batches expand to their
+ *             `count` so a session of 10 songs reads as 10 items, not 1).
+ *   - interactions — sum of like/repost/reply counts across this day's
+ *                    posting items; how much activity those posts
+ *                    attracted on Bluesky.
  * Parts with a zero count are omitted so quieter days read clean.
  */
 function dayStatsLine(items) {
-  let records = 0;
-  let posts = 0;
-  let engagements = 0;
+  let count = 0;
+  let interactions = 0;
   for (const item of items || []) {
-    records += item?.count || 1;
+    count += item?.count || 1;
     if (item?.verb === 'posting') {
-      posts += 1;
       const p = item.payload || {};
-      engagements += (p.likeCount || 0) + (p.repostCount || 0) + (p.replyCount || 0);
+      interactions += (p.likeCount || 0) + (p.repostCount || 0) + (p.replyCount || 0);
     }
   }
   const parts = [];
-  if (records) parts.push(`${records} ${records === 1 ? 'record' : 'records'}`);
-  if (posts) parts.push(`${posts} ${posts === 1 ? 'post' : 'posts'}`);
-  if (engagements) parts.push(`${engagements} ${engagements === 1 ? 'engagement' : 'engagements'}`);
-  return parts.join(' · ');
+  if (count) parts.push(`${count} ${count === 1 ? 'item' : 'items'}`);
+  if (interactions) parts.push(`${interactions} ${interactions === 1 ? 'interaction' : 'interactions'}`);
+  return parts.join(', ');
 }
 
 /**
