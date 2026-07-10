@@ -759,11 +759,12 @@ function useCurrentDayLabel() {
   return label;
 }
 
-/** NSID of the feed record at the top of the scroll position — the first
- *  feed row still (partly) visible below the chrome — or null on pages
- *  without feed rows. Same DOM-driven, rAF-throttled sweep as
- *  useCurrentDayLabel above; rows publish their collection via the
- *  `data-nsid` attribute FeedItem stamps on each <li>. */
+/** NSID of the record at the top of the scroll position — the first
+ *  record entry still (partly) visible below the chrome — or null on
+ *  pages without record lists. Same DOM-driven, rAF-throttled sweep as
+ *  useCurrentDayLabel above; entries publish their collection via a
+ *  `data-nsid` attribute (FeedItem rows, the /creating grid, the
+ *  /blogging table of contents). */
 function useTopFeedNsid() {
   const [nsid, setNsid] = useState(null);
   const location = useLocation();
@@ -775,7 +776,7 @@ function useTopFeedNsid() {
           getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-h'),
         ) || 0;
       let current = null;
-      for (const el of document.querySelectorAll('.feed-item[data-nsid]')) {
+      for (const el of document.querySelectorAll('[data-nsid]')) {
         const rect = el.getBoundingClientRect();
         if (rect.height > 0 && rect.bottom > chromeBottom + 12) {
           current = el.dataset.nsid;

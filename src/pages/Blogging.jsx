@@ -9,6 +9,7 @@ import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, formatDateFull, compareIsoDesc } from '../lib/time.js';
 import { isPortfolioDoc } from '../lib/publications.js';
+import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 import './Blogging.css';
@@ -68,7 +69,11 @@ export default function Blogging() {
       ) : (
         <ol className="blogging-toc reveal-stagger">
           {filtered.map((e, i) => (
-            <li key={e.uri || i} className="blogging-toc-entry">
+            <li
+              key={e.uri || i}
+              className="blogging-toc-entry"
+              data-nsid={nsidFromAtUri(e.uri) || undefined}
+            >
               <Link to={e.href} className="blogging-toc-link">
                 <span className="blogging-toc-num gutter">{String(i + 1).padStart(2, '0')}</span>
                 <span className="blogging-toc-body">
