@@ -1422,9 +1422,10 @@ a.reference-card-profile:focus-visible {
   font-size: var(--text-lg);
 }
 
+/* Day stats sit at the same scale as the rows' gerund/time labels. */
 .feed-ledger .day-header-meta {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.95);
+  font-size: calc(var(--text-xs) * 0.85);
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-align: right;
@@ -1678,6 +1679,28 @@ a.ledger-verb:focus-visible {
   display: none;
 }
 
+/* Reposts render as a quote-style box (FeedLedgerRow's RepostQuote).
+   The original post IS the row's content, so unlike a quote nested
+   inside a post its text stays unclamped and its own media renders —
+   still height-capped by the rules above. Quotes nested inside the
+   reposted post stay dropped. */
+.ledger-repost .post-embed-quote-text {
+  display: block;
+  overflow: visible;
+}
+
+.ledger-repost .post-embed-quote > .post-embed-images {
+  display: grid;
+}
+
+.ledger-repost .post-embed-quote > .post-embed-video {
+  display: block;
+}
+
+.ledger-repost .post-embed-quote > .post-embed-link-card {
+  display: grid;
+}
+
 /* Text-less posts: the embed is the row's only content. Baseline row
    alignment would sink the verb/time labels to the embed's bottom
    edge, so those rows top-align instead, with a nudge that sits the
@@ -1706,7 +1729,8 @@ a.ledger-verb:focus-visible {
   }
 
   .feed-ledger .ledger-verb,
-  .feed-ledger .ledger-time {
+  .feed-ledger .ledger-time,
+  .feed-ledger .day-header-meta {
     font-size: calc(var(--text-xs) * 0.8);
   }
 
