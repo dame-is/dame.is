@@ -228,10 +228,12 @@
        padding-top is the only gap. */
     row-gap: 0;
   }
-  /* Drop the trail's bottom padding when the NSID stacks beneath it, so the
-     NSID sits close under the breadcrumb — reading as its caption rather than
-     a separate row. */
-  .chrome-bar-tertiary.is-detail .chrome-breadcrumb {
+  /* Drop the trail's bottom padding ONLY when an NSID stacks beneath it, so
+     the NSID sits close under the breadcrumb — reading as its caption rather
+     than a separate row. When there's no NSID (some detail pages don't report
+     one), the trail keeps its own bottom padding so it isn't jammed against
+     the strip's bottom edge. */
+  .chrome-bar-tertiary.is-detail:has(.chrome-crumb-nsid) .chrome-breadcrumb {
     padding-bottom: 0;
   }
   .chrome-bar-tertiary.is-detail .chrome-crumb-nsid {
