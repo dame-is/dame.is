@@ -1509,6 +1509,55 @@ a.ledger-verb:focus-visible {
   font-size: var(--text-sm);
 }
 
+/* Listening sessions: tapping the row (or its "N songs +" toggle, the
+   keyboard-accessible affordance) expands the batch into one sub-row
+   per track. */
+.feed-item-ledger-expandable {
+  cursor: pointer;
+}
+
+.ledger-count-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.ledger-count-toggle:hover,
+.ledger-count-toggle:focus-visible {
+  color: var(--accent);
+}
+
+.ledger-count-caret {
+  margin-left: 0.35em;
+}
+
+/* Expanded tracks reuse the row's grid: each play's time lands in the
+   time column and its "track — artist" line in the summary column,
+   with the verb column left empty. Auto-placement makes one implicit
+   grid row per track. */
+.ledger-track-time {
+  grid-column: 2;
+}
+
+.ledger-track {
+  grid-column: 3;
+  font-size: var(--text-sm);
+}
+
+.ledger-track a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ledger-track a:hover,
+.ledger-track a:focus-visible {
+  color: var(--accent);
+}
+
 /* Muted placeholder when a record has no text of its own ("a gallery",
    "an unavailable post"). */
 .ledger-placeholder {
