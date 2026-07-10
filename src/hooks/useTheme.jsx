@@ -56,6 +56,15 @@ function applyTheme(theme, skyHour) {
   applyThemeColor(color);
 }
 
+// State for the iOS re-tint scroll nudge below. Module-level so
+// overlapping nudges (rapid theme/hour changes — e.g. mashing the sky
+// hour chip) share one TRUE baseline: a later nudge must not read the
+// 1px-displaced position left by an earlier one as its "original"
+// scroll position, or each overlap leaks a permanent 1px downward
+// creep when the racing restores land out of order.
+let nudgeBaseY = null;
+let nudgeRestoreRaf = 0;
+
 function applyThemeColor(color) {
   if (typeof document === 'undefined') return;
   const head = document.head;
@@ -69,12 +78,17 @@ function applyThemeColor(color) {
   // iOS Safari re-evaluates its status bar / URL bar tint at the END
   // of a user gesture (touchend). Nudging a 1px scroll provokes the
   // re-tint pass; without this, the chrome stays on the previous
-  // theme's color until the next scroll/tap.
+  // theme's color until the next scroll/tap. Re-entrant: the baseline
+  // is captured once per settled position and the pending restore is
+  // cancelled, so back-to-back nudges always restore to where the page
+  // actually started.
   try {
-    const y = window.scrollY || window.pageYOffset || 0;
-    window.scrollTo(0, y + 1);
-    requestAnimationFrame(() => {
-      window.scrollTo(0, y);
+    if (nudgeBaseY == null) nudgeBaseY = window.scrollY || window.pageYOffset || 0;
+    window.scrollTo(0, nudgeBaseY + 1);
+    cancelAnimationFrame(nudgeRestoreRaf);
+    nudgeRestoreRaf = requestAnimationFrame(() => {
+      window.scrollTo(0, nudgeBaseY);
+      nudgeBaseY = null;
     });
   } catch {}
 }
@@ -96,8 +110,19 @@ export function ThemeProvider({ children }) {
   const skyHourRef = useRef(skyHour);
   skyHourRef.current = skyHour;
 
+  // What applyTheme last painted. The click handlers below apply
+  // synchronously (for the iOS same-gesture theme-color) and then set
+  // state; without this guard the state-driven effect would re-apply the
+  // identical theme+hour right after — a second scroll nudge per tap.
+  const appliedRef = useRef(null);
+  const applySig = (t, h) => (t === 'sky' ? `sky:${h}` : t);
+
   useEffect(() => {
-    applyTheme(theme, skyHour);
+    const sig = applySig(theme, skyHour);
+    if (appliedRef.current !== sig) {
+      applyTheme(theme, skyHour);
+      appliedRef.current = sig;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, theme);
     } catch {}
@@ -134,6 +159,7 @@ export function ThemeProvider({ children }) {
     // Apply synchronously inside the click handler so iOS Safari sees
     // the updated theme-color meta during the same user gesture.
     applyTheme(next, skyHourRef.current);
+    appliedRef.current = applySig(next, skyHourRef.current);
     setThemeState(next);
     if (next !== 'sky') setSkyOverride(null);
   }, []);
@@ -143,6 +169,7 @@ export function ThemeProvider({ children }) {
       const idx = VALID.indexOf(prev);
       const next = VALID[(idx + 1) % VALID.length];
       applyTheme(next, skyHourRef.current);
+      appliedRef.current = applySig(next, skyHourRef.current);
       if (next !== 'sky') setSkyOverride(null);
       return next;
     });
@@ -155,6 +182,7 @@ export function ThemeProvider({ children }) {
     const next = (skyHourRef.current + 1) % 24;
     // Sync apply for the same iOS theme-color gesture reason as setTheme.
     applyTheme('sky', next);
+    appliedRef.current = applySig('sky', next);
     setSkyOverride(next);
   }, []);
 
