@@ -5,6 +5,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { useAvatar } from '../hooks/useAvatar.js';
+import { skyAvatarUrl } from '../lib/skyAvatars.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
@@ -35,7 +36,15 @@ export default function ChromeBar() {
   // Brand mark: Dame's live Bluesky avatar (regenerated hourly to track the
   // sun). While it's loading — or if it ever fails — the mark simply isn't
   // rendered rather than falling back to a glyph.
-  const avatar = useAvatar();
+  //
+  // TEMPORARY (sky-theme testing): while the bottom-bar hour chip is
+  // overriding the sky clock, the mark swaps to the bundled sky-avatar
+  // frame for the overridden hour, so the avatar steps through the day
+  // in lockstep with the palette. Remove alongside the chip.
+  const liveAvatar = useAvatar();
+  const { theme, skyHour, skyOverridden } = useTheme();
+  const avatar =
+    (theme === 'sky' && skyOverridden ? skyAvatarUrl(skyHour) : null) || liveAvatar;
   const [avatarBroken, setAvatarBroken] = useState(false);
   const showAvatar = avatar && !avatarBroken;
   // A new hourly avatar URL gets a fresh chance to load — clear any prior
