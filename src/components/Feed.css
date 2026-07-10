@@ -1739,7 +1739,9 @@ a.ledger-verb:focus-visible {
 }
 
 .feed-ledger-flat .feed-item-ledger {
-  grid-template-columns: minmax(0, 1fr) var(--ledger-time-col);
+  /* The right cell auto-sizes so it fits either a short relative time
+     ("3mo") or a small count ("42 blocks"). */
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 /* Whole-row links read as calm ledger text (ink title, faint time) — the
