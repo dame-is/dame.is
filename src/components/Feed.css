@@ -1445,6 +1445,14 @@ a.reference-card-profile:focus-visible {
   border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
 }
 
+/* Self-thread continuations carry no verb label; instead the rule
+   separating them from the post they continue goes dashed — i.e. the
+   PREVIOUS row's bottom border. Rows sit inside Home's motion.li
+   wrappers, so the sibling hop happens on those. */
+.feed-ledger .feed-list > li:has(+ li .feed-item-thread-continuation) .feed-item-ledger {
+  border-bottom-style: dashed;
+}
+
 .ledger-verb {
   font-family: var(--mono);
   font-size: var(--text-xs);
