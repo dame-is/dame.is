@@ -13,7 +13,7 @@ import './styles/paper.css';
 // Theme selection happens here (before React mounts) so the first
 // paint is in the correct palette. Three themes (light / dark / the
 // hour-tracking sky mode); retired monochrome variants alias to their
-// color equivalent, and legacy/missing values fall to light. Keep
+// color equivalent, and legacy/missing values fall to sky. Keep
 // VALID_THEMES + THEME_COLORS + THEME_ALIASES in sync with useTheme.jsx.
 const VALID_THEMES = ['light', 'dark', 'sky'];
 const THEME_ALIASES = { 'light-mono': 'light', 'dark-mono': 'dark' };
@@ -23,9 +23,9 @@ const THEME_COLORS = {
 };
 const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
 const resolvedStoredTheme = THEME_ALIASES[storedTheme] || storedTheme;
-// Default to light for new visitors (and legacy `system` / other
-// invalid values). Keep in sync with DEFAULT_THEME in useTheme.
-const initialTheme = VALID_THEMES.includes(resolvedStoredTheme) ? resolvedStoredTheme : 'light';
+// Default to the sky theme for new visitors (and legacy `system` /
+// other invalid values). Keep in sync with DEFAULT_THEME in useTheme.
+const initialTheme = VALID_THEMES.includes(resolvedStoredTheme) ? resolvedStoredTheme : 'sky';
 document.documentElement.setAttribute('data-theme', initialTheme);
 
 // Sky mode's palette is computed, not static — derive this hour's tokens

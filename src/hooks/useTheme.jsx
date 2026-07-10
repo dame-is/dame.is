@@ -33,14 +33,14 @@ const THEME_COLOR = {
   dark: '#13180f',
 };
 
-const DEFAULT_THEME = 'light';
+const DEFAULT_THEME = 'sky';
 
 function migrateStoredTheme(stored) {
   const resolved = THEME_ALIAS[stored] || stored;
   if (VALID.includes(resolved)) return resolved;
-  // Legacy / missing values land on the light theme so new visitors
-  // get a predictable first paint — they can flip to dark from the
-  // chrome bar.
+  // Legacy / missing values land on the sky theme, so new visitors get
+  // the hour-tracking palette by default — they can flip to a static
+  // light/dark from the chrome bar.
   return DEFAULT_THEME;
 }
 
