@@ -1676,6 +1676,61 @@ a.ledger-verb:focus-visible {
   font-size: var(--text-sm);
 }
 
+/* iNaturalist observation rows carry a specimen thumbnail beside the
+   common + scientific names (see ObservationLedgerBody), mirroring the
+   /mothing page's ledger row. A photoless observation keeps the same
+   footprint via an empty bordered box. */
+.ledger-obs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ledger-obs-thumb {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  background: var(--page);
+}
+
+.ledger-obs-thumb-empty {
+  display: block;
+}
+
+.ledger-obs-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ledger-obs-name {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: 1.2;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.ledger-obs-sci {
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* The observation body is taller than a text line; center the verb and
+   time labels against the thumbnail instead of pinning them to the
+   baseline of the first name line. */
+.feed-ledger .feed-item-ledger:has(.ledger-obs) {
+  align-items: center;
+}
+
 /* Listening sessions: tapping the row (or its "N songs +" toggle, the
    keyboard-accessible affordance) expands the batch into one sub-row
    per track. */
