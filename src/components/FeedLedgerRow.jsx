@@ -4,6 +4,7 @@ import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { photoUrl } from '../lib/inaturalist.js';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID } from '../config.js';
@@ -58,7 +59,10 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
   // Reposts skip the inline "@handle: text" summary entirely — the
   // original post renders as a quote-style box instead (see RepostQuote).
   const isRepost = item.verb === 'reposting';
-  const summary = isRepost ? null : summarize(item, { expanded, onToggle });
+  // iNaturalist observations render a specimen thumbnail beside stacked
+  // common/scientific names (see ObservationLedgerBody), not a text summary.
+  const isObservation = item.verb === 'mothing' || item.verb === 'observing';
+  const summary = isRepost || isObservation ? null : summarize(item, { expanded, onToggle });
   const embed = isRepost ? null : ledgerEmbed(item);
   return (
     <>
@@ -75,6 +79,7 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
       )}
       <div className="ledger-body">
         {isRepost && <RepostQuote item={item} />}
+        {isObservation && <ObservationLedgerBody item={item} />}
         {summary && <p className="ledger-text">{summary}</p>}
         {embed && (
           <div className="ledger-embed">
@@ -215,9 +220,8 @@ function summarize(item, listenControls) {
       const title = payload.title || payload.name || payload.description || payload.caption;
       return plain(title, 'a gallery');
     }
-    case 'mothing':
-    case 'observing':
-      return summarizeObservation(item);
+    // 'mothing' / 'observing' are handled separately (ObservationLedgerBody
+    // renders a thumbnail + names), so they never reach this text summary.
     case 'liking':
       return summarizeSubject(item.subject, item.source);
     case 'following':
@@ -372,23 +376,46 @@ function uniqueArtistNames(plays) {
   return out;
 }
 
-function summarizeObservation(item) {
+/**
+ * An iNaturalist observation as a ledger body: a small square specimen
+ * thumbnail beside the common and scientific names stacked, mirroring the
+ * /mothing page's ledger row (MothLedgerRow). The verb cell already names
+ * the activity ("mothing" / "observing") and the row's own time column
+ * carries the timestamp, so this cell only owns the photo + names. Works
+ * for both mirrored records and live-fetched observations — same
+ * `photos: [{ id, url, … }]` / `taxon` payload shape.
+ */
+function ObservationLedgerBody({ item }) {
   const payload = item.payload || {};
+  const photo = Array.isArray(payload.photos) ? payload.photos[0] : null;
+  const thumb = photo ? photoUrl(photo, 'square') : null;
   const common = payload.taxon?.commonName;
   const sci = payload.taxon?.name;
-  const title = common || sci;
-  if (!title) {
-    return (
-      <Placeholder>
-        {item.verb === 'mothing' ? 'an unidentified moth' : 'an unidentified organism'}
-      </Placeholder>
-    );
-  }
+  const name = common || sci;
+  const showSci = sci && sci !== name;
+  const fallback = item.verb === 'mothing' ? 'an unidentified moth' : 'an unidentified organism';
   return (
-    <>
-      {title}
-      {sci && sci !== title && <span className="ledger-count"> ({sci})</span>}
-    </>
+    <div className="ledger-obs">
+      {thumb ? (
+        <img
+          className="ledger-obs-thumb"
+          src={thumb}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width={36}
+          height={36}
+        />
+      ) : (
+        <span className="ledger-obs-thumb ledger-obs-thumb-empty" aria-hidden="true" />
+      )}
+      <span className="ledger-obs-names">
+        <span className="ledger-obs-name">
+          {name || <Placeholder>{fallback}</Placeholder>}
+        </span>
+        {showSci && <span className="ledger-obs-sci">{sci}</span>}
+      </span>
+    </div>
   );
 }
 
