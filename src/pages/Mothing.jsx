@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import FlatLedger from '../components/FlatLedger.jsx';
+import Lightbox from '../components/Lightbox.jsx';
 import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
@@ -43,28 +44,48 @@ function StatBlock({ value, label }) {
   );
 }
 
-function MothCard({ obs }) {
+/** Google Lens reverse-image search for a photo — handy for pinning an ID. */
+function reverseSearchUrl(imageUrl) {
+  return `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+}
+
+const mothName = (obs) => obs.taxon?.commonName || obs.taxon?.name || 'Unidentified moth';
+
+/**
+ * One observation as an image tile that opens the in-page lightbox (the
+ * iNaturalist link moves into the lightbox's "source" control). Photoless
+ * observations fall back to a static placeholder tile.
+ */
+function MothTile({ obs, onOpen }) {
   const photo = obs.photos?.[0];
   const src = photo ? photoUrl(photo, 'medium') : null;
-  const title = obs.taxon?.commonName || obs.taxon?.name || 'Unidentified moth';
+  const title = mothName(obs);
   const sci = obs.taxon?.name;
   const showSci = sci && sci !== title;
+  const caption = (
+    <span className="mothing-tile-caption">
+      <span className="mothing-name">{title}</span>
+      {showSci && <span className="mothing-sci">{sci}</span>}
+    </span>
+  );
   return (
     <li className="mothing-cell">
-      <a className="mothing-link" href={obs.url} target="_blank" rel="noopener noreferrer">
-        {src ? (
-          <img src={src} alt={title} loading="lazy" />
-        ) : (
+      {src ? (
+        <button
+          type="button"
+          className="mothing-tile"
+          onClick={() => onOpen(obs)}
+          aria-label={`View photo: ${title}`}
+        >
+          <img src={src} alt={title} loading="lazy" decoding="async" />
+          {caption}
+        </button>
+      ) : (
+        <div className="mothing-tile mothing-tile-empty">
           <div className="mothing-placeholder" aria-hidden="true">&#x1F98B;</div>
-        )}
-        <div className="mothing-meta">
-          <h3 className="mothing-name">{title}</h3>
-          {showSci && <span className="mothing-sci">{sci}</span>}
-          <span className="gutter mothing-sub">
-            {obs.observedTime ? formatTime(obs.observedTime) : formatDate(obs.observedDate)}
-          </span>
+          {caption}
         </div>
-      </a>
+      )}
     </li>
   );
 }
@@ -152,6 +173,38 @@ export default function Mothing() {
 
   const { sessions, orphans } = useMemo(() => buildSessions(observations), [observations]);
 
+  // Lightbox over every photographed observation, in the same order the tiles
+  // render (sessions first, then orphans), so prev/next walks the whole page.
+  // `lightbox` is the active index, -1 when closed.
+  const [lightbox, setLightbox] = useState(-1);
+  const photoObs = useMemo(() => {
+    const ordered = [...sessions.flatMap((s) => s.observations), ...orphans];
+    return ordered.filter((o) => o.photos?.[0]);
+  }, [sessions, orphans]);
+  const lightboxIndexById = useMemo(() => {
+    const map = new Map();
+    photoObs.forEach((o, i) => map.set(o.id, i));
+    return map;
+  }, [photoObs]);
+  const openLightbox = (obs) => setLightbox(lightboxIndexById.get(obs.id) ?? -1);
+  const lightboxImages = useMemo(
+    () =>
+      photoObs.map((o) => {
+        const photo = o.photos[0];
+        const large = photoUrl(photo, 'large');
+        const name = mothName(o);
+        const sci = o.taxon?.name;
+        return {
+          src: large,
+          thumb: photoUrl(photo, 'medium'),
+          alt: sci && sci !== name ? `${name} — ${sci}` : name,
+          sourceUrl: o.url,
+          searchUrl: large ? reverseSearchUrl(large) : undefined,
+        };
+      }),
+    [photoObs],
+  );
+
   return (
     <PageShell
       title={title}
@@ -226,7 +279,7 @@ export default function Mothing() {
               <SessionHeader session={session} />
               <ul className="mothing-grid reveal-stagger">
                 {session.observations.map((obs) => (
-                  <MothCard key={obs.id} obs={obs} />
+                  <MothTile key={obs.id} obs={obs} onOpen={openLightbox} />
                 ))}
               </ul>
             </section>
@@ -245,7 +298,7 @@ export default function Mothing() {
               </header>
               <ul className="mothing-grid reveal-stagger">
                 {orphans.map((obs) => (
-                  <MothCard key={obs.id} obs={obs} />
+                  <MothTile key={obs.id} obs={obs} onOpen={openLightbox} />
                 ))}
               </ul>
             </section>
@@ -260,6 +313,13 @@ export default function Mothing() {
         </a>
         . A mothing session is one night at the light (8pm&ndash;3am). Location data is intentionally omitted.
       </p>
+
+      <Lightbox
+        open={lightbox >= 0}
+        index={Math.max(0, lightbox)}
+        onClose={() => setLightbox(-1)}
+        images={lightboxImages}
+      />
     </PageShell>
   );
 }
