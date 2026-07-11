@@ -530,17 +530,20 @@ export default function Home() {
     >
       <nav className="home-hero-cta" aria-label="Primary destinations">
         <Link className="home-hero-cta-btn home-hero-cta-primary" to="/creating">
-          Browse Projects
+          Projects
         </Link>
         <Link className="home-hero-cta-btn" to="/blogging">
-          Read Blog
+          Blog
+        </Link>
+        <Link className="home-hero-cta-btn" to="/guestbook">
+          Guestbook
         </Link>
         <button
           type="button"
           className="home-hero-cta-btn home-hero-shuffle"
           onClick={() => shuffleRef.current?.()}
-          aria-label="Shuffle the hero phrase"
-          title="Shuffle"
+          aria-label="Shuffle hero statement"
+          title="Shuffle hero statement"
         >
           <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
