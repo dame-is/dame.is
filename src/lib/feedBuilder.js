@@ -28,6 +28,7 @@ import { VERB_REGISTRY } from './verbRegistry.js';
 import { isPortfolioDoc } from './publications.js';
 import { createSubjectResolver } from './subjectResolver.js';
 import { fetchLiveObservationItems } from './liveObservations.js';
+import { observationFeedInstant } from './inaturalist.js';
 import { compareIsoDesc } from './time.js';
 
 /**
@@ -707,6 +708,19 @@ export async function buildUnifiedFeed({
       }
       counts.liveObservations = added;
     }, null);
+  }
+
+  // Observations store their local wall-clock pinned to `Z` (privacy: no tz
+  // offset is ever persisted). That fake-UTC value sorts ~offset hours early
+  // against real-UTC records and buckets into the wrong local day. Rebuild each
+  // observation's ordering timestamp as a local instant so it interleaves and
+  // day-groups correctly. No-op in Node/UTC (snapshot unchanged); in the
+  // browser it maps the observer's wall-clock to the viewer's clock. Both the
+  // mirrored and the live-augmented items carry `observedDate`/`observedTime`.
+  for (const item of unified) {
+    if (item.verb !== 'mothing' && item.verb !== 'observing') continue;
+    const instant = observationFeedInstant(item.payload?.observedDate, item.payload?.observedTime);
+    if (instant) item.createdAt = instant;
   }
 
   sortUnifiedFeed(unified);
