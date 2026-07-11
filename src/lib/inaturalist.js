@@ -549,6 +549,35 @@ export function observedTimestamp(observedDate, observedTime) {
 }
 
 /**
+ * The instant to ORDER and DISPLAY an observation by in a feed, rebuilt from
+ * its stored local wall-clock (`observedDate` + `observedTime`) interpreted in
+ * the *runtime's* time zone.
+ *
+ * `observedTimestamp` pins the wall-clock to `Z` so no tz offset is ever stored
+ * (a tz offset is a coarse location hint). But that fake-UTC value is not a real
+ * instant: against genuinely-UTC records (Bluesky posts, statuses) it sorts
+ * ~offset hours early, and localizing it for display double-shifts the clock
+ * (a 2:59pm sighting reads 10:59am to an observer in UTC−4). Reconstructing it
+ * as a local instant restores correct interleaving, correct local-day
+ * bucketing, and — round-tripped back through `toLocaleTimeString` — the right
+ * displayed time, for a viewer in the observer's own zone (the common case; the
+ * offset is never persisted, so a far-away viewer still can't do better).
+ *
+ * In Node/UTC (the static prefetch) this returns the same instant as
+ * `observedTimestamp`, so the snapshot is byte-identical; only the browser
+ * rebuild, running in the viewer's zone, shifts it.
+ */
+export function observationFeedInstant(observedDate, observedTime) {
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(observedDate || ''));
+  if (!dm) return null;
+  const tm = /^(\d{2}):(\d{2})$/.exec(String(observedTime || ''));
+  const hh = tm ? Number(tm[1]) : 12; // noon fallback for a timeless observation
+  const mm = tm ? Number(tm[2]) : 0;
+  const d = new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0, 0);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/**
  * One observation record value under `$type`, keyed downstream by the iNat
  * id. The mothing and observing observation lexicons share the exact same
  * shape — only the `$type` differs — so both go through here.

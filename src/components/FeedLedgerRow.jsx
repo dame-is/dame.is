@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { formatTime } from '../lib/time.js';
+import { formatTime, formatWallClockTime } from '../lib/time.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
@@ -64,6 +64,16 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
   const isObservation = item.verb === 'mothing' || item.verb === 'observing';
   const summary = isRepost || isObservation ? null : summarize(item, { expanded, onToggle });
   const embed = isRepost ? null : ledgerEmbed(item);
+  // Observations show their stored local wall-clock time-of-day directly, never
+  // localized — the record's timestamp is that wall-clock pinned to `Z`, so
+  // running it through `formatTime` (which localizes) would re-shift the clock
+  // (a 2:59pm sighting reading 10:59am). Falls back to the localized time only
+  // for the rare observation with no recorded time.
+  const timeText = isObservation
+    ? formatWallClockTime(item.payload?.observedTime) || (ts ? formatTime(ts) : '')
+    : ts
+      ? formatTime(ts)
+      : '';
   return (
     <>
       {/* Label-less rows (thread continuations) keep an empty verb cell
@@ -87,7 +97,7 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
           </div>
         )}
       </div>
-      <span className="ledger-time">{ts ? formatTime(ts) : ''}</span>
+      <span className="ledger-time">{timeText}</span>
       {expanded && isListenBatch(item) && item.plays.map((play) => {
         const playTs = play?.createdAt || play?.payload?.playedTime || null;
         const playHref = recordPathFromAtUri(play?.atUri);
