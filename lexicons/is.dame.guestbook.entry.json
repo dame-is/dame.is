@@ -1,0 +1,47 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.guestbook.entry",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "description": "A guestbook signature. Lives on the SIGNER's repo — the visitor keeps their own words — and points at the book it signs via `subject`, so backlink indexers (Constellation et al.) can assemble the book without any central database. A signature can carry a message, or be nothing more than a mark: proof of presence, like initials scratched into a trail register.",
+      "record": {
+        "type": "object",
+        "required": ["subject", "createdAt"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The at-uri of the is.dame.guestbook record being signed."
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "maxGraphemes": 300,
+            "description": "Optional note to the host. Plain text."
+          },
+          "signature": {
+            "type": "string",
+            "maxLength": 640,
+            "maxGraphemes": 64,
+            "description": "Optional name to sign as. Omit to be shown by profile displayName / handle."
+          },
+          "mark": {
+            "type": "string",
+            "maxLength": 64,
+            "maxGraphemes": 1,
+            "description": "Optional single glyph left in the margin — an emoji or character, e.g. '✕', '☾', '🌱'."
+          },
+          "location": {
+            "type": "string",
+            "maxLength": 640,
+            "maxGraphemes": 64,
+            "description": "Optional free-text 'signing from…' — a city, a website, 'the bus', anything."
+          },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import PageContentPanel from '../components/PageContentPanel.jsx';
+import GuestbookModerationPanel from '../components/GuestbookModerationPanel.jsx';
 import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -64,6 +65,9 @@ export default function Admin() {
 
   if (view === 'pages') {
     return <PagesOverview agent={agent} did={did} />;
+  }
+  if (view === 'guestbook') {
+    return <GuestbookModerationPanel agent={agent} />;
   }
   if (view === 'listening') {
     return <ListeningManager agent={agent} did={did} />;
@@ -201,6 +205,8 @@ const PICKER_GROUPS = [
     items: [
       { to: '/admin?view=pages', label: 'Site pages', nsid: COLLECTIONS.page,
         summary: 'Titles, intros, and page bodies — see which serve from the PDS vs local defaults, and edit the raw records.' },
+      { to: '/admin?view=guestbook', label: 'Guestbook', nsid: 'is.dame.guestbook.entry',
+        summary: 'Visitors\' signatures, gathered from backlinks. Hide/unhide them from public display — their records stay on their signers\' PDSes.' },
       { collection: COLLECTIONS.profile, label: 'About',
         summary: 'The extended profile (rkey "self") that backs /themself.' },
       { collection: COLLECTIONS.heroPhrase, label: 'Hero phrases',

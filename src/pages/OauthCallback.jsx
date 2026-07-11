@@ -16,7 +16,14 @@ export default function OauthCallback() {
   useEffect(() => {
     if (loading) return;
     if (session) {
-      const dest = did === ME_DID ? '/admin' : '/';
+      // Visitors go back to wherever they started the flow (the guestbook,
+      // usually); the owner still lands on the admin desk.
+      let returnTo = null;
+      try {
+        returnTo = sessionStorage.getItem('dame.oauth.return');
+        sessionStorage.removeItem('dame.oauth.return');
+      } catch {}
+      const dest = did === ME_DID ? '/admin' : returnTo || '/';
       navigate(dest, { replace: true });
     }
   }, [loading, session, did, navigate]);

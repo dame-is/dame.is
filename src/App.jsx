@@ -15,6 +15,7 @@ import CuratingChannel from './pages/CuratingChannel.jsx';
 import Resume from './pages/Resume.jsx';
 import Sharing from './pages/Sharing.jsx';
 import Mothing from './pages/Mothing.jsx';
+import Guestbook from './pages/Guestbook.jsx';
 import Record from './pages/Record.jsx';
 import NotFound from './pages/NotFound.jsx';
 import { VERB_REGISTRY } from './lib/verbRegistry.js';
@@ -113,6 +114,7 @@ export default function App() {
                   <Route path="/for-hire/:slug" element={<Resume />} />
                   <Route path="/sharing" element={<Sharing />} />
                   <Route path="/mothing" element={<Mothing />} />
+                  <Route path="/guestbook" element={<Guestbook />} />
                   {generatedRecordRoutes()}
                   <Route
                     path="/admin"

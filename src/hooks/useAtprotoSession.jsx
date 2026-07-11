@@ -71,6 +71,12 @@ export function AtprotoSessionProvider({ children }) {
 
   const signIn = useCallback(async (input) => {
     const client = getOauthClient();
+    // Remember where the visitor was so the callback can send them back
+    // (e.g. signing in from /guestbook to sign it). Session-scoped so a
+    // stale path never leaks into a later, unrelated sign-in.
+    try {
+      sessionStorage.setItem('dame.oauth.return', window.location.pathname);
+    } catch {}
     // Resolves to a redirect — promise typically never resolves.
     await client.signIn(input, { scope: OAUTH_SCOPE });
   }, []);
