@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import PageShell from '../components/PageShell.jsx';
-import FlatLedger from '../components/FlatLedger.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
@@ -118,19 +117,51 @@ function sessionLedgerMeta(session) {
   return parts.join(' · ');
 }
 
-/** One iNaturalist observation as a flat-ledger row (external link out). */
-function mothLedgerRow(obs) {
-  const name = obs.taxon?.commonName || obs.taxon?.name || 'Unidentified moth';
+/**
+ * One observation as a ledger row: a small square thumbnail, the common and
+ * scientific names stacked, and the observed time flush right. Tapping a row
+ * with a photo opens the in-page lightbox (the same one the tile grid uses);
+ * a photoless observation is a static row with a placeholder thumb.
+ */
+function MothLedgerRow({ obs, onOpen }) {
+  const photo = obs.photos?.[0];
+  const thumb = photo ? photoUrl(photo, 'square') : null;
+  const name = mothName(obs);
   const sci = obs.taxon?.name;
-  return {
-    key: obs.id,
-    href: obs.url,
-    external: true,
-    title: name,
-    secondary: sci && sci !== name ? sci : null,
-    time: obs.observedTime ? formatTime(obs.observedTime) : formatDate(obs.observedDate),
-    nsid: MOTHING_OBSERVATION_NSID,
-  };
+  const showSci = sci && sci !== name;
+  const time = obs.observedTime ? formatTime(obs.observedTime) : formatDate(obs.observedDate);
+  const inner = (
+    <>
+      {thumb ? (
+        <img className="mothing-ledger-thumb" src={thumb} alt="" loading="lazy" decoding="async" />
+      ) : (
+        <span className="mothing-ledger-thumb mothing-ledger-thumb-empty" aria-hidden="true">
+          &#x1F98B;
+        </span>
+      )}
+      <span className="mothing-ledger-names">
+        <span className="mothing-ledger-name">{name}</span>
+        {showSci && <span className="mothing-ledger-sci">{sci}</span>}
+      </span>
+      <span className="mothing-ledger-time">{time}</span>
+    </>
+  );
+  return (
+    <li className="mothing-ledger-item" data-nsid={MOTHING_OBSERVATION_NSID}>
+      {photo ? (
+        <button
+          type="button"
+          className="mothing-ledger-row"
+          onClick={() => onOpen(obs)}
+          aria-label={`View photo: ${name}`}
+        >
+          {inner}
+        </button>
+      ) : (
+        <div className="mothing-ledger-row mothing-ledger-row-static">{inner}</div>
+      )}
+    </li>
+  );
 }
 
 export default function Mothing() {
@@ -257,7 +288,11 @@ export default function Mothing() {
                 <h3 className="day-header">Night of {formatDate(session.date)}</h3>
                 <p className="day-header-meta">{sessionLedgerMeta(session)}</p>
               </header>
-              <FlatLedger rows={session.observations.map(mothLedgerRow)} />
+              <ol className="mothing-ledger reveal-stagger">
+                {session.observations.map((obs) => (
+                  <MothLedgerRow key={obs.id} obs={obs} onOpen={openLightbox} />
+                ))}
+              </ol>
             </section>
           ))}
           {orphans.length > 0 && (
@@ -268,7 +303,11 @@ export default function Mothing() {
                   {orphans.length} observation{orphans.length === 1 ? '' : 's'}
                 </p>
               </header>
-              <FlatLedger rows={orphans.map(mothLedgerRow)} />
+              <ol className="mothing-ledger reveal-stagger">
+                {orphans.map((obs) => (
+                  <MothLedgerRow key={obs.id} obs={obs} onOpen={openLightbox} />
+                ))}
+              </ol>
             </section>
           )}
         </div>
