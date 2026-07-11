@@ -261,6 +261,51 @@
   color: var(--accent);
 }
 
+/* --- moderation (owner edit mode) ---------------------------------------- */
+
+.guestbook-hidden-count {
+  color: var(--ink-faint);
+}
+
+.guestbook-moderation-note {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* A hidden signature in the moderation view: present, but clearly benched. */
+.guestbook-entry-is-hidden {
+  opacity: 0.45;
+}
+
+.guestbook-entry-hidden-badge {
+  font-family: var(--sans);
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  color: var(--tan);
+  border: 1px solid color-mix(in srgb, var(--tan) 45%, transparent);
+  border-radius: var(--radius-2);
+  padding: 0 var(--space-2);
+}
+
+.guestbook-entry-moderate {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  color: var(--accent);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--accent-soft) 55%, transparent);
+  border-radius: var(--radius-2);
+  padding: 0 var(--space-2);
+  cursor: pointer;
+}
+
+.guestbook-entry-moderate:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
 .guestbook-more {
   margin-top: var(--space-4);
   padding: var(--space-2) var(--space-3);

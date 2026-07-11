@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
 import { CommentsSkeleton } from '../components/Skeleton.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { useEditMode } from '../hooks/useEditMode.jsx';
 import {
   fetchGuestbookEntries,
   signGuestbook,
   deleteGuestbookEntry,
+  setEntryHidden,
   graphemeLength,
   ENTRY_TEXT_MAX_GRAPHEMES,
-  GUESTBOOK_PAGE_SIZE,
 } from '../lib/guestbook.js';
-import { getProfile, explorerPathFromAtUri, rkeyFromAtUri } from '../lib/atproto.js';
-import { relativeTime } from '../lib/time.js';
-import { GUESTBOOK_SUBJECT } from '../config.js';
+import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
+import { ME_DID, GUESTBOOK_SUBJECT } from '../config.js';
 import './Guestbook.css';
 
 /** The margin-marks a visitor can leave instead of (or besides) a note. */
@@ -30,9 +30,15 @@ export default function Guestbook() {
   const { title, intro } = usePageContent('guestbook');
   const { session, agent, did } = useAtprotoSession();
 
+  // Owner + the chrome bar's pencil = moderation: hidden entries surface
+  // (dimmed) and every signature grows a hide/unhide control.
+  const { active: editActive } = useEditMode();
+  const moderating = did === ME_DID && editActive;
+
   // --- the book's pages ------------------------------------------------
   const [entries, setEntries] = useState(null);
   const [total, setTotal] = useState(null);
+  const [hiddenCount, setHiddenCount] = useState(0);
   const [cursor, setCursor] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [loadingMore, setLoadingMore] = useState(false);
@@ -46,6 +52,7 @@ export default function Guestbook() {
     }
     setEntries(page.entries);
     setTotal(page.total);
+    setHiddenCount(page.hiddenCount || 0);
     setCursor(page.cursor);
     setStatus('ready');
   }, []);
@@ -97,7 +104,18 @@ export default function Guestbook() {
     setTotal((t) => (typeof t === 'number' && t > 0 ? t - 1 : t));
   }
 
-  const count = typeof total === 'number' ? total : entries?.length ?? null;
+  async function handleSetHidden(entry, hide) {
+    await setEntryHidden(agent, entry.uri, hide);
+    setEntries((prev) =>
+      (prev || []).map((e) => (e.uri === entry.uri ? { ...e, hidden: hide } : e)),
+    );
+    setHiddenCount((c) => Math.max(0, c + (hide ? 1 : -1)));
+  }
+
+  // The public page renders the curated book; moderation sees everything.
+  const visible = entries ? (moderating ? entries : entries.filter((e) => !e.hidden)) : null;
+  const count =
+    typeof total === 'number' ? Math.max(0, total - hiddenCount) : visible?.length ?? null;
 
   return (
     <PageShell
@@ -117,7 +135,16 @@ export default function Guestbook() {
           {count != null
             ? `${count.toLocaleString()} ${count === 1 ? 'signature' : 'signatures'}`
             : 'Signatures'}
+          {moderating && hiddenCount > 0 && (
+            <span className="guestbook-hidden-count"> · {hiddenCount} hidden</span>
+          )}
         </h2>
+        {moderating && (
+          <p className="guestbook-moderation-note">
+            Edit mode — hiding tucks a signature out of public display by listing it on the
+            book record; the signer's own record is untouched.
+          </p>
+        )}
         {status === 'loading' ? (
           <CommentsSkeleton rows={4} />
         ) : status === 'error' ? (
@@ -125,17 +152,19 @@ export default function Guestbook() {
             The backlink index is unreachable right now — the signatures are safe on their
             signers' PDSes; try again in a bit.
           </p>
-        ) : !entries || entries.length === 0 ? (
+        ) : !visible || visible.length === 0 ? (
           <p className="feed-empty">No signatures yet. The first page is blank — sign it?</p>
         ) : (
           <>
             <ul className="guestbook-list reveal-stagger">
-              {entries.map((entry) => (
-                <EntryRow
+              {visible.map((entry) => (
+                <GuestbookEntryRow
                   key={entry.uri}
                   entry={entry}
                   mine={entry.did === did}
                   onRemove={handleRemove}
+                  moderating={moderating}
+                  onSetHidden={handleSetHidden}
                 />
               ))}
             </ul>
@@ -288,103 +317,3 @@ function SignForm({ agent, did, profile, onSigned }) {
   );
 }
 
-/**
- * One signature. Name/handle from the signer's profile (their `signature`
- * field wins when present), timestamp linking into the site's explorer view
- * of the actual record, and either their note, their mark, or both.
- */
-function EntryRow({ entry, mine, onRemove }) {
-  const [removing, setRemoving] = useState(false);
-  const { value, profile } = entry;
-  const name =
-    value.signature?.trim() ||
-    profile?.displayName?.trim() ||
-    (profile?.handle && profile.handle !== 'handle.invalid' ? `@${profile.handle}` : null) ||
-    shortDid(entry.did);
-  const handle = profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
-  const explorerPath = explorerPathFromAtUri(entry.uri);
-
-  async function remove() {
-    if (removing) return;
-    if (!window.confirm('Remove your signature from the book?')) return;
-    setRemoving(true);
-    try {
-      await onRemove(entry);
-    } catch {
-      setRemoving(false);
-    }
-  }
-
-  return (
-    <li className="guestbook-entry">
-      <span className="guestbook-entry-avatar" aria-hidden="true">
-        {profile?.avatar ? (
-          <img src={profile.avatar} alt="" loading="lazy" width={40} height={40} />
-        ) : (
-          // Borrow the signer's mark as a stand-in portrait — unless the
-          // mark is already the whole message, where doubling it reads odd.
-          <span className="guestbook-entry-avatar-fallback">
-            {value.text && value.mark ? value.mark : '@'}
-          </span>
-        )}
-      </span>
-      <div className="guestbook-entry-body">
-        <header className="guestbook-entry-head">
-          <span className="guestbook-entry-name">
-            {handle ? (
-              <a
-                href={`https://bsky.app/profile/${handle}`}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                {name}
-              </a>
-            ) : (
-              name
-            )}
-          </span>
-          {handle && name !== `@${handle}` && (
-            <span className="guestbook-entry-handle gutter">@{handle}</span>
-          )}
-          {value.location && (
-            <span className="guestbook-entry-location gutter">from {value.location}</span>
-          )}
-          <span className="guestbook-entry-time gutter">
-            {explorerPath ? (
-              <Link to={explorerPath}>{relativeTime(value.createdAt)}</Link>
-            ) : (
-              relativeTime(value.createdAt)
-            )}
-          </span>
-          {mine && (
-            <button
-              type="button"
-              className="guestbook-entry-remove"
-              onClick={remove}
-              disabled={removing}
-              title="Remove your signature"
-            >
-              {removing ? '…' : 'remove'}
-            </button>
-          )}
-        </header>
-        {value.text ? (
-          <p className="guestbook-entry-text">
-            {value.text}
-            {value.mark && <span className="guestbook-entry-inline-mark"> {value.mark}</span>}
-          </p>
-        ) : value.mark ? (
-          <p className="guestbook-entry-mark" title="left their mark">
-            {value.mark}
-          </p>
-        ) : null}
-      </div>
-    </li>
-  );
-}
-
-function shortDid(did) {
-  if (!did) return 'someone';
-  if (did.length <= 24) return did;
-  return `${did.slice(0, 12)}…${did.slice(-6)}`;
-}

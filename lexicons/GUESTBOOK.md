@@ -61,8 +61,15 @@ site can host its own book with the same two lexicons.
 - A visitor can **delete their signature** (it's their record; the site offers
   the button, `com.atproto.repo.deleteRecord` does the rest) — the backlink
   disappears from Constellation and the book on the next read.
-- The host can't delete a visitor's record, only choose not to render it;
-  a `hidden`-list on the book record is the natural extension point if it's
-  ever needed.
+- The host can't delete a visitor's record, only decline to render it. That's
+  the book's **`hidden`** list: an array of entry at-uris the host has tucked
+  out of public display. Hiding/unhiding is a `putRecord` on the book (with a
+  CID swap so concurrent edits can't clobber each other); the public page
+  filters entries against the list at read time and subtracts them from the
+  signature count. Because the list lives on the book record, moderation
+  state is itself portable — any other renderer of the same book can honor
+  (or inspect) it. The site offers it in two places: **edit mode** on
+  `/guestbook` (the owner's pencil button — each signature grows hide/unhide)
+  and the **Guestbook panel** in `/admin` (`?view=guestbook`).
 - Nothing sensitive is collected: no email, no IP, no structured location —
   `location` is a free-text field the signer types (or leaves empty).
