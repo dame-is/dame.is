@@ -91,32 +91,47 @@
 
 .mothing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-4);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.mothing-link {
+/* An image tile that opens the in-page lightbox — the photo-grid cousin of
+   the curating block grid. Button reset + the same raised, square-cornered
+   card, with the moth's name captioned beneath the square photo. */
+.mothing-tile {
   display: flex;
   flex-direction: column;
-  text-decoration: none;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font: inherit;
   color: var(--ink);
   border: 1px solid var(--rule-soft);
   border-radius: var(--radius-3);
   overflow: hidden;
   background: var(--page-edge);
-  height: 100%;
+  cursor: zoom-in;
   transition: transform 200ms ease, border-color 200ms ease;
 }
 
-.mothing-link:hover {
+.mothing-tile:hover {
   border-color: var(--accent-soft);
   transform: translateY(-2px);
 }
 
-.mothing-link img {
+.mothing-tile-empty {
+  cursor: default;
+}
+
+.mothing-tile-empty:hover {
+  transform: none;
+  border-color: var(--rule-soft);
+}
+
+.mothing-tile img {
   aspect-ratio: 1 / 1;
   width: 100%;
   object-fit: cover;
@@ -133,28 +148,24 @@
   background: var(--page);
 }
 
-.mothing-meta {
-  padding: var(--space-3) var(--space-4) var(--space-4);
+.mothing-tile-caption {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 0.1rem;
+  padding: var(--space-2) var(--space-3) var(--space-3);
 }
 
 .mothing-name {
   font-family: var(--serif);
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   margin: 0;
   line-height: 1.25;
 }
 
 .mothing-sci {
   font-style: italic;
-  font-size: var(--text-sm);
-  color: var(--ink-soft, var(--ink));
-}
-
-.mothing-sub {
   font-size: var(--text-xs);
+  color: var(--ink-soft, var(--ink));
 }
 
 .mothing-source {
