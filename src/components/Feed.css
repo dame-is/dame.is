@@ -1738,6 +1738,12 @@ a.ledger-verb:focus-visible {
   cursor: pointer;
 }
 
+/* A photographed observation row opens the image lightbox on tap — signal
+   it with the same zoom affordance the /mothing grid uses. */
+.feed-item-ledger-lightbox {
+  cursor: zoom-in;
+}
+
 .ledger-count-toggle {
   background: none;
   border: none;
