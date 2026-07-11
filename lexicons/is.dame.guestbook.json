@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.guestbook",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "description": "A guestbook — the 'book' itself, living on the host's PDS. Visitors sign it by writing an is.dame.guestbook.entry record on their OWN repo whose `subject` points at this record's at-uri; the backlinks (indexed by services like Constellation) ARE the guestbook's pages. Singleton for now (rkey 'self'), but nothing prevents a host from keeping several books under other keys someday.",
+      "record": {
+        "type": "object",
+        "required": ["title", "createdAt"],
+        "properties": {
+          "title":       { "type": "string", "maxLength": 640, "maxGraphemes": 64, "description": "Display title of the book, e.g. 'the dame.is guestbook'." },
+          "description": { "type": "string", "maxLength": 3000, "maxGraphemes": 300, "description": "What signing this book means, shown to would-be signers." },
+          "url":         { "type": "string", "format": "uri", "description": "Where the guestbook renders, e.g. https://dame.is/guestbook." },
+          "createdAt":   { "type": "string", "format": "datetime" },
+          "updatedAt":   { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
