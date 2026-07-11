@@ -11,6 +11,8 @@ import FeedFilters, {
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
+import Lightbox from '../components/Lightbox.jsx';
+import { photoUrl } from '../lib/inaturalist.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
   readFeedCache,
@@ -456,6 +458,48 @@ export default function Home() {
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   const hasMore = filtered.length > visible.length;
 
+  // Photographed iNaturalist observations (mothing + observing) currently in
+  // view, shaped for the in-feed image lightbox. Tapping an observation row
+  // opens this at that observation's index; prev/next then walks every
+  // observation on screen — the home-feed cousin of the /mothing grid's
+  // lightbox. Keyed by at:// URI so a tapped row maps straight to its slide.
+  const observationPhotos = useMemo(() => {
+    const images = [];
+    const indexByUri = new Map();
+    for (const item of visible) {
+      if (item.verb !== 'mothing' && item.verb !== 'observing') continue;
+      const photo = item.payload?.photos?.[0];
+      const large = photo ? photoUrl(photo, 'large') : null;
+      if (!large) continue;
+      const taxon = item.payload?.taxon || {};
+      const name =
+        taxon.commonName ||
+        taxon.name ||
+        (item.verb === 'mothing' ? 'Unidentified moth' : 'Unidentified organism');
+      const sci = taxon.name;
+      if (item.atUri) indexByUri.set(item.atUri, images.length);
+      images.push({
+        src: large,
+        thumb: photoUrl(photo, 'medium'),
+        alt: sci && sci !== name ? `${name} — ${sci}` : name,
+        sourceUrl: item.payload?.url || undefined,
+        searchUrl: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(large)}`,
+      });
+    }
+    return { images, indexByUri };
+  }, [visible]);
+
+  // `lightboxIndex` is the active slide, -1 when closed. A ref carries the
+  // latest URI→index map so the open callback stays stable across renders
+  // (it's handed to every FeedItem).
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const observationPhotosRef = useRef(observationPhotos);
+  observationPhotosRef.current = observationPhotos;
+  const openObservationLightbox = useCallback((item) => {
+    const idx = observationPhotosRef.current.indexByUri.get(item?.atUri);
+    if (typeof idx === 'number' && idx >= 0) setLightboxIndex(idx);
+  }, []);
+
   // The feed has no single backing record, so hand the global footer the
   // newest visible record's instant — it reports "latest record …" in place
   // of the record page's "written … · updated …" pair.
@@ -557,7 +601,11 @@ export default function Home() {
                             delay: reduce ? 0 : stagger,
                           }}
                         >
-                          <FeedItem item={item} layout={ledger ? 'ledger' : 'cards'} />
+                          <FeedItem
+                            item={item}
+                            layout={ledger ? 'ledger' : 'cards'}
+                            onOpenLightbox={ledger ? openObservationLightbox : undefined}
+                          />
                         </motion.li>
                       );
                     })}
@@ -580,6 +628,13 @@ export default function Home() {
           </div>
         )}
       </section>
+
+      <Lightbox
+        open={lightboxIndex >= 0}
+        index={Math.max(0, lightboxIndex)}
+        onClose={() => setLightboxIndex(-1)}
+        images={observationPhotos.images}
+      />
     </PageShell>
   );
 }
