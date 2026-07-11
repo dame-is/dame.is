@@ -250,6 +250,9 @@ export default function Home() {
           authorFeedMax: INITIAL_FETCH_MAX,
           skipListMembers: true,
           verbs,
+          // Pull iNaturalist observations newer than the newest mirrored one
+          // so brand-new sightings show without waiting for the mirror cron.
+          liveObservations: true,
         },
       });
       live = Array.isArray(result?.unified) ? result.unified : null;

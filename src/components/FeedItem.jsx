@@ -73,6 +73,10 @@ function postingReplyVerbLabel(reply) {
  * to the generic `/{nsid}/{rkey}` form that Record.jsx handles.
  */
 function hrefFor(item) {
+  // A live iNaturalist observation isn't mirrored to the PDS yet, so it has no
+  // record page — its card links out to iNaturalist instead. Skip the row's
+  // internal link so a stray tap can't land on a "record not found" page.
+  if (item._live) return null;
   return recordHrefFor(item.verb, {
     atUri: item.atUri,
     rkey: rkeyFromAtUri(item.atUri),
