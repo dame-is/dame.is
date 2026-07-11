@@ -12,7 +12,14 @@
 // pure function that the prefetch script calls when it needs to write a
 // per-collection JSON snapshot or a combined per-verb file.
 
-import { ME_DID, APPVIEW, COLLECTIONS } from '../config.js';
+import {
+  ME_DID,
+  APPVIEW,
+  COLLECTIONS,
+  INATURALIST_USER,
+  MOTHING_OBSERVATION_NSID,
+  OBSERVING_OBSERVATION_NSID,
+} from '../config.js';
 import {
   getAuthorFeed,
   listRecords,
@@ -20,6 +27,7 @@ import {
 import { VERB_REGISTRY } from './verbRegistry.js';
 import { isPortfolioDoc } from './publications.js';
 import { createSubjectResolver } from './subjectResolver.js';
+import { fetchLiveObservationItems } from './liveObservations.js';
 import { compareIsoDesc } from './time.js';
 
 /**
@@ -455,6 +463,24 @@ export function applyAgeCutoff(records, maxAgeDays) {
 }
 
 /**
+ * The highest iNaturalist id already mirrored, across both observation
+ * collections' fetched records (each keyed by its iNat id). Observation
+ * records list newest-first, so even a capped first-paint fetch still holds
+ * the true maximum. Returns null when no observations were fetched.
+ */
+function newestMirroredObservationId(perCollection) {
+  let max = 0;
+  for (const nsid of [MOTHING_OBSERVATION_NSID, OBSERVING_OBSERVATION_NSID]) {
+    const records = perCollection[nsid.replace(/\./g, '-')] || [];
+    for (const r of records) {
+      const n = Number(String(r?.uri || '').split('/').pop());
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+  }
+  return max || null;
+}
+
+/**
  * Fetch every `app.bsky.graph.listitem` record and bucket them under their
  * parent list URI. Each list record gets a `_members` array of `{ did }`
  * entries (later resolved to handles via the bsky AppView).
@@ -650,6 +676,37 @@ export async function buildUnifiedFeed({
       (perVerb[item.verb] ||= []).push(item);
       unified.push(item);
     }
+  }
+
+  // Live-augment observations from iNaturalist: surface sightings newer than
+  // the newest mirrored record so they appear before the mirror cron writes
+  // them. Opt-in (`options.liveObservations`) — the browser turns it on; the
+  // static snapshot build leaves it off since the cron keeps that fresh. Each
+  // item borrows the deterministic at:// URI the mirror will assign (keyed by
+  // the iNat id), so it merges with — never duplicates — the record once
+  // mirrored.
+  if (options.liveObservations && (includeVerb('mothing') || includeVerb('observing'))) {
+    await safe('liveObservations', async () => {
+      const newestId = newestMirroredObservationId(perCollection);
+      const live = await fetchLiveObservationItems({
+        me,
+        newestMirroredId: newestId,
+        user: options.inaturalistUser || INATURALIST_USER,
+        wantMothing: includeVerb('mothing'),
+        wantObserving: includeVerb('observing'),
+        warn,
+      });
+      const seen = new Set(unified.map((i) => i.atUri));
+      let added = 0;
+      for (const item of live) {
+        if (!item.atUri || seen.has(item.atUri)) continue;
+        seen.add(item.atUri);
+        unified.push(item);
+        (perVerb[item.verb] ||= []).push(item);
+        added += 1;
+      }
+      counts.liveObservations = added;
+    }, null);
   }
 
   sortUnifiedFeed(unified);

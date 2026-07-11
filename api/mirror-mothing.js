@@ -1,6 +1,6 @@
 // Vercel serverless function: mirror every iNaturalist observation onto the
 // PDS, split by taxonomy into the mothing (moths) and observing (everything
-// else) collections. Wired into vercel.json as a daily cron; the same work
+// else) collections. Wired into vercel.json as a 6-hourly cron; the same work
 // can be run locally with `node scripts/mirror-inaturalist.mjs`.
 //
 // Incremental: a cheap freshness check skips the run when nothing changed;

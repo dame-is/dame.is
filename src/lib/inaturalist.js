@@ -289,6 +289,43 @@ export async function fetchObservations({ user = INATURALIST_USER, max = 1000, s
 }
 
 /**
+ * Fetch observations with an iNaturalist id greater than `sinceId` — the ones
+ * logged after the newest already mirrored to the PDS. Ordered by id ascending
+ * and paginated via `id_above`; `scope` defaults to ALL (moths + everything
+ * else) so the caller can split by each result's `isMoth` flag. Location is
+ * stripped by `normalizeObservation`. Returns [] when `sinceId` is falsy.
+ */
+export async function fetchObservationsNewerThanId({
+  user = INATURALIST_USER,
+  sinceId,
+  max = 200,
+  scope = ALL_SCOPE,
+} = {}) {
+  if (!sinceId) return [];
+  const out = [];
+  let above = String(sinceId);
+  while (out.length < max) {
+    const params = new URLSearchParams({
+      ...scopeParams(user, scope),
+      per_page: String(Math.min(PER_PAGE, max - out.length)),
+      order: 'asc',
+      order_by: 'id',
+      id_above: above,
+    });
+    const data = await fetchJson(`${INATURALIST_API}/observations?${params}`);
+    const batch = Array.isArray(data?.results) ? data.results : [];
+    if (batch.length === 0) break;
+    for (const o of batch) {
+      const n = normalizeObservation(o);
+      if (n) out.push(n);
+    }
+    above = String(batch[batch.length - 1].id);
+    if (batch.length < PER_PAGE) break;
+  }
+  return out;
+}
+
+/**
  * A cheap freshness signature for a scope: one tiny request that returns the
  * total count plus the most-recent edit instant (in UTC). Comparing this
  * against a stored signature tells us whether a full pull is even needed —
