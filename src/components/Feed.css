@@ -1605,8 +1605,17 @@ a.reference-card-profile:focus-visible {
 /* Self-thread continuations carry no verb label; instead the rule
    separating them from the post they continue goes dashed — i.e. the
    PREVIOUS row's bottom border. Rows sit inside Home's motion.li
-   wrappers, so the sibling hop happens on those. */
-.feed-ledger .feed-list > li:has(+ li .feed-item-thread-continuation) .feed-item-ledger {
+   wrappers, so the sibling hop happens on those.
+
+   The `:not(.feed-day-group)` is load-bearing: the feed's outer <ol> and
+   each day's inner <ul> BOTH carry .feed-list, so a bare `.feed-list > li`
+   also matches the day-group <li>s. When a later (older) day happened to
+   contain a continuation anywhere in it, that :has() matched the current
+   day-group and dashed every row inside it — the "stray dashed borders on
+   unrelated rows" bug. Threads never span days (they're pulled onto their
+   newest member's day), so the sibling hop only ever means anything
+   between row wrappers within one day; scope it there. */
+.feed-ledger .feed-list > li:not(.feed-day-group):has(+ li .feed-item-thread-continuation) .feed-item-ledger {
   border-bottom-style: dashed;
 }
 
