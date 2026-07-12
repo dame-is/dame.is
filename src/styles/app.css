@@ -197,10 +197,10 @@
   right: 0;
 }
 
-/* Home hero CTAs: two destinations underneath the animated sentence.
-   The primary (Browse Projects) is filled in the accent color to match
-   the compass button's visual weight; the secondary (Read Blog) reads
-   as an outline. */
+/* Home hero CTAs: destinations underneath the animated sentence.
+   The primary (Projects) is filled in the accent color to match the
+   compass button's visual weight; the secondaries (Blog, Guestbook)
+   read as outlines, with the shuffle utility riding at the end. */
 .home-hero-cta {
   display: flex;
   flex-wrap: wrap;
@@ -248,12 +248,13 @@
   color: var(--page);
 }
 
-/* Icon-only shuffle button sits alongside the two text CTAs but
-   reads as a quieter utility action — square footprint, no label
-   text, same border treatment as the secondary text CTA. */
+/* Icon-only shuffle button sits alongside the text CTAs but reads as
+   a quieter utility action — square footprint, no label text, same
+   border treatment as the secondary text CTAs. */
 .home-hero-shuffle {
   padding: 0.6em;
   aspect-ratio: 1;
+  cursor: pointer;
 }
 
 /* Home: visual break between the hero (page-title) and the
