@@ -49,7 +49,7 @@ a:hover {
 }
 
 code, pre {
-  font-family: var(--mono);
+  font-family: var(--code);
   font-size: 0.95em;
 }
 

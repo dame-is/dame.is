@@ -239,7 +239,7 @@
 }
 
 .record-page-aturi code {
-  font-family: var(--mono);
+  font-family: var(--code);
 }
 
 /* Parent-of-reply chain on the post record page */

@@ -89,7 +89,7 @@
 }
 
 .leaflet-code {
-  font-family: var(--mono);
+  font-family: var(--code);
   font-size: var(--text-sm);
   background: var(--page-edge);
   border: 1px solid var(--rule-soft);

@@ -44,10 +44,17 @@
      an available stack, not wired to any role. */
   --serif:  var(--font-crimson);
   --sans:   var(--font-crimson);
+  /* --mono is the tabular "ledger" accent: gutters, ledger columns, and
+     metadata. It's a real monospace by default, but serif-only font mode
+     (see [data-font='serif'] below) folds it into the serif voice. */
   --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* --code is for genuine code and raw data (<code>/<pre>, JSON dumps,
+     at-uris) where alignment carries meaning — it stays monospace in
+     every font mode, unlike --mono. */
+  --code:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   /* UI-chrome mono (paths, kbd badges, identifiers, etc.) reads in the
      serif voice so the chrome matches the rest of the site, while real
-     code surfaces (<code>, <pre>) keep --mono. */
+     code surfaces (<code>, <pre>) keep --code. */
   --mono-ui: var(--font-crimson);
 
   --measure: 65ch;
@@ -80,6 +87,16 @@
   --text-4xl: 3rem;
 
   color-scheme: light;
+}
+
+/* Serif-only font mode. Folds the tabular monospace accent (--mono:
+   gutters, ledger columns, metadata) into the serif voice so the whole
+   reading surface is one typeface. Genuine code/data (--code) is left
+   monospace. Toggled from the bottom chrome — see useFont.jsx — and set
+   pre-paint in main.jsx. Same specificity as :root, so this must stay
+   after the :root block to win the cascade. */
+[data-font='serif'] {
+  --mono: var(--serif);
 }
 
 [data-theme='dark'] {

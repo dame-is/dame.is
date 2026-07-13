@@ -96,7 +96,7 @@
 }
 
 .debug-overlay-json {
-  font-family: var(--mono);
+  font-family: var(--code);
   font-size: var(--text-xs);
   background: var(--page-edge);
   border: 1px solid var(--rule-soft);
