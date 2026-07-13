@@ -97,7 +97,7 @@ blockquote {
 
 .gutter {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * var(--mono-scale));
   color: var(--ink-faint);
   letter-spacing: 0.02em;
 }

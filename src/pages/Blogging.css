@@ -226,6 +226,10 @@
 
 .record-page-meta-nsid {
   font-family: var(--mono);
+  /* No explicit base size (inherits from .record-page-meta); scale the
+     inherited size so serif-only mode compensates like the other --mono
+     elements. calc(1em * 1) is a no-op in the default mono voice. */
+  font-size: calc(1em * var(--mono-scale));
   letter-spacing: 0;
 }
 

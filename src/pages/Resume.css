@@ -151,7 +151,7 @@
 
 .resume-record-link {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * var(--mono-scale));
   color: var(--ink-faint);
   text-decoration: none;
   opacity: 0;
