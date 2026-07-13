@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { LocateFixed } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
 import { CommentsSkeleton } from '../components/Skeleton.jsx';
@@ -11,6 +12,7 @@ import {
   signGuestbook,
   deleteGuestbookEntry,
   setEntryHidden,
+  detectCoarseRegion,
   graphemeLength,
   ENTRY_TEXT_MAX_GRAPHEMES,
 } from '../lib/guestbook.js';
@@ -223,15 +225,32 @@ function SignForm({ agent, did, profile, onSigned }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [signedAt, setSignedAt] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState(null);
 
   const remaining = ENTRY_TEXT_MAX_GRAPHEMES - graphemeLength(text);
   const canSign = !busy && (text.trim() || mark);
 
+  // Identity in the book is the handle, so that's what the form shows —
+  // no avatar, no display name.
   const signingAs = useMemo(() => {
-    if (profile?.displayName?.trim()) return profile.displayName.trim();
     if (profile?.handle && profile.handle !== 'handle.invalid') return `@${profile.handle}`;
-    return did || '';
+    if (!did) return '';
+    return did.length > 24 ? `${did.slice(0, 12)}…${did.slice(-6)}` : did;
   }, [profile, did]);
+
+  async function detectRegion() {
+    if (locating) return;
+    setLocating(true);
+    setLocError(null);
+    try {
+      setLocation(await detectCoarseRegion());
+    } catch (err) {
+      setLocError(err?.message || String(err));
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -256,10 +275,7 @@ function SignForm({ agent, did, profile, onSigned }) {
     <form className="guestbook-form" onSubmit={handleSubmit}>
       <div className="guestbook-form-head">
         <span className="small-caps guestbook-form-eyebrow">Signing as</span>
-        <span className="guestbook-form-signer">
-          {profile?.avatar && <img className="guestbook-form-avatar" src={profile.avatar} alt="" />}
-          {signingAs}
-        </span>
+        <span className="guestbook-form-signer">{signingAs}</span>
       </div>
 
       <textarea
@@ -291,15 +307,39 @@ function SignForm({ agent, did, profile, onSigned }) {
             </button>
           ))}
         </div>
-        <input
-          className="guestbook-location signin-input"
-          type="text"
-          placeholder="signing from… (optional)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          maxLength={64}
-          disabled={busy}
-        />
+      </div>
+
+      <div className="guestbook-location-field">
+        <label className="small-caps guestbook-location-label" htmlFor="guestbook-location">
+          Signing from
+        </label>
+        <div className="guestbook-location-row">
+          <input
+            id="guestbook-location"
+            className="guestbook-location signin-input"
+            type="text"
+            placeholder="a place, in your own words — optional"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            maxLength={64}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            className="guestbook-locate"
+            onClick={detectRegion}
+            disabled={busy || locating}
+          >
+            <LocateFixed size={14} strokeWidth={1.75} aria-hidden="true" />
+            {locating ? 'Locating…' : 'Use my region'}
+          </button>
+        </div>
+        <span className="guestbook-location-hint">
+          Shown beside your signature. Write anything — or let &ldquo;Use my region&rdquo; ask
+          your browser for location and fill in only your state/region and country, never your
+          town or coordinates.
+        </span>
+        {locError && <p className="signin-error">{locError}</p>}
       </div>
 
       <div className="guestbook-form-actions">

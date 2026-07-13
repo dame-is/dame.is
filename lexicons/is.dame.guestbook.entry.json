@@ -37,7 +37,7 @@
             "type": "string",
             "maxLength": 640,
             "maxGraphemes": 64,
-            "description": "Optional free-text 'signing from…' — a city, a website, 'the bus', anything."
+            "description": "Optional free-text 'signing from…' — a place in the signer's own words: a region, a website, 'the bus', anything. Never structured geo data. The reference UI can suggest a coarse label via browser geolocation, but it only ever offers state/region + country — towns and coordinates are never stored."
           },
           "createdAt": { "type": "string", "format": "datetime" }
         }
