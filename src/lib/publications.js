@@ -18,11 +18,11 @@ const BLOG_TAGS = new Set(['blog', 'blogging']);
 const CREATING_TAGS = new Set(['creating', 'portfolio']);
 const RESERVED_TAGS = new Set([...BLOG_TAGS, ...CREATING_TAGS]);
 
-// The medium a blog post takes on when it's cross-posted onto /creating. A
+// The category a blog post takes on when it's cross-posted onto /creating. A
 // blog doc has no medium of its own — its tags describe subject, not craft —
 // so the whole class shows under this one category rather than appearing on
 // the portfolio grid uncategorized.
-export const WRITING_CATEGORY = 'writing';
+export const CROSSPOST_CATEGORY = 'case study';
 
 function tagList(value) {
   return Array.isArray(value?.tags) ? value.tags : [];
@@ -95,18 +95,19 @@ export function workSlug(value) {
  *
  * A blog post cross-posted onto /creating is the one case with no medium to
  * draw on — it carries only the reserved `creating` marker (its other tags,
- * if any, name topics, not craft) — so it falls back to a `writing` category.
- * That default keeps cross-posted posts from landing on the portfolio grid
- * without a chip and lets them group and filter like every other work. An
- * explicit `category`/`kind` still wins, so a deliberate label overrides it.
+ * if any, name topics, not craft) — so it falls back to a `case study`
+ * category. That default keeps cross-posted posts from landing on the
+ * portfolio grid without a chip and lets them group and filter like every
+ * other work. An explicit `category`/`kind` still wins, so a deliberate label
+ * overrides it.
  */
 export function workCategory(value) {
   if (value?.category) return value.category;
   if (value?.kind) return value.kind;
   // A cross-posted blog doc (blog-homed, opted onto /creating with a
   // `creating`/`portfolio` tag) has no medium of its own — categorize the
-  // whole class as writing rather than promoting a topic tag to a medium.
-  if (isBlogDoc(value) && hasAnyTag(value, CREATING_TAGS)) return WRITING_CATEGORY;
+  // whole class as a case study rather than promoting a topic tag to a medium.
+  if (isBlogDoc(value) && hasAnyTag(value, CREATING_TAGS)) return CROSSPOST_CATEGORY;
   // Skip reserved cross-post tags so a `blog`/`creating` marker never shows
   // up as the work's medium; the first real tag stands in as the category.
   return (
