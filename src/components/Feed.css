@@ -1898,15 +1898,27 @@ a.ledger-time:focus-visible {
   margin-top: 0;
 }
 
+/* ...but a record-with-media post stacks the media embed and the quote
+   inside one ledger cell, so restore a small gap between the two — the
+   block's top margin (above) is owned by .ledger-embed, which would
+   otherwise leave the pair touching. */
+.ledger-embed .post-embed-images + .post-embed-quote,
+.ledger-embed .post-embed-video + .post-embed-quote,
+.ledger-embed .post-embed-link-card + .post-embed-quote {
+  margin-top: var(--space-3);
+}
+
 .ledger-embed .post-embed-images {
   gap: var(--space-1);
   max-width: 20rem;
 }
 
-/* A lone image sizes its frame from --embed-image-max-h (see PostEmbed.css);
-   in the condensed ledger that cap drops from a full 520px to a thumbnail. */
+/* A lone image sizes its frame from --embed-image-max-h (see PostEmbed.css).
+   In the ledger the picture fills the 20rem column at its true ratio; the
+   height cap only bounds very tall images so a portrait can't run away (it
+   matches the 20rem column width, so images fit within a 20rem square). */
 .ledger-embed .post-embed-images[data-count='1'] {
-  --embed-image-max-h: 10rem;
+  --embed-image-max-h: 20rem;
 }
 
 /* Multi-image grids get uniform landscape crops so two rows of images
