@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { PAPER_ENABLED } from './hooks/usePaper.jsx';
+import { FONT_SWITCHER_ENABLED } from './hooks/useFont.jsx';
 import { applySkyTheme, easternHour } from './lib/skyTheme.js';
 import './styles/reset.css';
 import './styles/theme.css';
@@ -39,15 +40,16 @@ document.documentElement.setAttribute(
   PAPER_ENABLED && VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank',
 );
 
-// Font mode (serif-only vs the default mono-accented mix). Set before the
-// first paint so a serif-only visitor doesn't flash the monospace ledger
-// columns before they fold into the serif voice. Keep in sync with
-// useFont.jsx.
+// Font mode. The switcher is hidden and the site runs serif-only, so this
+// resolves to 'serif' regardless of any stored preference. Set before the
+// first paint so the ledger columns render in the serif voice from the
+// start. When FONT_SWITCHER_ENABLED is flipped back on in useFont.jsx the
+// stored preference is honoured again (default serif). Keep in sync.
 const VALID_FONTS = ['mixed', 'serif'];
 const storedFont = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.font') : null;
 document.documentElement.setAttribute(
   'data-font',
-  VALID_FONTS.includes(storedFont) ? storedFont : 'mixed',
+  FONT_SWITCHER_ENABLED && VALID_FONTS.includes(storedFont) ? storedFont : 'serif',
 );
 
 ReactDOM.createRoot(document.getElementById('root')).render(

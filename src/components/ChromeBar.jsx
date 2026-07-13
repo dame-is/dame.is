@@ -9,7 +9,7 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
-import { useFont } from '../hooks/useFont.jsx';
+import { useFont, FONT_SWITCHER_ENABLED } from '../hooks/useFont.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
@@ -516,19 +516,22 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 >
                   {skyHourKey}
                 </button>
-                {/* Font switcher. Toggles serif-only mode, which folds the
-                    monospace ledger/metadata accent into the serif voice
-                    (code stays monospace). Default is the mixed voice. */}
-                <button
-                  type="button"
-                  className={`chrome-nav chrome-font-toggle ${serifOnly ? 'is-open' : ''}`}
-                  onClick={toggleFont}
-                  aria-pressed={serifOnly}
-                  aria-label={serifOnly ? 'Use the default serif + monospace type' : 'Use serif-only type'}
-                  title={serifOnly ? 'Serif-only type — tap to restore mono accents' : 'Mono accents — tap for serif-only type'}
-                >
-                  <Type className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                </button>
+                {/* Font switcher. Hidden for now — the site runs serif-only
+                    (see FONT_SWITCHER_ENABLED in useFont.jsx). Flip that flag
+                    back on to restore this toggle between serif-only and the
+                    mono-accented mix. */}
+                {FONT_SWITCHER_ENABLED && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-font-toggle ${serifOnly ? 'is-open' : ''}`}
+                    onClick={toggleFont}
+                    aria-pressed={serifOnly}
+                    aria-label={serifOnly ? 'Use the default serif + monospace type' : 'Use serif-only type'}
+                    title={serifOnly ? 'Serif-only type — tap to restore mono accents' : 'Mono accents — tap for serif-only type'}
+                  >
+                    <Type className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
                 {filterAvailable && (
                   <button
                     type="button"
