@@ -186,7 +186,7 @@ export async function signGuestbook(agent, { text, signature, mark, location } =
   const cleanMark = String(mark || '').trim();
   const cleanLocation = String(location || '').trim();
   if (!cleanText && !cleanMark) {
-    throw new Error('Write a note or pick a mark first.');
+    throw new Error('Write a note first.');
   }
   if (graphemeLength(cleanText) > ENTRY_TEXT_MAX_GRAPHEMES) {
     throw new Error(`Notes max out at ${ENTRY_TEXT_MAX_GRAPHEMES} characters.`);

@@ -20,9 +20,6 @@ import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID, GUESTBOOK_SUBJECT } from '../config.js';
 import './Guestbook.css';
 
-/** The margin-marks a visitor can leave instead of (or besides) a note. */
-const MARKS = ['✕', '☾', '✦', '❀', '☺', '♥'];
-
 /**
  * The guestbook. Every signature on this page is a record on the SIGNER's
  * own PDS pointing back at the book on mine — the page just gathers the
@@ -143,19 +140,19 @@ export default function Guestbook() {
         </h2>
         {moderating && (
           <p className="guestbook-moderation-note">
-            Edit mode — hiding tucks a signature out of public display by listing it on the
-            book record; the signer's own record is untouched.
+            Edit mode: hiding tucks a signature out of public display by listing it on the
+            book record. The signer's own record is untouched.
           </p>
         )}
         {status === 'loading' ? (
           <CommentsSkeleton rows={4} />
         ) : status === 'error' ? (
           <p className="feed-empty">
-            The backlink index is unreachable right now — the signatures are safe on their
+            The backlink index is unreachable right now. The signatures are safe on their
             signers' PDSes; try again in a bit.
           </p>
         ) : !visible || visible.length === 0 ? (
-          <p className="feed-empty">No signatures yet. The first page is blank — sign it?</p>
+          <p className="feed-empty">No signatures yet. The first page is blank. Sign it?</p>
         ) : (
           <>
             <ul className="guestbook-list reveal-stagger">
@@ -203,9 +200,9 @@ function SignInInvite() {
   return (
     <div className="guestbook-invite">
       <p className="guestbook-invite-text">
-        Sign in with any AT Protocol account (a Bluesky handle works) to leave a note or just a
-        mark that you were here. Your signature is written to <em>your own</em> data server, not
-        this site — this page only gathers the backlinks.
+        Sign in with any AT Protocol account (a Bluesky handle works) to leave a note that you
+        were here. Your signature is written to <em>your own</em> data server, not this site.
+        This page only gathers the backlinks.
       </p>
       <button type="button" className="signin-button" onClick={openAccount}>
         Sign in to sign
@@ -215,12 +212,11 @@ function SignInInvite() {
 }
 
 /**
- * The pen: a note, an optional one-glyph mark, an optional "signing from".
- * A signature needs at least a note or a mark.
+ * The pen: a note plus an optional "signing from". (Older entries may carry
+ * a one-glyph `mark` from the retired picker; the rows still render them.)
  */
 function SignForm({ agent, did, profile, onSigned }) {
   const [text, setText] = useState('');
-  const [mark, setMark] = useState('');
   const [location, setLocation] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -229,7 +225,7 @@ function SignForm({ agent, did, profile, onSigned }) {
   const [locError, setLocError] = useState(null);
 
   const remaining = ENTRY_TEXT_MAX_GRAPHEMES - graphemeLength(text);
-  const canSign = !busy && (text.trim() || mark);
+  const canSign = !busy && Boolean(text.trim());
 
   // Identity in the book is the handle, so that's what the form shows —
   // no avatar, no display name.
@@ -258,10 +254,9 @@ function SignForm({ agent, did, profile, onSigned }) {
     setBusy(true);
     setError(null);
     try {
-      const { uri, value } = await signGuestbook(agent, { text, mark, location });
+      const { uri, value } = await signGuestbook(agent, { text, location });
       onSigned({ uri, did, rkey: rkeyFromAtUri(uri), value });
       setText('');
-      setMark('');
       setLocation('');
       setSignedAt(new Date());
     } catch (err) {
@@ -281,7 +276,7 @@ function SignForm({ agent, did, profile, onSigned }) {
       <textarea
         className="guestbook-textarea"
         rows={3}
-        placeholder="Leave a note… (or just a mark below)"
+        placeholder="Leave a note…"
         value={text}
         onChange={(e) => setText(e.target.value)}
         disabled={busy}
@@ -292,23 +287,6 @@ function SignForm({ agent, did, profile, onSigned }) {
         </span>
       )}
 
-      <div className="guestbook-form-row">
-        <div className="guestbook-marks" role="group" aria-label="Leave a mark">
-          {MARKS.map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={`guestbook-mark${mark === m ? ' guestbook-mark-active' : ''}`}
-              aria-pressed={mark === m}
-              onClick={() => setMark((cur) => (cur === m ? '' : m))}
-              disabled={busy}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="guestbook-location-field">
         <label className="small-caps guestbook-location-label" htmlFor="guestbook-location">
           Signing from
@@ -318,7 +296,7 @@ function SignForm({ agent, did, profile, onSigned }) {
             id="guestbook-location"
             className="guestbook-location signin-input"
             type="text"
-            placeholder="a place, in your own words — optional"
+            placeholder="a place, in your own words (optional)"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             maxLength={64}
@@ -335,7 +313,7 @@ function SignForm({ agent, did, profile, onSigned }) {
           </button>
         </div>
         <span className="guestbook-location-hint">
-          Shown beside your signature. Write anything — or let &ldquo;Use my region&rdquo; ask
+          Shown beside your signature. Write anything, or let &ldquo;Use my region&rdquo; ask
           your browser for location and fill in only your state/region and country, never your
           town or coordinates.
         </span>
@@ -348,7 +326,7 @@ function SignForm({ agent, did, profile, onSigned }) {
         </button>
         {signedAt && !error && (
           <span className="guestbook-signed-note gutter">
-            Signed — the record now lives on your PDS.
+            Signed. The record now lives on your PDS.
           </span>
         )}
       </div>

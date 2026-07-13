@@ -66,44 +66,6 @@
   color: var(--tan);
 }
 
-.guestbook-form-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.guestbook-marks {
-  display: inline-flex;
-  gap: var(--space-1);
-}
-
-.guestbook-mark {
-  width: 2.2rem;
-  height: 2.2rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-md, 1.1rem);
-  color: var(--ink-soft);
-  background: transparent;
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-2);
-  cursor: pointer;
-  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
-}
-
-.guestbook-mark:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--ink);
-}
-
-.guestbook-mark-active {
-  color: var(--accent);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
 /* "Signing from" — its own labelled block so it's obvious what the field
    is, with the locate button and the never-your-town promise beside it. */
 .guestbook-location-field {
@@ -186,6 +148,13 @@
   letter-spacing: 0.18em;
   color: var(--ink-muted);
   margin: 0 0 var(--space-4);
+}
+
+/* The book's empty/error states read as prose here, so keep them on the
+   left margin instead of the feed's centered treatment. */
+.guestbook-entries .feed-empty {
+  text-align: left;
+  padding: var(--space-4) 0;
 }
 
 .guestbook-list {

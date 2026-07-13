@@ -75,7 +75,7 @@ export const PAGE_REGISTRY = {
     slug: 'guestbook',
     label: 'Guestbook',
     title: 'Guestbook',
-    intro: 'Sign in with any atproto account and leave a note — or just a mark that you were here. Every signature lives on the signer’s own PDS and reaches this page as a backlink.',
+    intro: 'Sign in with any atproto account and leave a note that you were here. Every signature lives on the signer’s own PDS and reaches this page as a backlink.',
     collection: null,
   },
   resume: {
