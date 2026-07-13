@@ -174,6 +174,40 @@ DAME_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx node scripts/portfolio/migrate-creating.mj
 By default it keeps both records (`/creating` reads either); `--delete` removes
 the legacy one once migrated. Re-runnable — skips works already migrated.
 
+## 4. Markdown-sourced guides (`import-guide.mjs`)
+
+Some works aren't Adobe pages — the long-form guide at
+<https://atpota.to/guides/bluesky-for-brands> is markdown (with nested lists,
+inline formatting, and link facets) that the flat `works.json` block format
+can't represent. `import-guide.mjs` handles those: it fetches the markdown from
+the atpota.to repo, runs the site's own markdown→`pub.leaflet.content`
+converter (`src/lib/legacyBlogMarkdown.js` — the one the legacy-blog admin
+migration uses), re-hosts every referenced image as a PDS blob, and writes one
+`site.standard.document` to the portfolio publication.
+
+```sh
+node scripts/portfolio/import-guide.mjs --dry-run --print     # build + report, no auth
+DAME_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx node scripts/portfolio/import-guide.mjs
+```
+
+This guide was once migrated **by accident** as a *blog* post — a
+`site.standard.document` (rkey `how-to-use-bluesky-to-grow-your-brand`) on the
+blog publication with a truncated title. By default the script **replaces that
+record in place** (`putRecord`, same rkey): it moves to the portfolio
+publication and its title / description / tags / content are corrected, so there
+is one clean record and no leftover broken blog post.
+
+| Flag | Effect |
+|---|---|
+| `--dry-run` / `--print` | Build + report (and print the record); writes nothing, no auth. |
+| `--new` | Create a fresh record (server TID) instead of replacing by rkey. |
+| `--blog` | Home it on the blog publication instead of the portfolio. |
+| `--publication=at://…` | Explicit publication URI. |
+| `--rkey=…` | Record key to write (default `how-to-use-bluesky-to-grow-your-brand`). |
+| `--markdown=URL` | Override the source markdown URL. |
+| `--no-cover` | Don't attach a cover image. |
+| `--handle=` / `--pds=` | Override the account handle / PDS. |
+
 ### Notes
 
 - **Re-runnable.** By default it skips works whose `slug` is already
