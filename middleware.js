@@ -14,8 +14,29 @@
 
 import { pageMeta, SITE, cleanPath, segsFor } from './og/pages.js';
 import { recordMeta } from './og/records.js';
+import { ME_DID, COLLECTIONS } from './src/config.js';
 
 const ORIGIN = 'https://dame.is';
+
+// Top-level surfaces backed by an is.dame.page record (keyed by rkey), mirroring
+// the client's src/hooks/useAtUri.js `pageRkeyForPath`. Used to give crawlers
+// the same canonical at:// URI the SPA advertises via <AtUriHead>.
+const TOP_LEVEL_PAGE_RKEY = {
+  '/blogging': 'blogging',
+  '/creating': 'creating',
+  '/posting': 'posting',
+  '/logging': 'logging',
+  '/sharing': 'sharing',
+  '/listening': 'listening',
+};
+
+/** The at:// URI backing a top-level surface, or null. */
+function topLevelAtUri(path) {
+  const rkey = TOP_LEVEL_PAGE_RKEY[path];
+  if (rkey) return `at://${ME_DID}/${COLLECTIONS.page}/${rkey}`;
+  if (path === '/themself') return `at://${ME_DID}/${COLLECTIONS.profile}/self`;
+  return null;
+}
 
 export const config = {
   matcher: [
@@ -55,6 +76,19 @@ function setMeta(html, keyAttr, keyVal, content) {
   return html.replace(/<\/head>/i, `    <meta ${keyAttr}="${keyVal}" content="${esc}" />\n  </head>`);
 }
 
+// Inject the atmospheric <head> hints that let AT clients discover the record(s)
+// backing this view — the crawler-facing mirror of <AtUriHead> (which only runs
+// client-side, so JS-less crawlers never saw it). Marked data-atproto="ssr" so
+// the client strips these on boot and stays the single source of truth in-app.
+function injectAtprotoHead(html, atUri, cid) {
+  const uri = escapeAttr(atUri);
+  let tags =
+    `    <link rel="alternate" type="application/at-record+json" href="${uri}" data-atproto="ssr" />\n` +
+    `    <meta name="atproto:uri" content="${uri}" data-atproto="ssr" />\n`;
+  if (cid) tags += `    <meta name="atproto:cid" content="${escapeAttr(cid)}" data-atproto="ssr" />\n`;
+  return html.replace(/<\/head>/i, `${tags}  </head>`);
+}
+
 export default async function middleware(request) {
   try {
     const url = new URL(request.url);
@@ -63,25 +97,50 @@ export default async function middleware(request) {
 
     // Two title conventions:
     //   • top-level surfaces → the page's own "dame.is {label}" (from pages.js)
-    //   • record/leaf pages   → "{record title} — dame.is", resolved live from
-    //     the PDS; the OG image falls back to the parent section's card.
-    // A record route whose record can't be fetched degrades to the section's
+    //   • record/leaf pages   → "{record title} — dame.is" + a per-record OG
+    //     card, resolved by slug from the /data snapshots (with a live PDS
+    //     fallback; see og/records.js).
+    // A record route whose record can't be resolved degrades to the section's
     // own card + title, so crawlers never see the generic home card there.
     let title;
     let desc;
     let ogImage;
+    let atUri = null;
+    let cid = null;
     if (segs.length === 2) {
-      const sectionPath = `/${segs[0]}`;
+      const sectionSeg = segs[0];
+      const sectionPath = `/${sectionSeg}`;
       const section = pageMeta(sectionPath);
-      const rec = await recordMeta(path);
-      title = rec ? `${rec.title} — ${SITE.domain}` : section.title;
-      desc = (rec && rec.description) || section.desc;
-      ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(sectionPath)}`;
+      const rec = await recordMeta(path, url.origin);
+      if (rec) {
+        // The record resolved: its own title/description, its own OG card
+        // (breadcrumb = section, headline = the record title), and its at://
+        // URI for the head. Falls back below only when it can't be resolved.
+        title = `${rec.title} — ${SITE.domain}`;
+        desc = rec.description || section.desc;
+        const params = new URLSearchParams({
+          section: sectionSeg,
+          label: rec.title,
+          subtitle: desc,
+          nsid: rec.nsid || section.nsid,
+        });
+        ogImage = `${ORIGIN}/api/og?${params.toString()}`;
+        atUri = rec.atUri;
+        cid = rec.cid;
+      } else {
+        // A record route whose record can't be fetched degrades to the
+        // section's own card + title, so crawlers never see the generic home
+        // card there.
+        title = section.title;
+        desc = section.desc;
+        ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(sectionPath)}`;
+      }
     } else {
       const meta = pageMeta(path);
       title = meta.title;
       desc = meta.desc;
       ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(path)}`;
+      atUri = topLevelAtUri(path);
     }
 
     // Pull the built SPA shell. The matcher never matches /index.html, so this
@@ -104,6 +163,10 @@ export default async function middleware(request) {
     html = setMeta(html, 'name', 'twitter:title', title);
     html = setMeta(html, 'name', 'twitter:description', desc);
     html = setMeta(html, 'name', 'twitter:image', ogImage);
+
+    // Record/leaf pages (and the top-level surfaces) advertise their canonical
+    // at:// URI so AT-aware crawlers can find the backing record.
+    if (atUri) html = injectAtprotoHead(html, atUri, cid);
 
     return new Response(html, {
       status: 200,
