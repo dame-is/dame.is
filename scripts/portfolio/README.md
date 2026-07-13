@@ -1,10 +1,12 @@
 # Portfolio export → PDS
 
 Tools for migrating the creative works from the old Adobe Portfolio site
-(<https://dame.work/art>) into **`site.standard.document`** records on your
+(<https://dame.work>) into **`site.standard.document`** records on your
 PDS — the portable standard.site type the `/creating` page and the in-app
-block editor now use. Each work belongs to a dedicated **portfolio
-publication**; that's what makes it render on `/creating` (not `/blogging`).
+block editor now use. Alongside the art/photography gallery, this covers the
+old site's case-study and writing-sample pages (design, marketing, and writing
+works). Each work belongs to a dedicated **portfolio publication**; that's what
+makes it render on `/creating` (not `/blogging`).
 
 Steps:
 
@@ -41,14 +43,20 @@ deploy the code change before creating the publication.
 
 ## What was captured
 
-7 works, newest → oldest, 98 images total:
+13 works, newest → oldest, 154 images total:
 
 | Slug | Title | Year | Category | Images | Notes |
 |---|---|---|---|---|---|
+| `the-encyclopedia-of-nfts` | The Encyclopedia of NFTs | 2023 | writing | 22 | long-form guide, 28 external links |
+| `the-definitive-guide-to-security-for-nft-creators` | The Definitive Guide to Security for NFT Creators | 2023 | writing | 1 | long-form guide, 14 external links |
 | `photographs-era-2-part-ii` | Photographs: Era 2 (Part II) | 2023 | photography | 19 | |
+| `rainbow` | Rainbow | 2022 | marketing | 4 | case study, New York Magazine link |
 | `photography` | Photographs: Era 2 (Part I) | 2022 | photography | 14 | |
 | `proof-of-no-work` | Proof of (No) Work | 2022 | art | 15 | 6-paragraph writeup, YouTube + Etherscan links |
+| `gpt-3-dao-essay` | Wannabe DAOs | 2021 | writing | 1 | essay co-written with GPT-3 |
+| `assisted-billing` | Assisted Billing | 2019 | design | 19 | case study, 7 external links |
 | `red-blue-yellow` | Red, Blue, Yellow | 2019 | art | 18 | per-painting titles + dimensions in alt text |
+| `fusion-branding` | Fusion Web Clinic | 2018 | design | 9 | case study; Adobe reel embed (see note) |
 | `leather-notebooks` | Leather Notebooks | 2014 | craft | 15 | intro paragraph |
 | `photographs-era-1-part-i` | Photographs: Era 1 (Part II) | 2011 | photography | 17 | intro paragraph |
 | `brickfilms` | Brickfilms | 2011 | video | 0 | reel embed (see note) |
@@ -85,8 +93,9 @@ An array of works. Each has top-matter plus an ordered `blocks` array:
   `summary`. Add a sentence so their `/creating` cards aren't blank.
 - **Alt text** — painting captions are in `alt`; the photo series have empty
   `alt`. Fill in any you want described.
-- **`brickfilms` embed** — its `url` is an Adobe/Behance player embed, not a
-  public link. Replace it with a real YouTube/Vimeo URL if you have one.
+- **`brickfilms` / `fusion-branding` embeds** — each ends with an
+  Adobe/Behance player embed, not a public link. Replace the block's `url`
+  with a real YouTube/Vimeo URL if you have one, or drop the block.
 - **`createdAt`** — defaults to Jan 1 of each work's year. Refine if you like.
 
 Each `block.type` maps to a `pub.leaflet` block on upload: `heading` →
@@ -106,6 +115,16 @@ Re-fetches the live pages and rewrites `works.json`. Image width is capped at
 ```sh
 MAX_IMG_WIDTH=3840 node scripts/portfolio/extract.mjs
 ```
+
+To re-extract only some works and leave the rest of `works.json` untouched
+(so hand-curated summaries / alt text on the others survive), pass `--only`:
+
+```sh
+node scripts/portfolio/extract.mjs --only=rainbow,assisted-billing
+```
+
+A curated one-line `summary` set in `WORKS_META` is used as-is (and survives
+re-extraction); works without one fall back to their first paragraph.
 
 ## 2. Upload to your PDS
 

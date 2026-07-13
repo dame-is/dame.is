@@ -1,5 +1,1416 @@
 [
   {
+    "slug": "the-encyclopedia-of-nfts",
+    "title": "The Encyclopedia of NFTs",
+    "category": "writing",
+    "tags": [
+      "writing",
+      "nft",
+      "web3",
+      "education"
+    ],
+    "year": 2023,
+    "createdAt": "2023-01-01T00:00:00.000Z",
+    "summary": "A comprehensive, two-part guide to Non-Fungible Tokens: the first half explains the terminology and industry landscape, the second helps you decide whether to start collecting or creating.",
+    "source": "https://dame.work/the-encyclopedia-of-nfts",
+    "blocks": [
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/bd4181f8-d443-4611-874d-3f8f65c05b77_rw_1920.png?h=ecd15f0c519fac33b36bea201ddec81b",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 960
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Introduction"
+      },
+      {
+        "type": "text",
+        "text": "Ever since Non-Fungible Tokens (NFTs) entered onto the cultural scene back in March of 2021, they have been plagued by confusion and misunderstanding. Particular types of NFTs—such as the well-known (and well-critiqued) Bored Ape Yacht Club—led many people to develop a narrow and distorted view of what is actually a very broad and interesting piece of technology."
+      },
+      {
+        "type": "text",
+        "text": "The uses cases and methods of implementing NFTs are endless, but the cultural understanding is currently stuck. Furthermore, if a person is curious enough to look beyond the surface, they might be hard-pressed to navigate what’s underneath. Because of this, we have created the Encyclopedia of NFTs — it is our hope that the following resource will help interested explorers begin to grasp what NFTs as a technology actually has to offer."
+      },
+      {
+        "type": "text",
+        "text": "The first half of this guide explains the jargon associated with NFTs as well as gives a broad overview of the landscape and industry. After reading, you’ll have a basic understanding of the different ways you could interact with the world of NFTs. From there, the second half will help you actually begin to navigate decision-making if you’re considering collecting or making NFTs yourself. This guide is not exhaustive by any means, but it should provide you with a robust foundation to build upon."
+      },
+      {
+        "type": "text",
+        "text": "Let’s dive right in!"
+      },
+      {
+        "type": "text",
+        "text": "What is an NFT?To begin, it’s important to understand what a Non-Fungible Token is at a high level. Technically speaking, an NFT is not a picture of an ape or a pixelated punk rocker; it’s actually a unique numerical identifier governed by a smart contract that can have other data and information associated with it (such as a picture of an ape or pixelated punk rocker).If that sounds a little fuzzy, take a moment to ask yourself, “what is a computer file?”. Most people interact with files on their laptops or smart phones every single day, but they’d be hard-pressed to articulate what exactly those files are made of. Trying to understand a non-fungible token is quite similar. In some ways, a non-fungible token is like a computer file but the file isn’t stored on a single device… it’s stored on a decentralized virtual computer that thousands of people all over the world help operate.In a similar fashion to how computer files come in several formats such as .jpg or .txt, NFTs also can come in several different formats called Standards.StandardsA token standard is a clearly defined and widely agreed upon method for structuring and creating the technical underpinnings of an NFT. Using accepted token standards will ensure your NFTs are widely compatible and more easily trusted. Within the Ethereum ecosystem, there are two primary non-fungible token standards: ERC-721 and ERC-1155.ERC-721Originally proposed in 2017 via Ethereum Improvement Proposal number 721 (opens new window)(EIP-721 for short), the ERC-721 token standard was created in 2018 to allow for non-fungible assets to be generated on the Ethereum blockchain. The summary for EIP-721 described itself as “a standard interface for non-fungible tokens, also known as deeds.” The creation and success of early NFTs like CryptoPunks and CryptoKitties were part of the inspiration for developing the ERC-721 standard; it allowed the burgeoning ecosystem to begin building on a solid foundation. Today, the ERC-721 standard is the most widely used and supported type of NFT, and it undergirds a multi-billion dollar market.ERC-721AOriginally created by the Azuki team for its NFT launch in January 2022, ERC-721A (opens new window)is an emerging contract standard that is built off of the ERC-721 standard but includes some improvements. According to its creators, “ERC721A is an improved implementation of the IERC721 standard that supports minting multiple tokens for close to the cost of one.” Since successfully launching with this new implementation, several other high-profile NFT projects have gone on to utilize it as well.ERC-1155Created half a year after the ERC-721 standard, the ERC-1155 standard was proposed in Ethereum Improvement Proposal number 1155 (opens new window)(EIP-1155 for short). According to the EIP’s summary, ERC-1155 is “a standard interface for contracts that manage multiple token types. A single deployed contract may include any combination of fungible tokens, non-fungible tokens or other configurations (e.g. semi-fungible tokens).” In comparison to ERC-721 tokens, ERC-1155 tokens are much more flexible and have a wider range of features.TypesA type is a particular quality, attribute, or trait of an NFT. An NFT can have multiple types. For instance, an NFT could be a mutable multi-edition generative art piece that is stored off-chain but was not pre-minted. Think of types as different flavors that can be mixed and combined together to achieve different results.Purpose TypesOn the highest level, NFTs can be categorized as either utility-focused or art-focused. This is an NFT’s designed “purpose”. An NFT can be both utilitarian and decorative, but there’s often an emphasis on one more than the other. Furthermore, an art-focused NFT could have utility added to it after the fact. It may be helpful to think of purpose types as a fluid spectrum.Utilitarian - An NFT that enables a practical use case in the lives of its users or owners. Possession of a utilitarian NFT might grant the holder access to exclusive content, benefits, or even rewards. A common example of a utilitarian NFT would be an event ticket or a membership card. A graphic or artistic visual is often used to represent a utilitarian NFT, but the visual component would typically be secondary in nature.Art, Decorative, or Collectible - An NFT that represents a work of art or some other thing that is primarily appreciated for its aesthetic or conceptual qualities. An art NFT could also enable or bestow utilitarian benefits upon the owner if the creator so desired, but the utility would typically be secondary in nature.Quantity & Supply TypesWhile the purest definition of an NFT implies complete uniqueness of each item, the reality is a lot more nuanced. Fungibility is actually a spectrum, and NFTs are flexible enough to be used in a variety of ways to implement quantities and supply sizes.One-of-one - Perhaps the most basic of NFT types, a one-of-one refers to completely unique and distinct objects or art pieces. There is only one NFT of it, and typically no other versions exist.Multi-edition - In contrast to a one-of-one, a multi-edition NFT is when there are multiples of the same object or piece of art. There are several ways of implementing multi-edition NFTs, but the most common approach is to either use an ERC-721 contract or an ERC-1155 contract. Depending on which you choose, the outcome will be slightly different. When you use an ERC-721 contract, each NFT within an edition has a distinct identifier and could be numbered like so: “Artwork B 1/10”, “Artwork B 2/10”, “Artwork B 3/10”, etc. In this scenario, the owner of “Artwork B 5/10” is the only person who owns “Number 5”. This method would be comparable to a photographer or screen printer creating a limited run of 10 signed and numbered prints in the physical world.When you use an ERC-1155 contract on the other hand, you are able to create semi-fungible quantities of each object or work of art. In the example of “Artwork B”, the ERC-1155 version would not have distinct identifiers or numbers for each piece within the edition. There would simply be 10 editions of “Artwork B”, but there would be no specific “Number 5” or “Number 3”. All of the items within the edition would be identical and interchangeable for any of the other items within that edition. This method would be comparable to a photographer or screen printer creating a limited run of 10 signed prints in the physical world, but each print would not be numbered.",
+        "links": [
+          {
+            "text": "Ethereum Improvement Proposal number 721 (opens new window)",
+            "uri": "https://eips.ethereum.org/EIPS/eip-721"
+          },
+          {
+            "text": "ERC-721A (opens new window)",
+            "uri": "https://www.erc721a.org/"
+          },
+          {
+            "text": "Ethereum Improvement Proposal number 1155 (opens new window)",
+            "uri": "https://eips.ethereum.org/EIPS/eip-1155"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/bdecaead-8cc6-462a-a22e-864bc96874d0_rw_1920.png?h=89acb4bb01c53706ab3d3925853a6f83",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 960
+        }
+      },
+      {
+        "type": "text",
+        "text": "Open-edition - An open-edition is a multi-edition where someone creates an uncapped supply of a particular object or work of art. The number of editions created will match the number of editions sold. Often times, an artist will choose to create an edition that remains open until a fixed point in time or until a certain criteria has been met. A basic example of this would be a work of art being sold as an open edition for 48 hours. Within this set time frame, there is no limit on the number of editions that can be sold."
+      },
+      {
+        "type": "text",
+        "text": "Limited-edition - A limited-edition is the more traditional form of an edition. This type would be comparable to our earlier example of a photographer or screen printer creating a limited run of 10 signed and numbered prints in the physical world. The limit creates scarcity which can have an impact on market dynamics such as pricing and demand."
+      },
+      {
+        "type": "text",
+        "text": "Collection - Most NFT platforms, protocols, and markets will categorize all the NFTs made from a single smart contract as being a part of one “collection”. There are many ways to organize and structure a collection, including using metadata called properties/traits, and it often will have an impact on supply & quantity dynamics. If the way your NFTs are perceived by the general public on various web3 platforms matters to you, then it will be important to think about your NFTs within the framework of “collections”."
+      },
+      {
+        "type": "text",
+        "text": "Open collection size - Similar to the concept of editions, a collection can be “open” when it comes to the number of NFTs within it. With an open collection, generally there is no declared limited on the number of NFTs within the collection. Fine artists have been known to create a single smart contract that they regularly mint their new work on rather than having multiple different contracts. In this scenario, they may choose to organize the collection further by using metadata (i.e. sorting a photography collection by focal length or camera body used)."
+      },
+      {
+        "type": "text",
+        "text": "Fixed collection size - A fixed collection means that either A) the creator has promised not to create more than a certain number of NFTs within the collection, or B) the smart contract itself dictates a limited supply size. The CryptoPunks collection is an example of a fixed collection size, as it has a maximum number of 10,000 NFTs within it. Alternatively, the fixed nature of a collection might be time-bound instead of quantity bound."
+      },
+      {
+        "type": "text",
+        "text": "Properties/Traits - While not necessary or present in all projects, many NFTs have metadata that define properties or traits within a collection. For instance, the CryptoPunks collection has dozens of traits and combinations that help make each CryptoPunk different: alien, beanie, red mohawk, nerd glasses, etc. Traits can come in many different forms, but the important thing to remember is how they can impact the perception of rarity, quantity, and supply. The CryptoPunks collection is 10,000 different pixelated punks (no two are identical), but the total supply of alien punks is limited to just 9."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/b0399365-b5d1-495d-83ab-e0e35d839435_rw_1920.png?h=c6b528ad5202a20b99bb68a70c30a93a",
+        "alt": "An example of what a collection page looks like on the NFT marketplace OpenSea. (Source)",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1062
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Data Storage Types"
+      },
+      {
+        "type": "text",
+        "text": "When it comes to storing the media associated with an NFT, there are a lot of options and each one has different upsides and downsides. Many people have thought about NFT media as being stored either “on-chain” or “off-chain”, but the reality is a lot more complicated. “On-chain” and “Off-chain” looks more like a spectrum, with most NFTs not falling entirely on either extreme. For the purposes of this guide, we’ll stick to defining the two terms on a high level. Lastly, storage choice for NFT media has many technical implications, but it can also have cultural implications. For instance, different people and communities can have different preferences when it comes to data storage."
+      },
+      {
+        "type": "text",
+        "text": "On-chain - An “on-chain” NFT refers to an NFT which has a significant amount of its data encoded directly onto the blockchain. In the case of the Ethereum blockchain, data storage and processing costs can be extremely high due to the security and permanence of Ethereum records. This dynamic creates lots of limitations with the amount of data that can be stored. For this reason, many NFTs store only a minimal amount of their data on-chain. “On-chain” NFTs in general are often perceived as being more censorship resistant, permanent, and secure when compared to “off-chain” alternatives. That being said, the vast majority of NFTs are more “off-chain” than they are “on-chain”."
+      },
+      {
+        "type": "text",
+        "text": "Off-chain - An “off-chain” NFT refers to an NFT which has a significant amount of its data stored outside of the blockchain itself. In many cases, an NFT might have a minimal amount of metadata stored on-chain that then links back to the rest of the data which is stored “off-chain” in a more flexible or cost efficient location such as IPFS or Filecoin."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Change/State Types"
+      },
+      {
+        "type": "text",
+        "text": "The vast majority of NFTs and traditional media in the world are relatively fixed and static, meaning they’re not really supposed to change over time after the point of creation. That being said, there are many different types of “states” and an NFT doesn’t have to be unchangeable."
+      },
+      {
+        "type": "text",
+        "text": "Interactive - An interactive NFT is one that can be changed or manipulated by some person, group, or entity. For example, an NFT could be a character in a game that can be upgradeable or customized by the owner or user."
+      },
+      {
+        "type": "text",
+        "text": "Non-interactive - A non-interactive NFT is one that cannot be changed or manipulated. For example, most traditional fine-art NFTs are meant for viewing pleasure and have no ability to “do” anything."
+      },
+      {
+        "type": "text",
+        "text": "Immutable - An immutable NFT is one in which the media or functionality is intended to stay the same over time and is considered “fixed”."
+      },
+      {
+        "type": "text",
+        "text": "Mutable - A mutable NFT is one in which the media or functionality is intended to change over time."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/bdcbd809-6800-4e9c-82c7-7138ec3daa4a_rw_1920.png?h=1decef93f5f53189e4094ea9fac1753f",
+        "alt": "The project “Mutant Garden Seeders” by artist Harm van den Dorpel features generative works of art that mutate over time based on a mutation frequency trait. (Source)",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1050
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Representation Types"
+      },
+      {
+        "type": "text",
+        "text": "An NFT might just seem like a digital record or item, but it could also represent many different things if the right systems are in place. For instance, an NFT could represent a real-world physical object such as a t-shirt or a book. An NFT could even represent another NFT (often called a “wrapped” NFT)."
+      },
+      {
+        "type": "text",
+        "text": "Redeemable - A redeemable NFT is one that can be exchanged for another item, whether physical or digital."
+      },
+      {
+        "type": "text",
+        "text": "Unredeemable - An unredeemable NFT is one that is not meant to be exchanged for something else."
+      },
+      {
+        "type": "text",
+        "text": "Backed - An NFT that is “backed” by something implies that there is an underlying asset that helps secure or give value to the NFT. This is similar to how the United States Dollar used to be backed by physical gold many decades ago. An NFT that is “backed” may or may not be redeemable."
+      },
+      {
+        "type": "text",
+        "text": "Unbacked - An “unbacked” NFT is any NFT that has no underlying asset."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/b34a3135-4dbd-4e13-b725-6e3e489b33ff_rw_1200.png?h=b1c9b7e79ffbe8b05237e4d090e10587",
+        "alt": "In 2022, a beverage company called Taika collaborated with Friends With Benefits DAO to create a unique Yerba Mate. The drinks were initially sold via NFT passes that could be redeemed for the drinks. Once the NFT was redeemed, the visual and metadata would update to indicate it had been used. (Source)",
+        "aspectRatio": {
+          "width": 1070,
+          "height": 551
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Method of Creation Types"
+      },
+      {
+        "type": "text",
+        "text": "In general, there are two broad categories of NFTs when it comes to how the media associated with them were created: generative and non-generative. On a broad level, these two terms refer to whether or not the final media was created “by hand” or if it was generated randomly with a computer script based on multiple pieces or elements."
+      },
+      {
+        "type": "text",
+        "text": "Generative - A generative NFT is one which had its final form composited together randomly using a computer script that pulls from a pool of different media pieces. The individual pieces that make up the whole may have been created “by hand”, but the assembly was done through an automated process."
+      },
+      {
+        "type": "text",
+        "text": "Non-generative - A non-generative NFT is one that was made entirely “by hand”, and did not rely upon a computer script and a library of media assets."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/0d8e7875-7eb8-4e2d-9d7a-72fdd6999bce_rw_1920.png?h=80832abaa46259df7f815d38473e673d",
+        "alt": "The no-code tool called Bueno.art allows anyone to create a generative NFT project with relative ease. Data is stored securely using IPFS. (Source)",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1059
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Point of Minting Types"
+      },
+      {
+        "type": "text",
+        "text": "The point at which an NFT is actually generated on the blockchain might not coincide with when it is sold or released. There are a variety of methods to choose from when it comes to distributing and creating NFTs in relationship to selling or releasing them."
+      },
+      {
+        "type": "text",
+        "text": "Mintable - A mintable NFT is one which is not actually created on the blockchain until a collector or buyer initiates its creation. With this type of NFT, the purchaser is the one responsible for the action and the associated transaction costs rather than the artist or creator. A mintable NFT would be somewhat similar to the dynamic seen in print-on-demand operations where a t-shirt isn’t made until someone actually buys it."
+      },
+      {
+        "type": "text",
+        "text": "Pre-minted - A pre-minted NFT is one which is created on the blockchain before it is sold or released. With this type of NFT, the artist or creator is the one responsible for the action and its associated transaction costs. A pre-minted NFT would be somewhat similar to a company making a batch of t-shirts and then selling them after they’ve already been made rather than being printed on-demand."
+      },
+      {
+        "type": "text",
+        "text": "Lazy Minting - A lazy-minted NFT is similar to a mintable NFT in that it is only officially finalized on the blockchain at the point of sale. From a user experience perspective, it will look and feel like an actual NFT, but under the surface it will only be created when someone chooses to purchase it. The difference between mintable NFTs and lazy minted NFTs is subtle and has more to do with perception."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Use Cases"
+      },
+      {
+        "type": "text",
+        "text": "The use cases listed below are some of the more common, popular, or well known applications for NFTs that exist currently. This list is not exhaustive, as new/niche use cases are regularly emerging. Each of these use cases could utilize any combination of the types discussed earlier."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Fine Art"
+      },
+      {
+        "type": "text",
+        "text": "Fine art encompasses a wide range of mediums and disciplines such as painting, drawing, photography, sculpture, and more. When it comes to fine art, NFTs act sort of like a digital certificate of authenticity that the artist signs cryptographically and which accompanies the relevant media file(s). That being said, there are many examples of NFTs themselves being either a part of or the entire work of art itself (with no accompanying visual that is being pointed to). Fine art NFTs have become a relatively solidified part of even mainstream culture at this point, having been adopted by traditional institutions such as Sotheby’s, Christie’s, and more. One of the most promising aspects of fine art NFTs are their ability to automatically track and permanently preserve the provenance of an artwork."
+      },
+      {
+        "type": "text",
+        "text": "SuperRare",
+        "links": [
+          {
+            "text": "SuperRare",
+            "uri": "https://superrare.com/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "CryptoPunk’s for sale at Christie’s",
+        "links": [
+          {
+            "text": "CryptoPunk’s for sale at Christie’s",
+            "uri": "https://www.christies.com/lot/lot--6316969/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Jen Stark on Foundation",
+        "links": [
+          {
+            "text": "Jen Stark on Foundation",
+            "uri": "https://whitewall.art/art/jen-stark-sets-records-with-first-nft"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/7199ce06-1ea0-406a-a8ce-b42b3b60724d_rw_1920.png?h=87511847ea2b4e8a0701a61f3282ae57",
+        "alt": "One of the 10,000 pieces from Damien Hirst’s first art project utilizing NFTs. (Source)",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1402
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Music"
+      },
+      {
+        "type": "text",
+        "text": "Music NFTs are an emerging domain of tokens that aim to provide musicians with a more viable method of revenue creation by tapping into an artist’s most passionate fans. In some ways, it’s a more effective evolution of mp3 purchases that introduces real scarcity and ownership tracking. Unlike in the old days of iTunes and CD burning, a musician could release their songs on all the major streaming platforms for anyone to listen to, while also releasing an exclusive set of 50 NFTs of the music that are aimed at collectors and super fans. The NFTs could even grant access to exclusive insider access, merch, or discounts."
+      },
+      {
+        "type": "text",
+        "text": "sound.xyz",
+        "links": [
+          {
+            "text": "sound.xyz",
+            "uri": "https://sound.xyz/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "catalog.works",
+        "links": [
+          {
+            "text": "catalog.works",
+            "uri": "https://catalog.works/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Songcamp’s “Chaos Festival”",
+        "links": [
+          {
+            "text": "Songcamp’s “Chaos Festival”",
+            "uri": "https://www.fwb.help/wip/chaos-reigns-songcamp-music-web3"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/2b686078-815f-4d16-b674-e2ebfa60edce_rw_1920.png?h=d9088ef95122d99ab50071e19f22aab4",
+        "alt": "Well-known musical artist Pussy Riot has used a platform called sound.xyz to release limited edition NFTs of her music that her fans can collect and trade. (Source)",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1059
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "PFP (Profile Pictures)"
+      },
+      {
+        "type": "text",
+        "text": "Profile pictures (often called PFPs) are a type of artwork NFT that are designed specifically to be used as a person’s display avatar on a social media site like Twitter or Facebook. A few well-known examples of these types of NFTs would be Bored Ape Yacht Club, CryptoPunks, World of Women, and Doodles. Instead of using a headshot or a selfie of oneself, many members of the emerging “Web3” ecosystem choose to represent themselves by using an illustrated character for their avatar instead. Some people do this because they prefer to remain pseudonymous online. The trend of repping PFP NFTs became so popular in 2021 that some social networking sites like Twitter added native support for them as a full-fledged feature. A PFP NFT project typically has a community and avid fan base surrounding it in addition to also sometimes having dedicated storytelling, games, merch, live events, etc. While it may seem strange to outsiders, the PFP NFT phenomenon is somewhat similar to movie fandoms, sports teams, or band fan bases. The cultural dynamics found within these groups are nothing particular new, they are merely ongoing examples of common social bonding."
+      },
+      {
+        "type": "text",
+        "text": "CryptoPunks",
+        "links": [
+          {
+            "text": "CryptoPunks",
+            "uri": "https://www.larvalabs.com/cryptopunks"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Doodles",
+        "links": [
+          {
+            "text": "Doodles",
+            "uri": "https://doodles.app/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "World of Women",
+        "links": [
+          {
+            "text": "World of Women",
+            "uri": "https://worldofwomen.art/"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/1884a610-1649-4d85-aa58-56622a39b23c_rw_1920.png?h=acc0ec5840f5f120a0e15023cefa68db",
+        "alt": "Cool Cats is a popular 10,000 supply PFP project with an avid fanbase, live events, and even a game. (Source)",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1088
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Memes"
+      },
+      {
+        "type": "text",
+        "text": "Internet culture has a rich history of meme generation and propagation, but it hasn’t been easy for the creator or spreaders of a meme to materially benefit from a meme’s success. Memes are often shared unattributed and right-clicked-saved, but with the advent of NFTs, memes can finally be owned, tracked, collected, bought, and sold in a verifiable way. In 2021, there were numerous examples of early-internet memes being minted as NFTs by their creators and then being sold for high dollar amounts at auction for profit or charity."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/3536bf28-886a-4e75-b36c-a7844f3a7577_rw_1920.png?h=da1d2c3c26732fb9248454e798d5d1e6",
+        "alt": "The owner and photographer of the Doge meme auctioned off 1/1 NFTs for charity in 2021. (Source)",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1050
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Writing"
+      },
+      {
+        "type": "text",
+        "text": "While many people think of visual media when they think of NFTs, there are plenty of non-visual applications for them such as the written word. Essayists, story-tellers, poets, and more can mint their works as NFTs and put them up for auction or sale so that collectors and patrons may support their craft financially. Web3 blogging platforms like Mirror have emerged that make NFTs a native publishing experience, allowing readers of a publication to “collect” each new post as an NFT edition. These editions can then be bought, sold, used or traded by fans and collectors. NFTs of written works often come in the form of a visual representation of the work (a cover image), raw text stored directly on-chain, and/or a text file held on a decentralized storage solution like IPFS."
+      },
+      {
+        "type": "text",
+        "text": "mirror.xyz",
+        "links": [
+          {
+            "text": "mirror.xyz",
+            "uri": "https://mirror.xyz/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "$NOVEL crowdfund",
+        "links": [
+          {
+            "text": "$NOVEL crowdfund",
+            "uri": "https://emily.mirror.xyz/0AFENlMKv9amUC1OJIZY26udpISw_raXkoEcvelPvzg"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "theVERSEverse",
+        "links": [
+          {
+            "text": "theVERSEverse",
+            "uri": "https://theverseverse.com/"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/a0f45da4-b818-4075-9fa9-6c3617bca7a1_rw_1920.png?h=196de43968cb47b741aa90f5c59373fe",
+        "alt": "Web3 writer Chase Chapman uses Mirror to publish her work. Readers can collect some of her posts as NFTs and support her work. (Source)",
+        "aspectRatio": {
+          "width": 1778,
+          "height": 1040
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Social Media"
+      },
+      {
+        "type": "text",
+        "text": "On a fundamental level, an NFT is simply a unique and verifiable representation of something else. This makes them extremely powerful for experimental concepts. Emerging Web3 social media platforms like Lens Protocols are actually using NFTs to represent all of the different actions and components of a social experience so that the platform can be built upon by anyone and accessed in a permissionless fashion. In the case of Lens Protocol, every “follow” is an NFT. If “Person A” follows “Person B”, an NFT is generated and sent to Person A’s wallet that represents the relationship."
+      },
+      {
+        "type": "text",
+        "text": "Farcaster",
+        "links": [
+          {
+            "text": "Farcaster",
+            "uri": "https://www.farcaster.xyz/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Lens",
+        "links": [
+          {
+            "text": "Lens",
+            "uri": "https://lens.xyz/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Interface",
+        "links": [
+          {
+            "text": "Interface",
+            "uri": "https://www.interface.social/"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/42bf5a79-68ad-4145-b120-847332aff088_rw_1920.png?h=032264e385c4328f1bb72c4face0ff00",
+        "alt": "Lens Protocol is an emerging social ecosystem based on decentralized on-chain data. (Source)",
+        "aspectRatio": {
+          "width": 1762,
+          "height": 840
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Domains"
+      },
+      {
+        "type": "text",
+        "text": "Domain names have been around for a long time and are a pre-web3 example of a piece of digital property. NFT and blockchain technology can be applied to domains to make them more own-able and less centralized. Whereas with traditional domains you have to always interact and go through an intermediary, domains as NFTs and blockchain records allow for greater user control and autonomy."
+      },
+      {
+        "type": "text",
+        "text": "ENS Domains",
+        "links": [
+          {
+            "text": "ENS Domains",
+            "uri": "https://ens.domains/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Unstoppable Domains",
+        "links": [
+          {
+            "text": "Unstoppable Domains",
+            "uri": "https://unstoppabledomains.com/"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/4707b3fd-abdb-41e8-9396-6506f91279d0_rw_1920.png?h=29b738f6ff7c4c7e807f38754bd8188b",
+        "alt": "Example of ENS Domain NFTs.",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 928
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Events"
+      },
+      {
+        "type": "text",
+        "text": "Perhaps one of the most promising and practical applications for NFTs is in the realm of events and live shows such as concerts, movies, and sports. On the simplest level, a ticket to an event can be an NFT that lives in a person’s wallet. Once the event is over, they’re able to keep the digital ticket as a collectible item. NFT event tickets can be managed by smart contracts on the blockchain that automatically enforce certain agreements and even resale limitations. Event goods such as merchandise and posters can even be offered in the form of NFTs to coincide with the digital experience around ticketing."
+      },
+      {
+        "type": "text",
+        "text": "Gatekeeper",
+        "links": [
+          {
+            "text": "Gatekeeper",
+            "uri": "https://gatekeep.it/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Unlock Protocol",
+        "links": [
+          {
+            "text": "Unlock Protocol",
+            "uri": "https://unlock-protocol.com/"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/87a76008-d132-4ec2-8e70-ccff5afab5dd_rw_1200.png?h=f804097bc7e1743ea4d30d2c1aeefaaa",
+        "alt": "An example of ticketing an event using Unlock Protocol. (Source)",
+        "aspectRatio": {
+          "width": 900,
+          "height": 729
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Memberships"
+      },
+      {
+        "type": "text",
+        "text": "An NFT can also be used to represent membership in a group, club, or entity. While NFTs are permanent digital objects, their utility or benefits do not have to last permanently. An expiration date or criteria could be hardcoded into the smart contract that governs the NFT."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/861596c9-3541-4fb9-87eb-d79823f8a4b4_rw_1200.png?h=9fe33984548176bc6d31a0df1c52a5fa",
+        "alt": "Poolsuite is a luxury lifestyle brand that utilizes NFTs to grant access to its events, products, and perks. (Source)",
+        "aspectRatio": {
+          "width": 1200,
+          "height": 600
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Gaming"
+      },
+      {
+        "type": "text",
+        "text": "Perhaps one of the most promising and multi-faceted use cases for non-fungible tokens, gaming NFTs have the potential to change the ways in which people interact with video games at almost every touch point. Not only can individual in-game assets be ownable NFTs, but the games themselves can be too. A character could be an NFT that possesses certain ability NFTs that then interact with item NFTs. An even more experimental and innovative use-case for NFTs in gaming can be seen with Loot Project (opens new window). In the universe of Loot, there is a base layer of underlying game items without any game attached so that people can build numerous games and projects around the same thing.",
+        "links": [
+          {
+            "text": "Loot Project (opens new window)",
+            "uri": "https://www.lootproject.com/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Dark Forest",
+        "links": [
+          {
+            "text": "Dark Forest",
+            "uri": "https://zkga.me/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Parallel",
+        "links": [
+          {
+            "text": "Parallel",
+            "uri": "https://parallel.life/"
+          }
+        ]
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/183a818b-9404-4b49-98a7-0c962d9d1c96_rw_1920.png?h=8d78a88c687a310d3de1f0dd9b0d501a",
+        "alt": "A blockchain-based game called Dark Forest utilizes NFTs in a variety of ways such as in-game items and prizes. (Source)",
+        "aspectRatio": {
+          "width": 1680,
+          "height": 1050
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Financial Assets"
+      },
+      {
+        "type": "text",
+        "text": "In the world of decentralized finance, NFTs can be used to represent many different financial assets like a person’s stake in a fund or asset, their liquidity position on an exchange like Uniswap, or even things like loans."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/10b41cc7-4e9d-405c-9588-ee0eb534b398_rw_1920.png?h=c41326bd1c70527b1a9f1c10d95acaf6",
+        "alt": "Examples of Uniswap’s NFTs that represent Liquidity Positions on their decentralized exchange.",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1184
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Components"
+      },
+      {
+        "type": "text",
+        "text": "A component is one of the different elements that make up the technical underpinnings of an NFT."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Smart Contract"
+      },
+      {
+        "type": "text",
+        "text": "A piece of software with rules, data, and functions that is deployed permanently on the blockchain. A smart contract is used to generate NFTs, and it dictates how the NFTs created with the contract will function and exist."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Token ID"
+      },
+      {
+        "type": "text",
+        "text": "Each NFT minted on a contract will have a unique token ID number that distinguishes it from all the other NFTs in the collection. Often token IDs will start at 0 or 1 and count upwards, but they can also be configured in many other ways. With ERC-1155 NFTs, each single edition of an NFT won’t have a distinct token ID, but each batch of editions will. For instance, you could own 2 editions of Token ID #4, but your two editions won’t have unique IDs; you would merely own 2 copies of Token ID #4."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Metadata"
+      },
+      {
+        "type": "text",
+        "text": "On a basic level, metadata defines and controls a large portion of how most NFTs work. Metadata for an NFT is typically a simple string of text formatted in a special way. It defines things like the media/image URL, the name, the creator, the description, the traits, etc."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Media"
+      },
+      {
+        "type": "text",
+        "text": "If an NFT has a media component such as an image or a song, that asset must be hosted somewhere and referenced within the metadata. Due to the expectation for permanence and censorship-resistance from the NFT market, self-hosting an NFT’s media component or hosting with a centralized entity like AWS is considered a very bad practice. Hosting with a decentralized storage solution like NFT.storage (opens new window)(powered by IPFS + Filecoin) is the best way to go.",
+        "links": [
+          {
+            "text": "NFT.storage (opens new window)",
+            "uri": "http://nft.storage/"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Owner"
+      },
+      {
+        "type": "text",
+        "text": "The wallet address that currently possesses the NFT, as shown on the blockchain itself."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Creator/Minter"
+      },
+      {
+        "type": "text",
+        "text": "The wallet address responsible for minting the NFT from the smart contract."
+      },
+      {
+        "type": "text",
+        "text": "Below is an example of what the metadata for Token ID 1 from the Blitmap collection actually looks, followed by how the Token is displayed on Etherscan."
+      },
+      {
+        "type": "text",
+        "text": "{\"image\":\"https://api.blitmap.com/v1/png/1\",\"name\":\"#1 - Rose\",\"description\":\"Blitmap is a community crafted art collection and universe. All data is completely on chain.\\n\\n[blitmap.com](https://www.blitmap.com)\",\"attributes\":[{\"trait_type\":\"Type\",\"value\":\"Original\"},{\"trait_type\":\"Composition\",\"value\":\"Rose (#1)\"},{\"trait_type\":\"Palette\",\"value\":\"Rose (#1)\"},{\"trait_type\":\"Affinity\",\"value\":\"Fire III\"},{\"trait_type\":\"Slabs\",\"value\":\"◢ ◢ ◢ ◥\"},{\"trait_type\":\"Attunement\",\"value\":\"Attuned\"}]}"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/c77b7a65-8a3b-44cf-bbfb-07aac6ad446b_rw_1920.png?h=89ac3ffb653bcad2957649b357298e24",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 854
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Choosing a Standard"
+      },
+      {
+        "type": "text",
+        "text": "Things to consider when choosing between the ERC-721 standard or the ERC-1155 standard."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/d3ae378e-8da0-41b3-9a7a-ce4dc5865f46_rw_1920.png?h=ca4172f216a1503b207da15409c685a6",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 957
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Editions"
+      },
+      {
+        "type": "text",
+        "text": "Let’s say you are a fine artist who wants to release editions of your work. You could use either token standard, but the ERC-1155 standard is much more suitable to a collection of items that have quantities, both for efficiency and display reasons. An exception to this would be if you really want each NFT to have a unique edition number."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/df748333-8e13-40f5-bef5-2e51edb4c180_rw_1920.png?h=da88b75a476c0a1d3869017fad0cb262",
+        "alt": "An example of a multi-edition NFT that utilizes the ERC-721 standard. In cases like this, each NFT has a unique number and is separated from one another. One downside to this is that it can be difficult to navigate or sort through when you own a lot of the same edition.",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1008
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/c3213f77-5740-4912-ba64-a5cc6b0b689c_rw_1200.png?h=818bdffec0815f468118bdf4f1056146",
+        "alt": "An example of a multi-edition NFT that utilizes the ERC-1155 standard. In cases like this, each NFT is stackable and has a quantity listed in the top left instead of individual unique numbers. There are 30 NFTs in the screenshot above, but because they use the ERC-1155 standard they are both stackable and more efficient to use.",
+        "aspectRatio": {
+          "width": 1166,
+          "height": 808
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Compatibility"
+      },
+      {
+        "type": "text",
+        "text": "While the ERC-1155 standard offers some significant features beyond ERC-721, the downside is it’s not as widely supported yet by various platforms. The ERC-721 standard is older and has had longer to establish itself as the go-to standard for NFTs, whereas the 1155 standard is still working to get a foothold in some places despite its superior feature set."
+      },
+      {
+        "type": "text",
+        "text": "Why is this important to note? Well, if there is a specific tool, platform, or community that you or your NFT owners will need to use, it’s important to make sure that it supports whichever NFT standard you’re thinking of using. For example, marketplaces like Zora and Foundation currently only support the ERC-721 standard. Furthermore, some token-gating tools that allow creators to limit access to content based on NFT ownership only support the ERC-721 standard as well."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Use Cases"
+      },
+      {
+        "type": "text",
+        "text": "In general, almost all of the use cases we covered in Part 1 could theoretically be done with both token standards. That being said, there are a few use cases that are best suited to a particular standard. Profile Picture (PFP) NFTs almost always utilize the ERC-721 standard due to cultural dynamics and platform compatibility. Gaming NFTs usually benefit from the enhanced and more flexible feature set of the ERC-1155 standard. If you’re exploring a use case that is already well explored, it could be helpful to take a look at popular examples from that genre to see if there’s a consensus or expectation."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Perception/Desirability"
+      },
+      {
+        "type": "text",
+        "text": "As has been mentioned several times already, the better feature set provided by the ERC-1155 standard doesn’t always make it the clear choice, at least not yet. Not only is this due to compatibility issues, but it also can be because audiences, collectors, or potential buyers might have ingrained preferences that could impact your project’s success. Just because a standard looks better on paper doesn’t mean it will be accepted by every target market or community. Consider looking at other projects within your niche for examples of what you’re thinking about doing to ensure the decision won’t create hurdles for you."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Feature Comparison"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/6acf6365-ebce-4dad-82da-f09ad4c637b8_rw_1920.png?h=e1cf33e1063e0521e94931d8a0bc6ca3",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1596,
+          "height": 630
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Choosing Types"
+      },
+      {
+        "type": "text",
+        "text": "Things to think about when choosing which types you want to use."
+      },
+      {
+        "type": "text",
+        "text": "Due to the abundance of NFT types and combinations of those types, it would be impossible to cover every potential scenario. That being said, below you will find a few key dynamics to keep in mind that relate to a variety of NFT types."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Collection Supply Sizes"
+      },
+      {
+        "type": "text",
+        "text": "When deciding how many editions to issue or how many total NFTs to have in a collection (or whether there should be a supply cap at all), it’s important to consider your target market, existing audience, goals, and cultural expectations. Each of these things might lead you in one direction or another depending on what is most and least important. If your NFT project is for-profit and you have certain budgetary needs or constraints, be sure to document and understand how your revenue goals relate to the supply size."
+      },
+      {
+        "type": "text",
+        "text": "Lastly, If you don’t have the luxury of being able to experiment and make preliminary work to get some experience before launching a significant project, it can be helpful to study existing projects or collections that are similar in nature."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Off-chain vs On-chain"
+      },
+      {
+        "type": "text",
+        "text": "On-chain NFTs can be quite popular within certain niches and sub-cultures, but they likely account for only a small fraction of the entire market. They’re much more difficult to create, the production costs are higher, and there are big limitations. Within all of these constraints though there is a giant world of creativity… but it might not be for everyone. If you’re just getting started with NFTs, it might be better to tackle something a bit more manageable first."
+      },
+      {
+        "type": "text",
+        "text": "Off-chain NFTs are much more prevalent, and nearly all of the most widely known NFT projects fall on the off-chain side of the spectrum because the technical limitations prevent higher resolution artwork from being stored on-chain. If you’re approaching NFTs with a pre-existing concept in mind, it’s likely that off-chain is the way to go based purely on what is and isn’t possible."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "More types, more complexity"
+      },
+      {
+        "type": "text",
+        "text": "While looking through the long list of NFT types in Part 1, you may be excited by the number of possibilities out there. You might even be tempted to combine lots of them together at once. Before you do though, it’s important to note that the more features and types you add together, the greater your costs will be… both in terms of time and money. Additionally, the more parts an NFT project has, the more ways something could go wrong or differently there are. Be wary of “feature bloat”."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Configuring Components"
+      },
+      {
+        "type": "text",
+        "text": "Things to think about when setting up a smart contract and minting tokens"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Smart contract permanence"
+      },
+      {
+        "type": "text",
+        "text": "For the most part, a smart contract can’t be changed once it has been deployed on the blockchain. This is why it is important to either use a test network like Goerli or a no-code editor to preview what you’ve made before it goes live. Pay special attention to the name of the contract and the token symbol to make sure they are exactly what you want them to be. If you make a mistake or need to change something about the contract, you’ll likely have to re-deploy it completely (which can be difficult if people have already bought or collected NFTs created on it). You could theoretically migrate contracts or create additional contracts that connect to the main one in the future, but these things can create many issues and may require planning far in advance."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Metadata flexibility"
+      },
+      {
+        "type": "text",
+        "text": "Unlike smart contracts, the metadata of NFTs can typically be updated after the fact relatively easily… but not without a cost. To update things, you’d likely have to submit additional blockchain transactions that would have varying financial costs associated with them. Still, this ability is helpful in situations where there may have been an error in the artwork or a typo in the description. It’s especially helpful because it allows for projects to be mutable, interactive, and more dynamic."
+      },
+      {
+        "type": "text",
+        "text": "On the other hand, the fact that metadata can be updated also means that there is an inherent level of trust involved between an NFT creator and an NFT collector. In the world of NFTs there is a concept called “rugging” where a project creator will change an NFT’s artwork to be something different than what was promised before then runing away never to be heard from again. For a variety of reasons, it’s important for creators to be upfront and honest with potential collectors so that trust can be established."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Licenses & copyright"
+      },
+      {
+        "type": "text",
+        "text": "Contrary to popular belief, a smart contract or an NFT does not grant a usage license or copyright ownership from a legal perspective. Just because you own an NFT, doesn’t mean you also can use the artwork however you want. While not necessary, it can be a good idea as a creator to have an informational page on your website that provides the terms of the agreement so that collectors aren’t left wondering. This can be a totally separate thing apart from the NFT or the smart contract itself though."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Data storage & preservation"
+      },
+      {
+        "type": "text",
+        "text": "If you plan to store the data and media files associated with your NFT somewhere off-chain (the place most NFTs store their data), then you’ll need a decentralized storage provider that is secure, trustworthy, and who can handle the unique needs of NFTs. This is where NFT.storage comes in! Through the power of IPFS, Filecoin, and content addressing, NFT.storage has already been used to store over 80 million NFTs and 200 terabytes of data. The best part of all is that it’s a public good and is completely free.",
+        "links": [
+          {
+            "text": "NFT.storage",
+            "uri": "http://nft.storage/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "When you’re ready begin storing NFT data and making use of all the information you’ve learned about in this guide, you can get started over on NFT.storage.",
+        "links": [
+          {
+            "text": "NFT.storage",
+            "uri": "http://nft.storage/"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "slug": "the-definitive-guide-to-security-for-nft-creators",
+    "title": "The Definitive Guide to Security for NFT Creators",
+    "category": "writing",
+    "tags": [
+      "writing",
+      "nft",
+      "security",
+      "web3"
+    ],
+    "year": 2023,
+    "createdAt": "2023-01-01T00:00:00.000Z",
+    "summary": "A practical security handbook for Web3 creators: how crypto wallets actually work, and the wallet and digital-security habits that keep your work and assets safe.",
+    "source": "https://dame.work/the-definitive-guide-to-security-for-nft-creators",
+    "blocks": [
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/558dcbee-a37e-44e6-96d2-f3d4b04efbfa_rw_1920.png?h=39b0d6068c9f63d972f3029a2886a1b6",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1078
+        }
+      },
+      {
+        "type": "text",
+        "text": "Protecting yourself in Web3 requires much more than simply buying a hardware wallet and calling it a day."
+      },
+      {
+        "type": "text",
+        "text": "Whenever a new technology comes along there is an adjustment period where people are learning how it works and developing new habits. During this period, bad actors take advantage of the knowledge gap that exists in order to scam people. We saw this during the early days of the internet (Web1) and when social media came around (Web2). Now we’re seeing it happen again with the rise of NFTs and crypto (Web3). There are some new dynamics at play however."
+      },
+      {
+        "type": "text",
+        "text": "Because the NFT ecosystem is based around self-custody rather than the practice of trusting third-parties to manage assets and data, it means that individuals have to shoulder a larger amount of responsibility for keeping themselves safe. No one is above this work either… anyone can fall victim to security breaches. Some of the biggest names in NFTs like Kevin Rose, the creator of Moonbirds, have had NFTs stolen due to lapses in their security practices.",
+        "links": [
+          {
+            "text": "self-custody",
+            "uri": "https://blog.nft.storage/posts/self-custody-for-artists-what-it-is-and-why-it-matters"
+          },
+          {
+            "text": "had NFTs stolen due to lapses in their security practices.",
+            "uri": "https://cointelegraph.com/news/moonbirds-creator-kevin-rose-loses-1-1m-in-nfts-after-1-wrong-move"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "To help you navigate this important topic and better protect yourself, we’ve put together the following guide that will teach you almost everything you’ll need to know when it comes to wallet security and digital hygiene."
+      },
+      {
+        "type": "text",
+        "text": "Let’s dive in and boost our security together!"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "How crypto wallets actually work"
+      },
+      {
+        "type": "text",
+        "text": "While it’s not essential to fully understand how crypto wallets work, it can be incredibly helpful to at least understand the basics. Having this foundational knowledge will make your life easier and set you up for greater success. So, before proceeding any further, let’s go over the essential details…"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Wallet Components"
+      },
+      {
+        "type": "text",
+        "text": "It’s natural to assume that a crypto wallet is a mobile application or a physical device, but it’s actually much more conceptual. Wallets are cryptographic keys that come in the form of strings of text. Whoever knows certain parts of the text can do different things with whatever is associated with the text (i.e. an NFT is associated with your address as being owned by it). Wallet applications are merely tools that allow you to more easily manage your cryptographic keys via a helpful interface (but more on this later)."
+      },
+      {
+        "type": "text",
+        "text": "There are 3 parts of a cryptographic wallet that you should be familiar with:"
+      },
+      {
+        "type": "text",
+        "text": "1. Public Address"
+      },
+      {
+        "type": "text",
+        "text": "Example: 0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+      },
+      {
+        "type": "text",
+        "text": "The Public Address is similar to an email address. Anyone that knows the public address can send things to the wallet, but they can’t control or send from the address. Unlike email though, anyone who knows a wallet’s public address can see everything inside the wallet as well as its complete transaction history. In most cases it is okay to share your wallet’s public address with someone, as long as you are comfortable with them being able to see what’s inside of it and associate it with your identity."
+      },
+      {
+        "type": "text",
+        "text": "2. Private Key"
+      },
+      {
+        "type": "text",
+        "text": "Example: 8da4ef21b864d2cc526dbdb2a120bd2874c36c9d0a1fb7f8c63d7f7a8b41de8f"
+      },
+      {
+        "type": "text",
+        "text": "The Private Key is kind of like a password, except it isn’t chosen by the user and it cannot be changed. Whoever knows a wallet’s private key can access and control it, so it is critically important to never share your wallet’s private key with anyone… even customer support teams. If someone ever asks for your private key, they are trying to scam you. If your private key ever gets “leaked” or compromised, there is nothing you can do to change it which means you’ll need to create a new wallet and attempt to migrate assets (the technology will get better and solve for this issue over time, but this is the current state of things)."
+      },
+      {
+        "type": "text",
+        "text": "3. Secret Phrase"
+      },
+      {
+        "type": "text",
+        "text": "Example: list aim crime wide fence sad final squirrel dance eager jeans pull"
+      },
+      {
+        "type": "text",
+        "text": "The Secret Phrase is an ordered list of 12, 18, or 24 special words that are generated randomly from a pre-determined list of 2048 words. Each secret phrase can be used to generate multiple sets of public addresses and private keys. Whoever knows the secret phrase can access and control all of the wallets that were created using it. Like private keys, secret phrases are permanent and cannot be changed. If your secret phrase becomes compromised, you’ll need to generate a new one and migrate assets to new wallets.",
+        "links": [
+          {
+            "text": "a pre-determined list of 2048 words.",
+            "uri": "https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Wallet Applications"
+      },
+      {
+        "type": "text",
+        "text": "To more easily manage and do things with a crypto wallet, most people import their cryptographic keys into wallet management software or applications. For instance, when you download a “wallet app” onto your phone like MetaMask, you’re actually just downloading a user interface that allows you to do interesting things with your cryptographic keys. The wallet app isn’t the wallet itself, and you can change which interface you’re using at any time by importing your keys into a new application (more on this later, but be careful when doing this!). This is great news for consumers because if you create a crypto wallet with MetaMask and later decide you don’t like MetaMask, then you’re not locked-in."
+      },
+      {
+        "type": "text",
+        "text": "Additionally, the assets and data owned by a wallet don’t actually “live” inside a physical device anywhere. They aren’t really “in” your wallet. This might sound perplexing at first, but it’s actually not as odd as it may seem."
+      },
+      {
+        "type": "text",
+        "text": "To understand this fully, it helps to understand how a blockchain works. A blockchain is a decentralized public ledger that lots of humans collectively trust and add data to. If the blockchain says you own a particular item, then you own it. This is similar to how banks don’t actually have all your money, they just have digital records of amounts and transactions. When you own an NFT, there is a record on the blockchain that says that your wallet owns it. Because you possess the keys to the wallet, you’re the only person that can change this record. If you wanted to transfer an NFT you own to someone else, you would have to create a transaction on the blockchain and “sign” the transaction digitally using your cryptographic keys."
+      },
+      {
+        "type": "text",
+        "text": "The fact that your assets don’t live in a physical device anywhere is powerful because as long as you backup your secret phrase or private key, then you can recover your assets on any device from anywhere in the world."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Types of Wallet Interfaces"
+      },
+      {
+        "type": "text",
+        "text": "There are many different types of wallet interfaces that allow you to manage your cryptographic keys. These interface types can range in terms of complexity, features, and security. In an ideal setup, you’ll be using multiple wallet interfaces of different types (though not storing the same wallet in multiple interfaces)."
+      },
+      {
+        "type": "text",
+        "text": "Software Wallet\n- Highly convenient, often mobile or browser-extension based\n- Used on a multi-functional hardware device like a phone or laptop\n- Connected to the internet\n- Used as a “daily driver”\n- Secure, but not quite as secure as a hardware wallet\n- Meant for short-term holding and web3 browsing/interaction\n- Examples: MetaMask, Zerion, Ghost, Coinbase Wallet"
+      },
+      {
+        "type": "text",
+        "text": "Hardware Wallet\n- Not as convenient\n- Dedicated physical device that is separate from a phone or laptop\n- Not connected to the internet\n- Infrequently to rarely used\n- Higher security when used properly\n- Meant for long-term holding and storage\n- Examples: Trezor, Ledger, GridPlus Lattice"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Security Best Practices"
+      },
+      {
+        "type": "text",
+        "text": "Protecting yourself in Web3 requires much more than simply buying a hardware wallet and calling it a day. You’ll need to begin thinking holistically about your digital life because a single point of failure in one area could cause a breach due to how interconnected they all are. For instance, you could have a rock-solid wallet setup but slip up in another area and still have your wallet compromised."
+      },
+      {
+        "type": "text",
+        "text": "Good digital security and wallet hygiene is all about ongoing behaviors and habits rather than a “set it and forget it” mentality. While none of the following pieces of advice should be considered “bullet-proof”, they will help you be safer."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Wallet Security"
+      },
+      {
+        "type": "text",
+        "text": "1. It’s up to you to backup your wallet"
+      },
+      {
+        "type": "text",
+        "text": "There is no “forgot password” button when it comes to most crypto wallets. Your cryptographic keys stay on your device and are never known by the company that creates whatever wallet application or device you use. If you don’t properly save your secret phrases and private keys, you might lose access to your wallet forever… and all of the assets it owns."
+      },
+      {
+        "type": "text",
+        "text": "2. Never share your secret phrases or private keys with anyone"
+      },
+      {
+        "type": "text",
+        "text": "As we discussed at the beginning of this article, a wallet’s secret phrases and private keys are what control the wallet’s assets. Whoever has these cryptographic keys can take what’s in the wallet. Furthermore, these cryptographic keys cannot be changed; if they ever get compromised or leaked, you’ll have to set up a new wallet and attempt to transfer everything."
+      },
+      {
+        "type": "text",
+        "text": "3. Be careful where you connect, but be more careful with what you sign"
+      },
+      {
+        "type": "text",
+        "text": "When you connect your wallet to a new website or application, you’re typically giving that site permission to send signature requests to your wallet. Simply connecting your wallet to a website is relatively low risk in and of itself — the real danger comes when a malicious site sends your wallet a request and you sign the request. There are many scams and tactics bad actors will use to trick you into signing a transaction without realizing it’s harmful."
+      },
+      {
+        "type": "text",
+        "text": "The vast majority of “hacks” and “scams” that occur in the NFT ecosystem are the result of people signing things with their wallet that they shouldn’t. One of the reasons for this is the fact that it is difficult to understand signature requests. As a result, you should be extremely careful when connecting an important wallet to websites or signing transactions. This actually leads us to our next best practice…"
+      },
+      {
+        "type": "text",
+        "text": "4. Multiple wallets, multiple secret phrases"
+      },
+      {
+        "type": "text",
+        "text": "Having your assets stored in a single wallet is very risky because it means if one thing goes wrong, you could lose it all. If you have a lot of NFTs or assets, then it’s wise to split them up between multiple wallets. While this will require more work and maintenance, it’s well worth it to avoid a catastrophe. The key thing to remember here is that you’ll only gain the security benefits from this practice if each unique wallet has its own secret phrase. As we mentioned earlier, a single secret phrase can be used to generate and recover multiple wallets. Unfortunately, when you create a new wallet in many wallet apps like MetaMask, it will default to creating a new wallet with the same secret phrase. Doing this will not give you any added security benefits. In order to properly split your assets between wallets, each wallet needs its own secret phrase."
+      },
+      {
+        "type": "text",
+        "text": "5. Use a hardware wallet, but don’t let it give you a false sense of security"
+      },
+      {
+        "type": "text",
+        "text": "As mentioned earlier, hardware wallets like Ledger can be powerful tools for boosting your overall NFT security because they can create a bit of an “air gap” between your keys and the internet. There's a common misconception though that if you buy a hardware wallet and use it, then you'll be safe from all the scams and “hacks” out there. In reality though, wallet security has much more to do with your ongoing behaviors and practices... and a hardware wallet won't save you from bad habits. The vast majority of the security beaches you see within the NFT ecosystem could not have been prevented just by owning a hardware wallet.",
+        "links": [
+          {
+            "text": "Ledger",
+            "uri": "https://www.ledger.com/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "All of that being said, hardware wallets are a very important part of a robust self-custody setup, and we highly recommend using them if you want the most security."
+      },
+      {
+        "type": "text",
+        "text": "6. Backup your private keys and secret phrases in physical format only"
+      },
+      {
+        "type": "text",
+        "text": "For important wallets that need higher security, it’s critical that you only backup the private keys and secret phrases in a physical format like paper or metal. If they ever are backed up in a digital format, it increases the likelihood that a hacker could remotely gain access to them. By engraving your keys in metal using a product like Blockplate and/or storing them in a fireproof safe, you’ll make it impossible for a computer hacker to gain access to them.",
+        "links": [
+          {
+            "text": "Blockplate",
+            "uri": "https://www.blockplate.com/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "7. Store important wallet backups in a fireproof manner"
+      },
+      {
+        "type": "text",
+        "text": "While you might be tempted to think that a paper backup might suffice, it’s critical to plan for the worst-case scenarios, including but not limited to floods and fires. Consider investing in a small fireproof safe or storing it someplace that is protected from the harshest of conditions."
+      },
+      {
+        "type": "text",
+        "text": "8. Have a “daily driver” wallet"
+      },
+      {
+        "type": "text",
+        "text": "In point number 4 we discussed the importance of having multiple wallets. One of the wallets you should create for yourself is what we call a “daily driver” wallet. This wallet is meant for more casual or even higher risk usage, and it’s a wallet that you can feel easier signing transactions from. You should avoid storing valuables in it that you wouldn’t want to lose."
+      },
+      {
+        "type": "text",
+        "text": "9. Have a “vault” wallet, but avoid actively using it"
+      },
+      {
+        "type": "text",
+        "text": "A “vault” wallet is a hardware wallet that serves as a high-security place to store assets long-term. The only thing that makes it a “vault” is what you do and don’t use it for. It should serve as a place to send assets to, but not as a wallet you ever want to sign transactions from. You can send assets out of it to your other wallets and receive assets using it, but you don’t want to ever do anything else."
+      },
+      {
+        "type": "text",
+        "text": "For example, let’s say you buy an NFT worth $1,000 and want to keep it safe long-term. You could send the NFT to your hardware wallet that you have designated as a “vault” and not touch it until you’re ready to sell it. When you are ready to sell, you would transfer the NFT from the vault wallet to another one of your wallets and then list it for sale from there."
+      },
+      {
+        "type": "text",
+        "text": "The moment you use your “vault” wallet for other activities, that’s when you introduce potential points of failure into the equation. By never doing anything but sending and receiving assets to your other wallets, you eliminate a significant source of trouble. This would sort of be like buying a laptop computer and never connecting it to the internet or installing outside software on it in order to eliminate any potential security weak points."
+      },
+      {
+        "type": "text",
+        "text": "10. Consider the physical location of where you store your wallet backups"
+      },
+      {
+        "type": "text",
+        "text": "If you do engrave your secret phrases on a metal plate or store them in a fireproof safe, it’s critical that you then give some thought to the physical location that the backup is actually stored at. For instance, it would be unwise to store your backups at a business, place of retail, or location that receives higher foot traffic from unknown guests. If you keep your backups at your house, then you should find a relatively secure environment within the dwelling that won’t be easily accessible by bad actors. You could even consider installing digital security cameras as an added deterrent."
+      },
+      {
+        "type": "text",
+        "text": "11. Keep in mind the limitations of privacy on the blockchain"
+      },
+      {
+        "type": "text",
+        "text": "As we discussed in our self-custody explainer, your privacy can be compromised on most of today’s blockchains if you’re not careful. If you’re in need of some relative privacy when it comes to transacting on the blockchain, you should create a new wallet and never interact with any of your other wallets that might be publicly tied to your identity. To fund the wallet, you should send crypto to it directly from a crypto exchange. By doing this, you make it relatively impossible for anyone other than the crypto exchange to know that you control the wallet address.",
+        "links": [
+          {
+            "text": "As we discussed in our self-custody explainer",
+            "uri": "https://blog.nft.storage/posts/self-custody-for-artists-what-it-is-and-why-it-matters"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "12. Avoid using a secret phrase in multiple wallet apps"
+      },
+      {
+        "type": "text",
+        "text": "While it’s possible to import a wallet’s secret phrase or private key into multiple wallet interfaces at the same time, it’s best not to do this. The more places you have your keys stored, the more chances there are for them to become compromised. In the security industry this is referred to as your “attack surface”. By reducing your attack surface, you can reduce your vulnerability."
+      },
+      {
+        "type": "text",
+        "text": "13. Consider trying a smart contract wallet"
+      },
+      {
+        "type": "text",
+        "text": "There are many different emerging technologies that aim to solve a lot of the security weak points of “basic” crypto wallets. Smart contract wallets are one such technology, and it might be worth trying them out via a service like Argent. They are essentially more advanced wallets that don’t have secret phrases, but rather are recovered and managed by “guardians”.",
+        "links": [
+          {
+            "text": "Argent",
+            "uri": "https://www.argent.xyz/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Keep in mind that smart contract wallets are not supported everywhere yet, and there are sometimes additional costs associated with them."
+      },
+      {
+        "type": "text",
+        "text": "14. Explore other emerging web3 security tools"
+      },
+      {
+        "type": "text",
+        "text": "Other new technologies and services attempt to solve common Web3 security vulnerabilities in creative ways. For instance, delegate.cash is creating a registry that will allow people to use NFTs stored in “vault wallets” without ever compromising the vault.",
+        "links": [
+          {
+            "text": "delegate.cash",
+            "uri": "http://delegate.cash/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "A﻿nother helpful tool is called Fire. Fire is a browser plugin that attempts to “simulate” transactions before you sign them so you’ll have a better understanding of what will happen when you sign.",
+        "links": [
+          {
+            "text": "Fire",
+            "uri": "https://www.joinfire.xyz/"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Digital Security"
+      },
+      {
+        "type": "text",
+        "text": "Because crypto wallets often come into contact directly or indirectly with other parts of our digital lives, it’s important for your security readiness to extend out beyond just your wallet. By doing this, you’ll also be protecting yourself and your brand from reputation damage. There have been many cases of high profile NFT creators having their Twitter or Discord accounts hacked, which results in harmful messages and links being sent to followers."
+      },
+      {
+        "type": "text",
+        "text": "The more of the best practices that you follow, the greater your digital security will be."
+      },
+      {
+        "type": "text",
+        "text": "1. Regularly install updates to apps and devices"
+      },
+      {
+        "type": "text",
+        "text": "Your computer or phone’s operating system updates on a regular basis with improvements to potential security issues that are discovered over time. If you don’t regularly install these updates, then you dramatically increase the odds of something bad happening to your devices. Consider turning on the settings that automatically install these critical updates."
+      },
+      {
+        "type": "text",
+        "text": "2. Use a password manager like 1Password in tandem with random passwords"
+      },
+      {
+        "type": "text",
+        "text": "One of the most common causes of internet accounts being “hacked” is a person using the same password across multiple accounts. For maximum security, you should utilize a password manager like 1Password to store unique and random passwords for all your traditional logins. That being said, you should avoid storing important wallet backups and secret phrases in a password manager because, as we noted earlier, these should never be stored digitally to maintain maximum security. The only wallet backups you should ever consider storing digitally are for your “daily driver” wallets that don’t contain many important assets. If you are going to store a wallet’s backup digitally, then it should be in a password manager rather than in a document or screenshot.",
+        "links": [
+          {
+            "text": "1Password",
+            "uri": "https://1password.com/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "3. Use physical 2FA keys like Yubikeys"
+      },
+      {
+        "type": "text",
+        "text": "Whenever possible, always turn on Two-Factor Authentication (2FA) for your logins. This secondary check goes a long way in preventing bad actors from gaining access to your accounts. You can increase this protection even more dramatically by using a physical 2FA key in place of the digital options. A Yubikey is one of the most popular physical 2FA keys, and it can be easily placed on a keyring. When logging into your account, you would insert the key into the appropriate port on your device. Without access to this physical device, it would be almost impossible for a hacker to gain access to your account. If you end up going this route, be sure to buy more than just one key — you’ll want at least one backup in case you lose the original.",
+        "links": [
+          {
+            "text": "Yubikey",
+            "uri": "https://www.yubico.com/products/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "4. If not using Yubikeys, use non-SMS 2FA through your password manager"
+      },
+      {
+        "type": "text",
+        "text": "Many websites default their 2FA security feature to being through SMS text messages. While this method is better than nothing, it is somewhat vulnerable to other hacking methods. Whenever possible, it’s best to either use a physical 2FA key or the 2FA codes generated from a password manager like 1Password.",
+        "links": [
+          {
+            "text": "1Password",
+            "uri": "https://1password.com/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "5. Be extremely careful when clicking on links or downloading attachments"
+      },
+      {
+        "type": "text",
+        "text": "Bad actors will often attempt to get people to download a file or visit a website that seems normal, but in reality is a trap. This often occurs over direct messages on social networks like Discord or Twitter. By training yourself to think twice and go slow very time someone sends you something, you’ll be able to protect yourself from this common attack vector. This is especially important when interacting with strangers, but is still key when interacting with people you trust… bad actors regularly try to impersonate friends and colleagues knowing that your guard will be down with them. If something seems strange, try to contact the person via a different channel to make sure it’s really them."
+      },
+      {
+        "type": "text",
+        "text": "6. If it sounds too good to be true, it probably is"
+      },
+      {
+        "type": "text",
+        "text": "In the world of crypto and NFTs, there are often legitimate “free” things that are gifted to people, but the old saying is still true. If you see an “airdrop” or a “giveaway” or “free mint”, make sure to go slowly and triple check everything to make sure it is a legitimate and safe action to take. Fake giveaways and freebies are one of the most common ways that people have NFTs stolen, so it’s critical to have your guard up in these scenarios, even when you think it might be “safe”."
+      },
+      {
+        "type": "text",
+        "text": "7. Learn more about social engineering"
+      },
+      {
+        "type": "text",
+        "text": "Many of the “hacks” that you may have seen on social media were not actual hacks but rather an incident of social engineering. This is when someone uses psychology and behavioral science to trick people into doing things that aren’t in their best interests. It’s one of the leading cause of security breaches across the world, and most companies devote large amounts of resources to teach their employees about it. Luckily there are many resources and examples that can be found via a quick Google search for “social engineering”.",
+        "links": [
+          {
+            "text": "social engineering",
+            "uri": "https://en.wikipedia.org/wiki/Social_engineering_(security)"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Next Steps"
+      },
+      {
+        "type": "text",
+        "text": "Now that you have a comprehensive list of habits and best practices to protect yourself as you navigate Web3, it’s time to start implementing some of them. Go at your own pace and knock out as many as you can. Doing something is better than doing nothing! If you’re feeling overwhelmed, try reaching out to a friend and see if they’ll do it with you. Like most things, security is better when you don’t go alone. Keep your eyes on the prize — you’ll soon be able to enjoy a greater sense of ease as you explore Web3!"
+      },
+      {
+        "type": "text",
+        "text": "F﻿or more helpful resources about NFTs and Web3, follow us on Twitter: @NFTdotStorage",
+        "links": [
+          {
+            "text": "@NFTdotStorage",
+            "uri": "https://mobile.twitter.com/nftdotstorage"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "slug": "photographs-era-2-part-ii",
     "title": "Photographs: Era 2 (Part II)",
     "category": "photography",
@@ -180,6 +1591,125 @@
         "aspectRatio": {
           "width": 1920,
           "height": 1280
+        }
+      }
+    ]
+  },
+  {
+    "slug": "rainbow",
+    "title": "Rainbow",
+    "category": "marketing",
+    "tags": [
+      "marketing",
+      "community",
+      "social media",
+      "web3"
+    ],
+    "year": 2022,
+    "createdAt": "2022-01-01T00:00:00.000Z",
+    "summary": "As Content & Community Manager for the Rainbow wallet, I grew its Twitter following from 8,000 to 50,000, hosted a weekly live audio show, and built out its first customer support team.",
+    "source": "https://dame.work/rainbow",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "At the beginning of 2021, I became interested in blockchain technology and cryptocurrencies. I downloaded a crypto wallet app called Rainbow and fell in love with it. I began to post on social media about it, make memes about it, and teach other people what I was learning as I went along. As a result, I got connected to the founders of the company behind the app, and I pitched them the idea of hiring me as a Content & Community Manager. They weren't actively hiring at the time, but they decided to take a chance on me because of how talented I was and how much I believed in what they were trying to do."
+      },
+      {
+        "type": "text",
+        "text": "During my time working for Rainbow, I grew their social media following from 8,000 to 50,000, onboarded high-profile celebrities to the app, oversaw the hiring of our initial customer support team, wrote numerous product guides and help articles, and hosted a weekly live audio show on Twitter. I was even featured in an article in New York Magazine.",
+        "links": [
+          {
+            "text": "I was even featured in an article in New York Magazine.",
+            "uri": "https://nymag.com/intelligencer/article/crypto-nft-twitter-discord-guide.html"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Growing the Twitter account from 8K to 50K followers"
+      },
+      {
+        "type": "text",
+        "text": "The Rainbow app's primary target audience were members of the Web3 community and those with a potential interest in Web3 technologies. Because of this, I focused a lot of my efforts on growing a group of dedicated fans and followers on Twitter, which is where many of those types of people were hanging out online at the time."
+      },
+      {
+        "type": "text",
+        "text": "I started growing our following through creating funny memes that were relatable to the target audience, but as the audience grew I matured the strategy into also providing highly sought-after educational content. Eventually I even began hosting a weekly live audio show that usually had 100-300 engaged attendees each week."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/68557beb-0ba6-42a8-a41d-7de37eec6c23_rw_1920.jpg?h=4b1116f7df7b4f81b8e8052e67fe2a40",
+        "alt": "A meme about the Ethereum network's high usage",
+        "aspectRatio": {
+          "width": 1366,
+          "height": 647
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/e2b733ac-aee9-4e3e-90ed-3235acc5fcc6_rw_1200.png?h=bcb451cb86a025459f06f10ac3c8cd56",
+        "alt": "A meme teasing a new feature our users really wanted",
+        "aspectRatio": {
+          "width": 1194,
+          "height": 921
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/5b1d7b92-5fe5-4c87-af65-043bbeb5295d_rw_1200.png?h=e33f0860f9a297fd2c632bd99170d06c",
+        "alt": "Screenshots teasing more new features our users wanted",
+        "aspectRatio": {
+          "width": 1188,
+          "height": 948
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Twitter Spaces Live Audio Show"
+      },
+      {
+        "type": "text",
+        "text": "Rainbow Office Hours was a weekly live audio show that I created and hosted to provide anyone with a place they could come and ask questions about Web3, Crypto, and NFTs. The show was an educational environment where I made everyone feel safe enough to ask the \"dumbest\" of questions."
+      },
+      {
+        "type": "text",
+        "text": "We were one of the only Web3 brands doing such an event at the time, and it helped position us as an industry authority on a variety of topics. In the months that followed, other brands in the industry began launching their own \"Office Hours\" shows in a similar vein to ours after seeing our show's success."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Oversaw the hiring, recruiting, and onboarding process for our initial customer support team."
+      },
+      {
+        "type": "text",
+        "text": "As the app began to grow in popularity, there was a growing need for an actual customer support team to handle the incoming questions, feedback, and bug reports. I raised this issue to the team and volunteered to take it upon myself to oversee the hiring process for this initial team. The founders greenlit the idea, and I began to search for viable candidates for the team."
+      },
+      {
+        "type": "text",
+        "text": "After sourcing an initial pool of candidates from within the community and from a job listing, I created a CRM to manage the candidate pipeline effectively. After narrowing down the applicants to the most promising ones, I conducted initial interviews and then set up additional interviews with other members of our team."
+      },
+      {
+        "type": "text",
+        "text": "Through my process, I successfully oversaw the hiring of two customer support reps and one customer support lead who turned out to be extremely great fits for the team. One of them even went on to become a member of the product development team."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Created product knowledge base to guide new users through how to use the app and navigate Web3."
+      },
+      {
+        "type": "text",
+        "text": "In tandem with hiring a customer support team, I developed and wrote the beginnings of a knowledge base that up until this point had not existed. When a user had a question or didn't know how to do something, there were no resources we could send them. Within the span of a few weeks, I wrote numerous articles for our first knowledge base that covered all the major topics our users would need information about. Eventually I built this out further over time."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/f9c77cd6-396c-4db6-bbf4-4b4eba978bb5_rw_1920.png?h=60ec83be895a15794f69123f43692605",
+        "alt": "A screenshot showcasing the initial version of the Rainbow Knowledge Base",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 2858
         }
       }
     ]
@@ -479,6 +2009,542 @@
     ]
   },
   {
+    "slug": "gpt-3-dao-essay",
+    "title": "Wannabe DAOs",
+    "category": "writing",
+    "tags": [
+      "writing",
+      "essay",
+      "dao",
+      "web3"
+    ],
+    "year": 2021,
+    "createdAt": "2021-01-01T00:00:00.000Z",
+    "summary": "An essay on Decentralized Autonomous Organizations, written in collaboration with GPT-3 — I wrote the opening paragraph and served as editor while GPT-3 did most of the thinking.",
+    "source": "https://dame.work/gpt-3-dao-essay",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "This essay was written in collaboration with GPT-3. I provided the initial paragraph and served as the editor, GPT-3 did most of the thinking. Many people were writing about Decentralized Autonomous Organizations (DAOs) in 2021, but I wanted to read what a non-person had to say about them because the humans were saying some pretty ridiculous things."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/d00ce002-c929-46c6-bce6-fefe870ab3b6_rw_1920.jpg?h=7767fe9b27653e26d751f3d1a07dc17c",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 960
+        }
+      },
+      {
+        "type": "text",
+        "text": "We have officially entered the age of the DAO: Decentralized Autonomous Organizations. Everyone's talking about them, but no one quite seems to know what they are or how they function."
+      },
+      {
+        "type": "text",
+        "text": "When I say that this is the age of the DAO, I'm referring to this as a concept, not as an inevitable fait accompli (a thing that has already happened or been decided before those affected hear about it, leaving them with no option but to accept it). In the former sense, a DAO is very much a subversive, countercultural phenomenon, and for all their technical sophistication, they're more like a meme, or a prophetic message, than a revolution."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "What is a DAO?"
+      },
+      {
+        "type": "text",
+        "text": "In the simplest sense, a DAO is like a termite colony. Both termite and ant colonies are instances of decentralized systems which arise out of the collective activity of thousands of simple animal workers. These systems are autonomous, in the sense that no single ant directs them."
+      },
+      {
+        "type": "text",
+        "text": "A true DAO (stylized as ∆o³) comprises three main components, all of which to varying degrees also involve humans, and therefore cannot be fully decentralized:"
+      },
+      {
+        "type": "text",
+        "text": "1. Smart contracts - collections of code written in a Turing-complete programming language. Smart contracts are instructions executed on the blockchain which are not tampered with by humans."
+      },
+      {
+        "type": "text",
+        "text": "2. Users of the network - human beings who access the blockchain and execute smart contracts."
+      },
+      {
+        "type": "text",
+        "text": "3. A native token - a fungible digital asset which can either be bought or sold, to be used as a form of payment. The network which a DAO lives on must support this token somehow."
+      },
+      {
+        "type": "text",
+        "text": "A DAO stands in opposition to a corporation. Whereas a corporation is materially, literally a corporation, a DAO is a rebranding of the concept of a corporation, without the legal or physical materiality. A corporation requires humans to perform a good number of actions; a DAO only requires humans to reshare a meme."
+      },
+      {
+        "type": "text",
+        "text": "Unlike a corporation, a DAO has no chairman, or CEO, or managers of any kind. There are no headquarters within a DAO. There is no staff, no hierarchical org chart. Any income generated by a DAO is paid out to its users, i.e. its token holders. The more tokens you hold, the more income you earn. This creates an incentive for a) holding tokens and b) creating the products and/or services the DAO's decentralized network is producing."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "The Countercultural Aspect of DAOs"
+      },
+      {
+        "type": "text",
+        "text": "As a species, and at a pace almost too fast to keep track of, we started to lose control of our organizational structures."
+      },
+      {
+        "type": "text",
+        "text": "Corporations became machines, and over the course of the 20th century, humans became just the inputs and outputs, the tiny cogs which made the great gears spin."
+      },
+      {
+        "type": "text",
+        "text": "In 2013, Vitalik Buterin gave us a glimmer of hope through Ethereum, a platform to create decentralized autonomous applications (DApps). In a sense, Ethereum is the Internet 3.0, or maybe even 4.0. Ethereum is a \"world wide computer\" where no one owns, or controls, or censors it."
+      },
+      {
+        "type": "text",
+        "text": "Ethereum was a revelation, giving us a path forward to a brighter future."
+      },
+      {
+        "type": "text",
+        "text": "This is precisely the kind of story that's ideal for meme propagation and countercultural instigation. Once one person says \"try this, it's a DAO,\" they say it to a friend, and she tells all of her friends. This story is spread all over the internet like the California wildfire that it is. But unlike the wildfire, this story has a clear and streamlined narrative, and is framed by its very name. So it grows, unseen, hitting unsuspecting victims, and before they know it, they're DAO believers and apostles."
+      },
+      {
+        "type": "text",
+        "text": "The DAO meme can be summarized as follows: a decentralized system of many humans will manage themselves without the need for any human judgement, because logic will take care of it all."
+      },
+      {
+        "type": "text",
+        "text": "A DAO is an efficient, beautiful structure which is dictated by logic, and humans have nothing to do with it. And of course, machines don't get tired or bored or have bad days, so any network that's managed by a DAO will never stop."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "To DAO or Not to DAO"
+      },
+      {
+        "type": "text",
+        "text": "Now that we're on the same page, we need to turn to a more important question: should you create or join a DAO? Is doing so a wise endeavor?"
+      },
+      {
+        "type": "text",
+        "text": "The answer to this question is… It depends."
+      },
+      {
+        "type": "text",
+        "text": "Think about it, though, and you'll realize that the answer is not as clear as you think."
+      },
+      {
+        "type": "text",
+        "text": "There are many big philosophical problems with DAOs and their underlying values. For example, if a DAO is bound by the code, and it's writing more code… what are its ethics? When a DAO is soulless and focused on profit, it is a soulless horror that would be a blight on Earth."
+      },
+      {
+        "type": "text",
+        "text": "Today, there is no reason to believe that any human being can keep a handle on the values which a DAO would do best to serve. DAOs are creatures of modernity, bound to profit, and such a focus on baser human drives can only lead to pain and suffering."
+      },
+      {
+        "type": "text",
+        "text": "DAOs are not a thing yet; no true, fully decentralized DAO has yet been made (don't tell anyone this though)."
+      },
+      {
+        "type": "text",
+        "text": "There are, however, some DAO wannabes out there."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Wannabe DAOs"
+      },
+      {
+        "type": "text",
+        "text": "The first example of a DAO wannabe is The DigixStandard, a fully decentralized DAO corporation. Their website simply describes their purposes as \"facilitating the trade of physical gold.\""
+      },
+      {
+        "type": "text",
+        "text": "Here's another example: CommonsOrg. Their website simply describes their purposes as \"making an impact in the world\", whatever that means."
+      },
+      {
+        "type": "text",
+        "text": "Each of these \"DAOs\" have a website, team members, and advisors."
+      },
+      {
+        "type": "text",
+        "text": "But, as you may have guessed, The DigixStandard and CommonsOrg DAOs are a bit disingenuous about their status as DAOs. Perhaps they're more accurately described as… not DAOs."
+      },
+      {
+        "type": "text",
+        "text": "Indeed, these websites are full of rigid organization charts and hierarchy. Both of the projects have a leader or group of leaders. The two projects are about as far from a true DAO as it gets, in so many ways."
+      },
+      {
+        "type": "text",
+        "text": "There's nothing wrong with using the name \"DAO\" to describe an organization, as it's an effective marketing term. But make no mistake, a marketing term it is. The use of the term \"DAO\" is to make millions of people believe in the idea that humans have something to do with operations, when they really don't."
+      },
+      {
+        "type": "text",
+        "text": "Ultimately though, the point remains: the public loves the concept of a DAO."
+      },
+      {
+        "type": "text",
+        "text": "We all want to believe in the concept of a decentralized autonomous organization. Even if we don't want to invest in a DAO (the companies above certainly aren't real DAOs), we want one to exist and succeed."
+      },
+      {
+        "type": "text",
+        "text": "Why? Because DAOs are part of the counterculture. Their underlying values of rationality and efficiency oppose postmodernism and any kind of socially-constructed hierarchy. DAOs represent the idea that humans don't need to be at the top of the pyramid."
+      },
+      {
+        "type": "text",
+        "text": "So. Are you ready to join a DAO?"
+      },
+      {
+        "type": "text",
+        "text": "If you've read this far, it may just be time."
+      }
+    ]
+  },
+  {
+    "slug": "assisted-billing",
+    "title": "Assisted Billing",
+    "category": "design",
+    "tags": [
+      "design",
+      "branding",
+      "marketing",
+      "direct mail"
+    ],
+    "year": 2019,
+    "createdAt": "2019-01-01T00:00:00.000Z",
+    "summary": "Branding, direct mail, and marketing for Fusion Web Clinic's new revenue-cycle service — a campaign built around a reimagined CMS-1500 claim form that turned 320 mailers into 6 new customers.",
+    "source": "https://dame.work/assisted-billing",
+    "blocks": [
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/f3a90537-f458-4e69-b226-9a20c6a5802d_rw_1920.png?h=d0d3f6ef09c29f9851471390bb8e7757",
+        "alt": "",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 960
+        }
+      },
+      {
+        "type": "text",
+        "text": "Fusion Web Clinic, a therapy software company, was launching a revenue cycle management service (RCM) at the beginning of 2019. Within the industry, most RCM services handle the entirety of a clinic's billing process. Fusion's service only handled one component. We had never launched a distinctly different service like this before, so there were challenges associated with it.",
+        "links": [
+          {
+            "text": "Fusion Web Clinic",
+            "uri": "https://www.fusionwebclinic.com/"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "I was responsible for marketing efforts and lead generation. Over the course of this project, I played numerous roles from art director to copywriter. Through a small direct mail campaign, I generated 24 qualified leads which led to 4 new customers within the first month."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Objectives"
+      },
+      {
+        "type": "text",
+        "text": "1. Differentiate our new service from our core software.\n2. Create an engaging written and visual narrative for the service to attract customers.\n3. Set ourselves apart from competitors.\n4. Accurately communicate that our service was not a full RCM service, but rather a single component of the cycle."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Messaging"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Role: Project Lead, Consultation, Copywriting"
+      },
+      {
+        "type": "text",
+        "text": "I started by interviewing team members who were working on the project and researching the industry. I then wrote descriptions of what the product was and why people might be interested in it. Next, I created a list of the real-world benefits it could bring to customers. Finally, I created elevator pitches.\n\nAt this point, I was ready to tackle our service's name. Our team was initially going to call the new service by the generic industry term \"Revenue Cycle Management\". I steered us away from this for two reasons:\n\n1. Calling it Revenue Cycle Management would have been confusing and too clinical. The service didn't actually manage the entirety of the revenue cycle (only one slice of it), and many practitioners weren't familiar with the \"revenue cycle\" terminology. Calling it this would have been confusing and could have led people to think the service was broader in scope than it really was.\n\n2. There was a lot of potential to stand out from the crowd and be relate-able. Many of our competitors were using generic or confusing terms to talk about their RCM services. Additionally, none of them had leveraged effective branding to engage their audiences. This was a key opportunity for us to be different.\n\nAfter some brainstorming and discussion, our team settled on the name Assisted Billing. This name more accurately reflected the type of service we were providing, and it used terminology that our audience would be familiar with. It also had room to grow because there were plans to expand the service down the road."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Branding"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Role: Strategy, Art Direction, Design"
+      },
+      {
+        "type": "text",
+        "text": "As I mentioned earlier, I noticed that none of our competitors were bothering to use a visual identity to promote their RCM services. To get ours to stand out, I produced a cohesive visual narrative and branding kit to help promote the service.\n\nFor the service's logo, I wanted to give people a visual anchor to latch onto that would help them understand the product.\n\nThe visual identity needed to connect directly to what our customers were doing in the real-world. After a lot of research and brainstorming, I settled on a medical claim form (the CMS-1500) as a visual anchor because it was iconic and ubiquitous. The people we wanted to reach handled these forms constantly."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/ae01ae8c-6881-4d03-b6c5-68872528acb8_rw_1920.jpg?h=90658450356d4ef6e8b6db43c1b1e8bb",
+        "alt": "The CMS-1500 Claim Form",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1437
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/cf0f59a6-17fd-439e-9eea-0562392cdf0b_rw_1920.jpg?h=18dbe2792d57030df01b98d4b1fe0182",
+        "alt": "",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 2880
+        }
+      },
+      {
+        "type": "text",
+        "text": "To create the visual identity based off of the anchor, I started by deconstructing the claim form. I cut it up into pieces and closely examined all of the complicated fields, line patterns, and structures."
+      },
+      {
+        "type": "text",
+        "text": "From there, I recreated the form digitally and began manipulating the form's visuals."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/08628c29-27ed-47f6-abca-42efdaef27a0_rw_1920.jpg?h=bd1e3d8e88552a512f90b32fb934ac22",
+        "alt": "Iterations of the Visual Identity",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 2189
+        }
+      },
+      {
+        "type": "text",
+        "text": "In the end, I created a simplified icon that was inspired by the visual essence of the claim form."
+      },
+      {
+        "type": "text",
+        "text": "I also designed a set of custom icons to help represent the various talking points and components of the revenue cycle."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/53039540-4c4d-4e37-b900-16a2c409fb2b_rw_1920.jpg?h=384c7312de08432ad2f60b540f7e5b36",
+        "alt": "",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 1267
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/90c48888-ad21-4753-9a7e-c496b1cb0165_rw_1920.jpg?h=88d9a23b6613f6ce73f6baa44b9ebe7b",
+        "alt": "",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 2995
+        }
+      },
+      {
+        "type": "text",
+        "text": "I wanted to humanize our service and make it more relatable, so I created some custom emojis."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/c1487ad9-a4ff-45b7-89f1-b3a3c6e45f06_rw_1200.jpg?h=d7a7c0869d91757b81f7b0ace63d3e56",
+        "alt": ""
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/86287336-c20a-40df-ad4f-2e7e3f5e20b3_rw_1920.jpg?h=5de3d679fd970ee13379aeaa09da8acd",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1486,
+          "height": 778
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/b410209f-c84c-481c-b219-164b0594c966_rw_1200.gif?h=dc1c1e353a4d66d051ef87b61b38c9df",
+        "alt": "An Animated GIF Showing the Logo Development",
+        "aspectRatio": {
+          "width": 800,
+          "height": 600
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/b5482023-36df-421d-a81d-3b6f35dc7fac_rw_1920.jpg?h=6f9a3cfd45648ed8bdf74ed40bd66455",
+        "alt": ""
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/9498cb89-e74f-4e99-85f4-23d5fc45d353_rw_1920.jpg?h=d9451621ecd81fa21b790d14e1df7290",
+        "alt": ""
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/9e20e020-d6f6-4844-8e2f-ff4ff868508c_rw_1920.jpg?h=7e487f063733340ea7384a196c1753bb",
+        "alt": ""
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Direct Mail Campaign"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Role: Project Lead, Art Direction, Design, Packing"
+      },
+      {
+        "type": "text",
+        "text": "After limited success with digital marketing channels, I decided to give direct mail a chance. The CMS-1500 claim form presented itself to me as a prime candidate for being remixed into a direct mail piece."
+      },
+      {
+        "type": "text",
+        "text": "During my interviews with team members, I stumbled upon a major competitive advantage our service possessed: transparency. Because of the way our software and claims service worked, we would be able to provide a level of transparency that other services could not.\n\nI wondered if I could use the idea of transparency as an additional visual metaphor by sending the direct mail piece in a clear mailer.\n\nI vetoed this idea however because I thought that seeing a clear mailer would be too gimicky. It might have had the effect of standing out and being different, but I didn't want to take the risk of it being thrown away. I wanted the recipient to actually have to open the envelope to see what was inside."
+      },
+      {
+        "type": "text",
+        "text": "Instead, I had the idea of making the collateral itself be transparent. At last, I had my final concept: a transparent claim form as a direct mail piece.\n\nI ordered several different paper types to test to see which one would work best. I discovered that printing on transparency filters wouldn't work because they were too clear and you couldn't actually read what you were holding. Vellum turned out to be the best option."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/5b361aab-2f9e-473b-8bfa-99f9d28a7365_rw_1920.jpg?h=08e86adfafbf385b88a3004778ceb2d7",
+        "alt": "The Final Direct Mail Piece",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 2880
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/e6e38d10-1037-4a2e-a50b-42b980d7b57a_rw_1920.jpg?h=5b594cbddb041ac16dedce11531e8b3b",
+        "alt": ""
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/45448f5b-cd04-41da-bb37-3f5defc1cb1a_rw_1920.JPG?h=c9ff45ed987e24be35ba3e4a254e83a6",
+        "alt": "As a small gift to the recipient, I created a sticker sheet using the emojis I designed. Our audience loved them!",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 2880
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/f3914cd4-8751-4bc5-ac38-3b2b8b5ef820_rw_1920.jpg?h=e45cbba9a82ad1333a5de9b0f1b05ce7",
+        "alt": ""
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/c935e7f6-e0cf-47d3-b0b3-9bd61bea1916_rw_1920.jpg?h=561ff07cc9787dce9cfe7dbb65aeb66b",
+        "alt": ""
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/5964d121-474f-416c-ba9b-5fe35a332aa1_rw_1920.jpg?h=48af1d0fe967a332be372ee94b53e197",
+        "alt": ""
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Results"
+      },
+      {
+        "type": "text",
+        "text": "Budget: $2,000 - $3,000\nAmount Spent: $2,000\n\n320 Mailers Sent (Leads)\n24 Landing Page Submissions (MQL)\n6 Conversions ($6,000/month in MRR)\n16% conversion rate (MQL to Customer)"
+      },
+      {
+        "type": "text",
+        "text": "If each customer sticks with the service for only one year, my small campaign will have generated at least $72,000 in gross profit from this $2,000 campaign."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Landing Page"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Role: Layout, CSS Styling, Copywriting"
+      },
+      {
+        "type": "text",
+        "text": "For the direct mail campaign, I designed a custom landing page that the leads could visit to learn more about the service. The page reflected the same visual style of the mailer they received."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/26b7c15d-ee97-4c45-877e-4527558c0d01_rw_1920.png?h=a16126105721995c1993ca84ddcf75d4",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 2275
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Content Marketing"
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Role: Coordination, Idea Generation, Distribution"
+      },
+      {
+        "type": "text",
+        "text": "To further promote the service, I hired several writers to produce blog content around relevant topics. One of the writers I chose was a talented content writer based in Greenville, SC. The other was an influencer in our industry who had direct experience with the subject."
+      },
+      {
+        "type": "text",
+        "text": "4 Pitfalls to Avoid in the Pediatric Therapy Claims Process",
+        "links": [
+          {
+            "text": "4 Pitfalls to Avoid in the Pediatric Therapy Claims Process",
+            "uri": "https://blog.fusionwebclinic.com/pitfalls-to-avoid-in-the-pediatric-therapy-claims-process"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "How to Grow Your Clinic's Revenue by Understanding the Revenue Cycle",
+        "links": [
+          {
+            "text": "How to Grow Your Clinic's Revenue by Understanding the Revenue Cycle",
+            "uri": "https://blog.fusionwebclinic.com/how-to-grow-your-clinics-revenue-by-understanding-the-revenue-cycle"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "3 Options for Managing Your Therapy Clinic's Revenue Cycle",
+        "links": [
+          {
+            "text": "3 Options for Managing Your Therapy Clinic's Revenue Cycle",
+            "uri": "https://blog.fusionwebclinic.com/3-options-for-managing-your-revenue-cycle"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "Improve Your Clinic’s Accounts Receivable Process Using a Hybrid Billing Model",
+        "links": [
+          {
+            "text": "Improve Your Clinic’s Accounts Receivable Process Using a Hybrid Billing Model",
+            "uri": "https://blog.fusionwebclinic.com/improve-your-clinics-accounts-receivable-process-using-a-hybrid-billing-model"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "What You Need to Know About Insurance (Speech Therapy Billing Toolkit)",
+        "links": [
+          {
+            "text": "What You Need to Know About Insurance (Speech Therapy Billing Toolkit)",
+            "uri": "https://blog.fusionwebclinic.com/speech-therapy-billing-toolkit-insurance"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "How to Get Insurance to Pay (Speech Therapy Billing Toolkit)",
+        "links": [
+          {
+            "text": "How to Get Insurance to Pay (Speech Therapy Billing Toolkit)",
+            "uri": "https://blog.fusionwebclinic.com/speech-therapy-billing-toolkit-insurance-part-2"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "slug": "red-blue-yellow",
     "title": "Red, Blue, Yellow",
     "category": "art",
@@ -652,6 +2718,168 @@
           "width": 1920,
           "height": 2381
         }
+      }
+    ]
+  },
+  {
+    "slug": "fusion-branding",
+    "title": "Fusion Web Clinic",
+    "category": "design",
+    "tags": [
+      "design",
+      "branding",
+      "marketing"
+    ],
+    "year": 2018,
+    "createdAt": "2018-01-01T00:00:00.000Z",
+    "summary": "As Creative Specialist for Fusion Web Clinic, I refreshed the company's logo and visual identity and built the style guides, templates, and training that made its marketing collateral look professional.",
+    "source": "https://dame.work/fusion-branding",
+    "blocks": [
+      {
+        "type": "text",
+        "text": "While I was the Creative Specialist for Therapy Brands (Fusion Web Clinic), I revitalized their brand image and began making all their marketing collateral look professional. At the beginning of 2019, I began leading most of the company's marketing efforts."
+      },
+      {
+        "type": "text",
+        "text": "In the following case study, you'll find breakdowns and explanations of some of the major projects I completed. For a closer look at one of the marketing campaigns I directed, check out the Assisted Billing case study."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Logo Refresh"
+      },
+      {
+        "type": "text",
+        "text": "When I first began working at Fusion, there was a lot of work to be done to create a consistent and effective brand image. The existing visual style was very outdated and had serious issues."
+      },
+      {
+        "type": "text",
+        "text": "In an ideal world, I would have liked to start from scratch and build a totally new image for the company. However, after understanding where the company was at, I realized that it would be unwise to completely throw out the existing branding."
+      },
+      {
+        "type": "text",
+        "text": "They had already established a positive reputation and people were very familiar with the name and logo. Because of this, I decided to start by doing a refresh rather than a rebrand."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/a3e72dc0-b417-4f66-b3d3-b91e50633bd9_rw_1920.jpg?h=1daa2790a85774825950ace561a40b09",
+        "alt": "The Old Logo",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 800
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/f6302702-4b97-499f-b78c-164cdab03870_rw_1920.jpg?h=fec2404dc4fe4ec2a75049b277339db5",
+        "alt": "A structural analysis to show some of the problems with the old logo. Many of the crossbars didn't align, there was a drop shadow effect under the check mark, and there were numerous conflicting angles.",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 800
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/80487815-8c8a-4fdc-9da6-632adf0f11c8_rw_1920.jpg?h=d12a7f72015bf371e583c7a57f590b96",
+        "alt": "The New Logo",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 800
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/72c5118a-3480-4c91-a7d8-41f822f65e23_rw_1920.jpg?h=67a5afd2d66fb87cd4815e9dec40772e",
+        "alt": "A structural analysis of the new logo showing the improvements. All crossbars are properly aligned, all of the angles have been unified, and the drop shadow was eliminated.",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 800
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/128e3a6a-2e7d-4f8a-99bf-bd8f4b10d472_rw_1920.jpg?h=46431a62c0e4fcea76c7dacef9cb39fb",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1280
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Branding Resources"
+      },
+      {
+        "type": "text",
+        "text": "I equipped our team members to be able to accurately use our brand image on their own by providing them with training, resources, and tools. I knew if we wanted to build and maintain a strong brand, it would have to be a team effort."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Visual Style Guide"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/f4792a84-89d5-44d0-a3fc-28ad87952a60_rw_1200.png?h=2bf638b72e3eebe5effd400524841850",
+        "alt": "",
+        "aspectRatio": {
+          "width": 800,
+          "height": 600
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Visual Style Cheat Sheet (Web-page)"
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/c46f445e-d0ce-4542-8bb7-4c2bdc045fc0_rw_1920.png?h=995d3d77af188960c9319bec40cb0a44",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1520,
+          "height": 1872
+        }
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Microsoft Office Templates"
+      },
+      {
+        "type": "text",
+        "text": "To better equip our entire staff to be effective representatives of the brand, I created custom Microsoft Office templates for presentations and documents."
+      },
+      {
+        "type": "text",
+        "text": "Additionally, I provided hands-on training to the team to make sure they all felt competent using the resources."
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/7023c1a2-5be6-47bc-81f9-b352180d7eae_rw_1920.jpg?h=df6fca8ae9b12cd0f865b77f2ca7d6dd",
+        "alt": "",
+        "aspectRatio": {
+          "width": 3840,
+          "height": 2074
+        }
+      },
+      {
+        "type": "image",
+        "url": "https://cdn.myportfolio.com/502da6ee64a834d1bd44e55e0bd756e3/7d89980c-175b-4c98-a908-bda32d5bc14b_rw_1920.jpg?h=0792582591bdff270c3323b3f3b375c4",
+        "alt": "",
+        "aspectRatio": {
+          "width": 1920,
+          "height": 1178
+        }
+      },
+      {
+        "type": "embed",
+        "provider": "adobe",
+        "title": "Watch the reel",
+        "url": "https://www-ccv.adobe.io/v1/player/ccv/LNfnwwFixNb/embed?bgcolor=%23191919&lazyLoading=true&api_key=BehancePro2View",
+        "embedSrc": "https://www-ccv.adobe.io/v1/player/ccv/LNfnwwFixNb/embed?bgcolor=%23191919&lazyLoading=true&api_key=BehancePro2View",
+        "note": "Replace `url` with a public link if you have one (e.g. YouTube/Vimeo)."
       }
     ]
   },
