@@ -96,11 +96,22 @@
      atmosphere row reads as its own layer (matches the nav sheet). */
   background: var(--surface-deep);
   overflow: hidden;
+  /* Drop the --chrome-h (56px) floor this row inherits from
+     `.chrome-bar-row`. That floor is for the primary bars; this is an
+     expanding panel that should size to its content, exactly like the
+     tertiary breadcrumb strip below (which also zeroes it). Left in, the
+     floor made the LISTENING TO / FOLLOWED BY row stand noticeably taller
+     than the timestamp/NSID strip — its `.chrome-signals` padding now sets
+     the height so the two expansions match. */
+  min-height: 0;
 }
 
 .chrome-bar-secondary > .chrome-signals {
   width: 100%;
-  padding: var(--space-3) 0;
+  /* Same vertical padding as the tertiary strip's crumbs (--space-2) so
+     this row and the timestamp/NSID strip stand the same height when each
+     is a single row. */
+  padding: var(--space-2) 0;
 }
 
 /* Tertiary chrome: the scroll-driven breadcrumb strip. It's absolutely
