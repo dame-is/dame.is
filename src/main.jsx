@@ -10,30 +10,16 @@ import './styles/typography.css';
 import './styles/app.css';
 import './styles/paper.css';
 
-// Theme selection happens here (before React mounts) so the first
-// paint is in the correct palette. Three themes (light / dark / the
-// hour-tracking sky mode); retired monochrome variants alias to their
-// color equivalent, and legacy/missing values fall to sky. Keep
-// VALID_THEMES + THEME_COLORS + THEME_ALIASES in sync with useTheme.jsx.
-const VALID_THEMES = ['light', 'dark', 'sky'];
-const THEME_ALIASES = { 'light-mono': 'light', 'dark-mono': 'dark' };
-const THEME_COLORS = {
-  light: '#e3d8ba',
-  dark: '#13180f',
-};
-const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
-const resolvedStoredTheme = THEME_ALIASES[storedTheme] || storedTheme;
-// Default to the sky theme for new visitors (and legacy `system` /
-// other invalid values). Keep in sync with DEFAULT_THEME in useTheme.
-const initialTheme = VALID_THEMES.includes(resolvedStoredTheme) ? resolvedStoredTheme : 'sky';
-document.documentElement.setAttribute('data-theme', initialTheme);
+// The site runs a single, always-on theme: the hour-tracking sky mode.
+// Set it here (before React mounts) so the first paint is in the right
+// palette. The retired static light/dark themes are no longer selectable.
+// Keep in sync with useTheme.jsx.
+document.documentElement.setAttribute('data-theme', 'sky');
 
-// Sky mode's palette is computed, not static — derive this hour's tokens
-// before the first paint, and take the browser-chrome tint from them.
-let initialThemeColor = THEME_COLORS[initialTheme];
-if (initialTheme === 'sky') {
-  initialThemeColor = applySkyTheme(easternHour()).themeColor;
-}
+// Sky mode's palette is computed per hour, not static — derive this
+// hour's tokens before the first paint and take the browser-chrome tint
+// from them.
+const initialThemeColor = applySkyTheme(easternHour()).themeColor;
 
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
 const themeColorMeta = document.createElement('meta');
