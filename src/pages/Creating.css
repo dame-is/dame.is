@@ -84,6 +84,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  /* The reading-measure width cap (max-width + centering) is shared with
+     .blog-article in Blogging.css — imported here — so text and media align to
+     one column. This rule only owns the internal vertical layout. */
 }
 
 .creating-work-media {
