@@ -104,9 +104,20 @@
   margin: 0 auto;
 }
 
+/* Cap the document title at the SAME visual column as the article body.
+
+   --measure is `65ch`, and `ch` resolves against each element's own font-size.
+   The article inherits the body size (~1rem), so its `65ch` is the true reading
+   column. The title is --text-4xl (3rem = 3× the base), so a bare
+   `max-width: var(--measure)` resolves to 65ch at 3× scale — three times too
+   wide, which is why the title ran the full page width. Divide by the title's
+   font-size ratio (--text-4xl ÷ --text-base = 3) so the cap lands at 65ch *at
+   the body size* and the title lines up with the article edge-for-edge. The
+   ratio cancels the font metrics, so this holds for any --serif. The mobile
+   override re-derives the divisor for the smaller --text-3xl title. */
 .page:has(> .blog-article) > .page-title,
 .page:has(> .creating-work-page) > .page-title {
-  max-width: var(--measure);
+  max-width: calc(var(--measure) / 3);
   margin-left: auto;
   margin-right: auto;
   width: 100%;
@@ -198,6 +209,12 @@
    typography.css (shared with the resume summary and about page). */
 
 @media (max-width: 700px) {
+  /* The title shrinks to --text-3xl (2.25rem) here, so re-derive the divisor
+     (--text-3xl ÷ --text-base = 2.25) to keep the cap at 65ch @ the body size. */
+  .page:has(> .blog-article) > .page-title,
+  .page:has(> .creating-work-page) > .page-title {
+    max-width: calc(var(--measure) / 2.25);
+  }
   .blogging-toc-link {
     grid-template-columns: 1fr;
     gap: var(--space-2);
