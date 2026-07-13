@@ -45,7 +45,7 @@
 }
 
 .admin-mono {
-  font-family: var(--mono);
+  font-family: var(--code);
   font-size: 0.8125rem;
 }
 

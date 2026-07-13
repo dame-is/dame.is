@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -9,6 +9,7 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
+import { useFont } from '../hooks/useFont.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
@@ -356,6 +357,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
   const { skyHourKey, advanceSkyHour } = useTheme();
+  const { serifOnly, toggle: toggleFont } = useFont();
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
   // EditModeBar + useEditMode).
@@ -513,6 +515,19 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                   title={`Time of day — tap to advance the sky one hour (showing ${skyHourKey})`}
                 >
                   {skyHourKey}
+                </button>
+                {/* Font switcher. Toggles serif-only mode, which folds the
+                    monospace ledger/metadata accent into the serif voice
+                    (code stays monospace). Default is the mixed voice. */}
+                <button
+                  type="button"
+                  className={`chrome-nav chrome-font-toggle ${serifOnly ? 'is-open' : ''}`}
+                  onClick={toggleFont}
+                  aria-pressed={serifOnly}
+                  aria-label={serifOnly ? 'Use the default serif + monospace type' : 'Use serif-only type'}
+                  title={serifOnly ? 'Serif-only type — tap to restore mono accents' : 'Mono accents — tap for serif-only type'}
+                >
+                  <Type className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
                 {filterAvailable && (
                   <button

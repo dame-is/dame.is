@@ -34,6 +34,7 @@ import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
+import { FontProvider } from './hooks/useFont.jsx';
 import { FeedLayoutProvider } from './hooks/useFeedLayout.jsx';
 import { PaperProvider } from './hooks/usePaper.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
@@ -84,6 +85,7 @@ function generatedRecordRoutes() {
 export default function App() {
   return (
     <ThemeProvider>
+      <FontProvider>
       <FeedLayoutProvider>
       <PaperProvider>
       <ChromeBarProvider>
@@ -165,6 +167,7 @@ export default function App() {
       </ChromeBarProvider>
       </PaperProvider>
       </FeedLayoutProvider>
+      </FontProvider>
     </ThemeProvider>
   );
 }

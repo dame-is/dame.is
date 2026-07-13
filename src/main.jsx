@@ -39,6 +39,17 @@ document.documentElement.setAttribute(
   PAPER_ENABLED && VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank',
 );
 
+// Font mode (serif-only vs the default mono-accented mix). Set before the
+// first paint so a serif-only visitor doesn't flash the monospace ledger
+// columns before they fold into the serif voice. Keep in sync with
+// useFont.jsx.
+const VALID_FONTS = ['mixed', 'serif'];
+const storedFont = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.font') : null;
+document.documentElement.setAttribute(
+  'data-font',
+  VALID_FONTS.includes(storedFont) ? storedFont : 'mixed',
+);
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
