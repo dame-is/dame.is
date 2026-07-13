@@ -30,6 +30,7 @@ import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -38,10 +39,12 @@ const CACHE_TTL_MS = 30_000;
 // First-paint cap per collection — matches AT Proto's per-request
 // listRecords ceiling, so each collection lands in a single round trip
 // with no extra pagination. Background polls keep the same cap; deeper
-// history isn't fetched, only `Load more` reveals what's already there.
+// history isn't fetched — scrolling only reveals what's already in memory.
 const INITIAL_FETCH_MAX = 100;
-// How many items the feed renders before showing the "Load more" CTA,
-// and how many additional items each click reveals.
+// How many items the feed renders on first paint, and how many more each
+// auto-reveal adds as the reader nears the bottom. The step is kept well
+// taller than a viewport so one reveal pushes the scroll sentinel back out
+// of range — it re-fires on the next scroll, never in a runaway loop.
 const INITIAL_VISIBLE = 100;
 const LOAD_MORE_STEP = 100;
 // Snapshot is now a fallback only (shown when the live fetch errors).
@@ -189,15 +192,20 @@ export default function Home() {
   const reduce = useReducedMotion();
 
   // How many items the feed is currently rendering. Starts at
-  // INITIAL_VISIBLE and grows by LOAD_MORE_STEP each click of the
-  // "Load more" CTA at the bottom of the feed. Resets when the active
-  // filter set changes so the user always starts from the top of the
-  // new view.
+  // INITIAL_VISIBLE and grows by LOAD_MORE_STEP as the reader nears the
+  // bottom (an IntersectionObserver sentinel auto-reveals the next window;
+  // see below). Resets when the active filter set changes so the user
+  // always starts from the top of the new view.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const filterSig = params.toString();
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE);
   }, [filterSig]);
+
+  // Whether the browser can auto-reveal on scroll. When IntersectionObserver
+  // is unavailable we fall back to rendering the manual "Load more" button so
+  // those readers can still page through the feed.
+  const [ioSupported] = useState(() => typeof IntersectionObserver !== 'undefined');
 
   // URIs we've already shown the user. Anything missing on a refresh is
   // a "new arrival" and gets the slide-in animation. Seeded from cache
@@ -451,12 +459,22 @@ export default function Home() {
     if (!removedUris || removedUris.size === 0) return base;
     return base.filter((item) => !removedUris.has(item.atUri));
   }, [safeFeed, params, removedUris]);
-  // "Load more" pagination — the user only sees the first `visibleCount`
+  // Client-side pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each
   // visible window is a clean prefix of the filtered timeline.
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   const hasMore = filtered.length > visible.length;
+
+  // Grow the visible window as the reader nears the bottom. The extra items
+  // are already in memory, so this is an instant reveal rather than a fetch;
+  // the bottom sentinel drives it via IntersectionObserver, with the manual
+  // button kept only as a no-observer fallback (see the feed foot below).
+  const loadMore = useCallback(
+    () => setVisibleCount((n) => n + LOAD_MORE_STEP),
+    [],
+  );
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore });
 
   // Photographed iNaturalist observations (mothing + observing) currently in
   // view, shaped for the in-feed image lightbox. Tapping an observation row
@@ -620,15 +638,21 @@ export default function Home() {
           )}
         </div>
         {!loading && hasMore && (
-          <div className="feed-load-more">
-            <button
-              type="button"
-              className="feed-load-more-btn"
-              onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
-            >
-              Load more
-            </button>
-          </div>
+          ioSupported ? (
+            // Invisible tripwire: as it scrolls into range the visible window
+            // grows (client-side, instant — the next batch is already loaded).
+            <div ref={sentinelRef} className="feed-load-sentinel" aria-hidden="true" />
+          ) : (
+            <div className="feed-load-more">
+              <button
+                type="button"
+                className="feed-load-more-btn"
+                onClick={loadMore}
+              >
+                Load more
+              </button>
+            </div>
+          )
         )}
       </section>
 
