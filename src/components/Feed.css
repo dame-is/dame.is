@@ -1888,8 +1888,10 @@ a.ledger-time:focus-visible {
   max-width: 20rem;
 }
 
-.ledger-embed .post-embed-images[data-count='1'] .post-embed-image img {
-  max-height: 10rem;
+/* A lone image sizes its frame from --embed-image-max-h (see PostEmbed.css);
+   in the condensed ledger that cap drops from a full 520px to a thumbnail. */
+.ledger-embed .post-embed-images[data-count='1'] {
+  --embed-image-max-h: 10rem;
 }
 
 /* Multi-image grids get uniform landscape crops so two rows of images

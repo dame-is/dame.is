@@ -154,33 +154,46 @@ function ImageGrid({ images }) {
     width: im.aspectRatio?.width || undefined,
     height: im.aspectRatio?.height || undefined,
   }));
+  const single = list.length === 1;
   return (
     <>
       <div
         className="post-embed-images"
         data-count={list.length}
       >
-        {list.map((im, i) => (
-          <button
-            key={i}
-            type="button"
-            className="post-embed-image"
-            onClick={() => setLightbox({ open: true, index: i })}
-            aria-label={im.alt ? `Open image: ${im.alt}` : 'Open image'}
-          >
-            <img
-              src={im.thumb || im.fullsize}
-              alt={im.alt || ''}
-              loading="lazy"
-              decoding="async"
-              style={
-                im.aspectRatio
-                  ? { aspectRatio: `${im.aspectRatio.width} / ${im.aspectRatio.height}` }
-                  : undefined
-              }
-            />
-          </button>
-        ))}
+        {list.map((im, i) => {
+          const ar = im.aspectRatio;
+          const hasAr = ar?.width > 0 && ar?.height > 0;
+          // For a lone image, hand its own aspect ratio to the frame (see
+          // PostEmbed.css). The frame then reserves the right box before the
+          // file loads and caps a tall image by its *width* — so it scales
+          // down whole, true to ratio, rather than letterboxing against a
+          // background inside a fixed-height frame.
+          const framed = single && hasAr;
+          return (
+            <button
+              key={i}
+              type="button"
+              className="post-embed-image"
+              data-sized={framed ? 'true' : undefined}
+              style={framed ? { '--img-ar': ar.width / ar.height } : undefined}
+              onClick={() => setLightbox({ open: true, index: i })}
+              aria-label={im.alt ? `Open image: ${im.alt}` : 'Open image'}
+            >
+              <img
+                src={im.thumb || im.fullsize}
+                alt={im.alt || ''}
+                loading="lazy"
+                decoding="async"
+                style={
+                  hasAr
+                    ? { aspectRatio: `${ar.width} / ${ar.height}` }
+                    : undefined
+                }
+              />
+            </button>
+          );
+        })}
       </div>
       <Lightbox
         open={lightbox.open}
