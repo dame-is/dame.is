@@ -250,7 +250,7 @@
 .mothing-ledger-time {
   flex: 0 0 auto;
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.85);
+  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-transform: lowercase;

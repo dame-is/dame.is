@@ -277,7 +277,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
    scale from a stretched grid/flex ancestor when min-width was wrong. */
 article.post-card > footer.post-card-stats {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * var(--mono-scale));
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: var(--leading-tight);
@@ -1581,7 +1581,7 @@ a.reference-card-profile:focus-visible {
 /* Day stats sit at the same scale as the rows' gerund/time labels. */
 .feed-ledger .day-header-meta {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.85);
+  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-align: right;
@@ -1621,7 +1621,7 @@ a.reference-card-profile:focus-visible {
 
 .ledger-verb {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * var(--mono-scale));
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-decoration: none;
@@ -1639,7 +1639,7 @@ a.ledger-verb:focus-visible {
 
 .ledger-time {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.85);
+  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   /* formatTime yields "9:41 AM"; the ledger reads lowercase. */

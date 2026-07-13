@@ -56,6 +56,11 @@
      serif voice so the chrome matches the rest of the site, while real
      code surfaces (<code>, <pre>) keep --code. */
   --mono-ui: var(--font-crimson);
+  /* Apparent-size compensation for the --mono ledger/metadata accent.
+     Monospace glyphs look larger than the serif's at the same font-size,
+     so serif-only mode (below) scales those elements up a touch to keep
+     their on-screen size. 1 = no change — the default mono voice. */
+  --mono-scale: 1;
 
   --measure: 65ch;
   --leading: 1.6;
@@ -97,6 +102,11 @@
    after the :root block to win the cascade. */
 [data-font='serif'] {
   --mono: var(--serif);
+  /* Crimson Pro reads noticeably smaller than IBM Plex Mono at a given
+     font-size (lower x-height), so nudge the flipped ledger/metadata
+     text up ~10% to hold the footprint it had in the mono voice. Tune
+     here — it flows into every --mono element's font-size via calc(). */
+  --mono-scale: 1.1;
 }
 
 [data-theme='dark'] {
