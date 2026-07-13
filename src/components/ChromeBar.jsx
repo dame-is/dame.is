@@ -849,43 +849,92 @@ function useScrolledDown(threshold = 220) {
   return down;
 }
 
+// How long the page must stay too short to scroll before the footer reveals
+// on that basis. A fresh load is momentarily short — the feed content hasn't
+// landed yet — so this rides out that gap; only a page that's STILL unscrollable
+// after it is a genuinely short page whose footer should sit revealed.
+const SHORT_PAGE_SETTLE_MS = 500;
+
 /** True once the window is scrolled into the last `fraction` of its
  *  scrollable range (default 5%, i.e. ~95% down). Drives the footer strip:
  *  it slides up out of the bottom chrome as you reach the page's end and
  *  folds back down on the way up — the vertical mirror of the breadcrumb.
  *
  *  A page too short to meaningfully scroll counts as "at the end" so the
- *  footer stays revealed, matching the old always-in-flow footer. Coalesced
- *  through requestAnimationFrame so the state flip (and the transform it
- *  drives) never runs synchronously inside the scroll event. */
+ *  footer stays revealed, matching the old always-in-flow footer — but only
+ *  once the layout has settled. On a cold load the page is briefly short
+ *  before the async feed content lands; revealing then would slide the footer
+ *  up and straight back down the moment the content grows the page (it reads
+ *  as the footer "expanding from the bottom on load"). So the short-page
+ *  reveal is debounced by SHORT_PAGE_SETTLE_MS, and — because content
+ *  streaming in grows the document without firing scroll/resize — a
+ *  ResizeObserver on the body re-measures when the page's own height changes,
+ *  so a reveal decided while the page was short is revised the instant real
+ *  content arrives. Coalesced through requestAnimationFrame so the state flip
+ *  (and the transform it drives) never runs synchronously inside a scroll. */
 function useNearPageBottom(fraction = 0.05) {
   const [near, setNear] = useState(false);
   useEffect(() => {
     let frame = 0;
-    function onScroll() {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const viewport = window.innerHeight || 0;
-        const full = Math.max(
-          document.documentElement.scrollHeight,
-          document.body.scrollHeight,
-        );
-        const maxScroll = full - viewport;
-        if (maxScroll <= 4) {
-          setNear(true);
-          return;
-        }
-        const remaining = maxScroll - (window.scrollY || 0);
-        setNear(remaining <= maxScroll * fraction);
-      });
+    let shortTimer = 0;
+    const clearShortTimer = () => {
+      if (shortTimer) {
+        clearTimeout(shortTimer);
+        shortTimer = 0;
+      }
+    };
+    const tooShort = () => {
+      const viewport = window.innerHeight || 0;
+      const full = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight,
+      );
+      return full - viewport <= 4;
+    };
+    function measure() {
+      const viewport = window.innerHeight || 0;
+      const full = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight,
+      );
+      const maxScroll = full - viewport;
+      if (maxScroll <= 4) {
+        // Too short to scroll — likely still loading. (Re)start the settle
+        // timer and only reveal if it's still unscrollable when the timer
+        // fires; leave `near` as-is meanwhile so a genuinely short page that's
+        // already revealed doesn't flicker.
+        clearShortTimer();
+        shortTimer = setTimeout(() => {
+          shortTimer = 0;
+          if (tooShort()) setNear(true);
+        }, SHORT_PAGE_SETTLE_MS);
+        return;
+      }
+      // The page can scroll: cancel any pending short-page reveal and track
+      // the scroll position directly.
+      clearShortTimer();
+      const remaining = maxScroll - (window.scrollY || 0);
+      setNear(remaining <= maxScroll * fraction);
     }
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
+    function schedule() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    }
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    // Feed first paint, "Load more", and background refreshes all grow/shrink
+    // the document without a scroll or resize event — observe the body so the
+    // nearness re-measures on those height changes too.
+    const ro =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    if (ro) ro.observe(document.body);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      clearShortTimer();
+      if (ro) ro.disconnect();
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
     };
   }, [fraction]);
   return near;
