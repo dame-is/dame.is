@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, SwatchBook, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -41,9 +41,8 @@ export default function ChromeBar() {
   // hour — the same art the live Bluesky avatar cycles through, served
   // locally instead of fetched from the profile, so the mark is always
   // in lockstep with the site's own clock (and with the sky theme's
-  // palette). useTheme's hour ticks over hourly in every theme; while
-  // the TEMPORARY bottom-bar chip is overriding the clock in sky mode,
-  // the mark steps with it.
+  // palette). useTheme's hour ticks over hourly; while the bottom-bar
+  // time chip is overriding the clock, the mark steps with it.
   const { skyHour } = useTheme();
   const targetAvatar = skyAvatarUrl(skyHour);
 
@@ -356,8 +355,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const nearBottom = useNearPageBottom();
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
-  const { theme, cycle: cycleTheme, options: themeOptions, skyHourKey, advanceSkyHour } = useTheme();
-  const nextTheme = themeOptions[(themeOptions.indexOf(theme) + 1) % themeOptions.length];
+  const { skyHourKey, advanceSkyHour } = useTheme();
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
   // EditModeBar + useEditMode).
@@ -502,31 +500,20 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
+                {/* Time switcher. The site always runs the hour-tracking
+                    sky theme; this chip shows the hour whose palette is on
+                    screen, and each tap advances it one hour (wrapping at
+                    midnight) so you can walk the sky through the day by
+                    hand. */}
                 <button
                   type="button"
-                  className="chrome-nav chrome-theme-toggle"
-                  onClick={cycleTheme}
-                  aria-label={`Switch to ${nextTheme} theme (current: ${theme})`}
-                  title={`Theme: ${theme} — tap to switch`}
+                  className="chrome-nav chrome-sky-hour"
+                  onClick={advanceSkyHour}
+                  aria-label={`Advance the sky one hour (showing ${skyHourKey})`}
+                  title={`Time of day — tap to advance the sky one hour (showing ${skyHourKey})`}
                 >
-                  <SwatchBook className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  {skyHourKey}
                 </button>
-                {/* TEMPORARY: sky-theme test chip. Shows the hour whose
-                    palette is on screen; each tap advances one hour
-                    (wrapping at midnight) so all 24 increments can be
-                    stepped through in place. Remove once the sky theme
-                    has been vetted. */}
-                {theme === 'sky' && (
-                  <button
-                    type="button"
-                    className="chrome-nav chrome-sky-hour"
-                    onClick={advanceSkyHour}
-                    aria-label={`Advance sky theme by one hour (showing ${skyHourKey})`}
-                    title={`Sky theme test — tap to advance one hour (showing ${skyHourKey})`}
-                  >
-                    {skyHourKey}
-                  </button>
-                )}
                 {filterAvailable && (
                   <button
                     type="button"
