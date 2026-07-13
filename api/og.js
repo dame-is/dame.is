@@ -16,8 +16,9 @@
 import { ImageResponse } from '@vercel/og';
 import { FONTS } from '../og/assets/fonts.js';
 import { ICONS } from '../og/assets/icons.js';
-import { currentAvatarKey, secondsUntilNextHour, folio } from '../og/time.js';
-import { ogElement } from '../og/design.js';
+import { easternHour, avatarKeys, secondsUntilNextHour, folio } from '../og/time.js';
+import { ogElement, themeFromSky } from '../og/design.js';
+import { paletteForHour } from '../src/lib/skyTheme.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
 
 // The card uses two families: Crimson Pro (serif) for the breadcrumb / title /
@@ -39,27 +40,50 @@ const FONT_SET = [
 export default async function handler(req, res) {
   try {
     const q = req.query || {};
-    const theme = q.theme === 'dark' ? 'dark' : 'light';
+    const now = new Date();
 
-    // Copy + routing: an explicit `page` wins (canonical per-page card),
-    // otherwise ad-hoc title/subtitle params, otherwise the home index card.
+    // Which hour drives the card. Normally the current Eastern hour (in
+    // lockstep with the live avatar + favicon); an explicit `hour=0..23`
+    // param lets us preview any point in the day (used by the sample renderer).
+    const hourParam = q.hour != null && q.hour !== '' ? Number(q.hour) : NaN;
+    const hour = Number.isFinite(hourParam) ? ((hourParam % 24) + 24) % 24 : easternHour(now);
+
+    // Palette: the dynamic SKY theme for this hour by default, so cards match
+    // the site's own hour-tracking palette. `theme=light|dark` forces the
+    // fixed warm-paper fallbacks (handled inside ogElement).
+    const theme = q.theme === 'light' || q.theme === 'dark'
+      ? q.theme
+      : themeFromSky(paletteForHour(hour));
+
+    // Copy + routing: an explicit `page` wins (canonical per-page card), then a
+    // `section`+`label` record card, then ad-hoc title/subtitle, else the home
+    // index card.
     let pathname = '/';
     let label = '';
     let subtitle = '';
     let nsid = DEFAULT.nsid;
+    let record = false;
     if (q.page) {
       pathname = cleanPath(String(q.page));
       const meta = pageMeta(pathname);
       label = meta.label;
       subtitle = meta.desc;
       nsid = meta.nsid;
+    } else if (q.section) {
+      // Per-record card: breadcrumb = /{section}, headline = the record title.
+      const sectionSeg = String(q.section).replace(/^\/+|\/+$/g, '');
+      pathname = `/${sectionSeg}`;
+      label = String(q.label || '');
+      subtitle = String(q.subtitle || '');
+      nsid = String(q.nsid || DEFAULT.nsid);
+      record = true;
     } else if (q.title || q.subtitle) {
       label = String(q.title || '');
       subtitle = String(q.subtitle || '');
       pathname = label ? `/${label.toLowerCase().replace(/\s+/g, '-')}` : '/';
     }
 
-    const key = currentAvatarKey();
+    const key = avatarKeys()[hour];
     const avatarUri = ICONS[key] ? `data:image/png;base64,${ICONS[key]}` : null;
 
     const element = ogElement({
@@ -67,9 +91,10 @@ export default async function handler(req, res) {
       label,
       subtitle,
       nsid,
+      record,
       segs: segsFor(pathname),
       avatarUri,
-      folio: folio(),
+      folio: folio(now),
       theme,
       homeIndex: HOME_INDEX,
     });

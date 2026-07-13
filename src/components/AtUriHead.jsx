@@ -26,6 +26,11 @@ export default function AtUriHead({ atUri, cid, title }) {
     const head = document.head;
     const cleanups = [];
 
+    // Drop any server-injected (crawler-facing) atproto hints from middleware.js
+    // so the client is the single source of truth once JS runs — otherwise a
+    // stale SSR tag would linger across SPA navigations.
+    head.querySelectorAll('[data-atproto="ssr"]').forEach((n) => n.remove());
+
     if (effectiveAtUri) {
       const link = document.createElement('link');
       link.rel = 'alternate';
