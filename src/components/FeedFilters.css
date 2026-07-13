@@ -115,6 +115,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* Extra breathing room below the last row so the sheet doesn't feel
+     cramped against its bottom edge. Overrides the shorthand's bottom pad. */
+  padding-bottom: var(--space-6);
 }
 
 .feed-filter-modal-header {
