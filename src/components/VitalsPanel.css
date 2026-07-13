@@ -1,0 +1,153 @@
+/* Vitals panel — the iPhone-sourced "current state" strip that rides the
+   expanded atmosphere row beneath LISTENING TO / FOLLOWED BY. It reuses the
+   atmosphere row's voice (small-caps units, mono tabular numbers, ink/accent
+   on the earthy palette, square corners) so it reads as one more signal
+   rather than a foreign widget. Full-width within `.chrome-signals-secondary`,
+   separated from the line above by a soft hairline. */
+
+.vitals {
+  /* Take a full row of its own within the wrapping secondary signals flex,
+     dropping below the now-playing / followers line. */
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  min-width: 0;
+  transition: opacity 200ms ease;
+}
+
+/* Stale (no fresh push for a while): the whole strip recedes so it never
+   presents a hours-old reading as if it were live. */
+.vitals.is-stale {
+  opacity: 0.5;
+}
+
+.vitals-empty {
+  align-items: baseline;
+  gap: 0.45em;
+}
+
+.vital {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.vital-glyph {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+}
+
+/* The heart is the liveliest mark on the strip — carry the accent and let it
+   beat (scale animation lives on the wrapping motion span in JS). */
+.vital-glyph-heart {
+  color: var(--accent);
+}
+
+.vital-heartbeat {
+  display: inline-flex;
+  transform-origin: center 60%;
+}
+
+.vital-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+/* Small-caps unit, matching the atmosphere row's LISTENING TO labels. */
+.vital-unit {
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  font-size: 0.95em;
+}
+
+/* Activity reads as a word, not a number. */
+.vital-word {
+  color: var(--ink-soft);
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+/* --- battery ------------------------------------------------------------- */
+.vital-battery {
+  color: var(--ink-muted); /* svg outline + terminal via currentColor */
+}
+
+.vital-battery-svg {
+  flex: 0 0 auto;
+}
+
+.vital-battery-fill {
+  fill: var(--ink-soft);
+  transition: width 500ms ease, fill 300ms ease;
+}
+
+.vital-battery.is-charging {
+  color: var(--ink-muted);
+}
+
+.vital-battery.is-charging .vital-battery-fill {
+  fill: var(--accent);
+}
+
+.vital-bolt {
+  color: var(--accent);
+  flex: 0 0 auto;
+  margin-left: -0.15em;
+}
+
+.vital-battery.is-low .vital-battery-fill {
+  /* A warm amber that carries on both the tan and the green-black grounds —
+     the one place the two-tone palette bends, because a low battery earns a
+     genuine hue shift. */
+  fill: #c17d3f;
+}
+
+/* --- ambient sound ------------------------------------------------------- */
+.vital-sound-svg {
+  flex: 0 0 auto;
+}
+
+.vital-sound-bar {
+  fill: var(--rule);
+  transition: fill 300ms ease;
+}
+
+.vital-sound-bar.is-lit {
+  fill: var(--ink-soft);
+}
+
+/* --- update stamp -------------------------------------------------------- */
+.vital-stamp {
+  margin-left: auto;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95em;
+  white-space: nowrap;
+}
+
+/* On the mobile atmosphere column the row already stacks each signal full
+   width; let the vitals wrap freely and pull the stamp back inline so it
+   doesn't strand itself on its own line. */
+@media (max-width: 700px) {
+  .vitals {
+    gap: var(--space-2) var(--space-4);
+  }
+  .vital-stamp {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+}

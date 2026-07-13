@@ -1,0 +1,25 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.state",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "description": "Dame's current physical + ambient state, sampled from an iPhone and overwritten in place. A singleton at at://{me}/is.dame.state/self — the live 'right now', not a log. Read by the atmosphere-bar vitals panel. Each push should also append an is.dame.state.sample record so history accumulates for later charting.",
+      "record": {
+        "type": "object",
+        "required": ["createdAt"],
+        "properties": {
+          "heartRate":      { "type": "integer", "minimum": 0, "maximum": 300, "description": "Heart rate in beats per minute." },
+          "activity":       { "type": "string", "maxLength": 64, "knownValues": ["stationary", "walking", "running", "cycling", "automotive", "unknown"], "description": "CoreMotion physical-activity class (lowercased)." },
+          "batteryLevel":   { "type": "integer", "minimum": 0, "maximum": 100, "description": "Phone battery charge, percent (0–100)." },
+          "charging":       { "type": "boolean", "description": "Whether the phone is currently charging." },
+          "soundLevel":     { "type": "integer", "minimum": 0, "maximum": 140, "description": "Ambient sound level in decibels (dB)." },
+          "caloriesBurned": { "type": "integer", "minimum": 0, "description": "Active energy burned so far today, in kilocalories." },
+          "capturedAt":     { "type": "string", "format": "datetime", "description": "When the sample was taken on-device. Used for staleness; may differ slightly from createdAt." },
+          "createdAt":      { "type": "string", "format": "datetime", "description": "When this record was written." }
+        }
+      }
+    }
+  }
+}

@@ -61,6 +61,16 @@ export const GUESTBOOK_NSID = 'is.dame.guestbook';
 export const GUESTBOOK_ENTRY_NSID = 'is.dame.guestbook.entry';
 export const GUESTBOOK_SUBJECT = `at://${ME_DID}/${GUESTBOOK_NSID}/self`;
 
+// --- state / vitals ----------------------------------------------------------
+// Live iPhone-sourced physical + ambient state (heart rate, activity, battery,
+// ambient sound, calories). The singleton `/self` is the current snapshot —
+// overwritten on each push and read by the atmosphere-bar vitals panel; the
+// `.sample` collection is an append log of the same shape that accumulates
+// history for later charting. Ingested from an iPhone Shortcut → Scriptable
+// poster (scripts/scriptable/dame-state-poster.js). See lexicons/is.dame.state*.
+export const STATE_NSID = 'is.dame.state';
+export const STATE_SAMPLE_NSID = 'is.dame.state.sample';
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
@@ -90,6 +100,8 @@ export const COLLECTIONS = {
   resumeJob: RESUME_JOB_NSID,
   resumeEducation: RESUME_EDUCATION_NSID,
   arenaChannel: ARENA_CHANNEL_NSID,
+  state: STATE_NSID,
+  stateSample: STATE_SAMPLE_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */
