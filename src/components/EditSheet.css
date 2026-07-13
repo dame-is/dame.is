@@ -22,8 +22,6 @@
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
   z-index: 32;
   overflow: hidden;
   /* Bottom-anchor the panel inside the height-animating clip so its bottom
@@ -54,13 +52,6 @@
   );
   padding-bottom: var(--edit-bar-h, 0px);
   overflow: hidden;
-}
-
-@media (min-width: 65rem) {
-  .edit-sheet-panel {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
 }
 
 /* Fixed header + footer with a scrolling body between them (flex column in a

@@ -105,7 +105,7 @@
 /* Interior of the filter bottom sheet. BottomSheet owns positioning, the
    surface, and the expand animation; only the interior layout (padding,
    internal spacing, header/grid) lives here. Full-width — it fills the
-   65rem chrome card rather than sitting as a narrow centered modal. */
+   full-bleed chrome rather than sitting as a narrow centered modal. */
 .feed-filter-sheet-panel {
   width: 100%;
   /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
