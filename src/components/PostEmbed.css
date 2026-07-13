@@ -26,12 +26,15 @@
 }
 
 /* Embed wrapper — keep all embed types on a consistent rhythm regardless
-   of which type rendered. */
+   of which type rendered. The top margin also sets the breathing room
+   between stacked embeds (e.g. a quote sitting below an image, as in a
+   record-with-media post), so it's a touch more generous than the card's
+   own inter-row gap. */
 .post-embed-images,
 .post-embed-video,
 .post-embed-link-card,
 .post-embed-quote {
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
   max-width: var(--measure);
 }
 
@@ -89,11 +92,44 @@
   object-fit: cover;
 }
 
-.post-embed-images[data-count='1'] .post-embed-image img {
-  object-fit: contain;
-  max-height: 520px;
-  height: auto;
+/* A lone image is shown at its true aspect ratio, never letterboxed against
+   a background. PostEmbed.jsx sets --img-ar (width / height) on the frame, so
+   the frame itself carries the picture's ratio: it reserves the correct box
+   before the file loads (no shift) and keeps a tall image in check by capping
+   its *width* — the image scales down whole, staying true to ratio, instead
+   of shrinking inside a fixed-height frame and leaving bars down either side.
+   `cover` on a frame that already matches the picture never crops. */
+.post-embed-images[data-count='1'] {
+  --embed-image-max-h: 520px;
+}
+
+.post-embed-images[data-count='1'] .post-embed-image[data-sized='true'] {
   width: 100%;
+  aspect-ratio: var(--img-ar);
+  max-width: calc(var(--embed-image-max-h) * var(--img-ar));
+}
+
+.post-embed-images[data-count='1'] .post-embed-image[data-sized='true'] img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Fallback for the rare image whose record carries no aspectRatio: the frame
+   shrink-wraps the picture (so no background can show) and the height cap just
+   makes a tall one narrower. No pre-load reservation is possible without a
+   known ratio, but there's still no letterbox. */
+.post-embed-images[data-count='1'] .post-embed-image:not([data-sized='true']) {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.post-embed-images[data-count='1'] .post-embed-image:not([data-sized='true']) img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: var(--embed-image-max-h);
+  object-fit: contain;
 }
 
 /* Video. Same border treatment as images so the row reads cohesively. */
