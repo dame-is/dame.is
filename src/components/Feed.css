@@ -1817,6 +1817,10 @@ a.ledger-verb:focus-visible {
    time sits flush right. */
 .feed-ledger-flat {
   gap: 0;
+  /* Roomier column gap between the title and its trailing time/count than the
+     dense day-grouped ledger uses — these single-type pages (creating,
+     blogging, …) have fewer columns and can afford the extra breathing room. */
+  --ledger-col-gap: var(--space-4);
 }
 
 .feed-ledger-flat .feed-item-ledger {

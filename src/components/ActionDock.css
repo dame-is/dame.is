@@ -13,7 +13,7 @@
 }
 
 /* .dock-sheet-wrap: the animated clip box, pinned directly on top of
-   the bottom bar and centered on the same 65rem card. Framer animates
+   the bottom bar and spanning the same full-bleed width. Framer animates
    its height 0 ↔ auto; overflow:hidden means the panel inside unfurls
    upward out of the bar. Sits above the bars (z 31) so its top edge
    and shadow overlap the page cleanly. */
@@ -26,8 +26,6 @@
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
   z-index: 31;
   overflow: hidden;
   /* Bottom-anchor the panel inside the height-animating clip: the panel is
@@ -80,15 +78,6 @@
   align-content: end;
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-/* On wide screens the chrome bars float as a 65rem card with side
-   hairlines; the sheet closes its box to match. */
-@media (min-width: 65rem) {
-  .dock-panel {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
 }
 
 .dock-section {

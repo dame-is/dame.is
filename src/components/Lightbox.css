@@ -76,7 +76,7 @@
 }
 
 /* Control bar — sits exactly where the bottom chrome nav is (fixed to
-   the viewport bottom, same 65rem card, same raised surface + height)
+   the viewport bottom, same full-bleed width, same raised surface + height)
    so the nav appears to morph into the photo controls. Above the Modal
    scrim (z 60). Holds the source / reverse-search links (left), and the
    prev/counter/next + close cluster (right). */
@@ -87,19 +87,10 @@
   right: 0;
   z-index: 70;
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
   background: var(--surface-raised);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-@media (min-width: 65rem) {
-  .lightbox-controls {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
 }
 
 .lightbox-controls-row {
@@ -107,9 +98,9 @@
   align-items: center;
   gap: var(--space-3);
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
-  padding: 0 clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
+  /* Shared chrome inset (see --chrome-pad-x) so the controls land on the same
+     centered column as the bottom-bar buttons the bar morphs out of. */
+  padding: 0 var(--chrome-pad-x);
   min-height: var(--chrome-h);
 }
 
