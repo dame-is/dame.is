@@ -230,6 +230,64 @@ export async function deleteGuestbookEntry(agent, rkey) {
   });
 }
 
+// --- coarse location ("signing from") ------------------------------------------
+
+/**
+ * Ask the browser for location and resolve it to a coarse, town-free label —
+ * "North Carolina, United States", "Bavaria, Germany", or just a country.
+ * Privacy posture, matching the site's no-location rule elsewhere:
+ *   - runs only on an explicit click; the browser permission prompt is the consent,
+ *   - coordinates are blurred to ~11 km before they leave the device,
+ *   - only state/region + country are kept — never a town, city, or coordinates,
+ *   - the label lands in the form input for review; nothing auto-submits.
+ * Reverse geocoding via BigDataCloud's free client endpoint (keyless, CORS).
+ */
+export async function detectCoarseRegion() {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    throw new Error('Location is not available in this browser.');
+  }
+  const pos = await new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      (err) => {
+        reject(
+          new Error(
+            err?.code === 1
+              ? 'Location permission was declined.'
+              : 'Could not read your location.',
+          ),
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 600_000 },
+    );
+  });
+  const lat = Math.round(pos.coords.latitude * 10) / 10;
+  const lon = Math.round(pos.coords.longitude * 10) / 10;
+  const res = await fetch(
+    `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`,
+  );
+  if (!res.ok) throw new Error('Could not look up a region.');
+  const data = await res.json();
+  const region = String(data?.principalSubdivision || '').trim();
+  // Country: prefer the tidy Intl name for the ISO code over the endpoint's
+  // formal styling ("United States of America (the)").
+  let country = '';
+  const code = String(data?.countryCode || '').trim();
+  if (code) {
+    try {
+      country = new Intl.DisplayNames(['en'], { type: 'region' }).of(code) || '';
+    } catch {
+      // Intl.DisplayNames missing — fall through to countryName.
+    }
+  }
+  if (!country || country === code) {
+    country = String(data?.countryName || '').replace(/\s*\(the\)\s*$/i, '').trim();
+  }
+  const parts = [region, country].filter(Boolean);
+  if (parts.length === 0) throw new Error('Could not resolve a region.');
+  return parts.join(', ');
+}
+
 // --- moderation (host only) ---------------------------------------------------
 
 /**

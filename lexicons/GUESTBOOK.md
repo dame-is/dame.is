@@ -72,4 +72,9 @@ site can host its own book with the same two lexicons.
   `/guestbook` (the owner's pencil button — each signature grows hide/unhide)
   and the **Guestbook panel** in `/admin` (`?view=guestbook`).
 - Nothing sensitive is collected: no email, no IP, no structured location —
-  `location` is a free-text field the signer types (or leaves empty).
+  `location` is a free-text field the signer types (or leaves empty). The
+  form's optional **"Use my region"** button asks the browser for location
+  (an explicit click behind the browser's own permission prompt), blurs the
+  coordinates to ~11 km before they leave the device, and fills the field
+  with only *state/region + country* — never a town, city, or coordinates.
+  The label is editable before signing; nothing auto-submits.

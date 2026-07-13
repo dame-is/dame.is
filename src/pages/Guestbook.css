@@ -35,18 +35,7 @@
 }
 
 .guestbook-form-signer {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   color: var(--ink);
-}
-
-.guestbook-form-avatar {
-  width: 1.4em;
-  height: 1.4em;
-  object-fit: cover;
-  border: 1px solid var(--rule);
-  align-self: center;
 }
 
 .guestbook-textarea {
@@ -115,9 +104,63 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+/* "Signing from" — its own labelled block so it's obvious what the field
+   is, with the locate button and the never-your-town promise beside it. */
+.guestbook-location-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.guestbook-location-label {
+  color: var(--ink-faint);
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
+}
+
+.guestbook-location-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .guestbook-location {
-  flex: 1 1 12rem;
-  max-width: 18rem;
+  flex: 1 1 14rem;
+  max-width: 22rem;
+}
+
+.guestbook-locate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  padding: 0.45em 0.8em;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.guestbook-locate:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.guestbook-locate:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.guestbook-location-hint {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  max-width: 52ch;
 }
 
 .guestbook-form-actions {
