@@ -44,7 +44,7 @@
       "required": ["id", "text"],
       "properties": {
         "id":         { "type": "string", "maxLength": 64, "description": "Stable id, unique within this job. Referenced from is.dame.resume entries[].highlightIds." },
-        "text":       { "type": "string", "maxLength": 2000 },
+        "text":       { "type": "string", "maxLength": 2000, "description": "The canonical phrasing — what a resume shows when it selects this bullet without naming a variant." },
         "visibility": { "type": "string", "enum": ["public", "unlisted", "private"], "default": "public", "description": "Display intent for the website. NOT a privacy control — every PDS record is publicly fetchable. \"private\" bullets are never rendered on the site; \"unlisted\" render only when a resume explicitly selects them." },
         "featured":   { "type": "boolean", "default": false, "description": "Emphasis flag — surfaced first / styled as a lead achievement." },
         "metric":     { "type": "boolean", "default": false, "description": "Marks a quantified, outcome-bearing bullet (useful for impact-first resumes)." },
@@ -53,7 +53,23 @@
           "maxLength": 20,
           "items": { "type": "string", "maxLength": 64 },
           "description": "Free-form labels (e.g. \"growth\", \"leadership\", \"writing\") used to filter/tailor which bullets a given resume pulls in."
+        },
+        "variants":   {
+          "type": "array",
+          "maxLength": 20,
+          "items": { "type": "ref", "ref": "#highlightVariant" },
+          "description": "Forked phrasings of this same bullet — the one achievement re-framed for different audiences. A resume selects a variant with a \"<highlightId>#<variantId>\" ref in entries[].highlightIds; selecting the bare highlight id shows the canonical text. Variants share the parent's flags (visibility, featured, metric, tags)."
         }
+      }
+    },
+    "highlightVariant": {
+      "type": "object",
+      "description": "One alternate phrasing of a highlight. Lives on the canonical job record so a fork is edited once and every resume that selected it stays in sync.",
+      "required": ["id", "text"],
+      "properties": {
+        "id":    { "type": "string", "maxLength": 64, "description": "Stable id, unique within the parent highlight (e.g. \"v1\"). Addressed from resumes as \"<highlightId>#<id>\"." },
+        "text":  { "type": "string", "maxLength": 2000 },
+        "label": { "type": "string", "maxLength": 80, "description": "What this phrasing is for, e.g. \"design-focused\" or \"one-pager\" — shown in the admin variant picker, never rendered on the site." }
       }
     }
   }

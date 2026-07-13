@@ -207,7 +207,7 @@ export const LEXICONS = {
       { key: 'summary', label: 'Summary', type: 'textarea' },
       {
         key: 'highlights', label: 'Highlights', type: 'highlights',
-        hint: 'Achievement bullets. Reorder with the arrows; each is referenced by resumes that tailor which bullets to show.',
+        hint: 'Achievement bullets. Reorder with the arrows; each is referenced by resumes that tailor which bullets to show. Fork a bullet to keep alternate phrasings of the same point that individual resume versions can pick.',
       },
       { key: 'skills', label: 'Skills', type: 'tags' },
       ...COMMON_TIMESTAMPS,
@@ -263,7 +263,7 @@ export const LEXICONS = {
       {
         key: 'entries', label: 'Experience (jobs)', type: 'recordRefs',
         refKey: 'job', refCollection: COLLECTIONS.resumeJob, overrides: true,
-        hint: 'Pick jobs and order them with the arrows. Per job, choose which highlights show.',
+        hint: 'Pick jobs and order them with the arrows. Per job, choose which highlights show and which phrasing each uses. The tailoring workbench (Resume studio → Tailor) is the richer editor for this.',
       },
       {
         key: 'education', label: 'Education', type: 'recordRefs',

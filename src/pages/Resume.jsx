@@ -158,7 +158,7 @@ export default function Resume() {
                         <ul className="resume-highlights">
                           {role.highlights.map((h) => (
                             <li
-                              key={h.id}
+                              key={h.refId || h.id}
                               className={`resume-highlight ${h.featured ? 'is-featured' : ''} ${
                                 h.metric ? 'is-metric' : ''
                               }`}
@@ -202,7 +202,7 @@ export default function Resume() {
                   {e.highlights.length > 0 && (
                     <ul className="resume-highlights">
                       {e.highlights.map((h) => (
-                        <li key={h.id} className="resume-highlight">
+                        <li key={h.refId || h.id} className="resume-highlight">
                           {h.text}
                         </li>
                       ))}

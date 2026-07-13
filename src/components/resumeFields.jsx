@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronUp, ChevronDown, Plus, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Copy, GitBranch, Plus, X } from 'lucide-react';
+import { COLLECTIONS } from '../config.js';
+import {
+  parseHighlightRef,
+  makeHighlightRef,
+  nextHighlightId,
+  nextVariantId,
+  resolveHighlightRef,
+  collectHighlightUsage,
+} from '../lib/resumeHelpers.js';
 
 /**
  * Structured form controls for the resume lexicons, replacing the raw-JSON
@@ -126,16 +135,61 @@ function useCollectionRecords(agent, did, collection) {
 /* Highlights (job / education achievement bullets)                     */
 /* ------------------------------------------------------------------ */
 
-/** Next unique `hN` id for a new highlight in this list. */
-function nextHighlightId(list) {
-  const used = new Set(list.map((h) => h?.id).filter(Boolean));
-  let n = list.length + 1;
-  while (used.has(`h${n}`)) n += 1;
-  return `h${n}`;
+/** Dedupe usage rows into short "which resumes" labels for a chip. */
+function usageSummary(rows) {
+  const labels = [];
+  const seen = new Set();
+  for (const u of rows || []) {
+    if (seen.has(u.rkey)) continue;
+    seen.add(u.rkey);
+    labels.push(u.label);
+  }
+  return labels;
 }
 
-export function HighlightsField({ value, onChange }) {
+/** "Used by primary, product-design" chip, or nothing when unused. */
+function UsageChip({ rows }) {
+  const labels = usageSummary(rows);
+  if (labels.length === 0) return null;
+  return (
+    <span
+      className="rf-usage"
+      title={`Selected by: ${labels.join(', ')}`}
+    >
+      used by {labels.join(', ')}
+    </span>
+  );
+}
+
+/**
+ * Bullet editor for a job/education record's `highlights`.
+ *
+ * Beyond text + flags, each bullet can be forked into **variants** — alternate
+ * phrasings of the same point that resumes pick individually (`h3#v2` refs).
+ * When `agent`/`did`/`recordUri` are provided, every resume is scanned so each
+ * bullet (and variant) shows which versions currently use it, and removals of
+ * in-use bullets ask first.
+ */
+export function HighlightsField({ value, onChange, agent, did, recordUri, usageKeys }) {
   const list = Array.isArray(value) ? value : [];
+
+  // Which resumes use these bullets. Only loaded when we know the record's
+  // own URI (i.e. editing an existing job/education record, not a new one).
+  const { records: resumes } = useCollectionRecords(
+    agent,
+    did,
+    recordUri ? COLLECTIONS.resume : null,
+  );
+  const usage = useMemo(() => {
+    if (!recordUri || !resumes) return new Map();
+    return collectHighlightUsage({
+      resumes,
+      recordUri,
+      listKey: usageKeys?.listKey || 'entries',
+      refKey: usageKeys?.refKey || 'job',
+      highlights: list,
+    });
+  }, [resumes, recordUri, usageKeys, list]);
 
   const update = (i, patch) => onChange(replaceAt(list, i, { ...list[i], ...patch }));
 
@@ -144,6 +198,59 @@ export function HighlightsField({ value, onChange }) {
       ...list,
       { id: nextHighlightId(list), text: '', visibility: 'public', featured: false, metric: false },
     ]);
+
+  const duplicate = (i) => {
+    const src = list[i];
+    const copy = JSON.parse(JSON.stringify(src));
+    copy.id = nextHighlightId(list);
+    delete copy.variants; // a duplicated bullet is a new point — forks stay with the original
+    const next = list.slice();
+    next.splice(i + 1, 0, copy);
+    onChange(next);
+  };
+
+  const remove = (i) => {
+    const h = list[i];
+    const used = usageSummary(usage.get(h?.id));
+    if (used.length > 0) {
+      const ok = window.confirm(
+        `“${truncateText(h?.text, 80)}” is selected by: ${used.join(', ')}.\n` +
+          'Removing it will drop the bullet from those resumes on your next save. Remove anyway?',
+      );
+      if (!ok) return;
+    }
+    onChange(removeAt(list, i));
+  };
+
+  const fork = (i) => {
+    const h = list[i];
+    const variants = Array.isArray(h.variants) ? h.variants : [];
+    const v = { id: nextVariantId(variants), text: h.text || '', label: '' };
+    update(i, { variants: [...variants, v] });
+  };
+
+  const updateVariant = (i, vi, patch) => {
+    const variants = (list[i].variants || []).slice();
+    variants[vi] = { ...variants[vi], ...patch };
+    update(i, { variants });
+  };
+
+  const removeVariant = (i, vi) => {
+    const h = list[i];
+    const v = (h.variants || [])[vi];
+    const rows = (usage.get(h?.id) || []).filter((u) => u.variantId === v?.id);
+    const used = usageSummary(rows);
+    if (used.length > 0) {
+      const ok = window.confirm(
+        `This phrasing is picked by: ${used.join(', ')}.\n` +
+          'Those resumes will fall back to the canonical text. Remove it anyway?',
+      );
+      if (!ok) return;
+    }
+    const variants = (h.variants || []).slice();
+    variants.splice(vi, 1);
+    update(i, { variants: variants.length ? variants : undefined });
+  };
 
   return (
     <div className="rf-list">
@@ -154,13 +261,56 @@ export function HighlightsField({ value, onChange }) {
         <div className="rf-card" key={h.id || i}>
           <div className="rf-card-head">
             <code className="rf-id">{h.id || '—'}</code>
-            <RowControls
-              index={i}
-              length={list.length}
-              onMove={(from, to) => onChange(move(list, from, to))}
-              onRemove={(idx) => onChange(removeAt(list, idx))}
-              removeLabel="Remove highlight"
-            />
+            <UsageChip rows={usage.get(h.id)} />
+            <div className="rf-controls">
+              <button
+                type="button"
+                className="rf-icon-btn"
+                onClick={() => fork(i)}
+                aria-label="Fork into a variant phrasing"
+                title="Fork — add an alternate phrasing resumes can pick"
+              >
+                <GitBranch size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="rf-icon-btn"
+                onClick={() => duplicate(i)}
+                aria-label="Duplicate as a new bullet"
+                title="Duplicate as a new bullet"
+              >
+                <Copy size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="rf-icon-btn"
+                onClick={() => onChange(move(list, i, i - 1))}
+                disabled={i === 0}
+                aria-label="Move up"
+                title="Move up"
+              >
+                <ChevronUp size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="rf-icon-btn"
+                onClick={() => onChange(move(list, i, i + 1))}
+                disabled={i === list.length - 1}
+                aria-label="Move down"
+                title="Move down"
+              >
+                <ChevronDown size={15} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="rf-icon-btn rf-icon-btn-danger"
+                onClick={() => remove(i)}
+                aria-label="Remove highlight"
+                title="Remove highlight"
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            </div>
           </div>
           <textarea
             className="admin-input admin-textarea"
@@ -169,6 +319,48 @@ export function HighlightsField({ value, onChange }) {
             placeholder="Shipped X, driving Y% growth…"
             onChange={(e) => update(i, { text: e.target.value })}
           />
+          {Array.isArray(h.variants) && h.variants.length > 0 && (
+            <div className="rf-variants">
+              <span className="rf-inline-label">
+                Variants — alternate phrasings of this same point
+              </span>
+              {h.variants.map((v, vi) => (
+                <div className="rf-variant" key={v.id || vi}>
+                  <div className="rf-card-head">
+                    <code className="rf-id">{makeHighlightRef(h.id, v.id)}</code>
+                    <input
+                      className="admin-input rf-variant-label"
+                      type="text"
+                      value={v.label ?? ''}
+                      placeholder="label, e.g. design-focused"
+                      onChange={(e) => updateVariant(i, vi, { label: e.target.value || undefined })}
+                    />
+                    <UsageChip
+                      rows={(usage.get(h.id) || []).filter((u) => u.variantId === v.id)}
+                    />
+                    <div className="rf-controls">
+                      <button
+                        type="button"
+                        className="rf-icon-btn rf-icon-btn-danger"
+                        onClick={() => removeVariant(i, vi)}
+                        aria-label="Remove variant"
+                        title="Remove variant"
+                      >
+                        <X size={15} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    className="admin-input admin-textarea"
+                    rows={2}
+                    value={v.text ?? ''}
+                    placeholder="The same achievement, framed differently…"
+                    onChange={(e) => updateVariant(i, vi, { text: e.target.value })}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
           <div className="rf-inline">
             <label className="admin-checkbox rf-checkbox">
               <input
@@ -219,6 +411,11 @@ export function HighlightsField({ value, onChange }) {
       </button>
     </div>
   );
+}
+
+function truncateText(s, n) {
+  const str = String(s || '');
+  return str.length <= n ? str : `${str.slice(0, n - 1).trimEnd()}…`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -275,7 +472,10 @@ export function RecordRefsField({ field, value, onChange, agent, did }) {
         const rec = byUri.get(uri);
         const highlights = Array.isArray(rec?.value?.highlights) ? rec.value.highlights : [];
         const explicit = Array.isArray(entry.highlightIds);
-        const includedSet = new Set(explicit ? entry.highlightIds : defaultHighlightIds(rec));
+        const refs = explicit ? entry.highlightIds : defaultHighlightIds(rec);
+        // Map of base highlight id → the full ref selecting it (bare or #variant).
+        const refByBase = new Map(refs.map((r) => [parseHighlightRef(r).id, r]));
+        const naturalIndex = new Map(highlights.map((h, idx) => [h.id, idx]));
 
         const setCustomize = (on) => {
           if (on) update(i, { highlightIds: defaultHighlightIds(rec) });
@@ -286,12 +486,36 @@ export function RecordRefsField({ field, value, onChange, agent, did }) {
           }
         };
 
+        // Toggle a bullet without disturbing the rest of the selection's
+        // order (a custom order set in the tailoring workbench survives).
+        // A newly checked bullet slots in at its natural position.
         const toggleHighlight = (id, on) => {
-          // Rebuild in the job's natural order so display order stays stable.
-          const ordered = highlights
-            .map((h) => h.id)
-            .filter((hid) => (hid === id ? on : includedSet.has(hid)));
-          update(i, { highlightIds: ordered });
+          const current = refs.slice();
+          if (!on) {
+            update(i, { highlightIds: current.filter((r) => parseHighlightRef(r).id !== id) });
+            return;
+          }
+          const idx = naturalIndex.get(id) ?? Infinity;
+          let insertAt = current.length;
+          for (let k = 0; k < current.length; k += 1) {
+            const other = naturalIndex.get(parseHighlightRef(current[k]).id) ?? Infinity;
+            if (other > idx) {
+              insertAt = k;
+              break;
+            }
+          }
+          current.splice(insertAt, 0, id);
+          update(i, { highlightIds: current });
+        };
+
+        // Swap which phrasing an included bullet uses (canonical or a variant),
+        // keeping its position in the selection.
+        const setVariant = (id, variantId) => {
+          update(i, {
+            highlightIds: refs.map((r) =>
+              parseHighlightRef(r).id === id ? makeHighlightRef(id, variantId || null) : r,
+            ),
+          });
         };
 
         return (
@@ -360,25 +584,51 @@ export function RecordRefsField({ field, value, onChange, agent, did }) {
                   <span>Choose which highlights show (default: all)</span>
                 </label>
                 <ul className="rf-highlight-list">
-                  {highlights.map((h) => (
-                    <li key={h.id} className="rf-highlight-row">
-                      <label className="admin-checkbox rf-checkbox">
-                        <input
-                          type="checkbox"
-                          disabled={!explicit}
-                          checked={includedSet.has(h.id)}
-                          onChange={(e) => toggleHighlight(h.id, e.target.checked)}
-                        />
-                        <span className="rf-highlight-text">
-                          {h.text || <em>(empty)</em>}
-                          {(h.visibility && h.visibility !== 'public') && (
-                            <span className="rf-badge">{h.visibility}</span>
-                          )}
-                          {h.featured && <span className="rf-badge rf-badge-accent">featured</span>}
-                        </span>
-                      </label>
-                    </li>
-                  ))}
+                  {highlights.map((h) => {
+                    const selectedRef = refByBase.get(h.id);
+                    const included = refByBase.has(h.id);
+                    const { variantId } = parseHighlightRef(selectedRef || h.id);
+                    const variants = Array.isArray(h.variants) ? h.variants : [];
+                    const shownText = included && selectedRef
+                      ? resolveHighlightRef(rec?.value, selectedRef)?.text ?? h.text
+                      : h.text;
+                    return (
+                      <li key={h.id} className="rf-highlight-row">
+                        <label className="admin-checkbox rf-checkbox">
+                          <input
+                            type="checkbox"
+                            disabled={!explicit}
+                            checked={included}
+                            onChange={(e) => toggleHighlight(h.id, e.target.checked)}
+                          />
+                          <span className="rf-highlight-text">
+                            {shownText || <em>(empty)</em>}
+                            {(h.visibility && h.visibility !== 'public') && (
+                              <span className="rf-badge">{h.visibility}</span>
+                            )}
+                            {h.featured && <span className="rf-badge rf-badge-accent">featured</span>}
+                          </span>
+                        </label>
+                        {explicit && included && variants.length > 0 && (
+                          <label className="rf-inline-field rf-variant-pick">
+                            <span className="rf-inline-label">Phrasing</span>
+                            <select
+                              className="admin-input rf-select-sm"
+                              value={variantId || ''}
+                              onChange={(e) => setVariant(h.id, e.target.value || null)}
+                            >
+                              <option value="">canonical</option>
+                              {variants.map((v) => (
+                                <option key={v.id} value={v.id}>
+                                  {v.label || v.id}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
