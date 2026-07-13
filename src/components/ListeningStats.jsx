@@ -18,7 +18,7 @@ const WINDOWS = [
   { days: 30, label: '30 days' },
 ];
 
-const TOP_N = 6;
+const TOP_N = 5;
 
 export default function ListeningStats({ items }) {
   const [days, setDays] = useState(7);
