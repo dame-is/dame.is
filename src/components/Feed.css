@@ -830,9 +830,20 @@ a.post-card-author-link:focus-visible {
   }
 }
 
-/* "Load more" CTA at the foot of the home feed. Pagination is purely
-   client-side — the next batch is already in memory, so the button only
-   reveals it, no spinner needed. */
+/* Foot of the home feed. Pagination is purely client-side — the next batch
+   is already in memory. By default an invisible sentinel auto-reveals it as
+   the reader nears the bottom; the "Load more" button is the fallback when
+   IntersectionObserver isn't available, so no spinner is needed either way. */
+
+/* The sentinel carries no visual weight of its own; a hair of height keeps
+   it a real box the observer can track, and the top margin gives the reveal
+   a little runway below the last row. */
+.feed-load-sentinel {
+  height: 1px;
+  margin-top: var(--space-5);
+  pointer-events: none;
+}
+
 .feed-load-more {
   display: flex;
   justify-content: center;
