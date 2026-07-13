@@ -82,18 +82,30 @@
   text-align: right;
 }
 
-.blog-article {
-  /* `width: 100%` is load-bearing: `.page` is a flex column, and the auto
-     margins below otherwise defeat flex stretch, letting the article size to
-     its max-content (clamped to --measure) and overflow narrow viewports.
-     Pinning width to the column keeps --measure a cap, not a floor. Mirrors
-     the same fix already applied to the sibling `.page-title` below. */
+/* Long-form document column — the single reading measure shared by blog posts
+   and creating/portfolio works (both render <LeafletDocument>, and a
+   site.standard.document can surface on either route). Capping the whole
+   ARTICLE here, at the page/container level, is what keeps the text AND every
+   media block — images, video embeds, galleries, link cards, code — aligned to
+   one column. The global `p { max-width: var(--measure) }` only reins in
+   paragraphs; without this container cap the media escapes to the full `.main`
+   width (72rem) while the prose stays at the measure, so images and embeds jut
+   out past the text on both sides.
+
+   `width: 100%` is load-bearing: `.page` is a flex column, and the auto margins
+   below otherwise defeat flex stretch, letting the article size to its
+   max-content (clamped to --measure) and overflow narrow viewports. Pinning
+   width to the column keeps --measure a cap, not a floor. Mirrors the same fix
+   applied to the sibling `.page-title` below. */
+.blog-article,
+.creating-work-page {
   width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
 }
 
-.page:has(> .blog-article) > .page-title {
+.page:has(> .blog-article) > .page-title,
+.page:has(> .creating-work-page) > .page-title {
   max-width: var(--measure);
   margin-left: auto;
   margin-right: auto;
