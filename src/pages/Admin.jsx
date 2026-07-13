@@ -14,6 +14,7 @@ import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
 const STANDARD_DOC = 'site.standard.document';
 import { knownPageSlugs, pageSlugForCollection } from '../lib/pageRegistry.js';
 import { LEGACY_POSTS, migratedSlugs, migratePost } from '../lib/legacyBlog.js';
+import { visibilityModelFor } from '../lib/recordVisibility.js';
 import { formatDateLong } from '../lib/time.js';
 import './Admin.css';
 
@@ -374,7 +375,14 @@ function RecordList({
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Multi-select bulk editing: off by default so the list reads as plain
+  // navigable rows; toggling it on turns each row into a checkbox and reveals
+  // the bulk hide / unhide / delete bar.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(() => new Set()); // rkeys
+  const [busy, setBusy] = useState(false);
   const lex = lexiconFor(collection);
+  const visModel = visibilityModelFor(collection);
   const pageSlug =
     pageSlugOverride !== undefined ? pageSlugOverride : pageSlugForCollection(collection);
   const isHero = collection === COLLECTIONS.heroPhrase;
@@ -410,6 +418,7 @@ function RecordList({
     setRecords([]);
     setCursor(undefined);
     setDone(false);
+    setSelected(new Set());
     loadPage(undefined);
   }, [loadPage]);
 
@@ -420,6 +429,90 @@ function RecordList({
   const visibleRecords = recordFilter
     ? records.filter((rec) => recordFilter(rec.value))
     : records;
+
+  const toggle = useCallback((rkey) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(rkey)) next.delete(rkey);
+      else next.add(rkey);
+      return next;
+    });
+  }, []);
+
+  const visibleRkeys = visibleRecords.map((rec) => rkeyFromUri(rec.uri));
+  const allSelected =
+    visibleRkeys.length > 0 && visibleRkeys.every((k) => selected.has(k));
+
+  function toggleAll() {
+    setSelected((prev) => {
+      if (visibleRkeys.length > 0 && visibleRkeys.every((k) => prev.has(k))) return new Set();
+      return new Set(visibleRkeys);
+    });
+  }
+
+  // Selected records whose hidden state would actually change — the set the
+  // Hide / Unhide buttons operate on (and count).
+  const selectedRecords = visibleRecords.filter((rec) => selected.has(rkeyFromUri(rec.uri)));
+
+  async function bulkSetHidden(hidden) {
+    if (!visModel) return;
+    const targets = selectedRecords.filter((rec) => visModel.isHidden(rec.value) !== hidden);
+    if (targets.length === 0) return;
+    setBusy(true);
+    setError(null);
+    const updated = new Map(); // rkey -> new value
+    try {
+      for (const rec of targets) {
+        const r = rkeyFromUri(rec.uri);
+        // JSON round-trip first so any BlobRef instances (e.g. a document's
+        // coverImage) collapse to their plain wire form before we re-put them.
+        const plain = JSON.parse(JSON.stringify(rec.value ?? {}));
+        const next = stampAutoTimestamps(lex, visModel.setHidden(plain, hidden));
+        // eslint-disable-next-line no-await-in-loop
+        await agent.com.atproto.repo.putRecord({ repo: did, collection, rkey: r, record: next });
+        updated.set(r, next);
+      }
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      if (updated.size) {
+        setRecords((prev) =>
+          prev.map((rec) => {
+            const r = rkeyFromUri(rec.uri);
+            return updated.has(r) ? { ...rec, value: updated.get(r) } : rec;
+          }),
+        );
+      }
+      setBusy(false);
+    }
+  }
+
+  async function bulkDelete() {
+    const rkeys = selectedRecords.map((rec) => rkeyFromUri(rec.uri));
+    if (rkeys.length === 0) return;
+    const noun = rkeys.length === 1 ? 'record' : 'records';
+    if (!window.confirm(`Delete ${rkeys.length} ${noun}? This cannot be undone.`)) return;
+    setBusy(true);
+    setError(null);
+    const deleted = new Set();
+    try {
+      for (const rkey of rkeys) {
+        // eslint-disable-next-line no-await-in-loop
+        await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey });
+        deleted.add(rkey);
+      }
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setRecords((prev) => prev.filter((rec) => !deleted.has(rkeyFromUri(rec.uri))));
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const k of deleted) next.delete(k);
+        return next;
+      });
+      setBusy(false);
+    }
+  }
 
   return (
     <PageShell
@@ -439,6 +532,20 @@ function RecordList({
         {isHero && (
           <HeroSeedButton agent={agent} did={did} existingCount={records.length} onSeeded={reload} />
         )}
+        {visibleRecords.length > 0 && (
+          <button
+            type="button"
+            className="admin-link-subtle admin-select-toggle"
+            onClick={() =>
+              setSelectMode((on) => {
+                if (on) setSelected(new Set());
+                return !on;
+              })
+            }
+          >
+            {selectMode ? 'Done' : 'Select'}
+          </button>
+        )}
       </div>
 
       {pageSlug && <PageContentPanel agent={agent} did={did} slug={pageSlug} />}
@@ -449,6 +556,53 @@ function RecordList({
 
       {error && <p className="admin-error">{error}</p>}
 
+      {selectMode && (
+        <div className="admin-multiselect-toolbar">
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              disabled={visibleRecords.length === 0}
+            />
+            <span>{allSelected ? 'Deselect all' : 'Select all loaded'}</span>
+          </label>
+          <span className="admin-multiselect-count">
+            {selected.size > 0 ? `${selected.size} selected` : `${visibleRecords.length} loaded`}
+          </span>
+          <div className="admin-multiselect-actions">
+            {visModel && (
+              <>
+                <button
+                  type="button"
+                  className="admin-gate-button admin-gate-button-tight"
+                  onClick={() => bulkSetHidden(true)}
+                  disabled={busy || selected.size === 0}
+                >
+                  Hide
+                </button>
+                <button
+                  type="button"
+                  className="admin-gate-button admin-gate-button-tight"
+                  onClick={() => bulkSetHidden(false)}
+                  disabled={busy || selected.size === 0}
+                >
+                  Unhide
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="admin-gate-button admin-gate-button-tight admin-danger"
+              onClick={bulkDelete}
+              disabled={busy || selected.size === 0}
+            >
+              {busy ? 'Working…' : `Delete${selected.size ? ` (${selected.size})` : ''}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {loading && records.length === 0 ? (
         <AdminRecordListSkeleton rows={8} />
       ) : visibleRecords.length === 0 && !error ? (
@@ -457,14 +611,30 @@ function RecordList({
         <ul className="admin-record-list reveal-stagger">
           {visibleRecords.map((rec) => {
             const r = rkeyFromUri(rec.uri);
+            const hidden = visModel ? visModel.isHidden(rec.value) : false;
+            const chip = hidden ? visModel.chipLabel(rec.value) || 'hidden' : null;
+            const instant = recordInstant(rec.value);
+            if (selectMode) {
+              const checked = selected.has(r);
+              return (
+                <li
+                  key={rec.uri}
+                  className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
+                >
+                  <label className="admin-checkbox admin-multiselect-check">
+                    <input type="checkbox" checked={checked} onChange={() => toggle(r)} />
+                    <RecordRowBody rkey={r} preview={previewFor(rec.value, lex)} chip={chip} instant={instant} />
+                  </label>
+                </li>
+              );
+            }
             return (
               <li key={rec.uri} className="admin-record-row">
                 <Link
                   to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
                   className="admin-record-link"
                 >
-                  <code className="admin-record-rkey">{r}</code>
-                  <span className="admin-record-preview">{previewFor(rec.value, lex)}</span>
+                  <RecordRowBody rkey={r} preview={previewFor(rec.value, lex)} chip={chip} instant={instant} />
                 </Link>
               </li>
             );
@@ -484,6 +654,56 @@ function RecordList({
       )}
     </PageShell>
   );
+}
+
+/**
+ * Shared record-row content: rkey, preview text with an optional "hidden"
+ * status chip, and the record's timestamp on the far right. Rendered inside a
+ * link (browse mode) or a checkbox label (select mode).
+ */
+function RecordRowBody({ rkey, preview, chip, instant }) {
+  return (
+    <>
+      <code className="admin-record-rkey">{rkey}</code>
+      <span className="admin-record-main">
+        <span className="admin-record-preview">{preview}</span>
+        {chip && <span className="admin-record-chip small-caps">{chip}</span>}
+      </span>
+      {instant && (
+        <time className="admin-record-time small-caps" dateTime={instant} title={instant}>
+          {formatDateLong(instant)}
+        </time>
+      )}
+    </>
+  );
+}
+
+/**
+ * The record's own timestamp for display. Different lexicons name their primary
+ * instant differently — standard docs use `publishedAt`, is.dame.* records use
+ * `createdAt`, teal.fm plays use `playedTime` — so prefer a "published" instant,
+ * then creation, then last-update.
+ */
+function recordInstant(value) {
+  if (!value || typeof value !== 'object') return null;
+  return (
+    value.publishedAt || value.createdAt || value.playedTime || value.updatedAt || null
+  );
+}
+
+/**
+ * Stamp any `autoOnEdit` datetime fields (e.g. `updatedAt`) to now, mirroring
+ * what the full record editor does on save so a bulk visibility flip records
+ * the same freshness bump.
+ */
+function stampAutoTimestamps(lex, value) {
+  if (!lex?.fields) return value;
+  const next = { ...value };
+  const nowIso = new Date().toISOString();
+  for (const f of lex.fields) {
+    if (f.autoOnEdit && f.type === 'datetime') next[f.key] = nowIso;
+  }
+  return next;
 }
 
 function previewFor(value, lex) {
