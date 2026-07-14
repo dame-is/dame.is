@@ -54,16 +54,16 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   Constellation backlinks hydrated through Slingshot; writes happen in the
   browser via atproto OAuth. See [`lexicons/GUESTBOOK.md`](lexicons/GUESTBOOK.md).
   Create the book once with [`scripts/create-guestbook.mjs`](scripts/create-guestbook.mjs).
-- `is.dame.state` / `is.dame.state.sample` — live iPhone-sourced physical +
-  ambient state (heart rate, activity, battery, ambient sound, calories). The
-  singleton at `at://{me}/is.dame.state/self` is the current "right now",
-  overwritten on each push and rendered by the atmosphere-bar **vitals panel**
-  (`src/components/VitalsPanel.jsx`, read via `src/hooks/useDameState.js`);
-  `is.dame.state.sample` is an append-only log of the same shape that
-  accumulates history for later charting. Posted straight from an iPhone
-  Apple Shortcut (app-password `createSession` → `putRecord`/`createRecord`,
-  no server); the panel dims and reads "last seen" once a reading goes stale.
-  See [`lexicons/STATE.md`](lexicons/STATE.md) for the Shortcut recipe.
+- `is.dame.state` — live iPhone-sourced physical + ambient state (heart rate,
+  activity, battery, ambient sound, calories). An append-only log keyed by TID:
+  the **latest** record is the current "right now" rendered by the atmosphere-bar
+  **vitals panel** (`src/components/VitalsPanel.jsx`, read via
+  `src/hooks/useDameState.js`), and the full series is the history. Each record is
+  immutable, so an `is.dame.now` status can strong-ref the one captured alongside
+  it via its optional `stateRef` — coupling a note to the body-state behind it.
+  Posted straight from an iPhone Apple Shortcut (app-password `createSession` →
+  `createRecord`, no server); the panel dims and reads "last seen" once the
+  latest reading goes stale. See [`lexicons/STATE.md`](lexicons/STATE.md).
 
 Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.
 

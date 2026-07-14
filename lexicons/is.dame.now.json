@@ -11,7 +11,16 @@
         "properties": {
           "status":    { "type": "string", "maxLength": 280, "description": "Short status string. Renders as 'dame.is <status>'." },
           "createdAt": { "type": "string", "format": "datetime" },
-          "updatedAt": { "type": "string", "format": "datetime" }
+          "updatedAt": { "type": "string", "format": "datetime" },
+          "stateRef": {
+            "type": "object",
+            "description": "Optional strong ref to the is.dame.state record captured at the moment this status was posted, so the entry can surface the body-state behind the note. `uri` is that record's at:// URI; `cid` pins the exact version.",
+            "required": ["uri"],
+            "properties": {
+              "uri": { "type": "string", "format": "at-uri" },
+              "cid": { "type": "string" }
+            }
+          }
         }
       }
     }

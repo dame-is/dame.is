@@ -63,13 +63,12 @@ export const GUESTBOOK_SUBJECT = `at://${ME_DID}/${GUESTBOOK_NSID}/self`;
 
 // --- state / vitals ----------------------------------------------------------
 // Live iPhone-sourced physical + ambient state (heart rate, activity, battery,
-// ambient sound, calories). The singleton `/self` is the current snapshot —
-// overwritten on each push and read by the atmosphere-bar vitals panel; the
-// `.sample` collection is an append log of the same shape that accumulates
-// history for later charting. Ingested from an iPhone Shortcut → Scriptable
-// poster (scripts/scriptable/dame-state-poster.js). See lexicons/is.dame.state*.
+// ambient sound, calories) — an append-only log keyed by TID. The LATEST record
+// is the current "right now" the atmosphere-bar vitals panel reads; the full
+// series is the history. Each record is immutable, so an is.dame.now status can
+// strong-ref the one captured alongside it (is.dame.now.stateRef). Posted from
+// an iPhone Apple Shortcut; see lexicons/STATE.md.
 export const STATE_NSID = 'is.dame.state';
-export const STATE_SAMPLE_NSID = 'is.dame.state.sample';
 
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
@@ -101,7 +100,6 @@ export const COLLECTIONS = {
   resumeEducation: RESUME_EDUCATION_NSID,
   arenaChannel: ARENA_CHANNEL_NSID,
   state: STATE_NSID,
-  stateSample: STATE_SAMPLE_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */

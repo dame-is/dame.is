@@ -4,8 +4,8 @@
   "defs": {
     "main": {
       "type": "record",
-      "key": "literal:self",
-      "description": "Dame's current physical + ambient state, sampled from an iPhone and overwritten in place. A singleton at at://{me}/is.dame.state/self — the live 'right now', not a log. Read by the atmosphere-bar vitals panel. Each push should also append an is.dame.state.sample record so history accumulates for later charting.",
+      "key": "tid",
+      "description": "One time-stamped sample of Dame's physical + ambient state (heart rate, activity, battery, ambient sound, calories), sampled from an iPhone. An append-only log keyed by TID: the LATEST record is the live 'right now' the atmosphere-bar vitals panel reads, and the full series is the history. Each record is immutable, so an is.dame.now status can strong-ref the sample captured alongside it (see is.dame.now.stateRef).",
       "record": {
         "type": "object",
         "required": ["createdAt"],
@@ -13,9 +13,9 @@
           "heartRate":      { "type": "integer", "minimum": 0, "maximum": 300, "description": "Heart rate in beats per minute." },
           "activity":       { "type": "string", "maxLength": 64, "knownValues": ["stationary", "walking", "running", "cycling", "automotive", "unknown"], "description": "CoreMotion physical-activity class (lowercased)." },
           "batteryLevel":   { "type": "integer", "minimum": 0, "maximum": 100, "description": "Phone battery charge, percent (0–100)." },
-          "charging":       { "type": "boolean", "description": "Whether the phone is currently charging." },
+          "charging":       { "type": "boolean", "description": "Whether the phone was charging at sample time." },
           "soundLevel":     { "type": "integer", "minimum": 0, "maximum": 140, "description": "Ambient sound level in decibels (dB)." },
-          "caloriesBurned": { "type": "integer", "minimum": 0, "description": "Active energy burned so far today, in kilocalories." },
+          "caloriesBurned": { "type": "integer", "minimum": 0, "description": "Active energy burned so far that day, in kilocalories." },
           "capturedAt":     { "type": "string", "format": "datetime", "description": "When the sample was taken on-device. Used for staleness; may differ slightly from createdAt." },
           "createdAt":      { "type": "string", "format": "datetime", "description": "When this record was written." }
         }

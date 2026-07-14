@@ -116,27 +116,20 @@ async function main() {
   }
   await writeJson('extendedProfile', extendedProfile || {});
 
-  // --- Live state (is.dame.state/self + recent samples) ---------------------
-  // The singleton is the current "right now" the atmosphere-bar vitals panel
-  // paints from first (then refreshes live). getRecord 404s until the first
-  // push exists, so `safe` degrades it to an empty object and the build
-  // proceeds. The sample log accumulates history for later charting; capped
-  // so the snapshot stays small (the PDS keeps the full series).
-  const stateRecord = await safe(
-    'getRecord:state',
-    () => getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.state, rkey: 'self' }),
-    null,
-  );
-  await writeJson('state', stateRecord || {});
-
-  const stateSamples = backfillTimestamps(
+  // --- Live state (is.dame.state append log) --------------------------------
+  // Newest-first snapshot of the vitals log. The atmosphere-bar vitals panel
+  // paints from the latest record (index 0) then refreshes live; the rest is
+  // recent history, on hand for a future charts view without a rebuild. Capped
+  // so the snapshot stays small (the PDS keeps the full series). Empty until
+  // the first push exists — `safe` keeps the build going.
+  const stateLog = backfillTimestamps(
     await safe(
-      'listRecords:stateSample',
-      () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.stateSample, max: 300 }),
+      'listRecords:state',
+      () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.state, max: 200 }),
       [],
     ),
   );
-  await writeJson('stateSamples', stateSamples);
+  await writeJson('state', stateLog);
 
   // --- is.dame.page (pages keyed by rkey) -----------------------------------
   const pageRecords = backfillTimestamps(

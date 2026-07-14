@@ -1,24 +1,24 @@
 # is.dame.state — live vitals
 
-Dame's current physical + ambient state (heart rate, activity, battery, ambient
-sound, calories), sampled from an iPhone and rendered in the site's top-chrome
+Dame's physical + ambient state (heart rate, activity, battery, ambient sound,
+calories), sampled from an iPhone and rendered in the site's top-chrome
 **atmosphere bar** (the vitals panel beside LISTENING TO / FOLLOWED BY).
 
-Two collections, both written on each push:
+`is.dame.state` is an **append-only log** (`key: tid`). One `createRecord` per
+push:
 
-| Collection | Key | Role |
-|---|---|---|
-| `is.dame.state` | `self` (singleton) | The live "right now". Overwritten in place with `putRecord`. This is what the site reads. |
-| `is.dame.state.sample` | `tid` (append log) | A time-stamped copy of the same shape, so history accumulates for later charts. Optional. |
-
-The site reads the singleton **live** — within ~30s of a write (and on every
-first paint from the build snapshot) — so a push shows up without a redeploy.
+- The **latest** record is the live "right now" the vitals panel reads
+  (`listRecords limit 1` — same one-call read the listening signal uses). Within
+  ~30s of a write, and on every first paint from the build snapshot.
+- The **full series** is the history — on hand for a future charts view.
+- Each record is **immutable** (permanent rkey), so an `is.dame.now` status can
+  strong-ref the one captured alongside it — see the `stateRef` field. That's
+  how a note ("dame.is finished a 5k") remembers the body-state behind it.
 
 ## Posting from an Apple Shortcut
 
 No Scriptable, no server: the Shortcut signs in with a Bluesky **app password**,
-then writes the records straight to the PDS with two `Get Contents of URL`
-calls. Everything below is plain AT Protocol XRPC.
+then writes records straight to the PDS with `Get Contents of URL`. Plain XRPC.
 
 ### Values you'll need
 
@@ -26,19 +26,18 @@ calls. Everything below is plain AT Protocol XRPC.
 |---|---|
 | PDS host | `https://pds.atpota.to` |
 | Repo (identifier) | `dame.is` |
-| App password | create at **bsky.app → Settings → App Passwords** (enable **write**) — revocable, scoped; never your main password |
+| App password | **bsky.app → Settings → App Passwords** (enable **write**) — revocable, scoped; never your main password |
 
-> If you ever migrate PDS, update the host in the three URLs below. (Resolve the
+> If you ever migrate PDS, update the host in the URLs below. (Resolve the
 > current one from `https://plc.directory/did:plc:gq4fo3u6tqzzdkjlwzpb23tj`.)
 
 ### The one gotcha: JSON types
 
-Your phone data is all strings (`"68"`, `"Yes"`), but the record fields are
-typed — numbers for the readings, a boolean for charging. The reliable way to
-build correctly-typed JSON in Shortcuts is a **Text** action holding the record
-template with variables interpolated, then **Get Dictionary from Input** to
-parse it. Put numeric/boolean variables *without* quotes and string variables
-*inside* quotes:
+Your phone data is all strings (`"68"`, `"Yes"`), but the fields are typed —
+numbers for the readings, a boolean for charging. The reliable way to build
+correctly-typed JSON in Shortcuts is a **Text** action holding the template with
+variables interpolated, then **Get Dictionary from Input** to parse it. Numeric
+and boolean variables go *without* quotes; strings go *inside* quotes:
 
 ```text
 {
@@ -54,78 +53,85 @@ parse it. Put numeric/boolean variables *without* quotes and string variables
 }
 ```
 
-`⟨HeartRate⟩`, `⟨Battery⟩`, `⟨Sound⟩`, `⟨Calories⟩` render as JSON numbers;
-`⟨ChargingBool⟩` must be the literal `true`/`false`; `⟨Activity⟩` and `⟨Now⟩`
-are strings. If a HealthKit value arrives with a unit ("68 count/min"), run it
-through **Get Numbers from Input** first so only the number is interpolated.
+If a HealthKit value arrives with a unit ("68 count/min"), run it through **Get
+Numbers from Input** first so only the number is interpolated.
 
-### Steps
+### Shared prep (both flows)
 
-**1. Set the app password.** A `Text` action with your app password →
-**Set Variable** `AppPassword`.
+1. **App password** → a `Text` action → **Set Variable** `AppPassword`.
+2. **Gather** your six readings into variables: `HeartRate`, `Activity`,
+   `Battery`, `IsCharging`, `Sound`, `Calories`.
+3. **Normalize:** **Change Case** → lowercase on `Activity`; an **If**
+   `IsCharging` is `Yes` → set `ChargingBool` to text `true`, **Otherwise**
+   `false`.
+4. **Timestamp:** **Current Date** → **Format Date** (Date Format: *ISO 8601*)
+   → Set Variable `Now` (e.g. `2026-07-13T14:03:00-04:00`, valid RFC 3339).
+5. **Sign in** — **Get Contents of URL**:
+   - `https://pds.atpota.to/xrpc/com.atproto.server.createSession`
+   - **POST**, header `Content-Type: application/json`
+   - Request Body **JSON**: `identifier` = `dame.is`, `password` = `AppPassword`
 
-**2. Gather your six readings** into variables (you already produce these):
-`HeartRate`, `Activity`, `Battery`, `IsCharging`, `Sound`, `Calories`.
+   Then **Get Dictionary Value** → `accessJwt` → Set Variable `Token`.
+6. **Build the state record:** the `Text` template above → **Get Dictionary from
+   Input** → Set Variable `StateRecord`.
 
-**3. Normalize:**
-- **Change Case** → lowercase on `Activity` (so `Stationary` → `stationary`;
-  the lexicon's known values are `stationary`, `walking`, `running`, `cycling`,
-  `automotive` — anything else still stores fine and shows a generic glyph).
-- **If** `IsCharging` is `Yes` → Set Variable `ChargingBool` to text `true`;
-  **Otherwise** `false`.
+### Flow A — the hourly automation (state only)
 
-**4. Timestamp.** **Current Date** → **Format Date** (Date Format: *ISO 8601*)
-→ Set Variable `Now`. Gives e.g. `2026-07-13T14:03:00-04:00` (valid RFC 3339).
+7. **Write it** — **Get Contents of URL**:
+   - `https://pds.atpota.to/xrpc/com.atproto.repo.createRecord`
+   - **POST**; headers `Content-Type: application/json`,
+     `Authorization: Bearer ⟨Token⟩`
+   - Request Body **JSON**:
 
-**5. Build the record.** The `Text` template above → **Get Dictionary from
-Input** → Set Variable `Record`.
-_(For step 7's history write, add a second `Text` identical except
-`"$type": "is.dame.state.sample"` → `RecordSample`.)_
+   ```json
+   { "repo": "dame.is", "collection": "is.dame.state", "record": ⟨StateRecord⟩ }
+   ```
 
-**6. Sign in — `createSession`.** **Get Contents of URL**:
-- URL `https://pds.atpota.to/xrpc/com.atproto.server.createSession`
-- Method **POST**, Header `Content-Type: application/json`
-- Request Body **JSON**: `identifier` = `dame.is`, `password` = `AppPassword`
+   (`record` field type = **Dictionary**, pointing at `StateRecord`.) Done — the
+   vitals panel picks it up within ~30s. No `now` record, nothing in the feeds.
 
-Then **Get Dictionary Value** → `accessJwt` → Set Variable `Token`.
+### Flow B — a manual status (state + a linked note)
 
-**7. Write the singleton — `putRecord`.** **Get Contents of URL**:
-- URL `https://pds.atpota.to/xrpc/com.atproto.repo.putRecord`
-- Method **POST**
-- Headers: `Content-Type: application/json`, `Authorization: Bearer ⟨Token⟩`
-- Request Body **JSON**:
+Same as Flow A step 7, then capture the ref and post the status:
 
-```json
-{
-  "repo": "dame.is",
-  "collection": "is.dame.state",
-  "rkey": "self",
-  "record": ⟨Record⟩
-}
-```
+8. From that createRecord response, **Get Dictionary Value** → `uri` → Set
+   Variable `StateUri`; again → `cid` → Set Variable `StateCid`.
+9. **Ask for Input** (or however you compose it) → Set Variable `StatusText`.
+10. **Build the now record** — a `Text` action → **Get Dictionary from Input** →
+    `NowRecord`:
 
-Set the `record` field's type to **Dictionary** and point it at the `Record`
-variable — Shortcuts nests it as a real JSON object.
+    ```text
+    {
+      "$type": "is.dame.now",
+      "status": "⟨StatusText⟩",
+      "createdAt": "⟨Now⟩",
+      "stateRef": { "uri": "⟨StateUri⟩", "cid": "⟨StateCid⟩" }
+    }
+    ```
 
-**8. (Optional) Append history — `createRecord`.** Same as step 7 but URL
-`…/com.atproto.repo.createRecord`, `collection` = `is.dame.state.sample`,
-`record` = `RecordSample`, and **no** `rkey` (the PDS assigns a TID). Drop this
-step if you only want the live panel and no history.
+11. **Write it** — **Get Contents of URL**, same headers, Request Body **JSON**:
 
-**9. (Optional) Rebuild the snapshot.** **Get Contents of URL** → POST your
-Vercel deploy-hook URL. Not required — the site reads the PDS live; this only
-refreshes the static first-paint snapshot.
+    ```json
+    { "repo": "dame.is", "collection": "is.dame.now", "record": ⟨NowRecord⟩ }
+    ```
+
+The status lands in `/logging` + the home feed as usual; the `stateRef` links it
+to the exact vitals snapshot from that moment. (Drop the `stateRef` line for a
+plain status with no body-state attached — it's optional.)
 
 ### Notes
 
-- **Cadence.** Because the singleton is overwritten, post as often as you like
-  — a personal automation every 10–15 min, or triggered on charging/motion —
-  without piling up `self` records. Only the `.sample` log grows; cap/prune it
-  upstream if it gets large.
-- **Staleness.** The panel dims and reads "last seen" once a reading is >30 min
-  old, so a sleeping phone never presents an old heart rate as live.
+- **Cadence.** Every push is one immutable `createRecord`, so post as often as
+  you like (hourly automation, or on a charging/motion trigger). The log grows;
+  if it ever gets large, prune old records — but **spare any that an
+  `is.dame.now.stateRef` points at**, or that status's link will dangle.
+- **Staleness.** The panel dims and reads "last seen" once the latest reading is
+  >30 min old, so a sleeping phone never presents an old heart rate as live.
+- **Reverse lookup.** Because the ref is a real backlink, Constellation (the same
+  index behind the guestbook) can find the status from the state record too — no
+  extra data stored.
 - **If a write is rejected** with a lexicon-resolution error, add
-  `"validate": false` beside `repo`/`collection` in the step 7/8 body. (Not
+  `"validate": false` beside `repo`/`collection` in the createRecord body. (Not
   normally needed — `is.dame.now` already writes here the same way.)
 - **Privacy.** Heart rate + activity + charging + battery together read as a
   presence/routine signal (when you're asleep, working out, away). Fine to
