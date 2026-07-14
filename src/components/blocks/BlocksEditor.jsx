@@ -27,6 +27,9 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
   const blocks = content.pages[0].blocks;
 
   const [activeIndex, setActiveIndex] = useState(null);
+  // Which gap's "insert here" palette is open (an index into blocks, meaning
+  // "insert before block N"), or null. Only one open at a time.
+  const [openInsertSlot, setOpenInsertSlot] = useState(null);
   const [dragIndex, setDragIndex] = useState(null);
   const [dropIndex, setDropIndex] = useState(null); // insertion slot (0..length)
   const [canUndo, setCanUndo] = useState(false);
@@ -107,8 +110,11 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
   );
 
   const insertMany = useCallback(
-    (newBlocks) => {
-      const next = blocks.concat(newBlocks.map((b) => ({ $type: WRAPPER_TYPE, block: b })));
+    (newBlocks, atIndex = null) => {
+      const wrapped = newBlocks.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
+      const next = blocks.slice();
+      const index = atIndex == null ? next.length : atIndex;
+      next.splice(index, 0, ...wrapped);
       commit(next, { kind: 'structural' });
     },
     [blocks, commit],
@@ -207,15 +213,29 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
     [dragIndex, moveTo],
   );
 
-  // Collapse the active editor when the user clicks outside the editor.
+  // Collapse the active editor / insert palette when the user clicks outside.
   useEffect(() => {
-    if (activeIndex == null) return undefined;
+    if (activeIndex == null && openInsertSlot == null) return undefined;
     function onDown(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setActiveIndex(null);
+      if (rootRef.current && !rootRef.current.contains(e.target)) {
+        setActiveIndex(null);
+        setOpenInsertSlot(null);
+      }
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
+  }, [activeIndex, openInsertSlot]);
+
+  // Editing a block and an open insert palette are mutually exclusive focuses:
+  // opening one closes the other.
+  useEffect(() => {
+    if (activeIndex != null) setOpenInsertSlot(null);
   }, [activeIndex]);
+
+  const openInsert = useCallback((index) => {
+    setActiveIndex(null);
+    setOpenInsertSlot(index);
+  }, []);
 
   // Drop focus into the block that just became active — and again if its type
   // changes underfoot (e.g. converting text → heading swaps the editor).
@@ -227,6 +247,11 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
 
   const handleRootKeyDown = useCallback(
     (e) => {
+      if (e.key === 'Escape' && openInsertSlot != null) {
+        e.preventDefault();
+        setOpenInsertSlot(null);
+        return;
+      }
       if (!(e.metaKey || e.ctrlKey)) return;
       const isZ = e.key === 'z' || e.key === 'Z';
       const isY = e.key === 'y' || e.key === 'Y';
@@ -238,7 +263,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
         redo();
       }
     },
-    [undo, redo],
+    [undo, redo, openInsertSlot],
   );
 
   return (
@@ -282,6 +307,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
             'blocks-editor-item',
             isActive ? 'is-active' : 'is-preview',
             dragIndex === i ? 'is-dragging' : '',
+            openInsertSlot === i ? 'has-insert-open' : '',
             showBefore ? 'drop-before' : '',
             showAfter ? 'drop-after' : '',
           ]
@@ -296,6 +322,24 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
               onDragOver={(e) => handleDragOver(e, i)}
               onDrop={(e) => handleDrop(e, i)}
             >
+              {dragIndex == null && (
+                <InsertSlot
+                  index={i}
+                  open={openInsertSlot === i}
+                  onOpen={openInsert}
+                  onClose={() => setOpenInsertSlot(null)}
+                  agent={agent}
+                  did={did}
+                  onInsert={(block) => {
+                    insertBlock(block, i);
+                    setOpenInsertSlot(null);
+                  }}
+                  onInsertMany={(bs) => {
+                    insertMany(bs, i);
+                    setOpenInsertSlot(null);
+                  }}
+                />
+              )}
               <div
                 className="blocks-editor-handle"
                 draggable
@@ -389,7 +433,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
           );
         })}
       </ol>
-      <BlockAdder agent={agent} did={did} onInsert={insertBlock} onInsertMany={insertMany} />
+      <BlockAdder agent={agent} onInsert={insertBlock} onInsertMany={insertMany} />
     </div>
   );
 }
@@ -498,7 +542,13 @@ function focusFirstField(container) {
   }
 }
 
-function BlockAdder({ agent, did, onInsert, onInsertMany }) {
+/**
+ * The shared block-type palette: one button per block kind, plus a multi-image
+ * "Gallery…" upload. `onInsert(block)` / `onInsertMany(blocks)` decide where the
+ * new block(s) land — the bottom adder appends; an insert slot drops them at a
+ * specific gap.
+ */
+function BlockPalette({ agent, onInsert, onInsertMany }) {
   const galleryInputRef = useRef(null);
   const [uploadStatus, setUploadStatus] = useState(null);
 
@@ -528,8 +578,7 @@ function BlockAdder({ agent, did, onInsert, onInsertMany }) {
   }
 
   return (
-    <div className="blocks-editor-add">
-      <div className="blocks-editor-add-label small-caps gutter">Add block</div>
+    <>
       <div className="blocks-editor-add-buttons">
         <AddButton onClick={() => onInsert({ $type: 'pub.leaflet.blocks.text', plaintext: '', facets: [] })}>
           Text
@@ -574,6 +623,52 @@ function BlockAdder({ agent, did, onInsert, onInsertMany }) {
         onChange={handleGallery}
       />
       {uploadStatus && <p className="admin-field-hint">{uploadStatus}</p>}
+    </>
+  );
+}
+
+/** Bottom-of-editor adder — appends a new block. */
+function BlockAdder({ agent, onInsert, onInsertMany }) {
+  return (
+    <div className="blocks-editor-add">
+      <div className="blocks-editor-add-label small-caps gutter">Add block</div>
+      <BlockPalette agent={agent} onInsert={onInsert} onInsertMany={onInsertMany} />
+    </div>
+  );
+}
+
+/**
+ * Between-blocks inserter: a "+" that appears in the gap at the top of a block
+ * (revealed on hover) and, when clicked, drops the block-type palette right
+ * there so a new block lands at that slot instead of at the bottom.
+ */
+function InsertSlot({ index, open, onOpen, onClose, agent, onInsert, onInsertMany }) {
+  return (
+    <div className={`blocks-editor-insert${open ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className="blocks-editor-insert-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (open) onClose();
+          else onOpen(index);
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        aria-label="Insert a block here"
+        aria-expanded={open}
+        title="Insert a block here"
+      >
+        <span aria-hidden="true">+</span>
+      </button>
+      {open && (
+        <div
+          className="blocks-editor-insert-menu"
+          role="menu"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <BlockPalette agent={agent} onInsert={onInsert} onInsertMany={onInsertMany} />
+        </div>
+      )}
     </div>
   );
 }
