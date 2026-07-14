@@ -149,23 +149,6 @@
   letter-spacing: 0.02em;
 }
 
-.resume-record-link {
-  font-family: var(--mono);
-  font-size: calc(var(--text-xs) * var(--mono-scale));
-  color: var(--ink-faint);
-  text-decoration: none;
-  opacity: 0;
-  transition: opacity 160ms ease, color 160ms ease;
-}
-
-.resume-role:hover .resume-record-link {
-  opacity: 1;
-}
-
-.resume-record-link:hover {
-  color: var(--accent);
-}
-
 .resume-role-summary {
   font-size: var(--text-sm);
   color: var(--ink-soft);
@@ -288,8 +271,9 @@ a.resume-work-link:hover .resume-work-title {
 
 .resume-work-ext {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
   color: var(--ink-faint);
-  font-size: var(--text-xs);
 }
 
 /* --- Skills --------------------------------------------------------- */
@@ -351,7 +335,6 @@ a.resume-work-link:hover .resume-work-title {
 
 /* --- Print: a clean one-document resume ----------------------------- */
 @media print {
-  .resume-record-link,
   .resume-footnote {
     display: none !important;
   }
