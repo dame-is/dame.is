@@ -6,6 +6,7 @@ import PageContentPanel from '../components/PageContentPanel.jsx';
 import GuestbookModerationPanel from '../components/GuestbookModerationPanel.jsx';
 import ResumeStudio from '../components/resume/ResumeStudio.jsx';
 import ResumeWorkbench from '../components/resume/ResumeWorkbench.jsx';
+import PublicationsManager from '../components/PublicationsManager.jsx';
 import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -77,6 +78,9 @@ export default function Admin() {
   }
   if (view === 'resume') {
     return <ResumeStudio agent={agent} did={did} />;
+  }
+  if (view === 'publications') {
+    return <PublicationsManager agent={agent} did={did} />;
   }
   if (view === 'resume-tailor' && rkey) {
     return <ResumeWorkbench agent={agent} did={did} rkey={rkey} />;
@@ -214,6 +218,8 @@ const PICKER_GROUPS = [
     items: [
       { to: '/admin?view=pages', label: 'Site pages', nsid: COLLECTIONS.page,
         summary: 'Titles, intros, and page bodies — see which serve from the PDS vs local defaults, and edit the raw records.' },
+      { to: '/admin?view=publications', label: 'Publications', nsid: 'site.standard.publication',
+        summary: 'The blog + portfolio publications behind the Bluesky Standard Site embeds — edit their fields, or apply the sky theme + a dynamic avatar.' },
       { to: '/admin?view=guestbook', label: 'Guestbook', nsid: 'is.dame.guestbook.entry',
         summary: 'Visitors\' signatures, gathered from backlinks. Hide/unhide them from public display — their records stay on their signers\' PDSes.' },
       { collection: COLLECTIONS.profile, label: 'About',
