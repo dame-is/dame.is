@@ -64,12 +64,19 @@ export function normalizeOptions(opts = {}) {
     full: Boolean(opts.full),
     dryRun: Boolean(opts.dryRun),
     timeBudgetMs: opts.timeBudgetMs ? Number(opts.timeBudgetMs) : null,
-    // How long the write pacer will sleep at a rate-limit wall before instead
-    // ending the run partial (to resume later). Small = "stop and resume"
-    // (cron); large = "sleep through the window and keep going" (attended
-    // backfill). Default splits the difference: ride out short waits, stop for
-    // hourly/daily walls.
+    // How long the write pacer will sleep at a points-budget wall before
+    // instead ending the run partial (to resume later). Small = "stop and
+    // resume" (cron); large = "sleep through the hourly window and keep going"
+    // (attended backfill). Default rides out short waits, stops for a full
+    // hourly/daily window.
     writeMaxSleepMs: opts.writeMaxSleepMs != null ? Number(opts.writeMaxSleepMs) : 120_000,
+    // The account's write-points budget. Defaults are Bluesky's limits, which
+    // the reference PDS enforces (CREATE=3/UPDATE=2/DELETE=1 points). Override
+    // only if your PDS is configured differently. `safety` (<1) leaves headroom
+    // for window skew and other writers on the same repo.
+    writeHourlyPoints: opts.writeHourlyPoints != null ? Number(opts.writeHourlyPoints) : 5000,
+    writeDailyPoints: opts.writeDailyPoints != null ? Number(opts.writeDailyPoints) : 35000,
+    writePointsSafety: opts.writePointsSafety != null ? Number(opts.writePointsSafety) : 0.95,
   };
 }
 
