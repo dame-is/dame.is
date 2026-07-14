@@ -135,7 +135,7 @@ export default function Resume() {
 
   if (status === 'loading') {
     return (
-      <PageShell headTitle="dame.is for hire" atUri={`at://${ME_DID}/is.dame.page/resume`}>
+      <PageShell headTitle="dame.is available" atUri={`at://${ME_DID}/is.dame.page/resume`}>
         <ResumeSkeleton />
       </PageShell>
     );
@@ -145,14 +145,14 @@ export default function Resume() {
     return (
       <PageShell
         title={pageTitle}
-        headTitle="dame.is for hire"
+        headTitle="dame.is available"
         atUri={`at://${ME_DID}/is.dame.page/resume`}
       >
         <p className="feed-empty">
           {slug ? (
             <>
               No resume version <code>{slug}</code>.{' '}
-              <Link to="/for-hire">See the default resume.</Link>
+              <Link to="/available">See the default resume.</Link>
             </>
           ) : (
             'No resume published yet.'
@@ -167,14 +167,14 @@ export default function Resume() {
 
   return (
     <PageShell
-      headTitle={`${v.headline || pageTitle || 'For hire'} — dame.is`}
+      headTitle={`${v.headline || pageTitle || 'Available'} — dame.is`}
       atUri={resolved.uri}
       cid={resolved.cid}
     >
       <article className="resume reveal">
         <header className="resume-header">
           <div>
-            <h1 className="resume-title">{pageTitle || 'For hire'}</h1>
+            <h1 className="resume-title">{pageTitle || 'Available'}</h1>
             {v.headline && <p className="resume-headline">{v.headline}</p>}
           </div>
 

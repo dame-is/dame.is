@@ -12,7 +12,7 @@ import './ActionDock.css';
 const ROUTES = [
   { to: '/', label: 'home' },
   { to: '/themself', label: 'themself' },
-  { to: '/for-hire', label: 'for hire' },
+  { to: '/available', label: 'available' },
   { to: '/blogging', label: 'blogging' },
   { to: '/creating', label: 'creating' },
   { to: '/listening', label: 'listening' },

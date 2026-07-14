@@ -369,11 +369,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
   const onHomePage = location.pathname === '/';
-  // The resume (/for-hire) page exposes a print / save-as-PDF control in the
+  // The resume (/available) page exposes a print / save-as-PDF control in the
   // bottom bar's page-level cluster — it replaces the old in-page print button
   // and only shows while a resume is on screen.
   const onResumePage =
-    location.pathname === '/for-hire' || location.pathname.startsWith('/for-hire/');
+    location.pathname === '/available' || location.pathname.startsWith('/available/');
 
   // If the route stops exposing filters while the filter panel is open
   // (e.g. navigating away from a feed), fold it away — the trigger button

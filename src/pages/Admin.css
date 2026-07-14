@@ -296,7 +296,7 @@
   flex-wrap: wrap;
 }
 
-/* Active resume selector: pick the single version shown at /for-hire. */
+/* Active resume selector: pick the single version shown at /available. */
 .admin-active-resume {
   border: 1px solid var(--rule-soft);
   padding: var(--space-3) var(--space-4);

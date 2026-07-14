@@ -49,7 +49,7 @@ function topLevelAtUri(path) {
 export const config = {
   matcher: [
     '/themself',
-    '/for-hire',
+    '/available',
     '/blogging',
     '/blogging/:slug',
     '/creating',

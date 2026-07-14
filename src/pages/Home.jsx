@@ -552,7 +552,7 @@ export default function Home() {
       headTitle="dame.is"
     >
       <nav className="home-hero-cta" aria-label="Primary destinations">
-        <Link className="home-hero-cta-btn home-hero-cta-primary" to="/for-hire">
+        <Link className="home-hero-cta-btn home-hero-cta-primary" to="/available">
           Resume
         </Link>
         <Link className="home-hero-cta-btn" to="/creating">

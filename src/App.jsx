@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Route } from 'react-router-dom';
+import { Route, Navigate, useParams } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
@@ -82,6 +82,14 @@ function generatedRecordRoutes() {
   return out;
 }
 
+// The résumé page moved from /for-hire to /available. Hard loads of the old
+// path are 301'd by vercel.json; this handles any in-app navigation that still
+// targets /for-hire, preserving a version slug when one is present.
+function ForHireRedirect() {
+  const { slug } = useParams();
+  return <Navigate to={slug ? `/available/${slug}` : '/available'} replace />;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -112,8 +120,11 @@ export default function App() {
                   <Route path="/creating/:slug" element={<CreatingWork />} />
                   <Route path="/curating" element={<Curating />} />
                   <Route path="/curating/:slug" element={<CuratingChannel />} />
-                  <Route path="/for-hire" element={<Resume />} />
-                  <Route path="/for-hire/:slug" element={<Resume />} />
+                  <Route path="/available" element={<Resume />} />
+                  <Route path="/available/:slug" element={<Resume />} />
+                  {/* Legacy résumé URL → canonical /available. */}
+                  <Route path="/for-hire" element={<ForHireRedirect />} />
+                  <Route path="/for-hire/:slug" element={<ForHireRedirect />} />
                   <Route path="/sharing" element={<Sharing />} />
                   <Route path="/mothing" element={<Mothing />} />
                   <Route path="/guestbook" element={<Guestbook />} />

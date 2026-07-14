@@ -32,7 +32,7 @@ function RouteRecordTimestamp() {
   const { pageRecord } = useEditMode();
   // Prefer the record the page registered via PageShell over pure route
   // derivation — routes whose backing record is picked dynamically
-  // (/for-hire's active is.dame.resume) can't be derived from the URL
+  // (/available's active is.dame.resume) can't be derived from the URL
   // alone. Path-guarded so a stale registration from the previous page
   // never leaks in mid-navigation.
   const registered =
