@@ -10,6 +10,7 @@ import {
   duplicateResumeValue,
   slugifyResumeTitle,
 } from '../../lib/resumeHelpers.js';
+import { renameRecordKey, backlinksFor, countBacklinks } from '../../lib/resumeAdmin.js';
 import { useResumeBundle } from './useResumeBundle.js';
 import './resumeStudio.css';
 
@@ -25,6 +26,67 @@ import './resumeStudio.css';
 export default function ResumeStudio({ agent, did }) {
   const { resumes, jobs, education, loading, error, reload } = useResumeBundle(agent, did);
   const [actionError, setActionError] = useState(null);
+  const [renamingUri, setRenamingUri] = useState(null);
+
+  const listFor = (collection) =>
+    collection === COLLECTIONS.resumeJob
+      ? jobs
+      : collection === COLLECTIONS.resumeEducation
+        ? education
+        : resumes;
+
+  // "Rename" a record's key. Because AT keys records immutably, this recreates
+  // the record under the new key, repoints resume backlinks, and deletes the
+  // old one (see renameRecordKey). Jobs/education warn with how many versions
+  // reference them; a version rename also syncs its slug + /for-hire URL.
+  async function renameRecord(collection, rec) {
+    if (renamingUri) return;
+    const fromRkey = rkeyFromUri(rec.uri);
+    const v = rec.value || {};
+    const siblings = listFor(collection) || [];
+    const taken = new Set(siblings.map((r) => rkeyFromUri(r.uri)));
+    const label =
+      [v.title || v.institution, v.organization || v.area].filter(Boolean).join(' · ') || fromRkey;
+
+    const input = window.prompt(
+      `New record key for “${label}”.\n` +
+        'Lowercase letters, numbers, and dashes — it drives the record\'s at:// URI' +
+        (collection === COLLECTIONS.resume ? ' and /for-hire/<slug>.' : '.'),
+      fromRkey,
+    );
+    if (input == null) return;
+    const toRkey = slugifyResumeTitle(input);
+    if (!toRkey) {
+      setActionError('That key is empty once cleaned up — use letters, numbers, and dashes.');
+      return;
+    }
+    if (toRkey === fromRkey) return;
+    if (taken.has(toRkey)) {
+      setActionError(`A record with the key “${toRkey}” already exists.`);
+      return;
+    }
+
+    const backlinks = backlinksFor(collection);
+    const refCount = backlinks.length ? countBacklinks(resumes, rec.uri, backlinks) : 0;
+    const detail = backlinks.length
+      ? `\n\nThis recreates it as “${toRkey}”, repoints ${refCount} resume version${
+          refCount === 1 ? '' : 's'
+        } that reference it, and deletes the old “${fromRkey}”.`
+      : `\n\nThis recreates it as “${toRkey}” (syncing its slug + /for-hire URL) and deletes the old one.`;
+    if (!window.confirm(`Rename ${fromRkey} → ${toRkey}?${detail}`)) return;
+
+    setRenamingUri(rec.uri);
+    setActionError(null);
+    try {
+      const value = collection === COLLECTIONS.resume ? { ...v, slug: toRkey } : v;
+      await renameRecordKey({ agent, did, collection, fromRkey, toRkey, value, resumes, backlinks });
+      reload();
+    } catch (err) {
+      setActionError(err?.message || String(err));
+    } finally {
+      setRenamingUri(null);
+    }
+  }
 
   const jobsByUri = useMemo(() => {
     const m = new Map();
@@ -71,6 +133,8 @@ export default function ResumeStudio({ agent, did }) {
             jobsByUri={jobsByUri}
             onChanged={reload}
             onError={setActionError}
+            onRename={(rec) => renameRecord(COLLECTIONS.resume, rec)}
+            renamingUri={renamingUri}
           />
           <RecordsSection
             heading="Jobs"
@@ -79,6 +143,8 @@ export default function ResumeStudio({ agent, did }) {
             records={sortedJobs}
             labelFor={(v) => [v.title, v.organization].filter(Boolean).join(' · ')}
             newLabel="New job"
+            onRename={(rec) => renameRecord(COLLECTIONS.resumeJob, rec)}
+            renamingUri={renamingUri}
           />
           <RecordsSection
             heading="Education"
@@ -87,6 +153,8 @@ export default function ResumeStudio({ agent, did }) {
             records={sortedEducation}
             labelFor={(v) => [v.institution, v.studyType || v.area].filter(Boolean).join(' · ')}
             newLabel="New education entry"
+            onRename={(rec) => renameRecord(COLLECTIONS.resumeEducation, rec)}
+            renamingUri={renamingUri}
           />
         </>
       )}
@@ -113,7 +181,7 @@ function versionCounts(value, jobsByUri) {
   return { jobs: entries.length, bullets };
 }
 
-function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError }) {
+function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, onRename, renamingUri }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(null); // rkey being written
 
@@ -264,6 +332,17 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError })
                   >
                     record
                   </Link>
+                  {onRename && (
+                    <button
+                      type="button"
+                      className="admin-link-subtle rs-version-raw"
+                      onClick={() => onRename(rec)}
+                      disabled={!!busy || !!renamingUri}
+                      title="Change this version's key + slug (/for-hire URL)"
+                    >
+                      {renamingUri === rec.uri ? 'renaming…' : 'rename'}
+                    </button>
+                  )}
                   {vis !== 'private' && (
                     <Link
                       className="admin-link-subtle rs-version-raw"
@@ -287,7 +366,7 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError })
 /* Canonical record lists (jobs / education)                            */
 /* ------------------------------------------------------------------ */
 
-function RecordsSection({ heading, note, collection, records, labelFor, newLabel }) {
+function RecordsSection({ heading, note, collection, records, labelFor, newLabel, onRename, renamingUri }) {
   return (
     <section className="admin-page-section rs-section">
       <h2 className="admin-collection-group-heading small-caps">{heading}</h2>
@@ -306,7 +385,7 @@ function RecordsSection({ heading, note, collection, records, labelFor, newLabel
             );
             const dates = formatDateRange(v);
             return (
-              <li key={rec.uri} className="admin-record-row">
+              <li key={rec.uri} className="admin-record-row rs-record-row">
                 <Link
                   to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
                   className="admin-record-link"
@@ -321,6 +400,17 @@ function RecordsSection({ heading, note, collection, records, labelFor, newLabel
                   </span>
                   {dates && <span className="admin-record-time small-caps">{dates}</span>}
                 </Link>
+                {onRename && (
+                  <button
+                    type="button"
+                    className="admin-link-subtle rs-rename"
+                    onClick={() => onRename(rec)}
+                    disabled={!!renamingUri}
+                    title="Change this record's key (slug), updating every version that references it"
+                  >
+                    {renamingUri === rec.uri ? 'renaming…' : 'rename key'}
+                  </button>
+                )}
               </li>
             );
           })}
