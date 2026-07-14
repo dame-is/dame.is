@@ -21,7 +21,7 @@
 import { ArenaClient } from './arena.js';
 import { collectionsFor, normalizeOptions, settingsSignature } from './defaults.js';
 import { channelValue, blockValue, connectionValue, valuesEqual } from './records.js';
-import { listCollection, getRecord, applyOps, uploadBlob } from './pds.js';
+import { listCollection, getRecord, applyOps, uploadBlob, WritePacer, WritePauseNeeded } from './pds.js';
 
 const asId = (v) => (v == null ? null : String(v));
 
@@ -52,6 +52,12 @@ export async function syncArenaMirror(options) {
 
   const client =
     arenaClient || new ArenaClient({ token, userAgent: 'arena-pds-mirror (+https://dame.is)', log });
+
+  // Paces PDS writes against the account's points budget. maxSleepMs is the
+  // stop-vs-wait ceiling: the cron keeps it small (stop cleanly, resume next
+  // firing); an attended `--drain` backfill raises it to sleep through the
+  // hourly window and keep going until the daily budget is spent.
+  const pacer = new WritePacer({ maxSleepMs: o.writeMaxSleepMs, log });
 
   // --- 1. are.na identity + channel enumeration -----------------------------
   const profile = await client.user(o.user);
@@ -194,12 +200,13 @@ export async function syncArenaMirror(options) {
     }
     try {
       const dl = await client.fetchBinary(media.url, { maxBytes: o.maxBlobBytes });
-      const ref = await uploadBlob(agent, dl.bytes, target.contentType || dl.contentType);
+      const ref = await uploadBlob(agent, dl.bytes, target.contentType || dl.contentType, { pacer });
       if (!ref) throw new Error('uploadBlob returned no ref');
       target.blob = ref;
       blobs.uploaded++;
       blobs.uploadedBytes += dl.bytes.byteLength;
     } catch (err) {
+      if (err instanceof WritePauseNeeded) throw err; // rate pause is not a per-blob failure
       keepPrior();
       blobs.fallback++;
       log(`  blob refresh skipped for ${media.url} (${err.message}) — ${prior?.blob ? 'kept previous blob' : 'reference only'}`);
@@ -228,8 +235,10 @@ export async function syncArenaMirror(options) {
 
   const overBudget = () => Boolean(o.timeBudgetMs && Date.now() - startedAt > o.timeBudgetMs);
   let suspectChannels = 0;
+  let rateLimited = false;
 
-  for (const ch of scoped) {
+  try {
+   for (const ch of scoped) {
     const chId = asId(ch.id);
     if (overBudget()) {
       partial = true;
@@ -315,7 +324,7 @@ export async function syncArenaMirror(options) {
 
     let chFailed = 0;
     if (!o.dryRun && ops.length) {
-      const res = await applyOps(agent, did, ops, { log });
+      const res = await applyOps(agent, did, ops, { log, pacer });
       chFailed = res.fail;
       writes.failed += res.fail;
     }
@@ -328,6 +337,17 @@ export async function syncArenaMirror(options) {
     log(`channel "${ch.title}" (${ch.slug}): ${ops.length} write(s)${chFailed ? `, ${chFailed} FAILED` : ''}.`);
     // After a mid-walk abort the loop keeps going only to tally the rest as
     // unvisited — the top-of-loop budget check short-circuits each of them.
+   }
+  } catch (err) {
+    if (!(err instanceof WritePauseNeeded)) throw err;
+    // Out of write budget for now: stop starting work, keep everything
+    // already written, and resume on the next run. The channel being written
+    // when this fired isn't marked fresh, so its remaining records are
+    // reconciled next time (idempotent — re-listed records upsert, not
+    // duplicate).
+    partial = true;
+    rateLimited = true;
+    log(err.message + ' — run is partial; rerun (or the next cron) resumes.');
   }
 
   // --- 5. deletion pass (complete runs only) ---------------------------------
@@ -369,9 +389,19 @@ export async function syncArenaMirror(options) {
       if (o.dryRun) {
         writes.deleted = stale.length;
       } else if (stale.length) {
-        const res = await applyOps(agent, did, stale, { log });
-        writes.deleted = res.ok;
-        writes.failed += res.fail;
+        try {
+          const res = await applyOps(agent, did, stale, { log, pacer });
+          writes.deleted = res.ok;
+          writes.failed += res.fail;
+        } catch (err) {
+          if (!(err instanceof WritePauseNeeded)) throw err;
+          // All record writes are done by now; deletions just didn't finish.
+          // Safe to resume next run — a complete run will re-detect the same
+          // stale records.
+          partial = true;
+          rateLimited = true;
+          log(err.message + ' — deletions deferred to the next run.');
+        }
       }
     }
   }
@@ -405,16 +435,19 @@ export async function syncArenaMirror(options) {
     channelsFresh,
     channelsUnvisited,
     suspectChannels: suspectChannels || undefined,
+    rateLimited: rateLimited || undefined,
+    pausedMs: pacer.paused || undefined,
     blocksExternal,
     writes,
     blobs,
     localOnly,
     arenaRequests: client.requestCount,
   };
+  const partialWhy = rateLimited ? 'write rate limit' : 'time budget';
   log(
     `${o.dryRun ? 'dry run — would write' : 'wrote'} ${writes.created} new / ${writes.updated} updated ` +
       `(${writes.unchanged} unchanged), ${o.dryRun ? 'would delete' : 'deleted'} ${writes.deleted}` +
-      `${writes.failed ? `, ${writes.failed} FAILED` : ''}${partial ? ' — PARTIAL (time budget hit, next run resumes)' : ''}.`,
+      `${writes.failed ? `, ${writes.failed} FAILED` : ''}${partial ? ` — PARTIAL (${partialWhy}; next run resumes)` : ''}.`,
   );
   return report;
 }

@@ -24,12 +24,21 @@
 //                         leave this off unless you understand that.
 //   --channels a,b,c      Only sync these channel slugs/ids (testing; skips deletions).
 //   --budget-s N          Stop cleanly after ~N seconds; next run resumes.
+//   --drain               Attended backfill: sleep through PDS rate-limit windows
+//                         (up to ~65 min) and keep going, instead of stopping at
+//                         the first wall. One --drain run spends a full day's write
+//                         budget (~11k records) then pauses on the daily cap; rerun
+//                         the next day to continue. Without it, the run stops at the
+//                         first sustained limit and you rerun to resume.
 //   --user SLUG           are.na profile slug (default: ARENA_USER from src/config.js).
 //   --pds URL             Override the PDS endpoint (default: resolved from your DID).
 //
-// First backfill advice: run it from here (no time budget), with --media blobs
-// if you want the files themselves on your PDS. The daily cron then keeps it
-// fresh — keep its ARENA_MIRROR_* env vars matching the flags you use here.
+// First backfill advice: a PDS caps record writes (~5k points/hr, ~35k/day;
+// create=3pts), so a big account is a multi-day job. Run it from here with
+// --drain and let it grind; rerun daily until it reports no more work. Consider
+// --media references first (no blob bandwidth) and --scope created to shrink the
+// blob volume. The daily cron then keeps it fresh — keep its ARENA_MIRROR_* env
+// vars matching the flags you use here.
 
 import { AtpAgent } from '@atproto/api';
 
@@ -53,6 +62,7 @@ function parseArgs(argv) {
     maxBlobMb: null,
     channels: null,
     budgetS: null,
+    drain: false,
     user: null,
     pds: null,
   };
@@ -66,6 +76,7 @@ function parseArgs(argv) {
     else if (a === '--max-blob-mb') args.maxBlobMb = Number(argv[++i]);
     else if (a === '--channels') args.channels = String(argv[++i] || '').split(',');
     else if (a === '--budget-s') args.budgetS = Number(argv[++i]);
+    else if (a === '--drain') args.drain = true;
     else if (a === '--user') args.user = argv[++i];
     else if (a === '--pds') args.pds = argv[++i];
     else die(`unknown argument: ${a}`);
@@ -122,11 +133,23 @@ async function main() {
       maxBlobBytes: args.maxBlobMb ? Math.round(args.maxBlobMb * 1024 * 1024) : undefined,
       channels: args.channels,
       timeBudgetMs: args.budgetS ? args.budgetS * 1000 : null,
+      // --drain sleeps through the hourly window (~65 min) to keep going; the
+      // default rides out short waits but stops at a sustained wall to resume.
+      writeMaxSleepMs: args.drain ? 65 * 60 * 1000 : undefined,
       full: args.full,
       dryRun: args.dryRun,
       log,
     });
     log('report:', JSON.stringify(report, null, 2));
+    if (report.partial) {
+      log(
+        report.rateLimited
+          ? 'Stopped at the PDS write limit — rerun to continue (or --drain to sleep through the window).'
+          : 'Partial run — rerun to continue.',
+      );
+    } else if (!args.dryRun) {
+      log('Backfill complete — nothing left to sync.');
+    }
     if (report.writes?.failed) process.exitCode = 2;
   } catch (err) {
     die(err.stack || err.message);
