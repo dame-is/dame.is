@@ -218,40 +218,39 @@
   text-align: right;
 }
 
-/* On mobile, an individual (detail) page's breadcrumb trail and its NSID can
-   each run long — the slug wraps to a second line and the NSID would otherwise
-   be squeezed against the right edge and ellipsized ("SITE.STANDARD.DOC…").
-   Let the strip wrap and drop the NSID onto its own line beneath the trail,
-   left-aligned and shown in full, instead of clipping it. Scoped to detail
-   pages (`.is-detail`); feed pages keep the compact right-aligned NSID that
-   tracks the scrolled record. */
-@media (max-width: 700px) {
-  .chrome-bar-tertiary.is-detail {
-    flex-wrap: wrap;
-    /* Mobile chrome rows carry gap: var(--space-2); once the row wraps that
-       becomes a row-gap that stacks on top of the trail's own padding-bottom,
-       doubling the space above the NSID. Zero it so the NSID's small
-       padding-top is the only gap. */
-    row-gap: 0;
-  }
-  /* Drop the trail's bottom padding ONLY when an NSID stacks beneath it, so
-     the NSID sits close under the breadcrumb — reading as its caption rather
-     than a separate row. When there's no NSID (some detail pages don't report
-     one), the trail keeps its own bottom padding so it isn't jammed against
-     the strip's bottom edge. */
-  .chrome-bar-tertiary.is-detail:has(.chrome-crumb-nsid) .chrome-breadcrumb {
-    padding-bottom: 0;
-  }
-  .chrome-bar-tertiary.is-detail .chrome-crumb-nsid {
-    flex-basis: 100%;
-    margin-left: 0;
-    padding-top: var(--space-1);
-    text-align: left;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-    overflow-wrap: anywhere;
-  }
+/* On individual (detail) pages the breadcrumb trail and its record NSID share
+   the strip's single row — trail on the left, NSID right-aligned — whenever the
+   two fit together, at EVERY width. Only when they'd collide (a long slug plus
+   a long NSID, typically on a narrow screen) does the NSID drop onto its own
+   line beneath the trail, left-aligned and shown in full instead of ellipsized.
+   This is content-driven rather than a fixed breakpoint: the trail grows to
+   shove the NSID flush right on a shared line, and flex-wrap lets the NSID fall
+   to the next line only when there isn't room for both. Feed pages keep the
+   base right-aligned NSID that tracks the scrolled record (never wrapped). */
+.chrome-bar-tertiary.is-detail {
+  flex-wrap: wrap;
+  /* The chrome row's `gap` turns into a row-gap once the row wraps; zero it so
+     a wrapped NSID sits close under the trail — its own vertical padding is the
+     only separation — instead of gaining an extra row-gap on top. */
+  row-gap: 0;
+}
+.chrome-bar-tertiary.is-detail .chrome-breadcrumb {
+  /* Grow to fill the row so a shorter trail pushes the NSID flush to the right
+     edge when they share a line; the inner crumbs ellipsize if the trail alone
+     outruns the row. */
+  flex: 1 1 auto;
+}
+.chrome-bar-tertiary.is-detail .chrome-crumb-nsid {
+  /* Content-sized so it rides the trail's line when both fit (the growing trail
+     right-aligns it there) and wraps to its own line — left-aligned, in full —
+     only when it doesn't fit beside the trail. */
+  flex: 0 1 auto;
+  margin-left: 0;
+  text-align: left;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
 }
 
 .chrome-crumb-sep {
