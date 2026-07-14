@@ -45,22 +45,122 @@
         "text": "Let’s dive right in!"
       },
       {
+        "type": "heading",
+        "level": 2,
+        "text": "What is an NFT?"
+      },
+      {
         "type": "text",
-        "text": "What is an NFT?To begin, it’s important to understand what a Non-Fungible Token is at a high level. Technically speaking, an NFT is not a picture of an ape or a pixelated punk rocker; it’s actually a unique numerical identifier governed by a smart contract that can have other data and information associated with it (such as a picture of an ape or pixelated punk rocker).If that sounds a little fuzzy, take a moment to ask yourself, “what is a computer file?”. Most people interact with files on their laptops or smart phones every single day, but they’d be hard-pressed to articulate what exactly those files are made of. Trying to understand a non-fungible token is quite similar. In some ways, a non-fungible token is like a computer file but the file isn’t stored on a single device… it’s stored on a decentralized virtual computer that thousands of people all over the world help operate.In a similar fashion to how computer files come in several formats such as .jpg or .txt, NFTs also can come in several different formats called Standards.StandardsA token standard is a clearly defined and widely agreed upon method for structuring and creating the technical underpinnings of an NFT. Using accepted token standards will ensure your NFTs are widely compatible and more easily trusted. Within the Ethereum ecosystem, there are two primary non-fungible token standards: ERC-721 and ERC-1155.ERC-721Originally proposed in 2017 via Ethereum Improvement Proposal number 721 (opens new window)(EIP-721 for short), the ERC-721 token standard was created in 2018 to allow for non-fungible assets to be generated on the Ethereum blockchain. The summary for EIP-721 described itself as “a standard interface for non-fungible tokens, also known as deeds.” The creation and success of early NFTs like CryptoPunks and CryptoKitties were part of the inspiration for developing the ERC-721 standard; it allowed the burgeoning ecosystem to begin building on a solid foundation. Today, the ERC-721 standard is the most widely used and supported type of NFT, and it undergirds a multi-billion dollar market.ERC-721AOriginally created by the Azuki team for its NFT launch in January 2022, ERC-721A (opens new window)is an emerging contract standard that is built off of the ERC-721 standard but includes some improvements. According to its creators, “ERC721A is an improved implementation of the IERC721 standard that supports minting multiple tokens for close to the cost of one.” Since successfully launching with this new implementation, several other high-profile NFT projects have gone on to utilize it as well.ERC-1155Created half a year after the ERC-721 standard, the ERC-1155 standard was proposed in Ethereum Improvement Proposal number 1155 (opens new window)(EIP-1155 for short). According to the EIP’s summary, ERC-1155 is “a standard interface for contracts that manage multiple token types. A single deployed contract may include any combination of fungible tokens, non-fungible tokens or other configurations (e.g. semi-fungible tokens).” In comparison to ERC-721 tokens, ERC-1155 tokens are much more flexible and have a wider range of features.TypesA type is a particular quality, attribute, or trait of an NFT. An NFT can have multiple types. For instance, an NFT could be a mutable multi-edition generative art piece that is stored off-chain but was not pre-minted. Think of types as different flavors that can be mixed and combined together to achieve different results.Purpose TypesOn the highest level, NFTs can be categorized as either utility-focused or art-focused. This is an NFT’s designed “purpose”. An NFT can be both utilitarian and decorative, but there’s often an emphasis on one more than the other. Furthermore, an art-focused NFT could have utility added to it after the fact. It may be helpful to think of purpose types as a fluid spectrum.Utilitarian - An NFT that enables a practical use case in the lives of its users or owners. Possession of a utilitarian NFT might grant the holder access to exclusive content, benefits, or even rewards. A common example of a utilitarian NFT would be an event ticket or a membership card. A graphic or artistic visual is often used to represent a utilitarian NFT, but the visual component would typically be secondary in nature.Art, Decorative, or Collectible - An NFT that represents a work of art or some other thing that is primarily appreciated for its aesthetic or conceptual qualities. An art NFT could also enable or bestow utilitarian benefits upon the owner if the creator so desired, but the utility would typically be secondary in nature.Quantity & Supply TypesWhile the purest definition of an NFT implies complete uniqueness of each item, the reality is a lot more nuanced. Fungibility is actually a spectrum, and NFTs are flexible enough to be used in a variety of ways to implement quantities and supply sizes.One-of-one - Perhaps the most basic of NFT types, a one-of-one refers to completely unique and distinct objects or art pieces. There is only one NFT of it, and typically no other versions exist.Multi-edition - In contrast to a one-of-one, a multi-edition NFT is when there are multiples of the same object or piece of art. There are several ways of implementing multi-edition NFTs, but the most common approach is to either use an ERC-721 contract or an ERC-1155 contract. Depending on which you choose, the outcome will be slightly different. When you use an ERC-721 contract, each NFT within an edition has a distinct identifier and could be numbered like so: “Artwork B 1/10”, “Artwork B 2/10”, “Artwork B 3/10”, etc. In this scenario, the owner of “Artwork B 5/10” is the only person who owns “Number 5”. This method would be comparable to a photographer or screen printer creating a limited run of 10 signed and numbered prints in the physical world.When you use an ERC-1155 contract on the other hand, you are able to create semi-fungible quantities of each object or work of art. In the example of “Artwork B”, the ERC-1155 version would not have distinct identifiers or numbers for each piece within the edition. There would simply be 10 editions of “Artwork B”, but there would be no specific “Number 5” or “Number 3”. All of the items within the edition would be identical and interchangeable for any of the other items within that edition. This method would be comparable to a photographer or screen printer creating a limited run of 10 signed prints in the physical world, but each print would not be numbered.",
+        "text": "To begin, it’s important to understand what a Non-Fungible Token is at a high level. Technically speaking, an NFT is not a picture of an ape or a pixelated punk rocker; it’s actually a unique numerical identifier governed by a smart contract that can have other data and information associated with it (such as a picture of an ape or pixelated punk rocker)."
+      },
+      {
+        "type": "text",
+        "text": "If that sounds a little fuzzy, take a moment to ask yourself, “what is a computer file?”. Most people interact with files on their laptops or smart phones every single day, but they’d be hard-pressed to articulate what exactly those files are made of. Trying to understand a non-fungible token is quite similar. In some ways, a non-fungible token is like a computer file but the file isn’t stored on a single device… it’s stored on a decentralized virtual computer that thousands of people all over the world help operate."
+      },
+      {
+        "type": "text",
+        "text": "In a similar fashion to how computer files come in several formats such as .jpg or .txt, NFTs also can come in several different formats called Standards."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Standards"
+      },
+      {
+        "type": "text",
+        "text": "A token standard is a clearly defined and widely agreed upon method for structuring and creating the technical underpinnings of an NFT. Using accepted token standards will ensure your NFTs are widely compatible and more easily trusted. Within the Ethereum ecosystem, there are two primary non-fungible token standards: ERC-721 and ERC-1155."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "ERC-721"
+      },
+      {
+        "type": "text",
+        "text": "Originally proposed in 2017 via Ethereum Improvement Proposal number 721 (opens new window)(EIP-721 for short), the ERC-721 token standard was created in 2018 to allow for non-fungible assets to be generated on the Ethereum blockchain. The summary for EIP-721 described itself as “a standard interface for non-fungible tokens, also known as deeds.” The creation and success of early NFTs like CryptoPunks and CryptoKitties were part of the inspiration for developing the ERC-721 standard; it allowed the burgeoning ecosystem to begin building on a solid foundation. Today, the ERC-721 standard is the most widely used and supported type of NFT, and it undergirds a multi-billion dollar market.",
         "links": [
           {
             "text": "Ethereum Improvement Proposal number 721 (opens new window)",
             "uri": "https://eips.ethereum.org/EIPS/eip-721"
-          },
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "ERC-721A"
+      },
+      {
+        "type": "text",
+        "text": "Originally created by the Azuki team for its NFT launch in January 2022, ERC-721A (opens new window)is an emerging contract standard that is built off of the ERC-721 standard but includes some improvements. According to its creators, “ERC721A is an improved implementation of the IERC721 standard that supports minting multiple tokens for close to the cost of one.” Since successfully launching with this new implementation, several other high-profile NFT projects have gone on to utilize it as well.",
+        "links": [
           {
             "text": "ERC-721A (opens new window)",
             "uri": "https://www.erc721a.org/"
-          },
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "ERC-1155"
+      },
+      {
+        "type": "text",
+        "text": "Created half a year after the ERC-721 standard, the ERC-1155 standard was proposed in Ethereum Improvement Proposal number 1155 (opens new window)(EIP-1155 for short). According to the EIP’s summary, ERC-1155 is “a standard interface for contracts that manage multiple token types. A single deployed contract may include any combination of fungible tokens, non-fungible tokens or other configurations (e.g. semi-fungible tokens).” In comparison to ERC-721 tokens, ERC-1155 tokens are much more flexible and have a wider range of features.",
+        "links": [
           {
             "text": "Ethereum Improvement Proposal number 1155 (opens new window)",
             "uri": "https://eips.ethereum.org/EIPS/eip-1155"
           }
         ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Types"
+      },
+      {
+        "type": "text",
+        "text": "A type is a particular quality, attribute, or trait of an NFT. An NFT can have multiple types. For instance, an NFT could be a mutable multi-edition generative art piece that is stored off-chain but was not pre-minted. Think of types as different flavors that can be mixed and combined together to achieve different results."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Purpose Types"
+      },
+      {
+        "type": "text",
+        "text": "On the highest level, NFTs can be categorized as either utility-focused or art-focused. This is an NFT’s designed “purpose”. An NFT can be both utilitarian and decorative, but there’s often an emphasis on one more than the other. Furthermore, an art-focused NFT could have utility added to it after the fact. It may be helpful to think of purpose types as a fluid spectrum."
+      },
+      {
+        "type": "text",
+        "text": "Utilitarian - An NFT that enables a practical use case in the lives of its users or owners. Possession of a utilitarian NFT might grant the holder access to exclusive content, benefits, or even rewards. A common example of a utilitarian NFT would be an event ticket or a membership card. A graphic or artistic visual is often used to represent a utilitarian NFT, but the visual component would typically be secondary in nature."
+      },
+      {
+        "type": "text",
+        "text": "Art, Decorative, or Collectible - An NFT that represents a work of art or some other thing that is primarily appreciated for its aesthetic or conceptual qualities. An art NFT could also enable or bestow utilitarian benefits upon the owner if the creator so desired, but the utility would typically be secondary in nature."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Quantity & Supply Types"
+      },
+      {
+        "type": "text",
+        "text": "While the purest definition of an NFT implies complete uniqueness of each item, the reality is a lot more nuanced. Fungibility is actually a spectrum, and NFTs are flexible enough to be used in a variety of ways to implement quantities and supply sizes."
+      },
+      {
+        "type": "text",
+        "text": "One-of-one - Perhaps the most basic of NFT types, a one-of-one refers to completely unique and distinct objects or art pieces. There is only one NFT of it, and typically no other versions exist."
+      },
+      {
+        "type": "text",
+        "text": "Multi-edition - In contrast to a one-of-one, a multi-edition NFT is when there are multiples of the same object or piece of art. There are several ways of implementing multi-edition NFTs, but the most common approach is to either use an ERC-721 contract or an ERC-1155 contract. Depending on which you choose, the outcome will be slightly different. When you use an ERC-721 contract, each NFT within an edition has a distinct identifier and could be numbered like so: “Artwork B 1/10”, “Artwork B 2/10”, “Artwork B 3/10”, etc. In this scenario, the owner of “Artwork B 5/10” is the only person who owns “Number 5”. This method would be comparable to a photographer or screen printer creating a limited run of 10 signed and numbered prints in the physical world."
+      },
+      {
+        "type": "text",
+        "text": "When you use an ERC-1155 contract on the other hand, you are able to create semi-fungible quantities of each object or work of art. In the example of “Artwork B”, the ERC-1155 version would not have distinct identifiers or numbers for each piece within the edition. There would simply be 10 editions of “Artwork B”, but there would be no specific “Number 5” or “Number 3”. All of the items within the edition would be identical and interchangeable for any of the other items within that edition. This method would be comparable to a photographer or screen printer creating a limited run of 10 signed prints in the physical world, but each print would not be numbered."
       },
       {
         "type": "image",
@@ -1989,7 +2089,64 @@
       },
       {
         "type": "text",
-        "text": "To announce the project to the world, I wrote a blog post that detailed the context in which the art project was occurring. The post shines some light into my thinking.\"Ethereum is about to stop working (and so am I)\"If you're a fan of Ethereum, then you might have had a visceral reaction when you read the title of this post. Maybe that's why you clicked on it in the first place. On its face, \"Ethereum Stops Working\" is a statement that seems to imply a cataclysmic failure that would wipe out a multi-billion dollar market and an entire industry. It's a statement many would hope to never read in a news headline. But, it's a technically true statement about the blockchain's transition away from using a \"Proof-of-Work\" algorithm.After approximately midnight tonight (if all goes according to plan) Ethereum will stop working. And yet, in another sense, it will continue to work... hopefully better than before. It will begin working in a new way that is more sustainable and less energy intensive, thereby setting itself (and the environment) up for a healthier future.If you've been paying attention, you'll notice that this shift mirrors the world around us in many ways. The nature of our work life is in flux. Jobs don't last as long as they once did, and they aren't conducted in the same ways that they used to be. Additionally, costs of living are increasing, inflation is on the rise, and wages aren't keeping up.The Great Resignation, Quiet Qutting, and Lying Flat are all happening because the way we work is (ironically) not working and people are tired. Things have to change. Like the Ethereum blockchain, we need a more sustainable way to work.If we'll let it, The Merge asks us the question \"what is work?\"… and then beckons us into a new world in which the traditional structures of productivity can begin to dissolve, making way for healthier models.The Merge can help us reframe our understanding of work and abandon the binary world view that it imposes upon our bodies and brains. It gives us a chance to see that working and not working are one.The Merge is a reminder that the rat-race of hustle culture, corporate surveillance, and micro-management is an energy intensive method of control over human bodies that is not sustainable and is not healthy.For my latest conceptual art project called \"Proof of (No) Work\", I've sold 365 time cards that will be used with a mechanical time clock. Such time clock devices were historically used to keep track of how many hours an employee spent working so that they could be monitored for performance, attendance, and paid commensurately. The time clock is the old way of doing things.I designed the time cards that I will be using for this project myself, and each one represents a chunk of my time that will be spent unproductively on behalf of a collector. Each card is square shaped to evoke the imagery of the blocks in a blockchain. I will \"punch in\" when I begin a \"no work\" session and then \"punch out\" when finished. A brief note will be hand-written on each card describing what I did.In a sense, people who bought these time cards paid for my time, but instead of working on their behalf like in a traditional employment relationship, I am spending it as unproductively as I can... watching TV, reading books, meditating, taking naps, playing games, drinking coffee, going for walks, etc. etc.Each activity may or may not seem productive or unproductive to any given person, and I expect that during each session I might wrestle with whether or not what I’m doing is actually unproductive. The reason for this is that the concepts of productivity and work are incredibly subjective and culturally defined. Some might even say they are deeply intertwined.Proof of (No) Work is my response to the current state of employment. I hope that this project will help me (and you) think more deeply about the ways in which we do and don't work.And so, when the Merge occurs and the Ethereum blockchain stops working tonight... so will I."
+        "text": "To announce the project to the world, I wrote a blog post that detailed the context in which the art project was occurring. The post shines some light into my thinking."
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "\"Ethereum is about to stop working (and so am I)\""
+      },
+      {
+        "type": "text",
+        "text": "If you're a fan of Ethereum, then you might have had a visceral reaction when you read the title of this post. Maybe that's why you clicked on it in the first place. On its face, \"Ethereum Stops Working\" is a statement that seems to imply a cataclysmic failure that would wipe out a multi-billion dollar market and an entire industry. It's a statement many would hope to never read in a news headline. But, it's a technically true statement about the blockchain's transition away from using a \"Proof-of-Work\" algorithm."
+      },
+      {
+        "type": "text",
+        "text": "After approximately midnight tonight (if all goes according to plan) Ethereum will stop working. And yet, in another sense, it will continue to work... hopefully better than before. It will begin working in a new way that is more sustainable and less energy intensive, thereby setting itself (and the environment) up for a healthier future."
+      },
+      {
+        "type": "text",
+        "text": "If you've been paying attention, you'll notice that this shift mirrors the world around us in many ways. The nature of our work life is in flux. Jobs don't last as long as they once did, and they aren't conducted in the same ways that they used to be. Additionally, costs of living are increasing, inflation is on the rise, and wages aren't keeping up."
+      },
+      {
+        "type": "text",
+        "text": "The Great Resignation, Quiet Qutting, and Lying Flat are all happening because the way we work is (ironically) not working and people are tired. Things have to change. Like the Ethereum blockchain, we need a more sustainable way to work."
+      },
+      {
+        "type": "text",
+        "text": "If we'll let it, The Merge asks us the question \"what is work?\"… and then beckons us into a new world in which the traditional structures of productivity can begin to dissolve, making way for healthier models."
+      },
+      {
+        "type": "text",
+        "text": "The Merge can help us reframe our understanding of work and abandon the binary world view that it imposes upon our bodies and brains. It gives us a chance to see that working and not working are one."
+      },
+      {
+        "type": "text",
+        "text": "The Merge is a reminder that the rat-race of hustle culture, corporate surveillance, and micro-management is an energy intensive method of control over human bodies that is not sustainable and is not healthy."
+      },
+      {
+        "type": "text",
+        "text": "For my latest conceptual art project called \"Proof of (No) Work\", I've sold 365 time cards that will be used with a mechanical time clock. Such time clock devices were historically used to keep track of how many hours an employee spent working so that they could be monitored for performance, attendance, and paid commensurately. The time clock is the old way of doing things."
+      },
+      {
+        "type": "text",
+        "text": "I designed the time cards that I will be using for this project myself, and each one represents a chunk of my time that will be spent unproductively on behalf of a collector. Each card is square shaped to evoke the imagery of the blocks in a blockchain. I will \"punch in\" when I begin a \"no work\" session and then \"punch out\" when finished. A brief note will be hand-written on each card describing what I did."
+      },
+      {
+        "type": "text",
+        "text": "In a sense, people who bought these time cards paid for my time, but instead of working on their behalf like in a traditional employment relationship, I am spending it as unproductively as I can... watching TV, reading books, meditating, taking naps, playing games, drinking coffee, going for walks, etc. etc."
+      },
+      {
+        "type": "text",
+        "text": "Each activity may or may not seem productive or unproductive to any given person, and I expect that during each session I might wrestle with whether or not what I’m doing is actually unproductive. The reason for this is that the concepts of productivity and work are incredibly subjective and culturally defined. Some might even say they are deeply intertwined."
+      },
+      {
+        "type": "text",
+        "text": "Proof of (No) Work is my response to the current state of employment. I hope that this project will help me (and you) think more deeply about the ways in which we do and don't work."
+      },
+      {
+        "type": "text",
+        "text": "And so, when the Merge occurs and the Ethereum blockchain stops working tonight... so will I."
       },
       {
         "type": "heading",

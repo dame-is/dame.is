@@ -176,30 +176,43 @@ function captionOf(chunk) {
 }
 
 // Turn a text module's rich-text body into ordered heading/text blocks.
-// `<div class="title">` → heading; `<div class="main-text">` and bare
-// `<div>` wrappers → paragraphs (Adobe uses a bare div for the lead).
+//
+// Adobe nests the body as a tree of <div>s: `title` / `sub-title` divs are
+// headings, leaf divs are paragraphs, and wrapper divs (notably `main-text`)
+// just hold more of the same. We walk that tree depth-first so every heading
+// and paragraph becomes its own block. Flattening a wrapper with stripTags()
+// instead would splice its child divs together with no separator, smashing a
+// whole section — headings, sub-titles, and paragraphs — into one run-on
+// block (e.g. "…called Standards.StandardsA token standard is…").
+function walkRichDivs(inner, out, pushPara) {
+  const children = topLevelDivs(inner);
+  if (children.length === 0) {
+    pushPara(inner); // leaf: a bare paragraph
+    return;
+  }
+  for (const ch of children) {
+    if (/\btitle\b/.test(ch.attrs)) {
+      // Matches both `title` and `sub-title` (the hyphen is a word boundary).
+      const { text } = richText(ch.body);
+      if (text.trim()) out.push({ type: 'heading', level: 2, text });
+    } else if (/<div\b/.test(ch.body)) {
+      walkRichDivs(ch.body, out, pushPara); // wrapper: descend into it
+    } else {
+      pushPara(ch.body);
+    }
+  }
+}
+
 function textBlocks(chunk) {
   const open = chunk.match(/<div class="[^"]*module-text[^"]*"[^>]*>/);
   if (!open) return [];
   const inner = innerBalancedDiv(chunk, open.index + open[0].length);
-  const children = topLevelDivs(inner);
   const out = [];
   const pushPara = (html) => {
     const { text, links } = richText(html);
     if (text.trim()) out.push(links.length ? { type: 'text', text, links } : { type: 'text', text });
   };
-  if (children.length === 0) {
-    pushPara(inner);
-    return out;
-  }
-  for (const ch of children) {
-    if (/\btitle\b/.test(ch.attrs)) {
-      const { text } = richText(ch.body);
-      if (text.trim()) out.push({ type: 'heading', level: 2, text });
-    } else {
-      pushPara(ch.body);
-    }
-  }
+  walkRichDivs(inner, out, pushPara);
   return out;
 }
 
