@@ -540,10 +540,15 @@ export default function Home() {
     return map;
   }, [groups, newUris]);
 
+  // The home feed aggregates many records; it has no single is.dame.page/home
+  // backing record (none exists, and it isn't in PAGE_REGISTRY), so PageShell
+  // gets no `atUri`. Advertising that phantom record made the debug pane's
+  // "Edit record" surface a raw PDS "Could not locate record" error and emitted
+  // a dead <link rel="alternate"> hint. See pageRkeyForPath in
+  // src/hooks/useAtUri.js.
   return (
     <PageShell
       title={<HeroSentence shuffleRef={shuffleRef} />}
-      atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="dame.is"
     >
       <nav className="home-hero-cta" aria-label="Primary destinations">
