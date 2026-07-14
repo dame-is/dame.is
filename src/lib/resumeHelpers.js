@@ -335,7 +335,7 @@ export function resolveResume(resumeRecord, jobs, education, documents) {
 const renderable = (r) => r?.value && (r.value.visibility || 'public') !== 'private';
 
 /**
- * Choose the single active resume shown at /for-hire: the one flagged
+ * Choose the single active resume shown at /available: the one flagged
  * `featured` (set from the admin panel), else the first public one, else any
  * renderable one. `private` resumes are skipped.
  */

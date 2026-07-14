@@ -742,7 +742,7 @@ function truncate(s, n) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Picks which resume version is "active" — the single one shown at /for-hire.
+ * Picks which resume version is "active" — the single one shown at /available.
  * Active-ness is stored as the `featured` flag on the resume record; choosing
  * one here sets `featured: true` on it and clears it on every other version,
  * so at most one is ever active.
@@ -790,7 +790,7 @@ function ResumeActiveSelector({ agent, did, records, onChanged }) {
     <div className="admin-active-resume">
       <p className="admin-active-resume-label small-caps">Active version</p>
       <p className="admin-active-resume-note">
-        The one version shown on <code>/for-hire</code>.
+        The one version shown on <code>/available</code>.
       </p>
       <ul className="admin-active-resume-list">
         {records.map((rec) => {

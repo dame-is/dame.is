@@ -251,7 +251,7 @@ export const LEXICONS = {
     typeFieldValue: COLLECTIONS.resume,
     fields: [
       { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'Primary résumé' },
-      { key: 'slug', label: 'Slug', type: 'text', required: true, hint: 'Should match the record key; drives /for-hire/<slug>.' },
+      { key: 'slug', label: 'Slug', type: 'text', required: true, hint: 'Should match the record key; drives /available/<slug>.' },
       { key: 'headline', label: 'Headline', type: 'text' },
       { key: 'summary', label: 'Summary (Markdown)', type: 'markdown' },
       {
@@ -263,7 +263,7 @@ export const LEXICONS = {
           { value: 'private', label: 'Private — not rendered on the site' },
         ],
       },
-      { key: 'featured', label: 'Featured (default at /for-hire)', type: 'boolean', default: false },
+      { key: 'featured', label: 'Featured (default at /available)', type: 'boolean', default: false },
       {
         key: 'entries', label: 'Experience (jobs)', type: 'recordRefs',
         refKey: 'job', refCollection: COLLECTIONS.resumeJob, overrides: true,

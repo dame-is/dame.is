@@ -38,7 +38,7 @@ export default function ResumeStudio({ agent, did }) {
   // "Rename" a record's key. Because AT keys records immutably, this recreates
   // the record under the new key, repoints resume backlinks, and deletes the
   // old one (see renameRecordKey). Jobs/education warn with how many versions
-  // reference them; a version rename also syncs its slug + /for-hire URL.
+  // reference them; a version rename also syncs its slug + /available URL.
   async function renameRecord(collection, rec) {
     if (renamingUri) return;
     const fromRkey = rkeyFromUri(rec.uri);
@@ -51,7 +51,7 @@ export default function ResumeStudio({ agent, did }) {
     const input = window.prompt(
       `New record key for “${label}”.\n` +
         'Lowercase letters, numbers, and dashes — it drives the record\'s at:// URI' +
-        (collection === COLLECTIONS.resume ? ' and /for-hire/<slug>.' : '.'),
+        (collection === COLLECTIONS.resume ? ' and /available/<slug>.' : '.'),
       fromRkey,
     );
     if (input == null) return;
@@ -72,7 +72,7 @@ export default function ResumeStudio({ agent, did }) {
       ? `\n\nThis recreates it as “${toRkey}”, repoints ${refCount} resume version${
           refCount === 1 ? '' : 's'
         } that reference it, and deletes the old “${fromRkey}”.`
-      : `\n\nThis recreates it as “${toRkey}” (syncing its slug + /for-hire URL) and deletes the old one.`;
+      : `\n\nThis recreates it as “${toRkey}” (syncing its slug + /available URL) and deletes the old one.`;
     if (!window.confirm(`Rename ${fromRkey} → ${toRkey}?${detail}`)) return;
 
     setRenamingUri(rec.uri);
@@ -190,7 +190,7 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
     return found ? rkeyFromUri(found.uri) : null;
   }, [resumes]);
 
-  // The one version shown at /for-hire: featured=true here, cleared elsewhere.
+  // The one version shown at /available: featured=true here, cleared elsewhere.
   async function setActive(rkey) {
     if (busy) return;
     setBusy(rkey);
@@ -223,7 +223,7 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
     let suggestion = `${rec.value?.slug || srcRkey}-copy`;
     while (taken.has(suggestion)) suggestion = `${suggestion}-2`;
     const input = window.prompt(
-      'Slug for the new version (also its record key and /for-hire/<slug> URL):',
+      'Slug for the new version (also its record key and /available/<slug> URL):',
       suggestion,
     );
     if (input == null) return;
@@ -262,7 +262,7 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
       <h2 className="admin-collection-group-heading small-caps">Versions</h2>
       <p className="admin-collection-group-note">
         Each version selects, orders, and phrases its own view of the shared records. The
-        active one is what <code>/for-hire</code> shows.
+        active one is what <code>/available</code> shows.
       </p>
       {(resumes || []).length === 0 ? (
         <p className="placeholder-card">
@@ -285,7 +285,7 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
                   onClick={() => !isActive && setActive(r)}
                   disabled={!!busy}
                   aria-pressed={isActive}
-                  title={isActive ? 'Active — shown at /for-hire' : 'Make this the active version'}
+                  title={isActive ? 'Active — shown at /available' : 'Make this the active version'}
                 >
                   <span className="rs-radio-dot" aria-hidden="true" />
                 </button>
@@ -338,7 +338,7 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
                       className="admin-link-subtle rs-version-raw"
                       onClick={() => onRename(rec)}
                       disabled={!!busy || !!renamingUri}
-                      title="Change this version's key + slug (/for-hire URL)"
+                      title="Change this version's key + slug (/available URL)"
                     >
                       {renamingUri === rec.uri ? 'renaming…' : 'rename'}
                     </button>
@@ -346,7 +346,7 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
                   {vis !== 'private' && (
                     <Link
                       className="admin-link-subtle rs-version-raw"
-                      to={`/for-hire/${encodeURIComponent(slug)}`}
+                      to={`/available/${encodeURIComponent(slug)}`}
                       title="View on the site"
                     >
                       <ExternalLink size={12} aria-hidden="true" /> view

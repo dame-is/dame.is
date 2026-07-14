@@ -118,7 +118,7 @@ function deriveFromRoute(pathname, override) {
       cid: override.cid || null,
       lexicon: override.lexicon || lexiconFromAtUri(override.atUri),
       // Carry the rkey so the generic by-rkey snapshot/PDS lookups can
-      // resolve override-driven records (e.g. /for-hire's dynamically
+      // resolve override-driven records (e.g. /available's dynamically
       // selected is.dame.resume) — collections without a bespoke branch
       // below would otherwise never fetch.
       rkey: override.rkey || rkeyFromAtUri(override.atUri) || null,

@@ -361,7 +361,7 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
             raw record
           </Link>
           {draft && (draft.visibility || 'private') !== 'private' && (
-            <Link className="admin-link-subtle" to={`/for-hire/${encodeURIComponent(draft.slug || rkey)}`}>
+            <Link className="admin-link-subtle" to={`/available/${encodeURIComponent(draft.slug || rkey)}`}>
               view ↗
             </Link>
           )}
@@ -448,7 +448,7 @@ function FramingSection({ draft, patchDraft }) {
           />
         </label>
         <label className="rf-inline-field rf-inline-field-block">
-          <span className="rf-inline-label">Slug (URL at /for-hire/…)</span>
+          <span className="rf-inline-label">Slug (URL at /available/…)</span>
           <input
             className="admin-input"
             type="text"
@@ -493,7 +493,7 @@ function FramingSection({ draft, patchDraft }) {
             checked={Boolean(draft?.featured)}
             onChange={(e) => patchDraft({ featured: e.target.checked })}
           />
-          <span>Active — the default at /for-hire (keep to one version)</span>
+          <span>Active — the default at /available (keep to one version)</span>
         </label>
       </div>
     </section>
