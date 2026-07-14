@@ -383,6 +383,7 @@ function RecordsSection({ heading, note, collection, records, labelFor, newLabel
               (n, h) => n + (Array.isArray(h.variants) ? h.variants.length : 0),
               0,
             );
+            const linkCount = Array.isArray(v.links) ? v.links.length : 0;
             const dates = formatDateRange(v);
             return (
               <li key={rec.uri} className="admin-record-row rs-record-row">
@@ -396,6 +397,7 @@ function RecordsSection({ heading, note, collection, records, labelFor, newLabel
                     <span className="rs-record-counts">
                       {highlights.length} bullet{highlights.length === 1 ? '' : 's'}
                       {forks > 0 && ` · ${forks} fork${forks === 1 ? '' : 's'}`}
+                      {linkCount > 0 && ` · ${linkCount} link${linkCount === 1 ? '' : 's'}`}
                     </span>
                   </span>
                   {dates && <span className="admin-record-time small-caps">{dates}</span>}

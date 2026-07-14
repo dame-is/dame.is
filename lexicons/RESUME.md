@@ -8,9 +8,10 @@ them on the site at all.
 
 ```
 is.dame.resume            (a resume version — "primary", "product-design", …)
- ├─ entries[]   ──at://──▶ is.dame.resume.job        (canonical job; owns the bullets)
- │   └─ highlightIds[]      ─▶ picks job.highlights[].id — or "h3#v2" to pick a
- │                             forked phrasing from that highlight's variants[]
+ ├─ entries[]   ──at://──▶ is.dame.resume.job        (canonical job; owns the bullets + links)
+ │   ├─ highlightIds[]      ─▶ picks job.highlights[].id — or "h3#v2" to pick a
+ │   │                         forked phrasing from that highlight's variants[]
+ │   └─ linkIds[]           ─▶ picks job.links[].id — portfolio pieces shown under the role
  ├─ education[] ──at://──▶ is.dame.resume.education   (canonical degree/program)
  ├─ skills[]                  (inline skill groups — the audience-specific part)
  └─ contact                   (inline, or fall back to the site profile)
@@ -34,6 +35,14 @@ sync; the `label` ("design-focused", "one-pager") is admin-only naming.
 Variants share the parent bullet's flags (visibility, featured, metric, tags) —
 they are the *same point*, differently worded. If two phrasings diverge into
 genuinely different claims, make a second highlight instead.
+
+A job can also carry **links** — portfolio pieces tied to the role
+(`links: [{ id, work?, url?, label?, description? }]`), rendered as a "Selected
+work" row under the job. A link points either at a first-party `/creating`
+post via `work` (a `site.standard.document` AT URI, resolved live to that
+post's title + cover so it renders as an **embed**) or at any external page via
+`url`. Like highlights, links live on the canonical job and each resume selects
+which to show with `linkIds` (omit for all non-private, in natural order).
 
 ### `is.dame.resume.education` — the canonical education entry
 Same idea for schooling. Reuses the job's `#highlight` shape for honors /

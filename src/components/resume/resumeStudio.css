@@ -507,6 +507,22 @@
   margin-top: var(--space-1);
 }
 
+/* Work-samples board reuses the bullet-board layout. */
+.rw-links {
+  margin-top: var(--space-3);
+}
+
+.rw-link-title {
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.rw-link-desc {
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+
 .rw-add-bullet-note {
   color: var(--ink-faint);
   font-size: var(--text-xs);

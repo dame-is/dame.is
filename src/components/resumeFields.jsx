@@ -9,6 +9,9 @@ import {
   resolveHighlightRef,
   collectHighlightUsage,
 } from '../lib/resumeHelpers.js';
+import { showOnCreating, workSlug } from '../lib/publications.js';
+
+const STANDARD_DOC = 'site.standard.document';
 
 /**
  * Structured form controls for the resume lexicons, replacing the raw-JSON
@@ -454,6 +457,168 @@ export function HighlightsField({ value, onChange, agent, did, recordUri, usageK
 function truncateText(s, n) {
   const str = String(s || '');
   return str.length <= n ? str : `${str.slice(0, n - 1).trimEnd()}…`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Links (portfolio pieces / external URLs tied to a job)               */
+/* ------------------------------------------------------------------ */
+
+/** Next unique `lN` id for a new link in this list. */
+function nextLinkId(list) {
+  const used = new Set((list || []).map((l) => l?.id).filter(Boolean));
+  let n = (list || []).length + 1;
+  while (used.has(`l${n}`)) n += 1;
+  return `l${n}`;
+}
+
+/**
+ * Editor for a job's `links` — portfolio pieces / external links tied to the
+ * role. Each link is either a first-party `/creating` post (picked from the
+ * portfolio, stored as a `work` AT URI and rendered live as an embed) or an
+ * external `url`. Loads the portfolio documents for the picker.
+ */
+export function LinksField({ value, onChange, agent, did }) {
+  const list = Array.isArray(value) ? value : [];
+  const { records, error } = useCollectionRecords(agent, did, STANDARD_DOC);
+  const portfolioDocs = useMemo(
+    () => (records || []).filter((r) => showOnCreating(r.value)),
+    [records],
+  );
+  const docByUri = useMemo(() => {
+    const m = new Map();
+    for (const r of portfolioDocs) m.set(r.uri, r);
+    return m;
+  }, [portfolioDocs]);
+
+  const update = (i, patch) => onChange(replaceAt(list, i, { ...list[i], ...patch }));
+  const add = () =>
+    onChange([
+      ...list,
+      { id: nextLinkId(list), work: portfolioDocs[0]?.uri || undefined, visibility: 'public' },
+    ]);
+
+  return (
+    <div className="rf-list">
+      {list.length === 0 && (
+        <p className="admin-field-hint">
+          No work samples yet. Attach a <code>/creating</code> post or an external link below.
+        </p>
+      )}
+      {list.map((link, i) => {
+        // `work` is the discriminator: present (even as an empty, not-yet-picked
+        // string) means portfolio-post mode; absent means external-URL mode.
+        const mode = link.work != null ? 'work' : 'url';
+        const doc = link.work ? docByUri.get(link.work) : null;
+        return (
+          <div className="rf-card" key={link.id || i}>
+            <div className="rf-card-head">
+              <code className="rf-id">{link.id || '—'}</code>
+              <select
+                className="admin-input rf-select-sm"
+                value={mode}
+                onChange={(e) => {
+                  if (e.target.value === 'work') update(i, { work: portfolioDocs[0]?.uri, url: undefined });
+                  else update(i, { url: link.url || '', work: undefined });
+                }}
+              >
+                <option value="work">/creating post</option>
+                <option value="url">external link</option>
+              </select>
+              <RowControls
+                index={i}
+                length={list.length}
+                onMove={(from, to) => onChange(move(list, from, to))}
+                onRemove={(idx) => onChange(removeAt(list, idx))}
+                removeLabel="Remove link"
+              />
+            </div>
+
+            {mode === 'work' ? (
+              records == null ? (
+                <p className="admin-field-hint">Loading posts…</p>
+              ) : portfolioDocs.length === 0 ? (
+                <p className="admin-field-hint">
+                  No <code>/creating</code> posts found — publish one, or use an external link.
+                </p>
+              ) : (
+                <select
+                  className="admin-input"
+                  value={link.work || ''}
+                  onChange={(e) => update(i, { work: e.target.value })}
+                >
+                  <option value="">— pick a post —</option>
+                  {portfolioDocs.map((r) => (
+                    <option key={r.uri} value={r.uri}>
+                      {r.value?.title || workSlug(r.value) || r.uri}
+                    </option>
+                  ))}
+                </select>
+              )
+            ) : (
+              <input
+                className="admin-input"
+                type="url"
+                value={link.url || ''}
+                placeholder="https://…"
+                onChange={(e) => update(i, { url: e.target.value })}
+              />
+            )}
+
+            {link.work && !doc && (
+              <p className="admin-field-hint admin-error-inline">
+                Referenced post not found: <code>{link.work}</code>
+              </p>
+            )}
+
+            <label className="rf-inline-field rf-inline-field-block">
+              <span className="rf-inline-label">Label</span>
+              <input
+                className="admin-input"
+                type="text"
+                value={link.label ?? ''}
+                placeholder={
+                  mode === 'work'
+                    ? doc?.value?.title || 'Falls back to the post title'
+                    : 'Link text'
+                }
+                onChange={(e) => update(i, { label: e.target.value || undefined })}
+              />
+            </label>
+            <label className="rf-inline-field rf-inline-field-block">
+              <span className="rf-inline-label">Description</span>
+              <input
+                className="admin-input"
+                type="text"
+                value={link.description ?? ''}
+                placeholder="Optional one-line note"
+                onChange={(e) => update(i, { description: e.target.value || undefined })}
+              />
+            </label>
+            <div className="rf-inline">
+              <label className="rf-inline-field">
+                <span className="rf-inline-label">Visibility</span>
+                <select
+                  className="admin-input rf-select-sm"
+                  value={link.visibility || 'public'}
+                  onChange={(e) => update(i, { visibility: e.target.value })}
+                >
+                  <option value="public">public</option>
+                  <option value="unlisted">unlisted</option>
+                  <option value="private">private</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        );
+      })}
+      <button type="button" className="rf-add" onClick={add}>
+        <Plus size={15} aria-hidden="true" /> Add work sample
+      </button>
+      {error && (
+        <p className="admin-field-hint admin-error-inline">Couldn’t load posts: {error}</p>
+      )}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
