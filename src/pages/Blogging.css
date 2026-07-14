@@ -104,23 +104,25 @@
   margin: 0 auto;
 }
 
-/* Cap the document title at the SAME visual column as the article body.
+/* Cap the whole document page — the title AND the article together — at the
+   reading measure, resolved ONCE against the page's own body font (1rem,
+   weight 400, --serif). This is what makes the title line up with the article
+   edge-for-edge.
 
-   --measure is `65ch`, and `ch` resolves against each element's own font-size.
-   The article inherits the body size (~1rem), so its `65ch` is the true reading
-   column. The title is --text-4xl (3rem = 3× the base), so a bare
-   `max-width: var(--measure)` resolves to 65ch at 3× scale — three times too
-   wide, which is why the title ran the full page width. Divide by the title's
-   font-size ratio (--text-4xl ÷ --text-base = 3) so the cap lands at 65ch *at
-   the body size* and the title lines up with the article edge-for-edge. The
-   ratio cancels the font metrics, so this holds for any --serif. The mobile
-   override re-derives the divisor for the smaller --text-3xl title. */
-.page:has(> .blog-article) > .page-title,
-.page:has(> .creating-work-page) > .page-title {
-  max-width: calc(var(--measure) / 3);
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
+   `--measure` is `65ch`, and `ch` resolves against each element's OWN font. An
+   earlier fix capped the title directly with `calc(--measure / 3)` to cancel
+   the title's 3× font-size — algebraically exact, but only while the title and
+   article share glyph metrics. They don't reliably: the title is --text-4xl at
+   weight 600, so whenever that heavy weight renders a wider digit advance than
+   the body-weight article — a synthesised bold, or a fallback serif in the
+   moment before Crimson Pro loads — its `65ch/3` measured a wider column and
+   the title spilled past the article on both sides. Capping the shared parent
+   never touches the title's font at all: `.page` is body-size/weight, so its
+   `65ch` is the true reading column, and both children simply stretch to it. */
+.page:has(> .blog-article),
+.page:has(> .creating-work-page) {
+  max-width: var(--measure);
+  margin-inline: auto;
 }
 
 .blog-article-meta {
@@ -209,12 +211,6 @@
    typography.css (shared with the resume summary and about page). */
 
 @media (max-width: 700px) {
-  /* The title shrinks to --text-3xl (2.25rem) here, so re-derive the divisor
-     (--text-3xl ÷ --text-base = 2.25) to keep the cap at 65ch @ the body size. */
-  .page:has(> .blog-article) > .page-title,
-  .page:has(> .creating-work-page) > .page-title {
-    max-width: calc(var(--measure) / 2.25);
-  }
   .blogging-toc-link {
     grid-template-columns: 1fr;
     gap: var(--space-2);
