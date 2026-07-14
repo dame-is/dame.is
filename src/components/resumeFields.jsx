@@ -90,6 +90,49 @@ function parseTags(text) {
     .filter(Boolean);
 }
 
+/**
+ * Comma-separated tags input that keeps the caret where the user put it.
+ *
+ * Binding an <input> straight to `array.join(', ')` and re-parsing on every
+ * keystroke makes React overwrite the field with a normalized string, which
+ * yanks the caret to the end whenever you edit mid-string. Instead we hold the
+ * raw text locally and only re-sync from props when the incoming value differs
+ * from what the current text already parses to — i.e. on an external change (a
+ * record loaded, a reset), never as an echo of the user's own typing.
+ *
+ * `onChange` receives the parsed array; callers decide whether an empty array
+ * should be stored as `[]` or dropped.
+ */
+export function TagsInput({ id, value, onChange, placeholder, className = 'admin-input' }) {
+  const [text, setText] = useState(() => (Array.isArray(value) ? value.join(', ') : ''));
+
+  useEffect(() => {
+    const fromProps = Array.isArray(value) ? value : [];
+    // Compare with a sentinel that can't survive trimming into a tag, so
+    // the check is exact and never collapses "a b" vs ["a", "b"].
+    if (fromProps.join('\u0000') !== parseTags(text).join('\u0000')) {
+      setText(fromProps.join(', '));
+    }
+    // Keyed on `value` only: re-sync on external changes, not on the local
+    // edits that produced this `value` in the first place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <input
+      id={id}
+      className={className}
+      type="text"
+      value={text}
+      placeholder={placeholder}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(parseTags(e.target.value));
+      }}
+    />
+  );
+}
+
 /** Load every record of a collection once, for the ref pickers. */
 function useCollectionRecords(agent, did, collection) {
   const [records, setRecords] = useState(null);
@@ -393,15 +436,10 @@ export function HighlightsField({ value, onChange, agent, did, recordUri, usageK
           </div>
           <label className="rf-inline-field rf-inline-field-block">
             <span className="rf-inline-label">Tags</span>
-            <input
-              className="admin-input"
-              type="text"
-              value={Array.isArray(h.tags) ? h.tags.join(', ') : ''}
+            <TagsInput
+              value={h.tags}
               placeholder="growth, leadership"
-              onChange={(e) => {
-                const tags = parseTags(e.target.value);
-                update(i, { tags: tags.length ? tags : undefined });
-              }}
+              onChange={(tags) => update(i, { tags: tags.length ? tags : undefined })}
             />
           </label>
         </div>
@@ -684,12 +722,10 @@ export function SkillGroupsField({ value, onChange }) {
           </div>
           <label className="rf-inline-field rf-inline-field-block">
             <span className="rf-inline-label">Skills (comma separated)</span>
-            <input
-              className="admin-input"
-              type="text"
-              value={Array.isArray(group.items) ? group.items.join(', ') : ''}
+            <TagsInput
+              value={group.items}
               placeholder="React, TypeScript, Figma"
-              onChange={(e) => update(i, { items: parseTags(e.target.value) })}
+              onChange={(items) => update(i, { items })}
             />
           </label>
         </div>

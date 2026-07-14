@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronUp, ChevronDown, GitBranch, PenLine, Plus, RotateCcw, X } from 'lucide-react';
 import PageShell from '../PageShell.jsx';
 import { AdminEditorSkeleton } from '../Skeleton.jsx';
-import { SkillGroupsField, ContactField } from '../resumeFields.jsx';
+import { SkillGroupsField, ContactField, TagsInput } from '../resumeFields.jsx';
 import { useEditMode } from '../../hooks/useEditMode.jsx';
 import { COLLECTIONS } from '../../config.js';
 import { rkeyFromAtUri } from '../../lib/atproto.js';
@@ -75,14 +75,6 @@ function moveItem(arr, from, to) {
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
   return next;
-}
-
-/** Comma-separated text → trimmed, de-blanked tag list. */
-function parseTagsInput(text) {
-  return String(text || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
 }
 
 /** Merge a patch, dropping any key set to `undefined` so records stay clean. */
@@ -1115,15 +1107,10 @@ function BulletRow({
             </div>
             <label className="rf-inline-field rf-inline-field-block">
               <span className="rf-inline-label">Tags</span>
-              <input
-                className="admin-input"
-                type="text"
-                value={Array.isArray(h.tags) ? h.tags.join(', ') : ''}
+              <TagsInput
+                value={h.tags}
                 placeholder="growth, leadership"
-                onChange={(e) => {
-                  const tags = parseTagsInput(e.target.value);
-                  onPatchHighlight({ tags: tags.length ? tags : undefined });
-                }}
+                onChange={(tags) => onPatchHighlight({ tags: tags.length ? tags : undefined })}
               />
             </label>
             {variantId && onPatchVariant && (
