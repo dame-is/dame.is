@@ -70,6 +70,12 @@ const RESUME_JOB_NSID = 'is.dame.resume.job';
 const RESUME_EDUCATION_NSID = 'is.dame.resume.education';
 const ARENA_CHANNEL_NSID = 'is.dame.arena.channel';
 
+// --- are.na ------------------------------------------------------------------
+// The /curating galleries render live from are.na (ARENA_CHANNEL_NSID records
+// point at channels), and the whole account is mirrored onto the PDS by
+// `arena-mirror/` (see scripts/mirror-arena.mjs + api/mirror-arena.js).
+export const ARENA_USER = 'dame';
+
 /**
  * Legacy verb-or-shorthand → NSID lookup. Existing call sites
  * (`COLLECTIONS.now`, `COLLECTIONS.listen`, `COLLECTIONS.leaflet`, …) keep
