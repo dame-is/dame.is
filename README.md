@@ -60,7 +60,9 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   **vitals panel** (`src/components/VitalsPanel.jsx`, read via
   `src/hooks/useDameState.js`), and the full series is the history. Each record is
   immutable, so an `is.dame.now` status can strong-ref the one captured alongside
-  it via its optional `stateRef` — coupling a note to the body-state behind it.
+  it via its optional `stateRef` — coupling a note to the body-state behind it,
+  which renders as a small chip (`src/components/VitalsChip.jsx`) under the status
+  in the feed and on its record page.
   Posted straight from an iPhone Apple Shortcut (app-password `createSession` →
   `createRecord`, no server); the panel dims and reads "last seen" once the
   latest reading goes stale. See [`lexicons/STATE.md`](lexicons/STATE.md).

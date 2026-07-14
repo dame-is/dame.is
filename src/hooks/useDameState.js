@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
+import { normalizeVitals } from '../lib/vitals.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 
 /**
@@ -13,9 +14,7 @@ import { ME_DID, COLLECTIONS } from '../config.js';
  * every "live" surface updates together.
  *
  * Returns `{ vitals, status }`, where `vitals` is a normalized, type-coerced
- * shape (or null before anything loads). The record is written from an iPhone
- * Shortcut where a field may arrive as a string, so we coerce defensively here
- * rather than trusting the stored types.
+ * shape (or null before anything loads).
  */
 export function useDameState() {
   const [record, setRecord] = useState(null);
@@ -66,41 +65,5 @@ export function useDameState() {
     };
   }, []);
 
-  return { vitals: normalize(record), status };
-}
-
-function toInt(v) {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Math.round(Number(v));
-  return Number.isFinite(n) ? n : null;
-}
-
-function toBool(v) {
-  if (typeof v === 'boolean') return v;
-  if (v === null || v === undefined) return null;
-  const s = String(v).trim().toLowerCase();
-  if (['yes', 'true', '1', 'on', 'charging'].includes(s)) return true;
-  if (['no', 'false', '0', 'off'].includes(s)) return false;
-  return null;
-}
-
-function normalize(record) {
-  const v = record?.value;
-  if (!v) return null;
-  const sampledAt = v.capturedAt || v.createdAt || null;
-  return {
-    heartRate: toInt(v.heartRate),
-    activity: v.activity ? String(v.activity).trim().toLowerCase() : null,
-    batteryLevel: clampPct(toInt(v.batteryLevel)),
-    charging: toBool(v.charging ?? v.isCharging),
-    soundLevel: toInt(v.soundLevel ?? v.environmentSound),
-    caloriesBurned: toInt(v.caloriesBurned),
-    sampledAt,
-    uri: record.uri || null,
-  };
-}
-
-function clampPct(n) {
-  if (n === null) return null;
-  return Math.max(0, Math.min(100, n));
+  return { vitals: normalizeVitals(record?.value), status };
 }
