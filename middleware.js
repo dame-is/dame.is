@@ -57,9 +57,13 @@ export const config = {
     '/curating',
     '/curating/:slug',
     '/listening',
+    '/listening/:rkey',
     '/posting',
+    '/posting/:rkey',
     '/logging',
+    '/logging/:rkey',
     '/mothing',
+    '/mothing/:rkey',
     '/sharing',
   ],
 };
@@ -140,19 +144,30 @@ export default async function middleware(request) {
       const section = pageMeta(sectionPath);
       const rec = await recordMeta(path, url.origin);
       if (rec) {
-        // The record resolved: its own title/description, its own OG card
-        // (breadcrumb = section, headline = the record title), and its at://
-        // URI for the head. Falls back below only when it can't be resolved.
-        title = `${rec.title} — ${SITE.domain}`;
-        desc = rec.description || section.desc;
+        // The record resolved: its own OG card + at:// URI for the head. Falls
+        // back below only when it can't be resolved.
+        //   • titled records (blog/work/channel/track/moth) → "{title} — dame.is"
+        //     with the title as the card headline and its description beneath.
+        //   • textOnly records (posts, statuses) have no title of their own, so
+        //     the section names the page, the text becomes the description, and
+        //     the card renders the text as body copy.
+        const cardSubtitle = rec.textOnly ? '' : rec.description;
+        if (rec.textOnly) {
+          title = section.title;
+          desc = rec.title;
+        } else {
+          title = `${rec.title} — ${SITE.domain}`;
+          desc = rec.description || section.desc;
+        }
         const params = new URLSearchParams({
           section: sectionSeg,
           label: rec.title,
-          subtitle: desc,
+          subtitle: cardSubtitle,
           nsid: rec.nsid || section.nsid,
         });
         // Stamp the card's day-of-life folio with the record's own date.
         if (rec.date) params.set('date', rec.date);
+        if (rec.textOnly) params.set('body', '1');
         ogImage = `${ORIGIN}/api/og?${params.toString()}`;
         atUri = rec.atUri;
         cid = rec.cid;

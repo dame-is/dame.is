@@ -29,7 +29,25 @@ const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
 
 // Sections whose leaf pages render a single AT-Protocol record.
-const RECORD_SECTIONS = new Set(['blogging', 'creating', 'curating']);
+const RECORD_SECTIONS = new Set([
+  'blogging',
+  'creating',
+  'curating',
+  'posting',
+  'logging',
+  'listening',
+  'mothing',
+]);
+
+// rkey-addressed sections → the collection(s) a getRecord(rkey) should try, in
+// order. (blogging/creating are slug-addressed and resolve via snapshots;
+// curating pulls its title from the are.na-backed `curating` snapshot.)
+const SECTION_COLLECTIONS = {
+  posting: ['app.bsky.feed.post', 'net.anisota.feed.post'],
+  logging: [COLLECTIONS.now],
+  listening: [COLLECTIONS.listen],
+  mothing: ['is.dame.mothing.observation'],
+};
 
 /** Resolve after `ms`, whichever comes first, so a hung fetch never blocks. */
 function withTimeout(promise, ms) {
@@ -68,6 +86,73 @@ function endsWithRkey(uri, rkey) {
 function collectionFromUri(uri) {
   const m = String(uri || '').match(/^at:\/\/[^/]+\/([^/]+)\//);
   return m ? m[1] : null;
+}
+
+const firstText = (...vals) => {
+  for (const s of vals) {
+    const t = String(s == null ? '' : s).trim();
+    if (t) return t;
+  }
+  return '';
+};
+
+const humanizeSlug = (slug) =>
+  String(slug || '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^\w/, (c) => c.toUpperCase());
+
+const artistNames = (v) =>
+  (Array.isArray(v?.artists) ? v.artists : [])
+    .map((a) => a?.artistName)
+    .filter(Boolean)
+    .join(', ');
+
+// value → { title, description, textOnly } for the OG card, keyed by lexicon.
+// `title` is the big line (the record's own text/name); `description` is the
+// secondary line; `textOnly` records (posts, statuses) have no title of their
+// own, so the card renders their text as body copy and the section name (not
+// the text) becomes the <title>.
+const CARD_EXTRACTORS = {
+  'app.bsky.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
+  'net.anisota.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
+  'is.dame.now': (v) => ({ title: firstText(v.status, v.text), description: '', textOnly: true }),
+  'fm.teal.alpha.feed.play': (v) => ({
+    title: firstText(v.trackName),
+    description: artistNames(v),
+    textOnly: false,
+  }),
+  'is.dame.mothing.observation': (v) => {
+    const common = firstText(v.taxon?.commonName);
+    const sci = firstText(v.taxon?.name);
+    return { title: common || sci || 'Moth observation', description: common && sci ? sci : '', textOnly: false };
+  },
+  'is.dame.arena.channel': (v, ctx) => ({
+    title: firstText(v.title, ctx?.title, humanizeSlug(ctx?.slug)),
+    description: firstText(v.description, ctx?.description),
+    textOnly: false,
+  }),
+};
+
+const docCard = (v) => ({
+  title: firstText(v.title, v.name),
+  description: firstText(v.description, v.summary, v.subtitle),
+  textOnly: false,
+});
+CARD_EXTRACTORS['site.standard.document'] = docCard;
+CARD_EXTRACTORS['pub.leaflet.document'] = docCard;
+CARD_EXTRACTORS['is.dame.creating.work'] = docCard;
+
+function extractCard(collection, value, ctx) {
+  const fn = CARD_EXTRACTORS[collection];
+  if (fn) return fn(value, ctx);
+  // Unknown lexicon: any title/name, else any text body.
+  const named = firstText(value.title, value.name);
+  const text = firstText(value.text, value.status, value.body);
+  return named
+    ? { title: named, description: firstText(value.description, value.summary), textOnly: false }
+    : { title: text, description: '', textOnly: Boolean(text) };
 }
 
 /** True if `pathname` looks like a slug-addressed record route we can resolve. */
@@ -112,9 +197,30 @@ async function resolveWork(origin, slug) {
   return withTimeout(liveWorkBySlug(slug), PDS_TIMEOUT_MS);
 }
 
-// /curating/:slug — slug is the channel rkey.
+// /curating/:slug — slug is the channel rkey. The record itself only carries
+// `arenaSlug`/`enabled`; the human title + description come from are.na and are
+// baked into the `curating` snapshot at build time, so read them from there
+// (falling back to a live getRecord + a humanized slug).
 async function resolveChannel(origin, slug) {
-  return withTimeout(liveByRkey(slug, [COLLECTIONS.arenaChannel]), PDS_TIMEOUT_MS);
+  const atUri = `at://${ME_DID}/${COLLECTIONS.arenaChannel}/${slug}`;
+  const snap = origin ? await fetchJson(`${origin}/data/curating.json`, SNAPSHOT_TIMEOUT_MS) : null;
+  const gallery = (Array.isArray(snap?.galleries) ? snap.galleries : []).find(
+    (g) => g?.slug === slug || g?.arenaSlug === slug,
+  );
+  if (gallery && firstText(gallery.title)) {
+    return {
+      uri: atUri,
+      cid: null,
+      value: { $type: COLLECTIONS.arenaChannel, title: gallery.title, description: gallery.description || '' },
+    };
+  }
+  const rec = await withTimeout(liveByRkey(slug, [COLLECTIONS.arenaChannel]), PDS_TIMEOUT_MS);
+  if (!rec) return null;
+  return {
+    uri: rec.uri || atUri,
+    cid: rec.cid || null,
+    value: { ...(rec.value || {}), title: firstText(rec.value?.title, humanizeSlug(slug)) },
+  };
 }
 
 async function liveByRkey(rkey, collections) {
@@ -142,29 +248,41 @@ async function liveWorkBySlug(slug) {
   return legacy.find((r) => !isDraft(r?.value) && workSlug(r?.value) === slug) || null;
 }
 
-function shapeMeta(record, section) {
+function shapeMeta(record, section, slug) {
   const v = (record && record.value) || {};
-  const title = String(v.title || v.name || '').trim();
-  if (!title) return null;
-  const description = String(v.description || v.summary || v.subtitle || '').trim();
   const atUri = record.uri || null;
+  const collection = collectionFromUri(atUri);
+  const { title, description, textOnly } = extractCard(collection, v, { slug });
+  const cleanTitle = firstText(title);
+  if (!cleanTitle) return null;
   const cid = record.cid || null;
   // `site` is the site.standard.document → site.standard.publication link
   // (an at:// URI). Bluesky needs it to render the Standard Site embed.
   const publication = typeof v.site === 'string' ? v.site : null;
   // When the record was made — drives the OG card's day-of-life folio so it
   // reflects the record's day, not the day the card is rendered.
-  const date = v.publishedAt || v.createdAt || null;
-  return { title, description, section, atUri, cid, nsid: collectionFromUri(atUri), publication, date };
+  const date = v.publishedAt || v.createdAt || v.playedTime || v.playedAt || null;
+  return {
+    title: cleanTitle,
+    description: firstText(description),
+    textOnly: Boolean(textOnly),
+    section,
+    atUri,
+    cid,
+    nsid: collection,
+    publication,
+    date,
+  };
 }
 
 /**
  * Resolve a record route to
- * `{ title, description, section, atUri, cid, nsid, publication }`, or null if
- * it's not a record route or the record can't be resolved. `title` is the
- * record's own title; `description` is its summary/subtitle when present;
- * `atUri`/`cid` point at the canonical record; `nsid` is its collection;
- * `publication` is the parent site.standard.publication at:// URI (or null).
+ * `{ title, description, textOnly, section, atUri, cid, nsid, publication, date }`,
+ * or null if it's not a record route or the record can't be resolved. `title`
+ * is the card's big line (the record's own title, or its text for `textOnly`
+ * records like posts); `description` is the secondary line; `atUri`/`cid` point
+ * at the canonical record; `nsid` is its collection; `publication` is the parent
+ * site.standard.publication at:// URI (or null); `date` is when it was made.
  */
 export async function recordMeta(pathname, origin) {
   const segs = (pathname || '').split('/').filter(Boolean);
@@ -180,8 +298,11 @@ export async function recordMeta(pathname, origin) {
     if (section === 'blogging') record = await resolveBlog(origin, slug);
     else if (section === 'creating') record = await resolveWork(origin, slug);
     else if (section === 'curating') record = await resolveChannel(origin, slug);
+    else if (SECTION_COLLECTIONS[section]) {
+      record = await withTimeout(liveByRkey(slug, SECTION_COLLECTIONS[section]), PDS_TIMEOUT_MS);
+    }
   } catch {
     record = null;
   }
-  return record ? shapeMeta(record, section) : null;
+  return record ? shapeMeta(record, section, slug) : null;
 }

@@ -70,6 +70,7 @@ export default async function handler(req, res) {
     let subtitle = '';
     let nsid = DEFAULT.nsid;
     let record = false;
+    let body = false;
     if (q.page) {
       pathname = cleanPath(String(q.page));
       const meta = pageMeta(pathname);
@@ -84,6 +85,9 @@ export default async function handler(req, res) {
       subtitle = String(q.subtitle || '');
       nsid = String(q.nsid || DEFAULT.nsid);
       record = true;
+      // `body=1` renders the label as wrapped body copy (a post/status quote)
+      // instead of a big headline.
+      body = q.body === '1' || q.body === 'true';
     } else if (q.title || q.subtitle) {
       label = String(q.title || '');
       subtitle = String(q.subtitle || '');
@@ -99,6 +103,7 @@ export default async function handler(req, res) {
       subtitle,
       nsid,
       record,
+      body,
       segs: segsFor(pathname),
       avatarUri,
       folio: folio(folioAt),
