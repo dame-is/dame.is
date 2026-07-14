@@ -100,10 +100,15 @@ export default function CreatingWork() {
           )}
           {v?.createdAt && <span>· {formatDateLong(v.createdAt)}</span>}
         </div>
-        {/* Only the legacy `summary` shows as an on-page intro. The standard.site
-            `description` is the open-graph / feed-summary blurb and isn't
-            rendered on the work itself. */}
-        {v?.summary && (
+        {/* The summary is metadata — the feed-card / open-graph blurb, not page
+            copy. For standard/leaflet docs it's auto-derived from the body's
+            opening (feedBuilder's leafletSynopsis) when the record has no
+            `description`, so rendering it here just duplicates the first lines of
+            the body. Show it only for LEGACY works (no `content.pages`), whose
+            `summary` is a hand-written intro distinct from the body; standard
+            docs keep it as metadata only, exactly as the blog post page omits
+            its `description`. */}
+        {v?.summary && !v?.content?.pages && (
           <p className="page-intro">{v.summary}</p>
         )}
         {v?.content?.pages ? (
