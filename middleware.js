@@ -14,9 +14,17 @@
 
 import { pageMeta, SITE, cleanPath, segsFor } from './og/pages.js';
 import { recordMeta } from './og/records.js';
-import { ME_DID, COLLECTIONS } from './src/config.js';
+import { ME_DID, COLLECTIONS, BLOG_PUBLICATION, PORTFOLIO_PUBLICATION } from './src/config.js';
 
 const ORIGIN = 'https://dame.is';
+
+// site.standard.document is the lexicon Bluesky renders as a Standard Site
+// embed. Its section homes map to the publication the docs belong to.
+const STANDARD_DOC_NSID = 'site.standard.document';
+const SECTION_PUBLICATION = {
+  '/blogging': BLOG_PUBLICATION,
+  '/creating': PORTFOLIO_PUBLICATION,
+};
 
 // Top-level surfaces backed by an is.dame.page record (keyed by rkey), mirroring
 // the client's src/hooks/useAtUri.js `pageRkeyForPath`. Used to give crawlers
@@ -89,6 +97,20 @@ function injectAtprotoHead(html, atUri, cid) {
   return html.replace(/<\/head>/i, `${tags}  </head>`);
 }
 
+// Standard Site link tags: what Bluesky (and other AT clients) read to render a
+// site.standard.document as a rich "Standard Site" embed instead of a plain OG
+// card. Their crawler runs no JS, so these must be server-side. `document` goes
+// on an article page, `publication` on both articles and the publication home.
+// Verification is against the publication's own domain (its record `url` +
+// /.well-known/site.standard.publication), so a re-render like dame.is only
+// needs to declare the refs here. See https://standard.site/docs/verification/.
+function injectStandardSiteHead(html, { document: documentUri, publication: publicationUri }) {
+  let tags = '';
+  if (documentUri) tags += `    <link rel="site.standard.document" href="${escapeAttr(documentUri)}" />\n`;
+  if (publicationUri) tags += `    <link rel="site.standard.publication" href="${escapeAttr(publicationUri)}" />\n`;
+  return tags ? html.replace(/<\/head>/i, `${tags}  </head>`) : html;
+}
+
 export default async function middleware(request) {
   try {
     const url = new URL(request.url);
@@ -107,6 +129,11 @@ export default async function middleware(request) {
     let ogImage;
     let atUri = null;
     let cid = null;
+    // Standard Site refs: the site.standard.document + its publication, for the
+    // Bluesky rich embed. `stdDoc` only on article pages; `stdPub` on articles
+    // and the publication home pages (/blogging, /creating).
+    let stdDoc = null;
+    let stdPub = null;
     if (segs.length === 2) {
       const sectionSeg = segs[0];
       const sectionPath = `/${sectionSeg}`;
@@ -127,6 +154,12 @@ export default async function middleware(request) {
         ogImage = `${ORIGIN}/api/og?${params.toString()}`;
         atUri = rec.atUri;
         cid = rec.cid;
+        // Only site.standard.document records get the Standard Site embed; a
+        // leaflet or arena record on these routes is skipped.
+        if (rec.nsid === STANDARD_DOC_NSID) {
+          stdDoc = rec.atUri;
+          stdPub = rec.publication;
+        }
       } else {
         // A record route whose record can't be fetched degrades to the
         // section's own card + title, so crawlers never see the generic home
@@ -141,6 +174,8 @@ export default async function middleware(request) {
       desc = meta.desc;
       ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(path)}`;
       atUri = topLevelAtUri(path);
+      // Publication home pages advertise their publication for the embed.
+      stdPub = SECTION_PUBLICATION[path] || null;
     }
 
     // Pull the built SPA shell. The matcher never matches /index.html, so this
@@ -167,6 +202,9 @@ export default async function middleware(request) {
     // Record/leaf pages (and the top-level surfaces) advertise their canonical
     // at:// URI so AT-aware crawlers can find the backing record.
     if (atUri) html = injectAtprotoHead(html, atUri, cid);
+
+    // Standard Site link tags → Bluesky renders the rich publication embed.
+    if (stdDoc || stdPub) html = injectStandardSiteHead(html, { document: stdDoc, publication: stdPub });
 
     return new Response(html, {
       status: 200,

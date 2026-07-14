@@ -149,15 +149,19 @@ function shapeMeta(record, section) {
   const description = String(v.description || v.summary || v.subtitle || '').trim();
   const atUri = record.uri || null;
   const cid = record.cid || null;
-  return { title, description, section, atUri, cid, nsid: collectionFromUri(atUri) };
+  // `site` is the site.standard.document → site.standard.publication link
+  // (an at:// URI). Bluesky needs it to render the Standard Site embed.
+  const publication = typeof v.site === 'string' ? v.site : null;
+  return { title, description, section, atUri, cid, nsid: collectionFromUri(atUri), publication };
 }
 
 /**
  * Resolve a record route to
- * `{ title, description, section, atUri, cid, nsid }`, or null if it's not a
- * record route or the record can't be resolved. `title` is the record's own
- * title; `description` is its summary/subtitle when present; `atUri`/`cid`
- * point at the canonical record; `nsid` is its collection.
+ * `{ title, description, section, atUri, cid, nsid, publication }`, or null if
+ * it's not a record route or the record can't be resolved. `title` is the
+ * record's own title; `description` is its summary/subtitle when present;
+ * `atUri`/`cid` point at the canonical record; `nsid` is its collection;
+ * `publication` is the parent site.standard.publication at:// URI (or null).
  */
 export async function recordMeta(pathname, origin) {
   const segs = (pathname || '').split('/').filter(Boolean);
