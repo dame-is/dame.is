@@ -51,8 +51,8 @@
         "highlightIds": {
           "type": "array",
           "maxLength": 50,
-          "items": { "type": "string", "maxLength": 64 },
-          "description": "Which of the job's highlight ids to include, in this order. Omit to include every non-private highlight in its natural order."
+          "items": { "type": "string", "maxLength": 130 },
+          "description": "Which of the job's highlight ids to include, in this order. Each item is either a bare highlight id (\"h3\" — shows the canonical text) or \"<highlightId>#<variantId>\" (\"h3#v2\" — shows that forked phrasing from the highlight's variants). Omit to include every non-private highlight in its natural order."
         },
         "titleOverride":   { "type": "string", "maxLength": 200, "description": "Optional per-resume retitling of the role (e.g. condensing for a one-pager). Falls back to the job's title." },
         "summaryOverride": { "type": "string", "maxLength": 2000, "description": "Optional per-resume role summary. Falls back to the job's summary." }
@@ -66,7 +66,8 @@
         "highlightIds": {
           "type": "array",
           "maxLength": 50,
-          "items": { "type": "string", "maxLength": 64 }
+          "items": { "type": "string", "maxLength": 130 },
+          "description": "Same shape as entry.highlightIds — bare highlight ids or \"<highlightId>#<variantId>\" variant refs."
         }
       }
     },

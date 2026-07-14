@@ -4,6 +4,8 @@ import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import PageContentPanel from '../components/PageContentPanel.jsx';
 import GuestbookModerationPanel from '../components/GuestbookModerationPanel.jsx';
+import ResumeStudio from '../components/resume/ResumeStudio.jsx';
+import ResumeWorkbench from '../components/resume/ResumeWorkbench.jsx';
 import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -72,6 +74,12 @@ export default function Admin() {
   }
   if (view === 'listening') {
     return <ListeningManager agent={agent} did={did} />;
+  }
+  if (view === 'resume') {
+    return <ResumeStudio agent={agent} did={did} />;
+  }
+  if (view === 'resume-tailor' && rkey) {
+    return <ResumeWorkbench agent={agent} did={did} rkey={rkey} />;
   }
   if (view === 'blogging') {
     return (
@@ -217,14 +225,10 @@ const PICKER_GROUPS = [
   {
     key: 'resume',
     heading: 'Resume',
-    note: 'Backlinked job, education, and resume records.',
+    note: 'Versions assembled from canonical job and education records.',
     items: [
-      { collection: COLLECTIONS.resume, label: 'Resume',
-        summary: 'Resume versions — each selects which jobs, education, and highlights to show.' },
-      { collection: COLLECTIONS.resumeJob, label: 'Jobs',
-        summary: 'Canonical positions and their achievement bullets (highlights).' },
-      { collection: COLLECTIONS.resumeEducation, label: 'Education',
-        summary: 'Canonical education entries.' },
+      { to: '/admin?view=resume', label: 'Resume studio', nsid: COLLECTIONS.resume,
+        summary: 'Every version, job, and education record in one place — duplicate a version, then tailor it: pick, reorder, re-word, and fork bullets per version.' },
     ],
   },
 ];
