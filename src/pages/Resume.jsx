@@ -6,6 +6,7 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, explorerPathFromAtUri } from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { transformRecords } from '../lib/feedBuilder.js';
+import { ResumeSkeleton } from '../components/Skeleton.jsx';
 import { showOnCreating, workSlug } from '../lib/publications.js';
 import { coverThumb } from '../lib/creatingHelpers.js';
 import {
@@ -135,7 +136,7 @@ export default function Resume() {
   if (status === 'loading') {
     return (
       <PageShell headTitle="dame.is for hire" atUri={`at://${ME_DID}/is.dame.page/resume`}>
-        <p className="placeholder-card">Loading resume…</p>
+        <ResumeSkeleton />
       </PageShell>
     );
   }
