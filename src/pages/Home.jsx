@@ -11,6 +11,8 @@ import FeedFilters, {
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
+import Lightbox from '../components/Lightbox.jsx';
+import { photoUrl } from '../lib/inaturalist.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import {
   readFeedCache,
@@ -28,6 +30,7 @@ import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -36,10 +39,12 @@ const CACHE_TTL_MS = 30_000;
 // First-paint cap per collection — matches AT Proto's per-request
 // listRecords ceiling, so each collection lands in a single round trip
 // with no extra pagination. Background polls keep the same cap; deeper
-// history isn't fetched, only `Load more` reveals what's already there.
+// history isn't fetched — scrolling only reveals what's already in memory.
 const INITIAL_FETCH_MAX = 100;
-// How many items the feed renders before showing the "Load more" CTA,
-// and how many additional items each click reveals.
+// How many items the feed renders on first paint, and how many more each
+// auto-reveal adds as the reader nears the bottom. The step is kept well
+// taller than a viewport so one reveal pushes the scroll sentinel back out
+// of range — it re-fires on the next scroll, never in a runaway loop.
 const INITIAL_VISIBLE = 100;
 const LOAD_MORE_STEP = 100;
 // Snapshot is now a fallback only (shown when the live fetch errors).
@@ -143,9 +148,9 @@ export default function Home() {
 
   // Which verbs the active filter set actually needs fetched. `replying`
   // is a virtual filter over `posting` records, so it folds onto posting.
-  // The default view (DEFAULT_HOME_VERBS) omits `liking` / `voting`, so
-  // those — and their slow per-record subject hydration — are never
-  // fetched until the user opts in via the filter chips.
+  // The default view (DEFAULT_HOME_VERBS) omits `liking`, so that verb —
+  // and its slow per-record subject hydration — is never fetched until the
+  // user opts in via the filter chips.
   const activeVerbs = useMemo(() => resolveActiveVerbs(params), [params]);
   const fetchVerbs = useMemo(() => {
     const s = new Set();
@@ -181,21 +186,26 @@ export default function Home() {
   // resolved live refresh always wins the race.
   const feedSourceRef = useRef(initialCache ? 'cache' : 'none');
   // The static snapshot, kept around to estimate chip counts for verbs we
-  // haven't fetched live (e.g. liking / voting on the default view).
+  // haven't fetched live (e.g. liking on the default view).
   const [snapshotFeed, setSnapshotFeed] = useState(null);
 
   const reduce = useReducedMotion();
 
   // How many items the feed is currently rendering. Starts at
-  // INITIAL_VISIBLE and grows by LOAD_MORE_STEP each click of the
-  // "Load more" CTA at the bottom of the feed. Resets when the active
-  // filter set changes so the user always starts from the top of the
-  // new view.
+  // INITIAL_VISIBLE and grows by LOAD_MORE_STEP as the reader nears the
+  // bottom (an IntersectionObserver sentinel auto-reveals the next window;
+  // see below). Resets when the active filter set changes so the user
+  // always starts from the top of the new view.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
   const filterSig = params.toString();
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE);
   }, [filterSig]);
+
+  // Whether the browser can auto-reveal on scroll. When IntersectionObserver
+  // is unavailable we fall back to rendering the manual "Load more" button so
+  // those readers can still page through the feed.
+  const [ioSupported] = useState(() => typeof IntersectionObserver !== 'undefined');
 
   // URIs we've already shown the user. Anything missing on a refresh is
   // a "new arrival" and gets the slide-in animation. Seeded from cache
@@ -250,6 +260,9 @@ export default function Home() {
           authorFeedMax: INITIAL_FETCH_MAX,
           skipListMembers: true,
           verbs,
+          // Pull iNaturalist observations newer than the newest mirrored one
+          // so brand-new sightings show without waiting for the mirror cron.
+          liveObservations: true,
         },
       });
       live = Array.isArray(result?.unified) ? result.unified : null;
@@ -399,9 +412,9 @@ export default function Home() {
     (refreshState === 'refreshing' && !verbsCovered(liveVerbs, fetchVerbs));
 
   // Chip counts. Verbs covered by the latest live fetch get exact counts
-  // from the displayed feed; verbs we haven't fetched live (e.g. liking /
-  // voting on the default view) fall back to a count estimated from the
-  // static snapshot, flagged so the UI can mark it as approximate.
+  // from the displayed feed; verbs we haven't fetched live (e.g. liking on
+  // the default view) fall back to a count estimated from the static
+  // snapshot, flagged so the UI can mark it as approximate.
   const liveCounts = useMemo(() => feedFilterCounts(safeFeed, ME_DID), [safeFeed]);
   const snapshotCounts = useMemo(
     () => (snapshotFeed ? feedFilterCounts(snapshotFeed, ME_DID) : null),
@@ -446,12 +459,64 @@ export default function Home() {
     if (!removedUris || removedUris.size === 0) return base;
     return base.filter((item) => !removedUris.has(item.atUri));
   }, [safeFeed, params, removedUris]);
-  // "Load more" pagination — the user only sees the first `visibleCount`
+  // Client-side pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each
   // visible window is a clean prefix of the filtered timeline.
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
   const hasMore = filtered.length > visible.length;
+
+  // Grow the visible window as the reader nears the bottom. The extra items
+  // are already in memory, so this is an instant reveal rather than a fetch;
+  // the bottom sentinel drives it via IntersectionObserver, with the manual
+  // button kept only as a no-observer fallback (see the feed foot below).
+  const loadMore = useCallback(
+    () => setVisibleCount((n) => n + LOAD_MORE_STEP),
+    [],
+  );
+  const sentinelRef = useInfiniteScroll(loadMore, { enabled: hasMore });
+
+  // Photographed iNaturalist observations (mothing + observing) currently in
+  // view, shaped for the in-feed image lightbox. Tapping an observation row
+  // opens this at that observation's index; prev/next then walks every
+  // observation on screen — the home-feed cousin of the /mothing grid's
+  // lightbox. Keyed by at:// URI so a tapped row maps straight to its slide.
+  const observationPhotos = useMemo(() => {
+    const images = [];
+    const indexByUri = new Map();
+    for (const item of visible) {
+      if (item.verb !== 'mothing' && item.verb !== 'observing') continue;
+      const photo = item.payload?.photos?.[0];
+      const large = photo ? photoUrl(photo, 'large') : null;
+      if (!large) continue;
+      const taxon = item.payload?.taxon || {};
+      const name =
+        taxon.commonName ||
+        taxon.name ||
+        (item.verb === 'mothing' ? 'Unidentified moth' : 'Unidentified organism');
+      const sci = taxon.name;
+      if (item.atUri) indexByUri.set(item.atUri, images.length);
+      images.push({
+        src: large,
+        thumb: photoUrl(photo, 'medium'),
+        alt: sci && sci !== name ? `${name} — ${sci}` : name,
+        sourceUrl: item.payload?.url || undefined,
+        searchUrl: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(large)}`,
+      });
+    }
+    return { images, indexByUri };
+  }, [visible]);
+
+  // `lightboxIndex` is the active slide, -1 when closed. A ref carries the
+  // latest URI→index map so the open callback stays stable across renders
+  // (it's handed to every FeedItem).
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const observationPhotosRef = useRef(observationPhotos);
+  observationPhotosRef.current = observationPhotos;
+  const openObservationLightbox = useCallback((item) => {
+    const idx = observationPhotosRef.current.indexByUri.get(item?.atUri);
+    if (typeof idx === 'number' && idx >= 0) setLightboxIndex(idx);
+  }, []);
 
   // The feed has no single backing record, so hand the global footer the
   // newest visible record's instant — it reports "latest record …" in place
@@ -475,25 +540,33 @@ export default function Home() {
     return map;
   }, [groups, newUris]);
 
+  // The home feed aggregates many records; it has no single is.dame.page/home
+  // backing record (none exists, and it isn't in PAGE_REGISTRY), so PageShell
+  // gets no `atUri`. Advertising that phantom record made the debug pane's
+  // "Edit record" surface a raw PDS "Could not locate record" error and emitted
+  // a dead <link rel="alternate"> hint. See pageRkeyForPath in
+  // src/hooks/useAtUri.js.
   return (
     <PageShell
       title={<HeroSentence shuffleRef={shuffleRef} />}
-      atUri={`at://${ME_DID}/is.dame.page/home`}
       headTitle="dame.is"
     >
       <nav className="home-hero-cta" aria-label="Primary destinations">
-        <Link className="home-hero-cta-btn home-hero-cta-primary" to="/creating">
-          Browse Projects
+        <Link className="home-hero-cta-btn home-hero-cta-primary" to="/for-hire">
+          Resume
+        </Link>
+        <Link className="home-hero-cta-btn" to="/creating">
+          Projects
         </Link>
         <Link className="home-hero-cta-btn" to="/blogging">
-          Read Blog
+          Blog
         </Link>
         <button
           type="button"
           className="home-hero-cta-btn home-hero-shuffle"
           onClick={() => shuffleRef.current?.()}
-          aria-label="Shuffle the hero phrase"
-          title="Shuffle"
+          aria-label="Shuffle hero statement"
+          title="Shuffle hero statement"
         >
           <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -554,7 +627,11 @@ export default function Home() {
                             delay: reduce ? 0 : stagger,
                           }}
                         >
-                          <FeedItem item={item} layout={ledger ? 'ledger' : 'default'} />
+                          <FeedItem
+                            item={item}
+                            layout={ledger ? 'ledger' : 'cards'}
+                            onOpenLightbox={ledger ? openObservationLightbox : undefined}
+                          />
                         </motion.li>
                       );
                     })}
@@ -566,17 +643,30 @@ export default function Home() {
           )}
         </div>
         {!loading && hasMore && (
-          <div className="feed-load-more">
-            <button
-              type="button"
-              className="feed-load-more-btn"
-              onClick={() => setVisibleCount((n) => n + LOAD_MORE_STEP)}
-            >
-              Load more
-            </button>
-          </div>
+          ioSupported ? (
+            // Invisible tripwire: as it scrolls into range the visible window
+            // grows (client-side, instant — the next batch is already loaded).
+            <div ref={sentinelRef} className="feed-load-sentinel" aria-hidden="true" />
+          ) : (
+            <div className="feed-load-more">
+              <button
+                type="button"
+                className="feed-load-more-btn"
+                onClick={loadMore}
+              >
+                Load more
+              </button>
+            </div>
+          )
         )}
       </section>
+
+      <Lightbox
+        open={lightboxIndex >= 0}
+        index={Math.max(0, lightboxIndex)}
+        onClose={() => setLightboxIndex(-1)}
+        images={observationPhotos.images}
+      />
     </PageShell>
   );
 }

@@ -5,7 +5,7 @@
 // intentionally lightweight — they cover the everyday fields, and the JSON
 // toggle inside the editor lets you reach anything they don't model.
 
-import { COLLECTIONS } from '../config.js';
+import { COLLECTIONS, GUESTBOOK_NSID } from '../config.js';
 
 /**
  * Field types understood by the form renderer:
@@ -110,16 +110,16 @@ export const LEXICONS = {
         key: 'coverImage', label: 'Cover image', type: 'image',
         hint: 'Optional thumbnail / hero shown on cards and at the top of the work.',
       },
-      { key: 'content',     label: 'Body',         type: 'blocks' },
-      {
-        key: 'links', label: 'Links', type: 'json',
-        hint: 'Optional external links (standard.site union — raw JSON).',
-      },
       {
         key: 'draft', label: 'Draft — hidden from public feeds (admin still sees it)',
         type: 'boolean',
       },
       { key: 'publishedAt', label: 'Published at', type: 'datetime', default: 'now', required: true },
+      { key: 'content',     label: 'Body',         type: 'blocks' },
+      {
+        key: 'links', label: 'Links', type: 'json',
+        hint: 'Optional external links (standard.site union — raw JSON).',
+      },
     ],
     // Keep a user-entered path; otherwise derive one from the record key.
     derive: (record, { rkey }) => (rkey ? { ...record, path: record.path || `/${rkey}` } : record),
@@ -207,9 +207,13 @@ export const LEXICONS = {
       { key: 'summary', label: 'Summary', type: 'textarea' },
       {
         key: 'highlights', label: 'Highlights', type: 'highlights',
-        hint: 'Achievement bullets. Reorder with the arrows; each is referenced by resumes that tailor which bullets to show.',
+        hint: 'Achievement bullets. Reorder with the arrows; each is referenced by resumes that tailor which bullets to show. Fork a bullet to keep alternate phrasings of the same point that individual resume versions can pick.',
       },
       { key: 'skills', label: 'Skills', type: 'tags' },
+      {
+        key: 'links', label: 'Work samples', type: 'links',
+        hint: 'Portfolio pieces / links tied to this role — a /creating post (embedded with its cover) or any external URL. Resumes pick which to show under the job.',
+      },
       ...COMMON_TIMESTAMPS,
     ],
   },
@@ -263,7 +267,7 @@ export const LEXICONS = {
       {
         key: 'entries', label: 'Experience (jobs)', type: 'recordRefs',
         refKey: 'job', refCollection: COLLECTIONS.resumeJob, overrides: true,
-        hint: 'Pick jobs and order them with the arrows. Per job, choose which highlights show.',
+        hint: 'Pick jobs and order them with the arrows. Per job, choose which highlights show and which phrasing each uses. The tailoring workbench (Resume studio → Tailor) is the richer editor for this.',
       },
       {
         key: 'education', label: 'Education', type: 'recordRefs',
@@ -316,6 +320,26 @@ export const LEXICONS = {
       { key: 'text', label: 'Text', type: 'textarea', required: true, maxLength: 300 },
       { key: 'langs', label: 'Languages', type: 'tags', default: ['en'], hint: 'BCP-47 codes' },
       { key: 'createdAt', label: 'Created at', type: 'datetime', default: 'now', required: true },
+    ],
+  },
+
+  [GUESTBOOK_NSID]: {
+    label: 'Guestbook (the book)',
+    summary:
+      'The book record visitors sign (rkey "self") — its at-uri is what every signature backlinks to. `hidden` is the moderation list; usually managed from the Guestbook panel or edit mode on /guestbook rather than here.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'self',
+    rkeyDefault: 'self',
+    typeFieldValue: GUESTBOOK_NSID,
+    fields: [
+      { key: 'title', label: 'Title', type: 'text', required: true, placeholder: 'the dame.is guestbook' },
+      { key: 'description', label: 'Description', type: 'textarea', hint: 'What signing means, shown to would-be signers.' },
+      { key: 'url', label: 'URL', type: 'text', placeholder: 'https://dame.is/guestbook' },
+      {
+        key: 'hidden', label: 'Hidden entry at-uris', type: 'json',
+        hint: 'Array of entry at-uris tucked out of public display. Prefer the hide/unhide buttons on /admin?view=guestbook.',
+      },
+      ...COMMON_TIMESTAMPS,
     ],
   },
 };

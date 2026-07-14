@@ -1,18 +1,20 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import WaypointsSheet from '../components/WaypointsSheet.jsx';
-import { isWaypointHref } from '../lib/waypoints.js';
+import { isAutoWaypointHref } from '../lib/waypoints.js';
 
 const WaypointsModalContext = createContext(null);
 
 /**
- * Global "Open in…" picker for outbound Atmosphere links.
+ * Global "Open in…" picker for outbound Bluesky links.
  *
- * Rather than wrap every one of the dozens of `bsky.app` / `at://` links
- * scattered across the site, the provider installs a single capture-phase
- * click listener on the document. When a plain left-click lands on an anchor
- * pointing at a record on a supported Atmosphere host, it cancels the
- * navigation and opens a modal where the visitor can choose which client to
- * open it in (Bluesky, Anisota, Grain, Leaflet, a dev tool, …).
+ * Rather than wrap every one of the dozens of `bsky.app` links scattered across
+ * the site, the provider installs a single capture-phase click listener on the
+ * document. When a plain left-click lands on an anchor pointing at a record on
+ * Bluesky's web client (bsky.app), it cancels the navigation and opens a modal
+ * where the visitor can choose which client to open it in (Bluesky, Anisota,
+ * Grain, Leaflet, a dev tool, …). Links to other hosts — anisota.net,
+ * leaflet.pub, the Bluesky forks, … — navigate natively; the picker is still
+ * reachable for those records via the explicit "Open in…" affordance.
  *
  * Escape hatches:
  *   - Modified clicks (⌘/Ctrl/Shift/Alt, middle-click) are left alone so
@@ -47,9 +49,10 @@ export function WaypointsModalProvider({ children }) {
       // native navigation).
       if (anchor.closest('[data-no-waypoints]')) return;
 
-      // Use the resolved absolute href from the DOM; unknown schemes like
-      // `at://` are preserved verbatim by the browser.
-      if (!isWaypointHref(anchor.href)) return;
+      // Only Bluesky (bsky.app) record/profile links auto-open the picker;
+      // every other host (anisota.net, leaflet.pub, the forks, …) navigates
+      // natively. Uses the resolved absolute href from the DOM.
+      if (!isAutoWaypointHref(anchor.href)) return;
 
       e.preventDefault();
       setHref(anchor.href);

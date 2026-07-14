@@ -49,6 +49,7 @@
 }
 
 .blocks-editor-item {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 0.25rem;
@@ -56,6 +57,77 @@
   border-radius: 0;
   background: transparent;
   padding: 0.1rem 0.4rem 0.1rem 0.1rem;
+}
+
+/* Raise the block whose insert palette is open so the popover isn't covered
+   by the block below it. */
+.blocks-editor-item.has-insert-open {
+  z-index: 20;
+}
+
+/* ---- Between-blocks inserter ("+" in the gap at a block's top edge) ---- */
+.blocks-editor-insert {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Straddle the gap above the block; the container itself is click-through so
+     only the "+" (and the open menu) capture pointer events. */
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.blocks-editor-insert-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.2));
+  background: var(--page, #fff);
+  color: var(--ink-soft, rgba(0, 0, 0, 0.55));
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease, color 100ms ease, border-color 100ms ease;
+}
+
+/* Reveal the "+" when hovering the block, or when its menu is open. */
+.blocks-editor-item:hover > .blocks-editor-insert > .blocks-editor-insert-btn,
+.blocks-editor-insert.is-open .blocks-editor-insert-btn,
+.blocks-editor-insert-btn:focus-visible {
+  opacity: 1;
+}
+
+.blocks-editor-insert-btn:hover,
+.blocks-editor-insert.is-open .blocks-editor-insert-btn {
+  color: var(--accent, #5e7a47);
+  border-color: var(--accent-soft, #8a9f6e);
+}
+
+/* The palette popover, dropped just below the "+". */
+.blocks-editor-insert-menu {
+  pointer-events: auto;
+  position: absolute;
+  top: calc(50% + 0.9rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: min(28rem, 90vw);
+  padding: 0.5rem;
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.2));
+  background: var(--page, #fff);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.blocks-editor-insert-menu .blocks-editor-add-buttons {
+  justify-content: center;
 }
 
 .blocks-editor-main {

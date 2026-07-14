@@ -18,7 +18,7 @@
  * Nothing here writes to the network beyond GETting the public pages.
  */
 
-import { writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,14 +34,29 @@ const MAX_IMG_WIDTH = Number(process.env.MAX_IMG_WIDTH || 2560);
 
 // Curated metadata, in the same order the gallery grid shows them (newest
 // first). Titles come from the grid; categories/tags are normalised to the
-// new site's lowercase vocabulary (art, photography, video, craft, …) while
-// preserving the author's descriptive labels as tags. The page body
-// (images + prose) is scraped below — only this top-matter is hand-set.
+// new site's lowercase vocabulary (art, photography, video, craft, writing,
+// design, marketing, …) while preserving the author's descriptive labels as
+// tags. The page body (images + prose) is scraped below — only this
+// top-matter is hand-set. Alongside the art/photography grid, the list also
+// carries the old site's case-study and writing-sample pages (design,
+// marketing, and writing works).
 const WORKS_META = [
+  { slug: 'the-encyclopedia-of-nfts', title: 'The Encyclopedia of NFTs', year: 2023, category: 'writing', tags: ['writing', 'nft', 'web3', 'education'],
+    summary: 'A comprehensive, two-part guide to Non-Fungible Tokens: the first half explains the terminology and industry landscape, the second helps you decide whether to start collecting or creating.' },
+  { slug: 'the-definitive-guide-to-security-for-nft-creators', title: 'The Definitive Guide to Security for NFT Creators', year: 2023, category: 'writing', tags: ['writing', 'nft', 'security', 'web3'],
+    summary: 'A practical security handbook for Web3 creators: how crypto wallets actually work, and the wallet and digital-security habits that keep your work and assets safe.' },
   { slug: 'photographs-era-2-part-ii', title: 'Photographs: Era 2 (Part II)', year: 2023, category: 'photography', tags: ['photography'] },
+  { slug: 'rainbow', title: 'Rainbow', year: 2022, category: 'marketing', tags: ['marketing', 'community', 'social media', 'web3'],
+    summary: "As Content & Community Manager for the Rainbow wallet, I grew its Twitter following from 8,000 to 50,000, hosted a weekly live audio show, and built out its first customer support team." },
   { slug: 'photography',               title: 'Photographs: Era 2 (Part I)',  year: 2022, category: 'photography', tags: ['photography'] },
   { slug: 'proof-of-no-work',          title: 'Proof of (No) Work',           year: 2022, category: 'art',         tags: ['conceptual art', 'design'] },
+  { slug: 'gpt-3-dao-essay', title: 'Wannabe DAOs', year: 2021, category: 'writing', tags: ['writing', 'essay', 'dao', 'web3'],
+    summary: 'An essay on Decentralized Autonomous Organizations, written in collaboration with GPT-3 — I wrote the opening paragraph and served as editor while GPT-3 did most of the thinking.' },
+  { slug: 'assisted-billing', title: 'Assisted Billing', year: 2019, category: 'design', tags: ['design', 'branding', 'marketing', 'direct mail'],
+    summary: "Branding, direct mail, and marketing for Fusion Web Clinic's new revenue-cycle service — a campaign built around a reimagined CMS-1500 claim form that turned 320 mailers into 6 new customers." },
   { slug: 'red-blue-yellow',           title: 'Red, Blue, Yellow',            year: 2019, category: 'art',         tags: ['painting', 'water-based paint'] },
+  { slug: 'fusion-branding', title: 'Fusion Web Clinic', year: 2018, category: 'design', tags: ['design', 'branding', 'marketing'],
+    summary: "As Creative Specialist for Fusion Web Clinic, I refreshed the company's logo and visual identity and built the style guides, templates, and training that made its marketing collateral look professional." },
   { slug: 'leather-notebooks',         title: 'Leather Notebooks',            year: 2014, category: 'craft',       tags: ['leather', 'paper'] },
   { slug: 'photographs-era-1-part-i',  title: 'Photographs: Era 1 (Part II)', year: 2011, category: 'photography', tags: ['photography'] },
   { slug: 'brickfilms',                title: 'Brickfilms',                   year: 2011, category: 'video',       tags: ['stop-motion', 'lego', 'animation'] },
@@ -161,30 +176,43 @@ function captionOf(chunk) {
 }
 
 // Turn a text module's rich-text body into ordered heading/text blocks.
-// `<div class="title">` → heading; `<div class="main-text">` and bare
-// `<div>` wrappers → paragraphs (Adobe uses a bare div for the lead).
+//
+// Adobe nests the body as a tree of <div>s: `title` / `sub-title` divs are
+// headings, leaf divs are paragraphs, and wrapper divs (notably `main-text`)
+// just hold more of the same. We walk that tree depth-first so every heading
+// and paragraph becomes its own block. Flattening a wrapper with stripTags()
+// instead would splice its child divs together with no separator, smashing a
+// whole section — headings, sub-titles, and paragraphs — into one run-on
+// block (e.g. "…called Standards.StandardsA token standard is…").
+function walkRichDivs(inner, out, pushPara) {
+  const children = topLevelDivs(inner);
+  if (children.length === 0) {
+    pushPara(inner); // leaf: a bare paragraph
+    return;
+  }
+  for (const ch of children) {
+    if (/\btitle\b/.test(ch.attrs)) {
+      // Matches both `title` and `sub-title` (the hyphen is a word boundary).
+      const { text } = richText(ch.body);
+      if (text.trim()) out.push({ type: 'heading', level: 2, text });
+    } else if (/<div\b/.test(ch.body)) {
+      walkRichDivs(ch.body, out, pushPara); // wrapper: descend into it
+    } else {
+      pushPara(ch.body);
+    }
+  }
+}
+
 function textBlocks(chunk) {
   const open = chunk.match(/<div class="[^"]*module-text[^"]*"[^>]*>/);
   if (!open) return [];
   const inner = innerBalancedDiv(chunk, open.index + open[0].length);
-  const children = topLevelDivs(inner);
   const out = [];
   const pushPara = (html) => {
     const { text, links } = richText(html);
     if (text.trim()) out.push(links.length ? { type: 'text', text, links } : { type: 'text', text });
   };
-  if (children.length === 0) {
-    pushPara(inner);
-    return out;
-  }
-  for (const ch of children) {
-    if (/\btitle\b/.test(ch.attrs)) {
-      const { text } = richText(ch.body);
-      if (text.trim()) out.push({ type: 'heading', level: 2, text });
-    } else {
-      pushPara(ch.body);
-    }
-  }
+  walkRichDivs(inner, out, pushPara);
   return out;
 }
 
@@ -260,25 +288,68 @@ async function fetchPage(slug) {
   return res.text();
 }
 
+// `--only=slug[,slug]` re-extracts just those works and merges them into any
+// existing works.json, leaving every other work untouched (so hand-curated
+// summaries / alt text on works you're not re-extracting survive). Without it,
+// the whole file is regenerated from the live pages.
+function parseOnly() {
+  const hit = process.argv.slice(2).find((a) => a.startsWith('--only='));
+  if (!hit) return null;
+  return hit.slice('--only='.length).split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+async function readExisting() {
+  try {
+    const parsed = JSON.parse(await readFile(OUT, 'utf-8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return []; // first run — no file yet
+  }
+}
+
 async function main() {
-  const works = [];
-  for (const meta of WORKS_META) {
+  const only = parseOnly();
+  const targets = only ? WORKS_META.filter((m) => only.includes(m.slug)) : WORKS_META;
+  if (only) {
+    const unknown = only.filter((s) => !WORKS_META.some((m) => m.slug === s));
+    if (unknown.length) console.log(`[extract] unknown slug(s) ignored: ${unknown.join(', ')}`);
+    console.log(`[extract] --only: re-extracting ${targets.length} work(s), preserving the rest`);
+  }
+
+  const fresh = new Map();
+  for (const meta of targets) {
     process.stdout.write(`[extract] ${meta.slug} … `);
     const html = await fetchPage(meta.slug);
     const blocks = blocksFromPage(html);
     const images = blocks.filter((b) => b.type === 'image').length;
     console.log(`${blocks.length} blocks (${images} images)`);
-    works.push({
+    fresh.set(meta.slug, {
       slug: meta.slug,
       title: meta.title,
       category: meta.category,
       tags: meta.tags,
       year: meta.year,
       createdAt: `${meta.year}-01-01T00:00:00.000Z`,
-      summary: summaryFrom(blocks),
+      // A curated `summary` in WORKS_META wins (survives re-extraction);
+      // otherwise fall back to the work's first paragraph.
+      summary: meta.summary || summaryFrom(blocks),
       source: `${BASE}/${meta.slug}`,
       blocks,
     });
+  }
+
+  // Rebuild in WORKS_META order: a freshly extracted work where we have one,
+  // otherwise the previously committed entry copied through verbatim. On an
+  // --only run this leaves every other work byte-for-byte identical.
+  const existingBySlug = new Map((await readExisting()).map((w) => [w.slug, w]));
+  const works = [];
+  for (const meta of WORKS_META) {
+    if (fresh.has(meta.slug)) works.push(fresh.get(meta.slug));
+    else if (existingBySlug.has(meta.slug)) works.push(existingBySlug.get(meta.slug));
+  }
+  // Keep any committed works that aren't in WORKS_META (defensive; none today).
+  for (const [slug, w] of existingBySlug) {
+    if (!WORKS_META.some((m) => m.slug === slug)) works.push(w);
   }
 
   await mkdir(dirname(OUT), { recursive: true });

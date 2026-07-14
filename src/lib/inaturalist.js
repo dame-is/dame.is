@@ -289,6 +289,43 @@ export async function fetchObservations({ user = INATURALIST_USER, max = 1000, s
 }
 
 /**
+ * Fetch observations with an iNaturalist id greater than `sinceId` — the ones
+ * logged after the newest already mirrored to the PDS. Ordered by id ascending
+ * and paginated via `id_above`; `scope` defaults to ALL (moths + everything
+ * else) so the caller can split by each result's `isMoth` flag. Location is
+ * stripped by `normalizeObservation`. Returns [] when `sinceId` is falsy.
+ */
+export async function fetchObservationsNewerThanId({
+  user = INATURALIST_USER,
+  sinceId,
+  max = 200,
+  scope = ALL_SCOPE,
+} = {}) {
+  if (!sinceId) return [];
+  const out = [];
+  let above = String(sinceId);
+  while (out.length < max) {
+    const params = new URLSearchParams({
+      ...scopeParams(user, scope),
+      per_page: String(Math.min(PER_PAGE, max - out.length)),
+      order: 'asc',
+      order_by: 'id',
+      id_above: above,
+    });
+    const data = await fetchJson(`${INATURALIST_API}/observations?${params}`);
+    const batch = Array.isArray(data?.results) ? data.results : [];
+    if (batch.length === 0) break;
+    for (const o of batch) {
+      const n = normalizeObservation(o);
+      if (n) out.push(n);
+    }
+    above = String(batch[batch.length - 1].id);
+    if (batch.length < PER_PAGE) break;
+  }
+  return out;
+}
+
+/**
  * A cheap freshness signature for a scope: one tiny request that returns the
  * total count plus the most-recent edit instant (in UTC). Comparing this
  * against a stored signature tells us whether a full pull is even needed —
@@ -509,6 +546,35 @@ export function observedTimestamp(observedDate, observedTime) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(observedDate || ''))) return null;
   const time = /^\d{2}:\d{2}$/.test(String(observedTime || '')) ? observedTime : '12:00';
   return `${observedDate}T${time}:00.000Z`;
+}
+
+/**
+ * The instant to ORDER and DISPLAY an observation by in a feed, rebuilt from
+ * its stored local wall-clock (`observedDate` + `observedTime`) interpreted in
+ * the *runtime's* time zone.
+ *
+ * `observedTimestamp` pins the wall-clock to `Z` so no tz offset is ever stored
+ * (a tz offset is a coarse location hint). But that fake-UTC value is not a real
+ * instant: against genuinely-UTC records (Bluesky posts, statuses) it sorts
+ * ~offset hours early, and localizing it for display double-shifts the clock
+ * (a 2:59pm sighting reads 10:59am to an observer in UTC−4). Reconstructing it
+ * as a local instant restores correct interleaving, correct local-day
+ * bucketing, and — round-tripped back through `toLocaleTimeString` — the right
+ * displayed time, for a viewer in the observer's own zone (the common case; the
+ * offset is never persisted, so a far-away viewer still can't do better).
+ *
+ * In Node/UTC (the static prefetch) this returns the same instant as
+ * `observedTimestamp`, so the snapshot is byte-identical; only the browser
+ * rebuild, running in the viewer's zone, shifts it.
+ */
+export function observationFeedInstant(observedDate, observedTime) {
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(observedDate || ''));
+  if (!dm) return null;
+  const tm = /^(\d{2}):(\d{2})$/.exec(String(observedTime || ''));
+  const hh = tm ? Number(tm[1]) : 12; // noon fallback for a timeless observation
+  const mm = tm ? Number(tm[2]) : 0;
+  const d = new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0, 0);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
 /**

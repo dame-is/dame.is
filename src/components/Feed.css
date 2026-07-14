@@ -277,7 +277,7 @@ a.feed-item-verb:focus-visible .feed-item-verb-label {
    scale from a stretched grid/flex ancestor when min-width was wrong. */
 article.post-card > footer.post-card-stats {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * var(--mono-scale));
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: var(--leading-tight);
@@ -830,9 +830,20 @@ a.post-card-author-link:focus-visible {
   }
 }
 
-/* "Load more" CTA at the foot of the home feed. Pagination is purely
-   client-side — the next batch is already in memory, so the button only
-   reveals it, no spinner needed. */
+/* Foot of the home feed. Pagination is purely client-side — the next batch
+   is already in memory. By default an invisible sentinel auto-reveals it as
+   the reader nears the bottom; the "Load more" button is the fallback when
+   IntersectionObserver isn't available, so no spinner is needed either way. */
+
+/* The sentinel carries no visual weight of its own; a hair of height keeps
+   it a real box the observer can track, and the top margin gives the reveal
+   a little runway below the last row. */
+.feed-load-sentinel {
+  height: 1px;
+  margin-top: var(--space-5);
+  pointer-events: none;
+}
+
 .feed-load-more {
   display: flex;
   justify-content: center;
@@ -1346,18 +1357,174 @@ a.reference-card-profile:focus-visible {
   border-bottom-color: var(--ink-muted);
 }
 
-/* VoteCard ------------------------------------------------------------ */
+/* AnisotaLabCard (crafting verb) -------------------------------------- */
 
-.vote-card-wrap {
+.lab-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.vote-card-choice {
+.lab-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.lab-card-kind {
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.lab-card-title {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.lab-card-text {
+  margin: 0;
+  font-family: var(--serif);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: var(--measure);
+}
+
+.lab-card-desc {
+  margin: 0;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+}
+
+.lab-card-meta {
+  margin: 0;
+  color: var(--ink-faint);
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+}
+
+.lab-card-figure {
+  margin: 0;
+}
+
+.lab-card-figure img {
+  display: block;
+  width: 100%;
+  max-width: 20rem;
+  height: auto;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
+}
+
+/* Sigils are single-stroke line figures on transparency — keep them compact
+   and give them a calm field so the one line reads. */
+.lab-card-figure-sigil img {
+  max-width: 14rem;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  padding: var(--space-3);
+}
+
+/* Word Magnets poem — cream tiles re-laid faithfully from the saved board
+   (see src/lib/anisotaLab.js). The field is a container so the tile font,
+   emitted in cqw, scales with the field width; overflow hides anything the
+   6% padding pushes past the frame. */
+.lab-poem-field {
+  position: relative;
+  width: 100%;
+  max-width: 24rem;
+  margin: 0;
+  container-type: inline-size;
+  overflow: hidden;
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
+}
+
+.lab-poem-tile {
+  position: absolute;
+  font-size: var(--tile-font);
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
+  transform-origin: center;
+  padding: 0.28em 0.5em;
+  line-height: 1;
+  white-space: nowrap;
+  font-family: var(--serif);
+  /* Cream paper magnets — their own physical object, so they read the same in
+     every dame.is theme rather than tracking the page palette. */
+  background: linear-gradient(#fbf7ee, #efe7d6);
+  color: #1a1714;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+}
+
+.lab-poem-tile.is-fragment {
+  background: linear-gradient(#efe7d6, #e4d9c2);
+  color: #4a3f30;
+  font-style: italic;
+}
+
+/* Erasure poem — the source post's original text with redacted words blacked
+   out by an ink bar, the surviving found poem beneath. */
+.lab-redaction {
+  margin: 0;
+  font-family: var(--serif);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: var(--measure);
+  line-height: 1.85;
+}
+
+.lab-redaction-word.is-redacted {
+  position: relative;
+  color: transparent;
+}
+
+.lab-redaction-word.is-redacted::after {
+  content: '';
+  position: absolute;
+  top: 0.06em;
+  bottom: 0.06em;
+  left: -0.04em;
+  right: -0.04em;
+  background: var(--ink);
+  pointer-events: none;
+}
+
+.lab-redaction-found {
+  margin: var(--space-3) 0 0;
+  font-style: italic;
+  color: var(--ink-soft);
+  text-align: center;
+  white-space: pre-wrap;
+}
+
+/* "view on anisota" link on the single-record page. */
+.lab-card-source {
+  align-self: flex-start;
   color: var(--accent);
   letter-spacing: 0.14em;
   font-size: var(--text-xs);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.lab-card-source:hover {
+  border-bottom-color: var(--accent-soft);
+}
+
+/* The single-record page gives each piece more room than the feed card. */
+.lab-card-record .lab-poem-field {
+  max-width: 34rem;
+}
+
+.lab-card-record .lab-card-figure img {
+  max-width: 30rem;
+}
+
+.lab-card-record .lab-card-figure-sigil img {
+  max-width: 22rem;
 }
 
 /* BlogCard source tag ------------------------------------------------- */
@@ -1394,7 +1561,7 @@ a.reference-card-profile:focus-visible {
    longest gerund ("photographing") at the mono x-small size. */
 .feed-ledger {
   --ledger-verb-col: 6.5rem;
-  --ledger-time-col: 4.5rem;
+  --ledger-time-col: 4rem;
   --ledger-col-gap: var(--space-3);
 }
 
@@ -1422,9 +1589,10 @@ a.reference-card-profile:focus-visible {
   font-size: var(--text-lg);
 }
 
+/* Day stats sit at the same scale as the rows' gerund/time labels. */
 .feed-ledger .day-header-meta {
   font-family: var(--mono);
-  font-size: calc(var(--text-xs) * 0.95);
+  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-align: right;
@@ -1448,14 +1616,23 @@ a.reference-card-profile:focus-visible {
 /* Self-thread continuations carry no verb label; instead the rule
    separating them from the post they continue goes dashed — i.e. the
    PREVIOUS row's bottom border. Rows sit inside Home's motion.li
-   wrappers, so the sibling hop happens on those. */
-.feed-ledger .feed-list > li:has(+ li .feed-item-thread-continuation) .feed-item-ledger {
+   wrappers, so the sibling hop happens on those.
+
+   The `:not(.feed-day-group)` is load-bearing: the feed's outer <ol> and
+   each day's inner <ul> BOTH carry .feed-list, so a bare `.feed-list > li`
+   also matches the day-group <li>s. When a later (older) day happened to
+   contain a continuation anywhere in it, that :has() matched the current
+   day-group and dashed every row inside it — the "stray dashed borders on
+   unrelated rows" bug. Threads never span days (they're pulled onto their
+   newest member's day), so the sibling hop only ever means anything
+   between row wrappers within one day; scope it there. */
+.feed-ledger .feed-list > li:not(.feed-day-group):has(+ li .feed-item-thread-continuation) .feed-item-ledger {
   border-bottom-style: dashed;
 }
 
 .ledger-verb {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * var(--mono-scale));
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   text-decoration: none;
@@ -1473,7 +1650,7 @@ a.ledger-verb:focus-visible {
 
 .ledger-time {
   font-family: var(--mono);
-  font-size: var(--text-xs);
+  font-size: calc(var(--text-xs) * 0.85 * var(--mono-scale));
   letter-spacing: 0.02em;
   color: var(--ink-faint);
   /* formatTime yields "9:41 AM"; the ledger reads lowercase. */
@@ -1519,11 +1696,72 @@ a.ledger-verb:focus-visible {
   font-size: var(--text-sm);
 }
 
+/* iNaturalist observation rows carry a specimen thumbnail beside the
+   common + scientific names (see ObservationLedgerBody), mirroring the
+   /mothing page's ledger row. A photoless observation keeps the same
+   footprint via an empty bordered box. */
+.ledger-obs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ledger-obs-thumb {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  background: var(--page);
+}
+
+.ledger-obs-thumb-empty {
+  display: block;
+}
+
+.ledger-obs-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ledger-obs-name {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: 1.2;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.ledger-obs-sci {
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* The observation body is taller than a text line; center the verb and
+   time labels against the thumbnail instead of pinning them to the
+   baseline of the first name line. */
+.feed-ledger .feed-item-ledger:has(.ledger-obs) {
+  align-items: center;
+}
+
 /* Listening sessions: tapping the row (or its "N songs +" toggle, the
    keyboard-accessible affordance) expands the batch into one sub-row
    per track. */
 .feed-item-ledger-expandable {
   cursor: pointer;
+}
+
+/* A photographed observation row opens the image lightbox on tap — signal
+   it with the same zoom affordance the /mothing grid uses. */
+.feed-item-ledger-lightbox {
+  cursor: zoom-in;
 }
 
 .ledger-count-toggle {
@@ -1545,17 +1783,84 @@ a.ledger-verb:focus-visible {
   margin-left: 0.35em;
 }
 
-/* Expanded tracks reuse the row's grid: each play's "track — artist"
-   line lands in the summary column and its time in the right-aligned
-   time column, with the verb column left empty. Auto-placement makes
-   one implicit grid row per track. */
+/* Expanded tracks: one compact sub-row per play, spanning the summary +
+   time columns (the verb column stays empty on the left). A thin dashed
+   rule tops each one so the songs read as a tight ruled list rather than a
+   loose run of lines. Flex keeps "track — artist" at the left and the time
+   flush right, aligned to the session row's own time column. */
+.ledger-track-row {
+  grid-column: 2 / 4;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ledger-col-gap);
+  padding-top: 0.3em;
+  margin-top: 0.3em;
+  border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 55%, transparent);
+}
+
 .ledger-track {
-  grid-column: 2;
   font-size: var(--text-sm);
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ledger-track-time {
-  grid-column: 3;
+  flex: 0 0 auto;
+}
+
+/* Flat ledger — the single-type feed pages (blogging, creating, …) reuse the
+   ledger's type + rules but drop the redundant verb column (every row is the
+   same kind) and don't day-group, so the rows read as one continuous compact
+   table of "title · when". Two columns: the title stretches, a short relative
+   time sits flush right. */
+.feed-ledger-flat {
+  gap: 0;
+  /* Roomier column gap between the title and its trailing time/count than the
+     dense day-grouped ledger uses — these single-type pages (creating,
+     blogging, …) have fewer columns and can afford the extra breathing room. */
+  --ledger-col-gap: var(--space-4);
+}
+
+.feed-ledger-flat .feed-item-ledger {
+  /* The right cell auto-sizes so it fits either a short relative time
+     ("3mo") or a small count ("42 blocks"). */
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+/* When the rows carry a category (creating's works), it sits in its own fixed
+   left column — exactly like the gerund column in the home feed ledger — so
+   every title lines up down the page instead of being pushed right by a
+   variable-width inline tag. Rows without a category keep an empty cell. */
+.feed-ledger-flat-kinded .feed-item-ledger {
+  grid-template-columns: var(--ledger-verb-col) minmax(0, 1fr) auto;
+}
+
+/* Whole-row links read as calm ledger text (ink title, faint time) — the
+   accent only comes up on hover — rather than a page full of green links. */
+.feed-ledger-flat .ledger-body a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.feed-ledger-flat .ledger-time {
+  text-decoration: none;
+}
+
+.feed-ledger-flat .ledger-body a:hover,
+.feed-ledger-flat .ledger-body a:focus-visible,
+a.ledger-time:hover,
+a.ledger-time:focus-visible {
+  color: var(--accent);
+}
+
+/* The category cell reuses the verb column's own type (.ledger-verb); this
+   just guards against a long medium ("photography", "presentation") colliding
+   with the title — it wraps inside its column instead. */
+.ledger-kind-col {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ledger-track a {
@@ -1593,13 +1898,27 @@ a.ledger-verb:focus-visible {
   margin-top: 0;
 }
 
+/* ...but a record-with-media post stacks the media embed and the quote
+   inside one ledger cell, so restore a small gap between the two — the
+   block's top margin (above) is owned by .ledger-embed, which would
+   otherwise leave the pair touching. */
+.ledger-embed .post-embed-images + .post-embed-quote,
+.ledger-embed .post-embed-video + .post-embed-quote,
+.ledger-embed .post-embed-link-card + .post-embed-quote {
+  margin-top: var(--space-3);
+}
+
 .ledger-embed .post-embed-images {
   gap: var(--space-1);
   max-width: 20rem;
 }
 
-.ledger-embed .post-embed-images[data-count='1'] .post-embed-image img {
-  max-height: 10rem;
+/* A lone image sizes its frame from --embed-image-max-h (see PostEmbed.css).
+   In the ledger the picture fills the 20rem column at its true ratio; the
+   height cap only bounds very tall images so a portrait can't run away (it
+   matches the 20rem column width, so images fit within a 20rem square). */
+.ledger-embed .post-embed-images[data-count='1'] {
+  --embed-image-max-h: 20rem;
 }
 
 /* Multi-image grids get uniform landscape crops so two rows of images
@@ -1678,6 +1997,28 @@ a.ledger-verb:focus-visible {
   display: none;
 }
 
+/* Reposts render as a quote-style box (FeedLedgerRow's RepostQuote).
+   The original post IS the row's content, so unlike a quote nested
+   inside a post its text stays unclamped and its own media renders —
+   still height-capped by the rules above. Quotes nested inside the
+   reposted post stay dropped. */
+.ledger-repost .post-embed-quote-text {
+  display: block;
+  overflow: visible;
+}
+
+.ledger-repost .post-embed-quote > .post-embed-images {
+  display: grid;
+}
+
+.ledger-repost .post-embed-quote > .post-embed-video {
+  display: block;
+}
+
+.ledger-repost .post-embed-quote > .post-embed-link-card {
+  display: grid;
+}
+
 /* Text-less posts: the embed is the row's only content. Baseline row
    alignment would sink the verb/time labels to the embed's bottom
    edge, so those rows top-align instead, with a nudge that sits the
@@ -1696,17 +2037,19 @@ a.ledger-verb:focus-visible {
 }
 
 @media (max-width: 600px) {
+  /* Narrower label columns give the content column the extra width;
+     the label type steps down further so even the longest gerund
+     ("photographing") still fits its column on one line. */
   .feed-ledger {
-    --ledger-verb-col: 5.75rem;
-    --ledger-time-col: 3.9rem;
+    --ledger-verb-col: 5rem;
+    --ledger-time-col: 3.5rem;
     --ledger-col-gap: var(--space-2);
   }
 
-  /* Slightly smaller type so the longest gerunds and full dates still
-     fit their narrower mobile columns on one line. */
   .feed-ledger .ledger-verb,
-  .feed-ledger .ledger-time {
-    font-size: calc(var(--text-xs) * 0.9);
+  .feed-ledger .ledger-time,
+  .feed-ledger .day-header-meta {
+    font-size: calc(var(--text-xs) * 0.8);
   }
 
   .feed-ledger .day-header {

@@ -1,23 +1,27 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import FlatLedger from '../components/FlatLedger.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { BloggingTocSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, formatDateFull, compareIsoDesc } from '../lib/time.js';
-import { isPortfolioDoc } from '../lib/publications.js';
+import { showOnBlog, isDraft } from '../lib/publications.js';
+import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 import './Blogging.css';
 
 /**
  * The blog index. Backed by `site.standard.document` records (in the
- * `blogs` snapshot), addressed by rkey. Portfolio standard-docs are filtered
- * out — they live on /creating. (pub.leaflet.document is deprecated and no
- * longer fetched.)
+ * `blogs` snapshot), addressed by rkey. Portfolio-homed standard-docs are
+ * filtered out — they live on /creating — unless one opts back in with a
+ * `blog` cross-post tag (see `showOnBlog`). (pub.leaflet.document is
+ * deprecated and no longer fetched.)
  */
 export default function Blogging() {
   const [params] = useSearchParams();
@@ -42,6 +46,8 @@ export default function Blogging() {
     mapItems: mergeBlogEntries,
   });
 
+  const { layout } = useFeedLayout();
+  const ledger = layout === 'ledger';
   const loading = status === 'loading';
   const safeEntries = entries || [];
   const filtered = useMemo(
@@ -65,10 +71,24 @@ export default function Blogging() {
         <p className="feed-empty">
           {q ? 'No blog posts match that search.' : 'No blog posts yet.'}
         </p>
+      ) : ledger ? (
+        <FlatLedger
+          rows={filtered.map((e, i) => ({
+            key: e.uri || i,
+            href: e.href,
+            title: e.title,
+            time: e.createdAt ? relativeTime(e.createdAt) : null,
+            nsid: nsidFromAtUri(e.uri),
+          }))}
+        />
       ) : (
         <ol className="blogging-toc reveal-stagger">
           {filtered.map((e, i) => (
-            <li key={e.uri || i} className="blogging-toc-entry">
+            <li
+              key={e.uri || i}
+              className="blogging-toc-entry"
+              data-nsid={nsidFromAtUri(e.uri) || undefined}
+            >
               <Link to={e.href} className="blogging-toc-link">
                 <span className="blogging-toc-num gutter">{String(i + 1).padStart(2, '0')}</span>
                 <span className="blogging-toc-body">
@@ -97,8 +117,10 @@ function mergeBlogEntries(data) {
   // records. (pub.leaflet.document is deprecated and no longer fetched.)
   const blogs = Array.isArray(data) ? data : [];
   return blogs
-    // Portfolio standard-docs live on /creating, not the blog.
-    .filter((r) => r?.value && !isPortfolioDoc(r.value))
+    // Blog-homed docs plus any portfolio doc cross-posted with a `blog` tag.
+    // Portfolio-only docs live on /creating. Drafts stay hidden — the live PDS
+    // fetch returns them, so filter here where snapshot and live both pass.
+    .filter((r) => r?.value && !isDraft(r.value) && showOnBlog(r.value))
     .map(normalizeStandard)
     .sort((a, b) => compareIsoDesc(a.createdAt, b.createdAt));
 }

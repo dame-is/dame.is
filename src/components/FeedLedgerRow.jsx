@@ -1,11 +1,12 @@
-import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { formatTime } from '../lib/time.js';
+import { formatTime, formatWallClockTime } from '../lib/time.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { photoUrl } from '../lib/inaturalist.js';
 import PostEmbed from './PostEmbed.jsx';
+import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID } from '../config.js';
 
 /**
@@ -55,8 +56,24 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
       : LEDGER_VERB_LABELS[item.verb] || item.verb;
   const ts =
     item.createdAt || item.payload?.createdAt || item.payload?.indexedAt || null;
-  const summary = summarize(item, { expanded, onToggle });
-  const embed = ledgerEmbed(item);
+  // Reposts skip the inline "@handle: text" summary entirely — the
+  // original post renders as a quote-style box instead (see RepostQuote).
+  const isRepost = item.verb === 'reposting';
+  // iNaturalist observations render a specimen thumbnail beside stacked
+  // common/scientific names (see ObservationLedgerBody), not a text summary.
+  const isObservation = item.verb === 'mothing' || item.verb === 'observing';
+  const summary = isRepost || isObservation ? null : summarize(item, { expanded, onToggle });
+  const embed = isRepost ? null : ledgerEmbed(item);
+  // Observations show their stored local wall-clock time-of-day directly, never
+  // localized — the record's timestamp is that wall-clock pinned to `Z`, so
+  // running it through `formatTime` (which localizes) would re-shift the clock
+  // (a 2:59pm sighting reading 10:59am). Falls back to the localized time only
+  // for the rare observation with no recorded time.
+  const timeText = isObservation
+    ? formatWallClockTime(item.payload?.observedTime) || (ts ? formatTime(ts) : '')
+    : ts
+      ? formatTime(ts)
+      : '';
   return (
     <>
       {/* Label-less rows (thread continuations) keep an empty verb cell
@@ -71,6 +88,8 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
         <span className="ledger-verb">{label}</span>
       )}
       <div className="ledger-body">
+        {isRepost && <RepostQuote item={item} />}
+        {isObservation && <ObservationLedgerBody item={item} />}
         {summary && <p className="ledger-text">{summary}</p>}
         {embed && (
           <div className="ledger-embed">
@@ -78,20 +97,23 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
           </div>
         )}
       </div>
-      <span className="ledger-time">{ts ? formatTime(ts) : ''}</span>
+      <span className="ledger-time">{timeText}</span>
       {expanded && isListenBatch(item) && item.plays.map((play) => {
         const playTs = play?.createdAt || play?.payload?.playedTime || null;
         const playHref = recordPathFromAtUri(play?.atUri);
         const line = trackLine(play?.payload);
+        // Each play is its own compact sub-row spanning the summary + time
+        // columns, split from the one above by a thin dashed rule (see
+        // .ledger-track-row in Feed.css) so the song list reads tight.
         return (
-          <Fragment key={play?.atUri || playTs}>
+          <div className="ledger-track-row" key={play?.atUri || playTs}>
             <p className="ledger-text ledger-track">
               {playHref ? <Link to={playHref}>{line || <em>—</em>}</Link> : line || <em>—</em>}
             </p>
             <span className="ledger-time ledger-track-time">
               {playTs ? formatTime(playTs) : ''}
             </span>
-          </Fragment>
+          </div>
         );
       })}
     </>
@@ -101,15 +123,88 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
 /**
  * Post embeds (images / video / link card / quote) ride along under the
  * summary line in a condensed, height-capped form (see the .ledger-embed
- * rules in Feed.css). Only posting/reposting rows carry one.
+ * rules in Feed.css). Only posting rows carry one — reposts render their
+ * whole payload as a quote box instead (RepostQuote below).
  */
 function ledgerEmbed(item) {
-  if (item.verb !== 'posting' && item.verb !== 'reposting') return null;
+  if (item.verb !== 'posting') return null;
   const payload = item.payload || {};
-  if (payload.subjectMissing) return null;
   const embed = payload.embed || payload.embedRecord || null;
   if (!embed) return null;
-  return { embed, did: payload.author?.did };
+  // Anisota post embeds have no author view; their blobs live on Dame's PDS.
+  const did = payload.author?.did || (item.source === 'anisota' ? ME_DID : undefined);
+  return { embed, did };
+}
+
+/**
+ * A repost's body: the original post styled like a quote embed —
+ * mirrors PostEmbed's QuoteRecord markup so it inherits the condensed
+ * quote treatment wholesale. The head's timestamp links out to the
+ * original on bsky.app; unlike a quote nested inside a post, the box
+ * IS the row's content, so its text stays unclamped and its own media
+ * renders (see the .ledger-repost overrides in Feed.css).
+ */
+function RepostQuote({ item }) {
+  const payload = item.payload || {};
+  if (payload.subjectMissing) {
+    return (
+      <p className="ledger-text">
+        <Placeholder>an unavailable post</Placeholder>
+      </p>
+    );
+  }
+  const author = payload.author || {};
+  const ts = payload.indexedAt || null;
+  const externalHref =
+    author.handle && payload.subjectUri
+      ? `https://bsky.app/profile/${author.handle}/post/${String(payload.subjectUri).split('/').pop()}`
+      : author.handle
+        ? `https://bsky.app/profile/${author.handle}`
+        : null;
+  const embed = payload.embed || payload.embedRecord || null;
+  return (
+    <div className="ledger-embed ledger-repost">
+      <article className="post-embed-quote">
+        <header className="post-embed-quote-head">
+          {author.avatar && (
+            <img
+              className="post-embed-quote-avatar"
+              src={author.avatar}
+              alt=""
+              width={20}
+              height={20}
+              loading="lazy"
+            />
+          )}
+          <span className="post-embed-quote-author">
+            {author.displayName && (
+              <span className="post-embed-quote-name">{author.displayName}</span>
+            )}
+            {author.handle && (
+              <span className="post-embed-quote-handle">@{author.handle}</span>
+            )}
+          </span>
+          {ts && (
+            <span className="post-embed-quote-time gutter">
+              {externalHref ? (
+                <a href={externalHref} target="_blank" rel="noreferrer noopener">
+                  <RelativeTimeText value={ts} />
+                </a>
+              ) : (
+                <RelativeTimeText value={ts} />
+              )}
+            </span>
+          )}
+        </header>
+        {payload.text && (
+          <p className="post-embed-quote-text">
+            {renderPostText(payload.text, payload.facets || null)}
+          </p>
+        )}
+        {embed && <PostEmbed embed={embed} did={author.did} />}
+      </article>
+    </div>
+  );
 }
 
 function summarize(item, listenControls) {
@@ -119,6 +214,11 @@ function summarize(item, listenControls) {
       return plain(payload.status || payload.text, 'a status');
     case 'posting':
     case 'reposting':
+      // An Anisota repost is a reference (a pointer at another post), not an
+      // authored post — summarise its subject like a like does.
+      if (item.source === 'anisota' && item.subject) {
+        return summarizeSubject(item.subject, item.source);
+      }
       return summarizePost(item);
     case 'blogging':
       return plain(payload.title || payload.name, 'an untitled entry');
@@ -130,9 +230,8 @@ function summarize(item, listenControls) {
       const title = payload.title || payload.name || payload.description || payload.caption;
       return plain(title, 'a gallery');
     }
-    case 'mothing':
-    case 'observing':
-      return summarizeObservation(item);
+    // 'mothing' / 'observing' are handled separately (ObservationLedgerBody
+    // renders a thumbnail + names), so they never reach this text summary.
     case 'liking':
       return summarizeSubject(item.subject, item.source);
     case 'following':
@@ -143,15 +242,10 @@ function summarize(item, listenControls) {
       return plain(payload.displayName, 'an untitled feed');
     case 'commenting':
       return plain(payload.text || payload.body || payload.content, 'a comment');
-    case 'voting': {
-      const choice =
-        payload.option ||
-        payload.optionLabel ||
-        payload.choice ||
-        (typeof payload.optionIndex === 'number' ? `option ${payload.optionIndex + 1}` : null);
-      if (choice) return <>chose {choice}</>;
-      return summarizeSubject(item.subject, item.source);
-    }
+    case 'crafting':
+      // Anisota Lab piece — lead with its title, else a poem/erasure's text,
+      // else a spell's description; falls back to a generic placeholder.
+      return plain(payload.name || payload.text || payload.description, 'a lab piece');
     default:
       return <Placeholder>a record</Placeholder>;
   }
@@ -292,23 +386,46 @@ function uniqueArtistNames(plays) {
   return out;
 }
 
-function summarizeObservation(item) {
+/**
+ * An iNaturalist observation as a ledger body: a small square specimen
+ * thumbnail beside the common and scientific names stacked, mirroring the
+ * /mothing page's ledger row (MothLedgerRow). The verb cell already names
+ * the activity ("mothing" / "observing") and the row's own time column
+ * carries the timestamp, so this cell only owns the photo + names. Works
+ * for both mirrored records and live-fetched observations — same
+ * `photos: [{ id, url, … }]` / `taxon` payload shape.
+ */
+function ObservationLedgerBody({ item }) {
   const payload = item.payload || {};
+  const photo = Array.isArray(payload.photos) ? payload.photos[0] : null;
+  const thumb = photo ? photoUrl(photo, 'square') : null;
   const common = payload.taxon?.commonName;
   const sci = payload.taxon?.name;
-  const title = common || sci;
-  if (!title) {
-    return (
-      <Placeholder>
-        {item.verb === 'mothing' ? 'an unidentified moth' : 'an unidentified organism'}
-      </Placeholder>
-    );
-  }
+  const name = common || sci;
+  const showSci = sci && sci !== name;
+  const fallback = item.verb === 'mothing' ? 'an unidentified moth' : 'an unidentified organism';
   return (
-    <>
-      {title}
-      {sci && sci !== title && <span className="ledger-count"> ({sci})</span>}
-    </>
+    <div className="ledger-obs">
+      {thumb ? (
+        <img
+          className="ledger-obs-thumb"
+          src={thumb}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width={36}
+          height={36}
+        />
+      ) : (
+        <span className="ledger-obs-thumb ledger-obs-thumb-empty" aria-hidden="true" />
+      )}
+      <span className="ledger-obs-names">
+        <span className="ledger-obs-name">
+          {name || <Placeholder>{fallback}</Placeholder>}
+        </span>
+        {showSci && <span className="ledger-obs-sci">{sci}</span>}
+      </span>
+    </div>
   );
 }
 
@@ -349,7 +466,13 @@ function summarizeSubject(subject, source) {
     case 'atproto': {
       const value = subject.record?.value;
       if (!value) return <Placeholder>{source ? `a ${source} record` : 'a record'}</Placeholder>;
-      const title = value.title || value.name || value.displayName || value.repo || value.repoName;
+      const title =
+        value.title ||
+        value.name ||
+        value.displayName ||
+        value.repo ||
+        value.repoName ||
+        (value.text ? value.text.trim().replace(/\s+/g, ' ').slice(0, 80) : null);
       if (!title) return <Placeholder>{source ? `a ${source} record` : 'a record'}</Placeholder>;
       return (
         <>

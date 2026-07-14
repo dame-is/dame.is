@@ -1,34 +1,33 @@
-/* Horizontal inset shared by every chrome surface — the top/bottom bars,
-   the atmosphere & breadcrumb rows, and the nav dock sheet — so their
-   content columns line up with each other AND with the page body (`.main`)
-   and its nav menu items. The bars/sheet cap at 65rem while `.main` caps at
-   72rem, so each side of the bar sits 3.5rem inside the main column;
-   subtracting 3.5rem from `.main`'s own `6vw` padding lands chrome content
-   on the same column (`6vw - 3.5rem`, clamped with a small floor + 2.5rem
-   cap for the narrow + max-width extremes). Below the 65rem cap the bars are
-   full-bleed exactly like `.main`, so the inset tracks `.main`'s padding
-   directly at each of its breakpoints. Kept on :root — not the chrome
-   scope — because the dock sheet is portalled to <body>, outside .chrome-bar. */
-:root {
-  --chrome-pad-x: clamp(var(--space-3), calc(6vw - 3.5rem), 2.5rem);
-}
+/* Horizontal inset shared by every chrome surface — the top/bottom bars, the
+   atmosphere & breadcrumb rows, the nav dock sheet, and the bottom sheets — so
+   their content columns line up with each other AND with the page body
+   (`.main`) and its nav menu items.
 
-@media (max-width: 65rem) {
-  :root {
-    --chrome-pad-x: clamp(var(--space-5), 6vw, var(--space-9));
-  }
+   Every chrome surface spans the FULL viewport width (its background + top/
+   bottom hairlines run edge to edge at every breakpoint); this inset is what
+   keeps their CONTENT on `.main`'s centered 72rem column. It's `.main`'s own
+   horizontal padding (--chrome-pad-base), plus — once the viewport passes
+   72rem — half the overflow, which recentres the content box exactly like
+   `.main`'s `margin: 0 auto`. Below 72rem that second term clamps to 0, so
+   content is full-bleed with the same padding as the page body. Consumers
+   apply it as horizontal padding on a full-width surface, so the `100%`
+   resolves against the viewport. Kept on :root — not the chrome scope —
+   because the dock sheet is portalled to <body>, outside .chrome-bar. */
+:root {
+  --chrome-pad-base: clamp(var(--space-5), 6vw, var(--space-9));
+  --chrome-pad-x: calc(var(--chrome-pad-base) + max(0px, (100% - 72rem) / 2));
 }
 
 @media (max-width: 700px) {
   :root {
-    --chrome-pad-x: var(--space-4);
+    --chrome-pad-base: var(--space-4);
   }
 }
 
 .chrome-bar {
-  /* Background lives on the inner top/bottom containers below, not
-     here — the wide-screen treatment caps them at 72rem so the page
-     background shows through on either side. */
+  /* Background lives on the inner top/bottom containers below
+     (`.chrome-bar-top` / `.chrome-bar-bottom`), which span the full
+     viewport width edge to edge. */
   font-style: normal;
 }
 
@@ -52,23 +51,22 @@
      instead of being clipped. The secondary/atmosphere wrap still clips
      its own height animation via its inline `overflow: hidden`. */
   overflow: visible;
+  /* Full-bleed: the bar's surface + top/bottom hairlines span the whole
+     viewport at every width. Its content is held on `.main`'s centered
+     72rem column by the shared `--chrome-pad-x` inset on `.chrome-bar-row`. */
   width: 100%;
-  /* Chrome bar caps at 65rem — narrower than the page's 72rem main
-     column, so on wide screens the bar sits as a tighter strip
-     visually distinct from the content beneath it. */
-  max-width: 65rem;
-  margin: 0 auto;
 }
 
 .chrome-bar-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  /* The compact button gap holds at every width — the chrome's controls
+     don't spread out on larger screens. */
+  gap: var(--space-2);
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
-  /* Shared inset that keeps chrome content on the same column as `.main`
-     and the nav dock — see `--chrome-pad-x` at the top of this file. */
+  /* Shared inset that keeps chrome content on the same centered column as
+     `.main` and the nav dock while the bar itself is full-bleed — see
+     `--chrome-pad-x` at the top of this file. */
   padding: 0 var(--chrome-pad-x);
   min-height: var(--chrome-h);
 }
@@ -100,11 +98,22 @@
      atmosphere row reads as its own layer (matches the nav sheet). */
   background: var(--surface-deep);
   overflow: hidden;
+  /* Drop the --chrome-h (56px) floor this row inherits from
+     `.chrome-bar-row`. That floor is for the primary bars; this is an
+     expanding panel that should size to its content, exactly like the
+     tertiary breadcrumb strip below (which also zeroes it). Left in, the
+     floor made the LISTENING TO / FOLLOWED BY row stand noticeably taller
+     than the timestamp/NSID strip — its `.chrome-signals` padding now sets
+     the height so the two expansions match. */
+  min-height: 0;
 }
 
 .chrome-bar-secondary > .chrome-signals {
   width: 100%;
-  padding: var(--space-3) 0;
+  /* Same vertical padding as the tertiary strip's crumbs (--space-2) so
+     this row and the timestamp/NSID strip stand the same height when each
+     is a single row. */
+  padding: var(--space-2) 0;
 }
 
 /* Tertiary chrome: the scroll-driven breadcrumb strip. It's absolutely
@@ -139,13 +148,12 @@
   /* Promote to its own compositor layer so the slide is a pure transform —
      no layout, no repaint of the page, nothing that can stall scrolling. */
   will-change: transform;
-  /* Side hairlines (≥65rem) come from the shared `.chrome-bar-row` rule near
-     the bottom of this file, so they land at the exact same x as the header's
-     own side hairlines rather than inset by the bar's border. */
 }
 
 .chrome-breadcrumb {
-  width: 100%;
+  /* Content-sized so the day label can sit right after the trail; may
+     shrink (the crumbs ellipsize) when the two compete for width. */
+  flex: 0 1 auto;
   padding: var(--space-2) 0;
   min-width: 0;
 }
@@ -168,6 +176,81 @@
   align-items: baseline;
   gap: 0.4em;
   min-width: 0;
+}
+
+/* Current day-section indicator on feed pages — rides the crumb spot,
+   left-aligned: alone on the home page, after the trail on sub-pages
+   (the row's own gap separates the two). Carries the strip's vertical
+   padding itself so the row keeps its height when it's the only
+   content. */
+.chrome-crumb-day {
+  flex: 0 1 auto;
+  padding: var(--space-2) 0;
+  /* Same small-caps voice as the atmosphere row's "LISTENING TO" /
+     "FOLLOWED BY" labels (.chrome-signal-label) one bar up. */
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* The AT Protocol collection in view, pinned to the strip's right edge —
+   the top visible feed record's NSID on feed pages, the page's own
+   backing record elsewhere. Same small-caps voice as the day label. */
+.chrome-crumb-nsid {
+  flex: 0 1 auto;
+  margin-left: auto;
+  padding: var(--space-2) 0;
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  text-align: right;
+}
+
+/* On individual (detail) pages the breadcrumb trail and its record NSID share
+   the strip's single row — trail on the left, NSID right-aligned — whenever the
+   two fit together, at EVERY width. Only when they'd collide (a long slug plus
+   a long NSID, typically on a narrow screen) does the NSID drop onto its own
+   line beneath the trail, left-aligned and shown in full instead of ellipsized.
+   This is content-driven rather than a fixed breakpoint: the trail grows to
+   shove the NSID flush right on a shared line, and flex-wrap lets the NSID fall
+   to the next line only when there isn't room for both. Feed pages keep the
+   base right-aligned NSID that tracks the scrolled record (never wrapped). */
+.chrome-bar-tertiary.is-detail {
+  flex-wrap: wrap;
+  /* The chrome row's `gap` turns into a row-gap once the row wraps; zero it so
+     a wrapped NSID sits close under the trail — its own vertical padding is the
+     only separation — instead of gaining an extra row-gap on top. */
+  row-gap: 0;
+}
+.chrome-bar-tertiary.is-detail .chrome-breadcrumb {
+  /* Grow to fill the row so a shorter trail pushes the NSID flush to the right
+     edge when they share a line; the inner crumbs ellipsize if the trail alone
+     outruns the row. */
+  flex: 1 1 auto;
+}
+.chrome-bar-tertiary.is-detail .chrome-crumb-nsid {
+  /* Content-sized so it rides the trail's line when both fit (the growing trail
+     right-aligns it there) and wraps to its own line — left-aligned, in full —
+     only when it doesn't fit beside the trail. */
+  flex: 0 1 auto;
+  margin-left: 0;
+  text-align: left;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
 }
 
 .chrome-crumb-sep {
@@ -264,6 +347,14 @@
 .chrome-signals-secondary {
   flex-wrap: wrap;
   row-gap: var(--space-3);
+}
+
+/* FOLLOWED BY anchors the atmosphere row's right edge on desktop;
+   narrow screens keep the wrapped, left-aligned stack. */
+@media (min-width: 701px) {
+  .chrome-signals-secondary .chrome-signal-stats {
+    margin-left: auto;
+  }
 }
 
 .chrome-signal {
@@ -383,6 +474,22 @@
   background: color-mix(in srgb, var(--accent) 20%, var(--page));
 }
 
+/* Time switcher: the sky clock's hour chip. A text button (the current
+   hour key, e.g. "3pm") rather than a glyph, since the label IS the
+   state — the hour whose sky palette is on screen. */
+.chrome-nav.chrome-sky-hour {
+  width: auto;
+  min-width: 1.75rem;
+  padding: 0 0.45rem;
+  font-family: var(--mono-ui);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  /* Hour keys are lowercase in data ("4pm"); the chip reads as a label,
+     so render it in caps: 4PM, 11AM. */
+  text-transform: uppercase;
+}
+
 /* The compass nav button is the menu trigger — promote it to a filled,
    accent-tinted primary so it reads as the main action among the
    bottom-bar controls. */
@@ -435,26 +542,7 @@
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-/* On wide screens the chrome bars float as a 65rem-wide card with the page
-   background showing on either side; left/right hairlines close the box
-   visually. They live on the INNER rows (`.chrome-bar-row` for the top,
-   `.chrome-bottom-row` for the bottom) — not the outer bar — so they sit at
-   the true 65rem edge and line up with the scroll-revealed strips
-   (`.chrome-bar-tertiary` breadcrumb, `.chrome-bar-footer`), which carry
-   their own side hairlines one layer in. Putting them on the outer bar would
-   inset those strips' borders by the bar's own 1px border and leave a
-   hairline jog. The bars still own the top/bottom hairlines. */
-@media (min-width: 65rem) {
-  .chrome-bar-row,
-  .chrome-bottom-row {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
 }
 
 /* Footer strip: the bottom-bar mirror of the top bar's tertiary breadcrumb.
@@ -463,7 +551,7 @@
    beneath never shifts mid-scroll. The strip slides up from behind the bar
    inside this fixed clip; the wrap is transparent, so while the strip is
    tucked away the page content shows through. Anchored to the bar, it
-   inherits the bar's 65rem card + stacking context automatically. */
+   inherits the bar's full-bleed width + stacking context automatically. */
 .chrome-bar-footer-wrap {
   position: absolute;
   bottom: 100%;
@@ -495,20 +583,11 @@
   will-change: transform;
 }
 
-@media (min-width: 65rem) {
-  .chrome-bar-footer {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
-}
-
 .chrome-bottom-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
   padding: 0 var(--chrome-pad-x);
   min-height: var(--chrome-h);
 }
@@ -533,7 +612,7 @@
 .chrome-bottom-cluster {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 /* Push the right-hand action cluster (filter + menu) away from the
@@ -585,15 +664,6 @@
 }
 
 @media (max-width: 700px) {
-  .chrome-bar-row {
-    gap: var(--space-2);
-  }
-  .chrome-bottom-row {
-    gap: var(--space-2);
-  }
-  .chrome-bottom-cluster {
-    gap: var(--space-2);
-  }
   .chrome-signals-secondary {
     flex-direction: column;
     align-items: stretch;
@@ -608,5 +678,16 @@
     width: 100%;
     max-width: 100%;
     min-width: 0;
+  }
+}
+
+/* Print: the fixed chrome bars (and their expanding sheets) are screen
+   navigation — never part of a printed page. Hiding them here also keeps
+   the resume's bottom-bar print button out of the printout it triggers. */
+@media print {
+  .chrome-bar,
+  .dock-sheet-wrap,
+  .dock-backdrop {
+    display: none !important;
   }
 }

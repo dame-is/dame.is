@@ -15,6 +15,7 @@ import CuratingChannel from './pages/CuratingChannel.jsx';
 import Resume from './pages/Resume.jsx';
 import Sharing from './pages/Sharing.jsx';
 import Mothing from './pages/Mothing.jsx';
+import Guestbook from './pages/Guestbook.jsx';
 import Record from './pages/Record.jsx';
 import NotFound from './pages/NotFound.jsx';
 import { VERB_REGISTRY } from './lib/verbRegistry.js';
@@ -29,11 +30,11 @@ import AutoUpdater from './components/AutoUpdater.jsx';
 import ActionDock from './components/ActionDock.jsx';
 import EditModeBar from './components/EditModeBar.jsx';
 import EditSheet from './components/EditSheet.jsx';
-import WindowScrollbar from './components/WindowScrollbar.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
+import { FontProvider } from './hooks/useFont.jsx';
 import { FeedLayoutProvider } from './hooks/useFeedLayout.jsx';
 import { PaperProvider } from './hooks/usePaper.jsx';
 import { ChromeBarProvider } from './hooks/useChromeBar.jsx';
@@ -84,6 +85,7 @@ function generatedRecordRoutes() {
 export default function App() {
   return (
     <ThemeProvider>
+      <FontProvider>
       <FeedLayoutProvider>
       <PaperProvider>
       <ChromeBarProvider>
@@ -114,6 +116,7 @@ export default function App() {
                   <Route path="/for-hire/:slug" element={<Resume />} />
                   <Route path="/sharing" element={<Sharing />} />
                   <Route path="/mothing" element={<Mothing />} />
+                  <Route path="/guestbook" element={<Guestbook />} />
                   {generatedRecordRoutes()}
                   <Route
                     path="/admin"
@@ -151,7 +154,6 @@ export default function App() {
             <ActionDock />
             <EditModeBar />
             <EditSheet />
-            <WindowScrollbar />
             <AutoUpdater />
             <Analytics />
           </div>
@@ -165,6 +167,7 @@ export default function App() {
       </ChromeBarProvider>
       </PaperProvider>
       </FeedLayoutProvider>
+      </FontProvider>
     </ThemeProvider>
   );
 }

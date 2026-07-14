@@ -82,43 +82,68 @@
   text-align: right;
 }
 
-.blog-article {
-  /* `width: 100%` is load-bearing: `.page` is a flex column, and the auto
-     margins below otherwise defeat flex stretch, letting the article size to
-     its max-content (clamped to --measure) and overflow narrow viewports.
-     Pinning width to the column keeps --measure a cap, not a floor. Mirrors
-     the same fix already applied to the sibling `.page-title` below. */
+/* Long-form document column — the single reading measure shared by blog posts
+   and creating/portfolio works (both render <LeafletDocument>, and a
+   site.standard.document can surface on either route). Capping the whole
+   ARTICLE here, at the page/container level, is what keeps the text AND every
+   media block — images, video embeds, galleries, link cards, code — aligned to
+   one column. The global `p { max-width: var(--measure) }` only reins in
+   paragraphs; without this container cap the media escapes to the full `.main`
+   width (72rem) while the prose stays at the measure, so images and embeds jut
+   out past the text on both sides.
+
+   `width: 100%` is load-bearing: `.page` is a flex column, and the auto margins
+   below otherwise defeat flex stretch, letting the article size to its
+   max-content (clamped to --measure) and overflow narrow viewports. Pinning
+   width to the column keeps --measure a cap, not a floor. Mirrors the same fix
+   applied to the sibling `.page-title` below. */
+.blog-article,
+.creating-work-page {
   width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
 }
 
-.page:has(> .blog-article) > .page-title {
+/* Cap the whole document page — the title AND the article together — at the
+   reading measure, resolved ONCE against the page's own body font (1rem,
+   weight 400, --serif). This is what makes the title line up with the article
+   edge-for-edge.
+
+   `--measure` is `65ch`, and `ch` resolves against each element's OWN font. An
+   earlier fix capped the title directly with `calc(--measure / 3)` to cancel
+   the title's 3× font-size — algebraically exact, but only while the title and
+   article share glyph metrics. They don't reliably: the title is --text-4xl at
+   weight 600, so whenever that heavy weight renders a wider digit advance than
+   the body-weight article — a synthesised bold, or a fallback serif in the
+   moment before Crimson Pro loads — its `65ch/3` measured a wider column and
+   the title spilled past the article on both sides. Capping the shared parent
+   never touches the title's font at all: `.page` is body-size/weight, so its
+   `65ch` is the true reading column, and both children simply stretch to it. */
+.page:has(> .blog-article),
+.page:has(> .creating-work-page) {
   max-width: var(--measure);
-  margin-left: auto;
-  margin-right: auto;
-  width: 100%;
+  margin-inline: auto;
 }
 
 .blog-article-meta {
   display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
   gap: var(--space-3);
   font-family: var(--sans);
   font-size: var(--text-xs);
   color: var(--ink-muted);
   letter-spacing: 0.04em;
-  margin: var(--space-2) 0 var(--space-6);
 }
 
-.blog-article-tags {
-  display: inline-flex;
-  gap: var(--space-2);
-}
-
-.blog-article-tag {
-  font-variant: all-small-caps;
-  letter-spacing: 0.12em;
-  color: var(--accent);
+/* Bullet separators between the meta atoms — relative time • date • day —
+   matching the "Xago • date" separator on the blog index. The flex gap sits
+   before each bullet and the bullet's own margin after it, so the dot stays
+   evenly spaced on both sides even when the line wraps. */
+.blog-article-meta > span + span::before {
+  content: '•';
+  margin-right: var(--space-3);
+  color: var(--ink-faint);
 }
 
 .blog-prose {
@@ -214,6 +239,10 @@
 
 .record-page-meta-nsid {
   font-family: var(--mono);
+  /* No explicit base size (inherits from .record-page-meta); scale the
+     inherited size so serif-only mode compensates like the other --mono
+     elements. calc(1em * 1) is a no-op in the default mono voice. */
+  font-size: calc(1em * var(--mono-scale));
   letter-spacing: 0;
 }
 
@@ -227,7 +256,7 @@
 }
 
 .record-page-aturi code {
-  font-family: var(--mono);
+  font-family: var(--code);
 }
 
 /* Parent-of-reply chain on the post record page */

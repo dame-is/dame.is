@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Moon, Pencil, Search, Sun, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
-import { useAvatar } from '../hooks/useAvatar.js';
+import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
+import { skyAvatarUrl } from '../lib/skyAvatars.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
+import { useFont, FONT_SWITCHER_ENABLED } from '../hooks/useFont.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { ME_DID } from '../config.js';
@@ -22,51 +24,98 @@ import InfoSheet from './InfoSheet.jsx';
 import Footer from './Footer.jsx';
 import './ChromeBar.css';
 
-// Per-theme glyph for the toggle button: sun for light, moon for dark.
-const THEME_ICON = {
-  light: Sun,
-  dark: Moon,
-};
-
 // The home handle is a router <Link>; wrap it so it can participate in the
 // bottom bar's presence/layout animation (fade in/out, slide to make room).
 const MotionLink = motion.create(Link);
+
+// Feed search is built and wired (SearchSheet + the `?q=` filter), but its
+// trigger is temporarily hidden from the bottom chrome. Flip this back to
+// `true` to restore the search button — nothing else needs to change.
+const SEARCH_ENABLED = false;
 
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
   const location = useLocation();
-  // Brand mark: Dame's live Bluesky avatar (regenerated hourly to track the
-  // sun). While it's loading — or if it ever fails — the mark simply isn't
-  // rendered rather than falling back to a glyph.
-  const avatar = useAvatar();
-  const [avatarBroken, setAvatarBroken] = useState(false);
-  const showAvatar = avatar && !avatarBroken;
-  // A new hourly avatar URL gets a fresh chance to load — clear any prior
-  // load failure whenever the URL turns over.
+  // Brand mark: the bundled sky-avatar frame for the current Eastern
+  // hour — the same art the live Bluesky avatar cycles through, served
+  // locally instead of fetched from the profile, so the mark is always
+  // in lockstep with the site's own clock (and with the sky theme's
+  // palette). useTheme's hour ticks over hourly; while the bottom-bar
+  // time chip is overriding the clock, the mark steps with it.
+  const { skyHour } = useTheme();
+  const targetAvatar = skyAvatarUrl(skyHour);
+
+  // The mark never paints a half-loaded image: an incoming URL is fetched
+  // and decoded off-screen, and only swapped in — on the SAME persistent
+  // <img> — once it can paint instantly. So an avatar change (the hourly
+  // turnover, or stepping the sky-hour chip) holds the previous frame
+  // instead of flashing an empty square while the next one loads. A URL
+  // that fails to load is never committed; the old frame just stays.
+  const [avatar, setAvatar] = useState(null);
   useEffect(() => {
-    setAvatarBroken(false);
-  }, [avatar]);
+    if (!targetAvatar) {
+      setAvatar(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const img = new Image();
+    const commit = () => {
+      if (!cancelled) setAvatar(targetAvatar);
+    };
+    // decode() resolves once the bitmap is paint-ready (not merely
+    // fetched); onload is the fallback where decode isn't supported.
+    // Committing twice is a harmless same-value setState.
+    img.onload = commit;
+    img.src = targetAvatar;
+    if (img.decode) img.decode().then(commit).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [targetAvatar]);
+  const showAvatar = !!avatar;
 
   const topRef = useRef(null);
   const crumbRef = useRef(null);
 
   // Tertiary chrome: a breadcrumb that slides down out of the top bar once
   // the page is scrolled away from its top, orienting you to where you are.
-  // It only exists off the home page, and folds back up on the way to the top.
+  // On day-grouped feed pages (home included) the strip also carries the
+  // date header of the section currently scrolled under the chrome, so it
+  // reveals on the home page too once you're past the first day header.
+  // It folds back up on the way to the top.
   const crumbs = buildCrumbs(location.pathname);
   const scrolledDown = useScrolledDown();
-  const showBreadcrumb = crumbs.length > 0 && scrolledDown;
+  const dayLabel = useCurrentDayLabel();
+  // Individual (detail) pages — anything two or more segments deep, e.g.
+  // /blogging/:slug, /creating/:slug, /curating/:slug, or a generic record —
+  // pin the breadcrumb open as their standing back-affordance (it replaces
+  // the old per-page "← Section" eyebrow), so the trail is always there and a
+  // dual-listed doc keeps whichever feed it was opened from as its parent
+  // crumb. Feed/index pages keep the scroll-triggered reveal.
+  const isDetailPage = crumbs.length >= 2;
+  const showBreadcrumb =
+    isDetailPage || (scrolledDown && (crumbs.length > 0 || !!dayLabel));
+
+  // Right edge of the strip: the AT Protocol collection you're looking
+  // at. On feed pages it tracks the record at the top of the scroll
+  // position. Verb routes (/listening, /blogging, …) fall back to their
+  // registry collection — the records the feed is OF — rather than the
+  // page's own is.dame.page record; only non-verb pages report their
+  // backing record (registered by PageShell).
+  const { pageRecord } = useEditMode();
+  const feedNsid = useTopFeedNsid();
+  const routeVerbNsid = primaryNsid(location.pathname.split('/')[1] || '');
+  const stripNsid = feedNsid || routeVerbNsid || nsidFromAtUri(pageRecord?.atUri);
 
   // Publish the top chrome's live occupied bottom as `--chrome-top-h` on
   // <html> — the y-coordinate where the top chrome ends and the content
   // region begins. It's the breadcrumb strip's bottom when the strip is
   // shown (the strip sits below the header), else the header's own
-  // bottom. Consumers: the action-dock sheet (fills from here down to
+  // bottom. Consumer: the action-dock sheet (fills from here down to
   // the bottom bar so it fully conceals the page and butts against the
-  // whole top chrome) and the custom window scrollbar (inset to the
-  // content region between the bars).
+  // whole top chrome).
   //
   // Measured from getBoundingClientRect().bottom, not summed
   // offsetHeights: the rect gives the real VIEWPORT position, so it
@@ -88,6 +137,17 @@ export default function ChromeBar() {
           ? crumb.getBoundingClientRect().bottom
           : el.getBoundingClientRect().bottom;
       document.documentElement.style.setProperty('--chrome-top-h', `${Math.max(0, Math.floor(bottom))}px`);
+      // On individual pages the breadcrumb is pinned open (not just revealed on
+      // scroll), so unlike the feed pages — where it slides over already-
+      // scrolled content — it would otherwise hang over the top of the page's
+      // own content (the title). Publish its height as `--chrome-crumb-pin-h`
+      // so the content column can reserve that much extra top padding; 0 on
+      // pages where the strip only rides over on scroll.
+      const pinnedH = isDetailPage && crumb ? crumb.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty(
+        '--chrome-crumb-pin-h',
+        `${Math.max(0, Math.ceil(pinnedH))}px`,
+      );
     };
     apply();
     let raf = 0;
@@ -107,7 +167,7 @@ export default function ChromeBar() {
       window.removeEventListener('resize', schedule);
       if (raf) cancelAnimationFrame(raf);
     };
-  }, [showBreadcrumb]);
+  }, [showBreadcrumb, isDetailPage]);
 
   return (
     <>
@@ -121,12 +181,14 @@ export default function ChromeBar() {
             <Link to="/" className="chrome-title">
               {showAvatar && (
                 <span className="chrome-mark chrome-mark-avatar" aria-hidden="true">
+                  {/* No key: the element persists across src swaps so the
+                      old frame stays painted right up to the instant the
+                      pre-decoded next frame replaces it. */}
                   <img
-                    key={avatar}
                     className="chrome-mark-img"
                     src={avatar}
                     alt=""
-                    onError={() => setAvatarBroken(true)}
+                    onError={() => setAvatar(null)}
                   />
                 </span>
               )}
@@ -205,29 +267,33 @@ export default function ChromeBar() {
           )}
         </AnimatePresence>
 
-        {/* Breadcrumb stays mounted the whole time we're off the home page,
-            and the reveal animates ONLY transform + opacity — never height.
-            A height:auto animation forces a layout measurement/reflow on the
-            frame it starts, and a reflow mid-scroll hands scrolling back to
-            the main thread and stalls the momentum. transform/opacity run on
-            the compositor and can't interrupt the scroll. The strip slides
-            down from behind the bar inside a fixed clip (`overflow: hidden`
-            on the wrap) instead of growing the box. */}
-        {crumbs.length > 0 && (
-          <div
-            ref={crumbRef}
-            id="chrome-bar-tertiary"
-            className="chrome-bar-tertiary-wrap"
-            inert={showBreadcrumb ? undefined : ''}
-            aria-hidden={showBreadcrumb ? undefined : true}
-            style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
+        {/* Breadcrumb strip stays mounted on every page (home shows just
+            the root crumb plus the current day), and the reveal animates
+            ONLY transform + opacity — never height. A height:auto animation
+            forces a layout measurement/reflow on the frame it starts, and a
+            reflow mid-scroll hands scrolling back to the main thread and
+            stalls the momentum. transform/opacity run on the compositor and
+            can't interrupt the scroll. The strip slides down from behind
+            the bar inside a fixed clip (`overflow: hidden` on the wrap)
+            instead of growing the box. */}
+        <div
+          ref={crumbRef}
+          id="chrome-bar-tertiary"
+          className="chrome-bar-tertiary-wrap"
+          inert={showBreadcrumb ? undefined : ''}
+          aria-hidden={showBreadcrumb ? undefined : true}
+          style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
+        >
+          <motion.div
+            className={`chrome-bar-row chrome-bar-tertiary ${isDetailPage ? 'is-detail' : ''}`}
+            initial={false}
+            animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
+            transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
           >
-            <motion.div
-              className="chrome-bar-row chrome-bar-tertiary"
-              initial={false}
-              animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
-              transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
-            >
+            {/* On the home page (no crumbs) the day label stands alone in
+                the crumb spot; on sub-pages it follows the trail, all
+                left-aligned. */}
+            {crumbs.length > 0 && (
               <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
                 <ol className="chrome-crumbs">
                   <li className="chrome-crumb">
@@ -258,9 +324,11 @@ export default function ChromeBar() {
                   })}
                 </ol>
               </nav>
-            </motion.div>
-          </div>
-        )}
+            )}
+            {dayLabel && <span className="chrome-crumb-day">{dayLabel}</span>}
+            {stripNsid && <span className="chrome-crumb-nsid">{stripNsid}</span>}
+          </motion.div>
+        </div>
       </header>
 
       <ChromeBarBottom dockOpen={dockOpen} toggleDock={toggleDock} />
@@ -288,8 +356,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const nearBottom = useNearPageBottom();
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
-  const { theme, cycle: cycleTheme } = useTheme();
-  const ThemeIcon = THEME_ICON[theme] || Sun;
+  const { skyHourKey, advanceSkyHour } = useTheme();
+  const { serifOnly, toggle: toggleFont } = useFont();
   // The edit-mode toggle only exists for the site owner. It sits beside the
   // Info button and flips the site into a selectable "edit mode" (see
   // EditModeBar + useEditMode).
@@ -301,6 +369,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
   const onHomePage = location.pathname === '/';
+  // The resume (/for-hire) page exposes a print / save-as-PDF control in the
+  // bottom bar's page-level cluster — it replaces the old in-page print button
+  // and only shows while a resume is on screen.
+  const onResumePage =
+    location.pathname === '/for-hire' || location.pathname.startsWith('/for-hire/');
 
   // If the route stops exposing filters while the filter panel is open
   // (e.g. navigating away from a feed), fold it away — the trigger button
@@ -429,15 +502,36 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: reduce ? 0 : 0.18, ease: [0.22, 0.61, 0.36, 1] }}
               >
+                {/* Time switcher. The site always runs the hour-tracking
+                    sky theme; this chip shows the hour whose palette is on
+                    screen, and each tap advances it one hour (wrapping at
+                    midnight) so you can walk the sky through the day by
+                    hand. */}
                 <button
                   type="button"
-                  className="chrome-nav chrome-theme-toggle"
-                  onClick={cycleTheme}
-                  aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme (current: ${theme})`}
-                  title={`Theme: ${theme} — tap to switch`}
+                  className="chrome-nav chrome-sky-hour"
+                  onClick={advanceSkyHour}
+                  aria-label={`Advance the sky one hour (showing ${skyHourKey})`}
+                  title={`Time of day — tap to advance the sky one hour (showing ${skyHourKey})`}
                 >
-                  <ThemeIcon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  {skyHourKey}
                 </button>
+                {/* Font switcher. Hidden for now — the site runs serif-only
+                    (see FONT_SWITCHER_ENABLED in useFont.jsx). Flip that flag
+                    back on to restore this toggle between serif-only and the
+                    mono-accented mix. */}
+                {FONT_SWITCHER_ENABLED && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-font-toggle ${serifOnly ? 'is-open' : ''}`}
+                    onClick={toggleFont}
+                    aria-pressed={serifOnly}
+                    aria-label={serifOnly ? 'Use the default serif + monospace type' : 'Use serif-only type'}
+                    title={serifOnly ? 'Serif-only type — tap to restore mono accents' : 'Mono accents — tap for serif-only type'}
+                  >
+                    <Type className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
                 {filterAvailable && (
                   <button
                     type="button"
@@ -450,16 +544,18 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     <ListFilterPlus className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
-                <button
-                  type="button"
-                  className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}`}
-                  onClick={() => togglePanel('search')}
-                  aria-expanded={searchPanelOpen}
-                  aria-controls="chrome-search-sheet"
-                  aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
-                >
-                  <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                </button>
+                {SEARCH_ENABLED && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-search-btn ${searchPanelOpen || searchActive ? 'is-open' : ''}`}
+                    onClick={() => togglePanel('search')}
+                    aria-expanded={searchPanelOpen}
+                    aria-controls="chrome-search-sheet"
+                    aria-label={searchActive ? `Search (current query: ${params.get('q')})` : 'Open search'}
+                  >
+                    <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
                 <button
                   type="button"
                   className={`chrome-nav chrome-info-btn ${infoPanelOpen ? 'is-open' : ''}`}
@@ -470,6 +566,17 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 >
                   <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
+                {onResumePage && (
+                  <button
+                    type="button"
+                    className="chrome-nav chrome-print-btn"
+                    onClick={() => window.print()}
+                    aria-label="Print or save this resume as PDF"
+                    title="Print / save as PDF"
+                  >
+                    <Printer className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
                 {isOwner && (
                   <button
                     type="button"
@@ -503,11 +610,25 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
           </AnimatePresence>
         </div>
         <div className="chrome-bottom-spacer" aria-hidden="true" />
-        {/* Right cluster. The on-demand controls (back, count, home) fade in
+        {/* Right cluster. The on-demand controls (count, back, home) fade in
             and out inside a popLayout presence; the persistent scroll-jump and
             menu buttons carry `layout` so they slide over to fill the freed
-            space rather than jumping when a control comes or goes. */}
+            space rather than jumping when a control comes or goes. The
+            scrolled-past count sits to the LEFT of the back button so the back
+            button always lands directly beside the scroll-jump arrow instead
+            of being pushed away by the count. */}
         <AnimatePresence mode="popLayout" initial={false}>
+          {scrolledPast > 0 && (
+            <motion.span
+              key="scroll-count"
+              layout={layoutProp}
+              className="chrome-scroll-count gutter"
+              aria-label={`${scrolledPast} items scrolled past`}
+              {...controlFade}
+            >
+              {scrolledPast}
+            </motion.span>
+          )}
           {!onHomePage && (
             <motion.button
               key="back"
@@ -520,17 +641,6 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             >
               <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
             </motion.button>
-          )}
-          {scrolledPast > 0 && (
-            <motion.span
-              key="scroll-count"
-              layout={layoutProp}
-              className="chrome-scroll-count gutter"
-              aria-label={`${scrolledPast} items scrolled past`}
-              {...controlFade}
-            >
-              {scrolledPast}
-            </motion.span>
           )}
         </AnimatePresence>
         <motion.button
@@ -632,6 +742,95 @@ function buildCrumbs(pathname) {
  *  the page and folds back up on return. The threshold is a few hundred px
  *  so the crumb only appears once you've deliberately scrolled into the
  *  page, not on the first small nudge away from the top. */
+/** Text of the day header whose section is currently scrolled under the
+ *  top chrome, or null while above the first day header (and on pages
+ *  without day-grouped feeds). Reads the DOM directly — day headers carry
+ *  stable classes on every feed page (home, listening, posting, logging)
+ *  — so no page-side wiring is needed. The headers are re-queried on each
+ *  scroll frame; a feed renders at most a few dozen of them, and querying
+ *  live keeps freshly-loaded groups ("Load more", background refresh)
+ *  accurate without observers. */
+function useCurrentDayLabel() {
+  const [label, setLabel] = useState(null);
+  const location = useLocation();
+  useEffect(() => {
+    let frame = 0;
+    const apply = () => {
+      const headers = document.querySelectorAll('.day-section-header .day-header');
+      let current = null;
+      if (headers.length) {
+        // The strip's own reveal grows --chrome-top-h, which nudges this
+        // threshold down a touch once shown — harmless hysteresis at the
+        // section boundary.
+        const chromeBottom =
+          parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-h'),
+          ) || 0;
+        for (const h of headers) {
+          if (h.getBoundingClientRect().top < chromeBottom + 12) current = h;
+          else break;
+        }
+      }
+      setLabel(current ? current.textContent : null);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(apply);
+    };
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [location.pathname]);
+  return label;
+}
+
+/** NSID of the record at the top of the scroll position — the first
+ *  record entry still (partly) visible below the chrome — or null on
+ *  pages without record lists. Same DOM-driven, rAF-throttled sweep as
+ *  useCurrentDayLabel above; entries publish their collection via a
+ *  `data-nsid` attribute (FeedItem rows, the /creating grid, the
+ *  /blogging table of contents). */
+function useTopFeedNsid() {
+  const [nsid, setNsid] = useState(null);
+  const location = useLocation();
+  useEffect(() => {
+    let frame = 0;
+    const apply = () => {
+      const chromeBottom =
+        parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--chrome-top-h'),
+        ) || 0;
+      let current = null;
+      for (const el of document.querySelectorAll('[data-nsid]')) {
+        const rect = el.getBoundingClientRect();
+        if (rect.height > 0 && rect.bottom > chromeBottom + 12) {
+          current = el.dataset.nsid;
+          break;
+        }
+      }
+      setNsid(current);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(apply);
+    };
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [location.pathname]);
+  return nsid;
+}
+
 function useScrolledDown(threshold = 220) {
   const [down, setDown] = useState(false);
   useEffect(() => {
@@ -653,43 +852,92 @@ function useScrolledDown(threshold = 220) {
   return down;
 }
 
+// How long the page must stay too short to scroll before the footer reveals
+// on that basis. A fresh load is momentarily short — the feed content hasn't
+// landed yet — so this rides out that gap; only a page that's STILL unscrollable
+// after it is a genuinely short page whose footer should sit revealed.
+const SHORT_PAGE_SETTLE_MS = 500;
+
 /** True once the window is scrolled into the last `fraction` of its
  *  scrollable range (default 5%, i.e. ~95% down). Drives the footer strip:
  *  it slides up out of the bottom chrome as you reach the page's end and
  *  folds back down on the way up — the vertical mirror of the breadcrumb.
  *
  *  A page too short to meaningfully scroll counts as "at the end" so the
- *  footer stays revealed, matching the old always-in-flow footer. Coalesced
- *  through requestAnimationFrame so the state flip (and the transform it
- *  drives) never runs synchronously inside the scroll event. */
+ *  footer stays revealed, matching the old always-in-flow footer — but only
+ *  once the layout has settled. On a cold load the page is briefly short
+ *  before the async feed content lands; revealing then would slide the footer
+ *  up and straight back down the moment the content grows the page (it reads
+ *  as the footer "expanding from the bottom on load"). So the short-page
+ *  reveal is debounced by SHORT_PAGE_SETTLE_MS, and — because content
+ *  streaming in grows the document without firing scroll/resize — a
+ *  ResizeObserver on the body re-measures when the page's own height changes,
+ *  so a reveal decided while the page was short is revised the instant real
+ *  content arrives. Coalesced through requestAnimationFrame so the state flip
+ *  (and the transform it drives) never runs synchronously inside a scroll. */
 function useNearPageBottom(fraction = 0.05) {
   const [near, setNear] = useState(false);
   useEffect(() => {
     let frame = 0;
-    function onScroll() {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const viewport = window.innerHeight || 0;
-        const full = Math.max(
-          document.documentElement.scrollHeight,
-          document.body.scrollHeight,
-        );
-        const maxScroll = full - viewport;
-        if (maxScroll <= 4) {
-          setNear(true);
-          return;
-        }
-        const remaining = maxScroll - (window.scrollY || 0);
-        setNear(remaining <= maxScroll * fraction);
-      });
+    let shortTimer = 0;
+    const clearShortTimer = () => {
+      if (shortTimer) {
+        clearTimeout(shortTimer);
+        shortTimer = 0;
+      }
+    };
+    const tooShort = () => {
+      const viewport = window.innerHeight || 0;
+      const full = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight,
+      );
+      return full - viewport <= 4;
+    };
+    function measure() {
+      const viewport = window.innerHeight || 0;
+      const full = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight,
+      );
+      const maxScroll = full - viewport;
+      if (maxScroll <= 4) {
+        // Too short to scroll — likely still loading. (Re)start the settle
+        // timer and only reveal if it's still unscrollable when the timer
+        // fires; leave `near` as-is meanwhile so a genuinely short page that's
+        // already revealed doesn't flicker.
+        clearShortTimer();
+        shortTimer = setTimeout(() => {
+          shortTimer = 0;
+          if (tooShort()) setNear(true);
+        }, SHORT_PAGE_SETTLE_MS);
+        return;
+      }
+      // The page can scroll: cancel any pending short-page reveal and track
+      // the scroll position directly.
+      clearShortTimer();
+      const remaining = maxScroll - (window.scrollY || 0);
+      setNear(remaining <= maxScroll * fraction);
     }
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
+    function schedule() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    }
+    schedule();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule, { passive: true });
+    // Feed first paint, "Load more", and background refreshes all grow/shrink
+    // the document without a scroll or resize event — observe the body so the
+    // nearness re-measures on those height changes too.
+    const ro =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    if (ro) ro.observe(document.body);
     return () => {
       cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      clearShortTimer();
+      if (ro) ro.disconnect();
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
     };
   }, [fraction]);
   return near;

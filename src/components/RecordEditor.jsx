@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { COLLECTIONS } from '../config.js';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { resolvePds } from '../lib/atproto.js';
@@ -7,11 +8,14 @@ import { fetchAllBlocks } from '../lib/arena.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
+import { AdminEditorSkeleton } from './Skeleton.jsx';
 import {
   HighlightsField,
   RecordRefsField,
   SkillGroupsField,
   ContactField,
+  LinksField,
+  TagsInput,
 } from './resumeFields.jsx';
 import '../pages/Admin.css';
 
@@ -333,11 +337,11 @@ const RecordEditor = forwardRef(function RecordEditor({
   }, [saving, deleting, loading, isNew, onStatus]);
 
   if (loading) {
-    return <p className="placeholder-card">Loading record…</p>;
+    return <AdminEditorSkeleton fields={compact ? 3 : 4} />;
   }
 
   return (
-    <div className={`record-editor${compact ? ' record-editor-compact' : ''}`}>
+    <div className={`record-editor reveal${compact ? ' record-editor-compact' : ''}`}>
       <div className="admin-toolbar admin-toolbar-inline">
         {lex && !preview && (
           <button
@@ -390,6 +394,8 @@ const RecordEditor = forwardRef(function RecordEditor({
           onChange={updateField}
           agent={agent}
           did={did}
+          collection={collection}
+          rkey={rkey}
           coverPreview={coverPreview}
           onSetCover={(key, blob, previewUrl) => {
             updateField(key, blob);
@@ -436,7 +442,7 @@ export default RecordEditor;
 /* Field renderers                                                      */
 /* ------------------------------------------------------------------ */
 
-function FormEditor({ lex, value, onChange, agent, did, coverPreview, onSetCover }) {
+function FormEditor({ lex, value, onChange, agent, did, collection, rkey, coverPreview, onSetCover }) {
   // If this record type carries a top-level image field (e.g. a document's
   // coverImage), link cards can offer to reuse their preview image as it.
   const coverField = lex.fields.find((f) => f.type === 'image');
@@ -455,6 +461,8 @@ function FormEditor({ lex, value, onChange, agent, did, coverPreview, onSetCover
           onChange={(v) => onChange(f.key, v)}
           agent={agent}
           did={did}
+          collection={collection}
+          rkey={rkey}
           onSetCover={f.type === 'blocks' ? setCover : undefined}
           externalPreview={coverField && f.key === coverField.key ? coverPreview : undefined}
         />
@@ -521,7 +529,7 @@ function RecordPreview({ lex, record }) {
   );
 }
 
-function Field({ field, value, record, onChange, agent, did, onSetCover, externalPreview }) {
+function Field({ field, value, record, onChange, agent, did, collection, rkey, onSetCover, externalPreview }) {
   const id = `record-editor-field-${field.key}`;
   let control;
   switch (field.type) {
@@ -567,20 +575,7 @@ function Field({ field, value, record, onChange, agent, did, onSetCover, externa
       break;
     case 'tags':
       control = (
-        <input
-          id={id}
-          className="admin-input"
-          type="text"
-          value={Array.isArray(value) ? value.join(', ') : ''}
-          onChange={(e) => {
-            const parts = e.target.value
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean);
-            onChange(parts);
-          }}
-          placeholder="comma, separated"
-        />
+        <TagsInput id={id} value={value} onChange={onChange} placeholder="comma, separated" />
       );
       break;
     case 'number':
@@ -631,7 +626,22 @@ function Field({ field, value, record, onChange, agent, did, onSetCover, externa
       control = <JsonField id={id} value={value} onChange={onChange} />;
       break;
     case 'highlights':
-      control = <HighlightsField value={value} onChange={onChange} />;
+      control = (
+        <HighlightsField
+          value={value}
+          onChange={onChange}
+          agent={agent}
+          did={did}
+          // Existing records get "used by <resume>" chips + delete guards;
+          // a record still being created has no URI to scan for yet.
+          recordUri={rkey ? `at://${did}/${collection}/${rkey}` : null}
+          usageKeys={
+            collection === COLLECTIONS.resumeEducation
+              ? { listKey: 'education', refKey: 'education' }
+              : { listKey: 'entries', refKey: 'job' }
+          }
+        />
+      );
       break;
     case 'recordRefs':
       control = (
@@ -640,6 +650,9 @@ function Field({ field, value, record, onChange, agent, did, onSetCover, externa
       break;
     case 'skillGroups':
       control = <SkillGroupsField value={value} onChange={onChange} />;
+      break;
+    case 'links':
+      control = <LinksField value={value} onChange={onChange} agent={agent} did={did} />;
       break;
     case 'contact':
       control = <ContactField value={value} onChange={onChange} />;

@@ -1,47 +1,39 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  applySkyTheme,
+  easternHour,
+  secondsUntilNextHour,
+  skyHourKey,
+} from '../lib/skyTheme.js';
 
 const ThemeContext = createContext(null);
-const STORAGE_KEY = 'dame.theme';
 
-// Two themes: warm light and dark green. The toggle flips between them.
-const VALID = ['light', 'dark'];
+// The site runs a single, always-on theme: the hour-tracking "sky" mode,
+// whose palette is derived from the current sky-avatar frame (see
+// src/lib/skyTheme.js). The retired static light/dark themes and their
+// switcher have been removed from the chrome — only the sky clock's time
+// switcher survives (the hour chip in the bottom bar), which steps the
+// palette through the day by hand.
+const THEME = 'sky';
 
-// Retired monochrome variants map to their color equivalent so a
-// returning visitor who last used a mono theme keeps its light/dark
-// polarity instead of being reset to the default.
-const THEME_ALIAS = {
-  'light-mono': 'light',
-  'dark-mono': 'dark',
-};
-
-// Matches --surface-raised in theme.css. Used for the iOS Safari URL
-// bar surround / Android browser chrome so the OS UI blends with the
-// dame.is chrome bar instead of falling back to a system default.
-const THEME_COLOR = {
-  light: '#e3d8ba',
-  dark: '#13180f',
-};
-
-const DEFAULT_THEME = 'light';
-
-function migrateStoredTheme(stored) {
-  const resolved = THEME_ALIAS[stored] || stored;
-  if (VALID.includes(resolved)) return resolved;
-  // Legacy / missing values land on the light theme so new visitors
-  // get a predictable first paint — they can flip to dark from the
-  // chrome bar.
-  return DEFAULT_THEME;
+function applyTheme(skyHour) {
+  document.documentElement.setAttribute('data-theme', THEME);
+  const palette = applySkyTheme(skyHour ?? easternHour());
+  applyThemeColor(palette.themeColor);
 }
 
-function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  applyThemeColor(theme);
-}
+// State for the iOS re-tint scroll nudge below. Module-level so
+// overlapping nudges (rapid hour changes — e.g. mashing the sky
+// hour chip) share one TRUE baseline: a later nudge must not read the
+// 1px-displaced position left by an earlier one as its "original"
+// scroll position, or each overlap leaks a permanent 1px downward
+// creep when the racing restores land out of order.
+let nudgeBaseY = null;
+let nudgeRestoreRaf = 0;
 
-function applyThemeColor(theme) {
+function applyThemeColor(color) {
   if (typeof document === 'undefined') return;
   const head = document.head;
-  const color = THEME_COLOR[theme] || THEME_COLOR.light;
 
   head.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
   const meta = document.createElement('meta');
@@ -52,49 +44,93 @@ function applyThemeColor(theme) {
   // iOS Safari re-evaluates its status bar / URL bar tint at the END
   // of a user gesture (touchend). Nudging a 1px scroll provokes the
   // re-tint pass; without this, the chrome stays on the previous
-  // theme's color until the next scroll/tap.
+  // hour's color until the next scroll/tap. Re-entrant: the baseline
+  // is captured once per settled position and the pending restore is
+  // cancelled, so back-to-back nudges always restore to where the page
+  // actually started.
   try {
-    const y = window.scrollY || window.pageYOffset || 0;
-    window.scrollTo(0, y + 1);
-    requestAnimationFrame(() => {
-      window.scrollTo(0, y);
+    if (nudgeBaseY == null) nudgeBaseY = window.scrollY || window.pageYOffset || 0;
+    window.scrollTo(0, nudgeBaseY + 1);
+    cancelAnimationFrame(nudgeRestoreRaf);
+    nudgeRestoreRaf = requestAnimationFrame(() => {
+      window.scrollTo(0, nudgeBaseY);
+      nudgeBaseY = null;
     });
   } catch {}
 }
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => {
-    if (typeof localStorage === 'undefined') return DEFAULT_THEME;
-    return migrateStoredTheme(localStorage.getItem(STORAGE_KEY));
-  });
+  // The site's sky clock. `liveHour` tracks the real Eastern hour; the
+  // override (driven by the time-switcher chip in the bottom bar)
+  // freezes it on an arbitrary hour so each step can be inspected. The
+  // hour drives the sky palette AND the chrome-bar avatar mark (which
+  // follows the hourly sky frames).
+  const [liveHour, setLiveHour] = useState(() => easternHour());
+  const [skyOverride, setSkyOverride] = useState(null);
+  const skyHour = skyOverride ?? liveHour;
+  // Mirror for callbacks that need the current hour without re-binding.
+  const skyHourRef = useRef(skyHour);
+  skyHourRef.current = skyHour;
+
+  // What applyTheme last painted. advanceSkyHour applies synchronously
+  // (for the iOS same-gesture theme-color) and then sets state; without
+  // this guard the state-driven effect would re-apply the identical hour
+  // right after — a second scroll nudge per tap.
+  const appliedRef = useRef(null);
 
   useEffect(() => {
-    applyTheme(theme);
-    try {
-      localStorage.setItem(STORAGE_KEY, theme);
-    } catch {}
-  }, [theme]);
+    const sig = `sky:${skyHour}`;
+    if (appliedRef.current !== sig) {
+      applyTheme(skyHour);
+      appliedRef.current = sig;
+    }
+  }, [skyHour]);
 
-  const setTheme = useCallback((next) => {
-    if (!VALID.includes(next)) return;
-    // Apply synchronously inside the click handler so iOS Safari sees
-    // the updated theme-color meta during the same user gesture.
-    applyTheme(next);
-    setThemeState(next);
+  // Tick the clock over at the top of each Eastern hour (minutes/seconds
+  // track UTC, so the boundary is computable locally). The avatar mark
+  // and palette follow the hour. Timers sleep in background tabs, so
+  // visibility-return also re-reads the clock.
+  useEffect(() => {
+    let timer;
+    const schedule = () => {
+      // Small pad past the boundary so a clamped/early timer can't land
+      // still inside the old hour and stall until the next one.
+      timer = setTimeout(() => {
+        setLiveHour(easternHour());
+        schedule();
+      }, secondsUntilNextHour() * 1000 + 1000);
+    };
+    schedule();
+    const onVisible = () => {
+      if (!document.hidden) setLiveHour(easternHour());
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
-  const cycle = useCallback(() => {
-    setThemeState((prev) => {
-      const idx = VALID.indexOf(prev);
-      const next = VALID[(idx + 1) % VALID.length];
-      applyTheme(next);
-      return next;
-    });
+  // Time switcher: step the sky palette forward one hour per call,
+  // wrapping at midnight. Wired to the hour chip in the bottom chrome
+  // bar so each of the 24 increments can be walked through in place.
+  const advanceSkyHour = useCallback(() => {
+    const next = (skyHourRef.current + 1) % 24;
+    // Sync apply for the same iOS theme-color gesture reason as above.
+    applyTheme(next);
+    appliedRef.current = `sky:${next}`;
+    setSkyOverride(next);
   }, []);
 
   const value = useMemo(
-    () => ({ theme, setTheme, cycle, options: VALID }),
-    [theme, setTheme, cycle],
+    () => ({
+      theme: THEME,
+      skyHour,
+      skyHourKey: skyHourKey(skyHour),
+      skyOverridden: skyOverride != null,
+      advanceSkyHour,
+    }),
+    [skyHour, skyOverride, advanceSkyHour],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

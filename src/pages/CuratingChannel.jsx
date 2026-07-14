@@ -5,7 +5,7 @@ import Lightbox from '../components/Lightbox.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
-import { resolvePds, getRecord } from '../lib/atproto.js';
+import { resolvePds, getRecord, toAtUri } from '../lib/atproto.js';
 import { fetchChannelMeta, fetchAllBlocks, arenaText } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Curating.css';
@@ -75,13 +75,21 @@ export default function CuratingChannel() {
         },
         truncated,
         blocks,
+        // Carry the record cid so the page can hint at its backing record; the
+        // at-uri itself is derived from the slug (the rkey is the slug).
+        recordCid: record?.cid || null,
       };
     },
     mapItems: (d) => {
       if (!d) return null;
       if (d.notFound) return d;
       if (!d.gallery) return null;
-      return { gallery: d.gallery, blocks: d.blocks || [], truncated: !!d.truncated };
+      return {
+        gallery: d.gallery,
+        blocks: d.blocks || [],
+        truncated: !!d.truncated,
+        recordCid: d.recordCid || null,
+      };
     },
     deps: [slug],
   });
@@ -113,7 +121,7 @@ export default function CuratingChannel() {
     );
   }
 
-  const { gallery, blocks, truncated } = items;
+  const { gallery, blocks, truncated, recordCid } = items;
   // Only image/link blocks are lightbox-navigable; text tiles are not.
   const visualBlocks = blocks.filter((b) => b.type !== 'text');
 
@@ -121,12 +129,12 @@ export default function CuratingChannel() {
     <PageShell
       title={arenaText(gallery.title) || undefined}
       intro={arenaText(gallery.description) || undefined}
+      // Register the backing arena-channel record so owner edit mode offers
+      // "Edit page" for this gallery. The rkey is the slug, so the at-uri is
+      // deterministic even before the live fetch resolves.
+      atUri={toAtUri({ did: ME_DID, collection: COLLECTIONS.arenaChannel, rkey: slug })}
+      cid={recordCid || undefined}
       headTitle={`${gallery.title} — dame.is`}
-      eyebrow={
-        <Link to="/curating" className="page-back small-caps">
-          ← Curating
-        </Link>
-      }
     >
       <div className="curating-channel-meta gutter">
         <span>{gallery.blockCount} {gallery.blockCount === 1 ? 'block' : 'blocks'}</span>

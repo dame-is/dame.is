@@ -1,0 +1,344 @@
+/* Guestbook — the pen (sign form) and the pages (signature ledger). */
+
+/* --- invite / form ------------------------------------------------------ */
+
+.guestbook-invite,
+.guestbook-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  background: color-mix(in srgb, var(--page-edge) 55%, transparent);
+}
+
+.guestbook-invite-text {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.guestbook-invite .signin-button,
+.guestbook-form .signin-button {
+  align-self: flex-start;
+}
+
+.guestbook-form-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.guestbook-form-eyebrow {
+  color: var(--ink-faint);
+  letter-spacing: 0.18em;
+}
+
+.guestbook-form-signer {
+  color: var(--ink);
+}
+
+.guestbook-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5em;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--serif);
+  font-size: var(--text-base, 1rem);
+  color: var(--ink);
+  background: var(--page-edge);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.guestbook-textarea:focus {
+  border-color: var(--accent);
+}
+
+.guestbook-remaining {
+  align-self: flex-end;
+  margin-top: calc(var(--space-2) * -1);
+}
+
+.guestbook-over {
+  color: var(--tan);
+}
+
+/* "Signing from" — its own labelled block so it's obvious what the field
+   is, with the locate button and the never-your-town promise beside it. */
+.guestbook-location-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.guestbook-location-label {
+  color: var(--ink-faint);
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
+}
+
+.guestbook-location-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.guestbook-location {
+  flex: 1 1 14rem;
+  max-width: 22rem;
+}
+
+.guestbook-locate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  padding: 0.45em 0.8em;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.guestbook-locate:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.guestbook-locate:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.guestbook-location-hint {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  max-width: 52ch;
+}
+
+.guestbook-form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.guestbook-signed-note {
+  color: var(--accent);
+}
+
+/* --- entries ------------------------------------------------------------ */
+
+.guestbook-entries {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+
+.guestbook-entries-heading {
+  font-family: var(--sans);
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  margin: 0 0 var(--space-4);
+}
+
+/* The book's empty/error states read as prose here, so keep them on the
+   left margin instead of the feed's centered treatment. */
+.guestbook-entries .feed-empty {
+  text-align: left;
+  padding: var(--space-4) 0;
+}
+
+.guestbook-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.guestbook-entry {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.guestbook-entry:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.guestbook-entry-avatar {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.guestbook-entry-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+}
+
+.guestbook-entry-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  border: 1px dashed var(--rule);
+}
+
+.guestbook-entry-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.guestbook-entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.guestbook-entry-name {
+  color: var(--ink);
+}
+
+.guestbook-entry-name a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.guestbook-entry-name a:hover {
+  color: var(--accent);
+}
+
+.guestbook-entry-time {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.guestbook-entry-time a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.guestbook-entry-time a:hover {
+  color: var(--accent);
+}
+
+.guestbook-entry-remove {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  color: var(--tan);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.guestbook-entry-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.guestbook-entry-inline-mark {
+  color: var(--accent);
+}
+
+/* A mark-only signature: the glyph IS the message. */
+.guestbook-entry-mark {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+/* --- moderation (owner edit mode) ---------------------------------------- */
+
+.guestbook-hidden-count {
+  color: var(--ink-faint);
+}
+
+.guestbook-moderation-note {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+/* A hidden signature in the moderation view: present, but clearly benched. */
+.guestbook-entry-is-hidden {
+  opacity: 0.45;
+}
+
+.guestbook-entry-hidden-badge {
+  font-family: var(--sans);
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  color: var(--tan);
+  border: 1px solid color-mix(in srgb, var(--tan) 45%, transparent);
+  border-radius: var(--radius-2);
+  padding: 0 var(--space-2);
+}
+
+.guestbook-entry-moderate {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  color: var(--accent);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--accent-soft) 55%, transparent);
+  border-radius: var(--radius-2);
+  padding: 0 var(--space-2);
+  cursor: pointer;
+}
+
+.guestbook-entry-moderate:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.guestbook-more {
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.guestbook-more:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.guestbook-more:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

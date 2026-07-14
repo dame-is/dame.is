@@ -147,6 +147,22 @@ export function formatTime(date) {
 }
 
 /**
+ * Format a bare local wall-clock "HH:MM" (24-hour) as a lowercase 12-hour
+ * time like "2:59 pm" — no Date, no timezone conversion. Use this for values
+ * that are ALREADY local time-of-day (e.g. an iNaturalist observation's stored
+ * wall-clock); running them through `formatTime`, which localizes, would
+ * re-shift the clock and show the wrong time. Returns '' for non-"HH:MM" input.
+ */
+export function formatWallClockTime(hhmm) {
+  const m = /^(\d{2}):(\d{2})$/.exec(String(hhmm || ''));
+  if (!m) return '';
+  let h = Number(m[1]);
+  const ampm = h >= 12 ? 'pm' : 'am';
+  h = h % 12 || 12;
+  return `${h}:${m[2]} ${ampm}`;
+}
+
+/**
  * Turn ISO into something that round-trips through JSON without locale drift.
  */
 export function toIso(date) {

@@ -1,16 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import PageContentPanel from '../components/PageContentPanel.jsx';
+import GuestbookModerationPanel from '../components/GuestbookModerationPanel.jsx';
+import ResumeStudio from '../components/resume/ResumeStudio.jsx';
+import ResumeWorkbench from '../components/resume/ResumeWorkbench.jsx';
+import PublicationsManager from '../components/PublicationsManager.jsx';
+import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
+import { useEditMode } from '../hooks/useEditMode.jsx';
 import { ME_DID, COLLECTIONS, PORTFOLIO_PUBLICATION } from '../config.js';
 import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
 
 const STANDARD_DOC = 'site.standard.document';
 import { knownPageSlugs, pageSlugForCollection } from '../lib/pageRegistry.js';
 import { LEGACY_POSTS, migratedSlugs, migratePost } from '../lib/legacyBlog.js';
+import { visibilityModelFor } from '../lib/recordVisibility.js';
 import { formatDateLong } from '../lib/time.js';
 import './Admin.css';
 
@@ -36,7 +43,7 @@ export default function Admin() {
   if (loading) {
     return (
       <PageShell title="Admin" headTitle="Admin — dame.is">
-        <p className="placeholder-card">Restoring session…</p>
+        <AdminRecordListSkeleton toolbar rows={5} label="Restoring session" />
       </PageShell>
     );
   }
@@ -63,8 +70,20 @@ export default function Admin() {
   if (view === 'pages') {
     return <PagesOverview agent={agent} did={did} />;
   }
+  if (view === 'guestbook') {
+    return <GuestbookModerationPanel agent={agent} />;
+  }
   if (view === 'listening') {
     return <ListeningManager agent={agent} did={did} />;
+  }
+  if (view === 'resume') {
+    return <ResumeStudio agent={agent} did={did} />;
+  }
+  if (view === 'publications') {
+    return <PublicationsManager agent={agent} did={did} />;
+  }
+  if (view === 'resume-tailor' && rkey) {
+    return <ResumeWorkbench agent={agent} did={did} rkey={rkey} />;
   }
   if (view === 'blogging') {
     return (
@@ -199,6 +218,10 @@ const PICKER_GROUPS = [
     items: [
       { to: '/admin?view=pages', label: 'Site pages', nsid: COLLECTIONS.page,
         summary: 'Titles, intros, and page bodies — see which serve from the PDS vs local defaults, and edit the raw records.' },
+      { to: '/admin?view=publications', label: 'Publications', nsid: 'site.standard.publication',
+        summary: 'The blog + portfolio publications behind the Bluesky Standard Site embeds — edit their fields, or apply the sky theme + a dynamic avatar.' },
+      { to: '/admin?view=guestbook', label: 'Guestbook', nsid: 'is.dame.guestbook.entry',
+        summary: 'Visitors\' signatures, gathered from backlinks. Hide/unhide them from public display — their records stay on their signers\' PDSes.' },
       { collection: COLLECTIONS.profile, label: 'About',
         summary: 'The extended profile (rkey "self") that backs /themself.' },
       { collection: COLLECTIONS.heroPhrase, label: 'Hero phrases',
@@ -208,14 +231,10 @@ const PICKER_GROUPS = [
   {
     key: 'resume',
     heading: 'Resume',
-    note: 'Backlinked job, education, and resume records.',
+    note: 'Versions assembled from canonical job and education records.',
     items: [
-      { collection: COLLECTIONS.resume, label: 'Resume',
-        summary: 'Resume versions — each selects which jobs, education, and highlights to show.' },
-      { collection: COLLECTIONS.resumeJob, label: 'Jobs',
-        summary: 'Canonical positions and their achievement bullets (highlights).' },
-      { collection: COLLECTIONS.resumeEducation, label: 'Education',
-        summary: 'Canonical education entries.' },
+      { to: '/admin?view=resume', label: 'Resume studio', nsid: COLLECTIONS.resume,
+        summary: 'Every version, job, and education record in one place — duplicate a version, then tailor it: pick, reorder, re-word, and fork bullets per version.' },
     ],
   },
 ];
@@ -366,7 +385,14 @@ function RecordList({
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Multi-select bulk editing: off by default so the list reads as plain
+  // navigable rows; toggling it on turns each row into a checkbox and reveals
+  // the bulk hide / unhide / delete bar.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(() => new Set()); // rkeys
+  const [busy, setBusy] = useState(false);
   const lex = lexiconFor(collection);
+  const visModel = visibilityModelFor(collection);
   const pageSlug =
     pageSlugOverride !== undefined ? pageSlugOverride : pageSlugForCollection(collection);
   const isHero = collection === COLLECTIONS.heroPhrase;
@@ -402,6 +428,7 @@ function RecordList({
     setRecords([]);
     setCursor(undefined);
     setDone(false);
+    setSelected(new Set());
     loadPage(undefined);
   }, [loadPage]);
 
@@ -412,6 +439,90 @@ function RecordList({
   const visibleRecords = recordFilter
     ? records.filter((rec) => recordFilter(rec.value))
     : records;
+
+  const toggle = useCallback((rkey) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(rkey)) next.delete(rkey);
+      else next.add(rkey);
+      return next;
+    });
+  }, []);
+
+  const visibleRkeys = visibleRecords.map((rec) => rkeyFromUri(rec.uri));
+  const allSelected =
+    visibleRkeys.length > 0 && visibleRkeys.every((k) => selected.has(k));
+
+  function toggleAll() {
+    setSelected((prev) => {
+      if (visibleRkeys.length > 0 && visibleRkeys.every((k) => prev.has(k))) return new Set();
+      return new Set(visibleRkeys);
+    });
+  }
+
+  // Selected records whose hidden state would actually change — the set the
+  // Hide / Unhide buttons operate on (and count).
+  const selectedRecords = visibleRecords.filter((rec) => selected.has(rkeyFromUri(rec.uri)));
+
+  async function bulkSetHidden(hidden) {
+    if (!visModel) return;
+    const targets = selectedRecords.filter((rec) => visModel.isHidden(rec.value) !== hidden);
+    if (targets.length === 0) return;
+    setBusy(true);
+    setError(null);
+    const updated = new Map(); // rkey -> new value
+    try {
+      for (const rec of targets) {
+        const r = rkeyFromUri(rec.uri);
+        // JSON round-trip first so any BlobRef instances (e.g. a document's
+        // coverImage) collapse to their plain wire form before we re-put them.
+        const plain = JSON.parse(JSON.stringify(rec.value ?? {}));
+        const next = stampAutoTimestamps(lex, visModel.setHidden(plain, hidden));
+        // eslint-disable-next-line no-await-in-loop
+        await agent.com.atproto.repo.putRecord({ repo: did, collection, rkey: r, record: next });
+        updated.set(r, next);
+      }
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      if (updated.size) {
+        setRecords((prev) =>
+          prev.map((rec) => {
+            const r = rkeyFromUri(rec.uri);
+            return updated.has(r) ? { ...rec, value: updated.get(r) } : rec;
+          }),
+        );
+      }
+      setBusy(false);
+    }
+  }
+
+  async function bulkDelete() {
+    const rkeys = selectedRecords.map((rec) => rkeyFromUri(rec.uri));
+    if (rkeys.length === 0) return;
+    const noun = rkeys.length === 1 ? 'record' : 'records';
+    if (!window.confirm(`Delete ${rkeys.length} ${noun}? This cannot be undone.`)) return;
+    setBusy(true);
+    setError(null);
+    const deleted = new Set();
+    try {
+      for (const rkey of rkeys) {
+        // eslint-disable-next-line no-await-in-loop
+        await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey });
+        deleted.add(rkey);
+      }
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setRecords((prev) => prev.filter((rec) => !deleted.has(rkeyFromUri(rec.uri))));
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const k of deleted) next.delete(k);
+        return next;
+      });
+      setBusy(false);
+    }
+  }
 
   return (
     <PageShell
@@ -431,6 +542,20 @@ function RecordList({
         {isHero && (
           <HeroSeedButton agent={agent} did={did} existingCount={records.length} onSeeded={reload} />
         )}
+        {visibleRecords.length > 0 && (
+          <button
+            type="button"
+            className="admin-link-subtle admin-select-toggle"
+            onClick={() =>
+              setSelectMode((on) => {
+                if (on) setSelected(new Set());
+                return !on;
+              })
+            }
+          >
+            {selectMode ? 'Done' : 'Select'}
+          </button>
+        )}
       </div>
 
       {pageSlug && <PageContentPanel agent={agent} did={did} slug={pageSlug} />}
@@ -441,26 +566,91 @@ function RecordList({
 
       {error && <p className="admin-error">{error}</p>}
 
-      {visibleRecords.length === 0 && !loading && !error && (
-        <p className="placeholder-card">No records yet in this collection.</p>
+      {selectMode && (
+        <div className="admin-multiselect-toolbar">
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleAll}
+              disabled={visibleRecords.length === 0}
+            />
+            <span>{allSelected ? 'Deselect all' : 'Select all loaded'}</span>
+          </label>
+          <span className="admin-multiselect-count">
+            {selected.size > 0 ? `${selected.size} selected` : `${visibleRecords.length} loaded`}
+          </span>
+          <div className="admin-multiselect-actions">
+            {visModel && (
+              <>
+                <button
+                  type="button"
+                  className="admin-gate-button admin-gate-button-tight"
+                  onClick={() => bulkSetHidden(true)}
+                  disabled={busy || selected.size === 0}
+                >
+                  Hide
+                </button>
+                <button
+                  type="button"
+                  className="admin-gate-button admin-gate-button-tight"
+                  onClick={() => bulkSetHidden(false)}
+                  disabled={busy || selected.size === 0}
+                >
+                  Unhide
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              className="admin-gate-button admin-gate-button-tight admin-danger"
+              onClick={bulkDelete}
+              disabled={busy || selected.size === 0}
+            >
+              {busy ? 'Working…' : `Delete${selected.size ? ` (${selected.size})` : ''}`}
+            </button>
+          </div>
+        </div>
       )}
 
-      <ul className="admin-record-list">
-        {visibleRecords.map((rec) => {
-          const r = rkeyFromUri(rec.uri);
-          return (
-            <li key={rec.uri} className="admin-record-row">
-              <Link
-                to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
-                className="admin-record-link"
-              >
-                <code className="admin-record-rkey">{r}</code>
-                <span className="admin-record-preview">{previewFor(rec.value, lex)}</span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      {loading && records.length === 0 ? (
+        <AdminRecordListSkeleton rows={8} />
+      ) : visibleRecords.length === 0 && !error ? (
+        <p className="placeholder-card">No records yet in this collection.</p>
+      ) : (
+        <ul className="admin-record-list reveal-stagger">
+          {visibleRecords.map((rec) => {
+            const r = rkeyFromUri(rec.uri);
+            const hidden = visModel ? visModel.isHidden(rec.value) : false;
+            const chip = hidden ? visModel.chipLabel(rec.value) || 'hidden' : null;
+            const instant = recordInstant(rec.value);
+            if (selectMode) {
+              const checked = selected.has(r);
+              return (
+                <li
+                  key={rec.uri}
+                  className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
+                >
+                  <label className="admin-checkbox admin-multiselect-check">
+                    <input type="checkbox" checked={checked} onChange={() => toggle(r)} />
+                    <RecordRowBody rkey={r} preview={previewFor(rec.value, lex)} chip={chip} instant={instant} />
+                  </label>
+                </li>
+              );
+            }
+            return (
+              <li key={rec.uri} className="admin-record-row">
+                <Link
+                  to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
+                  className="admin-record-link"
+                >
+                  <RecordRowBody rkey={r} preview={previewFor(rec.value, lex)} chip={chip} instant={instant} />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {!done && records.length > 0 && (
         <button
@@ -472,9 +662,58 @@ function RecordList({
           {loading ? 'Loading…' : 'Load more'}
         </button>
       )}
-      {loading && records.length === 0 && <p className="placeholder-card">Loading records…</p>}
     </PageShell>
   );
+}
+
+/**
+ * Shared record-row content: rkey, preview text with an optional "hidden"
+ * status chip, and the record's timestamp on the far right. Rendered inside a
+ * link (browse mode) or a checkbox label (select mode).
+ */
+function RecordRowBody({ rkey, preview, chip, instant }) {
+  return (
+    <>
+      <code className="admin-record-rkey">{rkey}</code>
+      <span className="admin-record-main">
+        <span className="admin-record-preview">{preview}</span>
+        {chip && <span className="admin-record-chip small-caps">{chip}</span>}
+      </span>
+      {instant && (
+        <time className="admin-record-time small-caps" dateTime={instant} title={instant}>
+          {formatDateLong(instant)}
+        </time>
+      )}
+    </>
+  );
+}
+
+/**
+ * The record's own timestamp for display. Different lexicons name their primary
+ * instant differently — standard docs use `publishedAt`, is.dame.* records use
+ * `createdAt`, teal.fm plays use `playedTime` — so prefer a "published" instant,
+ * then creation, then last-update.
+ */
+function recordInstant(value) {
+  if (!value || typeof value !== 'object') return null;
+  return (
+    value.publishedAt || value.createdAt || value.playedTime || value.updatedAt || null
+  );
+}
+
+/**
+ * Stamp any `autoOnEdit` datetime fields (e.g. `updatedAt`) to now, mirroring
+ * what the full record editor does on save so a bulk visibility flip records
+ * the same freshness bump.
+ */
+function stampAutoTimestamps(lex, value) {
+  if (!lex?.fields) return value;
+  const next = { ...value };
+  const nowIso = new Date().toISOString();
+  for (const f of lex.fields) {
+    if (f.autoOnEdit && f.type === 'datetime') next[f.key] = nowIso;
+  }
+  return next;
 }
 
 function previewFor(value, lex) {
@@ -709,9 +948,9 @@ function PagesOverview({ agent, did }) {
           hardcoded defaults. Migrate or revert any of them.
         </p>
         {records === null ? (
-          <p className="placeholder-card">Loading pages…</p>
+          <AdminPagePanelsSkeleton panels={knownPageSlugs().length || 4} />
         ) : (
-          <div className="admin-page-panels">
+          <div className="admin-page-panels reveal">
             {knownPageSlugs().map((slug) => (
               <PageContentPanel
                 key={slug}
@@ -732,11 +971,11 @@ function PagesOverview({ agent, did }) {
           page slugs beyond the built-in surfaces above.
         </p>
         {records === null ? (
-          <p className="placeholder-card">Loading records…</p>
+          <AdminRecordListSkeleton rows={4} label="Loading page records" />
         ) : records.length === 0 ? (
           <p className="placeholder-card">No page records on your PDS yet.</p>
         ) : (
-          <ul className="admin-record-list">
+          <ul className="admin-record-list reveal-stagger">
             {records.map((rec) => {
               const r = rkeyFromUri(rec.uri);
               return (
@@ -1064,33 +1303,35 @@ function ListeningManager({ agent, did }) {
         </button>
       </div>
 
-      {records.length === 0 && !loading && !error && (
+      {loading && records.length === 0 ? (
+        <AdminRecordListSkeleton rows={8} label="Loading plays" />
+      ) : records.length === 0 && !error ? (
         <p className="placeholder-card">No plays yet.</p>
-      )}
-
-      <ul className="admin-record-list">
-        {records.map((rec) => {
-          const rkey = rkeyFromUri(rec.uri);
-          const checked = selected.has(rkey);
-          return (
-            <li
-              key={rec.uri}
-              className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
-            >
-              <label className="admin-checkbox admin-multiselect-check">
-                <input type="checkbox" checked={checked} onChange={() => toggle(rkey)} />
-                <span className="admin-record-preview">{playLabel(rec.value)}</span>
-              </label>
-              <Link
-                to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey)}`}
-                className="admin-link-subtle admin-multiselect-edit"
+      ) : (
+        <ul className="admin-record-list reveal-stagger">
+          {records.map((rec) => {
+            const rkey = rkeyFromUri(rec.uri);
+            const checked = selected.has(rkey);
+            return (
+              <li
+                key={rec.uri}
+                className={`admin-record-row admin-multiselect-row${checked ? ' is-selected' : ''}`}
               >
-                Edit →
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                <label className="admin-checkbox admin-multiselect-check">
+                  <input type="checkbox" checked={checked} onChange={() => toggle(rkey)} />
+                  <span className="admin-record-preview">{playLabel(rec.value)}</span>
+                </label>
+                <Link
+                  to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey)}`}
+                  className="admin-link-subtle admin-multiselect-edit"
+                >
+                  Edit →
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {!done && records.length > 0 && (
         <button
@@ -1102,7 +1343,6 @@ function ListeningManager({ agent, did }) {
           {loading ? 'Loading…' : 'Load more'}
         </button>
       )}
-      {loading && records.length === 0 && <p className="placeholder-card">Loading plays…</p>}
     </PageShell>
   );
 }
@@ -1128,11 +1368,41 @@ function RecordEditorPage({ agent, did, collection, rkey, preset = null }) {
       : lex?.label || collection;
   const title = isNew ? `New ${newLabel}` : `${lex?.label || collection}`;
   const headTitle = `${title} — Admin — dame.is`;
+  const listHref = `/admin?c=${encodeURIComponent(collection)}`;
+  const navigate = useNavigate();
+
+  // The editor's Save / Delete / Close ride in the bottom-chrome edit action
+  // bar (EditModeBar) rather than at the foot of the page — mirroring the
+  // quick-edit sheet. Drive the editor imperatively via a ref and publish its
+  // live status so the bar can label + disable its controls.
+  const editorRef = useRef(null);
+  const { setPageEditor } = useEditMode();
+  const [status, setStatus] = useState({
+    saving: false,
+    deleting: false,
+    loading: !isNew,
+    isNew,
+  });
+  const handleStatus = useCallback((s) => setStatus(s), []);
+
+  useEffect(() => {
+    setPageEditor({
+      save: () => editorRef.current?.save(),
+      remove: () => editorRef.current?.remove(),
+      close: () => navigate(listHref),
+      saving: status.saving,
+      deleting: status.deleting,
+      loading: status.loading,
+      canDelete: !status.isNew,
+      isNew: status.isNew,
+    });
+    return () => setPageEditor(null);
+  }, [setPageEditor, status, listHref, navigate]);
 
   return (
     <PageShell title={title} headTitle={headTitle}>
       <div className="admin-toolbar">
-        <Link to={`/admin?c=${encodeURIComponent(collection)}`} className="admin-link-subtle">
+        <Link to={listHref} className="admin-link-subtle">
           ← Back to list
         </Link>
         <code className="admin-collection-nsid">{collection}</code>
@@ -1145,18 +1415,21 @@ function RecordEditorPage({ agent, did, collection, rkey, preset = null }) {
         </p>
       )}
       <RecordEditor
+        ref={editorRef}
         agent={agent}
         did={did}
         collection={collection}
         rkey={rkey}
         initialValue={initialValue}
+        hideActions
+        onStatus={handleStatus}
         onCreated={({ rkey: newRkey }) => {
           window.location.assign(
             `/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(newRkey)}`,
           );
         }}
         onDeleted={() => {
-          window.location.assign(`/admin?c=${encodeURIComponent(collection)}`);
+          window.location.assign(listHref);
         }}
       />
     </PageShell>

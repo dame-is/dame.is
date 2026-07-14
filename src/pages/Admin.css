@@ -45,7 +45,7 @@
 }
 
 .admin-mono {
-  font-family: var(--mono);
+  font-family: var(--code);
   font-size: 0.8125rem;
 }
 
@@ -224,6 +224,7 @@
 
 .admin-record-link {
   display: flex;
+  align-items: baseline;
   gap: var(--space-4);
   padding: var(--space-3) 0;
   text-decoration: none;
@@ -242,10 +243,57 @@
   color: var(--ink-faint);
 }
 
+/* Name + status chip, between the rkey and the far-right timestamp. */
+.admin-record-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
 .admin-record-preview {
-  flex: 1;
   font-family: var(--serif);
   color: var(--ink);
+  min-width: 0;
+}
+
+/* "hidden / draft / disabled" status chip — an outlined tan tag flagging a
+   record that isn't shown on the public site. */
+.admin-record-chip {
+  flex-shrink: 0;
+  font-family: var(--sans);
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  line-height: 1.3;
+  padding: 0 0.5em;
+  color: var(--tan);
+  border: 1px solid var(--tan);
+  white-space: nowrap;
+}
+
+/* Record timestamp, pinned to the far right of the row. */
+.admin-record-time {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+/* "Select" toggle sits apart from the primary toolbar buttons. */
+.admin-select-toggle {
+  margin-left: auto;
+}
+
+/* Bulk hide / unhide / delete cluster in the multi-select toolbar. */
+.admin-multiselect-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 /* Active resume selector: pick the single version shown at /for-hire. */
@@ -982,4 +1030,45 @@ select.admin-input {
 .rf-link-row .admin-input {
   flex: 1;
   min-width: 8rem;
+}
+
+/* Bullet variants (forked phrasings) nested inside a highlight card. */
+.rf-variants {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-left: var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--rule-soft);
+}
+
+.rf-variant {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rf-variant-label {
+  flex: 1;
+  min-width: 8rem;
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.rf-variant-pick {
+  margin-left: calc(1.1rem + var(--space-2));
+  gap: var(--space-2);
+}
+
+/* "used by primary, product-design" chip on bullets and variants. */
+.rf-usage {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 16rem;
 }

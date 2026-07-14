@@ -1,6 +1,6 @@
 /* Owner edit-mode action bar. Like the nav dock, it's a sheet that expands
    UPWARD out of the bottom chrome bar: the wrap is a fixed clip box pinned
-   directly on top of the bar and centered on the same 65rem card; Framer
+   directly on top of the bar and spanning the same full-bleed width; Framer
    animates its height 0 ↔ auto and `overflow: hidden` unfurls the surface
    inside upward so it reads as an extension of the bar rather than a floating
    panel. */
@@ -13,8 +13,6 @@
      sheet's reserved bottom strip so their seam never opens a gap. */
   z-index: 33;
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
   overflow: hidden;
   /* Bottom-anchor the strip inside the height-animating clip so its top
      hairline holds steady during the reveal instead of being clipped away
@@ -44,15 +42,6 @@
   background: var(--surface-raised);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
-}
-
-/* On wide screens the chrome bars float as a 65rem card with side hairlines;
-   close the strip's box to match. */
-@media (min-width: 65rem) {
-  .edit-mode-bar-inner {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
 }
 
 .edit-mode-bar-status {

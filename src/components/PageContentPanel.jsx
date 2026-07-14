@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { pageDefault } from '../lib/pageRegistry.js';
 import { blankRecordFor } from '../lib/lexicons.js';
 import { COLLECTIONS } from '../config.js';
+import { Skeleton } from './Skeleton.jsx';
 
 /**
  * Local-vs-PDS control for a single page's chrome (title / intro / body).
@@ -94,21 +95,31 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
     <div className="admin-page-panel">
       <div className="admin-page-panel-head">
         <span className="admin-page-panel-label">{def.label} — page content</span>
-        <span className={`admin-badge ${exists ? 'admin-badge-pds' : 'admin-badge-local'}`}>
-          {checking ? '…' : exists ? 'PDS' : 'Local'}
+        <span
+          className={`admin-badge ${
+            checking ? '' : exists ? 'admin-badge-pds' : 'admin-badge-local'
+          }`}
+        >
+          {checking ? (
+            <Skeleton width="1.75rem" height="0.7rem" />
+          ) : exists ? (
+            'PDS'
+          ) : (
+            'Local'
+          )}
         </span>
       </div>
       <p className="admin-page-panel-desc">
         {checking ? (
-          'Checking status…'
+          <Skeleton width="70%" height="0.85em" />
         ) : exists ? (
-          <>
+          <span className="reveal">
             Title &amp; intro are served from <code>is.dame.page/{slug}</code> on your PDS.
-          </>
+          </span>
         ) : (
-          <>
+          <span className="reveal">
             Title &amp; intro are hardcoded in the site. Migrate to edit them on your PDS.
-          </>
+          </span>
         )}
       </p>
       <div className="admin-page-panel-actions">

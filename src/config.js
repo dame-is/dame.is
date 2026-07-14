@@ -52,6 +52,15 @@ export const PORTFOLIO_PUBLICATION = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/site
  */
 export const BLOG_PUBLICATION = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/site.standard.publication/3lpq72oeo3c2y';
 
+// --- guestbook ---------------------------------------------------------------
+// The guestbook is read from backlinks: visitors write an
+// `is.dame.guestbook.entry` record on their OWN PDS whose `subject` points at
+// the singleton book record below; Constellation indexes the links and
+// Slingshot hydrates the records. See lexicons/GUESTBOOK.md.
+export const GUESTBOOK_NSID = 'is.dame.guestbook';
+export const GUESTBOOK_ENTRY_NSID = 'is.dame.guestbook.entry';
+export const GUESTBOOK_SUBJECT = `at://${ME_DID}/${GUESTBOOK_NSID}/self`;
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';

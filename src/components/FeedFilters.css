@@ -105,7 +105,7 @@
 /* Interior of the filter bottom sheet. BottomSheet owns positioning, the
    surface, and the expand animation; only the interior layout (padding,
    internal spacing, header/grid) lives here. Full-width — it fills the
-   65rem chrome card rather than sitting as a narrow centered modal. */
+   full-bleed chrome rather than sitting as a narrow centered modal. */
 .feed-filter-sheet-panel {
   width: 100%;
   /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
@@ -115,6 +115,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* Extra breathing room below the last row so the sheet doesn't feel
+     cramped against its bottom edge. Overrides the shorthand's bottom pad. */
+  padding-bottom: var(--space-6);
 }
 
 .feed-filter-modal-header {

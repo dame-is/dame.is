@@ -2,17 +2,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import MasonryGrid from '../components/MasonryGrid.jsx';
+import FlatLedger from '../components/FlatLedger.jsx';
 import CreatingFilters, { filterCreatingItems } from '../components/CreatingFilters.jsx';
-import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
+import { CreatingGridSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { useImagesReady } from '../hooks/useImagesReady.js';
 import { usePageContent } from '../hooks/usePageContent.js';
+import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { fetchSnapshot } from '../lib/snapshot.js';
-import { resolvePds, listRecords } from '../lib/atproto.js';
+import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { relativeTime, compareIsoDesc } from '../lib/time.js';
 import { coverThumb } from '../lib/creatingHelpers.js';
-import { isPortfolioDoc, workSlug, workCategory } from '../lib/publications.js';
+import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
+import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/FeedFilters.css';
 import './Creating.css';
@@ -21,11 +24,13 @@ const STANDARD_DOC = 'site.standard.document';
 
 function WorkCard({ record }) {
   const v = record.value || {};
-  const slug = workSlug(v);
+  // Blog-homed docs cross-posted here may lack a `path`; fall back to the
+  // rkey so the link still resolves at /creating/:slug.
+  const slug = workSlug(v) || rkeyFromAtUri(record.uri);
   const thumb = coverThumb(v);
   const category = workCategory(v);
   return (
-    <li className="creating-grid-cell">
+    <li className="creating-grid-cell" data-nsid={nsidFromAtUri(record.uri) || undefined}>
       <Link to={`/creating/${slug}`} className="creating-grid-link">
         {thumb ? (
           <img src={thumb.url} alt={thumb.alt || ''} loading="lazy" />
@@ -51,8 +56,9 @@ const COVER_WAIT = 12;
  * Creative works now live as `site.standard.document` records in the
  * portfolio publication; legacy `is.dame.creating.work` records are read
  * alongside them so nothing is orphaned during the migration. Standard docs
- * arrive via the `blogs` snapshot (filtered to the portfolio publication);
- * legacy works via `creations`.
+ * arrive via the `blogs` snapshot, filtered by `showOnCreating` (portfolio-
+ * homed docs, plus any blog-homed doc cross-posted here with a `creating`
+ * tag); legacy works via `creations`.
  */
 async function loadWorks() {
   const pds = await resolvePds(ME_DID);
@@ -62,7 +68,7 @@ async function loadWorks() {
   ]);
   transformRecords(stdDocs, STANDARD_DOC, pds, ME_DID);
   transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
-  return [...stdDocs.filter((r) => isPortfolioDoc(r?.value)), ...legacy];
+  return [...stdDocs.filter((r) => showOnCreating(r?.value)), ...legacy];
 }
 
 export default function Creating() {
@@ -77,18 +83,23 @@ export default function Creating() {
         fetchSnapshot('creations'),
         fetchSnapshot('blogs'),
       ]);
-      const std = Array.isArray(blogs) ? blogs.filter((r) => isPortfolioDoc(r?.value)) : [];
+      const std = Array.isArray(blogs) ? blogs.filter((r) => showOnCreating(r?.value)) : [];
       return [...std, ...(Array.isArray(creations) ? creations : [])];
     },
     fetchLive: loadWorks,
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return [];
+      // Runs against both the snapshot and the live payload, so this is the
+      // single gate that keeps drafts off the feed regardless of source — the
+      // live PDS fetch (loadWorks) otherwise re-includes drafted works.
       return snap
-        .filter((r) => r?.value)
+        .filter((r) => r?.value && !isDraft(r.value))
         .sort((a, b) => compareIsoDesc(a.value?.createdAt, b.value?.createdAt));
     },
   });
 
+  const { layout } = useFeedLayout();
+  const ledger = layout === 'ledger';
   const loading = status === 'loading';
   const safeWorks = works || [];
   const kinds = useMemo(
@@ -122,7 +133,9 @@ export default function Creating() {
   useEffect(() => {
     if (!loading && coversReady) setRevealed(true);
   }, [loading, coversReady]);
-  const showSkeleton = loading || (filtered.length > 0 && !revealed);
+  // The ledger table shows no cover art, so it needn't wait on cover preloads
+  // the way the grid does — it paints as soon as the works are loaded.
+  const showSkeleton = ledger ? loading : loading || (filtered.length > 0 && !revealed);
 
   return (
     <PageShell
@@ -133,11 +146,30 @@ export default function Creating() {
     >
       <CreatingFilters kinds={kinds} counts={counts} />
       {showSkeleton ? (
-        <CreatingGridSkeleton cells={6} />
+        ledger ? (
+          <FeedSkeleton rows={6} label="Loading works" />
+        ) : (
+          <CreatingGridSkeleton cells={6} />
+        )
       ) : filtered.length === 0 ? (
         <p className="feed-empty">
           {q ? 'No works match that search.' : 'No works yet.'}
         </p>
+      ) : ledger ? (
+        <FlatLedger
+          rows={filtered.map((r, i) => {
+            const v = r.value || {};
+            const slug = workSlug(v) || rkeyFromAtUri(r.uri);
+            return {
+              key: r.uri || i,
+              href: `/creating/${slug}`,
+              title: v.title || slug,
+              kind: workCategory(v),
+              time: v.createdAt ? relativeTime(v.createdAt) : null,
+              nsid: nsidFromAtUri(r.uri),
+            };
+          })}
+        />
       ) : (
         <MasonryGrid
           items={filtered}

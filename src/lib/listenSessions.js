@@ -13,7 +13,7 @@
  * newest song) plus a `count` and a `plays` array of the underlying
  * records for expand/collapse.
  */
-export const LISTEN_BATCH_GAP_MS = 2 * 60 * 60 * 1000; // 2 hours
+export const LISTEN_BATCH_GAP_MS = 60 * 60 * 1000; // 1 hour
 
 export function collapseListens(items) {
   const out = [];

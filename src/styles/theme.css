@@ -44,11 +44,23 @@
      an available stack, not wired to any role. */
   --serif:  var(--font-crimson);
   --sans:   var(--font-crimson);
+  /* --mono is the tabular "ledger" accent: gutters, ledger columns, and
+     metadata. It's a real monospace by default, but serif-only font mode
+     (see [data-font='serif'] below) folds it into the serif voice. */
   --mono:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* --code is for genuine code and raw data (<code>/<pre>, JSON dumps,
+     at-uris) where alignment carries meaning — it stays monospace in
+     every font mode, unlike --mono. */
+  --code:   'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   /* UI-chrome mono (paths, kbd badges, identifiers, etc.) reads in the
      serif voice so the chrome matches the rest of the site, while real
-     code surfaces (<code>, <pre>) keep --mono. */
+     code surfaces (<code>, <pre>) keep --code. */
   --mono-ui: var(--font-crimson);
+  /* Apparent-size compensation for the --mono ledger/metadata accent.
+     Monospace glyphs look larger than the serif's at the same font-size,
+     so serif-only mode (below) scales those elements up a touch to keep
+     their on-screen size. 1 = no change — the default mono voice. */
+  --mono-scale: 1;
 
   --measure: 65ch;
   --leading: 1.6;
@@ -82,6 +94,21 @@
   color-scheme: light;
 }
 
+/* Serif-only font mode. Folds the tabular monospace accent (--mono:
+   gutters, ledger columns, metadata) into the serif voice so the whole
+   reading surface is one typeface. Genuine code/data (--code) is left
+   monospace. Toggled from the bottom chrome — see useFont.jsx — and set
+   pre-paint in main.jsx. Same specificity as :root, so this must stay
+   after the :root block to win the cascade. */
+[data-font='serif'] {
+  --mono: var(--serif);
+  /* Crimson Pro reads noticeably smaller than IBM Plex Mono at a given
+     font-size (lower x-height), so nudge the flipped ledger/metadata
+     text up ~10% to hold the footprint it had in the mono voice. Tune
+     here — it flows into every --mono element's font-size via calc(). */
+  --mono-scale: 1.1;
+}
+
 [data-theme='dark'] {
   --page:        #1d2419;   /* dark greenish-black */
   --page-edge:   #161c12;
@@ -105,6 +132,38 @@
   --scrim-clear: rgba(0, 0, 0, 0);
   --scrim-ink:   rgba(236, 228, 203, 0.9);
 
+  color-scheme: dark;
+}
+
+/* Sky theme: the palette drifts through the day in lockstep with the
+   hourly sky avatar. All tokens are computed per Eastern hour by
+   src/lib/skyTheme.js and written onto <html> as --sky-* custom
+   properties; this block just maps the real tokens onto them. The
+   fallbacks are the midnight palette so any pre-JS flash lands on a
+   quiet near-black rather than an unstyled page. */
+[data-theme='sky'] {
+  --page:           var(--sky-page, #181919);
+  --page-edge:      var(--sky-page-edge, #131313);
+  --surface-raised: var(--sky-surface-raised, #0d0d0d);
+  --surface-deep:   var(--sky-surface-deep, #050505);
+  --ink:            var(--sky-ink, #dfe7e7);
+  --ink-soft:       var(--sky-ink-soft, #c1cdcd);
+  --ink-muted:      var(--sky-ink-muted, #93a5a5);
+  --ink-faint:      var(--sky-ink-faint, #6a7c7c);
+  --rule:           var(--sky-rule, #333a3a);
+  --rule-soft:      var(--sky-rule-soft, #262929);
+  --accent:         var(--sky-accent, #9cc9c9);
+  --accent-soft:    var(--sky-accent-soft, #79afaf);
+  --tan:            var(--sky-tan, #8cbaba);
+  --highlight:      var(--sky-highlight, rgba(156, 201, 201, 0.16));
+  --shadow:         var(--sky-shadow, rgba(0, 0, 0, 0.45));
+
+  --scrim:          var(--sky-scrim, rgba(9, 9, 9, 0.8));
+  --scrim-clear:    var(--sky-scrim-clear, rgba(9, 9, 9, 0));
+  --scrim-ink:      var(--sky-scrim-ink, rgba(223, 231, 231, 0.9));
+
+  /* Daylight hours override this to `light` via an inline style set by
+     skyTheme.js (inline wins over this static fallback). */
   color-scheme: dark;
 }
 
@@ -134,6 +193,15 @@
 [data-theme='dark'] .chrome-bar,
 [data-theme='dark'] .modal-panel {
   --ink-faint: #857f68;
+}
+
+/* Sky theme's raised-surface re-tune, computed per hour alongside the
+   rest of the palette (day hours deepen both steps; night hours only
+   lift the faint step, mirroring the static themes above). */
+[data-theme='sky'] .chrome-bar,
+[data-theme='sky'] .modal-panel {
+  --ink-muted: var(--sky-ink-muted-raised, var(--sky-ink-muted, #93a5a5));
+  --ink-faint: var(--sky-ink-faint-raised, var(--sky-ink-faint, #7b8e8e));
 }
 
 html, body {

@@ -15,7 +15,7 @@
 
 /* The animated clip box, pinned directly on top of the bottom bar — and
    above the owner edit action bar when it's open (--edit-bar-h, else 0) —
-   centered on the same 65rem card. Framer animates its height 0 ↔ auto;
+   spanning the same full-bleed width. Framer animates its height 0 ↔ auto;
    overflow:hidden means the panel inside unfurls upward out of the bar.
    Sits above the bars (z 31) so its top edge overlaps the page cleanly. */
 .bottom-sheet-wrap {
@@ -24,8 +24,6 @@
   left: 0;
   right: 0;
   width: 100%;
-  max-width: 65rem;
-  margin: 0 auto;
   z-index: 31;
   overflow: hidden;
   /* Bottom-anchor the panel inside the height-animating clip so its
@@ -76,11 +74,3 @@
   overscroll-behavior: contain;
 }
 
-/* On wide screens the chrome bars float as a 65rem card with side hairlines;
-   the panel closes its box to match. */
-@media (min-width: 65rem) {
-  .bottom-sheet-panel {
-    border-left: 1px solid var(--rule);
-    border-right: 1px solid var(--rule);
-  }
-}

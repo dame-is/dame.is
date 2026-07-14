@@ -112,7 +112,8 @@ export function markdownToContent(body) {
 
 function blocksFromTokens(tokens) {
   const out = [];
-  for (const t of tokens) {
+  for (let i = 0; i < tokens.length; i += 1) {
+    const t = tokens[i];
     switch (t.type) {
       case 'heading':
         out.push(headerBlock(t));
@@ -132,9 +133,14 @@ function blocksFromTokens(tokens) {
       case 'hr':
         out.push({ $type: 'pub.leaflet.blocks.text', plaintext: '', facets: [] });
         break;
-      case 'html':
-        out.push(...htmlBlocks(t));
+      case 'html': {
+        const { blocks, consumed } = htmlBlocks(tokens, i);
+        out.push(...blocks);
+        // `consumed` sibling tokens were swallowed by an unterminated embed
+        // (see htmlBlocks); skip past them so they don't re-emit as text.
+        i += consumed;
         break;
+      }
       case 'space':
       default:
         break;
@@ -241,10 +247,32 @@ function listItem(item, ordered) {
 // The Eleventy posts embed Bluesky posts as raw <blockquote data-bluesky-uri>
 // HTML (from the official embed snippet). Recover the AT URI and turn it into a
 // first-class bskyPost block; drop any other raw HTML.
-function htmlBlocks(t) {
-  const uri = /data-bluesky-uri="(at:\/\/[^"]+)"/.exec(t.text || t.raw || '');
-  if (uri) return [{ $type: 'pub.leaflet.blocks.bskyPost', postRef: { uri: uri[1] } }];
-  return [];
+//
+// The embed snippet holds the quoted post's body as blank-line-separated
+// paragraphs *inside* the <blockquote>. marked ends an HTML block at the first
+// blank line, so only the opening tag lands in this `html` token — the post's
+// own lines and the closing `</blockquote><script>` tail spill out as the
+// following sibling tokens (paragraphs). Left alone they render as stray text
+// blocks, one carrying literal `</blockquote>`/`<script>` markup (visible on
+// the live post). Since the rendered bskyPost already shows that text, swallow
+// those siblings up to and including the one that closes the blockquote.
+//
+// Takes the full `tokens` list and this token's `index`; returns the recovered
+// block(s) plus how many *following* tokens to skip. `consumed` is 0 when the
+// embed is self-contained (single line) or its close can't be found — in the
+// latter case we leave siblings untouched rather than risk eating real content.
+function htmlBlocks(tokens, index) {
+  const t = tokens[index];
+  const raw = t.text || t.raw || '';
+  const uri = /data-bluesky-uri="(at:\/\/[^"]+)"/.exec(raw);
+  if (!uri) return { blocks: [], consumed: 0 };
+  const blocks = [{ $type: 'pub.leaflet.blocks.bskyPost', postRef: { uri: uri[1] } }];
+  if (/<\/blockquote>/i.test(raw)) return { blocks, consumed: 0 };
+  for (let j = index + 1; j < tokens.length; j += 1) {
+    const sibRaw = tokens[j].raw || tokens[j].text || '';
+    if (/<\/blockquote>/i.test(sibRaw)) return { blocks, consumed: j - index };
+  }
+  return { blocks, consumed: 0 };
 }
 
 /* ------------------------------------------------------------------ */

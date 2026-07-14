@@ -3,34 +3,29 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { PAPER_ENABLED } from './hooks/usePaper.jsx';
+import { FONT_SWITCHER_ENABLED } from './hooks/useFont.jsx';
+import { applySkyTheme, easternHour } from './lib/skyTheme.js';
 import './styles/reset.css';
 import './styles/theme.css';
 import './styles/typography.css';
 import './styles/app.css';
 import './styles/paper.css';
 
-// Theme selection happens here (before React mounts) so the first
-// paint is in the correct palette. Two themes; retired monochrome
-// variants alias to their color equivalent, and legacy/missing values
-// fall to light. Keep VALID_THEMES + THEME_COLORS + THEME_ALIASES in
-// sync with useTheme.jsx.
-const VALID_THEMES = ['light', 'dark'];
-const THEME_ALIASES = { 'light-mono': 'light', 'dark-mono': 'dark' };
-const THEME_COLORS = {
-  light: '#e3d8ba',
-  dark: '#13180f',
-};
-const storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.theme') : null;
-const resolvedStoredTheme = THEME_ALIASES[storedTheme] || storedTheme;
-// Default to light for new visitors (and legacy `system` / other
-// invalid values). Keep in sync with DEFAULT_THEME in useTheme.
-const initialTheme = VALID_THEMES.includes(resolvedStoredTheme) ? resolvedStoredTheme : 'light';
-document.documentElement.setAttribute('data-theme', initialTheme);
+// The site runs a single, always-on theme: the hour-tracking sky mode.
+// Set it here (before React mounts) so the first paint is in the right
+// palette. The retired static light/dark themes are no longer selectable.
+// Keep in sync with useTheme.jsx.
+document.documentElement.setAttribute('data-theme', 'sky');
+
+// Sky mode's palette is computed per hour, not static — derive this
+// hour's tokens before the first paint and take the browser-chrome tint
+// from them.
+const initialThemeColor = applySkyTheme(easternHour()).themeColor;
 
 document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
 const themeColorMeta = document.createElement('meta');
 themeColorMeta.setAttribute('name', 'theme-color');
-themeColorMeta.setAttribute('content', THEME_COLORS[initialTheme]);
+themeColorMeta.setAttribute('content', initialThemeColor);
 document.head.appendChild(themeColorMeta);
 
 // Paper texture behind long-form text (blank / ruled / dots). Set before
@@ -43,6 +38,18 @@ const storedPaper = typeof localStorage !== 'undefined' ? localStorage.getItem('
 document.documentElement.setAttribute(
   'data-paper',
   PAPER_ENABLED && VALID_PAPER.includes(storedPaper) ? storedPaper : 'blank',
+);
+
+// Font mode. The switcher is hidden and the site runs serif-only, so this
+// resolves to 'serif' regardless of any stored preference. Set before the
+// first paint so the ledger columns render in the serif voice from the
+// start. When FONT_SWITCHER_ENABLED is flipped back on in useFont.jsx the
+// stored preference is honoured again (default serif). Keep in sync.
+const VALID_FONTS = ['mixed', 'serif'];
+const storedFont = typeof localStorage !== 'undefined' ? localStorage.getItem('dame.font') : null;
+document.documentElement.setAttribute(
+  'data-font',
+  FONT_SWITCHER_ENABLED && VALID_FONTS.includes(storedFont) ? storedFont : 'serif',
 );
 
 ReactDOM.createRoot(document.getElementById('root')).render(

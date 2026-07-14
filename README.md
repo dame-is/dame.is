@@ -46,6 +46,14 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   dropped or double-counted. Same location-stripping guarantee. The
   `is.dame.observing/self` summary doubles as the incremental mirror's
   freshness marker across all observations.
+- `is.dame.guestbook` / `is.dame.guestbook.entry` — a decentralized
+  guestbook, rendered at `/guestbook`. The book is a singleton on my PDS
+  (`at://{me}/is.dame.guestbook/self`); each signature is an
+  `is.dame.guestbook.entry` record **on the visitor's own PDS** whose
+  `subject` backlinks to the book. Reads are assembled live from
+  Constellation backlinks hydrated through Slingshot; writes happen in the
+  browser via atproto OAuth. See [`lexicons/GUESTBOOK.md`](lexicons/GUESTBOOK.md).
+  Create the book once with [`scripts/create-guestbook.mjs`](scripts/create-guestbook.mjs).
 
 Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.
 
@@ -76,10 +84,12 @@ only observations changed since the last sync (via iNaturalist's
 `updated_since`), writes just those to the right collection plus the two
 refreshed summaries, and deletes records for observations removed upstream (or
 moved across the moth boundary by a re-identification). `--dry-run` plans without
-writing; `--full` ignores the freshness marker. A daily Vercel cron
-(`/api/mirror-mothing`, see `vercel.json`) runs the same sync using
-`BSKY_APP_PASSWORD` (+ optional `BSKY_IDENTIFIER`); set `CRON_SECRET` to lock the
-endpoint down.
+writing; `--full` ignores the freshness marker. A Vercel cron runs the same
+sync every 6 hours (`/api/mirror-mothing`, see `vercel.json`), just before each
+`/api/rebuild`, so new observations reach the PDS — and the home feed — within
+hours instead of a day. It uses `BSKY_APP_PASSWORD` (+ optional
+`BSKY_IDENTIFIER`); set `CRON_SECRET` to lock the endpoint down. The freshness
+check makes the extra runs cheap: they no-op when nothing changed upstream.
 
 The `/mothing` page applies the same freshness check in the browser: it paints
 from the snapshot and only re-pulls the full observation set from iNaturalist

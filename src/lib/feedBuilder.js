@@ -12,7 +12,14 @@
 // pure function that the prefetch script calls when it needs to write a
 // per-collection JSON snapshot or a combined per-verb file.
 
-import { ME_DID, APPVIEW, COLLECTIONS } from '../config.js';
+import {
+  ME_DID,
+  APPVIEW,
+  COLLECTIONS,
+  INATURALIST_USER,
+  MOTHING_OBSERVATION_NSID,
+  OBSERVING_OBSERVATION_NSID,
+} from '../config.js';
 import {
   getAuthorFeed,
   listRecords,
@@ -20,6 +27,8 @@ import {
 import { VERB_REGISTRY } from './verbRegistry.js';
 import { isPortfolioDoc } from './publications.js';
 import { createSubjectResolver } from './subjectResolver.js';
+import { fetchLiveObservationItems } from './liveObservations.js';
+import { observationFeedInstant } from './inaturalist.js';
 import { compareIsoDesc } from './time.js';
 
 /**
@@ -293,7 +302,7 @@ export function leafletSynopsis(docValue) {
  * place. Anything we can do in one pass to make rendering easier — slug
  * mirrors, blob URL bake-ins, etc. — lives here.
  */
-export function transformRecords(records, nsid, pds, did = ME_DID) {
+export function transformRecords(records, nsid, pds, did = ME_DID, opts = {}) {
   if (!records?.length) return records;
   for (const r of records) {
     const v = r?.value;
@@ -337,8 +346,47 @@ export function transformRecords(records, nsid, pds, did = ME_DID) {
     }
   }
 
+  // Anisota Lab pieces carry bulky reproduction data (gouge paths, synth event
+  // grids, reaction-diffusion recipes, sigil core paths…) that never renders —
+  // AnisotaLabCard only needs the finished text / tiles / figure / print. Drop
+  // the reopen-the-studio payloads so they don't bloat the unified feed. What
+  // the card renders (name, text, tiles+board, redacted+original, image, svg,
+  // description, tempo/steps/scale) is kept.
+  if (ANISOTA_LAB_HEAVY_FIELDS[nsid]) {
+    for (const r of records) {
+      const v = r?.value;
+      if (!v) continue;
+      for (const key of ANISOTA_LAB_HEAVY_FIELDS[nsid]) delete v[key];
+      // For the static build-time snapshot, also drop the big inline media
+      // data-URLs (a rendered PNG is ≤200 KB; a sigil SVG ≤60 KB) so the
+      // snapshot JSON stays small. The in-memory live feed keeps them (it
+      // never touches storage), and the record page re-fetches the full
+      // record, so the piece still renders everywhere it's shown.
+      if (opts.leanMedia) {
+        delete v.image;
+        delete v.svg;
+      }
+    }
+  }
+
   return records;
 }
+
+/**
+ * Per-collection lists of reproduction-only fields stripped from every Anisota
+ * Lab record before it enters the feed (see transformRecords). Redaction keeps
+ * `original` + `redacted` (the erasure render needs them); poetry keeps
+ * `tiles` + `board` (the tile re-lay needs them).
+ */
+const ANISOTA_LAB_HEAVY_FIELDS = {
+  'net.anisota.lab.poetry': ['sources'],
+  'net.anisota.lab.sigil': ['points', 'meta'],
+  'net.anisota.lab.carving': ['strokes'],
+  'net.anisota.lab.inkblot': ['params'],
+  'net.anisota.lab.synth': ['tracks', 'fx'],
+  'net.anisota.lab.petri': ['drops', 'params'],
+  'net.anisota.spell.custom': ['conditions', 'effects', 'source', 'trigger'],
+};
 
 /**
  * Bake a `_url` onto a single top-level blob ref (e.g. a document's
@@ -416,6 +464,24 @@ export function applyAgeCutoff(records, maxAgeDays) {
 }
 
 /**
+ * The highest iNaturalist id already mirrored, across both observation
+ * collections' fetched records (each keyed by its iNat id). Observation
+ * records list newest-first, so even a capped first-paint fetch still holds
+ * the true maximum. Returns null when no observations were fetched.
+ */
+function newestMirroredObservationId(perCollection) {
+  let max = 0;
+  for (const nsid of [MOTHING_OBSERVATION_NSID, OBSERVING_OBSERVATION_NSID]) {
+    const records = perCollection[nsid.replace(/\./g, '-')] || [];
+    for (const r of records) {
+      const n = Number(String(r?.uri || '').split('/').pop());
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+  }
+  return max || null;
+}
+
+/**
  * Fetch every `app.bsky.graph.listitem` record and bucket them under their
  * parent list URI. Each list record gets a `_members` array of `{ did }`
  * entries (later resolved to handles via the bsky AppView).
@@ -483,6 +549,10 @@ export async function buildUnifiedFeed({
   // script keeps its full caps for the static snapshot.
   const initialMax = options.initialMax ?? null;
   const capFor = (c) => (initialMax ? Math.min(c.max || 200, initialMax) : c.max || 200);
+  // Snapshot builds (the prefetch script) drop the big inline media data-URLs
+  // from Anisota Lab records to keep public/data JSON small; the browser's
+  // in-memory live feed leaves `leanMedia` off so it renders the real media.
+  const leanMedia = options.leanMedia === true;
   // Skipping list-item aggregation on the first fetch shaves a 1000-row
   // listRecords call; lists still render, just without `_members`.
   const skipListMembers = options.skipListMembers === true;
@@ -539,7 +609,7 @@ export async function buildUnifiedFeed({
             () => listRecords(pds, { repo: me, collection: c.nsid, max: capFor(c) }),
             [],
           );
-          transformRecords(fetched, c.nsid, pds, me);
+          transformRecords(fetched, c.nsid, pds, me, { leanMedia });
           // Drafts must never reach public surfaces — the snapshots written
           // from these records are world-readable. The admin reads the PDS
           // live (authenticated), so it still sees drafts.
@@ -607,6 +677,50 @@ export async function buildUnifiedFeed({
       (perVerb[item.verb] ||= []).push(item);
       unified.push(item);
     }
+  }
+
+  // Live-augment observations from iNaturalist: surface sightings newer than
+  // the newest mirrored record so they appear before the mirror cron writes
+  // them. Opt-in (`options.liveObservations`) — the browser turns it on; the
+  // static snapshot build leaves it off since the cron keeps that fresh. Each
+  // item borrows the deterministic at:// URI the mirror will assign (keyed by
+  // the iNat id), so it merges with — never duplicates — the record once
+  // mirrored.
+  if (options.liveObservations && (includeVerb('mothing') || includeVerb('observing'))) {
+    await safe('liveObservations', async () => {
+      const newestId = newestMirroredObservationId(perCollection);
+      const live = await fetchLiveObservationItems({
+        me,
+        newestMirroredId: newestId,
+        user: options.inaturalistUser || INATURALIST_USER,
+        wantMothing: includeVerb('mothing'),
+        wantObserving: includeVerb('observing'),
+        warn,
+      });
+      const seen = new Set(unified.map((i) => i.atUri));
+      let added = 0;
+      for (const item of live) {
+        if (!item.atUri || seen.has(item.atUri)) continue;
+        seen.add(item.atUri);
+        unified.push(item);
+        (perVerb[item.verb] ||= []).push(item);
+        added += 1;
+      }
+      counts.liveObservations = added;
+    }, null);
+  }
+
+  // Observations store their local wall-clock pinned to `Z` (privacy: no tz
+  // offset is ever persisted). That fake-UTC value sorts ~offset hours early
+  // against real-UTC records and buckets into the wrong local day. Rebuild each
+  // observation's ordering timestamp as a local instant so it interleaves and
+  // day-groups correctly. No-op in Node/UTC (snapshot unchanged); in the
+  // browser it maps the observer's wall-clock to the viewer's clock. Both the
+  // mirrored and the live-augmented items carry `observedDate`/`observedTime`.
+  for (const item of unified) {
+    if (item.verb !== 'mothing' && item.verb !== 'observing') continue;
+    const instant = observationFeedInstant(item.payload?.observedDate, item.payload?.observedTime);
+    if (instant) item.createdAt = instant;
   }
 
   sortUnifiedFeed(unified);

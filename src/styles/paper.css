@@ -33,6 +33,14 @@
   --paper-dot:  rgba(236, 228, 203, 0.08);
 }
 
+/* Sky theme: ink shifts hue with the hour, so the texture tints are
+   computed alongside the palette in src/lib/skyTheme.js. Fallbacks match
+   the midnight palette. */
+[data-theme='sky'] {
+  --paper-rule: var(--sky-paper-rule, rgba(223, 231, 231, 0.055));
+  --paper-dot:  var(--sky-paper-dot, rgba(223, 231, 231, 0.08));
+}
+
 /* `--paper-drop`: distance the rule/dot row sits above each line-box
    bottom, landing it just below the descenders. The tight density packs
    a shorter line box, so it uses a smaller drop. Both feed post text and

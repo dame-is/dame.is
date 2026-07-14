@@ -1,0 +1,162 @@
+/* Admin publications editor. Reuses the shared admin-* field/button styles;
+   these rules only cover the publication-specific bits (list, theme grid,
+   icon preview, migrate row). Tokens match the rest of the admin surface. */
+
+.pub-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.pub-list-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3);
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.pub-list-row:hover {
+  border-color: var(--accent);
+}
+.pub-list-name {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  color: var(--ink);
+}
+.pub-list-rkey {
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--ink-faint);
+}
+.pub-list-url {
+  grid-column: 1;
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  word-break: break-all;
+}
+
+.pub-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+/* ---- theme ---- */
+.pub-theme-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.pub-color {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.pub-color input[type='color'] {
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  background: none;
+  cursor: pointer;
+}
+.pub-theme-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--rule);
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+}
+.pub-theme-chip {
+  padding: 2px var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  border-radius: 999px;
+}
+
+/* ---- icon ---- */
+.pub-icon-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.pub-icon-preview {
+  inline-size: 72px;
+  block-size: 72px;
+  object-fit: cover;
+  border: 1px solid var(--rule);
+}
+.pub-icon-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  background: var(--paper);
+}
+.pub-file {
+  cursor: pointer;
+}
+
+/* ---- migrate ---- */
+.pub-migrate {
+  padding: var(--space-3);
+  border: 1px dashed var(--rule);
+}
+.pub-migrate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.pub-hour {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.pub-hour select {
+  font-family: var(--mono-ui);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  background: var(--page);
+  border: 1px solid var(--rule);
+  padding: var(--space-1) var(--space-2);
+}
+
+.pub-raw {
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.pub-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}

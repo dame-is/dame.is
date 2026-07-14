@@ -14,12 +14,12 @@ import ObservationCard from './cards/ObservationCard.jsx';
 import ListCard from './cards/ListCard.jsx';
 import GeneratorCard from './cards/GeneratorCard.jsx';
 import CommentCard from './cards/CommentCard.jsx';
-import VoteCard from './cards/VoteCard.jsx';
+import AnisotaLabCard from './cards/AnisotaLabCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
-import { verbConfig, recordHrefFor } from '../lib/verbRegistry.js';
+import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
 
 /**
  * Per-verb label overrides for the feed's verb column. Most verbs read
@@ -47,7 +47,7 @@ const RENDERERS = {
   ListCard,
   GeneratorCard,
   CommentCard,
-  VoteCard,
+  AnisotaLabCard,
 };
 
 function postingReplyVerbLabel(reply) {
@@ -73,6 +73,10 @@ function postingReplyVerbLabel(reply) {
  * to the generic `/{nsid}/{rkey}` form that Record.jsx handles.
  */
 function hrefFor(item) {
+  // A live iNaturalist observation isn't mirrored to the PDS yet, so it has no
+  // record page — its card links out to iNaturalist instead. Skip the row's
+  // internal link so a stray tap can't land on a "record not found" page.
+  if (item._live) return null;
   return recordHrefFor(item.verb, {
     atUri: item.atUri,
     rkey: rkeyFromAtUri(item.atUri),
@@ -87,14 +91,14 @@ function hrefFor(item) {
  * registry. The verb badge doubles as the link to the underlying record
  * page (or generic JSON fallback for verbs without a specialized one).
  *
- * `layout` switches the row treatment: 'default' renders the full card
+ * `layout` switches the row treatment: 'cards' renders the full card
  * (verb badge + per-verb component), 'ledger' renders the condensed
  * multi-column row (see FeedLedgerRow.jsx). Home decides which to pass
- * — including falling back to 'default' while owner edit mode is
- * active, so this component never has to reconcile ledger rows with
- * the selection UI.
+ * — including falling back to 'cards' while owner edit mode is active,
+ * so this component never has to reconcile ledger rows with the
+ * selection UI.
  */
-export default function FeedItem({ item, showVerb = true, layout = 'default' }) {
+export default function FeedItem({ item, showVerb = true, layout = 'cards', onOpenLightbox = null }) {
   const navigate = useNavigate();
   const edit = useEditMode();
   // Ledger-only: whether a collapsed listening session is showing its
@@ -138,6 +142,15 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
   // (each expanded track links to its own record page, and the verb cell
   // still links to the session's record).
   const ledgerListenBatch = ledger && isListenBatch(item);
+  // A photographed observation opens the in-feed image lightbox on tap
+  // (like the /mothing page) instead of navigating to its record page. The
+  // verb cell keeps linking to the record, so both paths stay reachable.
+  const isObservation = item.verb === 'mothing' || item.verb === 'observing';
+  const canLightbox =
+    ledger &&
+    isObservation &&
+    typeof onOpenLightbox === 'function' &&
+    Boolean(item.payload?.photos?.[0]);
 
   // Make the whole row tappable as a convenience — handy on mobile where the
   // verb badge / timestamp are small hit targets. We bail when the click
@@ -146,13 +159,17 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
   // (Cmd/Ctrl/middle-click — let the browser open it in a new tab via the
   // verb badge / timestamp links instead).
   function handleRowClick(e) {
-    if (!href && !ledgerListenBatch) return;
+    if (!href && !ledgerListenBatch && !canLightbox) return;
     if (e.defaultPrevented) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (e.target.closest('a, button, input, textarea, label, select, [role="button"], [role="link"]')) return;
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
     if (sel && sel.toString().length > 0) return;
+    if (canLightbox) {
+      onOpenLightbox(item);
+      return;
+    }
     if (ledgerListenBatch) {
       setLedgerExpanded((v) => !v);
       return;
@@ -207,6 +224,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
     `feed-item-${item.verb}`,
     ledger ? 'feed-item-ledger' : '',
     ledgerListenBatch ? 'feed-item-ledger-expandable' : '',
+    canLightbox ? 'feed-item-ledger-lightbox' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
     item._thread?.isLast ? 'feed-item-thread-last' : '',
@@ -220,11 +238,12 @@ export default function FeedItem({ item, showVerb = true, layout = 'default' }) 
     <li
       className={liClassName}
       data-verb={item.verb}
+      data-nsid={nsidFromAtUri(item.atUri) || undefined}
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
       onClickCapture={selectable ? handleSelectCapture : undefined}
       onClick={
-        !selectable && !listeningEdit && (href || ledgerListenBatch)
+        !selectable && !listeningEdit && (href || ledgerListenBatch || canLightbox)
           ? handleRowClick
           : undefined
       }

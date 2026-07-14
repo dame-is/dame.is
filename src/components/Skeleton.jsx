@@ -370,3 +370,108 @@ export function ProseSkeleton({ paragraphs = 3 }) {
     </SkeletonShell>
   );
 }
+
+/* -------------------------------------------------------------------- */
+/* Admin variants                                                        */
+/* -------------------------------------------------------------------- */
+
+/**
+ * Skeleton for the admin record list (RecordList, ListeningManager, the
+ * Site-pages record section). Mirrors the `.admin-record-list` rows — a
+ * fixed rkey column beside a flexible preview line — so the placeholder
+ * lands on the same grid the real rows fill.
+ *
+ * Pass `toolbar` to prepend a `.admin-toolbar`-shaped bar, used when the
+ * whole page is still resolving (e.g. the session-restore gate) and the
+ * real toolbar hasn't rendered yet.
+ */
+export function AdminRecordListSkeleton({ rows = 6, toolbar = false, label = 'Loading records' }) {
+  return (
+    <SkeletonShell label={label}>
+      {toolbar && (
+        <div className="skeleton-admin-toolbar">
+          <Skeleton className="skeleton-admin-toolbar-back" />
+          <Skeleton className="skeleton-admin-toolbar-nsid" />
+          <Skeleton className="skeleton-admin-toolbar-btn" />
+        </div>
+      )}
+      <ul className="skeleton-admin-list">
+        {Array.from({ length: rows }, (_, i) => (
+          <li key={i} className="skeleton-admin-row">
+            <Skeleton className="skeleton-admin-rkey" />
+            <Skeleton
+              className="skeleton-admin-preview"
+              style={{ width: `${52 + ((i * 13) % 40)}%` }}
+            />
+          </li>
+        ))}
+      </ul>
+    </SkeletonShell>
+  );
+}
+
+/**
+ * Skeleton for the Site-pages "Local vs PDS" grid. Mirrors the
+ * `.admin-page-panel` cards — bordered blocks with a label + status badge,
+ * a description line, and an actions row.
+ */
+export function AdminPagePanelsSkeleton({ panels = 4 }) {
+  return (
+    <SkeletonShell label="Loading pages">
+      <div className="skeleton-admin-panels">
+        {Array.from({ length: panels }, (_, i) => (
+          <div key={i} className="skeleton-admin-panel">
+            <div className="skeleton-admin-panel-head">
+              <Skeleton
+                className="skeleton-admin-panel-label"
+                style={{ width: `${8 + ((i * 3) % 6)}rem` }}
+              />
+              <Skeleton className="skeleton-admin-panel-badge" />
+            </div>
+            <Skeleton
+              className="skeleton-admin-panel-desc"
+              style={{ width: `${60 + ((i * 11) % 30)}%` }}
+            />
+            <div className="skeleton-admin-panel-actions">
+              <Skeleton className="skeleton-admin-panel-btn" />
+              {i % 2 === 0 && (
+                <Skeleton className="skeleton-admin-panel-btn" style={{ width: '6.5rem' }} />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SkeletonShell>
+  );
+}
+
+/**
+ * Skeleton for the record editor form (RecordEditor while it fetches an
+ * existing record). Mirrors the `.admin-form` stack — small-caps field
+ * labels above inputs, one tall block for the body textarea, and an
+ * actions row.
+ */
+export function AdminEditorSkeleton({ fields = 4 }) {
+  return (
+    <SkeletonShell label="Loading record" className="skeleton-admin-form">
+      {Array.from({ length: fields }, (_, i) => {
+        const tall = i === fields - 1;
+        return (
+          <div key={i} className="skeleton-admin-field">
+            <Skeleton
+              className="skeleton-admin-field-label"
+              style={{ width: `${4 + ((i * 5) % 5)}rem` }}
+            />
+            <Skeleton
+              className={`skeleton-admin-field-input${tall ? ' skeleton-admin-field-input-tall' : ''}`}
+            />
+          </div>
+        );
+      })}
+      <div className="skeleton-admin-actions">
+        <Skeleton className="skeleton-admin-action-btn" />
+        <Skeleton className="skeleton-admin-action-btn" style={{ width: '4.5rem' }} />
+      </div>
+    </SkeletonShell>
+  );
+}

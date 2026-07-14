@@ -3,13 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
+import DocumentMeta from '../components/DocumentMeta.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { renderMarkdown } from '../lib/markdown.js';
-import { formatDateLong } from '../lib/time.js';
-import { isPortfolioDoc, workSlug, workCategory } from '../lib/publications.js';
+import { showOnCreating, isDraft, workSlug } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Blogging.css';
@@ -26,7 +26,7 @@ export default function CreatingWork() {
         fetchSnapshot('creations'),
         fetchSnapshot('blogs'),
       ]);
-      const std = Array.isArray(blogs) ? blogs.filter((r) => isPortfolioDoc(r?.value)) : [];
+      const std = Array.isArray(blogs) ? blogs.filter((r) => showOnCreating(r?.value)) : [];
       return [...std, ...(Array.isArray(creations) ? creations : [])];
     },
     fetchLive: async () => {
@@ -37,14 +37,17 @@ export default function CreatingWork() {
       ]);
       transformRecords(stdDocs, STANDARD_DOC, pds, ME_DID);
       transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
-      return [...stdDocs.filter((r) => isPortfolioDoc(r?.value)), ...legacy];
+      return [...stdDocs.filter((r) => showOnCreating(r?.value)), ...legacy];
     },
     mapItems: (snap) => {
       if (!Array.isArray(snap)) return null;
+      // Drafts are hidden from public surfaces; a drafted work must not
+      // resolve by direct URL either (the live fetch would otherwise find it).
+      const visible = snap.filter((r) => r?.value && !isDraft(r.value));
       return (
-        snap.find((r) => r?.value && workSlug(r.value) === slug) ||
+        visible.find((r) => workSlug(r.value) === slug) ||
         // Fall back to the rkey so URI-derived links resolve too.
-        snap.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
+        visible.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
         null
       );
     },
@@ -89,23 +92,18 @@ export default function CreatingWork() {
       atUri={record?.uri}
       cid={record?.cid}
       headTitle={v?.title ? `${v.title} — dame.is` : `${slug} — dame.is`}
-      eyebrow={
-        <Link to="/creating" className="page-back small-caps">
-          ← Portfolio
-        </Link>
-      }
     >
       <article className="creating-work-page reveal">
-        <div className="blog-article-meta">
-          {workCategory(v) && (
-            <span className="blog-article-tag">{workCategory(v)}</span>
-          )}
-          {v?.createdAt && <span>· {formatDateLong(v.createdAt)}</span>}
-        </div>
-        {/* Only the legacy `summary` shows as an on-page intro. The standard.site
-            `description` is the open-graph / feed-summary blurb and isn't
-            rendered on the work itself. */}
-        {v?.summary && (
+        <DocumentMeta date={v?.createdAt} />
+        {/* The summary is metadata — the feed-card / open-graph blurb, not page
+            copy. For standard/leaflet docs it's auto-derived from the body's
+            opening (feedBuilder's leafletSynopsis) when the record has no
+            `description`, so rendering it here just duplicates the first lines of
+            the body. Show it only for LEGACY works (no `content.pages`), whose
+            `summary` is a hand-written intro distinct from the body; standard
+            docs keep it as metadata only, exactly as the blog post page omits
+            its `description`. */}
+        {v?.summary && !v?.content?.pages && (
           <p className="page-intro">{v.summary}</p>
         )}
         {v?.content?.pages ? (

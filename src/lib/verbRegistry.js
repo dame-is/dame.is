@@ -37,6 +37,19 @@
 //                default) means use the generic `/{nsid}/{rkey}` form.
 //   pastTense:   Used by ReferenceCard's "Dame {pastTense} {subject}" label.
 
+/**
+ * Anisota records (`net.anisota.*`) have no bespoke record page on dame.is —
+ * the shared Record.jsx hardcodes Bluesky fetching for the posting / reposting
+ * verbs — so their feed rows link to the generic atproto explorer (which reads
+ * any record straight off the PDS) instead of a `/posting/{rkey}` page that
+ * would try to fetch a Bluesky post. Declared as a hoisted function so the
+ * `recordHref` closures below can reference it.
+ */
+function anisotaRecordHref(atUri) {
+  const m = String(atUri || '').match(/^at:\/\/([^/]+)\/([^/]+)\/([^/?#]+)/);
+  return m ? `/exploring/${m[1]}/${m[2]}/${encodeURIComponent(m[3])}` : null;
+}
+
 export const VERB_REGISTRY = [
   {
     verb: 'logging',
@@ -52,10 +65,23 @@ export const VERB_REGISTRY = [
     verb: 'posting',
     icon: 'MessageCircle',
     renderer: 'PostCard',
-    recordHref: ({ rkey }) => (rkey ? `/posting/${rkey}` : null),
+    // Bluesky posts get a bespoke `/posting/{rkey}` page (Record.jsx);
+    // Anisota posts (and their replies) have no such page, so they link out
+    // to the generic explorer instead.
+    recordHref: ({ rkey, atUri, source }) =>
+      source === 'anisota'
+        ? anisotaRecordHref(atUri)
+        : rkey
+          ? `/posting/${rkey}`
+          : null,
     pastTense: 'posted',
     collections: [
       { nsid: 'app.bsky.feed.post', source: 'bsky', kind: 'appviewFeed', max: 200 },
+      // Anisota posts + replies, authored on the user's own PDS. Read via
+      // listRecords (there's no AppView for net.anisota.*); PostCard renders
+      // them source-aware. Replies carry a `reply.parent.uri`, so they route
+      // to the `replying` chip exactly like Bluesky replies.
+      { nsid: 'net.anisota.feed.post', source: 'anisota', kind: 'content', max: 200 },
     ],
   },
   {
@@ -139,6 +165,7 @@ export const VERB_REGISTRY = [
       { nsid: 'app.bsky.feed.like', source: 'bsky', kind: 'reference', subject: 'bsky.post', max: 200, maxAgeDays: 90 },
       { nsid: 'social.grain.favorite', source: 'grain', kind: 'reference', subject: 'atproto', max: 200, maxAgeDays: 90 },
       { nsid: 'sh.tangled.feed.star', source: 'tangled', kind: 'reference', subject: 'atproto', max: 200, maxAgeDays: 90 },
+      { nsid: 'net.anisota.feed.like', source: 'anisota', kind: 'reference', subject: 'atproto', max: 200, maxAgeDays: 90 },
     ],
   },
   {
@@ -150,10 +177,19 @@ export const VERB_REGISTRY = [
     // payload, so reposts can render inline like authored posts (with a
     // small "↻ reposted" badge and the original author header).
     renderer: 'PostCard',
-    recordHref: ({ rkey }) => (rkey ? `/reposting/${rkey}` : null),
+    // Bluesky reposts render the hydrated original post (PostCard); Anisota
+    // reposts are plain references (PostCard delegates them to ReferenceCard)
+    // and, lacking a bespoke page, link out to the explorer.
+    recordHref: ({ rkey, atUri, source }) =>
+      source === 'anisota'
+        ? anisotaRecordHref(atUri)
+        : rkey
+          ? `/reposting/${rkey}`
+          : null,
     pastTense: 'reposted',
     collections: [
       { nsid: 'app.bsky.feed.repost', source: 'bsky', kind: 'reference', subject: 'bsky.post', max: 200, maxAgeDays: 90 },
+      { nsid: 'net.anisota.feed.repost', source: 'anisota', kind: 'reference', subject: 'atproto', max: 200, maxAgeDays: 90 },
     ],
   },
   {
@@ -196,12 +232,23 @@ export const VERB_REGISTRY = [
     ],
   },
   {
-    verb: 'voting',
-    icon: 'Vote',
-    renderer: 'VoteCard',
-    pastTense: 'voted',
+    // Creative pieces made in the Anisota Lab's studios (Word Magnets,
+    // Sigil, Carving, Inkblot, Redaction, Synth, Petri) plus authored spells.
+    // One umbrella verb keeps the chip list tidy; AnisotaLabCard branches by
+    // collection to render each piece (poem text, sigil figure, print, etc.).
+    verb: 'crafting',
+    icon: 'FlaskConical',
+    renderer: 'AnisotaLabCard',
+    pastTense: 'crafted',
     collections: [
-      { nsid: 'pub.leaflet.poll.vote', source: 'leaflet', kind: 'reference', subject: 'atproto', max: 200, maxAgeDays: 180 },
+      { nsid: 'net.anisota.lab.poetry', source: 'anisota', kind: 'content', max: 100 },
+      { nsid: 'net.anisota.lab.sigil', source: 'anisota', kind: 'content', max: 100 },
+      { nsid: 'net.anisota.spell.custom', source: 'anisota', kind: 'content', max: 100 },
+      { nsid: 'net.anisota.lab.carving', source: 'anisota', kind: 'content', max: 100 },
+      { nsid: 'net.anisota.lab.inkblot', source: 'anisota', kind: 'content', max: 100 },
+      { nsid: 'net.anisota.lab.redaction', source: 'anisota', kind: 'content', max: 100 },
+      { nsid: 'net.anisota.lab.synth', source: 'anisota', kind: 'content', max: 100 },
+      { nsid: 'net.anisota.lab.petri', source: 'anisota', kind: 'content', max: 100 },
     ],
   },
 ];
@@ -241,6 +288,7 @@ export const DEFAULT_HOME_VERBS = [
   'listing',
   'feeding',
   'commenting',
+  'crafting',
 ];
 
 /** Distinct source tags across the registry. Drives the source sub-filter. */
@@ -285,7 +333,8 @@ export function recordHrefFor(verb, { atUri, rkey, slug, source, payload } = {})
   return `/${nsid}/${encodeURIComponent(rkey)}`;
 }
 
-function nsidFromAtUri(atUri) {
+/** Collection NSID out of an at:// URI (e.g. "app.bsky.feed.post"). */
+export function nsidFromAtUri(atUri) {
   if (!atUri) return null;
   const m = String(atUri).match(/^at:\/\/[^/]+\/([^/]+)\//);
   return m ? m[1] : null;
@@ -310,5 +359,5 @@ export const VERB_LABELS = {
   listing: 'a list',
   feeding: 'a feed',
   commenting: 'a comment',
-  voting: 'a vote',
+  crafting: 'a lab piece',
 };

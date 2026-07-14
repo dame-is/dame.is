@@ -3,14 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Comments from '../components/Comments.jsx';
+import DocumentMeta from '../components/DocumentMeta.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
-import { formatDateLong, relativeTime } from '../lib/time.js';
-import { dayOfLife } from '../lib/dayOfLife.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { isPortfolioDoc } from '../lib/publications.js';
+import { showOnBlog, isDraft } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
 
@@ -132,15 +131,18 @@ export default function BlogPost() {
 function resolveById(data, id) {
   // `data` is the `blogs` array of site.standard.document records.
   const blogs = Array.isArray(data) ? data : [];
-  // Portfolio standard-docs are creative works, not blog posts.
-  const standard = blogs.find((r) => endsWithRkey(r?.uri, id) && !isPortfolioDoc(r?.value));
+  // Blog-homed docs, plus any portfolio doc cross-posted to the blog with a
+  // `blog` tag — so a dual-listed work resolves at /blogging/:rkey too. Drafts
+  // stay hidden even by direct URL (the live fetch would otherwise find them).
+  const standard = blogs.find(
+    (r) => endsWithRkey(r?.uri, id) && !isDraft(r?.value) && showOnBlog(r?.value),
+  );
   return standard ? { kind: 'standard', record: standard } : null;
 }
 
 function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
   const value = record?.value || {};
   const created = value.publishedAt || value.createdAt;
-  const dayNum = created ? dayOfLife(created) : null;
   const title = value.title || id;
 
   return (
@@ -149,19 +151,9 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       atUri={record?.uri}
       cid={record?.cid}
       headTitle={`${title} — dame.is`}
-      eyebrow={
-        <Link to="/blogging" className="page-back small-caps">
-          ← Blog
-        </Link>
-      }
     >
       <article className="blog-article reveal">
-        <div className="blog-article-meta">
-          {created && <span>{formatDateLong(created)}</span>}
-          {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}
-          {created && <span>· {relativeTime(created)}</span>}
-          <span className="blog-article-tag">standard.site</span>
-        </div>
+        <DocumentMeta date={created} />
         {/* The `description` field is intentionally not rendered here — it's the
             open-graph / feed-summary blurb, and on the post itself it just
             duplicated the opening lines of the body. */}

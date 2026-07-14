@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useActionDock } from './useActionDock.jsx';
+import { useChromePanel } from './useChromePanel.jsx';
 
 const EditModeContext = createContext(null);
 
@@ -46,8 +47,14 @@ export function EditModeProvider({ children }) {
   // action bar can drive save/delete: { save, remove, saving, deleting,
   // loading, canDelete } or null.
   const [sheetEditor, setSheetEditor] = useState(null);
+  // The same shape, published by the full admin record editor page so its
+  // Save / Delete / Close live in the bottom-chrome action bar instead of at
+  // the foot of the page. Independent of `sheetEditor` (different source, so
+  // the two never race to null each other). Also carries `close` + `isNew`.
+  const [pageEditor, setPageEditor] = useState(null);
   const location = useLocation();
   const { open: dockOpen } = useActionDock();
+  const { panel } = useChromePanel();
 
   const clearSelection = useCallback(() => {
     setSelected((prev) => (prev.size === 0 ? prev : new Map()));
@@ -95,14 +102,17 @@ export function EditModeProvider({ children }) {
     setEditSheet(null);
   }, [location.pathname, clearSelection]);
 
-  // The nav dock and the quick-edit sheet share the bottom-chrome slot, and
-  // the dock opens on top of everything — so opening the dock folds the
-  // quick-edit sheet away (it would otherwise sit hidden behind the dock).
-  // Mirrors useChromePanel's dock↔panel rule; edit MODE (and its action bar)
-  // stays put — the dock rides above the bar via --edit-bar-h.
+  // The nav dock and the transient chrome panels (search / filter / info) are
+  // the site's other bottom-chrome sheets — the surfaces that expand out of
+  // the same edge as the edit action bar. That slot is one-at-a-time, so
+  // opening any of them closes the edit action bar rather than leaving it
+  // stacked underneath: exit edit mode entirely, which folds the bar away,
+  // clears the selection, and drops any open quick-edit sheet. (The quick-edit
+  // sheet is itself part of edit mode and rides above the bar, so opening it
+  // isn't counted here — only the competing sheets are.)
   useEffect(() => {
-    if (dockOpen) setEditSheet(null);
-  }, [dockOpen]);
+    if (dockOpen || panel) exit();
+  }, [dockOpen, panel, exit]);
 
   const toggleSelect = useCallback((item) => {
     const uri = item?.atUri;
@@ -169,6 +179,8 @@ export function EditModeProvider({ children }) {
       closeEditSheet,
       sheetEditor,
       setSheetEditor,
+      pageEditor,
+      setPageEditor,
     }),
     [
       active,
@@ -190,6 +202,8 @@ export function EditModeProvider({ children }) {
       closeEditSheet,
       sheetEditor,
       setSheetEditor,
+      pageEditor,
+      setPageEditor,
     ],
   );
 

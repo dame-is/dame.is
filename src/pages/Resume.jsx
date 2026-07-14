@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Printer } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords, explorerPathFromAtUri } from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
+import { transformRecords } from '../lib/feedBuilder.js';
+import { showOnCreating, workSlug } from '../lib/publications.js';
+import { coverThumb } from '../lib/creatingHelpers.js';
 import {
   resolveResume,
   pickDefaultResume,
@@ -14,14 +16,95 @@ import {
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Resume.css';
 
+const STANDARD_DOC = 'site.standard.document';
+
 async function fetchResumeBundle() {
   const pds = await resolvePds(ME_DID);
-  const [resumes, jobs, education] = await Promise.all([
+  const [resumes, jobs, education, docs] = await Promise.all([
     listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resume, max: 50 }).catch(() => []),
     listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeJob, max: 200 }).catch(() => []),
     listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeEducation, max: 100 }).catch(() => []),
+    // Portfolio posts, so a job's `work` links can render as live embeds
+    // (cover + title). Blob URLs are annotated for the covers.
+    listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }).catch(() => []),
   ]);
-  return { resumes, jobs, education };
+  transformRecords(docs, STANDARD_DOC, pds, ME_DID);
+  const documents = docs.filter((r) => showOnCreating(r?.value));
+  return { resumes, jobs, education, documents };
+}
+
+/** Shape one resolved link for rendering: title, href, thumbnail, external? */
+function displayLink(link) {
+  if (link.isWork && link.doc) {
+    const slug = workSlug(link.doc);
+    return {
+      id: link.id,
+      title: link.label || link.doc.title || slug,
+      description: link.description,
+      href: slug ? `/creating/${slug}` : null,
+      thumb: coverThumb(link.doc),
+      external: false,
+    };
+  }
+  // External link, or a `work` ref whose post wasn't found (fall back to any url).
+  const href = link.url || null;
+  if (!href && !link.label) return null;
+  return {
+    id: link.id,
+    title: link.label || href,
+    description: link.description,
+    href,
+    thumb: null,
+    external: true,
+  };
+}
+
+/** "Selected work" row under a role: portfolio embeds + external links. */
+function RoleWork({ links }) {
+  const items = (links || []).map(displayLink).filter(Boolean);
+  if (items.length === 0) return null;
+  return (
+    <div className="resume-work">
+      <span className="resume-work-label small-caps">Selected work</span>
+      <ul className="resume-work-list">
+        {items.map((it) => (
+          <li key={it.id} className={`resume-work-item${it.thumb ? ' has-thumb' : ''}`}>
+            <ResumeWorkLink item={it} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ResumeWorkLink({ item }) {
+  const inner = (
+    <>
+      {item.thumb && (
+        <span className="resume-work-thumb">
+          <img src={item.thumb.url} alt={item.thumb.alt || ''} loading="lazy" />
+        </span>
+      )}
+      <span className="resume-work-body">
+        <span className="resume-work-title">{item.title}</span>
+        {item.description && <span className="resume-work-desc">{item.description}</span>}
+      </span>
+      {item.external && item.href && <span className="resume-work-ext" aria-hidden="true">↗</span>}
+    </>
+  );
+  if (!item.href) return <span className="resume-work-link is-static">{inner}</span>;
+  if (item.external) {
+    return (
+      <a className="resume-work-link" href={item.href} target="_blank" rel="noreferrer noopener">
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <Link className="resume-work-link" to={item.href}>
+      {inner}
+    </Link>
+  );
 }
 
 export default function Resume() {
@@ -39,7 +122,9 @@ export default function Resume() {
   const resumes = items?.resumes || [];
   const resolved = useMemo(() => {
     const chosen = slug ? findResumeBySlug(resumes, slug) : pickDefaultResume(resumes);
-    return chosen ? resolveResume(chosen, items?.jobs, items?.education) : null;
+    return chosen
+      ? resolveResume(chosen, items?.jobs, items?.education, items?.documents)
+      : null;
   }, [resumes, items, slug]);
 
   const summaryHtml = useMemo(() => {
@@ -87,21 +172,9 @@ export default function Resume() {
     >
       <article className="resume reveal">
         <header className="resume-header">
-          <div className="resume-headline-row">
-            <div>
-              <h1 className="resume-title">{pageTitle || 'For hire'}</h1>
-              {v.headline && <p className="resume-headline">{v.headline}</p>}
-            </div>
-            <button
-              type="button"
-              className="resume-print-btn"
-              onClick={() => window.print()}
-              aria-label="Print this resume"
-              title="Print / save as PDF"
-            >
-              <Printer size={16} strokeWidth={1.75} aria-hidden="true" />
-              <span>Print</span>
-            </button>
+          <div>
+            <h1 className="resume-title">{pageTitle || 'For hire'}</h1>
+            {v.headline && <p className="resume-headline">{v.headline}</p>}
           </div>
 
           {contact && (
@@ -171,7 +244,7 @@ export default function Resume() {
                         <ul className="resume-highlights">
                           {role.highlights.map((h) => (
                             <li
-                              key={h.id}
+                              key={h.refId || h.id}
                               className={`resume-highlight ${h.featured ? 'is-featured' : ''} ${
                                 h.metric ? 'is-metric' : ''
                               }`}
@@ -181,6 +254,7 @@ export default function Resume() {
                           ))}
                         </ul>
                       )}
+                      <RoleWork links={role.links} />
                     </div>
                   ))}
                 </div>
@@ -215,7 +289,7 @@ export default function Resume() {
                   {e.highlights.length > 0 && (
                     <ul className="resume-highlights">
                       {e.highlights.map((h) => (
-                        <li key={h.id} className="resume-highlight">
+                        <li key={h.refId || h.id} className="resume-highlight">
                           {h.text}
                         </li>
                       ))}

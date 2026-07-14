@@ -8,6 +8,7 @@ import ListenRow from '../components/ListenRow.jsx';
 import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
 import ObservationCard from '../components/cards/ObservationCard.jsx';
+import AnisotaLabCard from '../components/cards/AnisotaLabCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
@@ -194,11 +195,6 @@ export default function Record({ verb, nsid, source }) {
       atUri={atUri}
       cid={cid}
       headTitle={headTitleFor(verb, item)}
-      eyebrow={
-        <Link to={`/${verb}`} className="page-back small-caps">
-          ← {verb}
-        </Link>
-      }
     >
       <article className="record-page">
         {(verb === 'posting' || verb === 'reposting') && parents.length > 0 && (
@@ -269,6 +265,8 @@ function RecordBody({ verb, item, collection }) {
     case 'mothing':
     case 'observing':
       return <ObservationCard {...item} />;
+    case 'crafting':
+      return <AnisotaLabCard {...item} variant="record" />;
     default:
       return <GenericRecordBody verb={verb} item={item} collection={collection} />;
   }
