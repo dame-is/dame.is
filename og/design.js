@@ -216,21 +216,9 @@ function subCardS4(t, { segs, label, subtitle, nsid, avatarUri, folio }) {
 // .page-title: serif 600, roman ink, with only the section term accent-italic
 // in the breadcrumb — the .gerund treatment). The description sits below on the
 // half-pitch rules, exactly like a section card.
-function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio }) {
+function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio, body }) {
   const DIV = 320, CX = DIV, bcBy = P - LE;
-  const colW = W - PAD - CX; // headline / description column width
-  const { size, lines } = fitHeadline(title || '', colW, 3);
-  const descAll = wrapText(subtitle || '', 24, colW);
-  const descLines = descAll.slice(0, 3);
-  if (descAll.length > descLines.length && descLines.length) {
-    const last = descLines[descLines.length - 1].replace(/\s+\S*$/, '');
-    descLines[descLines.length - 1] = `${last}…`;
-  }
-  // Headline lines land on coarse rules from row 3 down; the description
-  // follows a coarse row below the last headline line, on half-pitch rules.
-  const headBase = 3 * P - 8;
-  const descBase = (3 + lines.length) * P - 8;
-  const bandTo = descBase + descLines.length * HP;
+  const colW = W - PAD - CX; // content column width
   // Breadcrumb "dame.is / {section}" with the section term echoing .gerund.
   const section = segs[segs.length - 1] || '';
   const crumb = [
@@ -238,17 +226,48 @@ function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio }) {
     h('div', { style: { color: t.inkFaint } }, '/'),
     h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, section),
   ];
+
+  let content;
+  let bandTo;
+  if (body) {
+    // A post / status: no title of its own, so `title` IS the text. Render it
+    // as wrapped body copy — more lines, smaller, all on the fine rules, like
+    // writing on ruled paper — rather than a giant headline.
+    const size = 30;
+    const all = wrapText(title || '', size, colW);
+    const lines = all.slice(0, 7);
+    if (all.length > lines.length && lines.length) {
+      const last = lines[lines.length - 1].replace(/\s+\S*$/, '');
+      lines[lines.length - 1] = `${last}…`;
+    }
+    const top = 3 * P - 8;
+    bandTo = top + lines.length * HP;
+    content = lines.map((l, i) => at(l, { size, by: top + i * HP, left: CX, weight: 400, color: t.ink }));
+  } else {
+    // A titled record: big serif headline (rows 3+, coarse pitch), then a short
+    // description a coarse row below, on the half-pitch rules.
+    const { size, lines } = fitHeadline(title || '', colW, 3);
+    const descAll = wrapText(subtitle || '', 24, colW);
+    const descLines = descAll.slice(0, 3);
+    if (descAll.length > descLines.length && descLines.length) {
+      const last = descLines[descLines.length - 1].replace(/\s+\S*$/, '');
+      descLines[descLines.length - 1] = `${last}…`;
+    }
+    const headBase = 3 * P - 8;
+    const descBase = (3 + lines.length) * P - 8;
+    bandTo = descBase + descLines.length * HP;
+    content = [
+      ...lines.map((l, i) => at(l, { size, by: headBase + i * P, left: CX, weight: 600, color: t.ink, ls: '-0.01em' })),
+      ...descLines.map((l, i) => at(l, { size: 24, by: descBase + i * HP, left: CX, color: t.inkSoft, weight: 400 })),
+    ];
+  }
+
   return shell(t, [
     at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
     at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
     rowAt(crumb, { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
-    ...lines.map((l, i) =>
-      at(l, { size, by: headBase + i * P, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
-    ),
-    ...descLines.map((l, i) =>
-      at(l, { size: 24, by: descBase + i * HP, left: CX, color: t.inkSoft, weight: 400 }),
-    ),
+    ...content,
     at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
   ], { verticals: [PAD, { x: DIV, strong: true }, W - PAD], halfBands: [{ from: 3 * P + HP, to: bandTo }] });
 }
@@ -321,7 +340,7 @@ export function ogElement(o = {}) {
     return homeCardH4(t, { avatarUri, folio, nsid: o.nsid || 'is.dame.page', homeIndex: o.homeIndex || [] });
   }
   if (o.record) {
-    return recordCard(t, { segs, title: o.label, subtitle: o.subtitle || '', nsid: o.nsid || '', avatarUri, folio });
+    return recordCard(t, { segs, title: o.label, subtitle: o.subtitle || '', nsid: o.nsid || '', avatarUri, folio, body: o.body });
   }
   const args = { segs, label: o.label, subtitle: o.subtitle || '', nsid: o.nsid || '', avatarUri, folio };
   return SUBPAGE_LAYOUT === 's0' ? subCardS0(t, args) : subCardS4(t, args);
