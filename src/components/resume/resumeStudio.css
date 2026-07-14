@@ -158,6 +158,24 @@
   font-family: var(--sans);
 }
 
+/* Record rows in the studio carry a "rename key" action beside the link. */
+.rs-record-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.rs-record-row .admin-record-link {
+  flex: 1;
+  min-width: 0;
+}
+
+.rs-rename {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 .rs-section-add {
   margin-top: var(--space-3);
   text-decoration: none;
