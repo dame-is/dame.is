@@ -371,6 +371,118 @@ export function ProseSkeleton({ paragraphs = 3 }) {
   );
 }
 
+/**
+ * Skeleton for the "for hire" resume page (Resume.jsx). Mirrors the
+ * `.resume` article — a header (title + headline + contact row), a summary
+ * paragraph, and the Experience / Education / Skills sections — so the swap
+ * to the real resume doesn't reflow. Experience orgs carry the same left
+ * rule and role head (title beside a right-aligned date range) as the real
+ * layout; skills lay out on the same label + chips grid.
+ */
+export function ResumeSkeleton({ orgs = 3, education = 1, skillGroups = 3 }) {
+  return (
+    <SkeletonShell label="Loading resume" className="skeleton-resume reveal">
+      <header className="skeleton-resume-header">
+        <Skeleton className="skeleton-resume-title" />
+        <Skeleton className="skeleton-resume-headline" />
+        <div className="skeleton-resume-contact">
+          <Skeleton className="skeleton-resume-contact-item" style={{ width: '5rem' }} />
+          <Skeleton className="skeleton-resume-contact-item" style={{ width: '9.5rem' }} />
+          <Skeleton className="skeleton-resume-contact-item" style={{ width: '6.5rem' }} />
+        </div>
+      </header>
+
+      <div className="skeleton-resume-summary">
+        <SkeletonText lines={3} lineHeight="0.9em" lastLineWidth="52%" />
+      </div>
+
+      {/* Experience */}
+      <section className="skeleton-resume-section">
+        <div className="skeleton-resume-section-head">
+          <Skeleton className="skeleton-resume-section-title" style={{ width: '6rem' }} />
+        </div>
+        <div className="skeleton-resume-orgs">
+          {Array.from({ length: orgs }, (_, oi) => (
+            <div key={oi} className="skeleton-resume-org">
+              <Skeleton
+                className="skeleton-resume-org-name"
+                style={{ width: `${9 + ((oi * 5) % 6)}rem` }}
+              />
+              <div className="skeleton-resume-role">
+                <div className="skeleton-resume-role-head">
+                  <Skeleton
+                    className="skeleton-resume-role-title"
+                    style={{ width: `${8 + ((oi * 7) % 7)}rem` }}
+                  />
+                  <Skeleton className="skeleton-resume-role-dates" />
+                </div>
+                <Skeleton
+                  className="skeleton-resume-role-meta"
+                  style={{ width: `${10 + ((oi * 3) % 6)}rem` }}
+                />
+                <ul className="skeleton-resume-highlights">
+                  {Array.from({ length: 2 + (oi % 2) }, (_, hi) => (
+                    <li key={hi} className="skeleton-resume-highlight">
+                      <Skeleton block style={{ width: `${72 + ((hi * 13) % 24)}%`, height: '0.85em' }} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Education */}
+      <section className="skeleton-resume-section">
+        <div className="skeleton-resume-section-head">
+          <Skeleton className="skeleton-resume-section-title" style={{ width: '5.5rem' }} />
+        </div>
+        <div className="skeleton-resume-orgs">
+          {Array.from({ length: education }, (_, ei) => (
+            <div key={ei} className="skeleton-resume-role">
+              <div className="skeleton-resume-role-head">
+                <Skeleton
+                  className="skeleton-resume-role-title"
+                  style={{ width: `${10 + ((ei * 5) % 5)}rem` }}
+                />
+                <Skeleton className="skeleton-resume-role-dates" />
+              </div>
+              <Skeleton className="skeleton-resume-role-meta" style={{ width: '8rem' }} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Skills */}
+      <section className="skeleton-resume-section">
+        <div className="skeleton-resume-section-head">
+          <Skeleton className="skeleton-resume-section-title" style={{ width: '4rem' }} />
+        </div>
+        <div className="skeleton-resume-skills">
+          {Array.from({ length: skillGroups }, (_, gi) => (
+            <div key={gi} className="skeleton-resume-skill-group">
+              <Skeleton
+                className="skeleton-resume-skill-cat"
+                style={{ width: `${5 + ((gi * 3) % 5)}rem` }}
+              />
+              <div className="skeleton-resume-skill-items">
+                {Array.from({ length: 3 + (gi % 3) }, (_, si) => (
+                  <Skeleton
+                    key={si}
+                    className="skeleton-resume-skill"
+                    style={{ width: `${3 + ((si * 7) % 5)}rem` }}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </SkeletonShell>
+  );
+}
+
 /* -------------------------------------------------------------------- */
 /* Admin variants                                                        */
 /* -------------------------------------------------------------------- */
