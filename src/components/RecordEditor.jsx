@@ -14,6 +14,7 @@ import {
   RecordRefsField,
   SkillGroupsField,
   ContactField,
+  TagsInput,
 } from './resumeFields.jsx';
 import '../pages/Admin.css';
 
@@ -573,20 +574,7 @@ function Field({ field, value, record, onChange, agent, did, collection, rkey, o
       break;
     case 'tags':
       control = (
-        <input
-          id={id}
-          className="admin-input"
-          type="text"
-          value={Array.isArray(value) ? value.join(', ') : ''}
-          onChange={(e) => {
-            const parts = e.target.value
-              .split(',')
-              .map((s) => s.trim())
-              .filter(Boolean);
-            onChange(parts);
-          }}
-          placeholder="comma, separated"
-        />
+        <TagsInput id={id} value={value} onChange={onChange} placeholder="comma, separated" />
       );
       break;
     case 'number':
