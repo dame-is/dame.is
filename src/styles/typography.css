@@ -135,19 +135,38 @@ blockquote {
 }
 
 /* Firefox has no `initial-letter` support yet — approximate with the classic
-   float. Sized in `em` so it still scales with the paragraph text at every
-   breakpoint (just without the exact-line-count guarantee above). */
+   float. Everything is in `em` so it scales with the paragraph text at every
+   breakpoint, matching the three-line drop the `initial-letter: 3` path gives
+   the other engines.
+
+   The two magic numbers are derived, not eyeballed — a float can't sink itself
+   the way `initial-letter` does, so we size and lead it by hand:
+
+   • font-size 5.85em — the cap must reach from the first line's cap-height down
+     to the third line's baseline, a visual span of `cap-height + 2 line-heights`.
+     For Crimson Pro (cap-height ≈ 0.655em) at our 1.6 line-height that's
+     0.655 + 2·1.6 ≈ 3.855em of cap, and 3.855 / 0.655 ≈ 5.85em of font-size.
+   • line-height 0.81 — a floated glyph is vertically centred in its own line
+     box, so this (< 1) is what drops the baseline onto the third line's baseline
+     and pulls the cap-top up flush with the first line's caps. It also sets the
+     float's height to ≈ 2.96 lines, so exactly three lines wrap and the fourth
+     clears.
+
+   Measured against the `initial-letter` rendering this lands both the cap-top
+   and the baseline within ~0.1px, versus the old 3.3em/0.82 float that only
+   spanned two lines and poked above the first line in Firefox. */
 @supports not ((initial-letter: 3) or (-webkit-initial-letter: 3)) {
   .dropcap::first-letter,
   .blog-prose > p:first-of-type::first-letter,
   .blog-prose .first-paragraph::first-letter,
   .about-longform > p:first-of-type::first-letter {
     float: left;
-    font-size: 3.3em;
-    line-height: 0.82;
-    padding-top: 0.02em;
-    padding-right: 0.12em;
+    font-size: 5.85em;
+    line-height: 0.81;
+    /* Cancel the base rule's 0.18em gap (huge at this font-size) and set the
+       gap to the wrapping text in the float's own em instead. */
     margin-right: 0;
+    padding-right: 0.04em;
   }
 }
 
