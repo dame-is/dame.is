@@ -21,10 +21,9 @@ import { ogElement, themeFromSky } from '../og/design.js';
 import { paletteForHour } from '../src/lib/skyTheme.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
 
-// The card uses two families: Crimson Pro (serif) for the breadcrumb / title /
-// description and IBM Plex Mono for the folio + NSID marginalia.
+// One family throughout: Crimson Pro (serif) — breadcrumb, title, description,
+// and the folio + NSID marginalia (which used to be IBM Plex Mono).
 const crimson = (id, weight, style = 'normal') => ({ name: 'Crimson Pro', data: Buffer.from(FONTS[id], 'base64'), weight, style });
-const plex = (id, weight) => ({ name: 'IBM Plex Mono', data: Buffer.from(FONTS[id], 'base64'), weight, style: 'normal' });
 
 const FONT_SET = [
   crimson('300', 300),
@@ -33,8 +32,6 @@ const FONT_SET = [
   crimson('700', 700),
   crimson('400i', 400, 'italic'),
   crimson('600i', 600, 'italic'),
-  plex('mono400', 400),
-  plex('mono500', 500),
 ];
 
 export default async function handler(req, res) {
@@ -47,6 +44,16 @@ export default async function handler(req, res) {
     // param lets us preview any point in the day (used by the sample renderer).
     const hourParam = q.hour != null && q.hour !== '' ? Number(q.hour) : NaN;
     const hour = Number.isFinite(hourParam) ? ((hourParam % 24) + 24) % 24 : easternHour(now);
+
+    // The day-of-life "folio" is normally today's, but a record card stamps the
+    // record's OWN day (its `date`), so a blog post shows the day it was made
+    // rather than the day the card was rendered. The avatar + palette still
+    // track the current hour — only the day number is pinned to the record.
+    let folioAt = now;
+    if (q.date) {
+      const d = new Date(String(q.date));
+      if (!Number.isNaN(d.getTime())) folioAt = d;
+    }
 
     // Palette: the dynamic SKY theme for this hour by default, so cards match
     // the site's own hour-tracking palette. `theme=light|dark` forces the
@@ -94,7 +101,7 @@ export default async function handler(req, res) {
       record,
       segs: segsFor(pathname),
       avatarUri,
-      folio: folio(now),
+      folio: folio(folioAt),
       theme,
       homeIndex: HOME_INDEX,
     });

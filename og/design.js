@@ -5,14 +5,14 @@
 //
 // The look is a "notebook / design-layout" page drawn straight from the site's
 // own system (src/styles/theme.css, the ruled home hero in src/styles/app.css):
-//   • warm paper ground, Crimson Pro serif, moss accent, IBM Plex Mono meta
+//   • warm paper ground, Crimson Pro serif throughout, moss accent
 //   • a VISIBLE baseline grid — coarse rules for headings, half-pitch rules for
 //     body copy — with every line locked so its baseline rests on a rule
 //     (descenders dip below, like writing on ruled paper)
 //   • "dame.is" leads a spaced breadcrumb; the big text is just the page's
 //     gerund (accent italic). No repeated wordmarks.
 //   • marginalia instead of a footer: the day-of-life "folio" (a notebook page
-//     number) and the page's AT-Protocol NSID, both in mono
+//     number) and the page's AT-Protocol NSID
 //   • the current sky-avatar rides beside the breadcrumb as a graphic that
 //     crosses the top rule, so cards drift through the day like the favicon
 //
@@ -100,8 +100,8 @@ function gridLayer(t, { halfBands = [], verticals = [PAD, W - PAD] } = {}) {
 
 // A single line of text whose BASELINE sits at `by` (line-height:1, so the
 // baseline is `R*size` below the box top — we back that out here).
-function at(text, { size, by, left = PAD, right, weight = 600, italic = false, color, mono = false, ls }) {
-  const style = { position: 'absolute', top: by - R * size, fontSize: size, lineHeight: 1, fontWeight: weight, fontStyle: italic ? 'italic' : 'normal', color, fontFamily: mono ? 'IBM Plex Mono' : 'Crimson Pro' };
+function at(text, { size, by, left = PAD, right, weight = 600, italic = false, color, ls }) {
+  const style = { position: 'absolute', top: by - R * size, fontSize: size, lineHeight: 1, fontWeight: weight, fontStyle: italic ? 'italic' : 'normal', color, fontFamily: 'Crimson Pro' };
   if (ls) style.letterSpacing = ls;
   if (right !== undefined) style.right = right; else style.left = left;
   return h('div', { style }, text);
@@ -188,8 +188,8 @@ function subCardS0(t, { segs, label, subtitle, nsid, avatarUri, folio }) {
     rowAt(breadcrumbParts(t, segs), { size: 28, by: bcBy, left: avatarUri ? PAD + 46 + 18 : PAD }),
     at(label, { size, by: 4 * P - 10, italic: true, color: t.accent }),
     ...descLines.map((l, i) => at(l, { size: 26, by: 5 * P + i * HP - 8, color: t.inkSoft, weight: 400 })),
-    at(folio, { size: 22, by: 8 * P - LE, left: PAD, mono: true, color: t.inkFaint, ls: '0.04em' }),
-    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, mono: true, color: t.inkMuted }),
+    at(folio, { size: 22, by: 8 * P - LE, left: PAD, color: t.inkFaint, ls: '0.04em' }),
+    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
   ], { halfBands: [{ from: 4 * P + HP, to: bandTo }] });
 }
 
@@ -200,13 +200,13 @@ function subCardS4(t, { segs, label, subtitle, nsid, avatarUri, folio }) {
   const descLines = wrapText(subtitle, 25, 560).slice(0, 4);
   const bandTo = 5 * P + descLines.length * HP;
   return shell(t, [
-    at('day', { size: 23, by: 3 * P - LE, left: PAD, mono: true, color: t.inkFaint, ls: '0.12em' }),
-    at(folio, { size: 44, by: 4 * P - 10, left: PAD, mono: true, color: t.inkSoft }),
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
     rowAt(breadcrumbParts(t, segs), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
     at(label, { size, by: 4 * P - 10, left: CX, italic: true, color: t.accent }),
     ...descLines.map((l, i) => at(l, { size: 25, by: 5 * P + i * HP - 8, left: CX, color: t.inkSoft, weight: 400 })),
-    at(nsid, { size: 22, by: 8 * P - LE, left: CX, mono: true, color: t.inkMuted }),
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
   ], { verticals: [PAD, { x: DIV, strong: true }, W - PAD], halfBands: [{ from: 4 * P + HP, to: bandTo }] });
 }
 
@@ -239,8 +239,8 @@ function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio }) {
     h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, section),
   ];
   return shell(t, [
-    at('day', { size: 23, by: 3 * P - LE, left: PAD, mono: true, color: t.inkFaint, ls: '0.12em' }),
-    at(folio, { size: 44, by: 4 * P - 10, left: PAD, mono: true, color: t.inkSoft }),
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
     rowAt(crumb, { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
     ...lines.map((l, i) =>
@@ -249,7 +249,7 @@ function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio }) {
     ...descLines.map((l, i) =>
       at(l, { size: 24, by: descBase + i * HP, left: CX, color: t.inkSoft, weight: 400 }),
     ),
-    at(nsid, { size: 22, by: 8 * P - LE, left: CX, mono: true, color: t.inkMuted }),
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
   ], { verticals: [PAD, { x: DIV, strong: true }, W - PAD], halfBands: [{ from: 3 * P + HP, to: bandTo }] });
 }
 
@@ -265,14 +265,14 @@ function homeCardH4(t, { avatarUri, folio, homeIndex, nsid }) {
       h('div', { style: { color: mix(t.tan, t.page, tt), fontWeight: 600 } }, 'dame.is'),
       h('div', { style: { color: mix(t.ink, t.page, tt), fontStyle: 'italic', fontWeight: 600 } }, r.label),
     ));
-    items.push(at(r.nsid, { size: 20, by, right: PAD, mono: true, color: mix(t.inkMuted, t.page, tt) }));
+    items.push(at(r.nsid, { size: 20, by, right: PAD, color: mix(t.inkMuted, t.page, tt) }));
   });
   return shell(t, [
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: PAD }),
     rowAt([h('div', { style: { color: t.inkFaint } }, 'dame.is')], { size: 28, by: bcBy, left: avatarUri ? PAD + 46 + 18 : PAD }),
     ...items,
-    at(`day ${folio}`, { size: 21, by: 8 * P - LE, left: PAD, mono: true, color: t.inkFaint }),
-    at(nsid, { size: 21, by: 8 * P - LE, right: PAD, mono: true, color: t.inkMuted }),
+    at(`day ${folio}`, { size: 21, by: 8 * P - LE, left: PAD, color: t.inkFaint }),
+    at(nsid, { size: 21, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
   ], { halfBands: [{ from: 2 * P, to: top0 + rows.length * HP }] });
 }
 
@@ -288,8 +288,8 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
   return shell(t, [
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: PAD }),
     ...lines.map((l, i) => at(l.text, { size: 76, by: (3 + i) * P - 18, color: l.color, weight: 600, ls: '-0.015em' })),
-    at(folio, { size: 22, by: 8 * P - LE, left: PAD, mono: true, color: t.inkFaint, ls: '0.04em' }),
-    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, mono: true, color: t.inkMuted }),
+    at(folio, { size: 22, by: 8 * P - LE, left: PAD, color: t.inkFaint, ls: '0.04em' }),
+    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
   ]);
 }
 

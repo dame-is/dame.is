@@ -151,6 +151,8 @@ export default async function middleware(request) {
           subtitle: desc,
           nsid: rec.nsid || section.nsid,
         });
+        // Stamp the card's day-of-life folio with the record's own date.
+        if (rec.date) params.set('date', rec.date);
         ogImage = `${ORIGIN}/api/og?${params.toString()}`;
         atUri = rec.atUri;
         cid = rec.cid;

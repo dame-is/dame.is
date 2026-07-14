@@ -152,7 +152,10 @@ function shapeMeta(record, section) {
   // `site` is the site.standard.document → site.standard.publication link
   // (an at:// URI). Bluesky needs it to render the Standard Site embed.
   const publication = typeof v.site === 'string' ? v.site : null;
-  return { title, description, section, atUri, cid, nsid: collectionFromUri(atUri), publication };
+  // When the record was made — drives the OG card's day-of-life folio so it
+  // reflects the record's day, not the day the card is rendered.
+  const date = v.publishedAt || v.createdAt || null;
+  return { title, description, section, atUri, cid, nsid: collectionFromUri(atUri), publication, date };
 }
 
 /**
