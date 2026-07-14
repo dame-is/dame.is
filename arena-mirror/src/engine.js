@@ -53,11 +53,18 @@ export async function syncArenaMirror(options) {
   const client =
     arenaClient || new ArenaClient({ token, userAgent: 'arena-pds-mirror (+https://dame.is)', log });
 
-  // Paces PDS writes against the account's points budget. maxSleepMs is the
-  // stop-vs-wait ceiling: the cron keeps it small (stop cleanly, resume next
-  // firing); an attended `--drain` backfill raises it to sleep through the
+  // Paces PDS writes against the account's points budget (counted locally,
+  // since the PDS enforces the limit but doesn't advertise it). maxSleepMs is
+  // the stop-vs-wait ceiling: the cron keeps it small (stop cleanly, resume
+  // next firing); an attended `--drain` backfill raises it to sleep through the
   // hourly window and keep going until the daily budget is spent.
-  const pacer = new WritePacer({ maxSleepMs: o.writeMaxSleepMs, log });
+  const pacer = new WritePacer({
+    hourlyPoints: o.writeHourlyPoints,
+    dailyPoints: o.writeDailyPoints,
+    safety: o.writePointsSafety,
+    maxSleepMs: o.writeMaxSleepMs,
+    log,
+  });
 
   // --- 1. are.na identity + channel enumeration -----------------------------
   const profile = await client.user(o.user);
@@ -436,6 +443,7 @@ export async function syncArenaMirror(options) {
     channelsUnvisited,
     suspectChannels: suspectChannels || undefined,
     rateLimited: rateLimited || undefined,
+    writePoints: pacer.spentPoints || undefined,
     pausedMs: pacer.paused || undefined,
     blocksExternal,
     writes,

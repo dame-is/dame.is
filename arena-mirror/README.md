@@ -106,13 +106,16 @@ new settings instead of serving a mix.
   out, 429s honour `Retry-After`, transient errors retry with backoff. An
   [are.na personal access token](https://www.are.na/developers) raises the
   rate ceiling and lets the mirror see your private channels.
-- **Write-rate aware.** A PDS caps record writes per-account on a points budget
-  (the reference/Bluesky PDS: CREATE=3, UPDATE=2, DELETE=1 points; ~5,000/hour,
-  ~35,000/day — so ~1,666 new records/hour, ~11,666/day). The mirror reads the
-  PDS's own `ratelimit-*` headers and slows down as it nears the wall; for a
-  short wait it sleeps, for a sustained one it ends the run **partial** and
-  resumes next time. It adapts to whatever your PDS actually enforces rather
-  than assuming a number.
+- **Write-rate aware.** An atproto repo caps writes per-account on a points
+  budget — CREATE=3, UPDATE=2, DELETE=1 points; 5,000/hour and 35,000/day
+  (Bluesky's limits, which the reference PDS enforces even when self-hosted, and
+  without advertising them in `ratelimit-*` headers). So the mirror **counts
+  points locally** against an hourly and a daily window and holds before a write
+  that wouldn't fit: for a short wait it sleeps, for a full window it ends the
+  run **partial** and resumes next time. A 429 is honoured as a backstop for
+  budget spent by other writers on the same repo (a prior run, the mothing
+  mirror). Limits/headroom are configurable (`writeHourlyPoints`,
+  `writeDailyPoints`, `writePointsSafety`) if your PDS differs.
 
 Known staleness window: editing a block (say, its title) without touching any
 channel may not bump the containing channel's `updated_at`, so the edit rides
@@ -121,11 +124,12 @@ along with the next change to any channel containing it — or a `--full` run.
 ## Rate limits & the first backfill
 
 Mirroring a large account is a **multi-day** job — not because the mirror is
-slow, but because the PDS won't accept the writes faster. A 15k–20k-record
-account is 45k–60k write points, well past a single day's ~35k budget. This is
-expected and handled: every run does as much as the budget allows, then stops
-cleanly and the next run continues (the sync-state record tracks exactly where
-it left off; re-listed records upsert rather than duplicate).
+slow, but because the repo won't accept the writes faster. A 15k–20k-record
+account is 45k–60k write points, well past a single day's 35k budget. This is
+expected and handled: the pacer counts points locally against the hourly/daily
+windows, so every run does as much as the budget allows, then stops cleanly and
+the next run continues (the sync-state record tracks exactly where it left off;
+re-listed records upsert rather than duplicate).
 
 Two ways to run the backfill:
 
