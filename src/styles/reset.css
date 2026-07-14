@@ -48,6 +48,18 @@ input, button, textarea, select {
   color: inherit;
 }
 
+/* Placeholders otherwise render in the UA's fixed gray, which ignores the
+   theme entirely and washes out against several hours of the sky theme's
+   pages. Ride the theme's ink ramp instead — --ink-soft is the strongest
+   secondary step, re-derived every sky hour, so the hint text keeps its
+   contrast at dawn and dusk while staying quieter than the typed text's
+   full --ink. The opacity resets Firefox's extra placeholder dimming. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-soft);
+  opacity: 1;
+}
+
 button {
   background: none;
   border: 0;
