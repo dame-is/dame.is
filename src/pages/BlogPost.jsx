@@ -3,11 +3,10 @@ import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Comments from '../components/Comments.jsx';
+import DocumentMeta from '../components/DocumentMeta.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
-import { formatDateFull, relativeDay } from '../lib/time.js';
-import { dayOfLife } from '../lib/dayOfLife.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { showOnBlog, isDraft } from '../lib/publications.js';
@@ -144,7 +143,6 @@ function resolveById(data, id) {
 function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
   const value = record?.value || {};
   const created = value.publishedAt || value.createdAt;
-  const dayNum = created ? dayOfLife(created) : null;
   const title = value.title || id;
 
   return (
@@ -155,11 +153,7 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       headTitle={`${title} — dame.is`}
     >
       <article className="blog-article reveal">
-        <div className="blog-article-meta">
-          {created && <span>{relativeDay(created)}</span>}
-          {created && <span>{formatDateFull(created)}</span>}
-          {dayNum && <span>Day {dayNum.toLocaleString()}</span>}
-        </div>
+        <DocumentMeta date={created} />
         {/* The `description` field is intentionally not rendered here — it's the
             open-graph / feed-summary blurb, and on the post itself it just
             duplicated the opening lines of the body. */}
