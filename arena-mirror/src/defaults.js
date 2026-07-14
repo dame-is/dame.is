@@ -64,6 +64,12 @@ export function normalizeOptions(opts = {}) {
     full: Boolean(opts.full),
     dryRun: Boolean(opts.dryRun),
     timeBudgetMs: opts.timeBudgetMs ? Number(opts.timeBudgetMs) : null,
+    // How long the write pacer will sleep at a rate-limit wall before instead
+    // ending the run partial (to resume later). Small = "stop and resume"
+    // (cron); large = "sleep through the window and keep going" (attended
+    // backfill). Default splits the difference: ride out short waits, stop for
+    // hourly/daily walls.
+    writeMaxSleepMs: opts.writeMaxSleepMs != null ? Number(opts.writeMaxSleepMs) : 120_000,
   };
 }
 

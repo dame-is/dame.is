@@ -106,10 +106,43 @@ new settings instead of serving a mix.
   out, 429s honour `Retry-After`, transient errors retry with backoff. An
   [are.na personal access token](https://www.are.na/developers) raises the
   rate ceiling and lets the mirror see your private channels.
+- **Write-rate aware.** A PDS caps record writes per-account on a points budget
+  (the reference/Bluesky PDS: CREATE=3, UPDATE=2, DELETE=1 points; ~5,000/hour,
+  ~35,000/day — so ~1,666 new records/hour, ~11,666/day). The mirror reads the
+  PDS's own `ratelimit-*` headers and slows down as it nears the wall; for a
+  short wait it sleeps, for a sustained one it ends the run **partial** and
+  resumes next time. It adapts to whatever your PDS actually enforces rather
+  than assuming a number.
 
 Known staleness window: editing a block (say, its title) without touching any
 channel may not bump the containing channel's `updated_at`, so the edit rides
 along with the next change to any channel containing it — or a `--full` run.
+
+## Rate limits & the first backfill
+
+Mirroring a large account is a **multi-day** job — not because the mirror is
+slow, but because the PDS won't accept the writes faster. A 15k–20k-record
+account is 45k–60k write points, well past a single day's ~35k budget. This is
+expected and handled: every run does as much as the budget allows, then stops
+cleanly and the next run continues (the sync-state record tracks exactly where
+it left off; re-listed records upsert rather than duplicate).
+
+Two ways to run the backfill:
+
+- **Attended (`--drain`, recommended):** the CLI sleeps through the hourly
+  window and keeps grinding, so one invocation spends a full day's budget
+  (~11k records) before pausing on the daily cap. Rerun the next day until it
+  reports `Backfill complete`.
+- **Unattended (the cron):** each daily firing writes until the first sustained
+  limit (~an hour's worth) and stops. Correct, but converging a big first
+  backfill this way takes many days — prefer `--drain` for the initial load and
+  let the cron handle incremental upkeep afterward.
+
+Blobs are a separate axis: `--media blobs` also pushes the file bytes (which can
+be gigabytes) and consumes PDS **storage**, which many hosted/third-party PDSes
+quota per account. Size it first with `--dry-run --media blobs` (the report's
+`blobs.plannedBytes`), consider `--scope created` to store only your own
+uploads, and check your PDS's storage limit before committing.
 
 ## Usage
 
@@ -132,6 +165,7 @@ const report = await syncArenaMirror({
   // nsidBase: 'is.dame.arena.mirror',
   // channels: ['some-slug'],            // subset, for testing
   // timeBudgetMs: 50_000,
+  // writeMaxSleepMs: 65 * 60_000,       // sleep through rate-limit windows (attended backfill)
   // full: true,
   // dryRun: true,
   log: console.log,
