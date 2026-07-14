@@ -77,6 +77,23 @@ function moveItem(arr, from, to) {
   return next;
 }
 
+/** Comma-separated text → trimmed, de-blanked tag list. */
+function parseTagsInput(text) {
+  return String(text || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Merge a patch, dropping any key set to `undefined` so records stay clean. */
+function applyPatch(obj, patch) {
+  const next = { ...obj, ...patch };
+  for (const k of Object.keys(patch)) {
+    if (next[k] === undefined) delete next[k];
+  }
+  return next;
+}
+
 export default function ResumeWorkbench({ agent, did, rkey }) {
   const navigate = useNavigate();
   const { setPageEditor } = useEditMode();
@@ -642,19 +659,23 @@ function EntryCard({
   const setVariant = (baseId, variantId) =>
     setRefs(refs.map((r) => (parseHighlightRef(r).id === baseId ? makeHighlightRef(baseId, variantId || null) : r)));
 
-  const setBulletText = (baseId, variantId, text) => {
-    const nextHighlights = highlights.map((h) => {
-      if (h.id !== baseId) return h;
-      if (variantId) {
-        return {
-          ...h,
-          variants: (h.variants || []).map((v) => (v.id === variantId ? { ...v, text } : v)),
-        };
-      }
-      return { ...h, text };
-    });
-    stageRecord(recordUri, { ...recordValue, highlights: nextHighlights });
-  };
+  // All bullet-property edits are canonical: they mutate the highlight (or one
+  // of its variants) on the shared job/education record and stage that record.
+  const updateHighlights = (mapFn) =>
+    stageRecord(recordUri, { ...recordValue, highlights: highlights.map(mapFn) });
+
+  const patchHighlight = (baseId, patch) =>
+    updateHighlights((h) => (h.id === baseId ? applyPatch(h, patch) : h));
+
+  const patchVariant = (baseId, variantId, patch) =>
+    updateHighlights((h) =>
+      h.id === baseId
+        ? { ...h, variants: (h.variants || []).map((v) => (v.id === variantId ? applyPatch(v, patch) : v)) }
+        : h,
+    );
+
+  const setBulletText = (baseId, variantId, text) =>
+    variantId ? patchVariant(baseId, variantId, { text }) : patchHighlight(baseId, { text });
 
   // Fork the phrasing this version currently shows into a new variant on the
   // canonical record, select it here, and open it for rewording.
@@ -856,6 +877,8 @@ function EntryCard({
                   const { variantId } = parseHighlightRef(refByBase.get(baseId) || baseId);
                   setBulletText(baseId, variantId, text);
                 }}
+                onPatchHighlight={(patch) => patchHighlight(baseId, patch)}
+                onPatchVariant={(vid, patch) => patchVariant(baseId, vid, patch)}
               />
             );
           })}
@@ -874,6 +897,8 @@ function EntryCard({
                   recordValue={recordValue}
                   usageRows={usage.get(h.id) || []}
                   onToggle={(on) => toggleBullet(h.id, on)}
+                  onPatchHighlight={(patch) => patchHighlight(h.id, patch)}
+                  onPatchVariant={(vid, patch) => patchVariant(h.id, vid, patch)}
                 />
               ))}
             </ul>
@@ -909,7 +934,10 @@ function BulletRow({
   onStartEdit,
   onStopEdit,
   onEditText,
+  onPatchHighlight,
+  onPatchVariant,
 }) {
+  const [showOptions, setShowOptions] = useState(false);
   const { variantId } = parseHighlightRef(refString);
   const variants = Array.isArray(h.variants) ? h.variants : [];
   const resolved = resolveHighlightRef(recordValue, refString);
@@ -1032,12 +1060,90 @@ function BulletRow({
               </button>
             </>
           )}
+          {!editing && onPatchHighlight && (
+            <button
+              type="button"
+              className={`admin-link-subtle rw-bullet-action${showOptions ? ' is-open' : ''}`}
+              onClick={() => setShowOptions((v) => !v)}
+              aria-expanded={showOptions}
+              title="Featured, metric, visibility, and tags for this bullet"
+            >
+              {showOptions ? <ChevronUp size={12} aria-hidden="true" /> : <ChevronDown size={12} aria-hidden="true" />}{' '}
+              options
+            </button>
+          )}
           {othersOnBullet.length > 0 && (
             <span className="rf-usage" title={`Also shown on: ${othersOnBullet.map((u) => u.label).join(', ')}`}>
               also on {othersOnBullet.map((u) => u.label).join(', ')}
             </span>
           )}
         </div>
+
+        {showOptions && onPatchHighlight && (
+          <div className="rw-bullet-options">
+            <div className="rw-bullet-options-row">
+              <label className="admin-checkbox rf-checkbox">
+                <input
+                  type="checkbox"
+                  checked={Boolean(h.featured)}
+                  onChange={(e) => onPatchHighlight({ featured: e.target.checked || undefined })}
+                />
+                <span>Featured</span>
+              </label>
+              <label className="admin-checkbox rf-checkbox">
+                <input
+                  type="checkbox"
+                  checked={Boolean(h.metric)}
+                  onChange={(e) => onPatchHighlight({ metric: e.target.checked || undefined })}
+                />
+                <span>Metric</span>
+              </label>
+              <label className="rf-inline-field">
+                <span className="rf-inline-label">Visibility</span>
+                <select
+                  className="admin-input rf-select-sm"
+                  value={h.visibility || 'public'}
+                  onChange={(e) =>
+                    onPatchHighlight({ visibility: e.target.value === 'public' ? undefined : e.target.value })
+                  }
+                >
+                  <option value="public">public</option>
+                  <option value="unlisted">unlisted</option>
+                  <option value="private">private</option>
+                </select>
+              </label>
+            </div>
+            <label className="rf-inline-field rf-inline-field-block">
+              <span className="rf-inline-label">Tags</span>
+              <input
+                className="admin-input"
+                type="text"
+                value={Array.isArray(h.tags) ? h.tags.join(', ') : ''}
+                placeholder="growth, leadership"
+                onChange={(e) => {
+                  const tags = parseTagsInput(e.target.value);
+                  onPatchHighlight({ tags: tags.length ? tags : undefined });
+                }}
+              />
+            </label>
+            {variantId && onPatchVariant && (
+              <label className="rf-inline-field rf-inline-field-block">
+                <span className="rf-inline-label">Phrasing label ({variantId})</span>
+                <input
+                  className="admin-input"
+                  type="text"
+                  value={activeVariant?.label ?? ''}
+                  placeholder="e.g. design-focused"
+                  onChange={(e) => onPatchVariant(variantId, { label: e.target.value || undefined })}
+                />
+              </label>
+            )}
+            <p className="admin-field-hint">
+              Featured, metric, visibility, and tags live on the shared bullet — changing them affects
+              every version that uses it.
+            </p>
+          </div>
+        )}
       </div>
 
       {included && onMove && (

@@ -377,8 +377,35 @@
   font-size: var(--text-xs);
 }
 
+.rw-bullet-action.is-open {
+  color: var(--accent);
+}
+
 .rw-phrasing {
   gap: var(--space-1);
+}
+
+/* Canonical bullet properties (featured / metric / visibility / tags),
+   revealed under a bullet by the "options" toggle. */
+.rw-bullet-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule-soft);
+  background: color-mix(in srgb, var(--ink) 2%, var(--page));
+}
+
+.rw-bullet-options-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+}
+
+.rw-bullet-options .admin-field-hint {
+  margin: 0;
 }
 
 .rw-bullet-order {
