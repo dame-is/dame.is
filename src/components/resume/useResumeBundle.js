@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { COLLECTIONS } from '../../config.js';
+import { showOnCreating } from '../../lib/publications.js';
+
+const STANDARD_DOC = 'site.standard.document';
 
 /**
  * Load the full resume working set — every resume version, job, and education
- * record on the signed-in PDS — for the admin studio and tailoring workbench.
- * Records come back as plain `{ uri, value }` objects (JSON round-tripped so
- * drafts can be cloned/mutated safely). `reload()` refetches everything.
+ * record on the signed-in PDS, plus the portfolio posts a job's `work` links
+ * can point at — for the admin studio and tailoring workbench. Records come
+ * back as plain `{ uri, value }` objects (JSON round-tripped so drafts can be
+ * cloned/mutated safely). `reload()` refetches everything.
  */
 export function useResumeBundle(agent, did) {
-  const [bundle, setBundle] = useState(null); // { resumes, jobs, education }
+  const [bundle, setBundle] = useState(null); // { resumes, jobs, education, documents }
   const [error, setError] = useState(null);
   const [tick, setTick] = useState(0);
 
@@ -39,16 +43,18 @@ export function useResumeBundle(agent, did) {
 
     (async () => {
       try {
-        const [resumes, jobs, education] = await Promise.all([
+        const [resumes, jobs, education, docs] = await Promise.all([
           listAll(COLLECTIONS.resume),
           listAll(COLLECTIONS.resumeJob),
           listAll(COLLECTIONS.resumeEducation),
+          listAll(STANDARD_DOC).catch(() => []),
         ]);
-        if (!cancelled) setBundle({ resumes, jobs, education });
+        const documents = docs.filter((r) => showOnCreating(r?.value));
+        if (!cancelled) setBundle({ resumes, jobs, education, documents });
       } catch (err) {
         if (!cancelled) {
           setError(err?.message || String(err));
-          setBundle({ resumes: [], jobs: [], education: [] });
+          setBundle({ resumes: [], jobs: [], education: [], documents: [] });
         }
       }
     })();
@@ -62,6 +68,7 @@ export function useResumeBundle(agent, did) {
     resumes: bundle?.resumes || null,
     jobs: bundle?.jobs || null,
     education: bundle?.education || null,
+    documents: bundle?.documents || null,
     loading: bundle === null,
     error,
     reload,

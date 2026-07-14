@@ -210,6 +210,10 @@ export const LEXICONS = {
         hint: 'Achievement bullets. Reorder with the arrows; each is referenced by resumes that tailor which bullets to show. Fork a bullet to keep alternate phrasings of the same point that individual resume versions can pick.',
       },
       { key: 'skills', label: 'Skills', type: 'tags' },
+      {
+        key: 'links', label: 'Work samples', type: 'links',
+        hint: 'Portfolio pieces / links tied to this role — a /creating post (embedded with its cover) or any external URL. Resumes pick which to show under the job.',
+      },
       ...COMMON_TIMESTAMPS,
     ],
   },

@@ -126,6 +126,42 @@ export function selectHighlights(job, entry) {
 }
 
 /**
+ * Resolve which links (portfolio pieces / external URLs) a resume entry shows
+ * for its job. Same selection semantics as highlights: an explicit `linkIds`
+ * array (even empty) wins, otherwise every non-private link in natural order.
+ */
+export function selectLinks(job, entry) {
+  const all = Array.isArray(job?.links) ? job.links : [];
+  if (Array.isArray(entry?.linkIds)) {
+    const byId = new Map(all.map((l) => [l.id, l]));
+    return entry.linkIds.map((id) => byId.get(id)).filter(Boolean).filter(VISIBLE);
+  }
+  return all.filter(VISIBLE);
+}
+
+/**
+ * Resolve an entry's selected links into a render-ready shape. A `work` link is
+ * matched against the fetched portfolio documents (a Map<uri, {value}>) so it
+ * can render as an embed of the live post; an unresolved or external link keeps
+ * its stored `url`. Returns `{ id, label, description, href, doc, isWork }`.
+ */
+export function resolveLinks(job, entry, docMap) {
+  return selectLinks(job, entry).map((link) => {
+    const doc = link.work ? docMap.get(link.work)?.value || null : null;
+    return {
+      id: link.id,
+      label: link.label || '',
+      description: link.description || '',
+      href: link.work || link.url || '',
+      url: link.url || '',
+      work: link.work || '',
+      doc,
+      isWork: Boolean(link.work),
+    };
+  });
+}
+
+/**
  * Scan every resume for uses of one job/education record's bullets.
  *
  * Returns Map<baseHighlightId, Array<{ rkey, label, variantId, implicit }>> —
@@ -222,10 +258,11 @@ function indexByUri(records) {
  * `unresolved` collects entry URIs whose job/education record wasn't found
  * (e.g. a stale snapshot) so the caller can decide whether to wait for live.
  */
-export function resolveResume(resumeRecord, jobs, education) {
+export function resolveResume(resumeRecord, jobs, education, documents) {
   const value = resumeRecord?.value || {};
   const jobMap = indexByUri(jobs);
   const eduMap = indexByUri(education);
+  const docMap = indexByUri(documents);
   const unresolved = [];
 
   const roles = [];
@@ -246,6 +283,7 @@ export function resolveResume(resumeRecord, jobs, education) {
       locationType: job.locationType,
       dateRange: formatDateRange(job),
       highlights: selectHighlights(job, entry),
+      links: resolveLinks(job, entry, docMap),
     });
   }
 

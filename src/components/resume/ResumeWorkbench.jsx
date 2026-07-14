@@ -16,8 +16,25 @@ import {
   resolveHighlightRef,
   collectHighlightUsage,
 } from '../../lib/resumeHelpers.js';
+import { workSlug } from '../../lib/publications.js';
 import { useResumeBundle } from './useResumeBundle.js';
 import './resumeStudio.css';
+
+/** The default set of link ids for an entry: every non-private link, in order. */
+function defaultLinkIds(job) {
+  const links = Array.isArray(job?.links) ? job.links : [];
+  return links.filter((l) => (l.visibility || 'public') !== 'private').map((l) => l.id);
+}
+
+/** Human label for a link — the resolved post title, its label, or its URL. */
+function linkLabel(link, docByUri) {
+  if (!link) return '';
+  if (link.work) {
+    const doc = docByUri?.get(link.work);
+    return link.label || doc?.value?.title || workSlug(doc?.value) || link.work;
+  }
+  return link.label || link.url || '(untitled link)';
+}
 
 /**
  * The tailoring workbench — a resume-centric editor for one version.
@@ -89,7 +106,16 @@ function applyPatch(obj, patch) {
 export default function ResumeWorkbench({ agent, did, rkey }) {
   const navigate = useNavigate();
   const { setPageEditor } = useEditMode();
-  const { resumes, jobs, education, loading: bundleLoading, error: loadError } = useResumeBundle(agent, did);
+  const { resumes, jobs, education, documents, loading: bundleLoading, error: loadError } =
+    useResumeBundle(agent, did);
+
+  // Portfolio posts by URI, so a job's `work` links can be labeled with the
+  // post's live title in the selection UI.
+  const docByUri = useMemo(() => {
+    const m = new Map();
+    for (const r of documents || []) m.set(r.uri, r);
+    return m;
+  }, [documents]);
 
   // The resume value being tailored, plus staged drafts of every canonical
   // job/education record (bullet copy edits and forks land on those).
@@ -368,6 +394,7 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
               removeEntry={removeEntry}
               addEntry={addEntry}
               stageRecord={stageRecord}
+              docByUri={docByUri}
             />
           ))}
 
@@ -492,6 +519,7 @@ function EntriesSection({
   removeEntry,
   addEntry,
   stageRecord,
+  docByUri,
 }) {
   const { listKey, refKey, collection, heading, noun } = KINDS[kind];
   const entries = Array.isArray(draft?.[listKey]) ? draft[listKey] : [];
@@ -531,6 +559,7 @@ function EntriesSection({
             moveEntry={moveEntry}
             removeEntry={removeEntry}
             stageRecord={stageRecord}
+            docByUri={docByUri}
           />
         ))}
       </div>
@@ -611,6 +640,7 @@ function EntryCard({
   moveEntry,
   removeEntry,
   stageRecord,
+  docByUri,
 }) {
   const { listKey, refKey, collection, overrides } = KINDS[kind];
   const highlights = Array.isArray(recordValue?.highlights) ? recordValue.highlights : [];
@@ -902,7 +932,184 @@ function EntryCard({
           <span className="rw-add-bullet-note">(added to the shared {KINDS[kind].noun} record)</span>
         </button>
       </div>
+
+      {kind === 'job' && (
+        <LinkBoard
+          links={Array.isArray(recordValue?.links) ? recordValue.links : []}
+          entry={entry}
+          docByUri={docByUri}
+          collection={collection}
+          rkey={rkey}
+          onChange={(linkIds) => patchEntry(listKey, index, { linkIds })}
+        />
+      )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Work samples (per-version link selection)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Choose which of a job's `links` (portfolio pieces / URLs) show under it on
+ * this version, and in what order. Same include/exclude/reorder model as the
+ * bullet board; the link pool itself is edited on the job record. Selection is
+ * stored on the resume entry as `linkIds` (omit = all non-private).
+ */
+function LinkBoard({ links, entry, docByUri, collection, rkey, onChange }) {
+  const explicit = Array.isArray(entry?.linkIds);
+  const refs = explicit ? entry.linkIds : defaultLinkIds({ links });
+  const included = new Set(refs);
+  const byId = new Map(links.map((l) => [l.id, l]));
+  const excluded = links.filter((l) => !included.has(l.id));
+  const naturalIndex = new Map(links.map((l, i) => [l.id, i]));
+
+  const toggle = (id, on) => {
+    if (!on) {
+      onChange(refs.filter((r) => r !== id));
+      return;
+    }
+    const idx = naturalIndex.get(id) ?? Infinity;
+    const next = refs.slice();
+    let at = next.length;
+    for (let k = 0; k < next.length; k += 1) {
+      if ((naturalIndex.get(next[k]) ?? Infinity) > idx) {
+        at = k;
+        break;
+      }
+    }
+    next.splice(at, 0, id);
+    onChange(next);
+  };
+  const moveLink = (pos, dir) => onChange(moveItem(refs, pos, pos + dir));
+
+  return (
+    <div className="rw-bullets rw-links">
+      <div className="rw-bullets-head">
+        <span className="rf-inline-label">
+          Work samples — {refs.length} of {links.length} shown
+          {!explicit && links.length > 0 && ' — default (all)'}
+        </span>
+        {explicit && (
+          <button
+            type="button"
+            className="admin-link-subtle rw-reset"
+            onClick={() => onChange(undefined)}
+            title="Back to the default: every non-private link, in the job's order"
+          >
+            <RotateCcw size={12} aria-hidden="true" /> reset to default
+          </button>
+        )}
+      </div>
+
+      {links.length === 0 ? (
+        <p className="admin-field-hint">
+          No work samples on this job yet.{' '}
+          <Link to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey || '')}`}>
+            Add portfolio links on the job record →
+          </Link>
+        </p>
+      ) : (
+        <>
+          <ul className="rw-bullet-list">
+            {refs.map((id, pos) => {
+              const link = byId.get(id);
+              if (!link) {
+                return (
+                  <li key={id} className="rw-bullet is-missing">
+                    <span className="admin-error-inline">
+                      Unknown link <code>{id}</code>
+                    </span>
+                    <button
+                      type="button"
+                      className="admin-link-subtle"
+                      onClick={() => onChange(refs.filter((r) => r !== id))}
+                    >
+                      remove
+                    </button>
+                  </li>
+                );
+              }
+              return (
+                <LinkRow
+                  key={id}
+                  included
+                  link={link}
+                  docByUri={docByUri}
+                  pos={pos}
+                  lastPos={refs.length - 1}
+                  onToggle={(on) => toggle(id, on)}
+                  onMove={(dir) => moveLink(pos, dir)}
+                />
+              );
+            })}
+          </ul>
+          {excluded.length > 0 && (
+            <>
+              <div className="rw-excluded-divider small-caps">not on this version</div>
+              <ul className="rw-bullet-list rw-bullet-list-excluded">
+                {excluded.map((link) => (
+                  <LinkRow
+                    key={link.id}
+                    included={false}
+                    link={link}
+                    docByUri={docByUri}
+                    onToggle={(on) => toggle(link.id, on)}
+                  />
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function LinkRow({ included, link, docByUri, pos = 0, lastPos = 0, onToggle, onMove }) {
+  const label = linkLabel(link, docByUri);
+  const kind = link.work ? 'post' : 'link';
+  return (
+    <li className={`rw-bullet${included ? '' : ' is-excluded'}`}>
+      <label className="admin-checkbox rw-bullet-check">
+        <input type="checkbox" checked={included} onChange={(e) => onToggle(e.target.checked)} />
+      </label>
+      <div className="rw-bullet-body">
+        <span className="rw-link-title">{label}</span>
+        <div className="rw-bullet-meta">
+          <span className="rf-badge">{kind}</span>
+          {(link.visibility || 'public') !== 'public' && (
+            <span className="rf-badge">{link.visibility}</span>
+          )}
+          {link.description && <span className="rw-link-desc">{link.description}</span>}
+        </div>
+      </div>
+      {included && onMove && (
+        <div className="rf-controls rw-bullet-order">
+          <button
+            type="button"
+            className="rf-icon-btn"
+            onClick={() => onMove(-1)}
+            disabled={pos === 0}
+            aria-label="Move up"
+            title="Move up"
+          >
+            <ChevronUp size={15} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="rf-icon-btn"
+            onClick={() => onMove(1)}
+            disabled={pos === lastPos}
+            aria-label="Move down"
+            title="Move down"
+          >
+            <ChevronDown size={15} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </li>
   );
 }
 

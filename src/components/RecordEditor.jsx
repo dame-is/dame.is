@@ -14,6 +14,7 @@ import {
   RecordRefsField,
   SkillGroupsField,
   ContactField,
+  LinksField,
   TagsInput,
 } from './resumeFields.jsx';
 import '../pages/Admin.css';
@@ -649,6 +650,9 @@ function Field({ field, value, record, onChange, agent, did, collection, rkey, o
       break;
     case 'skillGroups':
       control = <SkillGroupsField value={value} onChange={onChange} />;
+      break;
+    case 'links':
+      control = <LinksField value={value} onChange={onChange} agent={agent} did={did} />;
       break;
     case 'contact':
       control = <ContactField value={value} onChange={onChange} />;

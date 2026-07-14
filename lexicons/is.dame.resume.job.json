@@ -33,6 +33,12 @@
             "items": { "type": "string", "maxLength": 64 },
             "description": "Skills exercised in this role. Aggregated across selected jobs to build a resume's skill list."
           },
+          "links":           {
+            "type": "array",
+            "maxLength": 30,
+            "description": "Portfolio pieces and external links tied to this role — the work you did here. Each carries a stable id so a resume can select, reorder, and reuse a subset per version (mirrors highlights). Rendered under the role.",
+            "items": { "type": "ref", "ref": "#link" }
+          },
           "createdAt":       { "type": "string", "format": "datetime" },
           "updatedAt":       { "type": "string", "format": "datetime" }
         }
@@ -70,6 +76,19 @@
         "id":    { "type": "string", "maxLength": 64, "description": "Stable id, unique within the parent highlight (e.g. \"v1\"). Addressed from resumes as \"<highlightId>#<id>\"." },
         "text":  { "type": "string", "maxLength": 2000 },
         "label": { "type": "string", "maxLength": 80, "description": "What this phrasing is for, e.g. \"design-focused\" or \"one-pager\" — shown in the admin variant picker, never rendered on the site." }
+      }
+    },
+    "link": {
+      "type": "object",
+      "description": "A portfolio piece or external link tied to a job — a sample of the work done in that role, rendered under it. Point it at a first-party /creating post with `work` (resolved to that post's title, URL, and cover as an embed) or at any external page with `url`.",
+      "required": ["id"],
+      "properties": {
+        "id":          { "type": "string", "maxLength": 64, "description": "Stable id, unique within this job. Referenced from is.dame.resume entries[].linkIds." },
+        "work":        { "type": "string", "format": "at-uri", "description": "Backlink to a first-party portfolio post (a site.standard.document homed in the portfolio publication, shown at /creating/<slug>). Resolved live, so the embed tracks the post's current title and cover. Takes precedence over `url`." },
+        "url":         { "type": "string", "format": "uri", "description": "External URL for a piece that isn't a /creating post. Used only when `work` is absent." },
+        "label":       { "type": "string", "maxLength": 200, "description": "Display label. For a `work` link it overrides the resolved post title; for a `url` link it is the link text." },
+        "description": { "type": "string", "maxLength": 500, "description": "Optional one-line note shown beneath the link." },
+        "visibility":  { "type": "string", "enum": ["public", "unlisted", "private"], "default": "public", "description": "Site display intent (NOT privacy). \"private\" links never render; \"unlisted\" render only when a resume explicitly selects them." }
       }
     }
   }
