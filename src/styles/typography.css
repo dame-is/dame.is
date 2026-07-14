@@ -135,26 +135,29 @@ blockquote {
 }
 
 /* Firefox has no `initial-letter` support yet — approximate with the classic
-   float. Everything is in `em` so it scales with the paragraph text at every
-   breakpoint, matching the three-line drop the `initial-letter: 3` path gives
-   the other engines.
-
-   The two magic numbers are derived, not eyeballed — a float can't sink itself
-   the way `initial-letter` does, so we size and lead it by hand:
+   float. In practice this block only ever runs in Firefox (every other engine
+   we support has `initial-letter`), so the numbers below are tuned to, and
+   verified in, Firefox specifically — not the `initial-letter` engines. It's
+   all in `em` so it scales with the paragraph text at every breakpoint.
 
    • font-size 5.85em — the cap must reach from the first line's cap-height down
      to the third line's baseline, a visual span of `cap-height + 2 line-heights`.
      For Crimson Pro (cap-height ≈ 0.655em) at our 1.6 line-height that's
      0.655 + 2·1.6 ≈ 3.855em of cap, and 3.855 / 0.655 ≈ 5.85em of font-size.
-   • line-height 0.81 — a floated glyph is vertically centred in its own line
-     box, so this (< 1) is what drops the baseline onto the third line's baseline
-     and pulls the cap-top up flush with the first line's caps. It also sets the
-     float's height to ≈ 2.96 lines, so exactly three lines wrap and the fourth
-     clears.
+   • line-height 0.81 — sets the float's box to ≈ 3 lines tall so exactly three
+     lines wrap beside it and the fourth clears.
+   • margin-top 0.07em — the vertical nudge. With line-height < 1 the glyph
+     overflows its line box, and Firefox centres that overflow ≈ 0.07em higher
+     than the cap-top target (Blink/WebKit resolve it lower, but they never take
+     this path). Without the nudge the cap pokes above the first line; 0.07em
+     drops its top flush with the first line's caps, and because the cap is sized
+     to exactly three lines its baseline then lands on the third line's baseline.
 
-   Measured against the `initial-letter` rendering this lands both the cap-top
-   and the baseline within ~0.1px, versus the old 3.3em/0.82 float that only
-   spanned two lines and poked above the first line in Firefox. */
+   Verified by pixel-measuring real Firefox at both the resume (1rem) and blog
+   (1.05rem) sizes: cap-top aligns with the first line within ~0.5px and the cap
+   wraps exactly three lines. The old 3.3em/0.82 float spanned only two lines and
+   poked above the first line; an intermediate 5.85em/0.81 float (no nudge) was
+   the right size but still sat ~0.07em too high in Firefox. */
 @supports not ((initial-letter: 3) or (-webkit-initial-letter: 3)) {
   .dropcap::first-letter,
   .blog-prose > p:first-of-type::first-letter,
@@ -163,6 +166,7 @@ blockquote {
     float: left;
     font-size: 5.85em;
     line-height: 0.81;
+    margin-top: 0.07em;
     /* Cancel the base rule's 0.18em gap (huge at this font-size) and set the
        gap to the wrapping text in the float's own em instead. */
     margin-right: 0;
