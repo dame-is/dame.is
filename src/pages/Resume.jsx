@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ExternalLink } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { resolvePds, listRecords, explorerPathFromAtUri } from '../lib/atproto.js';
+import { resolvePds, listRecords } from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { ResumeSkeleton } from '../components/Skeleton.jsx';
@@ -90,7 +91,9 @@ function ResumeWorkLink({ item }) {
         <span className="resume-work-title">{item.title}</span>
         {item.description && <span className="resume-work-desc">{item.description}</span>}
       </span>
-      {item.external && item.href && <span className="resume-work-ext" aria-hidden="true">↗</span>}
+      {item.external && item.href && (
+        <span className="resume-work-ext" aria-hidden="true"><ExternalLink size={12} /></span>
+      )}
     </>
   );
   if (!item.href) return <span className="resume-work-link is-static">{inner}</span>;
@@ -230,15 +233,6 @@ export default function Resume() {
                         {[role.employmentType, role.locationType, role.location]
                           .filter(Boolean)
                           .join(' · ')}
-                        {explorerPathFromAtUri(role.uri) && (
-                          <Link
-                            className="resume-record-link"
-                            to={explorerPathFromAtUri(role.uri)}
-                            title="View the underlying job record"
-                          >
-                            ↗ record
-                          </Link>
-                        )}
                       </div>
                       {role.summary && <p className="resume-role-summary">{role.summary}</p>}
                       {role.highlights.length > 0 && (
