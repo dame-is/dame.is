@@ -116,6 +116,21 @@ async function main() {
   }
   await writeJson('extendedProfile', extendedProfile || {});
 
+  // --- Live state (is.dame.state append log) --------------------------------
+  // Newest-first snapshot of the vitals log. The atmosphere-bar vitals panel
+  // paints from the latest record (index 0) then refreshes live; the rest is
+  // recent history, on hand for a future charts view without a rebuild. Capped
+  // so the snapshot stays small (the PDS keeps the full series). Empty until
+  // the first push exists — `safe` keeps the build going.
+  const stateLog = backfillTimestamps(
+    await safe(
+      'listRecords:state',
+      () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.state, max: 200 }),
+      [],
+    ),
+  );
+  await writeJson('state', stateLog);
+
   // --- is.dame.page (pages keyed by rkey) -----------------------------------
   const pageRecords = backfillTimestamps(
     await safe(

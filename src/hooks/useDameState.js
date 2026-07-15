@@ -1,0 +1,69 @@
+import { useEffect, useRef, useState } from 'react';
+import { resolvePds, listRecords } from '../lib/atproto.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
+import { subscribeRefreshTick } from '../lib/refreshTick.js';
+import { normalizeVitals } from '../lib/vitals.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
+
+/**
+ * Latest is.dame.state record — Dame's current iPhone-sourced state (heart
+ * rate, activity, battery, ambient sound, calories). is.dame.state is an
+ * append-only log keyed by TID, so the newest record is "right now". Snapshot
+ * first paint, then live via listRecords (newest first), kept current on the
+ * shared 30s tick — same cadence and same one-record read as NowPlaying, so
+ * every "live" surface updates together.
+ *
+ * Returns `{ vitals, status }`, where `vitals` is a normalized, type-coerced
+ * shape (or null before anything loads).
+ */
+export function useDameState() {
+  const [record, setRecord] = useState(null);
+  const [status, setStatus] = useState('idle');
+  const cancelledRef = useRef(false);
+  const recordRef = useRef(null);
+
+  useEffect(() => {
+    cancelledRef.current = false;
+
+    async function refresh() {
+      try {
+        const pds = await resolvePds(ME_DID);
+        const recs = await listRecords(pds, {
+          repo: ME_DID,
+          collection: COLLECTIONS.state,
+          max: 1,
+        });
+        if (cancelledRef.current) return;
+        if (recs?.[0]) {
+          recordRef.current = recs[0];
+          setRecord(recs[0]);
+          setStatus('ready');
+        }
+      } catch {
+        // listRecords is empty until the first push; keep whatever we had.
+        if (!cancelledRef.current) {
+          setStatus(recordRef.current ? 'stale' : 'error');
+        }
+      }
+    }
+
+    async function boot() {
+      setStatus('loading');
+      const seed = await fetchSnapshot('state');
+      if (!cancelledRef.current && Array.isArray(seed) && seed[0]) {
+        recordRef.current = seed[0];
+        setRecord(seed[0]);
+      }
+      refresh();
+    }
+
+    boot();
+    const unsubscribe = subscribeRefreshTick(refresh);
+    return () => {
+      cancelledRef.current = true;
+      unsubscribe();
+    };
+  }, []);
+
+  return { vitals: normalizeVitals(record?.value), status };
+}

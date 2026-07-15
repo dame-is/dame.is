@@ -17,6 +17,7 @@ import { ME_DID } from '../config.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
+import VitalsPanel from './VitalsPanel.jsx';
 import LayoutToggle from './LayoutToggle.jsx';
 import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
@@ -262,6 +263,7 @@ export default function ChromeBar() {
                 >
                   <NowPlaying />
                   <ProfileStats />
+                  <VitalsPanel />
                 </motion.div>
               </div>
             </motion.div>

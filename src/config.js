@@ -72,6 +72,15 @@ export const LEGACY_GUESTBOOK_NSID = 'a.guestbook.for.my.pds';
 export const LEGACY_GUESTBOOK_ENTRY_NSID = 'a.guestbook.i.signed';
 export const LEGACY_GUESTBOOK_SUBJECT = `at://${ME_DID}/${LEGACY_GUESTBOOK_NSID}/guestbook`;
 
+// --- state / vitals ----------------------------------------------------------
+// Live iPhone-sourced physical + ambient state (heart rate, activity, battery,
+// ambient sound, calories) — an append-only log keyed by TID. The LATEST record
+// is the current "right now" the atmosphere-bar vitals panel reads; the full
+// series is the history. Each record is immutable, so an is.dame.now status can
+// strong-ref the one captured alongside it (is.dame.now.stateRef). Posted from
+// an iPhone Apple Shortcut; see lexicons/STATE.md.
+export const STATE_NSID = 'is.dame.state';
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
@@ -107,6 +116,7 @@ export const COLLECTIONS = {
   resumeJob: RESUME_JOB_NSID,
   resumeEducation: RESUME_EDUCATION_NSID,
   arenaChannel: ARENA_CHANNEL_NSID,
+  state: STATE_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */

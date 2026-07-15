@@ -1,0 +1,58 @@
+/* Vitals chip — the body-state behind a status (is.dame.now.stateRef), shown
+   as a quiet line under the status text in both the feed row and the logging
+   record page. Same glyph + type vocabulary as the atmosphere-bar vitals panel
+   (accent heart, mono tabular numbers, small-caps units), one size down. */
+
+.vitals-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2em 0.55em;
+  margin: var(--space-1) 0 0;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.vitals-chip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  white-space: nowrap;
+}
+
+/* Faint middot between items. */
+.vitals-chip-item + .vitals-chip-item::before {
+  content: '·';
+  margin-right: 0.55em;
+  color: var(--ink-faint);
+}
+
+.vitals-chip-glyph {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+}
+
+.vitals-chip-heart {
+  color: var(--accent);
+}
+
+.vitals-chip-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: -0.01em;
+}
+
+.vitals-chip-unit {
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  font-size: 0.95em;
+}
+
+.vitals-chip-word {
+  color: var(--ink-soft);
+  text-transform: lowercase;
+}

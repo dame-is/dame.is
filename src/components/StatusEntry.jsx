@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
+import VitalsChip from './VitalsChip.jsx';
 
 export default function StatusEntry({ payload, atUri, createdAt }) {
   const text = (payload?.status || payload?.text || '').trim();
@@ -27,6 +28,7 @@ export default function StatusEntry({ payload, atUri, createdAt }) {
           )
         )}
       </div>
+      {payload?.stateRef?.uri && <VitalsChip stateRef={payload.stateRef} />}
     </article>
   );
 }
