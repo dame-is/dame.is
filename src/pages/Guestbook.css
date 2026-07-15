@@ -370,3 +370,10 @@
   align-items: center;
   gap: 0.45em;
 }
+
+/* Source credit for the backlink assembly (Constellation + Slingshot, both
+   microcosm), mirroring the /mothing "Mirrored from iNaturalist" footnote. */
+.guestbook-source {
+  margin-top: var(--space-6);
+  font-size: var(--text-xs);
+}
