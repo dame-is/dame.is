@@ -1,24 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
-import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
+import { animate, motion, useMotionValue, useSpring, useReducedMotion } from 'motion/react';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 
 /**
  * Our own take on a magnetic reticule cursor (no motion-plus dependency —
  * just the `motion` primitives already in the bundle). While x-ray is armed
- * on a desktop / fine-pointer device, a corner-tick target follows the
- * cursor and springs to lock onto whatever record-backed element ([data-
- * atproto]) is under it, labelling it with the collection. With no target it
- * shrinks to a small idly-rotating diamond.
+ * on a desktop / fine-pointer device it stands in for the native cursor: a
+ * corner-tick target that tracks the pointer and locks onto whatever record-
+ * backed element ([data-atproto]) is under it, labelling it with the
+ * collection. With no target it shrinks to a small idly-rotating diamond.
  *
- * Mounted (and gated to fine pointers + wider viewports) by XrayLayer, so it
- * only ever runs where it makes sense.
+ * Responsiveness note: position/size are `useSpring` motion values whose
+ * TARGETS we `.set()` on each move — the spring tracks a moving goal in one
+ * continuous animation. (An earlier version spawned a fresh `animate()` per
+ * move, so the reticule was forever chasing a half-finished spring and felt
+ * laggy.) A stiff config keeps idle tracking tight while lock-on still eases.
+ *
+ * Mounted (and gated to fine pointers + wider viewports) by XrayLayer.
  */
+const POS_SPRING = { stiffness: 900, damping: 50, mass: 0.35 };
+const SIZE_SPRING = { stiffness: 420, damping: 38, mass: 0.5 };
+const IDLE = 22;
+
 export default function XrayReticule() {
   const reduce = useReducedMotion();
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const w = useMotionValue(24);
-  const h = useMotionValue(24);
+  const x = useSpring(0, POS_SPRING);
+  const y = useSpring(0, POS_SPRING);
+  const w = useSpring(IDLE, SIZE_SPRING);
+  const h = useSpring(IDLE, SIZE_SPRING);
   const rotate = useMotionValue(0);
   const [locked, setLocked] = useState(false);
   const [label, setLabel] = useState('');
@@ -34,7 +43,15 @@ export default function XrayReticule() {
   useEffect(() => rotate.on('change', (v) => counterRotate.set(-v)), [rotate, counterRotate]);
 
   useEffect(() => {
-    // Idle spin management — an endless slow rotation while we have no target.
+    // While the reticule is live it IS the cursor — hide the native one
+    // (scoped to this attribute in Xray.css). Removed on unmount / suppression
+    // so the dock, panels, and touch keep their normal cursor.
+    const root = document.documentElement;
+    root.setAttribute('data-xray-reticule', 'on');
+
+    // Under reduced motion, snap instantly (no spring travel, no idle spin).
+    const move = reduce ? (mv, v) => mv.jump(v) : (mv, v) => mv.set(v);
+
     function startSpin() {
       if (reduce || spinRef.current) return;
       spinRef.current = animate(rotate, rotate.get() + 360, {
@@ -50,25 +67,25 @@ export default function XrayReticule() {
       }
     }
 
-    const springify = (mv, to) =>
-      animate(mv, to, reduce ? { duration: 0.12 } : { type: 'spring', bounce: 0.28, duration: 0.5 });
-
     function apply(e) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      const target = el && el.closest ? el.closest('[data-atproto]') : null;
+      let target = el && el.closest ? el.closest('[data-atproto]') : null;
+      // Don't lock onto the already-focused element (its open substrate panel
+      // would make an unwieldy frame) — treat it as no target.
+      if (target && target.classList.contains('is-xray-focus')) target = null;
 
       if (target) {
         const r = target.getBoundingClientRect();
         const pad = 6;
-        springify(x, r.left - pad);
-        springify(y, r.top - pad);
-        springify(w, r.width + pad * 2);
-        springify(h, r.height + pad * 2);
+        move(x, r.left - pad);
+        move(y, r.top - pad);
+        move(w, r.width + pad * 2);
+        move(h, r.height + pad * 2);
         stopSpin();
-        // Settle to the nearest FULL turn (a multiple of 360, not 180) so the
-        // frame always lands upright — keeps the collection label the right way
-        // up in its top-left corner instead of flipping to the far side.
-        animate(rotate, Math.round(rotate.get() / 360) * 360, { type: 'spring', bounce: 0.3 });
+        // Settle to the nearest FULL turn (multiple of 360) so the frame lands
+        // upright and the label stays in its top-left corner.
+        if (reduce) rotate.jump(Math.round(rotate.get() / 360) * 360);
+        else animate(rotate, Math.round(rotate.get() / 360) * 360, { type: 'spring', stiffness: 200, damping: 22 });
         if (!lockedRef.current) {
           lockedRef.current = true;
           setLocked(true);
@@ -77,12 +94,10 @@ export default function XrayReticule() {
         const nsid = uri ? nsidFromAtUri(uri) : target.getAttribute('data-nsid');
         setLabel(nsid || '');
       } else {
-        // No target — a small diamond centred on the pointer, idly spinning.
-        const size = 24;
-        springify(x, e.clientX - size / 2);
-        springify(y, e.clientY - size / 2);
-        springify(w, size);
-        springify(h, size);
+        move(x, e.clientX - IDLE / 2);
+        move(y, e.clientY - IDLE / 2);
+        move(w, IDLE);
+        move(h, IDLE);
         startSpin();
         if (lockedRef.current) {
           lockedRef.current = false;
@@ -102,14 +117,15 @@ export default function XrayReticule() {
     }
 
     // Seed at the current center so it doesn't fly in from the corner.
-    x.set(window.innerWidth / 2 - 12);
-    y.set(window.innerHeight / 2 - 12);
+    x.jump(window.innerWidth / 2 - IDLE / 2);
+    y.jump(window.innerHeight / 2 - IDLE / 2);
     startSpin();
     window.addEventListener('pointermove', onMove, { passive: true });
     return () => {
       window.removeEventListener('pointermove', onMove);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       stopSpin();
+      root.removeAttribute('data-xray-reticule');
     };
   }, [reduce, x, y, w, h, rotate]);
 
