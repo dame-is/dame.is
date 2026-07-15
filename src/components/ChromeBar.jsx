@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Scan, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
+import { useXray } from '../hooks/useXray.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -372,6 +373,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     openEditSheet,
     closeEditSheet,
   } = useEditMode();
+  const { active: xrayActive, toggle: toggleXray, exit: exitXray } = useXray();
   const isOwner = did === ME_DID;
   // The owner's edit record for THIS page, if any — guarded on the stamped path
   // so a stale value can't leak across a route change, and on the owner's repo
@@ -587,6 +589,24 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 >
                   <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
+                {/* Atmosphere x-ray — the marquee "turn the page inside out"
+                    mode. Toggling it reveals the AT Protocol records beneath
+                    the page; entering it folds away any open panel and the
+                    owner's edit mode (they compete for the same surface). */}
+                <button
+                  type="button"
+                  className={`chrome-nav chrome-xray ${xrayActive ? 'is-open' : ''}`}
+                  onClick={() => {
+                    closePanel();
+                    if (editActive) exitEdit();
+                    toggleXray();
+                  }}
+                  aria-pressed={xrayActive}
+                  aria-label={xrayActive ? 'Exit x-ray' : 'X-ray this page'}
+                  title="Atmosphere x-ray — reveal the records under the page"
+                >
+                  <Scan className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                </button>
                 {onResumePage && (
                   <button
                     type="button"
@@ -604,8 +624,12 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     className={`chrome-nav chrome-edit-btn ${chromeEditOpen ? 'is-open' : ''}`}
                     onClick={() => {
                       // Entering/leaving edit mode owns the bottom chrome —
-                      // fold any open search/filter/info panel away first.
+                      // fold any open search/filter/info panel away first, and
+                      // leave x-ray (the two modes compete for the same rows).
                       closePanel();
+                      // Edit mode and x-ray compete for the same rows — leave
+                      // x-ray before entering any edit flow.
+                      if (xrayActive) exitXray();
                       if (editActive) {
                         // In select / moderation mode → leave it.
                         toggleEdit();

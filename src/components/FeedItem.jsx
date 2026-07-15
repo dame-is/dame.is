@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Check, CornerDownRight } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
+import { useXray } from '../hooks/useXray.jsx';
+import { XrayTag, XraySubstratePanel } from './XraySubstrate.jsx';
 import StatusEntry from './StatusEntry.jsx';
 import PostCard, { postCardShowsStandaloneTime } from './PostCard.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
@@ -101,6 +103,7 @@ function hrefFor(item) {
 export default function FeedItem({ item, showVerb = true, layout = 'cards', onOpenLightbox = null }) {
   const navigate = useNavigate();
   const edit = useEditMode();
+  const xray = useXray();
   // Ledger-only: whether a collapsed listening session is showing its
   // full track list (see handleRowClick / FeedLedgerRow).
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
@@ -122,6 +125,22 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
   const listeningEdit = edit.active && item.verb === 'listening';
   const selectable = edit.active && !!item.atUri && !listeningEdit;
   const selected = selectable && edit.isSelected(item.atUri);
+
+  // Atmosphere x-ray: while the mode is on, a record-backed row is inspectable.
+  // A tap anywhere on it (outside its own links) drills into the substrate
+  // rather than navigating, and toggling it off returns to the manifest.
+  const xrayActive = xray.active && !!item.atUri;
+  const xrayFocused = xrayActive && xray.focusUri === item.atUri;
+
+  function handleXrayClick(e) {
+    if (e.defaultPrevented) return;
+    if (e.button !== undefined && e.button !== 0) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (e.target.closest('a, button, input, textarea, label, select, [role="button"], [role="link"]')) return;
+    const sel = typeof window !== 'undefined' ? window.getSelection() : null;
+    if (sel && sel.toString().length > 0) return;
+    xray.toggleFocus(item.atUri);
+  }
 
   function handleSelectCapture(e) {
     if (!selectable) return;
@@ -231,6 +250,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
     threadContinuation ? 'feed-item-thread-continuation' : '',
     selectable ? 'feed-item-selectable' : '',
     selected ? 'is-selected' : '',
+    xrayFocused ? 'is-xray-focus' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -239,13 +259,18 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
       className={liClassName}
       data-verb={item.verb}
       data-nsid={nsidFromAtUri(item.atUri) || undefined}
+      data-atproto={item.atUri ? '' : undefined}
+      data-at-uri={item.atUri || undefined}
+      data-cid={item.cid || undefined}
       data-thread-position={item._thread?.position}
       data-thread-length={item._thread?.length}
       onClickCapture={selectable ? handleSelectCapture : undefined}
       onClick={
-        !selectable && !listeningEdit && (href || ledgerListenBatch || canLightbox)
-          ? handleRowClick
-          : undefined
+        xrayActive
+          ? handleXrayClick
+          : !selectable && !listeningEdit && (href || ledgerListenBatch || canLightbox)
+            ? handleRowClick
+            : undefined
       }
       role={selectable ? 'button' : undefined}
       aria-pressed={selectable ? selected : undefined}
@@ -299,6 +324,15 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
           verb={item.verb}
           suppressReplyBadge={showVerb ? isReplyVerb || threadContinuation : threadContinuation}
         />
+      )}
+      {/* X-ray: cards wear a calm substrate tag; the ledger has its own
+          in-grid data line (see FeedLedgerRow). Focusing either opens the
+          full substrate panel below the row. */}
+      {!ledger && xrayActive && (
+        <XrayTag atUri={item.atUri} onOpen={() => xray.focus(item.atUri)} />
+      )}
+      {xrayFocused && (
+        <XraySubstratePanel atUri={item.atUri} cid={item.cid} value={item.payload} />
       )}
     </li>
   );
