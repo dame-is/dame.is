@@ -208,6 +208,17 @@ export async function getRecord(pds, { repo, collection, rkey }) {
 }
 
 /**
+ * PDS — `com.atproto.sync.getLatestCommit`. Returns `{ cid, rev }` for the
+ * repo's current head commit. The `rev` is a TID, so `tidToTimestamp(rev)`
+ * recovers when the repo was last written to — a cheap "last active" signal
+ * with no extra call to list records.
+ */
+export async function getLatestCommit(pds, did) {
+  const params = new URLSearchParams({ did });
+  return fetchJson(`${pds}/xrpc/com.atproto.sync.getLatestCommit?${params}`);
+}
+
+/**
  * Build an `at://` URI from parts.
  */
 export function toAtUri({ did, collection, rkey }) {

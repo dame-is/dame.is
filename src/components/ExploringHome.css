@@ -1,0 +1,303 @@
+/* Personal repository landing — paired with src/components/ExploringHome.jsx,
+   rendered inside the Exploring page (so Exploring.css / Admin.css tokens like
+   `.placeholder-card`, `.exploring-muted`, `.small-caps`, `.gutter`, `.dropcap`
+   are already in scope). Semantic tokens only, square corners, hairline rules —
+   so it rides the always-on sky theme. */
+
+.exploring-home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  margin-top: var(--space-4);
+}
+
+.exploring-home-lead {
+  max-width: var(--measure);
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading);
+  color: var(--ink-soft);
+}
+
+/* Sections ------------------------------------------------------------- */
+
+.exploring-home-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.exploring-home-section-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+}
+.exploring-home-section-note {
+  max-width: var(--measure);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.exploring-home-section-note code {
+  font-family: var(--code);
+  font-size: 0.9em;
+}
+
+/* Repo at a glance ----------------------------------------------------- */
+
+.exploring-home-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.exploring-home-stat {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-2);
+  background: var(--page);
+  padding: var(--space-3);
+  transition: transform 200ms ease, border-color 200ms ease;
+}
+.exploring-home-stat.is-link:hover {
+  border-color: var(--accent-soft);
+  transform: translateY(-2px);
+}
+.exploring-home-stat-inner {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.exploring-home-stat-label {
+  display: block;
+  font-size: var(--text-xs);
+  letter-spacing: 0.18em;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-2);
+}
+.exploring-home-stat-value {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.exploring-home-stat-sub {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--mono-ui, var(--mono));
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  color: var(--ink-faint);
+}
+
+/* Custom lexicons ------------------------------------------------------ */
+
+.exploring-home-lexicons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-3);
+}
+.exploring-home-lexicon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--rule-soft, var(--rule));
+  border-radius: var(--radius-2);
+  background: var(--page-edge);
+  transition: transform 200ms ease, border-color 200ms ease;
+}
+.exploring-home-lexicon:hover {
+  border-color: var(--accent-soft);
+  transform: translateY(-2px);
+}
+.exploring-home-lexicon-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.exploring-home-lexicon-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  font-style: italic;
+  color: var(--accent);
+}
+.exploring-home-lexicon-nsid {
+  word-break: break-all;
+}
+.exploring-home-lexicon-blurb {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading);
+  color: var(--ink-soft);
+}
+.exploring-home-lexicon-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding-top: var(--space-1);
+}
+
+/* Shared text links ---------------------------------------------------- */
+
+.exploring-home-textlink {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  text-decoration: none;
+}
+.exploring-home-textlink:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+.exploring-home-textlink-muted {
+  color: var(--ink-soft);
+}
+.exploring-home-textlink-muted:hover {
+  color: var(--ink);
+  text-decoration-color: var(--ink-soft);
+}
+
+/* Identity ------------------------------------------------------------- */
+
+.exploring-home-identity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-2);
+  background: var(--page);
+}
+.exploring-home-identity-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.exploring-home-identity-row dt {
+  font-size: var(--text-xs);
+  letter-spacing: 0.18em;
+  color: var(--ink-soft);
+}
+.exploring-home-identity-row dd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+  word-break: break-all;
+}
+.exploring-home-identity-mono {
+  font-family: var(--mono-ui, var(--mono));
+}
+.exploring-home-copy {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: var(--space-1);
+  background: transparent;
+  border: 0;
+  color: var(--ink-faint);
+  cursor: pointer;
+  line-height: 0;
+}
+.exploring-home-copy:hover {
+  color: var(--accent);
+}
+.exploring-home-identity-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+/* Collections directory ------------------------------------------------ */
+
+.exploring-home-collections-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.exploring-home-collection-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-4);
+}
+.exploring-home-collection-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.exploring-home-collection-group-title {
+  margin: 0;
+  letter-spacing: 0.18em;
+  color: var(--ink-soft);
+}
+.exploring-home-collection-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  font-size: var(--text-xs);
+}
+.exploring-home-collection-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+}
+.exploring-home-collection-row {
+  border-bottom: 1px solid var(--rule-soft, var(--rule));
+}
+.exploring-home-collection-row:last-child {
+  border-bottom: 0;
+}
+.exploring-home-collection-link {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--mono-ui, var(--mono));
+  font-size: var(--text-sm);
+  color: var(--ink);
+  text-decoration: none;
+  word-break: break-all;
+}
+.exploring-home-collection-link:hover {
+  color: var(--accent);
+  background: var(--rule-soft, transparent);
+}
+
+/* "Look inside another repo" — the generic explorer's entry point, kept
+   reachable below the personal landing (markup lives in Exploring.jsx). */
+.exploring-home-elsewhere {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-7);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--rule);
+}
+
+@media (max-width: 700px) {
+  .exploring-home {
+    gap: var(--space-6);
+  }
+  .exploring-home-identity-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
