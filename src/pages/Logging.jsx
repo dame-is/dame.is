@@ -3,9 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
+import StateStats from '../components/StateStats.jsx';
 import { matchesQuery } from '../components/FeedSearch.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useStateHistory } from '../hooks/useStateHistory.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
@@ -29,6 +31,10 @@ export default function Logging() {
     },
     mapItems: toLoggingItems,
   });
+
+  // The state dashboard paints from its own snapshot-first history, independent
+  // of the status feed's loading state, so it can show the instant it lands.
+  const { samples: stateSamples } = useStateHistory();
 
   const { active: editActive } = useEditMode();
   const { layout } = useFeedLayout();
@@ -56,6 +62,7 @@ export default function Logging() {
       headTitle="dame.is logging"
       selectable
     >
+      {stateSamples.length > 0 && <StateStats samples={stateSamples} />}
       {loading ? (
         <FeedSkeleton rows={5} label="Loading status updates" />
       ) : status === 'error' ? (
