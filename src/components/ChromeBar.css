@@ -713,10 +713,14 @@
     display: inline-flex;
   }
   /* Faint dashed divider between the three stacked lines (LISTENING TO /
-     FOLLOWED BY / DAY OF LIFE), echoing the feed's thread dividers. */
+     FOLLOWED BY / DAY OF LIFE), echoing the feed's thread dividers. The gap
+     around each divider is tighter than the stack's outer padding: the block's
+     top padding (above the first line) and bottom padding (below the last)
+     stay at --space-2 via the container, while only these in-between gaps
+     shrink to --space-1 so the lines sit closer together. */
   .chrome-signals-secondary > .chrome-signal + .chrome-signal {
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
+    margin-top: var(--space-1);
+    padding-top: var(--space-1);
     border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 55%, transparent);
   }
 }
