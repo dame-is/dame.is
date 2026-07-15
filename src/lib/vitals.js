@@ -26,18 +26,30 @@ export function clampPct(n) {
   return Math.max(0, Math.min(100, n));
 }
 
-/** Normalize a raw is.dame.state record `value` into typed vitals (or null). */
+/**
+ * Normalize a raw is.dame.state record `value` into typed vitals (or null).
+ * A field with no reading — missing, or a placeholder `0` — comes back null so
+ * the panel / chip omit it entirely rather than rendering "0 bpm" / "0 cal".
+ * (A phone that's genuinely posting never reports 0 heart rate, 0 dB, or 0%.)
+ */
 export function normalizeVitals(value) {
   if (!value) return null;
+  const activity = value.activity ? String(value.activity).trim().toLowerCase() : null;
   return {
-    heartRate: toInt(value.heartRate),
-    activity: value.activity ? String(value.activity).trim().toLowerCase() : null,
-    batteryLevel: clampPct(toInt(value.batteryLevel)),
+    heartRate: nonZero(toInt(value.heartRate)),
+    // `unknown` is the lexicon's "no reading" sentinel — treat it as absent too.
+    activity: activity && activity !== 'unknown' ? activity : null,
+    batteryLevel: nonZero(clampPct(toInt(value.batteryLevel))),
     charging: toBool(value.charging ?? value.isCharging),
-    soundLevel: toInt(value.soundLevel ?? value.environmentSound),
-    caloriesBurned: toInt(value.caloriesBurned),
+    soundLevel: nonZero(toInt(value.soundLevel ?? value.environmentSound)),
+    caloriesBurned: nonZero(toInt(value.caloriesBurned)),
     sampledAt: value.capturedAt || value.createdAt || null,
   };
+}
+
+/** Treat 0 as "no reading" for display; null stays null. */
+function nonZero(n) {
+  return n === 0 ? null : n;
 }
 
 // The state snapshot is fetched once per session and shared: a feed can hold

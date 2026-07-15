@@ -26,10 +26,19 @@ export default function VitalsPanel() {
   const { vitals } = useDameState();
   const reduce = useReducedMotion();
 
-  // Render an empty-but-present row before data lands so the atmosphere bar
-  // doesn't pop a whole extra line in a beat after it opens (matches
-  // NowPlaying / ProfileStats' placeholder pattern).
-  if (!vitals) {
+  // Nothing worth showing — no data yet, or every reading came back empty/0
+  // (see normalizeVitals). Render an empty-but-present row so the atmosphere
+  // bar doesn't pop a whole extra line a beat after it opens, and so a
+  // stripped record doesn't leave a lonely "updated" stamp with no vitals.
+  const hasAny =
+    vitals &&
+    (vitals.heartRate != null ||
+      vitals.activity ||
+      vitals.batteryLevel != null ||
+      vitals.caloriesBurned != null ||
+      vitals.soundLevel != null);
+
+  if (!hasAny) {
     return (
       <div className="vitals vitals-empty" aria-hidden="true">
         <span className="chrome-signal-label">state</span>
