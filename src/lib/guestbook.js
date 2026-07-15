@@ -70,7 +70,7 @@ export async function fetchGuestbookBook() {
  * that threads this two-phase walk is opaque to callers (they pass it back).
  *
  * Returns `{ total, publicTotal, hiddenCount, cursor, entries, book }` where
- * each entry is `{ uri, did, rkey, collection, legacy, value, profile, hidden }`,
+ * each entry is `{ uri, cid, did, rkey, collection, legacy, value, profile, hidden }`,
  * newest first. `value` is normalized so both record shapes render through one
  * row (a legacy `message` surfaces as `text`, and a missing `createdAt` is
  * recovered from the TID rkey where possible). `hidden` reflects the book's
@@ -214,6 +214,7 @@ async function hydrateModernRef(ref) {
   if (!value || value.subject !== GUESTBOOK_SUBJECT) return null;
   return {
     uri: record.uri || toAtUri(ref),
+    cid: record.cid ?? null,
     did: ref.did,
     rkey: ref.rkey,
     collection: GUESTBOOK_ENTRY_NSID,
@@ -237,6 +238,7 @@ async function hydrateLegacyRef(ref) {
   const createdAt = normalizeIso(raw.createdAt) || tidToTimestamp(ref.rkey) || undefined;
   return {
     uri: record.uri || toAtUri(ref),
+    cid: record.cid ?? null,
     did: ref.did,
     rkey: ref.rkey,
     collection: LEGACY_GUESTBOOK_ENTRY_NSID,
