@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import ExploringHome from '../components/ExploringHome.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -25,7 +26,7 @@ import './Exploring.css';
  * Atmosphere PDS explorer.
  *
  * Routes (registered in App.jsx) all resolve here; we branch on params:
- *   /exploring                             → defaults to ME_HANDLE
+ *   /exploring                             → dame's own repo (personal landing)
  *   /exploring/:repo                       → repo overview (tabs)
  *   /exploring/:repo/:collection           → record list
  *   /exploring/:repo/:collection/:rkey     → record detail
@@ -34,6 +35,10 @@ export default function Exploring() {
   const params = useParams();
   const repoInput = params.repo || ME_HANDLE;
   const { collection, rkey } = params;
+  // The bare `/exploring` (no repo in the path) is dame's own repository,
+  // rendered as a personal landing (ExploringHome). Any explicit repo —
+  // including `/exploring/dame.is` — keeps the generic multi-repo browser.
+  const isOwnerHome = !params.repo;
 
   const [identity, setIdentity] = useState(null); // { did, handle, pds }
   const [error, setError] = useState(null);
@@ -63,9 +68,14 @@ export default function Exploring() {
   return (
     <PageShell
       title="Exploring"
-      headTitle={`${title} — Exploring — dame.is`}
+      intro={
+        isOwnerHome
+          ? 'Everything on this site is a record in my public repository on the atproto network — and it’s open for anyone to read.'
+          : undefined
+      }
+      headTitle={isOwnerHome ? 'Exploring — dame.is' : `${title} — Exploring — dame.is`}
     >
-      <SearchBox initial={repoInput} />
+      {!isOwnerHome && <SearchBox initial={repoInput} />}
 
       {error && (
         <div className="exploring-error">
@@ -80,7 +90,7 @@ export default function Exploring() {
         <p className="placeholder-card">Resolving <code>{repoInput}</code>…</p>
       )}
 
-      {identity && (
+      {identity && !isOwnerHome && (
         <RepoBreadcrumb
           identity={identity}
           collection={collection}
@@ -88,12 +98,20 @@ export default function Exploring() {
         />
       )}
 
-      {identity && !collection && <RepoOverview identity={identity} />}
+      {identity && isOwnerHome && <ExploringHome identity={identity} />}
+      {identity && !isOwnerHome && !collection && <RepoOverview identity={identity} />}
       {identity && collection && !rkey && (
         <CollectionView identity={identity} collection={collection} />
       )}
       {identity && collection && rkey && (
         <RecordView identity={identity} collection={collection} rkey={rkey} />
+      )}
+
+      {isOwnerHome && identity && (
+        <section className="exploring-home-elsewhere">
+          <h2 className="exploring-home-section-title small-caps">Look inside another repo</h2>
+          <SearchBox initial="" />
+        </section>
       )}
     </PageShell>
   );
