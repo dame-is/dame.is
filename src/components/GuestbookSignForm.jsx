@@ -53,8 +53,8 @@ export default function GuestbookSignForm({ agent, did, onSigned }) {
     setBusy(true);
     setError(null);
     try {
-      const { uri, value } = await signGuestbook(agent, { text, location });
-      onSigned({ uri, did, rkey: rkeyFromAtUri(uri), value });
+      const { uri, cid, value } = await signGuestbook(agent, { text, location });
+      onSigned({ uri, cid, did, rkey: rkeyFromAtUri(uri), value });
       setText('');
       setLocation('');
       setSignedAt(new Date());

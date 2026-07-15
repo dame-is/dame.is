@@ -123,7 +123,7 @@
 /* --- entries ------------------------------------------------------------ */
 
 .guestbook-entries {
-  margin-top: var(--space-8);
+  margin-top: var(--space-4);
   padding-top: var(--space-5);
   border-top: 1px solid var(--rule);
 }
@@ -195,9 +195,17 @@
 
 .guestbook-entry-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2);
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+/* Identity stack beside the avatar: display name, then @handle, then "from". */
+.guestbook-entry-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1em;
 }
 
 .guestbook-entry-name {
@@ -214,7 +222,7 @@
 }
 
 .guestbook-entry-time {
-  margin-left: auto;
+  flex: none;
   white-space: nowrap;
 }
 
@@ -258,19 +266,26 @@
   color: var(--accent);
 }
 
-/* Provenance tag under a signature carried over from the retired lofi
-   guestbook — links to the old book record for the curious. */
-.guestbook-entry-legacy {
-  align-self: flex-start;
-  font-family: var(--sans);
-  letter-spacing: 0.12em;
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  text-decoration: none;
+/* Meta row under a signature: the record's CID fingerprint on the left, any
+   owner controls (hide / remove / hidden badge) pushed to the right. */
+.guestbook-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-top: var(--space-1);
 }
 
-.guestbook-entry-legacy:hover {
-  color: var(--accent);
+.guestbook-entry-cid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-right: auto;
+  color: var(--ink-faint);
+}
+
+.guestbook-entry-cid svg {
+  flex: none;
 }
 
 /* --- moderation (owner edit mode) ---------------------------------------- */
@@ -343,13 +358,9 @@
   cursor: default;
 }
 
-/* The "Sign the guestbook" call to action that stands in for the old inline
-   sign form — a standard signin-button with the pen icon aligned inline. The
-   actual pen lives in the shared bottom-chrome sign sheet (GuestbookSheet). */
-.guestbook-cta {
-  margin-bottom: var(--space-5);
-}
-
+/* The "Sign the guestbook" call to action — a standard signin-button with the
+   Signature icon aligned inline. The actual pen lives in the bottom-chrome sign
+   sheet (GuestbookSheet). */
 .guestbook-cta-btn {
   display: inline-flex;
   align-items: center;
