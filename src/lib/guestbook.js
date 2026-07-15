@@ -10,19 +10,29 @@
 // Falls back to a direct DID-doc + PDS fetch per record when Slingshot is
 // unavailable. See lexicons/GUESTBOOK.md for the full design.
 
-import { getBacklinks } from './constellation.js';
+import { getBacklinks, getBacklinkCount } from './constellation.js';
 import { getRecordCached } from './slingshot.js';
-import { resolvePds, getRecord, toAtUri } from './atproto.js';
+import { resolvePds, getRecord, toAtUri, tidToTimestamp } from './atproto.js';
+import { compareIsoDesc } from './time.js';
 import {
   APPVIEW,
   ME_DID,
   GUESTBOOK_NSID,
   GUESTBOOK_ENTRY_NSID,
   GUESTBOOK_SUBJECT,
+  LEGACY_GUESTBOOK_ENTRY_NSID,
+  LEGACY_GUESTBOOK_SUBJECT,
 } from '../config.js';
 
 /** Constellation source tuple: which records/fields point at the book. */
 export const GUESTBOOK_SOURCE = `${GUESTBOOK_ENTRY_NSID}:subject`;
+
+/**
+ * Constellation source for the retired "lofi" guestbook. Its signatures are
+ * `a.guestbook.i.signed` records that link the old book through a `guestbook`
+ * field (not `subject`). The book is closed, so this source only ever shrinks.
+ */
+export const LEGACY_GUESTBOOK_SOURCE = `${LEGACY_GUESTBOOK_ENTRY_NSID}:guestbook`;
 
 /** Page size for the entries list. Also the Constellation page size. */
 export const GUESTBOOK_PAGE_SIZE = 25;
@@ -48,39 +58,96 @@ export async function fetchGuestbookBook() {
 }
 
 /**
- * One page of the book.
+ * One page of the book, newest first.
+ *
+ * Two backlink sources feed the book: the current `is.dame.guestbook.entry`
+ * records and the retired `a.guestbook.i.signed` ones (the old "lofi" book).
+ * The modern source paginates through Constellation as usual; the legacy book
+ * is a small *closed* set, so once the modern pages run out its signatures are
+ * loaded in one shot and merged onto the tail. Because every legacy signature
+ * predates the modern book, "modern pages, then the legacy tail" is already
+ * chronological — no cross-source interleaving is needed. The compound `cursor`
+ * that threads this two-phase walk is opaque to callers (they pass it back).
  *
  * Returns `{ total, publicTotal, hiddenCount, cursor, entries, book }` where
- * each entry is `{ uri, did, rkey, value, profile, hidden }` (profile may be
- * null), newest first. `hidden` reflects the book's moderation list; callers
- * decide whether to render hidden entries (the public page filters them, the
- * moderation surfaces show them dimmed). `publicTotal` is the backlink total
- * minus the hidden list, for the public signature count.
- * Returns `null` only when Constellation itself is unreachable; signatures
- * whose records can't be hydrated (deleted, PDS down) are dropped from the
- * page rather than failing it.
+ * each entry is `{ uri, did, rkey, collection, legacy, value, profile, hidden }`,
+ * newest first. `value` is normalized so both record shapes render through one
+ * row (a legacy `message` surfaces as `text`, and a missing `createdAt` is
+ * recovered from the TID rkey where possible). `hidden` reflects the book's
+ * moderation list — which may name legacy at-uris too, so hiding spans both
+ * books. Returns `null` only when the backlink index is unreachable with
+ * nothing to show; individual records that can't be hydrated are dropped from
+ * the page rather than failing it.
  */
 export async function fetchGuestbookEntries({ limit = GUESTBOOK_PAGE_SIZE, cursor } = {}) {
-  const [page, book] = await Promise.all([
-    getBacklinks(GUESTBOOK_SUBJECT, GUESTBOOK_SOURCE, { limit, cursor }),
-    fetchGuestbookBook(),
-  ]);
-  if (!page) return null;
-  const refs = Array.isArray(page.records) ? page.records : [];
+  const state = decodeGuestbookCursor(cursor);
+  const book = await fetchGuestbookBook();
   const hiddenUris = new Set(book?.value?.hidden || []);
 
-  const hydrated = await Promise.all(refs.map(hydrateEntry));
-  const entries = hydrated.filter(Boolean);
-  for (const entry of entries) {
-    entry.hidden = hiddenUris.has(entry.uri);
+  // Phase 2: the legacy tail. Reached inline once the modern pages are spent
+  // (below), or as a standalone retry if the legacy index was briefly down on
+  // the page that should have appended it.
+  if (state?.phase === 'legacy') {
+    const legacy = await fetchLegacyEntries(hiddenUris);
+    if (!legacy) return null;
+    return finalizePage({
+      entries: sortByCreatedAt(legacy.entries),
+      total: (state.modernTotal ?? 0) + legacy.total,
+      hiddenUris,
+      book,
+      cursor: null,
+    });
   }
 
-  const profiles = await fetchProfiles(entries.map((e) => e.did));
-  for (const entry of entries) {
-    entry.profile = profiles.get(entry.did) || null;
+  // Phase 1: the modern book, paginated by Constellation.
+  const page = await getBacklinks(GUESTBOOK_SUBJECT, GUESTBOOK_SOURCE, {
+    limit,
+    cursor: state?.modernCursor,
+  });
+  if (!page) return null;
+  const modernRefs = Array.isArray(page.records) ? page.records : [];
+  const modernEntries = await hydrateEntries(modernRefs, hydrateModernRef, hiddenUris);
+  const modernTotal = page.total ?? modernEntries.length;
+
+  // Still more modern pages to come — leave the legacy book untouched for now,
+  // but fold its count into the total so the signature caption is honest.
+  if (page.cursor) {
+    const legacyCount = await getBacklinkCount(LEGACY_GUESTBOOK_SUBJECT, LEGACY_GUESTBOOK_SOURCE);
+    return finalizePage({
+      entries: modernEntries,
+      total: modernTotal + (legacyCount?.total ?? 0),
+      hiddenUris,
+      book,
+      cursor: encodeGuestbookCursor({ phase: 'modern', modernCursor: page.cursor }),
+    });
   }
 
-  const total = page.total ?? null;
+  // Modern book exhausted — append the legacy tail on this same page.
+  const legacy = await fetchLegacyEntries(hiddenUris);
+  if (!legacy) {
+    // Legacy index momentarily down. Hand back a legacy-phase cursor so
+    // "earlier signatures" can retry the tail — unless there's nothing at all
+    // to show, in which case report the index as unreachable.
+    if (modernEntries.length === 0) return null;
+    return finalizePage({
+      entries: modernEntries,
+      total: modernTotal,
+      hiddenUris,
+      book,
+      cursor: encodeGuestbookCursor({ phase: 'legacy', modernTotal }),
+    });
+  }
+  return finalizePage({
+    entries: sortByCreatedAt([...modernEntries, ...legacy.entries]),
+    total: modernTotal + legacy.total,
+    hiddenUris,
+    book,
+    cursor: null,
+  });
+}
+
+/** Assemble the public return shape shared by every page and phase. */
+function finalizePage({ entries, total, hiddenUris, book, cursor }) {
   return {
     total,
     // Approximate when a hidden record has since been deleted by its signer
@@ -88,43 +155,126 @@ export async function fetchGuestbookEntries({ limit = GUESTBOOK_PAGE_SIZE, curso
     // close enough for a count caption.
     publicTotal: total != null ? Math.max(0, total - hiddenUris.size) : null,
     hiddenCount: hiddenUris.size,
-    cursor: page.cursor || null,
+    cursor: cursor || null,
     entries,
     book,
   };
 }
 
 /**
- * Hydrate one Constellation ref (`{did, collection, rkey}`) into an entry.
- * Slingshot first; on a miss, resolve the signer's PDS and fetch directly.
- * Returns `null` when the record is gone or malformed.
+ * Every signature on the retired legacy book, hydrated + profiled. The old
+ * book is closed and tiny, so there's no legacy cursor — one Constellation
+ * page (limit 100) holds every `a.guestbook.i.signed` record. Returns
+ * `{ entries, total }`, or `null` if Constellation is unreachable.
  */
-async function hydrateEntry(ref) {
+async function fetchLegacyEntries(hiddenUris) {
+  const page = await getBacklinks(LEGACY_GUESTBOOK_SUBJECT, LEGACY_GUESTBOOK_SOURCE, { limit: 100 });
+  if (!page) return null;
+  const refs = Array.isArray(page.records) ? page.records : [];
+  const entries = await hydrateEntries(refs, hydrateLegacyRef, hiddenUris);
+  return { entries, total: page.total ?? entries.length };
+}
+
+/**
+ * Hydrate a list of Constellation refs with `hydrate`, drop the misses, flag
+ * the hidden ones, and attach signer profiles. Shared by both books.
+ */
+async function hydrateEntries(refs, hydrate, hiddenUris) {
+  const hydrated = (await Promise.all(refs.map(hydrate))).filter(Boolean);
+  for (const entry of hydrated) entry.hidden = hiddenUris.has(entry.uri);
+  const profiles = await fetchProfiles(hydrated.map((e) => e.did));
+  for (const entry of hydrated) entry.profile = profiles.get(entry.did) || null;
+  return hydrated;
+}
+
+/**
+ * Fetch the record for one Constellation ref (`{did, collection, rkey}`) —
+ * Slingshot first, direct PDS on a miss. Returns the raw getRecord shape or
+ * `null` when the record is gone; the per-book hydrators below normalize it.
+ */
+async function fetchRefRecord(ref) {
   const { did, collection, rkey } = ref || {};
   if (!did || !collection || !rkey) return null;
-
-  let record = await getRecordCached({ repo: did, collection, rkey });
-  if (!record) {
-    try {
-      const pds = await resolvePds(did);
-      record = await getRecord(pds, { repo: did, collection, rkey });
-    } catch {
-      return null;
-    }
+  const cached = await getRecordCached({ repo: did, collection, rkey });
+  if (cached) return cached;
+  try {
+    const pds = await resolvePds(did);
+    return await getRecord(pds, { repo: did, collection, rkey });
+  } catch {
+    return null;
   }
+}
 
+/** Hydrate a modern `is.dame.guestbook.entry` ref into an entry. */
+async function hydrateModernRef(ref) {
+  const record = await fetchRefRecord(ref);
   const value = record?.value;
-  // Belt-and-braces: Constellation already filtered on subject, but a
-  // record may have been rewritten to point elsewhere since indexing.
+  // Belt-and-braces: Constellation already filtered on subject, but a record
+  // may have been rewritten to point elsewhere since indexing.
   if (!value || value.subject !== GUESTBOOK_SUBJECT) return null;
-
   return {
-    uri: record.uri || toAtUri({ did, collection, rkey }),
-    did,
-    rkey,
+    uri: record.uri || toAtUri(ref),
+    did: ref.did,
+    rkey: ref.rkey,
+    collection: GUESTBOOK_ENTRY_NSID,
+    legacy: false,
     value,
     profile: null,
   };
+}
+
+/**
+ * Hydrate a legacy `a.guestbook.i.signed` ref into the same entry shape. The
+ * old lexicon carried the note in `message` and rarely set `createdAt`, so we
+ * surface `message` as `text` and fall back to the TID rkey for a timestamp
+ * (the couple of human-chosen rkeys just stay timeless).
+ */
+async function hydrateLegacyRef(ref) {
+  const record = await fetchRefRecord(ref);
+  const raw = record?.value;
+  if (!raw || raw.guestbook !== LEGACY_GUESTBOOK_SUBJECT) return null;
+  const message = typeof raw.message === 'string' ? raw.message : '';
+  const createdAt = normalizeIso(raw.createdAt) || tidToTimestamp(ref.rkey) || undefined;
+  return {
+    uri: record.uri || toAtUri(ref),
+    did: ref.did,
+    rkey: ref.rkey,
+    collection: LEGACY_GUESTBOOK_ENTRY_NSID,
+    legacy: true,
+    value: { ...raw, text: message, createdAt },
+    profile: null,
+  };
+}
+
+/** Sort entries newest-first by their (normalized) createdAt; timeless last. */
+function sortByCreatedAt(entries) {
+  return entries.slice().sort((a, b) => compareIsoDesc(a.value?.createdAt, b.value?.createdAt));
+}
+
+/** ISO string if `value` parses as a date, else `null`. */
+function normalizeIso(value) {
+  if (!value) return null;
+  const t = Date.parse(value);
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
+}
+
+// The read walk spans two books (modern pages, then the legacy tail); the
+// cursor threading them is just JSON handed back to callers opaquely.
+function encodeGuestbookCursor(state) {
+  try {
+    return encodeURIComponent(JSON.stringify(state));
+  } catch {
+    return null;
+  }
+}
+
+function decodeGuestbookCursor(cursor) {
+  if (!cursor) return null;
+  try {
+    return JSON.parse(decodeURIComponent(cursor));
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -219,13 +369,15 @@ export async function signGuestbook(agent, { text, signature, mark, location } =
 
 /**
  * Remove one of the signer's own entries. Their record, their eraser —
- * Constellation drops the backlink once the delete propagates.
+ * Constellation drops the backlink once the delete propagates. `collection`
+ * defaults to the modern entry NSID but is passed through from the entry, so
+ * a legacy `a.guestbook.i.signed` signature deletes from the right collection.
  */
-export async function deleteGuestbookEntry(agent, rkey) {
+export async function deleteGuestbookEntry(agent, rkey, collection = GUESTBOOK_ENTRY_NSID) {
   if (!agent) throw new Error('Sign in first.');
   await agent.com.atproto.repo.deleteRecord({
     repo: agent.assertDid,
-    collection: GUESTBOOK_ENTRY_NSID,
+    collection,
     rkey,
   });
 }

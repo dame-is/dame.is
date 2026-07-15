@@ -1,0 +1,34 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.arena.mirror.sync",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "description": "Sync-state marker for the are.na mirror, written once per run at rkey `self`. Stores per-channel freshness (updated_at + contents count) so unchanged channels are skipped, and a settings fingerprint so a scope/media/namespace change forces a full re-walk. Keeping state on the PDS keeps the mirror itself stateless (cron-friendly).",
+      "record": {
+        "type": "object",
+        "required": ["user", "settings", "lastRunAt"],
+        "properties": {
+          "user":      { "type": "ref", "ref": "is.dame.arena.mirror.channel#arenaUser" },
+          "settings":  { "type": "string", "description": "Fingerprint of the options the run used (scope, media mode, nsidBase…)." },
+          "lastRunAt": { "type": "string", "format": "datetime" },
+          "partial":   { "type": "boolean", "description": "True when the run stopped early (time budget, channel subset); deletion passes are skipped on partial runs and the next run resumes." },
+          "channels": {
+            "type": "array",
+            "description": "Freshness entries for channels completed under the current settings.",
+            "items": {
+              "type": "object",
+              "required": ["arenaId"],
+              "properties": {
+                "arenaId":   { "type": "integer" },
+                "updatedAt": { "type": "string", "format": "datetime" },
+                "contents":  { "type": "integer" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { relativeTime } from '../lib/time.js';
+import { LEGACY_GUESTBOOK_SUBJECT } from '../config.js';
 import '../pages/Guestbook.css';
 
 /**
@@ -27,6 +28,10 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
     shortDid(entry.did);
   const handle = profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
   const explorerPath = explorerPathFromAtUri(entry.uri);
+  // Legacy signatures often lack a createdAt (recovered from the TID rkey where
+  // possible); when even that isn't available, skip the time rather than
+  // rendering an empty permalink.
+  const when = relativeTime(value.createdAt);
 
   async function remove() {
     if (removing) return;
@@ -86,13 +91,11 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
           {value.location && (
             <span className="guestbook-entry-location gutter">from {value.location}</span>
           )}
-          <span className="guestbook-entry-time gutter">
-            {explorerPath ? (
-              <Link to={explorerPath}>{relativeTime(value.createdAt)}</Link>
-            ) : (
-              relativeTime(value.createdAt)
-            )}
-          </span>
+          {when && (
+            <span className="guestbook-entry-time gutter">
+              {explorerPath ? <Link to={explorerPath}>{when}</Link> : when}
+            </span>
+          )}
           {entry.hidden && moderating && (
             <span className="guestbook-entry-hidden-badge small-caps">hidden</span>
           )}
@@ -134,6 +137,15 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
             {value.mark}
           </p>
         ) : null}
+        {entry.legacy && (
+          <Link
+            to={explorerPathFromAtUri(LEGACY_GUESTBOOK_SUBJECT)}
+            className="guestbook-entry-legacy small-caps"
+            title="Signed on the original a.guestbook lofi guestbook, before this one."
+          >
+            from the old guestbook
+          </Link>
+        )}
       </div>
     </li>
   );

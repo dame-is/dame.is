@@ -12,14 +12,11 @@ import {
   matchSupportedUrl,
   resolveAtUri,
   resolveUrl,
-  SUPPORTED_HOSTS,
   WAYPOINT_CATEGORIES_DATA,
   WAYPOINT_DESTINATIONS_DATA,
   CATEGORY_ORDER,
 } from '@aturi.to/waypoints';
 import { resolveHandle } from './atproto.js';
-
-const SUPPORTED_HOST_SET = new Set(SUPPORTED_HOSTS);
 
 // --- Waypoint policy -------------------------------------------------------
 // The upstream catalog returns a URL for nearly every client on every record
@@ -96,25 +93,35 @@ function applyWaypointPolicy(result) {
   };
 }
 
+// Hosts whose links should *automatically* open the "Open in…" picker on a
+// plain left-click. We deliberately scope this to Bluesky's own web client
+// (bsky.app) only. A bsky.app link is the case where a visitor is most likely
+// to prefer opening the record in a *different* client, so it's worth
+// interposing the picker. Every other host the catalog can resolve — including
+// anisota.net, the other Bluesky forks (deer.social, reddwarf.app, …), and the
+// publication readers (leaflet.pub, grain.social, …) — is left to navigate
+// natively, since a visitor clicking one of those clearly meant to go there.
+// The picker stays reachable for any record via the explicit "Open in…"
+// affordance (<AturiActions>), which opens it imperatively regardless of host.
+const AUTO_INTERCEPT_HOSTS = new Set(['bsky.app']);
+
 /**
- * Cheap, synchronous test for "is this a link the waypoints modal should
- * intercept?" — a bare `at://` URI, or a URL on one of the Atmosphere hosts
- * the catalog knows how to reverse-parse into a record. Everything else
- * (internal SPA links, unrelated external links) returns false so the click
- * falls through to the browser untouched.
+ * Cheap, synchronous test for "should a plain left-click on this link auto-open
+ * the waypoints picker?" — true only for a Bluesky (bsky.app) URL the catalog
+ * can reverse-parse into a record. Everything else (internal SPA links, other
+ * Atmosphere hosts, unrelated external links) returns false so the click falls
+ * through to the browser untouched.
  */
-export function isWaypointHref(href) {
+export function isAutoWaypointHref(href) {
   if (!href) return false;
-  const s = String(href);
-  if (s.startsWith('at://')) return true;
   let url;
   try {
-    url = new URL(s);
+    url = new URL(String(href));
   } catch {
     return false;
   }
   // Fast host gate before the (slightly heavier) pattern match.
-  if (!SUPPORTED_HOST_SET.has(url.hostname)) return false;
+  if (!AUTO_INTERCEPT_HOSTS.has(url.hostname)) return false;
   try {
     return matchSupportedUrl(url) != null;
   } catch {

@@ -10,7 +10,7 @@
 //   - is.dame.hero.phrase    → `enabled: false` drops a phrase from the home
 //     hero rotation (see components/HeroSentence.jsx).
 //   - is.dame.resume         → `visibility` other than "public" keeps a resume
-//     off the listed /for-hire surface (see lib/resumeHelpers.js).
+//     off the listed /available surface (see lib/resumeHelpers.js).
 //
 // Collections without a visibility concept (logging, posting, profile, …)
 // return null and simply get no chip or hide/unhide controls.

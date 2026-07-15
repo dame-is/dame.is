@@ -9,6 +9,8 @@
     { "path": "/api/mirror-mothing", "schedule": "50 5,11,17,23 * * *" }
   ],
   "rewrites": [
+    { "source": "/.well-known/site.standard.publication", "destination": "/api/well-known" },
+    { "source": "/.well-known/site.standard.publication/:pub*", "destination": "/api/well-known?pub=:pub*" },
     { "source": "/oauth-client-metadata.json", "destination": "/api/client-metadata" },
     { "source": "/app.bsky.feed.post/:rkey", "destination": "/index.html" },
     { "source": "/fm.teal.alpha.feed.play/:rkey", "destination": "/index.html" },
@@ -30,9 +32,11 @@
     { "source": "/index", "destination": "/", "permanent": true },
     { "source": "/home", "destination": "/", "permanent": true },
     { "source": "/about", "destination": "/themself", "permanent": true },
-    { "source": "/resume", "destination": "/for-hire", "permanent": true },
-    { "source": "/resume/:path*", "destination": "/for-hire/:path*", "permanent": true },
-    { "source": "/work", "destination": "/for-hire", "permanent": true },
+    { "source": "/for-hire", "destination": "/available", "permanent": true },
+    { "source": "/for-hire/:path*", "destination": "/available/:path*", "permanent": true },
+    { "source": "/resume", "destination": "/available", "permanent": true },
+    { "source": "/resume/:path*", "destination": "/available/:path*", "permanent": true },
+    { "source": "/work", "destination": "/available", "permanent": true },
     { "source": "/blog", "destination": "/blogging", "permanent": true },
     { "source": "/blog/:path*", "destination": "/blogging/:path*", "permanent": true },
     { "source": "/writing/blogs", "destination": "/blogging", "permanent": true },

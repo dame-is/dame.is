@@ -248,14 +248,6 @@ export default function Mothing() {
           <StatBlock value={stats.sessionCount ?? sessions.length} label="sessions" />
           <StatBlock value={stats.observationCount} label="observations" />
           <StatBlock value={stats.speciesCount} label="species" />
-          {stats.earliestDate && (
-            <div className="mothing-stat mothing-stat-range">
-              <span className="mothing-stat-value mothing-stat-dates">
-                {formatDate(stats.earliestDate)} &ndash; {formatDate(stats.latestDate)}
-              </span>
-              <span className="mothing-stat-label small-caps">span</span>
-            </div>
-          )}
         </section>
       )}
 

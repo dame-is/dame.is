@@ -1,0 +1,35 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.arena.mirror.connection",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "description": "One placement of a block (or nested channel) inside a channel — are.na's join table as a first-class record, like app.bsky.feed.like is for posts. The record key is the are.na connection id. Cross-repo connections (my connection pointing at a block record in your repo) are the intended future of this shape.",
+      "record": {
+        "type": "object",
+        "required": ["channel", "target", "origin"],
+        "properties": {
+          "channel": { "type": "string", "format": "at-uri", "description": "The channel record this connection lives in." },
+          "target": {
+            "type": "object",
+            "description": "What was connected. `uri` is present only when the target is mirrored as a local record; foreign or out-of-scope targets keep their are.na identity here without implying a local record exists.",
+            "required": ["type", "arenaId"],
+            "properties": {
+              "type":    { "type": "string", "knownValues": ["block", "channel"] },
+              "arenaId": { "type": "integer" },
+              "uri":     { "type": "string", "format": "at-uri", "description": "The mirrored block/channel record, when it exists." },
+              "url":     { "type": "string", "format": "uri", "description": "Canonical are.na URL of the target." },
+              "title":   { "type": "string" }
+            }
+          },
+          "position":    { "type": "integer", "description": "Curated position within the channel." },
+          "pinned":      { "type": "boolean" },
+          "connectedAt": { "type": "string", "format": "datetime" },
+          "connectedBy": { "type": "ref", "ref": "is.dame.arena.mirror.channel#arenaUser" },
+          "origin":      { "type": "ref", "ref": "is.dame.arena.mirror.channel#origin" }
+        }
+      }
+    }
+  }
+}

@@ -98,7 +98,7 @@ export default function Guestbook() {
 
   async function handleRemove(entry) {
     if (!agent) return;
-    await deleteGuestbookEntry(agent, entry.rkey);
+    await deleteGuestbookEntry(agent, entry.rkey, entry.collection);
     setEntries((prev) => (prev || []).filter((e) => e.uri !== entry.uri));
     setTotal((t) => (typeof t === 'number' && t > 0 ? t - 1 : t));
   }
@@ -122,6 +122,7 @@ export default function Guestbook() {
       intro={intro}
       atUri={GUESTBOOK_SUBJECT}
       headTitle="dame.is hosting a guestbook"
+      selectable
     >
       {session ? (
         <SignForm agent={agent} did={did} profile={myProfile} onSigned={handleSigned} />

@@ -4,6 +4,9 @@ import PageShell from '../components/PageShell.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
 import PageContentPanel from '../components/PageContentPanel.jsx';
 import GuestbookModerationPanel from '../components/GuestbookModerationPanel.jsx';
+import ResumeStudio from '../components/resume/ResumeStudio.jsx';
+import ResumeWorkbench from '../components/resume/ResumeWorkbench.jsx';
+import PublicationsManager from '../components/PublicationsManager.jsx';
 import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -72,6 +75,15 @@ export default function Admin() {
   }
   if (view === 'listening') {
     return <ListeningManager agent={agent} did={did} />;
+  }
+  if (view === 'resume') {
+    return <ResumeStudio agent={agent} did={did} />;
+  }
+  if (view === 'publications') {
+    return <PublicationsManager agent={agent} did={did} />;
+  }
+  if (view === 'resume-tailor' && rkey) {
+    return <ResumeWorkbench agent={agent} did={did} rkey={rkey} />;
   }
   if (view === 'blogging') {
     return (
@@ -206,6 +218,8 @@ const PICKER_GROUPS = [
     items: [
       { to: '/admin?view=pages', label: 'Site pages', nsid: COLLECTIONS.page,
         summary: 'Titles, intros, and page bodies — see which serve from the PDS vs local defaults, and edit the raw records.' },
+      { to: '/admin?view=publications', label: 'Publications', nsid: 'site.standard.publication',
+        summary: 'The blog + portfolio publications behind the Bluesky Standard Site embeds — edit their fields, or apply the sky theme + a dynamic avatar.' },
       { to: '/admin?view=guestbook', label: 'Guestbook', nsid: 'is.dame.guestbook.entry',
         summary: 'Visitors\' signatures, gathered from backlinks. Hide/unhide them from public display — their records stay on their signers\' PDSes.' },
       { collection: COLLECTIONS.profile, label: 'About',
@@ -217,14 +231,10 @@ const PICKER_GROUPS = [
   {
     key: 'resume',
     heading: 'Resume',
-    note: 'Backlinked job, education, and resume records.',
+    note: 'Versions assembled from canonical job and education records.',
     items: [
-      { collection: COLLECTIONS.resume, label: 'Resume',
-        summary: 'Resume versions — each selects which jobs, education, and highlights to show.' },
-      { collection: COLLECTIONS.resumeJob, label: 'Jobs',
-        summary: 'Canonical positions and their achievement bullets (highlights).' },
-      { collection: COLLECTIONS.resumeEducation, label: 'Education',
-        summary: 'Canonical education entries.' },
+      { to: '/admin?view=resume', label: 'Resume studio', nsid: COLLECTIONS.resume,
+        summary: 'Every version, job, and education record in one place — duplicate a version, then tailor it: pick, reorder, re-word, and fork bullets per version.' },
     ],
   },
 ];
@@ -732,7 +742,7 @@ function truncate(s, n) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Picks which resume version is "active" — the single one shown at /for-hire.
+ * Picks which resume version is "active" — the single one shown at /available.
  * Active-ness is stored as the `featured` flag on the resume record; choosing
  * one here sets `featured: true` on it and clears it on every other version,
  * so at most one is ever active.
@@ -780,7 +790,7 @@ function ResumeActiveSelector({ agent, did, records, onChanged }) {
     <div className="admin-active-resume">
       <p className="admin-active-resume-label small-caps">Active version</p>
       <p className="admin-active-resume-note">
-        The one version shown on <code>/for-hire</code>.
+        The one version shown on <code>/available</code>.
       </p>
       <ul className="admin-active-resume-list">
         {records.map((rec) => {

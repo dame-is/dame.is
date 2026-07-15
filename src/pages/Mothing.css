@@ -20,10 +20,6 @@
   color: var(--ink);
 }
 
-.mothing-stat-dates {
-  font-size: var(--text-lg);
-}
-
 .mothing-stat-label {
   letter-spacing: 0.16em;
   font-size: var(--text-xs);

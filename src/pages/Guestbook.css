@@ -273,6 +273,21 @@
   color: var(--accent);
 }
 
+/* Provenance tag under a signature carried over from the retired lofi
+   guestbook — links to the old book record for the curious. */
+.guestbook-entry-legacy {
+  align-self: flex-start;
+  font-family: var(--sans);
+  letter-spacing: 0.12em;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+
+.guestbook-entry-legacy:hover {
+  color: var(--accent);
+}
+
 /* --- moderation (owner edit mode) ---------------------------------------- */
 
 .guestbook-hidden-count {

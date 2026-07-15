@@ -538,16 +538,161 @@
   height: 2.1rem;
 }
 
+/* Variant: for-hire / resume page skeleton. Mirrors the .resume article so
+   the swap to the real resume doesn't reflow — same measure, section gaps,
+   the left-ruled role blocks, and the skills label + chips grid. */
+.skeleton-resume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: var(--measure);
+}
+
+.skeleton-resume-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeleton-resume-title {
+  width: 12rem;
+  max-width: 80%;
+  height: var(--text-3xl);
+}
+
+.skeleton-resume-headline {
+  width: 20rem;
+  max-width: 90%;
+  height: var(--text-lg);
+}
+
+.skeleton-resume-contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-1);
+}
+
+.skeleton-resume-contact-item {
+  height: 0.8rem;
+}
+
+.skeleton-resume-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.skeleton-resume-section-head {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.skeleton-resume-section-title {
+  height: 0.85rem;
+}
+
+.skeleton-resume-orgs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.skeleton-resume-org {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeleton-resume-org-name {
+  height: var(--text-xl);
+}
+
+.skeleton-resume-role {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--rule-soft);
+}
+
+.skeleton-resume-role-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.skeleton-resume-role-title {
+  height: var(--text-base);
+}
+
+.skeleton-resume-role-dates {
+  flex: none;
+  width: 6rem;
+  height: 0.75rem;
+}
+
+.skeleton-resume-role-meta {
+  height: var(--text-xs);
+}
+
+.skeleton-resume-highlights {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.skeleton-resume-skills {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeleton-resume-skill-group {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.skeleton-resume-skill-cat {
+  height: var(--text-sm);
+}
+
+.skeleton-resume-skill-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.skeleton-resume-skill {
+  height: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .skeleton-resume-skill-group {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+}
+
 /* Stagger the breathing across multi-item skeletons so the list doesn't
    pulse in lockstep. Negative delays seed each row at a different phase
    in the cycle without changing the cycle length. */
-.skeleton-feed-item:nth-child(3n)       .skeleton,
-.skeleton-toc-entry:nth-child(3n)       .skeleton,
-.skeleton-grid-cell:nth-child(3n)       .skeleton,
-.skeleton-mothing-cell:nth-child(3n)    .skeleton,
-.skeleton-admin-row:nth-child(3n)       .skeleton,
-.skeleton-admin-panel:nth-child(3n)     .skeleton,
-.skeleton-comments-item:nth-child(3n)   .skeleton { animation-delay: -0.5s; }
+.skeleton-feed-item:nth-child(3n)         .skeleton,
+.skeleton-toc-entry:nth-child(3n)         .skeleton,
+.skeleton-grid-cell:nth-child(3n)         .skeleton,
+.skeleton-mothing-cell:nth-child(3n)      .skeleton,
+.skeleton-admin-row:nth-child(3n)         .skeleton,
+.skeleton-admin-panel:nth-child(3n)       .skeleton,
+.skeleton-resume-org:nth-child(3n)        .skeleton,
+.skeleton-resume-skill-group:nth-child(3n)     .skeleton,
+.skeleton-comments-item:nth-child(3n)     .skeleton { animation-delay: -0.5s; }
 
 .skeleton-feed-item:nth-child(3n + 1)     .skeleton,
 .skeleton-toc-entry:nth-child(3n + 1)     .skeleton,
@@ -555,6 +700,8 @@
 .skeleton-mothing-cell:nth-child(3n + 1)  .skeleton,
 .skeleton-admin-row:nth-child(3n + 1)     .skeleton,
 .skeleton-admin-panel:nth-child(3n + 1)   .skeleton,
+.skeleton-resume-org:nth-child(3n + 1)    .skeleton,
+.skeleton-resume-skill-group:nth-child(3n + 1) .skeleton,
 .skeleton-comments-item:nth-child(3n + 1) .skeleton { animation-delay: -1.2s; }
 
 .skeleton-feed-item:nth-child(3n + 2)     .skeleton,
@@ -563,6 +710,8 @@
 .skeleton-mothing-cell:nth-child(3n + 2)  .skeleton,
 .skeleton-admin-row:nth-child(3n + 2)     .skeleton,
 .skeleton-admin-panel:nth-child(3n + 2)   .skeleton,
+.skeleton-resume-org:nth-child(3n + 2)    .skeleton,
+.skeleton-resume-skill-group:nth-child(3n + 2) .skeleton,
 .skeleton-comments-item:nth-child(3n + 2) .skeleton { animation-delay: -1.9s; }
 
 /* -------------------------------------------------------------------- */

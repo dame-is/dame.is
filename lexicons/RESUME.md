@@ -8,8 +8,10 @@ them on the site at all.
 
 ```
 is.dame.resume            (a resume version — "primary", "product-design", …)
- ├─ entries[]   ──at://──▶ is.dame.resume.job        (canonical job; owns the bullets)
- │   └─ highlightIds[]      ─▶ picks specific job.highlights[].id to show
+ ├─ entries[]   ──at://──▶ is.dame.resume.job        (canonical job; owns the bullets + links)
+ │   ├─ highlightIds[]      ─▶ picks job.highlights[].id — or "h3#v2" to pick a
+ │   │                         forked phrasing from that highlight's variants[]
+ │   └─ linkIds[]           ─▶ picks job.links[].id — portfolio pieces shown under the role
  ├─ education[] ──at://──▶ is.dame.resume.education   (canonical degree/program)
  ├─ skills[]                  (inline skill groups — the audience-specific part)
  └─ contact                   (inline, or fall back to the site profile)
@@ -23,6 +25,24 @@ and the **highlights** (achievement bullets). Each highlight has a stable `id`
 so resumes can reference it. Edit a bullet here once and every resume that
 selected it updates. Record key is a readable slug, e.g.
 `at://…/is.dame.resume.job/ipfs-content-manager`.
+
+A highlight can also carry **variants** — forked phrasings of the same
+achievement (`variants: [{ id, text, label }]`). The canonical `text` is what a
+bare selection shows; a resume opts into a fork with a `"<highlightId>#<variantId>"`
+ref (e.g. `"h3#v2"`) in its `highlightIds`. Variants live on the job record, so
+a fork is still edited in one place and every resume that picked it stays in
+sync; the `label` ("design-focused", "one-pager") is admin-only naming.
+Variants share the parent bullet's flags (visibility, featured, metric, tags) —
+they are the *same point*, differently worded. If two phrasings diverge into
+genuinely different claims, make a second highlight instead.
+
+A job can also carry **links** — portfolio pieces tied to the role
+(`links: [{ id, work?, url?, label?, description? }]`), rendered as a "Selected
+work" row under the job. A link points either at a first-party `/creating`
+post via `work` (a `site.standard.document` AT URI, resolved live to that
+post's title + cover so it renders as an **embed**) or at any external page via
+`url`. Like highlights, links live on the canonical job and each resume selects
+which to show with `linkIds` (omit for all non-private, in natural order).
 
 ### `is.dame.resume.education` — the canonical education entry
 Same idea for schooling. Reuses the job's `#highlight` shape for honors /
@@ -91,5 +111,13 @@ straightforward resolve-the-backlinks-and-rename pass.
   record (resolving the job/education backlinks for you). It uses `putRecord`
   with the slugs as record keys, so re-running it updates in place instead of
   duplicating.
-- Edit individual records afterward in `/admin` (templated forms live in
-  `src/lib/lexicons.js`; nested arrays use the raw-JSON field).
+- Day-to-day editing happens in the **Resume studio** (`/admin?view=resume`):
+  an overview of every version, job, and education record, with per-version
+  **Duplicate** (fork a whole resume) and the **tailoring workbench**
+  (`/admin?view=resume-tailor&r=<rkey>`) — a resume-centric editor where you
+  reorder jobs, toggle/reorder/fork individual bullets, pick variants, and edit
+  bullet copy inline. Copy edits stage onto the owning job records and save
+  together with the resume in one pass.
+- The templated per-record forms (`src/lib/lexicons.js` +
+  `src/components/resumeFields.jsx`) remain the escape hatch for anything the
+  studio doesn't cover, with raw JSON below that.

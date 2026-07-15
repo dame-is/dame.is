@@ -198,8 +198,8 @@
 }
 
 /* Home hero CTAs: destinations underneath the animated sentence.
-   The primary (Projects) is filled in the accent color to match the
-   compass button's visual weight; the secondaries (Blog, Guestbook)
+   The primary (Resume) is filled in the accent color to match the
+   compass button's visual weight; the secondaries (Projects, Blog)
    read as outlines, with the shuffle utility riding at the end. */
 .home-hero-cta {
   display: flex;

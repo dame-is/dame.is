@@ -296,7 +296,7 @@
   flex-wrap: wrap;
 }
 
-/* Active resume selector: pick the single version shown at /for-hire. */
+/* Active resume selector: pick the single version shown at /available. */
 .admin-active-resume {
   border: 1px solid var(--rule-soft);
   padding: var(--space-3) var(--space-4);
@@ -1030,4 +1030,45 @@ select.admin-input {
 .rf-link-row .admin-input {
   flex: 1;
   min-width: 8rem;
+}
+
+/* Bullet variants (forked phrasings) nested inside a highlight card. */
+.rf-variants {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-left: var(--space-3);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--rule-soft);
+}
+
+.rf-variant {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rf-variant-label {
+  flex: 1;
+  min-width: 8rem;
+  padding-top: var(--space-1);
+  padding-bottom: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.rf-variant-pick {
+  margin-left: calc(1.1rem + var(--space-2));
+  gap: var(--space-2);
+}
+
+/* "used by primary, product-design" chip on bullets and variants. */
+.rf-usage {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 16rem;
 }

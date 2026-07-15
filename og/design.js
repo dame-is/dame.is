@@ -5,14 +5,14 @@
 //
 // The look is a "notebook / design-layout" page drawn straight from the site's
 // own system (src/styles/theme.css, the ruled home hero in src/styles/app.css):
-//   • warm paper ground, Crimson Pro serif, moss accent, IBM Plex Mono meta
+//   • warm paper ground, Crimson Pro serif throughout, moss accent
 //   • a VISIBLE baseline grid — coarse rules for headings, half-pitch rules for
 //     body copy — with every line locked so its baseline rests on a rule
 //     (descenders dip below, like writing on ruled paper)
 //   • "dame.is" leads a spaced breadcrumb; the big text is just the page's
 //     gerund (accent italic). No repeated wordmarks.
 //   • marginalia instead of a footer: the day-of-life "folio" (a notebook page
-//     number) and the page's AT-Protocol NSID, both in mono
+//     number) and the page's AT-Protocol NSID
 //   • the current sky-avatar rides beside the breadcrumb as a graphic that
 //     crosses the top rule, so cards drift through the day like the favicon
 //
@@ -27,10 +27,40 @@ const HOME_LAYOUT = 'h4';
 const SHOW_AVATAR = true;
 
 // ── palettes (light + dark, from theme.css) ─────────────────────────────────
+// These fixed warm-paper palettes are the fallback / debug themes; the live
+// cards derive their palette from the current hour's SKY theme instead (see
+// themeFromSky below and api/og.js), so a card drifts through the day in
+// lockstep with the site, the favicon, and the baked-in sky-avatar.
 export const THEMES = {
   light: { page: '#f1ead4', ink: '#1d2419', inkSoft: '#364034', inkMuted: '#6f6e58', inkFaint: '#9d9784', rule: '#cabf9f', accent: '#5e7a47', tan: '#a88c5f', grid: 'rgba(29,36,25,0.14)', gridStrong: 'rgba(29,36,25,0.24)', gridFine: 'rgba(29,36,25,0.09)' },
   dark: { page: '#1d2419', ink: '#ece4cb', inkSoft: '#d2c9ac', inkMuted: '#9a9377', inkFaint: '#6a6450', rule: '#3a4232', accent: '#a3b486', tan: '#c9a87a', grid: 'rgba(236,228,203,0.12)', gridStrong: 'rgba(236,228,203,0.22)', gridFine: 'rgba(236,228,203,0.09)' },
 };
+
+// Map a sky-theme palette (src/lib/skyTheme.js → paletteForHour) onto the card's
+// design tokens, so the OG card uses the exact same hour-derived colors the app
+// paints with. The sky palette already ships hex tokens for page/ink/accent/…;
+// the visible baseline grid is drawn from the ink color at the same alphas the
+// fixed themes use (a touch stronger by day, when the page is light).
+export function themeFromSky(palette) {
+  const v = (palette && palette.vars) || {};
+  const ink = v['--sky-ink'] || '#1d2419';
+  const [ir, ig, ib] = hexRgb(ink);
+  const inkA = (a) => `rgba(${ir},${ig},${ib},${a})`;
+  const day = Boolean(palette && palette.day);
+  return {
+    page: v['--sky-page'] || THEMES.light.page,
+    ink,
+    inkSoft: v['--sky-ink-soft'] || THEMES.light.inkSoft,
+    inkMuted: v['--sky-ink-muted'] || THEMES.light.inkMuted,
+    inkFaint: v['--sky-ink-faint'] || THEMES.light.inkFaint,
+    rule: v['--sky-rule'] || THEMES.light.rule,
+    accent: v['--sky-accent'] || THEMES.light.accent,
+    tan: v['--sky-tan'] || THEMES.light.tan,
+    grid: inkA(day ? 0.14 : 0.12),
+    gridStrong: inkA(day ? 0.24 : 0.22),
+    gridFine: inkA(0.09),
+  };
+}
 
 // ── geometry ────────────────────────────────────────────────────────────────
 const W = 1200, H = 630;
@@ -70,8 +100,8 @@ function gridLayer(t, { halfBands = [], verticals = [PAD, W - PAD] } = {}) {
 
 // A single line of text whose BASELINE sits at `by` (line-height:1, so the
 // baseline is `R*size` below the box top — we back that out here).
-function at(text, { size, by, left = PAD, right, weight = 600, italic = false, color, mono = false, ls }) {
-  const style = { position: 'absolute', top: by - R * size, fontSize: size, lineHeight: 1, fontWeight: weight, fontStyle: italic ? 'italic' : 'normal', color, fontFamily: mono ? 'IBM Plex Mono' : 'Crimson Pro' };
+function at(text, { size, by, left = PAD, right, weight = 600, italic = false, color, ls }) {
+  const style = { position: 'absolute', top: by - R * size, fontSize: size, lineHeight: 1, fontWeight: weight, fontStyle: italic ? 'italic' : 'normal', color, fontFamily: 'Crimson Pro' };
   if (ls) style.letterSpacing = ls;
   if (right !== undefined) style.right = right; else style.left = left;
   return h('div', { style }, text);
@@ -124,6 +154,24 @@ function titleSize(label, base, maxChars) {
   return n <= maxChars ? base : Math.max(70, Math.round(base * (maxChars / n)));
 }
 
+// A record card's title is a real headline (a full sentence, not a one-word
+// gerund), so it wraps across lines. Shrink the size until it fits within
+// `maxLines`, then hard-truncate with an ellipsis if it still overflows.
+function fitHeadline(text, maxWidth, maxLines, base = 58, min = 40) {
+  let size = base;
+  let lines = wrapText(text, size, maxWidth);
+  while (lines.length > maxLines && size > min) {
+    size -= 2;
+    lines = wrapText(text, size, maxWidth);
+  }
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    const last = lines[maxLines - 1].replace(/\s+\S*$/, '');
+    lines[maxLines - 1] = `${last}…`;
+  }
+  return { size, lines };
+}
+
 function shell(t, children, opts) {
   return h('div', { style: { position: 'relative', display: 'flex', width: W, height: H, background: t.page, fontFamily: 'Crimson Pro' } },
     gridLayer(t, opts), ...children.flat().filter(Boolean));
@@ -140,8 +188,8 @@ function subCardS0(t, { segs, label, subtitle, nsid, avatarUri, folio }) {
     rowAt(breadcrumbParts(t, segs), { size: 28, by: bcBy, left: avatarUri ? PAD + 46 + 18 : PAD }),
     at(label, { size, by: 4 * P - 10, italic: true, color: t.accent }),
     ...descLines.map((l, i) => at(l, { size: 26, by: 5 * P + i * HP - 8, color: t.inkSoft, weight: 400 })),
-    at(folio, { size: 22, by: 8 * P - LE, left: PAD, mono: true, color: t.inkFaint, ls: '0.04em' }),
-    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, mono: true, color: t.inkMuted }),
+    at(folio, { size: 22, by: 8 * P - LE, left: PAD, color: t.inkFaint, ls: '0.04em' }),
+    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
   ], { halfBands: [{ from: 4 * P + HP, to: bandTo }] });
 }
 
@@ -152,14 +200,76 @@ function subCardS4(t, { segs, label, subtitle, nsid, avatarUri, folio }) {
   const descLines = wrapText(subtitle, 25, 560).slice(0, 4);
   const bandTo = 5 * P + descLines.length * HP;
   return shell(t, [
-    at('day', { size: 23, by: 3 * P - LE, left: PAD, mono: true, color: t.inkFaint, ls: '0.12em' }),
-    at(folio, { size: 44, by: 4 * P - 10, left: PAD, mono: true, color: t.inkSoft }),
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
     rowAt(breadcrumbParts(t, segs), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
     at(label, { size, by: 4 * P - 10, left: CX, italic: true, color: t.accent }),
     ...descLines.map((l, i) => at(l, { size: 25, by: 5 * P + i * HP - 8, left: CX, color: t.inkSoft, weight: 400 })),
-    at(nsid, { size: 22, by: 8 * P - LE, left: CX, mono: true, color: t.inkMuted }),
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
   ], { verticals: [PAD, { x: DIV, strong: true }, W - PAD], halfBands: [{ from: 4 * P + HP, to: bandTo }] });
+}
+
+// ── RECORD: a single blog post / creative work / channel ────────────────────
+// Same gutter+divider frame as S4, but the big accent gerund is replaced by
+// the record's own title as a wrapped serif headline (mirroring the site's
+// .page-title: serif 600, roman ink, with only the section term accent-italic
+// in the breadcrumb — the .gerund treatment). The description sits below on the
+// half-pitch rules, exactly like a section card.
+function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio, body }) {
+  const DIV = 320, CX = DIV, bcBy = P - LE;
+  const colW = W - PAD - CX; // content column width
+  // Breadcrumb "dame.is / {section}" with the section term echoing .gerund.
+  const section = segs[segs.length - 1] || '';
+  const crumb = [
+    h('div', { style: { color: t.inkFaint } }, 'dame.is'),
+    h('div', { style: { color: t.inkFaint } }, '/'),
+    h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, section),
+  ];
+
+  let content;
+  let bandTo;
+  if (body) {
+    // A post / status: no title of its own, so `title` IS the text. Render it
+    // as wrapped body copy — more lines, smaller, all on the fine rules, like
+    // writing on ruled paper — rather than a giant headline.
+    const size = 30;
+    const all = wrapText(title || '', size, colW);
+    const lines = all.slice(0, 7);
+    if (all.length > lines.length && lines.length) {
+      const last = lines[lines.length - 1].replace(/\s+\S*$/, '');
+      lines[lines.length - 1] = `${last}…`;
+    }
+    const top = 3 * P - 8;
+    bandTo = top + lines.length * HP;
+    content = lines.map((l, i) => at(l, { size, by: top + i * HP, left: CX, weight: 400, color: t.ink }));
+  } else {
+    // A titled record: big serif headline (rows 3+, coarse pitch), then a short
+    // description a coarse row below, on the half-pitch rules.
+    const { size, lines } = fitHeadline(title || '', colW, 3);
+    const descAll = wrapText(subtitle || '', 24, colW);
+    const descLines = descAll.slice(0, 3);
+    if (descAll.length > descLines.length && descLines.length) {
+      const last = descLines[descLines.length - 1].replace(/\s+\S*$/, '');
+      descLines[descLines.length - 1] = `${last}…`;
+    }
+    const headBase = 3 * P - 8;
+    const descBase = (3 + lines.length) * P - 8;
+    bandTo = descBase + descLines.length * HP;
+    content = [
+      ...lines.map((l, i) => at(l, { size, by: headBase + i * P, left: CX, weight: 600, color: t.ink, ls: '-0.01em' })),
+      ...descLines.map((l, i) => at(l, { size: 24, by: descBase + i * HP, left: CX, color: t.inkSoft, weight: 400 })),
+    ];
+  }
+
+  return shell(t, [
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(crumb, { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+    ...content,
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], { verticals: [PAD, { x: DIV, strong: true }, W - PAD], halfBands: [{ from: 3 * P + HP, to: bandTo }] });
 }
 
 // ── HOME: H4 (index of surfaces, cascade-fade, tighter half-pitch rows) ─────
@@ -174,14 +284,14 @@ function homeCardH4(t, { avatarUri, folio, homeIndex, nsid }) {
       h('div', { style: { color: mix(t.tan, t.page, tt), fontWeight: 600 } }, 'dame.is'),
       h('div', { style: { color: mix(t.ink, t.page, tt), fontStyle: 'italic', fontWeight: 600 } }, r.label),
     ));
-    items.push(at(r.nsid, { size: 20, by, right: PAD, mono: true, color: mix(t.inkMuted, t.page, tt) }));
+    items.push(at(r.nsid, { size: 20, by, right: PAD, color: mix(t.inkMuted, t.page, tt) }));
   });
   return shell(t, [
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: PAD }),
     rowAt([h('div', { style: { color: t.inkFaint } }, 'dame.is')], { size: 28, by: bcBy, left: avatarUri ? PAD + 46 + 18 : PAD }),
     ...items,
-    at(`day ${folio}`, { size: 21, by: 8 * P - LE, left: PAD, mono: true, color: t.inkFaint }),
-    at(nsid, { size: 21, by: 8 * P - LE, right: PAD, mono: true, color: t.inkMuted }),
+    at(`day ${folio}`, { size: 21, by: 8 * P - LE, left: PAD, color: t.inkFaint }),
+    at(nsid, { size: 21, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
   ], { halfBands: [{ from: 2 * P, to: top0 + rows.length * HP }] });
 }
 
@@ -197,8 +307,8 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
   return shell(t, [
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: PAD }),
     ...lines.map((l, i) => at(l.text, { size: 76, by: (3 + i) * P - 18, color: l.color, weight: 600, ls: '-0.015em' })),
-    at(folio, { size: 22, by: 8 * P - LE, left: PAD, mono: true, color: t.inkFaint, ls: '0.04em' }),
-    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, mono: true, color: t.inkMuted }),
+    at(folio, { size: 22, by: 8 * P - LE, left: PAD, color: t.inkFaint, ls: '0.04em' }),
+    at(nsid, { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
   ]);
 }
 
@@ -212,12 +322,13 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {string[]} [o.segs]    breadcrumb segments (derived from pathname if omitted)
  * @param {string|null} [o.avatarUri] data: URI for the current sky-avatar tile
  * @param {string}  o.folio      day-of-life string ('12,115')
- * @param {'light'|'dark'} [o.theme]
+ * @param {'light'|'dark'|object} [o.theme] palette key, or a resolved token map (e.g. themeFromSky)
+ * @param {boolean} [o.record]   render the per-record card (title = o.label as a wrapped headline)
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
  * @param {Array}   [o.hero]      [{text,color}] for the home hero card
  */
 export function ogElement(o = {}) {
-  const t = THEMES[o.theme] || THEMES.light;
+  const t = (o.theme && typeof o.theme === 'object') ? o.theme : (THEMES[o.theme] || THEMES.light);
   const pathname = (o.pathname || '/').replace(/\/+$/, '') || '/';
   const segs = o.segs || pathname.split('/').filter(Boolean);
   const avatarUri = SHOW_AVATAR ? (o.avatarUri || null) : null;
@@ -227,6 +338,9 @@ export function ogElement(o = {}) {
   if (isHome) {
     if (HOME_LAYOUT === 'h1') return homeCardH1(t, { avatarUri, folio, nsid: o.nsid || 'is.dame.page', hero: o.hero });
     return homeCardH4(t, { avatarUri, folio, nsid: o.nsid || 'is.dame.page', homeIndex: o.homeIndex || [] });
+  }
+  if (o.record) {
+    return recordCard(t, { segs, title: o.label, subtitle: o.subtitle || '', nsid: o.nsid || '', avatarUri, folio, body: o.body });
   }
   const args = { segs, label: o.label, subtitle: o.subtitle || '', nsid: o.nsid || '', avatarUri, folio };
   return SUBPAGE_LAYOUT === 's0' ? subCardS0(t, args) : subCardS4(t, args);

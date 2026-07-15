@@ -149,23 +149,6 @@
   letter-spacing: 0.02em;
 }
 
-.resume-record-link {
-  font-family: var(--mono);
-  font-size: calc(var(--text-xs) * var(--mono-scale));
-  color: var(--ink-faint);
-  text-decoration: none;
-  opacity: 0;
-  transition: opacity 160ms ease, color 160ms ease;
-}
-
-.resume-role:hover .resume-record-link {
-  opacity: 1;
-}
-
-.resume-record-link:hover {
-  color: var(--accent);
-}
-
 .resume-role-summary {
   font-size: var(--text-sm);
   color: var(--ink-soft);
@@ -203,6 +186,94 @@
 .resume-highlight.is-metric::marker {
   content: "◆  ";
   color: var(--accent);
+}
+
+/* --- Selected work (portfolio embeds under a role) ------------------ */
+.resume-work {
+  margin-top: var(--space-3);
+}
+
+.resume-work-label {
+  display: block;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  margin-bottom: var(--space-2);
+}
+
+.resume-work-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.resume-work-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  text-decoration: none;
+  color: var(--ink);
+  padding: var(--space-2);
+  border: 1px solid var(--rule-soft);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+a.resume-work-link:hover {
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.resume-work-link.is-static {
+  cursor: default;
+}
+
+.resume-work-thumb {
+  flex-shrink: 0;
+  width: 3.25rem;
+  height: 3.25rem;
+  overflow: hidden;
+  border: 1px solid var(--rule-soft);
+  background: color-mix(in srgb, var(--ink) 4%, var(--page));
+}
+
+.resume-work-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.resume-work-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.resume-work-title {
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+a.resume-work-link:hover .resume-work-title {
+  color: var(--accent);
+}
+
+.resume-work-desc {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+.resume-work-ext {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink-faint);
 }
 
 /* --- Skills --------------------------------------------------------- */
@@ -264,7 +335,6 @@
 
 /* --- Print: a clean one-document resume ----------------------------- */
 @media print {
-  .resume-record-link,
   .resume-footnote {
     display: none !important;
   }

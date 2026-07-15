@@ -61,6 +61,7 @@ export default function Posting() {
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/posting`}
       headTitle="dame.is posting"
+      selectable
     >
       <PostingFilters counts={counts} />
       {loading ? (

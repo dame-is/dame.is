@@ -118,7 +118,7 @@ function deriveFromRoute(pathname, override) {
       cid: override.cid || null,
       lexicon: override.lexicon || lexiconFromAtUri(override.atUri),
       // Carry the rkey so the generic by-rkey snapshot/PDS lookups can
-      // resolve override-driven records (e.g. /for-hire's dynamically
+      // resolve override-driven records (e.g. /available's dynamically
       // selected is.dame.resume) — collections without a bespoke branch
       // below would otherwise never fetch.
       rkey: override.rkey || rkeyFromAtUri(override.atUri) || null,
@@ -197,7 +197,13 @@ function deriveFromRoute(pathname, override) {
 }
 
 function pageRkeyForPath(pathname) {
-  if (pathname === '/' || pathname === '/index') return 'home';
+  // The home route ('/' + its '/index' alias) is intentionally omitted: the
+  // feed aggregates many records rather than being backed by a single
+  // is.dame.page/home record. No such record exists, `home` isn't in
+  // PAGE_REGISTRY, and nothing renders it — so claiming it only made the debug
+  // pane's "Edit record" fetch a missing record and surface the raw PDS
+  // "Could not locate record" error. Mirrors middleware.js's
+  // TOP_LEVEL_PAGE_RKEY, which also excludes home.
   if (pathname === '/posting') return 'posting';
   if (pathname === '/logging') return 'logging';
   if (pathname === '/blogging') return 'blogging';

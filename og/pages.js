@@ -40,10 +40,10 @@ export const PAGES = {
     desc: 'Who dame is — a longer look at the person behind the pixels, drawn live from the AT Protocol.',
     nsid: 'is.dame.profile',
   },
-  '/for-hire': {
-    label: 'for hire',
-    title: 'dame.is for hire',
-    desc: "Dame's résumé and work history — design, strategy, and building on the open social web.",
+  '/available': {
+    label: 'available',
+    title: 'dame.is available',
+    desc: "Dame's résumé and work history — design, strategy, and building on the open social web. Currently available for hire.",
     nsid: 'is.dame.resume',
   },
   '/blogging': {

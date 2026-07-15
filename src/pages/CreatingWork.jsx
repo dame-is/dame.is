@@ -3,13 +3,13 @@ import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
+import DocumentMeta from '../components/DocumentMeta.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { renderMarkdown } from '../lib/markdown.js';
-import { formatDateLong } from '../lib/time.js';
-import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
+import { showOnCreating, isDraft, workSlug } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Blogging.css';
@@ -94,16 +94,16 @@ export default function CreatingWork() {
       headTitle={v?.title ? `${v.title} — dame.is` : `${slug} — dame.is`}
     >
       <article className="creating-work-page reveal">
-        <div className="blog-article-meta">
-          {workCategory(v) && (
-            <span className="blog-article-tag">{workCategory(v)}</span>
-          )}
-          {v?.createdAt && <span>· {formatDateLong(v.createdAt)}</span>}
-        </div>
-        {/* Only the legacy `summary` shows as an on-page intro. The standard.site
-            `description` is the open-graph / feed-summary blurb and isn't
-            rendered on the work itself. */}
-        {v?.summary && (
+        <DocumentMeta date={v?.createdAt} />
+        {/* The summary is metadata — the feed-card / open-graph blurb, not page
+            copy. For standard/leaflet docs it's auto-derived from the body's
+            opening (feedBuilder's leafletSynopsis) when the record has no
+            `description`, so rendering it here just duplicates the first lines of
+            the body. Show it only for LEGACY works (no `content.pages`), whose
+            `summary` is a hand-written intro distinct from the body; standard
+            docs keep it as metadata only, exactly as the blog post page omits
+            its `description`. */}
+        {v?.summary && !v?.content?.pages && (
           <p className="page-intro">{v.summary}</p>
         )}
         {v?.content?.pages ? (

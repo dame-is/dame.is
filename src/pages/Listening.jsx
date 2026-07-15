@@ -85,6 +85,7 @@ export default function Listening() {
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/listening`}
       headTitle="dame.is listening"
+      selectable
     >
       {!loading && statsItems.length > 0 && <ListeningStats items={statsItems} />}
       {loading ? (

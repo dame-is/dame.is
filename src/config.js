@@ -61,6 +61,17 @@ export const GUESTBOOK_NSID = 'is.dame.guestbook';
 export const GUESTBOOK_ENTRY_NSID = 'is.dame.guestbook.entry';
 export const GUESTBOOK_SUBJECT = `at://${ME_DID}/${GUESTBOOK_NSID}/self`;
 
+// The retired "lofi" guestbook that predated is.dame.guestbook. Visitors signed
+// it by writing an `a.guestbook.i.signed` record whose `guestbook` field pointed
+// at the book record below (rkey `guestbook`, not `self`). That book is closed —
+// new signatures use is.dame.guestbook.entry — but its signatures are real
+// history, so the guestbook read path folds them in as older entries. Same
+// backlink-assembly mechanism, just a different collection + field name.
+// See lexicons/GUESTBOOK.md → "The original lofi guestbook".
+export const LEGACY_GUESTBOOK_NSID = 'a.guestbook.for.my.pds';
+export const LEGACY_GUESTBOOK_ENTRY_NSID = 'a.guestbook.i.signed';
+export const LEGACY_GUESTBOOK_SUBJECT = `at://${ME_DID}/${LEGACY_GUESTBOOK_NSID}/guestbook`;
+
 // --- state / vitals ----------------------------------------------------------
 // Live iPhone-sourced physical + ambient state (heart rate, activity, battery,
 // ambient sound, calories) — an append-only log keyed by TID. The LATEST record
@@ -78,6 +89,12 @@ const RESUME_NSID = 'is.dame.resume';
 const RESUME_JOB_NSID = 'is.dame.resume.job';
 const RESUME_EDUCATION_NSID = 'is.dame.resume.education';
 const ARENA_CHANNEL_NSID = 'is.dame.arena.channel';
+
+// --- are.na ------------------------------------------------------------------
+// The /curating galleries render live from are.na (ARENA_CHANNEL_NSID records
+// point at channels), and the whole account is mirrored onto the PDS by
+// `arena-mirror/` (see scripts/mirror-arena.mjs + api/mirror-arena.js).
+export const ARENA_USER = 'dame';
 
 /**
  * Legacy verb-or-shorthand → NSID lookup. Existing call sites
