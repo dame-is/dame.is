@@ -24,6 +24,16 @@
   font-family: var(--mono-ui, var(--mono));
 }
 
+/* The submit is an icon square that stretches to the input's height so the
+   two read as one control (no more short, misaligned text button). */
+.exploring-search-button {
+  align-self: stretch;
+  flex: none;
+  padding-block: 0;
+  padding-inline: var(--space-4);
+}
+.exploring-search-button svg { display: block; }
+
 /* Error hint */
 .exploring-error { display: flex; flex-direction: column; gap: var(--space-2); }
 .exploring-hint { color: var(--ink-soft); font-size: var(--text-sm); }
@@ -444,6 +454,12 @@
   font-size: var(--text-sm);
 }
 .exploring-record-site-link { color: var(--accent); }
+.exploring-record-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.exploring-record-copy svg { display: block; }
 
 .exploring-editor { margin-top: var(--space-2); }
 

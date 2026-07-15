@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ME_DID, ME_HANDLE } from '../config.js';
 import { resolvePds, explorerPathFromAtUri } from '../lib/atproto.js';
-import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { atUriParts, parseAtUri, shortenCid, shortenDid } from '../lib/xray.js';
@@ -105,7 +104,6 @@ export function XraySubstratePanel({ atUri, cid }) {
   const pdsHost = pds ? String(pds).replace(/^https?:\/\//, '') : isMe ? 'resolving…' : 'unknown host';
   const repoLabel = isMe ? `@${ME_HANDLE}` : shortenDid(did) || did;
   const explorerPath = explorerPathFromAtUri(atUri);
-  const recordPath = recordPathFromAtUri(atUri);
 
   return (
     <div className="xray-substrate" role="group" aria-label="record location">
@@ -143,7 +141,6 @@ export function XraySubstratePanel({ atUri, cid }) {
 
       <div className="xray-actions">
         {explorerPath && <Link to={explorerPath}>open in explorer</Link>}
-        {recordPath && <Link to={recordPath}>view full record</Link>}
       </div>
     </div>
   );
