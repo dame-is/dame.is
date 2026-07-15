@@ -1,5 +1,5 @@
 import {
-  Heart, Flame, Footprints, Bike, Car, Armchair, Activity, Volume2,
+  Heart, Flame, Footprints, Bike, Car, Armchair, PersonStanding, Volume2,
   BatteryLow, BatteryMedium, BatteryFull, BatteryCharging,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
@@ -49,7 +49,7 @@ export default function VitalsPanel() {
   }
 
   const ActivityIcon =
-    (vitals.activity && ACTIVITY_ICON[vitals.activity]) || Activity;
+    (vitals.activity && ACTIVITY_ICON[vitals.activity]) || PersonStanding;
   const BatteryIcon =
     vitals.batteryLevel != null ? batteryIcon(vitals.batteryLevel, vitals.charging) : null;
 
