@@ -2,7 +2,8 @@
    expanded chrome tier beneath the LISTENING TO / FOLLOWED BY row (see
    .chrome-bar-state in ChromeBar.css). Reuses the atmosphere voice: lucide
    glyphs, small-caps units, mono tabular numbers, ink/accent on the earthy
-   palette, square corners. */
+   palette, square corners. The day-of-life signal on the right shares the
+   FOLLOWED BY / LISTENING TO label voice (via .chrome-signal). */
 
 .vitals {
   display: flex;
@@ -14,13 +15,6 @@
   font-size: var(--text-xs);
   color: var(--ink-muted);
   min-width: 0;
-  transition: opacity 200ms ease;
-}
-
-/* Stale (no fresh push for a while): the whole strip recedes so it never
-   presents a hours-old reading as if it were live. */
-.vitals.is-stale {
-  opacity: 0.5;
 }
 
 .vitals-empty {
@@ -87,20 +81,16 @@
   color: #c17d3f;
 }
 
-/* --- update stamp -------------------------------------------------------- */
-.vital-stamp {
+/* Day-of-life signal, pinned to the strip's right edge like FOLLOWED BY. */
+.vitals .chrome-signal-day {
   margin-left: auto;
-  color: var(--ink-faint);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.95em;
-  white-space: nowrap;
 }
 
 @media (max-width: 700px) {
   .vitals {
     gap: var(--space-2) var(--space-4);
   }
-  .vital-stamp {
+  .vitals .chrome-signal-day {
     margin-left: 0;
     flex-basis: 100%;
   }

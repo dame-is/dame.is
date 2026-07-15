@@ -4,13 +4,8 @@ import {
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useDameState } from '../hooks/useDameState.js';
-import { relativeTime } from '../lib/time.js';
+import DayOfLifeTicker from './DayOfLifeTicker.jsx';
 import './VitalsPanel.css';
-
-// Past this many minutes with no fresh push, the panel reads as "last seen"
-// rather than "now" and dims — a phone that's asleep or dead shouldn't present
-// yesterday's heart rate as if it were live.
-const STALE_MINUTES = 30;
 
 const ACTIVITY_ICON = {
   stationary: Armchair,
@@ -34,8 +29,7 @@ export default function VitalsPanel() {
 
   // Nothing worth showing — no data yet, or every reading came back empty/0
   // (see normalizeVitals). Render an empty-but-present row so the atmosphere
-  // bar doesn't pop a whole extra line a beat after it opens, and so a
-  // stripped record doesn't leave a lonely "updated" stamp with no vitals.
+  // bar doesn't pop a whole extra line a beat after it opens.
   const hasAny =
     vitals &&
     (vitals.heartRate != null ||
@@ -53,22 +47,16 @@ export default function VitalsPanel() {
     );
   }
 
-  const minutesOld = vitals.sampledAt
-    ? (Date.now() - new Date(vitals.sampledAt).getTime()) / 60000
-    : Infinity;
-  const stale = !Number.isFinite(minutesOld) || minutesOld > STALE_MINUTES;
-  const ago = vitals.sampledAt ? relativeTime(vitals.sampledAt) : '';
-
   const ActivityIcon =
     (vitals.activity && ACTIVITY_ICON[vitals.activity]) || Activity;
   const BatteryIcon =
     vitals.batteryLevel != null ? batteryIcon(vitals.batteryLevel, vitals.charging) : null;
 
   return (
-    <div className={`vitals ${stale ? 'is-stale' : ''}`} aria-label="Current state from Dame's phone">
+    <div className="vitals" aria-label="Current state from Dame's phone">
       {vitals.heartRate != null && (
         <span className="vital vital-heart" aria-label={`Heart rate ${vitals.heartRate} beats per minute`}>
-          <Heartbeat bpm={vitals.heartRate} animate={!reduce && !stale} />
+          <Heartbeat bpm={vitals.heartRate} animate={!reduce} />
           <span className="vital-value">{vitals.heartRate}</span>
           <span className="vital-unit">bpm</span>
         </span>
@@ -109,19 +97,15 @@ export default function VitalsPanel() {
         </span>
       )}
 
-      {ago && (
-        <span className="vital-stamp" title={vitals.sampledAt || undefined}>
-          {stale ? 'last seen ' : 'updated '}
-          {ago}
-        </span>
-      )}
+      {/* Right edge: day of life, in the same small-caps label voice as
+          LISTENING TO / FOLLOWED BY one bar up. */}
+      <DayOfLifeTicker />
     </div>
   );
 }
 
 /** A heart with a gentle beat at the actual BPM — a subtle pulse, not a throb.
- *  Falls back to a still glyph under reduced-motion or when the reading is
- *  stale. */
+ *  Falls back to a still glyph under reduced-motion. */
 function Heartbeat({ bpm, animate }) {
   const beat = bpm > 20 && bpm < 260 ? 60 / bpm : null;
   if (!animate || !beat) {
