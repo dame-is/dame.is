@@ -1998,25 +1998,36 @@ a.ledger-time:focus-visible {
 }
 
 /* Reposts render as a quote-style box (FeedLedgerRow's RepostQuote).
-   The original post IS the row's content, so unlike a quote nested
-   inside a post its text stays unclamped and its own media renders —
-   still height-capped by the rules above. Quotes nested inside the
-   reposted post stay dropped. */
+   The reposted post IS the row's content, so — unlike a quote nested
+   inside a normal post — its text stays unclamped and its own media
+   renders, height-capped by the rules above. The media/quote re-enables
+   below are scoped to the reposted post's *direct* children (`>` from
+   .ledger-repost) so they lift only its own embeds, never anything one
+   level deeper. */
 .ledger-repost .post-embed-quote-text {
   display: block;
   overflow: visible;
 }
 
-.ledger-repost .post-embed-quote > .post-embed-images {
+.ledger-repost > .post-embed-quote > .post-embed-images {
   display: grid;
 }
 
-.ledger-repost .post-embed-quote > .post-embed-video {
+.ledger-repost > .post-embed-quote > .post-embed-video {
   display: block;
 }
 
-.ledger-repost .post-embed-quote > .post-embed-link-card {
+.ledger-repost > .post-embed-quote > .post-embed-link-card {
   display: grid;
+}
+
+/* A repost of a quote-post: show the quoted post as a compact card so
+   the repost keeps the subject it was quoting (this was dropped before).
+   Its author + full text ride along; its own media stays dropped (the
+   rules above only lift the reposted post's direct embeds), keeping the
+   nested card from ballooning the row — the record page has the rest. */
+.ledger-repost > .post-embed-quote > .post-embed-quote {
+  display: flex;
 }
 
 /* Text-less posts: the embed is the row's only content. Baseline row
