@@ -27,6 +27,14 @@
   color: var(--ink-faint);
 }
 
+/* The signer's handle in the header ("… as @handle") — normal case (overriding
+   the small-caps eyebrow) and a touch darker so the identity reads clearly. */
+.guestbook-sheet-signer {
+  font-variant: normal;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+
 .guestbook-sheet-close {
   display: inline-flex;
   align-items: center;

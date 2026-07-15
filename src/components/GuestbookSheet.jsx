@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
@@ -46,6 +46,14 @@ export default function GuestbookSheet() {
     };
   }, [did]);
 
+  // The signer's handle for the header ("Sign guestbook as @handle"), falling
+  // back to a shortened DID. Empty when signed out.
+  const signerHandle = useMemo(() => {
+    if (profile?.handle && profile.handle !== 'handle.invalid') return `@${profile.handle}`;
+    if (!did) return '';
+    return did.length > 24 ? `${did.slice(0, 12)}…${did.slice(-6)}` : did;
+  }, [profile, did]);
+
   function handleSigned(entry) {
     closePanel();
     // Land on the book with the new signature in hand so it shows at once.
@@ -56,12 +64,17 @@ export default function GuestbookSheet() {
     <BottomSheet
       open={open}
       onClose={closePanel}
-      label="Sign the guestbook"
+      label="Sign guestbook"
       id="chrome-guestbook-sheet"
       className="guestbook-sheet-panel"
     >
       <div className="guestbook-sheet-header">
-        <span className="small-caps">Sign the guestbook</span>
+        <span className="small-caps">
+          Sign guestbook{session && signerHandle ? ' as ' : ''}
+          {session && signerHandle && (
+            <span className="guestbook-sheet-signer">{signerHandle}</span>
+          )}
+        </span>
         <button
           type="button"
           className="guestbook-sheet-close"
@@ -73,7 +86,7 @@ export default function GuestbookSheet() {
       </div>
 
       {session ? (
-        <GuestbookSignForm agent={agent} did={did} profile={profile} onSigned={handleSigned} />
+        <GuestbookSignForm agent={agent} did={did} onSigned={handleSigned} />
       ) : (
         <GuestbookSignIn signIn={signIn} />
       )}
