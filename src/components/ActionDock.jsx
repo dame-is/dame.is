@@ -19,6 +19,7 @@ const ROUTES = [
   { to: '/curating', label: 'curating' },
   { to: '/mothing', label: 'mothing' },
   { to: '/guestbook', label: 'guestbook' },
+  { to: '/exploring', label: 'exploring' },
 ];
 
 export default function ActionDock() {
