@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { LocateFixed } from 'lucide-react';
+import { useState } from 'react';
+import { MapPinned } from 'lucide-react';
 import {
   signGuestbook,
   detectCoarseRegion,
@@ -22,7 +22,7 @@ import '../pages/Guestbook.css';
  * On a successful write it calls `onSigned` with the fresh entry shape
  * (`{ uri, did, rkey, value }`) so the caller can show it optimistically.
  */
-export default function GuestbookSignForm({ agent, did, profile, onSigned }) {
+export default function GuestbookSignForm({ agent, did, onSigned }) {
   const [text, setText] = useState('');
   const [location, setLocation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,14 +33,6 @@ export default function GuestbookSignForm({ agent, did, profile, onSigned }) {
 
   const remaining = ENTRY_TEXT_MAX_GRAPHEMES - graphemeLength(text);
   const canSign = !busy && Boolean(text.trim());
-
-  // Identity in the book is the handle, so that's what the form shows —
-  // no avatar, no display name.
-  const signingAs = useMemo(() => {
-    if (profile?.handle && profile.handle !== 'handle.invalid') return `@${profile.handle}`;
-    if (!did) return '';
-    return did.length > 24 ? `${did.slice(0, 12)}…${did.slice(-6)}` : did;
-  }, [profile, did]);
 
   async function detectRegion() {
     if (locating) return;
@@ -75,11 +67,6 @@ export default function GuestbookSignForm({ agent, did, profile, onSigned }) {
 
   return (
     <form className="guestbook-form" onSubmit={handleSubmit}>
-      <div className="guestbook-form-head">
-        <span className="small-caps guestbook-form-eyebrow">Signing as</span>
-        <span className="guestbook-form-signer">{signingAs}</span>
-      </div>
-
       <textarea
         className="guestbook-textarea"
         rows={3}
@@ -98,38 +85,35 @@ export default function GuestbookSignForm({ agent, did, profile, onSigned }) {
         <label className="small-caps guestbook-location-label" htmlFor="guestbook-location">
           Signing from
         </label>
-        <div className="guestbook-location-row">
-          <input
-            id="guestbook-location"
-            className="guestbook-location signin-input"
-            type="text"
-            placeholder="a place, in your own words (optional)"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            maxLength={64}
-            disabled={busy}
-          />
-          <button
-            type="button"
-            className="guestbook-locate"
-            onClick={detectRegion}
-            disabled={busy || locating}
-          >
-            <LocateFixed size={14} strokeWidth={1.75} aria-hidden="true" />
-            {locating ? 'Locating…' : 'Use my region'}
-          </button>
-        </div>
+        <input
+          id="guestbook-location"
+          className="guestbook-location signin-input"
+          type="text"
+          placeholder="a place, in your own words (optional)"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          maxLength={64}
+          disabled={busy}
+        />
         <span className="guestbook-location-hint">
-          Shown beside your signature. Write anything, or let &ldquo;Use my region&rdquo; ask
-          your browser for location and fill in only your state/region and country, never your
-          town or coordinates.
+          Tap map icon to fill the input with your general state/region/country.
         </span>
         {locError && <p className="signin-error">{locError}</p>}
       </div>
 
       <div className="guestbook-form-actions">
+        <button
+          type="button"
+          className="guestbook-locate"
+          onClick={detectRegion}
+          disabled={busy || locating}
+          aria-label="Fill in my general region"
+          title="Fill in my general region"
+        >
+          <MapPinned size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
         <button type="submit" className="signin-button" disabled={!canSign}>
-          {busy ? 'Signing…' : 'Sign the book'}
+          {busy ? 'Signing…' : 'Sign'}
         </button>
         {signedAt && !error && (
           <span className="guestbook-signed-note gutter">
