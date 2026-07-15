@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { relativeTime } from '../lib/time.js';
 import { LEGACY_GUESTBOOK_SUBJECT } from '../config.js';
+import { useXray } from '../hooks/useXray.jsx';
+import { XrayTag, XraySubstratePanel } from './XraySubstrate.jsx';
 import '../pages/Guestbook.css';
 
 /**
@@ -20,7 +22,12 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
   const [removing, setRemoving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [modError, setModError] = useState(null);
+  const xray = useXray();
   const { value, profile } = entry;
+  // Each signature is a record on the SIGNER's own PDS — x-ray makes that
+  // decentralization visible. entry.uri already points at it (a foreign repo).
+  const inspectable = xray.active && !!entry.uri;
+  const focused = inspectable && xray.focusUri === entry.uri;
   const name =
     value.signature?.trim() ||
     profile?.displayName?.trim() ||
@@ -58,7 +65,12 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
   }
 
   return (
-    <li className={`guestbook-entry${entry.hidden ? ' guestbook-entry-is-hidden' : ''}`}>
+    <li
+      className={`guestbook-entry${entry.hidden ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}`}
+      data-nsid={entry.collection || undefined}
+      data-atproto={entry.uri ? '' : undefined}
+      data-at-uri={entry.uri || undefined}
+    >
       <span className="guestbook-entry-avatar" aria-hidden="true">
         {profile?.avatar ? (
           <img src={profile.avatar} alt="" loading="lazy" width={40} height={40} />
@@ -146,6 +158,8 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
             from the old guestbook
           </Link>
         )}
+        {inspectable && <XrayTag atUri={entry.uri} onOpen={() => xray.focus(entry.uri)} />}
+        {focused && <XraySubstratePanel atUri={entry.uri} />}
       </div>
     </li>
   );

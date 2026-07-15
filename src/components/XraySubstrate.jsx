@@ -3,13 +3,7 @@ import { Link } from 'react-router-dom';
 import { ME_DID, ME_HANDLE } from '../config.js';
 import { resolvePds, explorerPathFromAtUri } from '../lib/atproto.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
-import {
-  atUriParts,
-  parseAtUri,
-  shortenCid,
-  substrateFields,
-  depthStack,
-} from '../lib/xray.js';
+import { atUriParts, parseAtUri, shortenCid, shortenDid } from '../lib/xray.js';
 
 /**
  * The one-line "there's a record under here" tag a card wears while x-ray is
@@ -49,20 +43,23 @@ export function AtUriMono({ atUri }) {
 }
 
 /**
- * The full substrate readout for a focused record: the field map (with
- * numbered markers), the record's coordinates, the depth stack, and jump-offs
- * into the explorer / the record's own page. Owns a lazy PDS resolve so the
- * "pds" line and depth stack can name where the record actually lives.
+ * The substrate readout for a focused record. Rather than dumping the record's
+ * values (you can open it for those), it answers the more evocative question:
+ * where does this thing sit in the atmosphere? A you-are-here descent through
+ * the repo — PDS → repo → collection → this record — plus jump-offs into the
+ * explorer and the record's own page. Owns a lazy PDS resolve for our own
+ * records so the top of the descent is real.
  */
-export function XraySubstratePanel({ atUri, cid, value, leadField }) {
+export function XraySubstratePanel({ atUri, cid }) {
   const [pds, setPds] = useState(null);
-  const { did } = parseAtUri(atUri);
+  const { did, collection, rkey } = parseAtUri(atUri);
   const isMe = did === ME_DID;
 
   useEffect(() => {
     let cancelled = false;
-    // Only our own records get a live PDS resolve here; foreign repos would
-    // need their own identity lookup, which the explorer page already does.
+    // Only our own records get a live PDS resolve here; a foreign repo (e.g. a
+    // guestbook signature on a visitor's PDS) would need its own identity
+    // lookup, which the explorer page already does.
     if (!isMe) return undefined;
     resolvePds(ME_DID)
       .then((endpoint) => {
@@ -74,69 +71,48 @@ export function XraySubstratePanel({ atUri, cid, value, leadField }) {
     };
   }, [isMe]);
 
-  const { rkey } = parseAtUri(atUri);
-  const fields = substrateFields(value, 5);
-  const pdsHost = pds ? String(pds).replace(/^https?:\/\//, '') : isMe ? 'resolving…' : '—';
-  // Lead the depth stack with the most telling field, not the boilerplate
-  // $type, so "the element you tapped → value.text" reads meaningfully.
-  const leadFieldPath =
-    leadField || fields.find((f) => f.path !== 'value.$type')?.path || fields[0]?.path || null;
-  const stack = depthStack(atUri, {
-    handle: isMe ? ME_HANDLE : null,
-    pds: pdsHost,
-    leadField: leadFieldPath,
-  });
+  const pdsHost = pds ? String(pds).replace(/^https?:\/\//, '') : isMe ? 'resolving…' : 'unknown host';
+  const repoLabel = isMe ? `@${ME_HANDLE}` : shortenDid(did) || did;
   const explorerPath = explorerPathFromAtUri(atUri);
   const recordPath = recordPathFromAtUri(atUri);
 
   return (
-    <div className="xray-substrate" role="group" aria-label="record substrate">
-      <div className="xray-substrate-wide xray-uri-line">
-        <AtUriMono atUri={atUri} />
-        {cid && <span className="bp-cid">cid {shortenCid(cid)}</span>}
+    <div className="xray-substrate" role="group" aria-label="record location">
+      <p className="xray-substrate-h">you are here in the repo</p>
+      <div className="xray-locus">
+        <span className="locus-lvl" style={{ '--d': 0 }}>
+          <span className="k">pds</span>
+          <span className="v">{pdsHost}</span>
+        </span>
+        <span className="locus-lvl" style={{ '--d': 1 }}>
+          <span className="lead" aria-hidden="true">└</span>
+          <span className="k">repo</span>
+          <span className="v">{repoLabel}</span>
+          {did && <span className="vdim">{shortenDid(did)}</span>}
+        </span>
+        <span className="locus-lvl" style={{ '--d': 2 }}>
+          <span className="lead" aria-hidden="true">└</span>
+          <span className="k">collection</span>
+          <span className="v accent">{collection || '—'}</span>
+        </span>
+        <span className="locus-lvl is-here" style={{ '--d': 3 }}>
+          <span className="lead" aria-hidden="true">└</span>
+          <span className="k">record</span>
+          <span className="v">{rkey || '—'}</span>
+          <span className="here-mark">← you are here</span>
+        </span>
+        {cid && (
+          <span className="locus-lvl locus-cid" style={{ '--d': 4 }}>
+            <span className="kdim">cid</span>
+            <span className="vdim">{shortenCid(cid)}</span>
+            <span className="hint">this exact version</span>
+          </span>
+        )}
       </div>
 
-      <div>
-        <p className="xray-substrate-h">this element = these fields</p>
-        <ul className="xray-fields">
-          {fields.length === 0 && <li><span className="v">—</span></li>}
-          {fields.map((f, i) => (
-            <li key={f.path}>
-              <span className="num">{i + 1}</span>
-              <span>
-                <span className="p">{f.path}</span>
-                <span className="v">{f.value}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div>
-        <p className="xray-substrate-h">where it lives</p>
-        <dl className="xray-meta">
-          <div><dt>rkey</dt><dd>{rkey || '—'}</dd></div>
-          {cid && <div><dt>cid</dt><dd>{shortenCid(cid)}</dd></div>}
-          <div><dt>repo</dt><dd>{isMe ? `@${ME_HANDLE}` : did}</dd></div>
-          <div><dt>pds</dt><dd>{pdsHost}</dd></div>
-        </dl>
-      </div>
-
-      <div className="xray-substrate-wide">
-        <p className="xray-substrate-h">where you are in the atmosphere</p>
-        <div className="xray-depth">
-          {stack.map((row, i) => (
-            <span className={`lvl${i === 0 ? ' top' : ''}`} key={i}>
-              <span className="lead">{row.lead}</span>
-              <span className="k">{row.key}</span>
-              {row.value && <span className="v">  {row.value}</span>}
-            </span>
-          ))}
-        </div>
-        <div className="xray-actions">
-          {explorerPath && <Link to={explorerPath}>open in explorer</Link>}
-          {recordPath && <Link to={recordPath}>view record page</Link>}
-        </div>
+      <div className="xray-actions">
+        {explorerPath && <Link to={explorerPath}>open in explorer</Link>}
+        {recordPath && <Link to={recordPath}>view full record</Link>}
       </div>
     </div>
   );

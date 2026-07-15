@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Pencil, Printer, Scan, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -626,7 +626,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                   aria-label={xrayActive ? 'Exit x-ray' : 'X-ray this page'}
                   title="Atmosphere x-ray — reveal the records under the page"
                 >
-                  <Scan className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  <Microscope className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
                 {onResumePage && (
                   <button

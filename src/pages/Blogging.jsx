@@ -79,6 +79,8 @@ export default function Blogging() {
             title: e.title,
             time: e.createdAt ? relativeTime(e.createdAt) : null,
             nsid: nsidFromAtUri(e.uri),
+            atUri: e.uri || null,
+            cid: e.cid || null,
           }))}
         />
       ) : (

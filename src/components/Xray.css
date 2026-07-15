@@ -17,14 +17,8 @@
   --xr-dim: 0.08;         /* how far revealed content recedes behind its data */
 }
 
-/* While the reticule is standing in for the cursor, hide the native one so
-   the corner-tick target is the pointer. Scoped to the attribute the reticule
-   sets only on fine-pointer/desktop and drops when suppressed (dock/panels) —
-   so touch and the open dock keep their normal cursor. */
-:root[data-xray-reticule="on"],
-:root[data-xray-reticule="on"] * {
-  cursor: none !important;
-}
+/* Record-backed rows read as inspectable while the mode is armed. */
+:root[data-xray="on"] [data-atproto] { cursor: pointer; }
 
 /* ----------------------------------------------------------------------
    Shared blueprint atoms
@@ -120,7 +114,9 @@
 .xray-tag-open { color: var(--xr-ink); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; white-space: nowrap; }
 .xray-tag-open:hover { text-decoration: underline; }
 
-:root[data-xray="on"] .feed-item:not(.feed-item-ledger) .xray-tag {
+/* Any record-backed row that opts into the card-style tag (home cards, and
+   the bespoke mothing / guestbook rows) reveals it when the mode is on. */
+:root[data-xray="on"] .xray-tag {
   max-height: 4rem;
   opacity: 1;
   margin-top: var(--space-2);
@@ -139,49 +135,46 @@
 }
 
 /* ----------------------------------------------------------------------
-   Substrate panel — the full readout for a focused element (cards, and
-   the resume/record inspectors). Rendered in flow beneath its element.
+   Substrate panel — for a focused element, a you-are-here descent through
+   the repo (PDS → repo → collection → this record) rather than a value
+   dump. Rendered in flow beneath its element.
    ---------------------------------------------------------------------- */
 .xray-substrate {
   border: 1px solid var(--xr-frame);
   background: var(--xr-field);
-  padding: var(--space-3);
+  padding: var(--space-4);
   margin-top: var(--space-3);
   display: grid;
   gap: var(--space-3);
   font-family: var(--code);
-}
-@media (min-width: 720px) {
-  .xray-substrate { grid-template-columns: 1fr 1fr; align-items: start; }
-  .xray-substrate-wide { grid-column: 1 / -1; }
 }
 .xray-substrate-h {
   font-size: 0.64rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
-  margin: 0 0 var(--space-2);
+  margin: 0;
 }
-.xray-uri-line { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: baseline; }
-.xray-uri-line .bp-uri { word-break: break-all; font-size: var(--text-xs); }
 
-.xray-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
-.xray-fields li { display: grid; grid-template-columns: 16px 1fr; gap: var(--space-2); align-items: start; font-size: var(--text-xs); }
-.xray-fields .num { width: 16px; height: 16px; display: grid; place-items: center; background: var(--xr-ink); color: var(--page); font-size: 0.58rem; }
-.xray-fields .p { color: var(--xr-ink); }
-.xray-fields .v { color: var(--ink-muted); display: block; word-break: break-word; }
-
-.xray-meta { font-size: var(--text-xs); color: var(--ink-soft); }
-.xray-meta div { display: flex; gap: var(--space-2); padding: 1px 0; }
-.xray-meta dt { color: var(--ink-faint); min-width: 68px; flex: none; }
-.xray-meta dd { margin: 0; word-break: break-all; }
-
-.xray-depth { font-size: 0.72rem; color: var(--ink-soft); }
-.xray-depth .lvl { display: block; white-space: pre; line-height: 1.6; }
-.xray-depth .lead { color: var(--xr-frame); }
-.xray-depth .k { color: var(--xr-ink); }
-.xray-depth .v { color: var(--ink-muted); }
-.xray-depth .lvl.top .k { color: var(--ink); }
+.xray-locus { display: grid; gap: 4px; font-size: var(--text-xs); }
+.locus-lvl {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding-left: calc(var(--d, 0) * 1.3em);
+}
+.locus-lvl .lead { color: var(--xr-frame); margin-left: -1em; }
+.locus-lvl .k { color: var(--ink-faint); }
+.locus-lvl .v { color: var(--ink-soft); word-break: break-all; }
+.locus-lvl .v.accent { color: var(--xr-ink); }
+.locus-lvl .vdim { color: var(--ink-faint); }
+.locus-lvl.is-here { padding-top: 1px; padding-bottom: 1px; box-shadow: inset 2px 0 0 var(--accent); }
+.locus-lvl.is-here .v { color: var(--xr-ink); }
+.locus-lvl .here-mark { color: var(--accent); }
+.locus-cid .kdim { color: var(--ink-faint); }
+.locus-cid .vdim { color: var(--ink-muted); }
+.locus-cid .hint { color: var(--ink-faint); font-style: italic; }
 
 .xray-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-1); }
 .xray-actions a, .xray-actions button {
@@ -238,66 +231,35 @@
 }
 
 /* ----------------------------------------------------------------------
-   Page HUD — a status strip that names the record backing the whole page,
-   riding just above the bottom chrome. Rendered by XrayLayer with motion.
+   Page HUD — a slim status strip naming the record behind the page. It
+   rides the shared BottomSheet chrome (.bottom-sheet-wrap/-panel) so it
+   expands up out of the bottom bar like the search/filter/info panels;
+   this only styles the inner status row, using the chrome's shared
+   horizontal inset so it lines up with every other bar.
    ---------------------------------------------------------------------- */
 .xray-hud {
-  position: fixed;
-  left: 0; right: 0;
-  bottom: var(--chrome-h, 56px);
-  z-index: 40;
   display: flex;
   align-items: center;
-  gap: var(--space-2) var(--space-4);
+  gap: var(--space-2) var(--space-3);
   flex-wrap: wrap;
-  padding: var(--space-2) var(--space-4);
-  background: var(--surface-deep);
-  border-top: 1px solid var(--xr-frame);
-  border-bottom: 1px solid var(--rule);
-  box-shadow: 0 -10px 26px -22px var(--shadow);
+  padding: var(--space-3) var(--chrome-pad-x);
   font-family: var(--code);
   font-size: var(--text-xs);
   color: var(--ink-muted);
 }
-.xray-hud-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.64rem; }
+.xray-hud-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.64rem; flex: none; }
 .xray-hud-mark svg { width: 13px; height: 13px; }
-.xray-hud-field { display: inline-flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
-.xray-hud-field b { color: var(--ink-faint); font-weight: 400; }
-.xray-hud .bp-uri { display: inline-block; min-width: 0; max-width: min(46ch, 60vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
-.xray-hud-uri-link { text-decoration: none; }
+.xray-hud .bp-uri { display: inline-block; min-width: 0; max-width: min(52ch, 66vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.xray-hud-uri-link { text-decoration: none; min-width: 0; }
 .xray-hud-uri-link:hover .nsid { text-decoration: underline; }
+.xray-hud-aggregate { color: var(--ink-faint); }
 .xray-hud-spacer { flex: 1 1 auto; }
 .xray-hud-inspect {
+  flex: none;
   font-family: var(--code); font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--ink-soft); background: transparent; border: 1px solid var(--rule); padding: 3px var(--space-2); cursor: pointer;
 }
 .xray-hud-inspect:hover { color: var(--accent); border-color: var(--accent-soft); }
-@media (max-width: 560px) {
-  .xray-hud-field.is-optional { display: none; }
-  .xray-hud .bp-uri { max-width: 62vw; }
-}
-
-/* ----------------------------------------------------------------------
-   Desktop reticule — a corner-tick target that locks onto record-backed
-   elements. Rendered by XrayReticule (motion drives position/size/rotate).
-   ---------------------------------------------------------------------- */
-/* Above the chrome bars + HUD so it's always visible once the native cursor
-   is hidden (the dock/panels suppress it entirely, so it needn't clear those). */
-.xray-reticule { position: fixed; top: 0; left: 0; z-index: 100; pointer-events: none; will-change: transform; }
-.xray-reticule-box { position: absolute; inset: 0; }
-.xray-reticule-corner { position: absolute; width: 10px; height: 10px; border: 1.5px solid var(--accent); filter: drop-shadow(0 0 3px var(--xr-glow)); }
-.xray-reticule-corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
-.xray-reticule-corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
-.xray-reticule-corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
-.xray-reticule-corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
-.xray-reticule-dot { position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; background: var(--accent); }
-.xray-reticule.is-locked .xray-reticule-dot { opacity: 0; }
-.xray-reticule-label {
-  position: absolute; left: 0; top: -18px; font-family: var(--code); font-size: 0.6rem;
-  letter-spacing: 0.04em; color: var(--page); background: var(--accent); padding: 0 5px; white-space: nowrap;
-  opacity: 0; transition: opacity 0.18s var(--xr-ease);
-}
-.xray-reticule.is-locked .xray-reticule-label { opacity: 1; }
 
 /* Toggle button (chrome) active pulse when armed. */
 .chrome-xray.is-open .chrome-nav-glyph { animation: xray-pulse 2.4s ease-in-out infinite; }
