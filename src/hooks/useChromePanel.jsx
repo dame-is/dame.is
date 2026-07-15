@@ -19,8 +19,10 @@ import { useActionDock } from './useActionDock.jsx';
 const ChromePanelContext = createContext(null);
 
 // The known transient panels. Kept as a constant so callers and tests can
-// reason about the full set without magic strings scattered around.
-export const CHROME_PANELS = ['search', 'filter', 'info', 'guestbook'];
+// reason about the full set without magic strings scattered around. `debug`
+// (the atmosphere readout) is a panel too now, opened from the inspect HUD's
+// "details" affordance rather than living as a sub-view of the nav dock.
+export const CHROME_PANELS = ['search', 'filter', 'info', 'guestbook', 'debug'];
 
 export function ChromePanelProvider({ children }) {
   const { open: dockOpen, closeDock } = useActionDock();

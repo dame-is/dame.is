@@ -9,10 +9,10 @@ import { BUILD_ID } from '../lib/appVersion.js';
 import './DebugOverlay.css';
 
 /**
- * Atmosphere debug content for the current route. Lives inside the
- * ActionDock as the 'debug' sub-view — the dock owns the surrounding
- * Modal, the back chevron, and the heading, so this component renders
- * only the readouts, actions, and (optionally) the inline record editor.
+ * Atmosphere debug content for the current route. Rendered inside the
+ * DebugSheet — that sheet owns the surrounding BottomSheet, the header, and
+ * the close button, so this component renders only the readouts, actions, and
+ * (optionally) the inline record editor.
  */
 export default function DebugPane({ onClose }) {
   const { atUri, cid, lexicon, pds, record, route, rkey, slug, recordStatus } = useAtUri();

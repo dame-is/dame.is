@@ -20,7 +20,7 @@ export default function DocumentMeta({ date }) {
   if (!date) return null;
   const day = dayOfLife(date);
   return (
-    <div className="blog-article-meta">
+    <div className="blog-article-meta document-meta">
       <span>
         Published {relativeDay(date)} on {formatDateFull(date)}
         {day ? ` (Day ${day.toLocaleString()})` : ''}
