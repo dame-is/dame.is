@@ -689,6 +689,65 @@
   will-change: transform;
 }
 
+/* Marquee mode (opt-in via the `marquee` prop — used by the status). When the
+   value overflows it auto-scrolls as a seamless, repeating ticker tape: two
+   copies chase each other on an infinite loop, so as the first slides off the
+   left the second is already following from the right. Hover/focus pauses it
+   in place for reading; a fitting value (no `data-playing`) just sits still. */
+.ticker-track {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.ticker-auto[data-playing='true'] .ticker-track {
+  /* The track holds two identical copies (each carrying the trailing gap), so
+     translating it by exactly -50% lands the second copy where the first
+     started — a jump-free wrap. Duration is set per-instance from the text
+     width so every status scrolls at the same pace. */
+  animation: ticker-scroll var(--ticker-duration, 8s) linear infinite;
+}
+
+/* Pause, so it can be read — hover with a pointer, or keyboard focus within
+   the (linked) status. Freezes in place rather than resetting. */
+.ticker-auto[data-playing='true']:hover .ticker-track,
+.ticker-auto[data-playing='true']:focus-within .ticker-track {
+  animation-play-state: paused;
+}
+
+.ticker-seg {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* The seamless-loop gap: baked into each copy as trailing padding so it's part
+   of the -50% travel (a plain flex/margin gap would throw the wrap point off).
+   Only present while looping. Must match MARQUEE_GAP in TickerText.jsx. */
+.ticker-auto[data-playing='true'] .ticker-seg {
+  padding-right: var(--ticker-gap, 44px);
+}
+
+.ticker-measure {
+  display: inline-block;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Continuous motion is opt-out under reduced-motion: the tail still fades, and
+   the value stays put (the title tooltip carries the full text). */
+@media (prefers-reduced-motion: reduce) {
+  .ticker-auto .ticker-track {
+    animation: none;
+  }
+}
+
 @media (max-width: 700px) {
   .chrome-signals-secondary {
     flex-direction: column;
