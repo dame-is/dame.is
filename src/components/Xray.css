@@ -315,6 +315,61 @@
 }
 
 /* ----------------------------------------------------------------------
+   Block structure in the margin — each leaflet block of a document gets a
+   subtle type label beside it, so inspecting a post/work reveals its block
+   skeleton as you read. Pure ::after on the blocks' existing classes (no
+   wrapper — the book paragraph-indent relies on adjacent siblings). Labels
+   sit in the LEFT margin so they never collide with the record note on the
+   right. Wide screens only, where a margin exists to hold them.
+   ---------------------------------------------------------------------- */
+@media (min-width: 1080px) {
+  :root[data-xray="on"] .leaflet-doc .leaflet-paragraph,
+  :root[data-xray="on"] .leaflet-doc .leaflet-heading,
+  :root[data-xray="on"] .leaflet-doc .leaflet-image,
+  :root[data-xray="on"] .leaflet-doc .leaflet-code,
+  :root[data-xray="on"] .leaflet-doc .leaflet-website,
+  :root[data-xray="on"] .leaflet-doc .leaflet-embed,
+  :root[data-xray="on"] .leaflet-doc .leaflet-bsky-post,
+  :root[data-xray="on"] .leaflet-doc .leaflet-list {
+    position: relative;
+  }
+  /* The code block scrolls (overflow-x:auto), which would clip a margin label;
+     let it show while inspecting (these code fences are short nsid lists). */
+  :root[data-xray="on"] .leaflet-doc .leaflet-code {
+    position: relative;
+    overflow: visible;
+  }
+  :root[data-xray="on"] .leaflet-doc .leaflet-paragraph::after,
+  :root[data-xray="on"] .leaflet-doc .leaflet-heading::after,
+  :root[data-xray="on"] .leaflet-doc .leaflet-image::after,
+  :root[data-xray="on"] .leaflet-doc .leaflet-code::after,
+  :root[data-xray="on"] .leaflet-doc .leaflet-website::after,
+  :root[data-xray="on"] .leaflet-doc .leaflet-embed::after,
+  :root[data-xray="on"] .leaflet-doc .leaflet-bsky-post::after,
+  :root[data-xray="on"] .leaflet-doc .leaflet-list::after {
+    position: absolute;
+    right: 100%;
+    top: 0.2em;
+    margin-right: var(--space-4);
+    font-family: var(--code);
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+    color: var(--xr-ink);
+    opacity: 0.62;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  :root[data-xray="on"] .leaflet-doc .leaflet-paragraph::after { content: "blocks.text"; }
+  :root[data-xray="on"] .leaflet-doc .leaflet-heading::after { content: "blocks.header"; }
+  :root[data-xray="on"] .leaflet-doc .leaflet-image::after { content: "blocks.image"; }
+  :root[data-xray="on"] .leaflet-doc .leaflet-code::after { content: "blocks.code"; }
+  :root[data-xray="on"] .leaflet-doc .leaflet-website::after { content: "blocks.website"; }
+  :root[data-xray="on"] .leaflet-doc .leaflet-embed::after { content: "blocks.website"; }
+  :root[data-xray="on"] .leaflet-doc .leaflet-bsky-post::after { content: "blocks.bskyPost"; }
+  :root[data-xray="on"] .leaflet-doc .leaflet-list::after { content: "blocks.list"; }
+}
+
+/* ----------------------------------------------------------------------
    Page HUD — a slim status strip naming the record behind the page. It
    rides the shared BottomSheet chrome (.bottom-sheet-wrap/-panel) so it
    expands up out of the bottom bar like the search/filter/info panels;
