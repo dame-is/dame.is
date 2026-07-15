@@ -14,6 +14,7 @@
 
 import { pageMeta, SITE, cleanPath, segsFor } from './og/pages.js';
 import { recordMeta } from './og/records.js';
+import { pageContentMeta } from './og/pageContent.js';
 import { ME_DID, COLLECTIONS, BLOG_PUBLICATION, PORTFOLIO_PUBLICATION } from './src/config.js';
 
 const ORIGIN = 'https://dame.is';
@@ -189,7 +190,16 @@ export default async function middleware(request) {
       const meta = pageMeta(path);
       title = meta.title;
       desc = meta.desc;
-      ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(path)}`;
+      // Prefer the live / snapshotted is.dame.page copy over the static default,
+      // so editing the record on the PDS updates the crawler description AND the
+      // card. Returns null (→ keep the static copy) when no record exists.
+      const pageContent = await pageContentMeta(path, url.origin);
+      if (pageContent?.desc) desc = pageContent.desc;
+      const ogParams = new URLSearchParams({ page: path });
+      // Hand the resolved copy to the card generator so it renders the same
+      // description without re-fetching (mirrors the record-card path above).
+      if (pageContent?.desc) ogParams.set('subtitle', pageContent.desc);
+      ogImage = `${ORIGIN}/api/og?${ogParams.toString()}`;
       atUri = topLevelAtUri(path);
       // Publication home pages advertise their publication for the embed.
       stdPub = SECTION_PUBLICATION[path] || null;

@@ -75,7 +75,10 @@ export default async function handler(req, res) {
       pathname = cleanPath(String(q.page));
       const meta = pageMeta(pathname);
       label = meta.label;
-      subtitle = meta.desc;
+      // Middleware injects a `subtitle` resolved from the live / snapshotted
+      // is.dame.page record; a direct hit with no subtitle uses the static copy.
+      const passed = q.subtitle != null ? String(q.subtitle).trim() : '';
+      subtitle = passed || meta.desc;
       nsid = meta.nsid;
     } else if (q.section) {
       // Per-record card: breadcrumb = /{section}, headline = the record title.
