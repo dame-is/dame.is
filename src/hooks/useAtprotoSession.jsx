@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { getOauthClient, getOauthEvents, OAUTH_SCOPE } from '../lib/oauthClient.js';
+import { getOauthClient, getOauthEvents, scopeForAccount } from '../lib/oauthClient.js';
 
 const Ctx = createContext(null);
 
@@ -69,16 +69,22 @@ export function AtprotoSessionProvider({ children }) {
     };
   }, [session]);
 
-  const signIn = useCallback(async (input) => {
+  const signIn = useCallback(async (input, opts = {}) => {
     const client = getOauthClient();
-    // Remember where the visitor was so the callback can send them back
-    // (e.g. signing in from /guestbook to sign it). Session-scoped so a
-    // stale path never leaks into a later, unrelated sign-in.
+    const { returnTo, intent, scope } = opts;
+    // Remember where the visitor was so the callback can send them back — e.g.
+    // signing in from the guestbook sheet returns them to /welcoming. When the
+    // sign-in was kicked off to sign the book, leave a one-shot flag so the
+    // guestbook page can reopen the sign sheet on return. Session-scoped so a
+    // stale path/flag never leaks into a later, unrelated sign-in.
     try {
-      sessionStorage.setItem('dame.oauth.return', window.location.pathname);
+      sessionStorage.setItem('dame.oauth.return', returnTo || window.location.pathname);
+      if (intent === 'guestbook-sign') sessionStorage.setItem('dame.guestbook.autosign', '1');
     } catch {}
-    // Resolves to a redirect — promise typically never resolves.
-    await client.signIn(input, { scope: OAUTH_SCOPE });
+    // The owner gets the broad admin scope; everyone else gets a scope that can
+    // only write their guestbook signature. Resolves to a redirect — the
+    // promise typically never resolves.
+    await client.signIn(input, { scope: scope || scopeForAccount(input) });
   }, []);
 
   const signOut = useCallback(async () => {

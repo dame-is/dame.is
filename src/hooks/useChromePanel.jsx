@@ -20,7 +20,7 @@ const ChromePanelContext = createContext(null);
 
 // The known transient panels. Kept as a constant so callers and tests can
 // reason about the full set without magic strings scattered around.
-export const CHROME_PANELS = ['search', 'filter', 'info'];
+export const CHROME_PANELS = ['search', 'filter', 'info', 'guestbook'];
 
 export function ChromePanelProvider({ children }) {
   const { open: dockOpen, closeDock } = useActionDock();

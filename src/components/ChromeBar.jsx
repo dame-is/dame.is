@@ -24,6 +24,7 @@ import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
 import InfoSheet from './InfoSheet.jsx';
+import GuestbookSheet from './GuestbookSheet.jsx';
 import Footer from './Footer.jsx';
 import './ChromeBar.css';
 
@@ -801,6 +802,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
 
       <SearchSheet />
       <InfoSheet />
+      <GuestbookSheet />
     </div>
   );
 }

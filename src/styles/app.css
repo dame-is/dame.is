@@ -257,6 +257,36 @@
   cursor: pointer;
 }
 
+/* A quiet secondary invitation beneath the hero CTAs — a text button, not a
+   boxed CTA, so it reads as an aside. Opens the guestbook sign sheet. */
+.home-hero-guestbook {
+  margin-top: var(--space-3);
+}
+
+.home-hero-guestbook-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+
+.home-hero-guestbook-link:hover,
+.home-hero-guestbook-link:focus-visible {
+  color: var(--accent);
+  text-decoration-color: var(--accent-soft);
+  outline: none;
+}
+
 /* Home: visual break between the hero (page-title) and the
    "Latest" feed below it. Adds a touch of extra breathing room and a
    small-caps section heading that won't compete with the hero h1. */

@@ -326,7 +326,7 @@ export const LEXICONS = {
   [GUESTBOOK_NSID]: {
     label: 'Guestbook (the book)',
     summary:
-      'The book record visitors sign (rkey "self") — its at-uri is what every signature backlinks to. `hidden` is the moderation list; usually managed from the Guestbook panel or edit mode on /guestbook rather than here.',
+      'The book record visitors sign (rkey "self") — its at-uri is what every signature backlinks to. `hidden` is the moderation list; usually managed from the Guestbook panel or edit mode on /welcoming rather than here.',
     rkeyMode: 'fixed',
     rkeyPlaceholder: 'self',
     rkeyDefault: 'self',

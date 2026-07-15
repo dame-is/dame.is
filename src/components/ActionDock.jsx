@@ -18,7 +18,7 @@ const ROUTES = [
   { to: '/listening', label: 'listening' },
   { to: '/curating', label: 'curating' },
   { to: '/mothing', label: 'mothing' },
-  { to: '/guestbook', label: 'guestbook' },
+  { to: '/welcoming', label: 'welcoming' },
   { to: '/exploring', label: 'exploring' },
 ];
 

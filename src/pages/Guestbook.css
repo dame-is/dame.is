@@ -357,3 +357,16 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* The "Sign the guestbook" call to action that stands in for the old inline
+   sign form — a standard signin-button with the pen icon aligned inline. The
+   actual pen lives in the shared bottom-chrome sign sheet (GuestbookSheet). */
+.guestbook-cta {
+  margin-bottom: var(--space-5);
+}
+
+.guestbook-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+}
