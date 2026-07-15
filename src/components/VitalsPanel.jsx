@@ -62,6 +62,22 @@ export default function VitalsPanel() {
         </span>
       )}
 
+      {vitals.caloriesBurned != null && (
+        <span className="vital vital-cal" aria-label={`${vitals.caloriesBurned} calories burned today`}>
+          <Flame className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+          <span className="vital-value">{vitals.caloriesBurned}</span>
+          <span className="vital-unit">cal</span>
+        </span>
+      )}
+
+      {vitals.soundLevel != null && (
+        <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
+          <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+          <span className="vital-value">{vitals.soundLevel}</span>
+          <span className="vital-unit">dB</span>
+        </span>
+      )}
+
       {vitals.activity && (
         <span className="vital vital-activity" aria-label={`Currently ${vitals.activity}`}>
           <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
@@ -78,22 +94,6 @@ export default function VitalsPanel() {
         >
           <BatteryIcon className="vital-glyph" size={16} strokeWidth={1.75} aria-hidden="true" />
           <span className="vital-value">{vitals.batteryLevel}%</span>
-        </span>
-      )}
-
-      {vitals.caloriesBurned != null && (
-        <span className="vital vital-cal" aria-label={`${vitals.caloriesBurned} calories burned today`}>
-          <Flame className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.caloriesBurned}</span>
-          <span className="vital-unit">cal</span>
-        </span>
-      )}
-
-      {vitals.soundLevel != null && (
-        <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
-          <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.soundLevel}</span>
-          <span className="vital-unit">dB</span>
         </span>
       )}
 
