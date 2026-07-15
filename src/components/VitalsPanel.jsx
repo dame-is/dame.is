@@ -1,4 +1,7 @@
-import { Heart, Flame, Zap, Footprints, Bike, Car, Armchair, Activity } from 'lucide-react';
+import {
+  Heart, Flame, Footprints, Bike, Car, Armchair, Activity, Volume2,
+  BatteryLow, BatteryMedium, BatteryFull, BatteryCharging,
+} from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useDameState } from '../hooks/useDameState.js';
 import { relativeTime } from '../lib/time.js';
@@ -9,11 +12,6 @@ import './VitalsPanel.css';
 // yesterday's heart rate as if it were live.
 const STALE_MINUTES = 30;
 
-// Ambient sound meter maps dB across this window onto its five bars: a hushed
-// room (~30 dB) lights one bar, a loud space (~90 dB) lights all five.
-const DB_MIN = 30;
-const DB_MAX = 90;
-
 const ACTIVITY_ICON = {
   stationary: Armchair,
   walking: Footprints,
@@ -21,6 +19,14 @@ const ACTIVITY_ICON = {
   cycling: Bike,
   automotive: Car,
 };
+
+// A lucide battery glyph that reflects charge / charging state.
+function batteryIcon(level, charging) {
+  if (charging) return BatteryCharging;
+  if (level > 66) return BatteryFull;
+  if (level > 33) return BatteryMedium;
+  return BatteryLow;
+}
 
 export default function VitalsPanel() {
   const { vitals } = useDameState();
@@ -55,6 +61,8 @@ export default function VitalsPanel() {
 
   const ActivityIcon =
     (vitals.activity && ACTIVITY_ICON[vitals.activity]) || Activity;
+  const BatteryIcon =
+    vitals.batteryLevel != null ? batteryIcon(vitals.batteryLevel, vitals.charging) : null;
 
   return (
     <div className={`vitals ${stale ? 'is-stale' : ''}`} aria-label="Current state from Dame's phone">
@@ -73,16 +81,15 @@ export default function VitalsPanel() {
         </span>
       )}
 
-      {vitals.batteryLevel != null && (
+      {BatteryIcon && (
         <span
           className={`vital vital-battery ${vitals.charging ? 'is-charging' : ''} ${
             vitals.batteryLevel <= 15 && !vitals.charging ? 'is-low' : ''
           }`}
           aria-label={`Battery ${vitals.batteryLevel} percent${vitals.charging ? ', charging' : ''}`}
         >
-          <BatteryMeter level={vitals.batteryLevel} />
+          <BatteryIcon className="vital-glyph" size={16} strokeWidth={1.75} aria-hidden="true" />
           <span className="vital-value">{vitals.batteryLevel}%</span>
-          {vitals.charging && <Zap className="vital-bolt" size={12} strokeWidth={2} aria-hidden="true" />}
         </span>
       )}
 
@@ -96,7 +103,7 @@ export default function VitalsPanel() {
 
       {vitals.soundLevel != null && (
         <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
-          <SoundMeter db={vitals.soundLevel} />
+          <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
           <span className="vital-value">{vitals.soundLevel}</span>
           <span className="vital-unit">dB</span>
         </span>
@@ -112,8 +119,9 @@ export default function VitalsPanel() {
   );
 }
 
-/** A heart that scales on each beat at the actual BPM. Falls back to a still
- *  glyph under reduced-motion or when the reading is stale. */
+/** A heart with a gentle beat at the actual BPM — a subtle pulse, not a throb.
+ *  Falls back to a still glyph under reduced-motion or when the reading is
+ *  stale. */
 function Heartbeat({ bpm, animate }) {
   const beat = bpm > 20 && bpm < 260 ? 60 / bpm : null;
   if (!animate || !beat) {
@@ -123,45 +131,10 @@ function Heartbeat({ bpm, animate }) {
     <motion.span
       className="vital-heartbeat"
       aria-hidden="true"
-      animate={{ scale: [1, 1.22, 0.98, 1] }}
-      transition={{ duration: beat, times: [0, 0.18, 0.32, 1], ease: 'easeInOut', repeat: Infinity }}
+      animate={{ scale: [1, 1.09, 1.01, 1.05, 1] }}
+      transition={{ duration: beat, times: [0, 0.16, 0.3, 0.44, 1], ease: 'easeInOut', repeat: Infinity }}
     >
       <Heart className="vital-glyph vital-glyph-heart" size={14} strokeWidth={1.75} aria-hidden="true" />
     </motion.span>
-  );
-}
-
-/** A square-cornered battery whose inner fill tracks the charge level. The
- *  fill color comes from CSS (accent when charging, warm when low). */
-function BatteryMeter({ level }) {
-  const pct = Math.max(0, Math.min(100, level)) / 100;
-  const fillW = Math.max(pct > 0 ? 1.5 : 0, 18 * pct);
-  return (
-    <svg className="vital-battery-svg" viewBox="0 0 27 13" width="27" height="13" aria-hidden="true">
-      <rect x="0.5" y="0.5" width="22" height="12" fill="none" stroke="currentColor" strokeWidth="1" />
-      <rect x="24" y="4" width="2.5" height="5" fill="currentColor" />
-      <rect className="vital-battery-fill" x="2" y="2" width={fillW} height="9" />
-    </svg>
-  );
-}
-
-/** Five rising bars; how many light up tracks the ambient sound level. */
-function SoundMeter({ db }) {
-  const frac = Math.max(0, Math.min(1, (db - DB_MIN) / (DB_MAX - DB_MIN)));
-  const lit = db > 0 ? Math.max(1, Math.round(frac * 5)) : 0;
-  const bars = [3, 5.5, 8, 10.5, 13];
-  return (
-    <svg className="vital-sound-svg" viewBox="0 0 21 14" width="21" height="14" aria-hidden="true">
-      {bars.map((h, i) => (
-        <rect
-          key={i}
-          className={i < lit ? 'vital-sound-bar is-lit' : 'vital-sound-bar'}
-          x={i * 4.5}
-          y={14 - h}
-          width="3"
-          height={h}
-        />
-      ))}
-    </svg>
   );
 }

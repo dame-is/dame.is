@@ -263,6 +263,25 @@ export default function ChromeBar() {
                 >
                   <NowPlaying />
                   <ProfileStats />
+                </motion.div>
+              </div>
+              {/* Second expanded tier: the iPhone state / vitals bar. It lives
+                  in the same height-animating wrap, so it reveals together with
+                  the LISTENING TO / FOLLOWED BY row above; its own top hairline
+                  and deep surface make it read as a distinct bar rather than a
+                  wrapped continuation of that row. */}
+              <div className="chrome-bar-row chrome-bar-state">
+                <motion.div
+                  className="chrome-signals chrome-signals-state"
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{
+                    duration: reduce ? 0 : 0.28,
+                    ease: [0.22, 0.61, 0.36, 1],
+                    delay: reduce ? 0 : 0.1,
+                  }}
+                >
                   <VitalsPanel />
                 </motion.div>
               </div>
