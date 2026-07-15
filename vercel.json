@@ -6,8 +6,7 @@
   "trailingSlash": false,
   "crons": [
     { "path": "/api/rebuild", "schedule": "0 */6 * * *" },
-    { "path": "/api/mirror-mothing", "schedule": "50 5,11,17,23 * * *" },
-    { "path": "/api/mirror-arena", "schedule": "20 6 * * *" }
+    { "path": "/api/mirror-mothing", "schedule": "50 5,11,17,23 * * *" }
   ],
   "rewrites": [
     { "source": "/.well-known/site.standard.publication", "destination": "/api/well-known" },
