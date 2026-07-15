@@ -7,8 +7,10 @@
 .guestbook-sheet-panel {
   /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x,
      kept on :root for exactly this) so the sheet lines up with the nav dock,
-     the breadcrumb, and the bottom-bar buttons at every breakpoint. */
-  padding: var(--space-4) var(--chrome-pad-x);
+     the breadcrumb, and the bottom-bar buttons at every breakpoint. Extra
+     bottom inset so the sign button clears the chrome bar below it rather than
+     crowding its top edge. */
+  padding: var(--space-4) var(--chrome-pad-x) var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
