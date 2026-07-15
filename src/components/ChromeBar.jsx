@@ -18,6 +18,7 @@ import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
 import VitalsPanel from './VitalsPanel.jsx';
+import DayOfLifeTicker from './DayOfLifeTicker.jsx';
 import LayoutToggle from './LayoutToggle.jsx';
 import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
@@ -263,6 +264,11 @@ export default function ChromeBar() {
                 >
                   <NowPlaying />
                   <ProfileStats />
+                  {/* Day of life joins the LISTENING TO / FOLLOWED BY stack —
+                      but only on mobile. On desktop it lives at the right edge
+                      of the vitals bar below instead; this copy is hidden there
+                      via CSS (and the vitals-bar copy is hidden on mobile). */}
+                  <DayOfLifeTicker />
                 </motion.div>
               </div>
               {/* Second expanded tier: the iPhone state / vitals bar. It lives

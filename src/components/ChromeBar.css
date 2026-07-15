@@ -375,6 +375,14 @@
   }
 }
 
+/* Day of life lives at the right edge of the vitals bar on desktop (see
+   VitalsPanel). The copy rendered here in the secondary row exists only for the
+   mobile stack, where it becomes the third line under LISTENING TO / FOLLOWED
+   BY — hidden here at desktop widths, shown in the mobile block below. */
+.chrome-signals-secondary .chrome-signal-day {
+  display: none;
+}
+
 .chrome-signal {
   display: inline-flex;
   align-items: baseline;
@@ -685,8 +693,10 @@
   .chrome-signals-secondary {
     flex-direction: column;
     align-items: stretch;
-    row-gap: var(--space-2);
-    gap: var(--space-2);
+    /* Tight 3-line stack (LISTENING TO / FOLLOWED BY / DAY OF LIFE) — the lines
+       sit on their own line-height with no extra gap between them. */
+    row-gap: 0;
+    gap: 0;
   }
   /* In a column flex layout each child sizes to its intrinsic content
      unless explicitly constrained, which lets long now-playing strings
@@ -696,6 +706,11 @@
     width: 100%;
     max-width: 100%;
     min-width: 0;
+  }
+  /* On mobile the day of life joins this stack as the third line (it's hidden
+     from the vitals bar); reveal the secondary-row copy here. */
+  .chrome-signals-secondary .chrome-signal-day {
+    display: inline-flex;
   }
 }
 

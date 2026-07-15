@@ -9,7 +9,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-5);
+  gap: var(--space-2) var(--space-4);
   width: 100%;
   font-family: var(--sans);
   font-size: var(--text-xs);
@@ -88,10 +88,11 @@
 
 @media (max-width: 700px) {
   .vitals {
-    gap: var(--space-2) var(--space-4);
+    gap: var(--space-2) var(--space-3);
   }
+  /* Day of life moves up into the LISTENING TO / FOLLOWED BY stack on mobile
+     (rendered in the secondary bar — see ChromeBar.css); hide the copy here. */
   .vitals .chrome-signal-day {
-    margin-left: 0;
-    flex-basis: 100%;
+    display: none;
   }
 }
