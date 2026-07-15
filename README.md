@@ -64,8 +64,13 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   which renders as a small chip (`src/components/VitalsChip.jsx`) under the status
   in the feed and on its record page.
   Posted straight from an iPhone Apple Shortcut (app-password `createSession` →
-  `createRecord`, no server); the panel dims and reads "last seen" once the
-  latest reading goes stale. See [`lexicons/STATE.md`](lexicons/STATE.md).
+  `createRecord`, no server), and also charts over time in the /logging
+  dashboard (`src/components/StateStats.jsx`). See
+  [`lexicons/STATE.md`](lexicons/STATE.md).
+- `is.dame.nav` — optional PDS override for the nav-menu (dock sheet) route
+  list. When its `enabled` flag is set, its `items` select / reorder / relabel /
+  hide the entries; otherwise the site uses the hardcoded routes in
+  `src/lib/navRoutes.js`. Edited in the admin "Nav menu" panel.
 
 Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.
 

@@ -131,6 +131,17 @@ async function main() {
   );
   await writeJson('state', stateLog);
 
+  // --- Nav menu override (is.dame.nav/self) ---------------------------------
+  // Optional PDS override for the dock-sheet route list; snapshotted so the
+  // menu paints the right routes on first load. getRecord 404s until one
+  // exists — `safe` degrades it to {} and the site uses its hardcoded routes.
+  const navRecord = await safe(
+    'getRecord:nav',
+    () => getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.nav, rkey: 'self' }),
+    null,
+  );
+  await writeJson('nav', navRecord || {});
+
   // --- is.dame.page (pages keyed by rkey) -----------------------------------
   const pageRecords = backfillTimestamps(
     await safe(

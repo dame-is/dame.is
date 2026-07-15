@@ -1,0 +1,168 @@
+/* Admin Nav-menu editor. Matches the admin panels' flat, ruled, square look. */
+
+.nav-enable {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--rule);
+  background: var(--surface-raised);
+  margin-bottom: var(--space-5);
+  cursor: pointer;
+}
+
+.nav-enable input {
+  margin-top: 0.2em;
+  flex: 0 0 auto;
+}
+
+.nav-enable > span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.nav-enable strong {
+  color: var(--ink);
+}
+
+.nav-enable-hint {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* ---- item list ---------------------------------------------------- */
+
+.nav-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--rule);
+  transition: opacity 0.2s ease;
+}
+
+.nav-items.is-dormant {
+  opacity: 0.62;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--page);
+}
+
+.nav-item + .nav-item {
+  border-top: 1px solid var(--rule-soft);
+}
+
+.nav-item.is-hidden {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--page),
+    var(--page) 8px,
+    var(--surface-raised) 8px,
+    var(--surface-raised) 9px
+  );
+}
+
+.nav-item-reorder {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+
+.nav-item-fields {
+  display: flex;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.nav-item-label {
+  flex: 1 1 45%;
+  min-width: 0;
+}
+
+.nav-item-path {
+  flex: 1 1 55%;
+  min-width: 0;
+  font-family: var(--mono);
+}
+
+.nav-item-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+
+/* Square icon buttons in the admin's muted vocabulary. */
+.nav-item-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  background: var(--surface-raised);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.nav-item-reorder .nav-item-btn {
+  width: 1.7rem;
+  height: 1.25rem;
+}
+
+.nav-item-btn:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--accent-soft);
+}
+
+.nav-item-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.nav-item-btn.is-on {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.nav-item-remove:hover:not(:disabled) {
+  color: #c17d3f;
+  border-color: #c17d3f;
+}
+
+/* ---- footer actions ----------------------------------------------- */
+
+.nav-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.nav-add,
+.nav-list-actions .admin-link-subtle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.nav-save {
+  margin-top: var(--space-5);
+}
+
+@media (max-width: 560px) {
+  .nav-item {
+    flex-wrap: wrap;
+  }
+  .nav-item-fields {
+    order: 3;
+    flex-basis: 100%;
+  }
+}

@@ -712,6 +712,13 @@
   .chrome-signals-secondary .chrome-signal-day {
     display: inline-flex;
   }
+  /* Faint dashed divider between the three stacked lines (LISTENING TO /
+     FOLLOWED BY / DAY OF LIFE), echoing the feed's thread dividers. */
+  .chrome-signals-secondary > .chrome-signal + .chrome-signal {
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 55%, transparent);
+  }
 }
 
 /* Print: the fixed chrome bars (and their expanding sheets) are screen

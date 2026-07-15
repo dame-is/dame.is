@@ -81,6 +81,13 @@ export const LEGACY_GUESTBOOK_SUBJECT = `at://${ME_DID}/${LEGACY_GUESTBOOK_NSID}
 // an iPhone Apple Shortcut; see lexicons/STATE.md.
 export const STATE_NSID = 'is.dame.state';
 
+// --- nav menu ----------------------------------------------------------------
+// Optional PDS override for the nav-menu (dock sheet) route list. The singleton
+// at is.dame.nav/self can select / reorder / relabel / hide entries; when its
+// `enabled` flag is off (or no record exists) the site uses the hardcoded
+// routes in src/lib/navRoutes.js. Edited in the admin "Nav menu" panel.
+export const NAV_NSID = 'is.dame.nav';
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
@@ -117,6 +124,7 @@ export const COLLECTIONS = {
   resumeEducation: RESUME_EDUCATION_NSID,
   arenaChannel: ARENA_CHANNEL_NSID,
   state: STATE_NSID,
+  nav: NAV_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */
