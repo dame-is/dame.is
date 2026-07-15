@@ -29,7 +29,7 @@ export default function NowStatus() {
   );
   return (
     <span className="chrome-signal chrome-signal-status">
-      <TickerText className="chrome-signal-value" title={tooltip || undefined}>
+      <TickerText className="chrome-signal-value" title={tooltip || undefined} marquee>
         {href ? (
           <Link to={href} className="chrome-signal-link">{inner}</Link>
         ) : (
