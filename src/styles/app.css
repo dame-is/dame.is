@@ -258,9 +258,12 @@
 }
 
 /* A quiet secondary invitation beneath the hero CTAs — a text button, not a
-   boxed CTA, so it reads as an aside. Opens the guestbook sign sheet. */
+   boxed CTA, so it reads as an aside. Opens the guestbook sign sheet.
+   `.page` spaces its children with `gap: var(--space-5)`; rather than add to
+   that, cancel most of it on each side so the link sits tight under the CTA
+   row (nets ~var(--space-2) above) instead of floating in its own band. */
 .home-hero-guestbook {
-  margin-top: var(--space-3);
+  margin: calc(var(--space-2) - var(--space-5)) 0;
 }
 
 .home-hero-guestbook-link {

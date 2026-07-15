@@ -108,9 +108,8 @@ function GuestbookSignIn({ signIn }) {
   return (
     <form className="guestbook-sheet-signin" onSubmit={handleSubmit}>
       <p className="guestbook-sheet-signin-text">
-        Sign in with any AT Protocol account (a Bluesky handle works). This asks for permission
-        to write just one kind of record — your guestbook signature — to your own data server,
-        and nothing else.
+        Sign in with your Atmosphere or Bluesky account to leave a note in my guestbook. The
+        record is saved to your PDS and displays on my site via backlinks.
       </p>
       <input
         className="signin-input"

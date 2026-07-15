@@ -193,6 +193,14 @@ export default function Guestbook() {
           </>
         )}
       </section>
+
+      <p className="guestbook-source gutter">
+        Signatures are gathered from backlinks by{' '}
+        <a href="https://microcosm.blue" target="_blank" rel="noopener noreferrer">
+          microcosm
+        </a>
+        .
+      </p>
     </PageShell>
   );
 }
