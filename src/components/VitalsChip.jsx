@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Heart, Flame, Footprints, Bike, Car, Armchair, Activity } from 'lucide-react';
+import { Heart, Flame, Footprints, Bike, Car, Armchair, PersonStanding } from 'lucide-react';
 import { resolveVitalsFromRef } from '../lib/vitals.js';
 import { activityLabel } from '../lib/activity.js';
 import './VitalsChip.css';
@@ -48,7 +48,7 @@ export default function VitalsChip({ stateRef, vitals: provided }) {
     vitals.heartRate != null || vitals.activity || vitals.caloriesBurned != null;
   if (!hasBody) return null;
 
-  const ActivityIcon = (vitals.activity && ACTIVITY_ICON[vitals.activity]) || Activity;
+  const ActivityIcon = (vitals.activity && ACTIVITY_ICON[vitals.activity]) || PersonStanding;
 
   return (
     <p className="vitals-chip" aria-label="Body-state captured with this status">

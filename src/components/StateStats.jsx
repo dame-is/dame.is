@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
-import { Heart, Flame, Volume2, Activity, Footprints, Bike, Car, Armchair } from 'lucide-react';
+import { Heart, Flame, Volume2, Activity, PersonStanding, Footprints, Bike, Car, Armchair } from 'lucide-react';
 import { activityLabel } from '../lib/activity.js';
 import './StateStats.css';
 
@@ -281,7 +281,7 @@ function ActivityBars({ rows }) {
   return (
     <ul className="state-bars">
       {rows.map((r) => {
-        const Icon = ACTIVITY_ICON[r.activity] || Activity;
+        const Icon = ACTIVITY_ICON[r.activity] || PersonStanding;
         return (
           <li key={r.activity} className="state-bar-row">
             <span className="state-bar-label">
