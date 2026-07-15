@@ -81,8 +81,8 @@ export default function GuestbookModerationPanel({ agent }) {
         >
           Edit the book record
         </Link>
-        <Link to="/guestbook" className="admin-gate-button admin-gate-button-tight">
-          View /guestbook
+        <Link to="/welcoming" className="admin-gate-button admin-gate-button-tight">
+          View /welcoming
         </Link>
       </div>
 

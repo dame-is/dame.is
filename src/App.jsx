@@ -131,7 +131,12 @@ export default function App() {
                   <Route path="/for-hire/:slug" element={<ForHireRedirect />} />
                   <Route path="/sharing" element={<Sharing />} />
                   <Route path="/mothing" element={<Mothing />} />
-                  <Route path="/guestbook" element={<Guestbook />} />
+                  <Route path="/welcoming" element={<Guestbook />} />
+                  {/* The guestbook presents as /welcoming ("dame is welcoming");
+                      keep the old path working for any in-app navigation that
+                      still targets it. Hard loads of /guestbook are 301'd to
+                      /welcoming by vercel.json. */}
+                  <Route path="/guestbook" element={<Navigate to="/welcoming" replace />} />
                   {generatedRecordRoutes()}
                   <Route
                     path="/admin"

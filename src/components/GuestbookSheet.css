@@ -1,0 +1,47 @@
+/* The guestbook sign sheet — header + the signed-out sign-in. The signed-in
+   pen reuses the .guestbook-form styles from the /welcoming page (Guestbook.css,
+   imported by GuestbookSignForm), and the .signin-* controls from SignInPanel. */
+.guestbook-sheet-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.guestbook-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.guestbook-sheet-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25em;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: color 120ms ease;
+}
+
+.guestbook-sheet-close:hover,
+.guestbook-sheet-close:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+
+.guestbook-sheet-signin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.guestbook-sheet-signin-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}

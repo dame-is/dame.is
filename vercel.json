@@ -44,6 +44,7 @@
     { "source": "/posts", "destination": "/posting", "permanent": true },
     { "source": "/writing/posts", "destination": "/posting", "permanent": true },
     { "source": "/log", "destination": "/logging", "permanent": true },
+    { "source": "/guestbook", "destination": "/welcoming", "permanent": true },
     { "source": "/patrons", "destination": "/supported", "permanent": true },
     { "source": "/ethos", "destination": "/sharing", "permanent": true },
     { "source": "/skeet-tools", "destination": "https://cred.blue/resources", "permanent": true },

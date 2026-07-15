@@ -71,10 +71,13 @@ export const PAGE_REGISTRY = {
     intro: 'Moths I’ve found and photographed, pulled from iNaturalist. A running field notebook of the winged things drawn to the light.',
     collection: null,
   },
+  // Presents as "Welcoming" (dame is welcoming) at /welcoming, but its slug —
+  // and all its backing data (the is.dame.guestbook book + entries) — stay
+  // `guestbook`. Same split as resume → "Available" at /available.
   guestbook: {
     slug: 'guestbook',
-    label: 'Guestbook',
-    title: 'Guestbook',
+    label: 'Welcoming',
+    title: 'Welcoming',
     intro: 'Sign in with any atproto account and leave a note that you were here. Every signature lives on the signer’s own PDS and reaches this page as a backlink.',
     collection: null,
   },

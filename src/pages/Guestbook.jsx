@@ -1,22 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LocateFixed } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { PenLine } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
 import { CommentsSkeleton } from '../components/Skeleton.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { useActionDock } from '../hooks/useActionDock.jsx';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import {
   fetchGuestbookEntries,
-  signGuestbook,
   deleteGuestbookEntry,
   setEntryHidden,
-  detectCoarseRegion,
-  graphemeLength,
-  ENTRY_TEXT_MAX_GRAPHEMES,
 } from '../lib/guestbook.js';
-import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID, GUESTBOOK_SUBJECT } from '../config.js';
 import './Guestbook.css';
 
@@ -24,10 +20,16 @@ import './Guestbook.css';
  * The guestbook. Every signature on this page is a record on the SIGNER's
  * own PDS pointing back at the book on mine — the page just gathers the
  * backlinks (Constellation), hydrates them (Slingshot), and offers a pen.
+ *
+ * Signing happens in the shared bottom-chrome sign sheet (GuestbookSheet,
+ * opened from here and from the home page), so this page shows a call to
+ * action rather than an inline form.
  */
 export default function Guestbook() {
   const { title, intro } = usePageContent('guestbook');
-  const { session, agent, did } = useAtprotoSession();
+  const { agent, did } = useAtprotoSession();
+  const { openPanel } = useChromePanel();
+  const location = useLocation();
 
   // Owner + the chrome bar's pencil = moderation: hidden entries surface
   // (dimmed) and every signature grows a hide/unhide control.
@@ -72,29 +74,34 @@ export default function Guestbook() {
     setLoadingMore(false);
   }
 
-  // --- the signer ------------------------------------------------------
-  // The signed-in visitor's profile, for the "signing as" line and for
-  // optimistically rendering their fresh signature before Constellation
-  // has indexed it.
-  const [myProfile, setMyProfile] = useState(null);
+  // A signature just written from the sign sheet arrives via navigation state;
+  // drop it on top of the book at once so it shows ahead of the backlink index.
+  // A ref of consumed URIs guards against a re-render or a back/forward
+  // replaying the same state and inserting it twice.
+  const consumedRef = useRef(new Set());
   useEffect(() => {
-    setMyProfile(null);
-    if (!did) return undefined;
-    let cancelled = false;
-    getProfile(did)
-      .then((p) => {
-        if (!cancelled && p) setMyProfile(p);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [did]);
-
-  function handleSigned(entry) {
-    setEntries((prev) => [{ ...entry, profile: myProfile }, ...(prev || [])]);
+    const fresh = location.state?.justSigned;
+    if (!fresh?.uri || consumedRef.current.has(fresh.uri)) return;
+    consumedRef.current.add(fresh.uri);
+    setEntries((prev) => {
+      const list = prev || [];
+      return list.some((e) => e.uri === fresh.uri) ? list : [fresh, ...list];
+    });
     setTotal((t) => (typeof t === 'number' ? t + 1 : t));
-  }
+  }, [location.state]);
+
+  // Returning from the guestbook-only sign-in flow (see signIn's intent),
+  // reopen the sheet once the session is live so the visitor can finish signing
+  // without a second tap. One-shot: the flag is cleared as it's read.
+  useEffect(() => {
+    if (!did) return;
+    let flagged = false;
+    try {
+      flagged = sessionStorage.getItem('dame.guestbook.autosign') === '1';
+      if (flagged) sessionStorage.removeItem('dame.guestbook.autosign');
+    } catch {}
+    if (flagged) openPanel('guestbook');
+  }, [did, openPanel]);
 
   async function handleRemove(entry) {
     if (!agent) return;
@@ -121,14 +128,19 @@ export default function Guestbook() {
       title={title}
       intro={intro}
       atUri={GUESTBOOK_SUBJECT}
-      headTitle="dame.is hosting a guestbook"
+      headTitle="dame.is welcoming"
       selectable
     >
-      {session ? (
-        <SignForm agent={agent} did={did} profile={myProfile} onSigned={handleSigned} />
-      ) : (
-        <SignInInvite />
-      )}
+      <div className="guestbook-cta">
+        <button
+          type="button"
+          className="signin-button guestbook-cta-btn"
+          onClick={() => openPanel('guestbook')}
+        >
+          <PenLine size={15} strokeWidth={1.75} aria-hidden="true" />
+          Sign the guestbook
+        </button>
+      </div>
 
       <section className="guestbook-entries">
         <h2 className="guestbook-entries-heading small-caps">
@@ -184,155 +196,3 @@ export default function Guestbook() {
     </PageShell>
   );
 }
-
-/**
- * Signed-out state: explain the deal (your words stay on YOUR data server),
- * then hand off to the dock's account panel for the OAuth flow. The current
- * path is stashed so the callback returns the signer here.
- */
-function SignInInvite() {
-  const { openDock, setView } = useActionDock();
-
-  function openAccount() {
-    openDock();
-    setView('account');
-  }
-
-  return (
-    <div className="guestbook-invite">
-      <p className="guestbook-invite-text">
-        Sign in with any AT Protocol account (a Bluesky handle works) to leave a note that you
-        were here. Your signature is written to <em>your own</em> data server, not this site.
-        This page only gathers the backlinks.
-      </p>
-      <button type="button" className="signin-button" onClick={openAccount}>
-        Sign in to sign
-      </button>
-    </div>
-  );
-}
-
-/**
- * The pen: a note plus an optional "signing from". (Older entries may carry
- * a one-glyph `mark` from the retired picker; the rows still render them.)
- */
-function SignForm({ agent, did, profile, onSigned }) {
-  const [text, setText] = useState('');
-  const [location, setLocation] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const [signedAt, setSignedAt] = useState(null);
-  const [locating, setLocating] = useState(false);
-  const [locError, setLocError] = useState(null);
-
-  const remaining = ENTRY_TEXT_MAX_GRAPHEMES - graphemeLength(text);
-  const canSign = !busy && Boolean(text.trim());
-
-  // Identity in the book is the handle, so that's what the form shows —
-  // no avatar, no display name.
-  const signingAs = useMemo(() => {
-    if (profile?.handle && profile.handle !== 'handle.invalid') return `@${profile.handle}`;
-    if (!did) return '';
-    return did.length > 24 ? `${did.slice(0, 12)}…${did.slice(-6)}` : did;
-  }, [profile, did]);
-
-  async function detectRegion() {
-    if (locating) return;
-    setLocating(true);
-    setLocError(null);
-    try {
-      setLocation(await detectCoarseRegion());
-    } catch (err) {
-      setLocError(err?.message || String(err));
-    } finally {
-      setLocating(false);
-    }
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (!canSign) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const { uri, value } = await signGuestbook(agent, { text, location });
-      onSigned({ uri, did, rkey: rkeyFromAtUri(uri), value });
-      setText('');
-      setLocation('');
-      setSignedAt(new Date());
-    } catch (err) {
-      setError(err?.message || String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form className="guestbook-form" onSubmit={handleSubmit}>
-      <div className="guestbook-form-head">
-        <span className="small-caps guestbook-form-eyebrow">Signing as</span>
-        <span className="guestbook-form-signer">{signingAs}</span>
-      </div>
-
-      <textarea
-        className="guestbook-textarea"
-        rows={3}
-        placeholder="Leave a note…"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        disabled={busy}
-      />
-      {remaining < 40 && (
-        <span className={`guestbook-remaining gutter${remaining < 0 ? ' guestbook-over' : ''}`}>
-          {remaining}
-        </span>
-      )}
-
-      <div className="guestbook-location-field">
-        <label className="small-caps guestbook-location-label" htmlFor="guestbook-location">
-          Signing from
-        </label>
-        <div className="guestbook-location-row">
-          <input
-            id="guestbook-location"
-            className="guestbook-location signin-input"
-            type="text"
-            placeholder="a place, in your own words (optional)"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            maxLength={64}
-            disabled={busy}
-          />
-          <button
-            type="button"
-            className="guestbook-locate"
-            onClick={detectRegion}
-            disabled={busy || locating}
-          >
-            <LocateFixed size={14} strokeWidth={1.75} aria-hidden="true" />
-            {locating ? 'Locating…' : 'Use my region'}
-          </button>
-        </div>
-        <span className="guestbook-location-hint">
-          Shown beside your signature. Write anything, or let &ldquo;Use my region&rdquo; ask
-          your browser for location and fill in only your state/region and country, never your
-          town or coordinates.
-        </span>
-        {locError && <p className="signin-error">{locError}</p>}
-      </div>
-
-      <div className="guestbook-form-actions">
-        <button type="submit" className="signin-button" disabled={!canSign}>
-          {busy ? 'Signing…' : 'Sign the book'}
-        </button>
-        {signedAt && !error && (
-          <span className="guestbook-signed-note gutter">
-            Signed. The record now lives on your PDS.
-          </span>
-        )}
-      </div>
-      {error && <p className="signin-error">{error}</p>}
-    </form>
-  );
-}
-

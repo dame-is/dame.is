@@ -31,6 +31,7 @@ import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
+import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
@@ -229,6 +230,10 @@ export default function Home() {
   // shuffle button in the hero CTA row can advance both rotators
   // without owning the hero's state.
   const shuffleRef = useRef(null);
+
+  // Opens the shared guestbook sign sheet (bottom chrome) from the hero's
+  // "Sign the guestbook" aside beneath the CTAs.
+  const { openPanel } = useChromePanel();
 
   const runRefresh = useCallback(async () => {
     if (inflightRef.current) return inflightRef.current;
@@ -572,6 +577,16 @@ export default function Home() {
           <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </nav>
+
+      <p className="home-hero-guestbook">
+        <button
+          type="button"
+          className="home-hero-guestbook-link"
+          onClick={() => openPanel('guestbook')}
+        >
+          Sign the guestbook
+        </button>
+      </p>
 
       <section className="home-latest">
         <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />

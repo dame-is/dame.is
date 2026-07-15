@@ -35,7 +35,7 @@ const CUSTOM_LEXICONS = [
   { nsid: 'is.dame.resume', title: 'resume', blurb: 'My work history and education, as records instead of a PDF.', route: '/available' },
   { nsid: 'is.dame.mothing', title: 'mothing', blurb: 'Moths I’ve logged on iNaturalist, mirrored here. No location is stored.', route: '/mothing' },
   { nsid: 'is.dame.observing', title: 'observing', blurb: 'Everything I’ve logged on iNaturalist that isn’t a moth: birds, plants, fungi.' },
-  { nsid: 'is.dame.guestbook', title: 'guestbook', blurb: 'A guestbook you sign from your own repository. Your entry stays in your repo and links back to mine.', route: '/guestbook' },
+  { nsid: 'is.dame.guestbook', title: 'guestbook', blurb: 'A guestbook you sign from your own repository. Your entry stays in your repo and links back to mine.', route: '/welcoming' },
   { nsid: 'is.dame.arena.channel', title: 'arena channel', blurb: 'The are.na channels I curate, mirrored from are.na into my repo.', route: '/curating' },
   { nsid: 'is.dame.annotating', title: 'annotating', blurb: 'Margin notes attached to another record by its AT URI.' },
 ];

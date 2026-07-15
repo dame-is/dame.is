@@ -6,6 +6,7 @@
 //   metadata. The library auto-redirects `localhost` origins to `127.0.0.1`.
 
 import { BrowserOAuthClient } from '@atproto/oauth-client-browser';
+import { ME_HANDLE, ME_DID } from '../config.js';
 
 let _client = null;
 let _loopbackUrl = null;
@@ -20,7 +21,18 @@ export function getOauthEvents() {
   return _events;
 }
 
-const SCOPE = 'atproto transition:generic';
+// Two grants, chosen per sign-in (see scopeForAccount):
+//   - The owner (dame.is) signs in to administer the whole site, so they get
+//     the broad transitional scope.
+//   - Everyone else signs in for exactly one reason — to leave a guestbook
+//     signature — so visitors get a granular scope that grants write access to
+//     just the is.dame.guestbook.entry collection on their own PDS, nothing else.
+const OWNER_SCOPE = 'atproto transition:generic';
+const GUESTBOOK_SCOPE = 'atproto repo:is.dame.guestbook.entry';
+// Client metadata must advertise every scope the client may ever request — the
+// authorization server validates each authorization request against it — so it
+// declares the union of both. A single sign-in then narrows to one of the two.
+const CLIENT_SCOPE = 'atproto transition:generic repo:is.dame.guestbook.entry';
 
 function isLoopbackHost(hostname) {
   return (
@@ -72,7 +84,7 @@ export function getOauthClient() {
       client_uri: origin,
       logo_uri: `${origin}/api/favicon`,
       redirect_uris: [`${origin}${redirectPath}`],
-      scope: SCOPE,
+      scope: CLIENT_SCOPE,
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       token_endpoint_auth_method: 'none',
@@ -84,4 +96,20 @@ export function getOauthClient() {
   return _client;
 }
 
-export const OAUTH_SCOPE = SCOPE;
+/**
+ * Which OAuth scope to request for a given sign-in identifier. The owner
+ * (matched by handle or DID) gets the broad transitional scope for admin;
+ * everyone else gets the guestbook-only write scope — the narrowest grant that
+ * still lets a visitor sign the book. Unrecognized input falls through to the
+ * guestbook scope, never the broad one.
+ */
+export function scopeForAccount(input) {
+  const id = String(input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, '');
+  const isOwner = id === ME_HANDLE.toLowerCase() || id === ME_DID.toLowerCase();
+  return isOwner ? OWNER_SCOPE : GUESTBOOK_SCOPE;
+}
+
+export { OWNER_SCOPE, GUESTBOOK_SCOPE, CLIENT_SCOPE };
