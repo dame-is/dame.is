@@ -1,19 +1,23 @@
-import { aturiExplorerUrl } from '../lib/atproto.js';
+import { Link } from 'react-router-dom';
+import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 
 /**
  * Small row of actions under a record:
  *   - "Open in…"     → opens the in-site waypoints picker (choose any client),
  *                       powered by @aturi.to/waypoints.
- *   - "Inspect Data" → the Atmosphere Explorer raw-record view on aturi.to.
+ *   - "Inspect Data" → the record in this site's OWN Atmosphere Explorer
+ *                       (/exploring). It used to deep-link out to aturi.to's
+ *                       explorer; now that the site has its own exploring
+ *                       feature (and inspect mode), it stays in-house.
  *
  * Renders nothing when the URI can't be turned into either action.
  */
 export default function AturiActions({ atUri }) {
   const { openWaypoints } = useWaypointsModal();
-  const inspectUrl = aturiExplorerUrl(atUri);
+  const explorePath = explorerPathFromAtUri(atUri);
   const canOpen = typeof atUri === 'string' && atUri.startsWith('at://');
-  if (!canOpen && !inspectUrl) return null;
+  if (!canOpen && !explorePath) return null;
   return (
     <div className="record-aturi-actions">
       {canOpen && (
@@ -21,11 +25,7 @@ export default function AturiActions({ atUri }) {
           Open in…
         </button>
       )}
-      {inspectUrl && (
-        <a href={inspectUrl} target="_blank" rel="noreferrer noopener" data-no-waypoints>
-          Inspect Data
-        </a>
-      )}
+      {explorePath && <Link to={explorePath}>Inspect Data</Link>}
     </div>
   );
 }
