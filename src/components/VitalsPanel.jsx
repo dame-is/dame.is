@@ -79,13 +79,6 @@ export default function VitalsPanel() {
         </span>
       )}
 
-      {vitals.activity && (
-        <span className="vital vital-activity" aria-label={`Currently ${activityLabel(vitals.activity)}`}>
-          <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-word">{activityLabel(vitals.activity)}</span>
-        </span>
-      )}
-
       {BatteryIcon && (
         <span
           className={`vital vital-battery ${vitals.charging ? 'is-charging' : ''} ${
@@ -95,6 +88,15 @@ export default function VitalsPanel() {
         >
           <BatteryIcon className="vital-glyph" size={16} strokeWidth={1.75} aria-hidden="true" />
           <span className="vital-value">{vitals.batteryLevel}%</span>
+        </span>
+      )}
+
+      {/* Activity sits last — it's a word rather than a number, so it reads
+          cleanly at the end of the numeric run. */}
+      {vitals.activity && (
+        <span className="vital vital-activity" aria-label={`Currently ${activityLabel(vitals.activity)}`}>
+          <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+          <span className="vital-word">{activityLabel(vitals.activity)}</span>
         </span>
       )}
 
