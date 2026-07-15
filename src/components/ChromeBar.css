@@ -116,6 +116,22 @@
   padding: var(--space-2) 0;
 }
 
+/* State / vitals bar — a second expanded tier beneath the LISTENING TO /
+   FOLLOWED BY row. It sits in the same height-animating wrap, so it reveals
+   together with that row; its own top hairline + deep surface delineate it as
+   a distinct bar rather than a wrapped continuation. */
+.chrome-bar-state {
+  border-top: 1px solid var(--rule-soft);
+  background: var(--surface-deep);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.chrome-bar-state > .chrome-signals {
+  width: 100%;
+  padding: var(--space-2) 0;
+}
+
 /* Tertiary chrome: the scroll-driven breadcrumb strip. It's absolutely
    positioned at the header's bottom edge (top: 100%) rather than sitting in
    the header's normal flow — so revealing it grows nothing in the document
