@@ -49,7 +49,7 @@ function XrayHud() {
   const atUri = derived.atUri || fallback?.atUri || null;
   const explorerPath = atUri ? explorerPathFromAtUri(atUri) : null;
 
-  function inspect() {
+  function openDetails() {
     setView('debug');
     openDock();
   }
@@ -72,7 +72,7 @@ function XrayHud() {
         aria-live="polite"
       >
         <span className="xray-hud-mark">
-          <Microscope aria-hidden="true" strokeWidth={1.75} /> x-ray
+          <Microscope aria-hidden="true" strokeWidth={1.75} /> inspect
         </span>
         {atUri ? (
           explorerPath ? (
@@ -86,8 +86,8 @@ function XrayHud() {
           <span className="xray-hud-aggregate">a live view over many records</span>
         )}
         <span className="xray-hud-spacer" />
-        <button type="button" className="xray-hud-inspect" onClick={inspect}>
-          inspect ↗
+        <button type="button" className="xray-hud-inspect" onClick={openDetails}>
+          details ↗
         </button>
       </div>
     </motion.div>

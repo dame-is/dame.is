@@ -610,7 +610,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 >
                   <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
-                {/* Atmosphere x-ray — the marquee "turn the page inside out"
+                {/* Atmosphere inspect — the marquee "turn the page inside out"
                     mode. Toggling it reveals the AT Protocol records beneath
                     the page; entering it folds away any open panel and the
                     owner's edit mode (they compete for the same surface). */}
@@ -623,8 +623,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     toggleXray();
                   }}
                   aria-pressed={xrayActive}
-                  aria-label={xrayActive ? 'Exit x-ray' : 'X-ray this page'}
-                  title="Atmosphere x-ray — reveal the records under the page"
+                  aria-label={xrayActive ? 'Stop inspecting' : 'Inspect this page'}
+                  title="Inspect — reveal the records under the page"
                 >
                   <Microscope className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                 </button>
