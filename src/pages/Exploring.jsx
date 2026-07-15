@@ -36,8 +36,8 @@ export default function Exploring() {
   const repoInput = params.repo || ME_HANDLE;
   const { collection, rkey } = params;
   // The bare `/exploring` (no repo in the path) is dame's own repository,
-  // rendered as a personal landing (ExploringHome). Any explicit repo —
-  // including `/exploring/dame.is` — keeps the generic multi-repo browser.
+  // rendered as a personal landing (ExploringHome). Any explicit repo,
+  // including `/exploring/dame.is`, keeps the generic multi-repo browser.
   const isOwnerHome = !params.repo;
 
   const [identity, setIdentity] = useState(null); // { did, handle, pds }
@@ -70,7 +70,7 @@ export default function Exploring() {
       title="Exploring"
       intro={
         isOwnerHome
-          ? 'Everything on this site is a record in my public repository on the atproto network — and it’s open for anyone to read.'
+          ? 'Everything on this site is a record in my atproto repository. The repository is public, so anyone can read it.'
           : undefined
       }
       headTitle={isOwnerHome ? 'Exploring — dame.is' : `${title} — Exploring — dame.is`}
