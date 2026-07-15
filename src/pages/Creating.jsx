@@ -167,6 +167,8 @@ export default function Creating() {
               kind: workCategory(v),
               time: v.createdAt ? relativeTime(v.createdAt) : null,
               nsid: nsidFromAtUri(r.uri),
+              atUri: r.uri || null,
+              cid: r.cid || null,
             };
           })}
         />

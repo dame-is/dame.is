@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatTime, formatWallClockTime } from '../lib/time.js';
-import { atUriParts, shortenCid } from '../lib/xray.js';
+import LedgerXrayLine from './LedgerXrayLine.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
@@ -123,28 +123,6 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
         );
       })}
     </>
-  );
-}
-
-/**
- * The x-ray manifest line for a ledger row: `at://…/<nsid>/<rkey>` (the
- * collection highlighted inside the address) on the left two columns, the
- * short content hash on the right — overlaid on the row's own grid so it
- * stays a single aligned line. Hidden until the data-xray root attribute is
- * set; see Xray.css.
- */
-function LedgerXrayLine({ atUri, cid }) {
-  const parts = atUriParts(atUri);
-  if (!parts) return null;
-  return (
-    <div className="ledger-xray" aria-hidden="true">
-      <span className="bp-uri ledger-xray-uri">
-        <span className="did">{parts.prefix}</span>
-        <span className="nsid">{parts.nsid}</span>
-        <span className="rkey">{parts.rkey}</span>
-      </span>
-      {cid && <span className="ledger-xray-cid">{shortenCid(cid)}</span>}
-    </div>
   );
 }
 

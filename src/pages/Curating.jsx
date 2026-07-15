@@ -128,6 +128,8 @@ export default function Curating() {
                 ? `${g.blockCount} ${g.blockCount === 1 ? 'block' : 'blocks'}`
                 : null,
             nsid: COLLECTIONS.arenaChannel,
+            // The gallery's backing channel record — its rkey is the slug.
+            atUri: `at://${ME_DID}/${COLLECTIONS.arenaChannel}/${g.slug}`,
           }))}
         />
       ) : (

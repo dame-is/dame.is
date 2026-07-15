@@ -5,6 +5,8 @@ import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
+import { useXray } from '../hooks/useXray.jsx';
+import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { ME_DID, INATURALIST_USER, MOTHING_OBSERVATION_NSID } from '../config.js';
@@ -124,6 +126,7 @@ function sessionLedgerMeta(session) {
  * a photoless observation is a static row with a placeholder thumb.
  */
 function MothLedgerRow({ obs, onOpen }) {
+  const xray = useXray();
   const photo = obs.photos?.[0];
   const thumb = photo ? photoUrl(photo, 'square') : null;
   const name = mothName(obs);
@@ -146,8 +149,17 @@ function MothLedgerRow({ obs, onOpen }) {
       <span className="mothing-ledger-time">{time}</span>
     </>
   );
+  // The mirrored observation record on the PDS — its rkey is the iNaturalist id.
+  const atUri = obs.id ? `at://${ME_DID}/${MOTHING_OBSERVATION_NSID}/${obs.id}` : null;
+  const inspectable = xray.active && !!atUri;
+  const focused = inspectable && xray.focusUri === atUri;
   return (
-    <li className="mothing-ledger-item" data-nsid={MOTHING_OBSERVATION_NSID}>
+    <li
+      className={`mothing-ledger-item${focused ? ' is-xray-focus' : ''}`}
+      data-nsid={MOTHING_OBSERVATION_NSID}
+      data-atproto={atUri ? '' : undefined}
+      data-at-uri={atUri || undefined}
+    >
       {photo ? (
         <button
           type="button"
@@ -160,6 +172,8 @@ function MothLedgerRow({ obs, onOpen }) {
       ) : (
         <div className="mothing-ledger-row mothing-ledger-row-static">{inner}</div>
       )}
+      {inspectable && <XrayTag atUri={atUri} onOpen={() => xray.focus(atUri)} />}
+      {focused && <XraySubstratePanel atUri={atUri} />}
     </li>
   );
 }
