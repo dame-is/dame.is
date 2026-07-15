@@ -1,0 +1,33 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.nav",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "description": "Overrides the site nav menu (the dock sheet). A singleton at at://{me}/is.dame.nav/self. When `enabled`, `items` replace the site's hardcoded route list — letting you select, reorder, relabel, and hide entries. When `enabled` is false (or no record exists), the site falls back to its built-in routes (see src/lib/navRoutes.js).",
+      "record": {
+        "type": "object",
+        "required": ["enabled", "createdAt"],
+        "properties": {
+          "enabled": { "type": "boolean", "description": "Whether this record drives the nav menu. False = use the hardcoded routes." },
+          "items": {
+            "type": "array",
+            "description": "Ordered nav entries. Order here is the order shown.",
+            "items": {
+              "type": "object",
+              "required": ["to", "label"],
+              "properties": {
+                "to": { "type": "string", "maxLength": 512, "description": "Route path, e.g. /logging." },
+                "label": { "type": "string", "maxLength": 64, "description": "Display label." },
+                "hidden": { "type": "boolean", "description": "Keep the entry in the list but hide it from the menu." }
+              }
+            }
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}

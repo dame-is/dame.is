@@ -4,23 +4,11 @@ import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
+import { useNavRoutes } from '../hooks/useNavRoutes.js';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import SignInPanel from './SignInPanel.jsx';
 import DebugPane from './DebugPane.jsx';
 import './ActionDock.css';
-
-const ROUTES = [
-  { to: '/', label: 'home' },
-  { to: '/themself', label: 'themself' },
-  { to: '/available', label: 'available' },
-  { to: '/blogging', label: 'blogging' },
-  { to: '/creating', label: 'creating' },
-  { to: '/listening', label: 'listening' },
-  { to: '/curating', label: 'curating' },
-  { to: '/mothing', label: 'mothing' },
-  { to: '/welcoming', label: 'welcoming' },
-  { to: '/exploring', label: 'exploring' },
-];
 
 export default function ActionDock() {
   // Sheet-replace navigation: the dock has three interchangeable views.
@@ -29,6 +17,7 @@ export default function ActionDock() {
   // chevron header. `view`/`setView` live in the dock context so the bar
   // can drive them.
   const { open, view, setView, openDock, closeDock } = useActionDock();
+  const routes = useNavRoutes();
   const reduce = useReducedMotion();
   const panelRef = useRef(null);
   // Keep a touch-drag on the open sheet from scrolling the concealed page
@@ -128,7 +117,7 @@ export default function ActionDock() {
               <div className="dock-section">
                 <div className="dock-heading">Dame is&hellip;</div>
                 <nav className="dock-routes">
-                  {ROUTES.map((r) => (
+                  {routes.map((r) => (
                     <NavLink
                       key={r.to}
                       to={r.to}

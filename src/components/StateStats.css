@@ -4,8 +4,6 @@
 
 .state-stats {
   margin-bottom: var(--space-7);
-  padding-bottom: var(--space-5);
-  border-bottom: 1px solid var(--rule);
 }
 
 .state-stats-head {
