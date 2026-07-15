@@ -223,6 +223,34 @@ export function rkeyFromAtUri(atUri) {
   return m ? m[1] : null;
 }
 
+// The base32-sortable alphabet atproto TIDs are encoded with.
+const TID_ALPHABET = '234567abcdefghijklmnopqrstuvwxyz';
+
+/**
+ * Recover the timestamp embedded in a TID record key.
+ *
+ * A TID is a 13-char base32-sortable string whose bits are
+ * `0 | 53-bit microseconds-since-epoch | 10-bit clock id`, so the key alone
+ * pins when the record was minted. Useful when a record omits an explicit
+ * `createdAt` (the legacy guestbook signatures often do) — the rkey is then
+ * the only timestamp available. Returns an ISO string, or `null` when `rkey`
+ * isn't a well-formed TID (custom / human-chosen rkeys aren't).
+ */
+export function tidToTimestamp(rkey) {
+  const s = String(rkey || '');
+  if (s.length !== 13) return null;
+  let n = 0n;
+  for (const ch of s) {
+    const i = TID_ALPHABET.indexOf(ch);
+    if (i < 0) return null; // not a TID — bail rather than decode garbage
+    n = n * 32n + BigInt(i);
+  }
+  const ms = Number((n >> 10n) / 1000n); // drop the clock id, µs → ms
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 /**
  * Convert an `at://` URI (or a bare DID) into the corresponding
  * `/exploring/...` SPA path. Returns `null` for empty/unparseable input.
