@@ -5,6 +5,7 @@
 
 import { fetchSnapshot } from './snapshot.js';
 import { resolvePds, getRecord } from './atproto.js';
+import { normalizeActivity } from './activity.js';
 
 export function toInt(v) {
   if (v === null || v === undefined || v === '') return null;
@@ -34,15 +35,12 @@ export function clampPct(n) {
  */
 export function normalizeVitals(value) {
   if (!value) return null;
-  // Accept the raw iOS key (`physicalActivity`, e.g. "Stationary") as well as
-  // the normalized `activity`, the same way charging/sound accept their raw
-  // keys below — the Shortcut posts whichever it has.
-  const rawActivity = value.activity ?? value.physicalActivity;
-  const activity = rawActivity ? String(rawActivity).trim().toLowerCase() : null;
   return {
     heartRate: nonZero(toInt(value.heartRate)),
-    // `unknown` is the lexicon's "no reading" sentinel — treat it as absent too.
-    activity: activity && activity !== 'unknown' ? activity : null,
+    // The iOS activity string (raw `physicalActivity` or the normalized
+    // `activity`) → a canonical key, so icons resolve and states group even
+    // though the phone's wording varies. See lib/activity.js.
+    activity: normalizeActivity(value.activity ?? value.physicalActivity),
     batteryLevel: nonZero(clampPct(toInt(value.batteryLevel))),
     charging: toBool(value.charging ?? value.isCharging),
     soundLevel: nonZero(toInt(value.soundLevel ?? value.environmentSound)),

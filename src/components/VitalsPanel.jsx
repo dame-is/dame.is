@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useDameState } from '../hooks/useDameState.js';
+import { activityLabel } from '../lib/activity.js';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
 import './VitalsPanel.css';
 
@@ -79,9 +80,9 @@ export default function VitalsPanel() {
       )}
 
       {vitals.activity && (
-        <span className="vital vital-activity" aria-label={`Currently ${vitals.activity}`}>
+        <span className="vital vital-activity" aria-label={`Currently ${activityLabel(vitals.activity)}`}>
           <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-word">{vitals.activity}</span>
+          <span className="vital-word">{activityLabel(vitals.activity)}</span>
         </span>
       )}
 

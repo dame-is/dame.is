@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Heart, Flame, Footprints, Bike, Car, Armchair, Activity } from 'lucide-react';
 import { resolveVitalsFromRef } from '../lib/vitals.js';
+import { activityLabel } from '../lib/activity.js';
 import './VitalsChip.css';
 
 // A compact readout for the body-state a status carried — the "effort" signals
@@ -61,7 +62,7 @@ export default function VitalsChip({ stateRef, vitals: provided }) {
       {vitals.activity && (
         <span className="vitals-chip-item">
           <ActivityIcon className="vitals-chip-glyph" size={12} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vitals-chip-word">{vitals.activity}</span>
+          <span className="vitals-chip-word">{activityLabel(vitals.activity)}</span>
         </span>
       )}
       {vitals.caloriesBurned != null && (
