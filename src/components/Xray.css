@@ -78,13 +78,25 @@
   .ledger-xray-cid { display: none; }
 }
 
+/* When inspect is on the row COLLAPSES to just its manifest line. Tall rows
+   (posts with embeds, quote reposts, listen batches) otherwise kept their full
+   height with the one-line address floating at the top over a big empty block —
+   and a focused row's panel then appeared far below the tap. So hide the
+   rendered content outright and drop the manifest into normal flow: the row is
+   one line, and the substrate panel sits directly beneath the tapped row. */
 :root[data-xray="on"] .feed-item-ledger > .ledger-verb,
 :root[data-xray="on"] .feed-item-ledger > .ledger-body,
-:root[data-xray="on"] .feed-item-ledger > .ledger-time {
-  opacity: var(--xr-dim);
-  transition: opacity 0.28s var(--xr-ease);
+:root[data-xray="on"] .feed-item-ledger > .ledger-time,
+:root[data-xray="on"] .feed-item-ledger > .ledger-track-row {
+  display: none;
 }
-:root[data-xray="on"] .feed-item-ledger .ledger-xray { opacity: 1; pointer-events: auto; }
+:root[data-xray="on"] .feed-item-ledger .ledger-xray {
+  position: static;
+  grid-column: 1 / -1;
+  padding: 0;
+  opacity: 1;
+  pointer-events: auto;
+}
 :root[data-xray="on"] .feed-item-ledger .ledger-xray .ledger-xray-uri { cursor: pointer; }
 .ledger-xray-uri:hover .nsid { text-decoration: underline; }
 
@@ -215,30 +227,29 @@
   border-left: 1px dashed var(--xr-frame);
 }
 
-/* Desktop: float the record into a right-margin gutter so the reveal reads
-   as data sliding out beside the document, not stacked under it. */
-@media (min-width: 860px) {
-  :root[data-xray="on"] .resume-xray {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 15rem;
-    column-gap: var(--space-5);
-    align-items: start;
-  }
-  :root[data-xray="on"] .resume-xray-tag {
+/* Wide screens: true marginalia. The document column keeps its full measure;
+   the record note floats into the outer right margin beside the entry (like a
+   margin gloss in a book) rather than squeezing an inner gutter. The resume
+   column is capped at --measure and left-aligned in the 72rem main, so there's
+   ample right margin to sit in. */
+@media (min-width: 1000px) {
+  .resume-xray-tag {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    width: 14rem;
     max-height: none;
-    margin-top: 0;
-    padding-left: var(--space-4);
+    overflow: visible;
+    margin: 0 0 0 var(--space-5);
+    padding: 0 0 0 var(--space-4);
+    border-left: 1px dashed var(--xr-frame);
   }
+  :root[data-xray="on"] .resume-xray-tag { opacity: 1; }
 }
 
-/* Focused role: the ambient gutter tag gives way to the full substrate panel,
-   which spans the whole width below the (now fully-legible) entry. Dropping the
-   desktop gutter grid lets the panel run full-width instead of squeezing into
-   the 15rem column. */
+/* Focused role: the ambient note gives way to the full substrate panel below
+   the (now fully-legible) entry, and the others recede. */
 :root[data-xray-focus="on"] .resume-xray.is-xray-focus .resume-xray-content { opacity: 1; }
-@media (min-width: 860px) {
-  :root[data-xray="on"] .resume-xray.is-xray-focus { display: block; }
-}
 
 /* ----------------------------------------------------------------------
    Page HUD — a slim status strip naming the record behind the page. It
