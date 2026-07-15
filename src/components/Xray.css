@@ -282,39 +282,17 @@
   from { opacity: 0; transform: translateY(-0.35rem); }
   to   { opacity: 1; transform: none; }
 }
-.doc-inspect-note {
-  display: block;
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  color: inherit;
-  background: var(--xr-field);
-  border: 0;
-  border-left: 2px solid var(--xr-frame);
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-}
-.doc-inspect-note .nsid { color: var(--xr-ink); display: block; font-size: 0.7rem; }
-.doc-inspect-note .uri { color: var(--ink-muted); display: block; font-size: 0.66rem; word-break: break-all; margin-top: 1px; }
-.doc-inspect-note .note { color: var(--ink-faint); display: block; font-size: 0.64rem; margin-top: 3px; }
-.doc-inspect-note .cta { color: var(--accent); display: block; font-size: 0.64rem; margin-top: var(--space-2); }
-.doc-inspect-note:hover .nsid { text-decoration: underline; }
 .doc-inspect-margin .xray-substrate { margin-top: 0; }
 
-/* Wide: float the note into the outer right margin as a true margin gloss. */
+/* Wide: float the record panel into the outer right margin as a true margin
+   gloss, clear of the reading column. */
 @media (min-width: 1080px) {
   .doc-inspect-margin {
     position: absolute;
     top: 0;
     left: 100%;
-    width: 16rem;
+    width: 18rem;
     margin: 0 0 0 var(--space-5);
-  }
-  .doc-inspect-margin.is-xray-focus { width: 18rem; }
-  .doc-inspect-note {
-    background: transparent;
-    border-left: 1px dashed var(--xr-frame);
-    padding: 0 0 0 var(--space-4);
   }
 }
 
