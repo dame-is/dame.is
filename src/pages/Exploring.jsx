@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Check, Copy, Search } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import ExploringHome from '../components/ExploringHome.jsx';
 import RecordEditor, { rkeyFromUri } from '../components/RecordEditor.jsx';
@@ -159,8 +160,13 @@ function SearchBox({ initial }) {
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
-      <button type="submit" className="admin-gate-button admin-gate-button-tight">
-        Look up
+      <button
+        type="submit"
+        className="admin-gate-button exploring-search-button"
+        aria-label="Look up repo"
+        title="Look up"
+      >
+        <Search size={16} strokeWidth={1.75} aria-hidden />
       </button>
     </form>
   );
@@ -899,6 +905,7 @@ function RecordView({ identity, collection, rkey }) {
             Close editor
           </button>
         )}
+        {record && !editing && <CopyJsonButton record={record} />}
         {!session && (
           <SignInToEditButton
             signIn={signIn}
@@ -977,6 +984,40 @@ function SignInToEditButton({ signIn, target }) {
       }}
     >
       {busy ? 'Redirecting…' : 'Sign in to edit'}
+    </button>
+  );
+}
+
+/**
+ * Copy the focused record's JSON to the clipboard. Sits in the record's action
+ * row (above the raw JSON dump) and flips to a check for a beat on success.
+ */
+function CopyJsonButton({ record }) {
+  const [copied, setCopied] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => () => { mounted.current = false; }, []);
+
+  async function onClick() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(record, null, 2));
+      setCopied(true);
+      setTimeout(() => {
+        if (mounted.current) setCopied(false);
+      }, 1200);
+    } catch {
+      // Clipboard blocked (insecure context / permissions); no-op.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      className="admin-link-subtle exploring-record-copy"
+      onClick={onClick}
+      title={copied ? 'Copied' : 'Copy JSON'}
+    >
+      {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
+      <span>{copied ? 'Copied' : 'Copy JSON'}</span>
     </button>
   );
 }

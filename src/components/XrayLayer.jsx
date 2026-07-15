@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Microscope } from 'lucide-react';
+import { ArrowUpRight, Microscope } from 'lucide-react';
 import { useXray } from '../hooks/useXray.jsx';
 import { useAtUri } from '../hooks/useAtUri.js';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -87,8 +87,14 @@ function XrayHud() {
           <span className="xray-hud-aggregate">the protocol data</span>
         )}
         <span className="xray-hud-spacer" />
-        <button type="button" className="xray-hud-inspect" onClick={openDetails}>
-          details ↗
+        <button
+          type="button"
+          className="xray-hud-inspect"
+          onClick={openDetails}
+          aria-label="Open atmosphere details"
+        >
+          <span className="xray-hud-inspect-label">details</span>
+          <ArrowUpRight aria-hidden strokeWidth={1.75} />
         </button>
       </div>
     </motion.div>
