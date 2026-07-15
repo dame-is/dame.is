@@ -154,7 +154,7 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       headTitle={`${title} — dame.is`}
     >
       <article className="blog-article reveal">
-        <InspectMargin atUri={record?.uri} cid={record?.cid} note="the whole post is one record" />
+        <InspectMargin atUri={record?.uri} cid={record?.cid} />
         <DocumentMeta date={created} />
         {/* The `description` field is intentionally not rendered here — it's the
             open-graph / feed-summary blurb, and on the post itself it just

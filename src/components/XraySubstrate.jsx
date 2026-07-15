@@ -33,41 +33,29 @@ export function XrayTag({ atUri, onOpen }) {
 
 /**
  * Marginalia for a reading document (a blog post, a work) — the page is one
- * record, so this floats a single margin note beside the prose naming that
- * record, like a gloss in a book. Tapping it inspects: the note gives way to
- * the full you-are-here substrate panel, still in the margin. On narrow
- * screens (no room for a true margin) it stacks at the top of the document.
- * The document text itself is never dimmed — the note is additive marginalia.
+ * record, so this floats that record's atmosphere panel beside the prose like
+ * a gloss in a book. The whole document IS the one record, so there's nothing
+ * to disambiguate: under inspect it shows the full Atmosphere Record locus
+ * (pds → repo → collection → record → cid) directly, with no intermediate
+ * "tap to inspect" step. On narrow screens (no true margin) it stacks at the
+ * top of the document; the document text itself is never dimmed.
  */
-export function InspectMargin({ atUri, cid, note }) {
+export function InspectMargin({ atUri, cid }) {
   const xray = useXray();
   const parts = atUriParts(atUri);
   if (!parts) return null;
-  const focused = xray.active && xray.focusUri === atUri;
   const nsid = parts.nsid || nsidFromAtUri(atUri);
   return (
     <aside
-      className={`doc-inspect-margin${focused ? ' is-xray-focus' : ''}`}
+      className="doc-inspect-margin"
       data-atproto=""
       data-at-uri={atUri}
       data-nsid={nsid || undefined}
       aria-label="record"
     >
-      {focused ? (
-        <XraySubstratePanel atUri={atUri} cid={cid} />
-      ) : (
-        <button
-          type="button"
-          className="doc-inspect-note"
-          onClick={() => xray.focus(atUri)}
-          tabIndex={xray.active ? 0 : -1}
-        >
-          <span className="nsid">{nsid}</span>
-          <span className="uri">…/{parts.nsid}{parts.rkey}</span>
-          {note && <span className="note">{note}</span>}
-          <span className="cta">tap to inspect →</span>
-        </button>
-      )}
+      {/* The panel resolves the PDS, so only mount it once inspect is armed
+          (the aside is display:none until then). */}
+      {xray.active && <XraySubstratePanel atUri={atUri} cid={cid} />}
     </aside>
   );
 }
