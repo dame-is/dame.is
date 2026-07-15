@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { Heart, Flame, Volume2, Activity, Footprints, Bike, Car, Armchair } from 'lucide-react';
+import { activityLabel } from '../lib/activity.js';
 import './StateStats.css';
 
 /**
@@ -285,7 +286,7 @@ function ActivityBars({ rows }) {
           <li key={r.activity} className="state-bar-row">
             <span className="state-bar-label">
               <Icon className="state-bar-glyph" size={13} strokeWidth={1.75} aria-hidden="true" />
-              {r.activity}
+              {activityLabel(r.activity)}
             </span>
             <span className="state-bar-track" aria-hidden="true">
               <span className="state-bar-fill" style={{ width: `${max > 0 ? (r.pct / max) * 100 : 0}%` }} />
