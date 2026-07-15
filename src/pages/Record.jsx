@@ -16,7 +16,7 @@ import AturiActions from '../components/AturiActions.jsx';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
 import { resolvePds, getRecord, getPostThread, explorerPathFromAtUri } from '../lib/atproto.js';
 import { ME_DID } from '../config.js';
-import { formatDateLong, formatTime, relativeTime } from '../lib/time.js';
+import { formatDateFull, formatTime, relativeDay, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { VERB_TO_COLLECTION, VERB_LABELS, recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { verbConfig, primaryNsid } from '../lib/verbRegistry.js';
@@ -217,7 +217,7 @@ export default function Record({ verb, nsid, source }) {
           </div>
         )}
 
-        {item && <RecordMeta collection={collection} createdAt={createdAt} />}
+        {item && <RecordMeta createdAt={createdAt} />}
 
         {item && <AturiActions atUri={atUri} />}
 
@@ -623,16 +623,26 @@ function condensePostView(view) {
   };
 }
 
-function RecordMeta({ collection, createdAt }) {
+/**
+ * The single-record publication stamp, rendered as one flowing phrase:
+ *
+ *   5 days ago at 10:18 PM on July 10, 2026 (Day 12,118)
+ *
+ * A single <span> deliberately — the `.blog-article-meta` container adds a
+ * bullet before every span after the first, so splitting the atoms into
+ * separate spans (as this once did) produced a doubled "•·" separator on top
+ * of hardcoded middots. One span, connective words, no bullets. Mirrors the
+ * blog/creating <DocumentMeta> phrasing so every record page reads the same.
+ */
+function RecordMeta({ createdAt }) {
   if (!createdAt) return null;
   const dayNum = dayOfLife(createdAt);
   return (
     <div className="blog-article-meta record-page-meta">
-      {collection && <span className="record-page-meta-nsid">{collection}</span>}
-      <span>· {relativeTime(createdAt)}</span>
-      <span>· {formatTime(createdAt)}</span>
-      <span>· {formatDateLong(createdAt)}</span>
-      {dayNum && <span>· Day {dayNum.toLocaleString()}</span>}
+      <span>
+        {relativeDay(createdAt)} at {formatTime(createdAt)} on {formatDateFull(createdAt)}
+        {dayNum ? ` (Day ${dayNum.toLocaleString()})` : ''}
+      </span>
     </div>
   );
 }

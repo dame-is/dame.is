@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
+import { InspectMargin } from '../components/XraySubstrate.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
@@ -94,6 +95,7 @@ export default function CreatingWork() {
       headTitle={v?.title ? `${v.title} — dame.is` : `${slug} — dame.is`}
     >
       <article className="creating-work-page reveal">
+        <InspectMargin atUri={record?.uri} cid={record?.cid} note="the whole work is one record" />
         <DocumentMeta date={v?.createdAt} />
         {/* The summary is metadata — the feed-card / open-graph blurb, not page
             copy. For standard/leaflet docs it's auto-derived from the body's

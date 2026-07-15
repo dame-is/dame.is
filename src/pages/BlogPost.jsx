@@ -4,6 +4,7 @@ import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Comments from '../components/Comments.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
+import { InspectMargin } from '../components/XraySubstrate.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
@@ -153,6 +154,7 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
       headTitle={`${title} — dame.is`}
     >
       <article className="blog-article reveal">
+        <InspectMargin atUri={record?.uri} cid={record?.cid} note="the whole post is one record" />
         <DocumentMeta date={created} />
         {/* The `description` field is intentionally not rendered here — it's the
             open-graph / feed-summary blurb, and on the post itself it just
