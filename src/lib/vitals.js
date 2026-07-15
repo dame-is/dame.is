@@ -34,7 +34,11 @@ export function clampPct(n) {
  */
 export function normalizeVitals(value) {
   if (!value) return null;
-  const activity = value.activity ? String(value.activity).trim().toLowerCase() : null;
+  // Accept the raw iOS key (`physicalActivity`, e.g. "Stationary") as well as
+  // the normalized `activity`, the same way charging/sound accept their raw
+  // keys below — the Shortcut posts whichever it has.
+  const rawActivity = value.activity ?? value.physicalActivity;
+  const activity = rawActivity ? String(rawActivity).trim().toLowerCase() : null;
   return {
     heartRate: nonZero(toInt(value.heartRate)),
     // `unknown` is the lexicon's "no reading" sentinel — treat it as absent too.
