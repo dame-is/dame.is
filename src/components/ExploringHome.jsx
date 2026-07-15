@@ -143,6 +143,26 @@ export default function ExploringHome({ identity }) {
         linking into a browser you can open yourself.
       </p>
 
+      {/* Identity -------------------------------------------------------- */}
+      <section className="exploring-home-section">
+        <h2 className="exploring-home-section-title small-caps">Identity</h2>
+        <dl className="exploring-home-identity">
+          <IdentityRow label="handle" value={handle ? `@${handle}` : '—'} copy={handle ? `@${handle}` : null} />
+          <IdentityRow label="did" value={did} copy={did} mono />
+          <IdentityRow label="pds" value={pds} copy={pds} mono />
+        </dl>
+        {isPlc && (
+          <div className="exploring-home-identity-links">
+            <Link to={`/exploring/${OWNER}?tab=identity`} className="exploring-home-textlink">
+              identity document →
+            </Link>
+            <Link to={`/exploring/${OWNER}?tab=audit`} className="exploring-home-textlink">
+              audit log →
+            </Link>
+          </div>
+        )}
+      </section>
+
       {/* Stats ----------------------------------------------------------- */}
       <section className="exploring-home-section">
         <h2 className="exploring-home-section-title small-caps">Stats</h2>
@@ -203,26 +223,6 @@ export default function ExploringHome({ identity }) {
             </li>
           ))}
         </ul>
-      </section>
-
-      {/* Identity -------------------------------------------------------- */}
-      <section className="exploring-home-section">
-        <h2 className="exploring-home-section-title small-caps">Identity</h2>
-        <dl className="exploring-home-identity">
-          <IdentityRow label="handle" value={handle ? `@${handle}` : '—'} copy={handle ? `@${handle}` : null} />
-          <IdentityRow label="did" value={did} copy={did} mono />
-          <IdentityRow label="pds" value={pds} copy={pds} mono />
-        </dl>
-        {isPlc && (
-          <div className="exploring-home-identity-links">
-            <Link to={`/exploring/${OWNER}?tab=identity`} className="exploring-home-textlink">
-              identity document →
-            </Link>
-            <Link to={`/exploring/${OWNER}?tab=audit`} className="exploring-home-textlink">
-              audit log →
-            </Link>
-          </div>
-        )}
       </section>
 
       {/* Collections directory ------------------------------------------ */}
