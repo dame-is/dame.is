@@ -260,20 +260,27 @@
    ---------------------------------------------------------------------- */
 .blog-article, .creating-work-page { position: relative; }
 
+/* Off state is `display: none`, not a collapsed-but-present box. The
+   creating/work page is a flex column with `gap` (see .creating-work-page),
+   and a flex — or grid — container reserves a gap slot around EVERY child,
+   even a max-height:0 one, so a merely-collapsed margin still shoved the
+   metadata down by one --space-5 while inspect was off. display:none removes
+   the element from flow entirely in block AND flex parents, so it costs zero
+   room until inspect is armed. */
 .doc-inspect-margin {
+  display: none;
   font-family: var(--code);
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
   pointer-events: none;
-  margin: 0;
-  transition: opacity 0.28s var(--xr-ease), max-height 0.3s var(--xr-ease), margin 0.3s var(--xr-ease);
+  margin: 0 0 var(--space-5);
 }
 :root[data-xray="on"] .doc-inspect-margin {
-  max-height: 42rem;
-  opacity: 1;
+  display: block;
   pointer-events: auto;
-  margin: 0 0 var(--space-5);
+  animation: doc-inspect-in 0.3s var(--xr-ease) both;
+}
+@keyframes doc-inspect-in {
+  from { opacity: 0; transform: translateY(-0.35rem); }
+  to   { opacity: 1; transform: none; }
 }
 .doc-inspect-note {
   display: block;
@@ -301,11 +308,8 @@
     top: 0;
     left: 100%;
     width: 16rem;
-    max-height: none;
-    overflow: visible;
     margin: 0 0 0 var(--space-5);
   }
-  :root[data-xray="on"] .doc-inspect-margin { max-height: none; margin: 0 0 0 var(--space-5); }
   .doc-inspect-margin.is-xray-focus { width: 18rem; }
   .doc-inspect-note {
     background: transparent;
@@ -413,4 +417,7 @@
     transition-duration: 0.14s !important;
   }
   .chrome-xray.is-open .chrome-nav-glyph { animation: none; }
+  /* Keep the reveal (fade) but drop the travel on the document margin note. */
+  :root[data-xray="on"] .doc-inspect-margin { animation-name: doc-inspect-fade; }
 }
+@keyframes doc-inspect-fade { from { opacity: 0; } to { opacity: 1; } }
