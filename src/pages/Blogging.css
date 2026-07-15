@@ -146,6 +146,26 @@
   color: var(--ink-faint);
 }
 
+/* Document dateline (blog post / work) — frame the single publication line in
+   faint dashed rules top and bottom, echoing the dashed dividers between
+   thread posts in the feed. Scoped to .document-meta (the shared DocumentMeta
+   component) so the record-page meta, which also wears .blog-article-meta,
+   keeps its own bare style. The padding gives the text room off the rules;
+   margin-top sets the band apart from the title above. */
+.document-meta {
+  margin-top: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+/* The blog post is a plain block container with no gap to separate the band
+   from the body, so it gets an explicit bottom margin. The work page
+   (.creating-work-page) is a flex column whose `gap` already provides that
+   space — adding a margin there would double it. */
+.blog-article > .document-meta {
+  margin-bottom: var(--space-5);
+}
+
 .blog-prose {
   font-family: var(--serif);
   font-size: 1.05rem;
