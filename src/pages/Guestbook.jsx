@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { PenLine } from 'lucide-react';
+import { Signature } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
 import { CommentsSkeleton } from '../components/Skeleton.jsx';
@@ -137,7 +137,7 @@ export default function Guestbook() {
           className="signin-button guestbook-cta-btn"
           onClick={() => openPanel('guestbook')}
         >
-          <PenLine size={15} strokeWidth={1.75} aria-hidden="true" />
+          <Signature size={15} strokeWidth={1.75} aria-hidden="true" />
           Sign the guestbook
         </button>
       </div>

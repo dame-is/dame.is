@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { Shuffle } from 'lucide-react';
+import { Shuffle, Signature } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, {
   feedFilterCounts,
@@ -569,6 +569,15 @@ export default function Home() {
         </Link>
         <button
           type="button"
+          className="home-hero-cta-btn home-hero-guestbook-btn"
+          onClick={() => openPanel('guestbook')}
+          aria-label="Sign the guestbook"
+          title="Sign the guestbook"
+        >
+          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
           className="home-hero-cta-btn home-hero-shuffle"
           onClick={() => shuffleRef.current?.()}
           aria-label="Shuffle hero statement"
@@ -577,16 +586,6 @@ export default function Home() {
           <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </nav>
-
-      <p className="home-hero-guestbook">
-        <button
-          type="button"
-          className="home-hero-guestbook-link"
-          onClick={() => openPanel('guestbook')}
-        >
-          Sign the guestbook
-        </button>
-      </p>
 
       <section className="home-latest">
         <FeedFilters counts={counts} estimatedVerbs={estimatedVerbs} />

@@ -248,46 +248,14 @@
   color: var(--page);
 }
 
-/* Icon-only shuffle button sits alongside the text CTAs but reads as
-   a quieter utility action — square footprint, no label text, same
+/* Icon-only utility buttons on the hero CTA row — shuffle the hero sentence,
+   and open the guestbook sign sheet. Square footprint, no label text, same
    border treatment as the secondary text CTAs. */
-.home-hero-shuffle {
+.home-hero-shuffle,
+.home-hero-guestbook-btn {
   padding: 0.6em;
   aspect-ratio: 1;
   cursor: pointer;
-}
-
-/* A quiet secondary invitation beneath the hero CTAs — a text button, not a
-   boxed CTA, so it reads as an aside. Opens the guestbook sign sheet.
-   `.page` spaces its children with `gap: var(--space-5)`; rather than add to
-   that, cancel most of it on each side so the link sits tight under the CTA
-   row (nets ~var(--space-2) above) instead of floating in its own band. */
-.home-hero-guestbook {
-  margin: calc(var(--space-2) - var(--space-5)) 0;
-}
-
-.home-hero-guestbook-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-  padding: 0;
-  border: none;
-  background: transparent;
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  text-decoration: underline;
-  text-decoration-color: var(--rule);
-  text-underline-offset: 0.2em;
-  cursor: pointer;
-  transition: color 120ms ease, text-decoration-color 120ms ease;
-}
-
-.home-hero-guestbook-link:hover,
-.home-hero-guestbook-link:focus-visible {
-  color: var(--accent);
-  text-decoration-color: var(--accent-soft);
-  outline: none;
 }
 
 /* Home: visual break between the hero (page-title) and the
