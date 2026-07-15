@@ -1,0 +1,310 @@
+/* ======================================================================
+   Atmosphere X-ray — the reveal layer.
+
+   Most of the reveal is CSS-driven off <html data-xray="on"> (and
+   data-xray-focus) so it stays cheap across a long feed, mirroring how
+   the site already drives data-theme / data-font. The "blueprint" ink is
+   derived from the live theme accent, so the whole treatment adapts to
+   light, dark, and the hourly sky palette for free.
+   ====================================================================== */
+
+:root {
+  --xr-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --xr-ink: var(--accent);
+  --xr-field: var(--highlight);
+  --xr-frame: color-mix(in srgb, var(--accent) 52%, transparent);
+  --xr-glow: color-mix(in srgb, var(--accent) 30%, transparent);
+  --xr-dim: 0.08;         /* how far revealed content recedes behind its data */
+}
+
+/* Affordance: on a fine pointer, record-backed elements read as inspectable
+   while the mode is armed. Touch keeps the native caret. */
+@media (pointer: fine) {
+  :root[data-xray="on"] [data-atproto] { cursor: crosshair; }
+}
+
+/* ----------------------------------------------------------------------
+   Shared blueprint atoms
+   ---------------------------------------------------------------------- */
+.bp-uri { font-family: var(--code); color: var(--ink-soft); }
+.bp-uri .did { color: var(--ink-faint); }
+.bp-uri .nsid { color: var(--xr-ink); }
+.bp-uri .rkey { color: var(--ink-soft); }
+.bp-cid { font-family: var(--code); color: var(--ink-muted); }
+
+/* ----------------------------------------------------------------------
+   A · FEED (ledger) — a records manifest.
+   The row keeps its exact grid; a single-line data layer is absolutely
+   positioned over the same tracks and crossfades in, so columns stay
+   aligned and nothing can overflow the row.
+   ---------------------------------------------------------------------- */
+.feed-ledger .feed-item-ledger { position: relative; }
+
+.ledger-xray {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  /* Its own two tracks (address · hash) rather than the row's three, so the
+     content hash gets room to read instead of clipping in the narrow time
+     column. */
+  grid-template-columns: minmax(0, 1fr) max-content;
+  column-gap: var(--space-4);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s var(--xr-ease);
+}
+.ledger-xray-uri {
+  grid-column: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code);
+  font-size: calc(var(--text-xs) * 0.95);
+}
+.ledger-xray-cid {
+  grid-column: 2;
+  text-align: right;
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* Mobile: the shared DID prefix eats the line and clips the identifying tail,
+   so drop it (lead with the collection) and hide the hash — the nsid + rkey
+   is what tells rows apart. */
+@media (max-width: 600px) {
+  .ledger-xray .bp-uri .did { display: none; }
+  .ledger-xray-cid { display: none; }
+}
+
+:root[data-xray="on"] .feed-item-ledger > .ledger-verb,
+:root[data-xray="on"] .feed-item-ledger > .ledger-body,
+:root[data-xray="on"] .feed-item-ledger > .ledger-time {
+  opacity: var(--xr-dim);
+  transition: opacity 0.28s var(--xr-ease);
+}
+:root[data-xray="on"] .feed-item-ledger .ledger-xray { opacity: 1; pointer-events: auto; }
+:root[data-xray="on"] .feed-item-ledger .ledger-xray .ledger-xray-uri { cursor: pointer; }
+.ledger-xray-uri:hover .nsid { text-decoration: underline; }
+
+/* A focused ledger row drops its full substrate panel below, spanning the
+   row's whole grid rather than landing in a single column. */
+.feed-item-ledger > .xray-substrate { grid-column: 1 / -1; }
+
+/* ----------------------------------------------------------------------
+   B · CARDS — every card wears a calm substrate tag; focusing one opens
+   the full panel and recedes the rest.
+   ---------------------------------------------------------------------- */
+.xray-tag {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  flex-wrap: wrap;
+  font-family: var(--code);
+  font-size: calc(var(--text-xs) * 0.95);
+  color: var(--ink-muted);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  transition: max-height 0.3s var(--xr-ease), opacity 0.25s var(--xr-ease), margin-top 0.3s var(--xr-ease);
+}
+.xray-tag .bp-uri { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xray-tag-open { color: var(--xr-ink); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; white-space: nowrap; }
+.xray-tag-open:hover { text-decoration: underline; }
+
+:root[data-xray="on"] .feed-item:not(.feed-item-ledger) .xray-tag {
+  max-height: 4rem;
+  opacity: 1;
+  margin-top: var(--space-2);
+}
+
+/* Recede everything that isn't the focused record. Scoped to leaf record
+   elements (never page containers) so a focused child never dims its own
+   surroundings into itself. */
+:root[data-xray-focus="on"] [data-atproto]:not(.is-xray-focus) {
+  opacity: 0.24;
+  filter: grayscale(0.85) blur(1.1px);
+  transition: opacity 0.34s var(--xr-ease), filter 0.34s var(--xr-ease);
+}
+:root[data-xray-focus="on"] [data-atproto].is-xray-focus {
+  transition: opacity 0.34s var(--xr-ease);
+}
+
+/* ----------------------------------------------------------------------
+   Substrate panel — the full readout for a focused element (cards, and
+   the resume/record inspectors). Rendered in flow beneath its element.
+   ---------------------------------------------------------------------- */
+.xray-substrate {
+  border: 1px solid var(--xr-frame);
+  background: var(--xr-field);
+  padding: var(--space-3);
+  margin-top: var(--space-3);
+  display: grid;
+  gap: var(--space-3);
+  font-family: var(--code);
+}
+@media (min-width: 720px) {
+  .xray-substrate { grid-template-columns: 1fr 1fr; align-items: start; }
+  .xray-substrate-wide { grid-column: 1 / -1; }
+}
+.xray-substrate-h {
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 var(--space-2);
+}
+.xray-uri-line { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: baseline; }
+.xray-uri-line .bp-uri { word-break: break-all; font-size: var(--text-xs); }
+
+.xray-fields { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.xray-fields li { display: grid; grid-template-columns: 16px 1fr; gap: var(--space-2); align-items: start; font-size: var(--text-xs); }
+.xray-fields .num { width: 16px; height: 16px; display: grid; place-items: center; background: var(--xr-ink); color: var(--page); font-size: 0.58rem; }
+.xray-fields .p { color: var(--xr-ink); }
+.xray-fields .v { color: var(--ink-muted); display: block; word-break: break-word; }
+
+.xray-meta { font-size: var(--text-xs); color: var(--ink-soft); }
+.xray-meta div { display: flex; gap: var(--space-2); padding: 1px 0; }
+.xray-meta dt { color: var(--ink-faint); min-width: 68px; flex: none; }
+.xray-meta dd { margin: 0; word-break: break-all; }
+
+.xray-depth { font-size: 0.72rem; color: var(--ink-soft); }
+.xray-depth .lvl { display: block; white-space: pre; line-height: 1.6; }
+.xray-depth .lead { color: var(--xr-frame); }
+.xray-depth .k { color: var(--xr-ink); }
+.xray-depth .v { color: var(--ink-muted); }
+.xray-depth .lvl.top .k { color: var(--ink); }
+
+.xray-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-1); }
+.xray-actions a, .xray-actions button {
+  font-family: var(--code); font-size: 0.68rem; letter-spacing: 0.04em;
+  color: var(--ink-soft); background: var(--page); border: 1px solid var(--rule);
+  padding: 3px var(--space-2); text-decoration: none; cursor: pointer;
+}
+.xray-actions a:hover, .xray-actions button:hover { color: var(--accent); border-color: var(--accent-soft); }
+
+/* ----------------------------------------------------------------------
+   A · DOCUMENT (resume) — backlinked composition. Each role/education
+   entry is its own is.dame.resume.job/.education record that the resume
+   version backlinks; x-ray keeps the structure, recedes the prose, and
+   reveals the record behind each part — inline on mobile, a right gutter
+   on desktop.
+   ---------------------------------------------------------------------- */
+.resume-xray { position: relative; }
+.resume-xray-content { transition: opacity 0.3s var(--xr-ease); }
+:root[data-xray="on"] .resume-xray-content { opacity: 0.5; }
+:root[data-xray="on"] .resume-xray.is-page .resume-xray-content { opacity: 0.66; }
+
+.resume-xray-tag {
+  font-family: var(--code);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.32s var(--xr-ease), opacity 0.28s var(--xr-ease), margin-top 0.32s var(--xr-ease);
+}
+.resume-xray-tag .nsid { color: var(--xr-ink); display: block; font-size: 0.68rem; }
+.resume-xray-tag .uri { color: var(--ink-muted); font-size: 0.66rem; word-break: break-all; }
+.resume-xray-tag .note { color: var(--ink-faint); display: block; font-size: 0.63rem; margin-top: 2px; }
+:root[data-xray="on"] .resume-xray-tag {
+  max-height: 7rem;
+  opacity: 1;
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 1px dashed var(--xr-frame);
+}
+
+/* Desktop: float the record into a right-margin gutter so the reveal reads
+   as data sliding out beside the document, not stacked under it. */
+@media (min-width: 860px) {
+  :root[data-xray="on"] .resume-xray {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 15rem;
+    column-gap: var(--space-5);
+    align-items: start;
+  }
+  :root[data-xray="on"] .resume-xray-tag {
+    max-height: none;
+    margin-top: 0;
+    padding-left: var(--space-4);
+  }
+}
+
+/* ----------------------------------------------------------------------
+   Page HUD — a status strip that names the record backing the whole page,
+   riding just above the bottom chrome. Rendered by XrayLayer with motion.
+   ---------------------------------------------------------------------- */
+.xray-hud {
+  position: fixed;
+  left: 0; right: 0;
+  bottom: var(--chrome-h, 56px);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-deep);
+  border-top: 1px solid var(--xr-frame);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: 0 -10px 26px -22px var(--shadow);
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+.xray-hud-mark { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; font-size: 0.64rem; }
+.xray-hud-mark svg { width: 13px; height: 13px; }
+.xray-hud-field { display: inline-flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
+.xray-hud-field b { color: var(--ink-faint); font-weight: 400; }
+.xray-hud .bp-uri { display: inline-block; min-width: 0; max-width: min(46ch, 60vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.xray-hud-uri-link { text-decoration: none; }
+.xray-hud-uri-link:hover .nsid { text-decoration: underline; }
+.xray-hud-spacer { flex: 1 1 auto; }
+.xray-hud-inspect {
+  font-family: var(--code); font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-soft); background: transparent; border: 1px solid var(--rule); padding: 3px var(--space-2); cursor: pointer;
+}
+.xray-hud-inspect:hover { color: var(--accent); border-color: var(--accent-soft); }
+@media (max-width: 560px) {
+  .xray-hud-field.is-optional { display: none; }
+  .xray-hud .bp-uri { max-width: 62vw; }
+}
+
+/* ----------------------------------------------------------------------
+   Desktop reticule — a corner-tick target that locks onto record-backed
+   elements. Rendered by XrayReticule (motion drives position/size/rotate).
+   ---------------------------------------------------------------------- */
+.xray-reticule { position: fixed; top: 0; left: 0; z-index: 55; pointer-events: none; will-change: transform; }
+.xray-reticule-box { position: absolute; inset: 0; }
+.xray-reticule-corner { position: absolute; width: 10px; height: 10px; border: 1.5px solid var(--accent); filter: drop-shadow(0 0 3px var(--xr-glow)); }
+.xray-reticule-corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.xray-reticule-corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.xray-reticule-corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.xray-reticule-corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+.xray-reticule-dot { position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; background: var(--accent); }
+.xray-reticule.is-locked .xray-reticule-dot { opacity: 0; }
+.xray-reticule-label {
+  position: absolute; left: 0; top: -18px; font-family: var(--code); font-size: 0.6rem;
+  letter-spacing: 0.04em; color: var(--page); background: var(--accent); padding: 0 5px; white-space: nowrap;
+  opacity: 0; transition: opacity 0.18s var(--xr-ease);
+}
+.xray-reticule.is-locked .xray-reticule-label { opacity: 1; }
+
+/* Toggle button (chrome) active pulse when armed. */
+.chrome-xray.is-open .chrome-nav-glyph { animation: xray-pulse 2.4s ease-in-out infinite; }
+@keyframes xray-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* ----------------------------------------------------------------------
+   Reduced motion — keep the reveal, drop the travel.
+   ---------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .ledger-xray, .xray-tag, .rz-block, .rz-block-content, .rz-gutter,
+  :root[data-xray-focus="on"] [data-atproto]:not(.is-xray-focus) {
+    transition-duration: 0.14s !important;
+  }
+  .chrome-xray.is-open .chrome-nav-glyph { animation: none; }
+}

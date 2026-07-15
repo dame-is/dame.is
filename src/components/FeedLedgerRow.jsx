@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { formatTime, formatWallClockTime } from '../lib/time.js';
+import { atUriParts, shortenCid } from '../lib/xray.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
@@ -98,6 +99,11 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
         )}
       </div>
       <span className="ledger-time">{timeText}</span>
+      {/* X-ray manifest line: the same three columns re-expressed as the
+          record's address (collection highlighted) + content hash. Absolutely
+          positioned over the row so it stays one line and column-aligned;
+          revealed by the data-xray root attribute (see Xray.css). */}
+      {item.atUri && <LedgerXrayLine atUri={item.atUri} cid={item.cid} />}
       {expanded && isListenBatch(item) && item.plays.map((play) => {
         const playTs = play?.createdAt || play?.payload?.playedTime || null;
         const playHref = recordPathFromAtUri(play?.atUri);
@@ -117,6 +123,28 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
         );
       })}
     </>
+  );
+}
+
+/**
+ * The x-ray manifest line for a ledger row: `at://…/<nsid>/<rkey>` (the
+ * collection highlighted inside the address) on the left two columns, the
+ * short content hash on the right — overlaid on the row's own grid so it
+ * stays a single aligned line. Hidden until the data-xray root attribute is
+ * set; see Xray.css.
+ */
+function LedgerXrayLine({ atUri, cid }) {
+  const parts = atUriParts(atUri);
+  if (!parts) return null;
+  return (
+    <div className="ledger-xray" aria-hidden="true">
+      <span className="bp-uri ledger-xray-uri">
+        <span className="did">{parts.prefix}</span>
+        <span className="nsid">{parts.nsid}</span>
+        <span className="rkey">{parts.rkey}</span>
+      </span>
+      {cid && <span className="ledger-xray-cid">{shortenCid(cid)}</span>}
+    </div>
   );
 }
 

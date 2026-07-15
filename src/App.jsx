@@ -28,6 +28,7 @@ const Exploring = lazy(() => import('./pages/Exploring.jsx'));
 import ChromeBar from './components/ChromeBar.jsx';
 import AutoUpdater from './components/AutoUpdater.jsx';
 import ActionDock from './components/ActionDock.jsx';
+import XrayLayer from './components/XrayLayer.jsx';
 import EditModeBar from './components/EditModeBar.jsx';
 import EditSheet from './components/EditSheet.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
@@ -43,6 +44,8 @@ import { AtprotoSessionProvider } from './hooks/useAtprotoSession.jsx';
 import { WaypointsModalProvider } from './hooks/useWaypointsModal.jsx';
 import { FeedFooterProvider } from './hooks/useFeedFooter.jsx';
 import { EditModeProvider } from './hooks/useEditMode.jsx';
+import { XrayProvider } from './hooks/useXray.jsx';
+import './components/Xray.css';
 
 /**
  * Verbs whose record page is handled by a bespoke page component (not the
@@ -103,6 +106,7 @@ export default function App() {
       <ChromePanelProvider>
       <WaypointsModalProvider>
       <EditModeProvider>
+      <XrayProvider>
       <FeedFooterProvider>
           <div className="app-shell">
             <ChromeBar />
@@ -163,12 +167,14 @@ export default function App() {
               </div>
             </main>
             <ActionDock />
+            <XrayLayer />
             <EditModeBar />
             <EditSheet />
             <AutoUpdater />
             <Analytics />
           </div>
       </FeedFooterProvider>
+      </XrayProvider>
       </EditModeProvider>
       </WaypointsModalProvider>
       </ChromePanelProvider>
