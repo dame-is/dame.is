@@ -75,17 +75,17 @@ export function XrayProvider({ children }) {
     setFocusUri(null);
   }, [location.pathname]);
 
-  // `x` toggles the mode from anywhere (ignoring keystrokes inside inputs).
-  // Esc pops a focused element back to the full-page x-ray (a no-op when
-  // nothing is focused, and it never preventDefaults, so the dock/modal Esc
-  // handlers still work).
+  // `i` (for inspect) toggles the mode from anywhere (ignoring keystrokes
+  // inside inputs). Esc pops a focused element back to the full-page view (a
+  // no-op when nothing is focused, and it never preventDefaults, so the
+  // dock/modal Esc handlers still work).
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') {
         setFocusUri((f) => (f ? null : f));
         return;
       }
-      if (e.key !== 'x' && e.key !== 'X') return;
+      if (e.key !== 'i' && e.key !== 'I') return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = e.target?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return;

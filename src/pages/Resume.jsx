@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
+import { XraySubstratePanel } from '../components/XraySubstrate.jsx';
+import { useXray } from '../hooks/useXray.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
@@ -34,6 +36,44 @@ function ResumeXrayTag({ nsid, atUri, note }) {
       <span className="nsid">{nsid}</span>
       {parts && <span className="uri">…/{parts.nsid}{parts.rkey}</span>}
       {note && <span className="note">{note}</span>}
+      <span className="resume-xray-tag-cta">tap to inspect →</span>
+    </div>
+  );
+}
+
+/**
+ * A resume role / education entry wrapped for x-ray: while the mode is armed it
+ * recedes its prose and slides a record tag into the right margin (the ambient
+ * "this is its own is.dame.resume.job record" cue). Tapping it focuses that
+ * record — the tag gives way to the full you-are-here substrate panel and the
+ * other entries recede — mirroring how the feed rows inspect. Outside x-ray it
+ * renders as a plain `.resume-role`.
+ */
+function ResumeXrayRole({ atUri, nsid, note, children }) {
+  const xray = useXray();
+  const inspectable = xray.active && !!atUri;
+  const focused = inspectable && xray.focusUri === atUri;
+  return (
+    <div
+      className={`resume-role resume-xray${focused ? ' is-xray-focus' : ''}`}
+      data-atproto={atUri ? '' : undefined}
+      data-at-uri={atUri || undefined}
+      onClickCapture={
+        inspectable
+          ? (e) => {
+              // Let real links (org / institution / portfolio work) and the
+              // open panel's own links through; anything else inspects.
+              if (e.target.closest('a, button, .xray-substrate')) return;
+              e.preventDefault();
+              e.stopPropagation();
+              xray.toggleFocus(atUri);
+            }
+          : undefined
+      }
+    >
+      <div className="resume-xray-content">{children}</div>
+      {inspectable && !focused && <ResumeXrayTag nsid={nsid} atUri={atUri} note={note} />}
+      {focused && <XraySubstratePanel atUri={atUri} />}
     </div>
   );
 }
@@ -135,7 +175,11 @@ export default function Resume() {
 
   const { items, status } = useLiveFeed({
     name: 'resume',
-    strategy: 'live-first',
+    // Paint the prebuilt /data/resume.json snapshot instantly, then confirm
+    // with a live re-fetch — the resume rarely changes, so a skeleton on every
+    // cold load (which 'live-first' forced, using the snapshot only on error)
+    // was needless. This is what the snapshot was written for.
+    strategy: 'snapshot-first',
     deps: [slug || ''],
     fetchLive: fetchResumeBundle,
     mapItems: (data) => (data && Array.isArray(data.resumes) ? data : null),
@@ -242,45 +286,38 @@ export default function Resume() {
                     </h3>
                   </div>
                   {org.roles.map((role) => (
-                    <div
-                      className="resume-role resume-xray"
+                    <ResumeXrayRole
                       key={role.uri}
-                      data-atproto={role.uri ? '' : undefined}
-                      data-at-uri={role.uri || undefined}
+                      atUri={role.uri}
+                      nsid="is.dame.resume.job"
+                      note="canonical role — the bullets live here, shared across resume versions"
                     >
-                      <div className="resume-xray-content">
-                        <div className="resume-role-head">
-                          <h4 className="resume-role-title">{role.title}</h4>
-                          <span className="resume-role-dates gutter">{role.dateRange}</span>
-                        </div>
-                        <div className="resume-role-meta">
-                          {[role.employmentType, role.locationType, role.location]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </div>
-                        {role.summary && <p className="resume-role-summary">{role.summary}</p>}
-                        {role.highlights.length > 0 && (
-                          <ul className="resume-highlights">
-                            {role.highlights.map((h) => (
-                              <li
-                                key={h.refId || h.id}
-                                className={`resume-highlight ${h.featured ? 'is-featured' : ''} ${
-                                  h.metric ? 'is-metric' : ''
-                                }`}
-                              >
-                                {h.text}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <RoleWork links={role.links} />
+                      <div className="resume-role-head">
+                        <h4 className="resume-role-title">{role.title}</h4>
+                        <span className="resume-role-dates gutter">{role.dateRange}</span>
                       </div>
-                      <ResumeXrayTag
-                        nsid="is.dame.resume.job"
-                        atUri={role.uri}
-                        note="canonical role — the bullets live here, shared across resume versions"
-                      />
-                    </div>
+                      <div className="resume-role-meta">
+                        {[role.employmentType, role.locationType, role.location]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                      {role.summary && <p className="resume-role-summary">{role.summary}</p>}
+                      {role.highlights.length > 0 && (
+                        <ul className="resume-highlights">
+                          {role.highlights.map((h) => (
+                            <li
+                              key={h.refId || h.id}
+                              className={`resume-highlight ${h.featured ? 'is-featured' : ''} ${
+                                h.metric ? 'is-metric' : ''
+                              }`}
+                            >
+                              {h.text}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <RoleWork links={role.links} />
+                    </ResumeXrayRole>
                   ))}
                 </div>
               ))}
@@ -293,46 +330,39 @@ export default function Resume() {
             <h2 className="resume-section-title small-caps">Education</h2>
             <div className="resume-orgs">
               {resolved.education.map((e) => (
-                <div
-                  className="resume-role resume-xray"
+                <ResumeXrayRole
                   key={e.uri}
-                  data-atproto={e.uri ? '' : undefined}
-                  data-at-uri={e.uri || undefined}
+                  atUri={e.uri}
+                  nsid="is.dame.resume.education"
+                  note="canonical education record"
                 >
-                  <div className="resume-xray-content">
-                    <div className="resume-role-head">
-                      <h4 className="resume-role-title">
-                        {e.value.institutionUrl ? (
-                          <a href={e.value.institutionUrl} target="_blank" rel="noreferrer noopener">
-                            {e.value.institution}
-                          </a>
-                        ) : (
-                          e.value.institution
-                        )}
-                      </h4>
-                      {e.dateRange && <span className="resume-role-dates gutter">{e.dateRange}</span>}
-                    </div>
-                    {(e.value.studyType || e.value.area) && (
-                      <p className="resume-role-summary">
-                        {[e.value.studyType, e.value.area].filter(Boolean).join(', ')}
-                      </p>
-                    )}
-                    {e.highlights.length > 0 && (
-                      <ul className="resume-highlights">
-                        {e.highlights.map((h) => (
-                          <li key={h.refId || h.id} className="resume-highlight">
-                            {h.text}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                  <div className="resume-role-head">
+                    <h4 className="resume-role-title">
+                      {e.value.institutionUrl ? (
+                        <a href={e.value.institutionUrl} target="_blank" rel="noreferrer noopener">
+                          {e.value.institution}
+                        </a>
+                      ) : (
+                        e.value.institution
+                      )}
+                    </h4>
+                    {e.dateRange && <span className="resume-role-dates gutter">{e.dateRange}</span>}
                   </div>
-                  <ResumeXrayTag
-                    nsid="is.dame.resume.education"
-                    atUri={e.uri}
-                    note="canonical education record"
-                  />
-                </div>
+                  {(e.value.studyType || e.value.area) && (
+                    <p className="resume-role-summary">
+                      {[e.value.studyType, e.value.area].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                  {e.highlights.length > 0 && (
+                    <ul className="resume-highlights">
+                      {e.highlights.map((h) => (
+                        <li key={h.refId || h.id} className="resume-highlight">
+                          {h.text}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </ResumeXrayRole>
               ))}
             </div>
           </section>
