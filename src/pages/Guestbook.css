@@ -76,14 +76,15 @@
   max-width: 22rem;
 }
 
-/* Icon-only "fill in my region" button — square, sits beside Sign in the
-   actions row. */
+/* Icon-only "fill in my region" button — sits beside Sign in the actions row.
+   align-self: stretch pins its height to the Sign button's, and it shares the
+   Sign button's padding, so the two read as a matched pair. */
 .guestbook-locate {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.55em;
-  aspect-ratio: 1;
+  align-self: stretch;
+  padding: var(--space-2) var(--space-3);
   color: var(--ink-soft);
   background: transparent;
   border: 1px solid var(--rule-soft);
