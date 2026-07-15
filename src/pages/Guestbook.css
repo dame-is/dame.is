@@ -199,13 +199,14 @@
   gap: var(--space-3);
 }
 
-/* Identity stack beside the avatar: display name, then @handle, then "from". */
+/* Identity stack beside the avatar: display name, then @handle, then "from".
+   Tight line-height (and no gap) so the lines read as one close-set block. */
 .guestbook-entry-identity {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.1em;
+  line-height: 1.2;
 }
 
 .guestbook-entry-name {
