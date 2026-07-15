@@ -72,7 +72,7 @@ function XrayHud() {
         aria-live="polite"
       >
         <span className="xray-hud-mark">
-          <Microscope aria-hidden="true" strokeWidth={1.75} /> inspect
+          <Microscope aria-hidden="true" strokeWidth={1.75} /> inspecting
         </span>
         {atUri ? (
           explorerPath ? (
@@ -83,7 +83,7 @@ function XrayHud() {
             <AtUriMono atUri={atUri} />
           )
         ) : (
-          <span className="xray-hud-aggregate">a live view over many records</span>
+          <span className="xray-hud-aggregate">the protocol data</span>
         )}
         <span className="xray-hud-spacer" />
         <button type="button" className="xray-hud-inspect" onClick={openDetails}>
