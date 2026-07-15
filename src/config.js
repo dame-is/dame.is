@@ -61,6 +61,17 @@ export const GUESTBOOK_NSID = 'is.dame.guestbook';
 export const GUESTBOOK_ENTRY_NSID = 'is.dame.guestbook.entry';
 export const GUESTBOOK_SUBJECT = `at://${ME_DID}/${GUESTBOOK_NSID}/self`;
 
+// The retired "lofi" guestbook that predated is.dame.guestbook. Visitors signed
+// it by writing an `a.guestbook.i.signed` record whose `guestbook` field pointed
+// at the book record below (rkey `guestbook`, not `self`). That book is closed —
+// new signatures use is.dame.guestbook.entry — but its signatures are real
+// history, so the guestbook read path folds them in as older entries. Same
+// backlink-assembly mechanism, just a different collection + field name.
+// See lexicons/GUESTBOOK.md → "The original lofi guestbook".
+export const LEGACY_GUESTBOOK_NSID = 'a.guestbook.for.my.pds';
+export const LEGACY_GUESTBOOK_ENTRY_NSID = 'a.guestbook.i.signed';
+export const LEGACY_GUESTBOOK_SUBJECT = `at://${ME_DID}/${LEGACY_GUESTBOOK_NSID}/guestbook`;
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';

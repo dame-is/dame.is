@@ -56,6 +56,42 @@ only needs to index `is.dame.guestbook.entry` records from the firehose — the
 site would swap step 1–3 for one call without any schema change. And any other
 site can host its own book with the same two lexicons.
 
+## The original lofi guestbook (legacy signatures)
+
+Before `is.dame.guestbook`, this PDS hosted a "lofi" guestbook built on the same
+backlink idea but a different pair of ad-hoc collections. That book is **closed**
+— new signatures use `is.dame.guestbook.entry` — but its signatures are real
+history, so the read path folds them in as older entries (see
+[`src/lib/guestbook.js`](../src/lib/guestbook.js) and `LEGACY_GUESTBOOK_*` in
+[`src/config.js`](../src/config.js)). Announced in
+[a-guestbook-and-welcome-message-for-my-pds](https://dame.is/blog/a-guestbook-and-welcome-message-for-my-pds/).
+
+```
+a.guestbook.for.my.pds (rkey 'guestbook')   ← the old book on MY repo
+        ▲
+        │ guestbook (at-uri)
+        │
+a.guestbook.i.signed                          ← each signer's repo: their signature
+  { $type, guestbook, message?, createdAt? }
+```
+
+Two shape differences from the modern records, handled at hydration:
+
+- The signature links the book through a **`guestbook`** field (not `subject`),
+  so the Constellation source is `a.guestbook.i.signed:guestbook`.
+- The note lives in **`message`** (surfaced as `text`), and `createdAt` is
+  usually absent. When it is, the timestamp is recovered from the signature's
+  **TID rkey** (`tidToTimestamp`); a couple of human-chosen rkeys have no
+  decodable time and simply render undated.
+
+Everything downstream is shared: legacy entries are hydrated (Slingshot →
+direct PDS), profiled, and moderated (the book's `hidden` list can name legacy
+at-uris too) exactly like modern ones, and each row carries a small "from the
+old guestbook" tag linking the retired book record. Merging is a plain tail:
+every legacy signature predates the modern book, so once the modern pages are
+exhausted the legacy set — small and closed — is loaded in one shot and
+appended, already in chronological order.
+
 ## Moderation & ownership
 
 - A visitor can **delete their signature** (it's their record; the site offers
