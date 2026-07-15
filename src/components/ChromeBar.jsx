@@ -362,8 +362,29 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // Info button and flips the site into a selectable "edit mode" (see
   // EditModeBar + useEditMode).
   const { did } = useAtprotoSession();
-  const { active: editActive, toggle: toggleEdit, exit: exitEdit } = useEditMode();
+  const {
+    active: editActive,
+    toggle: toggleEdit,
+    exit: exitEdit,
+    pageRecord,
+    selectionPage,
+    editSheet,
+    openEditSheet,
+    closeEditSheet,
+  } = useEditMode();
   const isOwner = did === ME_DID;
+  // The owner's edit record for THIS page, if any — guarded on the stamped path
+  // so a stale value can't leak across a route change, and on the owner's repo
+  // (only those are editable). Home has no such record, so it stays null.
+  const pageEditUri =
+    pageRecord &&
+    pageRecord.path === location.pathname &&
+    String(pageRecord.atUri).startsWith(`at://${ME_DID}/`)
+      ? pageRecord.atUri
+      : null;
+  // The pencil reads as "open" both in select/moderation mode and while a
+  // page editor it opened directly is showing.
+  const chromeEditOpen = editActive || !!editSheet;
   // Trigger buttons highlight when the corresponding URL state is
   // populated — search has a `?q=`, filter has a custom verb set.
   const searchActive = !!params.get('q');
@@ -580,21 +601,36 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 {isOwner && (
                   <button
                     type="button"
-                    className={`chrome-nav chrome-edit-btn ${editActive ? 'is-open' : ''}`}
+                    className={`chrome-nav chrome-edit-btn ${chromeEditOpen ? 'is-open' : ''}`}
                     onClick={() => {
                       // Entering/leaving edit mode owns the bottom chrome —
                       // fold any open search/filter/info panel away first.
                       closePanel();
-                      toggleEdit();
+                      if (editActive) {
+                        // In select / moderation mode → leave it.
+                        toggleEdit();
+                      } else if (editSheet) {
+                        // A page editor the pencil opened is showing → close it.
+                        closeEditSheet();
+                      } else if (pageEditUri && !selectionPage) {
+                        // Nothing to select on this page, but it has its own
+                        // editable record — jump straight into its page editor
+                        // instead of an empty "tap items to select" bar.
+                        openEditSheet(pageEditUri);
+                      } else {
+                        // Feeds / guestbook (or a page with no record): the
+                        // usual selectable edit mode.
+                        toggleEdit();
+                      }
                     }}
-                    aria-pressed={editActive}
-                    aria-label={editActive ? 'Exit edit mode' : 'Enter edit mode'}
-                    title={editActive ? 'Exit edit mode' : 'Edit mode'}
+                    aria-pressed={chromeEditOpen}
+                    aria-label={chromeEditOpen ? 'Exit edit mode' : 'Enter edit mode'}
+                    title={chromeEditOpen ? 'Exit edit mode' : 'Edit mode'}
                   >
                     <Pencil className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
-                {isOwner && editActive && (
+                {isOwner && chromeEditOpen && (
                   <button
                     type="button"
                     className="chrome-nav chrome-edit-exit"

@@ -122,6 +122,7 @@ export default function Guestbook() {
       intro={intro}
       atUri={GUESTBOOK_SUBJECT}
       headTitle="dame.is hosting a guestbook"
+      selectable
     >
       {session ? (
         <SignForm agent={agent} did={did} profile={myProfile} onSigned={handleSigned} />
