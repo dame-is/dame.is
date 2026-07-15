@@ -54,6 +54,7 @@ export default function Logging() {
       intro={intro}
       atUri={`at://${ME_DID}/is.dame.page/logging`}
       headTitle="dame.is logging"
+      selectable
     >
       {loading ? (
         <FeedSkeleton rows={5} label="Loading status updates" />

@@ -550,6 +550,7 @@ export default function Home() {
     <PageShell
       title={<HeroSentence shuffleRef={shuffleRef} />}
       headTitle="dame.is"
+      selectable
     >
       <nav className="home-hero-cta" aria-label="Primary destinations">
         <Link className="home-hero-cta-btn home-hero-cta-primary" to="/available">

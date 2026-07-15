@@ -41,6 +41,12 @@ export function EditModeProvider({ children }) {
   // with the path it was registered on so a stale value from a mid-transition
   // page never leaks onto the next route. Used by the quick-edit sheet.
   const [pageRecord, setPageRecord] = useState(null);
+  // Whether the current page hosts its own edit-mode UI — feed-row selection
+  // (home / posting / logging / listening) or guestbook moderation. Declared
+  // by PageShell's `selectable` prop. The owner's edit pencil reads this: on a
+  // page WITHOUT its own selection, tapping the pencil jumps straight to the
+  // page's record editor instead of an empty select bar (see ChromeBar).
+  const [selectionPage, setSelectionPage] = useState(false);
   // The record currently open in the quick-edit sheet: { atUri } or null.
   const [editSheet, setEditSheet] = useState(null);
   // A controller published by the open sheet's RecordEditor so the edit
@@ -88,6 +94,14 @@ export function EditModeProvider({ children }) {
   pathRef.current = location.pathname;
   const registerPageRecord = useCallback((rec) => {
     setPageRecord(rec && rec.atUri ? { ...rec, path: pathRef.current } : null);
+  }, []);
+
+  // PageShell reports whether its route carries its own selection / moderation
+  // UI. Each page re-declares this on mount, so the last page to mount wins and
+  // a stale value can't linger — no route-change reset needed (and a page that
+  // registers no record leaves the pencil in plain select mode regardless).
+  const registerSelectionPage = useCallback((on) => {
+    setSelectionPage((prev) => (prev === !!on ? prev : !!on));
   }, []);
 
   // A selection from one page shouldn't linger onto the next. Clearing on
@@ -174,6 +188,8 @@ export function EditModeProvider({ children }) {
       markRemoved,
       pageRecord,
       registerPageRecord,
+      selectionPage,
+      registerSelectionPage,
       editSheet,
       openEditSheet,
       closeEditSheet,
@@ -197,6 +213,8 @@ export function EditModeProvider({ children }) {
       markRemoved,
       pageRecord,
       registerPageRecord,
+      selectionPage,
+      registerSelectionPage,
       editSheet,
       openEditSheet,
       closeEditSheet,
