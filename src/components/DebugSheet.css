@@ -1,0 +1,46 @@
+/* Interior of the atmosphere-debug bottom sheet. BottomSheet owns positioning,
+   the surface, and the expand animation; this file lays out the header + the
+   DebugPane below it. Mirrors the info sheet so the two read as one family. */
+.debug-sheet-panel {
+  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x) so
+     the readout lines up with the nav dock, the breadcrumb, and the bottom-bar
+     buttons at every breakpoint. */
+  padding: var(--space-4) var(--chrome-pad-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.debug-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+}
+
+.debug-sheet-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.debug-sheet-close:hover,
+.debug-sheet-close:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  outline: none;
+}

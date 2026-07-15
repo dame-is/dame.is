@@ -9,10 +9,10 @@ export function ActionDockProvider({ children }) {
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored === '1';
   });
-  // The dock's active sub-view ('menu' | 'account' | 'debug'). It lives here,
-  // not inside <ActionDock>, so the bottom chrome bar's relocated tool
-  // buttons can drive it too — tapping Account/Debug down in the bar swaps
-  // the open sheet's view.
+  // The dock's active sub-view ('menu' | 'account'). It lives here, not inside
+  // <ActionDock>, so the bottom chrome bar's relocated Account tool button can
+  // drive it too — tapping Account down in the bar swaps the open sheet's view.
+  // (Atmosphere debug used to be a third view; it's now its own DebugSheet.)
   const [view, setView] = useState('menu');
 
   useEffect(() => {

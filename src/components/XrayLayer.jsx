@@ -40,7 +40,7 @@ function XrayHud() {
   const reduce = useReducedMotion();
   const derived = useAtUri();
   const { pageRecord } = useEditMode();
-  const { openDock, setView } = useActionDock();
+  const { openPanel } = useChromePanel();
 
   // Prefer the route-derived record; else fall back to whatever backing record
   // the current page registered through PageShell (e.g. the resume version at
@@ -49,9 +49,10 @@ function XrayHud() {
   const atUri = derived.atUri || fallback?.atUri || null;
   const explorerPath = atUri ? explorerPathFromAtUri(atUri) : null;
 
+  // The atmosphere readout is its own sheet now (DebugSheet, a chrome panel);
+  // opening it folds the dock away and suppresses this HUD until it closes.
   function openDetails() {
-    setView('debug');
-    openDock();
+    openPanel('debug');
   }
 
   // Expand up out of the bottom chrome on the shared BottomSheet mechanism

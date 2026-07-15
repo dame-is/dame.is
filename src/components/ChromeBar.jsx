@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Bug, Compass, Home, Info, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -25,6 +25,7 @@ import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
 import InfoSheet from './InfoSheet.jsx';
 import GuestbookSheet from './GuestbookSheet.jsx';
+import DebugSheet from './DebugSheet.jsx';
 import Footer from './Footer.jsx';
 import './ChromeBar.css';
 
@@ -506,10 +507,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
       <div className="chrome-bottom-row">
         {/* Left cluster. While the nav dock is open, the page-level controls
-            (theme / filter / search / info) hand off to the dock's tools
-            (layout / debug / account) — they animate in and temporarily
-            take the same spot, then swap back when the dock closes. The
-            debug/account tools drive the open sheet's sub-view. */}
+            (theme / filter / search / info / inspect) hand off to the dock's
+            density tools (layout) — they cross-fade in and temporarily take the
+            same spot, then swap back when the dock closes. (Account lives in the
+            right cluster now; the atmosphere-debug readout is its own sheet,
+            reached from the inspect HUD.) */}
         <div className="chrome-bottom-left">
           <AnimatePresence mode="wait" initial={false}>
             {dockOpen ? (
@@ -523,26 +525,6 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
               >
                 <LayoutToggle />
                 {PAPER_ENABLED && <PaperToggle />}
-                <button
-                  type="button"
-                  className={`chrome-nav chrome-tool-debug ${view === 'debug' ? 'is-open' : ''}`}
-                  onClick={() => setView(view === 'debug' ? 'menu' : 'debug')}
-                  aria-pressed={view === 'debug'}
-                  aria-label="Atmosphere debug"
-                  title="Atmosphere debug"
-                >
-                  <Bug className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                </button>
-                <button
-                  type="button"
-                  className={`chrome-nav chrome-tool-account ${view === 'account' ? 'is-open' : ''}`}
-                  onClick={() => setView(view === 'account' ? 'menu' : 'account')}
-                  aria-pressed={view === 'account'}
-                  aria-label="Account"
-                  title="Account"
-                >
-                  <User className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                </button>
               </motion.div>
             ) : (
               <motion.div
@@ -764,6 +746,27 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             </MotionLink>
           )}
         </AnimatePresence>
+        {/* Account tool. It rides the RIGHT cluster (beside the menu button it
+            belongs with) rather than the left tool group, fading in only while
+            the nav dock is open and swapping the open sheet between its menu
+            and account views. */}
+        <AnimatePresence mode="popLayout" initial={false}>
+          {dockOpen && (
+            <motion.button
+              key="account"
+              layout={layoutProp}
+              type="button"
+              className={`chrome-nav chrome-tool-account ${view === 'account' ? 'is-open' : ''}`}
+              onClick={() => setView(view === 'account' ? 'menu' : 'account')}
+              aria-pressed={view === 'account'}
+              aria-label="Account"
+              title="Account"
+              {...controlFade}
+            >
+              <User className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            </motion.button>
+          )}
+        </AnimatePresence>
         <motion.button
           layout={layoutProp}
           type="button"
@@ -803,6 +806,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       <SearchSheet />
       <InfoSheet />
       <GuestbookSheet />
+      <DebugSheet />
     </div>
   );
 }
