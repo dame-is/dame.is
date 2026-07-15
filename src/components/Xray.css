@@ -17,10 +17,13 @@
   --xr-dim: 0.08;         /* how far revealed content recedes behind its data */
 }
 
-/* Affordance: on a fine pointer, record-backed elements read as inspectable
-   while the mode is armed. Touch keeps the native caret. */
-@media (pointer: fine) {
-  :root[data-xray="on"] [data-atproto] { cursor: crosshair; }
+/* While the reticule is standing in for the cursor, hide the native one so
+   the corner-tick target is the pointer. Scoped to the attribute the reticule
+   sets only on fine-pointer/desktop and drops when suppressed (dock/panels) —
+   so touch and the open dock keep their normal cursor. */
+:root[data-xray-reticule="on"],
+:root[data-xray-reticule="on"] * {
+  cursor: none !important;
 }
 
 /* ----------------------------------------------------------------------
@@ -278,7 +281,9 @@
    Desktop reticule — a corner-tick target that locks onto record-backed
    elements. Rendered by XrayReticule (motion drives position/size/rotate).
    ---------------------------------------------------------------------- */
-.xray-reticule { position: fixed; top: 0; left: 0; z-index: 55; pointer-events: none; will-change: transform; }
+/* Above the chrome bars + HUD so it's always visible once the native cursor
+   is hidden (the dock/panels suppress it entirely, so it needn't clear those). */
+.xray-reticule { position: fixed; top: 0; left: 0; z-index: 100; pointer-events: none; will-change: transform; }
 .xray-reticule-box { position: absolute; inset: 0; }
 .xray-reticule-corner { position: absolute; width: 10px; height: 10px; border: 1.5px solid var(--accent); filter: drop-shadow(0 0 3px var(--xr-glow)); }
 .xray-reticule-corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
