@@ -121,7 +121,7 @@ export function XraySubstratePanel({ atUri, cid }) {
 
   return (
     <div className="xray-substrate" role="group" aria-label="record location">
-      <p className="xray-substrate-h">you are here in the repo</p>
+      <p className="xray-substrate-h">Atmosphere Record</p>
       <div className="xray-locus">
         <span className="locus-lvl" style={{ '--d': 0 }}>
           <span className="k">pds</span>
