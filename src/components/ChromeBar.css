@@ -110,10 +110,10 @@
 
 .chrome-bar-secondary > .chrome-signals {
   width: 100%;
-  /* --space-2 up top (matching the tertiary crumb strip's height), but only
-     --space-1 below so the state/vitals bar beneath sits close to this row
-     rather than a full row's gap away. */
-  padding: var(--space-2) 0 var(--space-1);
+  /* Same vertical padding as the tertiary strip's crumbs (--space-2) so
+     this row and the timestamp/NSID strip stand the same height when each
+     is a single row. */
+  padding: var(--space-2) 0;
 }
 
 /* State / vitals bar — a second expanded tier beneath the LISTENING TO /
@@ -129,8 +129,9 @@
 
 .chrome-bar-state > .chrome-signals {
   width: 100%;
-  /* Tight to the row above (--space-1 top), normal breathing room below. */
-  padding: var(--space-1) 0 var(--space-2);
+  /* Same padding as the LISTENING TO / FOLLOWED BY row above and every other
+     expanded bar. */
+  padding: var(--space-2) 0;
 }
 
 /* Tertiary chrome: the scroll-driven breadcrumb strip. It's absolutely
