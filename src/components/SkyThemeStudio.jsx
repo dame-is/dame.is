@@ -496,11 +496,14 @@ const GLOW_LABELS = {
 function ColorField({ label, hint, value, onChange, onReset }) {
   const [h, s, l] = rgbToHsl(hexToRgb(value));
   const setHue = (nh) => onChange(rgbToHex(hslToRgb([nh, s, l])));
+  const setSaturation = (ns) => onChange(rgbToHex(hslToRgb([h, ns, l])));
   const setBrightness = (nl) => onChange(rgbToHex(hslToRgb([h, s, nl])));
   const midHue = rgbToHex(hslToRgb([h, s, 0.5]));
+  const satLo = rgbToHex(hslToRgb([h, 0, l]));
+  const satHi = rgbToHex(hslToRgb([h, 1, l]));
   return (
     // A plain div, not a <label> — unlike SliderField this field wraps
-    // three inputs (swatch + two sliders), and a label should only ever
+    // four inputs (swatch + three sliders), and a label should only ever
     // imply an association with one.
     <div className="sky-field sky-color-field">
       <span className="admin-field-label">
@@ -527,6 +530,22 @@ function ColorField({ label, hint, value, onChange, onReset }) {
           step={1}
           value={Math.round(h)}
           onChange={(e) => setHue(Number(e.target.value))}
+        />
+      </span>
+      <span className="sky-hsl-group">
+        <span className="admin-field-label sky-slider-label">
+          <span>Saturation</span>
+          <span className="sky-field-val">{Math.round(s * 100)}%</span>
+        </span>
+        <input
+          className="sky-slider sky-slider-saturation"
+          style={{ '--sky-slider-sat-lo': satLo, '--sky-slider-sat-hi': satHi }}
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(s * 100)}
+          onChange={(e) => setSaturation(Number(e.target.value) / 100)}
         />
       </span>
       <span className="sky-hsl-group">
