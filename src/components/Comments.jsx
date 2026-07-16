@@ -1,3 +1,4 @@
+import { Heart, Repeat2, Quote, MessageCircle, ArrowUpRight } from 'lucide-react';
 import { relativeTime } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
@@ -27,6 +28,7 @@ export default function Comments({
   atUri,
   replies,
   status = 'ready',
+  metrics = null,
   emptyMessage = 'No replies yet.',
 }) {
   if (!atUri) return null;
@@ -35,12 +37,65 @@ export default function Comments({
       <h3 className="comments-heading">
         <span className="small-caps">Replies</span>
       </h3>
+      {metrics && <EngagementBar metrics={metrics} />}
       <CommentsBody
         replies={replies}
         status={status}
         emptyMessage={emptyMessage}
       />
     </section>
+  );
+}
+
+/**
+ * Engagement summary for the Bluesky post that hosts this thread — the four
+ * tallies (likes, reposts, quotes, replies) plus a deep link out to the post
+ * so readers can join in. Rendered above the replies when the parent supplies
+ * `metrics`; omitted entirely otherwise (e.g. the record page, which shows the
+ * post's own stats in its card).
+ */
+function EngagementBar({ metrics }) {
+  const { likeCount, repostCount, quoteCount, replyCount, postUrl } = metrics;
+  // Only surface tallies that actually happened — mirrors the post-card stats
+  // line, and keeps a lightly-engaged post from reading as a wall of zeros. A
+  // post with no engagement yet collapses to just the "Reply on Bluesky" nudge.
+  const stats = [
+    { key: 'like', Icon: Heart, count: likeCount, one: 'like', many: 'likes' },
+    { key: 'repost', Icon: Repeat2, count: repostCount, one: 'repost', many: 'reposts' },
+    { key: 'quote', Icon: Quote, count: quoteCount, one: 'quote', many: 'quotes' },
+    { key: 'reply', Icon: MessageCircle, count: replyCount, one: 'reply', many: 'replies' },
+  ].filter((s) => s.count > 0);
+  if (stats.length === 0 && !postUrl) return null;
+  return (
+    <div className="comments-engagement">
+      <ul className="engagement-stats">
+        {stats.map(({ key, Icon, count, one, many }) => {
+          const label = count === 1 ? one : many;
+          return (
+            <li
+              key={key}
+              className="engagement-stat"
+              title={`${count.toLocaleString()} ${label}`}
+            >
+              <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+              <span className="engagement-count">{count.toLocaleString()}</span>
+              <span className="engagement-label">{label}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {postUrl && (
+        <a
+          className="engagement-link"
+          href={postUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          <span>Reply on Bluesky</span>
+          <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />
+        </a>
+      )}
+    </div>
   );
 }
 

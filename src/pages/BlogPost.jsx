@@ -51,6 +51,7 @@ export default function BlogPost() {
   const [commentsUri, setCommentsUri] = useState(null);
   const [replies, setReplies] = useState([]);
   const [repliesStatus, setRepliesStatus] = useState('idle');
+  const [metrics, setMetrics] = useState(null);
 
   // Comments resolution. Standard docs may carry an optional `commentsUri`
   // field pointing at a Bluesky post thread.
@@ -76,6 +77,7 @@ export default function BlogPost() {
     if (!commentsUri) {
       setReplies([]);
       setRepliesStatus('idle');
+      setMetrics(null);
       return;
     }
     setRepliesStatus('loading');
@@ -83,13 +85,20 @@ export default function BlogPost() {
       try {
         const thread = await getPostThread(commentsUri, { depth: 6, parentHeight: 0 });
         if (cancelled) return;
+        // The anchor post view carries the thread's engagement tallies —
+        // surface them above the replies so the post's reach on Bluesky is
+        // visible without leaving the page.
+        setMetrics(deriveMetrics(thread?.thread?.post, commentsUri));
         const childReplies = Array.isArray(thread?.thread?.replies)
           ? thread.thread.replies
           : [];
         setReplies(childReplies);
         setRepliesStatus('ready');
       } catch {
-        if (!cancelled) setRepliesStatus('error');
+        if (!cancelled) {
+          setRepliesStatus('error');
+          setMetrics(null);
+        }
       }
     })();
     return () => {
@@ -125,8 +134,31 @@ export default function BlogPost() {
       commentsUri={commentsUri}
       replies={replies}
       repliesStatus={repliesStatus}
+      metrics={metrics}
     />
   );
+}
+
+/**
+ * Distill an `app.bsky.feed.getPostThread` anchor post view into the
+ * engagement summary the comments header renders: the four tallies plus a
+ * deep link to the post on bsky.app (built from the author handle + rkey, so
+ * readers can jump straight to liking / replying).
+ */
+function deriveMetrics(post, fallbackUri) {
+  if (!post) return null;
+  const handle = post.author?.handle || null;
+  const uri = post.uri || fallbackUri || '';
+  const rkey = uri ? String(uri).split('/').pop() : null;
+  const postUrl =
+    handle && rkey ? `https://bsky.app/profile/${handle}/post/${rkey}` : null;
+  return {
+    likeCount: post.likeCount || 0,
+    repostCount: post.repostCount || 0,
+    quoteCount: post.quoteCount || 0,
+    replyCount: post.replyCount || 0,
+    postUrl,
+  };
 }
 
 function resolveById(data, id) {
@@ -141,7 +173,7 @@ function resolveById(data, id) {
   return standard ? { kind: 'standard', record: standard } : null;
 }
 
-function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
+function StandardPostBody({ record, id, commentsUri, replies, repliesStatus, metrics }) {
   const value = record?.value || {};
   const created = value.publishedAt || value.createdAt;
   const title = value.title || id;
@@ -165,6 +197,7 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus }) {
             atUri={commentsUri}
             replies={replies}
             status={repliesStatus}
+            metrics={metrics}
           />
         )}
       </article>
