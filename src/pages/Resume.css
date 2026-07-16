@@ -333,35 +333,146 @@ a.resume-work-link:hover .resume-work-title {
   }
 }
 
-/* --- Print: a clean one-document resume ----------------------------- */
+/* --- Print: a clean, ink-light, one-document resume -----------------
+   On screen the resume wears whatever theme is live (light / dark / sky).
+   For paper that means a tinted or near-black ground and — in the dark
+   themes — light text that all but vanishes on white. Rather than patch
+   each element, print re-grounds the resume's design tokens to plain
+   black-on-white and sheds the decorative surfaces (skill chips, work
+   thumbnails, card borders) so what comes out is a simple, ATS-friendly
+   document that sits comfortably on a standard sheet. */
 @media print {
-  .resume-footnote {
-    display: none !important;
+  /* The paper's only frame; `auto` keeps it on the printer's own standard
+     sheet (Letter or A4) rather than forcing one region's size. */
+  @page {
+    size: auto;
+    margin: 0.5in;
   }
 
+  /* Never carry a page tint into the printout, whatever theme is live —
+     this is the "no background color" the print view is after. */
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Collapse the screen scaffolding so the resume begins at the page
+     margin instead of below the reserved chrome / gutter space. */
+  .app-shell {
+    min-height: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* The page margin (above) is the only frame the printout needs, so drop
+     the screen shell's centering width and gutter padding. `!important`
+     because the global .main rule is bundled after this file and would
+     otherwise win on source order at equal specificity. */
+  .main {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Re-ground the palette and shrink the type + spacing scale, all via the
+     design tokens. Custom properties inherit, so every descendant that
+     reads --ink / --page / --rule-* / --text-* / --space-* resolves to
+     these print values — the summary's `.blog-prose`, the skills, and the
+     work list included — without touching each rule. Scoped to `.resume`
+     so no other page's print is affected. */
   .resume {
-    gap: 1.2rem;
+    --page: #fff;
+    --page-edge: #fff;
+    --surface-raised: #fff;
+    --ink: #000;
+    --ink-soft: #1a1a1a;
+    --ink-muted: #3a3a3a;
+    --ink-faint: #5a5a5a;
+    --accent: #000;
+    --accent-soft: #8a8a8a;
+    --rule: #b3b3b3;
+    --rule-soft: #d0d0d0;
+    --highlight: transparent;
+    --shadow: none;
+
+    /* A compact scale so a full resume fits the sheet without the on-screen
+       display sizes overrunning the printable width. */
+    --text-xs: 0.66rem;
+    --text-sm: 0.75rem;
+    --text-base: 0.84rem;
+    --text-lg: 0.92rem;
+    --text-xl: 1.02rem;
+    --text-2xl: 1.2rem;
+    --text-3xl: 1.5rem;
+    --text-4xl: 1.7rem;
+    --leading: 1.4;
+    --leading-tight: 1.15;
+    --space-2: 0.35rem;
+    --space-3: 0.5rem;
+    --space-4: 0.7rem;
+    --space-5: 0.9rem;
+    --space-6: 1.05rem;
+
     max-width: none;
     color: #000;
   }
 
-  .resume-section {
+  /* No transitions or animations in the printout: the route fade-in (which
+     starts at a low opacity via `both` fill) and the link colour transition
+     could otherwise rasterize mid-flight and print washed out or faint. */
+  .resume,
+  .resume * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .resume.reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Keep whole sections, tenures, and roles from splitting across breaks. */
+  .resume-section,
+  .resume-org,
+  .resume-role {
     break-inside: avoid;
   }
 
-  .resume-role,
-  .resume-org {
-    break-inside: avoid;
-  }
-
-  .resume-highlight,
-  .resume-role-title,
-  .resume-org-name,
-  .resume-title {
+  /* Links read as plain black text — the on-screen underline hairline is a
+     hover affordance that means nothing on paper. */
+  .resume-contact a,
+  .resume-org-name a,
+  .resume-role-title a {
+    border-bottom: none;
     color: #000;
   }
 
-  .resume-contact a {
+  /* Skills: drop the boxed chips for a plain comma-separated line. */
+  .resume-skill {
+    padding: 0;
+    background: none;
     border: none;
+  }
+
+  .resume-skill:not(:last-child)::after {
+    content: ",";
+    color: var(--ink-faint);
+  }
+
+  /* Selected work: keep the titles as text, shed the card frame, the
+     portfolio thumbnails, and the external-link glyph. */
+  .resume-work-link {
+    padding: 0;
+    border: none;
+    background: none;
+  }
+
+  .resume-work-thumb,
+  .resume-work-ext {
+    display: none;
+  }
+
+  /* The closing footnote is a site-navigation aside — not resume content. */
+  .resume-footnote {
+    display: none !important;
   }
 }
