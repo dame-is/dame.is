@@ -12,6 +12,84 @@
   margin: 0 0 var(--space-4);
 }
 
+/* Engagement summary for the host Bluesky post, sitting between the "Replies"
+   heading and the thread. A hairline underline separates it from the replies
+   below without competing with the section's own top rule. */
+.comments-engagement {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.engagement-stats {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+}
+
+.engagement-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  line-height: 1.2;
+}
+
+.engagement-stat svg {
+  color: var(--ink-faint);
+  flex: 0 0 auto;
+}
+
+.engagement-count {
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.engagement-label {
+  color: var(--ink-muted);
+}
+
+/* Rendered as a <button> (opens the waypoints picker), so it needs the usual
+   button resets before it can read as the site's dotted-underline text link. */
+.engagement-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px dotted transparent;
+  color: var(--ink-muted);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.engagement-link:hover,
+.engagement-link:focus-visible {
+  color: var(--ink);
+  border-bottom-color: var(--accent-soft);
+}
+
+.engagement-link svg {
+  flex: 0 0 auto;
+}
+
 .comments-tree {
   list-style: none;
   padding: 0;
