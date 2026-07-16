@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Fingerprint } from 'lucide-react';
+import { Fingerprint, MapPinned } from 'lucide-react';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { relativeTime } from '../lib/time.js';
 import { useXray } from '../hooks/useXray.jsx';
@@ -102,9 +102,6 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
               )}
             </span>
             {showHandle && <span className="guestbook-entry-handle gutter">@{handle}</span>}
-            {value.location && (
-              <span className="guestbook-entry-location gutter">from {value.location}</span>
-            )}
           </div>
           {when && (
             <span className="guestbook-entry-time gutter">
@@ -124,7 +121,7 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
           </p>
         ) : null}
 
-        {(entry.cid || hasControls) && (
+        {(entry.cid || value.location || hasControls) && (
           <div className="guestbook-entry-meta">
             {entry.cid && (
               <span
@@ -135,34 +132,44 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
                 {shortCid(entry.cid)}
               </span>
             )}
-            {entry.hidden && moderating && (
-              <span className="guestbook-entry-hidden-badge small-caps">hidden</span>
+            {value.location && (
+              <span className="guestbook-entry-location gutter">
+                <MapPinned size={12} strokeWidth={1.75} aria-hidden="true" />
+                {value.location}
+              </span>
             )}
-            {mine && (
-              <button
-                type="button"
-                className="guestbook-entry-remove"
-                onClick={remove}
-                disabled={removing}
-                title="Remove your signature"
-              >
-                {removing ? '…' : 'remove'}
-              </button>
-            )}
-            {moderating && (
-              <button
-                type="button"
-                className="guestbook-entry-moderate"
-                onClick={toggleHidden}
-                disabled={toggling}
-                title={
-                  entry.hidden
-                    ? 'Show this signature publicly again'
-                    : 'Hide this signature from public display'
-                }
-              >
-                {toggling ? '…' : entry.hidden ? 'unhide' : 'hide'}
-              </button>
+            {hasControls && (
+              <div className="guestbook-entry-controls">
+                {entry.hidden && moderating && (
+                  <span className="guestbook-entry-hidden-badge small-caps">hidden</span>
+                )}
+                {mine && (
+                  <button
+                    type="button"
+                    className="guestbook-entry-remove"
+                    onClick={remove}
+                    disabled={removing}
+                    title="Remove your signature"
+                  >
+                    {removing ? '…' : 'remove'}
+                  </button>
+                )}
+                {moderating && (
+                  <button
+                    type="button"
+                    className="guestbook-entry-moderate"
+                    onClick={toggleHidden}
+                    disabled={toggling}
+                    title={
+                      entry.hidden
+                        ? 'Show this signature publicly again'
+                        : 'Hide this signature from public display'
+                    }
+                  >
+                    {toggling ? '…' : entry.hidden ? 'unhide' : 'hide'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         )}
