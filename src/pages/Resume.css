@@ -458,17 +458,11 @@ a.resume-work-link:hover .resume-work-title {
     color: var(--ink-faint);
   }
 
-  /* Selected work: keep the titles as text, shed the card frame, the
-     portfolio thumbnails, and the external-link glyph. */
-  .resume-work-link {
-    padding: 0;
-    border: none;
-    background: none;
-  }
-
-  .resume-work-thumb,
-  .resume-work-ext {
-    display: none;
+  /* Selected work: the connected portfolio items are screen-only links —
+     drop the whole block (label + list) so the printout stays a clean,
+     self-contained text document rather than a list of dead URLs. */
+  .resume-work {
+    display: none !important;
   }
 
   /* The closing footnote is a site-navigation aside — not resume content. */
