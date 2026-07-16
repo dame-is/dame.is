@@ -39,78 +39,44 @@
   font-size: var(--text-sm);
 }
 
-/* ---- hour arc ---- */
-.sky-arc-wrap {
-  margin: var(--space-5) 0 var(--space-4);
+/* ---- hour bar: a sticky expanded panel above the bottom chrome ----
+   Portalled to <body> and pinned just above the fixed bottom chrome bar,
+   like the owner edit-mode action bar. Its height is fed back into the
+   .app-shell bottom padding (--sky-hourbar-h) so content always clears it. */
+.sky-hourbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
+  z-index: 31;
+  background: var(--surface-deep);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
 }
-.sky-arc-head {
+.sky-hourbar-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: var(--space-2) var(--space-4) calc(var(--space-2) + 2px);
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-2);
 }
-.sky-arc-meta {
+.sky-hourbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sky-hourbar-meta {
+  margin-left: auto;
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
-  color: var(--ink-faint);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
-}
-.sky-dot,
-.sky-arc-meta .sky-dot {
-  display: inline-block;
-  width: 0.7em;
-  height: 3px;
-  background: var(--accent);
-  vertical-align: middle;
-}
-.sky-arc {
-  display: grid;
-  grid-template-columns: repeat(24, 1fr);
-  gap: 2px;
-  border: 1px solid var(--rule);
-  padding: 2px;
-  background: var(--rule-soft);
-}
-.sky-arc-cell {
-  position: relative;
-  height: 38px;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  outline: none;
-}
-.sky-arc-cell:hover {
-  filter: brightness(1.08);
-}
-.sky-arc-cell.is-ovr::before {
-  content: '';
-  position: absolute;
-  left: 1px;
-  right: 1px;
-  top: 1px;
-  height: 3px;
-  background: var(--accent);
-}
-.sky-arc-cell.is-sel {
-  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--page);
-  z-index: 1;
-}
-.sky-arc-cell:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--accent);
-  z-index: 2;
-}
-.sky-arc-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  margin-top: var(--space-3);
+  color: var(--ink-muted);
+  white-space: nowrap;
 }
 .sky-step {
-  width: 2rem;
-  height: 2rem;
+  width: 1.9rem;
+  height: 1.9rem;
+  flex: none;
   border: 1px solid var(--rule);
   background: var(--surface-raised);
   color: var(--ink-soft);
@@ -123,17 +89,48 @@
   border-color: var(--accent-soft);
 }
 .sky-hour-name {
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: 600;
-  min-width: 12ch;
-  text-align: center;
 }
 .sky-hour-tag {
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-muted);
+}
+.sky-arc {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+}
+.sky-arc-cell {
+  position: relative;
+  height: 26px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+}
+.sky-arc-cell:hover {
+  filter: brightness(1.1);
+}
+.sky-arc-cell.is-ovr::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: var(--accent);
+}
+.sky-arc-cell.is-sel {
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--surface-deep);
+  z-index: 1;
+}
+.sky-arc-cell:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  z-index: 2;
 }
 
 /* ---- live preview card ---- */
@@ -362,19 +359,56 @@
   color: var(--ink);
   border-color: var(--accent-soft);
 }
-.sky-num-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
+.sky-slider-field {
+  flex: 1 1 220px;
+  min-width: 200px;
 }
-.sky-num {
-  width: 5.5rem;
-  text-align: right;
+.sky-slider-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
 }
-.sky-num-suffix {
+.sky-field-val {
   font-family: var(--mono-ui);
   font-size: var(--text-sm);
-  color: var(--ink-faint);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.sky-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--rule);
+  cursor: pointer;
+  margin: 0.45em 0;
+}
+.sky-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 0;
+  background: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, #000);
+  cursor: grab;
+}
+.sky-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 0;
+  background: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 65%, #000);
+  cursor: grab;
+}
+.sky-slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+.sky-slider:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
 }
 .sky-targets {
   margin-top: var(--space-4);
@@ -414,7 +448,10 @@
 
 @media (max-width: 560px) {
   .sky-arc-cell {
-    height: 30px;
+    height: 22px;
+  }
+  .sky-hourbar-meta {
+    display: none;
   }
   .sky-pv-row {
     grid-template-columns: 4.5rem 1fr auto;
