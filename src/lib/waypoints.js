@@ -12,6 +12,7 @@ import {
   matchSupportedUrl,
   resolveAtUri,
   resolveUrl,
+  buildWaypointsForParsed,
   WAYPOINT_CATEGORIES_DATA,
   WAYPOINT_DESTINATIONS_DATA,
   CATEGORY_ORDER,
@@ -130,6 +131,33 @@ export function isAutoWaypointHref(href) {
 }
 
 /**
+ * `resolveUrl()` intentionally omits the *source* client — the app the link
+ * came from — from its results, on the assumption you're already in it. But
+ * this site interposes the picker on bsky.app links precisely so a visitor can
+ * pick a client, so the origin (Bluesky) should stay listed. Rebuilding the
+ * waypoints straight from the resolved record is origin-agnostic and so
+ * re-includes it. We only adopt that rebuild when it's a superset of what
+ * `resolveUrl` returned, so nothing `resolveUrl` added is ever lost; its
+ * recommendation set (which likewise re-includes the origin, in the catalog's
+ * own order) comes along with it.
+ */
+function restoreSourceClient(resolved) {
+  if (!resolved?.parsed) return resolved;
+  let full;
+  try {
+    full = buildWaypointsForParsed(resolved.parsed);
+  } catch {
+    return resolved;
+  }
+  const waypoints = full?.waypoints;
+  if (!Array.isArray(waypoints) || waypoints.length === 0) return resolved;
+  const ids = new Set(waypoints.map((w) => w.id));
+  const isSuperset = (resolved.waypoints || []).every((w) => ids.has(w.id));
+  if (!isSuperset) return resolved;
+  return { ...resolved, waypoints, recommended: full.recommended || resolved.recommended };
+}
+
+/**
  * Resolve an outbound link (or `at://` URI) into its waypoints. `at://` URIs
  * resolve offline; page URLs use the offline pattern matcher plus the site's
  * own `resolveHandle` so DID-only destinations (Grain, PDSls, Margin, …) are
@@ -140,7 +168,7 @@ export async function resolveWaypoints(href) {
   const s = String(href || '');
   if (s.startsWith('at://')) return applyWaypointPolicy(resolveAtUri(s));
   try {
-    return applyWaypointPolicy(await resolveUrl(s, { resolveHandle }));
+    return applyWaypointPolicy(restoreSourceClient(await resolveUrl(s, { resolveHandle })));
   } catch {
     return null;
   }
