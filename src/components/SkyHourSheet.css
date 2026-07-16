@@ -5,15 +5,15 @@
   /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
      so the arc lines up with the nav dock, the breadcrumb, and the bottom-bar
      buttons at every breakpoint. */
-  padding: var(--space-4) var(--chrome-pad-x);
+  padding: var(--space-3) var(--chrome-pad-x) var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .sky-hour-sheet-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
   font-family: var(--sans);
@@ -22,37 +22,35 @@
   color: var(--ink-faint);
 }
 
-/* The "Live" badge/button: a quiet marker when the clock is live, a
-   clickable chip when an override is freezing it. */
+/* The "Live" badge/button: inline text that sits on the header's baseline,
+   no box, so it never adds height beyond the small-caps label beside it.
+   Reads as a quiet marker when the clock is live, a clickable link when an
+   override is freezing it. */
 .sky-hour-sheet-live,
 .sky-hour-sheet-live-label {
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  border: 1px solid var(--rule);
-  padding: 0.2em 0.6em;
-  cursor: pointer;
-  color: var(--ink-faint);
+  padding: 0;
+  border: 0;
   background: transparent;
-  transition: color 120ms ease, border-color 120ms ease;
+  color: var(--ink-faint);
+  transition: color 120ms ease;
 }
 
-.sky-hour-sheet-live-label {
-  cursor: default;
-  border-color: var(--rule-soft);
-  color: var(--ink-faint);
+.sky-hour-sheet-live {
+  cursor: pointer;
 }
 
 .sky-hour-sheet-live:hover,
 .sky-hour-sheet-live:focus-visible {
   color: var(--ink);
-  border-color: var(--accent-soft);
   outline: none;
 }
 
-/* The 24-hour arc — same grid as the admin studio's .sky-arc but with
-   taller cells so the hour label fits inside each one. */
+/* The 24-hour arc — short cells close to square so the strip reads as a
+   tight color ribbon, not a tall grid. */
 .sky-hour-sheet-arc {
   display: grid;
   grid-template-columns: repeat(24, 1fr);
@@ -61,7 +59,7 @@
 
 .sky-hour-sheet-cell {
   position: relative;
-  height: 40px;
+  height: 24px;
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -110,6 +108,6 @@
 
 @media (max-width: 560px) {
   .sky-hour-sheet-cell {
-    height: 32px;
+    height: 20px;
   }
 }
