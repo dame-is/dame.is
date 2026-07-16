@@ -88,6 +88,16 @@ export const PAGES = {
     desc: 'Moths at the light — observations logged from nights spent watching the dark.',
     nsid: 'is.dame.mothing.observation',
   },
+  // The guestbook presents as "Welcoming" (dame is welcoming) at /welcoming;
+  // its slug and records stay `guestbook`. Same URL/slug split as resume →
+  // "Available" at /available. The card's NSID chip names the visitor-written
+  // signatures the page lists (is.dame.guestbook.entry), not the book singleton.
+  '/welcoming': {
+    label: 'welcoming',
+    title: 'dame.is welcoming',
+    desc: 'Sign in with any atproto account and leave a note that you were here. Every signature lives on the signer’s own PDS and reaches this page as a backlink.',
+    nsid: 'is.dame.guestbook.entry',
+  },
   '/sharing': {
     label: 'sharing',
     title: 'dame.is sharing',
