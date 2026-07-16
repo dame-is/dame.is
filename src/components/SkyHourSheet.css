@@ -49,9 +49,38 @@
   outline: none;
 }
 
+/* The arc row: step arrows flank the 24-cell strip so you can cycle the
+   whole spectrum in a loop without tapping each swatch. */
+.sky-hour-sheet-arc-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.sky-hour-sheet-step {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  border: 1px solid var(--rule);
+  background: var(--surface-raised);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.sky-hour-sheet-step:hover,
+.sky-hour-sheet-step:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent-soft);
+  outline: none;
+}
+
 /* The 24-hour arc — short cells close to square so the strip reads as a
    tight color ribbon, not a tall grid. */
 .sky-hour-sheet-arc {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: repeat(24, 1fr);
   gap: 2px;

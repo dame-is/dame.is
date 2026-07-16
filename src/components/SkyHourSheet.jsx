@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -47,24 +47,44 @@ export default function SkyHourSheet() {
           <span className="sky-hour-sheet-live-label">Live</span>
         )}
       </div>
-      <div className="sky-hour-sheet-arc" role="tablist" aria-label="Hour">
-        {Array.from({ length: 24 }, (_, h) => {
-          const pv = paletteForHour(h).vars['--sky-page'];
-          return (
-            <button
-              key={h}
-              type="button"
-              role="tab"
-              aria-selected={h === skyHour}
-              className={`sky-hour-sheet-cell ${h === skyHour ? 'is-sel' : ''}`}
-              style={{ background: pv }}
-              title={skyHourKey(h)}
-              onClick={() => setSkyHour(h)}
-            >
-              <span className="sky-hour-sheet-cell-label">{skyHourKey(h)}</span>
-            </button>
-          );
-        })}
+      <div className="sky-hour-sheet-arc-row">
+        <button
+          type="button"
+          className="sky-hour-sheet-step"
+          onClick={() => setSkyHour((skyHour + 23) % 24)}
+          aria-label="Previous hour"
+          title="Previous hour"
+        >
+          <ArrowLeft size={14} aria-hidden="true" strokeWidth={1.75} />
+        </button>
+        <div className="sky-hour-sheet-arc" role="tablist" aria-label="Hour">
+          {Array.from({ length: 24 }, (_, h) => {
+            const pv = paletteForHour(h).vars['--sky-page'];
+            return (
+              <button
+                key={h}
+                type="button"
+                role="tab"
+                aria-selected={h === skyHour}
+                className={`sky-hour-sheet-cell ${h === skyHour ? 'is-sel' : ''}`}
+                style={{ background: pv }}
+                title={skyHourKey(h)}
+                onClick={() => setSkyHour(h)}
+              >
+                <span className="sky-hour-sheet-cell-label">{skyHourKey(h)}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          className="sky-hour-sheet-step"
+          onClick={() => setSkyHour((skyHour + 1) % 24)}
+          aria-label="Next hour"
+          title="Next hour"
+        >
+          <ArrowRight size={14} aria-hidden="true" strokeWidth={1.75} />
+        </button>
       </div>
     </BottomSheet>
   );
