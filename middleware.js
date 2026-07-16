@@ -66,6 +66,7 @@ export const config = {
     '/mothing',
     '/mothing/:rkey',
     '/sharing',
+    '/welcoming',
   ],
 };
 

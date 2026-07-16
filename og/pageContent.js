@@ -20,10 +20,12 @@ const PDS_TIMEOUT_MS = 2500;
 
 // Top-level routes whose OG copy is backed by an is.dame.page/<rkey> record.
 // The URL and the record key can differ — /available is backed by the
-// is.dame.page/resume record. Add a route here to let it drive its own social
-// copy from the PDS; unlisted routes keep their static og/pages.js copy.
+// is.dame.page/resume record, and /welcoming by is.dame.page/guestbook. Add a
+// route here to let it drive its own social copy from the PDS; unlisted routes
+// keep their static og/pages.js copy.
 const PAGE_RKEY_FOR_PATH = {
   '/available': 'resume',
+  '/welcoming': 'guestbook',
 };
 
 /** Resolve after `ms`, whichever comes first, so a hung fetch never blocks. */
