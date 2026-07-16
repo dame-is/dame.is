@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Fingerprint, MapPinned } from 'lucide-react';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
+import { censorProfanity } from '../lib/profanity.js';
 import { relativeTime } from '../lib/time.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from './XraySubstrate.jsx';
@@ -28,8 +29,12 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
   // decentralization visible. entry.uri already points at it (a foreign repo).
   const inspectable = xray.active && !!entry.uri;
   const focused = inspectable && xray.focusUri === entry.uri;
+  // The signer authored `signature`, `text`, and `location` for this book, so
+  // those are masked for offensive words as they render (the record on the
+  // signer's PDS is untouched — see src/lib/profanity.js). Profile-derived
+  // names/handles are left to Bluesky's own moderation.
   const name =
-    value.signature?.trim() ||
+    censorProfanity(value.signature?.trim()) ||
     profile?.displayName?.trim() ||
     (profile?.handle && profile.handle !== 'handle.invalid' ? `@${profile.handle}` : null) ||
     shortDid(entry.did);
@@ -42,6 +47,7 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
   // rendering an empty permalink.
   const when = relativeTime(value.createdAt);
   const hasControls = mine || moderating;
+  const noteText = censorProfanity(value.text);
 
   async function remove() {
     if (removing) return;
@@ -110,9 +116,9 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
           )}
         </header>
 
-        {value.text ? (
+        {noteText ? (
           <p className="guestbook-entry-text">
-            {value.text}
+            {noteText}
             {value.mark && <span className="guestbook-entry-inline-mark"> {value.mark}</span>}
           </p>
         ) : value.mark ? (
@@ -135,7 +141,7 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
             {value.location && (
               <span className="guestbook-entry-location gutter">
                 <MapPinned size={12} strokeWidth={1.75} aria-hidden="true" />
-                {value.location}
+                {censorProfanity(value.location)}
               </span>
             )}
             {hasControls && (
