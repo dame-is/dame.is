@@ -24,10 +24,9 @@ import './Resume.css';
 const STANDARD_DOC = 'site.standard.document';
 
 // Printed, the résumé is a formal document, so the on-screen page title
-// ("Available") gives way to Dame's name — at the top of the first sheet and on
-// the identity block repeated above the experience section. Screen view keeps
-// the "Available" title; only the printout swaps in the name. See Resume.css
-// (.resume-title-print / .resume-running-header, @media print).
+// ("Available") gives way to Dame's name at the top of the sheet. Screen view
+// keeps the "Available" title; only the printout swaps in the name. See
+// Resume.css (.resume-title-print, @media print).
 const PRINT_NAME = 'Dame';
 
 /**
@@ -177,11 +176,9 @@ function ResumeWorkLink({ item }) {
 }
 
 /**
- * The résumé's identity block — title, headline, and contact line. Rendered in
- * the page header and again (print-only) above the experience section so a
- * multi-page printout carries the name + contact onto the continuation sheet.
- * On screen the title shows `screenTitle` ("Available"); in print it swaps to
- * `printName` (see the .resume-title-live/-print rules in Resume.css).
+ * The résumé's identity block — title, headline, and contact line. On screen
+ * the title shows `screenTitle` ("Available"); in print it swaps to `printName`
+ * (see the .resume-title-live / .resume-title-print rules in Resume.css).
  */
 function ResumeIdentity({ screenTitle, printName, headline, contact }) {
   return (
@@ -299,18 +296,7 @@ export default function Resume() {
         )}
 
         {resolved.experience.length > 0 && (
-          <section className="resume-section resume-experience">
-            {/* Print-only: repeat the identity block above the experience so a
-                multi-page printout carries the name + contact onto the second
-                sheet. Hidden on screen; see .resume-running-header in the CSS. */}
-            <header className="resume-header resume-running-header" aria-hidden="true">
-              <ResumeIdentity
-                screenTitle={pageTitle || 'Available'}
-                printName={PRINT_NAME}
-                headline={v.headline}
-                contact={contact}
-              />
-            </header>
+          <section className="resume-section">
             <h2 className="resume-section-title small-caps">Experience</h2>
             <div className="resume-orgs">
               {resolved.experience.map((org, oi) => (
