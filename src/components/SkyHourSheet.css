@@ -110,31 +110,6 @@
   z-index: 2;
 }
 
-/* Hour label inside each cell — hidden by default, revealed on hover/focus
-   so the arc reads as a pure color strip until you probe a cell. The
-   selected cell always shows its label. */
-.sky-hour-sheet-cell-label {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--mono-ui);
-  font-size: 9px;
-  letter-spacing: 0.02em;
-  color: var(--ink);
-  opacity: 0;
-  transition: opacity 120ms ease;
-  pointer-events: none;
-  mix-blend-mode: difference;
-}
-
-.sky-hour-sheet-cell:hover .sky-hour-sheet-cell-label,
-.sky-hour-sheet-cell:focus-visible .sky-hour-sheet-cell-label,
-.sky-hour-sheet-cell.is-sel .sky-hour-sheet-cell-label {
-  opacity: 0.85;
-}
-
 @media (max-width: 560px) {
   .sky-hour-sheet-cell {
     height: 20px;

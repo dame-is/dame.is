@@ -66,13 +66,12 @@ export default function SkyHourSheet() {
                 type="button"
                 role="tab"
                 aria-selected={h === skyHour}
+                aria-label={skyHourKey(h)}
                 className={`sky-hour-sheet-cell ${h === skyHour ? 'is-sel' : ''}`}
                 style={{ background: pv }}
                 title={skyHourKey(h)}
                 onClick={() => setSkyHour(h)}
-              >
-                <span className="sky-hour-sheet-cell-label">{skyHourKey(h)}</span>
-              </button>
+              />
             );
           })}
         </div>
