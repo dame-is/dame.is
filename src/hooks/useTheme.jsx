@@ -103,12 +103,18 @@ export function ThemeProvider({ children }) {
   const appliedRef = useRef(null);
 
   useEffect(() => {
+    // Skip while the admin SkyThemeStudio is live-painting its own
+    // preview — its direct applySkyTheme calls own the palette, and a
+    // clock tick here would clobber the selected hour. When the preview
+    // clears (studio unmounts), this effect re-runs and catches up to
+    // the real clock (or the chip's override) with the saved tuning.
+    if (skyPreviewHour != null) return;
     const sig = `sky:${skyHour}:${tuningRev}`;
     if (appliedRef.current !== sig) {
       applyTheme(skyHour);
       appliedRef.current = sig;
     }
-  }, [skyHour, tuningRev]);
+  }, [skyHour, tuningRev, skyPreviewHour]);
 
   // Load the optional is.dame.sky/self override: snapshot for an instant
   // swap-in, then the live record. Installs it globally (setSkyTuning) and
@@ -165,12 +171,24 @@ export function ThemeProvider({ children }) {
 
   // Time switcher: step the sky palette forward one hour per call,
   // wrapping at midnight. Wired to the hour chip in the bottom chrome
-  // bar so each of the 24 increments can be walked through in place.
+  // bar (when inside the SkyThemeStudio) so each of the 24 increments
+  // can be walked through in place.
   const advanceSkyHour = useCallback(() => {
     const next = (skyHourRef.current + 1) % 24;
     // Sync apply for the same iOS theme-color gesture reason as above.
     applyTheme(next);
     appliedRef.current = `sky:${next}:${tuningRevRef.current}`;
+    setSkyOverride(next);
+  }, []);
+
+  // Jump the sky palette to a specific hour (0–23), or pass null to clear
+  // the override and return to the live clock. Wired to the SkyHourSheet's
+  // 24-hour arc so non-admin visitors can sample any hour's palette. Same
+  // sync-apply + appliedRef guard as advanceSkyHour (iOS theme-color).
+  const setSkyHour = useCallback((next) => {
+    const h = next == null ? easternHour() : next;
+    applyTheme(h);
+    appliedRef.current = `sky:${h}:${tuningRevRef.current}`;
     setSkyOverride(next);
   }, []);
 
@@ -192,10 +210,11 @@ export function ThemeProvider({ children }) {
       skyHourKey: skyHourKey(skyHour),
       skyOverridden: skyOverride != null,
       advanceSkyHour,
+      setSkyHour,
       setSkyPreviewHour,
       installSkyTuning,
     }),
-    [skyHour, skyDisplayHour, skyOverride, advanceSkyHour, setSkyPreviewHour, installSkyTuning],
+    [skyHour, skyDisplayHour, skyOverride, advanceSkyHour, setSkyHour, setSkyPreviewHour, installSkyTuning],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

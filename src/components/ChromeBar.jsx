@@ -26,6 +26,7 @@ import SearchSheet from './SearchSheet.jsx';
 import InfoSheet from './InfoSheet.jsx';
 import GuestbookSheet from './GuestbookSheet.jsx';
 import DebugSheet from './DebugSheet.jsx';
+import SkyHourSheet from './SkyHourSheet.jsx';
 import Footer from './Footer.jsx';
 import './ChromeBar.css';
 
@@ -439,6 +440,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const searchPanelOpen = panel === 'search';
   const filterPanelOpen = panel === 'filter';
   const infoPanelOpen = panel === 'info';
+  const skyPanelOpen = panel === 'sky';
   const reduce = useReducedMotion();
   const atTop = useAtTopOfPage();
   const scrolledPast = useScrolledPastFeedItems();
@@ -482,6 +484,9 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const searchActive = !!params.get('q');
   const filterCustomized = params.has('verbs');
   const onHomePage = location.pathname === '/';
+  // The admin SkyThemeStudio has its own hour bar for tuning; the chip keeps
+  // its tap-to-advance behavior there instead of opening the SkyHourSheet.
+  const inSkyStudio = location.pathname === '/admin' && params.get('view') === 'sky';
   // The resume (/available) page exposes a print / save-as-PDF control in the
   // bottom bar's page-level cluster — it replaces the old in-page print button
   // and only shows while a resume is on screen.
@@ -614,15 +619,20 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
               >
                 {/* Time switcher. The site always runs the hour-tracking
                     sky theme; this chip shows the hour whose palette is on
-                    screen, and each tap advances it one hour (wrapping at
-                    midnight) so you can walk the sky through the day by
-                    hand. */}
+                    screen. Outside the admin SkyThemeStudio, tapping it
+                    opens the SkyHourSheet — a 24-cell arc that expands up
+                    out of the bottom chrome so any visitor can sample the
+                    palette at any hour. Inside the studio, each tap
+                    advances one hour (the studio has its own arc for
+                    jumping). */}
                 <button
                   type="button"
-                  className="chrome-nav chrome-sky-hour"
-                  onClick={advanceSkyHour}
-                  aria-label={`Advance the sky one hour (showing ${skyHourKey})`}
-                  title={`Time of day — tap to advance the sky one hour (showing ${skyHourKey})`}
+                  className={`chrome-nav chrome-sky-hour ${skyPanelOpen ? 'is-open' : ''}`}
+                  onClick={inSkyStudio ? advanceSkyHour : () => togglePanel('sky')}
+                  aria-expanded={inSkyStudio ? undefined : skyPanelOpen}
+                  aria-controls={inSkyStudio ? undefined : 'chrome-sky-sheet'}
+                  aria-label={`Time of day — showing ${skyHourKey}`}
+                  title={`Time of day — tap to ${inSkyStudio ? 'advance the sky one hour' : 'pick an hour'} (showing ${skyHourKey})`}
                 >
                   {skyHourKey}
                 </button>
@@ -884,6 +894,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       <InfoSheet />
       <GuestbookSheet />
       <DebugSheet />
+      <SkyHourSheet />
     </motion.div>
   );
 }
