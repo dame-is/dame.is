@@ -424,6 +424,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
                     onSetCover={onSetCover}
                     onPasteBlocks={(payload) => pasteBlocksAt(i, payload)}
                   />
+                  <BlockLayoutControls block={block} onChange={(next) => updateBlock(i, next)} />
                 </div>
               ) : (
                 <div
@@ -497,6 +498,69 @@ function BlockBody({ block, agent, did, onChange, onSetCover, onPasteBlocks }) {
         </pre>
       );
   }
+}
+
+/**
+ * Per-block layout controls under the active block's editor: indent (text
+ * paragraphs only) plus extra space above / below any block, so an author can
+ * shape spacing without inserting empty spacer blocks. Values are stored on the
+ * block (`indent`, `spaceTop`, `spaceBottom`) and read by the renderer (see
+ * LeafletDocument's blockLayoutStyle). Absent = the default: stacked paragraphs
+ * auto-indent, and there's no extra space.
+ */
+function BlockLayoutControls({ block, onChange }) {
+  const isText = block.$type === 'pub.leaflet.blocks.text';
+  const setField = (key, value) => {
+    const next = { ...block };
+    if (value === undefined) delete next[key];
+    else next[key] = value;
+    onChange(next);
+  };
+  const indentValue = block.indent == null ? 'auto' : block.indent ? 'on' : 'off';
+  return (
+    <div className="block-layout-controls">
+      {isText && (
+        <label className="block-layout-field">
+          <span className="small-caps">Indent</span>
+          <select
+            className="block-layout-select"
+            value={indentValue}
+            onChange={(e) => {
+              const v = e.target.value;
+              setField('indent', v === 'auto' ? undefined : v === 'on');
+            }}
+          >
+            <option value="auto">Auto</option>
+            <option value="on">Indented</option>
+            <option value="off">Flush</option>
+          </select>
+        </label>
+      )}
+      <label className="block-layout-field">
+        <span className="small-caps">Space above</span>
+        <SpaceSelect value={block.spaceTop} onChange={(v) => setField('spaceTop', v)} />
+      </label>
+      <label className="block-layout-field">
+        <span className="small-caps">Space below</span>
+        <SpaceSelect value={block.spaceBottom} onChange={(v) => setField('spaceBottom', v)} />
+      </label>
+    </div>
+  );
+}
+
+function SpaceSelect({ value, onChange }) {
+  return (
+    <select
+      className="block-layout-select"
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value || undefined)}
+    >
+      <option value="">None</option>
+      <option value="sm">Small</option>
+      <option value="md">Medium</option>
+      <option value="lg">Large</option>
+    </select>
+  );
 }
 
 /**

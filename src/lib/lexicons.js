@@ -117,6 +117,10 @@ export const LEXICONS = {
       { key: 'publishedAt', label: 'Published at', type: 'datetime', default: 'now', required: true },
       { key: 'content',     label: 'Body',         type: 'blocks' },
       {
+        key: 'commentsUri', label: 'Bluesky comments post', type: 'bskyThread',
+        hint: 'Link a Bluesky post whose replies become this post’s comments. Paste its URL, at:// URI, or rkey.',
+      },
+      {
         key: 'links', label: 'Links', type: 'json',
         hint: 'Optional external links (standard.site union — raw JSON).',
       },

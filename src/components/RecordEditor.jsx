@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { COLLECTIONS } from '../config.js';
+import { COLLECTIONS, ME_DID } from '../config.js';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { resolvePds } from '../lib/atproto.js';
@@ -625,6 +625,9 @@ function Field({ field, value, record, onChange, agent, did, collection, rkey, o
     case 'json':
       control = <JsonField id={id} value={value} onChange={onChange} />;
       break;
+    case 'bskyThread':
+      control = <BskyThreadField id={id} value={value} onChange={onChange} />;
+      break;
     case 'highlights':
       control = (
         <HighlightsField
@@ -817,6 +820,74 @@ function stringifyJson(v) {
   } catch {
     return '';
   }
+}
+
+/**
+ * Links a Bluesky post whose reply thread becomes a blog post's comments
+ * (stored on `commentsUri`, which BlogPost.jsx feeds to getPostThread). The
+ * author can paste any of: a bsky.app post URL, an `at://` URI, or a bare
+ * rkey — all normalized to the canonical `at://{did}/app.bsky.feed.post/{rkey}`
+ * form that legacy migrated posts already use. A handle-based URL (or bare
+ * rkey) assumes the post is the site owner's own; a DID in the URL is kept.
+ */
+function BskyThreadField({ id, value, onChange }) {
+  // `raw` mirrors what the author typed; the record stores the normalized URI.
+  const [raw, setRaw] = useState(value || '');
+  // Ignore the echo of our own emit so re-normalization doesn't clobber typing;
+  // still re-sync when the record itself loads/changes underneath us.
+  const lastEmitted = useRef(value || '');
+  useEffect(() => {
+    if ((value || '') !== lastEmitted.current) {
+      setRaw(value || '');
+      lastEmitted.current = value || '';
+    }
+  }, [value]);
+
+  const normalized = normalizeBskyThread(raw);
+  return (
+    <div>
+      <input
+        id={id}
+        className="admin-input"
+        type="text"
+        value={raw}
+        onChange={(e) => {
+          const next = e.target.value;
+          setRaw(next);
+          const norm = normalizeBskyThread(next) || undefined;
+          lastEmitted.current = norm || '';
+          onChange(norm);
+        }}
+        placeholder="https://bsky.app/profile/you/post/3k… — or an rkey"
+      />
+      {raw.trim() &&
+        (normalized ? (
+          <p className="admin-field-hint">
+            Comments load from <code>{normalized}</code>
+          </p>
+        ) : (
+          <p className="admin-field-hint admin-error-inline">
+            Couldn’t read a Bluesky post reference from that.
+          </p>
+        ))}
+    </div>
+  );
+}
+
+/** rkey / bsky.app URL / at:// URI → canonical at:// post URI (or '' if none). */
+function normalizeBskyThread(input) {
+  const s = (input || '').trim();
+  if (!s) return '';
+  if (s.startsWith('at://')) return s;
+  // A post URL: …/profile/{handle-or-did}/post/{rkey}
+  const url = s.match(/\/profile\/([^/\s]+)\/post\/([a-z0-9]+)/i);
+  if (url) {
+    const repo = url[1].startsWith('did:') ? url[1] : ME_DID;
+    return `at://${repo}/app.bsky.feed.post/${url[2]}`;
+  }
+  // A bare rkey — assume the owner's own post.
+  if (/^[a-z0-9]+$/i.test(s)) return `at://${ME_DID}/app.bsky.feed.post/${s}`;
+  return '';
 }
 
 function RawJsonEditor({ value, onChange }) {

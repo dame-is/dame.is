@@ -63,7 +63,11 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
   // iNaturalist observations render a specimen thumbnail beside stacked
   // common/scientific names (see ObservationLedgerBody), not a text summary.
   const isObservation = item.verb === 'mothing' || item.verb === 'observing';
-  const summary = isRepost || isObservation ? null : summarize(item, { expanded, onToggle });
+  // Blog entries render title + a muted summary line beneath (BlogLedgerBody)
+  // rather than the single-line title summary.
+  const isBlog = item.verb === 'blogging';
+  const summary =
+    isRepost || isObservation || isBlog ? null : summarize(item, { expanded, onToggle });
   const embed = isRepost ? null : ledgerEmbed(item);
   // Observations show their stored local wall-clock time-of-day directly, never
   // localized — the record's timestamp is that wall-clock pinned to `Z`, so
@@ -91,6 +95,7 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
       <div className="ledger-body">
         {isRepost && <RepostQuote item={item} />}
         {isObservation && <ObservationLedgerBody item={item} />}
+        {isBlog && <BlogLedgerBody item={item} />}
         {summary && <p className="ledger-text">{summary}</p>}
         {embed && (
           <div className="ledger-embed">
@@ -432,6 +437,36 @@ function ObservationLedgerBody({ item }) {
         {showSci && <span className="ledger-obs-sci">{sci}</span>}
       </span>
     </div>
+  );
+}
+
+/**
+ * A blog entry as a ledger body: the title on top, then a muted summary /
+ * description line beneath (CSS-clamped to two lines). Mirrors the cards
+ * layout (BlogCard), which already shows a summary — the ledger just did
+ * title-only before. `summary` is baked by feedBuilder (an explicit summary,
+ * else a synopsis of the leading text); `description` is the standard.site
+ * meta description.
+ */
+function BlogLedgerBody({ item }) {
+  const payload = item.payload || {};
+  const title = (payload.title || payload.name || payload.slug || '').trim();
+  const summary = (payload.summary || payload.description || '').trim();
+  return (
+    <>
+      <p className="ledger-text">
+        {title ? (
+          renderPlainTextWithTruncatedUrls(title)
+        ) : (
+          <Placeholder>an untitled entry</Placeholder>
+        )}
+      </p>
+      {summary && (
+        <p className="ledger-text ledger-subtext">
+          {renderPlainTextWithTruncatedUrls(summary)}
+        </p>
+      )}
+    </>
   );
 }
 

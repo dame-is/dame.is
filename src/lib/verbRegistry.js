@@ -89,6 +89,16 @@ export const VERB_REGISTRY = [
     icon: 'BookOpen',
     renderer: 'BlogCard',
     pastTense: 'blogged',
+    // Blog posts get the native /blogging/{rkey} reader (BlogPost.jsx matches
+    // `:id` as an rkey; both standard.site and leaflet docs key by rkey).
+    // Publications aren't posts, so they fall through to the generic
+    // /{nsid}/{rkey} explorer. Mirrors BlogCard's own `blogHref` logic.
+    recordHref: ({ atUri, rkey }) => {
+      const nsid = nsidFromAtUri(atUri);
+      return rkey && (nsid === 'site.standard.document' || nsid === 'pub.leaflet.document')
+        ? `/blogging/${encodeURIComponent(rkey)}`
+        : null;
+    },
     collections: [
       { nsid: 'site.standard.document', source: 'standard', kind: 'content', max: 100 },
       { nsid: 'site.standard.publication', source: 'standard', kind: 'content', max: 50 },
