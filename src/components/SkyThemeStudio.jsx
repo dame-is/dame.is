@@ -273,8 +273,14 @@ export default function SkyThemeStudio({ agent, did }) {
       };
       await agent.com.atproto.repo.putRecord({ repo: did, collection: SKY_NSID, rkey: 'self', record });
       setCreatedAt(record.createdAt);
-      // Push onto the live site immediately (or clear it, if disabled).
+      // Install the saved tuning into the global slot (for when the studio
+      // unmounts) but don't trigger ThemeProvider's apply effect — that
+      // would paint the real clock hour and clobber the selected-hour
+      // preview. Instead, explicitly re-apply the studio's own preview so
+      // the site stays on the hour being tuned.
       installSkyTuning(record);
+      if (liveApply) applySkyTheme(hour, draftToTuning(true, byHour));
+      else applySkyTheme(easternHour());
       setFlash(true);
       setTimeout(() => setFlash(false), 2400);
     } catch (err) {

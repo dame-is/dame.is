@@ -174,11 +174,14 @@ export function ThemeProvider({ children }) {
     setSkyOverride(next);
   }, []);
 
-  // Push a just-saved is.dame.sky record onto the live site (from the admin
-  // studio) so the whole app re-tints without a reload. Pass null to clear.
+  // Install a just-saved is.dame.sky record into the global tuning slot
+  // (from the admin studio) so it's in place for when the studio unmounts
+  // and the site re-paints on its own. Does NOT bump tuningRev / trigger a
+  // re-paint — the studio is live-painting its own preview already, and a
+  // rev bump here would make ThemeProvider's apply effect fire at the real
+  // clock hour, clobbering the selected-hour preview. Pass null to clear.
   const installSkyTuning = useCallback((record) => {
     setSkyTuning(record ? effectiveSkyTuning(record) : null);
-    setTuningRev((n) => n + 1);
   }, []);
 
   const value = useMemo(
