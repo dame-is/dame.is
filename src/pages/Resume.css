@@ -12,6 +12,18 @@
   gap: var(--space-3);
 }
 
+/* Print-only pieces of the header, hidden on screen: the name that stands in
+   for the "Available" title on paper, and the identity block repeated above
+   the experience section on the printout's continuation page. Both are
+   switched on inside the @media print block at the foot of this file. */
+.resume-title-print {
+  display: none;
+}
+
+.resume-running-header {
+  display: none;
+}
+
 .resume-title {
   font-family: var(--serif);
   font-size: var(--text-3xl);
@@ -435,6 +447,28 @@ a.resume-work-link:hover .resume-work-title {
   .resume-org,
   .resume-role {
     break-inside: avoid;
+  }
+
+  /* On paper the résumé is a formal document, so the on-screen page title
+     ("Available") gives way to the name at the top of the sheet. */
+  .resume-title-live {
+    display: none;
+  }
+  .resume-title-print {
+    display: inline;
+  }
+
+  /* Start the experience on a fresh page so the first sheet reads as a cover
+     (name, headline, contact, summary), and repeat the identity block above it
+     so the continuation page carries the same header rather than opening cold
+     on the experience. `.resume-running-header` reuses `.resume-header`, so it
+     inherits the same layout; it's only revealed here in print. */
+  .resume-experience {
+    break-before: page;
+  }
+  .resume-running-header {
+    display: flex;
+    margin-bottom: var(--space-4);
   }
 
   /* Links read as plain black text — the on-screen underline hairline is a

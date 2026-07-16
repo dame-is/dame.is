@@ -23,6 +23,13 @@ import './Resume.css';
 
 const STANDARD_DOC = 'site.standard.document';
 
+// Printed, the résumé is a formal document, so the on-screen page title
+// ("Available") gives way to Dame's name — at the top of the first sheet and on
+// the identity block repeated above the experience section. Screen view keeps
+// the "Available" title; only the printout swaps in the name. See Resume.css
+// (.resume-title-print / .resume-running-header, @media print).
+const PRINT_NAME = 'Dame';
+
 /**
  * The x-ray annotation for a resume part — names the canonical record the
  * resume version backlinks (a job / education entry), so the mode reveals
@@ -169,6 +176,45 @@ function ResumeWorkLink({ item }) {
   );
 }
 
+/**
+ * The résumé's identity block — title, headline, and contact line. Rendered in
+ * the page header and again (print-only) above the experience section so a
+ * multi-page printout carries the name + contact onto the continuation sheet.
+ * On screen the title shows `screenTitle` ("Available"); in print it swaps to
+ * `printName` (see the .resume-title-live/-print rules in Resume.css).
+ */
+function ResumeIdentity({ screenTitle, printName, headline, contact }) {
+  return (
+    <>
+      <div>
+        <h1 className="resume-title">
+          <span className="resume-title-live">{screenTitle}</span>
+          <span className="resume-title-print">{printName}</span>
+        </h1>
+        {headline && <p className="resume-headline">{headline}</p>}
+      </div>
+
+      {contact && (
+        <ul className="resume-contact">
+          {contact.location && <li>{contact.location}</li>}
+          {contact.email && (
+            <li>
+              <a href={`mailto:${contact.email}`}>{contact.email}</a>
+            </li>
+          )}
+          {(contact.links || []).map((l) => (
+            <li key={l.url}>
+              <a href={l.url} target="_blank" rel="noreferrer noopener">
+                {l.label || l.url}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
 export default function Resume() {
   const { slug } = useParams();
   const { title: pageTitle, intro: pageIntro } = usePageContent('resume');
@@ -238,28 +284,12 @@ export default function Resume() {
     >
       <article className="resume reveal">
         <header className="resume-header">
-          <div>
-            <h1 className="resume-title">{pageTitle || 'Available'}</h1>
-            {v.headline && <p className="resume-headline">{v.headline}</p>}
-          </div>
-
-          {contact && (
-            <ul className="resume-contact">
-              {contact.location && <li>{contact.location}</li>}
-              {contact.email && (
-                <li>
-                  <a href={`mailto:${contact.email}`}>{contact.email}</a>
-                </li>
-              )}
-              {(contact.links || []).map((l) => (
-                <li key={l.url}>
-                  <a href={l.url} target="_blank" rel="noreferrer noopener">
-                    {l.label || l.url}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ResumeIdentity
+            screenTitle={pageTitle || 'Available'}
+            printName={PRINT_NAME}
+            headline={v.headline}
+            contact={contact}
+          />
         </header>
 
         {summaryHtml && (
@@ -269,7 +299,18 @@ export default function Resume() {
         )}
 
         {resolved.experience.length > 0 && (
-          <section className="resume-section">
+          <section className="resume-section resume-experience">
+            {/* Print-only: repeat the identity block above the experience so a
+                multi-page printout carries the name + contact onto the second
+                sheet. Hidden on screen; see .resume-running-header in the CSS. */}
+            <header className="resume-header resume-running-header" aria-hidden="true">
+              <ResumeIdentity
+                screenTitle={pageTitle || 'Available'}
+                printName={PRINT_NAME}
+                headline={v.headline}
+                contact={contact}
+              />
+            </header>
             <h2 className="resume-section-title small-caps">Experience</h2>
             <div className="resume-orgs">
               {resolved.experience.map((org, oi) => (
