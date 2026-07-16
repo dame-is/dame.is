@@ -8,12 +8,14 @@ import {
   featureTypesForRange,
   facetRuns,
   runsToFacets,
+  sliceRichText,
   FORMAT_TYPES,
   LINK_TYPE,
   KEY_FOR_TYPE,
 } from './facetUtils.js';
+import { looksLikeMultiBlock, markdownToBlocks } from '../../lib/pasteBlocks.js';
 
-export default function TextBlockEditor({ block, onChange }) {
+export default function TextBlockEditor({ block, onChange, onPasteBlocks }) {
   return (
     <RichTextField
       text={block.plaintext || ''}
@@ -30,6 +32,7 @@ export default function TextBlockEditor({ block, onChange }) {
         }
       }}
       onChange={({ text, facets }) => onChange({ ...block, plaintext: text, facets })}
+      onPasteBlocks={onPasteBlocks}
       rows={4}
     />
   );
@@ -67,6 +70,7 @@ export function RichTextField({
   blockType = null,
   headingLevel = null,
   onConvert = null,
+  onPasteBlocks = null,
 }) {
   const editorRef = useRef(null);
   const lastEmittedRef = useRef('');
@@ -257,12 +261,41 @@ export function RichTextField({
     if (NAV_KEYS.has(e.key)) pendingMarksRef.current = {};
   }, []);
 
-  const handlePaste = useCallback((e) => {
-    e.preventDefault();
-    const clip = e.clipboardData || window.clipboardData;
-    const plain = clip ? clip.getData('text/plain') : '';
-    if (plain) document.execCommand('insertText', false, plain);
-  }, []);
+  const handlePaste = useCallback(
+    (e) => {
+      const clip = e.clipboardData || window.clipboardData;
+      const plain = clip ? clip.getData('text/plain') : '';
+      // When the host provides an onPasteBlocks handler (text blocks only) and
+      // the pasted text reads as markdown or several paragraphs, explode it into
+      // real blocks instead of flattening it into this one. Anything else — a
+      // word, a sentence, a single soft-wrapped paragraph — pastes as plain text.
+      if (onPasteBlocks && plain && looksLikeMultiBlock(plain)) {
+        const converted = markdownToBlocks(plain);
+        const structural =
+          converted.length > 1 ||
+          converted.some(
+            (b) => b.$type !== 'pub.leaflet.blocks.text' || (b.facets || []).length > 0,
+          );
+        if (structural) {
+          e.preventDefault();
+          const editor = editorRef.current;
+          const r = editor ? getSelectionRange(editor) : null;
+          const t = textRef.current;
+          const start = r ? r.start : t.length;
+          const end = r ? r.end : t.length;
+          // Split this block's rich text around the (possibly collapsed)
+          // selection: head keeps what preceded the caret, tail what followed.
+          const head = sliceRichText(t, facetsRef.current, 0, start);
+          const tail = sliceRichText(t, facetsRef.current, end, t.length);
+          onPasteBlocks({ head, tail, blocks: converted });
+          return;
+        }
+      }
+      e.preventDefault();
+      if (plain) document.execCommand('insertText', false, plain);
+    },
+    [onPasteBlocks],
+  );
 
   return (
     <div className="rich-text-field">
