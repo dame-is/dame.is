@@ -793,6 +793,25 @@
     padding-top: var(--space-1);
     border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
   }
+
+  /* Detail-page breadcrumb: when the trail + record NSID no longer fit on one
+     row and the NSID wraps to its own line beneath the trail (ChromeBar.jsx
+     toggles `is-nsid-wrapped` once that happens), echo the LISTENING TO /
+     FOLLOWED BY stack above — the same faint dashed divider and the same
+     tightened interior spacing — so the wrapped strip reads as one stacked
+     block rather than two loosely stacked rows. The divider rides the trail's
+     own bottom edge, which spans the full column here (the trail grows to fill
+     the row once the NSID has left its line), so the dash runs edge to edge
+     exactly like the stack's. The block keeps its --space-2 outer top/bottom
+     padding (the trail's top, the NSID's bottom); only the gap between the two
+     rows tightens to the stack's --space-1 + --space-1 straddling the dash. */
+  .chrome-bar-tertiary.is-detail.is-nsid-wrapped .chrome-breadcrumb {
+    padding-bottom: var(--space-1);
+    border-bottom: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  }
+  .chrome-bar-tertiary.is-detail.is-nsid-wrapped .chrome-crumb-nsid {
+    padding-top: var(--space-1);
+  }
 }
 
 /* Print: the fixed chrome bars (and their expanding sheets) are screen

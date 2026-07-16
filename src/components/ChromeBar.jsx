@@ -83,6 +83,8 @@ export default function ChromeBar() {
 
   const topRef = useRef(null);
   const crumbRef = useRef(null);
+  const breadcrumbRef = useRef(null);
+  const nsidRef = useRef(null);
 
   // Tertiary chrome: a breadcrumb that slides down out of the top bar once
   // the page is scrolled away from its top, orienting you to where you are.
@@ -102,6 +104,14 @@ export default function ChromeBar() {
   const isDetailPage = crumbs.length >= 2;
   const showBreadcrumb =
     isDetailPage || (scrolledDown && (crumbs.length > 0 || !!dayLabel));
+  // On detail pages the trail and its record NSID share one row when they fit
+  // and the NSID drops to its own line beneath the trail when they don't (see
+  // the `.is-detail` wrap rules in ChromeBar.css). Tracked here so the strip
+  // can echo the mobile LISTENING TO / FOLLOWED BY stack — a dashed divider
+  // with matching spacing between the rows — but ONLY once the NSID has truly
+  // fallen to its own line, never while it rides the trail's line. Measured
+  // just below.
+  const [nsidWrapped, setNsidWrapped] = useState(false);
 
   // Right edge of the strip: the AT Protocol collection you're looking
   // at. On feed pages it tracks the record at the top of the scroll
@@ -173,6 +183,51 @@ export default function ChromeBar() {
       if (raf) cancelAnimationFrame(raf);
     };
   }, [showBreadcrumb, isDetailPage]);
+
+  // Detect whether the detail-page NSID has wrapped onto its own line beneath
+  // the trail (vs. riding the trail's line), so the wrapped strip can pick up
+  // the same dashed divider + tightened spacing as the LISTENING TO / FOLLOWED
+  // BY stack. CSS can't select on flex-wrap, so we read it: the NSID is on its
+  // own line once its top edge sits at/below the trail's vertical midpoint (on
+  // a shared, center-aligned line the two boxes straddle the same midline).
+  // Critically, the wrapped divider is drawn as the TRAIL's border-bottom (it
+  // spans the full column, since the trail grows to fill the row once alone on
+  // its line) — nothing here forces the wrap, so this stays a faithful read of
+  // the natural layout and flips back when the trail + NSID fit again.
+  useEffect(() => {
+    if (!isDetailPage) {
+      setNsidWrapped(false);
+      return undefined;
+    }
+    let raf = 0;
+    const measure = () => {
+      raf = 0;
+      const trail = breadcrumbRef.current;
+      const nsid = nsidRef.current;
+      if (!trail || !nsid) {
+        setNsidWrapped(false);
+        return;
+      }
+      const t = trail.getBoundingClientRect();
+      const n = nsid.getBoundingClientRect();
+      setNsidWrapped(n.top >= (t.top + t.bottom) / 2);
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(measure);
+    };
+    schedule();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    if (ro) {
+      if (breadcrumbRef.current) ro.observe(breadcrumbRef.current);
+      if (nsidRef.current) ro.observe(nsidRef.current);
+    }
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', schedule);
+    };
+  }, [isDetailPage, stripNsid, location.pathname]);
 
   return (
     <>
@@ -315,7 +370,7 @@ export default function ChromeBar() {
           style={{ pointerEvents: showBreadcrumb ? 'auto' : 'none' }}
         >
           <motion.div
-            className={`chrome-bar-row chrome-bar-tertiary ${isDetailPage ? 'is-detail' : ''}`}
+            className={`chrome-bar-row chrome-bar-tertiary ${isDetailPage ? 'is-detail' : ''} ${nsidWrapped ? 'is-nsid-wrapped' : ''}`}
             initial={false}
             animate={{ y: showBreadcrumb ? '0%' : '-100%', opacity: showBreadcrumb ? 1 : 0 }}
             transition={{ duration: reduce ? 0 : 0.32, ease: [0.32, 0.72, 0, 1] }}
@@ -324,7 +379,7 @@ export default function ChromeBar() {
                 the crumb spot; on sub-pages it follows the trail, all
                 left-aligned. */}
             {crumbs.length > 0 && (
-              <nav className="chrome-breadcrumb" aria-label="Breadcrumb">
+              <nav className="chrome-breadcrumb" aria-label="Breadcrumb" ref={breadcrumbRef}>
                 <ol className="chrome-crumbs">
                   <li className="chrome-crumb">
                     <Link to="/" className="chrome-crumb-link chrome-crumb-root" aria-label="Home">
@@ -356,7 +411,11 @@ export default function ChromeBar() {
               </nav>
             )}
             {dayLabel && <span className="chrome-crumb-day">{dayLabel}</span>}
-            {stripNsid && <span className="chrome-crumb-nsid">{stripNsid}</span>}
+            {stripNsid && (
+              <span className="chrome-crumb-nsid" ref={nsidRef}>
+                {stripNsid}
+              </span>
+            )}
           </motion.div>
         </div>
       </header>
