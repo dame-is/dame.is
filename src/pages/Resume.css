@@ -12,15 +12,9 @@
   gap: var(--space-3);
 }
 
-/* Print-only pieces of the header, hidden on screen: the name that stands in
-   for the "Available" title on paper, and the identity block repeated above
-   the experience section on the printout's continuation page. Both are
-   switched on inside the @media print block at the foot of this file. */
+/* The name that stands in for the "Available" title on paper — hidden on
+   screen, switched on inside the @media print block at the foot of this file. */
 .resume-title-print {
-  display: none;
-}
-
-.resume-running-header {
   display: none;
 }
 
@@ -442,11 +436,17 @@ a.resume-work-link:hover .resume-work-title {
     transform: none !important;
   }
 
-  /* Keep whole sections, tenures, and roles from splitting across breaks. */
-  .resume-section,
+  /* Keep each tenure and role together across a page break, but let the
+     top-level sections flow: break-inside:avoid on the whole experience section
+     (which is taller than a sheet) would shove it onto a fresh page — a
+     de-facto cover page — instead of letting it begin right after the summary
+     and run across sheets. A section title never sits stranded at a page foot. */
   .resume-org,
   .resume-role {
     break-inside: avoid;
+  }
+  .resume-section-title {
+    break-after: avoid;
   }
 
   /* On paper the résumé is a formal document, so the on-screen page title
@@ -458,17 +458,22 @@ a.resume-work-link:hover .resume-work-title {
     display: inline;
   }
 
-  /* Start the experience on a fresh page so the first sheet reads as a cover
-     (name, headline, contact, summary), and repeat the identity block above it
-     so the continuation page carries the same header rather than opening cold
-     on the experience. `.resume-running-header` reuses `.resume-header`, so it
-     inherits the same layout; it's only revealed here in print. */
-  .resume-experience {
-    break-before: page;
-  }
-  .resume-running-header {
-    display: flex;
-    margin-bottom: var(--space-4);
+  /* The summary is résumé prose, not long-form book text, so drop the
+     first-letter drop cap (applied globally to .blog-prose in typography.css)
+     for a plain opening paragraph on paper — the summary then reads straight
+     into the experience. Screen keeps the drop cap. The extra .resume-summary
+     scope outranks the global rule, and resetting `float` also neutralizes the
+     Firefox float fallback. */
+  .resume-summary .blog-prose > p:first-of-type::first-letter {
+    initial-letter: normal;
+    -webkit-initial-letter: normal;
+    float: none;
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
   }
 
   /* Links read as plain black text — the on-screen underline hairline is a
