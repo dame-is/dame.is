@@ -1,12 +1,13 @@
-// Display-time profanity masking for user-authored guestbook text.
+// Profanity/slur detection (and masking) for user-authored guestbook text.
 //
 // The guestbook has no database we control — every signature is a record on
 // the SIGNER's own PDS, assembled at read time (see src/lib/guestbook.js). We
-// can't edit anyone's words; we can only choose how to render them. So this
-// masks slurs and profanity as text is displayed, leaving the record itself
-// untouched. It's the same posture as the book's `hidden` list, one notch
-// finer: `hidden` tucks away a whole signature, this blanks just the offending
-// word and keeps the rest of the note readable.
+// can't edit anyone's words; we can only choose how to render them. The read
+// path uses `hasProfanity` to auto-hide a whole signature from public display
+// when it trips the filter — the same posture as the book's host-curated
+// `hidden` list, just computed per-render instead of written to the book.
+// `censorProfanity` (blank the offending word, keep the rest) is kept for a
+// finer touch — e.g. a heads-up in the sign form before publishing.
 //
 // Built on `obscenity`, whose English dataset is word-boundary aware (so
 // "Scunthorpe", "classic", and "assassin" pass through clean) and

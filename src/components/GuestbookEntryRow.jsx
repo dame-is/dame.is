@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Fingerprint, MapPinned } from 'lucide-react';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
-import { censorProfanity } from '../lib/profanity.js';
 import { relativeTime } from '../lib/time.js';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from './XraySubstrate.jsx';
@@ -29,12 +28,8 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
   // decentralization visible. entry.uri already points at it (a foreign repo).
   const inspectable = xray.active && !!entry.uri;
   const focused = inspectable && xray.focusUri === entry.uri;
-  // The signer authored `signature`, `text`, and `location` for this book, so
-  // those are masked for offensive words as they render (the record on the
-  // signer's PDS is untouched — see src/lib/profanity.js). Profile-derived
-  // names/handles are left to Bluesky's own moderation.
   const name =
-    censorProfanity(value.signature?.trim()) ||
+    value.signature?.trim() ||
     profile?.displayName?.trim() ||
     (profile?.handle && profile.handle !== 'handle.invalid' ? `@${profile.handle}` : null) ||
     shortDid(entry.did);
@@ -47,7 +42,9 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
   // rendering an empty permalink.
   const when = relativeTime(value.createdAt);
   const hasControls = mine || moderating;
-  const noteText = censorProfanity(value.text);
+  // Flagged by the language filter (or on the host's hidden list): benched from
+  // the public view. Both only ever render here in moderation, dimmed.
+  const suppressed = entry.hidden || entry.flagged;
 
   async function remove() {
     if (removing) return;
@@ -75,7 +72,7 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
 
   return (
     <li
-      className={`guestbook-entry${entry.hidden ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}`}
+      className={`guestbook-entry${suppressed ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}`}
       data-nsid={entry.collection || undefined}
       data-atproto={entry.uri ? '' : undefined}
       data-at-uri={entry.uri || undefined}
@@ -116,9 +113,9 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
           )}
         </header>
 
-        {noteText ? (
+        {value.text ? (
           <p className="guestbook-entry-text">
-            {noteText}
+            {value.text}
             {value.mark && <span className="guestbook-entry-inline-mark"> {value.mark}</span>}
           </p>
         ) : value.mark ? (
@@ -141,13 +138,21 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
             {value.location && (
               <span className="guestbook-entry-location gutter">
                 <MapPinned size={12} strokeWidth={1.75} aria-hidden="true" />
-                {censorProfanity(value.location)}
+                {value.location}
               </span>
             )}
             {hasControls && (
               <div className="guestbook-entry-controls">
                 {entry.hidden && moderating && (
                   <span className="guestbook-entry-hidden-badge small-caps">hidden</span>
+                )}
+                {entry.flagged && !entry.hidden && moderating && (
+                  <span
+                    className="guestbook-entry-flagged-badge small-caps"
+                    title="Auto-hidden from public display: flagged by the language filter"
+                  >
+                    auto-hidden
+                  </span>
                 )}
                 {mine && (
                   <button

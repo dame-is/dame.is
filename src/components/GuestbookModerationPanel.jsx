@@ -19,6 +19,7 @@ export default function GuestbookModerationPanel({ agent }) {
   const [entries, setEntries] = useState(null);
   const [total, setTotal] = useState(null);
   const [hiddenCount, setHiddenCount] = useState(0);
+  const [flaggedCount, setFlaggedCount] = useState(0);
   const [book, setBook] = useState(null);
   const [cursor, setCursor] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | error
@@ -34,6 +35,7 @@ export default function GuestbookModerationPanel({ agent }) {
     setEntries(page.entries);
     setTotal(page.total);
     setHiddenCount(page.hiddenCount || 0);
+    setFlaggedCount(page.flaggedCount || 0);
     setBook(page.book);
     setCursor(page.cursor);
     setStatus('ready');
@@ -50,6 +52,7 @@ export default function GuestbookModerationPanel({ agent }) {
     if (page) {
       setEntries((prev) => [...(prev || []), ...page.entries]);
       setCursor(page.cursor);
+      setFlaggedCount((c) => c + (page.flaggedCount || 0));
     }
     setLoadingMore(false);
   }
@@ -60,11 +63,15 @@ export default function GuestbookModerationPanel({ agent }) {
       (prev || []).map((e) => (e.uri === entry.uri ? { ...e, hidden: hide } : e)),
     );
     setHiddenCount((c) => Math.max(0, c + (hide ? 1 : -1)));
+    // A flagged entry is already counted as auto-hidden; moving it onto (or off)
+    // the manual list shifts it between the tallies so `publicCount` stays right.
+    if (entry.flagged) setFlaggedCount((c) => Math.max(0, c + (hide ? -1 : 1)));
     // A hide can auto-create the book record; reflect that without refetching.
     setBook((b) => b || { created: true });
   }
 
-  const publicCount = typeof total === 'number' ? Math.max(0, total - hiddenCount) : null;
+  const publicCount =
+    typeof total === 'number' ? Math.max(0, total - hiddenCount - flaggedCount) : null;
 
   return (
     <PageShell
@@ -99,9 +106,11 @@ export default function GuestbookModerationPanel({ agent }) {
           {typeof total === 'number'
             ? `${total.toLocaleString()} ${total === 1 ? 'signature' : 'signatures'}`
             : 'Signatures'}
-          {hiddenCount > 0 && (
+          {(hiddenCount > 0 || flaggedCount > 0) && (
             <span className="guestbook-hidden-count">
-              {' '}· {hiddenCount} hidden · {publicCount} public
+              {hiddenCount > 0 && <> · {hiddenCount} hidden</>}
+              {flaggedCount > 0 && <> · {flaggedCount} auto-hidden</>}
+              {' '}· {publicCount} public
             </span>
           )}
         </h2>

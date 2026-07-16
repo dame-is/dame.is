@@ -326,6 +326,18 @@
   padding: 0 var(--space-2);
 }
 
+/* Auto-hidden by the language filter (vs the host's manual hidden list) —
+   same benched treatment, a quieter neutral badge so the reason is legible. */
+.guestbook-entry-flagged-badge {
+  font-family: var(--sans);
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  border: 1px solid color-mix(in srgb, var(--ink-muted) 40%, transparent);
+  border-radius: var(--radius-2);
+  padding: 0 var(--space-2);
+}
+
 .guestbook-entry-moderate {
   font-family: var(--sans);
   font-variant: all-small-caps;

@@ -12,6 +12,7 @@
 
 import { getBacklinks, getBacklinkCount } from './constellation.js';
 import { getRecordCached } from './slingshot.js';
+import { hasProfanity } from './profanity.js';
 import { resolvePds, getRecord, toAtUri, tidToTimestamp } from './atproto.js';
 import { compareIsoDesc } from './time.js';
 import {
@@ -69,15 +70,18 @@ export async function fetchGuestbookBook() {
  * chronological — no cross-source interleaving is needed. The compound `cursor`
  * that threads this two-phase walk is opaque to callers (they pass it back).
  *
- * Returns `{ total, publicTotal, hiddenCount, cursor, entries, book }` where
- * each entry is `{ uri, cid, did, rkey, collection, legacy, value, profile, hidden }`,
+ * Returns `{ total, publicTotal, hiddenCount, flaggedCount, cursor, entries, book }`
+ * where each entry is
+ * `{ uri, cid, did, rkey, collection, legacy, value, profile, hidden, flagged }`,
  * newest first. `value` is normalized so both record shapes render through one
  * row (a legacy `message` surfaces as `text`, and a missing `createdAt` is
  * recovered from the TID rkey where possible). `hidden` reflects the book's
  * moderation list — which may name legacy at-uris too, so hiding spans both
- * books. Returns `null` only when the backlink index is unreachable with
- * nothing to show; individual records that can't be hydrated are dropped from
- * the page rather than failing it.
+ * books. `flagged` marks a signature the language filter auto-hides from public
+ * display (see src/lib/profanity.js); `flaggedCount` is how many on this page
+ * (excluding ones already hidden). Returns `null` only when the backlink index
+ * is unreachable with nothing to show; individual records that can't be
+ * hydrated are dropped from the page rather than failing it.
  */
 export async function fetchGuestbookEntries({ limit = GUESTBOOK_PAGE_SIZE, cursor } = {}) {
   const state = decodeGuestbookCursor(cursor);
@@ -148,13 +152,21 @@ export async function fetchGuestbookEntries({ limit = GUESTBOOK_PAGE_SIZE, curso
 
 /** Assemble the public return shape shared by every page and phase. */
 function finalizePage({ entries, total, hiddenUris, book, cursor }) {
+  // Signatures the language filter auto-hides on THIS page (that aren't already
+  // on the manual hidden list, so the two counts don't overlap). Unlike the
+  // manual list — known in full from the book record — flagged entries surface
+  // one page at a time as records hydrate, so a caller's running tally is exact
+  // only once every page has loaded. Same best-effort spirit as the
+  // hidden-but-deleted approximation below.
+  const flaggedCount = entries.reduce((n, e) => n + (e.flagged && !e.hidden ? 1 : 0), 0);
   return {
     total,
     // Approximate when a hidden record has since been deleted by its signer
     // (the backlink drops out of `total` but its uri lingers in the list);
     // close enough for a count caption.
-    publicTotal: total != null ? Math.max(0, total - hiddenUris.size) : null,
+    publicTotal: total != null ? Math.max(0, total - hiddenUris.size - flaggedCount) : null,
     hiddenCount: hiddenUris.size,
+    flaggedCount,
     cursor: cursor || null,
     entries,
     book,
@@ -181,10 +193,28 @@ async function fetchLegacyEntries(hiddenUris) {
  */
 async function hydrateEntries(refs, hydrate, hiddenUris) {
   const hydrated = (await Promise.all(refs.map(hydrate))).filter(Boolean);
-  for (const entry of hydrated) entry.hidden = hiddenUris.has(entry.uri);
+  for (const entry of hydrated) {
+    entry.hidden = hiddenUris.has(entry.uri); // host-curated hidden list
+    entry.flagged = entryHasProfanity(entry.value); // language filter
+  }
   const profiles = await fetchProfiles(hydrated.map((e) => e.did));
   for (const entry of hydrated) entry.profile = profiles.get(entry.did) || null;
   return hydrated;
+}
+
+/**
+ * Whether any of the signer's own free-text fields (the note, the sign-as
+ * name, the "signing from" location) trips the language filter. This drives
+ * the read-time auto-hide: a flagged signature is curated out of the public
+ * view exactly like one on the book's `hidden` list — but computed per render
+ * rather than written to the book, so it needs no host write and covers even
+ * records authored straight to a PDS. See src/lib/profanity.js.
+ */
+function entryHasProfanity(value) {
+  if (!value) return false;
+  return (
+    hasProfanity(value.text) || hasProfanity(value.signature) || hasProfanity(value.location)
+  );
 }
 
 /**
