@@ -10,10 +10,11 @@
      the revealed strip lands in its own band instead of over the last line
      of content (which, unlike the top, can't scroll out from under it). The
      owner edit-mode action bar (--edit-bar-h, 0 when off) rides above the bar
-     too — reserve it so the admin editor's last field clears it. */
+     too — reserve it so the admin editor's last field clears it. The sky-theme
+     studio's hour selector (--sky-hourbar-h, 0 when not open) rides there too. */
   padding-bottom: calc(
-    var(--chrome-h) + var(--edit-bar-h, 0px) + var(--chrome-bottom-footer-h, 0px) +
-      env(safe-area-inset-bottom, 0px)
+    var(--chrome-h) + var(--edit-bar-h, 0px) + var(--sky-hourbar-h, 0px) +
+      var(--chrome-bottom-footer-h, 0px) + env(safe-area-inset-bottom, 0px)
   );
 }
 
