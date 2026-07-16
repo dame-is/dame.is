@@ -1,4 +1,3 @@
-import { Heart, Repeat2, Quote, MessageCircle, ArrowUpRight } from 'lucide-react';
 import { relativeTime } from '../lib/time.js';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
@@ -49,14 +48,16 @@ export default function Comments({
 }
 
 /**
- * Engagement summary for the Bluesky post that hosts this thread — the four
- * tallies (likes, reposts, quotes, replies) plus a "Reply" action. Rendered
+ * Engagement summary for the Bluesky post that hosts this thread — the
+ * tallies (replies, reposts, quotes, likes) plus a "Reply" action. Rendered
  * above the replies when the parent supplies `metrics`; omitted otherwise
  * (e.g. the record page, which shows the post's own stats in its card).
  *
- * "Reply" opens the shared waypoints ("Open in…") picker for the thread's
- * `at://` URI, so a reader can jump to the post in whichever Atmosphere client
- * they actually use and reply there — rather than being forced onto bsky.app.
+ * The tallies are a plain " · "-separated text line, matching the engagement
+ * stats on the home-feed post cards (no icons). "Reply" opens the shared
+ * waypoints ("Open in…") picker for the thread's `at://` URI, so a reader can
+ * jump to the post in whichever Atmosphere client they use and reply there —
+ * rather than being forced onto bsky.app.
  */
 function EngagementBar({ metrics, atUri }) {
   const { openWaypoints } = useWaypointsModal();
@@ -65,39 +66,25 @@ function EngagementBar({ metrics, atUri }) {
   // line, and keeps a lightly-engaged post from reading as a wall of zeros. A
   // post with no engagement yet collapses to just the "Reply" nudge.
   const stats = [
-    { key: 'like', Icon: Heart, count: likeCount, one: 'like', many: 'likes' },
-    { key: 'repost', Icon: Repeat2, count: repostCount, one: 'repost', many: 'reposts' },
-    { key: 'quote', Icon: Quote, count: quoteCount, one: 'quote', many: 'quotes' },
-    { key: 'reply', Icon: MessageCircle, count: replyCount, one: 'reply', many: 'replies' },
-  ].filter((s) => s.count > 0);
+    replyCount ? `${replyCount} ${replyCount === 1 ? 'reply' : 'replies'}` : null,
+    repostCount ? `${repostCount} ${repostCount === 1 ? 'repost' : 'reposts'}` : null,
+    quoteCount ? `${quoteCount} ${quoteCount === 1 ? 'quote' : 'quotes'}` : null,
+    likeCount ? `${likeCount} ${likeCount === 1 ? 'like' : 'likes'}` : null,
+  ].filter(Boolean);
   const canReply = typeof atUri === 'string' && atUri.startsWith('at://');
   if (stats.length === 0 && !canReply) return null;
   return (
     <div className="comments-engagement">
-      <ul className="engagement-stats">
-        {stats.map(({ key, Icon, count, one, many }) => {
-          const label = count === 1 ? one : many;
-          return (
-            <li
-              key={key}
-              className="engagement-stat"
-              title={`${count.toLocaleString()} ${label}`}
-            >
-              <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
-              <span className="engagement-count">{count.toLocaleString()}</span>
-              <span className="engagement-label">{label}</span>
-            </li>
-          );
-        })}
-      </ul>
+      {stats.length > 0 && (
+        <span className="engagement-stats">{stats.join(' · ')}</span>
+      )}
       {canReply && (
         <button
           type="button"
           className="engagement-link"
           onClick={() => openWaypoints(atUri)}
         >
-          <span>Reply</span>
-          <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />
+          Reply
         </button>
       )}
     </div>
