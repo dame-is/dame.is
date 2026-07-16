@@ -1,0 +1,115 @@
+/* Interior of the sky-hour bottom sheet. BottomSheet owns positioning, the
+   surface, and the expand animation; only the header + arc layout live here.
+   Mirrors the info / debug / search sheets so it reads as one family. */
+.sky-hour-sheet-panel {
+  /* Horizontal inset tracks the chrome bars' shared column (--chrome-pad-x)
+     so the arc lines up with the nav dock, the breadcrumb, and the bottom-bar
+     buttons at every breakpoint. */
+  padding: var(--space-4) var(--chrome-pad-x);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sky-hour-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+}
+
+/* The "Live" badge/button: a quiet marker when the clock is live, a
+   clickable chip when an override is freezing it. */
+.sky-hour-sheet-live,
+.sky-hour-sheet-live-label {
+  font-family: var(--mono-ui);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--rule);
+  padding: 0.2em 0.6em;
+  cursor: pointer;
+  color: var(--ink-faint);
+  background: transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.sky-hour-sheet-live-label {
+  cursor: default;
+  border-color: var(--rule-soft);
+  color: var(--ink-faint);
+}
+
+.sky-hour-sheet-live:hover,
+.sky-hour-sheet-live:focus-visible {
+  color: var(--ink);
+  border-color: var(--accent-soft);
+  outline: none;
+}
+
+/* The 24-hour arc — same grid as the admin studio's .sky-arc but with
+   taller cells so the hour label fits inside each one. */
+.sky-hour-sheet-arc {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+}
+
+.sky-hour-sheet-cell {
+  position: relative;
+  height: 40px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  overflow: hidden;
+}
+
+.sky-hour-sheet-cell:hover {
+  filter: brightness(1.1);
+}
+
+.sky-hour-sheet-cell.is-sel {
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px var(--surface-deep);
+  z-index: 1;
+}
+
+.sky-hour-sheet-cell:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  z-index: 2;
+}
+
+/* Hour label inside each cell — hidden by default, revealed on hover/focus
+   so the arc reads as a pure color strip until you probe a cell. The
+   selected cell always shows its label. */
+.sky-hour-sheet-cell-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono-ui);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+  mix-blend-mode: difference;
+}
+
+.sky-hour-sheet-cell:hover .sky-hour-sheet-cell-label,
+.sky-hour-sheet-cell:focus-visible .sky-hour-sheet-cell-label,
+.sky-hour-sheet-cell.is-sel .sky-hour-sheet-cell-label {
+  opacity: 0.85;
+}
+
+@media (max-width: 560px) {
+  .sky-hour-sheet-cell {
+    height: 32px;
+  }
+}
