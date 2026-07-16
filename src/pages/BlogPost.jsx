@@ -88,7 +88,7 @@ export default function BlogPost() {
         // The anchor post view carries the thread's engagement tallies —
         // surface them above the replies so the post's reach on Bluesky is
         // visible without leaving the page.
-        setMetrics(deriveMetrics(thread?.thread?.post, commentsUri));
+        setMetrics(deriveMetrics(thread?.thread?.post));
         const childReplies = Array.isArray(thread?.thread?.replies)
           ? thread.thread.replies
           : [];
@@ -140,24 +140,18 @@ export default function BlogPost() {
 }
 
 /**
- * Distill an `app.bsky.feed.getPostThread` anchor post view into the
- * engagement summary the comments header renders: the four tallies plus a
- * deep link to the post on bsky.app (built from the author handle + rkey, so
- * readers can jump straight to liking / replying).
+ * Distill an `app.bsky.feed.getPostThread` anchor post view into the four
+ * engagement tallies the comments header renders. The "Reply" action there
+ * works off the thread's `at://` URI directly (via the waypoints picker), so
+ * no link needs to be derived here.
  */
-function deriveMetrics(post, fallbackUri) {
+function deriveMetrics(post) {
   if (!post) return null;
-  const handle = post.author?.handle || null;
-  const uri = post.uri || fallbackUri || '';
-  const rkey = uri ? String(uri).split('/').pop() : null;
-  const postUrl =
-    handle && rkey ? `https://bsky.app/profile/${handle}/post/${rkey}` : null;
   return {
     likeCount: post.likeCount || 0,
     repostCount: post.repostCount || 0,
     quoteCount: post.quoteCount || 0,
     replyCount: post.replyCount || 0,
-    postUrl,
   };
 }
 

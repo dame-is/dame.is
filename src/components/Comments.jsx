@@ -4,6 +4,7 @@ import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { Link } from 'react-router-dom';
 import { renderPostText } from '../lib/postRichText.jsx';
+import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import { CommentsSkeleton } from './Skeleton.jsx';
 import './Comments.css';
@@ -37,7 +38,7 @@ export default function Comments({
       <h3 className="comments-heading">
         <span className="small-caps">Replies</span>
       </h3>
-      {metrics && <EngagementBar metrics={metrics} />}
+      {metrics && <EngagementBar metrics={metrics} atUri={atUri} />}
       <CommentsBody
         replies={replies}
         status={status}
@@ -49,23 +50,28 @@ export default function Comments({
 
 /**
  * Engagement summary for the Bluesky post that hosts this thread — the four
- * tallies (likes, reposts, quotes, replies) plus a deep link out to the post
- * so readers can join in. Rendered above the replies when the parent supplies
- * `metrics`; omitted entirely otherwise (e.g. the record page, which shows the
- * post's own stats in its card).
+ * tallies (likes, reposts, quotes, replies) plus a "Reply" action. Rendered
+ * above the replies when the parent supplies `metrics`; omitted otherwise
+ * (e.g. the record page, which shows the post's own stats in its card).
+ *
+ * "Reply" opens the shared waypoints ("Open in…") picker for the thread's
+ * `at://` URI, so a reader can jump to the post in whichever Atmosphere client
+ * they actually use and reply there — rather than being forced onto bsky.app.
  */
-function EngagementBar({ metrics }) {
-  const { likeCount, repostCount, quoteCount, replyCount, postUrl } = metrics;
+function EngagementBar({ metrics, atUri }) {
+  const { openWaypoints } = useWaypointsModal();
+  const { likeCount, repostCount, quoteCount, replyCount } = metrics;
   // Only surface tallies that actually happened — mirrors the post-card stats
   // line, and keeps a lightly-engaged post from reading as a wall of zeros. A
-  // post with no engagement yet collapses to just the "Reply on Bluesky" nudge.
+  // post with no engagement yet collapses to just the "Reply" nudge.
   const stats = [
     { key: 'like', Icon: Heart, count: likeCount, one: 'like', many: 'likes' },
     { key: 'repost', Icon: Repeat2, count: repostCount, one: 'repost', many: 'reposts' },
     { key: 'quote', Icon: Quote, count: quoteCount, one: 'quote', many: 'quotes' },
     { key: 'reply', Icon: MessageCircle, count: replyCount, one: 'reply', many: 'replies' },
   ].filter((s) => s.count > 0);
-  if (stats.length === 0 && !postUrl) return null;
+  const canReply = typeof atUri === 'string' && atUri.startsWith('at://');
+  if (stats.length === 0 && !canReply) return null;
   return (
     <div className="comments-engagement">
       <ul className="engagement-stats">
@@ -84,16 +90,15 @@ function EngagementBar({ metrics }) {
           );
         })}
       </ul>
-      {postUrl && (
-        <a
+      {canReply && (
+        <button
+          type="button"
           className="engagement-link"
-          href={postUrl}
-          target="_blank"
-          rel="noreferrer noopener"
+          onClick={() => openWaypoints(atUri)}
         >
-          <span>Reply on Bluesky</span>
+          <span>Reply</span>
           <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />
-        </a>
+        </button>
       )}
     </div>
   );

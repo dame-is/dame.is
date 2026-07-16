@@ -60,15 +60,24 @@
   color: var(--ink-muted);
 }
 
+/* Rendered as a <button> (opens the waypoints picker), so it needs the usual
+   button resets before it can read as the site's dotted-underline text link. */
 .engagement-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px dotted transparent;
   color: var(--ink-muted);
+  font-family: inherit;
   font-size: var(--text-sm);
+  line-height: 1.2;
   white-space: nowrap;
   text-decoration: none;
-  border-bottom: 1px dotted transparent;
+  cursor: pointer;
 }
 
 .engagement-link:hover,
