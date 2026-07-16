@@ -368,14 +368,10 @@
   cursor: default;
 }
 
-/* The "Sign the guestbook" call to action — a standard signin-button with the
-   Signature icon aligned inline. The actual pen lives in the bottom-chrome sign
-   sheet (GuestbookSheet). */
-.guestbook-cta-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45em;
-}
+/* The "Sign guestbook" call to action reuses the home hero CTA button
+   (.home-hero-cta-btn) so it matches the primary destinations there; the
+   Signature icon rides inline via that class's flex + gap. The actual pen
+   lives in the bottom-chrome sign sheet (GuestbookSheet). */
 
 /* Source credit for the backlink assembly (Constellation + Slingshot, both
    microcosm), mirroring the /mothing "Mirrored from iNaturalist" footnote. */

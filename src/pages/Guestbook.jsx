@@ -134,11 +134,11 @@ export default function Guestbook() {
       <div className="guestbook-cta">
         <button
           type="button"
-          className="signin-button guestbook-cta-btn"
+          className="home-hero-cta-btn"
           onClick={() => openPanel('guestbook')}
         >
-          <Signature size={15} strokeWidth={1.75} aria-hidden="true" />
-          Sign the guestbook
+          <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
+          Sign guestbook
         </button>
       </div>
 
