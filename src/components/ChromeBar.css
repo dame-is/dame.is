@@ -176,6 +176,21 @@
   min-width: 0;
 }
 
+/* The trail is Crimson Pro at a small size: its line box carries more leading
+   above the letters than below, so the symmetric --space-2 top/bottom padding
+   sits the text visibly low — too much room above it — whenever the trail and
+   NSID share one row (feed strips, and detail pages wide enough not to wrap).
+   Trim ~2px off the top to optically centre the trail between the strip's
+   hairlines (measured: +1.5px top-heavy at --space-2, ~0 here).
+
+   Scoped to :not(.is-nsid-wrapped) on purpose: once the NSID drops to its own
+   line, the trail's top becomes the whole block's outer edge and needs the
+   full --space-2 to balance the NSID's small-caps descent-leading at the
+   bottom — see the is-nsid-wrapped rules in the mobile block below. */
+.chrome-bar-tertiary:not(.is-nsid-wrapped) .chrome-breadcrumb {
+  padding-top: calc(var(--space-2) - 2px);
+}
+
 .chrome-crumbs {
   display: flex;
   align-items: baseline;
@@ -802,15 +817,33 @@
      block rather than two loosely stacked rows. The divider rides the trail's
      own bottom edge, which spans the full column here (the trail grows to fill
      the row once the NSID has left its line), so the dash runs edge to edge
-     exactly like the stack's. The block keeps its --space-2 outer top/bottom
-     padding (the trail's top, the NSID's bottom); only the gap between the two
-     rows tightens to the stack's --space-1 + --space-1 straddling the dash. */
+     exactly like the stack's. The trail keeps the strip's --space-2 outer top
+     padding; the NSID's outer bottom is trimmed (see below).
+
+     Every gap here is OPTICALLY balanced, not merely equal box padding, because
+     the NSID is `all-small-caps`: its line box reserves the full font ascent
+     above glyphs that only reach cap height, AND (at Crimson Pro's 1.6 line
+     height) a matching band of descent-leading below their baseline.
+
+     Interior dash: that phantom top-leading already supplies ~8px above the
+     caps, almost the whole gap on its own, while the descender-bearing trail
+     line sits ~5px of leading above the dash plus its --space-1 pad = ~9px. So
+     equal --space-1 padding on both sides renders visibly bottom-heavy
+     (measured +3px); the NSID needs almost no top pad. 1px centers the dash
+     between the two rows of ink (within ~0.3px).
+
+     Outer bottom: the NSID's ~6px of descent-leading likewise makes a full
+     --space-2 below it read ~2px heavier than the --space-2 above the trail,
+     so the whole strip looks bottom-weighted. Trim 2px off the NSID's bottom
+     to even the strip's top/bottom breathing room. Both are raw-px optical
+     nudges against the small-caps metric, not --space steps. */
   .chrome-bar-tertiary.is-detail.is-nsid-wrapped .chrome-breadcrumb {
     padding-bottom: var(--space-1);
     border-bottom: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
   }
   .chrome-bar-tertiary.is-detail.is-nsid-wrapped .chrome-crumb-nsid {
-    padding-top: var(--space-1);
+    padding-top: 1px;
+    padding-bottom: calc(var(--space-2) - 2px);
   }
 }
 
