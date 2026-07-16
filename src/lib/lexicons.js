@@ -5,7 +5,7 @@
 // intentionally lightweight — they cover the everyday fields, and the JSON
 // toggle inside the editor lets you reach anything they don't model.
 
-import { COLLECTIONS, GUESTBOOK_NSID } from '../config.js';
+import { COLLECTIONS, GUESTBOOK_NSID, BLOG_PUBLICATION } from '../config.js';
 
 /**
  * Field types understood by the form renderer:
@@ -100,7 +100,7 @@ export const LEXICONS = {
       },
       {
         key: 'path', label: 'Path (slug)', type: 'text', placeholder: '/my-work',
-        hint: 'URL slug. Leave blank to derive from the record key.',
+        hint: 'URL slug for /creating works. Leave blank to derive from the record key. Blog posts always use the record key — this field is ignored for the blog publication.',
       },
       {
         key: 'tags', label: 'Tags', type: 'tags',
@@ -125,8 +125,24 @@ export const LEXICONS = {
         hint: 'Optional external links (standard.site union — raw JSON).',
       },
     ],
-    // Keep a user-entered path; otherwise derive one from the record key.
-    derive: (record, { rkey }) => (rkey ? { ...record, path: record.path || `/${rkey}` } : record),
+    // Stamp the URL slug from the record key.
+    //
+    // Blog posts are served and linked only at /blogging/{rkey} — the site
+    // never routes a blog doc by its `path` (see resolveById in BlogPost.jsx
+    // and resolveBlog in og/records.js, both rkey-matched). A custom path there
+    // only desyncs the Standard Site canonical URL (publication.url + path) from
+    // the URL the site actually serves, which silently breaks the Bluesky
+    // "Standard Site" embed. So a blog-homed doc always takes the rkey as its
+    // path, regardless of any slug typed in the editor.
+    //
+    // Portfolio works are different: /creating *does* route by `path` (workSlug),
+    // so they keep a user-entered slug and only fall back to the rkey when blank.
+    derive: (record, { rkey }) => {
+      if (!rkey) return record;
+      const path =
+        record.site === BLOG_PUBLICATION ? `/${rkey}` : record.path || `/${rkey}`;
+      return { ...record, path };
+    },
   },
 
   [COLLECTIONS.page]: {
