@@ -8,6 +8,14 @@ import { CommentsSkeleton } from './Skeleton.jsx';
 import './Comments.css';
 
 /**
+ * Nested replies stop shifting right past this depth. The ancestor thread
+ * rails already convey lineage, so capping the horizontal indent keeps deep
+ * sub-threads from marching off the right edge and forcing horizontal scroll
+ * on narrow screens (the thread is fetched up to six levels deep).
+ */
+const REPLY_INDENT_CAP = 4;
+
+/**
  * Replies tree powered by `app.bsky.feed.getPostThread`.
  *
  * Pure rendering — the parent (Record.jsx) is responsible for fetching the
@@ -109,7 +117,13 @@ function ReplyNode({ node, depth }) {
         )}
       </article>
       {childReplies.length > 0 && (
-        <ul className="comments-tree comments-tree-nested" data-depth={depth + 1}>
+        <ul
+          className={
+            'comments-tree comments-tree-nested' +
+            (depth + 1 > REPLY_INDENT_CAP ? ' comments-tree-capped' : '')
+          }
+          data-depth={depth + 1}
+        >
           {childReplies.map((child, i) => (
             <ReplyNode key={child.post?.uri || i} node={child} depth={depth + 1} />
           ))}

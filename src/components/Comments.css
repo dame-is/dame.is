@@ -25,12 +25,31 @@
 
 .comments-tree-nested {
   --comment-avatar: 2rem;
+  /* Per-level horizontal indent for nested replies. Kept modest — and
+     capped past a few levels (see .comments-tree-capped) — so a deep thread
+     never accumulates enough left-offset to push content off the right edge
+     and force horizontal scroll on narrow screens. */
+  --reply-indent: var(--space-4);
   margin-top: var(--space-3);
-  margin-left: var(--space-2);
-  padding-left: var(--space-5);
+  padding-left: var(--reply-indent);
   /* A soft green rail reads as a thread spine, distinct from the tan
      hairline rules that separate sibling replies. */
   border-left: 2px solid color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+
+/* Past the indent cap, replies stop shifting right: the ancestor thread rails
+   already convey lineage, so deep sub-threads stay readable instead of
+   marching off-screen. Keep a sliver of padding so the spine doesn't collide
+   with the content. */
+.comments-tree-capped {
+  padding-left: var(--space-2);
+}
+
+@media (max-width: 700px) {
+  .comments-tree-nested {
+    --reply-indent: var(--space-3);
+    margin-top: var(--space-2);
+  }
 }
 
 .comment {
@@ -102,6 +121,9 @@
   line-height: 1.25;
   text-decoration: none;
   border-bottom: 1px dotted transparent;
+  /* Break rather than overflow: in a deeply-nested (narrow) column a long
+     unbroken name/handle would otherwise push past the right edge. */
+  overflow-wrap: anywhere;
 }
 
 a.comment-author-name:hover,
@@ -114,6 +136,7 @@ a.comment-author-name:focus-visible {
   font-size: var(--text-sm);
   line-height: 1.2;
   letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
 }
 
 .comment-time {
