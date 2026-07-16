@@ -272,6 +272,35 @@ export function runsToFacets(text, runs) {
   return segmentsToFacets(byteSegs);
 }
 
+/**
+ * Extract the `[startChar, endChar)` substring of `text` together with the
+ * facets that fall within it, re-based to the slice's own byte offsets. Used
+ * to split a text block's rich text around the caret when a paste is exploded
+ * into blocks (the head keeps what was before the caret, the tail what was
+ * after). Returns `{ text, facets }`.
+ */
+export function sliceRichText(text, facets, startChar, endChar) {
+  const safe = typeof text === 'string' ? text : '';
+  const start = Math.max(0, Math.min(startChar, safe.length));
+  const end = Math.max(start, Math.min(endChar, safe.length));
+  const sliceText = safe.slice(start, end);
+  if (!sliceText) return { text: '', facets: [] };
+  // facetRuns yields gap-free runs whose text concatenates to the whole string;
+  // clip each to the window, then rebuild facets against the slice.
+  const cut = [];
+  let pos = 0;
+  for (const run of facetRuns(safe, facets)) {
+    const runStart = pos;
+    const runEnd = pos + run.text.length;
+    pos = runEnd;
+    const from = Math.max(runStart, start);
+    const to = Math.min(runEnd, end);
+    if (to <= from) continue;
+    cut.push({ text: run.text.slice(from - runStart, to - runStart), features: run.features });
+  }
+  return { text: sliceText, facets: runsToFacets(sliceText, cut) };
+}
+
 function hasFeature(features, target) {
   return (features || []).some((f) => f?.$type === target.$type);
 }

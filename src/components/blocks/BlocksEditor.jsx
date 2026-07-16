@@ -120,6 +120,32 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
     [blocks, commit],
   );
 
+  // Replace the text block at `index` with a paste that was detected as
+  // markdown / multiple paragraphs: whatever preceded the caret (head) stays
+  // as a text block, the converted blocks land next, and whatever followed the
+  // caret (tail) trails as a text block. Empty head/tail are dropped, so
+  // pasting into an empty block simply swaps in the converted blocks. Committed
+  // as one structural op, so a single ⌘Z undoes the whole paste.
+  const pasteBlocksAt = useCallback(
+    (index, { head, tail, blocks: pasted }) => {
+      const seq = [];
+      if (head && head.text.trim()) {
+        seq.push({ $type: 'pub.leaflet.blocks.text', plaintext: head.text, facets: head.facets });
+      }
+      seq.push(...(pasted || []));
+      if (tail && tail.text.trim()) {
+        seq.push({ $type: 'pub.leaflet.blocks.text', plaintext: tail.text, facets: tail.facets });
+      }
+      if (seq.length === 0) return;
+      const wrapped = seq.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
+      const next = blocks.slice();
+      next.splice(index, 1, ...wrapped);
+      commit(next, { kind: 'structural' });
+      setActiveIndex(null);
+    },
+    [blocks, commit],
+  );
+
   const removeBlock = useCallback(
     (index) => {
       const next = blocks.slice();
@@ -396,6 +422,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
                     did={did}
                     onChange={(next) => updateBlock(i, next)}
                     onSetCover={onSetCover}
+                    onPasteBlocks={(payload) => pasteBlocksAt(i, payload)}
                   />
                 </div>
               ) : (
@@ -438,10 +465,10 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
   );
 }
 
-function BlockBody({ block, agent, did, onChange, onSetCover }) {
+function BlockBody({ block, agent, did, onChange, onSetCover, onPasteBlocks }) {
   switch (block.$type) {
     case 'pub.leaflet.blocks.text':
-      return <TextBlockEditor block={block} onChange={onChange} />;
+      return <TextBlockEditor block={block} onChange={onChange} onPasteBlocks={onPasteBlocks} />;
     case 'pub.leaflet.blocks.header':
       return <HeadingBlockEditor block={block} onChange={onChange} />;
     case 'pub.leaflet.blocks.image':
