@@ -563,7 +563,23 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   const layoutProp = reduce ? undefined : true;
 
   return (
-    <div className="chrome-bar chrome-bar-bottom" role="toolbar" aria-label="Global actions">
+    // `layoutScroll layoutRoot` — the bar is `position: fixed`, and its right-
+    // cluster buttons carry `layout` (so they slide over when back/home/count/
+    // account enter or exit). Motion measures layout in document coordinates and
+    // corrects for page scroll; for a fixed element that correction is spurious,
+    // so any re-render that coincides with a scroll-position change animates the
+    // buttons by the scroll delta. Toggling inspect (x-ray) collapses/expands the
+    // page enough that the browser clamps window.scrollY, which is exactly such a
+    // change — the buttons would jump vertically for no reason. Marking the fixed
+    // bar as a layout root makes its children resolve relative to the bar (not the
+    // scrolling document), so only genuine layout shifts inside the bar animate.
+    <motion.div
+      className="chrome-bar chrome-bar-bottom"
+      role="toolbar"
+      aria-label="Global actions"
+      layoutScroll
+      layoutRoot
+    >
       <div className="chrome-bottom-row">
         {/* Left cluster. While the nav dock is open, the page-level controls
             (theme / filter / search / info / inspect) hand off to the dock's
@@ -866,7 +882,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       <InfoSheet />
       <GuestbookSheet />
       <DebugSheet />
-    </div>
+    </motion.div>
   );
 }
 
