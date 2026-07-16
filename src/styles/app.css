@@ -216,7 +216,7 @@
   font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 0.02em;
-  padding: 0.6em 1.1em;
+  padding: 0.3em 1em;
   border: 1px solid var(--rule);
   background: transparent;
   color: var(--ink-soft);
