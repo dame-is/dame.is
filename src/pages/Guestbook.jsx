@@ -40,6 +40,7 @@ export default function Guestbook() {
   const [entries, setEntries] = useState(null);
   const [total, setTotal] = useState(null);
   const [hiddenCount, setHiddenCount] = useState(0);
+  const [flaggedCount, setFlaggedCount] = useState(0);
   const [cursor, setCursor] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [loadingMore, setLoadingMore] = useState(false);
@@ -54,6 +55,7 @@ export default function Guestbook() {
     setEntries(page.entries);
     setTotal(page.total);
     setHiddenCount(page.hiddenCount || 0);
+    setFlaggedCount(page.flaggedCount || 0);
     setCursor(page.cursor);
     setStatus('ready');
   }, []);
@@ -70,6 +72,8 @@ export default function Guestbook() {
       setEntries((prev) => [...(prev || []), ...page.entries]);
       setCursor(page.cursor);
       if (page.total != null) setTotal(page.total);
+      // Flagged entries surface page by page; add this page's to the tally.
+      setFlaggedCount((c) => c + (page.flaggedCount || 0));
     }
     setLoadingMore(false);
   }
@@ -116,12 +120,23 @@ export default function Guestbook() {
       (prev || []).map((e) => (e.uri === entry.uri ? { ...e, hidden: hide } : e)),
     );
     setHiddenCount((c) => Math.max(0, c + (hide ? 1 : -1)));
+    // A flagged entry is already counted as auto-hidden; when the host promotes
+    // it to (or releases it from) the manual list, move it between the tallies
+    // so the public count doesn't subtract the same signature twice.
+    if (entry.flagged) setFlaggedCount((c) => Math.max(0, c + (hide ? -1 : 1)));
   }
 
-  // The public page renders the curated book; moderation sees everything.
-  const visible = entries ? (moderating ? entries : entries.filter((e) => !e.hidden)) : null;
+  // The public page renders the curated book — signatures the host hid AND ones
+  // the language filter flagged are tucked away; moderation sees everything.
+  const visible = entries
+    ? moderating
+      ? entries
+      : entries.filter((e) => !e.hidden && !e.flagged)
+    : null;
   const count =
-    typeof total === 'number' ? Math.max(0, total - hiddenCount) : visible?.length ?? null;
+    typeof total === 'number'
+      ? Math.max(0, total - hiddenCount - flaggedCount)
+      : visible?.length ?? null;
 
   return (
     <PageShell
@@ -150,11 +165,16 @@ export default function Guestbook() {
           {moderating && hiddenCount > 0 && (
             <span className="guestbook-hidden-count"> · {hiddenCount} hidden</span>
           )}
+          {moderating && flaggedCount > 0 && (
+            <span className="guestbook-hidden-count"> · {flaggedCount} auto-hidden</span>
+          )}
         </h2>
         {moderating && (
           <p className="guestbook-moderation-note">
             Edit mode: hiding tucks a signature out of public display by listing it on the
-            book record. The signer's own record is untouched.
+            book record. The signer's own record is untouched. Entries badged{' '}
+            <span className="small-caps">auto-hidden</span> tripped the language filter and are
+            already kept from public view; hide one to record it on the book too.
           </p>
         )}
         {status === 'loading' ? (

@@ -42,6 +42,9 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
   // rendering an empty permalink.
   const when = relativeTime(value.createdAt);
   const hasControls = mine || moderating;
+  // Flagged by the language filter (or on the host's hidden list): benched from
+  // the public view. Both only ever render here in moderation, dimmed.
+  const suppressed = entry.hidden || entry.flagged;
 
   async function remove() {
     if (removing) return;
@@ -69,7 +72,7 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
 
   return (
     <li
-      className={`guestbook-entry${entry.hidden ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}`}
+      className={`guestbook-entry${suppressed ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}`}
       data-nsid={entry.collection || undefined}
       data-atproto={entry.uri ? '' : undefined}
       data-at-uri={entry.uri || undefined}
@@ -142,6 +145,14 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
               <div className="guestbook-entry-controls">
                 {entry.hidden && moderating && (
                   <span className="guestbook-entry-hidden-badge small-caps">hidden</span>
+                )}
+                {entry.flagged && !entry.hidden && moderating && (
+                  <span
+                    className="guestbook-entry-flagged-badge small-caps"
+                    title="Auto-hidden from public display: flagged by the language filter"
+                  >
+                    auto-hidden
+                  </span>
                 )}
                 {mine && (
                   <button
