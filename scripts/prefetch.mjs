@@ -142,6 +142,17 @@ async function main() {
   );
   await writeJson('nav', navRecord || {});
 
+  // --- Sky theme override (is.dame.sky/self) --------------------------------
+  // Optional PDS override for the hour-tracking sky palette; snapshotted so the
+  // first paint picks up the tuning without waiting on the live record. getRecord
+  // 404s until one exists — `safe` degrades it to {} and the built-in palette stands.
+  const skyRecord = await safe(
+    'getRecord:sky',
+    () => getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.sky, rkey: 'self' }),
+    null,
+  );
+  await writeJson('sky', skyRecord || {});
+
   // --- is.dame.page (pages keyed by rkey) -----------------------------------
   const pageRecords = backfillTimestamps(
     await safe(

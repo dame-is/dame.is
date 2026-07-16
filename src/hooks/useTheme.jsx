@@ -4,7 +4,12 @@ import {
   easternHour,
   secondsUntilNextHour,
   skyHourKey,
+  setSkyTuning,
 } from '../lib/skyTheme.js';
+import { effectiveSkyTuning } from '../lib/skyTuning.js';
+import { fetchSnapshot } from '../lib/snapshot.js';
+import { resolvePds, getRecord } from '../lib/atproto.js';
+import { ME_DID, COLLECTIONS } from '../config.js';
 
 const ThemeContext = createContext(null);
 
@@ -72,19 +77,55 @@ export function ThemeProvider({ children }) {
   const skyHourRef = useRef(skyHour);
   skyHourRef.current = skyHour;
 
+  // Bumped once the is.dame.sky tuning override resolves (snapshot then
+  // live), so the apply effect below re-paints the palette with it. Kept
+  // in a ref too, for advanceSkyHour's synchronous apply guard.
+  const [tuningRev, setTuningRev] = useState(0);
+  const tuningRevRef = useRef(0);
+  tuningRevRef.current = tuningRev;
+
   // What applyTheme last painted. advanceSkyHour applies synchronously
   // (for the iOS same-gesture theme-color) and then sets state; without
   // this guard the state-driven effect would re-apply the identical hour
-  // right after — a second scroll nudge per tap.
+  // right after — a second scroll nudge per tap. The signature folds in
+  // tuningRev so a freshly-loaded override re-applies even on the same hour.
   const appliedRef = useRef(null);
 
   useEffect(() => {
-    const sig = `sky:${skyHour}`;
+    const sig = `sky:${skyHour}:${tuningRev}`;
     if (appliedRef.current !== sig) {
       applyTheme(skyHour);
       appliedRef.current = sig;
     }
-  }, [skyHour]);
+  }, [skyHour, tuningRev]);
+
+  // Load the optional is.dame.sky/self override: snapshot for an instant
+  // swap-in, then the live record. Installs it globally (setSkyTuning) and
+  // bumps tuningRev to re-paint. Absent / disabled / empty → the built-in
+  // hourly palette stands, exactly like the nav-menu override.
+  useEffect(() => {
+    let cancelled = false;
+    const install = (record) => {
+      const tuning = effectiveSkyTuning(record);
+      if (cancelled || !tuning) return;
+      setSkyTuning(tuning);
+      setTuningRev((n) => n + 1);
+    };
+    (async () => {
+      const seed = await fetchSnapshot('sky');
+      if (seed?.value) install(seed);
+      try {
+        const pds = await resolvePds(ME_DID);
+        const rec = await getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.sky, rkey: 'self' });
+        if (rec?.value) install(rec);
+      } catch {
+        // No override (getRecord 404s until one exists) — defaults stand.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Tick the clock over at the top of each Eastern hour (minutes/seconds
   // track UTC, so the boundary is computable locally). The avatar mark
@@ -118,8 +159,15 @@ export function ThemeProvider({ children }) {
     const next = (skyHourRef.current + 1) % 24;
     // Sync apply for the same iOS theme-color gesture reason as above.
     applyTheme(next);
-    appliedRef.current = `sky:${next}`;
+    appliedRef.current = `sky:${next}:${tuningRevRef.current}`;
     setSkyOverride(next);
+  }, []);
+
+  // Push a just-saved is.dame.sky record onto the live site (from the admin
+  // studio) so the whole app re-tints without a reload. Pass null to clear.
+  const installSkyTuning = useCallback((record) => {
+    setSkyTuning(record ? effectiveSkyTuning(record) : null);
+    setTuningRev((n) => n + 1);
   }, []);
 
   const value = useMemo(
@@ -129,8 +177,9 @@ export function ThemeProvider({ children }) {
       skyHourKey: skyHourKey(skyHour),
       skyOverridden: skyOverride != null,
       advanceSkyHour,
+      installSkyTuning,
     }),
-    [skyHour, skyOverride, advanceSkyHour],
+    [skyHour, skyOverride, advanceSkyHour, installSkyTuning],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

@@ -32,6 +32,13 @@
   --scrim-clear: rgba(230, 222, 195, 0);
   --scrim-ink:   rgba(29, 36, 25, 0.9);
 
+  /* Glow / shine, per element family. Off by default; the sky theme's
+     optional per-hour tuning (is.dame.sky) turns them on. */
+  --glow-buttons:  none;
+  --glow-avatar:   none;
+  --glow-accent:   none;
+  --glow-controls: none;
+
   --bg:    var(--page);
   --fg:    var(--ink);
   --muted: var(--ink-muted);
@@ -162,10 +169,25 @@
   --scrim-clear:    var(--sky-scrim-clear, rgba(9, 9, 9, 0));
   --scrim-ink:      var(--sky-scrim-ink, rgba(223, 231, 231, 0.9));
 
+  /* Per-element glow, driven by the hour's tuning override (or `none`). */
+  --glow-buttons:   var(--sky-glow-buttons, none);
+  --glow-avatar:    var(--sky-glow-avatar, none);
+  --glow-accent:    var(--sky-glow-accent, none);
+  --glow-controls:  var(--sky-glow-controls, none);
+
   /* Daylight hours override this to `light` via an inline style set by
      skyTheme.js (inline wins over this static fallback). */
   color-scheme: dark;
 }
+
+/* Sky-theme glow / shine application. A tuning override (is.dame.sky) lights
+   up accent elements per hour; each family maps to one glow group chosen in
+   the studio. The tokens are `none` until an override turns them on, so these
+   rules are inert on the built-in palette. */
+[data-theme='sky'] .chrome-mark-img { box-shadow: var(--glow-avatar); }
+[data-theme='sky'] .home-hero-cta-primary { box-shadow: var(--glow-buttons); }
+[data-theme='sky'] .home-hero-cta-btn { box-shadow: var(--glow-controls); }
+[data-theme='sky'] .hero-rotator-b { text-shadow: var(--glow-accent); }
 
 /* Raised-surface ink re-tuning.
 

@@ -1,0 +1,50 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.sky",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "literal:self",
+      "description": "Tuning for the hour-tracking 'sky' theme (src/lib/skyTheme.js). A singleton at at://{me}/is.dame.sky/self. When `enabled`, each entry in `hours` layers a parametric override onto that hour's built-in palette — warming the borders and faint/muted text toward the horizon color, deepening them for contrast, optionally replacing the background, and adding a soft glow to chosen elements. When `enabled` is false (or no record exists), the site uses its hardcoded hourly derivation unchanged. Only hours that carry an override need to be listed. Edited in the admin 'Sky theme studio'.",
+      "record": {
+        "type": "object",
+        "required": ["enabled", "createdAt"],
+        "properties": {
+          "enabled": { "type": "boolean", "description": "Whether this record drives the sky palette. False = use the built-in derivation." },
+          "hours": {
+            "type": "array",
+            "maxLength": 24,
+            "description": "Per-hour tuning overrides. Each entry keys off its `hour` (0 = 12am Eastern … 23 = 11pm, matching og/time.js). Unlisted hours use the built-in palette.",
+            "items": { "type": "ref", "ref": "#hourTuning" }
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    },
+    "hourTuning": {
+      "type": "object",
+      "description": "A single hour's parametric override. All knobs are optional and default to a no-op, so an entry with only `hour` renders identically to the built-in palette.",
+      "required": ["hour"],
+      "properties": {
+        "hour": { "type": "integer", "minimum": 0, "maximum": 23, "description": "Eastern hour this override applies to (0 = 12am … 23 = 11pm)." },
+        "pop": { "type": "string", "maxLength": 7, "description": "Horizon 'pop' hex the borders / faint-muted text / inline highlight warm toward, e.g. #efa82b. Defaults to this hour's horizon band." },
+        "page": { "type": "string", "maxLength": 7, "description": "Absolute page (background) hex. When set, the whole neutral ramp — page, chrome surfaces, ink, rules — re-derives from it; the art-based link accent stays tied to the frame. Omit to keep the sun-tracked background." },
+        "surfaceSep": { "type": "number", "minimum": 0.2, "maximum": 2.5, "description": "Multiplier on how far the chrome surfaces sit from the page (1 = built-in separation)." },
+        "ruleWarmth": { "type": "number", "minimum": 0, "maximum": 1, "description": "How far the borders blend toward the pop color (0 = keep their own hue, 1 = full pop hue)." },
+        "ruleContrast": { "type": "number", "minimum": 0, "maximum": 0.6, "description": "How much the borders are pushed away from the page for contrast (darker by day, lighter by night)." },
+        "inkWarmth": { "type": "number", "minimum": 0, "maximum": 1, "description": "How far the faint / muted text blends toward the pop color." },
+        "inkContrast": { "type": "number", "minimum": 0, "maximum": 0.6, "description": "How much the faint / muted text is pushed away from the page for contrast." },
+        "glowColor": { "type": "string", "maxLength": 7, "description": "Glow / shine hex. Defaults to the pop color." },
+        "glowSize": { "type": "number", "minimum": 0, "maximum": 64, "description": "Glow blur radius in px. 0 = no glow." },
+        "glowStrength": { "type": "number", "minimum": 0, "maximum": 1, "description": "Glow opacity 0–1. 0 = no glow." },
+        "glowTargets": {
+          "type": "array",
+          "maxLength": 4,
+          "description": "Which element families receive the glow.",
+          "items": { "type": "string", "knownValues": ["buttons", "avatar", "accentText", "controls"] }
+        }
+      }
+    }
+  }
+}
