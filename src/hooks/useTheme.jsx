@@ -77,6 +77,17 @@ export function ThemeProvider({ children }) {
   const skyHourRef = useRef(skyHour);
   skyHourRef.current = skyHour;
 
+  // Studio preview override for the chrome-bar avatar mark. The admin
+  // SkyThemeStudio paints the palette itself (with the in-progress draft
+  // tuning) while previewing an hour; this mirrors that hour onto the
+  // avatar so the brand mark steps in lockstep with the palette being
+  // tuned — without touching the sky clock (skyHour) that drives the
+  // bottom-bar chip and the saved-palette apply effect, so the chip's
+  // tap-to-advance keeps working and the draft preview isn't clobbered
+  // by a saved-tuning re-apply. null = follow the clock (the normal case).
+  const [skyPreviewHour, setSkyPreviewHour] = useState(null);
+  const skyDisplayHour = skyPreviewHour ?? skyHour;
+
   // Bumped once the is.dame.sky tuning override resolves (snapshot then
   // live), so the apply effect below re-paints the palette with it. Kept
   // in a ref too, for advanceSkyHour's synchronous apply guard.
@@ -174,12 +185,14 @@ export function ThemeProvider({ children }) {
     () => ({
       theme: THEME,
       skyHour,
+      skyDisplayHour,
       skyHourKey: skyHourKey(skyHour),
       skyOverridden: skyOverride != null,
       advanceSkyHour,
+      setSkyPreviewHour,
       installSkyTuning,
     }),
-    [skyHour, skyOverride, advanceSkyHour, installSkyTuning],
+    [skyHour, skyDisplayHour, skyOverride, advanceSkyHour, setSkyPreviewHour, installSkyTuning],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

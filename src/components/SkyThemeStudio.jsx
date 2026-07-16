@@ -82,7 +82,7 @@ function previewStyle(vars) {
 const hourLabel = (h) => skyHourKey(h).replace('am', ' AM').replace('pm', ' PM').toUpperCase();
 
 export default function SkyThemeStudio({ agent, did }) {
-  const { installSkyTuning } = useTheme();
+  const { installSkyTuning, setSkyPreviewHour } = useTheme();
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [byHour, setByHour] = useState(null);
@@ -139,14 +139,27 @@ export default function SkyThemeStudio({ agent, did }) {
 
   // Live preview on the whole site (tune on the fly). Forces the override on
   // for the previewed hour regardless of the enable toggle, so a dormant
-  // draft still previews. Restores the real hour when off / on unmount.
+  // draft still previews, and mirrors the hour onto the chrome-bar avatar
+  // mark via setSkyPreviewHour so the brand mark matches the tuned palette.
+  // Restores the real hour (and clears the avatar mirror) when off / unmount.
   useEffect(() => {
     if (loading || !byHour) return undefined;
-    if (liveApply) applySkyTheme(hour, draftToTuning(true, byHour));
-    else applySkyTheme(easternHour());
+    if (liveApply) {
+      applySkyTheme(hour, draftToTuning(true, byHour));
+      setSkyPreviewHour(hour);
+    } else {
+      applySkyTheme(easternHour());
+      setSkyPreviewHour(null);
+    }
     return undefined;
-  }, [loading, liveApply, hour, byHour]);
-  useEffect(() => () => applySkyTheme(easternHour()), []);
+  }, [loading, liveApply, hour, byHour, setSkyPreviewHour]);
+  useEffect(
+    () => () => {
+      applySkyTheme(easternHour());
+      setSkyPreviewHour(null);
+    },
+    [setSkyPreviewHour],
+  );
 
   const cfg = byHour ? byHour[hour] : null;
 

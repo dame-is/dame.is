@@ -48,9 +48,11 @@ export default function ChromeBar() {
   // locally instead of fetched from the profile, so the mark is always
   // in lockstep with the site's own clock (and with the sky theme's
   // palette). useTheme's hour ticks over hourly; while the bottom-bar
-  // time chip is overriding the clock, the mark steps with it.
-  const { skyHour } = useTheme();
-  const targetAvatar = skyAvatarUrl(skyHour);
+  // time chip is overriding the clock, the mark steps with it; and while
+  // the admin SkyThemeStudio is previewing an hour, the mark follows
+  // that too (via skyDisplayHour) so it matches the palette being tuned.
+  const { skyDisplayHour } = useTheme();
+  const targetAvatar = skyAvatarUrl(skyDisplayHour);
 
   // The mark never paints a half-loaded image: an incoming URL is fetched
   // and decoded off-screen, and only swapped in — on the SAME persistent
