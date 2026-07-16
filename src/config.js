@@ -88,6 +88,15 @@ export const STATE_NSID = 'is.dame.state';
 // routes in src/lib/navRoutes.js. Edited in the admin "Nav menu" panel.
 export const NAV_NSID = 'is.dame.nav';
 
+// --- sky theme ---------------------------------------------------------------
+// Optional PDS override for the hour-tracking "sky" theme. The singleton at
+// is.dame.sky/self carries per-hour parametric tuning (horizon pop, warmth,
+// contrast, background color, glow) that layers on top of the built-in
+// derivation in src/lib/skyTheme.js. When its `enabled` flag is off (or no
+// record exists) the site uses the hardcoded hourly palette unchanged. Edited
+// live in the admin "Sky theme studio" panel; snapshotted to public/data/sky.json.
+export const SKY_NSID = 'is.dame.sky';
+
 // Infrastructure-only collections (not surfaced as feed verbs).
 const PAGE_NSID = 'is.dame.page';
 const PROFILE_NSID = 'is.dame.profile';
@@ -125,6 +134,7 @@ export const COLLECTIONS = {
   arenaChannel: ARENA_CHANNEL_NSID,
   state: STATE_NSID,
   nav: NAV_NSID,
+  sky: SKY_NSID,
 };
 
 /** Gerund verbs surfaced on the home feed. Sourced from the registry. */

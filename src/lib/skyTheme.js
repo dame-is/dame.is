@@ -169,11 +169,28 @@ const rgba = ([r, g, b], a) => `rgba(${r}, ${g}, ${b}, ${a})`;
 
 /* ---------- palette derivation ---------- */
 
+// The brighter true-horizon samples for the two shoulder hours, picked off
+// the actual avatar frames (the averaged SKY_BANDS bottom is muddier than
+// the glow at the very horizon). Used as the default "pop" a tuning
+// override warms its borders/text/glow from. Other hours default to their
+// own SKY_BANDS horizon band.
+const SAMPLED_POP = { 7: '#efa82b', 18: '#ce7175' };
+
+/** The default horizon "pop" color a tuning override starts from, per hour. */
+export function defaultPopForHour(hour) {
+  const h = ((hour % 24) + 24) % 24;
+  return SAMPLED_POP[h] || SKY_BANDS[h].bottom;
+}
+
 /**
- * The full token set for one hour of sky, as a map of --sky-* custom
- * properties plus the meta bits (theme-color, color-scheme, label).
+ * Build the untuned --sky-* var set for one hour, optionally with the page
+ * color replaced (absolute background override) and the chrome-surface
+ * offsets scaled (surfaceSep). With `pageOverride` null and `surfaceSep`
+ * 1 this reproduces the historical paletteForHour output exactly. Also
+ * returns a `ctx` with the raw HSL of every tunable token so an override
+ * layer can re-derive them.
  */
-export function paletteForHour(hour) {
+function buildBaseVars(hour, { pageOverride = null, surfaceSep = 1 } = {}) {
   const h24 = ((hour % 24) + 24) % 24;
   const { top, bottom } = SKY_BANDS[h24];
   const topRgb = hexToRgb(top);
@@ -184,9 +201,15 @@ export function paletteForHour(hour) {
   const [hh, hs] = rgbToHsl(botRgb); // horizon band
   const sun = SUN_CURVE[h24];
   const day = sun >= 0.5;
+  const sep = typeof surfaceSep === 'number' ? surfaceSep : 1;
+  // An absolute page-color override supplies its own hue/sat/lightness,
+  // and the whole neutral ramp (page, surfaces, ink, rules) re-derives
+  // from it. The art-based accents (--sky-accent from the top band, the
+  // horizon pop) stay tied to the frame.
+  const pageHsl = pageOverride ? rgbToHsl(hexToRgb(pageOverride)) : null;
 
   let vars;
-  let themeColor;
+  let raw;
 
   if (day) {
     // Sky-colored page, dark ink. The sun curve sets the lightness —
@@ -201,23 +224,32 @@ export function paletteForHour(hour) {
       hue = th;
       s = clamp((bs + ts) / 2, 0.2, 0.4);
     }
-    const l = sun;
+    let l = sun;
+    if (pageHsl) [hue, s, l] = pageHsl;
     const ink = hslToRgb([hue, 0.25, 0.1]);
     const accent = hslToRgb([th, clamp(ts, 0.35, 0.8), 0.3]);
+    raw = {
+      rule: [hue, s * 0.45, l - 0.18],
+      ruleSoft: [hue, s * 0.5, l - 0.1],
+      inkMuted: [hue, 0.15, Math.min(0.34, l - 0.32)],
+      inkFaint: [hue, 0.12, Math.min(0.46, l - 0.18)],
+      inkMutedRaised: [hue, 0.16, Math.min(0.28, l - 0.34)],
+      inkFaintRaised: [hue, 0.13, Math.min(0.38, l - 0.24)],
+    };
     vars = {
       '--sky-page': hsl(hue, s, l),
-      '--sky-page-edge': hsl(hue, s, l - 0.06),
-      '--sky-surface-raised': hsl(hue, s, l - 0.08),
-      '--sky-surface-deep': hsl(hue, s, l - 0.03),
+      '--sky-page-edge': hsl(hue, s, l - 0.06 * sep),
+      '--sky-surface-raised': hsl(hue, s, l - 0.08 * sep),
+      '--sky-surface-deep': hsl(hue, s, l - 0.03 * sep),
       '--sky-ink': rgbToHex(ink),
       // The muted/faint steps ride the page lightness down through the
       // dimmer shoulder hours (7am, 6pm) so secondary text keeps its
       // contrast when the page isn't at full brightness.
       '--sky-ink-soft': hsl(hue, 0.18, 0.22),
-      '--sky-ink-muted': hsl(hue, 0.15, Math.min(0.34, l - 0.32)),
-      '--sky-ink-faint': hsl(hue, 0.12, Math.min(0.46, l - 0.18)),
-      '--sky-rule': hsl(hue, s * 0.45, l - 0.18),
-      '--sky-rule-soft': hsl(hue, s * 0.5, l - 0.1),
+      '--sky-ink-muted': hsl(...raw.inkMuted),
+      '--sky-ink-faint': hsl(...raw.inkFaint),
+      '--sky-rule': hsl(...raw.rule),
+      '--sky-rule-soft': hsl(...raw.ruleSoft),
       // Deep-sky accent (from the frame's top band) and a horizon accent
       // (from its bottom band) — the sky-mode stand-ins for moss + tan.
       '--sky-accent': rgbToHex(accent),
@@ -225,17 +257,16 @@ export function paletteForHour(hour) {
       '--sky-tan': hsl(hh, clamp(hs, 0.3, 0.65), 0.38),
       '--sky-highlight': rgba(accent, 0.16),
       '--sky-shadow': rgba(hslToRgb([hue, 0.3, 0.09]), 0.16),
-      '--sky-scrim': rgba(hslToRgb([hue, s, l - 0.04]), 0.86),
-      '--sky-scrim-clear': rgba(hslToRgb([hue, s, l - 0.04]), 0),
+      '--sky-scrim': rgba(hslToRgb([hue, s, l - 0.04 * sep]), 0.86),
+      '--sky-scrim-clear': rgba(hslToRgb([hue, s, l - 0.04 * sep]), 0),
       '--sky-scrim-ink': rgba(ink, 0.9),
       // Muted/faint re-tuned for text sitting on --surface-raised
       // (mirrors the [data-theme] .chrome-bar rules in theme.css).
-      '--sky-ink-muted-raised': hsl(hue, 0.16, Math.min(0.28, l - 0.34)),
-      '--sky-ink-faint-raised': hsl(hue, 0.13, Math.min(0.38, l - 0.24)),
+      '--sky-ink-muted-raised': hsl(...raw.inkMutedRaised),
+      '--sky-ink-faint-raised': hsl(...raw.inkFaintRaised),
       '--sky-paper-rule': rgba(ink, 0.07),
       '--sky-paper-dot': rgba(ink, 0.1),
     };
-    themeColor = vars['--sky-surface-raised'];
   } else {
     // Deep-sky page, light ink, lightness from the sun curve (a hair
     // above black at 6pm's sunset drop, settling to the flat night
@@ -243,60 +274,185 @@ export function paletteForHour(hour) {
     // amber, dusk glows orchid, and dead-of-night (horizon too
     // desaturated to mean anything) falls back to a pale moonlit cast
     // of the sky's own hue.
-    const s = Math.min(bs, 0.45);
-    const l = sun;
-    const ink = hslToRgb([bh, 0.14, 0.89]);
-    const glowHue = hs < 0.1 ? bh : hh;
+    let hue = bh;
+    let s = Math.min(bs, 0.45);
+    let l = sun;
+    if (pageHsl) [hue, s, l] = pageHsl;
+    const ink = hslToRgb([hue, 0.14, 0.89]);
+    const glowHue = hs < 0.1 ? hue : hh;
     const glowSat = hs < 0.1 ? 0.22 : hs;
     const accent = hslToRgb([glowHue, clamp(glowSat, 0.3, 0.6), 0.7]);
+    raw = {
+      rule: [hue, Math.min(s + 0.05, 0.35), l + 0.12],
+      ruleSoft: [hue, Math.min(s + 0.03, 0.3), l + 0.06],
+      inkMuted: [hue, 0.09, Math.max(0.61, l + 0.26)],
+      inkFaint: [hue, 0.08, Math.max(0.45, l + 0.13)],
+      inkMutedRaised: [hue, 0.09, Math.max(0.61, l + 0.26)],
+      inkFaintRaised: [hue, 0.08, Math.max(0.52, l + 0.18)],
+    };
     vars = {
-      '--sky-page': hsl(bh, s, l),
-      '--sky-page-edge': hsl(bh, s, Math.max(l - 0.02, 0.05)),
-      '--sky-surface-raised': hsl(bh, s, Math.max(l - 0.045, 0.035)),
-      '--sky-surface-deep': hsl(bh, s, Math.max(l - 0.075, 0.02)),
+      '--sky-page': hsl(hue, s, l),
+      '--sky-page-edge': hsl(hue, s, Math.max(l - 0.02 * sep, 0.05)),
+      '--sky-surface-raised': hsl(hue, s, Math.max(l - 0.045 * sep, 0.035)),
+      '--sky-surface-deep': hsl(hue, s, Math.max(l - 0.075 * sep, 0.02)),
       '--sky-ink': rgbToHex(ink),
       // Muted/faint ride the page lightness up through the brighter
       // shoulder hours (6am dawn, 7pm sunset) so secondary text keeps
       // its contrast against the not-fully-dark page.
-      '--sky-ink-soft': hsl(bh, 0.11, 0.78),
-      '--sky-ink-muted': hsl(bh, 0.09, Math.max(0.61, l + 0.26)),
-      '--sky-ink-faint': hsl(bh, 0.08, Math.max(0.45, l + 0.13)),
-      '--sky-rule': hsl(bh, Math.min(s + 0.05, 0.35), l + 0.12),
-      '--sky-rule-soft': hsl(bh, Math.min(s + 0.03, 0.3), l + 0.06),
+      '--sky-ink-soft': hsl(hue, 0.11, 0.78),
+      '--sky-ink-muted': hsl(...raw.inkMuted),
+      '--sky-ink-faint': hsl(...raw.inkFaint),
+      '--sky-rule': hsl(...raw.rule),
+      '--sky-rule-soft': hsl(...raw.ruleSoft),
       '--sky-accent': rgbToHex(accent),
       '--sky-accent-soft': hsl(glowHue, clamp(glowSat * 0.8, 0.25, 0.5), 0.58),
       '--sky-tan': hsl(glowHue, clamp(glowSat, 0.25, 0.55), 0.64),
       '--sky-highlight': rgba(accent, 0.16),
       '--sky-shadow': 'rgba(0, 0, 0, 0.45)',
-      '--sky-scrim': rgba(hslToRgb([bh, s, Math.max(l - 0.06, 0.02)]), 0.8),
-      '--sky-scrim-clear': rgba(hslToRgb([bh, s, Math.max(l - 0.06, 0.02)]), 0),
+      '--sky-scrim': rgba(hslToRgb([hue, s, Math.max(l - 0.06 * sep, 0.02)]), 0.8),
+      '--sky-scrim-clear': rgba(hslToRgb([hue, s, Math.max(l - 0.06 * sep, 0.02)]), 0),
       '--sky-scrim-ink': rgba(ink, 0.9),
       // Night muted already clears the darker raised surface; only faint
       // needs a lift (same shape as the static dark theme's re-tune).
-      '--sky-ink-muted-raised': hsl(bh, 0.09, Math.max(0.61, l + 0.26)),
-      '--sky-ink-faint-raised': hsl(bh, 0.08, Math.max(0.52, l + 0.18)),
+      '--sky-ink-muted-raised': hsl(...raw.inkMutedRaised),
+      '--sky-ink-faint-raised': hsl(...raw.inkFaintRaised),
       '--sky-paper-rule': rgba(ink, 0.055),
       '--sky-paper-dot': rgba(ink, 0.08),
     };
-    themeColor = vars['--sky-surface-raised'];
   }
 
+  return { vars, ctx: { day, raw } };
+}
+
+// The tuning override's warmth/contrast model. Hue + saturation come from
+// an RGB blend of the token toward the horizon pop (a natural tan/rose
+// path, no magenta detour); lightness is pushed away from the page —
+// darker by day, lighter by night — so contrast rises predictably either
+// way. warmth 0 && push 0 returns the token unchanged (exact identity).
+function warmContrast(baseHsl, popRgb, warmth, push, day) {
+  if (warmth <= 0 && push <= 0) return hsl(...baseHsl);
+  const targetL = clamp01(baseHsl[2] + (day ? -push : push));
+  const b = hslToRgb(baseHsl);
+  const mixed = b.map((v, i) => v + (popRgb[i] - v) * warmth);
+  const [H, S] = rgbToHsl(mixed);
+  return hsl(H, Math.min(S, 0.72), targetL);
+}
+
+// The glow / shine box-shadow, split per target group (accent buttons,
+// avatar mark, accent text, outlined controls) so each element family can
+// opt in independently. Returns 'none' for a group the override doesn't
+// target, or when the glow is off.
+function glowVarsFrom(cfg) {
+  const off = { color: 'transparent', buttons: 'none', avatar: 'none', accent: 'none', controls: 'none' };
+  const strength = Number(cfg.glowStrength) || 0;
+  const size = Math.round(Number(cfg.glowSize) || 0);
+  if (strength <= 0 || size <= 0) return off;
+  const rgb = hexToRgb(cfg.glowColor || cfg.pop || '#ffffff');
+  const c1 = rgba(rgb, Number(strength.toFixed(3)));
+  const c2 = rgba(rgb, Number(Math.min(1, strength * 1.35).toFixed(3)));
+  const shadow = `0 0 ${size}px ${Math.round(size * 0.18)}px ${c1}, 0 0 ${Math.round(size * 0.45)}px ${c2}`;
+  const text = `0 0 ${Math.round(size * 0.7)}px ${c1}`;
+  const T = cfg.glowTargets || {};
   return {
-    hour: h24,
-    key: KEYS[h24],
-    day,
-    colorScheme: day ? 'light' : 'dark',
-    themeColor,
-    vars,
+    color: c1,
+    buttons: T.buttons ? shadow : 'none',
+    avatar: T.avatar ? shadow : 'none',
+    accent: T.accentText ? text : 'none',
+    controls: T.controls ? shadow : 'none',
   };
 }
 
-// Every var name paletteForHour emits, so clearSkyTheme can sweep them all.
-const SKY_VAR_NAMES = Object.keys(paletteForHour(0).vars);
+// The always-present glow vars in their "off" state — so every palette
+// carries the full var set (clearSkyTheme/theme.css stay consistent).
+const GLOW_OFF = {
+  '--sky-glow-color': 'transparent',
+  '--sky-glow-buttons': 'none',
+  '--sky-glow-avatar': 'none',
+  '--sky-glow-accent': 'none',
+  '--sky-glow-controls': 'none',
+};
+
+/**
+ * Layer one hour's parametric tuning override onto its base vars: re-warm
+ * the borders and faint/muted ink toward the pop, deepen for contrast,
+ * pull the inline highlight from the pop, and emit the per-target glow.
+ * Page / primary ink / link accent are left as the base derived them
+ * (the page itself may already carry an absolute override via buildBaseVars).
+ */
+function applyOverride(baseVars, ctx, cfg) {
+  const { day, raw } = ctx;
+  const popRgb = hexToRgb(cfg.pop || '#ffffff');
+  const rW = Number(cfg.ruleWarmth) || 0;
+  const rC = Number(cfg.ruleContrast) || 0;
+  const iW = Number(cfg.inkWarmth) || 0;
+  const iC = Number(cfg.inkContrast) || 0;
+  const v = { ...baseVars };
+  v['--sky-rule'] = warmContrast(raw.rule, popRgb, rW, rC, day);
+  v['--sky-rule-soft'] = warmContrast(raw.ruleSoft, popRgb, rW, rC * 0.55, day);
+  v['--sky-ink-faint'] = warmContrast(raw.inkFaint, popRgb, iW, iC, day);
+  v['--sky-ink-muted'] = warmContrast(raw.inkMuted, popRgb, iW, iC * 0.6, day);
+  v['--sky-ink-faint-raised'] = warmContrast(raw.inkFaintRaised, popRgb, iW, iC, day);
+  v['--sky-ink-muted-raised'] = warmContrast(raw.inkMutedRaised, popRgb, iW, iC * 0.6, day);
+  if (iW > 0 || rW > 0) {
+    const [ph, ps] = rgbToHsl(popRgb);
+    v['--sky-tan'] = hsl(ph, clamp(ps, 0.35, 0.72), day ? 0.42 : 0.6);
+    v['--sky-accent-soft'] = hsl(ph, clamp(ps * 0.7, 0.3, 0.6), day ? 0.5 : 0.58);
+  }
+  const g = glowVarsFrom(cfg);
+  v['--sky-glow-color'] = g.color;
+  v['--sky-glow-buttons'] = g.buttons;
+  v['--sky-glow-avatar'] = g.avatar;
+  v['--sky-glow-accent'] = g.accent;
+  v['--sky-glow-controls'] = g.controls;
+  return v;
+}
+
+// Module-level active tuning, installed once the is.dame.sky override
+// resolves (snapshot then live — see useSkyTuning). null = the built-in
+// hourly derivation, unchanged. Shaped { enabled, hours: {0..23: cfg} }.
+let activeTuning = null;
+
+/** Install the resolved sky-theme tuning (or null to clear). */
+export function setSkyTuning(tuning) {
+  activeTuning = tuning && tuning.enabled ? tuning : null;
+}
+
+/** The currently installed tuning (or null). */
+export function getSkyTuning() {
+  return activeTuning;
+}
+
+/**
+ * The full token set for one hour of sky, as a map of --sky-* custom
+ * properties plus the meta bits (theme-color, color-scheme, label).
+ * `tuning` defaults to the installed override; pass an explicit one (e.g.
+ * a draft from the admin studio) to preview it without installing it.
+ */
+export function paletteForHour(hour, tuning = activeTuning) {
+  const h24 = ((hour % 24) + 24) % 24;
+  const cfg = tuning && tuning.enabled && tuning.hours ? tuning.hours[h24] : null;
+  const { vars, ctx } = buildBaseVars(hour, {
+    pageOverride: cfg && cfg.page ? cfg.page : null,
+    surfaceSep: cfg ? cfg.surfaceSep : 1,
+  });
+  const outVars = cfg ? applyOverride(vars, ctx, cfg) : { ...vars, ...GLOW_OFF };
+  return {
+    hour: h24,
+    key: KEYS[h24],
+    day: ctx.day,
+    colorScheme: ctx.day ? 'light' : 'dark',
+    themeColor: outVars['--sky-surface-raised'],
+    vars: outVars,
+  };
+}
+
+// Every var name a palette emits, so clearSkyTheme can sweep them all
+// (base tokens + the glow group).
+const SKY_VAR_NAMES = Object.keys({ ...buildBaseVars(0).vars, ...GLOW_OFF });
 
 /** Write the given hour's palette onto <html> as --sky-* vars. */
-export function applySkyTheme(hour) {
-  const palette = paletteForHour(hour);
+export function applySkyTheme(hour, tuning = activeTuning) {
+  const palette = paletteForHour(hour, tuning);
   const root = document.documentElement;
   for (const name of SKY_VAR_NAMES) root.style.setProperty(name, palette.vars[name]);
   // Inline so form controls / scrollbars flip with the hour; theme.css's

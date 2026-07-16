@@ -8,6 +8,7 @@ import ResumeStudio from '../components/resume/ResumeStudio.jsx';
 import ResumeWorkbench from '../components/resume/ResumeWorkbench.jsx';
 import PublicationsManager from '../components/PublicationsManager.jsx';
 import NavMenuPanel from '../components/NavMenuPanel.jsx';
+import SkyThemeStudio from '../components/SkyThemeStudio.jsx';
 import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -85,6 +86,9 @@ export default function Admin() {
   }
   if (view === 'nav') {
     return <NavMenuPanel agent={agent} did={did} />;
+  }
+  if (view === 'sky') {
+    return <SkyThemeStudio agent={agent} did={did} />;
   }
   if (view === 'resume-tailor' && rkey) {
     return <ResumeWorkbench agent={agent} did={did} rkey={rkey} />;
@@ -224,6 +228,8 @@ const PICKER_GROUPS = [
         summary: 'Titles, intros, and page bodies — see which serve from the PDS vs local defaults, and edit the raw records.' },
       { to: '/admin?view=nav', label: 'Nav menu', nsid: 'is.dame.nav',
         summary: 'Override the dock-menu route list — select, reorder, relabel, or hide entries — or turn the override off to use the built-in routes.' },
+      { to: '/admin?view=sky', label: 'Sky theme studio', nsid: 'is.dame.sky',
+        summary: 'Tune the hour-tracking palette live — background, horizon-warmed borders and text, and a soft glow per element — for any of the 24 hours. Saves to an override record; off falls back to the built-in palette.' },
       { to: '/admin?view=publications', label: 'Publications', nsid: 'site.standard.publication',
         summary: 'The blog + portfolio publications behind the Bluesky Standard Site embeds — edit their fields, or apply the sky theme + a dynamic avatar.' },
       { to: '/admin?view=guestbook', label: 'Guestbook', nsid: 'is.dame.guestbook.entry',
