@@ -528,3 +528,35 @@
 .website-block-actions .admin-field-hint {
   margin: 0;
 }
+
+/* Per-block layout controls (indent + extra space above/below), shown beneath
+   the active block's editor so an author can shape spacing without inserting
+   empty spacer blocks. */
+.block-layout-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule, rgba(0, 0, 0, 0.12));
+}
+
+.block-layout-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--ink-faint, var(--ink));
+}
+
+.block-layout-select {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--ink);
+  background: var(--page);
+  border: 1px solid var(--rule, rgba(0, 0, 0, 0.18));
+  border-radius: 6px;
+  padding: 0.15rem 0.35rem;
+  cursor: pointer;
+}

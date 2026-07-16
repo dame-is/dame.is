@@ -1,4 +1,4 @@
-import { createContext, Fragment, useContext, useEffect, useMemo, useState } from 'react';
+import { cloneElement, createContext, Fragment, useContext, useEffect, useMemo, useState } from 'react';
 import { renderLeafletText } from '../lib/leafletRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
 import PostEmbed from './PostEmbed.jsx';
@@ -132,53 +132,89 @@ function LeafletPage({ page }) {
   return <Fragment>{out}</Fragment>;
 }
 
+// Optional per-block layout hints (dame.is rendering extensions, set in the
+// admin blocks editor): `indent` forces a text paragraph's first-line indent
+// on/off (overriding the automatic book-style adjacency indent), and
+// `spaceTop`/`spaceBottom` add extra margin above/below any block so an author
+// can open up space without inserting empty spacer blocks.
+const BLOCK_SPACE_SCALE = {
+  sm: 'var(--space-4)',
+  md: 'var(--space-6)',
+  lg: 'var(--space-8)',
+};
+
+function blockLayoutStyle(block) {
+  const style = {};
+  if (BLOCK_SPACE_SCALE[block.spaceTop]) style.marginTop = BLOCK_SPACE_SCALE[block.spaceTop];
+  if (BLOCK_SPACE_SCALE[block.spaceBottom]) style.marginBottom = BLOCK_SPACE_SCALE[block.spaceBottom];
+  // Indent is a paragraph concept; only text blocks honor it. `null`/absent =
+  // leave the CSS default (adjacent paragraphs auto-indent) untouched.
+  if (block.$type === 'pub.leaflet.blocks.text' && block.indent != null) {
+    style.textIndent = block.indent ? '1.5em' : '0';
+  }
+  return Object.keys(style).length ? style : null;
+}
+
 export function LeafletBlock({ block }) {
   if (!block) return null;
+  // Layout hints ride as an inline style on the block's own root element so
+  // they win over the stylesheet's adjacency rules (e.g. the `margin-bottom: 0`
+  // on stacked paragraphs) without wrapping the block — wrapping would break
+  // those `+` selectors. `null` when the block carries no hints.
+  const style = blockLayoutStyle(block);
   switch (block.$type) {
     case 'pub.leaflet.blocks.text':
-      return <TextBlock block={block} />;
+      return <TextBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.header':
-      return <HeaderBlock block={block} />;
+      return <HeaderBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.image':
-      return <ImageBlock block={block} />;
+      return <ImageBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.website':
-      return <WebsiteBlock block={block} />;
+      return <WebsiteBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.bskyPost':
-      return <BskyPostBlock block={block} />;
+      return <BskyPostBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.code':
-      return <CodeBlock block={block} />;
+      return <CodeBlock block={block} style={style} />;
     case 'pub.leaflet.blocks.unorderedList':
     case 'pub.leaflet.blocks.orderedList':
-      return <ListBlock block={block} ordered={block.$type === 'pub.leaflet.blocks.orderedList'} />;
+      return (
+        <ListBlock
+          block={block}
+          ordered={block.$type === 'pub.leaflet.blocks.orderedList'}
+          style={style}
+        />
+      );
     default:
       return null;
   }
 }
 
-function TextBlock({ block }) {
+function TextBlock({ block, style }) {
   const text = block.plaintext || '';
   // Empty text blocks function as paragraph breaks. Render an empty
   // spacer paragraph rather than nothing so the rhythm is preserved.
   if (!text.trim()) {
-    return <p className="leaflet-spacer" aria-hidden="true" />;
+    return <p className="leaflet-spacer" aria-hidden="true" style={style || undefined} />;
   }
   return (
-    <p className="leaflet-paragraph">{renderLeafletText(text, block.facets)}</p>
+    <p className="leaflet-paragraph" style={style || undefined}>
+      {renderLeafletText(text, block.facets)}
+    </p>
   );
 }
 
-function HeaderBlock({ block }) {
+function HeaderBlock({ block, style }) {
   const level = clampLevel(block.level);
   const Tag = `h${level}`;
   const text = block.plaintext || '';
   return (
-    <Tag className={`leaflet-heading leaflet-heading-${level}`}>
+    <Tag className={`leaflet-heading leaflet-heading-${level}`} style={style || undefined}>
       {renderLeafletText(text, block.facets)}
     </Tag>
   );
 }
 
-function ImageBlock({ block }) {
+function ImageBlock({ block, style }) {
   const lightbox = useContext(LeafletLightboxContext);
   const url = imageBlockUrl(block);
   if (!url) return null;
@@ -187,7 +223,7 @@ function ImageBlock({ block }) {
   // Legacy blocks doubled `alt` as the caption, so fall back to it.
   const caption = block.caption || alt;
   const ar = block.aspectRatio;
-  const style = ar?.width && ar?.height
+  const imgStyle = ar?.width && ar?.height
     ? { aspectRatio: `${ar.width} / ${ar.height}` }
     : undefined;
   const img = (
@@ -196,11 +232,11 @@ function ImageBlock({ block }) {
       alt={alt}
       loading="lazy"
       decoding="async"
-      style={style}
+      style={imgStyle}
     />
   );
   return (
-    <figure className="leaflet-image">
+    <figure className="leaflet-image" style={style || undefined}>
       {lightbox?.openImage ? (
         <button
           type="button"
@@ -246,7 +282,7 @@ export function videoEmbedSrc(url) {
   return null;
 }
 
-function WebsiteBlock({ block }) {
+function WebsiteBlock({ block, style }) {
   const raw = block.src;
   if (!raw) return null;
   // Authors can enter a bare host ("anisota.net"); make the link (and the
@@ -257,7 +293,7 @@ function WebsiteBlock({ block }) {
   const embed = videoEmbedSrc(href);
   if (embed) {
     return (
-      <figure className="leaflet-embed">
+      <figure className="leaflet-embed" style={style || undefined}>
         <div className="leaflet-embed-frame">
           <iframe
             src={embed}
@@ -285,6 +321,7 @@ function WebsiteBlock({ block }) {
       href={href}
       target="_blank"
       rel="noreferrer noopener"
+      style={style || undefined}
     >
       {thumb && (
         <div className="leaflet-website-thumb">
@@ -304,7 +341,7 @@ function WebsiteBlock({ block }) {
   );
 }
 
-function CodeBlock({ block }) {
+function CodeBlock({ block, style }) {
   const code = block.plaintext || block.code || '';
   const lang = block.language || '';
   // highlight.js is lazy-loaded so it never weighs down pages without code.
@@ -332,7 +369,7 @@ function CodeBlock({ block }) {
   }, [code, lang]);
 
   return (
-    <pre className="leaflet-code hljs">
+    <pre className="leaflet-code hljs" style={style || undefined}>
       {html ? (
         <code dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
@@ -346,11 +383,11 @@ function CodeBlock({ block }) {
  * Recursive list. Each `#listItem` carries a `content` text block and
  * an optional `children` array of more list items (nested lists).
  */
-function ListBlock({ block, ordered }) {
+function ListBlock({ block, ordered, style }) {
   const Tag = ordered ? 'ol' : 'ul';
   const items = Array.isArray(block?.children) ? block.children : [];
   return (
-    <Tag className="leaflet-list">
+    <Tag className="leaflet-list" style={style || undefined}>
       {items.map((item, i) => (
         <ListItem key={i} item={item} ordered={ordered} />
       ))}
@@ -378,7 +415,7 @@ function ListItem({ item, ordered }) {
  * `getPostThread` endpoint (depth 0). On miss, renders a hint linking
  * to bsky.app so the reader can still chase the reference.
  */
-function BskyPostBlock({ block }) {
+function BskyPostBlock({ block, style }) {
   const uri = block?.postRef?.uri || null;
   const [post, setPost] = useState(null);
   const [status, setStatus] = useState('idle');
@@ -408,11 +445,15 @@ function BskyPostBlock({ block }) {
 
   if (!uri) return null;
   if (status === 'loading' || status === 'idle') {
-    return <div className="leaflet-bsky-post leaflet-bsky-post-loading">Loading post…</div>;
+    return (
+      <div className="leaflet-bsky-post leaflet-bsky-post-loading" style={style || undefined}>
+        Loading post…
+      </div>
+    );
   }
   if (!post) {
     return (
-      <div className="leaflet-bsky-post leaflet-bsky-post-missing">
+      <div className="leaflet-bsky-post leaflet-bsky-post-missing" style={style || undefined}>
         <a href={bskyAppUrlFromAtUri(uri)} target="_blank" rel="noreferrer noopener">
           Open the embedded post on bsky.app
         </a>
@@ -429,7 +470,7 @@ function BskyPostBlock({ block }) {
   const externalHref = !localHref ? bskyAppUrlFromAtUri(post.uri, author.handle) : null;
 
   return (
-    <article className="leaflet-bsky-post" data-at-uri={post.uri}>
+    <article className="leaflet-bsky-post" data-at-uri={post.uri} style={style || undefined}>
       <header className="leaflet-bsky-post-head">
         {author.avatar && (
           <img

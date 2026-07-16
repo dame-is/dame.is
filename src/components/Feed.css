@@ -1673,6 +1673,18 @@ a.ledger-verb:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* Blog rows add a muted summary/description beneath the title, clamped to a
+   couple of lines so the ledger stays scannable. */
+.ledger-subtext {
+  margin-top: 3px;
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Links and link-like emphasis inside a summary read as quiet accents —
    color only, no underline until hover. */
 .ledger-body a {
