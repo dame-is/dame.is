@@ -23,6 +23,16 @@ const isHex = (v) => typeof v === 'string' && HEX.test(v);
 const numOr = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const clamp01 = (v) => Math.min(1, Math.max(0, Number(v) || 0));
 
+// atproto records are DAG-CBOR, which has no float type — only integers.
+// These six knobs are fractional at runtime (0–1 blends/strengths, a
+// contrast delta, a separation multiplier), so the wire format scales
+// each by 100 and rounds to a whole number (0.24 contrast <-> 24, a 1.6x
+// separation <-> 160); normalizeHourCfg divides back down when reading.
+// Only ever call toPct on the way out and fromPct on the way in — every
+// other module deals purely in the real (unscaled) value.
+const toPct = (v) => Math.round(Number(v || 0) * 100);
+const fromPct = (v, fallbackPct = 0) => numOr(v, fallbackPct) / 100;
+
 export const GLOW_GROUPS = ['buttons', 'avatar', 'accentText', 'controls'];
 const DEFAULT_TARGETS = { buttons: true, avatar: true, accentText: true, controls: false };
 
@@ -78,14 +88,14 @@ function normalizeHourCfg(item, hour) {
   return {
     pop,
     page: isHex(item?.page) ? item.page : null,
-    surfaceSep: numOr(item?.surfaceSep, 1),
-    ruleWarmth: clamp01(item?.ruleWarmth),
-    ruleContrast: numOr(item?.ruleContrast, 0),
-    inkWarmth: clamp01(item?.inkWarmth),
-    inkContrast: numOr(item?.inkContrast, 0),
+    surfaceSep: fromPct(item?.surfaceSep, 100),
+    ruleWarmth: clamp01(fromPct(item?.ruleWarmth, 0)),
+    ruleContrast: fromPct(item?.ruleContrast, 0),
+    inkWarmth: clamp01(fromPct(item?.inkWarmth, 0)),
+    inkContrast: fromPct(item?.inkContrast, 0),
     glowColor: isHex(item?.glowColor) ? item.glowColor : pop,
     glowSize: numOr(item?.glowSize, 16),
-    glowStrength: clamp01(item?.glowStrength),
+    glowStrength: clamp01(fromPct(item?.glowStrength, 0)),
     glowTargets: GLOW_GROUPS.reduce((o, g) => ((o[g] = targets.includes(g)), o), {}),
   };
 }
@@ -141,24 +151,19 @@ function compactHourCfg(cfg, hour) {
   else if ((cfg.inkWarmth || cfg.inkContrast) && cfg.pop && cfg.pop !== base) out.pop = cfg.pop;
   else if (cfg.pop && cfg.pop !== base) out.pop = cfg.pop;
   if (cfg.page) out.page = cfg.page;
-  if (numOr(cfg.surfaceSep, 1) !== 1) out.surfaceSep = round(cfg.surfaceSep, 2);
-  if (cfg.ruleWarmth) out.ruleWarmth = round(cfg.ruleWarmth, 2);
-  if (cfg.ruleContrast) out.ruleContrast = round(cfg.ruleContrast, 3);
-  if (cfg.inkWarmth) out.inkWarmth = round(cfg.inkWarmth, 2);
-  if (cfg.inkContrast) out.inkContrast = round(cfg.inkContrast, 3);
+  if (numOr(cfg.surfaceSep, 1) !== 1) out.surfaceSep = toPct(cfg.surfaceSep);
+  if (cfg.ruleWarmth) out.ruleWarmth = toPct(cfg.ruleWarmth);
+  if (cfg.ruleContrast) out.ruleContrast = toPct(cfg.ruleContrast);
+  if (cfg.inkWarmth) out.inkWarmth = toPct(cfg.inkWarmth);
+  if (cfg.inkContrast) out.inkContrast = toPct(cfg.inkContrast);
   if (cfg.glowStrength > 0 && cfg.glowSize > 0) {
     if (cfg.glowColor && cfg.glowColor !== cfg.pop) out.glowColor = cfg.glowColor;
     out.glowSize = Math.round(cfg.glowSize);
-    out.glowStrength = round(cfg.glowStrength, 2);
+    out.glowStrength = toPct(cfg.glowStrength);
     out.glowTargets = GLOW_GROUPS.filter((g) => cfg.glowTargets?.[g]);
   }
   return out;
 }
-
-const round = (v, n) => {
-  const f = 10 ** n;
-  return Math.round(Number(v) * f) / f;
-};
 
 /** The record `hours` array from a draft — only overridden hours, compact. */
 export function draftToHoursArray(byHour) {

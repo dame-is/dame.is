@@ -359,6 +359,29 @@
   color: var(--ink);
   border-color: var(--accent-soft);
 }
+.sky-color-field {
+  flex: 1 1 260px;
+  min-width: 240px;
+}
+.sky-hsl-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* Hue track: a static rainbow so the current hue's position reads at a
+   glance. Brightness track: black -> the color at its current hue/sat,
+   50% lightness -> white, computed per-render into --sky-slider-mid so
+   the gradient always centers on what the swatch is actually mixing. */
+.sky-slider-hue {
+  background: linear-gradient(
+    to right,
+    hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%),
+    hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%)
+  );
+}
+.sky-slider-lightness {
+  background: linear-gradient(to right, #000, var(--sky-slider-mid, #888), #fff);
+}
 .sky-slider-field {
   flex: 1 1 220px;
   min-width: 200px;

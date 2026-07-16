@@ -56,6 +56,53 @@ function contrast(a, b) {
 }
 const grade = (ratio, target) => (ratio >= target ? 'good' : ratio >= target * 0.8 ? 'warn' : 'bad');
 
+/* ---------- hex ⇄ hsl, for the Hue / Brightness sliders on each color field
+   (kept local rather than reaching into skyTheme.js's private conversion
+   kit — same math, decoupled module). ---------- */
+function rgbToHex([r, g, b]) {
+  return '#' + [r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('');
+}
+function rgbToHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  switch (max) {
+    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+    case g: h = (b - r) / d + 2; break;
+    default: h = (r - g) / d + 4;
+  }
+  return [h * 60, s, l];
+}
+function hslToRgb([h, s, l]) {
+  h = (((h % 360) + 360) % 360) / 360;
+  s = Math.min(1, Math.max(0, s));
+  l = Math.min(1, Math.max(0, l));
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return [v, v, v];
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const hue = (t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [
+    Math.round(hue(h + 1 / 3) * 255),
+    Math.round(hue(h) * 255),
+    Math.round(hue(h - 1 / 3) * 255),
+  ];
+}
+
 // Map a paletteForHour() var set onto the real theme-token custom props, so
 // the preview subtree renders in exactly the tuned palette.
 function previewStyle(vars) {
@@ -447,8 +494,15 @@ const GLOW_LABELS = {
 };
 
 function ColorField({ label, hint, value, onChange, onReset }) {
+  const [h, s, l] = rgbToHsl(hexToRgb(value));
+  const setHue = (nh) => onChange(rgbToHex(hslToRgb([nh, s, l])));
+  const setBrightness = (nl) => onChange(rgbToHex(hslToRgb([h, s, nl])));
+  const midHue = rgbToHex(hslToRgb([h, s, 0.5]));
   return (
-    <label className="sky-field sky-color-field">
+    // A plain div, not a <label> — unlike SliderField this field wraps
+    // three inputs (swatch + two sliders), and a label should only ever
+    // imply an association with one.
+    <div className="sky-field sky-color-field">
       <span className="admin-field-label">
         {label}
         {hint ? <span className="admin-field-hint"> {hint}</span> : null}
@@ -460,7 +514,38 @@ function ColorField({ label, hint, value, onChange, onReset }) {
           <button type="button" className="sky-reset" onClick={onReset} title="Reset to default">reset</button>
         ) : null}
       </span>
-    </label>
+      <span className="sky-hsl-group">
+        <span className="admin-field-label sky-slider-label">
+          <span>Hue</span>
+          <span className="sky-field-val">{Math.round(h)}°</span>
+        </span>
+        <input
+          className="sky-slider sky-slider-hue"
+          type="range"
+          min={0}
+          max={359}
+          step={1}
+          value={Math.round(h)}
+          onChange={(e) => setHue(Number(e.target.value))}
+        />
+      </span>
+      <span className="sky-hsl-group">
+        <span className="admin-field-label sky-slider-label">
+          <span>Brightness</span>
+          <span className="sky-field-val">{Math.round(l * 100)}%</span>
+        </span>
+        <input
+          className="sky-slider sky-slider-lightness"
+          style={{ '--sky-slider-mid': midHue }}
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(l * 100)}
+          onChange={(e) => setBrightness(Number(e.target.value) / 100)}
+        />
+      </span>
+    </div>
   );
 }
 
