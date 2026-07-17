@@ -19,6 +19,7 @@ import { ICONS } from '../og/assets/icons.js';
 import { easternHour, avatarKeys, secondsUntilNextHour, folio } from '../og/time.js';
 import { ogElement, themeFromSky } from '../og/design.js';
 import { paletteForHour } from '../src/lib/skyTheme.js';
+import { resolveSkyTuning } from '../og/skyTuning.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
 
 // One family throughout: Crimson Pro (serif) — breadcrumb, title, description,
@@ -56,11 +57,18 @@ export default async function handler(req, res) {
     }
 
     // Palette: the dynamic SKY theme for this hour by default, so cards match
-    // the site's own hour-tracking palette. `theme=light|dark` forces the
-    // fixed warm-paper fallbacks (handled inside ogElement).
-    const theme = q.theme === 'light' || q.theme === 'dark'
-      ? q.theme
-      : themeFromSky(paletteForHour(hour));
+    // the site's own hour-tracking palette — INCLUDING any per-hour tuning saved
+    // from the admin "Sky theme studio" (is.dame.sky/self). That override is
+    // only installed client-side (useTheme.jsx), so resolve it here from the
+    // same snapshot + live PDS the SPA reads and pass it to paletteForHour;
+    // otherwise cards render the untuned palette and drift from the live site —
+    // most visibly at dawn/dusk, whose raw page derivation is a muddy warm color
+    // that reads as an accent wash rather than the tuned background.
+    // `theme=light|dark` forces the fixed warm-paper fallbacks (in ogElement).
+    const fixed = q.theme === 'light' || q.theme === 'dark';
+    const origin = `https://${req.headers['x-forwarded-host'] || req.headers.host || 'dame.is'}`;
+    const tuning = fixed ? null : await resolveSkyTuning(origin);
+    const theme = fixed ? q.theme : themeFromSky(paletteForHour(hour, tuning));
 
     // Copy + routing: an explicit `page` wins (canonical per-page card), then a
     // `section`+`label` record card, then ad-hoc title/subtitle, else the home
