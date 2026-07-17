@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import PageShell from '../components/PageShell.jsx';
 import FeedItem from '../components/FeedItem.jsx';
 import ListeningStats from '../components/ListeningStats.jsx';
@@ -13,7 +14,7 @@ import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
-import { resolvePds, listRecords } from '../lib/atproto.js';
+import { resolvePds, listRecords, getLatestCommit } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import '../components/Feed.css';
 
@@ -21,10 +22,20 @@ export default function Listening() {
   const [params] = useSearchParams();
   const q = params.get('q') || '';
   const { title, intro } = usePageContent('listening');
+  const reduce = useReducedMotion();
 
-  const { items, status, refreshedAt } = useLiveFeed({
+  // `newKeys` are plays that arrived on the latest live refresh — a collapsed
+  // session row inherits its newest play's URI, so testing the row lights up.
+  const { items, status, refreshedAt, newKeys } = useLiveFeed({
     name: 'listening',
     strategy: 'live-first',
+    // Refresh on the shared 30s tick like the home feed. getRev skips the
+    // (up to ten-page) listRecords fan-out whenever the repo hasn't advanced.
+    live: true,
+    getRev: async () => {
+      const pds = await resolvePds(ME_DID);
+      return (await getLatestCommit(pds, ME_DID))?.rev || null;
+    },
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
       return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.listen, max: 1000 });
@@ -74,7 +85,20 @@ export default function Listening() {
     );
     return collapseListens(sorted);
   }, [filtered]);
-  const groups = groupByDay(sessions, (i) => i.createdAt);
+  const groups = useMemo(() => groupByDay(sessions, (i) => i.createdAt), [sessions]);
+
+  // Top-down stagger order among the new arrivals currently on screen.
+  const arrivalIndex = useMemo(() => {
+    const map = new Map();
+    let i = 0;
+    for (const group of groups) {
+      for (const item of group.items) {
+        const uri = item?.atUri;
+        if (uri && newKeys.has(uri)) map.set(uri, i++);
+      }
+    }
+    return map;
+  }, [groups, newKeys]);
 
   // Feed page: report the newest visible record's time in the global footer.
   usePublishLatestRecord(useMemo(() => newestInstant(filtered), [filtered]));
@@ -107,14 +131,32 @@ export default function Listening() {
                   meta={listeningDayMeta(group.items)}
                 />
                 <ul className="feed-list" style={ledger ? undefined : { marginTop: 'var(--space-3)' }}>
-                  {group.items.map((item) => (
-                    <FeedItem
-                      key={item.atUri}
-                      item={item}
-                      showVerb={false}
-                      layout={ledger ? 'ledger' : 'cards'}
-                    />
-                  ))}
+                  <AnimatePresence initial={false}>
+                    {group.items.map((item) => {
+                      const uri = item.atUri;
+                      const isNew = uri ? newKeys.has(uri) : false;
+                      const stagger = isNew ? (arrivalIndex.get(uri) ?? 0) * 0.06 : 0;
+                      return (
+                        <motion.li
+                          key={uri}
+                          layout
+                          initial={isNew && !reduce ? { opacity: 0, y: -24 } : false}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: reduce ? 0 : 0.45,
+                            ease: [0.22, 0.61, 0.36, 1],
+                            delay: reduce ? 0 : stagger,
+                          }}
+                        >
+                          <FeedItem
+                            item={item}
+                            showVerb={false}
+                            layout={ledger ? 'ledger' : 'cards'}
+                          />
+                        </motion.li>
+                      );
+                    })}
+                  </AnimatePresence>
                 </ul>
               </li>
             ))}
