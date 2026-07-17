@@ -247,11 +247,14 @@ export default async function middleware(request) {
         // hash and deletes the old file. A shell cached across a deploy points
         // at a now-404 asset that Vercel serves as text/plain, which the
         // browser refuses to run as a module — blanking the page. So: a short
-        // s-maxage that revalidates promptly onto the new build, and NO
-        // stale-while-revalidate (its 24h stale-serve was the crash window).
-        // The inline boot-recovery in index.html covers the brief post-deploy
-        // sliver where a still-fresh shell can be served.
-        'cache-control': 'public, max-age=0, s-maxage=60',
+        // s-maxage that revalidates promptly onto the new build, NO
+        // stale-while-revalidate (its 24h stale-serve was the crash window),
+        // and must-revalidate so no cache — browser, webview, or intermediary —
+        // may ever serve this shell stale. The inline boot-recovery in
+        // index.html covers the brief post-deploy sliver where a still-fresh
+        // shell can be served, and /api/asset-recovery rescues any stale shell
+        // that slips through from a cache we don't control.
+        'cache-control': 'public, max-age=0, must-revalidate, s-maxage=60',
       },
     });
   } catch {

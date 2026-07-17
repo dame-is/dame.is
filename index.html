@@ -20,6 +20,11 @@
       "_r" param in the URL is itself the loop guard (present ⇒ we already
       retried), so a genuine outage can never loop and no storage is needed. A
       successful boot strips the param (see src/main.jsx).
+
+      Shells that PREDATE this script can't heal themselves — for those,
+      api/asset-recovery.js serves the same guarded reload from the missing
+      asset's own URL (wired in vercel.json). The two nets share the "_r"
+      protocol, so together they retry at most once.
     -->
     <script>
       (function () {
