@@ -2,6 +2,44 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Boot recovery for the stale-shell white-screen.
+
+      Every deploy content-hashes this page's entry module
+      (/assets/index-<hash>.js) and deletes the previous hash. If a visitor is
+      ever handed an HTML shell from an older build — a CDN- or edge-cached copy
+      that outlived the deploy — the module it references is gone. Vercel serves
+      that 404 as text/plain, the browser refuses to run it as a module
+      ("blocked because of a disallowed MIME type"), and the page stays blank
+      forever: React never mounts, so the in-app auto-updater
+      (src/hooks/useAutoUpdate.js) never gets a chance to help.
+
+      This inline script runs regardless of the module. It catches the failed
+      load and reloads once against a cache-busted URL — a fresh key misses any
+      cached shell and re-fetches HTML that points at the current build. The
+      "_r" param in the URL is itself the loop guard (present ⇒ we already
+      retried), so a genuine outage can never loop and no storage is needed. A
+      successful boot strips the param (see src/main.jsx).
+    -->
+    <script>
+      (function () {
+        window.addEventListener(
+          'error',
+          function (e) {
+            // Only the entry module failing to load blanks the page. Ignore
+            // everything else (images, fonts, inline scripts, CSS links).
+            var t = e && e.target;
+            if (!t || t.tagName !== 'SCRIPT') return;
+            if (String(t.src || '').indexOf('/assets/') === -1) return;
+            var u = new URL(window.location.href);
+            if (u.searchParams.has('_r')) return; // already retried — don't loop
+            u.searchParams.set('_r', Date.now().toString(36));
+            window.location.replace(u.toString());
+          },
+          true, // capture: resource load errors don't bubble
+        );
+      })();
+    </script>
     <!-- Icons rotate hourly to match Dame's sun-tracking avatar (see api/favicon.js).
          The larger sizes + web manifest (api/manifest.js) make the site installable
          as a PWA with the current-hour sky avatar as its app icon. -->
