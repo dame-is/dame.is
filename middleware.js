@@ -207,9 +207,12 @@ export default async function middleware(request) {
     }
 
     // Pull the built SPA shell. The matcher never matches /index.html, so this
-    // subrequest can't loop back through the middleware.
+    // subrequest can't loop back through the middleware. Read it fresh
+    // (no-store) so a revalidated response always embeds the CURRENT
+    // deployment's content-hashed entry asset — never a stale/deleted hash.
     const shellRes = await fetch(new URL('/index.html', url.origin), {
       headers: { 'x-og-shell': '1' },
+      cache: 'no-store',
     });
     if (!shellRes.ok) return undefined; // fall through to normal serving
     let html = await shellRes.text();
@@ -238,9 +241,17 @@ export default async function middleware(request) {
       status: 200,
       headers: {
         'content-type': 'text/html; charset=utf-8',
-        // Cache the rendered shell at the edge; it only changes when the build
-        // or the page copy changes.
-        'cache-control': 'public, max-age=0, s-maxage=3600, stale-while-revalidate=86400',
+        // Edge-cache the rendered shell briefly to keep middleware cost down —
+        // but NEVER serve it stale. The shell embeds the build's content-hashed
+        // entry asset (/assets/index-<hash>.js), and every deploy rotates that
+        // hash and deletes the old file. A shell cached across a deploy points
+        // at a now-404 asset that Vercel serves as text/plain, which the
+        // browser refuses to run as a module — blanking the page. So: a short
+        // s-maxage that revalidates promptly onto the new build, and NO
+        // stale-while-revalidate (its 24h stale-serve was the crash window).
+        // The inline boot-recovery in index.html covers the brief post-deploy
+        // sliver where a still-fresh shell can be served.
+        'cache-control': 'public, max-age=0, s-maxage=60',
       },
     });
   } catch {

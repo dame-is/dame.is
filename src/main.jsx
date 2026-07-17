@@ -11,6 +11,20 @@ import './styles/typography.css';
 import './styles/app.css';
 import './styles/paper.css';
 
+// We're running, so the entry module loaded — the boot-recovery reload in
+// index.html (if it fired) succeeded. Strip its one-shot "_r" cache-bust param
+// before React mounts, so the router only ever sees the clean URL and a future
+// deploy's stale shell can trigger a fresh recovery.
+try {
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('_r')) {
+    url.searchParams.delete('_r');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }
+} catch {
+  /* URL/history unavailable — nothing to clean up */
+}
+
 // The site runs a single, always-on theme: the hour-tracking sky mode.
 // Set it here (before React mounts) so the first paint is in the right
 // palette. The retired static light/dark themes are no longer selectable.
