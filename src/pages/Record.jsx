@@ -55,7 +55,16 @@ export default function Record({ verb, nsid, source }) {
   // exact collection.
   const collection = nsid || VERB_TO_COLLECTION[verb] || primaryNsid(verb);
   const [item, setItem] = useState(null);
+  // `missing` = the record is genuinely absent (definitive 4xx / RecordNotFound
+  // / resolved-but-empty) → show the permanent "not found" state.
+  // `loadError` = a transient/unknown fetch failure (network blip, 5xx) → show a
+  // recoverable "couldn't load right now" state that keeps the URL and retries,
+  // rather than falsely claiming the record doesn't exist (fatal for shared/OG
+  // links). See §4.1.
   const [missing, setMissing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  // Bumped by the "Try again" button to re-run the load effect in place.
+  const [retryKey, setRetryKey] = useState(0);
   // Parent chain for posts. Newest-first array of condensed post views,
   // i.e. parents[0] is the immediate parent, parents[N-1] is the root.
   const [parents, setParents] = useState([]);
@@ -72,6 +81,7 @@ export default function Record({ verb, nsid, source }) {
     let cancelled = false;
     setItem(null);
     setMissing(false);
+    setLoadError(false);
     setParents([]);
     setReplies([]);
     setSelfThread([]);
@@ -136,10 +146,21 @@ export default function Record({ verb, nsid, source }) {
         setItem(recordToFeedItem(verb, fresh));
       } catch (err) {
         if (cancelled) return;
-        // 4xx from the PDS / AppView almost always means "no such record".
-        // Other errors (network blip) still surface as missing — the user
-        // can refresh.
-        setMissing(true);
+        // Distinguish a definitive "no such record" from a transient failure.
+        // The PDS answers 400 RecordNotFound for unknown rkeys and the AppView
+        // 404s a missing thread — those mean the record is genuinely gone. A
+        // network blip / 5xx / anything else must NOT masquerade as "not found"
+        // (that breaks shared + OG links); surface a recoverable load error.
+        const status = err?.status;
+        const definitivelyMissing =
+          status === 400 ||
+          status === 404 ||
+          /RecordNotFound|Could not locate record|not found/i.test(err?.message || '');
+        if (definitivelyMissing) {
+          setMissing(true);
+        } else {
+          setLoadError(true);
+        }
         if (verb === 'posting' || verb === 'reposting') setRepliesStatus('error');
       }
 
@@ -161,7 +182,7 @@ export default function Record({ verb, nsid, source }) {
     return () => {
       cancelled = true;
     };
-  }, [verb, rkey, collection]);
+  }, [verb, rkey, collection, retryKey]);
 
   if (!collection) {
     return (
@@ -179,6 +200,22 @@ export default function Record({ verb, nsid, source }) {
       <PageShell title="Record not found" headTitle="Not found — dame.is">
         <p>
           No <code>{collection}</code> record with rkey <code>{rkey}</code>.{' '}
+          <Link to={`/${verb}`}>Back to {verb}.</Link>
+        </p>
+      </PageShell>
+    );
+  }
+
+  if (loadError && !item) {
+    return (
+      <PageShell title="Couldn’t load this right now" headTitle="Couldn’t load — dame.is">
+        <p>
+          Couldn&rsquo;t load this record right now — refresh to try again.
+        </p>
+        <p>
+          <button type="button" onClick={() => setRetryKey((k) => k + 1)}>
+            Try again
+          </button>{' '}
           <Link to={`/${verb}`}>Back to {verb}.</Link>
         </p>
       </PageShell>

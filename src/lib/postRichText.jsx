@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { ME_DID } from '../config.js';
 import { isLikelyBareHttpUrl, truncateUrlDisplay } from './feedUrlFormat.jsx';
+import { safeHref } from './safeHref.js';
 
 /**
  * Render `app.bsky.feed.post#text` with its `facets` resolved into
@@ -96,10 +97,21 @@ function renderFeature(feature, text) {
       const label = useTrunc ? truncateUrlDisplay(trimmed) : text;
       const titleAttr =
         useTrunc && label.length < trimmed.length ? trimmed : undefined;
+      // The facet URI is foreign record data (e.g. a reply from any Bluesky
+      // user), so gate it through the scheme allowlist. A rejected URI is
+      // rendered as inert text rather than a live, executable link.
+      const href = safeHref(feature.uri);
+      if (!href) {
+        return (
+          <span className="post-rich-link" title={titleAttr}>
+            {label}
+          </span>
+        );
+      }
       return (
         <a
           className="post-rich-link"
-          href={feature.uri}
+          href={href}
           target="_blank"
           rel="noreferrer noopener"
           title={titleAttr}

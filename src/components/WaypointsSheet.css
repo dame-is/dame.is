@@ -64,7 +64,6 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  outline: none;
 }
 
 .waypoints-sheet-body {
@@ -141,7 +140,6 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  outline: none;
 }
 
 .waypoints-row-name {
@@ -181,7 +179,6 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  outline: none;
 }
 
 /* --- original-link fallback ---------------------------------------------- */
@@ -201,5 +198,4 @@
 .waypoints-sheet-original:hover,
 .waypoints-sheet-original:focus-visible {
   color: var(--accent);
-  outline: none;
 }

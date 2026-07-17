@@ -23,6 +23,29 @@ export default async function handler(req, res) {
   if (typeof path !== 'string' || !path.startsWith('/channels/') || path.includes('..')) {
     return res.status(400).json({ error: 'Pass an are.na `path` beginning with /channels/.' });
   }
+
+  // Same-origin guard, checked BEFORE the owner's token is attached: if the
+  // request advertises an Origin or Referer, its host must match this
+  // deployment's host. A cross-site page (or a hand-crafted request naming
+  // another site) must not be able to borrow the account token and read the
+  // owner's private are.na channels. Both headers absent → allow (the token is
+  // only useful to first-party callers anyway, and cron / server-to-server
+  // callers send neither).
+  const host = req.headers?.host || '';
+  const originHeader = req.headers?.origin;
+  const refererHeader = req.headers?.referer || req.headers?.referrer;
+  if (originHeader || refererHeader) {
+    let sourceHost = null;
+    try {
+      sourceHost = new URL(originHeader || refererHeader).host;
+    } catch {
+      sourceHost = null; // present but unparseable (e.g. "Origin: null")
+    }
+    if (!host || !sourceHost || sourceHost !== host) {
+      return res.status(403).json({ error: 'Cross-origin requests are not allowed.' });
+    }
+  }
+
   try {
     const headers = {
       Accept: 'application/json',

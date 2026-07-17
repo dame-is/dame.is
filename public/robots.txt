@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /oauth-callback
+Disallow: /oauth/callback
+Disallow: /api/
+
+Sitemap: https://dame.is/sitemap.xml

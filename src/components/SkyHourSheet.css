@@ -46,7 +46,6 @@
 .sky-hour-sheet-live:hover,
 .sky-hour-sheet-live:focus-visible {
   color: var(--ink);
-  outline: none;
 }
 
 /* The arc row: step arrows flank the 24-cell strip so you can cycle the
@@ -74,7 +73,6 @@
 .sky-hour-sheet-step:focus-visible {
   color: var(--ink);
   border-color: var(--accent-soft);
-  outline: none;
 }
 
 /* The 24-hour arc — short cells close to square so the strip reads as a

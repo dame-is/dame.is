@@ -207,7 +207,6 @@
 .dock-tool-icon:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  outline: none;
 }
 
 .dock-tool-icon svg {

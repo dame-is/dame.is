@@ -129,10 +129,10 @@ skips the prefetch (useful when a snapshot already exists).
 |---|---|
 | AT Protocol client (Node + browser) | [`src/lib/atproto.js`](src/lib/atproto.js) |
 | Build-time data fetcher | [`scripts/prefetch.mjs`](scripts/prefetch.mjs) |
-| Hybrid snapshot/live merge hook | [`src/hooks/useSnapshot.js`](src/hooks/useSnapshot.js) |
+| Hybrid snapshot/live data hook | [`src/hooks/useLiveFeed.js`](src/hooks/useLiveFeed.js) |
 | Per-route AT URI lookup | [`src/hooks/useAtUri.js`](src/hooks/useAtUri.js) |
 | `<head>` discoverability tags | [`src/components/AtUriHead.jsx`](src/components/AtUriHead.jsx) |
-| Atmosphere debug overlay | [`src/components/DebugOverlay.jsx`](src/components/DebugOverlay.jsx) |
+| Atmosphere debug overlay | [`src/components/DebugPane.jsx`](src/components/DebugPane.jsx) |
 | Day-of-life math | [`src/lib/dayOfLife.js`](src/lib/dayOfLife.js) |
 
 ## Deploy hook setup

@@ -23,16 +23,18 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Hide scrollbars everywhere — the document, menus, modals, and any
-   inner scroll region. Scrolling still works; only the visual bar is
-   removed. (The document scroll once drew a custom accent indicator —
-   retired so nothing rides the page edge, especially on mobile.) */
-* {
+/* Hide the document scrollbar only — scrolling still works; only the
+   visual bar on the page itself is removed. (The document scroll once
+   drew a custom accent indicator — retired so nothing rides the page
+   edge, especially on mobile.) Scoped to html/body so INNER scroll
+   regions keep their scrollbar affordance and still read as scrollable. */
+html, body {
   scrollbar-width: none;        /* Firefox */
   -ms-overflow-style: none;     /* legacy Edge */
 }
 
-*::-webkit-scrollbar {          /* WebKit / Blink */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {       /* WebKit / Blink */
   width: 0;
   height: 0;
   background: transparent;
@@ -69,6 +71,16 @@ button {
 
 a {
   color: inherit;
+}
+
+/* Global keyboard focus indicator. A single visible ring for every
+   focusable element, replacing the per-component `outline: none`
+   suppression that left keyboard users unable to see focus. Square to
+   suit the zero-radius aesthetic; :focus-visible so it shows for
+   keyboard/AT focus but not on mouse click. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 ul, ol {

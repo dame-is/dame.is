@@ -13,7 +13,7 @@
   --ink:         #1d2419;   /* dark greenish-black */
   --ink-soft:    #364034;
   --ink-muted:   #6f6e58;   /* tan-olive */
-  --ink-faint:   #9d9784;
+  --ink-faint:   #6d6853;   /* darkened to clear AA (~4.65:1) on --page */
   --rule:        #cabf9f;
   --rule-soft:   #ddd2b4;
   --accent:      #5e7a47;   /* earthy / mossy green */
@@ -126,7 +126,7 @@
   --ink:         #ece4cb;   /* warm off-white */
   --ink-soft:    #d2c9ac;
   --ink-muted:   #9a9377;
-  --ink-faint:   #6a6450;
+  --ink-faint:   #928a73;   /* lightened to clear AA (~4.63:1) on --page */
   --rule:        #3a4232;
   --rule-soft:   #2a311f;
   --accent:      #a3b486;   /* sage; brighter green for dark mode */
@@ -156,7 +156,7 @@
   --ink:            var(--sky-ink, #dfe7e7);
   --ink-soft:       var(--sky-ink-soft, #c1cdcd);
   --ink-muted:      var(--sky-ink-muted, #93a5a5);
-  --ink-faint:      var(--sky-ink-faint, #6a7c7c);
+  --ink-faint:      var(--sky-ink-faint, #778989);  /* midnight fallback: ~4.80:1 on --sky-page */
   --rule:           var(--sky-rule, #333a3a);
   --rule-soft:      var(--sky-rule-soft, #262929);
   --accent:         var(--sky-accent, #9cc9c9);
@@ -201,20 +201,20 @@
    raised surface is a midtone.
 
    Re-tune muted + faint per theme so they keep their contrast against
-   --surface-raised (muted lands ~4.5:1, faint ~3.3:1+), while leaving
+   --surface-raised (both now land ~4.5:1+ to clear AA), while leaving
    the on-page values untouched. Scoped to the raised surfaces so the
    adjustment only applies where the background actually warrants it. */
 [data-theme='light'] .chrome-bar,
 [data-theme='light'] .modal-panel {
   --ink-muted: #5b5a46;
-  --ink-faint: #74705c;
+  --ink-faint: #605d4b;   /* ~4.68:1 on --surface-raised (#e3d8ba) */
 }
 
 /* The dark theme keeps its muted step (already high-contrast on the
    very dark raised surface); only the faint step needs a lift. */
 [data-theme='dark'] .chrome-bar,
 [data-theme='dark'] .modal-panel {
-  --ink-faint: #857f68;
+  --ink-faint: #888269;   /* ~4.67:1 on --surface-raised (#13180f) */
 }
 
 /* Sky theme's raised-surface re-tune, computed per hour alongside the

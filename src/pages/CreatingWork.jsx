@@ -74,6 +74,23 @@ export default function CreatingWork() {
     );
   }
 
+  // A transient load failure (both snapshot and live fetch failed) must not read
+  // as "not found" — that breaks shared/OG links. Keep the URL and offer a
+  // refresh. Only a resolved-but-absent record below is a true 404. See §4.1.
+  if (status === 'error') {
+    return (
+      <PageShell title="Couldn’t load this right now" headTitle="Couldn’t load — dame.is">
+        <p>Couldn&rsquo;t load this work right now — refresh to try again.</p>
+        <p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Refresh
+          </button>{' '}
+          <Link to="/creating">Back to the index.</Link>
+        </p>
+      </PageShell>
+    );
+  }
+
   if (!record) {
     return (
       <PageShell title="Work not found" headTitle="Not found — dame.is">

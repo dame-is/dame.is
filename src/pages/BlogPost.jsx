@@ -116,6 +116,23 @@ export default function BlogPost() {
     );
   }
 
+  // A transient load failure (both snapshot and live fetch failed) must not read
+  // as "not found" — that breaks shared/OG links. Keep the URL and offer a
+  // refresh. Only a resolved-but-absent record below is a true 404. See §4.1.
+  if (feedStatus === 'error') {
+    return (
+      <PageShell title="Couldn’t load this right now" headTitle="Couldn’t load — dame.is">
+        <p>Couldn&rsquo;t load this post right now — refresh to try again.</p>
+        <p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Refresh
+          </button>{' '}
+          <Link to="/blogging">Back to the index.</Link>
+        </p>
+      </PageShell>
+    );
+  }
+
   if (!resolution || !resolution.record) {
     return (
       <PageShell title="Post not found" headTitle="Not found — dame.is">

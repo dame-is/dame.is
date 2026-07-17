@@ -23,8 +23,9 @@ import {
 } from '../lib/feedCache.js';
 import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
-import { resolvePds } from '../lib/atproto.js';
+import { resolvePds, getLatestCommit } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
+import { createSubjectResolver } from '../lib/subjectResolver.js';
 import { groupSelfReplyThreads, threadAwareDateKey } from '../lib/threadGrouping.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
@@ -65,6 +66,14 @@ function verbsCovered(have, need) {
   for (const v of need) if (!set.has(v)) return false;
   return true;
 }
+
+// One resolver for the whole session so subject hydration (bsky posts,
+// profiles, atproto records) keeps its caches across every refresh tick
+// instead of starting cold on each rebuild. Passed into buildUnifiedFeed via
+// options.subjectResolver; module-level so it survives Home remounts too.
+const homeSubjectResolver = createSubjectResolver({
+  warn: (...args) => console.warn('[home]', ...args),
+});
 
 // The unified snapshot is static per deploy, so memoize the fetch for the
 // session: it backs both the instant first paint and the "estimated from
@@ -181,6 +190,10 @@ export default function Home() {
   // can't yet show (first paint from snapshot, or a newly-enabled verb),
   // we surface the banner; routine 30s background refreshes don't.
   const [liveVerbs, setLiveVerbs] = useState(() => initialCache?.fetchedVerbs || []);
+  // Latest-value ref so the background tick can test verb coverage without
+  // re-subscribing when `liveVerbs` changes.
+  const liveVerbsRef = useRef(liveVerbs);
+  liveVerbsRef.current = liveVerbs;
   // What produced the currently-displayed `feed`: 'none' (nothing yet),
   // 'cache' (in-memory hydrate), 'snapshot' (static first paint), or
   // 'live'. The snapshot painter only acts while this is 'none', and a
@@ -225,6 +238,10 @@ export default function Home() {
   // skip if one is already in flight, and `cancelled` cleanup can mark
   // it stale on unmount.
   const inflightRef = useRef(null);
+  // The repo head (getLatestCommit `rev`) as of our last *successful* live
+  // build. The shared 30s tick reads it to skip the ~45-request rebuild when
+  // the repo hasn't advanced. Null until the first live build lands.
+  const lastRevRef = useRef(null);
 
   // HeroSentence registers its imperative shuffle handle here so the
   // shuffle button in the hero CTA row can advance both rotators
@@ -235,7 +252,7 @@ export default function Home() {
   // "Sign the guestbook" aside beneath the CTAs.
   const { openPanel } = useChromePanel();
 
-  const runRefresh = useCallback(async () => {
+  const runRefresh = useCallback(async ({ force = true } = {}) => {
     if (inflightRef.current) return inflightRef.current;
 
     const token = { cancelled: false };
@@ -244,6 +261,40 @@ export default function Home() {
     // Snapshot the verb set for this run so the cache + coverage record
     // it accurately even if the active filter changes mid-flight.
     const verbs = Array.from(fetchVerbsRef.current);
+
+    // Cheap change-detection before the expensive rebuild. Resolve the PDS
+    // (PLC-cached) and read the repo head — a single request — up front. On a
+    // routine background tick (force=false) we skip the whole ~45-request
+    // fan-out when the repo hasn't advanced since our last live build and the
+    // feed we're already showing covers the active verbs. Manual/initial and
+    // filter-change refreshes pass force=true and always rebuild.
+    let pds = null;
+    let rev = null;
+    try {
+      pds = await resolvePds(ME_DID);
+      const commit = await getLatestCommit(pds, ME_DID);
+      rev = commit?.rev || null;
+    } catch {
+      // A failed probe must never wedge the loop — fall through to a full
+      // rebuild (which surfaces its own error / snapshot fallback).
+    }
+
+    if (token.cancelled) {
+      if (inflightRef.current === token) inflightRef.current = null;
+      return null;
+    }
+
+    const canSkip =
+      !force &&
+      rev &&
+      rev === lastRevRef.current &&
+      feedSourceRef.current === 'live' &&
+      verbsCovered(liveVerbsRef.current, fetchVerbsRef.current);
+    if (canSkip) {
+      // Nothing changed since the last live build — no rebuild, no UI churn.
+      if (inflightRef.current === token) inflightRef.current = null;
+      return null;
+    }
 
     setRefreshState('refreshing');
     beginRefresh();
@@ -255,7 +306,7 @@ export default function Home() {
     let live = null;
     let liveError = null;
     try {
-      const pds = await resolvePds(ME_DID);
+      if (!pds) pds = await resolvePds(ME_DID);
       const result = await buildUnifiedFeed({
         pds,
         me: ME_DID,
@@ -265,6 +316,9 @@ export default function Home() {
           authorFeedMax: INITIAL_FETCH_MAX,
           skipListMembers: true,
           verbs,
+          // Reuse one session-long resolver so subject hydration caches
+          // (bsky posts / profiles / atproto records) carry across ticks.
+          subjectResolver: homeSubjectResolver,
           // Pull iNaturalist observations newer than the newest mirrored one
           // so brand-new sightings show without waiting for the mirror cron.
           liveObservations: true,
@@ -318,7 +372,16 @@ export default function Home() {
     setFeed(nextFeed);
     setLoadedAt(now);
     setRefreshState(nextRefreshState);
-    setLiveVerbs(verbs);
+    // Verb coverage, the repo rev, and the persisted cache are only
+    // established by a *successful* live fetch — a snapshot fallback or an
+    // empty error feed must never masquerade as fresh live data (otherwise
+    // isCacheFresh would later serve degraded content as a good live result,
+    // and the tick's rev short-circuit would trust a rev we never built at).
+    if (live) {
+      setLiveVerbs(verbs);
+      liveVerbsRef.current = verbs;
+      if (rev) lastRevRef.current = rev;
+    }
     // Only flag arrivals on background refreshes — the very first load
     // (when seenUris is still empty) shouldn't slide every row in.
     if (seenUrisRef.current.size > 0 && arrivals.size > 0) {
@@ -326,12 +389,14 @@ export default function Home() {
     }
     for (const uri of arrivals) seenUrisRef.current.add(uri);
 
-    writeFeedCache(FEED_CACHE_KEY, {
-      items: nextFeed,
-      loadedAt: now.getTime(),
-      fetchedAt: Date.now(),
-      fetchedVerbs: verbs,
-    });
+    if (live) {
+      writeFeedCache(FEED_CACHE_KEY, {
+        items: nextFeed,
+        loadedAt: now.getTime(),
+        fetchedAt: Date.now(),
+        fetchedVerbs: verbs,
+      });
+    }
 
     if (inflightRef.current === token) inflightRef.current = null;
     endRefresh();
@@ -373,6 +438,14 @@ export default function Home() {
   // already covers the requested verbs (e.g. narrowing the filter to a
   // subset we've loaded → pure client-side filter, no round trip).
   useEffect(() => {
+    // A verb change invalidates any fetch still running for the previous
+    // set. Cancel it and clear the slot up front so the forced refresh below
+    // isn't swallowed by runRefresh's in-flight guard — otherwise the feed
+    // would stall on the old (now-cancelled) request until the next tick.
+    if (inflightRef.current) {
+      inflightRef.current.cancelled = true;
+      inflightRef.current = null;
+    }
     const entry = readFeedCache(FEED_CACHE_KEY);
     const fresh = isCacheFresh(FEED_CACHE_KEY, CACHE_TTL_MS);
     const covered = entry && verbsCovered(entry.fetchedVerbs, fetchVerbsRef.current);
@@ -389,9 +462,14 @@ export default function Home() {
 
   // Keep the feed alive on the shared 30s refresh tick — same cadence
   // as NowPlaying and NowStatus, so all the "live" surfaces update
-  // together. The tick already skips while the tab is hidden and
-  // fires on visibility return, so we don't need separate handlers.
-  useEffect(() => subscribeRefreshTick(runRefresh), [runRefresh]);
+  // together. The tick passes force=false so runRefresh can short-circuit
+  // on the cheap getLatestCommit rev check and skip the full ~45-request
+  // rebuild whenever the repo hasn't changed. The tick already skips while
+  // the tab is hidden and fires on visibility return.
+  useEffect(() => {
+    const onTick = () => runRefresh({ force: false });
+    return subscribeRefreshTick(onTick);
+  }, [runRefresh]);
 
   // Clear the arrival set once Motion has had a chance to play the
   // entrance animation, so the same items don't re-animate on the next

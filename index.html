@@ -51,7 +51,10 @@
     <link rel="icon" type="image/png" href="/api/favicon" />
     <link rel="apple-touch-icon" sizes="192x192" href="/api/favicon?size=192" />
     <link rel="manifest" href="/api/manifest" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#e3d8ba" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#13180f" media="(prefers-color-scheme: dark)" />
     <!-- iOS / Android standalone install hints -->
@@ -61,6 +64,8 @@
     <meta name="apple-mobile-web-app-title" content="dame.is" />
     <title>dame.is</title>
     <meta name="description" content="An atmospheric website by dame, built atop the AT Protocol." />
+    <!-- Blog feed for readers/aggregators — /feed.xml is emitted at build time. -->
+    <link rel="alternate" type="application/atom+xml" title="dame.is blog" href="/feed.xml" />
 
     <!--
       Baseline Open Graph / Twitter tags — the fallback card for any route.
@@ -82,8 +87,15 @@
     <meta name="twitter:image" content="https://dame.is/api/og" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Only the two families the theme actually renders are requested: Crimson
+      Pro (the whole serif voice) and IBM Plex Mono (the ledger/code accent).
+      Source Serif 4, Atkinson Hyperlegible and Inter appear in theme.css only
+      as fallback stacks — no role resolves to them — so their webfonts are
+      never used and aren't loaded here.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300..900;1,300..900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Source+Serif+4:opsz,wght@8..60,300;8..60,400;8..60,500;8..60,600;8..60,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300..900;1,300..900&family=IBM+Plex+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
   </head>

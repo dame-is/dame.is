@@ -75,7 +75,14 @@ function escapeAttr(s) {
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    // Every consumer below interpolates this value into the REPLACEMENT string
+    // of a String.prototype.replace() call (setMeta, the <title> swap, and the
+    // inject* head helpers), where `$` is a special sequence ($1, $&, $$, …).
+    // Double each `$` so record-derived text like "How I saved $1,000" can't
+    // expand into a replacement pattern and corrupt the emitted <head>. In a
+    // replacement string `$$` collapses back to a single literal `$`.
+    .replace(/\$/g, '$$$$');
 }
 
 // Replace the content="…" of a single <meta> identified by property/name.
@@ -88,6 +95,17 @@ function setMeta(html, keyAttr, keyVal, content) {
   if (re.test(html)) return html.replace(re, `$1${esc}$2`);
   // Not present in the baseline — inject before </head> as a fallback.
   return html.replace(/<\/head>/i, `    <meta ${keyAttr}="${keyVal}" content="${esc}" />\n  </head>`);
+}
+
+// Point crawlers at the canonical URL for this view (the verb-form slug the
+// middleware matcher serves), so a record reachable at 2–3 live URLs collapses
+// to one indexable address. Replaces an existing rel=canonical if the baseline
+// ever ships one, else injects before </head>. esc is $-safe (see escapeAttr).
+function setCanonical(html, href) {
+  const esc = escapeAttr(href);
+  const re = /(<link\s+rel="canonical"\s+href=")[^"]*(")/i;
+  if (re.test(html)) return html.replace(re, `$1${esc}$2`);
+  return html.replace(/<\/head>/i, `    <link rel="canonical" href="${esc}" />\n  </head>`);
 }
 
 // Inject the atmospheric <head> hints that let AT clients discover the record(s)
@@ -135,6 +153,10 @@ export default async function middleware(request) {
     let ogImage;
     let atUri = null;
     let cid = null;
+    // Set when a record route's record can't be resolved: the page is a soft
+    // 404 (served HTTP 200 by the SPA rewrite), so we noindex it below rather
+    // than let crawlers index a section-fallback card as if it were the record.
+    let noindex = false;
     // Standard Site refs: the site.standard.document + its publication, for the
     // Bluesky rich embed. `stdDoc` only on article pages; `stdPub` on articles
     // and the publication home pages (/blogging, /creating).
@@ -182,10 +204,13 @@ export default async function middleware(request) {
       } else {
         // A record route whose record can't be fetched degrades to the
         // section's own card + title, so crawlers never see the generic home
-        // card there.
+        // card there. It's a soft 404 though (no such record), so mark it
+        // noindex — the section card is a graceful fallback for humans, not a
+        // page search engines should index under this record URL.
         title = section.title;
         desc = section.desc;
         ogImage = `${ORIGIN}/api/og?page=${encodeURIComponent(sectionPath)}`;
+        noindex = true;
       }
     } else {
       const meta = pageMeta(path);
@@ -229,6 +254,16 @@ export default async function middleware(request) {
     html = setMeta(html, 'name', 'twitter:title', title);
     html = setMeta(html, 'name', 'twitter:description', desc);
     html = setMeta(html, 'name', 'twitter:image', ogImage);
+
+    // Advertise the canonical (verb-form slug) URL for every route we serve, so
+    // the same record reachable at multiple live URLs collapses to one address.
+    html = setCanonical(html, canonical);
+
+    // Soft 404: the record route resolved no record, so tell crawlers not to
+    // index this section-fallback page under the (nonexistent) record URL. We
+    // can't change the HTTP status from this shell rewrite, so noindex is the
+    // pragmatic signal. Only unresolvable record routes reach here.
+    if (noindex) html = setMeta(html, 'name', 'robots', 'noindex');
 
     // Record/leaf pages (and the top-level surfaces) advertise their canonical
     // at:// URI so AT-aware crawlers can find the backing record.

@@ -165,24 +165,6 @@ export async function syncInaturalistMirror({
   const mothStats = computeStats(mothObs, { user });
   const observingStats = computeObservingStats(observingObs, { user });
 
-  // Two summaries: mothing keeps its moth-only stats (the /mothing surface's
-  // owned copy), observing carries the non-moth stats + the master freshness
-  // marker over all observations.
-  const mothSummaryWrite = {
-    collection: MOTHING_NSID,
-    rkey: 'self',
-    value: mothingSummaryValue(mothStats, { now: ts, user }),
-  };
-  mothSummaryWrite.value.lastSyncedAt = signature.latestUpdatedAt || ts;
-
-  const observingSummaryWrite = {
-    collection: OBSERVING_NSID,
-    rkey: 'self',
-    value: observingSummaryValue(observingStats, { now: ts, user }),
-  };
-  observingSummaryWrite.value.syncTotalCount = signature.count;
-  observingSummaryWrite.value.lastSyncedAt = signature.latestUpdatedAt || ts;
-
   // Only write observation records that actually changed (on a full/first run
   // `changed` is the whole set). Each goes to its bucket's collection.
   const changedIds = new Set(changed.map((o) => String(o.id)));
@@ -192,8 +174,30 @@ export async function syncInaturalistMirror({
   const observingRecordWrites = observingObs
     .filter((o) => o.id != null && changedIds.has(String(o.id)))
     .map((o) => ({ collection: OBSERVING_OBSERVATION_NSID, rkey: String(o.id), value: observingObservationValue(o, { now: ts }) }));
+  const recordWrites = [...mothRecordWrites, ...observingRecordWrites];
 
-  const writes = [mothSummaryWrite, observingSummaryWrite, ...mothRecordWrites, ...observingRecordWrites];
+  // Two summaries: mothing keeps its moth-only stats (the /mothing surface's
+  // owned copy), observing carries the non-moth stats + the master freshness
+  // marker over all observations. The freshness marker (lastSyncedAt /
+  // syncTotalCount) is stamped only AFTER the observation records land — see the
+  // two-phase write below — so a mid-batch failure can't advance it past data
+  // that never wrote.
+  const mothSummaryWrite = {
+    collection: MOTHING_NSID,
+    rkey: 'self',
+    value: mothingSummaryValue(mothStats, { now: ts, user }),
+  };
+  const observingSummaryWrite = {
+    collection: OBSERVING_NSID,
+    rkey: 'self',
+    value: observingSummaryValue(observingStats, { now: ts, user }),
+  };
+  const summaryWrites = [mothSummaryWrite, observingSummaryWrite];
+
+  // Planning / dry-run view only. The real run writes records FIRST, then the
+  // summaries (see the two-phase pool below), so ordering here is just for the
+  // dry-run tally.
+  const writes = [...recordWrites, ...summaryWrites];
 
   // Delete any existing record whose id no longer belongs to that collection —
   // removed upstream, or moved to the other bucket after a re-identification.
@@ -222,7 +226,7 @@ export async function syncInaturalistMirror({
     };
   }
 
-  const putResult = await pool(writes, 6, async (w) => {
+  const writeRecord = async (w) => {
     await agent.com.atproto.repo.putRecord({
       repo: did,
       collection: w.collection,
@@ -230,7 +234,42 @@ export async function syncInaturalistMirror({
       record: w.value,
       validate: false, // is.dame.* lexicons aren't published to the PDS
     });
-  });
+  };
+
+  // Phase 1 — observation records first, so the freshness marker is only
+  // advanced over data that actually landed.
+  const recordResult = await pool(recordWrites, 6, writeRecord);
+  const recordsOk = recordResult.fail === 0;
+
+  // Phase 2 — summaries last. Stamp the freshness marker forward ONLY when every
+  // observation record succeeded; otherwise keep the previous marker so the next
+  // incremental run re-pulls the gap (a first run with failures leaves it unset,
+  // which forces the next run into a full pull — also safe).
+  if (recordsOk) {
+    const marker = signature.latestUpdatedAt || ts;
+    mothSummaryWrite.value.lastSyncedAt = marker;
+    observingSummaryWrite.value.lastSyncedAt = marker;
+    observingSummaryWrite.value.syncTotalCount = signature.count;
+  } else {
+    if (master?.lastSyncedAt != null) {
+      mothSummaryWrite.value.lastSyncedAt = master.lastSyncedAt;
+      observingSummaryWrite.value.lastSyncedAt = master.lastSyncedAt;
+    }
+    if (master?.syncTotalCount != null) {
+      observingSummaryWrite.value.syncTotalCount = master.syncTotalCount;
+    }
+    log(
+      `WARNING: ${recordResult.fail} observation write(s) failed — holding the ` +
+        `freshness marker at ${master?.lastSyncedAt || '(unset → next run does a full pull)'} ` +
+        `so the next run re-pulls the gap.`,
+    );
+  }
+  const summaryResult = await pool(summaryWrites, 6, writeRecord);
+
+  const putResult = {
+    ok: recordResult.ok + summaryResult.ok,
+    fail: recordResult.fail + summaryResult.fail,
+  };
 
   const deletions = [
     ...mothDeletes.map((rkey) => ({ collection: MOTHING_OBSERVATION_NSID, rkey })),

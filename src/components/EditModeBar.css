@@ -100,7 +100,6 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
-  outline: none;
 }
 
 .edit-mode-bar-btn:disabled {

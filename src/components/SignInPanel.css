@@ -264,7 +264,6 @@
 .account-action:hover,
 .account-action:focus-visible {
   color: var(--accent);
-  outline: none;
 }
 
 .account-action-glyph {

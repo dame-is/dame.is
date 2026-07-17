@@ -9,7 +9,13 @@
     "build": "node scripts/prefetch.mjs && vite build",
     "build:offline": "vite build",
     "preview": "vite preview",
-    "gen:og-assets": "node scripts/gen-og-assets.mjs"
+    "gen:og-assets": "node scripts/gen-og-assets.mjs",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@atproto/api": "^0.19.17",
@@ -27,8 +33,15 @@
     "react-router-dom": "^6.27.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0",
+    "prettier": "^3.9.5",
     "sharp": "^0.35.3",
-    "vite": "^6.4.2"
+    "vite": "^6.4.2",
+    "vitest": "^4.1.10"
   }
 }

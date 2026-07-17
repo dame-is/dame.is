@@ -7,18 +7,55 @@
 // Read-only, owner-facing (used only inside the admin editor), but still guard
 // the obvious feet: http(s) only, image content-types only, and a size cap.
 
+import { assertPublicHttpUrl } from './_lib/ssrfGuard.js';
+
 const MAX_BYTES = 8 * 1024 * 1024; // og images are small; refuse anything huge.
+const MAX_REDIRECTS = 3; // re-validate every hop against the SSRF guard.
 
 export default async function handler(req, res) {
   const url = req.query?.url;
   if (!url || !/^https?:\/\//i.test(url)) {
     return res.status(400).json({ error: 'Pass a valid http(s) `url` query param.' });
   }
+
+  let current;
   try {
-    const upstream = await fetch(url, {
-      headers: { 'user-agent': 'Mozilla/5.0 (dame.is link unfurl)' },
-      redirect: 'follow',
-    });
+    current = await assertPublicHttpUrl(url);
+  } catch (err) {
+    return res.status(400).json({ error: err?.message || 'Refused to fetch that URL.' });
+  }
+
+  try {
+    // Follow redirects by hand so every hop is re-checked by the SSRF guard —
+    // `redirect:'follow'` would silently chase a Location into a private host.
+    let upstream;
+    let hops = 0;
+    for (;;) {
+      upstream = await fetch(current.href, {
+        headers: { 'user-agent': 'Mozilla/5.0 (dame.is link unfurl)' },
+        redirect: 'manual',
+      });
+      const location = upstream.status >= 300 && upstream.status < 400
+        ? upstream.headers.get('location')
+        : null;
+      if (!location) break;
+      if (hops >= MAX_REDIRECTS) {
+        return res.status(502).json({ error: 'Too many redirects.' });
+      }
+      hops += 1;
+      let next;
+      try {
+        next = new URL(location, current.href);
+      } catch {
+        return res.status(502).json({ error: 'Bad redirect location.' });
+      }
+      try {
+        current = await assertPublicHttpUrl(next.href);
+      } catch (err) {
+        return res.status(400).json({ error: err?.message || 'Refused to follow redirect.' });
+      }
+      upstream.body?.cancel?.().catch(() => {});
+    }
     if (!upstream.ok) {
       return res.status(502).json({ error: `Upstream ${upstream.status}` });
     }
