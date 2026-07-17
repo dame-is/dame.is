@@ -19,6 +19,7 @@
     { "source": "/site.standard.document/:rkey", "destination": "/index.html" },
     { "source": "/pub.leaflet.document/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.creating.work/:rkey", "destination": "/index.html" },
+    { "source": "/assets/:path*", "destination": "/api/asset-recovery?path=:path*" },
     { "source": "/((?!api/|assets/|version.json).*)", "destination": "/index.html" }
   ],
   "headers": [
