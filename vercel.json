@@ -24,6 +24,19 @@
   ],
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Permissions-Policy", "value": "geolocation=(), camera=(), microphone=()" },
+        {
+          "key": "Content-Security-Policy-Report-Only",
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://video.bsky.app https://cdn.bsky.app; frame-src 'self' https://www.youtube.com https://player.vimeo.com; worker-src 'self' blob:; connect-src 'self' https://public.api.bsky.app https://plc.directory https://api.inaturalist.org https://www.inaturalist.org https://bsky.social https://*.bsky.network https://api.are.na https://api.bigdatacloud.net https://slingshot.microcosm.blue https://constellation.microcosm.blue https://aturi.to https://anisota.net https://itunes.apple.com"
+        }
+      ]
+    },
+    {
       "source": "/version.json",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }

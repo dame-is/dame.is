@@ -22,7 +22,6 @@
 .layout-toggle-option:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
-  outline: none;
 }
 
 .layout-toggle-option.is-active {

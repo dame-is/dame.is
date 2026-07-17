@@ -2,7 +2,10 @@
 // metadata (title, description, image) so the block editor can populate a
 // link card without the author copying it by hand. Read-only, owner-facing.
 
+import { assertPublicHttpUrl } from './_lib/ssrfGuard.js';
+
 const META_LIMIT = 512 * 1024; // only need the <head>; cap the read.
+const MAX_REDIRECTS = 3; // re-validate every hop against the SSRF guard.
 
 function decodeEntities(s) {
   return String(s)
@@ -37,11 +40,45 @@ export default async function handler(req, res) {
   if (!url || !/^https?:\/\//i.test(url)) {
     return res.status(400).json({ error: 'Pass a valid http(s) `url` query param.' });
   }
+
+  let current;
   try {
-    const upstream = await fetch(url, {
-      headers: { 'user-agent': 'Mozilla/5.0 (dame.is link unfurl)' },
-      redirect: 'follow',
-    });
+    current = await assertPublicHttpUrl(url);
+  } catch (err) {
+    return res.status(400).json({ error: err?.message || 'Refused to fetch that URL.' });
+  }
+
+  try {
+    // Follow redirects by hand so every hop is re-checked by the SSRF guard —
+    // `redirect:'follow'` would silently chase a Location into a private host.
+    let upstream;
+    let hops = 0;
+    for (;;) {
+      upstream = await fetch(current.href, {
+        headers: { 'user-agent': 'Mozilla/5.0 (dame.is link unfurl)' },
+        redirect: 'manual',
+      });
+      const location = upstream.status >= 300 && upstream.status < 400
+        ? upstream.headers.get('location')
+        : null;
+      if (!location) break;
+      if (hops >= MAX_REDIRECTS) {
+        return res.status(502).json({ error: 'Too many redirects.' });
+      }
+      hops += 1;
+      let next;
+      try {
+        next = new URL(location, current.href);
+      } catch {
+        return res.status(502).json({ error: 'Bad redirect location.' });
+      }
+      try {
+        current = await assertPublicHttpUrl(next.href);
+      } catch (err) {
+        return res.status(400).json({ error: err?.message || 'Refused to follow redirect.' });
+      }
+      upstream.body?.cancel?.().catch(() => {});
+    }
     if (!upstream.ok) {
       return res.status(502).json({ error: `Upstream ${upstream.status}` });
     }
@@ -75,7 +112,7 @@ export default async function handler(req, res) {
     // URL so callers always get an absolute http(s) URL they can fetch.
     if (out.image) {
       try {
-        out.image = new URL(out.image, upstream.url || url).href;
+        out.image = new URL(out.image, upstream.url || current.href).href;
       } catch {
         out.image = '';
       }

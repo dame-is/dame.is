@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useNavRoutes } from '../hooks/useNavRoutes.js';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import SignInPanel from './SignInPanel.jsx';
 import './ActionDock.css';
 
@@ -23,6 +24,9 @@ export default function ActionDock() {
   // Keep a touch-drag on the open sheet from scrolling the concealed page
   // behind it (the route list often fits without overflowing).
   usePreventScrollChain(panelRef, open);
+  // Focus into the dock on open, trap Tab within it, restore focus on close.
+  // Escape stays owned by the handler below (it pops the sub-view first).
+  useFocusTrap(panelRef, { active: open });
 
   // Esc pops the sub-view first; only closes the dock once we're back
   // at the root menu. The Modal's built-in Esc handler is disabled

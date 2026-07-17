@@ -230,11 +230,13 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  outline: none;
 }
 
 .home-hero-cta-primary {
-  background: var(--accent);
+  /* Fill is the accent nudged ~10% toward black so the --page label clears
+     AA (≥4.5:1) as small text — plain --accent lands at only ~4.0:1 on the
+     light theme. color-mix keeps it theme-aware. */
+  background: color-mix(in srgb, var(--accent) 90%, #000);
   /* Border is a slightly darker shade of the fill itself (not a contrasting
      tan hairline) so it reads as a soft edge on the same colour rather than
      an outline in a different hue. Mixing toward black keeps it theme-aware. */
@@ -244,8 +246,11 @@
 
 .home-hero-cta-primary:hover,
 .home-hero-cta-primary:focus-visible {
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent-soft) 80%, #000);
+  /* Hover DARKENS the fill rather than lightening to --accent-soft: on the
+     light theme the soft mint dropped the --page label to ~2.4:1, whereas
+     darkening deepens the label's contrast (stays ≥4.5:1 in both themes). */
+  background: color-mix(in srgb, var(--accent) 85%, #000);
+  border-color: color-mix(in srgb, var(--accent) 72%, #000);
   color: var(--page);
 }
 

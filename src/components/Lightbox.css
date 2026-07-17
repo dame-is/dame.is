@@ -171,19 +171,20 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  outline: none;
 }
 
 .lightbox-ctl-close {
-  background: var(--accent);
-  border-color: var(--accent);
+  /* Accent nudged toward black so the --page glyph clears AA (≥4.5:1). */
+  background: color-mix(in srgb, var(--accent) 90%, #000);
+  border-color: color-mix(in srgb, var(--accent) 90%, #000);
   color: var(--page);
 }
 
 .lightbox-ctl-close:hover,
 .lightbox-ctl-close:focus-visible {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
+  /* Hover darkens (not lightens) so the glyph stays ≥4.5:1 in every theme. */
+  background: color-mix(in srgb, var(--accent) 85%, #000);
+  border-color: color-mix(in srgb, var(--accent) 85%, #000);
   color: var(--page);
 }
 

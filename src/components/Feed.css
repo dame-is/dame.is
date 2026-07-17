@@ -368,7 +368,6 @@ article.post-card > footer.post-card-stats {
 a.post-card-author-link:hover,
 a.post-card-author-link:focus-visible {
   border-bottom-color: var(--accent-soft);
-  outline: none;
 }
 
 .post-card-author-avatar {
@@ -556,7 +555,6 @@ a.post-card-author-link:focus-visible {
 .listen-row-toggle:focus-visible {
   color: var(--ink-soft);
   border-bottom-color: var(--accent-soft);
-  outline: none;
 }
 
 .listen-row-toggle-caret {
@@ -681,7 +679,6 @@ a.post-card-author-link:focus-visible {
   color: var(--ink);
   border-color: var(--accent-soft);
   background: var(--surface-soft, transparent);
-  outline: none;
 }
 
 /* CreatingCard */
@@ -869,7 +866,6 @@ a.post-card-author-link:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 6%, transparent);
-  outline: none;
 }
 
 /* ReferenceCard ------------------------------------------------------- */
@@ -933,7 +929,6 @@ a.post-card-author-link:focus-visible {
 a.reference-card-profile:hover,
 a.reference-card-profile:focus-visible {
   border-bottom-color: var(--accent-soft);
-  outline: none;
 }
 
 .reference-card-profile-avatar {
@@ -1034,7 +1029,6 @@ a.reference-card-profile:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: var(--highlight);
-  outline: none;
 }
 
 .reference-card-missing {

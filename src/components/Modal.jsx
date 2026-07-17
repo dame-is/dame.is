@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import './Modal.css';
 
 const PRESETS = {
@@ -57,12 +58,18 @@ export default function Modal({
   id,
   children,
   closeOnEscape = true,
+  focusTrapRef,
 }) {
   const reduce = useReducedMotion();
   const panelRef = useRef(null);
   // Keep a touch-drag on the panel from scrolling the page behind it when
   // its content fits without overflowing.
   usePreventScrollChain(panelRef, open);
+  // Make the aria-modal="true" claim true: pull focus into the panel on open,
+  // trap Tab within it, and restore focus to the opener on close. `focusTrapRef`
+  // lets a consumer extend the trap over controls it portals outside the panel
+  // subtree (the image lightbox does this — see Lightbox.jsx).
+  useFocusTrap(panelRef, { active: open, extraContainers: focusTrapRef });
 
   useEffect(() => {
     if (!open || !closeOnEscape) return;

@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Route, Navigate, useParams } from 'react-router-dom';
+import { lazy, Suspense, useState } from 'react';
+import { Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
@@ -32,6 +32,7 @@ import XrayLayer from './components/XrayLayer.jsx';
 import EditModeBar from './components/EditModeBar.jsx';
 import EditSheet from './components/EditSheet.jsx';
 import RouteTransition from './components/RouteTransition.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { ActionDockProvider } from './hooks/useActionDock.jsx';
 import { ChromePanelProvider } from './hooks/useChromePanel.jsx';
 import { ThemeProvider } from './hooks/useTheme.jsx';
@@ -93,7 +94,43 @@ function ForHireRedirect() {
   return <Navigate to={slug ? `/available/${slug}` : '/available'} replace />;
 }
 
+/**
+ * Accessible "Skip to content" link — the first focusable element in the app,
+ * so keyboard users can jump past the chrome nav straight to `<main>`. It's
+ * visually hidden (parked off-screen) until focused, at which point it toggles
+ * to an on-screen chip. Visibility is driven by inline style toggling so it
+ * needs no external stylesheet.
+ */
+function SkipLink() {
+  const [focused, setFocused] = useState(false);
+  const base = { position: 'absolute', zIndex: 1000 };
+  const style = focused
+    ? {
+        ...base,
+        left: 'var(--space-2, 0.5rem)',
+        top: 'var(--space-2, 0.5rem)',
+        padding: 'var(--space-2, 0.5rem) var(--space-4, 1rem)',
+        background: 'var(--surface-raised, #e3d8ba)',
+        color: 'var(--ink, #1d2419)',
+        border: '1px solid var(--ink, #1d2419)',
+        borderRadius: 'var(--radius-1, 0)',
+        fontSize: 'var(--text-sm, 0.875rem)',
+      }
+    : { ...base, left: '-9999px', top: 'auto', width: '1px', height: '1px', overflow: 'hidden' };
+  return (
+    <a
+      href="#main-content"
+      style={style}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
+      Skip to content
+    </a>
+  );
+}
+
 export default function App() {
+  const location = useLocation();
   return (
     <ThemeProvider>
       <FontProvider>
@@ -109,9 +146,11 @@ export default function App() {
       <XrayProvider>
       <FeedFooterProvider>
           <div className="app-shell">
+            <SkipLink />
             <ChromeBar />
-            <main className="layout">
+            <main id="main-content" tabIndex={-1} className="layout">
               <div className="main">
+                <ErrorBoundary resetKey={location.pathname}>
                 <RouteTransition>
                   <Route path="/" element={<Home />} />
                   <Route path="/themself" element={<About />} />
@@ -141,9 +180,11 @@ export default function App() {
                   <Route
                     path="/admin"
                     element={
-                      <Suspense fallback={<p className="placeholder-card">Loading admin…</p>}>
-                        <Admin />
-                      </Suspense>
+                      <ErrorBoundary resetKey={location.pathname}>
+                        <Suspense fallback={<p className="placeholder-card">Loading admin…</p>}>
+                          <Admin />
+                        </Suspense>
+                      </ErrorBoundary>
                     }
                   />
                   {['/exploring', '/exploring/:repo', '/exploring/:repo/:collection', '/exploring/:repo/:collection/:rkey'].map(
@@ -152,9 +193,11 @@ export default function App() {
                         key={path}
                         path={path}
                         element={
-                          <Suspense fallback={<p className="placeholder-card">Loading explorer…</p>}>
-                            <Exploring />
-                          </Suspense>
+                          <ErrorBoundary resetKey={location.pathname}>
+                            <Suspense fallback={<p className="placeholder-card">Loading explorer…</p>}>
+                              <Exploring />
+                            </Suspense>
+                          </ErrorBoundary>
                         }
                       />
                     ),
@@ -162,13 +205,16 @@ export default function App() {
                   <Route
                     path="/oauth/callback"
                     element={
-                      <Suspense fallback={<p className="placeholder-card">Loading…</p>}>
-                        <OauthCallback />
-                      </Suspense>
+                      <ErrorBoundary resetKey={location.pathname}>
+                        <Suspense fallback={<p className="placeholder-card">Loading…</p>}>
+                          <OauthCallback />
+                        </Suspense>
+                      </ErrorBoundary>
                     }
                   />
                   <Route path="*" element={<NotFound />} />
                 </RouteTransition>
+                </ErrorBoundary>
               </div>
             </main>
             <ActionDock />

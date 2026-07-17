@@ -39,7 +39,6 @@
 }
 
 .search-sheet-field input:focus {
-  outline: none;
   border-color: var(--accent-soft);
   background: var(--page);
 }
@@ -77,7 +76,6 @@
 .search-sheet-clear:hover,
 .search-sheet-clear:focus-visible {
   color: var(--accent);
-  outline: none;
 }
 
 .search-sheet-hint {

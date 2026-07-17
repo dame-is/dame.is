@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -30,6 +30,11 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   const [active, setActive] = useState(index);
   const [loadedSrcs, setLoadedSrcs] = useState(() => new Set());
   const reduce = useReducedMotion();
+  // The control bar is portalled to <body> (a scale transform on the Modal
+  // panel would trap the fixed bar inside the panel's box), so it lives outside
+  // the dialog's DOM subtree. Handing this ref to the Modal's focus trap keeps
+  // the controls inside the lightbox's Tab cycle even from there.
+  const controlsRef = useRef(null);
   const markLoaded = useCallback((src) => {
     setLoadedSrcs((prev) => (prev.has(src) ? prev : new Set(prev).add(src)));
   }, []);
@@ -109,6 +114,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       scrim="dark"
       className="lightbox-panel"
       scrimLabel="Close image"
+      focusTrapRef={controlsRef}
     >
       <figure className="lightbox-figure">
         <div
@@ -147,6 +153,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
           {open && (
             <motion.div
               key="lightbox-controls"
+              ref={controlsRef}
               className="lightbox-controls"
               role="group"
               aria-label="Image controls"

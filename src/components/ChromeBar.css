@@ -308,7 +308,6 @@
 .chrome-crumb-link:hover,
 .chrome-crumb-link:focus-visible {
   color: var(--accent);
-  outline: none;
 }
 
 .chrome-crumb-current {
@@ -499,6 +498,21 @@
    .chrome-expand, which keeps its flush, transparent treatment. */
 .chrome-nav {
   background: var(--page);
+  /* Anchor for the coarse-pointer hit-area extension below. */
+  position: relative;
+}
+
+/* Touch targets: keep the 28px (1.75rem) visual chip, but grow the tappable
+   area to the 44px platform minimum on coarse (touch) pointers. A transparent
+   ::before inset by -8px on every side adds 16px, taking the 28px chip to 44px
+   without changing its painted size — important because these chips sit at the
+   screen edge in the fixed bottom bar. */
+@media (pointer: coarse) {
+  .chrome-nav::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
 }
 
 .chrome-nav:hover,
@@ -508,7 +522,6 @@
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
-  outline: none;
 }
 
 /* Over the chip fill, hover/active must stay an opaque lighten — a
@@ -545,7 +558,9 @@
    accent-tinted primary so it reads as the main action among the
    bottom-bar controls. */
 .chrome-nav.chrome-nav-bottom {
-  background: var(--accent);
+  /* Fill is the accent nudged toward black so the --page glyph clears AA
+     (≥4.5:1) — plain --accent lands at only ~4.0:1 on the light theme. */
+  background: color-mix(in srgb, var(--accent) 90%, #000);
   /* Contrasting hairline (matching every other bottom-bar button) instead
      of a border the colour of the accent fill. */
   border-color: var(--rule);
@@ -554,7 +569,9 @@
 
 .chrome-nav.chrome-nav-bottom:hover,
 .chrome-nav.chrome-nav-bottom:focus-visible {
-  background: var(--accent-soft);
+  /* Hover DARKENS rather than lightening to --accent-soft (which dropped the
+     glyph below AA), so the --page glyph stays ≥4.5:1 in every theme. */
+  background: color-mix(in srgb, var(--accent) 85%, #000);
   border-color: var(--rule);
   color: var(--page);
 }

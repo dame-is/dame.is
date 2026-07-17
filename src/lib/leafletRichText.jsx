@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import { isLikelyBareHttpUrl, truncateUrlDisplay } from './feedUrlFormat.jsx';
+import { safeHref } from './safeHref.js';
 
 /**
  * Render leaflet `plaintext` + `facets` to React. Mirrors the bsky
@@ -93,13 +94,17 @@ function wrapWithFeatures(features, text) {
     node = <Wrapper>{node}</Wrapper>;
   }
 
-  if (link?.uri) {
+  // The link URI is foreign record data, so gate it through the scheme
+  // allowlist. A rejected URI falls through to the plain formatted node,
+  // so a hostile URI never becomes a live link.
+  const href = link?.uri ? safeHref(link.uri) : undefined;
+  if (href) {
     const titleAttr =
       useTrunc && sourceText.length < trimmed.length ? trimmed : undefined;
     return (
       <a
         className="post-rich-link"
-        href={link.uri}
+        href={href}
         target="_blank"
         rel="noreferrer noopener"
         title={titleAttr}

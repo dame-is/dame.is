@@ -34,10 +34,18 @@ export default function EditSheet() {
   // Imperative handle into the editor + its live status, so the edit action
   // bar can host the Save / Delete controls instead of the sheet itself.
   const editorRef = useRef(null);
+  // The sheet panel — focus trap target on open.
+  const panelRef = useRef(null);
   // Keep a touch-drag inside the sheet body from scrolling the page behind
   // it when the form fits without overflowing.
   const bodyRef = useRef(null);
   usePreventScrollChain(bodyRef, !!editSheet);
+  // Focus into the sheet on open, trap Tab within it, restore focus on close.
+  // Deliberately NOT focus-trapped: this is a non-modal dialog (role="dialog"
+  // without aria-modal). Its primary Save / Delete controls live in the
+  // separate edit action bar OUTSIDE this panel, so trapping Tab inside the
+  // panel would make those actions keyboard-unreachable. The genuine modals
+  // (BottomSheet / Modal / ActionDock) keep the trap.
   const [editorStatus, setEditorStatus] = useState({
     saving: false,
     deleting: false,
@@ -115,7 +123,12 @@ export default function EditSheet() {
             exit={{ height: 0 }}
             transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
           >
-            <div className="edit-sheet-panel" role="dialog" aria-label="Quick edit record">
+            <div
+              ref={panelRef}
+              className="edit-sheet-panel"
+              role="dialog"
+              aria-label="Quick edit record"
+            >
               <div className="edit-sheet-head">
                 <div className="edit-sheet-titles">
                   <span className="edit-sheet-title">{lex?.label || 'Record'}</span>

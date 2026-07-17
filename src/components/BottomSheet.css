@@ -20,7 +20,13 @@
    Sits above the bars (z 31) so its top edge overlaps the page cleanly. */
 .bottom-sheet-wrap {
   position: fixed;
-  bottom: calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px));
+  /* --kb-inset is the height the on-screen keyboard eats out of the layout
+     viewport (set from JS via visualViewport, 0 when no keyboard); adding it
+     here lifts the whole sheet — and any input it hosts — above the keyboard. */
+  bottom: calc(
+    var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px) +
+      var(--kb-inset, 0px)
+  );
   left: 0;
   right: 0;
   width: 100%;
@@ -55,9 +61,12 @@
    divides it from the page showing above. */
 .bottom-sheet-panel-compact {
   border-top: 1px solid var(--rule);
+  /* Subtract --kb-inset too: once the sheet is lifted above the keyboard, its
+     ceiling drops by the same amount so a tall panel scrolls instead of
+     sliding up under the top chrome. */
   max-height: calc(
     100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
-      env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)
   );
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -68,7 +77,7 @@
 .bottom-sheet-panel-fill {
   height: calc(
     100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
-      env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)
   );
   overflow-y: auto;
   overscroll-behavior: contain;

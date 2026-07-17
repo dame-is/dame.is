@@ -35,6 +35,13 @@ const FONT_SET = [
   crimson('600i', 600, 'italic'),
 ];
 
+// Attacker-controlled free-text query params are rendered into the card, so
+// clamp their length before they reach Satori — an unbounded `?title=…` is a
+// denial-of-wallet / layout-abuse vector. 200 chars is well past any real
+// title/subtitle/label the site emits.
+const MAX_TEXT = 200;
+const clampText = (v) => String(v ?? '').slice(0, MAX_TEXT);
+
 export default async function handler(req, res) {
   try {
     const q = req.query || {};
@@ -80,28 +87,28 @@ export default async function handler(req, res) {
     let record = false;
     let body = false;
     if (q.page) {
-      pathname = cleanPath(String(q.page));
+      pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
       label = meta.label;
       // Middleware injects a `subtitle` resolved from the live / snapshotted
       // is.dame.page record; a direct hit with no subtitle uses the static copy.
-      const passed = q.subtitle != null ? String(q.subtitle).trim() : '';
+      const passed = q.subtitle != null ? clampText(q.subtitle).trim() : '';
       subtitle = passed || meta.desc;
       nsid = meta.nsid;
     } else if (q.section) {
       // Per-record card: breadcrumb = /{section}, headline = the record title.
-      const sectionSeg = String(q.section).replace(/^\/+|\/+$/g, '');
+      const sectionSeg = clampText(q.section).replace(/^\/+|\/+$/g, '');
       pathname = `/${sectionSeg}`;
-      label = String(q.label || '');
-      subtitle = String(q.subtitle || '');
-      nsid = String(q.nsid || DEFAULT.nsid);
+      label = clampText(q.label);
+      subtitle = clampText(q.subtitle);
+      nsid = clampText(q.nsid || DEFAULT.nsid);
       record = true;
       // `body=1` renders the label as wrapped body copy (a post/status quote)
       // instead of a big headline.
       body = q.body === '1' || q.body === 'true';
     } else if (q.title || q.subtitle) {
-      label = String(q.title || '');
-      subtitle = String(q.subtitle || '');
+      label = clampText(q.title);
+      subtitle = clampText(q.subtitle);
       pathname = label ? `/${label.toLowerCase().replace(/\s+/g, '-')}` : '/';
     }
 

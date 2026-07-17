@@ -2,8 +2,22 @@
 
 import { APPVIEW, PLC_DIRECTORY } from '../config.js';
 
+// A single request must never wedge the home-feed refresh loop. Attach a
+// 15s abort so a hung fetch rejects instead of hanging forever. Feature-
+// detected: environments without `AbortSignal.timeout` (older runtimes)
+// simply run with no signal. Never clobbers a caller-supplied signal.
+const REQUEST_TIMEOUT_MS = 15_000;
+function withTimeout(init) {
+  const base = init || {};
+  if (base.signal) return base;
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return { ...base, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) };
+  }
+  return base;
+}
+
 async function fetchJson(url, init) {
-  const res = await fetch(url, init);
+  const res = await fetch(url, withTimeout(init));
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     const err = new Error(`HTTP ${res.status} ${res.statusText} for ${url} :: ${text.slice(0, 200)}`);

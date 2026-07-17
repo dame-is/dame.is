@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import './BottomSheet.css';
 
 /**
@@ -40,6 +41,10 @@ export default function BottomSheet({
   // Keep a touch-drag on the open sheet from scrolling the page behind it
   // when the panel's content fits without overflowing.
   usePreventScrollChain(panelRef, open);
+  // Move focus into the sheet on open, trap Tab within it, and restore focus
+  // to the trigger on close — the panel declares role="dialog" but the page
+  // behind stays tappable, so the trap is what makes the keyboard honor it.
+  useFocusTrap(panelRef, { active: open });
 
   useEffect(() => {
     if (!open || !closeOnEscape) return undefined;
@@ -49,6 +54,34 @@ export default function BottomSheet({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, closeOnEscape, onClose]);
+
+  // On-screen keyboard occlusion (§5.1): a sheet is pinned to the viewport
+  // bottom, so the mobile keyboard covers any input it hosts. Track the
+  // portion of the layout viewport the keyboard eats (via visualViewport) and
+  // expose it as --kb-inset; the CSS adds it into the wrap's bottom offset so
+  // the sheet — and its field — rides up above the keyboard. Feature-detected,
+  // and a no-op where visualViewport is absent.
+  const [kbInset, setKbInset] = useState(0);
+  useEffect(() => {
+    if (!open) {
+      setKbInset(0);
+      return undefined;
+    }
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!vv) return undefined;
+    const update = () => {
+      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKbInset(Math.round(overlap));
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      setKbInset(0);
+    };
+  }, [open]);
 
   if (typeof document === 'undefined') return null;
 
@@ -73,6 +106,7 @@ export default function BottomSheet({
           <motion.div
             key="bottom-sheet"
             className="bottom-sheet-wrap"
+            style={{ '--kb-inset': `${kbInset}px` }}
             initial={{ height: 0 }}
             animate={{ height: 'auto' }}
             exit={{ height: 0 }}

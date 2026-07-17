@@ -5,10 +5,14 @@
 //   which means we don't need to tunnel for the OAuth server to fetch our
 //   metadata. The library auto-redirects `localhost` origins to `127.0.0.1`.
 
-import { BrowserOAuthClient } from '@atproto/oauth-client-browser';
+// `@atproto/oauth-client-browser` (with its zod / jose dependency tree) is
+// the single heaviest thing in the bundle, yet only the owner and guestbook
+// signers ever use it. Import it dynamically inside the client factory so it
+// lands in its own lazily-fetched chunk instead of the entry bundle — the
+// session provider only awaits it when a session may actually exist.
 import { ME_HANDLE, ME_DID } from '../config.js';
 
-let _client = null;
+let _clientPromise = null;
 let _loopbackUrl = null;
 
 // Module-level event bus. The BrowserOAuthClient itself does not expose
@@ -51,8 +55,23 @@ function buildLoopbackMetadataUrl(origin, redirectPath) {
   return `http://localhost?redirect_uri=${encodeURIComponent(redirect)}`;
 }
 
+/**
+ * Lazily construct (once) the BrowserOAuthClient. Returns a Promise — the
+ * `@atproto/oauth-client-browser` module is imported dynamically so it never
+ * weighs down the entry bundle. A failed construction clears the cached
+ * promise so a later call can retry.
+ */
 export function getOauthClient() {
-  if (_client) return _client;
+  if (_clientPromise) return _clientPromise;
+  _clientPromise = createOauthClient().catch((err) => {
+    _clientPromise = null;
+    throw err;
+  });
+  return _clientPromise;
+}
+
+async function createOauthClient() {
+  const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
 
   const origin = window.location.origin;
   const redirectPath = '/oauth/callback';
@@ -68,15 +87,14 @@ export function getOauthClient() {
 
   if (isLoopbackHost(window.location.hostname)) {
     _loopbackUrl = buildLoopbackMetadataUrl(origin, redirectPath);
-    _client = new BrowserOAuthClient({
+    return new BrowserOAuthClient({
       handleResolver: 'https://bsky.social',
       clientMetadata: _loopbackUrl,
       ...hooks,
     });
-    return _client;
   }
 
-  _client = new BrowserOAuthClient({
+  return new BrowserOAuthClient({
     handleResolver: 'https://bsky.social',
     clientMetadata: {
       client_id: `${origin}/oauth-client-metadata.json`,
@@ -93,7 +111,6 @@ export function getOauthClient() {
     },
     ...hooks,
   });
-  return _client;
 }
 
 /**

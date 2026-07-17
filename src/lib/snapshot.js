@@ -39,7 +39,11 @@ function pickCreatedAt(item) {
  */
 export async function fetchSnapshot(name) {
   try {
-    const res = await fetch(`/data/${name}.json`, { cache: 'no-store' });
+    // No `cache: 'no-store'` — the snapshots are static per deploy and carry
+    // an ETag, so letting the browser HTTP cache handle them means repeat
+    // loads (and route revisits) 304-revalidate instead of re-downloading
+    // the full JSON.
+    const res = await fetch(`/data/${name}.json`);
     if (!res.ok) return null;
     return await res.json();
   } catch {
