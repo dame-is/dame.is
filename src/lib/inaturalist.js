@@ -186,8 +186,9 @@ export function sessionDateFor(observedDate, observedHour) {
 /**
  * Group observations into numbered mothing sessions (oldest night = #1).
  * Returns `{ sessions, sessionCount, orphans }` where `sessions` is sorted
- * newest-first for display and each carries its own little stat block.
- * `orphans` are daytime / untimed observations that aren't part of a night.
+ * newest-first for display — and within each session the observations are
+ * newest-first too — and each carries its own little stat block. `orphans`
+ * are daytime / untimed observations that aren't part of a night.
  */
 export function buildSessions(observations) {
   const obs = Array.isArray(observations) ? observations : [];
@@ -215,14 +216,16 @@ export function buildSessions(observations) {
 }
 
 function summarizeSession(date, number, observations) {
-  const items = observations
+  // Chronological within the night (evening → after-midnight). This order
+  // drives the stats and the first/last time span; the displayed list is the
+  // reverse of it (see `observations` below).
+  const chronological = observations
     .slice()
-    // Within a night, order by local time (evening → after-midnight).
     .sort((a, b) => nightMinutes(a) - nightMinutes(b));
   const species = new Set();
   let research = 0;
-  const timed = items.filter((o) => o.observedTime);
-  for (const o of items) {
+  const timed = chronological.filter((o) => o.observedTime);
+  for (const o of chronological) {
     if (o.taxon?.id != null && (o.taxon.rank === 'species' || o.taxon.rank === 'subspecies')) {
       species.add(o.taxon.id);
     }
@@ -231,8 +234,12 @@ function summarizeSession(date, number, observations) {
   return {
     number,
     date, // the evening's date (YYYY-MM-DD)
-    observations: items,
-    observationCount: items.length,
+    // Newest-first for display — the night's latest sighting sits on top,
+    // matching the newest-first ordering of the sessions themselves (and the
+    // orphan list). firstTime/lastTime stay chronological so the header span
+    // still reads low→high (e.g. "8:47pm–1:17am").
+    observations: chronological.slice().reverse(),
+    observationCount: chronological.length,
     speciesCount: species.size,
     researchCount: research,
     firstTime: timed[0]?.observedTime || null,

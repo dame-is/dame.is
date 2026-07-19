@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isMothTaxon, normalizeObservation } from './inaturalist.js';
+import { isMothTaxon, normalizeObservation, buildSessions } from './inaturalist.js';
 import { LEPIDOPTERA_TAXON_ID, BUTTERFLY_TAXON_ID } from '../config.js';
 
 // The moth/observing split is: a moth is Lepidoptera (47157) MINUS butterflies
@@ -89,5 +89,36 @@ describe('normalizeObservation classification', () => {
     // Only the tz-free local wall-clock survives from the timestamp.
     expect(n.observedTime).toBe('21:30');
     expect(JSON.stringify(n)).not.toContain('-04:00');
+  });
+});
+
+describe('buildSessions ordering', () => {
+  // One night: an evening sighting (before midnight) plus two after-midnight
+  // ones that roll back into the same session date. Input is deliberately
+  // shuffled so the ordering under test can't pass by accident.
+  const oneNight = [
+    { id: 'b', observedDate: '2026-07-19', observedHour: 0, observedTime: '00:36' }, // 12:36am
+    { id: 'a', observedDate: '2026-07-18', observedHour: 22, observedTime: '22:05' }, // 10:05pm
+    { id: 'c', observedDate: '2026-07-19', observedHour: 1, observedTime: '01:17' }, // 1:17am
+  ];
+
+  it('groups an evening + after-midnight night into a single session', () => {
+    const { sessions, orphans } = buildSessions(oneNight);
+    expect(orphans).toHaveLength(0);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].date).toBe('2026-07-18');
+    expect(sessions[0].observationCount).toBe(3);
+  });
+
+  it('orders observations within a session newest-first', () => {
+    const [night] = buildSessions(oneNight).sessions;
+    // Latest sighting of the night sits on top; earliest at the bottom.
+    expect(night.observations.map((o) => o.id)).toEqual(['c', 'b', 'a']);
+  });
+
+  it('keeps the header time span chronological (earliest → latest)', () => {
+    const [night] = buildSessions(oneNight).sessions;
+    expect(night.firstTime).toBe('22:05');
+    expect(night.lastTime).toBe('01:17');
   });
 });
