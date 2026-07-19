@@ -69,7 +69,10 @@
   width: auto;
   height: auto;
   object-fit: contain;
-  border: 1px solid var(--rule);
+  /* No border: against the dark scrim the photo carries its own edge, and a
+     `--rule` hairline picks up the accent tint under the sky theme (reading as
+     a stray colored frame). A soft shadow + slight rounding is the whole
+     treatment. */
   border-radius: var(--radius-2);
   background: var(--page-edge);
   box-shadow: 0 16px 40px var(--shadow);
