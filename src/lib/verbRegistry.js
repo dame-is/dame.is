@@ -146,8 +146,14 @@ export const VERB_REGISTRY = [
     icon: 'Bug',
     renderer: 'ObservationCard',
     // Observation records are mirrored from iNaturalist onto the PDS by
-    // scripts/mirror-inaturalist.mjs; each carries its own iNat URL, so the
-    // feed links out there rather than to a bespoke record page.
+    // scripts/mirror-inaturalist.mjs. Each moth gets a bespoke record page at
+    // the short `/mothing/{rkey}` form (rkey = the iNaturalist observation id);
+    // Record.jsx renders it with ObservationCard. The card's own thumbnail +
+    // title still link out to the iNaturalist observation. Without this the feed
+    // would fall through to the generic `/{nsid}/{rkey}` URL — but only the
+    // `/mothing/{rkey}` form is wired for crawler cards (middleware.js matcher +
+    // og/records.js RECORD_SECTIONS), so this keeps shared links carding.
+    recordHref: ({ rkey }) => (rkey ? `/mothing/${rkey}` : null),
     pastTense: 'spotted',
     collections: [
       { nsid: 'is.dame.mothing.observation', source: 'inaturalist', kind: 'content', max: 500 },
