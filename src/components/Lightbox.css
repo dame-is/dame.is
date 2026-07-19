@@ -52,30 +52,56 @@
   --lightbox-maxh: calc(100dvh - var(--chrome-h) - 4rem);
 }
 
-/* Wrapper around the image and its optional attached caption bar, so the
-   two share a width, radius, and shadow and read as one surface. */
+/* Wrapper that carries the visible surface — rounded corners + soft shadow —
+   and stacks the low-res sizer under the full-res photo so the latter can
+   fade in over the former. No border: against the dark scrim the photo
+   carries its own edge, and a `--rule` hairline picks up the accent tint
+   under the sky theme (reading as a stray colored frame). */
 .lightbox-frame {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   max-width: 100%;
   min-height: 0;
+  border-radius: var(--radius-2);
+  background: var(--page-edge);
+  box-shadow: 0 16px 40px var(--shadow);
+  overflow: hidden;
 }
 
-.lightbox-image {
+/* In-flow low-res thumb. It holds the frame's dimensions open the instant the
+   lightbox opens (it's the already-cached grid image), giving the full-res
+   photo a sized, visible surface to fade in over. Decorative — the alt text
+   lives on the full image. */
+.lightbox-sizer {
   display: block;
   max-width: 100%;
   max-height: var(--lightbox-maxh);
   width: auto;
   height: auto;
   object-fit: contain;
-  /* No border: against the dark scrim the photo carries its own edge, and a
-     `--rule` hairline picks up the accent tint under the sky theme (reading as
-     a stray colored frame). A soft shadow + slight rounding is the whole
-     treatment. */
-  border-radius: var(--radius-2);
-  background: var(--page-edge);
-  box-shadow: 0 16px 40px var(--shadow);
+}
+
+/* Full-resolution photo, layered over the sizer and revealed once it loads. */
+.lightbox-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.lightbox-image.is-loaded {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lightbox-image {
+    transition: none;
+  }
 }
 
 /* Control bar — sits exactly where the bottom chrome nav is (fixed to
