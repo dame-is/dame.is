@@ -98,6 +98,17 @@
   display: none;
 }
 
+/* The panel takes programmatic focus on open (see useFocusTrap) purely so a
+   screen reader announces the dialog label — it's a container, not a control.
+   Suppress the global :focus-visible ring (reset.css) so that anchor focus
+   doesn't paint a 2px accent outline around the whole panel. It's most visible
+   on the image lightbox, whose transparent panel hugs the photo, where the
+   ring reads as a stray accent border on the first image as it opens. Real
+   focusable controls inside the panel keep their own rings. */
+.modal-panel:focus {
+  outline: none;
+}
+
 .modal-variant-centered .modal-panel {
   width: min(560px, 100%);
   /* dvh tracks the live visual viewport on iOS, so the panel never
