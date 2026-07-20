@@ -83,21 +83,14 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
         width: `min(${current.width}px, 100%, calc(var(--lightbox-maxh) * ${ratio.toFixed(5)}))`,
       }
     : undefined;
-  const placeholderStyle =
-    current.thumb && !loadedSrcs.has(current.src)
-      ? {
-          backgroundImage: `url(${current.thumb})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }
-      : null;
-  const imageStyle = ratio
-    ? {
-        width: '100%',
-        aspectRatio: `${current.width} / ${current.height}`,
-        ...placeholderStyle,
-      }
-    : placeholderStyle || undefined;
+  // The sizer holds the frame's box open. When the intrinsic ratio is known it
+  // reserves the exact box immediately (before any pixels arrive); otherwise it
+  // sizes to the thumb's own aspect once that small, already-cached image
+  // paints — either way the full-res photo fades in over a sized, visible
+  // frame instead of a collapsed box (the old "flash on open").
+  const sizerStyle = ratio
+    ? { width: '100%', aspectRatio: `${current.width} / ${current.height}` }
+    : undefined;
   const label = alt
     ? `Image: ${alt}`
     : count > 1
@@ -117,17 +110,26 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       focusTrapRef={controlsRef}
     >
       <figure className="lightbox-figure">
-        <div
-          className="lightbox-frame"
-          style={frameStyle}
-        >
+        <div className="lightbox-frame" style={frameStyle}>
+          {/* In-flow sizer: the low-res thumb (already cached from the grid the
+              lightbox was opened from) gives the frame real dimensions the
+              instant it opens, so the full-resolution photo — which usually has
+              to download — fades in over a visible picture rather than a blank,
+              collapsed box. Decorative; the real alt lives on the full image
+              below. Falls back to the full src when a caller passes no thumb. */}
+          <img
+            src={current.thumb || current.src}
+            alt=""
+            aria-hidden="true"
+            className="lightbox-sizer"
+            decoding="async"
+            style={sizerStyle}
+          />
           <img
             key={current.src}
             src={current.src}
             alt={alt}
-            width={current.width || undefined}
-            height={current.height || undefined}
-            className="lightbox-image"
+            className={`lightbox-image${loadedSrcs.has(current.src) ? ' is-loaded' : ''}`}
             decoding="async"
             onLoad={() => markLoaded(current.src)}
             ref={(el) => {
@@ -135,7 +137,6 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
               // React attaches the handler; the ref callback catches those.
               if (el?.complete && el.naturalWidth) markLoaded(current.src);
             }}
-            style={imageStyle}
           />
         </div>
       </figure>
