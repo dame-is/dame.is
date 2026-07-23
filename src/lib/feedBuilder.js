@@ -351,7 +351,7 @@ export function transformRecords(records, nsid, pds, did = ME_DID, opts = {}) {
   // AnisotaLabCard only needs the finished text / tiles / figure / print. Drop
   // the reopen-the-studio payloads so they don't bloat the unified feed. What
   // the card renders (name, text, tiles+board, redacted+original, image, svg,
-  // description, tempo/steps/scale) is kept.
+  // palette, description, tempo/steps/scale) is kept.
   if (ANISOTA_LAB_HEAVY_FIELDS[nsid]) {
     for (const r of records) {
       const v = r?.value;

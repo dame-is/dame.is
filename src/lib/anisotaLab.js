@@ -177,11 +177,86 @@ export function sanitizeSvgDocument(svg) {
 }
 
 /**
- * A sigil SVG as an <img>-ready data URL (sanitised first). Rendering the SVG
- * through an <img> rather than inline markup keeps it sandboxed — a record
- * can't run script. Returns '' if unrenderable.
+ * A sigil SVG as a data URL (sanitised first), ready for an <img src> or a
+ * CSS mask-image. Going through an image reference rather than inline markup
+ * keeps it sandboxed — a record can't run script. On dame.is the card uses it
+ * as a mask over a flat --ink fill so the one stroke tracks the page's ink
+ * instead of the color Anisota baked into the SVG. Returns '' if unrenderable.
  */
 export function sigilSvgDataUrl(svg) {
   const safe = sanitizeSvgDocument(svg);
   return safe ? 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(safe) : '';
+}
+
+/* ------------------------------------------------------------------ */
+/* Inkblot — re-ink a baked blot into the current theme                */
+/* ------------------------------------------------------------------ */
+
+// Inkblots arrive as a baked PNG: a symmetric blot in whatever color Anisota's
+// live theme gave the piece's `palette` slot when it was made (see the record's
+// `palette` field — 'ink', 'accent-deep', …). To re-ink one in dame.is's
+// current sky palette we can't just flat-fill it: the blot carries internal
+// light↔dark structure (the ink layered at different densities) that gives it
+// depth. So we duotone it — map each pixel's luminance onto a two-stop ramp
+// pulled from the live theme, densest ink → stop A, faintest → stop B. A
+// single-tone blot (no internal range — e.g. a blot baked in a flat white)
+// collapses to a flat stop-A silhouette, which is exactly what it should do.
+
+// Which pair of live --sky-* tokens a blot's `palette` slot maps onto, as
+// [dense, faint]. Anything unrecognised falls back to the ink ramp — the
+// blot's namesake, and the slot four of every five blots in the wild use.
+export const INKBLOT_RAMPS = {
+  ink: ['--sky-ink', '--sky-ink-muted'],
+  accent: ['--sky-accent', '--sky-accent-soft'],
+  'accent-deep': ['--sky-accent', '--sky-accent-soft'],
+  'accent-soft': ['--sky-accent', '--sky-accent-soft'],
+  tan: ['--sky-tan', '--sky-accent-soft'],
+};
+
+/** The [denseToken, faintToken] --sky-* ramp for a blot's `palette` slot. */
+export function inkblotRamp(palette) {
+  return INKBLOT_RAMPS[palette] || INKBLOT_RAMPS.ink;
+}
+
+/** Parse a `#rgb` / `#rrggbb` hex to `[r, g, b]` (0–255); null on anything else. */
+export function hexToRgb(hex) {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// Rec. 709 luma, matching the weighting skyTheme.js's own palette math uses.
+function luma(r, g, b) {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * Duotone a decoded inkblot in place. `data` is an RGBA byte array (a canvas
+ * ImageData.data); `dense` and `faint` are the ramp's two [r, g, b] stops.
+ * Fully transparent pixels are left untouched; every visible pixel is re-inked
+ * by where its luminance falls in the blot's own min→max range (normalised per
+ * blot, so even a faint original spans the full ramp). Alpha is preserved, so
+ * the blot's anti-aliased edges survive the recolor.
+ */
+export function recolorInkblot(data, dense, faint) {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    const y = luma(data[i], data[i + 1], data[i + 2]);
+    if (y < lo) lo = y;
+    if (y > hi) hi = y;
+  }
+  if (hi < lo) return; // fully transparent — nothing to re-ink
+  const range = hi - lo || 1; // flat blot → every pixel lands on `dense`
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] === 0) continue;
+    let t = (luma(data[i], data[i + 1], data[i + 2]) - lo) / range;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    data[i] = Math.round(dense[0] + (faint[0] - dense[0]) * t);
+    data[i + 1] = Math.round(dense[1] + (faint[1] - dense[1]) * t);
+    data[i + 2] = Math.round(dense[2] + (faint[2] - dense[2]) * t);
+  }
 }

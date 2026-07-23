@@ -1402,7 +1402,8 @@ a.reference-card-profile:focus-visible {
   margin: 0;
 }
 
-.lab-card-figure img {
+.lab-card-figure img,
+.lab-card-figure .lab-inkblot-canvas {
   display: block;
   width: 100%;
   max-width: 20rem;
@@ -1413,12 +1414,31 @@ a.reference-card-profile:focus-visible {
 }
 
 /* Sigils are single-stroke line figures on transparency — keep them compact
-   and give them a calm field so the one line reads. */
-.lab-card-figure-sigil img {
+   and give them a calm field so the one line reads. The stroke itself is the
+   SVG used as a mask (see .lab-sigil); the frame lives on the container. */
+.lab-card-figure-sigil {
   max-width: 14rem;
   aspect-ratio: 1 / 1;
-  object-fit: contain;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--rule-soft);
+  background: var(--page);
   padding: var(--space-3);
+}
+
+/* The re-inked stroke: a flat --ink fill the sigil SVG masks to its lines, so
+   it reads as drawn in the page's ink at any hour (swap to var(--accent) for a
+   sky-tinted stroke instead). Mask images can't run script — as sandboxed as
+   the old <img>. */
+.lab-sigil {
+  width: 100%;
+  height: 100%;
+  background-color: var(--ink);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 /* Word Magnets poem — cream tiles re-laid faithfully from the saved board
@@ -1513,11 +1533,12 @@ a.reference-card-profile:focus-visible {
   max-width: 34rem;
 }
 
-.lab-card-record .lab-card-figure img {
+.lab-card-record .lab-card-figure img,
+.lab-card-record .lab-card-figure .lab-inkblot-canvas {
   max-width: 30rem;
 }
 
-.lab-card-record .lab-card-figure-sigil img {
+.lab-card-record .lab-card-figure-sigil {
   max-width: 22rem;
 }
 
