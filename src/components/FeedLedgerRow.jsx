@@ -6,6 +6,9 @@ import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { photoUrl } from '../lib/inaturalist.js';
+import { nsidFromAtUri } from '../lib/verbRegistry.js';
+import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
+import InkblotFigure from './cards/InkblotFigure.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID } from '../config.js';
@@ -47,6 +50,20 @@ const LEDGER_VERB_LABELS = {
   logging: 'dame.is',
 };
 
+/* A nameless Anisota Lab piece falls back to what it *is* rather than the
+   generic "a lab piece" — the ledger cousin of the card's kind label, and of
+   the observation rows' "an unidentified moth". */
+const CRAFT_KIND_FALLBACK = {
+  'net.anisota.lab.poetry': 'a poem',
+  'net.anisota.lab.redaction': 'an erasure poem',
+  'net.anisota.lab.sigil': 'a sigil',
+  'net.anisota.lab.carving': 'a carving',
+  'net.anisota.lab.inkblot': 'an inkblot',
+  'net.anisota.lab.petri': 'a culture',
+  'net.anisota.lab.synth': 'a synth',
+  'net.anisota.spell.custom': 'a spell',
+};
+
 export default function FeedLedgerRow({ item, href, expanded = false, onToggle = null }) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
@@ -66,6 +83,10 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
   // Blog entries render title + a muted summary line beneath (BlogLedgerBody)
   // rather than the single-line title summary.
   const isBlog = item.verb === 'blogging';
+  // Anisota Lab sigils + inkblots preview as a small themed thumbnail beside
+  // their title (the way observations show a specimen thumb); other crafting
+  // verbs — poems, erasures, spells — keep the plain title summary alone.
+  const craftThumb = item.verb === 'crafting' ? craftingThumb(item) : null;
   const summary =
     isRepost || isObservation || isBlog ? null : summarize(item, { expanded, onToggle });
   const embed = isRepost ? null : ledgerEmbed(item);
@@ -96,7 +117,14 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
         {isRepost && <RepostQuote item={item} />}
         {isObservation && <ObservationLedgerBody item={item} />}
         {isBlog && <BlogLedgerBody item={item} />}
-        {summary && <p className="ledger-text">{summary}</p>}
+        {craftThumb ? (
+          <div className="ledger-craft">
+            {craftThumb}
+            {summary && <p className="ledger-text">{summary}</p>}
+          </div>
+        ) : (
+          summary && <p className="ledger-text">{summary}</p>
+        )}
         {embed && (
           <div className="ledger-embed">
             <PostEmbed embed={embed.embed} did={embed.did} />
@@ -255,8 +283,12 @@ function summarize(item, listenControls) {
       return plain(payload.text || payload.body || payload.content, 'a comment');
     case 'crafting':
       // Anisota Lab piece — lead with its title, else a poem/erasure's text,
-      // else a spell's description; falls back to a generic placeholder.
-      return plain(payload.name || payload.text || payload.description, 'a lab piece');
+      // else a spell's description; falls back to the kind (a sigil, an
+      // inkblot, …) so a nameless piece still reads as what it is.
+      return plain(
+        payload.name || payload.text || payload.description,
+        CRAFT_KIND_FALLBACK[nsidFromAtUri(item.atUri)] || 'a lab piece',
+      );
     default:
       return <Placeholder>a record</Placeholder>;
   }
@@ -438,6 +470,46 @@ function ObservationLedgerBody({ item }) {
       </span>
     </div>
   );
+}
+
+/**
+ * A crafting row's preview thumbnail — a small themed figure set beside the
+ * title, mirroring how observations lead with a specimen thumb. Only the
+ * figure-shaped Lab pieces get one: a sigil (its stroke SVG re-inked via a CSS
+ * mask, exactly like the card) or an inkblot (duotoned into the palette by
+ * InkblotFigure). Every other crafting verb — poems, erasures, spells —
+ * returns null and keeps the plain title summary. Null too when the media
+ * itself is absent: the static snapshot ships Lab pieces without their
+ * svg/image, and the live feed fills them back in, just as the cards do.
+ */
+function craftingThumb(item) {
+  const nsid = nsidFromAtUri(item.atUri);
+  const payload = item.payload || {};
+  if (nsid === 'net.anisota.lab.sigil') {
+    const src = sigilSvgDataUrl(payload.svg);
+    if (!src) return null;
+    return (
+      <span className="ledger-craft-thumb" aria-hidden="true">
+        <span
+          className="lab-sigil"
+          style={{ WebkitMaskImage: `url("${src}")`, maskImage: `url("${src}")` }}
+        />
+      </span>
+    );
+  }
+  if (nsid === 'net.anisota.lab.inkblot' && isDataImage(payload.image)) {
+    return (
+      <span className="ledger-craft-thumb" aria-hidden="true">
+        <InkblotFigure image={payload.image} palette={payload.palette} label="" />
+      </span>
+    );
+  }
+  return null;
+}
+
+/** Only self-contained data-URL images are renderable (mirrors AnisotaLabCard). */
+function isDataImage(image) {
+  return typeof image === 'string' && image.startsWith('data:image/');
 }
 
 /**
