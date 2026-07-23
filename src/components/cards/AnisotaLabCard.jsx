@@ -26,6 +26,7 @@ import {
   sigilSvgDataUrl,
   anisotaWorkUrl,
 } from '../../lib/anisotaLab.js';
+import InkblotFigure from './InkblotFigure.jsx';
 
 /** Short, lowercase label for each Lab collection — shown in small caps. */
 const KIND_LABEL = {
@@ -98,17 +99,35 @@ function LabBody({ nsid, value: v }) {
     }
 
     case 'net.anisota.lab.sigil': {
+      // Re-ink the stroke in the page's ink via a CSS mask over a flat fill,
+      // rather than showing the color Anisota baked into the SVG. Pure CSS, so
+      // it tracks the sky palette with no repaint of our own.
       const src = sigilSvgDataUrl(v.svg);
       return src ? (
         <div className="lab-card-figure lab-card-figure-sigil">
-          <img src={src} alt={v.name ? `Sigil: ${v.name}` : 'A sigil'} loading="lazy" />
+          <div
+            className="lab-sigil"
+            role="img"
+            aria-label={v.name ? `Sigil: ${v.name}` : 'A sigil'}
+            style={{ WebkitMaskImage: `url("${src}")`, maskImage: `url("${src}")` }}
+          />
         </div>
       ) : null;
     }
 
-    case 'net.anisota.lab.carving':
     case 'net.anisota.lab.inkblot':
+      // Duotoned per pixel into the live palette (see InkblotFigure); the
+      // `palette` slot picks which theme ramp it's re-inked along.
+      return isDataImage(v.image) ? (
+        <div className="lab-card-figure lab-card-figure-inkblot">
+          <InkblotFigure image={v.image} palette={v.palette} label={altForImage(nsid, v.name)} />
+        </div>
+      ) : null;
+
+    case 'net.anisota.lab.carving':
     case 'net.anisota.lab.petri':
+      // Left with their baked color — these aren't single-ink figures, so the
+      // theme-derived recolor that suits sigils and inkblots doesn't apply.
       return isDataImage(v.image) ? (
         <div className="lab-card-figure">
           <img src={v.image} alt={altForImage(nsid, v.name)} loading="lazy" decoding="async" />
