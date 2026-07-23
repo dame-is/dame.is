@@ -1778,6 +1778,46 @@ a.ledger-verb:focus-visible {
   align-items: center;
 }
 
+/* Crafting rows (Anisota Lab sigils + inkblots) preview as a small themed
+   figure beside the title — the sigil re-inked through a mask, the inkblot
+   duotoned on a canvas — mirroring the observation thumbnail above. */
+.ledger-craft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ledger-craft .ledger-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ledger-craft-thumb {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 2px;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  background: var(--page);
+}
+
+/* The sigil mask and inkblot canvas each fill the thumb's content box. The
+   card's .lab-inkblot-canvas rules are scoped to .lab-card-figure, so the
+   ledger's canvas needs its own box sizing here. */
+.ledger-craft-thumb .lab-sigil,
+.ledger-craft-thumb .lab-inkblot-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Center the verb/time labels against the taller thumbnail row, like obs. */
+.feed-ledger .feed-item-ledger:has(.ledger-craft) {
+  align-items: center;
+}
+
 /* Listening sessions: tapping the row (or its "N songs +" toggle, the
    keyboard-accessible affordance) expands the batch into one sub-row
    per track. */
