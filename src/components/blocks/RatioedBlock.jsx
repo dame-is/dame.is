@@ -626,6 +626,16 @@ function Reaction({ pieces, stats }) {
 /* Ledger                                                              */
 /* ------------------------------------------------------------------ */
 
+// People leads each window: it's the figure the eye wants first — how many
+// were there — with the breakdown of what they did following it.
+const LEDGER_COLUMNS = [
+  ['participants', 'people'],
+  ['likes', '♥'],
+  ['reposts', 'RT'],
+  ['quotes', 'QT'],
+  ['threadPosts', 'thread'],
+];
+
 function Ledger({ pieces, deltas }) {
   return (
     <div className="ratioed-tablewrap">
@@ -634,26 +644,26 @@ function Ledger({ pieces, deltas }) {
           <tr>
             <th>Piece</th>
             <th>Alive for</th>
-            <th className="num" colSpan={5}>
+            {/* Group headers sit above their first column, so they read left to
+                right into the block they name. The rule marks where each block
+                starts. */}
+            <th className="ratioed-div" colSpan={5}>
               While alive
             </th>
-            <th className="num ratioed-div" colSpan={5}>
+            <th className="ratioed-div" colSpan={5}>
               After the seal
             </th>
           </tr>
           <tr className="ratioed-subhead">
             <th />
             <th />
-            {['♥', 'RT', 'QT', 'thread', 'people'].map((h) => (
-              <th className="num" key={`pre-${h}`}>
-                {h}
-              </th>
-            ))}
-            {['♥', 'RT', 'QT', 'thread', 'people'].map((h, i) => (
-              <th className={`num${i === 0 ? ' ratioed-div' : ''}`} key={`post-${h}`}>
-                {h}
-              </th>
-            ))}
+            {['pre', 'post'].map((window) =>
+              LEDGER_COLUMNS.map(([, label], i) => (
+                <th className={`num${i === 0 ? ' ratioed-div' : ''}`} key={`${window}-${label}`}>
+                  {label}
+                </th>
+              )),
+            )}
           </tr>
         </thead>
         <tbody>
@@ -666,12 +676,12 @@ function Ledger({ pieces, deltas }) {
                   <span className="ratioed-pill">{(p.postedAt || '').slice(0, 10)}</span>
                 </td>
                 <td>{fmtDuration(p.lifespanMs)}</td>
-                {['likes', 'reposts', 'quotes', 'threadPosts', 'participants'].map((k) => (
-                  <td className="num" key={`pre-${k}`}>
+                {LEDGER_COLUMNS.map(([k], i) => (
+                  <td className={`num${i === 0 ? ' ratioed-div' : ''}`} key={`pre-${k}`}>
                     {p.preSeal[k] || '·'}
                   </td>
                 ))}
-                {['likes', 'reposts', 'quotes', 'threadPosts', 'participants'].map((k, i) => (
+                {LEDGER_COLUMNS.map(([k], i) => (
                   <td className={`num${i === 0 ? ' ratioed-div' : ''}`} key={`post-${k}`}>
                     {p.postSeal[k] || '·'}
                     {d && d[k] > 0 && <span className="ratioed-since">+{d[k]}</span>}
