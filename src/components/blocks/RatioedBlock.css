@@ -357,12 +357,18 @@
   position: absolute;
   top: 0;
   bottom: 0;
+  left: 0;
   background: var(--ratioed-seal);
   opacity: 0.75;
 }
-.ratioed-react.inferred .ratioed-react-fill {
+/* The uncertainty band on an inferred bar: the like landed somewhere in here,
+   and which point is unknowable — the record was deleted. */
+.ratioed-react-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   background: repeating-linear-gradient(90deg, var(--ratioed-seal) 0 2px, transparent 2px 6px);
-  opacity: 0.6;
+  opacity: 0.65;
 }
 .ratioed-react-v { text-align: right; color: var(--ink-soft); }
 .ratioed-react.inferred .ratioed-react-v { color: var(--ink-faint); }

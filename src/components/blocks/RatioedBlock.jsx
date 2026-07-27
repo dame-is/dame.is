@@ -589,13 +589,20 @@ function Reaction({ pieces, stats }) {
               <span className="ratioed-react-who">@{(p.breaker?.handle || '').split('.')[0]}</span>
             </span>
             <span className="ratioed-react-bar">
+              {/* An inferred bar reads as "at least the floor, at most the
+                  ceiling": solid up to where the fastest measured reaction
+                  landed, then hatched across the window the like must have
+                  fallen in. A measured bar is solid to its own value. */}
               <span
                 className="ratioed-react-fill"
-                style={{
-                  left: inferred ? `${lo * 100}%` : 0,
-                  width: `${(inferred ? hi - lo : ms / MAX) * 100}%`,
-                }}
+                style={{ width: `${(inferred ? lo : ms / MAX) * 100}%` }}
               />
+              {inferred && (
+                <span
+                  className="ratioed-react-band"
+                  style={{ left: `${lo * 100}%`, width: `${(hi - lo) * 100}%` }}
+                />
+              )}
             </span>
             <span className="ratioed-react-v">
               {inferred ? `${REACTION_LO}–${REACTION_HI}s` : fmtSeconds(ms)}
@@ -606,8 +613,10 @@ function Reaction({ pieces, stats }) {
       <p className="ratioed-note">
         Mean of the {stats.measured} still on the network: {fmtSeconds(stats.meanReactionMs)}, range{' '}
         {fmtSeconds(stats.minReactionMs)}–{fmtSeconds(stats.maxReactionMs)}, with no relationship to
-        how long the piece had been up. The other {stats.deleted} were deleted by the people who cast
-        them; those bars are the inferred window.
+        how long the piece had been up. The other {stats.deleted} likes were deleted by the people
+        who cast them, so those reactions can't be measured at all: the solid part of those bars
+        runs to the fastest reaction ever recorded, and the hatched part is the window the like must
+        have fallen in.
       </p>
     </div>
   );
