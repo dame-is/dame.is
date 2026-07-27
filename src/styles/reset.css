@@ -83,6 +83,20 @@ a {
   outline-offset: 2px;
 }
 
+/* ...except the <main> landmark, which isn't a control. RouteTransition
+   moves focus here on every navigation so screen-reader users land on the
+   new route's content, and the engines treat that programmatic focus as
+   :focus-visible. Since `.layout` spans the full viewport width, the ring's
+   side edges fall outside the screen and its top hides behind the top
+   chrome — all that shows is the bottom edge, reading as a stray full-bleed
+   accent rule at the end of the page. It's normally tucked behind the fixed
+   bottom chrome, but surfaces whenever the page is dragged past its end
+   (mobile rubber-band scroll). Nothing here is operable, so no ring. */
+#main-content:focus,
+#main-content:focus-visible {
+  outline: none;
+}
+
 ul, ol {
   list-style: none;
   padding: 0;

@@ -35,8 +35,22 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   // the dialog's DOM subtree. Handing this ref to the Modal's focus trap keeps
   // the controls inside the lightbox's Tab cycle even from there.
   const controlsRef = useRef(null);
+  // The set of already-painted sources is mirrored in a ref so `markLoaded`
+  // can bail BEFORE enqueueing an update. That guard has to live outside the
+  // state updater: the `ref` callback below is an inline closure, so React
+  // detaches and re-attaches it on every render, and a cached image reports
+  // `complete` synchronously at attach time (WebKit does this reliably) — so
+  // an updater-only guard enqueues one update per render forever. Because each
+  // pass rebuilds the queue from the base state and returns a *fresh* Set, no
+  // two passes are `Object.is`-equal, React never bails out, and the cascade
+  // dies as "Maximum update depth exceeded" instead. Guarding here means a
+  // known-loaded src enqueues nothing at all.
+  const loadedRef = useRef(loadedSrcs);
   const markLoaded = useCallback((src) => {
-    setLoadedSrcs((prev) => (prev.has(src) ? prev : new Set(prev).add(src)));
+    if (!src || loadedRef.current.has(src)) return;
+    const next = new Set(loadedRef.current).add(src);
+    loadedRef.current = next;
+    setLoadedSrcs(next);
   }, []);
 
   // Sync external index changes (e.g. opening to a different starting
