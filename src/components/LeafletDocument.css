@@ -280,8 +280,9 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 
 /* Gallery — a run of adjacent image blocks laid out as one unit rather than a
    tall stack. `data-layout` is the author's choice from the blocks editor
-   (LeafletDocument's GALLERY_LAYOUTS); `auto` is the default and picks its
-   column count from `data-count`. */
+   (LeafletDocument's GALLERY_LAYOUTS). Column counts hold at every width: the
+   author picked a shape, and a breakpoint quietly rewriting it is what made the
+   old count-derived layout unpredictable. Two-up is the default. */
 .leaflet-gallery {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -293,11 +294,8 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   margin: 0;
 }
 
-/* Auto: counts that divide by three read better three-up. */
-.leaflet-gallery[data-layout="auto"][data-count="3"],
-.leaflet-gallery[data-layout="auto"][data-count="5"],
-.leaflet-gallery[data-layout="auto"][data-count="6"] {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.leaflet-gallery[data-layout="one-up"] {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .leaflet-gallery[data-layout="two-up"] {
@@ -331,17 +329,11 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 }
 
 @media (max-width: 34rem) {
-  /* Auto galleries fall to a single column on a phone; an explicit multi-column
-     choice clamps to two rather than collapsing, so the author's shape holds.
-     `[data-count]` is here to match the specificity of the count-based rule
-     above — without it that rule outweighs this one and nothing collapses. */
-  .leaflet-gallery[data-layout="auto"][data-count] {
-    grid-template-columns: 1fr;
-  }
-
-  .leaflet-gallery[data-layout="three-up"],
-  .leaflet-gallery[data-layout="four-up"] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Column counts are deliberately NOT collapsed here — see the note above.
+     Only the gap tightens, so three or four across stays legible on a phone
+     instead of losing most of each frame to gutters. */
+  .leaflet-gallery {
+    gap: var(--space-2);
   }
 
   .leaflet-gallery[data-layout="filmstrip"] .leaflet-image {

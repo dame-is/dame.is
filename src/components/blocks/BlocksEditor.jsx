@@ -7,6 +7,7 @@ import CodeBlockEditor from './CodeBlockEditor.jsx';
 import ListBlockEditor from './ListBlockEditor.jsx';
 import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
 import {
+  GALLERY_DEFAULT_LAYOUT,
   GALLERY_LAYOUTS,
   IMAGE_BLOCK_TYPE,
   LeafletBlock,
@@ -179,8 +180,8 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
         const block = next[k]?.block;
         if (block?.$type !== IMAGE_BLOCK_TYPE) continue;
         const updated = { ...block };
-        // `auto` is the absent-field default; don't write it out.
-        if (value === 'auto') delete updated.gallery;
+        // Two-up is what an absent field means; don't write it out.
+        if (value === GALLERY_DEFAULT_LAYOUT) delete updated.gallery;
         else updated.gallery = value;
         next[k] = { $type: WRAPPER_TYPE, block: updated };
       }

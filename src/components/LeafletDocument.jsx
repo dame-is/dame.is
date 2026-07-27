@@ -110,24 +110,32 @@ export const IMAGE_BLOCK_TYPE = 'pub.leaflet.blocks.image';
  * sit back to back, and `standalone` opts an image out of grouping entirely
  * (each renders full width, exactly as a lone image block does).
  *
- * `auto` (the default, and what an absent field means) keeps the original
- * behavior: the column count follows the number of images, chosen in CSS off
- * `data-count`.
+ * A column choice is honored at EVERY width — 3 across stays 3 across on a
+ * phone. Galleries used to guess their columns from the image count and had a
+ * narrow-screen collapse that (through a CSS specificity accident) never fired,
+ * so what published was hard to predict from the editor. An explicit count that
+ * doesn't change under you is the point of the control.
  */
+export const GALLERY_DEFAULT_LAYOUT = 'two-up';
+
 export const GALLERY_LAYOUTS = [
-  { value: 'auto', label: 'Auto grid', hint: 'Columns follow the image count' },
-  { value: 'two-up', label: '2 across', hint: 'Two columns at every width' },
-  { value: 'three-up', label: '3 across', hint: 'Three columns; two on narrow screens' },
-  { value: 'four-up', label: '4 across', hint: 'Four columns; two on narrow screens' },
+  { value: 'one-up', label: '1 across', hint: 'A single tight column' },
+  { value: 'two-up', label: '2 across', hint: 'Two columns at every width (default)' },
+  { value: 'three-up', label: '3 across', hint: 'Three columns at every width' },
+  { value: 'four-up', label: '4 across', hint: 'Four columns — small on a phone' },
   { value: 'filmstrip', label: 'Filmstrip', hint: 'One row that scrolls sideways' },
   { value: 'standalone', label: 'Separate images', hint: 'No grouping — full-width, stacked' },
 ];
 
 const GALLERY_LAYOUT_VALUES = new Set(GALLERY_LAYOUTS.map((l) => l.value));
 
-/** The effective layout of an image block; anything unrecognized reads as auto. */
+/**
+ * The effective layout of an image block. An absent field — every image block
+ * written before this control existed — reads as the default, so old documents
+ * publish as a plain two-up grid rather than something count-dependent.
+ */
 export function galleryLayoutOf(block) {
-  return GALLERY_LAYOUT_VALUES.has(block?.gallery) ? block.gallery : 'auto';
+  return GALLERY_LAYOUT_VALUES.has(block?.gallery) ? block.gallery : GALLERY_DEFAULT_LAYOUT;
 }
 
 /**
