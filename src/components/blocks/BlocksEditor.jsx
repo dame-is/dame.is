@@ -8,6 +8,7 @@ import ListBlockEditor from './ListBlockEditor.jsx';
 import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
 import RatioedBlockEditor from './RatioedBlockEditor.jsx';
 import { listBlockFrom } from './listBlocks.js';
+import { textBlockToBlocks } from '../../lib/pasteBlocks.js';
 import {
   GALLERY_DEFAULT_LAYOUT,
   GALLERY_LAYOUTS,
@@ -21,6 +22,7 @@ import './blocks.css';
 const WRAPPER_TYPE = 'pub.leaflet.pages.linearDocument#block';
 const PAGE_TYPE = 'pub.leaflet.pages.linearDocument';
 const CONTENT_TYPE = 'pub.leaflet.content';
+const MARKDOWN_KEY = 'dame.blocks.markdown';
 
 /**
  * Editor for a `pub.leaflet.content` body. Produces records compatible
@@ -43,6 +45,13 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
   const [dropIndex, setDropIndex] = useState(null); // insertion slot (0..length)
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  // Resolve markdown a text block was written in when the author leaves it.
+  // On by default — writing "- one" and moving on should leave a list behind —
+  // and remembered, because an author who turns it off means it.
+  const [autoMarkdown, setAutoMarkdown] = useState(() => {
+    if (typeof localStorage === 'undefined') return true;
+    return localStorage.getItem(MARKDOWN_KEY) !== '0';
+  });
   const rootRef = useRef(null);
   const activeItemRef = useRef(null);
   // Document-level undo/redo: stacks of whole-content snapshots. Consecutive
@@ -153,6 +162,46 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
       setActiveIndex(null);
     },
     [blocks, commit],
+  );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MARKDOWN_KEY, autoMarkdown ? '1' : '0');
+    } catch {
+      /* private mode / storage disabled — the preference just won't persist */
+    }
+  }, [autoMarkdown]);
+
+  /**
+   * Leave the block being edited, moving focus to `next` (or nowhere).
+   *
+   * This is where markdown written inside a text block becomes real blocks: the
+   * author can write a whole passage — headings, links, a list — in one place
+   * and have it resolve when they step away. It replaces the block as a single
+   * structural op, so one ⌘Z puts the markdown source back if the conversion
+   * read something the author meant literally.
+   *
+   * Only the deliberate exits route through here. Undo, redo, and dragging also
+   * collapse the editor, but converting under them would fight the operation —
+   * an undo would land on freshly converted blocks, and a drag would find its
+   * indices moved out from under it.
+   */
+  const leaveActive = useCallback(
+    (next = null) => {
+      const i = activeIndex;
+      const converted = i == null || !autoMarkdown ? null : textBlockToBlocks(blocks[i]?.block);
+      if (!converted) {
+        setActiveIndex(next);
+        return;
+      }
+      const wrapped = converted.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
+      const nextBlocks = blocks.slice();
+      nextBlocks.splice(i, 1, ...wrapped);
+      commit(nextBlocks, { kind: 'structural' });
+      // One block became several, so anything after it has shifted along.
+      setActiveIndex(next != null && next > i ? next + wrapped.length - 1 : next);
+    },
+    [activeIndex, autoMarkdown, blocks, commit],
   );
 
   const removeBlock = useCallback(
@@ -274,13 +323,13 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
     if (activeIndex == null && openInsertSlot == null) return undefined;
     function onDown(e) {
       if (rootRef.current && !rootRef.current.contains(e.target)) {
-        setActiveIndex(null);
+        leaveActive(null);
         setOpenInsertSlot(null);
       }
     }
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [activeIndex, openInsertSlot]);
+  }, [activeIndex, openInsertSlot, leaveActive]);
 
   // Editing a block and an open insert palette are mutually exclusive focuses:
   // opening one closes the other.
@@ -288,10 +337,13 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
     if (activeIndex != null) setOpenInsertSlot(null);
   }, [activeIndex]);
 
-  const openInsert = useCallback((index) => {
-    setActiveIndex(null);
-    setOpenInsertSlot(index);
-  }, []);
+  const openInsert = useCallback(
+    (index) => {
+      leaveActive(null);
+      setOpenInsertSlot(index);
+    },
+    [leaveActive],
+  );
 
   // Drop focus into the block that just became active — and again if its type
   // changes underfoot (e.g. converting text → heading swaps the editor).
@@ -354,6 +406,17 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
         >
           ↷ Redo
         </button>
+        <label
+          className="blocks-editor-md-toggle"
+          title="Write markdown inside a text block — headings, links, lists, code — and it turns into real blocks when you leave the block. Uncheck to keep what you type literal."
+        >
+          <input
+            type="checkbox"
+            checked={autoMarkdown}
+            onChange={(e) => setAutoMarkdown(e.target.checked)}
+          />
+          <span className="small-caps">Markdown</span>
+        </label>
       </div>
       <ol className="blocks-editor-list">
         {blocks.map((wrap, i) => {
@@ -467,7 +530,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
                       <button
                         type="button"
                         className="admin-link-subtle blocks-editor-done"
-                        onClick={() => setActiveIndex(null)}
+                        onClick={() => leaveActive(null)}
                         title="Done editing this block"
                       >
                         Done
@@ -494,13 +557,13 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
               ) : (
                 <div
                   className="blocks-editor-main blocks-editor-click"
-                  onClick={() => setActiveIndex(i)}
+                  onClick={() => leaveActive(i)}
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      setActiveIndex(i);
+                      leaveActive(i);
                     }
                   }}
                   aria-label={`Edit ${labelFor(block.$type)} block`}

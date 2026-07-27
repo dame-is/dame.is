@@ -14,6 +14,9 @@
 // image block (alt / caption preserved) for the author to fill in.
 
 import { markdownToContent } from './legacyBlogMarkdown.js';
+import { applyFeatureAlways, sliceRichText } from '../components/blocks/facetUtils.js';
+
+const TEXT_TYPE = 'pub.leaflet.blocks.text';
 
 // Block-level markdown markers that, on their own, are strong enough evidence
 // of "this is markdown" to convert even a single pasted line.
@@ -81,4 +84,142 @@ function resolvePastedImage(block) {
 
 function normalizeNewlines(input) {
   return typeof input === 'string' ? input.replace(/\r\n?/g, '\n') : '';
+}
+
+/* ------------------------------------------------------------------ */
+/* Markdown a text block was written in, resolved when the author       */
+/* leaves it                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Turn a text block the author wrote markdown into the blocks it describes —
+ * headings, lists, code, images, links — or `null` when there's nothing to do.
+ *
+ * The test for "nothing to do" is the conversion itself: run it, and if the
+ * result is still the same lone paragraph with the same text and the same
+ * facets, the block wasn't markdown. That's stricter than guessing from
+ * markers, and it makes the operation idempotent — leaving an already-converted
+ * block a second time is a no-op, which matters when this runs on every exit.
+ *
+ * Formatting the author applied with the toolbar rather than with markers has
+ * no marker to survive on, so it's carried across separately (see carryFacets).
+ */
+export function textBlockToBlocks(block) {
+  if (block?.$type !== TEXT_TYPE) return null;
+  const text = typeof block.plaintext === 'string' ? block.plaintext : '';
+  if (!text.trim()) return null;
+  const converted = markdownToBlocks(text);
+  // An all-whitespace parse yields nothing; keep the block the author has
+  // rather than deleting what they were writing.
+  if (converted.length === 0) return null;
+  carryFacets(text, block.facets || [], converted);
+  if (isSameParagraph(block, converted)) return null;
+  return withLayout(block, converted);
+}
+
+/**
+ * Re-apply the block's own facets to the converted output.
+ *
+ * Markdown conversion only knows the markers in the text, so a bold applied
+ * from the toolbar would vanish. Each converted piece of rich text is located
+ * back in the original by its own text — searching forward, so repeated words
+ * can't match out of order — and any facet covering that span comes with it. A
+ * piece whose markers were consumed (`**bold**` → `bold`) has no verbatim match
+ * and keeps only what the markdown gave it.
+ */
+function carryFacets(text, facets, blocks) {
+  if (!Array.isArray(facets) || facets.length === 0) return;
+  let cursor = 0;
+  for (const node of richTextNodes(blocks)) {
+    if (!node.text) continue;
+    const at = text.indexOf(node.text, cursor);
+    if (at === -1) continue;
+    cursor = at + node.text.length;
+    let next = node.facets;
+    for (const f of sliceRichText(text, facets, at, cursor).facets) {
+      for (const feature of f.features || []) {
+        next = applyFeatureAlways(next, f.index.byteStart, f.index.byteEnd, feature);
+      }
+    }
+    node.set(next);
+  }
+}
+
+/**
+ * Every facet-bearing piece of rich text in a block list, in reading order.
+ * Code blocks are skipped — their text is verbatim and carries no formatting.
+ */
+function* richTextNodes(blocks) {
+  for (const block of blocks) {
+    if (block?.$type === TEXT_TYPE || block?.$type === 'pub.leaflet.blocks.header') {
+      yield {
+        text: block.plaintext || '',
+        facets: block.facets || [],
+        set: (facets) => {
+          block.facets = facets;
+        },
+      };
+    } else if (Array.isArray(block?.children)) {
+      yield* listItemNodes(block.children);
+    }
+  }
+}
+
+function* listItemNodes(items) {
+  for (const item of items) {
+    const content = item?.content;
+    if (content) {
+      yield {
+        text: content.plaintext || '',
+        facets: content.facets || [],
+        set: (facets) => {
+          content.facets = facets;
+        },
+      };
+    }
+    if (Array.isArray(item?.children)) yield* listItemNodes(item.children);
+  }
+}
+
+/** Did the conversion leave the block exactly as it was? */
+function isSameParagraph(block, converted) {
+  if (converted.length !== 1) return false;
+  const only = converted[0];
+  if (only.$type !== TEXT_TYPE) return false;
+  if (only.plaintext !== block.plaintext) return false;
+  return facetKey(only.facets) === facetKey(block.facets);
+}
+
+// Compare facets by value, not by shape: the two sides are built by different
+// code paths, so field and feature order can differ while the meaning matches.
+function facetKey(facets) {
+  return JSON.stringify(
+    (Array.isArray(facets) ? facets : [])
+      .map((f) => [
+        f?.index?.byteStart ?? -1,
+        f?.index?.byteEnd ?? -1,
+        (f?.features || [])
+          .map((x) => `${x?.$type || ''}|${x?.uri || ''}`)
+          .sort(),
+      ])
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1]),
+  );
+}
+
+/**
+ * Carry the spacing the author set on the paragraph onto the blocks that
+ * replace it: space above lands on the first, space below on the last, so the
+ * gap they opened around the passage stays where they put it. Indent is a
+ * paragraph's own property and only follows a paragraph.
+ */
+function withLayout(block, converted) {
+  const out = converted.slice();
+  const first = { ...out[0] };
+  if (block.spaceTop != null) first.spaceTop = block.spaceTop;
+  if (block.indent != null && first.$type === TEXT_TYPE) first.indent = block.indent;
+  out[0] = first;
+  if (block.spaceBottom != null) {
+    out[out.length - 1] = { ...out[out.length - 1], spaceBottom: block.spaceBottom };
+  }
+  return out;
 }

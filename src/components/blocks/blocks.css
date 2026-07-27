@@ -8,9 +8,25 @@
 
 .blocks-editor-toolbar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.9rem;
   margin-bottom: -0.4rem;
+}
+
+/* Whether markdown written in a text block resolves when you leave it. */
+.blocks-editor-md-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.blocks-editor-md-toggle input {
+  margin: 0;
+  accent-color: var(--accent);
 }
 
 /* Per-block quick delete — appears on the far right on hover. */

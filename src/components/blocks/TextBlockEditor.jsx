@@ -9,6 +9,7 @@ import {
   facetRuns,
   runsToFacets,
   sliceRichText,
+  joinRichTextLines,
   FORMAT_TYPES,
   LINK_TYPE,
   KEY_FOR_TYPE,
@@ -262,14 +263,33 @@ export function RichTextField({
     });
   }, [emit]);
 
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      document.execCommand('insertText', false, '\n');
-      return;
-    }
-    if (NAV_KEYS.has(e.key)) pendingMarksRef.current = {};
-  }, []);
+  // Enter inserts a newline into the value rather than into the DOM.
+  // `execCommand('insertText', '\n')` looks like it would do this, but Chromium
+  // answers it with a `<div><br></div>` block break, which the parser reads as
+  // nothing at all — so every line the author typed came back joined to the one
+  // before it. Splicing the model directly is exact, and it keeps the facets on
+  // either side of the caret where they belong.
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const editor = editorRef.current;
+        const r = editor ? getSelectionRange(editor) : null;
+        const t = textRef.current;
+        const start = r ? r.start : t.length;
+        const end = r ? r.end : t.length;
+        const f = facetsRef.current;
+        const caret = start + 1;
+        emit(joinRichTextLines([sliceRichText(t, f, 0, start), sliceRichText(t, f, end, t.length)]), {
+          rewrite: true,
+          caret: { start: caret, end: caret },
+        });
+        return;
+      }
+      if (NAV_KEYS.has(e.key)) pendingMarksRef.current = {};
+    },
+    [emit],
+  );
 
   const handlePaste = useCallback(
     (e) => {
@@ -451,10 +471,17 @@ function escapeAttr(s) {
   return escapeHtml(s).replace(/"/g, '&quot;');
 }
 
+// A newline at the very end has nothing after it to render, so Chromium won't
+// let the caret sit on that last line — press Enter and the next thing you type
+// lands back on the line above. A sentinel <br> gives the empty line something
+// to be; parseEditor knows to read it as nothing.
+const TRAILING_BR = '<br data-trailing="1">';
+
 function valueToHtml(text, facets) {
   const runs = facetRuns(text, facets);
-  if (runs.length === 0) return '';
-  return runs.map((r) => spanHtml(r.text, r.features)).join('');
+  if (runs.length === 0) return text.endsWith('\n') ? TRAILING_BR : '';
+  const html = runs.map((r) => spanHtml(r.text, r.features)).join('');
+  return text.endsWith('\n') ? html + TRAILING_BR : html;
 }
 
 function spanHtml(runText, features) {
@@ -498,7 +525,8 @@ function parseEditor(editor) {
         if (child.data) runs.push({ text: child.data, features: inherited });
       } else if (child.nodeType === 1) {
         if (child.tagName === 'BR') {
-          runs.push({ text: '\n', features: inherited });
+          // Our own sentinel stands for a newline that's already in the text.
+          if (!child.dataset?.trailing) runs.push({ text: '\n', features: inherited });
           continue;
         }
         walk(child, featuresFromEl(child, inherited));
