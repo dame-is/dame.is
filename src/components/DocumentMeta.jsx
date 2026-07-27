@@ -2,8 +2,8 @@ import { relativeDay, formatDateFull } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 
 /**
- * The one-line publication stamp shared by the blog-post and creating-work
- * document pages:
+ * The one-line date stamp shared by the blog-post and creating-work document
+ * pages:
  *
  *   Published 7 months ago on April 7, 2026 (Day 12,221)
  *
@@ -12,17 +12,18 @@ import { dayOfLife } from '../lib/dayOfLife.js';
  * one sentence. Both pages render it identically, so it lives here to keep
  * them in sync rather than being duplicated per page.
  *
- * `date` is the document's publish date (a blog post's `publishedAt`, a work's
- * `createdAt`); the day number is that date's position in dame's day-of-life
- * count.
+ * `date` is the date the document carries: a post's `publishedAt`, a work's
+ * `createdAt`. `verb` names what happened then — a work is dated from when it
+ * was made, which is rarely when the page about it went up. The day number is
+ * that date's position in dame's day-of-life count.
  */
-export default function DocumentMeta({ date }) {
+export default function DocumentMeta({ date, verb = 'Published' }) {
   if (!date) return null;
   const day = dayOfLife(date);
   return (
     <div className="blog-article-meta document-meta">
       <span>
-        Published {relativeDay(date)} on {formatDateFull(date)}
+        {verb} {relativeDay(date)} on {formatDateFull(date)}
         {day ? ` (Day ${day.toLocaleString()})` : ''}
       </span>
     </div>

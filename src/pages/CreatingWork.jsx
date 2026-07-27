@@ -113,7 +113,7 @@ export default function CreatingWork() {
     >
       <article className="creating-work-page reveal">
         <InspectMargin atUri={record?.uri} cid={record?.cid} />
-        <DocumentMeta date={v?.createdAt} />
+        <DocumentMeta date={v?.createdAt} verb="Created" />
         {/* The summary is metadata — the feed-card / open-graph blurb, not page
             copy. For standard/leaflet docs it's auto-derived from the body's
             opening (feedBuilder's leafletSynopsis) when the record has no
