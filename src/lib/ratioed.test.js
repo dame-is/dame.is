@@ -3,6 +3,7 @@ import {
   SEED_PIECES,
   SEED_PEOPLE,
   splitParticipants,
+  livingRoster,
   hiddenReplies,
   WEEKDAYS,
   normalizePiece,
@@ -199,6 +200,83 @@ describe('SEED_PEOPLE', () => {
       expect(p.broke).toBeGreaterThanOrEqual(1);
       expect(p.broke).toBeLessThanOrEqual(11);
     }
+  });
+});
+
+describe('livingRoster', () => {
+  it('lists the measured living participants', () => {
+    const { rows, measured } = livingRoster(SEED_PIECES);
+    expect(measured).toBe(77);
+    for (const p of rows.slice(0, measured)) expect(p.pre.length).toBeGreaterThan(0);
+  });
+
+  it('recovers the breakers whose like was deleted from the announcement', () => {
+    // Their like is gone from every index; the reply concluding the piece is
+    // the only record that they were ever there, and leaving them out would
+    // drop the people the project is actually about.
+    const { rows, named, deleted } = livingRoster(SEED_PIECES);
+    expect(named).toBe(5);
+    expect(deleted).toBe(5);
+    const recovered = rows.filter((p) => p.named);
+    expect(recovered.map((p) => p.broke).sort((a, b) => a - b)).toEqual([2, 4, 5, 8, 10]);
+    for (const p of recovered) {
+      expect(p.ev).toBe(0);
+      expect(p.live).toBe(0);
+      expect(p.likeGone).toBe(true);
+    }
+  });
+
+  it('credits a named breaker whose like is still standing', () => {
+    // Piece 12 was measured after the roster was built, so its breaker is
+    // missing from it — but their like is real and countable, and calling it
+    // deleted would be a plain falsehood about a person.
+    const pieces = [
+      { take: 12, breaker: { handle: 'still.here', likeSurvives: true, reactionMs: 12659 } },
+    ];
+    const { rows, named, deleted } = livingRoster(pieces, []);
+    expect(named).toBe(1);
+    expect(deleted).toBe(0);
+    expect(rows[0]).toMatchObject({ h: 'still.here', ev: 1, live: 1, likeGone: false });
+    expect(rows[0].kinds).toEqual({ like: 1 });
+  });
+
+  it('never lists a breaker twice', () => {
+    const { rows } = livingRoster(SEED_PIECES);
+    expect(new Set(rows.map((p) => p.did)).size).toBe(rows.length);
+    // Every piece is accounted for by exactly one row.
+    const broke = rows.filter((p) => p.broke).map((p) => p.broke);
+    expect(new Set(broke).size).toBe(broke.length);
+  });
+
+  it('accounts for every piece that names a breaker', () => {
+    const { rows } = livingRoster(SEED_PIECES);
+    const named = new Set(rows.filter((p) => p.broke).map((p) => p.broke));
+    for (const piece of SEED_PIECES) {
+      if (piece.breaker.handle && piece.breaker.handle !== 'unknown') {
+        expect(named.has(piece.take)).toBe(true);
+      }
+    }
+  });
+
+  it('matches a breaker to a measured row by handle, not just DID', () => {
+    // The announcement records a handle; the roster is keyed by DID. Missing
+    // the match would list the same person twice.
+    const people = [
+      { did: 'did:plc:a', h: 'breaker.test', ev: 2, pre: [1], post: [], kinds: { reply: 2 } },
+    ];
+    const pieces = [{ take: 1, breaker: { handle: 'breaker.test', likeSurvives: true } }];
+    const { rows, named } = livingRoster(pieces, people);
+    expect(named).toBe(0);
+    expect(rows).toHaveLength(1);
+  });
+
+  it('ignores a piece whose breaker was never identified', () => {
+    const pieces = [{ take: 1, breaker: { handle: 'unknown' } }, { take: 2, breaker: {} }];
+    expect(livingRoster(pieces, []).named).toBe(0);
+  });
+
+  it('handles no pieces at all', () => {
+    expect(livingRoster(null, []).rows).toEqual([]);
   });
 });
 

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   SEED_PIECES,
-  SEED_PEOPLE,
   loadPieces,
+  livingRoster,
   aggregate,
   splitParticipants,
   hiddenReplies,
@@ -46,8 +46,8 @@ const DEFAULT_CAPTIONS = {
     'Engagement either side of the seal. Everything right of the second rule arrived at a post that was already finished — pieces keep accruing it indefinitely.',
   hidden: () =>
     'A threadgate hides replies at the appview; it does not stop the records being written. These landed in the seconds after their piece sealed, and no reader of the thread has ever seen them.',
-  participants: ({ people }) =>
-    `The ${people.living} accounts that left a record while a piece was still alive, of the ${people.total} that have ever touched one — the other ${people.afterOnly} only ever reached a piece that was already finished. Counted by DID, not handle: two deactivated accounts share one placeholder handle. Only ${people.breakersListed} of the breakers appear at all, because the rest cast a like, deleted it, and did nothing else while anything was alive.`,
+  participants: ({ people, roster }) =>
+    `Everyone who was there while a piece was still alive: ${roster.measured} measured from records that survive, plus ${roster.named} breakers named by the reply that concludes their piece. That reply matters — ${roster.deleted} of them deleted the like they cast, which leaves them in no index at all, so it is the only evidence they were ever there. The ${people.afterOnly} accounts that only ever reached a piece already finished aren't here. Counted by DID, not handle: two deactivated accounts share one placeholder handle.`,
   when: () =>
     'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip beside the grid is each hour’s own sky colour. Every mark names itself on hover.',
 };
@@ -128,8 +128,10 @@ export default function RatioedBlock({ block, style }) {
   const scale = useMemo(() => ratioedScaleVars(skyDisplayHour), [skyDisplayHour]);
 
   const people = useMemo(() => splitParticipants(), []);
+  const roster = useMemo(() => livingRoster(pieces), [pieces]);
   const fallback = DEFAULT_CAPTIONS[variant];
-  const caption = block?.caption?.trim() || (fallback ? fallback({ stats, people }) : '');
+  const caption =
+    block?.caption?.trim() || (fallback ? fallback({ stats, people, roster }) : '');
   const showCaption = block?.showCaption !== false && Boolean(caption);
 
   return (
@@ -145,7 +147,7 @@ export default function RatioedBlock({ block, style }) {
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
-      {variant === 'participants' && <Participants />}
+      {variant === 'participants' && <Participants pieces={pieces} />}
       {variant === 'when' && <When pieces={pieces} />}
       {showCaption && <figcaption className="ratioed-caption">{caption}</figcaption>}
     </figure>
@@ -456,32 +458,31 @@ const PEOPLE_COLUMNS = [
 // tail is one click away for anyone who wants to find themselves in it.
 const PEOPLE_PREVIEW = 20;
 
-function Participants() {
+function Participants({ pieces }) {
   const [sort, setSort] = useState('ev');
   const [dir, setDir] = useState(-1);
   const [expanded, setExpanded] = useState(false);
 
-  // Only people who were there while a piece was still alive. The measure is a
-  // surviving pre-seal record, which quietly excludes a breaker whose like was
-  // deleted — they were there, by definition, but nothing of it is left to
-  // count, and the same is already true of the breakers who did nothing else.
   const rows = useMemo(() => {
-    const list = SEED_PEOPLE.filter((p) => p.pre.length > 0).map((p) => ({
-      ...p,
-      live: p.pre.length,
-      after: p.post.length,
-    }));
+    const list = livingRoster(pieces).rows;
     const key = sort;
-    return list.sort((a, b) => {
+    return list.slice().sort((a, b) => {
       const A = a[key];
       const B = b[key];
       const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
       return cmp * dir || b.ev - a.ev;
     });
-  }, [sort, dir]);
+  }, [pieces, sort, dir]);
 
-  const hidden = Math.max(0, rows.length - PEOPLE_PREVIEW);
-  const shown = expanded || hidden === 0 ? rows : rows.slice(0, PEOPLE_PREVIEW);
+  // Every breaker stays in the preview whatever the sort says. Ranking is by
+  // events, and the ones whose like was deleted have none — they'd sit at the
+  // bottom of a list they're the whole subject of.
+  const shown = useMemo(() => {
+    if (expanded) return rows;
+    const top = new Set(rows.slice(0, PEOPLE_PREVIEW).map((p) => p.did));
+    return rows.filter((p) => top.has(p.did) || p.broke);
+  }, [rows, expanded]);
+  const hidden = rows.length - shown.length;
 
   const toggleSort = (key) => {
     if (sort === key) setDir(-dir);
@@ -522,7 +523,7 @@ function Participants() {
                   @{p.h}
                   {p.dn && <span className="ratioed-people-dn">{p.dn}</span>}
                 </td>
-                <td className="num">{p.ev}</td>
+                <td className="num">{p.ev || '·'}</td>
                 <td className="num">{p.live || '·'}</td>
                 <td className="num">{p.after || '·'}</td>
                 <td>{pieceList(p)}</td>
@@ -532,6 +533,16 @@ function Participants() {
                       {ABBR[k]}×{p.kinds[k]}{' '}
                     </span>
                   ))}
+                  {/* The one act that isn't in any of the counts, because the
+                      record of it was deleted. Named by the announcement. */}
+                  {p.likeGone && (
+                    <span
+                      className="ratioed-k-like ratioed-gone"
+                      title="The like that ended the piece. Deleted afterwards, so it appears in no index — the reply concluding the piece is the only record that it happened."
+                    >
+                      ♥ deleted
+                    </span>
+                  )}
                 </td>
                 <td>
                   {/* No "after the fact" here any more — everyone in this list
@@ -547,7 +558,7 @@ function Participants() {
           </tbody>
         </table>
       </div>
-      {hidden > 0 && (
+      {(hidden > 0 || expanded) && (
         <button
           type="button"
           className="ratioed-more"
@@ -556,7 +567,7 @@ function Participants() {
         >
           {/* Not "top 20" in the label — sort by handle and the first twenty
               are alphabetical, not the busiest. */}
-          {expanded ? `Show only ${PEOPLE_PREVIEW}` : `Show all ${rows.length} — ${hidden} more`}
+          {expanded ? `Show fewer` : `Show all ${rows.length} — ${hidden} more`}
         </button>
       )}
     </div>

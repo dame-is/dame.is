@@ -66,6 +66,69 @@ export function splitParticipants(people = SEED_PEOPLE) {
 }
 
 /**
+ * Everyone who was there while a piece was still alive.
+ *
+ * Two sources, because there are two ways to know. Most of the roster is
+ * measured: an account with a surviving record from before the seal. The
+ * breakers are the exception — the like that ended a piece is the one act the
+ * project turns on, and most of them were deleted, leaving nothing in any index
+ * to find. But the artist names the breaker in the reply that concludes each
+ * piece, so that reply is the record, and it's the only reason those people can
+ * be counted at all.
+ *
+ * A named breaker carries `named: true` and no measurable events. One who did
+ * leave records is already in the measured set and isn't added twice.
+ */
+export function livingRoster(pieces, people = SEED_PEOPLE) {
+  const measured = people
+    .filter((p) => p.pre.length > 0)
+    .map((p) => ({ ...p, live: p.pre.length, after: p.post.length }));
+
+  // Match on either identifier: the roster is keyed by DID, but a breaker is
+  // recorded by the handle the announcement used, and handles get renamed.
+  const seen = new Set();
+  for (const p of measured) {
+    if (p.did) seen.add(p.did);
+    if (p.h) seen.add(p.h);
+  }
+
+  const named = [];
+  for (const piece of pieces || []) {
+    const b = piece.breaker;
+    if (!b?.handle || b.handle === 'unknown') continue;
+    if (seen.has(b.did) || seen.has(b.handle) || seen.has(b.currentHandle)) continue;
+    seen.add(b.did || b.handle);
+    // A surviving like is a real, countable act — this breaker is missing from
+    // the roster for some other reason (a piece measured after the roster was
+    // built, say), so credit them with the like we know is there. A deleted one
+    // gets no counts at all: that's the point of it being deleted.
+    const likeGone = b.likeSurvives === false;
+    named.push({
+      // No DID when the announcement only gave a handle; the row still needs a
+      // stable key, and prefixing keeps it from colliding with a real one.
+      did: b.did || `handle:${b.handle}`,
+      h: b.currentHandle || b.handle,
+      dn: '',
+      ev: likeGone ? 0 : 1,
+      live: likeGone ? 0 : 1,
+      after: 0,
+      pre: [piece.take],
+      post: [],
+      kinds: likeGone ? {} : { like: 1 },
+      broke: piece.take,
+      named: true,
+      likeGone,
+    });
+  }
+  return {
+    rows: [...measured, ...named],
+    measured: measured.length,
+    named: named.length,
+    deleted: named.filter((p) => p.likeGone).length,
+  };
+}
+
+/**
  * Replies that landed after the seal — written to the network, indexed by
  * Constellation, and invisible in the app, because a threadgate hides replies
  * at the appview without stopping the records being made. Earliest first.
