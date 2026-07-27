@@ -14,7 +14,7 @@
 // measured while its backlink reader was broken. Those records were written
 // with every figure at zero, so there is no earlier measurement to protect.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw, Upload, Trash2, ExternalLink, ListPlus, Search } from 'lucide-react';
 import PageShell from './PageShell.jsx';
@@ -105,6 +105,35 @@ export default function RatioedPanel({ agent, did }) {
   }, [live]);
 
   const publishedCount = Object.keys(live).length;
+
+  /**
+   * Every piece the panel knows about, take 1 first.
+   *
+   * The bundle used to be the whole project, so this list was built from it
+   * alone and the PDS was consulted only for a "published" flag. That made a
+   * piece measured by this panel invisible in it — the record exists only on
+   * the PDS, so there was nothing in the bundle to hang a row on, and the list
+   * stayed at eleven no matter what the count above it said.
+   */
+  // `piece` is the display shape; `record` is what publishing writes. For a
+  // bundled piece that's the bundle; for one that only lives on the PDS it's
+  // its own record, kept raw — the display shape carries defaults (a null
+  // announceLagMs, an empty statedTally, an event log decoded to seconds) that
+  // were never in it and mustn't be written back.
+  const roster = useMemo(() => {
+    const byKey = new Map();
+    for (const piece of SEED_PIECES) {
+      const { rkey, ...record } = piece;
+      byKey.set(rkey, { rkey, piece, record });
+    }
+    for (const [rkey, record] of Object.entries(live)) {
+      if (byKey.has(rkey)) continue;
+      const piece = normalizePiece(rkey, record);
+      if (piece) byKey.set(rkey, { rkey, piece, record, pdsOnly: true });
+    }
+    return Array.from(byKey.values()).sort((a, b) => a.piece.take - b.piece.take);
+  }, [live]);
+
   // Pieces on the PDS with no recorded event log. The first eleven were
   // measured before the field existed and are drawn from the bundled log
   // instead, so they're not counted as missing.
@@ -112,12 +141,12 @@ export default function RatioedPanel({ agent, did }) {
     .filter(([rkey, v]) => !v?.events?.length && !SEEDED.has(rkey))
     .map(([rkey, v]) => ({ rkey, value: v }));
 
-  /** Write every seed piece with putRecord — deterministic rkeys, so re-running
+  /** Write every piece with putRecord — deterministic rkeys, so re-running
    *  updates in place instead of duplicating. */
   async function publishAll() {
     if (
       !window.confirm(
-        `Write ${SEED_PIECES.length} ${NSID} records to your PDS?\n\n` +
+        `Write ${roster.length} ${NSID} records to your PDS?\n\n` +
           'Record keys match each post, so this overwrites rather than duplicates. ' +
           'Publishing also makes each record a backlink on the post it measures.',
       )
@@ -128,8 +157,7 @@ export default function RatioedPanel({ agent, did }) {
     setError(null);
     try {
       let n = 0;
-      for (const piece of SEED_PIECES) {
-        const { rkey, ...value } = piece;
+      for (const { rkey, piece, record } of roster) {
         const fresh = measured?.[rkey];
         await agent.com.atproto.repo.putRecord({
           repo: did,
@@ -137,12 +165,12 @@ export default function RatioedPanel({ agent, did }) {
           rkey,
           record: {
             $type: NSID,
-            ...value,
+            ...record,
             ...(fresh ? { postSeal: fresh, measuredAt: new Date().toISOString() } : {}),
           },
         });
         n += 1;
-        setProgress(`${n}/${SEED_PIECES.length} — take ${piece.take}`);
+        setProgress(`${n}/${roster.length} — take ${piece.take}`);
       }
       setProgress('');
       await refresh();
@@ -160,10 +188,12 @@ export default function RatioedPanel({ agent, did }) {
     try {
       const out = {};
       let n = 0;
-      for (const piece of SEED_PIECES) {
+      // The roster, not the bundle: a piece that only exists on the PDS accrues
+      // an afterlife like any other, and used to be skipped here.
+      for (const { piece } of roster) {
         const flat = flattenSources(await getBacklinkSources(piece.subject));
         n += 1;
-        setProgress(`${n}/${SEED_PIECES.length} — take ${piece.take}`);
+        setProgress(`${n}/${roster.length} — take ${piece.take}`);
         if (!flat) continue;
         const now = { likes: 0, reposts: 0, quotes: 0, threadPosts: 0 };
         for (const row of flat) {
@@ -544,22 +574,25 @@ export default function RatioedPanel({ agent, did }) {
         <AdminRecordListSkeleton rows={6} label="Loading pieces" />
       ) : (
         <div className="ratioed-panel-list">
-          {SEED_PIECES.map((piece) => {
-            const onPds = live[piece.rkey];
-            const published = normalizePiece(piece.rkey, onPds);
-            const fresh = measured?.[piece.rkey];
+          {roster.map(({ rkey, piece, pdsOnly }) => {
+            const onPds = live[rkey];
+            const published = normalizePiece(rkey, onPds);
+            const fresh = measured?.[rkey];
             const b = piece.breaker || {};
             return (
-              <article className="ratioed-panel-row" key={piece.rkey}>
+              <article className="ratioed-panel-row" key={rkey}>
                 <header>
                   <span className="ratioed-panel-take">{String(piece.take).padStart(2, '0')}</span>
                   <span className={`ratioed-panel-state${onPds ? ' live' : ''}`}>
                     {onPds ? 'published' : 'not published'}
                   </span>
+                  {/* A piece measured in the app, with no counterpart in the
+                      bundle — so its record is the only copy there is. */}
+                  {pdsOnly && <span className="ratioed-panel-state">pds only</span>}
                   {onPds && (
                     <Link
                       className="ratioed-panel-edit"
-                      to={`/admin?c=${encodeURIComponent(NSID)}&r=${piece.rkey}`}
+                      to={`/admin?c=${encodeURIComponent(NSID)}&r=${rkey}`}
                     >
                       edit record
                     </Link>
@@ -604,7 +637,7 @@ export default function RatioedPanel({ agent, did }) {
                 </dl>
                 <p className="ratioed-panel-uri">
                   <a
-                    href={`https://bsky.app/profile/${ME_DID}/post/${piece.rkey}`}
+                    href={`https://bsky.app/profile/${ME_DID}/post/${rkey}`}
                     target="_blank"
                     rel="noreferrer noopener"
                   >
