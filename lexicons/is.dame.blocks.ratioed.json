@@ -1,0 +1,27 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.blocks.ratioed",
+  "defs": {
+    "main": {
+      "type": "object",
+      "description": "A Ratioed data visualisation, placed inside a pub.leaflet.content page alongside the standard pub.leaflet.blocks.* types. Renderers that don't know this type skip it, so any block of this type should be followed by a plain text block carrying the same figures in prose.",
+      "required": ["variant"],
+      "properties": {
+        "variant": {
+          "type": "string",
+          "knownValues": ["lifelines", "reaction", "ledger"],
+          "description": "lifelines — every backlink plotted against time, with the threadgate as a hard rule and a log-scaled afterlife. reaction — how long the artist took to close each piece by hand. ledger — engagement before and after the seal, per piece."
+        },
+        "alt": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Plain-language description of what the chart shows, for screen readers."
+        },
+        "showLive": {
+          "type": "boolean",
+          "description": "Query Constellation on render and show how much engagement each piece has accrued since it was measured. The recorded figures stay authoritative; this only adds a delta."
+        }
+      }
+    }
+  }
+}

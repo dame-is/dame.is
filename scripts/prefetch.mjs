@@ -427,6 +427,17 @@ async function main() {
   );
   await writeJson('hero', heroPhrases);
 
+  // --- Ratioed (is.dame.creating.ratioed.piece) -----------------------------
+  // Per-piece measurements embedded in the Ratioed essay. The charts ship with
+  // a bundled seed and fall back to it, so an empty snapshot is harmless — this
+  // only saves the round-trip on first paint.
+  const ratioedPieces = await safe(
+    'listRecords:ratioedPiece',
+    () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.ratioedPiece, max: 100 }),
+    [],
+  );
+  await writeJson('ratioed', ratioedPieces);
+
   // --- Resume (is.dame.resume + backlinked jobs + education) ----------------
   // One combined snapshot so /resume paints instantly; the page re-fetches
   // all three collections live and resolves the backlinks in the browser.

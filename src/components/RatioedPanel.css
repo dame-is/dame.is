@@ -1,0 +1,106 @@
+.ratioed-panel-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  padding: 1rem 0 1.25rem;
+  border-block: 1px solid var(--rule);
+  margin-bottom: 1.25rem;
+}
+.ratioed-panel-figure {
+  display: block;
+  font-family: var(--font-crimson, serif);
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--ink);
+}
+.ratioed-panel-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-top: 0.4rem;
+}
+
+.ratioed-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.ratioed-panel-actions .admin-gate-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ratioed-panel-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ratioed-panel-row {
+  border: 1px solid var(--rule-soft);
+  border-radius: 3px;
+  padding: 0.75rem 0.9rem;
+  background: var(--page-edge);
+}
+.ratioed-panel-row > header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.ratioed-panel-take {
+  font-family: var(--font-crimson, serif);
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--ink);
+}
+.ratioed-panel-state {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  padding: 0.05rem 0.35rem;
+}
+.ratioed-panel-state.live { color: var(--accent); }
+.ratioed-panel-edit {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  margin-left: auto;
+}
+
+.ratioed-panel-kv {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 0.15rem 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  margin: 0;
+}
+.ratioed-panel-kv dt {
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 0.58rem;
+  padding-top: 0.15rem;
+}
+.ratioed-panel-kv dd { margin: 0; color: var(--ink-soft); }
+.ratioed-panel-deleted { color: var(--tan); }
+.ratioed-panel-fresh { color: var(--accent); }
+
+.ratioed-panel-uri {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  margin: 0.5rem 0 0;
+}
+
+@media (max-width: 34rem) {
+  .ratioed-panel-kv { grid-template-columns: 1fr; gap: 0 0; }
+  .ratioed-panel-kv dd { margin-bottom: 0.35rem; }
+}

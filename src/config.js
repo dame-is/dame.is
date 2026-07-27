@@ -105,6 +105,18 @@ const RESUME_NSID = 'is.dame.resume';
 const RESUME_JOB_NSID = 'is.dame.resume.job';
 const RESUME_EDUCATION_NSID = 'is.dame.resume.education';
 const ARENA_CHANNEL_NSID = 'is.dame.arena.channel';
+const RATIOED_PIECE_NSID = 'is.dame.creating.ratioed.piece';
+
+// --- Ratioed -----------------------------------------------------------------
+// Per-piece measurements for the Ratioed art project. Each record carries a
+// `subject` pointing at the Bluesky post that IS the piece, so Constellation
+// indexes them and the catalogue entries show up as backlinks on the artwork
+// itself — same pattern as the guestbook (see lib/guestbook.js).
+export const RATIOED_SOURCE = `${RATIOED_PIECE_NSID}:subject`;
+
+// The document these charts belong to. Used by the admin panel to link straight
+// to the essay the blocks are embedded in.
+export const RATIOED_DOC_RKEY = '3mrlnl6oyuj2d';
 
 // --- are.na ------------------------------------------------------------------
 // The /curating galleries render live from are.na (ARENA_CHANNEL_NSID records
@@ -132,6 +144,7 @@ export const COLLECTIONS = {
   resumeJob: RESUME_JOB_NSID,
   resumeEducation: RESUME_EDUCATION_NSID,
   arenaChannel: ARENA_CHANNEL_NSID,
+  ratioedPiece: RATIOED_PIECE_NSID,
   state: STATE_NSID,
   nav: NAV_NSID,
   sky: SKY_NSID,

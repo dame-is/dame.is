@@ -6,6 +6,7 @@ import WebsiteBlockEditor from './WebsiteBlockEditor.jsx';
 import CodeBlockEditor from './CodeBlockEditor.jsx';
 import ListBlockEditor from './ListBlockEditor.jsx';
 import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
+import RatioedBlockEditor from './RatioedBlockEditor.jsx';
 import { LeafletBlock } from '../LeafletDocument.jsx';
 import './blocks.css';
 
@@ -491,6 +492,8 @@ function BlockBody({ block, agent, did, onChange, onSetCover, onPasteBlocks }) {
       return <ListBlockEditor block={block} onChange={onChange} />;
     case 'pub.leaflet.blocks.bskyPost':
       return <BskyPostBlockEditor block={block} onChange={onChange} />;
+    case 'is.dame.blocks.ratioed':
+      return <RatioedBlockEditor block={block} onChange={onChange} />;
     default:
       return (
         <pre className="blocks-editor-unknown">
@@ -699,6 +702,14 @@ function BlockPalette({ agent, onInsert, onInsertMany }) {
           Bsky post
         </AddButton>
         <AddButton
+          onClick={() =>
+            onInsert({ $type: 'is.dame.blocks.ratioed', variant: 'lifelines', alt: '' })
+          }
+          title="Site-local chart. Other renderers of this document will skip it — follow it with a text block carrying the same figures."
+        >
+          Ratioed chart
+        </AddButton>
+        <AddButton
           onClick={() => onInsert({ $type: 'pub.leaflet.blocks.text', plaintext: '', facets: [] })}
           title="Inserts an empty text block — renders as a paragraph spacer."
         >
@@ -782,6 +793,7 @@ function labelFor(type) {
     case 'pub.leaflet.blocks.unorderedList': return 'list';
     case 'pub.leaflet.blocks.orderedList': return 'list (ordered)';
     case 'pub.leaflet.blocks.bskyPost': return 'bsky post';
+    case 'is.dame.blocks.ratioed': return 'ratioed chart';
     default: return type || 'block';
   }
 }

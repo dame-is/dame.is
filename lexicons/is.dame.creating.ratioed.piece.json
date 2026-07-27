@@ -1,0 +1,114 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.creating.ratioed.piece",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "One piece of the Ratioed art project: a Bluesky post that was sealed with a threadgate the moment it received a like. The record is a dated measurement, not a live view — six of the eleven breaking likes were deleted by the people who cast them and cannot be recovered from any index. The record key mirrors the subject post's record key, the same convention app.bsky.feed.threadgate uses.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["take", "subject", "postedAt", "sealedAt", "lifespanMs", "measuredAt"],
+        "properties": {
+          "take": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Which take this is, counting from the first piece."
+          },
+          "subject": {
+            "type": "string",
+            "format": "at-uri",
+            "description": "The Bluesky post that is the piece. Indexed by Constellation, so publishing this record makes the catalogue entry a backlink to the artwork it catalogues."
+          },
+          "postedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the post was written, decoded from its record key TID (the PDS write time) rather than the record's own createdAt, which is client-set."
+          },
+          "sealedAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "createdAt of the app.bsky.feed.threadgate record that closed replies. This is the moment the piece ended — always earlier than the reply announcing it."
+          },
+          "lifespanMs": {
+            "type": "integer",
+            "description": "How long the piece was alive: sealedAt minus postedAt, in milliseconds. Lexicon v1 has no float type, so the sub-second precision that the reaction-time finding depends on is carried in milliseconds throughout."
+          },
+          "announceLagMs": {
+            "type": "integer",
+            "description": "Milliseconds between the threadgate and the 'thank you for your participation' reply."
+          },
+          "breaker": { "type": "ref", "ref": "#breaker" },
+          "preSeal": {
+            "type": "ref",
+            "ref": "#engagement",
+            "description": "Engagement while the piece was alive, excluding the artist's own records."
+          },
+          "postSeal": {
+            "type": "ref",
+            "ref": "#engagement",
+            "description": "Engagement after the seal. Pieces keep accruing these indefinitely."
+          },
+          "statedTally": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "The artist's own count, posted at announcement time. Drifts from the measured figures because it was read from the app up to three minutes after the seal."
+          },
+          "measuredAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When these figures were taken. Post-seal counts are only true as of this moment."
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Where the backlinks were counted, e.g. constellation.microcosm.blue."
+          }
+        }
+      }
+    },
+    "breaker": {
+      "type": "object",
+      "description": "The account whose like ended the piece.",
+      "required": ["handle", "likeSurvives"],
+      "properties": {
+        "handle": {
+          "type": "string",
+          "maxLength": 253,
+          "description": "The handle as the artist recorded it at the time."
+        },
+        "currentHandle": {
+          "type": "string",
+          "maxLength": 253,
+          "description": "Present when the account has since been renamed."
+        },
+        "did": { "type": "string", "format": "did" },
+        "likeSurvives": {
+          "type": "boolean",
+          "description": "False when the like was deleted afterwards. The like is then unrecoverable and reactionMs is absent — the only evidence it existed is the threadgate firing with no visible cause."
+        },
+        "reactionMs": {
+          "type": "integer",
+          "description": "Milliseconds between the breaking like and the threadgate: how long the artist took to notice and close the piece by hand. Absent when the like was deleted."
+        }
+      }
+    },
+    "engagement": {
+      "type": "object",
+      "description": "Backlink counts for one window, by link source.",
+      "properties": {
+        "likes": { "type": "integer" },
+        "reposts": { "type": "integer" },
+        "quotes": { "type": "integer" },
+        "threadPosts": {
+          "type": "integer",
+          "description": "Every descendant in the thread, counted through .reply.root.uri, including nested subthreads the appview hides."
+        },
+        "participants": {
+          "type": "integer",
+          "description": "Distinct accounts, counted by DID."
+        }
+      }
+    }
+  }
+}

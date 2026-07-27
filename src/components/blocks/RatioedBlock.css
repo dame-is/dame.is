@@ -1,0 +1,429 @@
+/* Ratioed charts.
+   Everything derives from the site palette (theme.css) so the charts sit in
+   the page rather than on it. Two hues are scoped here because the earthy
+   tokens don't carry them: an iron-oxide red for the like — the thing that
+   ends every piece, and the only alarming colour on the page — and an ochre
+   for quotes, which would otherwise collide with the moss/sage greens. */
+
+.ratioed {
+  --ratioed-seal: #8c3a2e;   /* oxidised red — the like, the threadgate, death */
+  --ratioed-quote: #7a6a2f;  /* dark ochre — distinct from moss and sage */
+  --ratioed-reply: var(--accent);
+  --ratioed-repost: var(--tan);
+  --ratioed-lab: 156px;
+  --ratioed-gut: 124px;
+  margin: 2rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme='dark'] .ratioed {
+  --ratioed-seal: #d4715f;
+  --ratioed-quote: #c3b46a;
+}
+
+.ratioed-k-reply { color: var(--ratioed-reply); }
+.ratioed-k-repost { color: var(--ratioed-repost); }
+.ratioed-k-quote { color: var(--ratioed-quote); }
+.ratioed-k-like { color: var(--ratioed-seal); }
+
+.ratioed-alt {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  line-height: 1.5;
+  margin-top: 0.75rem;
+}
+
+/* --- controls ----------------------------------------------------- */
+
+.ratioed-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+  align-items: center;
+  padding-bottom: 0.75rem;
+}
+
+.ratioed-seg {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ratioed-seg button {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.6rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.ratioed-seg button[aria-pressed='true'] {
+  background: var(--ink);
+  color: var(--page);
+}
+
+.ratioed-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+
+.ratioed-chip {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ratioed-chip .ratioed-sw {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.3;
+}
+.ratioed-chip[aria-pressed='true'] { border-color: currentColor; }
+.ratioed-chip[aria-pressed='true'] .ratioed-sw { opacity: 1; }
+/* Kind colours are declared above `.ratioed-chip`, so they'd lose the cascade
+   at equal specificity. Re-assert them on the pressed chip. */
+.ratioed-chip.ratioed-k-reply[aria-pressed='true'] { color: var(--ratioed-reply); }
+.ratioed-chip.ratioed-k-repost[aria-pressed='true'] { color: var(--ratioed-repost); }
+.ratioed-chip.ratioed-k-quote[aria-pressed='true'] { color: var(--ratioed-quote); }
+.ratioed-chip.ratioed-k-like[aria-pressed='true'] { color: var(--ratioed-seal); }
+
+.ratioed-search {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  background: var(--page-edge);
+  color: var(--ink);
+  width: 11rem;
+}
+
+/* --- axis --------------------------------------------------------- */
+
+.ratioed-axis {
+  display: grid;
+  grid-template-columns: var(--ratioed-lab) 1fr var(--ratioed-gut);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--rule);
+}
+.ratioed-a2,
+.ratioed-a3 { position: relative; height: 2rem; }
+.ratioed-a3 { border-left: 1px solid var(--rule); }
+.ratioed-hd {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+}
+.ratioed-a3 .ratioed-hd { left: 0.4rem; }
+.ratioed-tick {
+  position: absolute;
+  top: 1.05rem;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.ratioed-tick.first { transform: none; }
+.ratioed-tick.last { transform: translateX(-100%); }
+.ratioed-a3 .ratioed-tick { color: var(--ratioed-seal); opacity: 0.8; }
+
+/* --- rows --------------------------------------------------------- */
+
+.ratioed-row { border-bottom: 1px solid var(--rule-soft); }
+
+.ratioed-rowmain {
+  display: grid;
+  grid-template-columns: var(--ratioed-lab) 1fr var(--ratioed-gut);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  align-items: stretch;
+}
+.ratioed-rowmain:hover,
+.ratioed-row.open .ratioed-rowmain { background: var(--highlight); }
+
+.ratioed-lab {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.6rem 0.7rem 0.6rem 0;
+}
+.ratioed-take {
+  font-family: var(--font-crimson, serif);
+  font-size: 1.6rem;
+  line-height: 1;
+  min-width: 2rem;
+  color: var(--ink);
+}
+.ratioed-labmeta {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+.ratioed-life { display: block; font-size: 0.72rem; color: var(--ink); }
+.ratioed-date { display: block; color: var(--ink-faint); white-space: nowrap; }
+
+.ratioed-track,
+.ratioed-gut { position: relative; padding: 0.6rem 0; }
+.ratioed-gut { border-left: 1px solid var(--rule); }
+
+.ratioed-bar {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 2px;
+  background: var(--rule);
+  left: 0;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* The seal itself: a hard stop at the end of the living bar. */
+.ratioed-track .ratioed-bar::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -7px;
+  bottom: -7px;
+  width: 2px;
+  background: var(--ratioed-seal);
+}
+.ratioed-bar-aft {
+  height: 1px;
+  background: repeating-linear-gradient(90deg, var(--rule) 0 3px, transparent 3px 7px);
+}
+.ratioed-bar-aft::after { content: none; }
+
+.ratioed-dot {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: currentColor;
+  transition: opacity 0.15s;
+}
+.ratioed-dot.ratioed-k-like {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.ratioed-dot.self {
+  background: transparent;
+  border: 1.5px solid var(--ink-faint);
+  width: 7px;
+  height: 7px;
+}
+.ratioed-dot.dim { opacity: 0.12; }
+
+.ratioed-ghost {
+  position: absolute;
+  top: 50%;
+  height: 14px;
+  transform: translateY(-50%);
+  border: 1px dashed var(--ratioed-seal);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ratioed-seal) 15%, transparent);
+}
+
+/* --- detail ------------------------------------------------------- */
+
+.ratioed-detail {
+  padding: 0.5rem 0 1.4rem;
+  border-top: 1px dashed var(--rule);
+}
+.ratioed-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  padding-top: 1rem;
+}
+.ratioed-card { border-top: 2px solid var(--rule); padding-top: 0.6rem; }
+.ratioed-card-kill { border-top-color: var(--ratioed-seal); }
+.ratioed-card h4 {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 0 0 0.6rem;
+  font-weight: 400;
+}
+.ratioed-h4-gap { margin-top: 1rem !important; }
+.ratioed-breaker {
+  font-family: var(--font-crimson, serif);
+  font-size: 1.1rem;
+  margin: 0 0 0.6rem;
+}
+.ratioed-pill {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--ink-faint);
+  margin-left: 0.4rem;
+}
+.ratioed-kv {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.9rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  margin: 0;
+}
+.ratioed-kv dt { color: var(--ink-faint); }
+.ratioed-kv dd { margin: 0; color: var(--ink-soft); }
+.ratioed-kv dd.hot { color: var(--ratioed-seal); }
+.ratioed-mix {
+  display: flex;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  margin: 0;
+}
+.ratioed-mix b { font-weight: 600; }
+.ratioed-delta {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--ratioed-seal);
+  margin: 0.6rem 0 0;
+}
+.ratioed-stated {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+  margin: 0;
+}
+
+/* --- reaction ----------------------------------------------------- */
+
+.ratioed-react {
+  display: grid;
+  grid-template-columns: 10rem 1fr 4.5rem;
+  gap: 0 0.9rem;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ratioed-react-n { color: var(--ink-soft); }
+.ratioed-react-who { color: var(--ink-faint); }
+.ratioed-react-bar {
+  position: relative;
+  height: 1rem;
+  background: var(--page-edge);
+  border-radius: 1px;
+}
+.ratioed-react-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--ratioed-seal);
+  opacity: 0.75;
+  border-radius: 1px;
+}
+.ratioed-react.inferred .ratioed-react-fill {
+  background: repeating-linear-gradient(90deg, var(--ratioed-seal) 0 2px, transparent 2px 6px);
+  opacity: 0.6;
+}
+.ratioed-react-v { text-align: right; color: var(--ink-soft); }
+.ratioed-react.inferred .ratioed-react-v { color: var(--ink-faint); }
+.ratioed-note {
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  margin-top: 1rem;
+  max-width: 62ch;
+}
+
+/* --- ledger ------------------------------------------------------- */
+
+.ratioed-tablewrap { overflow-x: auto; }
+.ratioed-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  min-width: 44rem;
+}
+.ratioed-table th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--ink-faint);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.7rem 0.45rem 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.ratioed-table td {
+  padding: 0.35rem 0.7rem 0.35rem 0;
+  border-bottom: 1px solid var(--rule-soft);
+  color: var(--ink-soft);
+}
+.ratioed-table .num { text-align: right; padding-right: 1.1rem; }
+.ratioed-table tr:hover td { background: var(--highlight); }
+.ratioed-since { color: var(--ratioed-seal); margin-left: 0.25rem; font-size: 0.9em; }
+
+/* --- legend ------------------------------------------------------- */
+
+.ratioed-legend {
+  display: flex;
+  gap: 1.1rem;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--ink-muted);
+  padding-top: 0.8rem;
+  margin: 0;
+}
+.ratioed-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ratioed-key {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+}
+.ratioed-key.ratioed-k-like { border-radius: 2px; transform: rotate(45deg); }
+.ratioed-key-ghost {
+  width: 13px;
+  height: 10px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ratioed-seal) 15%, transparent);
+  border: 1px dashed var(--ratioed-seal);
+}
+
+/* --- narrow ------------------------------------------------------- */
+
+@media (max-width: 46rem) {
+  .ratioed { --ratioed-lab: 112px; --ratioed-gut: 84px; }
+  /* The per-row lifespan label carries the scale here, so the tick rail goes. */
+  .ratioed-tick { display: none; }
+  .ratioed-a2, .ratioed-a3 { height: 1.1rem; }
+  .ratioed-take { font-size: 1.3rem; min-width: 1.7rem; }
+  .ratioed-detail-grid { grid-template-columns: 1fr; gap: 1.2rem; }
+  .ratioed-react { grid-template-columns: 7.5rem 1fr 3.8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ratioed-bar { transition: none; }
+}

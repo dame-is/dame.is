@@ -3,6 +3,7 @@ import { renderLeafletText } from '../lib/leafletRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
 import PostEmbed from './PostEmbed.jsx';
 import Lightbox from './Lightbox.jsx';
+import RatioedBlock from './blocks/RatioedBlock.jsx';
 import { Link } from 'react-router-dom';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { ME_DID } from '../config.js';
@@ -184,6 +185,11 @@ export function LeafletBlock({ block }) {
           style={style}
         />
       );
+    // Site-local block type. Other renderers of pub.leaflet.content fall through
+    // to `null` here, which is why a ratioed block should always be followed by
+    // a text block carrying the same figures in prose.
+    case 'is.dame.blocks.ratioed':
+      return <RatioedBlock block={block} style={style} />;
     default:
       return null;
   }

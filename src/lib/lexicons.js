@@ -331,6 +331,42 @@ export const LEXICONS = {
     ],
   },
 
+  [COLLECTIONS.ratioedPiece]: {
+    label: 'Ratioed pieces',
+    summary:
+      'One measurement per piece of the Ratioed art project. The record key is the subject post’s record key, mirroring how a threadgate keys off its post. Use the Ratioed panel to publish or re-measure the whole set at once.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: '3lrqlgyvftk27',
+    typeFieldValue: COLLECTIONS.ratioedPiece,
+    fields: [
+      { key: 'take', label: 'Take', type: 'number', required: true },
+      {
+        key: 'subject', label: 'Subject post', type: 'text', required: true,
+        placeholder: 'at://did:plc:…/app.bsky.feed.post/3lrqlgyvftk27',
+        hint: 'The post that IS the piece. Constellation indexes this, so the record becomes a backlink on the artwork.',
+      },
+      {
+        key: 'postedAt', label: 'Posted at', type: 'datetime', required: true,
+        hint: 'Decoded from the post’s record key TID, not its client-set createdAt.',
+      },
+      {
+        key: 'sealedAt', label: 'Sealed at', type: 'datetime', required: true,
+        hint: 'createdAt of the threadgate that closed replies — the real moment the piece ended.',
+      },
+      { key: 'lifespanMs', label: 'Lifespan (ms)', type: 'number', required: true },
+      { key: 'announceLagMs', label: 'Announcement lag (ms)', type: 'number' },
+      {
+        key: 'breaker', label: 'Breaker', type: 'json',
+        hint: '{ handle, currentHandle?, did?, likeSurvives, reactionMs? }. reactionMs is absent when the like was deleted.',
+      },
+      { key: 'preSeal', label: 'While alive', type: 'json', hint: '{ likes, reposts, quotes, threadPosts, participants }' },
+      { key: 'postSeal', label: 'After the seal', type: 'json', hint: 'Same shape. Only true as of measuredAt.' },
+      { key: 'statedTally', label: 'Stated tally', type: 'text', hint: 'What you counted in the announcement reply.' },
+      { key: 'measuredAt', label: 'Measured at', type: 'datetime', default: 'now', required: true },
+      { key: 'source', label: 'Source', type: 'text', default: 'constellation.microcosm.blue' },
+    ],
+  },
+
   'app.bsky.feed.post': {
     label: 'Posting',
     summary: 'Plain text posts. Embeds are out of scope for the templated editor — use raw JSON.',
