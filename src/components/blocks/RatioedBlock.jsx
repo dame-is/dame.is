@@ -16,6 +16,8 @@ import {
 } from '../../lib/ratioed.js';
 import { resolvePds } from '../../lib/atproto.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
+import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
+import { useTheme } from '../../hooks/useTheme.jsx';
 import { ME_DID } from '../../config.js';
 import './RatioedBlock.css';
 
@@ -27,6 +29,28 @@ const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
 // it, so the ghost markers are drawn across exactly this band.
 const REACTION_LO = 10;
 const REACTION_HI = 17;
+
+/**
+ * What each chart says about itself when the block carries no caption of its
+ * own. Functions rather than strings so a default can quote the data it is
+ * describing; an authored caption replaces the whole thing.
+ */
+const DEFAULT_CAPTIONS = {
+  summary: ({ people }) =>
+    `${people.living} of those ${people.total} showed up while a piece was still alive. The rest only ever touched one that was already finished.`,
+  lifelines: () =>
+    'Every record pointing at a piece, plotted against the seconds it arrived after the piece went up. The rule is the threadgate; everything right of it happened to a post that was already finished.',
+  reaction: ({ stats }) =>
+    `Mean of the ${stats.measured} still on the network: ${fmtSeconds(stats.meanReactionMs)}, range ${fmtSeconds(stats.minReactionMs)}–${fmtSeconds(stats.maxReactionMs)}, with no relationship to how long the piece had been up. The other ${stats.deleted} likes were deleted by the people who cast them, so those reactions can't be measured at all: the solid part of those bars runs to the fastest reaction ever recorded, and the hatched part is the window the like must have fallen in.`,
+  ledger: () =>
+    'Engagement either side of the seal. Everything right of the second rule arrived at a post that was already finished — pieces keep accruing it indefinitely.',
+  hidden: () =>
+    'A threadgate hides replies at the appview; it does not stop the records being written. These landed in the seconds after their piece sealed, and no reader of the thread has ever seen them.',
+  participants: () =>
+    'Counted by DID, not handle — two deactivated accounts share one placeholder handle. Four of the eleven breakers are missing entirely: their only act was a like they later deleted, so they left nothing to count.',
+  when: () =>
+    'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip along the top is the hour’s own sky colour. Hover a mark to name it.',
+};
 
 /**
  * Ratioed data visualisation. Six variants share one data load:
@@ -87,18 +111,32 @@ export default function RatioedBlock({ block, style }) {
 
   const stats = useMemo(() => aggregate(pieces), [pieces]);
 
+  // The categorical scale is derived from whatever hour the sky is showing, so
+  // it re-derives whenever the hour ticks over or is previewed in the studio.
+  const { skyDisplayHour } = useTheme();
+  const scale = useMemo(() => ratioedScaleVars(skyDisplayHour), [skyDisplayHour]);
+
+  const people = useMemo(() => splitParticipants(), []);
+  const fallback = DEFAULT_CAPTIONS[variant];
+  const caption = block?.caption?.trim() || (fallback ? fallback({ stats, people }) : '');
+  const showCaption = block?.showCaption !== false && Boolean(caption);
+
   return (
-    <figure className={`ratioed ratioed-${variant}`} style={style || undefined}>
+    <figure
+      className={`ratioed ratioed-${variant}`}
+      style={{ ...scale, ...(style || {}) }}
+      aria-label={block?.alt || undefined}
+    >
       {variant === 'summary' && <Summary stats={stats} />}
       {variant === 'lifelines' && (
         <Lifelines pieces={pieces} events={events} stats={stats} deltas={deltas} />
       )}
-      {variant === 'reaction' && <Reaction pieces={pieces} stats={stats} />}
+      {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={events} />}
       {variant === 'participants' && <Participants />}
       {variant === 'when' && <When pieces={pieces} />}
-      {block?.alt && <figcaption className="ratioed-alt">{block.alt}</figcaption>}
+      {showCaption && <figcaption className="ratioed-caption">{caption}</figcaption>}
     </figure>
   );
 }
@@ -223,13 +261,6 @@ function When({ pieces }) {
         </span>
       </div>
 
-      <p className="ratioed-note">
-        Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of
-        this site runs on. The solid core is how long a piece stayed alive; the ring around it is how
-        much it drew while it was. Both are scaled by area, so a mark twice the size means twice the
-        quantity, not four times. The strip along the top is the hour&rsquo;s own sky colour. Hover a
-        mark to name it.
-      </p>
     </div>
   );
 }
@@ -251,7 +282,7 @@ function SampleMark({ core, halo }) {
 /* ------------------------------------------------------------------ */
 
 function Summary({ stats }) {
-  const { total, living } = splitParticipants();
+  const { total } = splitParticipants();
   const tiles = [
     [String(stats.count), null, 'pieces'],
     [String(Math.round(stats.aliveMs / 60000)), 'min', 'total time alive'],
@@ -273,10 +304,6 @@ function Summary({ stats }) {
           </div>
         ))}
       </div>
-      <p className="ratioed-note">
-        {living} of those {total} showed up while a piece was still alive. The rest only ever
-        touched one that was already finished.
-      </p>
     </div>
   );
 }
@@ -433,11 +460,6 @@ function Participants() {
           </tbody>
         </table>
       </div>
-      <p className="ratioed-note">
-        Counted by DID, not handle — two deactivated accounts share one placeholder handle.
-        Four of the eleven breakers are missing entirely: their only act was a like they later
-        deleted, so they left nothing to count.
-      </p>
     </div>
   );
 }
@@ -718,7 +740,7 @@ function Mix({ m }) {
 /* Reaction                                                             */
 /* ------------------------------------------------------------------ */
 
-function Reaction({ pieces, stats }) {
+function Reaction({ pieces }) {
   const MAX = 20000;
   // Chronological, not fastest-first: the point of this chart is that the
   // reaction time holds steady across thirteen months and wildly different
@@ -759,14 +781,6 @@ function Reaction({ pieces, stats }) {
           </div>
         );
       })}
-      <p className="ratioed-note">
-        Mean of the {stats.measured} still on the network: {fmtSeconds(stats.meanReactionMs)}, range{' '}
-        {fmtSeconds(stats.minReactionMs)}–{fmtSeconds(stats.maxReactionMs)}, with no relationship to
-        how long the piece had been up. The other {stats.deleted} likes were deleted by the people
-        who cast them, so those reactions can't be measured at all: the solid part of those bars
-        runs to the fastest reaction ever recorded, and the hatched part is the window the like must
-        have fallen in.
-      </p>
     </div>
   );
 }

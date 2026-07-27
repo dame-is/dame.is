@@ -4,12 +4,11 @@
    categorical hues do not; see the note on .ratioed below. */
 
 .ratioed {
-  /* Four earth pigments — terre verte, slate, yellow ochre, red oxide — so the
-     scale belongs to this palette without being tied to it. An earlier version
-     took reply from --accent and repost from --tan; under the sky theme those
-     both resolve to that hour's sky colour (teal by default), which collapsed
-     two of the four series into one. A categorical scale can't move with the
-     chrome, so all four are literal here and only shift for legibility. */
+  /* Fallback only. The live values are derived per sky hour and written onto
+     this element as inline custom properties — see lib/ratioedPalette.js, which
+     builds an analogous trio around the hour's own hue plus its complement for
+     the like, solving lightness against that hour's page. These four are what
+     shows if that never runs. */
   --ratioed-reply: #5e7a47;  /* terre verte */
   --ratioed-repost: #4a6a86; /* slate */
   --ratioed-quote: #8a6f24;  /* yellow ochre */
@@ -20,33 +19,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-[data-theme='dark'] .ratioed {
-  --ratioed-reply: #9cb37f;
-  --ratioed-repost: #8fb0c9;
-  --ratioed-quote: #d0b45f;
-  --ratioed-seal: #d4715f;
-}
-
-/* The sky ground swings from bright noon to near-black midnight within one
-   theme, so these sit mid-tone to stay legible at either end of the day. */
-[data-theme='sky'] .ratioed {
-  --ratioed-reply: #6f8f52;
-  --ratioed-repost: #5a7d9c;
-  --ratioed-quote: #a8892f;
-  --ratioed-seal: #b0503f;
-}
 
 .ratioed-k-reply { color: var(--ratioed-reply); }
 .ratioed-k-repost { color: var(--ratioed-repost); }
 .ratioed-k-quote { color: var(--ratioed-quote); }
 .ratioed-k-like { color: var(--ratioed-seal); }
 
-.ratioed-alt {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  color: var(--ink-faint);
-  line-height: 1.5;
-  margin-top: 0.75rem;
+/* The chart's accompanying prose. Authored per block, or the chart's own
+   default when the block doesn't carry one. */
+.ratioed-caption {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  line-height: 1.6;
+  max-width: 62ch;
+  margin-top: var(--space-4);
 }
 
 /* --- controls ----------------------------------------------------- */

@@ -25,11 +25,20 @@
         "alt": {
           "type": "string",
           "maxLength": 1000,
-          "description": "Plain-language description of what the chart shows, for screen readers."
+          "description": "Plain-language description of what the chart shows, for screen readers. Not rendered on the page — the caption is the visible prose."
         },
         "showLive": {
           "type": "boolean",
           "description": "Query Constellation on render and show how much engagement each piece has accrued since it was measured. Only the lifelines and ledger variants read this. The recorded figures stay authoritative; this only adds a delta."
+        },
+        "caption": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Prose shown under the chart. Absent means the chart's own built-in description is used, which quotes the live figures and so stays correct as the data changes; anything set here is fixed text."
+        },
+        "showCaption": {
+          "type": "boolean",
+          "description": "Whether to render the caption at all. Absent counts as true."
         }
       }
     }
