@@ -134,11 +134,13 @@ export default function RatioedPanel({ agent, did }) {
     return Array.from(byKey.values()).sort((a, b) => a.piece.take - b.piece.take);
   }, [live]);
 
-  // Pieces on the PDS with no recorded event log. The first eleven were
-  // measured before the field existed and are drawn from the bundled log
-  // instead, so they're not counted as missing.
+  // Pieces whose recorded event log is missing, or predates the DID being
+  // recorded alongside each handle — without it the build can't fold those
+  // people into the roster, since the roster is keyed by DID. The first eleven
+  // are drawn from the bundled log and aren't counted as missing.
   const missingLogs = Object.entries(live)
-    .filter(([rkey, v]) => !v?.events?.length && !SEEDED.has(rkey))
+    .filter(([rkey, v]) => !SEEDED.has(rkey))
+    .filter(([, v]) => !v?.events?.length || !v.events.some((e) => e.did))
     .map(([rkey, v]) => ({ rkey, value: v }));
 
   /** Write every piece with putRecord — deterministic rkeys, so re-running

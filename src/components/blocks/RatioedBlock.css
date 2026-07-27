@@ -600,7 +600,12 @@
   color: var(--ink-faint);
   white-space: nowrap;
 }
-.ratioed-tag.live { color: var(--ratioed-reply); }
+/* Each role wears the colour of the act it names, so the Role column and the
+   Mix beside it agree with the charts without needing a key. */
+.ratioed-tag.live,
+.ratioed-tag.reply { color: var(--ratioed-reply); }
+.ratioed-tag.repost { color: var(--ratioed-repost); }
+.ratioed-tag.quote { color: var(--ratioed-quote); }
 .ratioed-tag.broke { color: var(--ratioed-seal); }
 
 /* --- legend ------------------------------------------------------- */

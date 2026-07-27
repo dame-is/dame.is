@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   SEED_PIECES,
+  SEED_PEOPLE,
   loadPieces,
   livingRoster,
+  loadPeople,
+  roleOf,
   aggregate,
   splitParticipants,
   hiddenReplies,
@@ -22,6 +25,10 @@ import { ME_DID } from '../../config.js';
 import './RatioedBlock.css';
 
 const KINDS = ['reply', 'repost', 'quote', 'like'];
+// Variants that need the per-record event log — a separate ~27kB chunk, so the
+// ones that only read counts never pay for it. Participants is here because a
+// person's role turns on WHEN they acted, which only the log knows.
+const EVENT_VARIANTS = new Set(['lifelines', 'hidden', 'participants']);
 const KIND_LABEL = { reply: 'reply', repost: 'repost', quote: 'quote', like: 'like' };
 const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
 
@@ -47,7 +54,7 @@ const DEFAULT_CAPTIONS = {
   hidden: () =>
     'A threadgate hides replies at the appview; it does not stop the records being written. These landed in the seconds after their piece sealed, and no reader of the thread has ever seen them.',
   participants: ({ people, roster }) =>
-    `Everyone who was there while a piece was still alive: ${roster.measured} measured from records that survive, plus ${roster.named} breakers named by the reply that concludes their piece. That reply matters — ${roster.deleted} of them deleted the like they cast, which leaves them in no index at all, so it is the only evidence they were ever there. The ${people.afterOnly} accounts that only ever reached a piece already finished aren't here. Counted by DID, not handle: two deactivated accounts share one placeholder handle.`,
+    `The ${roster.rows.length} accounts that were there while a piece was still alive, all ${roster.breakers} breakers among them. ${roster.deleted} of those breakers deleted the like they cast, which leaves it in no index at all — the reply concluding their piece is the only record it happened, and it's marked as such rather than counted. Each role names the most consequential thing someone did while the piece was still alive, so it can differ from the mix beside it, which counts everything they ever did, whenever they did it. The ${people.afterOnly} accounts that only ever reached a finished piece aren't here. Counted by DID, not handle: two deactivated accounts share one placeholder handle.`,
   when: () =>
     'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip beside the grid is each hour’s own sky colour. Every mark names itself on hover.',
 };
@@ -70,8 +77,21 @@ const DEFAULT_CAPTIONS = {
 export default function RatioedBlock({ block, style }) {
   const variant = block?.variant || 'lifelines';
   const [pieces, setPieces] = useState(SEED_PIECES);
+  const [people, setPeople] = useState(SEED_PEOPLE);
   const [events, setEvents] = useState(null);
   const [deltas, setDeltas] = useState(null);
+
+  // The roster the build regenerated, which knows about pieces added since the
+  // bundle was harvested. Falls back to the bundle it was built from.
+  useEffect(() => {
+    let alive = true;
+    loadPeople().then((fresh) => {
+      if (alive && fresh?.length) setPeople(fresh);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -86,7 +106,7 @@ export default function RatioedBlock({ block, style }) {
   }, []);
 
   useEffect(() => {
-    if (variant !== 'lifelines' && variant !== 'hidden') return undefined;
+    if (!EVENT_VARIANTS.has(variant)) return undefined;
     let alive = true;
     import('../../data/ratioedEvents.json')
       .then((m) => {
@@ -127,11 +147,11 @@ export default function RatioedBlock({ block, style }) {
   const { skyDisplayHour } = useTheme();
   const scale = useMemo(() => ratioedScaleVars(skyDisplayHour), [skyDisplayHour]);
 
-  const people = useMemo(() => splitParticipants(), []);
-  const roster = useMemo(() => livingRoster(pieces), [pieces]);
+  const split = useMemo(() => splitParticipants(people), [people]);
+  const roster = useMemo(() => livingRoster(pieces, people, eventLog), [pieces, people, eventLog]);
   const fallback = DEFAULT_CAPTIONS[variant];
   const caption =
-    block?.caption?.trim() || (fallback ? fallback({ stats, people, roster }) : '');
+    block?.caption?.trim() || (fallback ? fallback({ stats, people: split, roster }) : '');
   const showCaption = block?.showCaption !== false && Boolean(caption);
 
   return (
@@ -140,14 +160,14 @@ export default function RatioedBlock({ block, style }) {
       style={{ ...scale, ...(style || {}) }}
       aria-label={block?.alt || undefined}
     >
-      {variant === 'summary' && <Summary stats={stats} />}
+      {variant === 'summary' && <Summary stats={stats} people={split} />}
       {variant === 'lifelines' && (
         <Lifelines pieces={pieces} events={eventLog} stats={stats} deltas={deltas} />
       )}
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
-      {variant === 'participants' && <Participants pieces={pieces} />}
+      {variant === 'participants' && <Participants rows={roster.rows} />}
       {variant === 'when' && <When pieces={pieces} />}
       {showCaption && <figcaption className="ratioed-caption">{caption}</figcaption>}
     </figure>
@@ -379,8 +399,10 @@ function SampleMark({ core, halo }) {
 /* Summary                                                              */
 /* ------------------------------------------------------------------ */
 
-function Summary({ stats }) {
-  const { total } = splitParticipants();
+function Summary({ stats, people }) {
+  // The roster the block loaded, not the bundled one — otherwise the headline
+  // count ignores everybody who turned up for a piece added since the bundle.
+  const { total } = people;
   const tiles = [
     [String(stats.count), null, 'pieces'],
     [String(Math.round(stats.aliveMs / 60000)), 'min', 'total time alive'],
@@ -458,21 +480,20 @@ const PEOPLE_COLUMNS = [
 // tail is one click away for anyone who wants to find themselves in it.
 const PEOPLE_PREVIEW = 20;
 
-function Participants({ pieces }) {
+function Participants({ rows: roster }) {
   const [sort, setSort] = useState('ev');
   const [dir, setDir] = useState(-1);
   const [expanded, setExpanded] = useState(false);
 
   const rows = useMemo(() => {
-    const list = livingRoster(pieces).rows;
     const key = sort;
-    return list.slice().sort((a, b) => {
+    return roster.slice().sort((a, b) => {
       const A = a[key];
       const B = b[key];
       const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
       return cmp * dir || b.ev - a.ev;
     });
-  }, [pieces, sort, dir]);
+  }, [roster, sort, dir]);
 
   // Every breaker stays in the preview whatever the sort says. Ranking is by
   // events, and the ones whose like was deleted have none — they'd sit at the
@@ -544,15 +565,12 @@ function Participants({ pieces }) {
                     </span>
                   )}
                 </td>
-                <td>
-                  {/* No "after the fact" here any more — everyone in this list
-                      was present while a piece was alive. */}
-                  {p.broke ? (
-                    <span className="ratioed-tag broke">broke #{String(p.broke).padStart(2, '0')}</span>
-                  ) : (
-                    <span className="ratioed-tag live">participant</span>
-                  )}
-                </td>
+<td>{(() => {
+                  // No "after the fact" here any more — everyone in this list
+                  // was present while a piece was alive; the tag says how.
+                  const role = roleOf(p);
+                  return <span className={`ratioed-tag ${role.key}`}>{role.label}</span>;
+                })()}</td>
               </tr>
             ))}
           </tbody>

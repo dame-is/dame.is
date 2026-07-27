@@ -4,6 +4,7 @@ import {
   SEED_PEOPLE,
   splitParticipants,
   livingRoster,
+  roleOf,
   hiddenReplies,
   WEEKDAYS,
   normalizePiece,
@@ -216,7 +217,12 @@ describe('livingRoster', () => {
     // drop the people the project is actually about.
     const { rows, named, deleted } = livingRoster(SEED_PIECES);
     expect(named).toBe(5);
-    expect(deleted).toBe(5);
+    // Six pieces lost their breaking like. Five of those breakers left nothing
+    // else and have to be named; the sixth, j4ck, replied to another piece
+    // while it was alive, so they were already in the roster — their deleted
+    // like is marked on the row they already had.
+    expect(deleted).toBe(6);
+    expect(rows.find((p) => p.h === 'j4ck.xyz')).toMatchObject({ broke: 7, likeGone: true });
     const recovered = rows.filter((p) => p.named);
     expect(recovered.map((p) => p.broke).sort((a, b) => a - b)).toEqual([2, 4, 5, 8, 10]);
     for (const p of recovered) {
@@ -238,6 +244,20 @@ describe('livingRoster', () => {
     expect(deleted).toBe(0);
     expect(rows[0]).toMatchObject({ h: 'still.here', ev: 1, live: 1, likeGone: false });
     expect(rows[0].kinds).toEqual({ like: 1 });
+  });
+
+  it('marks a breaker whose like was deleted, wherever their row came from', () => {
+    // The mark belongs to the piece, not to how the person got into the list.
+    const pieces = [{ take: 1, breaker: { handle: 'a.test', likeSurvives: false } }];
+    const people = [{ did: 'did:plc:a', h: 'a.test', ev: 1, pre: [2], post: [], kinds: { reply: 1 }, broke: 1 }];
+    const { rows } = livingRoster(pieces, people);
+    expect(rows[0]).toMatchObject({ likeGone: true, broke: 1 });
+  });
+
+  it('counts every breaker it lists', () => {
+    const { rows, breakers } = livingRoster(SEED_PIECES);
+    expect(breakers).toBe(rows.filter((p) => p.broke).length);
+    expect(breakers).toBe(11); // one per piece in the seed
   });
 
   it('never lists a breaker twice', () => {
@@ -277,6 +297,83 @@ describe('livingRoster', () => {
 
   it('handles no pieces at all', () => {
     expect(livingRoster(null, []).rows).toEqual([]);
+  });
+});
+
+describe('roleOf', () => {
+  const person = (kinds, extra = {}) => ({ kinds, ...extra });
+
+  it('names the act that carried the piece furthest, not the commonest one', () => {
+    // Nine replies and one repost reads as "reposted": the repost is what took
+    // the piece off the thread. The Mix column still shows all ten.
+    expect(roleOf(person({ reply: 9, repost: 1 })).label).toBe('reposted');
+    expect(roleOf(person({ reply: 3, repost: 2, quote: 1 })).label).toBe('quoted');
+    expect(roleOf(person({ reply: 4 })).label).toBe('replied');
+  });
+
+  it('lets breaking a piece outrank everything', () => {
+    const r = roleOf(person({ reply: 2, quote: 1 }, { broke: 6 }));
+    expect(r.label).toBe('broke #06');
+    expect(r.key).toBe('broke');
+  });
+
+  it('prefers what someone did while the piece was alive', () => {
+    // Replied to a living piece, quoted a finished one. Calling them a quoter
+    // would credit them with spreading something already over.
+    const p = person({ reply: 1, quote: 1 }, { liveKinds: { reply: 1 } });
+    expect(roleOf(p).label).toBe('replied');
+  });
+
+  it('falls back to the all-window counts when the log says nothing', () => {
+    expect(roleOf(person({ repost: 1 }, { liveKinds: null })).label).toBe('reposted');
+  });
+
+  it('still names someone whose acts do not fit any of the four', () => {
+    expect(roleOf(person({})).label).toBe('was there');
+  });
+
+  it('carries a key the palette can colour by', () => {
+    expect(roleOf(person({ quote: 1 })).key).toBe('quote');
+    expect(roleOf(person({ repost: 1 })).key).toBe('repost');
+    expect(roleOf(person({ reply: 1 })).key).toBe('reply');
+  });
+});
+
+describe('livingRoster living kinds', () => {
+  const people = [
+    { did: 'did:plc:a', h: 'a.test', ev: 2, pre: [1], post: [2], kinds: { reply: 1, repost: 1 } },
+    { did: 'did:plc:x', h: '(unresolvable)', ev: 1, pre: [1], post: [], kinds: { repost: 1 } },
+    { did: 'did:plc:y', h: '(unresolvable)', ev: 1, pre: [1], post: [], kinds: { reply: 1 } },
+  ];
+  const events = {
+    r1: [
+      { k: 'reply', h: 'a.test', off: 5, pre: 1 },
+      { k: 'repost', h: '(unresolvable)', off: 6, pre: 1 },
+      { k: 'reply', h: 'dame.is', off: 7, pre: 1, self: 1 },
+    ],
+    r2: [{ k: 'repost', h: 'a.test', off: 200, pre: 0 }],
+  };
+  const pieces = [{ take: 1, rkey: 'r1', breaker: { handle: 'a.test' } }];
+
+  it('counts only what landed while a piece was alive', () => {
+    const { rows } = livingRoster(pieces, people, events);
+    const a = rows.find((p) => p.h === 'a.test');
+    // The repost was on a finished piece, so it isn't in the living count.
+    expect(a.liveKinds).toEqual({ reply: 1 });
+  });
+
+  it('leaves the shared placeholder handle uncredited rather than guessing', () => {
+    // Two deactivated accounts answer to one handle; an event naming it could
+    // belong to either, and crediting both would invent an action.
+    const { rows } = livingRoster(pieces, people, events);
+    for (const p of rows.filter((r) => r.h === '(unresolvable)')) {
+      expect(p.liveKinds).toBeNull();
+    }
+  });
+
+  it('works with no event log at all', () => {
+    const { rows } = livingRoster(pieces, people, null);
+    for (const p of rows) expect(p.liveKinds).toBeNull();
   });
 });
 

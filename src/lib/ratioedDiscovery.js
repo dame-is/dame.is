@@ -161,6 +161,7 @@ export function buildEventLog(records, { postedAtMs, sealedAtMs, selfDid, handle
     out.push({
       k: r.kind,
       h: handles[r.did] || '(unresolvable)',
+      ...(r.did ? { did: r.did } : {}),
       offMs: at - postedAtMs,
       pre: at < sealedAtMs ? 1 : 0,
       ...(r.did === selfDid ? { self: 1 } : {}),

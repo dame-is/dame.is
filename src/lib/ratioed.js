@@ -46,6 +46,19 @@ export const SEED_PIECES = SEED.map((entry) => ({
 export const SEED_PEOPLE = PEOPLE;
 
 /**
+ * The roster, preferring the one the build regenerated.
+ *
+ * `scripts/prefetch.mjs` folds the people from newly measured pieces into the
+ * bundled roster and writes the result as a snapshot, so a piece added since
+ * this bundle was harvested still has its participants listed. Falls back to
+ * the bundle, which is what the snapshot is built from anyway.
+ */
+export async function loadPeople() {
+  const snap = await fetchSnapshot('ratioedPeople');
+  return Array.isArray(snap) && snap.length ? snap : SEED_PEOPLE;
+}
+
+/**
  * How the roster divides between people who showed up while a piece was alive
  * and people who only ever touched a finished one. Counts, not lists — every
  * caller so far wants the numbers.
@@ -66,6 +79,59 @@ export function splitParticipants(people = SEED_PEOPLE) {
 }
 
 /**
+ * What each person did *while a piece was alive*, counted from the event log.
+ *
+ * The roster's own `kinds` spans both windows, so it can't tell a repost that
+ * spread a living piece from one that landed on a finished one — and which of
+ * those someone did is exactly what their role is meant to say. The log carries
+ * the pre/post flag per record, so it can.
+ *
+ * Matched by handle, since that's all an event carries. One handle in the
+ * roster covers two DIDs — the placeholder for deactivated accounts — and there
+ * is no way to say which of them an event belongs to, so both are left out
+ * rather than credited with each other's actions.
+ */
+function livingKindsByHandle(events, people) {
+  const out = new Map();
+  if (!events) return out;
+  const seenOnce = new Set();
+  const ambiguous = new Set();
+  for (const p of people || []) {
+    if (seenOnce.has(p.h)) ambiguous.add(p.h);
+    seenOnce.add(p.h);
+  }
+  for (const list of Object.values(events)) {
+    for (const e of Array.isArray(list) ? list : []) {
+      if (!e.pre || e.self || !e.h || !e.k || ambiguous.has(e.h)) continue;
+      const kinds = out.get(e.h) || {};
+      kinds[e.k] = (kinds[e.k] || 0) + 1;
+      out.set(e.h, kinds);
+    }
+  }
+  return out;
+}
+
+/**
+ * How someone showed up, in one word — the most consequential thing they did
+ * while a piece was alive.
+ *
+ * Ordered by effect on the piece rather than by count. Ending it outranks
+ * everything. Then a quote, which carries the piece to another timeline with
+ * the quoter's own words attached; then a repost, which carries it without
+ * them; then a reply, which stays in the thread. Someone who replied nine times
+ * and reposted once reads as "reposted", because that repost is the act that
+ * took the piece somewhere new — the Mix column beside it still shows all ten.
+ */
+export function roleOf(person) {
+  if (person.broke) return { key: 'broke', label: `broke #${String(person.broke).padStart(2, '0')}` };
+  const kinds = person.liveKinds || person.kinds || {};
+  if (kinds.quote) return { key: 'quote', label: 'quoted' };
+  if (kinds.repost) return { key: 'repost', label: 'reposted' };
+  if (kinds.reply) return { key: 'reply', label: 'replied' };
+  return { key: 'live', label: 'was there' };
+}
+
+/**
  * Everyone who was there while a piece was still alive.
  *
  * Two sources, because there are two ways to know. Most of the roster is
@@ -79,10 +145,23 @@ export function splitParticipants(people = SEED_PEOPLE) {
  * A named breaker carries `named: true` and no measurable events. One who did
  * leave records is already in the measured set and isn't added twice.
  */
-export function livingRoster(pieces, people = SEED_PEOPLE) {
+export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
+  const liveKinds = livingKindsByHandle(events, people);
+  // Pieces whose breaking like was deleted. Their breaker's most important act
+  // is in none of the counts, so the row says so rather than reading as
+  // somebody who turned up and did nothing.
+  const likeDeleted = new Set(
+    (pieces || []).filter((p) => p.breaker?.likeSurvives === false).map((p) => p.take),
+  );
   const measured = people
     .filter((p) => p.pre.length > 0)
-    .map((p) => ({ ...p, live: p.pre.length, after: p.post.length }));
+    .map((p) => ({
+      ...p,
+      live: p.pre.length,
+      after: p.post.length,
+      liveKinds: liveKinds.get(p.h) || null,
+      likeGone: Boolean(p.broke) && likeDeleted.has(p.broke),
+    }));
 
   // Match on either identifier: the roster is keyed by DID, but a breaker is
   // recorded by the handle the announcement used, and handles get renamed.
@@ -120,11 +199,13 @@ export function livingRoster(pieces, people = SEED_PEOPLE) {
       likeGone,
     });
   }
+  const rows = [...measured, ...named];
   return {
-    rows: [...measured, ...named],
+    rows,
     measured: measured.length,
     named: named.length,
-    deleted: named.filter((p) => p.likeGone).length,
+    breakers: rows.filter((p) => p.broke).length,
+    deleted: rows.filter((p) => p.likeGone).length,
   };
 }
 
@@ -259,6 +340,7 @@ function eventsFromRecord(events) {
     .map((e) => ({
       k: e.k,
       h: e.h || '(unresolvable)',
+      ...(e.did ? { did: e.did } : {}),
       off: e.offMs / 1000,
       pre: e.pre ? 1 : 0,
       ...(e.self ? { self: 1 } : {}),

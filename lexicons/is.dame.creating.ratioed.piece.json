@@ -164,6 +164,11 @@
           "maxLength": 253,
           "description": "The author's handle as it resolved at measurement time. A deactivated account resolves to nothing and is recorded as (unresolvable)."
         },
+        "did": {
+          "type": "string",
+          "format": "did",
+          "description": "The author's DID. Recorded alongside the handle because handles are renamed and reused, and because two deactivated accounts can answer to the same placeholder — the roster is counted by DID for exactly that reason."
+        },
         "offMs": {
           "type": "integer",
           "description": "Milliseconds after postedAt. Milliseconds like every other duration on this record, and for the same reason: lexicon v1 has no float type."

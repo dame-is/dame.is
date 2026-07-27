@@ -59,6 +59,7 @@ import {
 import { compareIsoDesc } from '../src/lib/time.js';
 import { selfThreadMembers } from '../src/lib/threadGrouping.js';
 import { isDraft, showOnBlog, showOnCreating, workSlug } from '../src/lib/publications.js';
+import { rosterFromEvents, mergeRoster } from '../src/lib/ratioedRoster.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -196,6 +197,65 @@ function feedFilterCounts(items, myDid = null) {
     } else if (item?.verb) {
       out[item.verb] = (out[item.verb] || 0) + 1;
     }
+  }
+  return out;
+}
+
+/**
+ * Regenerate the Ratioed participant roster from the pieces on the PDS.
+ *
+ * The bundled roster covers the pieces that were harvested offline and stays
+ * authoritative for them. A piece measured in the admin panel carries its own
+ * event log, so the people in it can be folded in here — otherwise a new piece
+ * shows its own chart correctly while nobody who took part appears in the list
+ * of participants until someone re-runs the harvest by hand.
+ *
+ * Display names aren't in an event log, so new people are looked up once. A
+ * failed lookup just leaves the name blank; the handle is what the table leads
+ * with anyway.
+ */
+async function writeRatioedRoster(records) {
+  // Read rather than import: an import attribute (`with { type: 'json' }`) is
+  // fine for Node but the lint parser can't see past it.
+  const bundled = JSON.parse(
+    await readFile(resolve(ROOT, 'src/data/ratioedPeople.json'), 'utf8'),
+  );
+  // The raw record values: rosterFromEvents reads only the fields an event log
+  // carries verbatim, so there's nothing to normalize first.
+  const derived = rosterFromEvents((records || []).map((r) => r?.value).filter(Boolean));
+  if (derived.length === 0) {
+    log('ratioed roster: no recorded event logs; keeping the bundled roster');
+    await writeJson('ratioedPeople', bundled);
+    return;
+  }
+  const merged = mergeRoster(bundled, derived);
+  const known = new Set(bundled.map((p) => p.did));
+  const fresh = merged.filter((p) => !known.has(p.did));
+  if (fresh.length) {
+    const names = await safe(
+      'getProfiles:ratioedRoster',
+      () => fetchDisplayNames(fresh.map((p) => p.did)),
+      {},
+    );
+    for (const p of fresh) if (names[p.did]) p.dn = names[p.did];
+  }
+  log(
+    `ratioed roster: ${bundled.length} bundled + ${fresh.length} new = ${merged.length}`,
+  );
+  await writeJson('ratioedPeople', merged);
+}
+
+/** DID → display name, 25 at a time (the appview's limit). */
+async function fetchDisplayNames(dids) {
+  const out = {};
+  const real = dids.filter((d) => d && d.startsWith('did:'));
+  for (let i = 0; i < real.length; i += 25) {
+    const params = new URLSearchParams();
+    for (const did of real.slice(i, i + 25)) params.append('actors', did);
+    const res = await fetch(`${APPVIEW}/xrpc/app.bsky.actor.getProfiles?${params}`);
+    if (!res.ok) continue;
+    const body = await res.json();
+    for (const p of body?.profiles || []) if (p?.did && p?.displayName) out[p.did] = p.displayName;
   }
   return out;
 }
@@ -437,6 +497,7 @@ async function main() {
     [],
   );
   await writeJson('ratioed', ratioedPieces);
+  await writeRatioedRoster(ratioedPieces);
 
   // --- Resume (is.dame.resume + backlinked jobs + education) ----------------
   // One combined snapshot so /resume paints instantly; the page re-fetches
