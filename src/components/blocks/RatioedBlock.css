@@ -50,7 +50,7 @@
 }
 
 .ratioed-controls button,
-.ratioed-search {
+.ratioed-more {
   font-family: var(--sans);
   font-variant: all-small-caps;
   font-size: var(--text-xs);
@@ -104,17 +104,15 @@
 .ratioed-chip.ratioed-k-quote[aria-pressed='true'] { color: var(--ratioed-quote); }
 .ratioed-chip.ratioed-k-like[aria-pressed='true'] { color: var(--ratioed-seal); }
 
-.ratioed-search {
+/* Reveals the participants the table folds away past the first twenty. */
+.ratioed-more {
+  margin-top: var(--space-3);
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--rule);
-  background: var(--page);
-  color: var(--ink);
-  width: 11rem;
-  cursor: text;
-  outline: none;
+  background: transparent;
+  color: var(--ink-muted);
 }
-.ratioed-search::placeholder { color: var(--ink-faint); }
-.ratioed-search:focus { border-color: var(--accent); }
+.ratioed-more:hover { color: var(--ink); border-color: var(--ink-muted); }
 
 /* --- axis --------------------------------------------------------- */
 

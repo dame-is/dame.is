@@ -440,16 +440,19 @@ const PEOPLE_COLUMNS = [
   { key: 'after', label: 'After', num: true },
 ];
 
+// How many people the table shows before the rest are folded away. A hundred
+// and thirty-five rows is a wall; the top twenty is a readable list, and the
+// tail is one click away for anyone who wants to find themselves in it.
+const PEOPLE_PREVIEW = 20;
+
 function Participants() {
-  const [query, setQuery] = useState('');
   const [livingOnly, setLivingOnly] = useState(false);
   const [sort, setSort] = useState('ev');
   const [dir, setDir] = useState(-1);
+  const [expanded, setExpanded] = useState(false);
 
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
     let list = SEED_PEOPLE.map((p) => ({ ...p, live: p.pre.length, after: p.post.length }));
-    if (q) list = list.filter((p) => p.h.toLowerCase().includes(q) || (p.dn || '').toLowerCase().includes(q));
     if (livingOnly) list = list.filter((p) => p.live > 0);
     const key = sort;
     return list.sort((a, b) => {
@@ -458,7 +461,10 @@ function Participants() {
       const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
       return cmp * dir || b.ev - a.ev;
     });
-  }, [query, livingOnly, sort, dir]);
+  }, [livingOnly, sort, dir]);
+
+  const hidden = Math.max(0, rows.length - PEOPLE_PREVIEW);
+  const shown = expanded || hidden === 0 ? rows : rows.slice(0, PEOPLE_PREVIEW);
 
   const toggleSort = (key) => {
     if (sort === key) setDir(-dir);
@@ -471,14 +477,6 @@ function Participants() {
   return (
     <div className="ratioed-participants">
       <div className="ratioed-controls">
-        <input
-          className="ratioed-search"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="filter by handle…"
-          aria-label="Filter participants"
-        />
         <div className="ratioed-chips">
           <button
             type="button"
@@ -514,7 +512,7 @@ function Participants() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((p) => (
+            {shown.map((p) => (
               <tr key={p.did}>
                 <td>
                   @{p.h}
@@ -545,6 +543,18 @@ function Participants() {
           </tbody>
         </table>
       </div>
+      {hidden > 0 && (
+        <button
+          type="button"
+          className="ratioed-more"
+          aria-expanded={expanded}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {/* Not "top 20" in the label — sort by handle and the first twenty
+              are alphabetical, not the busiest. */}
+          {expanded ? `Show only ${PEOPLE_PREVIEW}` : `Show all ${rows.length} — ${hidden} more`}
+        </button>
+      )}
     </div>
   );
 }
@@ -561,7 +571,6 @@ const aftPos = (sec, maxSec) =>
 function Lifelines({ pieces, events, stats, deltas }) {
   const [scale, setScale] = useState('true');
   const [on, setOn] = useState(() => new Set(KINDS));
-  const [query, setQuery] = useState('');
   const [openTake, setOpenTake] = useState(null);
 
   const maxLife = stats.maxLifespanMs / 1000 || 1;
@@ -575,8 +584,6 @@ function Lifelines({ pieces, events, stats, deltas }) {
     }
     return m;
   }, [events, pieces]);
-
-  const q = query.trim().toLowerCase();
 
   return (
     <div className="ratioed-lifelines">
@@ -615,14 +622,6 @@ function Lifelines({ pieces, events, stats, deltas }) {
             </button>
           ))}
         </div>
-        <input
-          className="ratioed-search"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="find a handle…"
-          aria-label="Highlight a participant across every piece"
-        />
       </div>
 
       <div className="ratioed-axis">
@@ -700,7 +699,7 @@ function Lifelines({ pieces, events, stats, deltas }) {
                         e={e}
                         piece={p}
                         left={(e.off / life) * pct}
-                        dim={!on.has(e.k) || (!!q && !e.h.toLowerCase().includes(q))}
+                        dim={!on.has(e.k)}
                       />
                     ))}
                 </span>
@@ -714,7 +713,7 @@ function Lifelines({ pieces, events, stats, deltas }) {
                         e={e}
                         piece={p}
                         left={aftPos(e.off - life, maxAft) * 100}
-                        dim={!on.has(e.k) || (!!q && !e.h.toLowerCase().includes(q))}
+                        dim={!on.has(e.k)}
                       />
                     ))}
                 </span>
