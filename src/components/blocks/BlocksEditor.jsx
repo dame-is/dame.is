@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TextBlockEditor from './TextBlockEditor.jsx';
 import HeadingBlockEditor from './HeadingBlockEditor.jsx';
 import ImageBlockEditor, { uploadImageFile } from './ImageBlockEditor.jsx';
@@ -6,7 +6,13 @@ import WebsiteBlockEditor from './WebsiteBlockEditor.jsx';
 import CodeBlockEditor from './CodeBlockEditor.jsx';
 import ListBlockEditor from './ListBlockEditor.jsx';
 import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
-import { LeafletBlock } from '../LeafletDocument.jsx';
+import {
+  GALLERY_LAYOUTS,
+  IMAGE_BLOCK_TYPE,
+  LeafletBlock,
+  galleryLayoutOf,
+  galleryRuns,
+} from '../LeafletDocument.jsx';
 import './blocks.css';
 
 const WRAPPER_TYPE = 'pub.leaflet.pages.linearDocument#block';
@@ -162,6 +168,27 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
     [blocks, commit],
   );
 
+  // Set the gallery layout across a span of image blocks. Every member of a run
+  // carries the same value — that's what holds the run together (see
+  // galleryRuns) — so changing one image's layout has to move its whole run,
+  // otherwise the run would silently split in two.
+  const setGalleryLayout = useCallback(
+    (start, end, value) => {
+      const next = blocks.slice();
+      for (let k = start; k <= end; k += 1) {
+        const block = next[k]?.block;
+        if (block?.$type !== IMAGE_BLOCK_TYPE) continue;
+        const updated = { ...block };
+        // `auto` is the absent-field default; don't write it out.
+        if (value === 'auto') delete updated.gallery;
+        else updated.gallery = value;
+        next[k] = { $type: WRAPPER_TYPE, block: updated };
+      }
+      commit(next, { kind: 'structural' });
+    },
+    [blocks, commit],
+  );
+
   const moveBlock = useCallback(
     (index, dir) => {
       const target = index + dir;
@@ -271,6 +298,17 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
     focusFirstField(activeItemRef.current);
   }, [activeIndex, activeType]);
 
+  // Which run (if any) each block index belongs to, so a row can draw itself as
+  // part of a gallery instead of as a lone image. Same function the renderer
+  // uses, so what the editor brackets is exactly what publishes as one unit.
+  const runByIndex = useMemo(() => {
+    const map = new Map();
+    for (const run of galleryRuns(blocks)) {
+      for (let k = run.start; k <= run.end; k += 1) map.set(k, run);
+    }
+    return map;
+  }, [blocks]);
+
   const handleRootKeyDown = useCallback(
     (e) => {
       if (e.key === 'Escape' && openInsertSlot != null) {
@@ -329,6 +367,8 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
             i === blocks.length - 1 &&
             dropIndex === blocks.length &&
             dropIndex !== dragIndex + 1;
+          const run = runByIndex.get(i) || null;
+          const grouped = !!run && run.layout !== 'standalone';
           const cls = [
             'blocks-editor-item',
             isActive ? 'is-active' : 'is-preview',
@@ -336,18 +376,33 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
             openInsertSlot === i ? 'has-insert-open' : '',
             showBefore ? 'drop-before' : '',
             showAfter ? 'drop-after' : '',
+            run ? 'is-run-member' : '',
+            grouped ? 'is-gallery-member' : '',
+            run && run.start === i ? 'is-run-first' : '',
+            run && run.end === i ? 'is-run-last' : '',
           ]
             .filter(Boolean)
             .join(' ');
 
           return (
+            <Fragment key={i}>
+            {run && run.start === i && (
+              <GalleryBand
+                run={run}
+                onChangeLayout={(value) => setGalleryLayout(run.start, run.end, value)}
+              />
+            )}
             <li
-              key={i}
               ref={isActive ? activeItemRef : null}
               className={cls}
               onDragOver={(e) => handleDragOver(e, i)}
               onDrop={(e) => handleDrop(e, i)}
             >
+              {run && (
+                <span className="blocks-editor-run-index gutter" aria-hidden="true">
+                  {i - run.start + 1}
+                </span>
+              )}
               {dragIndex == null && (
                 <InsertSlot
                   index={i}
@@ -424,7 +479,14 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
                     onSetCover={onSetCover}
                     onPasteBlocks={(payload) => pasteBlocksAt(i, payload)}
                   />
-                  <BlockLayoutControls block={block} onChange={(next) => updateBlock(i, next)} />
+                  <BlockLayoutControls
+                    block={block}
+                    onChange={(next) => updateBlock(i, next)}
+                    galleryRun={run}
+                    onChangeGallery={(value) =>
+                      setGalleryLayout(run ? run.start : i, run ? run.end : i, value)
+                    }
+                  />
                 </div>
               ) : (
                 <div
@@ -458,6 +520,7 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
                 ✕
               </button>
             </li>
+            </Fragment>
           );
         })}
       </ol>
@@ -501,15 +564,58 @@ function BlockBody({ block, agent, did, onChange, onSetCover, onPasteBlocks }) {
 }
 
 /**
- * Per-block layout controls under the active block's editor: indent (text
- * paragraphs only) plus extra space above / below any block, so an author can
- * shape spacing without inserting empty spacer blocks. Values are stored on the
- * block (`indent`, `spaceTop`, `spaceBottom`) and read by the renderer (see
- * LeafletDocument's blockLayoutStyle). Absent = the default: stacked paragraphs
- * auto-indent, and there's no extra space.
+ * Header for a run of adjacent image blocks. The published document lays those
+ * out as one gallery (or, for `standalone`, deliberately doesn't), and nothing
+ * in a flat list of image rows said so — this band names the group, counts it,
+ * and carries the one control that shapes the whole run. Ungrouping is just
+ * another option in the same select, so it's reversible from the same place.
  */
-function BlockLayoutControls({ block, onChange }) {
+function GalleryBand({ run, onChangeLayout }) {
+  const separate = run.layout === 'standalone';
+  const current = GALLERY_LAYOUTS.find((l) => l.value === run.layout);
+  return (
+    <li className={`blocks-editor-gallery-band${separate ? ' is-separate' : ''}`}>
+      <span className="blocks-editor-gallery-title small-caps">
+        {separate ? 'Separate images' : 'Gallery'}
+      </span>
+      <span className="blocks-editor-gallery-count gutter">
+        {run.size} {separate ? 'adjacent images' : 'images'}
+      </span>
+      <label className="blocks-editor-gallery-field">
+        <span className="small-caps">Layout</span>
+        <select
+          className="block-layout-select"
+          value={run.layout}
+          onChange={(e) => onChangeLayout(e.target.value)}
+          title={current?.hint}
+        >
+          {GALLERY_LAYOUTS.map((l) => (
+            <option key={l.value} value={l.value}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {current?.hint && (
+        <span className="blocks-editor-gallery-hint gutter">{current.hint}</span>
+      )}
+    </li>
+  );
+}
+
+/**
+ * Per-block layout controls under the active block's editor: indent (text
+ * paragraphs only), gallery layout (image blocks), plus extra space above /
+ * below any block, so an author can shape spacing without inserting empty
+ * spacer blocks. Values are stored on the block (`indent`, `gallery`,
+ * `spaceTop`, `spaceBottom`) and read by the renderer (see LeafletDocument's
+ * blockLayoutStyle and galleryRuns). Absent = the default: stacked paragraphs
+ * auto-indent, adjacent images group into an auto grid, and there's no extra
+ * space.
+ */
+function BlockLayoutControls({ block, onChange, galleryRun = null, onChangeGallery }) {
   const isText = block.$type === 'pub.leaflet.blocks.text';
+  const isImage = block.$type === IMAGE_BLOCK_TYPE;
   const setField = (key, value) => {
     const next = { ...block };
     if (value === undefined) delete next[key];
@@ -533,6 +639,27 @@ function BlockLayoutControls({ block, onChange }) {
             <option value="auto">Auto</option>
             <option value="on">Indented</option>
             <option value="off">Flush</option>
+          </select>
+        </label>
+      )}
+      {isImage && (
+        <label className="block-layout-field">
+          <span className="small-caps">Gallery</span>
+          <select
+            className="block-layout-select"
+            value={galleryLayoutOf(block)}
+            onChange={(e) => onChangeGallery(e.target.value)}
+            title={
+              galleryRun
+                ? `Applies to all ${galleryRun.size} images in this run`
+                : 'Applies once this image sits next to another one'
+            }
+          >
+            {GALLERY_LAYOUTS.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
+            ))}
           </select>
         </label>
       )}
@@ -682,7 +809,7 @@ function BlockPalette({ agent, onInsert, onInsertMany }) {
         </AddButton>
         <AddButton
           onClick={() => galleryInputRef.current?.click()}
-          title="Upload several images at once — each becomes its own image block."
+          title="Upload several images at once. Each is its own image block; adjacent images publish as one gallery, and the band above them sets its layout."
         >
           Gallery…
         </AddButton>

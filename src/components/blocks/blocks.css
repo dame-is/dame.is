@@ -560,3 +560,100 @@
   padding: 0.15rem 0.35rem;
   cursor: pointer;
 }
+
+/* ---- Gallery runs ------------------------------------------------------ */
+/* A run of adjacent image blocks publishes as one gallery. In the editor the
+   rows stay individually editable, draggable and deletable — the grouping is
+   drawn around them instead: a band naming the run, and a rail down the left
+   edge tying its members together. */
+
+.blocks-editor-gallery-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.7rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px dashed var(--accent-soft, #8a9f6e);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--accent, #5e7a47) 6%, transparent);
+}
+
+/* An ungrouped run is a weaker claim — same information, none of the accent. */
+.blocks-editor-gallery-band.is-separate {
+  border-color: var(--rule-soft, rgba(0, 0, 0, 0.16));
+  background: transparent;
+}
+
+.blocks-editor-gallery-title {
+  letter-spacing: 0.1em;
+  color: var(--accent, #5e7a47);
+}
+
+.blocks-editor-gallery-band.is-separate .blocks-editor-gallery-title {
+  color: var(--ink-faint, rgba(0, 0, 0, 0.45));
+}
+
+.blocks-editor-gallery-count,
+.blocks-editor-gallery-hint {
+  font-size: 0.72rem;
+  color: var(--ink-faint, rgba(0, 0, 0, 0.45));
+}
+
+/* The hint trails the control and is the first thing to go when the band wraps
+   onto a phone-width column. */
+.blocks-editor-gallery-hint {
+  margin-left: auto;
+}
+
+.blocks-editor-gallery-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--ink-faint, var(--ink));
+}
+
+/* Rail: members of a run share one continuous left edge, so the run reads as a
+   single object even though each row is its own block. */
+.blocks-editor-item.is-run-member {
+  border-left: 2px solid var(--rule-soft, rgba(0, 0, 0, 0.16));
+  border-top-color: transparent;
+}
+
+.blocks-editor-item.is-gallery-member {
+  border-left-color: var(--accent-soft, #8a9f6e);
+}
+
+.blocks-editor-item.is-run-first {
+  border-top-color: var(--rule-soft, rgba(0, 0, 0, 0.16));
+}
+
+/* Position within the run — the tile number an author counts by when deciding
+   what to reorder. */
+.blocks-editor-run-index {
+  position: absolute;
+  left: 0.15rem;
+  top: 0.15rem;
+  z-index: 2;
+  font-size: 0.65rem;
+  line-height: 1;
+  padding: 0.12rem 0.22rem;
+  color: var(--ink-faint, rgba(0, 0, 0, 0.45));
+  background: var(--page, #fff);
+  pointer-events: none;
+}
+
+/* Collapsed rows in a run preview as gallery tiles rather than full-bleed
+   images, so six images read as six tiles instead of six page-wide photos. */
+.blocks-editor-item.is-gallery-member .blocks-editor-preview-body .leaflet-image img {
+  max-height: 7rem;
+  width: auto;
+  max-width: 100%;
+}
+
+/* A run's insert "+" would otherwise sit on the rail between two tiles and read
+   as a gallery divider; keep it, but only on hover of that specific row. */
+.blocks-editor-item.is-run-member:not(:hover) > .blocks-editor-insert {
+  opacity: 0;
+}
