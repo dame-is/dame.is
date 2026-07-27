@@ -598,17 +598,33 @@
   margin: 0;
 }
 .ratioed-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+/* Each key has to be the shape it stands for. Both of the non-circular ones
+   used to inherit this 50% radius and never reset it: the like rotated a circle
+   45deg (which draws a circle), and the ghost rendered as a squashed oval
+   instead of the window it marks. */
 .ratioed-key {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: currentColor;
   display: inline-block;
+  flex: 0 0 auto;
 }
-.ratioed-key.ratioed-k-like { transform: rotate(45deg); }
+/* A square on its corner, matching the like markers in the chart. Slightly
+   smaller than the discs so its diagonal reads the same weight as their width. */
+.ratioed-key.ratioed-k-like {
+  width: 7px;
+  height: 7px;
+  border-radius: 0;
+  transform: rotate(45deg);
+  margin-inline: 1px;
+}
+/* The inferred window is a rectangle spanning a span of time — square corners,
+   and wider than tall, as it is on the lifelines. */
 .ratioed-key-ghost {
-  width: 13px;
-  height: 10px;
+  width: 15px;
+  height: 9px;
+  border-radius: 0;
   background: color-mix(in srgb, var(--ratioed-seal) 15%, transparent);
   border: 1px dashed var(--ratioed-seal);
 }
