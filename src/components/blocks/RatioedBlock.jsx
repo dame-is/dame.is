@@ -46,8 +46,8 @@ const DEFAULT_CAPTIONS = {
     'Engagement either side of the seal. Everything right of the second rule arrived at a post that was already finished — pieces keep accruing it indefinitely.',
   hidden: () =>
     'A threadgate hides replies at the appview; it does not stop the records being written. These landed in the seconds after their piece sealed, and no reader of the thread has ever seen them.',
-  participants: () =>
-    'Counted by DID, not handle — two deactivated accounts share one placeholder handle. Four of the eleven breakers are missing entirely: their only act was a like they later deleted, so they left nothing to count.',
+  participants: ({ people }) =>
+    `The ${people.living} accounts that left a record while a piece was still alive, of the ${people.total} that have ever touched one — the other ${people.afterOnly} only ever reached a piece that was already finished. Counted by DID, not handle: two deactivated accounts share one placeholder handle. Only ${people.breakersListed} of the breakers appear at all, because the rest cast a like, deleted it, and did nothing else while anything was alive.`,
   when: () =>
     'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip beside the grid is each hour’s own sky colour. Every mark names itself on hover.',
 };
@@ -451,20 +451,26 @@ const PEOPLE_COLUMNS = [
   { key: 'after', label: 'After', num: true },
 ];
 
-// How many people the table shows before the rest are folded away. A hundred
-// and thirty-five rows is a wall; the top twenty is a readable list, and the
+// How many people the table shows before the rest are folded away. The list is
+// long enough to read as a wall; the top twenty is a readable list, and the
 // tail is one click away for anyone who wants to find themselves in it.
 const PEOPLE_PREVIEW = 20;
 
 function Participants() {
-  const [livingOnly, setLivingOnly] = useState(false);
   const [sort, setSort] = useState('ev');
   const [dir, setDir] = useState(-1);
   const [expanded, setExpanded] = useState(false);
 
+  // Only people who were there while a piece was still alive. The measure is a
+  // surviving pre-seal record, which quietly excludes a breaker whose like was
+  // deleted — they were there, by definition, but nothing of it is left to
+  // count, and the same is already true of the breakers who did nothing else.
   const rows = useMemo(() => {
-    let list = SEED_PEOPLE.map((p) => ({ ...p, live: p.pre.length, after: p.post.length }));
-    if (livingOnly) list = list.filter((p) => p.live > 0);
+    const list = SEED_PEOPLE.filter((p) => p.pre.length > 0).map((p) => ({
+      ...p,
+      live: p.pre.length,
+      after: p.post.length,
+    }));
     const key = sort;
     return list.sort((a, b) => {
       const A = a[key];
@@ -472,7 +478,7 @@ function Participants() {
       const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
       return cmp * dir || b.ev - a.ev;
     });
-  }, [livingOnly, sort, dir]);
+  }, [sort, dir]);
 
   const hidden = Math.max(0, rows.length - PEOPLE_PREVIEW);
   const shown = expanded || hidden === 0 ? rows : rows.slice(0, PEOPLE_PREVIEW);
@@ -487,19 +493,6 @@ function Participants() {
 
   return (
     <div className="ratioed-participants">
-      <div className="ratioed-controls">
-        <div className="ratioed-chips">
-          <button
-            type="button"
-            className="ratioed-chip"
-            aria-pressed={livingOnly}
-            onClick={() => setLivingOnly(!livingOnly)}
-          >
-            <span className="ratioed-sw" aria-hidden="true" />
-            only living participation
-          </button>
-        </div>
-      </div>
       <div className="ratioed-tablewrap">
         <table className="ratioed-table">
           <thead>
@@ -541,12 +534,12 @@ function Participants() {
                   ))}
                 </td>
                 <td>
+                  {/* No "after the fact" here any more — everyone in this list
+                      was present while a piece was alive. */}
                   {p.broke ? (
                     <span className="ratioed-tag broke">broke #{String(p.broke).padStart(2, '0')}</span>
-                  ) : p.live ? (
-                    <span className="ratioed-tag live">participant</span>
                   ) : (
-                    <span className="ratioed-tag">after the fact</span>
+                    <span className="ratioed-tag live">participant</span>
                   )}
                 </td>
               </tr>

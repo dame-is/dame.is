@@ -172,10 +172,15 @@ describe('SEED_PEOPLE', () => {
   });
 
   it('splits into living and after-the-fact participation', () => {
-    const { total, living, afterOnly } = splitParticipants();
+    const { total, living, afterOnly, breakersListed } = splitParticipants();
     expect(total).toBe(135);
     expect(living).toBe(77);
     expect(living + afterOnly).toBe(total);
+    // Seven breakers left any record at all, but one of them — restedwicked,
+    // who broke #04 — only shows up after the seal, their like having been
+    // deleted. The participants table lists living participation, so it counts
+    // six.
+    expect(breakersListed).toBe(6);
   });
 
   it('gives everyone at least one event and one piece', () => {

@@ -49,10 +49,20 @@ export const SEED_PEOPLE = PEOPLE;
  * How the roster divides between people who showed up while a piece was alive
  * and people who only ever touched a finished one. Counts, not lists — every
  * caller so far wants the numbers.
+ *
+ * `breakersListed` counts the breakers among the living, which is fewer than
+ * the number of pieces: a breaker whose like was deleted, and who did nothing
+ * else while anything was alive, leaves no surviving record to count.
  */
 export function splitParticipants(people = SEED_PEOPLE) {
-  const living = people.reduce((n, p) => n + (p.pre.length > 0 ? 1 : 0), 0);
-  return { living, afterOnly: people.length - living, total: people.length };
+  const wasLive = (p) => p.pre.length > 0;
+  const living = people.filter(wasLive);
+  return {
+    living: living.length,
+    afterOnly: people.length - living.length,
+    total: people.length,
+    breakersListed: living.filter((p) => p.broke).length,
+  };
 }
 
 /**
