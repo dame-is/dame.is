@@ -4,7 +4,11 @@ import {
   SEED_PEOPLE,
   splitParticipants,
   hiddenReplies,
+  WEEKDAYS,
   normalizePiece,
+  localSlot,
+  whenMarks,
+  areaRadius,
   aggregate,
   fmtDuration,
   fmtSeconds,
@@ -192,6 +196,79 @@ describe('hiddenReplies', () => {
 
   it('is empty until the event log has loaded', () => {
     expect(hiddenReplies(null, SEED_PIECES)).toEqual([]);
+  });
+});
+
+describe('localSlot', () => {
+  it('resolves into the artist’s zone, not UTC', () => {
+    // 01:08 UTC on a Saturday is Friday evening in New York. Reading this in
+    // UTC would put the piece on the wrong day AND the wrong half of the clock.
+    const slot = localSlot('2026-02-21T01:08:01.648Z');
+    expect(WEEKDAYS[slot.day]).toBe('Fri');
+    expect(slot.hour).toBe(20);
+    expect(slot.minute).toBe(8);
+  });
+
+  it('follows daylight saving rather than a fixed offset', () => {
+    // June is EDT (UTC-4); February is EST (UTC-5). Same UTC hour, different
+    // local hour.
+    expect(localSlot('2025-06-16T18:13:22.654Z').hour).toBe(14);
+    expect(localSlot('2026-02-21T18:13:22.000Z').hour).toBe(13);
+  });
+
+  it('gives a fractional hour for positioning', () => {
+    expect(localSlot('2025-06-16T14:23:12.764Z').atHour).toBeCloseTo(10 + 23 / 60, 5);
+  });
+
+  it('returns null for an unparseable timestamp', () => {
+    expect(localSlot('not a date')).toBeNull();
+    expect(localSlot('')).toBeNull();
+  });
+});
+
+describe('whenMarks', () => {
+  const marks = whenMarks(SEED_PIECES);
+
+  it('places every piece', () => {
+    expect(marks).toHaveLength(11);
+    for (const m of marks) {
+      expect(m.day).toBeGreaterThanOrEqual(0);
+      expect(m.day).toBeLessThanOrEqual(6);
+      expect(m.atHour).toBeGreaterThanOrEqual(0);
+      expect(m.atHour).toBeLessThan(24);
+    }
+  });
+
+  it('sums engagement across every kind that arrived while alive', () => {
+    const four = marks.find((m) => m.take === 4);
+    // 45 thread + 8 RT + 3 QT + 0 likes.
+    expect(four.engagement).toBe(56);
+    expect(four.participants).toBe(32);
+  });
+
+  it('lands the first three takes together on a Monday morning', () => {
+    const early = marks.filter((m) => m.take <= 3);
+    expect(early.every((m) => WEEKDAYS[m.day] === 'Mon')).toBe(true);
+    expect(early.every((m) => m.hour === 10)).toBe(true);
+  });
+
+  it('drops a piece whose timestamp will not parse', () => {
+    expect(whenMarks([{ ...SEED_PIECES[0], postedAt: 'nope' }])).toEqual([]);
+  });
+});
+
+describe('areaRadius', () => {
+  it('scales by area, so four times the value is twice the radius', () => {
+    // Radius above the floor is what carries the value; check that span.
+    const quarter = areaRadius(25, 100, 0, 10);
+    const full = areaRadius(100, 100, 0, 10);
+    expect(quarter).toBeCloseTo(5, 5);
+    expect(full).toBeCloseTo(10, 5);
+  });
+
+  it('gives zero and empty maxima the floor rather than NaN', () => {
+    expect(areaRadius(0, 100, 2, 10)).toBe(2);
+    expect(areaRadius(5, 0, 2, 10)).toBe(2);
   });
 });
 

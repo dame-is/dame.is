@@ -424,6 +424,78 @@
 .ratioed-table tr:hover td { background: var(--highlight); }
 .ratioed-since { color: var(--ratioed-seal); margin-left: 0.25rem; font-size: 0.9em; }
 
+/* --- when: day of week x time of day ------------------------------ */
+
+/* The viewBox scales text along with everything else, so at phone widths the
+   day and hour labels would shrink to a few pixels. Hold a floor and let the
+   chart scroll sideways instead — the same bargain the tables make. */
+.ratioed-when-scroll { overflow-x: auto; }
+/* The floor lives on a plain block, not the SVG: min-width on a replaced
+   element doesn't propagate to the scroll container's scrollWidth, so the
+   chart would clip instead of scrolling. */
+.ratioed-when-canvas { min-width: 34rem; }
+.ratioed-when-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.ratioed-when-rule { stroke: var(--rule-soft); stroke-width: 1; }
+.ratioed-when-day,
+.ratioed-when-hour {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+  fill: var(--ink-muted);
+}
+.ratioed-when-hour { fill: var(--ink-faint); }
+
+/* Midnight's sky colour is near-black, which vanishes into a dark page and
+   makes the ribbon look like it starts at dawn. An outline keeps its full
+   extent readable at either end of the day. */
+.ratioed-when-ribbon-edge {
+  fill: none;
+  stroke: var(--rule);
+  stroke-width: 1;
+}
+
+/* Core and halo are both translucent so overlapping marks — pieces posted
+   minutes apart sit almost on top of each other — read as denser rather than
+   hiding one another.
+
+   The core is neutral ink, not the seal red: red means the like everywhere
+   else in these charts, and here the core is the piece's own lifespan. */
+.ratioed-when-core {
+  fill: var(--ink);
+  fill-opacity: 0.82;
+}
+.ratioed-when-halo {
+  fill: var(--ratioed-reply);
+  fill-opacity: 0.22;
+  stroke: var(--ratioed-reply);
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+}
+.ratioed-when-mark:hover .ratioed-when-core { fill-opacity: 1; }
+.ratioed-when-mark:hover .ratioed-when-halo { fill-opacity: 0.38; }
+
+.ratioed-when-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  align-items: center;
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+  padding-top: var(--space-3);
+}
+.ratioed-when-key span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.ratioed-when-key i { font-style: normal; color: var(--ink-faint); }
+.ratioed-when-sample { width: 32px; height: 32px; overflow: visible; }
+
 /* --- summary tiles ------------------------------------------------ */
 
 .ratioed-tiles {

@@ -7,11 +7,15 @@ import {
   splitParticipants,
   hiddenReplies,
   fetchLiveDeltas,
+  whenMarks,
+  areaRadius,
+  WEEKDAYS,
   fmtDuration,
   fmtSeconds,
   fmtElapsed,
 } from '../../lib/ratioed.js';
 import { resolvePds } from '../../lib/atproto.js';
+import { paletteForHour } from '../../lib/skyTheme.js';
 import { ME_DID } from '../../config.js';
 import './RatioedBlock.css';
 
@@ -33,6 +37,7 @@ const REACTION_HI = 17;
  *   ledger       — engagement before and after the seal, per piece
  *   hidden       — the replies that landed after the seal and can't be seen
  *   participants — everyone who touched a piece
+ *   when         — where the pieces fall across a week, sized by scale
  *
  * Pieces come from the PDS when reachable and from the bundled seed otherwise.
  * The event log is a separate ~27kB chunk, loaded only by the two variants that
@@ -92,8 +97,152 @@ export default function RatioedBlock({ block, style }) {
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={events} />}
       {variant === 'participants' && <Participants />}
+      {variant === 'when' && <When pieces={pieces} />}
       {block?.alt && <figcaption className="ratioed-alt">{block.alt}</figcaption>}
     </figure>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* When — day of week x time of day                                     */
+/* ------------------------------------------------------------------ */
+
+// SVG user units. The plot is 24 hours wide and seven days tall; everything
+// else is measured off these.
+const W = 720;
+const PAD_L = 42;
+const PAD_R = 14;
+const RIBBON_Y = 0;
+const RIBBON_H = 11;
+const ROW_H = 30;
+const GRID_Y = 40;
+const PLOT_W = W - PAD_L - PAD_R;
+const H = GRID_Y + WEEKDAYS.length * ROW_H + 8;
+
+// A piece's mark is a solid core sized by how long it lived, wrapped in a halo
+// sized by how much it drew. The halo is drawn OUTSIDE the core rather than as
+// a competing circle, so a long quiet piece can never swallow its own ring.
+const CORE_MIN = 2.5;
+const CORE_MAX = 9;
+const HALO_MAX = 7;
+
+function When({ pieces }) {
+  const marks = useMemo(() => whenMarks(pieces), [pieces]);
+  const maxLife = Math.max(1, ...marks.map((m) => m.lifespanMs));
+  const maxEng = Math.max(1, ...marks.map((m) => m.engagement));
+
+  const sized = marks
+    .map((m) => {
+      const core = areaRadius(m.lifespanMs, maxLife, CORE_MIN, CORE_MAX);
+      const halo = areaRadius(m.engagement, maxEng, 0, HALO_MAX);
+      return { ...m, core, halo, outer: core + halo };
+    })
+    // Biggest first so the small marks land on top of the large ones and stay
+    // findable where pieces minutes apart overlap.
+    .sort((a, b) => b.outer - a.outer);
+
+  const x = (atHour) => PAD_L + (atHour / 24) * PLOT_W;
+  const y = (day) => GRID_Y + day * ROW_H + ROW_H / 2;
+
+  return (
+    <div className="ratioed-when">
+      <div className="ratioed-when-scroll">
+      <div className="ratioed-when-canvas">
+      <svg viewBox={`0 0 ${W} ${H}`} className="ratioed-when-svg" role="img"
+        aria-label="Every piece placed by day of week and time of day, sized by how long it lived and how much it drew.">
+        {/* The hour axis is an actual strip of sky: each hour filled with that
+            hour's colour from the site's sky palette, so midnight reads black
+            and midday reads pale without a legend. */}
+        {Array.from({ length: 24 }, (_, h) => (
+          <rect
+            key={`sky-${h}`}
+            x={x(h)}
+            y={RIBBON_Y}
+            width={PLOT_W / 24 + 0.5}
+            height={RIBBON_H}
+            fill={paletteForHour(h).vars['--sky-page']}
+          />
+        ))}
+        <rect x={PAD_L} y={RIBBON_Y} width={PLOT_W} height={RIBBON_H}
+          className="ratioed-when-ribbon-edge" />
+        {[0, 6, 12, 18, 24].map((h) => (
+          <text key={`hl-${h}`} x={x(h)} y={RIBBON_H + 14} className="ratioed-when-hour"
+            textAnchor={h === 0 ? 'start' : h === 24 ? 'end' : 'middle'}>
+            {h === 0 ? '12am' : h === 12 ? 'noon' : h === 24 ? '12am' : `${h % 12}${h < 12 ? 'am' : 'pm'}`}
+          </text>
+        ))}
+
+        {WEEKDAYS.map((d, i) => (
+          <g key={d}>
+            <line x1={PAD_L} x2={W - PAD_R} y1={GRID_Y + i * ROW_H} y2={GRID_Y + i * ROW_H}
+              className="ratioed-when-rule" />
+            <text x={PAD_L - 10} y={y(i) + 3} className="ratioed-when-day" textAnchor="end">
+              {d}
+            </text>
+          </g>
+        ))}
+        <line x1={PAD_L} x2={W - PAD_R} y1={GRID_Y + WEEKDAYS.length * ROW_H}
+          y2={GRID_Y + WEEKDAYS.length * ROW_H} className="ratioed-when-rule" />
+        {[6, 12, 18].map((h) => (
+          <line key={`v-${h}`} x1={x(h)} x2={x(h)} y1={GRID_Y}
+            y2={GRID_Y + WEEKDAYS.length * ROW_H} className="ratioed-when-rule" />
+        ))}
+
+        {sized.map((m) => (
+          <g key={m.rkey} className="ratioed-when-mark">
+            <title>
+              {`Take ${m.take} · ${WEEKDAYS[m.day]} ${String(m.hour).padStart(2, '0')}:${String(m.minute).padStart(2, '0')} · alive ${fmtDuration(m.lifespanMs)} · ${m.engagement} events from ${m.participants} people`}
+            </title>
+            {m.halo > 0.2 && (
+              <circle cx={x(m.atHour)} cy={y(m.day)} r={m.outer} className="ratioed-when-halo" />
+            )}
+            <circle cx={x(m.atHour)} cy={y(m.day)} r={m.core} className="ratioed-when-core" />
+          </g>
+        ))}
+      </svg>
+      </div>
+      </div>
+
+      {/* A scale key, since the whole point of sizing the marks is reading
+          magnitude off them. Shows the actual extremes in the data. */}
+      <div className="ratioed-when-key">
+        <span>
+          <SampleMark core={CORE_MIN} halo={0} />
+          {fmtDuration(Math.min(...marks.map((m) => m.lifespanMs)))}
+          <i>shortest</i>
+        </span>
+        <span>
+          <SampleMark core={CORE_MAX} halo={0} />
+          {fmtDuration(maxLife)}
+          <i>longest</i>
+        </span>
+        <span>
+          <SampleMark core={CORE_MIN} halo={HALO_MAX} />
+          {maxEng} events
+          <i>busiest</i>
+        </span>
+      </div>
+
+      <p className="ratioed-note">
+        Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of
+        this site runs on. The solid core is how long a piece stayed alive; the ring around it is how
+        much it drew while it was. Both are scaled by area, so a mark twice the size means twice the
+        quantity, not four times. The strip along the top is the hour&rsquo;s own sky colour. Hover a
+        mark to name it.
+      </p>
+    </div>
+  );
+}
+
+/** One mark at a given size, for the scale key. */
+function SampleMark({ core, halo }) {
+  const r = core + halo;
+  const box = (CORE_MAX + HALO_MAX) * 2 + 2;
+  return (
+    <svg className="ratioed-when-sample" viewBox={`0 0 ${box} ${box}`} aria-hidden="true">
+      {halo > 0 && <circle cx={box / 2} cy={box / 2} r={r} className="ratioed-when-halo" />}
+      <circle cx={box / 2} cy={box / 2} r={core} className="ratioed-when-core" />
+    </svg>
   );
 }
 

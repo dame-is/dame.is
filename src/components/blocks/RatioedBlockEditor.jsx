@@ -5,6 +5,7 @@ const VARIANTS = [
   ['ledger', 'Ledger', 'Engagement before and after the seal, per piece.'],
   ['hidden', 'Replies nobody can see', 'The replies that landed after a seal — written to the network, hidden by the threadgate.'],
   ['participants', 'Participants', 'Everyone who touched a piece, sortable, with who broke what.'],
+  ['when', 'When they happened', 'Every piece on a week grid by day and hour, each mark sized by how long it lived and how much it drew.'],
 ];
 
 export default function RatioedBlockEditor({ block, onChange }) {

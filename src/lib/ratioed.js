@@ -76,6 +76,78 @@ export function hiddenReplies(events, pieces) {
   return out.sort((a, b) => a.afterSec - b.afterSec);
 }
 
+/* ------------------------------------------------------------------ */
+/* When the pieces happened                                             */
+/* ------------------------------------------------------------------ */
+
+// Records store UTC, but "time of day" is only meaningful in the artist's own
+// clock — in UTC the pieces scatter across all 24 hours and the pattern
+// vanishes. America/New_York is what the rest of the site already treats as
+// local: the sky theme, the hourly avatars and the OG cards all resolve through
+// og/time.js's easternHour(). Named zone rather than a fixed offset, so it
+// follows EST/EDT. Four of the eleven land on the previous day once converted.
+export const RATIOED_ZONE = 'America/New_York';
+
+export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_INDEX = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+
+/**
+ * Where an instant falls on a week grid, in the given zone.
+ * Returns `{ day, hour, minute, atHour }` — day 0 = Monday, `atHour` a
+ * fractional hour for positioning. Null if the timestamp won't parse.
+ */
+export function localSlot(iso, zone = RATIOED_ZONE) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    weekday: 'short',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(d);
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  const day = DAY_INDEX[get('weekday')];
+  // Intl can emit "24" for midnight under hour12:false.
+  const hour = Number(get('hour')) % 24;
+  const minute = Number(get('minute'));
+  if (day == null || !Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return { day, hour, minute, atHour: hour + minute / 60 };
+}
+
+/**
+ * One mark per piece for the week grid, carrying both magnitudes the marks
+ * encode: how long it lived, and how much it drew while living.
+ */
+export function whenMarks(pieces, zone = RATIOED_ZONE) {
+  return (pieces || [])
+    .map((p) => {
+      const slot = localSlot(p.postedAt, zone);
+      if (!slot) return null;
+      const e = p.preSeal || {};
+      return {
+        ...slot,
+        take: p.take,
+        rkey: p.rkey,
+        lifespanMs: p.lifespanMs || 0,
+        engagement:
+          (e.threadPosts || 0) + (e.reposts || 0) + (e.quotes || 0) + (e.likes || 0),
+        participants: e.participants || 0,
+      };
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Radius for a value whose AREA should be proportional to it — the only honest
+ * way to size a disc, since sizing the radius directly exaggerates by squaring.
+ * Zero maps to `min` so a piece that drew nothing still shows a mark.
+ */
+export function areaRadius(value, max, min, maxRadius) {
+  if (!max || value <= 0) return min;
+  return min + (maxRadius - min) * Math.sqrt(value / max);
+}
+
 /**
  * Normalize a PDS record into the shape the charts consume. Tolerates missing
  * sub-objects so a hand-edited record can't crash the renderer.
