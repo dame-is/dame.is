@@ -278,8 +278,11 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   overflow-wrap: anywhere;
 }
 
-/* Gallery — a run of consecutive image blocks laid out as a grid so a photo
-   set reads as one unit. Two-up by default; single images keep full width. */
+/* Gallery — a run of adjacent image blocks laid out as one unit rather than a
+   tall stack. `data-layout` is the author's choice from the blocks editor
+   (LeafletDocument's GALLERY_LAYOUTS). Column counts hold at every width: the
+   author picked a shape, and a breakpoint quietly rewriting it is what made the
+   old count-derived layout unpredictable. Two-up is the default. */
 .leaflet-gallery {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -291,15 +294,50 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   margin: 0;
 }
 
-.leaflet-gallery[data-count="3"],
-.leaflet-gallery[data-count="5"],
-.leaflet-gallery[data-count="6"] {
+.leaflet-gallery[data-layout="one-up"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.leaflet-gallery[data-layout="two-up"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.leaflet-gallery[data-layout="three-up"] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.leaflet-gallery[data-layout="four-up"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Filmstrip: one row that scrolls sideways, each frame snapping into place.
+   Sized off the container so roughly two and a half frames peek in, which is
+   what tells the reader there's more to swipe to. */
+.leaflet-gallery[data-layout="filmstrip"] {
+  display: flex;
+  grid-template-columns: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: var(--space-1);
+  padding-bottom: var(--space-2);
+}
+
+.leaflet-gallery[data-layout="filmstrip"] .leaflet-image {
+  flex: 0 0 min(40%, 18rem);
+  scroll-snap-align: start;
+}
+
 @media (max-width: 34rem) {
+  /* Column counts are deliberately NOT collapsed here — see the note above.
+     Only the gap tightens, so three or four across stays legible on a phone
+     instead of losing most of each frame to gutters. */
   .leaflet-gallery {
-    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .leaflet-gallery[data-layout="filmstrip"] .leaflet-image {
+    flex-basis: min(72%, 15rem);
   }
 }
 

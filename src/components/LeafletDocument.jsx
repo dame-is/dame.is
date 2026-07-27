@@ -99,34 +99,106 @@ export default function LeafletDocument({ doc }) {
   );
 }
 
+export const IMAGE_BLOCK_TYPE = 'pub.leaflet.blocks.image';
+
+/**
+ * Gallery layout — a dame.is rendering extension stored as `gallery` on each
+ * image block, in the same family as `indent` / `spaceTop` / `spaceBottom`.
+ *
+ * Adjacent image blocks group into one gallery, and they group only with
+ * neighbours carrying the SAME value — so two differently-shaped galleries can
+ * sit back to back, and `standalone` opts an image out of grouping entirely
+ * (each renders full width, exactly as a lone image block does).
+ *
+ * A column choice is honored at EVERY width — 3 across stays 3 across on a
+ * phone. Galleries used to guess their columns from the image count and had a
+ * narrow-screen collapse that (through a CSS specificity accident) never fired,
+ * so what published was hard to predict from the editor. An explicit count that
+ * doesn't change under you is the point of the control.
+ */
+export const GALLERY_DEFAULT_LAYOUT = 'two-up';
+
+export const GALLERY_LAYOUTS = [
+  { value: 'one-up', label: '1 across', hint: 'A single tight column' },
+  { value: 'two-up', label: '2 across', hint: 'Two columns at every width (default)' },
+  { value: 'three-up', label: '3 across', hint: 'Three columns at every width' },
+  { value: 'four-up', label: '4 across', hint: 'Four columns — small on a phone' },
+  { value: 'filmstrip', label: 'Filmstrip', hint: 'One row that scrolls sideways' },
+  { value: 'standalone', label: 'Separate images', hint: 'No grouping — full-width, stacked' },
+];
+
+const GALLERY_LAYOUT_VALUES = new Set(GALLERY_LAYOUTS.map((l) => l.value));
+
+/**
+ * The effective layout of an image block. An absent field — every image block
+ * written before this control existed — reads as the default, so old documents
+ * publish as a plain two-up grid rather than something count-dependent.
+ */
+export function galleryLayoutOf(block) {
+  return GALLERY_LAYOUT_VALUES.has(block?.gallery) ? block.gallery : GALLERY_DEFAULT_LAYOUT;
+}
+
+/**
+ * Split a page's blocks into gallery runs: maximal spans of adjacent image
+ * blocks that share one layout. Shared with the admin blocks editor so the
+ * editor's grouping is the published grouping, not a second guess at it.
+ *
+ * Returns `[{ start, end, size, layout }]` for every run of two or more —
+ * including `standalone` runs, which the editor surfaces as "not grouped" but
+ * the renderer emits as individual images.
+ */
+export function galleryRuns(blocks) {
+  const list = Array.isArray(blocks) ? blocks : [];
+  const runs = [];
+  let i = 0;
+  while (i < list.length) {
+    if (list[i]?.block?.$type !== IMAGE_BLOCK_TYPE) {
+      i += 1;
+      continue;
+    }
+    const layout = galleryLayoutOf(list[i].block);
+    let j = i;
+    while (
+      j < list.length &&
+      list[j]?.block?.$type === IMAGE_BLOCK_TYPE &&
+      galleryLayoutOf(list[j].block) === layout
+    ) {
+      j += 1;
+    }
+    if (j - i >= 2) runs.push({ start: i, end: j - 1, size: j - i, layout });
+    i = j;
+  }
+  return runs;
+}
+
 function LeafletPage({ page }) {
   const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
   const out = [];
+  const runStarts = new Map();
+  for (const run of galleryRuns(blocks)) runStarts.set(run.start, run);
   let i = 0;
   while (i < blocks.length) {
-    const block = blocks[i]?.block;
-    // Collapse a run of consecutive image blocks into a gallery grid so a
-    // photo set reads as one unit instead of a tall stack.
-    if (block?.$type === 'pub.leaflet.blocks.image') {
-      const run = [];
-      while (i < blocks.length && blocks[i]?.block?.$type === 'pub.leaflet.blocks.image') {
-        run.push(blocks[i].block);
-        i += 1;
-      }
-      if (run.length >= 2) {
-        out.push(
-          <div className="leaflet-gallery" data-count={run.length} key={`g-${i}`}>
-            {run.map((b, j) => (
-              <LeafletBlock key={j} block={b} />
-            ))}
-          </div>,
-        );
-      } else {
-        out.push(<LeafletBlock key={`b-${i}`} block={run[0]} />);
-      }
+    // Collapse a run of adjacent image blocks into a gallery so a photo set
+    // reads as one unit instead of a tall stack. `standalone` runs skip the
+    // wrapper and fall through to the per-block path below.
+    const run = runStarts.get(i);
+    if (run && run.layout !== 'standalone') {
+      out.push(
+        <div
+          className="leaflet-gallery"
+          data-count={run.size}
+          data-layout={run.layout}
+          key={`g-${i}`}
+        >
+          {blocks.slice(run.start, run.end + 1).map((wrap, j) => (
+            <LeafletBlock key={j} block={wrap?.block} />
+          ))}
+        </div>,
+      );
+      i = run.end + 1;
       continue;
     }
-    out.push(<LeafletBlock key={`b-${i}`} block={block} />);
+    out.push(<LeafletBlock key={`b-${i}`} block={blocks[i]?.block} />);
     i += 1;
   }
   return <Fragment>{out}</Fragment>;
