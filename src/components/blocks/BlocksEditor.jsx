@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import TextBlockEditor from './TextBlockEditor.jsx';
 import HeadingBlockEditor from './HeadingBlockEditor.jsx';
 import ImageBlockEditor, { uploadImageFile } from './ImageBlockEditor.jsx';
@@ -173,13 +174,31 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
   }, [autoMarkdown]);
 
   /**
-   * Leave the block being edited, moving focus to `next` (or nowhere).
-   *
-   * This is where markdown written inside a text block becomes real blocks: the
+   * Turn markdown written inside the active text block into real blocks: the
    * author can write a whole passage — headings, links, a list — in one place
-   * and have it resolve when they step away. It replaces the block as a single
+   * and have it resolve when they step away. Replaces the block as a single
    * structural op, so one ⌘Z puts the markdown source back if the conversion
    * read something the author meant literally.
+   *
+   * Returns null when there was nothing to convert, otherwise where the block
+   * sat and how many extra blocks it grew into, so a caller holding an index
+   * past it can follow the shift.
+   */
+  const resolveMarkdown = useCallback(() => {
+    const i = activeIndex;
+    const converted = i == null || !autoMarkdown ? null : textBlockToBlocks(blocks[i]?.block);
+    if (!converted) return null;
+    const wrapped = converted.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
+    const nextBlocks = blocks.slice();
+    nextBlocks.splice(i, 1, ...wrapped);
+    commit(nextBlocks, { kind: 'structural' });
+    // One block became several, so anything after it has shifted along.
+    return { at: i, grew: wrapped.length - 1 };
+  }, [activeIndex, autoMarkdown, blocks, commit]);
+
+  /**
+   * Leave the block being edited, moving focus to `next` (or nowhere),
+   * resolving its markdown on the way out.
    *
    * Only the deliberate exits route through here. Undo, redo, and dragging also
    * collapse the editor, but converting under them would fight the operation —
@@ -188,20 +207,14 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
    */
   const leaveActive = useCallback(
     (next = null) => {
-      const i = activeIndex;
-      const converted = i == null || !autoMarkdown ? null : textBlockToBlocks(blocks[i]?.block);
-      if (!converted) {
+      const shift = resolveMarkdown();
+      if (!shift) {
         setActiveIndex(next);
         return;
       }
-      const wrapped = converted.map((b) => ({ $type: WRAPPER_TYPE, block: b }));
-      const nextBlocks = blocks.slice();
-      nextBlocks.splice(i, 1, ...wrapped);
-      commit(nextBlocks, { kind: 'structural' });
-      // One block became several, so anything after it has shifted along.
-      setActiveIndex(next != null && next > i ? next + wrapped.length - 1 : next);
+      setActiveIndex(next != null && next > shift.at ? next + shift.grew : next);
     },
-    [activeIndex, autoMarkdown, blocks, commit],
+    [resolveMarkdown],
   );
 
   const removeBlock = useCallback(
@@ -318,18 +331,57 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
     [dragIndex, moveTo],
   );
 
-  // Collapse the active editor / insert palette when the user clicks outside.
+  // Collapse the active editor / insert palette when the user presses outside
+  // it — without eating the press.
+  //
+  // This used to run on mousedown, and that made "Done" feel mandatory.
+  // Collapsing swaps a tall block editor back to a short preview, so
+  // everything below it jumps upward; doing that on mousedown pulled the
+  // pressed control out from under the pointer, mouseup landed somewhere else,
+  // and no click was ever generated. The first tap on Save only closed the
+  // block and saving took a second tap.
+  //
+  // So the press decides and the click acts. Only pointerdown can say where
+  // the press landed — by click time the preview it hit may already have been
+  // swapped for an editor, leaving a detached target that reads as "outside".
+  // By the click, mouseup has already happened on an unmoved control and the
+  // event's propagation path is fixed, so reflowing now cannot stop it
+  // arriving. Running in capture, ahead of the control's own handler, also
+  // means Save reads a document whose markdown is already resolved — what
+  // "Done" would have left behind. flushSync, because React would otherwise
+  // batch that past the end of the dispatch, and Save would read the document
+  // it was about to replace.
+  const pressedOutsideRef = useRef(false);
   useEffect(() => {
     if (activeIndex == null && openInsertSlot == null) return undefined;
-    function onDown(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) {
-        leaveActive(null);
-        setOpenInsertSlot(null);
-      }
+    const inside = (target) => {
+      const root = rootRef.current;
+      return !!root && root.isConnected && root.contains(target);
+    };
+    function onPointerDown(e) {
+      pressedOutsideRef.current = !inside(e.target);
     }
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [activeIndex, openInsertSlot, leaveActive]);
+    function onClick(e) {
+      if (!pressedOutsideRef.current) return;
+      pressedOutsideRef.current = false;
+      // The click may have unmounted us (Save closes the quick-edit sheet);
+      // a detached root has nothing left to collapse. A press that started
+      // outside but released in here isn't a dismissal either.
+      if (!rootRef.current?.isConnected || inside(e.target)) return;
+      flushSync(() => {
+        resolveMarkdown();
+        setActiveIndex(null);
+        setOpenInsertSlot(null);
+      });
+    }
+    // Capture, so a handler that stops propagation can't hide either event.
+    document.addEventListener('pointerdown', onPointerDown, true);
+    document.addEventListener('click', onClick, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('click', onClick, true);
+    };
+  }, [activeIndex, openInsertSlot, resolveMarkdown]);
 
   // Editing a block and an open insert palette are mutually exclusive focuses:
   // opening one closes the other.
