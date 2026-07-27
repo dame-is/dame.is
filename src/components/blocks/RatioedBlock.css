@@ -94,6 +94,14 @@
   background: currentColor;
   opacity: 0.28;
 }
+/* The like chip carries the shape it filters, like the legend key does. */
+.ratioed-chip.ratioed-k-like .ratioed-sw {
+  width: 6px;
+  height: 6px;
+  border-radius: 0;
+  transform: rotate(45deg);
+  margin-inline: 1px;
+}
 .ratioed-chip:hover { border-color: var(--ink-faint); }
 .ratioed-chip[aria-pressed='true'] { border-color: currentColor; }
 .ratioed-chip[aria-pressed='true'] .ratioed-sw { opacity: 1; }
@@ -228,9 +236,15 @@
   background: currentColor;
   transition: opacity 0.15s;
 }
+/* A square on its corner. `border-radius` has to go back to 0 — rotating a
+   circle 45 degrees is a no-op, which is why every like in the chart came out
+   as a disc while the legend key beside it was a diamond. Sized so the
+   diagonal reads a little heavier than the discs, since the like is the mark
+   that ends the piece. */
 .ratioed-dot.ratioed-k-like {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
   transform: translate(-50%, -50%) rotate(45deg);
 }
 .ratioed-dot.self {
