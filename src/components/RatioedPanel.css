@@ -104,3 +104,21 @@
   .ratioed-panel-kv { grid-template-columns: 1fr; gap: 0 0; }
   .ratioed-panel-kv dd { margin-bottom: 0.35rem; }
 }
+
+/* --- discovered pieces -------------------------------------------- */
+
+.ratioed-panel-found {
+  border: 1px solid var(--rule);
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+}
+.ratioed-panel-found-head {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin: 0;
+}

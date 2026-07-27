@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   SEED_PIECES,
+  SEED_PEOPLE,
   loadPieces,
   aggregate,
+  splitParticipants,
+  hiddenReplies,
   fetchLiveDeltas,
   fmtDuration,
   fmtSeconds,
@@ -14,6 +17,7 @@ import './RatioedBlock.css';
 
 const KINDS = ['reply', 'repost', 'quote', 'like'];
 const KIND_LABEL = { reply: 'reply', repost: 'repost', quote: 'quote', like: 'like' };
+const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
 
 // The measured reaction window, in seconds. Every deleted like landed inside
 // it, so the ghost markers are drawn across exactly this band.
@@ -21,15 +25,18 @@ const REACTION_LO = 10;
 const REACTION_HI = 17;
 
 /**
- * Ratioed data visualisation. Three variants share one data load:
+ * Ratioed data visualisation. Six variants share one data load:
  *
- *   lifelines — every backlink plotted against time, threadgate as a hard rule
- *   reaction  — how long the artist took to close each piece by hand
- *   ledger     — engagement before and after the seal, per piece
+ *   summary      — the project in six figures
+ *   lifelines    — every backlink plotted against time, threadgate as a hard rule
+ *   reaction     — how long the artist took to close each piece by hand
+ *   ledger       — engagement before and after the seal, per piece
+ *   hidden       — the replies that landed after the seal and can't be seen
+ *   participants — everyone who touched a piece
  *
  * Pieces come from the PDS when reachable and from the bundled seed otherwise.
- * The event log (needed only by `lifelines`) is a separate ~27kB chunk, loaded
- * on demand so the other two variants never pay for it.
+ * The event log is a separate ~27kB chunk, loaded only by the two variants that
+ * need it, so the other four never pay for it.
  */
 export default function RatioedBlock({ block, style }) {
   const variant = block?.variant || 'lifelines';
@@ -50,7 +57,7 @@ export default function RatioedBlock({ block, style }) {
   }, []);
 
   useEffect(() => {
-    if (variant !== 'lifelines') return undefined;
+    if (variant !== 'lifelines' && variant !== 'hidden') return undefined;
     let alive = true;
     import('../../data/ratioedEvents.json')
       .then((m) => {
@@ -77,13 +84,212 @@ export default function RatioedBlock({ block, style }) {
 
   return (
     <figure className={`ratioed ratioed-${variant}`} style={style || undefined}>
+      {variant === 'summary' && <Summary stats={stats} />}
       {variant === 'lifelines' && (
         <Lifelines pieces={pieces} events={events} stats={stats} deltas={deltas} />
       )}
       {variant === 'reaction' && <Reaction pieces={pieces} stats={stats} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} />}
+      {variant === 'hidden' && <Hidden pieces={pieces} events={events} />}
+      {variant === 'participants' && <Participants />}
       {block?.alt && <figcaption className="ratioed-alt">{block.alt}</figcaption>}
     </figure>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Summary                                                              */
+/* ------------------------------------------------------------------ */
+
+function Summary({ stats }) {
+  const { total, living } = splitParticipants();
+  const tiles = [
+    [String(stats.count), null, 'pieces'],
+    [String(Math.round(stats.aliveMs / 60000)), 'min', 'total time alive'],
+    [String(total), null, 'people involved'],
+    [String(stats.nonLike), `:${stats.likes}`, 'engagement vs. likes, alive'],
+    [fmtSeconds(stats.meanReactionMs).replace('s', ''), 's', 'mean reaction to a like'],
+    [String(stats.deleted), `/${stats.count}`, 'breakers who deleted the like'],
+  ];
+  return (
+    <div className="ratioed-summary">
+      <div className="ratioed-tiles">
+        {tiles.map(([v, suffix, label]) => (
+          <div className="ratioed-tile" key={label}>
+            <span className="ratioed-tile-v">
+              {v}
+              {suffix && <small>{suffix}</small>}
+            </span>
+            <span className="ratioed-tile-l">{label}</span>
+          </div>
+        ))}
+      </div>
+      <p className="ratioed-note">
+        {living} of those {total} showed up while a piece was still alive. The rest only ever
+        touched one that was already finished.
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Hidden replies                                                       */
+/* ------------------------------------------------------------------ */
+
+function Hidden({ pieces, events }) {
+  const rows = useMemo(() => hiddenReplies(events, pieces), [events, pieces]);
+  if (!events) return <p className="ratioed-note">Loading the event log…</p>;
+  if (!rows.length) return <p className="ratioed-note">No replies landed after a seal.</p>;
+  return (
+    <div className="ratioed-hidden-list">
+      {rows.map((r, i) => (
+        <div className="ratioed-hidden-row" key={`${r.rkey}-${i}`}>
+          <div className="ratioed-hidden-when">
+            +{Math.round(r.afterSec)}s
+            <em>take {String(r.take).padStart(2, '0')}</em>
+          </div>
+          <div>
+            <blockquote className="ratioed-hidden-text">{r.t || '(image, no text)'}</blockquote>
+            <div className="ratioed-hidden-attr">
+              @{r.h} · {r.n ? 'nested reply' : 'reply to the sealed post'}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Participants                                                         */
+/* ------------------------------------------------------------------ */
+
+/** Every piece someone touched, each listed once, in order. */
+function pieceList(person) {
+  return [...new Set([...person.pre, ...person.post])]
+    .sort((a, b) => a - b)
+    .map((n) => String(n).padStart(2, '0'))
+    .join(' ');
+}
+
+const PEOPLE_COLUMNS = [
+  { key: 'h', label: 'Handle' },
+  { key: 'ev', label: 'Events', num: true },
+  { key: 'live', label: 'Live', num: true },
+  { key: 'after', label: 'After', num: true },
+];
+
+function Participants() {
+  const [query, setQuery] = useState('');
+  const [livingOnly, setLivingOnly] = useState(false);
+  const [sort, setSort] = useState('ev');
+  const [dir, setDir] = useState(-1);
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = SEED_PEOPLE.map((p) => ({ ...p, live: p.pre.length, after: p.post.length }));
+    if (q) list = list.filter((p) => p.h.toLowerCase().includes(q) || (p.dn || '').toLowerCase().includes(q));
+    if (livingOnly) list = list.filter((p) => p.live > 0);
+    const key = sort;
+    return list.sort((a, b) => {
+      const A = a[key];
+      const B = b[key];
+      const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
+      return cmp * dir || b.ev - a.ev;
+    });
+  }, [query, livingOnly, sort, dir]);
+
+  const toggleSort = (key) => {
+    if (sort === key) setDir(-dir);
+    else {
+      setSort(key);
+      setDir(key === 'h' ? 1 : -1);
+    }
+  };
+
+  return (
+    <div className="ratioed-participants">
+      <div className="ratioed-controls">
+        <input
+          className="ratioed-search"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="filter by handle…"
+          aria-label="Filter participants"
+        />
+        <div className="ratioed-chips">
+          <button
+            type="button"
+            className="ratioed-chip"
+            aria-pressed={livingOnly}
+            onClick={() => setLivingOnly(!livingOnly)}
+          >
+            <span className="ratioed-sw" aria-hidden="true" />
+            only living participation
+          </button>
+        </div>
+      </div>
+      <div className="ratioed-tablewrap">
+        <table className="ratioed-table">
+          <thead>
+            <tr>
+              {PEOPLE_COLUMNS.map((c) => (
+                <th key={c.key} className={c.num ? 'num' : undefined}>
+                  <button
+                    type="button"
+                    className="ratioed-sort"
+                    aria-pressed={sort === c.key}
+                    onClick={() => toggleSort(c.key)}
+                  >
+                    {c.label}
+                    {sort === c.key && <span aria-hidden="true">{dir === 1 ? ' ↑' : ' ↓'}</span>}
+                  </button>
+                </th>
+              ))}
+              <th>Pieces</th>
+              <th>Mix</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.did}>
+                <td>
+                  @{p.h}
+                  {p.dn && <span className="ratioed-people-dn">{p.dn}</span>}
+                </td>
+                <td className="num">{p.ev}</td>
+                <td className="num">{p.live || '·'}</td>
+                <td className="num">{p.after || '·'}</td>
+                <td>{pieceList(p)}</td>
+                <td>
+                  {KINDS.filter((k) => p.kinds[k]).map((k) => (
+                    <span className={`ratioed-k-${k}`} key={k}>
+                      {ABBR[k]}×{p.kinds[k]}{' '}
+                    </span>
+                  ))}
+                </td>
+                <td>
+                  {p.broke ? (
+                    <span className="ratioed-tag broke">broke #{String(p.broke).padStart(2, '0')}</span>
+                  ) : p.live ? (
+                    <span className="ratioed-tag live">participant</span>
+                  ) : (
+                    <span className="ratioed-tag">after the fact</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="ratioed-note">
+        Counted by DID, not handle — two deactivated accounts share one placeholder handle.
+        Four of the eleven breakers are missing entirely: their only act was a like they later
+        deleted, so they left nothing to count.
+      </p>
+    </div>
   );
 }
 

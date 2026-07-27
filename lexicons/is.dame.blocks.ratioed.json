@@ -5,12 +5,21 @@
     "main": {
       "type": "object",
       "description": "A Ratioed data visualisation, placed inside a pub.leaflet.content page alongside the standard pub.leaflet.blocks.* types. Renderers that don't know this type skip it, so any block of this type should be followed by a plain text block carrying the same figures in prose.",
-      "required": ["variant"],
+      "required": [
+        "variant"
+      ],
       "properties": {
         "variant": {
           "type": "string",
-          "knownValues": ["lifelines", "reaction", "ledger"],
-          "description": "lifelines — every backlink plotted against time, with the threadgate as a hard rule and a log-scaled afterlife. reaction — how long the artist took to close each piece by hand. ledger — engagement before and after the seal, per piece."
+          "knownValues": [
+            "summary",
+            "lifelines",
+            "reaction",
+            "ledger",
+            "hidden",
+            "participants"
+          ],
+          "description": "summary — the project in six figures. lifelines — every backlink plotted against time, with the threadgate as a hard rule and a log-scaled afterlife. reaction — how long the artist took to close each piece by hand. ledger — engagement before and after the seal, per piece. hidden — the replies that landed after a seal, written to the network but hidden by the threadgate. participants — everyone who touched a piece."
         },
         "alt": {
           "type": "string",
@@ -19,7 +28,7 @@
         },
         "showLive": {
           "type": "boolean",
-          "description": "Query Constellation on render and show how much engagement each piece has accrued since it was measured. The recorded figures stay authoritative; this only adds a delta."
+          "description": "Query Constellation on render and show how much engagement each piece has accrued since it was measured. Only the lifelines and ledger variants read this. The recorded figures stay authoritative; this only adds a delta."
         }
       }
     }

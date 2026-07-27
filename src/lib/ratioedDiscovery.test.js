@@ -1,0 +1,269 @@
+import { describe, it, expect } from 'vitest';
+import {
+  isPiecePost,
+  isSealed,
+  takeFromText,
+  breakerFromAnnouncement,
+  isAnnouncement,
+  findPieces,
+  measureWindows,
+  buildPieceRecord,
+} from './ratioedDiscovery.js';
+
+const PIECE_TEXT =
+  'i would like your help with an experimental social art project\n\nthis post is the project\n\n' +
+  'the goal of this post is for it to receive ZERO likes, and only receive *replies* or *reposts*\n\n' +
+  'if it receives any likes, i will immediately turn off replies, thereby sealing and finishing it\n\n' +
+  'this is take #4';
+
+describe('isPiecePost', () => {
+  it('matches the standing phrase', () => {
+    expect(isPiecePost({ text: PIECE_TEXT })).toBe(true);
+  });
+
+  it('also matches take #11, which reworded everything else', () => {
+    expect(
+      isPiecePost({
+        text:
+          'i would like your help with an experimental social art project\n\nthis post is the project\n\n' +
+          'the goal of this post is for it to receive ZERO likes… only replies, reposts, or quotes allowed\n\n' +
+          'this is take #11',
+      }),
+    ).toBe(true);
+  });
+
+  it('ignores unrelated posts and non-posts', () => {
+    expect(isPiecePost({ text: 'just had a sandwich' })).toBe(false);
+    expect(isPiecePost(null)).toBe(false);
+    expect(isPiecePost({})).toBe(false);
+  });
+});
+
+describe('isSealed', () => {
+  it('only an empty allow list is a seal', () => {
+    expect(isSealed({ allow: [] })).toBe(true);
+    // The meta post carries a real threadgate; it is not a sealed piece.
+    expect(isSealed({ allow: [{ $type: 'app.bsky.feed.threadgate#followingRule' }] })).toBe(false);
+    // No `allow` at all means "everyone can reply" — also not a seal.
+    expect(isSealed({})).toBe(false);
+    expect(isSealed(null)).toBe(false);
+  });
+});
+
+describe('takeFromText', () => {
+  it('reads the take number', () => {
+    expect(takeFromText(PIECE_TEXT)).toBe(4);
+    expect(takeFromText('this is take #11')).toBe(11);
+    expect(takeFromText('this is take 12')).toBe(12);
+  });
+
+  it('returns null when the post does not say', () => {
+    expect(takeFromText('no number here')).toBeNull();
+    expect(takeFromText('')).toBeNull();
+  });
+});
+
+describe('breakerFromAnnouncement', () => {
+  // These are the real announcement strings from the first eleven pieces.
+  it('reads a plain handle', () => {
+    expect(
+      breakerFromAnnouncement(
+        'thank you for your participation, this piece has now concluded, @round.is was to blame for liking the post',
+      ),
+    ).toEqual({ handle: 'round.is' });
+  });
+
+  it('reads the handle + did form used for take #8', () => {
+    expect(
+      breakerFromAnnouncement(
+        'thank you for your participation, this piece has now concluded, ' +
+          '@bolsonarosex.myatproto.social / did:plc:pe7ti3wxckxccbq5udlayg4m was to blame for liking the post',
+      ),
+    ).toEqual({
+      handle: 'bolsonarosex.myatproto.social',
+      did: 'did:plc:pe7ti3wxckxccbq5udlayg4m',
+    });
+  });
+
+  it('handles hyphenated handles', () => {
+    expect(breakerFromAnnouncement('@g-sharp-major.bsky.social was to blame')).toEqual({
+      handle: 'g-sharp-major.bsky.social',
+    });
+  });
+
+  it('returns null for anything else', () => {
+    expect(breakerFromAnnouncement('at the time of this piece’s completion')).toBeNull();
+    expect(breakerFromAnnouncement('')).toBeNull();
+  });
+
+  it('isAnnouncement agrees with it', () => {
+    expect(isAnnouncement({ text: '@round.is was to blame for liking the post' })).toBe(true);
+    expect(isAnnouncement({ text: '0 replies\n0 reposts' })).toBe(false);
+  });
+});
+
+describe('findPieces', () => {
+  const DID = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj';
+  const uri = (rkey) => `at://${DID}/app.bsky.feed.post/${rkey}`;
+  const gateUri = (rkey) => `at://${DID}/app.bsky.feed.threadgate/${rkey}`;
+  // Take #4's real keys and times.
+  const posts = [
+    { uri: uri('3lrqlgyvftk27'), value: { text: PIECE_TEXT } },
+    { uri: uri('3lrq5r2ouw22b'), value: { text: 'this is take #1 experimental social art project' } },
+    { uri: uri('3mrln4zidxs2e'), value: { text: 'for the newcomers, this project is called Ratioed' } },
+  ];
+  const gates = [
+    { uri: gateUri('3lrqlgyvftk27'), value: { allow: [], createdAt: '2025-06-16T18:42:46.543Z' } },
+    { uri: gateUri('3lrq5r2ouw22b'), value: { allow: [], createdAt: '2025-06-16T14:09:16.528Z' } },
+  ];
+
+  it('finds sealed pieces and orders them oldest first', () => {
+    const found = findPieces(posts, gates);
+    expect(found.map((p) => p.take)).toEqual([1, 4]);
+  });
+
+  it('derives the lifespan from the post TID and the gate', () => {
+    const four = findPieces(posts, gates).find((p) => p.take === 4);
+    expect(four.lifespanMs).toBe(1763889);
+    expect(four.postedAt).toBe('2025-06-16T18:13:22.654Z');
+  });
+
+  it('skips a piece-shaped post with no seal', () => {
+    expect(findPieces(posts, [gates[0]]).map((p) => p.take)).toEqual([4]);
+  });
+
+  it('skips the meta post, which quotes a piece but is not one', () => {
+    const found = findPieces(posts, gates);
+    expect(found.some((p) => p.rkey === '3mrln4zidxs2e')).toBe(false);
+  });
+
+  it('marks pieces that already have a record', () => {
+    const found = findPieces(posts, gates, new Set(['3lrq5r2ouw22b']));
+    expect(found.find((p) => p.take === 1).known).toBe(true);
+    expect(found.find((p) => p.take === 4).known).toBe(false);
+  });
+});
+
+describe('measureWindows', () => {
+  const SELF = 'did:plc:self';
+  // 3lrq5r2ouw22b is take #1's post key: 2025-06-16T14:08:27.696Z.
+  const SEAL = Date.parse('2025-06-16T14:09:16.528Z');
+  // A like written at 14:08:59.479 — take #1's real breaking like moment.
+  const LIKE = '3lrq5ryysys22';
+  // A reply written at 14:08:40, comfortably inside the piece's 49 seconds.
+  const EARLY = '3lrq5rggek222';
+
+  it('splits records either side of the seal', () => {
+    const { preSeal, postSeal } = measureWindows(
+      [
+        { kind: 'reply', rkey: EARLY, did: 'did:plc:a' },
+        { kind: 'like', rkey: '3mrlmsxbqjc2e', did: 'did:plc:b' }, // 2026 — long after
+      ],
+      SEAL,
+      SELF,
+    );
+    expect(preSeal.threadPosts).toBe(1);
+    expect(postSeal.likes).toBe(1);
+    expect(preSeal.participants).toBe(1);
+    expect(postSeal.participants).toBe(1);
+  });
+
+  it('excludes the artist from the counts', () => {
+    const { preSeal } = measureWindows(
+      [{ kind: 'reply', rkey: EARLY, did: SELF }],
+      SEAL,
+      SELF,
+    );
+    expect(preSeal.threadPosts).toBe(0);
+    expect(preSeal.participants).toBe(0);
+  });
+
+  it('finds a surviving pre-seal like as the breaking like', () => {
+    const { breakingLike } = measureWindows(
+      [{ kind: 'like', rkey: LIKE, did: 'did:plc:round' }],
+      SEAL,
+      SELF,
+    );
+    expect(breakingLike).not.toBeNull();
+    expect(breakingLike.did).toBe('did:plc:round');
+  });
+
+  it('reports no breaking like when it was deleted', () => {
+    // Six of the first eleven look exactly like this: a seal with nothing
+    // before it to explain the seal.
+    const { breakingLike } = measureWindows(
+      [{ kind: 'reply', rkey: EARLY, did: 'did:plc:a' }],
+      SEAL,
+      SELF,
+    );
+    expect(breakingLike).toBeNull();
+  });
+
+  it('ignores unparseable record keys rather than counting them as epoch', () => {
+    const { preSeal, postSeal } = measureWindows(
+      [{ kind: 'like', rkey: 'not-a-tid', did: 'did:plc:a' }],
+      SEAL,
+      SELF,
+    );
+    expect(preSeal.likes).toBe(0);
+    expect(postSeal.likes).toBe(0);
+  });
+});
+
+describe('buildPieceRecord', () => {
+  const piece = {
+    rkey: '3lrq5r2ouw22b',
+    take: 1,
+    postedAt: '2025-06-16T14:08:27.696Z',
+    sealedAt: '2025-06-16T14:09:16.528Z',
+    lifespanMs: 48832,
+  };
+  const windows = {
+    preSeal: { likes: 1, reposts: 0, quotes: 0, threadPosts: 0, participants: 1 },
+    postSeal: { likes: 3, reposts: 1, quotes: 1, threadPosts: 0, participants: 5 },
+    breakingLike: { at: Date.parse('2025-06-16T14:08:59.479Z'), did: 'did:plc:round' },
+  };
+
+  it('reproduces take #1 from its parts', () => {
+    const rec = buildPieceRecord({
+      piece,
+      windows,
+      announcement: { text: '@round.is was to blame for liking the post', rkey: '3lrq5tdhik222' },
+      subject: 'at://did:plc:x/app.bsky.feed.post/3lrq5r2ouw22b',
+      measuredAt: '2026-07-27T01:00:00.000Z',
+    });
+    expect(rec.take).toBe(1);
+    expect(rec.breaker).toEqual({
+      handle: 'round.is',
+      likeSurvives: true,
+      reactionMs: 17049,
+    });
+    expect(rec.lifespanMs).toBe(48832);
+    expect(rec.preSeal.likes).toBe(1);
+  });
+
+  it('omits the reaction time when the like is gone', () => {
+    const rec = buildPieceRecord({
+      piece,
+      windows: { ...windows, breakingLike: null },
+      announcement: { text: '@fenny.moe was to blame for liking the post' },
+      subject: 'at://did:plc:x/app.bsky.feed.post/3lrq5r2ouw22b',
+      measuredAt: '2026-07-27T01:00:00.000Z',
+    });
+    expect(rec.breaker.likeSurvives).toBe(false);
+    expect(rec.breaker.reactionMs).toBeUndefined();
+    expect(rec.breaker.handle).toBe('fenny.moe');
+  });
+
+  it('falls back to an unknown breaker when no announcement was found', () => {
+    const rec = buildPieceRecord({
+      piece,
+      windows,
+      announcement: null,
+      subject: 'at://did:plc:x/app.bsky.feed.post/3lrq5r2ouw22b',
+      measuredAt: '2026-07-27T01:00:00.000Z',
+    });
+    expect(rec.breaker.handle).toBe('unknown');
+    expect(rec.announceLagMs).toBeUndefined();
+  });
+});

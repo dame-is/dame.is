@@ -1,7 +1,10 @@
 const VARIANTS = [
+  ['summary', 'Summary', 'The project in six figures — pieces, time alive, people, the ratio, your mean reaction, and how many breakers deleted the like.'],
   ['lifelines', 'Lifelines', 'Every backlink plotted against time, with the threadgate as a hard rule and a log-scaled afterlife.'],
-  ['reaction', 'Reaction times', 'How long it took you to close each piece by hand. Deleted likes show as an inferred window.'],
+  ['reaction', 'Reaction times', 'How long it took you to close each piece by hand, in order. Deleted likes show as an inferred window.'],
   ['ledger', 'Ledger', 'Engagement before and after the seal, per piece.'],
+  ['hidden', 'Replies nobody can see', 'The replies that landed after a seal — written to the network, hidden by the threadgate.'],
+  ['participants', 'Participants', 'Everyone who touched a piece, sortable, with who broke what.'],
 ];
 
 export default function RatioedBlockEditor({ block, onChange }) {
@@ -36,18 +39,22 @@ export default function RatioedBlockEditor({ block, onChange }) {
         />
       </label>
 
-      <label className="admin-field-checkbox">
-        <input
-          type="checkbox"
-          checked={!!block?.showLive}
-          onChange={(e) => onChange({ ...block, showLive: e.target.checked })}
-        />
-        Show what each piece has picked up since it was measured
-      </label>
-      <p className="admin-field-hint">
-        Queries Constellation on render — one request per piece. The recorded figures stay
-        authoritative; this only adds a delta on top.
-      </p>
+      {(variant === 'lifelines' || variant === 'ledger') && (
+        <>
+          <label className="admin-field-checkbox">
+            <input
+              type="checkbox"
+              checked={!!block?.showLive}
+              onChange={(e) => onChange({ ...block, showLive: e.target.checked })}
+            />
+            Show what each piece has picked up since it was measured
+          </label>
+          <p className="admin-field-hint">
+            Queries Constellation on render — one request per piece. The recorded figures stay
+            authoritative; this only adds a delta on top.
+          </p>
+        </>
+      )}
 
       <p className="admin-field-hint">
         Only this site renders <code>is.dame.blocks.ratioed</code>. Anywhere else this document is

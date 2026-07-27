@@ -11,7 +11,8 @@
 // measured" figure on top of it.
 
 import SEED from '../data/ratioedPieces.json';
-import { getBacklinkSources, flattenSources } from './constellation.js';
+import PEOPLE from '../data/ratioedPeople.json';
+import { getBacklinkSources, getBacklinks, flattenSources } from './constellation.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
 import { fetchSnapshot } from './snapshot.js';
@@ -32,6 +33,48 @@ export const SEED_PIECES = SEED.map((entry) => ({
   rkey: entry.rkey,
   ...entry.record,
 }));
+
+/**
+ * Everyone who touched a piece, by DID, most events first.
+ *
+ * Counted by DID rather than handle on purpose: two deactivated accounts both
+ * resolve to the same placeholder handle, and collapsing them would undercount.
+ *
+ * Four of the eleven breakers are absent from this list entirely — their only
+ * act was a like they later deleted, so they left no record to count.
+ */
+export const SEED_PEOPLE = PEOPLE;
+
+/**
+ * How the roster divides between people who showed up while a piece was alive
+ * and people who only ever touched a finished one. Counts, not lists — every
+ * caller so far wants the numbers.
+ */
+export function splitParticipants(people = SEED_PEOPLE) {
+  const living = people.reduce((n, p) => n + (p.pre.length > 0 ? 1 : 0), 0);
+  return { living, afterOnly: people.length - living, total: people.length };
+}
+
+/**
+ * Replies that landed after the seal — written to the network, indexed by
+ * Constellation, and invisible in the app, because a threadgate hides replies
+ * at the appview without stopping the records being made. Earliest first.
+ *
+ * Needs the event log, so callers hand in whatever they've loaded; returns []
+ * until it arrives.
+ */
+export function hiddenReplies(events, pieces) {
+  if (!events) return [];
+  const out = [];
+  for (const piece of pieces || []) {
+    const life = piece.lifespanMs / 1000;
+    for (const e of events[piece.rkey] || []) {
+      if (e.k !== 'reply' || e.pre || e.self) continue;
+      out.push({ ...e, take: piece.take, rkey: piece.rkey, afterSec: e.off - life });
+    }
+  }
+  return out.sort((a, b) => a.afterSec - b.afterSec);
+}
 
 /**
  * Normalize a PDS record into the shape the charts consume. Tolerates missing
@@ -155,6 +198,36 @@ export async function fetchLiveDeltas(pieces) {
     }),
   );
   return Object.fromEntries(results.filter(Boolean));
+}
+
+/** Every link source that counts as engagement, as `collection:path` pairs. */
+const BACKLINK_SOURCES = [
+  ['app.bsky.feed.like:subject.uri', 'like'],
+  ['app.bsky.feed.repost:subject.uri', 'repost'],
+  ['app.bsky.feed.post:embed.record.uri', 'quote'],
+  ['app.bsky.feed.post:embed.record.record.uri', 'quote'],
+  ['app.bsky.feed.post:reply.root.uri', 'reply'],
+];
+
+/**
+ * Every record pointing at a piece, flattened to `{ kind, rkey, did }` — the
+ * shape measureWindows() consumes. Pages through each source to the end, so a
+ * busy piece is counted in full rather than to the first 100.
+ */
+export async function fetchPieceRecords(subject) {
+  const out = [];
+  for (const [source, kind] of BACKLINK_SOURCES) {
+    let cursor;
+    do {
+      const page = await getBacklinks(subject, source, { limit: 100, cursor });
+      if (!page) break;
+      for (const r of page.linking_records || []) {
+        out.push({ kind, rkey: r.rkey, did: r.did });
+      }
+      cursor = page.cursor || null;
+    } while (cursor);
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------ */

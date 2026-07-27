@@ -12,11 +12,23 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Upload, Trash2, ExternalLink } from 'lucide-react';
+import { RefreshCw, Upload, Trash2, ExternalLink, Search } from 'lucide-react';
 import PageShell from './PageShell.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { COLLECTIONS, RATIOED_DOC_RKEY, RATIOED_SOURCE, ME_DID } from '../config.js';
-import { SEED_PIECES, normalizePiece, fmtDuration, fmtSeconds } from '../lib/ratioed.js';
+import {
+  SEED_PIECES,
+  normalizePiece,
+  fetchPieceRecords,
+  fmtDuration,
+  fmtSeconds,
+} from '../lib/ratioed.js';
+import {
+  findPieces,
+  isAnnouncement,
+  measureWindows,
+  buildPieceRecord,
+} from '../lib/ratioedDiscovery.js';
 import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
 
@@ -39,6 +51,7 @@ export default function RatioedPanel({ agent, did }) {
   const [error, setError] = useState(null);
   const [backlinks, setBacklinks] = useState(null);
   const [measured, setMeasured] = useState(null); // rkey → fresh postSeal
+  const [found, setFound] = useState(null); // pieces on the PDS with no record yet
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -160,6 +173,96 @@ export default function RatioedPanel({ agent, did }) {
     }
   }
 
+  /**
+   * Look for sealed pieces on the PDS that have no measurement record yet, and
+   * measure each one from its own records.
+   *
+   * Everything except the reaction time survives indefinitely, so a late scan
+   * still gets the lifespan, the engagement split and the breaker's name from
+   * the concluding reply. The reaction time is the exception: it needs the
+   * breaking like to still exist, and six of the first eleven were deleted.
+   * Scan soon after sealing a piece and that number is captured; scan late and
+   * it reads "deleted", permanently.
+   */
+  async function scan() {
+    setBusy('scan');
+    setError(null);
+    setFound(null);
+    try {
+      setProgress('Reading posts and threadgates…');
+      const [postRes, gateRes] = await Promise.all([
+        agent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: 'app.bsky.feed.post',
+          limit: 100,
+        }),
+        agent.com.atproto.repo.listRecords({
+          repo: did,
+          collection: 'app.bsky.feed.threadgate',
+          limit: 100,
+        }),
+      ]);
+      const posts = postRes?.data?.records || [];
+      const gates = gateRes?.data?.records || [];
+      const known = new Set(Object.keys(live));
+      const candidates = findPieces(posts, gates, known).filter((p) => !p.known);
+      if (!candidates.length) {
+        setFound([]);
+        setProgress('');
+        return;
+      }
+      const measuredAt = new Date().toISOString();
+      const out = [];
+      let n = 0;
+      for (const piece of candidates) {
+        n += 1;
+        setProgress(`Measuring ${n}/${candidates.length} — ${piece.rkey}`);
+        const subject = `at://${did}/app.bsky.feed.post/${piece.rkey}`;
+        const records = await fetchPieceRecords(subject);
+        const windows = measureWindows(records, Date.parse(piece.sealedAt), did);
+        // The concluding reply names the breaker; it's one of dame's own posts
+        // replying to this piece.
+        const announcement = posts
+          .map((r) => ({ rkey: String(r.uri).split('/').pop(), ...r.value }))
+          .find((v) => v.reply?.parent?.uri === subject && isAnnouncement(v));
+        out.push({
+          piece,
+          record: buildPieceRecord({ piece, windows, announcement, subject, measuredAt }),
+        });
+      }
+      setFound(out);
+      setProgress('');
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Publish the pieces the scan turned up. */
+  async function publishFound() {
+    if (!found?.length) return;
+    if (!window.confirm(`Write ${found.length} newly discovered piece(s) to your PDS?`)) return;
+    setBusy('publish-found');
+    setError(null);
+    try {
+      for (const { piece, record } of found) {
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: NSID,
+          rkey: piece.rkey,
+          record: { $type: NSID, ...record },
+        });
+      }
+      setFound(null);
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function deleteAll() {
     const keys = Object.keys(live);
     if (!keys.length) return;
@@ -213,6 +316,10 @@ export default function RatioedPanel({ agent, did }) {
           <Upload size={14} aria-hidden="true" />
           {busy === 'publish' ? 'Publishing…' : publishedCount ? 'Republish all' : 'Publish all to PDS'}
         </button>
+        <button type="button" className="admin-gate-button" onClick={scan} disabled={!!busy}>
+          <Search size={14} aria-hidden="true" />
+          {busy === 'scan' ? 'Scanning…' : 'Scan for new pieces'}
+        </button>
         <button type="button" className="admin-gate-button" onClick={remeasure} disabled={!!busy}>
           <RefreshCw size={14} aria-hidden="true" />
           {busy === 'measure' ? 'Measuring…' : 'Re-measure afterlife'}
@@ -245,6 +352,73 @@ export default function RatioedPanel({ agent, did }) {
           figures and reaction times are never touched, because the deleted likes they rest on
           can&rsquo;t be recovered from any index.
         </p>
+      )}
+
+      {found && (
+        <section className="ratioed-panel-found">
+          <h2 className="ratioed-panel-found-head">
+            {found.length ? `${found.length} unrecorded piece(s)` : 'Nothing new'}
+          </h2>
+          {!found.length ? (
+            <p className="admin-field-hint">
+              Every sealed piece on your PDS already has a measurement record.
+            </p>
+          ) : (
+            <>
+              {found.map(({ piece, record }) => (
+                <article className="ratioed-panel-row" key={piece.rkey}>
+                  <header>
+                    <span className="ratioed-panel-take">
+                      {record.take ? String(record.take).padStart(2, '0') : '??'}
+                    </span>
+                    <span className="ratioed-panel-state">discovered</span>
+                  </header>
+                  <dl className="ratioed-panel-kv">
+                    <dt>alive</dt>
+                    <dd>{fmtDuration(record.lifespanMs)}</dd>
+                    <dt>broken by</dt>
+                    <dd>
+                      @{record.breaker.handle}
+                      {record.breaker.likeSurvives ? (
+                        <> · reacted in {fmtSeconds(record.breaker.reactionMs)}</>
+                      ) : (
+                        <span className="ratioed-panel-deleted">
+                          {' '}
+                          · like already deleted — reaction time unrecoverable
+                        </span>
+                      )}
+                    </dd>
+                    <dt>alive</dt>
+                    <dd>
+                      {record.preSeal.threadPosts} thread · {record.preSeal.reposts} RT ·{' '}
+                      {record.preSeal.quotes} QT · {record.preSeal.likes} ♥ ·{' '}
+                      {record.preSeal.participants} people
+                    </dd>
+                    <dt>afterlife</dt>
+                    <dd>
+                      {record.postSeal.threadPosts} thread · {record.postSeal.reposts} RT ·{' '}
+                      {record.postSeal.quotes} QT · {record.postSeal.likes} ♥
+                    </dd>
+                  </dl>
+                </article>
+              ))}
+              <div className="ratioed-panel-actions">
+                <button
+                  type="button"
+                  className="admin-gate-button"
+                  onClick={publishFound}
+                  disabled={!!busy}
+                >
+                  <Upload size={14} aria-hidden="true" />
+                  {busy === 'publish-found' ? 'Publishing…' : 'Publish these'}
+                </button>
+                <button type="button" className="admin-gate-button" onClick={() => setFound(null)}>
+                  Dismiss
+                </button>
+              </div>
+            </>
+          )}
+        </section>
       )}
 
       {loading ? (

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   SEED_PIECES,
+  SEED_PEOPLE,
+  splitParticipants,
+  hiddenReplies,
   normalizePiece,
   aggregate,
   fmtDuration,
@@ -127,6 +130,68 @@ describe('aggregate', () => {
     expect(empty.count).toBe(0);
     expect(empty.meanReactionMs).toBeNull();
     expect(empty.maxLifespanMs).toBe(0);
+  });
+});
+
+describe('SEED_PEOPLE', () => {
+  it('counts everyone by DID, not by handle', () => {
+    expect(SEED_PEOPLE).toHaveLength(135);
+    expect(new Set(SEED_PEOPLE.map((p) => p.did)).size).toBe(135);
+    // Two deactivated accounts share one placeholder handle; counting by
+    // handle would silently lose one of them.
+    expect(new Set(SEED_PEOPLE.map((p) => p.h)).size).toBe(134);
+  });
+
+  it('splits into living and after-the-fact participation', () => {
+    const { total, living, afterOnly } = splitParticipants();
+    expect(total).toBe(135);
+    expect(living).toBe(77);
+    expect(living + afterOnly).toBe(total);
+  });
+
+  it('gives everyone at least one event and one piece', () => {
+    for (const p of SEED_PEOPLE) {
+      expect(p.ev).toBeGreaterThan(0);
+      expect(p.pre.length + p.post.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('tags only breakers who left a record behind', () => {
+    const tagged = SEED_PEOPLE.filter((p) => p.broke);
+    // Four of the eleven deleted their like and did nothing else, so they
+    // never appear in a backlink index at all.
+    expect(tagged).toHaveLength(7);
+    for (const p of tagged) {
+      expect(p.broke).toBeGreaterThanOrEqual(1);
+      expect(p.broke).toBeLessThanOrEqual(11);
+    }
+  });
+});
+
+describe('hiddenReplies', () => {
+  const events = {
+    [SEED_PIECES[0].rkey]: [
+      { k: 'reply', h: 'a.test', off: 10, pre: 1 },
+      { k: 'reply', h: 'b.test', off: 80, pre: 0 },
+      { k: 'like', h: 'c.test', off: 90, pre: 0 },
+      { k: 'reply', h: 'dame.is', off: 70, pre: 0, self: 1 },
+    ],
+  };
+
+  it('returns only non-self replies from after the seal', () => {
+    const out = hiddenReplies(events, [SEED_PIECES[0]]);
+    expect(out).toHaveLength(1);
+    expect(out[0].h).toBe('b.test');
+  });
+
+  it('measures the offset from the seal, not from the post', () => {
+    const [row] = hiddenReplies(events, [SEED_PIECES[0]]);
+    // take #1 sealed at 48.832s; a reply at +80s landed ~31s after.
+    expect(Math.round(row.afterSec)).toBe(31);
+  });
+
+  it('is empty until the event log has loaded', () => {
+    expect(hiddenReplies(null, SEED_PIECES)).toEqual([]);
   });
 });
 
