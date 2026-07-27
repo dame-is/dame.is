@@ -49,7 +49,7 @@ const DEFAULT_CAPTIONS = {
   participants: () =>
     'Counted by DID, not handle — two deactivated accounts share one placeholder handle. Four of the eleven breakers are missing entirely: their only act was a like they later deleted, so they left nothing to count.',
   when: () =>
-    'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip along the top is the hour’s own sky colour. Hover a mark to name it.',
+    'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip beside the grid is each hour’s own sky colour. Every mark names itself on hover.',
 };
 
 /**
@@ -145,17 +145,16 @@ export default function RatioedBlock({ block, style }) {
 /* When — day of week x time of day                                     */
 /* ------------------------------------------------------------------ */
 
-// SVG user units. The plot is 24 hours wide and seven days tall; everything
-// else is measured off these.
-const W = 720;
-const PAD_L = 42;
-const PAD_R = 14;
-const RIBBON_Y = 0;
-const RIBBON_H = 11;
-const ROW_H = 30;
-const GRID_Y = 40;
-const PLOT_W = W - PAD_L - PAD_R;
-const H = GRID_Y + WEEKDAYS.length * ROW_H + 8;
+// Two layouts, same data. A 7-by-24 grid wants its long axis across the screen
+// on a desktop and down it on a phone, so the narrow build transposes rather
+// than shrinking: days become columns, hours become rows. Sideways scrolling a
+// chart is worse than turning it.
+const WIDE = {
+  w: 720, padL: 42, padR: 14, ribbon: 11, gridStart: 40, cell: 30,
+};
+const TALL = {
+  w: 330, padL: 40, padR: 10, ribbon: 9, gridStart: 30, cell: 19,
+};
 
 // A piece's mark is a solid core sized by how long it lived, wrapped in a halo
 // sized by how much it drew. The halo is drawn OUTSIDE the core rather than as
@@ -164,8 +163,54 @@ const CORE_MIN = 2.5;
 const CORE_MAX = 9;
 const HALO_MAX = 7;
 
+// Where the wide build stops being comfortable rather than where it stops
+// fitting. Its viewBox is 720 units, so below roughly this width the browser
+// scales the whole thing — labels included — down past legibility. The tall
+// build has no such floor: it gets taller, not smaller.
+const NARROW_QUERY = '(max-width: 44rem)';
+
+/** Live viewport test, so the chart flips orientation on rotate or resize. */
+function useNarrow(query) {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(query).matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+    const mq = window.matchMedia(query);
+    const on = (e) => setNarrow(e.matches);
+    setNarrow(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [query]);
+  return narrow;
+}
+
+const hourLabel = (h) =>
+  h === 0 || h === 24 ? '12am' : h === 12 ? 'noon' : `${h % 12}${h < 12 ? 'am' : 'pm'}`;
+
+function markTitle(m) {
+  return `Take ${m.take} · ${WEEKDAYS[m.day]} ${String(m.hour).padStart(2, '0')}:${String(
+    m.minute,
+  ).padStart(2, '0')} · alive ${fmtDuration(m.lifespanMs)} · ${m.engagement} events from ${
+    m.participants
+  } people`;
+}
+
+function Marks({ sized, cx, cy }) {
+  return sized.map((m) => (
+    <g key={m.rkey} className="ratioed-when-mark">
+      <title>{markTitle(m)}</title>
+      {m.halo > 0.2 && <circle cx={cx(m)} cy={cy(m)} r={m.outer} className="ratioed-when-halo" />}
+      <circle cx={cx(m)} cy={cy(m)} r={m.core} className="ratioed-when-core" />
+    </g>
+  ));
+}
+
 function When({ pieces }) {
   const marks = useMemo(() => whenMarks(pieces), [pieces]);
+  const narrow = useNarrow(NARROW_QUERY);
   const maxLife = Math.max(1, ...marks.map((m) => m.lifespanMs));
   const maxEng = Math.max(1, ...marks.map((m) => m.engagement));
 
@@ -179,67 +224,16 @@ function When({ pieces }) {
     // findable where pieces minutes apart overlap.
     .sort((a, b) => b.outer - a.outer);
 
-  const x = (atHour) => PAD_L + (atHour / 24) * PLOT_W;
-  const y = (day) => GRID_Y + day * ROW_H + ROW_H / 2;
+  const label =
+    'Every piece placed by day of week and time of day, sized by how long it lived and how much it drew.';
 
   return (
     <div className="ratioed-when">
-      <div className="ratioed-when-scroll">
-      <div className="ratioed-when-canvas">
-      <svg viewBox={`0 0 ${W} ${H}`} className="ratioed-when-svg" role="img"
-        aria-label="Every piece placed by day of week and time of day, sized by how long it lived and how much it drew.">
-        {/* The hour axis is an actual strip of sky: each hour filled with that
-            hour's colour from the site's sky palette, so midnight reads black
-            and midday reads pale without a legend. */}
-        {Array.from({ length: 24 }, (_, h) => (
-          <rect
-            key={`sky-${h}`}
-            x={x(h)}
-            y={RIBBON_Y}
-            width={PLOT_W / 24 + 0.5}
-            height={RIBBON_H}
-            fill={paletteForHour(h).vars['--sky-page']}
-          />
-        ))}
-        <rect x={PAD_L} y={RIBBON_Y} width={PLOT_W} height={RIBBON_H}
-          className="ratioed-when-ribbon-edge" />
-        {[0, 6, 12, 18, 24].map((h) => (
-          <text key={`hl-${h}`} x={x(h)} y={RIBBON_H + 14} className="ratioed-when-hour"
-            textAnchor={h === 0 ? 'start' : h === 24 ? 'end' : 'middle'}>
-            {h === 0 ? '12am' : h === 12 ? 'noon' : h === 24 ? '12am' : `${h % 12}${h < 12 ? 'am' : 'pm'}`}
-          </text>
-        ))}
-
-        {WEEKDAYS.map((d, i) => (
-          <g key={d}>
-            <line x1={PAD_L} x2={W - PAD_R} y1={GRID_Y + i * ROW_H} y2={GRID_Y + i * ROW_H}
-              className="ratioed-when-rule" />
-            <text x={PAD_L - 10} y={y(i) + 3} className="ratioed-when-day" textAnchor="end">
-              {d}
-            </text>
-          </g>
-        ))}
-        <line x1={PAD_L} x2={W - PAD_R} y1={GRID_Y + WEEKDAYS.length * ROW_H}
-          y2={GRID_Y + WEEKDAYS.length * ROW_H} className="ratioed-when-rule" />
-        {[6, 12, 18].map((h) => (
-          <line key={`v-${h}`} x1={x(h)} x2={x(h)} y1={GRID_Y}
-            y2={GRID_Y + WEEKDAYS.length * ROW_H} className="ratioed-when-rule" />
-        ))}
-
-        {sized.map((m) => (
-          <g key={m.rkey} className="ratioed-when-mark">
-            <title>
-              {`Take ${m.take} · ${WEEKDAYS[m.day]} ${String(m.hour).padStart(2, '0')}:${String(m.minute).padStart(2, '0')} · alive ${fmtDuration(m.lifespanMs)} · ${m.engagement} events from ${m.participants} people`}
-            </title>
-            {m.halo > 0.2 && (
-              <circle cx={x(m.atHour)} cy={y(m.day)} r={m.outer} className="ratioed-when-halo" />
-            )}
-            <circle cx={x(m.atHour)} cy={y(m.day)} r={m.core} className="ratioed-when-core" />
-          </g>
-        ))}
-      </svg>
-      </div>
-      </div>
+      {narrow ? (
+        <WhenTall sized={sized} label={label} />
+      ) : (
+        <WhenWide sized={sized} label={label} />
+      )}
 
       {/* A scale key, since the whole point of sizing the marks is reading
           magnitude off them. Shows the actual extremes in the data. */}
@@ -262,6 +256,97 @@ function When({ pieces }) {
       </div>
 
     </div>
+  );
+}
+
+/* --- wide: hours across, days down --------------------------------- */
+
+function WhenWide({ sized, label }) {
+  const { w, padL, padR, ribbon, gridStart, cell } = WIDE;
+  const plotW = w - padL - padR;
+  const h = gridStart + WEEKDAYS.length * cell + 8;
+  const x = (atHour) => padL + (atHour / 24) * plotW;
+  const y = (day) => gridStart + day * cell + cell / 2;
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="ratioed-when-svg" role="img" aria-label={label}>
+      {/* The hour axis is an actual strip of sky: each hour filled with that
+          hour's colour from the site's palette, so night and midday read
+          without a legend. */}
+      {Array.from({ length: 24 }, (_, i) => (
+        <rect key={`sky-${i}`} x={x(i)} y={0} width={plotW / 24 + 0.5} height={ribbon}
+          fill={paletteForHour(i).vars['--sky-page']} />
+      ))}
+      <rect x={padL} y={0} width={plotW} height={ribbon} className="ratioed-when-ribbon-edge" />
+      {[0, 6, 12, 18, 24].map((hr) => (
+        <text key={`hl-${hr}`} x={x(hr)} y={ribbon + 14} className="ratioed-when-hour"
+          textAnchor={hr === 0 ? 'start' : hr === 24 ? 'end' : 'middle'}>
+          {hourLabel(hr)}
+        </text>
+      ))}
+      {WEEKDAYS.map((d, i) => (
+        <g key={d}>
+          <line x1={padL} x2={w - padR} y1={gridStart + i * cell} y2={gridStart + i * cell}
+            className="ratioed-when-rule" />
+          <text x={padL - 10} y={y(i) + 3} className="ratioed-when-day" textAnchor="end">{d}</text>
+        </g>
+      ))}
+      <line x1={padL} x2={w - padR} y1={gridStart + WEEKDAYS.length * cell}
+        y2={gridStart + WEEKDAYS.length * cell} className="ratioed-when-rule" />
+      {[6, 12, 18].map((hr) => (
+        <line key={`v-${hr}`} x1={x(hr)} x2={x(hr)} y1={gridStart}
+          y2={gridStart + WEEKDAYS.length * cell} className="ratioed-when-rule" />
+      ))}
+      <Marks sized={sized} cx={(m) => x(m.atHour)} cy={(m) => y(m.day)} />
+    </svg>
+  );
+}
+
+/* --- tall: days across, hours down --------------------------------- */
+
+function WhenTall({ sized, label }) {
+  const { w, padL, padR, ribbon, gridStart, cell } = TALL;
+  const plotW = w - padL - padR;
+  const h = gridStart + 24 * cell + 6;
+  const colW = plotW / WEEKDAYS.length;
+  const x = (day) => padL + day * colW + colW / 2;
+  const y = (atHour) => gridStart + (atHour / 24) * (24 * cell);
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="ratioed-when-svg" role="img" aria-label={label}>
+      {/* Transposed, the sky becomes a column running down the side — which is
+          the more literal reading of it: the day falling past the chart. */}
+      {Array.from({ length: 24 }, (_, i) => (
+        <rect key={`sky-${i}`} x={padL - ribbon - 5} y={y(i)} width={ribbon} height={cell + 0.5}
+          fill={paletteForHour(i).vars['--sky-page']} />
+      ))}
+      <rect x={padL - ribbon - 5} y={gridStart} width={ribbon} height={24 * cell}
+        className="ratioed-when-ribbon-edge" />
+
+      {WEEKDAYS.map((d, i) => (
+        <text key={d} x={x(i)} y={gridStart - 9} className="ratioed-when-day" textAnchor="middle">
+          {d}
+        </text>
+      ))}
+      {/* Labelling all 24 hours at this row height would collide, so every
+          sixth — the ribbon carries the rest. */}
+      {[0, 6, 12, 18].map((hr) => (
+        <g key={`hr-${hr}`}>
+          <line x1={padL} x2={w - padR} y1={y(hr)} y2={y(hr)} className="ratioed-when-rule" />
+          <text x={padL - ribbon - 10} y={y(hr) + 8} className="ratioed-when-hour" textAnchor="end">
+            {hourLabel(hr)}
+          </text>
+        </g>
+      ))}
+      <line x1={padL} x2={w - padR} y1={y(24)} y2={y(24)} className="ratioed-when-rule" />
+      {WEEKDAYS.map((d, i) =>
+        i === 0 ? null : (
+          <line key={`c-${d}`} x1={padL + i * colW} x2={padL + i * colW} y1={gridStart} y2={y(24)}
+            className="ratioed-when-rule" />
+        ),
+      )}
+      <Marks sized={sized} cx={(m) => x(m.day)} cy={(m) => y(m.atHour)} />
+    </svg>
   );
 }
 

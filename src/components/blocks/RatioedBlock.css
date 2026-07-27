@@ -412,14 +412,9 @@
 
 /* --- when: day of week x time of day ------------------------------ */
 
-/* The viewBox scales text along with everything else, so at phone widths the
-   day and hour labels would shrink to a few pixels. Hold a floor and let the
-   chart scroll sideways instead — the same bargain the tables make. */
-.ratioed-when-scroll { overflow-x: auto; }
-/* The floor lives on a plain block, not the SVG: min-width on a replaced
-   element doesn't propagate to the scroll container's scrollWidth, so the
-   chart would clip instead of scrolling. */
-.ratioed-when-canvas { min-width: 34rem; }
+/* Neither orientation overflows: the wide build is used only where it stays
+   legible, and below 44rem the chart transposes into the tall one rather than
+   scrolling sideways or shrinking its labels into nothing. */
 .ratioed-when-svg {
   width: 100%;
   height: auto;
