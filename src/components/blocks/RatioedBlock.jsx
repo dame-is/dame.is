@@ -365,9 +365,10 @@ function Mix({ m }) {
 
 function Reaction({ pieces, stats }) {
   const MAX = 20000;
-  const rows = [...pieces].sort(
-    (a, b) => (a.breaker?.reactionMs ?? 13500) - (b.breaker?.reactionMs ?? 13500),
-  );
+  // Chronological, not fastest-first: the point of this chart is that the
+  // reaction time holds steady across thirteen months and wildly different
+  // lifespans. Sorting by duration would hide exactly that.
+  const rows = [...pieces].sort((a, b) => a.take - b.take);
   return (
     <div className="ratioed-reaction">
       {rows.map((p) => {
@@ -421,23 +422,23 @@ function Ledger({ pieces, deltas }) {
             <th className="num" colSpan={5}>
               While alive
             </th>
-            <th className="num" colSpan={5}>
+            <th className="num ratioed-div" colSpan={5}>
               After the seal
             </th>
           </tr>
           <tr className="ratioed-subhead">
             <th />
             <th />
-            <th className="num">♥</th>
-            <th className="num">RT</th>
-            <th className="num">QT</th>
-            <th className="num">thread</th>
-            <th className="num">people</th>
-            <th className="num">♥</th>
-            <th className="num">RT</th>
-            <th className="num">QT</th>
-            <th className="num">thread</th>
-            <th className="num">people</th>
+            {['♥', 'RT', 'QT', 'thread', 'people'].map((h) => (
+              <th className="num" key={`pre-${h}`}>
+                {h}
+              </th>
+            ))}
+            {['♥', 'RT', 'QT', 'thread', 'people'].map((h, i) => (
+              <th className={`num${i === 0 ? ' ratioed-div' : ''}`} key={`post-${h}`}>
+                {h}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -455,8 +456,8 @@ function Ledger({ pieces, deltas }) {
                     {p.preSeal[k] || '·'}
                   </td>
                 ))}
-                {['likes', 'reposts', 'quotes', 'threadPosts', 'participants'].map((k) => (
-                  <td className="num" key={`post-${k}`}>
+                {['likes', 'reposts', 'quotes', 'threadPosts', 'participants'].map((k, i) => (
+                  <td className={`num${i === 0 ? ' ratioed-div' : ''}`} key={`post-${k}`}>
                     {p.postSeal[k] || '·'}
                     {d && d[k] > 0 && <span className="ratioed-since">+{d[k]}</span>}
                   </td>

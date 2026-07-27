@@ -1,24 +1,39 @@
 /* Ratioed charts.
-   Everything derives from the site palette (theme.css) so the charts sit in
-   the page rather than on it. Two hues are scoped here because the earthy
-   tokens don't carry them: an iron-oxide red for the like — the thing that
-   ends every piece, and the only alarming colour on the page — and an ochre
-   for quotes, which would otherwise collide with the moss/sage greens. */
+   Chrome — type, rules, spacing, controls — comes from the site palette
+   (theme.css) so the charts sit in the page rather than on it. The four
+   categorical hues do not; see the note on .ratioed below. */
 
 .ratioed {
-  --ratioed-seal: #8c3a2e;   /* oxidised red — the like, the threadgate, death */
-  --ratioed-quote: #7a6a2f;  /* dark ochre — distinct from moss and sage */
-  --ratioed-reply: var(--accent);
-  --ratioed-repost: var(--tan);
+  /* Four earth pigments — terre verte, slate, yellow ochre, red oxide — so the
+     scale belongs to this palette without being tied to it. An earlier version
+     took reply from --accent and repost from --tan; under the sky theme those
+     both resolve to that hour's sky colour (teal by default), which collapsed
+     two of the four series into one. A categorical scale can't move with the
+     chrome, so all four are literal here and only shift for legibility. */
+  --ratioed-reply: #5e7a47;  /* terre verte */
+  --ratioed-repost: #4a6a86; /* slate */
+  --ratioed-quote: #8a6f24;  /* yellow ochre */
+  --ratioed-seal: #8c3a2e;   /* red oxide — the like, the threadgate, death */
   --ratioed-lab: 156px;
   --ratioed-gut: 124px;
-  margin: 2rem 0;
+  margin: var(--space-6) 0;
   font-variant-numeric: tabular-nums;
 }
 
 [data-theme='dark'] .ratioed {
+  --ratioed-reply: #9cb37f;
+  --ratioed-repost: #8fb0c9;
+  --ratioed-quote: #d0b45f;
   --ratioed-seal: #d4715f;
-  --ratioed-quote: #c3b46a;
+}
+
+/* The sky ground swings from bright noon to near-black midnight within one
+   theme, so these sit mid-tone to stay legible at either end of the day. */
+[data-theme='sky'] .ratioed {
+  --ratioed-reply: #6f8f52;
+  --ratioed-repost: #5a7d9c;
+  --ratioed-quote: #a8892f;
+  --ratioed-seal: #b0503f;
 }
 
 .ratioed-k-reply { color: var(--ratioed-reply); }
@@ -36,56 +51,64 @@
 
 /* --- controls ----------------------------------------------------- */
 
+/* Controls speak the site's control vocabulary: Crimson in all-small-caps,
+   wide tracking, square corners, hairline rules, 120ms transitions — the same
+   shape as .admin-input / .admin-gate-button and the feed's verb chips. */
+
 .ratioed-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.1rem;
-  align-items: center;
-  padding-bottom: 0.75rem;
+  gap: var(--space-2) var(--space-5);
+  align-items: stretch;
+  padding-bottom: var(--space-3);
 }
 
-.ratioed-seg {
-  display: inline-flex;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  overflow: hidden;
+.ratioed-controls button,
+.ratioed-search {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  border-radius: 0;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
+
+.ratioed-seg { display: inline-flex; }
 .ratioed-seg button {
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  padding: 0.2rem 0.6rem;
-  border: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule);
   background: transparent;
   color: var(--ink-muted);
-  cursor: pointer;
 }
+/* One shared hairline between the two halves rather than a doubled rule. */
+.ratioed-seg button + button { border-left: 0; }
+.ratioed-seg button:hover { color: var(--ink); }
 .ratioed-seg button[aria-pressed='true'] {
   background: var(--ink);
+  border-color: var(--ink);
   color: var(--page);
 }
 
-.ratioed-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.ratioed-chips { display: flex; gap: calc(var(--space-1) * 1.5); flex-wrap: wrap; }
 
 .ratioed-chip {
-  font-family: var(--mono);
-  font-size: 0.7rem;
-  padding: 0.2rem 0.55rem;
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--rule);
-  border-radius: 2px;
   background: transparent;
   color: var(--ink-muted);
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: var(--space-2);
 }
 .ratioed-chip .ratioed-sw {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: currentColor;
-  opacity: 0.3;
+  opacity: 0.28;
 }
+.ratioed-chip:hover { border-color: var(--ink-faint); }
 .ratioed-chip[aria-pressed='true'] { border-color: currentColor; }
 .ratioed-chip[aria-pressed='true'] .ratioed-sw { opacity: 1; }
 /* Kind colours are declared above `.ratioed-chip`, so they'd lose the cascade
@@ -96,15 +119,16 @@
 .ratioed-chip.ratioed-k-like[aria-pressed='true'] { color: var(--ratioed-seal); }
 
 .ratioed-search {
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--rule);
-  border-radius: 2px;
-  background: var(--page-edge);
+  background: var(--page);
   color: var(--ink);
   width: 11rem;
+  cursor: text;
+  outline: none;
 }
+.ratioed-search::placeholder { color: var(--ink-faint); }
+.ratioed-search:focus { border-color: var(--accent); }
 
 /* --- axis --------------------------------------------------------- */
 
@@ -223,7 +247,6 @@
 .ratioed-dot.ratioed-k-like {
   width: 10px;
   height: 10px;
-  border-radius: 2px;
   transform: translate(-50%, -50%) rotate(45deg);
 }
 .ratioed-dot.self {
@@ -240,7 +263,6 @@
   height: 14px;
   transform: translateY(-50%);
   border: 1px dashed var(--ratioed-seal);
-  border-radius: 2px;
   background: color-mix(in srgb, var(--ratioed-seal) 15%, transparent);
 }
 
@@ -330,7 +352,6 @@
   position: relative;
   height: 1rem;
   background: var(--page-edge);
-  border-radius: 1px;
 }
 .ratioed-react-fill {
   position: absolute;
@@ -338,7 +359,6 @@
   bottom: 0;
   background: var(--ratioed-seal);
   opacity: 0.75;
-  border-radius: 1px;
 }
 .ratioed-react.inferred .ratioed-react-fill {
   background: repeating-linear-gradient(90deg, var(--ratioed-seal) 0 2px, transparent 2px 6px);
@@ -380,6 +400,12 @@
   color: var(--ink-soft);
 }
 .ratioed-table .num { text-align: right; padding-right: 1.1rem; }
+/* Splits the two windows: everything right of this line happened to a post
+   that was already finished. */
+.ratioed-table .ratioed-div {
+  border-left: 1px solid var(--rule);
+  padding-left: var(--space-3);
+}
 .ratioed-table tr:hover td { background: var(--highlight); }
 .ratioed-since { color: var(--ratioed-seal); margin-left: 0.25rem; font-size: 0.9em; }
 
@@ -403,11 +429,10 @@
   background: currentColor;
   display: inline-block;
 }
-.ratioed-key.ratioed-k-like { border-radius: 2px; transform: rotate(45deg); }
+.ratioed-key.ratioed-k-like { transform: rotate(45deg); }
 .ratioed-key-ghost {
   width: 13px;
   height: 10px;
-  border-radius: 2px;
   background: color-mix(in srgb, var(--ratioed-seal) 15%, transparent);
   border: 1px dashed var(--ratioed-seal);
 }
