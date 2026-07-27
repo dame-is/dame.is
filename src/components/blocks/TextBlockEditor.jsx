@@ -14,6 +14,7 @@ import {
   KEY_FOR_TYPE,
 } from './facetUtils.js';
 import { looksLikeMultiBlock, markdownToBlocks } from '../../lib/pasteBlocks.js';
+import { listBlockFrom, splitRichTextLines } from './listBlocks.js';
 
 export default function TextBlockEditor({ block, onChange, onPasteBlocks }) {
   return (
@@ -29,6 +30,15 @@ export default function TextBlockEditor({ block, onChange, onPasteBlocks }) {
             facets: block.facets || [],
             level: level || 2,
           });
+        } else if (type === 'bulletList' || type === 'numberList') {
+          // Each line becomes an item, so a paragraph you already wrote as a
+          // list turns into one rather than a single item holding everything.
+          onChange(
+            listBlockFrom(
+              splitRichTextLines(block.plaintext || '', block.facets || []),
+              type === 'numberList',
+            ),
+          );
         }
       }}
       onChange={({ text, facets }) => onChange({ ...block, plaintext: text, facets })}
@@ -319,6 +329,20 @@ export function RichTextField({
                 {`H${lvl}`}
               </ToolbarButton>
             ))}
+            <ToolbarButton
+              title="Bulleted list"
+              active={blockType === 'bulletList'}
+              onClick={() => onConvert({ type: 'bulletList' })}
+            >
+              •
+            </ToolbarButton>
+            <ToolbarButton
+              title="Numbered list"
+              active={blockType === 'numberList'}
+              onClick={() => onConvert({ type: 'numberList' })}
+            >
+              1.
+            </ToolbarButton>
             <span className="rich-text-toolbar-divider" aria-hidden="true" />
           </>
         )}

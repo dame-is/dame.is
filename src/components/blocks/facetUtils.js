@@ -427,3 +427,51 @@ export function remapFacets(oldText, newText, facets) {
   }
   return out;
 }
+
+/* ------------------------------------------------------------------ */
+/* Converting between a paragraph and a list                           */
+/* ------------------------------------------------------------------ */
+
+// A list marker the author typed by hand before converting. Stripping it keeps
+// "- milk\n- eggs" from turning into a bulleted list whose items each start
+// with a stray bullet.
+const LEADING_MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/;
+
+/**
+ * Split a rich-text value into one value per line, dropping blank lines and
+ * any list marker the author typed. Facets are re-based onto each line, so
+ * formatting that spanned the paragraph survives the split intact.
+ */
+export function splitRichTextLines(text, facets) {
+  const safe = typeof text === 'string' ? text : '';
+  const out = [];
+  let pos = 0;
+  for (const line of safe.split('\n')) {
+    const start = pos;
+    pos = start + line.length + 1; // + the newline itself
+    if (!line.trim()) continue;
+    const marker = LEADING_MARKER.exec(line);
+    out.push(sliceRichText(safe, facets, start + (marker ? marker[0].length : 0), start + line.length));
+  }
+  return out;
+}
+
+/**
+ * Concatenate rich-text values into one, separated by newlines — the inverse of
+ * splitRichTextLines. Rebuilt through runs rather than by shifting offsets, so
+ * multi-byte characters can't push a facet off its mark.
+ */
+export function joinRichTextLines(parts) {
+  const runs = [];
+  let text = '';
+  (parts || []).forEach((part, i) => {
+    const partText = typeof part?.text === 'string' ? part.text : '';
+    if (i > 0) {
+      runs.push({ text: '\n', features: [] });
+      text += '\n';
+    }
+    for (const run of facetRuns(partText, part?.facets || [])) runs.push(run);
+    text += partText;
+  });
+  return { text, facets: runsToFacets(text, runs) };
+}

@@ -7,6 +7,7 @@ import CodeBlockEditor from './CodeBlockEditor.jsx';
 import ListBlockEditor from './ListBlockEditor.jsx';
 import BskyPostBlockEditor from './BskyPostBlockEditor.jsx';
 import RatioedBlockEditor from './RatioedBlockEditor.jsx';
+import { listBlockFrom } from './listBlocks.js';
 import {
   GALLERY_DEFAULT_LAYOUT,
   GALLERY_LAYOUTS,
@@ -823,8 +824,11 @@ function BlockPalette({ agent, onInsert, onInsertMany }) {
         <AddButton onClick={() => onInsert({ $type: 'pub.leaflet.blocks.code', plaintext: '' })}>
           Code
         </AddButton>
-        <AddButton onClick={() => onInsert({ $type: 'pub.leaflet.blocks.unorderedList', children: [emptyListItem()] })}>
-          List
+        <AddButton onClick={() => onInsert(listBlockFrom([], false))}>
+          Bulleted list
+        </AddButton>
+        <AddButton onClick={() => onInsert(listBlockFrom([], true))}>
+          Numbered list
         </AddButton>
         <AddButton onClick={() => onInsert({ $type: 'pub.leaflet.blocks.bskyPost', postRef: { uri: '' } })}>
           Bsky post
@@ -918,20 +922,12 @@ function labelFor(type) {
     case 'pub.leaflet.blocks.image': return 'image';
     case 'pub.leaflet.blocks.website': return 'link card';
     case 'pub.leaflet.blocks.code': return 'code';
-    case 'pub.leaflet.blocks.unorderedList': return 'list';
-    case 'pub.leaflet.blocks.orderedList': return 'list (ordered)';
+    case 'pub.leaflet.blocks.unorderedList': return 'bulleted list';
+    case 'pub.leaflet.blocks.orderedList': return 'numbered list';
     case 'pub.leaflet.blocks.bskyPost': return 'bsky post';
     case 'is.dame.blocks.ratioed': return 'ratioed chart';
     default: return type || 'block';
   }
-}
-
-function emptyListItem() {
-  return {
-    $type: 'pub.leaflet.blocks.unorderedList#listItem',
-    content: { $type: 'pub.leaflet.blocks.text', plaintext: '', facets: [] },
-    children: [],
-  };
 }
 
 function ensureShape(value) {
