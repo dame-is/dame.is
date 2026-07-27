@@ -13,7 +13,7 @@ import { useTheme } from '../hooks/useTheme.jsx';
 import { useFont, FONT_SWITCHER_ENABLED } from '../hooks/useFont.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
-import { ME_DID } from '../config.js';
+import { COLLECTIONS, ME_DID } from '../config.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
 import ProfileStats from './ProfileStats.jsx';
@@ -118,14 +118,26 @@ export default function ChromeBar() {
 
   // Right edge of the strip: the AT Protocol collection you're looking
   // at. On feed pages it tracks the record at the top of the scroll
-  // position. Verb routes (/listening, /blogging, …) fall back to their
-  // registry collection — the records the feed is OF — rather than the
-  // page's own is.dame.page record; only non-verb pages report their
-  // backing record (registered by PageShell).
+  // position.
+  //
+  // Otherwise the page's own record (registered by PageShell) answers, and the
+  // verb registry only overrides it on a verb index — where that record is the
+  // is.dame.page holding the page's own copy rather than the records the feed
+  // is OF. A non-verb page keeps reporting is.dame.page, which is the truth
+  // there.
+  //
+  // The registry used to win on every verb route, which mislabelled record
+  // pages: /creating serves both the legacy is.dame.creating.work and
+  // site.standard.document, and the registry names only the first, so every
+  // standard doc was captioned with a lexicon it isn't.
   const { pageRecord } = useEditMode();
   const feedNsid = useTopFeedNsid();
   const routeVerbNsid = primaryNsid(location.pathname.split('/')[1] || '');
-  const stripNsid = feedNsid || routeVerbNsid || nsidFromAtUri(pageRecord?.atUri);
+  const pageRecordNsid = nsidFromAtUri(pageRecord?.atUri);
+  const stripNsid =
+    feedNsid ||
+    (pageRecordNsid && pageRecordNsid !== COLLECTIONS.page ? pageRecordNsid : routeVerbNsid) ||
+    pageRecordNsid;
 
   // Publish the top chrome's live occupied bottom as `--chrome-top-h` on
   // <html> — the y-coordinate where the top chrome ends and the content
