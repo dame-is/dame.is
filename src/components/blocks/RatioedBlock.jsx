@@ -407,9 +407,9 @@ function Summary({ stats, people }) {
     [String(stats.count), null, 'pieces'],
     [String(Math.round(stats.aliveMs / 60000)), 'min', 'total time alive'],
     [String(total), null, 'people involved'],
-    [String(stats.nonLike), `:${stats.likes}`, 'engagement vs. likes, alive'],
+    [String(stats.nonLike), `:${stats.likes}`, 'ratio'],
     [fmtSeconds(stats.meanReactionMs).replace('s', ''), 's', 'mean reaction to a like'],
-    [String(stats.deleted), `/${stats.count}`, 'breakers who deleted the like'],
+    [String(stats.deleted), `/${stats.count}`, 'breakers that unliked'],
   ];
   return (
     <div className="ratioed-summary">

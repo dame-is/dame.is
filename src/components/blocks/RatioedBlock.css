@@ -524,6 +524,9 @@
   font-family: var(--sans);
   font-variant: all-small-caps;
   font-size: var(--text-xs);
+  /* Small caps have no descenders and a low cap height, so the body's leading
+     leaves a visible gap between the lines of a label that wraps. */
+  line-height: 1.25;
   letter-spacing: 0.14em;
   color: var(--ink-muted);
   margin-top: var(--space-2);
