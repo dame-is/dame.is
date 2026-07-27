@@ -1,5 +1,18 @@
 import { useEffect } from 'react';
 
+/**
+ * How far a finger may drift before we stop reading the gesture as a tap.
+ * Roughly matches the slop browsers themselves allow when deciding whether a
+ * touch still counts as a tap. Below it we never cancel — see
+ * `usePreventScrollChain` for why cancelling swallows the tap's click.
+ */
+export const TAP_SLOP_PX = 10;
+
+/** Has this touch moved far enough to be a drag rather than a tap? */
+export function exceedsTapSlop(dx, dy, slop = TAP_SLOP_PX) {
+  return Math.hypot(dx, dy) > slop;
+}
+
 /** Can `node` actually scroll in the gesture's direction right now? A node
  *  qualifies only if it truly overflows AND its overflow style allows
  *  scrolling (scrollHeight > clientHeight alone is true for `overflow:
@@ -39,6 +52,21 @@ function scrollsInDirection(node, dy) {
  * non-passively so `preventDefault()` actually takes — React's synthetic
  * touchmove is passive and can't cancel the scroll.
  *
+ * Cancelling has a cost the first cut of this hook missed: per the Touch
+ * Events spec, a canceled touchstart or *first* touchmove suppresses the
+ * compatibility mouse events for that touch — including the `click`. A tap is
+ * rarely perfectly still (a thumb rolls a pixel or two), so on a panel whose
+ * content fits, every slightly-imperfect tap fired a touchmove, got cancelled,
+ * and lost its click — buttons and links inside the sheet went dead until a
+ * stiller tap happened to produce no touchmove at all. That's the "tap it
+ * three times to open Admin" bug.
+ *
+ * So the guard now waits for the gesture to declare itself: within
+ * `TAP_SLOP_PX` of where the finger landed we never cancel, keeping the tap's
+ * click intact. Past that it's a drag, and the cancel latches for the rest of
+ * the touch so a drag that wanders back toward its origin can't un-arm the
+ * guard mid-scroll.
+ *
  * @param {import('react').RefObject<HTMLElement>} ref  the scroll container
  * @param {boolean} active  guard only while the overlay is open
  */
@@ -47,14 +75,30 @@ export function usePreventScrollChain(ref, active) {
     if (!active) return undefined;
     const el = ref.current;
     if (!el) return undefined;
+    let startX = 0;
     let startY = 0;
+    // Latched once this touch has travelled past tap slop: it's a drag, and
+    // stays one even if the finger drifts back toward where it started.
+    let isDrag = false;
     const onTouchStart = (e) => {
+      // A second finger landing mid-gesture isn't a new gesture — only reset
+      // the origin when this is the touch that starts one.
+      if (e.touches.length > 1) return;
+      startX = e.touches[0]?.clientX ?? 0;
       startY = e.touches[0]?.clientY ?? 0;
+      isDrag = false;
     };
     const onTouchMove = (e) => {
       // Leave pinch-zoom and other multi-touch gestures alone.
       if (e.touches.length > 1) return;
+      // Once the browser owns the gesture the event is no longer cancelable;
+      // calling preventDefault() would only log a warning.
+      if (!e.cancelable) return;
+      const dx = (e.touches[0]?.clientX ?? 0) - startX;
       const dy = (e.touches[0]?.clientY ?? 0) - startY;
+      // Still tap-sized: let it through so the click survives.
+      if (!isDrag && !exceedsTapSlop(dx, dy)) return;
+      isDrag = true;
       // Walk the ancestor chain from the touch target up through the
       // container; bail the moment something can take the scroll.
       let node = e.target;
