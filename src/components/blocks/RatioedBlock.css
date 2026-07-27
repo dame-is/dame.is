@@ -406,11 +406,20 @@
   color: var(--ink-soft);
 }
 .ratioed-table .num { text-align: right; padding-right: 1.1rem; }
-/* Splits the two windows: everything right of this line happened to a post
+/* Fences each window. Everything right of the second line happened to a post
    that was already finished. */
 .ratioed-table .ratioed-div {
   border-left: 1px solid var(--rule);
-  padding-left: var(--space-3);
+  padding-left: var(--space-4);
+}
+/* The ledger's window columns run left-aligned, so each count sits directly
+   under the label naming it. Tabular figures keep the digits in step without
+   right alignment doing it. The participants table keeps its right-aligned
+   numbers — those columns are read as magnitudes and get sorted. */
+.ratioed-ledger .ratioed-table .num {
+  text-align: left;
+  padding-left: var(--space-4);
+  padding-right: 0;
 }
 .ratioed-table tr:hover td { background: var(--highlight); }
 .ratioed-since { color: var(--ratioed-seal); margin-left: 0.25rem; font-size: 0.9em; }
