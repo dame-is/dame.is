@@ -43,7 +43,11 @@ export async function getBacklinkCount(target, source) {
 
 /**
  * Paginated backlinks for a (target, source) tuple. Returns the raw
- * response (`{ linking_records, cursor, ... }`) or `null`.
+ * response or `null`.
+ *
+ * The rows come back under `records` on the XRPC route and under
+ * `linking_records` on the older `/links` one — read them with
+ * `backlinkRows()` rather than picking a field and hoping.
  */
 export async function getBacklinks(target, source, { limit = 25, cursor } = {}) {
   if (!target || !source) return null;
@@ -55,6 +59,18 @@ export async function getBacklinks(target, source, { limit = 25, cursor } = {}) 
   if (cursor) params.set('cursor', cursor);
   const url = `${CONSTELLATION_BASE}/xrpc/blue.microcosm.links.getBacklinks?${params}`;
   return fetchJsonOrNull(url);
+}
+
+/**
+ * The `{ did, collection, rkey }` rows out of a `getBacklinks` response.
+ *
+ * `blue.microcosm.links.getBacklinks` names them `records`; the older `/links`
+ * route names them `linking_records`. Reading only the latter is a silent
+ * failure — the call returns 200, the array is undefined, and the caller
+ * concludes the record has no backlinks at all.
+ */
+export function backlinkRows(page) {
+  return page?.records || page?.linking_records || [];
 }
 
 /**

@@ -90,6 +90,31 @@ describe('normalizePiece', () => {
     expect(normalizePiece('abc', null)).toBeNull();
   });
 
+  it('decodes a recorded event log into the seconds the charts plot', () => {
+    // Records carry milliseconds — lexicon v1 has no float type — while the
+    // harvested log and every chart work in seconds.
+    const p = normalizePiece('abc', {
+      take: 12,
+      events: [
+        { k: 'reply', h: 'b.test', offMs: 22723, pre: 1, self: 1 },
+        { k: 'like', h: 'a.test', offMs: 892035, pre: 1 },
+        { k: 'reply', offMs: 970169, pre: 0, t: 'after the seal' },
+      ],
+    });
+    expect(p.events.map((e) => e.off)).toEqual([22.723, 892.035, 970.169]);
+    expect(p.events[0].self).toBe(1);
+    expect(p.events[1].self).toBeUndefined();
+    expect(p.events[2].h).toBe('(unresolvable)');
+    expect(p.events[2].t).toBe('after the seal');
+  });
+
+  it('reports no log at all rather than an empty one', () => {
+    // The charts fall back to the bundled log on null; an empty array would
+    // read as "measured, and nothing happened".
+    expect(normalizePiece('abc', { take: 1 }).events).toBeNull();
+    expect(normalizePiece('abc', { take: 1, events: [] }).events).toBeNull();
+  });
+
   it('preserves a full record', () => {
     const src = SEED_PIECES[3];
     const p = normalizePiece(src.rkey, src);

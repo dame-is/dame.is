@@ -12,7 +12,7 @@
 
 import SEED from '../data/ratioedPieces.json';
 import PEOPLE from '../data/ratioedPeople.json';
-import { getBacklinkSources, getBacklinks, flattenSources } from './constellation.js';
+import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from './constellation.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
 import { fetchSnapshot } from './snapshot.js';
@@ -168,7 +168,30 @@ export function normalizePiece(rkey, value) {
     statedTally: value.statedTally || '',
     measuredAt: value.measuredAt || '',
     source: value.source || '',
+    events: eventsFromRecord(value.events),
   };
+}
+
+/**
+ * A recorded event log, in the shape the charts read.
+ *
+ * The record stores milliseconds (lexicon v1 has no float type); the charts
+ * plot seconds, as the harvested log does. Null when the piece carries no log —
+ * the first eleven predate the field and are drawn from the bundled one.
+ */
+function eventsFromRecord(events) {
+  if (!Array.isArray(events) || events.length === 0) return null;
+  return events
+    .filter((e) => e && typeof e.offMs === 'number')
+    .map((e) => ({
+      k: e.k,
+      h: e.h || '(unresolvable)',
+      off: e.offMs / 1000,
+      pre: e.pre ? 1 : 0,
+      ...(e.self ? { self: 1 } : {}),
+      ...(e.t ? { t: e.t } : {}),
+    }))
+    .sort((a, b) => a.off - b.off);
 }
 
 function fromRecords(records) {
@@ -179,25 +202,42 @@ function fromRecords(records) {
 }
 
 /**
- * Every piece, take 1 first. Tries the build-time snapshot, then the PDS, then
- * the bundled seed — the charts render identically from any of the three, so a
- * cold snapshot or a PDS blip degrades to "slightly stale", never to an empty
- * chart.
+ * Merge two sets of pieces by rkey, `live` winning. Take 1 first.
+ *
+ * The snapshot is a build artefact, so it can only ever be as current as the
+ * last deploy; the PDS is the record. Publishing a new piece has to show up on
+ * a page that was built before it existed.
+ */
+function mergePieces(snap, live) {
+  const byKey = new Map();
+  for (const p of snap || []) byKey.set(p.rkey, p);
+  for (const p of live || []) byKey.set(p.rkey, p);
+  return Array.from(byKey.values()).sort((a, b) => a.take - b.take);
+}
+
+/**
+ * Every piece, take 1 first. The build-time snapshot paints first, the PDS
+ * corrects it, and the bundled seed catches the case where neither answers —
+ * the charts render identically from any of the three, so a cold snapshot or a
+ * PDS blip degrades to "slightly stale", never to an empty chart.
+ *
+ * The snapshot used to short-circuit the PDS entirely, which meant a piece
+ * published after the last build stayed invisible until the site was rebuilt.
  */
 export async function loadPieces(pds) {
-  const snap = await fetchSnapshot('ratioed');
-  const fromSnap = fromRecords(snap);
-  if (fromSnap) return fromSnap;
-  if (!pds) return SEED_PIECES;
+  const fromSnap = fromRecords(await fetchSnapshot('ratioed'));
+  if (!pds) return fromSnap || SEED_PIECES;
   try {
     const records = await listRecords(pds, {
       repo: ME_DID,
       collection: COLLECTIONS.ratioedPiece,
       max: 200,
     });
-    return fromRecords(records) || SEED_PIECES;
+    const live = fromRecords(records);
+    if (!live) return fromSnap || SEED_PIECES;
+    return fromSnap ? mergePieces(fromSnap, live) : live;
   } catch {
-    return SEED_PIECES;
+    return fromSnap || SEED_PIECES;
   }
 }
 
@@ -293,7 +333,7 @@ export async function fetchPieceRecords(subject) {
     do {
       const page = await getBacklinks(subject, source, { limit: 100, cursor });
       if (!page) break;
-      for (const r of page.linking_records || []) {
+      for (const r of backlinkRows(page)) {
         out.push({ kind, rkey: r.rkey, did: r.did });
       }
       cursor = page.cursor || null;

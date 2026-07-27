@@ -98,6 +98,17 @@ export default function RatioedBlock({ block, style }) {
     };
   }, [variant]);
 
+  // A piece measured by the admin panel records its own event log; the first
+  // eleven predate the field and come from the bundled one. Keyed by rkey, so
+  // the two merge without either knowing about the other — and without a new
+  // piece plotting as an empty row while it waits for the next build.
+  const eventLog = useMemo(() => {
+    if (!events && !pieces.some((p) => p.events)) return null;
+    const merged = { ...(events || {}) };
+    for (const p of pieces) if (p.events) merged[p.rkey] = p.events;
+    return merged;
+  }, [events, pieces]);
+
   useEffect(() => {
     if (!block?.showLive || !pieces?.length) return undefined;
     let alive = true;
@@ -129,11 +140,11 @@ export default function RatioedBlock({ block, style }) {
     >
       {variant === 'summary' && <Summary stats={stats} />}
       {variant === 'lifelines' && (
-        <Lifelines pieces={pieces} events={events} stats={stats} deltas={deltas} />
+        <Lifelines pieces={pieces} events={eventLog} stats={stats} deltas={deltas} />
       )}
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} />}
-      {variant === 'hidden' && <Hidden pieces={pieces} events={events} />}
+      {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
       {variant === 'participants' && <Participants />}
       {variant === 'when' && <When pieces={pieces} />}
       {showCaption && <figcaption className="ratioed-caption">{caption}</figcaption>}

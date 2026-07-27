@@ -9,10 +9,14 @@
 // reaction times. Six of the eleven breaking likes were deleted by the people
 // who cast them; no index can recover those, which is the whole reason this is
 // a record rather than a live query. Re-measuring only ever touches postSeal.
+//
+// The one exception is "Re-measure scanned", which repairs pieces this panel
+// measured while its backlink reader was broken. Those records were written
+// with every figure at zero, so there is no earlier measurement to protect.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Upload, Trash2, ExternalLink, Search } from 'lucide-react';
+import { RefreshCw, Upload, Trash2, ExternalLink, ListPlus, Search } from 'lucide-react';
 import PageShell from './PageShell.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { COLLECTIONS, RATIOED_DOC_RKEY, RATIOED_SOURCE, ME_DID } from '../config.js';
@@ -27,13 +31,20 @@ import {
   findPieces,
   isAnnouncement,
   measureWindows,
+  buildEventLog,
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
+import { resolveHandles } from '../lib/atproto.js';
 import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
 const STANDARD_DOC = 'site.standard.document';
+
+// The pieces the bundled event log covers. They were measured before records
+// carried their own log, and the site still draws them from the bundle, so
+// they don't need one written.
+const SEEDED = new Set(SEED_PIECES.map((p) => p.rkey));
 
 const SOURCE_BUCKETS = {
   'app.bsky.feed.like:subject.uri': 'likes',
@@ -94,6 +105,12 @@ export default function RatioedPanel({ agent, did }) {
   }, [live]);
 
   const publishedCount = Object.keys(live).length;
+  // Pieces on the PDS with no recorded event log. The first eleven were
+  // measured before the field existed and are drawn from the bundled log
+  // instead, so they're not counted as missing.
+  const missingLogs = Object.entries(live)
+    .filter(([rkey, v]) => !v?.events?.length && !SEEDED.has(rkey))
+    .map(([rkey, v]) => ({ rkey, value: v }));
 
   /** Write every seed piece with putRecord — deterministic rkeys, so re-running
    *  updates in place instead of duplicating. */
@@ -220,6 +237,16 @@ export default function RatioedPanel({ agent, did }) {
         const subject = `at://${did}/app.bsky.feed.post/${piece.rkey}`;
         const records = await fetchPieceRecords(subject);
         const windows = measureWindows(records, Date.parse(piece.sealedAt), did);
+        // Handles are resolved now, while the accounts still exist — the same
+        // reason the counts are recorded rather than re-queried.
+        setProgress(`Resolving handles ${n}/${candidates.length} — ${piece.rkey}`);
+        const handles = await resolveHandles(records.map((r) => r.did));
+        const events = buildEventLog(records, {
+          postedAtMs: Date.parse(piece.postedAt),
+          sealedAtMs: Date.parse(piece.sealedAt),
+          selfDid: did,
+          handles,
+        });
         // The concluding reply names the breaker; it's one of dame's own posts
         // replying to this piece.
         const announcement = posts
@@ -227,7 +254,7 @@ export default function RatioedPanel({ agent, did }) {
           .find((v) => v.reply?.parent?.uri === subject && isAnnouncement(v));
         out.push({
           piece,
-          record: buildPieceRecord({ piece, windows, announcement, subject, measuredAt }),
+          record: buildPieceRecord({ piece, windows, announcement, subject, measuredAt, events }),
         });
       }
       setFound(out);
@@ -255,6 +282,86 @@ export default function RatioedPanel({ agent, did }) {
         });
       }
       setFound(null);
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Re-measure pieces that were scanned while the backlink reader was broken.
+   *
+   * It read the paged response under `linking_records`, which is the field the
+   * older /links route uses; the XRPC route calls them `records`. The call
+   * returned 200 with an empty array, so every piece the panel measured came
+   * out as a post nobody touched — zero engagement, and a breaking like that
+   * looked deleted because no like could be found.
+   *
+   * Normally re-measuring the living window is exactly what this panel refuses
+   * to do: a like deleted since is gone, and the recorded figure is the only
+   * evidence it existed. That reasoning doesn't protect a measurement that was
+   * never taken. These pieces are re-read in full — counts, breaking like,
+   * reaction time, and the event log the charts plot from.
+   */
+  async function repairScanned() {
+    if (!missingLogs.length) return;
+    if (
+      !window.confirm(
+        `Re-measure ${missingLogs.length} piece(s)?\n\n` +
+          'These were scanned before the backlink reader was fixed and recorded ' +
+          'as untouched. This reads their records again and overwrites the ' +
+          'engagement figures, the reaction time and the event log.',
+      )
+    ) {
+      return;
+    }
+    setBusy('repair');
+    setError(null);
+    try {
+      let n = 0;
+      for (const { rkey, value } of missingLogs) {
+        n += 1;
+        setProgress(`Re-measuring ${n}/${missingLogs.length} — take ${value.take}`);
+        const records = await fetchPieceRecords(value.subject);
+        if (!records.length) continue;
+        const sealedMs = Date.parse(value.sealedAt);
+        const windows = measureWindows(records, sealedMs, did);
+        const handles = await resolveHandles(records.map((r) => r.did));
+        const events = buildEventLog(records, {
+          postedAtMs: Date.parse(value.postedAt),
+          sealedAtMs: sealedMs,
+          selfDid: did,
+          handles,
+        });
+        const likeSurvives = Boolean(windows.breakingLike);
+        // The breaker's handle came from the announcement reply and is still
+        // good; only whether their like is still standing was wrong. Rebuilt
+        // field by field so a stale reactionMs can't survive a "deleted"
+        // verdict by riding along in the spread.
+        const breaker = { ...(value.breaker || {}) };
+        delete breaker.reactionMs;
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: NSID,
+          rkey,
+          record: {
+            $type: NSID,
+            ...value,
+            breaker: {
+              ...breaker,
+              likeSurvives,
+              ...(likeSurvives ? { reactionMs: sealedMs - windows.breakingLike.at } : {}),
+            },
+            preSeal: windows.preSeal,
+            postSeal: windows.postSeal,
+            events,
+            measuredAt: new Date().toISOString(),
+          },
+        });
+      }
+      setProgress('');
       await refresh();
     } catch (err) {
       setError(err?.message || String(err));
@@ -324,6 +431,18 @@ export default function RatioedPanel({ agent, did }) {
           <RefreshCw size={14} aria-hidden="true" />
           {busy === 'measure' ? 'Measuring…' : 'Re-measure afterlife'}
         </button>
+        {missingLogs.length > 0 && (
+          <button
+            type="button"
+            className="admin-gate-button"
+            onClick={repairScanned}
+            disabled={!!busy}
+            title="These were scanned while the backlink reader was broken and recorded as posts nobody touched. Reads their records again and overwrites the engagement figures, the reaction time and the event log."
+          >
+            <ListPlus size={14} aria-hidden="true" />
+            {busy === 'repair' ? 'Re-measuring…' : `Re-measure scanned (${missingLogs.length})`}
+          </button>
+        )}
         {publishedCount > 0 && (
           <button
             type="button"

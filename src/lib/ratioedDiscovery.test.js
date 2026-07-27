@@ -7,8 +7,10 @@ import {
   isAnnouncement,
   findPieces,
   measureWindows,
+  buildEventLog,
   buildPieceRecord,
 } from './ratioedDiscovery.js';
+import { tidToTimestamp } from './atproto.js';
 
 const PIECE_TEXT =
   'i would like your help with an experimental social art project\n\nthis post is the project\n\n' +
@@ -265,5 +267,61 @@ describe('buildPieceRecord', () => {
     });
     expect(rec.breaker.handle).toBe('unknown');
     expect(rec.announceLagMs).toBeUndefined();
+  });
+});
+
+describe('buildEventLog', () => {
+  // Real TIDs, so they decode to real times.
+  const POSTED = tidToTimestamp('3lrq5rggek222');
+  const LATER = tidToTimestamp('3lrq5ryysys22');
+  const postedAtMs = Date.parse(POSTED);
+  const laterMs = Date.parse(LATER);
+
+  const base = {
+    postedAtMs,
+    sealedAtMs: laterMs + 1,
+    selfDid: 'did:plc:me',
+    handles: { 'did:plc:them': 'them.bsky.social' },
+  };
+
+  it('times each record against the moment the piece went up', () => {
+    const [e] = buildEventLog([{ kind: 'like', rkey: '3lrq5ryysys22', did: 'did:plc:them' }], base);
+    expect(e.k).toBe('like');
+    expect(e.h).toBe('them.bsky.social');
+    expect(e.offMs).toBe(laterMs - postedAtMs);
+    expect(e.pre).toBe(1);
+  });
+
+  it('marks what landed after the seal', () => {
+    const [e] = buildEventLog([{ kind: 'reply', rkey: '3lrq5ryysys22', did: 'did:plc:them' }], {
+      ...base,
+      sealedAtMs: postedAtMs, // sealed before this record
+    });
+    expect(e.pre).toBe(0);
+  });
+
+  it("flags the artist's own records so the counts can exclude them", () => {
+    const [e] = buildEventLog([{ kind: 'reply', rkey: '3lrq5ryysys22', did: 'did:plc:me' }], base);
+    expect(e.self).toBe(1);
+    expect(buildEventLog([{ kind: 'reply', rkey: '3lrq5ryysys22', did: 'did:plc:them' }], base)[0].self)
+      .toBeUndefined();
+  });
+
+  it('labels a handle it could not resolve rather than dropping the record', () => {
+    // A deactivated account resolves to nothing; the event still happened.
+    const [e] = buildEventLog([{ kind: 'like', rkey: '3lrq5ryysys22', did: 'did:plc:gone' }], base);
+    expect(e.h).toBe('(unresolvable)');
+  });
+
+  it('sorts earliest first and skips a key that will not decode', () => {
+    const log = buildEventLog(
+      [
+        { kind: 'like', rkey: '3lrq5ryysys22', did: 'did:plc:them' },
+        { kind: 'reply', rkey: 'not-a-tid', did: 'did:plc:them' },
+        { kind: 'repost', rkey: '3lrq5rggek222', did: 'did:plc:them' },
+      ],
+      base,
+    );
+    expect(log.map((e) => e.k)).toEqual(['repost', 'like']);
   });
 });

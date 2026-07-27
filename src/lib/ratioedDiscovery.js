@@ -140,6 +140,36 @@ export function measureWindows(records, sealedAtMs, selfDid) {
 }
 
 /**
+ * The same records measureWindows counts, kept individually: one entry per
+ * backlink, timed against the moment the piece went up.
+ *
+ * The counts alone can't draw a lifeline — the chart needs to know *when* each
+ * record landed — and the first eleven pieces got that from a log harvested
+ * offline. A piece measured here has to carry its own, or it plots as an empty
+ * row. Recorded rather than recomputed at render time for the reason the whole
+ * project is recorded: Constellation indexes live state, so a like deleted
+ * tomorrow leaves no trace of ever having existed.
+ *
+ * `handles` maps DID → handle (see resolveHandles); an unresolved DID is
+ * labelled the same way the harvest labelled a deactivated account.
+ */
+export function buildEventLog(records, { postedAtMs, sealedAtMs, selfDid, handles = {} }) {
+  const out = [];
+  for (const r of records || []) {
+    const at = tidMs(r.rkey);
+    if (!at) continue;
+    out.push({
+      k: r.kind,
+      h: handles[r.did] || '(unresolvable)',
+      offMs: at - postedAtMs,
+      pre: at < sealedAtMs ? 1 : 0,
+      ...(r.did === selfDid ? { self: 1 } : {}),
+    });
+  }
+  return out.sort((a, b) => a.offMs - b.offMs);
+}
+
+/**
  * Assemble a publishable record from a discovered piece and its measurement.
  * `announcement` is dame's concluding reply, when one was found.
  */
@@ -149,6 +179,7 @@ export function buildPieceRecord({
   announcement,
   subject,
   measuredAt,
+  events,
   source = 'constellation.microcosm.blue',
 }) {
   const breaker = breakerFromAnnouncement(announcement?.text) || { handle: 'unknown' };
@@ -169,6 +200,7 @@ export function buildPieceRecord({
     },
     preSeal: windows.preSeal,
     postSeal: windows.postSeal,
+    ...(events?.length ? { events } : {}),
     measuredAt,
     source,
   };

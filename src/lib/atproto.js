@@ -159,6 +159,28 @@ export async function getProfile(actor, { appview = APPVIEW, cache } = {}) {
 }
 
 /**
+ * AppView — `app.bsky.actor.getProfiles`. Resolves many actors at once and
+ * returns a `{ did: handle }` map. The endpoint takes 25 per call, so a long
+ * list is chunked; a chunk that fails is skipped rather than failing the lot,
+ * leaving those DIDs unresolved for the caller to label as it sees fit.
+ */
+export async function resolveHandles(dids, { appview = APPVIEW } = {}) {
+  const unique = Array.from(new Set((dids || []).filter(Boolean)));
+  const out = {};
+  for (let i = 0; i < unique.length; i += 25) {
+    const params = new URLSearchParams();
+    for (const did of unique.slice(i, i + 25)) params.append('actors', did);
+    try {
+      const res = await fetchJson(`${appview}/xrpc/app.bsky.actor.getProfiles?${params}`);
+      for (const p of res?.profiles || []) if (p?.did && p?.handle) out[p.did] = p.handle;
+    } catch {
+      /* leave this chunk unresolved */
+    }
+  }
+  return out;
+}
+
+/**
  * AppView — `app.bsky.feed.getPostThread`. Returns a thread view (parent
  * chain + replies) anchored at the given AT URI.
  */

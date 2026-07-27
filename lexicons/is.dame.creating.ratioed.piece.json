@@ -8,7 +8,14 @@
       "key": "any",
       "record": {
         "type": "object",
-        "required": ["take", "subject", "postedAt", "sealedAt", "lifespanMs", "measuredAt"],
+        "required": [
+          "take",
+          "subject",
+          "postedAt",
+          "sealedAt",
+          "lifespanMs",
+          "measuredAt"
+        ],
         "properties": {
           "take": {
             "type": "integer",
@@ -38,7 +45,10 @@
             "type": "integer",
             "description": "Milliseconds between the threadgate and the 'thank you for your participation' reply."
           },
-          "breaker": { "type": "ref", "ref": "#breaker" },
+          "breaker": {
+            "type": "ref",
+            "ref": "#breaker"
+          },
           "preSeal": {
             "type": "ref",
             "ref": "#engagement",
@@ -48,6 +58,15 @@
             "type": "ref",
             "ref": "#engagement",
             "description": "Engagement after the seal. Pieces keep accruing these indefinitely."
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#event"
+            },
+            "maxLength": 2000,
+            "description": "Every backlinking record, individually, so the piece can be drawn as a lifeline and not merely counted. Absent on the first eleven pieces, whose log was harvested offline before this field existed; the site falls back to that log for them."
           },
           "statedTally": {
             "type": "string",
@@ -70,7 +89,10 @@
     "breaker": {
       "type": "object",
       "description": "The account whose like ended the piece.",
-      "required": ["handle", "likeSurvives"],
+      "required": [
+        "handle",
+        "likeSurvives"
+      ],
       "properties": {
         "handle": {
           "type": "string",
@@ -82,7 +104,10 @@
           "maxLength": 253,
           "description": "Present when the account has since been renamed."
         },
-        "did": { "type": "string", "format": "did" },
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
         "likeSurvives": {
           "type": "boolean",
           "description": "False when the like was deleted afterwards. The like is then unrecoverable and reactionMs is absent — the only evidence it existed is the threadgate firing with no visible cause."
@@ -97,9 +122,15 @@
       "type": "object",
       "description": "Backlink counts for one window, by link source.",
       "properties": {
-        "likes": { "type": "integer" },
-        "reposts": { "type": "integer" },
-        "quotes": { "type": "integer" },
+        "likes": {
+          "type": "integer"
+        },
+        "reposts": {
+          "type": "integer"
+        },
+        "quotes": {
+          "type": "integer"
+        },
         "threadPosts": {
           "type": "integer",
           "description": "Every descendant in the thread, counted through .reply.root.uri, including nested subthreads the appview hides."
@@ -107,6 +138,48 @@
         "participants": {
           "type": "integer",
           "description": "Distinct accounts, counted by DID."
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "description": "One record pointing at the piece, timed against the moment it went up. Recorded at measurement time: Constellation indexes live state, so a record deleted later leaves nothing behind to re-derive.",
+      "required": [
+        "k",
+        "offMs"
+      ],
+      "properties": {
+        "k": {
+          "type": "string",
+          "knownValues": [
+            "like",
+            "repost",
+            "quote",
+            "reply"
+          ],
+          "description": "Which link source this came through."
+        },
+        "h": {
+          "type": "string",
+          "maxLength": 253,
+          "description": "The author's handle as it resolved at measurement time. A deactivated account resolves to nothing and is recorded as (unresolvable)."
+        },
+        "offMs": {
+          "type": "integer",
+          "description": "Milliseconds after postedAt. Milliseconds like every other duration on this record, and for the same reason: lexicon v1 has no float type."
+        },
+        "pre": {
+          "type": "integer",
+          "description": "1 while the piece was still alive, 0 after the seal."
+        },
+        "self": {
+          "type": "integer",
+          "description": "Present and 1 when the artist wrote it — the announcement reply, chiefly. Excluded from every count."
+        },
+        "t": {
+          "type": "string",
+          "maxLength": 3000,
+          "description": "The post's text, when it was captured. Shown on hover; absent entries simply show less."
         }
       }
     }
