@@ -175,10 +175,14 @@
 .ratioed-rowmain:hover,
 .ratioed-row.open .ratioed-rowmain { background: var(--highlight); }
 
+/* The take number sits against a two-line block of duration and date. On a
+   shared baseline it locks to the FIRST of those lines, so the numeral rides
+   high and the pair reads as misaligned. Centre both instead, and centre the
+   whole label in the row, which the grid stretches to the track's height. */
 .ratioed-lab {
   display: flex;
   gap: 0.6rem;
-  align-items: baseline;
+  align-items: center;
   padding: 0.6rem 0.7rem 0.6rem 0;
 }
 .ratioed-take {
