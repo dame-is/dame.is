@@ -148,8 +148,9 @@
 
 /* Document header band (blog post / work) — the two-line table of the
    document's own facts under its title: a row of small-caps headings over a
-   row of values, in equal left-aligned columns, framed top and bottom by the
-   faint dashed rules the feed uses between thread posts.
+   row of values, in equal left-aligned columns, framed top and bottom by
+   hairlines — the same weight and tone as the dividers between the columns,
+   so the band reads as one ruled table rather than a frame with a table in it.
 
    Scoped to .document-meta (the shared DocumentMeta component); the record
    page's meta line is a different component and keeps its own bare style.
@@ -165,8 +166,8 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   margin-top: var(--space-4);
-  border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
-  border-bottom: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
   font-family: var(--sans);
 }
 .document-meta[data-columns='3'] {
