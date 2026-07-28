@@ -190,12 +190,22 @@
   grid-template-columns: repeat(3, 1fr);
 }
 
+/* The heading/value group is centred on its GLYPHS, not on its boxes, which is
+   why the padding is deliberately lopsided: more above than below. A text box
+   is not the ink inside it — the label's box carries ~2px of leading above the
+   caps, while the value's carries ~6.6px below its baseline for descenders it
+   mostly doesn't use. Equal padding therefore renders visibly top-heavy (it
+   measured 10px above the caps against 18.6px below the baseline).
+
+   These two values put ~14px on each side of the ink, measured in the browser
+   rather than reasoned about. If the type sizes or the value's line-height
+   change, re-measure — the numbers are a result, not a preference. */
 .document-meta-pair {
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
-  padding: var(--space-2) 0 var(--space-3) var(--space-3);
+  padding: var(--space-3) 0 var(--space-2) var(--space-3);
   border-left: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
 }
 /* The first column sits flush with the article's left edge — the band's own
@@ -205,10 +215,26 @@
   border-left: 0;
 }
 
+/* The column headings speak the site's standing label voice — the same one
+   the chrome uses for LISTENING TO / FOLLOWED BY and the collection stamp:
+   all-small-caps at --text-xs on 0.12em, in --ink-faint. Previously these were
+   `text-transform: uppercase`, which drew capitals at the full 12px and made
+   them the loudest thing in the band; small caps draw them at ~0.8 of that, so
+   the heading recedes under its value where it belongs.
+
+   Note it's `font-variant`, not a hand-cased string: the words stay "Created"
+   and "Elapsed" in the DOM, so what's announced is a heading, not shouting.
+   Crimson Pro's web subset carries no `smcp` table, so the browser synthesises
+   these — as it does for every other small-caps label on the site, which is
+   exactly why matching the declaration matters more than matching a pixel.
+
+   line-height: 1 collapses the label's leading so the padding below can be
+   measured against the glyphs rather than against half-leading. */
 .document-meta-label {
+  font-variant: all-small-caps;
   font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
+  line-height: 1;
   color: var(--ink-faint);
   white-space: nowrap;
 }
