@@ -330,5 +330,6 @@ a.post-embed-quote {
   white-space: pre-wrap;
   color: var(--ink-soft);
   overflow-wrap: anywhere;
+  min-width: 0;
 }
 
