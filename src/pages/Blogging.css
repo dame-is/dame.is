@@ -165,7 +165,23 @@
   container-type: inline-size;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  margin-top: var(--space-4);
+  /* The band belongs to the title, so it sits closer to it than to the prose
+     it introduces: --space-4 above, --space-5 below.
+
+     Above, the figure is reached by subtracting the gap this band already
+     inherits — `.page` is a flex column with `gap: var(--space-5)`, and that
+     gap lands between the title and the article the band opens — so the
+     calc() cancels it and re-adds the smaller figure. Written as a subtraction
+     rather than a bare -0.5rem so it stays correct, and readable, if that
+     column's gap ever changes.
+
+     Below, the base value is 0: the work page (.creating-work-page) is itself
+     a gapped flex column, so its own --space-5 gap is already the separation,
+     and the <dl>'s 1em UA margin would otherwise stack on top of it. The blog
+     post is a plain block with no gap, so it re-adds that space explicitly
+     below. */
+  margin-top: calc(var(--space-4) - var(--space-5));
+  margin-bottom: 0;
   border-top: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
   font-family: var(--sans);
@@ -242,10 +258,8 @@
     padding-left: 0;
   }
 }
-/* The blog post is a plain block container with no gap to separate the band
-   from the body, so it gets an explicit bottom margin. The work page
-   (.creating-work-page) is a flex column whose `gap` already provides that
-   space — adding a margin there would double it. */
+/* The blog post's half of the bottom-margin rule above: a plain block
+   container with no column gap of its own, so it states the space outright. */
 .blog-article > .document-meta {
   margin-bottom: var(--space-5);
 }
