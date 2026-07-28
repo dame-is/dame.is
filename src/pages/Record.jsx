@@ -668,8 +668,12 @@ function condensePostView(view) {
  * A single <span> deliberately — the `.blog-article-meta` container adds a
  * bullet before every span after the first, so splitting the atoms into
  * separate spans (as this once did) produced a doubled "•·" separator on top
- * of hardcoded middots. One span, connective words, no bullets. Mirrors the
- * blog/creating <DocumentMeta> phrasing so every record page reads the same.
+ * of hardcoded middots. One span, connective words, no bullets.
+ *
+ * This is the phrasing the document pages used to share, before <DocumentMeta>
+ * became a two-line table of columns. A record page has one fact worth stating
+ * and no tag to put beside it, so it kept the sentence rather than becoming a
+ * table of one column.
  */
 function RecordMeta({ createdAt }) {
   if (!createdAt) return null;

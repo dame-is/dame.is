@@ -146,17 +146,100 @@
   color: var(--ink-faint);
 }
 
-/* Document dateline (blog post / work) — frame the single publication line in
-   faint dashed rules top and bottom, echoing the dashed dividers between
-   thread posts in the feed. Scoped to .document-meta (the shared DocumentMeta
-   component) so the record-page meta, which also wears .blog-article-meta,
-   keeps its own bare style. The padding gives the text room off the rules;
-   margin-top sets the band apart from the title above. */
+/* Document header band (blog post / work) — the two-line table of the
+   document's own facts under its title: a row of small-caps headings over a
+   row of values, in equal left-aligned columns, framed top and bottom by the
+   faint dashed rules the feed uses between thread posts.
+
+   Scoped to .document-meta (the shared DocumentMeta component); the record
+   page's meta line is a different component and keeps its own bare style.
+
+   Column count comes from the component: three when the document has a tag,
+   two when it doesn't, so an absent tag closes up instead of leaving an empty
+   third. Each column is a <div> holding its <dt>/<dt> pair, laid out as a
+   flex column — the label and value stay associated for a screen reader while
+   reading as a table on screen. Every value is a single line at the same size,
+   so the pairs line up across the columns without needing a shared grid. */
 .document-meta {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   margin-top: var(--space-4);
-  padding: var(--space-3) 0;
   border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
   border-bottom: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  font-family: var(--sans);
+}
+.document-meta[data-columns='3'] {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.document-meta-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: var(--space-2) 0 var(--space-3) var(--space-3);
+  border-left: 1px solid color-mix(in srgb, var(--rule-soft) 60%, transparent);
+}
+/* The first column sits flush with the article's left edge — the band's own
+   frame is the outer rule, so it needs no divider or inset of its own. */
+.document-meta-pair:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.document-meta-label {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.document-meta-value {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  /* Dates never wrap — the short forms below exist precisely so they don't
+     have to. A tag is free text and may be longer than its column, so it's
+     the one value allowed to run onto a second line (it makes the band taller
+     without breaking the columns' alignment at the top). */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.document-meta-tag .document-meta-value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Long and short renderings of the same value, swapped on the width of the
+   BAND rather than the viewport: the reading column is capped at 65ch, so it
+   narrows on a wide window too (side-by-side windows, the print view) where a
+   viewport query would miss it entirely.
+
+   23rem is measured, not guessed: the widest date this can hold is a
+   nine-letter month with a two-digit day ("September 27, 2025"), and in a
+   third of the band it stops fitting just under a 23rem band — a 22rem band
+   clips it by ~6px. Anything wider keeps the long forms, so a phone in
+   landscape and a roomy portrait screen still get "June 27, 2025 · 1 year
+   ago" rather than being abbreviated for a collision that isn't happening. */
+.document-meta-short {
+  display: none;
+}
+@container (max-width: 23rem) {
+  .document-meta-long {
+    display: none;
+  }
+  .document-meta-short {
+    display: inline;
+  }
+  .document-meta-pair {
+    padding-left: var(--space-2);
+  }
+  .document-meta-pair:first-child {
+    padding-left: 0;
+  }
 }
 /* The blog post is a plain block container with no gap to separate the band
    from the body, so it gets an explicit bottom margin. The work page

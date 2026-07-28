@@ -92,6 +92,24 @@ export function relativeDay(date, now = new Date()) {
 }
 
 /**
+ * Compact elapsed phrasing for narrow columns: "today", "yesterday",
+ * "3 days", "2 wks", "5 mo", "1 yr".
+ *
+ * Same buckets and rounding as `relativeDay` — it's the same fact set in a
+ * shorter voice, so the two never disagree about which bucket a date is in.
+ * "ago" is dropped: this form only appears under a label that already says
+ * the column is elapsed time.
+ */
+export function relativeDayShort(date, now = new Date()) {
+  const rel = relativeDay(date, now);
+  if (!rel) return '';
+  if (rel === 'today' || rel === 'yesterday') return rel;
+  const [count, unit] = rel.split(' ');
+  const short = { days: 'days', week: 'wk', weeks: 'wks', month: 'mo', months: 'mo', year: 'yr', years: 'yrs' };
+  return `${count} ${short[unit] || unit}`;
+}
+
+/**
  * Header label for a day group, e.g. "Yesterday, May 12, 2025" or
  * "Today, July 6, 2026". Combines the capitalized relative phrasing with
  * the full calendar date. Uses *local* date parts so the label matches
@@ -138,6 +156,17 @@ export function formatDateFull(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
+/**
+ * Abbreviated-month date, e.g. "Jun 27, 2025" — `formatDateFull` for a column
+ * too narrow to spell the month. Same UTC parts as its long form so the two
+ * always name the same day.
+ */
+export function formatDateShort(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
 export function formatTime(date) {

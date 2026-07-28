@@ -3,10 +3,12 @@ import {
   relativeTime,
   groupByDay,
   relativeDay,
+  relativeDayShort,
   formatDayLabel,
   formatDayShortLabel,
   formatDateLong,
   formatDateFull,
+  formatDateShort,
   formatWallClockTime,
   toIso,
   compareIsoDesc,
@@ -141,6 +143,44 @@ describe('formatDateLong / formatDateFull (UTC-based)', () => {
   it('formatDateFull reads UTC parts as "Month D, YYYY"', () => {
     expect(formatDateFull('2025-03-07T12:00:00Z')).toBe('March 7, 2025');
     expect(formatDateFull('bad')).toBe('');
+  });
+
+  it('formatDateShort abbreviates the month and keeps the same day', () => {
+    expect(formatDateShort('2025-03-07T12:00:00Z')).toBe('Mar 7, 2025');
+    expect(formatDateShort('2025-06-27T12:00:00Z')).toBe('Jun 27, 2025');
+    expect(formatDateShort('bad')).toBe('');
+  });
+});
+
+describe('relativeDayShort', () => {
+  const now = new Date(2020, 5, 15); // June 15, 2020, local
+  const daysBefore = (n) => new Date(2020, 5, 15 - n);
+
+  it('leaves today and yesterday spelled out', () => {
+    expect(relativeDayShort(now, now)).toBe('today');
+    expect(relativeDayShort(daysBefore(1), now)).toBe('yesterday');
+  });
+
+  it('abbreviates the unit and drops "ago"', () => {
+    expect(relativeDayShort(daysBefore(3), now)).toBe('3 days');
+    expect(relativeDayShort(daysBefore(7), now)).toBe('1 wk');
+    expect(relativeDayShort(daysBefore(14), now)).toBe('2 wks');
+    expect(relativeDayShort(daysBefore(60), now)).toBe('2 mo');
+    expect(relativeDayShort(daysBefore(400), now)).toBe('1 yr');
+    expect(relativeDayShort(daysBefore(800), now)).toBe('2 yrs');
+  });
+
+  it('agrees with relativeDay about which bucket a date is in', () => {
+    for (const n of [0, 1, 3, 6, 7, 29, 30, 200, 400, 800]) {
+      const long = relativeDay(daysBefore(n), now);
+      const short = relativeDayShort(daysBefore(n), now);
+      // Same leading count, whatever the unit is called.
+      expect(short.split(' ')[0]).toBe(long.split(' ')[0]);
+    }
+  });
+
+  it('returns empty string for an invalid date', () => {
+    expect(relativeDayShort('nope', now)).toBe('');
   });
 });
 

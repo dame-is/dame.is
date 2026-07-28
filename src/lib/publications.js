@@ -101,6 +101,21 @@ export function workSlug(value) {
  * other work. An explicit `category`/`kind` still wins, so a deliberate label
  * overrides it.
  */
+/**
+ * The document's own first tag — the leading tag that isn't a reserved
+ * cross-post marker — or '' when it has none.
+ *
+ * The plain-spoken sibling of `workCategory`: same skipping of
+ * `blog`/`creating`/`portfolio`, but no medium inference and no `case study`
+ * fallback. Use it where the tag is being shown AS a tag (the blog post's
+ * header band) rather than as the work's medium; on /creating,
+ * `workCategory` is still the one to use, so the header agrees with the chip
+ * on the index the reader came from.
+ */
+export function primaryTag(value) {
+  return tagList(value).find((t) => !RESERVED_TAGS.has(String(t).trim().toLowerCase())) || '';
+}
+
 export function workCategory(value) {
   if (value?.category) return value.category;
   if (value?.kind) return value.kind;

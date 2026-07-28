@@ -10,7 +10,7 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { getPostThread } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
-import { showOnBlog, isDraft } from '../lib/publications.js';
+import { showOnBlog, isDraft, primaryTag } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Blogging.css';
 
@@ -198,7 +198,10 @@ function StandardPostBody({ record, id, commentsUri, replies, repliesStatus, met
     >
       <article className="blog-article reveal">
         <InspectMargin atUri={record?.uri} cid={record?.cid} />
-        <DocumentMeta date={created} />
+        {/* `primaryTag`, not `workCategory`: a post's tags name subjects, and
+            the medium inference behind `workCategory` would caption a
+            cross-posted post "case study" — a value its record never carries. */}
+        <DocumentMeta date={created} tag={primaryTag(value)} />
         {/* The `description` field is intentionally not rendered here — it's the
             open-graph / feed-summary blurb, and on the post itself it just
             duplicated the opening lines of the body. */}

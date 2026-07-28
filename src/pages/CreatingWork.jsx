@@ -10,7 +10,7 @@ import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { renderMarkdown } from '../lib/markdown.js';
-import { showOnCreating, isDraft, workSlug } from '../lib/publications.js';
+import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Creating.css';
 import './Blogging.css';
@@ -113,7 +113,11 @@ export default function CreatingWork() {
     >
       <article className="creating-work-page reveal">
         <InspectMargin atUri={record?.uri} cid={record?.cid} />
-        <DocumentMeta date={v?.createdAt} verb="Created" />
+        {/* `workCategory`, not the raw first tag: it skips the reserved
+            cross-post markers and applies the same medium rules as the chip
+            this work wears on /creating, so the header agrees with the index
+            the reader arrived from. */}
+        <DocumentMeta date={v?.createdAt} verb="Created" tag={workCategory(v)} />
         {/* The summary is metadata — the feed-card / open-graph blurb, not page
             copy. For standard/leaflet docs it's auto-derived from the body's
             opening (feedBuilder's leafletSynopsis) when the record has no
