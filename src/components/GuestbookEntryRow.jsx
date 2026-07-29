@@ -17,8 +17,18 @@ import '../pages/Guestbook.css';
  *   - `mine` + `onRemove`          → the signer's own delete button.
  *   - `moderating` + `onSetHidden` → the host's hide/unhide control; hidden
  *                                    rows render dimmed with a badge.
+ *   - `entering`                   → this signature arrived on the live read
+ *                                    after the page had already painted, so it
+ *                                    slides in rather than appearing outright.
  */
-export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, onSetHidden }) {
+export default function GuestbookEntryRow({
+  entry,
+  mine,
+  onRemove,
+  moderating,
+  onSetHidden,
+  entering,
+}) {
   const [removing, setRemoving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [modError, setModError] = useState(null);
@@ -72,7 +82,7 @@ export default function GuestbookEntryRow({ entry, mine, onRemove, moderating, o
 
   return (
     <li
-      className={`guestbook-entry${suppressed ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}`}
+      className={`guestbook-entry${suppressed ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}${entering ? ' guestbook-entry-arriving' : ''}`}
       data-nsid={entry.collection || undefined}
       data-atproto={entry.uri ? '' : undefined}
       data-at-uri={entry.uri || undefined}

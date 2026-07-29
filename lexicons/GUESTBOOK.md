@@ -51,6 +51,16 @@ in with atproto OAuth on `/guestbook`. Everything except `subject` and
 3. **Identity.** Signer profiles (avatar, displayName, handle) come from the
    public Bluesky AppView in batches of 25 (`app.bsky.actor.getProfiles`).
 
+That's three round-trips deep before a single signature can render, so
+`/welcoming` doesn't wait on it to paint. `scripts/prefetch.mjs` runs the same
+walk at build time (and on the 6-hour rebuild cron) and writes the first page to
+`public/data/guestbook.json`; the page paints that snapshot at once, re-runs the
+live walk on visit, and slides in anything signed since — the same
+snapshot-then-live pattern the home feed uses. The snapshot is a first-paint
+cache, never the source of truth: the live read replaces it wholesale, and the
+book's `hidden` list is re-read fresh (one cached record fetch) before the
+snapshot paints, so moderation from after the build still applies.
+
 Because reading is pure backlink-assembly, a future **AppView** for guestbooks
 only needs to index `is.dame.guestbook.entry` records from the firehose — the
 site would swap step 1–3 for one call without any schema change. And any other

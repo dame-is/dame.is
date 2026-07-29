@@ -10,11 +10,20 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import {
   fetchGuestbookEntries,
+  fetchGuestbookBook,
   deleteGuestbookEntry,
   setEntryHidden,
 } from '../lib/guestbook.js';
+import { fetchSnapshot, mergeByKey } from '../lib/snapshot.js';
 import { ME_DID, GUESTBOOK_SUBJECT } from '../config.js';
 import './Guestbook.css';
+
+// Stable empty set so "nothing new arrived" keeps the same reference between
+// paints and rows don't re-key on it.
+const NO_ARRIVALS = new Set();
+// How long a freshly-arrived signature stays flagged — long enough for the
+// entrance to play once, short enough that a later re-render doesn't replay it.
+const ARRIVAL_HOLD_MS = 1400;
 
 /**
  * The guestbook. Every signature on this page is a record on the SIGNER's
@@ -38,37 +47,143 @@ export default function Guestbook() {
 
   // --- the book's pages ------------------------------------------------
   const [entries, setEntries] = useState(null);
+  // Mirror of what's on screen, so the painter below can merge onto the
+  // current list without re-running every time the list changes.
+  const entriesRef = useRef(null);
   const [total, setTotal] = useState(null);
   const [hiddenCount, setHiddenCount] = useState(0);
   const [flaggedCount, setFlaggedCount] = useState(0);
   const [cursor, setCursor] = useState(null);
-  const [status, setStatus] = useState('loading'); // loading | ready | error
+  const [status, setStatus] = useState('loading'); // loading | ready | stale | error
   const [loadingMore, setLoadingMore] = useState(false);
+  entriesRef.current = entries;
 
-  const loadFirstPage = useCallback(async () => {
-    setStatus('loading');
-    const page = await fetchGuestbookEntries();
-    if (!page) {
-      setStatus('error');
-      return;
+  // Signatures that arrived on the live read and weren't in the snapshot, so
+  // the page can slide them in the way the home feed does.
+  const [newUris, setNewUris] = useState(NO_ARRIVALS);
+  const seenUrisRef = useRef(new Set());
+  const arrivalTimerRef = useRef(null);
+  // What's currently on the page: 'none' → 'snapshot' → 'live'. The snapshot
+  // paints only while nothing better has landed; the live read always wins.
+  const sourceRef = useRef('none');
+  // Whether the reader has turned past the first page. If they have, a late
+  // live read merges onto what's showing rather than replacing it, so their
+  // "earlier signatures" don't vanish under them.
+  const pagedRef = useRef(false);
+  // Signatures written from the sign sheet this session that the backlink index
+  // hasn't caught up with yet. They ride on top of every page until it has.
+  const pendingRef = useRef([]);
+
+  /**
+   * Show a page of the book. `page` is whatever `fetchGuestbookEntries` returns
+   * — from the build-time snapshot or from the live read — plus the pending
+   * optimistic signatures, which drop off as the index catches up with them.
+   */
+  const paint = useCallback((page, { animate = false } = {}) => {
+    const arrived = Array.isArray(page.entries) ? page.entries : [];
+    const arrivedUris = new Set(arrived.map((e) => e.uri));
+    const pending = pendingRef.current.filter((e) => !arrivedUris.has(e.uri));
+    pendingRef.current = pending;
+
+    // Merge (rather than replace) once the reader has paged deeper than this
+    // page reaches — the live read only covers the first page, and dropping
+    // the rest would rewind their place in the book.
+    const next = pagedRef.current
+      ? mergeByKey(entriesRef.current, [...pending, ...arrived], (e) => e.uri)
+      : [...pending, ...arrived];
+
+    const fresh = new Set();
+    for (const entry of next) {
+      if (entry.uri && !seenUrisRef.current.has(entry.uri)) fresh.add(entry.uri);
     }
-    setEntries(page.entries);
-    setTotal(page.total);
+    for (const uri of fresh) seenUrisRef.current.add(uri);
+
+    setEntries(next);
+    setTotal(typeof page.total === 'number' ? page.total + pending.length : page.total);
+    // The hidden list comes off the book record, so it's whole either way. The
+    // flagged tally accrues page by page, though, and this page only covers the
+    // first — so once the reader has turned past it, leave their running tally
+    // (and their place in the book) alone.
     setHiddenCount(page.hiddenCount || 0);
-    setFlaggedCount(page.flaggedCount || 0);
-    setCursor(page.cursor);
+    if (!pagedRef.current) {
+      setFlaggedCount(page.flaggedCount || 0);
+      setCursor(page.cursor || null);
+    }
     setStatus('ready');
+
+    // The first paint isn't an arrival — every signature is new to the reader.
+    if (!animate || fresh.size === 0) return;
+    setNewUris(fresh);
+    if (arrivalTimerRef.current) clearTimeout(arrivalTimerRef.current);
+    arrivalTimerRef.current = setTimeout(() => {
+      arrivalTimerRef.current = null;
+      setNewUris(NO_ARRIVALS);
+    }, ARRIVAL_HOLD_MS);
   }, []);
 
+  // Opening the book. Two reads race: the build-time snapshot (one request,
+  // paints at once, as old as the last deploy or cron) and the live walk
+  // through the backlink index (several round-trips, always current). The
+  // snapshot fills the page while the live read is still gathering; whatever
+  // the live read carries that the snapshot didn't slides in behind it.
   useEffect(() => {
-    loadFirstPage();
-  }, [loadFirstPage]);
+    let cancelled = false;
+    const snapshotPromise = fetchSnapshot('guestbook').catch(() => null);
+    const livePromise = fetchGuestbookEntries().catch(() => null);
+
+    (async () => {
+      const snap = await snapshotPromise;
+      if (!cancelled && sourceRef.current === 'none' && snap?.entries?.length) {
+        sourceRef.current = 'snapshot';
+        // Paint on the snapshot alone — nothing gets to hold up first paint.
+        // Then chase the book record (one cached read, back long before the
+        // live walk finishes) and re-curate, so a signature hidden since the
+        // build shows for a blink at most. If the book is unreachable the
+        // snapshot's own moderation flags stand.
+        paint(snap);
+        fetchGuestbookBook()
+          .then((book) => {
+            if (cancelled || !book || sourceRef.current !== 'snapshot') return;
+            paint(withCurrentHiddenList(snap, book));
+          })
+          .catch(() => {});
+      }
+      const live = await livePromise;
+      if (cancelled) return;
+      if (live) {
+        const hadSnapshot = sourceRef.current === 'snapshot';
+        sourceRef.current = 'live';
+        paint(live, { animate: hadSnapshot });
+      } else if (sourceRef.current === 'none') {
+        setStatus('error');
+      } else {
+        // The snapshot is standing in for an unreachable index; say so.
+        setStatus('stale');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [paint]);
+
+  // Retire a pending arrival highlight on unmount.
+  useEffect(
+    () => () => {
+      if (arrivalTimerRef.current) clearTimeout(arrivalTimerRef.current);
+    },
+    [],
+  );
 
   async function loadMore() {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     const page = await fetchGuestbookEntries({ cursor });
     if (page) {
+      pagedRef.current = true;
+      for (const entry of page.entries) {
+        if (entry.uri) seenUrisRef.current.add(entry.uri);
+      }
       setEntries((prev) => [...(prev || []), ...page.entries]);
       setCursor(page.cursor);
       if (page.total != null) setTotal(page.total);
@@ -80,13 +195,17 @@ export default function Guestbook() {
 
   // A signature just written from the sign sheet arrives via navigation state;
   // drop it on top of the book at once so it shows ahead of the backlink index.
-  // A ref of consumed URIs guards against a re-render or a back/forward
-  // replaying the same state and inserting it twice.
+  // It also joins the pending list, so a live read that lands before the index
+  // has caught up doesn't paint it back out. A ref of consumed URIs guards
+  // against a re-render or a back/forward replaying the same state and
+  // inserting it twice.
   const consumedRef = useRef(new Set());
   useEffect(() => {
     const fresh = location.state?.justSigned;
     if (!fresh?.uri || consumedRef.current.has(fresh.uri)) return;
     consumedRef.current.add(fresh.uri);
+    seenUrisRef.current.add(fresh.uri);
+    pendingRef.current = [fresh, ...pendingRef.current];
     setEntries((prev) => {
       const list = prev || [];
       return list.some((e) => e.uri === fresh.uri) ? list : [fresh, ...list];
@@ -197,6 +316,7 @@ export default function Guestbook() {
                   onRemove={handleRemove}
                   moderating={moderating}
                   onSetHidden={handleSetHidden}
+                  entering={newUris.has(entry.uri)}
                 />
               ))}
             </ul>
@@ -212,6 +332,12 @@ export default function Guestbook() {
             )}
           </>
         )}
+        {status === 'stale' && (
+          <p className="guestbook-stale-note gutter">
+            The backlink index is unreachable, so this is the book as it stood at the last
+            build — anything signed since is missing, not lost.
+          </p>
+        )}
       </section>
 
       <p className="guestbook-source gutter">
@@ -223,4 +349,29 @@ export default function Guestbook() {
       </p>
     </PageShell>
   );
+}
+
+/**
+ * Re-curate a snapshot page against the book's hidden list as it stands NOW.
+ *
+ * The snapshot froze the moderation state at build time; the book record is a
+ * single cached read fetched alongside it. Applying it means a signature hidden
+ * (or unhidden) since the build is handled correctly on first paint instead of
+ * showing until the live read catches up. Without the book in hand the
+ * snapshot's own flags stand. The language-filter `flagged` marks need no such
+ * refresh — they're computed from the record's own text, which can't change.
+ */
+function withCurrentHiddenList(page, book) {
+  if (!book) return page;
+  const hiddenUris = new Set(Array.isArray(book.value?.hidden) ? book.value.hidden : []);
+  const entries = page.entries.map((entry) => ({
+    ...entry,
+    hidden: hiddenUris.has(entry.uri),
+  }));
+  return {
+    ...page,
+    entries,
+    hiddenCount: hiddenUris.size,
+    flaggedCount: entries.reduce((n, e) => n + (e.flagged && !e.hidden ? 1 : 0), 0),
+  };
 }

@@ -316,6 +316,25 @@
   opacity: 0.45;
 }
 
+/* A signature the live read found that the build-time snapshot didn't: it
+   arrives after the page has already painted, so it drops into place instead
+   of blinking into existence. Selected through .guestbook-list so it outranks
+   the list's own `.reveal-stagger > *` first-paint rise. */
+@keyframes guestbook-entry-arrive {
+  from { opacity: 0; transform: translateY(-0.6rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.guestbook-list .guestbook-entry-arriving {
+  animation: guestbook-entry-arrive 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guestbook-list .guestbook-entry-arriving {
+    animation: none;
+  }
+}
+
 .guestbook-entry-hidden-badge {
   font-family: var(--sans);
   letter-spacing: 0.14em;
@@ -390,4 +409,11 @@
 .guestbook-source {
   margin-top: var(--space-6);
   font-size: var(--text-xs);
+}
+
+/* Shown when the live read failed and the build-time snapshot is standing in. */
+.guestbook-stale-note {
+  margin-top: var(--space-4);
+  font-size: var(--text-xs);
+  font-style: italic;
 }

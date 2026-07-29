@@ -43,6 +43,7 @@ import {
   rkeyFromAtUri,
 } from '../src/lib/atproto.js';
 import { fetchMothData } from '../src/lib/inaturalist.js';
+import { fetchGuestbookEntries } from '../src/lib/guestbook.js';
 import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
 import {
   fetchChannelMeta,
@@ -86,6 +87,7 @@ const preservedSnapshots = [];
 function snapshotCount(data) {
   if (Array.isArray(data)) return data.length;
   if (Array.isArray(data?.records)) return data.records.length;
+  if (Array.isArray(data?.entries)) return data.entries.length;
   return null;
 }
 
@@ -579,6 +581,58 @@ async function main() {
     { user: INATURALIST_USER, stats: null, observations: [] },
   );
   await writeJson('mothing', { builtAt: new Date().toISOString(), ...mothing });
+
+  // --- Guestbook (Constellation backlinks → signatures) ---------------------
+  // Not from my PDS: every signature lives on the SIGNER's own repo, and the
+  // book is reassembled at read time (backlink index → record hydration →
+  // profiles — see src/lib/guestbook.js). That's several round-trips deep, so
+  // /welcoming opened on a skeleton every time. Snapshotting the first page
+  // here lets the page paint at once; the browser re-runs the same walk on
+  // visit and slides in anything signed since this build.
+  //
+  // The page written here is exactly what `fetchGuestbookEntries()` returns —
+  // including the entries the host has hidden and the ones the language filter
+  // flags, both marked as such. That's the same payload the browser already
+  // downloads on every visit (the curating happens at render), so the snapshot
+  // discloses nothing the live page doesn't.
+  const guestbookPage = await safe(
+    'fetchGuestbookEntries',
+    async () => {
+      const page = await fetchGuestbookEntries();
+      // `null` means the backlink index is unreachable — a transient failure,
+      // not an empty book, so throw and let `safe` retry it.
+      if (!page) throw new Error('backlink index unreachable');
+      return page;
+    },
+    null,
+  );
+  if (guestbookPage) {
+    // Signer profiles come from the AppView, which can rate-limit a build box.
+    // Losing them isn't fatal — those rows paint by DID until the live read
+    // fills the names in — but it's worth seeing in the build log.
+    const named = guestbookPage.entries.filter((e) => e.profile).length;
+    log(`guestbook: ${guestbookPage.entries.length} signature(s), ${named} with profiles`);
+    // A profileViewDetailed is mostly fields a signature row never shows
+    // (banner, counts, viewer state, description) — three quarters of the
+    // snapshot's weight. Keep the three a row reads; the live read carries the
+    // full thing for anything that ever wants it. Same spirit as `leanMedia`.
+    guestbookPage.entries = guestbookPage.entries.map((entry) => ({
+      ...entry,
+      profile: entry.profile
+        ? {
+            did: entry.profile.did,
+            handle: entry.profile.handle,
+            displayName: entry.profile.displayName,
+            avatar: entry.profile.avatar,
+          }
+        : null,
+    }));
+  }
+  await writeJson(
+    'guestbook',
+    { builtAt: new Date().toISOString(), ...(guestbookPage || { entries: [] }) },
+    { guardEmpty: true },
+  );
 
   // --- Registry-driven ingest (delegated to the shared builder) -------------
   const { unified, perCollection, perVerb, authorFeed, counts } = await buildUnifiedFeed({
