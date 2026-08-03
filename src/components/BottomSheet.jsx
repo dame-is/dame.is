@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import './BottomSheet.css';
 
 /**
@@ -56,32 +57,11 @@ export default function BottomSheet({
   }, [open, closeOnEscape, onClose]);
 
   // On-screen keyboard occlusion (§5.1): a sheet is pinned to the viewport
-  // bottom, so the mobile keyboard covers any input it hosts. Track the
-  // portion of the layout viewport the keyboard eats (via visualViewport) and
-  // expose it as --kb-inset; the CSS adds it into the wrap's bottom offset so
-  // the sheet — and its field — rides up above the keyboard. Feature-detected,
-  // and a no-op where visualViewport is absent.
-  const [kbInset, setKbInset] = useState(0);
-  useEffect(() => {
-    if (!open) {
-      setKbInset(0);
-      return undefined;
-    }
-    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
-    if (!vv) return undefined;
-    const update = () => {
-      const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      setKbInset(Math.round(overlap));
-    };
-    update();
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-      setKbInset(0);
-    };
-  }, [open]);
+  // bottom, so the mobile keyboard covers any input it hosts. --kb-inset is
+  // what the keyboard eats; the CSS adds it into the wrap's bottom offset so
+  // the sheet — and its field — rides up above the keyboard. Shared with the
+  // nav dock, which hosts the sign-in field; see useKeyboardInset.
+  const kbInset = useKeyboardInset(open);
 
   if (typeof document === 'undefined') return null;
 

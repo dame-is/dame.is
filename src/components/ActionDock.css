@@ -21,8 +21,16 @@
   position: fixed;
   /* Sits above the bottom bar AND above the owner edit-mode bar when it's
      open (--edit-bar-h, else 0), so the sheet expands from on top of the
-     edit bar rather than overlapping it. */
-  bottom: calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px));
+     edit bar rather than overlapping it.
+
+     --kb-inset is the height the on-screen keyboard eats out of the layout
+     viewport (set from JS via visualViewport — see useKeyboardInset — and 0
+     when no keyboard); adding it here lifts the whole sheet, and the account
+     view's sign-in field with it, clear of the keyboard. */
+  bottom: calc(
+    var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px) +
+      var(--kb-inset, 0px)
+  );
   left: 0;
   right: 0;
   width: 100%;
@@ -50,6 +58,19 @@
    scroll when a view (the route list, the debug dump) overflows. */
 .dock-panel {
   pointer-events: auto;
+  /* The gap the sheet has to live in: top chrome → bottom chrome, minus
+     whatever the keyboard is covering (--kb-inset, 0 when it's down). Once the
+     sheet is lifted above the keyboard, its ceiling has to drop by the same
+     amount or it slides up under the top chrome. The max() keeps a usable floor
+     on short viewports (a landscape phone with the keyboard up leaves very
+     little) — the panel scrolls rather than collapsing to nothing. */
+  --dock-panel-h: max(
+    9rem,
+    calc(
+      100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
+        env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)
+    )
+  );
   /* Keep full height inside the bottom-anchored clip (see .dock-sheet-wrap):
      the clip reveals the panel from the bar upward, clipping its TOP rather
      than shrinking it, so the border-bottom divider stays put and the content
@@ -69,7 +90,7 @@
      so the nav menu items land on the same column as the chrome content and
      the page body; vertical padding stays a flat --space-4. */
   padding: var(--space-4) var(--chrome-pad-x);
-  height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) - env(safe-area-inset-bottom, 0px));
+  height: var(--dock-panel-h);
   /* The panel fills the whole gap up to the top chrome, but the menu is
      short — sit its content at the BOTTOM of that space so the routes land
      near the bottom bar (and the thumb) instead of floating up by the top
@@ -78,6 +99,22 @@
   align-content: end;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* Keyboard up (the account view's sign-in field is focused): shrink-wrap to the
+   form and cap it at the space left above the keyboard, instead of holding the
+   full-gap height. Two reasons beyond the obvious fit:
+
+   - A panel taller than the visible strip is a scroll container the browser can
+     scroll to chase the focused field, which is what threw the field off the
+     top of the screen. Content-height leaves it nothing to scroll.
+   - `--chrome-top-h` is republished on every window scroll event (the top chrome
+     re-measures there), so a height keyed to it reflowed the panel under the
+     caret mid-keystroke — the flicker where typed characters seemed to vanish.
+     Content-height doesn't read it until the cap is actually reached. */
+.dock-panel.is-keyboard {
+  height: auto;
+  max-height: var(--dock-panel-h);
 }
 
 .dock-section {
