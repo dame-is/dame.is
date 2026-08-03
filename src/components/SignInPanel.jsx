@@ -162,11 +162,21 @@ export default function SignInPanel({ onAction }) {
       <label className="signin-label" htmlFor="signin-input">
         <span className="small-caps">Sign in with ATProto</span>
       </label>
+      {/* A handle / DID / PDS URL is not prose: iOS otherwise capitalizes the
+          first letter and runs autocorrect over it, rewriting what was typed
+          mid-word. `autoComplete="off"` alone governs neither — autoCorrect,
+          autoCapitalize and spellCheck each have to be turned off by name.
+          `inputMode="url"` puts the '.' and '/' on the primary key plane, and
+          enterKeyHint labels the return key for what it does here. */}
       <input
         id="signin-input"
         className="signin-input"
         type="text"
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        inputMode="url"
+        enterKeyHint="go"
         spellCheck={false}
         placeholder="handle, DID, or PDS URL"
         value={input}
