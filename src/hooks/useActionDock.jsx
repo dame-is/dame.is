@@ -1,11 +1,27 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { OAUTH_CALLBACK_PATH } from '../config.js';
 
 const ActionDockContext = createContext(null);
 const STORAGE_KEY = 'dame.dock.open';
 
+/** Is this page load the return leg of an OAuth round-trip? */
+function isOauthReturn() {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith(OAUTH_CALLBACK_PATH);
+}
+
 export function ActionDockProvider({ children }) {
   const [open, setOpen] = useState(() => {
     if (typeof localStorage === 'undefined') return false;
+    // Signing in happens from the dock's own account view, so the dock is open
+    // when the flow redirects away — and the stored flag would faithfully
+    // reopen it on the way back, leaving the nav expanded over whatever page
+    // the callback forwards to. An OAuth round-trip is a departure, not a
+    // reload: the visitor left the site and returns somewhere else entirely,
+    // so don't restore the sheet they had open when they left. Decided in the
+    // initializer rather than closed later so the sheet never flashes open.
+    // The persist effect below rewrites the flag to match.
+    if (isOauthReturn()) return false;
     const stored = localStorage.getItem(STORAGE_KEY);
     return stored === '1';
   });

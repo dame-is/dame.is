@@ -11,6 +11,11 @@ export const BIRTHDATE = '1993-05-07T00:00:00Z';
 export const GITHUB_REPO = 'dame-is/dame.is';
 export const APPVIEW = 'https://public.api.bsky.app';
 export const PLC_DIRECTORY = 'https://plc.directory';
+// Where the ATProto OAuth flow lands on the way back. Registered as the
+// client's redirect URI, watched for by the session provider (it has to load
+// the OAuth stack here even for a visitor with no session hint), and treated
+// by the nav dock as "this load is a return trip, not a reload".
+export const OAUTH_CALLBACK_PATH = '/oauth/callback';
 
 // --- iNaturalist / mothing -------------------------------------------------
 // The /mothing page + PDS mirror pull moth observations from iNaturalist.
