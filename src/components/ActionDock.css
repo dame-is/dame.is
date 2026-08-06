@@ -19,18 +19,25 @@
    and shadow overlap the page cleanly. */
 .dock-sheet-wrap {
   position: fixed;
-  /* Sits above the bottom bar AND above the owner edit-mode bar when it's
-     open (--edit-bar-h, else 0), so the sheet expands from on top of the
-     edit bar rather than overlapping it.
+  /* Where the sheet's bottom edge rests. Two candidates, whichever is higher:
 
-     --kb-inset is the height the on-screen keyboard eats out of the layout
-     viewport (set from JS via visualViewport — see useKeyboardInset — and 0
-     when no keyboard); adding it here lifts the whole sheet, and the account
-     view's sign-in field with it, clear of the keyboard. */
-  bottom: calc(
-    var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px) +
-      var(--kb-inset, 0px)
+     - the bottom chrome bar (plus the owner edit-mode bar when it's open, via
+       --edit-bar-h), so the sheet expands from on top of them rather than
+       overlapping;
+     - the on-screen keyboard, via --kb-inset — how much of the layout viewport
+       the keyboard eats, measured from JS (see useKeyboardInset) and 0 when
+       there's no keyboard. Without this the account view's sign-in field ends
+       up behind the keyboard.
+
+     max(), not a sum: the keyboard covers the bottom bar, so once it's up the
+     bar is no longer something to sit on top of. Adding the two floats the
+     sheet a bar's height above the keyboard with the page showing through the
+     gap. --kb-inset already spans the safe area for the same reason. */
+  --dock-bottom: max(
+    calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px)),
+    var(--kb-inset, 0px)
   );
+  bottom: var(--dock-bottom);
   left: 0;
   right: 0;
   width: 100%;
@@ -58,18 +65,16 @@
    scroll when a view (the route list, the debug dump) overflows. */
 .dock-panel {
   pointer-events: auto;
-  /* The gap the sheet has to live in: top chrome → bottom chrome, minus
-     whatever the keyboard is covering (--kb-inset, 0 when it's down). Once the
-     sheet is lifted above the keyboard, its ceiling has to drop by the same
-     amount or it slides up under the top chrome. The max() keeps a usable floor
-     on short viewports (a landscape phone with the keyboard up leaves very
-     little) — the panel scrolls rather than collapsing to nothing. */
+  /* The gap the sheet has to live in: the top chrome's bottom edge down to
+     wherever the sheet is resting (--dock-bottom, which tracks the keyboard).
+     Derived from the same value the wrap is positioned by, so the ceiling
+     always moves with the floor — otherwise lifting the sheet over the
+     keyboard pushes its top up under the top chrome. The max() keeps a usable
+     floor on short viewports (a landscape phone with the keyboard up leaves
+     very little) — the panel scrolls rather than collapsing to nothing. */
   --dock-panel-h: max(
     9rem,
-    calc(
-      100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--chrome-h) - var(--edit-bar-h, 0px) -
-        env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)
-    )
+    calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--dock-bottom))
   );
   /* Keep full height inside the bottom-anchored clip (see .dock-sheet-wrap):
      the clip reveals the panel from the bar upward, clipping its TOP rather

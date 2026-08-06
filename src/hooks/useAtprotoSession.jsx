@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getOauthClient, getOauthEvents, scopeForAccount } from '../lib/oauthClient.js';
+import { OAUTH_CALLBACK_PATH } from '../config.js';
 
 const Ctx = createContext(null);
 
@@ -49,7 +50,7 @@ export function AtprotoSessionProvider({ children }) {
   useEffect(() => {
     const onOauthCallback =
       typeof window !== 'undefined' &&
-      window.location.pathname.startsWith('/oauth/callback');
+      window.location.pathname.startsWith(OAUTH_CALLBACK_PATH);
 
     // Anonymous visitors: no known session and not completing a callback, so
     // never load the OAuth stack. This is the site's biggest bundle win.

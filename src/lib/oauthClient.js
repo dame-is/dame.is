@@ -10,7 +10,7 @@
 // signers ever use it. Import it dynamically inside the client factory so it
 // lands in its own lazily-fetched chunk instead of the entry bundle — the
 // session provider only awaits it when a session may actually exist.
-import { ME_HANDLE, ME_DID } from '../config.js';
+import { ME_HANDLE, ME_DID, OAUTH_CALLBACK_PATH } from '../config.js';
 
 let _clientPromise = null;
 let _loopbackUrl = null;
@@ -74,7 +74,7 @@ async function createOauthClient() {
   const { BrowserOAuthClient } = await import('@atproto/oauth-client-browser');
 
   const origin = window.location.origin;
-  const redirectPath = '/oauth/callback';
+  const redirectPath = OAUTH_CALLBACK_PATH;
 
   const hooks = {
     onDelete: (sub, cause) => {
