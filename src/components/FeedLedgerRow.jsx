@@ -8,10 +8,11 @@ import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { photoUrl } from '../lib/inaturalist.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
+import { flushBody, isWordlessFlush } from '../lib/flushText.js';
 import InkblotFigure from './cards/InkblotFigure.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
-import { ME_DID } from '../config.js';
+import { ME_DID, ME_HANDLE } from '../config.js';
 
 /**
  * The home feed's second layout ("ledger"): each record renders as one
@@ -281,6 +282,21 @@ function summarize(item, listenControls) {
       return plain(payload.displayName, 'an untitled feed');
     case 'commenting':
       return plain(payload.text || payload.body || payload.content, 'a comment');
+    case 'flushing': {
+      // The verb column already reads "flushing", so a flush that never got
+      // its own words would only say it a second time here. Let the emoji
+      // carry that row by itself, and print the words when there are any.
+      const emoji = payload.emoji ? (
+        <span className="ledger-flush-emoji">{payload.emoji}</span>
+      ) : null;
+      if (isWordlessFlush(payload.text)) return emoji || <Placeholder>a flush</Placeholder>;
+      return (
+        <>
+          {emoji}
+          {plain(flushBody(payload.text, ME_HANDLE), 'a flush')}
+        </>
+      );
+    }
     case 'crafting':
       // Anisota Lab piece — lead with its title, else a poem/erasure's text,
       // else a spell's description; falls back to the kind (a sigil, an
