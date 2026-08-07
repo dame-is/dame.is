@@ -248,6 +248,23 @@ export const VERB_REGISTRY = [
     ],
   },
   {
+    // Flushes — `im.flushing.right.now` records written from flushes.app.
+    // A flush is a sentence fragment that completes the author's handle
+    // ("is flushing"), which is why FlushCard renders it the way a logging
+    // status renders: the handle, then the fragment. Off by default in the
+    // home feed (see DEFAULT_HOME_VERBS) — it's a high-frequency, low-stakes
+    // status, so it's there for anyone who turns the chip on rather than
+    // sitting in the timeline by default.
+    verb: 'flushing',
+    icon: 'Toilet',
+    renderer: 'FlushCard',
+    pastTense: 'flushed',
+    recordHref: ({ rkey }) => (rkey ? `/flushing/${encodeURIComponent(rkey)}` : null),
+    collections: [
+      { nsid: 'im.flushing.right.now', source: 'flushes', kind: 'content', max: 200 },
+    ],
+  },
+  {
     // Creative pieces made in the Anisota Lab's studios (Word Magnets,
     // Sigil, Carving, Inkblot, Redaction, Synth, Petri) plus authored spells.
     // One umbrella verb keeps the chip list tidy; AnisotaLabCard branches by
@@ -287,8 +304,19 @@ export const VERBS = VERB_REGISTRY.map((v) => v.verb);
 
 /**
  * Verbs enabled in the home feed by default (when no `verbs=` URL param
- * is present). Excludes high-volume reference verbs that would dominate
- * the timeline if shown unfiltered — toggling them on is opt-in.
+ * is present). Everything left out is opt-in through the filter chips,
+ * and stays genuinely uningested until then: Home derives its fetch set
+ * from the active verbs, so an omitted verb costs no request on first
+ * paint (see Home.jsx → fetchVerbs).
+ *
+ * Two kinds of verb are deliberately absent:
+ *   - `liking`, whose reference records are high-volume and pay for a
+ *     per-record subject lookup through the PLC;
+ *   - `flushing`, which is frequent, small, and beside the point of the
+ *     timeline — worth having, not worth defaulting to.
+ *
+ * Adding a verb here is what turns it on for everybody, so leaving one
+ * out is a decision, not an oversight.
  */
 export const DEFAULT_HOME_VERBS = [
   'logging',
@@ -376,4 +404,5 @@ export const VERB_LABELS = {
   feeding: 'a feed',
   commenting: 'a comment',
   crafting: 'a lab piece',
+  flushing: 'a flush',
 };

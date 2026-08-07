@@ -9,13 +9,15 @@ import BlogCard from '../components/BlogCard.jsx';
 import CreatingCard from '../components/CreatingCard.jsx';
 import ObservationCard from '../components/cards/ObservationCard.jsx';
 import AnisotaLabCard from '../components/cards/AnisotaLabCard.jsx';
+import FlushCard from '../components/cards/FlushCard.jsx';
 import Comments from '../components/Comments.jsx';
 import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions from '../components/AturiActions.jsx';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
 import { resolvePds, getRecord, getPostThread, explorerPathFromAtUri } from '../lib/atproto.js';
-import { ME_DID } from '../config.js';
+import { ME_DID, ME_HANDLE } from '../config.js';
+import { flushBody } from '../lib/flushText.js';
 import { formatDateFull, formatTime, relativeDay, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
 import { VERB_TO_COLLECTION, VERB_LABELS, recordPathFromAtUri } from '../lib/recordRoutes.js';
@@ -304,6 +306,8 @@ function RecordBody({ verb, item, collection }) {
       return <ObservationCard {...item} />;
     case 'crafting':
       return <AnisotaLabCard {...item} variant="record" />;
+    case 'flushing':
+      return <FlushCard {...item} />;
     default:
       return <GenericRecordBody verb={verb} item={item} collection={collection} />;
   }
@@ -741,6 +745,14 @@ function headTitleFor(verb, item) {
     case 'logging': {
       const text = (item.payload?.status || item.payload?.text || '').trim();
       return `${text ? truncate(text, 80) : 'A status'} — dame.is`;
+    }
+    case 'flushing': {
+      // The handle is already the suffix, so the tab reads the flush's own
+      // words rather than repeating "dame.is" at both ends. The emoji leads
+      // because for a wordless flush it's the whole message.
+      const emoji = item.payload?.emoji || '';
+      const body = flushBody(item.payload?.text, ME_HANDLE);
+      return `${emoji ? `${emoji} ` : ''}${truncate(body, 80)} — dame.is`;
     }
     default:
       return `${VERB_LABELS[verb] || verb} — dame.is`;

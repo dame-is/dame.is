@@ -15,6 +15,7 @@ import {
   FileText,
   Bug,
   Binoculars,
+  Toilet,
 } from 'lucide-react';
 import { verbConfig } from '../lib/verbRegistry.js';
 
@@ -40,6 +41,7 @@ const LUCIDE_BY_NAME = {
   FileText,
   Bug,
   Binoculars,
+  Toilet,
 };
 
 /**
