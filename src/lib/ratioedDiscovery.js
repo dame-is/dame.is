@@ -1,7 +1,7 @@
 // Finding new Ratioed pieces on the PDS and measuring them.
 //
-// A piece is a post that (a) carries the project's standing phrase and (b) has
-// a threadgate with `allow: []` — the seal. Both are required: the phrase alone
+// A piece is a post that (a) declares itself the project and (b) has a
+// threadgate with `allow: []` — the seal. Both are required: the wording alone
 // would catch the meta posts that quote a piece, and an empty threadgate alone
 // would catch anything else closed to replies.
 //
@@ -23,8 +23,23 @@ function tidMs(rkey) {
   return Number.isNaN(ms) ? null : ms;
 }
 
-/** The phrase every piece has carried since take #1. */
-const PIECE_PHRASE = 'experimental social art project';
+/**
+ * How a piece announces itself.
+ *
+ * This used to be one exact phrase — "experimental social art project" — which
+ * held from take #1 through #12 and then broke: take #13 opened "i would like
+ * your help with a social art project", dropping the adjective, and the scan
+ * stopped seeing it. That is the one miss this module cannot afford. The post
+ * is still found weeks later, but the breaking like is deleted within seconds
+ * of the seal, so a piece not measured promptly loses its reaction time for
+ * good.
+ *
+ * So match the parts that have survived every rewording, and match on either
+ * of them. Loosening the text test costs nothing, because it was never the
+ * thing keeping meta posts out — the seal is, and a post that merely talks
+ * about the project still has its replies open.
+ */
+const PIECE_MARKERS = [/social art project/i, /this post is the project/i];
 
 /** How dame names the breaker in the concluding reply. */
 const BLAME_RE = /@([a-z0-9][a-z0-9.-]*)\s*(?:\/\s*(did:[a-z0-9:]+)\s*)?was to blame/i;
@@ -33,7 +48,8 @@ const TAKE_RE = /this is take\s*#?\s*(\d+)/i;
 
 /** Is this post record one of the pieces? */
 export function isPiecePost(value) {
-  return typeof value?.text === 'string' && value.text.toLowerCase().includes(PIECE_PHRASE);
+  if (typeof value?.text !== 'string') return false;
+  return PIECE_MARKERS.some((re) => re.test(value.text));
 }
 
 /** A threadgate that closes replies to everyone — the seal. */
