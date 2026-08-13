@@ -7,6 +7,7 @@ import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { photoUrl } from '../lib/inaturalist.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
+import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
 import { flushBody, isWordlessFlush } from '../lib/flushText.js';
 import InkblotFigure from './cards/InkblotFigure.jsx';
@@ -139,7 +140,7 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
           revealed by the data-xray root attribute (see Xray.css). */}
       {item.atUri && <LedgerXrayLine atUri={item.atUri} cid={item.cid} />}
       {expanded && isListenBatch(item) && item.plays.map((play) => {
-        const playTs = play?.createdAt || play?.payload?.playedTime || null;
+        const playTs = play?.createdAt || playedAtOf(play?.payload) || null;
         const playHref = recordPathFromAtUri(play?.atUri);
         const line = trackLine(play?.payload);
         // Each play is its own compact sub-row spanning the summary + time
@@ -413,10 +414,8 @@ function summarizeListen(item, { expanded = false, onToggle = null } = {}) {
 /** "track — artist" fragment shared by the summary line and the
     expanded per-track rows. Null when the play has neither. */
 function trackLine(payload) {
-  const track = payload?.trackName || payload?.track || '';
-  const artist = Array.isArray(payload?.artists)
-    ? payload.artists.map((a) => a?.artistName).filter(Boolean).join(', ')
-    : payload?.artist || '';
+  const track = playTrackName(payload);
+  const artist = playArtistLine(payload);
   if (!track && !artist) return null;
   return (
     <>
@@ -431,11 +430,7 @@ function uniqueArtistNames(plays) {
   const seen = new Set();
   const out = [];
   for (const play of plays) {
-    const arr = play?.payload?.artists;
-    const names = Array.isArray(arr)
-      ? arr.map((a) => a?.artistName)
-      : [play?.payload?.artist];
-    for (const name of names) {
+    for (const name of playArtistNames(play?.payload)) {
       if (name && !seen.has(name)) {
         seen.add(name);
         out.push(name);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { CornerDownRight } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
@@ -20,9 +20,15 @@ import { ME_DID, ME_HANDLE } from '../config.js';
 import { flushBody } from '../lib/flushText.js';
 import { formatDateFull, formatTime, relativeDay, relativeTime } from '../lib/time.js';
 import { dayOfLife } from '../lib/dayOfLife.js';
-import { VERB_TO_COLLECTION, VERB_LABELS, recordPathFromAtUri } from '../lib/recordRoutes.js';
+import {
+  VERB_TO_COLLECTION,
+  VERB_LABELS,
+  recordPathFromAtUri,
+  siblingCollections,
+} from '../lib/recordRoutes.js';
 import { verbConfig, primaryNsid } from '../lib/verbRegistry.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
+import { playArtistLine, playTrackName } from '../lib/teal.js';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from '../components/PostEmbed.jsx';
@@ -36,7 +42,7 @@ import '../components/Feed.css';
  *
  * Routes that resolve here are mapped in App.jsx:
  *   /:verb/:rkey                   — short form     (/posting/abc, /listening/abc, …)
- *   /:nsid/:rkey                   — lexicon form   (/app.bsky.feed.post/abc, /fm.teal.alpha.feed.play/abc, …)
+ *   /:nsid/:rkey                   — lexicon form   (/app.bsky.feed.post/abc, /fm.teal.feed.play/abc, …)
  *
  * The mapping table lives in `src/lib/recordRoutes.js`.
  *
@@ -56,6 +62,19 @@ export default function Record({ verb, nsid, source }) {
   // dame/leaflet/standard, liking across bsky/grain/tangled) address the
   // exact collection.
   const collection = nsid || VERB_TO_COLLECTION[verb] || primaryNsid(verb);
+  // The short `/{verb}/:rkey` form names no lexicon, so a verb spanning
+  // several of them has to look in each until the rkey turns up. Listening is
+  // the case that makes this load-bearing: teal.fm's production and alpha play
+  // lexicons share one verb and one archive, and which of them holds any given
+  // play depends only on when it was scrobbled.
+  const candidates = useMemo(
+    () => (nsid ? [nsid] : siblingCollections(collection)),
+    [nsid, collection],
+  );
+  // The collection the record was actually found in — what the page reports
+  // and hands to the body renderer, which is not always the one we asked for
+  // first.
+  const [resolvedCollection, setResolvedCollection] = useState(collection);
   const [item, setItem] = useState(null);
   // `missing` = the record is genuinely absent (definitive 4xx / RecordNotFound
   // / resolved-but-empty) → show the permanent "not found" state.
@@ -84,6 +103,7 @@ export default function Record({ verb, nsid, source }) {
     setItem(null);
     setMissing(false);
     setLoadError(false);
+    setResolvedCollection(collection);
     setParents([]);
     setReplies([]);
     setSelfThread([]);
@@ -139,26 +159,17 @@ export default function Record({ verb, nsid, source }) {
         // Generic content / reference records on Dame's PDS.
         const pds = await resolvePds(ME_DID);
         if (cancelled) return;
-        const fresh = await getRecord(pds, { repo: ME_DID, collection, rkey });
+        const { record: fresh, collection: found } = await getFirstRecord(pds, candidates, rkey);
         if (cancelled) return;
         if (!fresh?.value) {
           setMissing(true);
           return;
         }
+        setResolvedCollection(found);
         setItem(recordToFeedItem(verb, fresh));
       } catch (err) {
         if (cancelled) return;
-        // Distinguish a definitive "no such record" from a transient failure.
-        // The PDS answers 400 RecordNotFound for unknown rkeys and the AppView
-        // 404s a missing thread — those mean the record is genuinely gone. A
-        // network blip / 5xx / anything else must NOT masquerade as "not found"
-        // (that breaks shared + OG links); surface a recoverable load error.
-        const status = err?.status;
-        const definitivelyMissing =
-          status === 400 ||
-          status === 404 ||
-          /RecordNotFound|Could not locate record|not found/i.test(err?.message || '');
-        if (definitivelyMissing) {
+        if (isDefinitivelyMissing(err)) {
           setMissing(true);
         } else {
           setLoadError(true);
@@ -184,7 +195,7 @@ export default function Record({ verb, nsid, source }) {
     return () => {
       cancelled = true;
     };
-  }, [verb, rkey, collection, retryKey]);
+  }, [verb, rkey, collection, candidates, retryKey]);
 
   if (!collection) {
     return (
@@ -201,7 +212,7 @@ export default function Record({ verb, nsid, source }) {
     return (
       <PageShell title="Record not found" headTitle="Not found — dame.is">
         <p>
-          No <code>{collection}</code> record with rkey <code>{rkey}</code>.{' '}
+          No record with rkey <code>{rkey}</code> in <LexiconList nsids={candidates} />.{' '}
           <Link to={`/${verb}`}>Back to {verb}.</Link>
         </p>
       </PageShell>
@@ -224,7 +235,7 @@ export default function Record({ verb, nsid, source }) {
     );
   }
 
-  const atUri = item?.atUri || `at://${ME_DID}/${collection}/${rkey}`;
+  const atUri = item?.atUri || `at://${ME_DID}/${resolvedCollection}/${rkey}`;
   const cid = item?.cid || null;
   const createdAt = item?.createdAt;
 
@@ -242,7 +253,7 @@ export default function Record({ verb, nsid, source }) {
 
         {item ? (
           <div className="reveal">
-            <RecordBody verb={verb} item={item} collection={collection} />
+            <RecordBody verb={verb} item={item} collection={resolvedCollection} />
           </div>
         ) : (
           <RecordSkeleton />
@@ -276,6 +287,56 @@ export default function Record({ verb, nsid, source }) {
       </article>
     </PageShell>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Collection resolution                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A 400 RecordNotFound from the PDS (or a 404 from the AppView) means the
+ * record is genuinely gone. A network blip / 5xx / anything else must NOT
+ * masquerade as "not found" — that breaks shared and OG links — so it gets
+ * the recoverable load-error state instead. See §4.1.
+ */
+function isDefinitivelyMissing(err) {
+  const status = err?.status;
+  return (
+    status === 400 ||
+    status === 404 ||
+    /RecordNotFound|Could not locate record|not found/i.test(err?.message || '')
+  );
+}
+
+/**
+ * getRecord across `collections` in order, returning the first hit alongside
+ * the collection it came from. A collection that definitively lacks the rkey
+ * is skipped; a transient failure is re-thrown once every collection has been
+ * tried, so a flaky network still reads as "couldn't load" rather than as a
+ * record that doesn't exist.
+ */
+async function getFirstRecord(pds, collections, rkey) {
+  let transient = null;
+  for (const collection of collections) {
+    try {
+      const record = await getRecord(pds, { repo: ME_DID, collection, rkey });
+      if (record?.value) return { record, collection };
+    } catch (err) {
+      if (!isDefinitivelyMissing(err)) transient = err;
+    }
+  }
+  if (transient) throw transient;
+  return { record: null, collection: collections[0] };
+}
+
+/** "`a`", "`a` or `b`", "`a`, `b` or `c`" — lexicons as prose. */
+function LexiconList({ nsids }) {
+  return nsids.map((nsid, i) => (
+    <span key={nsid}>
+      {i > 0 && (i === nsids.length - 1 ? ' or ' : ', ')}
+      <code>{nsid}</code>
+    </span>
+  ));
 }
 
 /* ------------------------------------------------------------------ */
@@ -725,11 +786,9 @@ function headTitleFor(verb, item) {
     case 'creating':
       return `${item.payload?.title || 'Untitled work'} — dame.is`;
     case 'listening': {
-      const track = item.payload?.trackName;
-      const artist = Array.isArray(item.payload?.artists)
-        ? item.payload.artists.map((a) => a?.artistName).filter(Boolean).join(', ')
-        : item.payload?.artist;
-      const both = [track, artist].filter(Boolean).join(' · ');
+      const both = [playTrackName(item.payload), playArtistLine(item.payload)]
+        .filter(Boolean)
+        .join(' · ');
       return `${both || 'A play'} — dame.is`;
     }
     case 'posting': {

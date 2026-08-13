@@ -24,7 +24,10 @@ import {
   getAuthorFeed,
   listRecords,
 } from './atproto.js';
-import { VERB_REGISTRY } from './verbRegistry.js';
+// Aliased: `verbConfig` is already this file's name for a registry entry
+// passed around as a parameter, and the shadowing reads terribly.
+import { VERB_REGISTRY, verbConfig as lookupVerb } from './verbRegistry.js';
+import { dedupePlaysByRkey, playedAtOf } from './teal.js';
 import { isPortfolioDoc } from './publications.js';
 import { createSubjectResolver } from './subjectResolver.js';
 import { fetchLiveObservationItems } from './liveObservations.js';
@@ -44,6 +47,11 @@ export const LEGACY_SNAPSHOT_NAME = {
   'site.standard.document': 'blogs',
   'pub.leaflet.document': 'leaflets',
   'is.dame.creating.work': 'creations',
+  // Both teal.fm play lexicons write the SAME file on purpose: `listening.json`
+  // is one archive spanning the alpha → production namespace move, merged by
+  // `mergeCollectionSnapshots` below. Consumers (useNowPlaying, the /listening
+  // page) keep reading one snapshot and never learn a namespace changed.
+  'fm.teal.feed.play': 'listening',
   'fm.teal.alpha.feed.play': 'listening',
 };
 
@@ -56,6 +64,26 @@ export const LEGACY_SNAPSHOT_NAME = {
 export function snapshotNameFor(verb, source, nsid) {
   if (LEGACY_SNAPSHOT_NAME[nsid]) return LEGACY_SNAPSHOT_NAME[nsid];
   return nsid.replace(/\./g, '-');
+}
+
+/**
+ * Fold a second collection's records into a snapshot another collection
+ * already claimed. Only reached when two NSIDs deliberately share a snapshot
+ * name (teal.fm's production + alpha plays), which means they're two spellings
+ * of one archive: records are keyed by rkey, the collection listed first in the
+ * registry wins a collision, and the merged result is re-sorted newest-first so
+ * `listening.json[0]` is still the most recent play.
+ */
+export function mergeCollectionSnapshots(existing, incoming) {
+  if (!existing?.length) return incoming || [];
+  if (!incoming?.length) return existing;
+  const merged = dedupePlaysByRkey([...existing, ...incoming], (r) => r?.uri);
+  return merged.sort((a, b) => compareIsoDesc(snapshotInstant(a), snapshotInstant(b)));
+}
+
+function snapshotInstant(record) {
+  const v = record?.value || {};
+  return v.createdAt || playedAtOf(v) || v.publishedAt || record?.indexedAt || null;
 }
 
 /**
@@ -81,7 +109,7 @@ export function toFeedItem(verb, record, { source, subject } = {}) {
   const value = record.value || {};
   const createdAt =
     value.createdAt ||
-    value.playedTime || // fm.teal.alpha.feed.play
+    value.playedTime || // fm.teal.feed.play
     value.playedAt ||
     value.publishedAt || // pub.leaflet.document
     record.indexedAt ||
@@ -414,6 +442,12 @@ const DEDUPE_PRIORITY = {
 };
 
 export function dedupeVerbAggregate(verb, items) {
+  // Verbs whose collections are the same records under two lexicon names
+  // (teal.fm's namespace move) dedupe on rkey instead of on title, since the
+  // rkey is what the migration preserves. Declared in the registry.
+  if (lookupVerb(verb)?.dedupe === 'rkey') {
+    return dedupePlaysByRkey(items, (item) => item?.atUri);
+  }
   const priority = DEDUPE_PRIORITY[verb];
   if (!priority) return items;
   const rank = (s) => {
@@ -642,9 +676,14 @@ export async function buildUnifiedFeed({
       for (const { c, records } of collectionResults) {
         if (c.kind === 'appviewFeed') continue;
 
+        // Two collections can claim the same snapshot name on purpose (see
+        // LEGACY_SNAPSHOT_NAME); when they do, the second one merges into the
+        // first rather than overwriting it.
         const snapName = snapshotNameFor(verbConfig.verb, c.source, c.nsid);
-        perCollection[snapName] = records;
-        counts[snapName] = records.length;
+        perCollection[snapName] = perCollection[snapName]
+          ? mergeCollectionSnapshots(perCollection[snapName], records)
+          : records;
+        counts[snapName] = perCollection[snapName].length;
 
         const trimmed = applyAgeCutoff(records, c.maxAgeDays);
         verbAggregate.push(
@@ -732,10 +771,17 @@ export async function buildUnifiedFeed({
 
 /**
  * For a given verb, return `true` if its combined `<verb>.json` file
- * should be written by the prefetch script — i.e. the verb spans more
- * than one non-AppView collection. Single-collection verbs already have
- * their data on disk under the legacy / per-source name.
+ * should be written by the prefetch script — i.e. the verb's records land in
+ * more than one non-AppView snapshot file. Verbs whose data already sits in a
+ * single file don't need a combined one, and writing it would clobber that
+ * file: `listening` spans two lexicons but merges into one `listening.json`,
+ * whose consumers expect raw PDS records, not feed items.
  */
 export function shouldWriteCombinedVerbFile(verbConfig) {
-  return verbConfig.collections.filter((c) => c.kind !== 'appviewFeed').length > 1;
+  const files = new Set(
+    verbConfig.collections
+      .filter((c) => c.kind !== 'appviewFeed')
+      .map((c) => snapshotNameFor(verbConfig.verb, c.source, c.nsid)),
+  );
+  return files.size > 1;
 }

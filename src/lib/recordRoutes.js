@@ -9,6 +9,7 @@
 import {
   VERB_REGISTRY,
   primaryNsid,
+  verbConfig,
   NSIDS,
   VERB_LABELS as REGISTRY_LABELS,
 } from './verbRegistry.js';
@@ -45,6 +46,24 @@ export const COLLECTION_TO_VERB = (() => {
   }
   return out;
 })();
+
+/**
+ * Every collection a record addressed by rkey alone might actually live in:
+ * `nsid` first, then the other collections of the verb that owns it, in
+ * registry order.
+ *
+ * A `/{verb}/{rkey}` URL names no lexicon, and the rkey alone can't say which
+ * of a multi-lexicon verb's collections holds the record — teal.fm's
+ * production and alpha plays are the same archive under two names, and a like
+ * could be a bsky like, a grain favorite, or a tangled star. Callers try them
+ * in order and keep the first hit.
+ */
+export function siblingCollections(nsid) {
+  if (!nsid) return [];
+  const verb = COLLECTION_TO_VERB[nsid];
+  const all = verb ? (verbConfig(verb)?.collections || []).map((c) => c.nsid) : [];
+  return [nsid, ...all.filter((n) => n && n !== nsid)];
+}
 
 /**
  * The full set of route segments (verb + NSID) that resolve to the single

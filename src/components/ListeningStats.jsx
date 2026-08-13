@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import './ListeningStats.css';
 
 /**
@@ -191,7 +192,7 @@ function computeStats(items, days) {
   for (const it of items || []) {
     const p = it?.payload;
     if (!p) continue;
-    const t = Date.parse(it.createdAt || p.playedTime || '');
+    const t = Date.parse(it.createdAt || playedAtOf(p) || '');
     if (!Number.isFinite(t) || t < cutoff) continue;
 
     totalPlays += 1;
@@ -204,24 +205,24 @@ function computeStats(items, days) {
     // would split one song/artist/album into two identical-looking rows.
     // Grouping on what the reader sees also matches how listeners count
     // ("I played this song N times" regardless of which release it was).
-    const artistLine = artistNames(p);
+    const artistLine = playArtistLine(p);
+    const track = playTrackName(p);
 
     // Track — title + primary artist.
-    if (p.trackName || p.track) {
-      const tKey = `${lower(p.trackName || p.track)}|${lower(firstArtistName(p))}`;
+    if (track) {
+      const tKey = `${lower(track)}|${lower(firstArtistName(p))}`;
       bump(tracks, tKey, () => ({
-        primary: p.trackName || p.track || '—',
+        primary: track,
         secondary: artistLine,
         sample: p,
         href: recordPathFromAtUri(it.atUri),
-        query: p.trackName || p.track || '',
+        query: track,
       }));
     }
 
     // Artists — credit every credited artist on the play.
-    for (const a of artistList(p)) {
-      if (!a?.artistName) continue;
-      bump(artists, lower(a.artistName), () => ({ primary: a.artistName, query: a.artistName }));
+    for (const name of playArtistNames(p)) {
+      bump(artists, lower(name), () => ({ primary: name, query: name }));
     }
 
     // Album / release — title + primary artist (same-named albums by
@@ -270,22 +271,8 @@ function topN(map, n = TOP_N) {
     .slice(0, n);
 }
 
-function artistList(payload) {
-  if (Array.isArray(payload?.artists)) return payload.artists;
-  if (payload?.artist) return [{ artistName: payload.artist }];
-  return [];
-}
-
 function firstArtistName(payload) {
-  const list = artistList(payload);
-  return list[0]?.artistName || '';
-}
-
-function artistNames(payload) {
-  return artistList(payload)
-    .map((a) => a?.artistName)
-    .filter(Boolean)
-    .join(', ');
+  return playArtistNames(payload)[0] || '';
 }
 
 function lower(s) {

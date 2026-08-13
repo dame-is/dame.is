@@ -1,11 +1,11 @@
-// Album art lookup for fm.teal.alpha.feed.play records.
+// Album art lookup for teal.fm play records.
 //
 // We have three identifiers to play with on every play, in order of how
 // reliably they resolve to the right cover:
 //
 //   1. ISRC (recording identifier). Universal across services; works
 //      regardless of where the play was scrobbled from.
-//   2. Apple Music song id (the `?i=…` query param on `originUrl` when the
+//   2. Apple Music song id (the `?i=…` query param on the origin URL when the
 //      play came from Apple). Exact match when present.
 //   3. trackName + first artistName. Last-resort fuzzy text search.
 //
@@ -20,6 +20,8 @@
 // Results are also cached in localStorage so we don't re-hit the proxy on
 // every re-render or page navigation. Hits are kept for 30 days, misses for
 // 1 day so a freshly released track can recover once its art is indexed.
+
+import { playArtistNames, playOriginUrl, playTrackName } from './teal.js';
 
 const ALBUM_ART_ENDPOINT = '/api/albumart';
 // v2: v1 read/wrote the cache on mismatched fields (stored `artworkUrl100`,
@@ -78,12 +80,12 @@ function cacheSet(key, entry) {
 /* ------------------------------------------------------------------ */
 
 /**
- * Extract Apple Music's numeric song id from an originUrl like
+ * Extract Apple Music's numeric song id from an origin URL like
  *   https://music.apple.com/us/album/hellfire/1613170781?i=1613171030
  * Apple's lookup API takes that song id directly.
  */
 function appleSongIdFrom(payload) {
-  const origin = payload?.originUrl;
+  const origin = playOriginUrl(payload);
   if (!origin) return null;
   try {
     const u = new URL(origin);
@@ -96,15 +98,11 @@ function appleSongIdFrom(payload) {
 }
 
 function firstArtist(payload) {
-  if (Array.isArray(payload?.artists)) {
-    const a = payload.artists.find((x) => x?.artistName);
-    return a?.artistName || '';
-  }
-  return payload?.artist || '';
+  return playArtistNames(payload)[0] || '';
 }
 
 function trackTitle(payload) {
-  return (payload?.trackName || payload?.track || '').trim();
+  return playTrackName(payload);
 }
 
 /**

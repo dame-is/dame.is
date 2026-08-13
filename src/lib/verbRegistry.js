@@ -36,6 +36,10 @@
 //   recordHref:  Optional template for per-record page URL. `null` (the
 //                default) means use the generic `/{nsid}/{rkey}` form.
 //   pastTense:   Used by ReferenceCard's "Dame {pastTense} {subject}" label.
+//   dedupe:      Optional. `'rkey'` collapses records that appear in more than
+//                one of the verb's collections under the same rkey, keeping the
+//                one from the collection listed first. For lexicons that moved
+//                namespace without re-keying (teal.fm's alpha → production).
 
 /**
  * Anisota records (`net.anisota.*`) have no bespoke record page on dame.is —
@@ -110,7 +114,14 @@ export const VERB_REGISTRY = [
     renderer: 'ListenRow',
     recordHref: ({ rkey }) => (rkey ? `/listening/${rkey}` : null),
     pastTense: 'listened to',
+    // teal.fm left its `alpha` namespace for production `fm.teal.*` in August
+    // 2026. Both lexicons are ingested and collapsed by rkey — the migration
+    // keeps rkeys, so a play written under both is one play — with production
+    // winning because it's listed first. That ordering IS the priority, here
+    // and in src/lib/teal.js, which reads these NSIDs back out.
+    dedupe: 'rkey',
     collections: [
+      { nsid: 'fm.teal.feed.play', source: 'teal', kind: 'content', max: 100 },
       { nsid: 'fm.teal.alpha.feed.play', source: 'teal', kind: 'content', max: 100 },
     ],
   },
