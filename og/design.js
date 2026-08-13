@@ -333,7 +333,7 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
   const gap = 10; // clearance either side of the seal rule
   const afterL = trackL + aliveW + gap;
   const afterW = trackR - afterL;
-  const y = 4 * P; // the coarse rule the line is drawn on
+  const y = 5 * P; // the coarse rule the line is drawn on
 
   const b = piece.breaker || {};
   const measured = typeof b.reactionMs === 'number';
@@ -370,19 +370,23 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
       at('take', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
       at(String(piece.take).padStart(2, '0'), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
       avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
-      rowAt(
-        [
-          h('div', { style: { color: t.inkFaint } }, 'dame.is'),
-          h('div', { style: { color: t.inkFaint } }, '/'),
-          h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, 'ratioed'),
-        ],
-        { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX },
-      ),
+      // The real path, since a piece genuinely sits two levels down.
+      rowAt(breadcrumbParts(t, ['creating', 'ratioed']), {
+        size: 28,
+        by: bcBy,
+        left: avatarUri ? CX + 46 + 18 : CX,
+      }),
 
-      // The hero is how long it stood, because that is the finding.
+      // The project's name at the size every other card gives its section —
+      // accent italic, the .gerund treatment. A card that only named it in the
+      // breadcrumb made the work anonymous at a glance, which is the one thing
+      // a share card cannot be.
+      at('Ratioed', { size: 104, by: 3 * P - 4, left: CX, italic: true, color: t.accent }),
+
+      // Then the finding, in ink: how long this one stood.
       at(`alive ${longDuration(piece.lifespanMs)}`, {
-        size: 76,
-        by: 3 * P - 6,
+        size: 46,
+        by: 4 * P - 8,
         left: CX,
         weight: 600,
         color: t.ink,
@@ -398,18 +402,18 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
       h('div', { style: { position: 'absolute', left: trackL + aliveW + gap / 2 - 1, top: y - 17, width: 3, height: 34, background: scale.like } }),
       ...marks.map(dot),
 
-      at('alive', { size: 21, by: 4 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 }),
-      at('after the seal', { size: 21, by: 4 * P + HP - 6, right: PAD, color: t.inkFaint, weight: 400 }),
+      at('alive', { size: 21, by: 5 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 }),
+      at('after the seal', { size: 21, by: 5 * P + HP - 6, right: PAD, color: t.inkFaint, weight: 400 }),
 
       at(
         measured
           ? `ended by @${b.currentHandle || b.handle} · caught in ${(b.reactionMs / 1000).toFixed(1)}s`
           : `ended by @${b.currentHandle || b.handle} · their like has been deleted`,
-        { size: 27, by: 6 * P - 8, left: CX, color: t.inkSoft, weight: 400 },
+        { size: 27, by: 6 * P + HP - 8, left: CX, color: t.inkSoft, weight: 400 },
       ),
       at(
         `${people === 0 ? 'nobody' : `${people} ${people === 1 ? 'person' : 'people'}`} while it was alive · ${since} since`,
-        { size: 27, by: 6 * P + HP - 8, left: CX, color: t.inkMuted, weight: 400 },
+        { size: 27, by: 7 * P - 8, left: CX, color: t.inkMuted, weight: 400 },
       ),
 
       at('is.dame.creating.ratioed.piece', { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
@@ -417,7 +421,7 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
       // gutter is carrying the take number where a date would otherwise sit.
       at((piece.postedAt || '').slice(0, 10), { size: 22, by: 8 * P - LE, right: PAD, color: t.inkFaint }),
     ],
-    { verticals: [PAD, { x: 320, strong: true }, W - PAD], halfBands: [{ from: 6 * P - HP, to: 6 * P + HP }] },
+    { verticals: [PAD, { x: 320, strong: true }, W - PAD], halfBands: [{ from: 6 * P, to: 7 * P }] },
   );
 }
 
