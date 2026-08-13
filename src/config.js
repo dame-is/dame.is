@@ -123,6 +123,31 @@ export const RATIOED_SOURCE = `${RATIOED_PIECE_NSID}:subject`;
 // to the essay the blocks are embedded in.
 export const RATIOED_DOC_RKEY = '3mrlnl6oyuj2d';
 
+/**
+ * The URL segment the Ratioed essay lives under, i.e. `/creating/<this>`, and
+ * the parent of every per-piece page (`/creating/ratioed/13`).
+ *
+ * Must agree with the essay document's own `path` field on the PDS. A standard
+ * document is reachable at BOTH its `path` and its record key (see
+ * `CreatingWork`), so `/creating/3mrlnl6oyuj2d/13` keeps working whatever this
+ * says — this is only which form the site links to and calls canonical.
+ */
+export const RATIOED_PATH = 'ratioed';
+
+/**
+ * The Ratioed publication — its own `site.standard.publication`, so a piece
+ * page shared on Bluesky renders under a "Ratioed" masthead rather than the
+ * portfolio's. The essay itself stays homed in PORTFOLIO_PUBLICATION (it is an
+ * overview of the project, and belongs with the creative works); this is the
+ * masthead the per-piece pages carry.
+ *
+ * Create it with `node scripts/portfolio/create-publication.mjs --name Ratioed
+ * --url https://dame.is/creating/ratioed` and paste the printed `at://` URI
+ * here. While it stays null the piece pages simply advertise no publication —
+ * everything else works unchanged.
+ */
+export const RATIOED_PUBLICATION = null;
+
 // --- are.na ------------------------------------------------------------------
 // The /curating galleries render live from are.na (ARENA_CHANNEL_NSID records
 // point at channels), and the whole account is mirrored onto the PDS by

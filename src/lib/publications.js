@@ -88,6 +88,24 @@ export function workSlug(value) {
 }
 
 /**
+ * The one address under `/creating` a work should be INDEXED at.
+ *
+ * A work answers to two URLs by design: its human `path` and its record key.
+ * Both are deliberate — an at:// URI or a Bluesky link hands you the key and
+ * nothing else — but only one of them can be the canonical address, or the
+ * work competes with itself in search and renaming its slug splits its history
+ * across two URLs instead of moving it. The human path wins where there is
+ * one: it's what the sitemap emits and what the site links to.
+ *
+ * `rkey` is the record's key and `requested` the segment that was asked for;
+ * either stands in when the record carries no path of its own.
+ */
+export function canonicalWorkPath(value, rkey, requested) {
+  const preferred = workSlug(value) || rkey || requested || '';
+  return preferred ? `/creating/${encodeURIComponent(preferred)}` : null;
+}
+
+/**
  * Primary category label for a creative work. Legacy records carry an
  * explicit `category`/`kind`; standard docs fold the category into `tags`,
  * so the first tag stands in as the primary medium (the export + migration

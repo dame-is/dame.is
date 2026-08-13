@@ -15,6 +15,10 @@ import {
   fmtDuration,
   fmtSeconds,
   fmtElapsed,
+  pieceSlug,
+  piecePath,
+  findPieceByRef,
+  isRatioedParent,
 } from './ratioed.js';
 
 describe('SEED_PIECES', () => {
@@ -498,5 +502,47 @@ describe('formatters', () => {
     expect(fmtElapsed(600)).toBe('10m');
     expect(fmtElapsed(7200)).toBe('2.0h');
     expect(fmtElapsed(86_400 * 405)).toBe('405d');
+  });
+});
+
+describe('addressing a piece', () => {
+  const pieces = [
+    { rkey: '3lrq5r2ouw22b', take: 1 },
+    { rkey: '3msyb4kntps2e', take: 13 },
+  ];
+
+  it('canonicalises a take to the padded form the UI shows', () => {
+    expect(pieceSlug(pieces[0])).toBe('01');
+    expect(pieceSlug(pieces[1])).toBe('13');
+    expect(piecePath(pieces[1])).toBe('/creating/ratioed/13');
+  });
+
+  it('resolves a take number however it is written', () => {
+    for (const ref of ['13', '013', '#13']) {
+      expect(findPieceByRef(pieces, ref)?.take).toBe(13);
+    }
+    // A padded and a bare take must land on the same piece, or the two forms
+    // become two URLs for one thing.
+    expect(findPieceByRef(pieces, '01')).toBe(findPieceByRef(pieces, '1'));
+  });
+
+  it('resolves the record key, which is all a Bluesky link gives you', () => {
+    expect(findPieceByRef(pieces, '3msyb4kntps2e')?.take).toBe(13);
+  });
+
+  it('refuses anything that names no piece', () => {
+    expect(findPieceByRef(pieces, '99')).toBeNull();
+    expect(findPieceByRef(pieces, 'ratioed')).toBeNull();
+    expect(findPieceByRef(pieces, '')).toBeNull();
+    expect(findPieceByRef(null, '13')).toBeNull();
+  });
+
+  it('answers under either address the parent document has', () => {
+    // The essay is reachable at its human path AND its record key, so a piece
+    // hanging off it has to be too.
+    expect(isRatioedParent('ratioed', { rkey: '3mrlnl6oyuj2d' })).toBe(true);
+    expect(isRatioedParent('3mrlnl6oyuj2d', { rkey: '3mrlnl6oyuj2d' })).toBe(true);
+    expect(isRatioedParent('rainbow', { rkey: '3mrlnl6oyuj2d' })).toBe(false);
+    expect(isRatioedParent('', { rkey: '3mrlnl6oyuj2d' })).toBe(false);
   });
 });

@@ -13,7 +13,7 @@
 // cost, no risk of breaking client-side navigation.
 
 import { pageMeta, SITE, cleanPath, segsFor } from './og/pages.js';
-import { recordMeta } from './og/records.js';
+import { recordMeta, pieceMeta } from './og/records.js';
 import { pageContentMeta } from './og/pageContent.js';
 import { ME_DID, COLLECTIONS, BLOG_PUBLICATION, PORTFOLIO_PUBLICATION } from './src/config.js';
 
@@ -55,6 +55,7 @@ export const config = {
     '/blogging/:slug',
     '/creating',
     '/creating/:slug',
+    '/creating/:slug/:piece',
     '/curating',
     '/curating/:slug',
     '/listening',
@@ -162,11 +163,22 @@ export default async function middleware(request) {
     // and the publication home pages (/blogging, /creating).
     let stdDoc = null;
     let stdPub = null;
-    if (segs.length === 2) {
+    // The one address this view should be indexed under. Usually the path that
+    // was requested; not always — a standard document answers to both its human
+    // path and its record key, and only one of them can be canonical.
+    let canonicalPath = path;
+    // Leaf routes: `/section/:id`, plus the one section whose leaves have
+    // leaves of their own (`/creating/ratioed/:piece`). Both resolve to a
+    // single record and get the same card / canonical / at:// treatment, so
+    // they share this branch and differ only in which resolver answers.
+    if (segs.length === 2 || segs.length === 3) {
       const sectionSeg = segs[0];
       const sectionPath = `/${sectionSeg}`;
       const section = pageMeta(sectionPath);
-      const rec = await recordMeta(path, url.origin);
+      const rec =
+        segs.length === 3
+          ? await pieceMeta(path, url.origin)
+          : await recordMeta(path, url.origin);
       if (rec) {
         // The record resolved: its own OG card + at:// URI for the head. Falls
         // back below only when it can't be resolved.
@@ -195,10 +207,17 @@ export default async function middleware(request) {
         ogImage = `${ORIGIN}/api/og?${params.toString()}`;
         atUri = rec.atUri;
         cid = rec.cid;
+        if (rec.canonicalPath) canonicalPath = rec.canonicalPath;
         // Only site.standard.document records get the Standard Site embed; a
         // leaflet or arena record on these routes is skipped.
         if (rec.nsid === STANDARD_DOC_NSID) {
           stdDoc = rec.atUri;
+          stdPub = rec.publication;
+        } else if (rec.publication) {
+          // A Ratioed piece is a measurement record, not a standard document,
+          // so it has no document ref to declare — but it does belong to a
+          // publication, and saying so is what puts the page under that
+          // masthead rather than the site's default one.
           stdPub = rec.publication;
         }
       } else {
@@ -242,7 +261,7 @@ export default async function middleware(request) {
     if (!shellRes.ok) return undefined; // fall through to normal serving
     let html = await shellRes.text();
 
-    const canonical = `${ORIGIN}${path}`;
+    const canonical = `${ORIGIN}${canonicalPath}`;
 
     html = html.replace(/<title>[^<]*<\/title>/i, `<title>${escapeAttr(title)}</title>`);
     html = setMeta(html, 'name', 'description', desc);
@@ -255,8 +274,12 @@ export default async function middleware(request) {
     html = setMeta(html, 'name', 'twitter:description', desc);
     html = setMeta(html, 'name', 'twitter:image', ogImage);
 
-    // Advertise the canonical (verb-form slug) URL for every route we serve, so
-    // the same record reachable at multiple live URLs collapses to one address.
+    // Advertise the canonical URL for every route we serve, so the same record
+    // reachable at multiple live URLs collapses to one address. This used to be
+    // the requested path, which meant it collapsed nothing: /creating/<rkey>
+    // declared itself canonical alongside /creating/<path>, so every work with
+    // a human slug was indexable twice and renaming one split its history in
+    // two. The record now names its own address (recordMeta.canonicalPath).
     html = setCanonical(html, canonical);
 
     // Soft 404: the record route resolved no record, so tell crawlers not to

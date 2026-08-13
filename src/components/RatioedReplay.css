@@ -1,0 +1,184 @@
+/* The replay track.
+   Two bands with a hard rule between them: the linear seconds a piece was
+   alive, and the log-scaled years it has been finished. The rule is the
+   threadgate, drawn as the heaviest line on the page because it is the whole
+   event. */
+
+.ratioed-replay { margin: 0 0 var(--space-4); }
+
+.ratioed-replay-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
+.ratioed-replay-play {
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--page);
+  font-size: var(--text-sm);
+}
+.ratioed-replay-play:hover { opacity: 0.85; }
+
+.ratioed-replay-clock {
+  font-family: var(--mono, monospace);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  min-width: 11ch;
+}
+
+/* Matches the charts' segmented control so the two read as one vocabulary. */
+.ratioed-replay .ratioed-seg { display: inline-flex; margin-left: auto; }
+.ratioed-replay .ratioed-seg button {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: var(--text-xs);
+}
+.ratioed-replay .ratioed-seg button + button { border-left: 0; }
+.ratioed-replay .ratioed-seg button:hover { color: var(--ink); }
+.ratioed-replay .ratioed-seg button[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--page);
+}
+
+/* --- the track ----------------------------------------------------- */
+
+.ratioed-replay-track {
+  display: grid;
+  /* The alive window gets the larger share: it is the part being watched. */
+  grid-template-columns: 3fr auto 2fr;
+  align-items: stretch;
+  height: 68px;
+}
+
+.ratioed-replay-alive,
+.ratioed-replay-after {
+  position: relative;
+  height: 100%;
+}
+
+/* The played portion, filled behind the marks. */
+.ratioed-replay-band {
+  position: absolute;
+  inset: 50% 0 auto 0;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--rule);
+}
+.ratioed-replay-band::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill, 0%);
+  background: var(--ink-soft);
+}
+
+/* The threadgate. Deliberately the heaviest mark here. */
+.ratioed-replay-seal {
+  width: 2px;
+  background: var(--rule);
+  margin: 0 2px;
+}
+.ratioed-replay-seal[data-on] { background: var(--ratioed-seal); }
+
+.ratioed-replay-mark {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.12;
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+.ratioed-replay-mark.on {
+  opacity: 0.9;
+  transform: scale(1.15);
+}
+/* The like is the one that ends it, so it keeps the shape the charts give it. */
+.ratioed-replay-mark.ratioed-k-like { border-radius: 0; }
+
+.ratioed-replay-legend {
+  display: grid;
+  grid-template-columns: 3fr auto 2fr;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  margin-top: var(--space-1);
+}
+.ratioed-replay-legend > :nth-child(2) { text-align: center; white-space: nowrap; }
+.ratioed-replay-legend > :nth-child(3) { text-align: right; }
+
+/* The scrubber is a real range input so it can be driven from the keyboard,
+   but the browser default is a saturated blue bar that fights everything else
+   on the page. Reduced to the site's own hairline + a small handle. */
+.ratioed-replay-scrub { margin: var(--space-3) 0 var(--space-2); }
+.ratioed-replay-scrub input {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  height: 14px;
+  cursor: pointer;
+}
+.ratioed-replay-scrub input::-webkit-slider-runnable-track {
+  height: 1px;
+  background: var(--rule);
+}
+.ratioed-replay-scrub input::-moz-range-track {
+  height: 1px;
+  background: var(--rule);
+}
+.ratioed-replay-scrub input::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 0;
+}
+.ratioed-replay-scrub input::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 0;
+}
+.ratioed-replay-scrub input:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
+
+.ratioed-replay-caption {
+  font-size: var(--text-sm);
+  min-height: 1.6em;
+  margin: 0;
+}
+.ratioed-replay-kind { font-variant-caps: small-caps; }
+.ratioed-replay-who { overflow-wrap: anywhere; }
+.ratioed-replay-off { color: var(--ink-muted); }
+
+.ratioed-replay-count {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  margin: var(--space-1) 0 0;
+}
+
+/* A reader who has asked for less motion still gets the whole track — every
+   mark is drawn, it just doesn't grow when the playhead reaches it. */
+@media (prefers-reduced-motion: reduce) {
+  .ratioed-replay-mark { transition: none; }
+  .ratioed-replay-mark.on { transform: none; }
+}
+
+@media (max-width: 34rem) {
+  .ratioed-replay-track,
+  .ratioed-replay-legend { grid-template-columns: 2fr auto 1fr; }
+  .ratioed-replay .ratioed-seg { margin-left: 0; }
+}

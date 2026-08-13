@@ -673,3 +673,18 @@
 @media (prefers-reduced-motion: reduce) {
   .ratioed-bar { transition: none; }
 }
+
+/* --- through to a piece's own page --------------------------------- */
+
+/* The essay reads all thirteen against one axis, which is the argument it
+   makes and the limit of what it can show. These are the way out of that
+   altitude, so they're quiet inside the chart and obvious once looked for. */
+.ratioed-more {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+}
+.ratioed-take-link {
+  color: inherit;
+  text-decoration: none;
+}
+.ratioed-take-link:hover { text-decoration: underline; }

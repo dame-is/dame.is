@@ -34,7 +34,7 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ME_DID, COLLECTIONS, APPVIEW, INATURALIST_USER } from '../src/config.js';
+import { ME_DID, COLLECTIONS, APPVIEW, INATURALIST_USER, RATIOED_PATH } from '../src/config.js';
 import {
   resolvePds,
   getProfile,
@@ -300,7 +300,7 @@ function sitemapUrl(path, lastmod) {
 }
 
 // Robust by design: any missing snapshot just contributes fewer <url>s.
-function buildSitemap({ blogRecords, creatingRecords, curatingChannels, builtAt }) {
+function buildSitemap({ blogRecords, creatingRecords, curatingChannels, ratioedPieces, builtAt }) {
   const entries = [];
   const seen = new Set();
   const push = (path, lastmod) => {
@@ -325,6 +325,19 @@ function buildSitemap({ blogRecords, creatingRecords, curatingChannels, builtAt 
     const slug = workSlug(v) || rkeyFromAtUri(r.uri);
     if (!slug) continue;
     push(`/creating/${encodeURIComponent(slug)}`, v.updatedAt || v.createdAt);
+  }
+
+  // Each Ratioed piece has a page of its own, addressed by take number — the
+  // form the site links to and the one the middleware calls canonical, so the
+  // sitemap must agree or the two send crawlers to different addresses for the
+  // same piece.
+  for (const r of ratioedPieces || []) {
+    const take = r?.value?.take;
+    if (!take) continue;
+    push(
+      `/creating/${RATIOED_PATH}/${String(take).padStart(2, '0')}`,
+      r.value.measuredAt || r.value.sealedAt || null,
+    );
   }
 
   for (const g of curatingChannels || []) {
@@ -683,7 +696,13 @@ async function main() {
     () =>
       writePublicFile(
         'sitemap.xml',
-        buildSitemap({ blogRecords, creatingRecords, curatingChannels: galleries, builtAt }),
+        buildSitemap({
+          blogRecords,
+          creatingRecords,
+          curatingChannels: galleries,
+          ratioedPieces,
+          builtAt,
+        }),
       ),
     null,
   );

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import {
   SEED_PIECES,
   SEED_PEOPLE,
@@ -12,6 +13,7 @@ import {
   fetchLiveDeltas,
   whenMarks,
   areaRadius,
+  piecePath,
   WEEKDAYS,
   fmtDuration,
   fmtSeconds,
@@ -76,6 +78,15 @@ const DEFAULT_CAPTIONS = {
  */
 export default function RatioedBlock({ block, style }) {
   const variant = block?.variant || 'lifelines';
+  // A piece page hangs off whichever address the essay was reached at — its
+  // human path or its record key, both of which resolve. Linking through the
+  // reader's own address rather than the configured one means the links are
+  // right even before the document's `path` and RATIOED_PATH agree, and it
+  // keeps a reader who arrived by record key from being bounced to the other
+  // form mid-read. The canonical tag still names one of them; that's its job,
+  // not this link's. Empty outside a slug route (the admin's block preview),
+  // where the configured path is the only sensible answer.
+  const { slug: parentSlug } = useParams();
   const [pieces, setPieces] = useState(SEED_PIECES);
   const [people, setPeople] = useState(SEED_PEOPLE);
   const [events, setEvents] = useState(null);
@@ -162,10 +173,10 @@ export default function RatioedBlock({ block, style }) {
     >
       {variant === 'summary' && <Summary stats={stats} people={split} />}
       {variant === 'lifelines' && (
-        <Lifelines pieces={pieces} events={eventLog} stats={stats} deltas={deltas} />
+        <Lifelines pieces={pieces} events={eventLog} stats={stats} deltas={deltas} parent={parentSlug} />
       )}
       {variant === 'reaction' && <Reaction pieces={pieces} />}
-      {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} />}
+      {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} parent={parentSlug} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
       {variant === 'participants' && <Participants rows={roster.rows} />}
       {variant === 'when' && <When pieces={pieces} />}
@@ -601,7 +612,7 @@ function Participants({ rows: roster }) {
 const aftPos = (sec, maxSec) =>
   0.93 * (Math.log10(Math.max(sec, 1) + 1) / Math.log10(maxSec + 1));
 
-function Lifelines({ pieces, events, stats, deltas }) {
+function Lifelines({ pieces, events, stats, deltas, parent }) {
   const [scale, setScale] = useState('true');
   const [on, setOn] = useState(() => new Set(KINDS));
   const [openTake, setOpenTake] = useState(null);
@@ -751,7 +762,7 @@ function Lifelines({ pieces, events, stats, deltas }) {
                     ))}
                 </span>
               </button>
-              {open && <PieceDetail piece={p} delta={deltas?.[p.rkey]} />}
+              {open && <PieceDetail piece={p} delta={deltas?.[p.rkey]} parent={parent} />}
             </div>
           );
         })}
@@ -788,7 +799,7 @@ function Dot({ e, piece, left, dim }) {
   );
 }
 
-function PieceDetail({ piece, delta }) {
+function PieceDetail({ piece, delta, parent }) {
   const b = piece.breaker || {};
   return (
     <div className="ratioed-detail">
@@ -830,6 +841,14 @@ function PieceDetail({ piece, delta }) {
               <p className="ratioed-stated">{piece.statedTally}</p>
             </>
           )}
+          {/* This panel is as far as the essay can go at its own altitude —
+              all thirteen share one axis here. The piece's own page has the
+              log, the faces and the replay. */}
+          <p className="ratioed-more">
+            <Link to={piecePath(piece, parent)}>
+              Everything on take {String(piece.take).padStart(2, '0')} →
+            </Link>
+          </p>
         </div>
       </div>
     </div>
@@ -916,7 +935,7 @@ const LEDGER_COLUMNS = [
   ['threadPosts', 'thread'],
 ];
 
-function Ledger({ pieces, deltas }) {
+function Ledger({ pieces, deltas, parent }) {
   return (
     <div className="ratioed-tablewrap">
       <table className="ratioed-table">
@@ -952,7 +971,9 @@ function Ledger({ pieces, deltas }) {
             return (
               <tr key={p.rkey}>
                 <td>
-                  <b>#{String(p.take).padStart(2, '0')}</b>{' '}
+                  <Link className="ratioed-take-link" to={piecePath(p, parent)}>
+                    <b>#{String(p.take).padStart(2, '0')}</b>
+                  </Link>{' '}
                   <span className="ratioed-pill">{(p.postedAt || '').slice(0, 10)}</span>
                 </td>
                 <td>{fmtDuration(p.lifespanMs)}</td>

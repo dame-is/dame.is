@@ -1,0 +1,174 @@
+/* One Ratioed piece.
+   Chrome comes from the site palette so the page sits in the site rather than
+   on it; the four categorical hues are the chart scale, derived per sky hour
+   and written onto .ratioed-piece as inline custom properties (see
+   lib/ratioedPalette.js). The values below are the fallback if that never
+   runs — the same four the charts fall back to. */
+
+.ratioed-piece {
+  --ratioed-reply: #5e7a47;
+  --ratioed-repost: #4a6a86;
+  --ratioed-quote: #8a6f24;
+  --ratioed-seal: #8c3a2e;
+  font-variant-numeric: tabular-nums;
+}
+
+.ratioed-k-reply { color: var(--ratioed-reply); }
+.ratioed-k-repost { color: var(--ratioed-repost); }
+.ratioed-k-quote { color: var(--ratioed-quote); }
+.ratioed-k-like { color: var(--ratioed-seal); }
+
+.ratioed-piece-crumb {
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+
+/* The whole piece in a sentence, before any chart asks for attention. */
+.ratioed-piece-lede {
+  font-family: var(--font-crimson, var(--sans));
+  font-size: var(--text-lg);
+  line-height: 1.55;
+  max-width: 60ch;
+  margin: 0 0 var(--space-5);
+}
+.ratioed-piece-lede strong { font-weight: 600; }
+.ratioed-piece-gone,
+.ratioed-piece-lede .ratioed-piece-gone { color: var(--ratioed-seal); }
+
+/* --- the four headline figures ------------------------------------ */
+
+.ratioed-piece-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-6);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.ratioed-piece-figures dt {
+  font-size: var(--text-xs);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  margin-bottom: var(--space-1);
+}
+.ratioed-piece-figures dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: 1.1;
+}
+
+/* Anything that has landed since the measurement is additive and marked as
+   such — never folded into a recorded figure. */
+.ratioed-piece-fresh {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* --- sections ------------------------------------------------------ */
+
+.ratioed-piece-section { margin: var(--space-6) 0; }
+.ratioed-piece-section > h2 {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-2);
+}
+.ratioed-piece-note {
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  line-height: 1.6;
+  max-width: 62ch;
+  margin: 0 0 var(--space-4);
+}
+
+/* --- either side of the seal --------------------------------------- */
+
+.ratioed-piece-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-5);
+}
+.ratioed-piece-window h3 {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  margin: 0 0 var(--space-2);
+}
+.ratioed-piece-window dl { margin: 0; }
+.ratioed-piece-window dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ratioed-piece-window dt { color: var(--ink-muted); font-size: var(--text-sm); }
+.ratioed-piece-window dd { margin: 0; font-size: var(--text-sm); }
+
+/* --- the hidden replies -------------------------------------------- */
+
+.ratioed-piece-hidden { list-style: none; margin: 0; padding: 0; }
+.ratioed-piece-hidden li {
+  display: grid;
+  grid-template-columns: 5.5em minmax(0, 12em) 1fr;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: var(--text-sm);
+}
+.ratioed-piece-text { color: var(--ink-soft); }
+
+/* --- the log -------------------------------------------------------- */
+
+.ratioed-piece-log {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.ratioed-piece-log th {
+  text-align: left;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  font-weight: 400;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule);
+}
+.ratioed-piece-log td {
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+/* The artist's own records sit in the log for completeness and in none of the
+   counts; the row says so by receding. */
+.ratioed-piece-log tr.is-self { color: var(--ink-faint); }
+.ratioed-piece-when { color: var(--ink-muted); font-family: var(--mono, monospace); }
+.ratioed-piece-who { overflow-wrap: anywhere; }
+.ratioed-piece-kind { font-variant-caps: small-caps; }
+
+/* --- provenance ----------------------------------------------------- */
+
+.ratioed-piece-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 12em) 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.ratioed-piece-kv dt { color: var(--ink-muted); }
+.ratioed-piece-kv dd { margin: 0; overflow-wrap: anywhere; }
+
+/* --- prev / next ---------------------------------------------------- */
+
+.ratioed-piece-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 34rem) {
+  .ratioed-piece-hidden li { grid-template-columns: 1fr; gap: var(--space-1); }
+  .ratioed-piece-kv { grid-template-columns: 1fr; }
+  .ratioed-piece-kv dd { margin-bottom: var(--space-2); }
+}

@@ -164,7 +164,23 @@ export async function getProfile(actor, { appview = APPVIEW, cache } = {}) {
  * list is chunked; a chunk that fails is skipped rather than failing the lot,
  * leaving those DIDs unresolved for the caller to label as it sees fit.
  */
-export async function resolveHandles(dids, { appview = APPVIEW } = {}) {
+export async function resolveHandles(dids, opts) {
+  const profiles = await resolveProfiles(dids, opts);
+  const out = {};
+  for (const [did, p] of Object.entries(profiles)) if (p.handle) out[did] = p.handle;
+  return out;
+}
+
+/**
+ * The same call, keeping the parts a face needs: `{ did: { handle,
+ * displayName, avatar } }`. `resolveHandles` is the thin wrapper over this for
+ * the callers that only want names.
+ *
+ * A DID that resolves to nothing is simply absent — a deactivated account and
+ * an account we failed to reach look the same from here, and neither should be
+ * invented.
+ */
+export async function resolveProfiles(dids, { appview = APPVIEW } = {}) {
   const unique = Array.from(new Set((dids || []).filter(Boolean)));
   const out = {};
   for (let i = 0; i < unique.length; i += 25) {
@@ -172,7 +188,14 @@ export async function resolveHandles(dids, { appview = APPVIEW } = {}) {
     for (const did of unique.slice(i, i + 25)) params.append('actors', did);
     try {
       const res = await fetchJson(`${appview}/xrpc/app.bsky.actor.getProfiles?${params}`);
-      for (const p of res?.profiles || []) if (p?.did && p?.handle) out[p.did] = p.handle;
+      for (const p of res?.profiles || []) {
+        if (!p?.did) continue;
+        out[p.did] = {
+          handle: p.handle || '',
+          displayName: p.displayName || '',
+          avatar: p.avatar || '',
+        };
+      }
     } catch {
       /* leave this chunk unresolved */
     }

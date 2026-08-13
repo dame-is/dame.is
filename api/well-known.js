@@ -6,19 +6,28 @@
 // https://standard.site/docs/verification. Without this, the enhanced "Standard
 // Site" link embed never renders for dame.is links.
 //
-// dame.is hosts two non-root publications, so each answers at its own path:
-//   /.well-known/site.standard.publication/blogging  → the blog publication
-//   /.well-known/site.standard.publication/creating  → the portfolio publication
+// dame.is hosts several non-root publications, so each answers at its own path:
+//   /.well-known/site.standard.publication/blogging        → the blog
+//   /.well-known/site.standard.publication/creating        → the portfolio
+//   /.well-known/site.standard.publication/creating/ratioed → Ratioed
 // (The bare /.well-known/site.standard.publication has no root publication.)
 //
 // Wired up in vercel.json, which rewrites the .well-known paths here.
 
-import { BLOG_PUBLICATION, PORTFOLIO_PUBLICATION } from '../src/config.js';
+import {
+  BLOG_PUBLICATION,
+  PORTFOLIO_PUBLICATION,
+  RATIOED_PUBLICATION,
+  RATIOED_PATH,
+} from '../src/config.js';
 
 // publication path (matches each record's `url` path) → publication AT-URI.
+// A publication that hasn't been created yet is simply absent, so its path
+// 404s rather than answering with an empty verification.
 const PUBLICATIONS = {
   blogging: BLOG_PUBLICATION,
   creating: PORTFOLIO_PUBLICATION,
+  ...(RATIOED_PUBLICATION ? { [`creating/${RATIOED_PATH}`]: RATIOED_PUBLICATION } : {}),
 };
 
 export default function handler(req, res) {
