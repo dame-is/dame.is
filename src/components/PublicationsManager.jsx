@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus, Copy, Check } from 'lucide-react';
 import PageShell from './PageShell.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
@@ -71,11 +72,23 @@ function stripUrl(node) {
 
 const clone = (v) => JSON.parse(JSON.stringify(v ?? {}));
 
+/**
+ * A publication that doesn't exist yet.
+ *
+ * Same shape the editor edits, with no rkey — which is what tells the save to
+ * create rather than overwrite, and lets the PDS assign the TID rather than
+ * this page inventing one.
+ */
+function newDraft() {
+  return { rkey: null, uri: null, value: { $type: PUB_NSID, name: '', url: '', description: '' } };
+}
+
 /* ======================= list ======================= */
 export default function PublicationsManager({ agent, did }) {
   const [records, setRecords] = useState(null);
   const [error, setError] = useState(null);
   const [editingRkey, setEditingRkey] = useState(null);
+  const [draft, setDraft] = useState(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -96,6 +109,26 @@ export default function PublicationsManager({ agent, did }) {
     () => (records || []).find((r) => r.rkey === editingRkey) || null,
     [records, editingRkey],
   );
+
+  if (draft) {
+    return (
+      <PublicationEditor
+        key="new"
+        agent={agent}
+        did={did}
+        record={draft}
+        onBack={() => setDraft(null)}
+        // Creating hands back the rkey the PDS assigned, so the page drops
+        // straight into editing the real record — with its at:// URI on
+        // screen, which is the thing that has to reach src/config.js.
+        onSaved={(rkey) => {
+          setDraft(null);
+          if (rkey) setEditingRkey(rkey);
+          load();
+        }}
+      />
+    );
+  }
 
   if (editing) {
     return (
@@ -120,11 +153,21 @@ export default function PublicationsManager({ agent, did }) {
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
         <code className="admin-collection-nsid">{PUB_NSID}</code>
       </div>
+
+      <div className="pub-actions">
+        <button type="button" className="admin-gate-button" onClick={() => setDraft(newDraft())}>
+          <Plus size={14} aria-hidden="true" />
+          New publication
+        </button>
+      </div>
+
       {error && <p className="admin-error">{error}</p>}
       {records === null ? (
         <AdminRecordListSkeleton rows={2} />
       ) : records.length === 0 ? (
-        <p className="placeholder-card">No {PUB_NSID} records found under this DID.</p>
+        <p className="placeholder-card">
+          No {PUB_NSID} records found under this DID. Create one above.
+        </p>
       ) : (
         <ul className="pub-list">
           {records.map((r) => (
@@ -144,6 +187,9 @@ export default function PublicationsManager({ agent, did }) {
 
 /* ======================= editor ======================= */
 function PublicationEditor({ agent, did, record, onBack, onSaved }) {
+  // No rkey means this publication doesn't exist yet: save creates it and lets
+  // the PDS assign the key, rather than this page inventing a TID.
+  const isNew = !record.rkey;
   const rkey = record.rkey;
   const [value, setValue] = useState(() => clone(record.value));
   const [saving, setSaving] = useState(false);
@@ -267,13 +313,30 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
         throw new Error(`$type must be ${PUB_NSID}.`);
       }
       payload.$type = PUB_NSID;
-      await agent.com.atproto.repo.putRecord({ repo: did, collection: PUB_NSID, rkey, record: payload });
+      // A publication with no url can't be verified — Bluesky fetches
+      // {url}/.well-known/site.standard.publication to confirm it — so the
+      // embed silently never renders. Catch it here rather than at the point
+      // somebody wonders why a shared link looks ordinary.
+      if (!String(payload.url || '').trim()) {
+        throw new Error('A publication needs a URL — verification is fetched from it.');
+      }
+      let savedRkey = rkey;
+      if (isNew) {
+        const res = await agent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: PUB_NSID,
+          record: payload,
+        });
+        savedRkey = rkeyFromUri(res?.data?.uri) || null;
+      } else {
+        await agent.com.atproto.repo.putRecord({ repo: did, collection: PUB_NSID, rkey, record: payload });
+      }
       setValue(payload);
       if (rawMode) setRawMode(false);
       setLocalIconUrl(null);
       setFlash(true);
       setTimeout(() => setFlash(false), 2400);
-      onSaved?.();
+      onSaved?.(savedRkey);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -285,20 +348,26 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
 
   return (
     <PageShell
-      title={value.name || rkey}
-      intro="Edit this publication. Structured fields cover the essentials; the raw JSON toggle exposes everything (the leaflet theme, labels, …). Nothing is written until you press Save."
-      headTitle={`${value.name || rkey} — Publications — dame.is`}
+      title={isNew ? 'New publication' : value.name || rkey}
+      intro={
+        isNew
+          ? 'A masthead for a group of documents — what Bluesky renders instead of a plain link card. The URL matters: verification is fetched from it, so it has to be the address this publication actually lives at. Nothing is written until you press Save.'
+          : 'Edit this publication. Structured fields cover the essentials; the raw JSON toggle exposes everything (the leaflet theme, labels, …). Nothing is written until you press Save.'
+      }
+      headTitle={`${isNew ? 'New publication' : value.name || rkey} — Publications — dame.is`}
     >
       <div className="admin-toolbar">
         <button type="button" className="admin-link-subtle" onClick={onBack}>
           ← All publications
         </button>
-        <code className="admin-collection-nsid">
-          {PUB_NSID}/{rkey}
-        </code>
+        <code className="admin-collection-nsid">{isNew ? PUB_NSID : `${PUB_NSID}/${rkey}`}</code>
       </div>
 
       {error && <p className="admin-error">{error}</p>}
+
+      {/* The at:// URI is the reason anyone comes back to this page: it's what
+          src/config.js points at, and there is nowhere else to read it off. */}
+      {!isNew && <AtUriRow did={did} rkey={rkey} />}
 
       {rawMode ? (
         <div className="admin-field">
@@ -444,12 +513,51 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
 
       <div className="pub-actions">
         <button type="button" className="admin-gate-button" onClick={handleSave} disabled={saving || iconBusy}>
-          {saving ? 'Saving…' : flash ? 'Saved ✓' : 'Save'}
+          {saving ? 'Saving…' : flash ? 'Saved ✓' : isNew ? 'Create publication' : 'Save'}
         </button>
         <button type="button" className="admin-link-subtle" onClick={toggleRaw} disabled={saving}>
           {rawMode ? '← Structured fields' : 'Edit raw JSON'}
         </button>
       </div>
     </PageShell>
+  );
+}
+
+/**
+ * The publication's at:// URI, ready to copy.
+ *
+ * Nothing on the site reads a publication by name — the routing constants in
+ * src/config.js hold URIs — so creating one is only half the job until this
+ * string is pasted into the right constant. Showing it here is the difference
+ * between "created it" and "wired it up".
+ */
+function AtUriRow({ did, rkey }) {
+  const uri = `at://${did}/${PUB_NSID}/${rkey}`;
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="pub-uri">
+      <code className="admin-mono pub-uri-value">{uri}</code>
+      <button
+        type="button"
+        className="admin-gate-button admin-gate-button-tight"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(uri);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch {
+            /* no clipboard permission — the URI is on screen to select by hand */
+          }
+        }}
+      >
+        {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+      <p className="admin-field-hint pub-uri-hint">
+        Paste into <code>src/config.js</code> — <code>PORTFOLIO_PUBLICATION</code>,{' '}
+        <code>BLOG_PUBLICATION</code> or <code>RATIOED_PUBLICATION</code> — and redeploy. Until then
+        the site doesn&rsquo;t know this publication exists.
+      </p>
+    </div>
   );
 }

@@ -160,3 +160,31 @@
   gap: var(--space-4);
   margin-top: var(--space-5);
 }
+
+/* The publication's own at:// URI, on the page that creates it.
+   A publication the site can't name is a publication the site doesn't have —
+   the routing constants in src/config.js hold URIs, and this is the only place
+   to read one off. */
+.pub-uri {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3);
+  border: 1px solid var(--rule);
+}
+.pub-uri-value {
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.pub-uri-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.pub-uri-hint code { font-size: 0.95em; }
+
+/* The list's own create button sits above the rows rather than after them, so
+   an empty repo has something to press without scrolling past the notice. */
+.pub-list + .pub-actions { margin-top: var(--space-5); }
