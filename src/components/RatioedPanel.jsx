@@ -46,27 +46,29 @@ const STANDARD_DOC = 'site.standard.document';
 // they don't need one written.
 const SEEDED = new Set(SEED_PIECES.map((p) => p.rkey));
 
-// How many pages of a collection the scan will read. listRecords caps a page
-// at 100, and 100 posts is about three days of dame's timeline — so a
-// single-page scan could only ever see a piece sealed in the last few days,
-// and went quiet about the rest. Thirty pages is roughly three months.
-const SCAN_PAGES = 30;
+// How far back the scan reads, per collection. The scan used to take a single
+// page of 100, which is about three days of dame's timeline — so a piece not
+// scanned within days of sealing went invisible. 500 is a couple of weeks of
+// slack, five requests, and nowhere near a trawl of the whole repo. Anything
+// older is already recorded; if it isn't, the panel says so rather than
+// reporting a partial read as "nothing new".
+const SCAN_LIMIT = 500;
+const PAGE_SIZE = 100; // listRecords' own maximum
 
 /**
- * Read a collection newest-first, following the cursor up to SCAN_PAGES.
+ * Read a collection newest-first, following the cursor up to SCAN_LIMIT.
  *
  * Reports `truncated` when it stopped at the bound rather than at the end of
- * the collection, so the scan can say what it didn't look at instead of
- * presenting a partial read as "nothing new".
+ * the collection.
  */
 async function listPaged(agent, did, collection, onCount) {
   const records = [];
   let cursor;
-  for (let page = 0; page < SCAN_PAGES; page += 1) {
+  while (records.length < SCAN_LIMIT) {
     const res = await agent.com.atproto.repo.listRecords({
       repo: did,
       collection,
-      limit: 100,
+      limit: Math.min(PAGE_SIZE, SCAN_LIMIT - records.length),
       ...(cursor ? { cursor } : {}),
     });
     const batch = res?.data?.records || [];
@@ -547,8 +549,8 @@ export default function RatioedPanel({ agent, did }) {
           </h2>
           {truncated && (
             <p className="admin-field-hint">
-              The scan stopped at {SCAN_PAGES * 100} records per collection, so anything sealed
-              before that wasn&rsquo;t looked at.
+              The scan stopped at {SCAN_LIMIT} records per collection, so anything sealed before
+              that wasn&rsquo;t looked at.
             </p>
           )}
           {!found.length ? (
