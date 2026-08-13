@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { albumArtFor } from '../lib/albumArt.js';
+import { playArtistNames, playOriginUrl, playTrackName } from '../lib/teal.js';
 
 /**
  * Resolve album art for a play payload. Returns one of:
@@ -43,10 +44,9 @@ export function useAlbumArt(payload, { size = 600 } = {}) {
 function identityKey(payload) {
   if (!payload) return '';
   if (payload.isrc) return `isrc:${payload.isrc}`;
-  if (payload.originUrl) return `origin:${payload.originUrl}`;
-  const track = payload.trackName || payload.track || '';
-  const artist = Array.isArray(payload.artists)
-    ? (payload.artists[0]?.artistName || '')
-    : (payload.artist || '');
+  const origin = playOriginUrl(payload);
+  if (origin) return `origin:${origin}`;
+  const track = playTrackName(payload);
+  const artist = playArtistNames(payload)[0] || '';
   return track ? `text:${track}|${artist}` : '';
 }

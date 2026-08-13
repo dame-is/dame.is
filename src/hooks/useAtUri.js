@@ -3,7 +3,8 @@ import { useLocation, matchPath } from 'react-router-dom';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
-import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS } from '../lib/recordRoutes.js';
+import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS, siblingCollections } from '../lib/recordRoutes.js';
+import { TEAL_PLAY_NSIDS } from '../lib/teal.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
 
 const STANDARD_DOC = 'site.standard.document';
@@ -63,7 +64,10 @@ export function useAtUri(override) {
         setInfo((prev) => ({
           ...prev,
           record: seedRecord,
-          atUri: prev.atUri || seedRecord.uri || null,
+          // The resolved record's own URI beats the one derived from the
+          // route: a `/{verb}/{rkey}` path can only guess the lexicon, and
+          // `listening` spans two of them.
+          atUri: seedRecord.uri || prev.atUri || null,
           cid: seedRecord.cid || prev.cid,
           recordStatus: 'ready',
         }));
@@ -83,7 +87,7 @@ export function useAtUri(override) {
           setInfo((prev) => ({
             ...prev,
             record: fresh,
-            atUri: prev.atUri || fresh.uri || null,
+            atUri: fresh.uri || prev.atUri || null,
             cid: fresh.cid || prev.cid,
             recordStatus: 'ready',
           }));
@@ -280,7 +284,9 @@ const SNAPSHOT_FOR_COLLECTION = {
   [COLLECTIONS.now]: 'now',
   [COLLECTIONS.blogging]: 'blogs',
   [COLLECTIONS.creating]: 'creations',
-  [COLLECTIONS.listen]: 'listening',
+  // Both teal.fm play lexicons: the merged `listening.json` spans the
+  // namespace move, so either name resolves out of the same file.
+  ...Object.fromEntries(TEAL_PLAY_NSIDS.map((nsid) => [nsid, 'listening'])),
 };
 
 function endsWithRkey(uri, rkey) {
@@ -335,8 +341,14 @@ async function fetchRecordFromPds(pds, info) {
   }
   // Generic by-rkey live fetch for our own PDS-backed collections. Skip
   // app.bsky.feed.post — those records may live under another author's repo.
+  // A `/{verb}/{rkey}` route only guessed at the lexicon, so try the verb's
+  // siblings before giving up: on `/listening/{rkey}` the guess is teal.fm's
+  // production lexicon and the play may well still be an alpha one.
   if (info.rkey && info.lexicon && info.lexicon !== 'app.bsky.feed.post') {
-    return getRecord(pds, { repo: ME_DID, collection: info.lexicon, rkey: info.rkey }).catch(() => null);
+    for (const collection of siblingCollections(info.lexicon)) {
+      const rec = await getRecord(pds, { repo: ME_DID, collection, rkey: info.rkey }).catch(() => null);
+      if (rec?.value) return rec;
+    }
   }
   return null;
 }

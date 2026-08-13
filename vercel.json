@@ -14,6 +14,7 @@
     { "source": "/.well-known/site.standard.publication/:pub*", "destination": "/api/well-known?pub=:pub*" },
     { "source": "/oauth-client-metadata.json", "destination": "/api/client-metadata" },
     { "source": "/app.bsky.feed.post/:rkey", "destination": "/index.html" },
+    { "source": "/fm.teal.feed.play/:rkey", "destination": "/index.html" },
     { "source": "/fm.teal.alpha.feed.play/:rkey", "destination": "/index.html" },
     { "source": "/is.dame.now/:rkey", "destination": "/index.html" },
     { "source": "/site.standard.document/:rkey", "destination": "/index.html" },

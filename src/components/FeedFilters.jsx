@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CornerDownRight, X } from 'lucide-react';
 import { VERBS, DEFAULT_HOME_VERBS } from '../lib/verbRegistry.js';
 import { selfThreadMembers } from '../lib/threadGrouping.js';
+import { playArtistNames } from '../lib/teal.js';
 import VerbIcon from './VerbIcon.jsx';
 import BottomSheet from './BottomSheet.jsx';
 import { useRegisterFeedFilter } from '../hooks/useFeedFilter.jsx';
@@ -303,7 +304,7 @@ function textForMatch(item) {
     p.trackName,
     p.displayName,
     p.name,
-    Array.isArray(p.artists) ? p.artists.map((a) => a?.artistName).join(' ') : '',
+    playArtistNames(p).join(' '),
     p.releaseName,
     item.source,
     subjectAuthor?.handle,

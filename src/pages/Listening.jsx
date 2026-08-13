@@ -14,8 +14,9 @@ import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
-import { resolvePds, listRecords, getLatestCommit } from '../lib/atproto.js';
-import { ME_DID, COLLECTIONS } from '../config.js';
+import { resolvePds, getLatestCommit } from '../lib/atproto.js';
+import { listTealPlays, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
+import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
 export default function Listening() {
@@ -36,9 +37,11 @@ export default function Listening() {
       const pds = await resolvePds(ME_DID);
       return (await getLatestCommit(pds, ME_DID))?.rev || null;
     },
+    // Both teal.fm namespaces, collapsed by rkey — the archive predates the
+    // move to production lexicons and has to keep reading as one history.
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
-      return listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.listen, max: 1000 });
+      return listTealPlays(pds, { repo: ME_DID, max: 1000 });
     },
     mapItems: toListeningItems,
   });
@@ -62,12 +65,7 @@ export default function Listening() {
       safeItems.filter((i) => {
         if (removedUris.has(i.atUri)) return false;
         const p = i.payload || {};
-        const hay = [
-          p.trackName,
-          p.releaseName,
-          Array.isArray(p.artists) ? p.artists.map((a) => a?.artistName).filter(Boolean).join(' ') : '',
-          p.artist,
-        ]
+        const hay = [playTrackName(p), p.releaseName, playArtistNames(p).join(' ')]
           .filter(Boolean)
           .join(' ');
         return matchesQuery(hay, q);
@@ -193,14 +191,7 @@ function listeningDayMeta(sessions) {
       songs += 1;
       const dur = Number(p.duration);
       if (Number.isFinite(dur) && dur > 0) seconds += dur;
-      const list = Array.isArray(p.artists)
-        ? p.artists
-        : p.artist
-        ? [{ artistName: p.artist }]
-        : [];
-      for (const a of list) {
-        if (a?.artistName) artists.add(a.artistName.toLowerCase());
-      }
+      for (const name of playArtistNames(p)) artists.add(name.toLowerCase());
     }
   }
   const minutes = Math.round(seconds / 60);
@@ -216,7 +207,7 @@ function toListeningItems(records) {
       verb: 'listening',
       atUri: r.uri,
       cid: r.cid,
-      createdAt: r.value?.playedTime || r.value?.createdAt || null,
+      createdAt: playedAtOf(r.value) || r.value?.createdAt || null,
       payload: r.value,
     }));
 }

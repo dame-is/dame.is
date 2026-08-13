@@ -16,6 +16,14 @@ import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { ME_DID, COLLECTIONS, PORTFOLIO_PUBLICATION } from '../config.js';
 import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
+import { nsidFromAtUri } from '../lib/verbRegistry.js';
+import {
+  TEAL_PLAY_NSIDS,
+  comparePlaysDesc,
+  dedupePlaysByRkey,
+  playArtistLine,
+  playTrackName,
+} from '../lib/teal.js';
 
 const STANDARD_DOC = 'site.standard.document';
 import { knownPageSlugs, pageSlugForCollection } from '../lib/pageRegistry.js';
@@ -375,7 +383,7 @@ function CustomCollectionInput() {
       <label className="admin-collection-label">Other collection</label>
       <input
         className="admin-gate-input"
-        placeholder="e.g. fm.teal.alpha.feed.play"
+        placeholder="e.g. fm.teal.feed.play"
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
@@ -1188,55 +1196,73 @@ function LegacyBlogMigration({ agent, did }) {
 /** Short human label for a play record value: "Track · Artist". */
 function playLabel(value) {
   if (!value || typeof value !== 'object') return '';
-  const track = value.trackName || value.track || '';
-  const artist = Array.isArray(value.artists)
-    ? value.artists.map((a) => a?.artistName).filter(Boolean).join(', ')
-    : value.artist || '';
-  return [track, artist].filter(Boolean).join(' · ') || '(untitled play)';
+  return (
+    [playTrackName(value), playArtistLine(value)].filter(Boolean).join(' · ') ||
+    '(untitled play)'
+  );
+}
+
+/** A fresh "start from the top of every teal play lexicon" cursor map. */
+function initialTealCursors() {
+  return Object.fromEntries(TEAL_PLAY_NSIDS.map((nsid) => [nsid, undefined]));
 }
 
 function ListeningManager({ agent, did }) {
-  const collection = COLLECTIONS.listen;
   const [records, setRecords] = useState([]);
-  const [cursor, setCursor] = useState(undefined);
-  const [done, setDone] = useState(false);
+  // One cursor per teal.fm play lexicon: the archive spans the alpha →
+  // production namespace move, and each collection paginates on its own. A
+  // collection drops out of the map once it's exhausted, so "Load more" stops
+  // offering itself only when BOTH are done.
+  const [cursors, setCursors] = useState(() => initialTealCursors());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // Set of selected rkeys.
   const [selected, setSelected] = useState(() => new Set());
   const [deleting, setDeleting] = useState(false);
+  const done = Object.keys(cursors).length === 0;
 
   const loadPage = useCallback(
-    async (after) => {
+    async (pending, append) => {
       setLoading(true);
       setError(null);
       try {
-        const res = await agent.com.atproto.repo.listRecords({
-          repo: did,
-          collection,
-          limit: 100,
-          cursor: after || undefined,
-        });
-        const next = res?.data || res;
-        const batch = next?.records || [];
-        setRecords((prev) => (after ? [...prev, ...batch] : batch));
-        setCursor(next?.cursor);
-        if (!next?.cursor || batch.length === 0) setDone(true);
+        const pages = await Promise.all(
+          Object.entries(pending).map(async ([collection, cursor]) => {
+            const res = await agent.com.atproto.repo.listRecords({
+              repo: did,
+              collection,
+              limit: 100,
+              cursor: cursor || undefined,
+            });
+            const next = res?.data || res;
+            return { collection, records: next?.records || [], cursor: next?.cursor || null };
+          }),
+        );
+        const batch = pages.flatMap((page) => page.records);
+        setRecords((prev) =>
+          dedupePlaysByRkey([...(append ? prev : []), ...batch]).sort(comparePlaysDesc),
+        );
+        setCursors(
+          Object.fromEntries(
+            pages
+              .filter((page) => page.cursor && page.records.length > 0)
+              .map((page) => [page.collection, page.cursor]),
+          ),
+        );
       } catch (err) {
         setError(err?.message || String(err));
       } finally {
         setLoading(false);
       }
     },
-    [agent, did, collection],
+    [agent, did],
   );
 
   useEffect(() => {
     setRecords([]);
-    setCursor(undefined);
-    setDone(false);
+    setCursors(initialTealCursors());
     setSelected(new Set());
-    loadPage(undefined);
+    loadPage(initialTealCursors(), false);
   }, [loadPage]);
 
   const toggle = useCallback((rkey) => {
@@ -1266,8 +1292,16 @@ function ListeningManager({ agent, did }) {
     setDeleting(true);
     setError(null);
     const deleted = new Set();
+    // A row's lexicon comes from its own URI — the selected rkeys can span
+    // both teal namespaces, and deleting from the wrong one is a no-op that
+    // reads as a successful delete.
+    const collectionOf = new Map(
+      records.map((rec) => [rkeyFromUri(rec.uri), nsidFromAtUri(rec.uri)]),
+    );
     try {
       for (const rkey of rkeys) {
+        const collection = collectionOf.get(rkey);
+        if (!collection) continue;
         // eslint-disable-next-line no-await-in-loop
         await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey });
         deleted.add(rkey);
@@ -1293,7 +1327,9 @@ function ListeningManager({ agent, did }) {
     >
       <div className="admin-toolbar">
         <Link to="/admin" className="admin-link-subtle">← All collections</Link>
-        <code className="admin-collection-nsid">{collection}</code>
+        {TEAL_PLAY_NSIDS.map((nsid) => (
+          <code className="admin-collection-nsid" key={nsid}>{nsid}</code>
+        ))}
       </div>
 
       {error && <p className="admin-error">{error}</p>}
@@ -1329,6 +1365,7 @@ function ListeningManager({ agent, did }) {
         <ul className="admin-record-list reveal-stagger">
           {records.map((rec) => {
             const rkey = rkeyFromUri(rec.uri);
+            const collection = nsidFromAtUri(rec.uri);
             const checked = selected.has(rkey);
             return (
               <li
@@ -1356,7 +1393,7 @@ function ListeningManager({ agent, did }) {
           type="button"
           className="admin-gate-button admin-gate-button-tight"
           disabled={loading}
-          onClick={() => loadPage(cursor)}
+          onClick={() => loadPage(cursors, true)}
         >
           {loading ? 'Loading…' : 'Load more'}
         </button>

@@ -68,7 +68,7 @@ export const PAGES = {
     label: 'listening',
     title: 'dame.is listening',
     desc: 'A live scrobble of what dame is playing, streamed from the AT Protocol.',
-    nsid: 'fm.teal.alpha.feed.play',
+    nsid: 'fm.teal.feed.play',
   },
   '/posting': {
     label: 'posting',
@@ -114,7 +114,7 @@ export const HOME_INDEX = [
   { label: 'blogging', nsid: 'site.standard.document' },
   { label: 'creating', nsid: 'is.dame.creating.work' },
   { label: 'mothing', nsid: 'is.dame.mothing.observation' },
-  { label: 'listening', nsid: 'fm.teal.alpha.feed.play' },
+  { label: 'listening', nsid: 'fm.teal.feed.play' },
   { label: 'posting', nsid: 'app.bsky.feed.post' },
   { label: 'curating', nsid: 'is.dame.arena.channel' },
 ];

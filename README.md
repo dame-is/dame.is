@@ -72,7 +72,10 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
   hide the entries; otherwise the site uses the hardcoded routes in
   `src/lib/navRoutes.js`. Edited in the admin "Nav menu" panel.
 
-Plus `fm.teal.alpha.feed.play` (teal.fm) for the now-playing signal.
+Plus teal.fm for the now-playing signal: `fm.teal.feed.play` for plays and
+`fm.teal.actor.status` for what's on right now. teal.fm moved off its
+`fm.teal.alpha.*` lexicons in August 2026, so both namespaces are read and
+collapsed by rkey (production wins) — see [`src/lib/teal.js`](src/lib/teal.js).
 
 ## Mothing / iNaturalist
 

@@ -23,6 +23,7 @@
 
 import { ME_DID, COLLECTIONS } from '../src/config.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/atproto.js';
+import { TEAL_PLAY_NSIDS, playArtistLine, playTrackName } from '../src/lib/teal.js';
 import { workSlug, showOnCreating, showOnBlog, isDraft } from '../src/lib/publications.js';
 
 const SNAPSHOT_TIMEOUT_MS = 2000;
@@ -45,7 +46,9 @@ const RECORD_SECTIONS = new Set([
 const SECTION_COLLECTIONS = {
   posting: ['app.bsky.feed.post', 'net.anisota.feed.post'],
   logging: [COLLECTIONS.now],
-  listening: [COLLECTIONS.listen],
+  // teal.fm's production + alpha play lexicons; a shared /listening/{rkey}
+  // link resolves against whichever one holds that play.
+  listening: TEAL_PLAY_NSIDS,
   mothing: ['is.dame.mothing.observation'],
 };
 
@@ -103,12 +106,6 @@ const humanizeSlug = (slug) =>
     .trim()
     .replace(/^\w/, (c) => c.toUpperCase());
 
-const artistNames = (v) =>
-  (Array.isArray(v?.artists) ? v.artists : [])
-    .map((a) => a?.artistName)
-    .filter(Boolean)
-    .join(', ');
-
 // value → { title, description, textOnly } for the OG card, keyed by lexicon.
 // `title` is the big line (the record's own text/name); `description` is the
 // secondary line; `textOnly` records (posts, statuses) have no title of their
@@ -118,11 +115,6 @@ const CARD_EXTRACTORS = {
   'app.bsky.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
   'net.anisota.feed.post': (v) => ({ title: firstText(v.text), description: '', textOnly: true }),
   'is.dame.now': (v) => ({ title: firstText(v.status, v.text), description: '', textOnly: true }),
-  'fm.teal.alpha.feed.play': (v) => ({
-    title: firstText(v.trackName),
-    description: artistNames(v),
-    textOnly: false,
-  }),
   'is.dame.mothing.observation': (v) => {
     const common = firstText(v.taxon?.commonName);
     const sci = firstText(v.taxon?.name);
@@ -143,6 +135,14 @@ const docCard = (v) => ({
 CARD_EXTRACTORS['site.standard.document'] = docCard;
 CARD_EXTRACTORS['pub.leaflet.document'] = docCard;
 CARD_EXTRACTORS['is.dame.creating.work'] = docCard;
+
+// A play cards the same either side of teal.fm's namespace move.
+const playCard = (v) => ({
+  title: playTrackName(v),
+  description: playArtistLine(v),
+  textOnly: false,
+});
+for (const nsid of TEAL_PLAY_NSIDS) CARD_EXTRACTORS[nsid] = playCard;
 
 function extractCard(collection, value, ctx) {
   const fn = CARD_EXTRACTORS[collection];

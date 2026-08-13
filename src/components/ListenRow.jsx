@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
+import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import { formatTime } from '../lib/time.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 
@@ -9,7 +10,7 @@ import { useEditMode } from '../hooks/useEditMode.jsx';
  *  batch exposes them as `plays`; a lone row is its own single play. */
 function playItemsOf({ payload, atUri, plays, createdAt }) {
   if (Array.isArray(plays) && plays.length) return plays;
-  if (atUri) return [{ verb: 'listening', atUri, payload, createdAt: createdAt || payload?.playedTime }];
+  if (atUri) return [{ verb: 'listening', atUri, payload, createdAt: createdAt || playedAtOf(payload) }];
   return [];
 }
 
@@ -145,7 +146,7 @@ export default function ListenRow(props) {
 const ARTIST_DISPLAY_MAX = 4;
 
 function TrackLabel({ payload, href, plays }) {
-  const track = payload?.trackName || payload?.track || '';
+  const track = playTrackName(payload);
   const isBatch = Array.isArray(plays) && plays.length > 1;
   const artists = isBatch ? uniqueArtistNames(plays) : null;
   // When a batched session spans multiple unique artists, the song
@@ -164,7 +165,7 @@ function TrackLabel({ payload, href, plays }) {
     const inner = shown + extra;
     return href ? <Link to={href}>{inner}</Link> : <span>{inner}</span>;
   }
-  const artistLine = isBatch ? (artists[0] || '') : formatArtist(payload);
+  const artistLine = isBatch ? (artists[0] || '') : playArtistLine(payload);
   const inner = (
     <>
       <strong>{track || <em>—</em>}</strong>
@@ -178,21 +179,10 @@ function uniqueArtistNames(plays) {
   const seen = new Set();
   const out = [];
   for (const play of plays) {
-    const arr = play?.payload?.artists;
-    if (Array.isArray(arr)) {
-      for (const a of arr) {
-        const name = a?.artistName;
-        if (name && !seen.has(name)) {
-          seen.add(name);
-          out.push(name);
-        }
-      }
-    } else if (play?.payload?.artist) {
-      const name = play.payload.artist;
-      if (!seen.has(name)) {
-        seen.add(name);
-        out.push(name);
-      }
+    for (const name of playArtistNames(play?.payload)) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      out.push(name);
     }
   }
   return out;
@@ -200,7 +190,7 @@ function uniqueArtistNames(plays) {
 
 function ChildPlay({ item }) {
   const href = recordPathFromAtUri(item?.atUri);
-  const ts = item?.createdAt || item?.payload?.playedTime;
+  const ts = item?.createdAt || playedAtOf(item?.payload);
   return (
     <div className="listen-row-child-row">
       <span className="listen-row-child-text">
@@ -209,12 +199,4 @@ function ChildPlay({ item }) {
       {ts && <span className="gutter listen-row-child-time">{formatTime(ts)}</span>}
     </div>
   );
-}
-
-function formatArtist(payload) {
-  if (!payload) return '';
-  if (Array.isArray(payload.artists)) {
-    return payload.artists.map((a) => a?.artistName).filter(Boolean).join(', ');
-  }
-  return payload.artist || '';
 }

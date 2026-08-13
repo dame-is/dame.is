@@ -1,9 +1,11 @@
-// Derive Apple Music + Spotify URLs from a fm.teal.alpha.feed.play record.
+// Derive Apple Music + Spotify URLs from a teal.fm play record.
 //
-// We only ever have a single `originUrl` (the service the play came from) and
+// We only ever have a single origin URL (the service the play came from) and
 // some metadata (track, artist, ISRC). For the *other* service we fall back to
 // a search URL — opening the search results lets the user pick the right match
 // without us having to know the foreign service's track id.
+
+import { playArtistNames, playOriginUrl, playTrackName } from './teal.js';
 
 const APPLE_DOMAINS = ['music.apple.com'];
 const SPOTIFY_DOMAINS = ['open.spotify.com', 'spotify.com'];
@@ -23,12 +25,9 @@ function hostMatches(url, domains) {
  * enough metadata to bother sending the user to a search page.
  */
 function searchQuery(payload) {
-  const track = (payload?.trackName || payload?.track || '').trim();
+  const track = playTrackName(payload);
   if (!track) return null;
-  const artists = Array.isArray(payload?.artists)
-    ? payload.artists.map((a) => a?.artistName).filter(Boolean).join(' ')
-    : (payload?.artist || '');
-  return [track, artists].filter(Boolean).join(' ');
+  return [track, playArtistNames(payload).join(' ')].filter(Boolean).join(' ');
 }
 
 /**
@@ -38,7 +37,7 @@ function searchQuery(payload) {
  */
 export function musicLinksFor(payload) {
   if (!payload) return [];
-  const origin = payload.originUrl || null;
+  const origin = playOriginUrl(payload);
   const query = searchQuery(payload);
   const encoded = query ? encodeURIComponent(query) : null;
 

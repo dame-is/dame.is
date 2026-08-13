@@ -14,8 +14,11 @@ export default function NowPlaying() {
       </span>
     );
   }
-  const ago = play.playedAt ? relativeTime(play.playedAt) : '';
-  const tooltip = `${play.track}${play.artist ? ' by ' + play.artist : ''}${ago ? ' · ' + ago : ''}`;
+  // A live `fm.teal.actor.status` means the song is playing right now, so the
+  // tooltip says so instead of dating it — "3 minutes ago" under-sells a track
+  // that hasn't finished.
+  const when = play.live ? 'now playing' : play.playedAt ? relativeTime(play.playedAt) : '';
+  const tooltip = `${play.track}${play.artist ? ' by ' + play.artist : ''}${when ? ' · ' + when : ''}`;
   const href = recordPathFromAtUri(play.atUri);
   const inner = (
     <>
