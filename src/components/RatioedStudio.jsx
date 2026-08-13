@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
-import { Send, Lock, RefreshCw, ExternalLink } from 'lucide-react';
+import { Send, Lock, RefreshCw, ExternalLink, FileText, Radio } from 'lucide-react';
 import PageShell from './PageShell.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
@@ -33,15 +33,19 @@ import {
 } from '../lib/ratioed.js';
 import { measureWindows, buildEventLog } from '../lib/ratioedDiscovery.js';
 import {
-  pieceTemplate,
+  DEFAULT_TEMPLATE,
+  fillTemplate,
+  templateProblems,
   nextTake,
   previousPiece,
   announcementDraft,
 } from '../lib/ratioedStudio.js';
+import { watchSubject } from '../lib/jetstream.js';
 import {
   resolvePds,
   getRecord,
   getLikes,
+  resolveProfiles,
   resolveHandles,
   rkeyFromAtUri,
   tidToTimestamp,
@@ -49,16 +53,26 @@ import {
 import './RatioedStudio.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
+const TEMPLATE_NSID = COLLECTIONS.ratioedTemplate;
 const POST = 'app.bsky.feed.post';
 const GATE = 'app.bsky.feed.threadgate';
 
-// How often the live watch asks the AppView whether anybody has liked it. Fast,
-// because every second here is a second on the reaction time; the request is
-// one small read and a piece is only ever up for minutes.
-const WATCH_MS = 4000;
+// How often the live watch asks the AppView whether anybody has liked it.
+//
+// The stream is the fast reader and the poll is the backstop, which is why this
+// stays on even while the socket is open: a websocket can drop, a laptop can
+// sleep through a reconnect, and the cost of missing the one like this whole
+// panel exists to catch is the piece. Slower than it was, because the stream is
+// now doing the noticing.
+const WATCH_MS = 8000;
+
+const KIND_VERB = { like: 'liked it', repost: 'reposted', quote: 'quoted', reply: 'replied' };
 
 /** The subject post's at:// URI for a piece record key. */
 const subjectUri = (rkey) => `at://${ME_DID}/${POST}/${rkey}`;
+
+/** A piece's subject: the field the record carries, or the key it implies. */
+const subjectOf = (piece) => piece?.subject || subjectUri(piece?.rkey);
 
 export default function RatioedStudio({ agent, did }) {
   const [pieces, setPieces] = useState(null);
@@ -82,6 +96,21 @@ export default function RatioedStudio({ agent, did }) {
   // it can say whether the quote is actually in hand.
   const [quote, setQuote] = useState(undefined); // undefined = looking, null = no
 
+  // The template, as stored on the PDS. `undefined` while it's being read;
+  // DEFAULT_TEMPLATE when no record exists yet.
+  const [template, setTemplate] = useState(undefined);
+  const [tplDraft, setTplDraft] = useState(null); // non-null while editing
+
+  // What the stream has seen on the live piece, newest first. Separate from the
+  // measurement: this is a witness, not a record, and it is thrown away when
+  // the panel closes. Its value is that it arrives in real time and it carries
+  // rkeys — so at seal time the breaking like's exact write time is already in
+  // hand, without waiting for the backlink index to catch up.
+  const [feed, setFeed] = useState([]);
+  const [stream, setStream] = useState(null); // { state, bytes, seen }
+  const [profiles, setProfiles] = useState({});
+  const [streamOn, setStreamOn] = useState(true);
+
   const refresh = useCallback(async () => {
     setError(null);
     try {
@@ -96,6 +125,22 @@ export default function RatioedStudio({ agent, did }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    let alive = true;
+    agent.com.atproto.repo
+      .getRecord({ repo: did, collection: TEMPLATE_NSID, rkey: 'self' })
+      .then((res) => {
+        if (alive) setTemplate(res?.data?.value?.text || DEFAULT_TEMPLATE);
+      })
+      // No record yet is the normal state until one is saved, not a fault.
+      .catch(() => {
+        if (alive) setTemplate(DEFAULT_TEMPLATE);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [agent, did]);
 
   const live = useMemo(() => (pieces || []).find(isLive) || null, [pieces]);
   const done = useMemo(() => finished(pieces), [pieces]);
@@ -124,9 +169,9 @@ export default function RatioedStudio({ agent, did }) {
   // Seed the composer once the take number is known, and leave it alone after —
   // it's a draft, and a background refresh must not overwrite typing.
   useEffect(() => {
-    if (!pieces || live || draft) return;
-    setDraft(pieceTemplate(take));
-  }, [pieces, live, draft, take]);
+    if (!pieces || live || draft || template === undefined) return;
+    setDraft(fillTemplate(template, take));
+  }, [pieces, live, draft, take, template]);
 
   // A ticking clock while a piece is up, so "alive for" counts rather than
   // sits. It stops at the seal: after that the number is the lifespan, and a
@@ -138,7 +183,14 @@ export default function RatioedStudio({ agent, did }) {
   }, [live, sealed]);
 
   // The watch. Only runs while something is actually up and unsealed.
-  const seenLike = Boolean(likes?.likes?.length);
+  // Either reader will do; the stream simply gets there first.
+  const streamLike = feed.find((e) => e.kind === 'like' && !e.deleted) || null;
+  const seenLike = Boolean(streamLike) || Boolean(likes?.likes?.length);
+  // Somebody liked it and took it back before it was sealed. The alarm must not
+  // simply go quiet on that: it's the project's own subject matter happening in
+  // front of you, and whether a withdrawn like still ends a piece is a question
+  // for the artist, not for a boolean.
+  const withdrawn = !seenLike && feed.some((e) => e.kind === 'like' && e.deleted);
   useEffect(() => {
     if (!live || sealed) {
       if (!live) setLikes(null);
@@ -146,7 +198,7 @@ export default function RatioedStudio({ agent, did }) {
     }
     let alive = true;
     const poll = async () => {
-      const res = await getLikes(subjectUri(live.rkey)).catch(() => null);
+      const res = await getLikes(subjectOf(live)).catch(() => null);
       if (alive && res) setLikes(res);
     };
     poll();
@@ -157,8 +209,42 @@ export default function RatioedStudio({ agent, did }) {
     };
   }, [live, sealed]);
 
+  // The stream. Open only while a piece is actually up and unsealed — it is a
+  // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
+  // like. The moment the piece is sealed there is nothing left to notice.
+  useEffect(() => {
+    if (!live || sealed || !streamOn) return undefined;
+    setFeed([]);
+    const close = watchSubject(subjectOf(live), {
+      onStatus: setStream,
+      onEvent: (ev) => {
+        setFeed((f) => {
+          if (ev.op === 'delete') {
+            // Somebody taking it back, watched rather than inferred. Six of the
+            // thirteen breaking likes were deleted; this is the only way to see
+            // one happen.
+            return f.map((x) => (x.rkey === ev.rkey ? { ...x, deleted: true } : x));
+          }
+          if (f.some((x) => x.rkey === ev.rkey)) return f; // a replayed cursor
+          return [{ ...ev, at: tidToTimestamp(ev.rkey) }, ...f];
+        });
+      },
+    });
+    return close;
+  }, [live, sealed, streamOn]);
+
+  // Faces for whoever turns up. Resolved in batches as new DIDs appear.
+  useEffect(() => {
+    const missing = feed.map((e) => e.did).filter((d) => d && !profiles[d]);
+    if (!missing.length) return;
+    resolveProfiles(Array.from(new Set(missing))).then((p) =>
+      setProfiles((old) => ({ ...old, ...p })),
+    );
+  }, [feed, profiles]);
+
   // The tab title carries the alarm, so a piece that gets liked while this is
   // in a background tab still says so in the tab strip.
+  //
   useEffect(() => {
     if (!live) return undefined;
     const prevTitle = document.title;
@@ -166,11 +252,13 @@ export default function RatioedStudio({ agent, did }) {
       ? `sealed · take ${live.take}`
       : seenLike
         ? '● LIKED — seal it'
-        : `alive · take ${live.take}`;
+        : withdrawn
+          ? '○ un-liked · take ' + live.take
+          : `alive · take ${live.take}`;
     return () => {
       document.title = prevTitle;
     };
-  }, [live, seenLike, sealed]);
+  }, [live, seenLike, withdrawn, sealed]);
 
   /* ---------------------------------------------------------------- */
 
@@ -247,7 +335,7 @@ export default function RatioedStudio({ agent, did }) {
         rkey: live.rkey,
         record: {
           $type: GATE,
-          post: subjectUri(live.rkey),
+          post: subjectOf(live),
           allow: [],
           createdAt: sealedAt,
         },
@@ -274,7 +362,7 @@ export default function RatioedStudio({ agent, did }) {
   async function measureAndFinish(piece, sealedAtIso) {
     const sealedAt = sealedAtIso || piece.sealedAt;
     if (!sealedAt) return;
-    const subject = subjectUri(piece.rkey);
+    const subject = subjectOf(piece);
     const records = await fetchPieceRecords(subject);
     const sealedMs = Date.parse(sealedAt);
     const postedMs = Date.parse(piece.postedAt);
@@ -287,14 +375,30 @@ export default function RatioedStudio({ agent, did }) {
       handles,
     });
 
-    // Who to name. The measurement's own breaking like when the index has it;
-    // otherwise whoever the AppView is showing, which is what the watch saw.
-    const breakerDid = windows.breakingLike?.did || likes?.likes?.[0]?.actor?.did || null;
+    // Who to name, and when they did it.
+    //
+    // The backlink index is the authority and lags by up to a minute; the
+    // stream saw the like as it happened and kept its record key, which is the
+    // same TID the index would eventually report. So when the index hasn't
+    // caught up, the witnessed like stands in — the reaction time is otherwise
+    // lost to a wait, which is exactly the failure this project can't absorb.
+    const witnessed = feed.filter((e) => e.kind === 'like' && !e.deleted).sort((a, b) =>
+      String(a.rkey).localeCompare(String(b.rkey)),
+    )[0] || null;
+    const witnessedAt = witnessed ? Date.parse(tidToTimestamp(witnessed.rkey) || '') : NaN;
+    const breaking =
+      windows.breakingLike ||
+      (witnessed && Number.isFinite(witnessedAt) && witnessedAt < sealedMs
+        ? { at: witnessedAt, did: witnessed.did }
+        : null);
+
+    const breakerDid = breaking?.did || likes?.likes?.[0]?.actor?.did || null;
     const handle =
       (breakerDid && handles[breakerDid]) ||
+      (breakerDid && profiles[breakerDid]?.handle) ||
       likes?.likes?.[0]?.actor?.handle ||
       'unknown';
-    const likeSurvives = Boolean(windows.breakingLike);
+    const likeSurvives = Boolean(breaking);
 
     const value = {
       $type: NSID,
@@ -307,7 +411,7 @@ export default function RatioedStudio({ agent, did }) {
         handle,
         ...(breakerDid ? { did: breakerDid } : {}),
         likeSurvives,
-        ...(likeSurvives ? { reactionMs: sealedMs - windows.breakingLike.at } : {}),
+        ...(likeSurvives ? { reactionMs: sealedMs - breaking.at } : {}),
       },
       preSeal: windows.preSeal,
       postSeal: windows.postSeal,
@@ -332,8 +436,10 @@ export default function RatioedStudio({ agent, did }) {
     });
     setNote(
       likeSurvives
-        ? `Measured. Reaction ${fmtSeconds(sealedMs - windows.breakingLike.at)}.`
-        : 'Measured, but the backlink index has no like yet — measure again in a minute to catch the reaction time.',
+        ? `Measured. Reaction ${fmtSeconds(sealedMs - breaking.at)}${
+            windows.breakingLike ? '.' : ', from the like the stream witnessed — measure again once the index catches up.'
+          }`
+        : 'Measured, but neither the index nor the stream has a like — measure again in a minute.',
     );
     await refresh();
   }
@@ -344,6 +450,44 @@ export default function RatioedStudio({ agent, did }) {
     setError(null);
     try {
       await measureAndFinish(announce.piece, announce.piece.sealedAt);
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Save the template.
+   *
+   * Refused if the discovery scan wouldn't recognise what it produces. That is
+   * the failure this whole editor risks introducing and the one the project
+   * has already had: take #13 reworded the opening line, the scan stopped
+   * seeing it, and it went unmeasured until somebody checked by hand.
+   */
+  async function saveTemplate() {
+    const problems = templateProblems(tplDraft, take);
+    if (problems.length) {
+      setError(problems.join(' '));
+      return;
+    }
+    setBusy('template');
+    setError(null);
+    try {
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: TEMPLATE_NSID,
+        rkey: 'self',
+        record: {
+          $type: TEMPLATE_NSID,
+          text: tplDraft,
+          updatedAt: new Date().toISOString(),
+        },
+      });
+      setTemplate(tplDraft);
+      setDraft(fillTemplate(tplDraft, take));
+      setTplDraft(null);
+      setNote('Template saved. The composer above is rewritten from it.');
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -417,7 +561,9 @@ export default function RatioedStudio({ agent, did }) {
       {pieces === null ? (
         <p className="admin-field-hint">Reading the series…</p>
       ) : live ? (
-        <section className={`rs-live${justSealed ? '' : seenLike ? ' liked' : ''}`}>
+        <section
+          className={`rs-live${justSealed ? '' : seenLike ? ' liked' : withdrawn ? ' withdrawn' : ''}`}
+        >
           <header className="rs-live-head">
             <span className="rs-live-take">take {pieceSlug(live)}</span>
             <span className="rs-live-clock">{fmtDuration(aliveMs)}</span>
@@ -426,6 +572,11 @@ export default function RatioedStudio({ agent, did }) {
           <p className="rs-live-state">
             {justSealed ? (
               <>Sealed. Reading its records&hellip;</>
+            ) : withdrawn ? (
+              <>
+                Somebody liked it and <strong>un-liked it</strong>. Nothing is standing against it
+                now — seal it or let it run.
+              </>
             ) : firstLike ? (
               <>
                 <strong>@{firstLike.actor?.handle || 'somebody'}</strong> liked it. Seal it.
@@ -456,15 +607,62 @@ export default function RatioedStudio({ agent, did }) {
             </Link>
           </div>
 
+          {justSealed && (
+            <p className="admin-field-hint">
+              Replies are closed. The figures below come from the backlink index, which lags — but
+              the stream already witnessed the like, so the reaction time is in hand either way.
+            </p>
+          )}
+
+          <div className="rs-feed">
+            <header className="rs-feed-head">
+              <span className="small-caps">as it happens</span>
+              <span className={`rs-feed-state is-${stream?.state || 'off'}`}>
+                <Radio size={12} aria-hidden="true" />
+                {!streamOn
+                  ? 'stream off'
+                  : stream?.state === 'open'
+                    ? `live · ${Math.round((stream.bytes || 0) / 1024 / 1024)} MB read`
+                    : stream?.state || 'connecting'}
+              </span>
+              <button
+                type="button"
+                className="admin-link-subtle"
+                onClick={() => setStreamOn((v) => !v)}
+              >
+                {streamOn ? 'stop the stream' : 'start the stream'}
+              </button>
+            </header>
+
+            {feed.length === 0 ? (
+              <p className="admin-field-hint rs-feed-empty">
+                Nothing yet. Every like, repost, quote and reply on the network is being read and
+                tested against this post — that&rsquo;s ~180&nbsp;KB/s, and it&rsquo;s what buys
+                sub-second notice instead of a {WATCH_MS / 1000}s poll.
+              </p>
+            ) : (
+              <ul className="rs-feed-list">
+                {feed.map((e) => (
+                  <li key={e.rkey} className={`rs-feed-row rs-k-${e.kind}${e.deleted ? ' gone' : ''}`}>
+                    <span className="rs-feed-when">
+                      {e.at ? `+${fmtDuration(Date.parse(e.at) - Date.parse(live.postedAt))}` : '—'}
+                    </span>
+                    <span className="rs-feed-who">
+                      @{profiles[e.did]?.handle || e.did.slice(0, 18)}
+                    </span>
+                    <span className="rs-feed-kind">{KIND_VERB[e.kind] || e.kind}</span>
+                    {e.deleted && <span className="rs-feed-gone">deleted it</span>}
+                    {e.text && <span className="rs-feed-text">{e.text.slice(0, 90)}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <p className="admin-field-hint">
-            {justSealed
-              ? 'Replies are closed. The figures below arrive once the backlink index catches up — a like cast seconds ago can take a minute to appear there.'
-              : null}
-          </p>
-          <p className="admin-field-hint">
-            Checking every {WATCH_MS / 1000}s through the AppView, which sees a like sooner than
-            the backlink index does. The measurement afterwards uses the index, which is the more
-            complete reader.
+            The stream is the fast reader; the AppView is polled every {WATCH_MS / 1000}s underneath
+            it as a backstop, because a socket can drop and a missed like costs the piece. The
+            measurement afterwards uses the backlink index, which is slower and more complete.
           </p>
         </section>
       ) : announce ? null : (
@@ -501,7 +699,7 @@ export default function RatioedStudio({ agent, did }) {
             <button
               type="button"
               className="admin-link-subtle"
-              onClick={() => setDraft(pieceTemplate(take))}
+              onClick={() => setDraft(fillTemplate(template ?? DEFAULT_TEMPLATE, take))}
               disabled={!!busy}
             >
               reset to the template
@@ -559,6 +757,72 @@ export default function RatioedStudio({ agent, did }) {
               dismiss
             </button>
           </div>
+        </section>
+      )}
+
+      {!live && (
+        <section className="rs-template">
+          <h2 className="rs-h2">
+            <FileText size={15} aria-hidden="true" /> The template
+          </h2>
+          {tplDraft === null ? (
+            <>
+              <p className="admin-field-hint">
+                Stored on your PDS at <code>{TEMPLATE_NSID}/self</code>, so the wording can change
+                without a deploy. <code>{'{take}'}</code> becomes the number and{' '}
+                <code>{'{link}'}</code> the piece&rsquo;s own page.
+              </p>
+              <pre className="rs-template-preview">{template ?? '…'}</pre>
+              <div className="rs-actions">
+                <button
+                  type="button"
+                  className="admin-gate-button"
+                  onClick={() => setTplDraft(template ?? DEFAULT_TEMPLATE)}
+                  disabled={template === undefined}
+                >
+                  Edit the template
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="admin-field-hint">
+                Checked against the scan that measures pieces before it saves. A template the scan
+                can&rsquo;t recognise makes pieces the site never finds — which is exactly how take
+                13 went missing.
+              </p>
+              <textarea
+                className="admin-input rs-draft"
+                rows={13}
+                spellCheck={false}
+                value={tplDraft}
+                onChange={(e) => setTplDraft(e.target.value)}
+              />
+              {templateProblems(tplDraft, take).map((p) => (
+                <p className="admin-error-inline" key={p}>{p}</p>
+              ))}
+              <div className="rs-actions">
+                <button
+                  type="button"
+                  className="admin-gate-button"
+                  onClick={saveTemplate}
+                  disabled={!!busy || templateProblems(tplDraft, take).length > 0}
+                >
+                  {busy === 'template' ? 'Saving…' : 'Save the template'}
+                </button>
+                <button type="button" className="admin-link-subtle" onClick={() => setTplDraft(null)}>
+                  cancel
+                </button>
+                <button
+                  type="button"
+                  className="admin-link-subtle"
+                  onClick={() => setTplDraft(DEFAULT_TEMPLATE)}
+                >
+                  restore the built-in
+                </button>
+              </div>
+            </>
+          )}
         </section>
       )}
 

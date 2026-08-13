@@ -6,6 +6,9 @@ import {
   lifespanRank,
   engagementPhrase,
   announcementDraft,
+  templateProblems,
+  fillTemplate,
+  DEFAULT_TEMPLATE,
 } from './ratioedStudio.js';
 import { breakerFromAnnouncement, takeFromText, isPiecePost } from './ratioedDiscovery.js';
 
@@ -133,5 +136,48 @@ describe('announcementDraft', () => {
   it('still names the breaker for a piece with nothing measured on it', () => {
     const text = announcementDraft({ handle: 'someone.bsky.social', piece: {}, others: [] });
     expect(breakerFromAnnouncement(text).handle).toBe('someone.bsky.social');
+  });
+});
+
+describe('templateProblems', () => {
+  it('passes the template the project actually uses', () => {
+    expect(templateProblems(DEFAULT_TEMPLATE, 14)).toEqual([]);
+  });
+
+  // The exact drift that lost take #13: the wording changed and the scan
+  // stopped recognising it. A template editor that can't catch this is worse
+  // than no template editor.
+  it('catches wording the discovery scan would not recognise', () => {
+    const problems = templateProblems('here is a post about nothing\n\nthis is take #{take}\n\n{link}', 14);
+    expect(problems.some((p) => p.includes('recognise'))).toBe(true);
+  });
+
+  it('catches a template that loses the take number', () => {
+    const problems = templateProblems('this post is the project\n\n{link}', 14);
+    expect(problems.some((p) => p.includes('take number'))).toBe(true);
+  });
+
+  it('catches a template with no link to the piece', () => {
+    const problems = templateProblems('this post is the project\n\nthis is take #{take}', 14);
+    expect(problems.some((p) => p.includes('{link}'))).toBe(true);
+  });
+
+  it('catches an empty template', () => {
+    expect(templateProblems('', 14).length).toBeGreaterThan(0);
+  });
+});
+
+describe('fillTemplate', () => {
+  it('substitutes both placeholders, padding the link like the canonical URL', () => {
+    const out = fillTemplate('take #{take} at {link}', 7);
+    expect(out).toBe('take #7 at dame.is/creating/ratioed/07');
+  });
+
+  it('substitutes every occurrence, not just the first', () => {
+    expect(fillTemplate('{take}/{take}', 3)).toBe('3/3');
+  });
+
+  it('is safe on nothing', () => {
+    expect(fillTemplate(null, 3)).toBe('');
   });
 });

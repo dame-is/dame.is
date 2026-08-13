@@ -111,6 +111,7 @@ const RESUME_JOB_NSID = 'is.dame.resume.job';
 const RESUME_EDUCATION_NSID = 'is.dame.resume.education';
 const ARENA_CHANNEL_NSID = 'is.dame.arena.channel';
 const RATIOED_PIECE_NSID = 'is.dame.creating.ratioed.piece';
+const RATIOED_TEMPLATE_NSID = 'is.dame.creating.ratioed.template';
 
 // --- Ratioed -----------------------------------------------------------------
 // Per-piece measurements for the Ratioed art project. Each record carries a
@@ -176,6 +177,7 @@ export const COLLECTIONS = {
   resumeEducation: RESUME_EDUCATION_NSID,
   arenaChannel: ARENA_CHANNEL_NSID,
   ratioedPiece: RATIOED_PIECE_NSID,
+  ratioedTemplate: RATIOED_TEMPLATE_NSID,
   state: STATE_NSID,
   nav: NAV_NSID,
   sky: SKY_NSID,

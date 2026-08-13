@@ -14,22 +14,72 @@
 
 import { RATIOED_PATH } from '../config.js';
 import { fmtDuration } from './ratioed.js';
+import { isPiecePost, takeFromText } from './ratioedDiscovery.js';
 
-/** The standing text, as take #13 last worded it. */
-export function pieceTemplate(take, { origin = 'dame.is' } = {}) {
-  return [
-    'i would like your help with a social art project',
-    '',
-    'this post is the project',
-    '',
-    'the goal of this post is for it to receive ZERO likes… only replies, reposts, or quotes allowed',
-    '',
-    'once it is liked, replies are immediately disabled, thereby sealing & finishing it',
-    '',
-    `this is take #${take}`,
-    '',
-    `${origin}/creating/${RATIOED_PATH}/${String(take).padStart(2, '0')}`,
-  ].join('\n');
+/**
+ * The template's placeholders. `{take}` is the number as written in the post
+ * ("this is take #14"); `{link}` is the piece's own page, padded the way the
+ * canonical URL is.
+ */
+export function fillTemplate(text, take, { origin = 'dame.is' } = {}) {
+  const link = `${origin}/creating/${RATIOED_PATH}/${String(take).padStart(2, '0')}`;
+  return String(text ?? '')
+    .replaceAll('{take}', String(take))
+    .replaceAll('{link}', link);
+}
+
+/**
+ * Is this template safe to publish from?
+ *
+ * The scan that measures a piece finds it by reading the post, so a template
+ * the scan can't recognise produces pieces the site never measures. That is not
+ * hypothetical: take #13 dropped the word "experimental" and went missing until
+ * somebody noticed by hand. The check runs against a filled-in copy, using the
+ * same two functions the discovery scan uses — so this can never drift from
+ * what the scan actually accepts.
+ *
+ * Returns a list of problems; empty means good.
+ */
+export function templateProblems(text, take = 99) {
+  const filled = fillTemplate(text, take);
+  const out = [];
+  if (!filled.trim()) out.push('The template is empty.');
+  if (!isPiecePost({ text: filled })) {
+    out.push(
+      'The scan wouldn’t recognise this as a piece. It needs to say either “social art project” or “this post is the project”.',
+    );
+  }
+  if (takeFromText(filled) !== take) {
+    out.push('The take number can’t be read back. Keep a line like “this is take #{take}”.');
+  }
+  if (!String(text ?? '').includes('{link}')) {
+    out.push('No {link}, so the post won’t link to the piece’s own page.');
+  }
+  return out;
+}
+
+/**
+ * The standing text, as take #13 last worded it, with the placeholders still
+ * in. This is the shape that gets stored on the PDS and edited in the studio;
+ * it's the fallback when no record has been written yet.
+ */
+export const DEFAULT_TEMPLATE = [
+  'i would like your help with a social art project',
+  '',
+  'this post is the project',
+  '',
+  'the goal of this post is for it to receive ZERO likes… only replies, reposts, or quotes allowed',
+  '',
+  'once it is liked, replies are immediately disabled, thereby sealing & finishing it',
+  '',
+  'this is take #{take}',
+  '',
+  '{link}',
+].join('\n');
+
+/** The default template with a take number in it. */
+export function pieceTemplate(take, opts) {
+  return fillTemplate(DEFAULT_TEMPLATE, take, opts);
 }
 
 /**
