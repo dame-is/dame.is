@@ -46,6 +46,38 @@ const STANDARD_DOC = 'site.standard.document';
 // they don't need one written.
 const SEEDED = new Set(SEED_PIECES.map((p) => p.rkey));
 
+// How many pages of a collection the scan will read. listRecords caps a page
+// at 100, and 100 posts is about three days of dame's timeline — so a
+// single-page scan could only ever see a piece sealed in the last few days,
+// and went quiet about the rest. Thirty pages is roughly three months.
+const SCAN_PAGES = 30;
+
+/**
+ * Read a collection newest-first, following the cursor up to SCAN_PAGES.
+ *
+ * Reports `truncated` when it stopped at the bound rather than at the end of
+ * the collection, so the scan can say what it didn't look at instead of
+ * presenting a partial read as "nothing new".
+ */
+async function listPaged(agent, did, collection, onCount) {
+  const records = [];
+  let cursor;
+  for (let page = 0; page < SCAN_PAGES; page += 1) {
+    const res = await agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection,
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    });
+    const batch = res?.data?.records || [];
+    records.push(...batch);
+    onCount?.(records.length);
+    cursor = res?.data?.cursor;
+    if (!cursor || !batch.length) return { records, truncated: false };
+  }
+  return { records, truncated: true };
+}
+
 const SOURCE_BUCKETS = {
   'app.bsky.feed.like:subject.uri': 'likes',
   'app.bsky.feed.repost:subject.uri': 'reposts',
@@ -63,6 +95,7 @@ export default function RatioedPanel({ agent, did }) {
   const [backlinks, setBacklinks] = useState(null);
   const [measured, setMeasured] = useState(null); // rkey → fresh postSeal
   const [found, setFound] = useState(null); // pieces on the PDS with no record yet
+  const [truncated, setTruncated] = useState(false); // the scan hit its page bound
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -237,22 +270,24 @@ export default function RatioedPanel({ agent, did }) {
     setBusy('scan');
     setError(null);
     setFound(null);
+    setTruncated(false);
     try {
       setProgress('Reading posts and threadgates…');
-      const [postRes, gateRes] = await Promise.all([
-        agent.com.atproto.repo.listRecords({
-          repo: did,
-          collection: 'app.bsky.feed.post',
-          limit: 100,
+      const read = { posts: 0, gates: 0 };
+      const tick = () => setProgress(`Read ${read.posts} posts, ${read.gates} threadgates…`);
+      const [postPage, gatePage] = await Promise.all([
+        listPaged(agent, did, 'app.bsky.feed.post', (n) => {
+          read.posts = n;
+          tick();
         }),
-        agent.com.atproto.repo.listRecords({
-          repo: did,
-          collection: 'app.bsky.feed.threadgate',
-          limit: 100,
+        listPaged(agent, did, 'app.bsky.feed.threadgate', (n) => {
+          read.gates = n;
+          tick();
         }),
       ]);
-      const posts = postRes?.data?.records || [];
-      const gates = gateRes?.data?.records || [];
+      const posts = postPage.records;
+      const gates = gatePage.records;
+      setTruncated(postPage.truncated || gatePage.truncated);
       const known = new Set(Object.keys(live));
       const candidates = findPieces(posts, gates, known).filter((p) => !p.known);
       if (!candidates.length) {
@@ -510,9 +545,15 @@ export default function RatioedPanel({ agent, did }) {
           <h2 className="ratioed-panel-found-head">
             {found.length ? `${found.length} unrecorded piece(s)` : 'Nothing new'}
           </h2>
+          {truncated && (
+            <p className="admin-field-hint">
+              The scan stopped at {SCAN_PAGES * 100} records per collection, so anything sealed
+              before that wasn&rsquo;t looked at.
+            </p>
+          )}
           {!found.length ? (
             <p className="admin-field-hint">
-              Every sealed piece on your PDS already has a measurement record.
+              Every sealed piece in the records read already has a measurement record.
             </p>
           ) : (
             <>

@@ -19,7 +19,7 @@ const PIECE_TEXT =
   'this is take #4';
 
 describe('isPiecePost', () => {
-  it('matches the standing phrase', () => {
+  it('matches the wording takes #1 to #10 used', () => {
     expect(isPiecePost({ text: PIECE_TEXT })).toBe(true);
   });
 
@@ -34,10 +34,37 @@ describe('isPiecePost', () => {
     ).toBe(true);
   });
 
+  it('matches take #13, which dropped "experimental" and broke the exact-phrase test', () => {
+    expect(
+      isPiecePost({
+        text:
+          'i would like your help with a social art project\n\nthis post is the project\n\n' +
+          'the goal of this post is for it to receive ZERO likes… only replies, reposts, or quotes allowed\n\n' +
+          'once it is liked, replies are immediately disabled, thereby sealing & finishing it\n\n' +
+          'this is take #13',
+      }),
+    ).toBe(true);
+  });
+
+  it('matches on either marker alone, in case the other is the one that drifts', () => {
+    expect(isPiecePost({ text: 'help me with a social art project' })).toBe(true);
+    expect(isPiecePost({ text: 'this post is the project' })).toBe(true);
+  });
+
   it('ignores unrelated posts and non-posts', () => {
     expect(isPiecePost({ text: 'just had a sandwich' })).toBe(false);
     expect(isPiecePost(null)).toBe(false);
     expect(isPiecePost({})).toBe(false);
+  });
+
+  it('ignores the concluding announcement, which talks about a piece without being one', () => {
+    expect(
+      isPiecePost({
+        text:
+          'thank you for your participation, this piece has now concluded, @satyrs.eu was to blame ' +
+          'for liking the post\n\nat the time of this piece’s completion, it had zero engagement',
+      }),
+    ).toBe(false);
   });
 });
 
