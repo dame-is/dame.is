@@ -355,12 +355,13 @@ export async function pieceMeta(pathname, origin) {
       }`
     : '';
   const people = v.preSeal?.participants || 0;
+  const drew = people === 0 ? 'nobody' : `${people} ${people === 1 ? 'person' : 'people'}`;
 
   return {
     title: `Ratioed, take ${take}`,
     description:
       `A post sealed the moment somebody liked it. It stood for ${shortDuration(v.lifespanMs)}` +
-      ` and drew ${people} ${people === 1 ? 'person' : 'people'} while it was alive.${ended}`,
+      ` and drew ${drew} while it was alive.${ended}`,
     textOnly: false,
     section: 'creating',
     atUri: record.uri || null,
