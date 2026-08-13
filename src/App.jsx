@@ -10,6 +10,7 @@ import Blogging from './pages/Blogging.jsx';
 import BlogPost from './pages/BlogPost.jsx';
 import Creating from './pages/Creating.jsx';
 import CreatingWork from './pages/CreatingWork.jsx';
+import RatioedPiece from './pages/RatioedPiece.jsx';
 import Curating from './pages/Curating.jsx';
 import CuratingChannel from './pages/CuratingChannel.jsx';
 import Resume from './pages/Resume.jsx';
@@ -161,6 +162,13 @@ export default function App() {
                   <Route path="/blogging/:slug" element={<BlogPost />} />
                   <Route path="/creating" element={<Creating />} />
                   <Route path="/creating/:slug" element={<CreatingWork />} />
+                  {/* A work can have pieces of its own. Ratioed does — thirteen
+                      so far — and each is a record with more in it than the
+                      essay's charts can show at that altitude. Keyed on :slug
+                      rather than a literal, so the page answers under whichever
+                      address the essay is reachable at (its path OR its record
+                      key); the component itself checks the parent is Ratioed. */}
+                  <Route path="/creating/:slug/:piece" element={<RatioedPiece />} />
                   <Route path="/curating" element={<Curating />} />
                   <Route path="/curating/:slug" element={<CuratingChannel />} />
                   <Route path="/available" element={<Resume />} />

@@ -13,7 +13,7 @@
 import SEED from '../data/ratioedPieces.json';
 import PEOPLE from '../data/ratioedPeople.json';
 import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from './constellation.js';
-import { ME_DID, COLLECTIONS } from '../config.js';
+import { ME_DID, COLLECTIONS, RATIOED_PATH } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
 import { fetchSnapshot } from './snapshot.js';
 
@@ -228,6 +228,61 @@ export function hiddenReplies(events, pieces) {
     }
   }
   return out.sort((a, b) => a.afterSec - b.afterSec);
+}
+
+/* ------------------------------------------------------------------ */
+/* Addressing a single piece                                            */
+/* ------------------------------------------------------------------ */
+
+// A piece has two names and both are worth honouring. The take number is how
+// the project talks about itself — every chart, every announcement reply and
+// the artist all say "take #13" — so it's the canonical URL. The record key is
+// how the ATmosphere names the same thing: it keys the post, the threadgate and
+// the measurement record alike, so anyone arriving from a Bluesky link or an
+// at:// URI has it in hand and nothing else. Both resolve; the take is what the
+// site links to.
+
+/** The canonical URL segment for a piece: its take, zero-padded like the UI. */
+export function pieceSlug(piece) {
+  return String(piece?.take ?? '').padStart(2, '0');
+}
+
+/** A piece's on-site path, under whichever segment the essay lives at. */
+export function piecePath(piece, parent = RATIOED_PATH) {
+  const slug = pieceSlug(piece);
+  return slug ? `/creating/${parent}/${slug}` : null;
+}
+
+/**
+ * The piece a URL segment names, or null.
+ *
+ * Accepts the take number in any form the site or a human might write it —
+ * `13`, `013`, `#13` — and the record key. Take numbers are matched
+ * numerically so a padded segment and a bare one land on the same piece rather
+ * than on two different URLs for it.
+ */
+export function findPieceByRef(pieces, ref) {
+  const raw = String(ref ?? '').trim();
+  if (!raw) return null;
+  const list = Array.isArray(pieces) ? pieces : [];
+  const byKey = list.find((p) => p.rkey === raw);
+  if (byKey) return byKey;
+  const digits = raw.replace(/^#/, '');
+  if (!/^\d+$/.test(digits)) return null;
+  const take = Number(digits);
+  return list.find((p) => p.take === take) || null;
+}
+
+/**
+ * Does this `/creating/:slug` segment address the Ratioed essay?
+ *
+ * Both forms a standard document answers to: the human path it's configured
+ * under, and its record key — the same pair `CreatingWork` resolves, so a
+ * piece page is reachable wherever its parent is.
+ */
+export function isRatioedParent(slug, { path = RATIOED_PATH, rkey } = {}) {
+  const seg = String(slug ?? '');
+  return Boolean(seg) && (seg === path || seg === rkey);
 }
 
 /* ------------------------------------------------------------------ */

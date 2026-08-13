@@ -14,6 +14,22 @@
  *       --url https://dame.work/creating \
  *       --description "Art, photography, and other things I make."
  *
+ * The same script makes any other publication. Ratioed has one of its own so a
+ * per-piece page shared on Bluesky renders under its own masthead rather than
+ * the portfolio's — its `at://` URI goes in `RATIOED_PUBLICATION`:
+ *
+ *   DAME_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx \
+ *     node scripts/portfolio/create-publication.mjs \
+ *       --name "Ratioed" \
+ *       --url https://dame.is/creating/ratioed \
+ *       --description "An experimental social art project. Each post is sealed the moment somebody likes it."
+ *
+ * The `--url` matters: verification fetches
+ * `{url}/.well-known/site.standard.publication`, which api/well-known.js
+ * answers from that same config value. The overview essay stays homed in the
+ * portfolio — it belongs with the creative works — so only the piece pages
+ * carry this masthead.
+ *
  * Options:
  *   --name=…         Publication name (default "Creative Works").
  *   --url=…          Base URL for the publication (default https://dame.work/creating).

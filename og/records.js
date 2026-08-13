@@ -21,10 +21,22 @@
 // failure returns null and the caller falls back to the section card, so a
 // slow/broken PDS never blocks the page.
 
-import { ME_DID, COLLECTIONS } from '../src/config.js';
+import {
+  ME_DID,
+  COLLECTIONS,
+  RATIOED_PATH,
+  RATIOED_DOC_RKEY,
+  RATIOED_PUBLICATION,
+} from '../src/config.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/atproto.js';
 import { TEAL_PLAY_NSIDS, playArtistLine, playTrackName } from '../src/lib/teal.js';
-import { workSlug, showOnCreating, showOnBlog, isDraft } from '../src/lib/publications.js';
+import {
+  workSlug,
+  canonicalWorkPath,
+  showOnCreating,
+  showOnBlog,
+  isDraft,
+} from '../src/lib/publications.js';
 
 const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
@@ -248,6 +260,16 @@ async function liveWorkBySlug(slug) {
   return legacy.find((r) => !isDraft(r?.value) && workSlug(r?.value) === slug) || null;
 }
 
+/**
+ * The one address a record should be indexed under. Only `/creating` addresses
+ * a record two ways (see canonicalWorkPath); every other section already has
+ * one form, so the requested path stands.
+ */
+function canonicalPathFor(section, record, slug) {
+  if (section !== 'creating') return `/${section}/${encodeURIComponent(slug)}`;
+  return canonicalWorkPath(record?.value, rkeyFromAtUri(record?.uri), slug);
+}
+
 function shapeMeta(record, section, slug) {
   const v = (record && record.value) || {};
   const atUri = record.uri || null;
@@ -272,17 +294,106 @@ function shapeMeta(record, section, slug) {
     nsid: collection,
     publication,
     date,
+    canonicalPath: canonicalPathFor(section, record, slug),
   };
+}
+
+/* ── /creating/:slug/:piece — one Ratioed piece ───────────────────────────── */
+
+/** `13`, `013` and the record key all name the same piece. */
+function pickPiece(records, ref) {
+  const list = Array.isArray(records) ? records : [];
+  const byKey = list.find((r) => endsWithRkey(r?.uri, ref));
+  if (byKey) return byKey;
+  if (!/^\d+$/.test(ref)) return null;
+  const take = Number(ref);
+  return list.find((r) => r?.value?.take === take) || null;
+}
+
+/** Seconds, minutes — the same shape src/lib/ratioed.js's fmtDuration gives. */
+function shortDuration(ms) {
+  const s = Math.round((ms || 0) / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
+}
+
+/**
+ * Meta for a per-piece page. Same shape `recordMeta` returns, so the middleware
+ * treats it identically.
+ *
+ * The parent segment is checked rather than assumed: a piece page hangs off the
+ * Ratioed essay, and the essay answers to both its human path and its record
+ * key, so both are accepted here and neither is canonical for the piece — the
+ * take number under the configured path is.
+ */
+export async function pieceMeta(pathname, origin) {
+  const segs = (pathname || '').split('/').filter(Boolean);
+  if (segs.length !== 3 || segs[0] !== 'creating') return null;
+  const parent = segs[1];
+  if (parent !== RATIOED_PATH && parent !== RATIOED_DOC_RKEY) return null;
+
+  let ref = segs[2];
+  try { ref = decodeURIComponent(ref); } catch {}
+
+  let record = pickPiece(await fetchSnapshot(origin, 'ratioed'), ref);
+  if (!record) {
+    // The snapshot is a build artefact; a piece published since the last
+    // deploy is only on the PDS. Same reason loadPieces() re-reads it.
+    const live = await withTimeout(livePieces(), PDS_TIMEOUT_MS);
+    record = pickPiece(live, ref);
+  }
+  const v = record?.value;
+  if (!v?.take) return null;
+
+  const take = String(v.take).padStart(2, '0');
+  const breaker = v.breaker || {};
+  const ended = breaker.handle && breaker.handle !== 'unknown'
+    ? ` Ended by @${breaker.currentHandle || breaker.handle}${
+        typeof breaker.reactionMs === 'number'
+          ? `, whose like was caught ${(breaker.reactionMs / 1000).toFixed(1)}s later.`
+          : ', whose like has since been deleted.'
+      }`
+    : '';
+  const people = v.preSeal?.participants || 0;
+
+  return {
+    title: `Ratioed, take ${take}`,
+    description:
+      `A post sealed the moment somebody liked it. It stood for ${shortDuration(v.lifespanMs)}` +
+      ` and drew ${people} ${people === 1 ? 'person' : 'people'} while it was alive.${ended}`,
+    textOnly: false,
+    section: 'creating',
+    atUri: record.uri || null,
+    cid: record.cid || null,
+    nsid: COLLECTIONS.ratioedPiece,
+    // A piece is not a site.standard.document, so it carries no document ref —
+    // only the publication it belongs to.
+    publication: RATIOED_PUBLICATION,
+    date: v.postedAt || null,
+    canonicalPath: `/creating/${RATIOED_PATH}/${take}`,
+  };
+}
+
+async function livePieces() {
+  const pds = await resolvePds(ME_DID).catch(() => null);
+  if (!pds) return null;
+  return listRecords(pds, {
+    repo: ME_DID,
+    collection: COLLECTIONS.ratioedPiece,
+    max: 200,
+  }).catch(() => null);
 }
 
 /**
  * Resolve a record route to
- * `{ title, description, textOnly, section, atUri, cid, nsid, publication, date }`,
- * or null if it's not a record route or the record can't be resolved. `title`
- * is the card's big line (the record's own title, or its text for `textOnly`
- * records like posts); `description` is the secondary line; `atUri`/`cid` point
- * at the canonical record; `nsid` is its collection; `publication` is the parent
- * site.standard.publication at:// URI (or null); `date` is when it was made.
+ * `{ title, description, textOnly, section, atUri, cid, nsid, publication,
+ * date, canonicalPath }`, or null if it's not a record route or the record
+ * can't be resolved. `title` is the card's big line (the record's own title, or
+ * its text for `textOnly` records like posts); `description` is the secondary
+ * line; `atUri`/`cid` point at the canonical record; `nsid` is its collection;
+ * `publication` is the parent site.standard.publication at:// URI (or null);
+ * `date` is when it was made; `canonicalPath` is the one on-site address it
+ * should be indexed under, which is not always the one that was requested.
  */
 export async function recordMeta(pathname, origin) {
   const segs = (pathname || '').split('/').filter(Boolean);
