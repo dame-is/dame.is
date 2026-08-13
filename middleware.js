@@ -204,7 +204,11 @@ export default async function middleware(request) {
         // Stamp the card's day-of-life folio with the record's own date.
         if (rec.date) params.set('date', rec.date);
         if (rec.textOnly) params.set('body', '1');
-        ogImage = `${ORIGIN}/api/og?${params.toString()}`;
+        // A record whose shape deserves its own card says so, and the generic
+        // section/label/subtitle card is skipped for it.
+        ogImage = rec.ogQuery
+          ? `${ORIGIN}/api/og?${rec.ogQuery}`
+          : `${ORIGIN}/api/og?${params.toString()}`;
         atUri = rec.atUri;
         cid = rec.cid;
         if (rec.canonicalPath) canonicalPath = rec.canonicalPath;

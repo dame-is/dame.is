@@ -181,6 +181,10 @@ export default function RatioedPiece() {
   const live = events?.filter((e) => e.pre && !e.self) || [];
   const after = events?.filter((e) => !e.pre && !e.self) || [];
   const hidden = after.filter((e) => e.k === 'reply');
+  // What the log section makes its case with. Counted rather than written down,
+  // so it can't drift from the pieces on screen the way a hardcoded figure did
+  // in the essay's reaction chart.
+  const deletedLikes = pieces.filter((p) => p.breaker?.likeSurvives === false).length;
 
   return (
     <PageShell
@@ -203,9 +207,15 @@ export default function RatioedPiece() {
             happened. */}
         <p className="ratioed-piece-lede">
           It stood for <strong>{fmtDuration(piece.lifespanMs)}</strong>, drew{' '}
-          <strong>{piece.preSeal.participants}</strong>{' '}
-          {piece.preSeal.participants === 1 ? 'person' : 'people'} while it was alive, and was
-          ended by <strong>@{b.currentHandle || b.handle}</strong>
+          {piece.preSeal.participants === 0 ? (
+            <strong>nobody</strong>
+          ) : (
+            <>
+              <strong>{piece.preSeal.participants}</strong>{' '}
+              {piece.preSeal.participants === 1 ? 'person' : 'people'}
+            </>
+          )}{' '}
+          while it was alive, and was ended by <strong>@{b.currentHandle || b.handle}</strong>
           {b.likeSurvives ? (
             <>
               , whose like the artist caught {fmtSeconds(b.reactionMs)} later.
@@ -241,8 +251,8 @@ export default function RatioedPiece() {
         <section className="ratioed-piece-section">
           <h2>Replay</h2>
           <p className="ratioed-piece-note">
-            The piece as it happened, second by second. The rule is the threadgate — everything
-            after it landed on a post that was already finished.
+            Press play. The rule is the threadgate; everything past it landed on a post that was
+            already finished.
           </p>
           <PieceReplay piece={piece} events={events} profiles={profiles} />
         </section>
@@ -250,13 +260,12 @@ export default function RatioedPiece() {
         <section className="ratioed-piece-section">
           <h2>Who was there</h2>
           <p className="ratioed-piece-note">
-            Everyone whose record points at this piece, in the order they arrived. Faces are
-            resolved live; the counts beneath them are the measurement and don&rsquo;t move.
+            In the order they arrived. Portraits are current; the counts under them are not.
             {b.likeSurvives === false && (
               <>
                 {' '}
-                The breaker is named from the reply that concluded the piece — their like is gone,
-                so no index has them here.
+                @{b.currentHandle || b.handle} is here on the strength of the reply that concluded
+                the piece. Their like was deleted, so no index holds any trace of it.
               </>
             )}
           </p>
@@ -271,21 +280,20 @@ export default function RatioedPiece() {
           </div>
           {delta && (
             <p className="ratioed-piece-note">
+              Measured {piece.measuredAt.slice(0, 10)}.{' '}
               {delta.total > 0
-                ? `${delta.total} more since this was measured on ${piece.measuredAt.slice(0, 10)}.`
-                : `Nothing new since this was measured on ${piece.measuredAt.slice(0, 10)}.`}
+                ? `${delta.total} more ${delta.total === 1 ? 'has' : 'have'} landed since.`
+                : 'Nothing has landed since.'}
             </p>
           )}
         </section>
 
         {hidden.length > 0 && (
           <section className="ratioed-piece-section">
-            <h2>Replies nobody can see</h2>
+            <h2>Replies hidden by the threadgate</h2>
             <p className="ratioed-piece-note">
-              A threadgate hides replies at the appview; it does not stop the records being
-              written. These {hidden.length === 1 ? 'was' : 'were'} written to the network after
-              the seal and {hidden.length === 1 ? 'has' : 'have'} never been visible in the
-              thread.
+              Written to the network after the seal, and never visible in the thread. A threadgate
+              hides replies at the appview; it does not stop the records being made.
             </p>
             <ul className="ratioed-piece-hidden">
               {hidden.map((e, i) => (
@@ -304,10 +312,14 @@ export default function RatioedPiece() {
         {events?.length > 0 && (
           <section className="ratioed-piece-section">
             <h2>The log</h2>
+            {/* The one place on the page that argues for the whole method, so
+                it argues with the count rather than with an adjective. */}
             <p className="ratioed-piece-note">
-              Every record pointing at this piece, timed against the moment it went up. Recorded
-              at measurement time, so a record deleted since is still here — which is the only
-              reason any of this can be counted at all.
+              Every record pointing at this piece, timed from the moment it went up. Taken at
+              measurement time rather than read live
+              {deletedLikes > 0
+                ? `: ${deletedLikes} of the project's ${pieces.length} breaking likes have since been deleted by the people who cast them, and a deleted record leaves nothing to count.`
+                : ', so a record deleted since this was measured is still counted here.'}
             </p>
             <table className="ratioed-piece-log">
               <thead>

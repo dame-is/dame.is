@@ -272,6 +272,210 @@ function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio, body }) 
   ], { verticals: [PAD, { x: DIV, strong: true }, W - PAD], halfBands: [{ from: 3 * P + HP, to: bandTo }] });
 }
 
+// ── RECORD: one Ratioed piece ───────────────────────────────────────────────
+// A piece has a shape, and a title-plus-blurb card throws it away. What it is,
+// is a line with a cut in it: the seconds a post stood, every record that
+// landed on it while it did, and the threadgate that ended it.
+//
+// So the card draws the line, and draws it ON the notebook rule the rest of the
+// layout is ruled by, rather than floating a chart above the paper. Left of the
+// cut is linear time, at the scale the piece actually ran at. Right of it is
+// log-scaled, because the afterlife runs to years and pieces keep accruing it.
+//
+// The gutter carries "take 13" where every other card carries the day-of-life
+// folio, which is the same joke: a notebook page number for a numbered work.
+
+/** Where a post-seal second sits in the log-scaled tail, as a 0–1 fraction. */
+const tailPos = (sec, maxSec) =>
+  Math.log10(Math.max(sec, 1) + 1) / Math.log10(Math.max(maxSec, 1) + 1);
+
+/**
+ * Every record pointing at a piece, placed on the card's 0–2 track: the first
+ * unit is the piece's life, the second its afterlife.
+ *
+ * Two event shapes, because a piece carries its log two ways. A record measured
+ * by the admin panel has its own `events`, in milliseconds. The first eleven
+ * predate that field and are drawn from the bundled harvest, which stores
+ * seconds. The artist's own records are dropped, as they are in every count.
+ */
+export function pieceMarks(value, bundled) {
+  const life = Math.max((value?.lifespanMs || 0) / 1000, 0.001);
+  const raw = value?.events?.length ? value.events : bundled || [];
+  const events = raw
+    .filter((e) => e && !e.self)
+    .map((e) => ({ k: e.k, pre: Boolean(e.pre), sec: typeof e.offMs === 'number' ? e.offMs / 1000 : e.off }))
+    .filter((e) => typeof e.sec === 'number');
+  if (!events.length) return [];
+  let maxTail = 1;
+  for (const e of events) if (!e.pre) maxTail = Math.max(maxTail, e.sec - life);
+  return events.map((e) => ({
+    k: e.k,
+    at: e.pre ? Math.min(1, Math.max(0, e.sec / life)) : 1 + tailPos(e.sec - life, maxTail),
+  }));
+}
+
+/** `48832` → `49s`; `1763900` → `29m24s`. Sized for the gutter figure. */
+function shortDuration(ms) {
+  const s = Math.round((ms || 0) / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
+}
+
+/**
+ * `2026-08-13T18:21:16Z` → `August 13, 2026`, in the artist's own clock.
+ *
+ * Eastern rather than UTC for the reason the week grid is: the pieces were made
+ * at a particular time of day in a particular place, and four of them cross a
+ * date boundary when read in UTC.
+ */
+function longDate(iso) {
+  const d = new Date(iso || '');
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(d);
+  } catch {
+    return String(iso).slice(0, 10);
+  }
+}
+
+
+// The block under the line: label over figure, the same marginalia pattern the
+// gutter uses, rather than a sentence. Four facts, and none of them a repeat of
+// what the marks already say.
+//
+// `ratio` is the project's own figure and its own name — non-like engagement
+// against likes — set the way the essay's summary sets it: the count big, the
+// `:likes` small beside it. It reads `56 :0` for a piece whose breaking like
+// was deleted, which is not a division error but the finding.
+function factBlock(t, { b, measured, piece, CX }) {
+  const who = `@${b.currentHandle || b.handle}`;
+  const pre = piece.preSeal || {};
+  const nonLike = (pre.threadPosts || 0) + (pre.reposts || 0) + (pre.quotes || 0);
+  // Columns are unequal because a handle is not a number: dame has recorded
+  // breakers as long as @bolsonarosex.myatproto.social.
+  const X = [CX, CX + 330, CX + 500, CX + 660];
+  const label = (text, i) =>
+    at(text, { size: 19, by: 6 * P + HP - 8, left: X[i], color: t.inkFaint, weight: 400, ls: '0.1em' });
+  const value = (text, i, size = 30) =>
+    at(text, { size, by: 7 * P - 8, left: X[i], color: t.ink, weight: 600 });
+
+  return [
+    label('ended by', 0),
+    // Shrink rather than truncate: the name is the one thing on this card that
+    // belongs to somebody else.
+    value(who, 0, Math.max(19, Math.min(30, Math.floor(310 / (who.length * 0.49))))),
+    label('reaction', 1),
+    value(measured ? `${(b.reactionMs / 1000).toFixed(1)}s` : 'deleted', 1),
+    label('ratio', 2),
+    value(String(nonLike), 2),
+    at(`:${pre.likes || 0}`, {
+      size: 20,
+      by: 7 * P - 8,
+      left: X[2] + String(nonLike).length * 17 + 6,
+      color: t.inkMuted,
+      weight: 400,
+    }),
+    label('people', 3),
+    value(String(pre.participants || 0), 3),
+  ];
+}
+
+function ratioedCard(t, { piece, marks, scale, avatarUri }) {
+  const CX = 320, bcBy = P - LE;
+  const trackL = CX;
+  const trackR = W - PAD;
+  const trackW = trackR - trackL;
+  // The alive window gets the larger share: it's the part with a story in it.
+  const aliveW = Math.round(trackW * 0.6);
+  const gap = 10; // clearance either side of the seal rule
+  const afterL = trackL + aliveW + gap;
+  const afterW = trackR - afterL;
+  const y = 5 * P; // the coarse rule the line is drawn on
+
+  const b = piece.breaker || {};
+  const measured = typeof b.reactionMs === 'number';
+
+  const dot = (m) => {
+    const alive = m.at <= 1;
+    const size = 13;
+    const x = alive ? trackL + m.at * aliveW : afterL + (m.at - 1) * afterW;
+    return h('div', {
+      style: {
+        position: 'absolute',
+        left: Math.round(x - size / 2),
+        top: y - Math.round(size / 2),
+        width: size,
+        height: size,
+        // The like keeps the square the charts give it: it's the one mark that
+        // ends something.
+        borderRadius: m.k === 'like' ? 0 : size / 2,
+        background: scale[m.k] || t.inkMuted,
+        opacity: alive ? 1 : 0.5,
+      },
+    });
+  };
+
+  return shell(
+    t,
+    [
+      // The gutter carries how long it stood, where every other card carries
+      // the day-of-life folio. It's the piece's one number.
+      at('alive', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+      at(shortDuration(piece.lifespanMs), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+      avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+      // The real path, since a piece genuinely sits two levels down.
+      rowAt(breadcrumbParts(t, ['creating', 'ratioed']), {
+        size: 28,
+        by: bcBy,
+        left: avatarUri ? CX + 46 + 18 : CX,
+      }),
+
+      // The project's name at the size every other card gives its section. A
+      // card that only named it in the breadcrumb made the work anonymous at a
+      // glance, which is the one thing a share card cannot be. Roman rather
+      // than the gerund's italic: this is a title, not a verb.
+      at('Ratioed', { size: 104, by: 3 * P - 10, left: CX, color: t.accent }),
+
+      // Which one of them, under the name.
+      at(`take ${String(piece.take).padStart(2, '0')}`, {
+        size: 46,
+        by: 4 * P - 8,
+        left: CX,
+        weight: 600,
+        color: t.ink,
+        ls: '-0.01em',
+      }),
+
+      // The line itself, laid over the rule.
+      h('div', { style: { position: 'absolute', left: trackL, top: y - 1, width: aliveW, height: 3, background: t.inkSoft } }),
+      // Mixed toward the page rather than taken from t.rule, which at some
+      // hours of the sky palette is close enough to the paper to vanish.
+      h('div', { style: { position: 'absolute', left: afterL, top: y, width: afterW, height: 2, background: mix(t.inkSoft, t.page, 0.62) } }),
+      // The threadgate. The heaviest mark on the card, as it is on the page.
+      h('div', { style: { position: 'absolute', left: trackL + aliveW + gap / 2 - 1, top: y - 17, width: 3, height: 34, background: scale.like } }),
+      ...marks.map(dot),
+
+      // Not "alive" — the gutter says that. What this end of the line is, is
+      // the moment the post went up.
+      at('posted', { size: 21, by: 5 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 }),
+      at('after the seal', { size: 21, by: 5 * P + HP - 6, right: PAD, color: t.inkFaint, weight: 400 }),
+
+      ...factBlock(t, { b, measured, piece, CX }),
+
+      // Where the other cards put their NSID. The lexicon name is on the page
+      // itself and in the head; what a card wants at the bottom of a work that
+      // ran across more than a year is when it happened.
+      at(longDate(piece.postedAt), { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+    ],
+    { verticals: [PAD, { x: 320, strong: true }, W - PAD], halfBands: [{ from: 6 * P, to: 7 * P }] },
+  );
+}
+
 // ── HOME: H4 (index of surfaces, cascade-fade, tighter half-pitch rows) ─────
 function homeCardH4(t, { avatarUri, folio, homeIndex, nsid }) {
   const bcBy = P - LE, top0 = 2 * P + HP, sz = 32;
@@ -333,6 +537,12 @@ export function ogElement(o = {}) {
   const segs = o.segs || pathname.split('/').filter(Boolean);
   const avatarUri = SHOW_AVATAR ? (o.avatarUri || null) : null;
   const folio = o.folio || '';
+  // A piece card carries no label of its own — its headline is a duration —
+  // so it has to be picked before the "no label means home" fallback.
+  if (o.piece) {
+    return ratioedCard(t, { piece: o.piece, marks: o.marks || [], scale: o.scale || {}, avatarUri });
+  }
+
   const isHome = pathname === '/' || !o.label;
 
   if (isHome) {
