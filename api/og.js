@@ -17,10 +17,25 @@ import { ImageResponse } from '@vercel/og';
 import { FONTS } from '../og/assets/fonts.js';
 import { ICONS } from '../og/assets/icons.js';
 import { easternHour, avatarKeys, secondsUntilNextHour, folio } from '../og/time.js';
-import { ogElement, themeFromSky } from '../og/design.js';
+import { ogElement, themeFromSky, pieceMarks } from '../og/design.js';
 import { paletteForHour } from '../src/lib/skyTheme.js';
+import { ratioedScale } from '../src/lib/ratioedPalette.js';
 import { resolveSkyTuning } from '../og/skyTuning.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
+import { pieceRecord } from '../og/records.js';
+import { createRequire } from 'node:module';
+
+// The first eleven pieces were measured before records carried their own event
+// log and are drawn from this harvest — 27kB, and the only way those cards get
+// their marks at all. Required rather than imported so the file traces into the
+// serverless bundle without an import attribute; if it doesn't make it, those
+// cards lose their marks and keep everything else.
+let RATIOED_EVENTS = {};
+try {
+  RATIOED_EVENTS = createRequire(import.meta.url)('../src/data/ratioedEvents.json');
+} catch {
+  /* the eleven bundled logs are unavailable; newer pieces carry their own */
+}
 
 // One family throughout: Crimson Pro (serif) — breadcrumb, title, description,
 // and the folio + NSID marginalia (which used to be IBM Plex Mono).
@@ -86,7 +101,22 @@ export default async function handler(req, res) {
     let nsid = DEFAULT.nsid;
     let record = false;
     let body = false;
-    if (q.page) {
+    // A Ratioed piece gets its own card. Only the take (or record key) comes in
+    // on the query — everything drawn is read from the record itself, so no
+    // free text reaches the renderer and the URL stays short.
+    let piece = null;
+    let marks = [];
+    if (q.piece) {
+      const found = await pieceRecord(clampText(q.piece), origin);
+      if (found?.value?.take) {
+        piece = found.value;
+        const rkey = String(found.uri || '').split('/').pop();
+        marks = pieceMarks(piece, RATIOED_EVENTS[rkey]);
+      }
+    }
+    if (piece) {
+      // Fall through to the render with `piece` set; nothing else applies.
+    } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
       label = meta.label;
@@ -122,6 +152,11 @@ export default async function handler(req, res) {
       nsid,
       record,
       body,
+      piece,
+      marks,
+      // The same categorical scale the charts derive for this hour, so a card
+      // and the page it links to agree about which colour a like is.
+      scale: piece ? ratioedScale(hour) : null,
       segs: segsFor(pathname),
       avatarUri,
       folio: folio(folioAt),

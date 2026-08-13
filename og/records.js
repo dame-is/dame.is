@@ -326,22 +326,29 @@ function shortDuration(ms) {
  * key, so both are accepted here and neither is canonical for the piece — the
  * take number under the configured path is.
  */
+/**
+ * The piece record a `/creating/…/:piece` segment names, snapshot first and the
+ * PDS after. Shared by the crawler meta and the card renderer, which want the
+ * same record for different reasons.
+ */
+export async function pieceRecord(ref, origin) {
+  let want = String(ref ?? '');
+  try { want = decodeURIComponent(want); } catch {}
+  if (!want) return null;
+  const found = pickPiece(await fetchSnapshot(origin, 'ratioed'), want);
+  if (found) return found;
+  // The snapshot is a build artefact; a piece published since the last deploy
+  // is only on the PDS. Same reason loadPieces() re-reads it.
+  return pickPiece(await withTimeout(livePieces(), PDS_TIMEOUT_MS), want);
+}
+
 export async function pieceMeta(pathname, origin) {
   const segs = (pathname || '').split('/').filter(Boolean);
   if (segs.length !== 3 || segs[0] !== 'creating') return null;
   const parent = segs[1];
   if (parent !== RATIOED_PATH && parent !== RATIOED_DOC_RKEY) return null;
 
-  let ref = segs[2];
-  try { ref = decodeURIComponent(ref); } catch {}
-
-  let record = pickPiece(await fetchSnapshot(origin, 'ratioed'), ref);
-  if (!record) {
-    // The snapshot is a build artefact; a piece published since the last
-    // deploy is only on the PDS. Same reason loadPieces() re-reads it.
-    const live = await withTimeout(livePieces(), PDS_TIMEOUT_MS);
-    record = pickPiece(live, ref);
-  }
+  const record = await pieceRecord(segs[2], origin);
   const v = record?.value;
   if (!v?.take) return null;
 
@@ -372,6 +379,11 @@ export async function pieceMeta(pathname, origin) {
     publication: RATIOED_PUBLICATION,
     date: v.postedAt || null,
     canonicalPath: `/creating/${RATIOED_PATH}/${take}`,
+    // A piece gets a card of its own rather than the generic record card — it
+    // has a shape (how long it stood, what landed while it did) that a title
+    // and a blurb can't carry. The take is all the card needs to find it, so
+    // the query stays short and nothing free-text reaches the renderer.
+    ogQuery: `piece=${encodeURIComponent(take)}`,
   };
 }
 
