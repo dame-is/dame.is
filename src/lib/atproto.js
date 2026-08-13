@@ -204,6 +204,21 @@ export async function resolveProfiles(dids, { appview = APPVIEW } = {}) {
 }
 
 /**
+ * AppView — `app.bsky.feed.getLikes`. Who has liked a post, newest first.
+ *
+ * The AppView rather than the backlink index because this is what the Ratioed
+ * studio watches while a piece is up, and there the only thing that matters is
+ * how fast a like is visible: the whole artwork is a race between one like and
+ * the artist noticing it. The backlink index is the more complete reader and
+ * takes the measurement afterwards, once it has caught up.
+ */
+export async function getLikes(uri, { appview = APPVIEW, limit = 25 } = {}) {
+  const params = new URLSearchParams({ uri, limit: String(limit) });
+  // No HTTP cache: a stale answer here is a piece left standing.
+  return fetchJson(`${appview}/xrpc/app.bsky.feed.getLikes?${params}`, { cache: 'no-store' });
+}
+
+/**
  * AppView — `app.bsky.feed.getPostThread`. Returns a thread view (parent
  * chain + replies) anchored at the given AT URI.
  */

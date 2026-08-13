@@ -14,6 +14,7 @@ import {
   whenMarks,
   areaRadius,
   piecePath,
+  finished,
   WEEKDAYS,
   fmtDuration,
   fmtSeconds,
@@ -124,7 +125,10 @@ export default function RatioedBlock({ block, style }) {
     let alive = true;
     (async () => {
       const pds = await resolvePds(ME_DID).catch(() => null);
-      const fresh = await loadPieces(pds);
+      // Only the finished ones. A piece that is up right now has no seal to
+      // plot against and no measurement to average, and every chart here reads
+      // the project as a completed series.
+      const fresh = finished(await loadPieces(pds));
       if (alive && fresh?.length) setPieces(fresh);
     })();
     return () => {

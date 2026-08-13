@@ -1,0 +1,130 @@
+/* The Ratioed studio.
+   Three states, one page: nothing up (compose), something up (watch + seal),
+   just sealed (announce). The live state is the only one that shouts, because
+   it is the only one where a second costs something. */
+
+.rs-h2 {
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-2);
+}
+
+.rs-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+.rs-draft {
+  width: 100%;
+  font-family: var(--mono, monospace);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+/* --- a piece is up ------------------------------------------------- */
+
+.rs-live {
+  border: 1px solid var(--rule);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.rs-live-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--rule-soft);
+  padding-bottom: var(--space-2);
+}
+.rs-live-take {
+  font-size: var(--text-lg);
+  font-variant-caps: small-caps;
+}
+.rs-live-clock {
+  font-family: var(--mono, monospace);
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.rs-live-state {
+  font-size: var(--text-lg);
+  margin: var(--space-4) 0 0;
+}
+
+/* Once somebody has liked it the panel stops being informative and starts
+   being an alarm: every second between here and the seal is in the recorded
+   reaction time. */
+.rs-live.liked {
+  border-color: var(--ratioed-seal, #8c3a2e);
+  border-width: 2px;
+}
+.rs-live.liked .rs-live-state { color: var(--ratioed-seal, #8c3a2e); }
+
+.rs-seal {
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--page);
+  font-size: var(--text-base, 1rem);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rs-seal:hover { opacity: 0.85; }
+.rs-seal:disabled { opacity: 0.5; }
+.rs-live.liked .rs-seal {
+  background: var(--ratioed-seal, #8c3a2e);
+  border-color: var(--ratioed-seal, #8c3a2e);
+  color: #fff;
+}
+
+/* --- just sealed ---------------------------------------------------- */
+
+.rs-announce {
+  border: 1px solid var(--rule);
+  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.rs-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.rs-figures dt {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  margin-bottom: 2px;
+}
+.rs-figures dd {
+  margin: 0;
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
+}
+
+/* --- the series ----------------------------------------------------- */
+
+.rs-series { margin-top: var(--space-6); }
+.rs-series-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  font-size: var(--text-sm);
+}
+.rs-series-list li {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.rs-series-meta { color: var(--ink-muted); overflow-wrap: anywhere; }
+
+@media (max-width: 34rem) {
+  .rs-live-head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+  .rs-series-list li { flex-direction: column; gap: 0; }
+}

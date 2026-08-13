@@ -358,6 +358,25 @@ export function areaRadius(value, max, min, maxRadius) {
 }
 
 /**
+ * Is this piece still up?
+ *
+ * A record is written the moment the post goes up, so a piece exists before
+ * anyone has liked it and before there is anything to measure. `sealedAt` is
+ * the field that decides: no gate, no seal, no measurement. Everything that
+ * reasons about the project as a finished series has to leave these out, or a
+ * piece that has been alive for ninety seconds plots as a zero-length lifeline
+ * and drags every mean down with it.
+ */
+export function isLive(piece) {
+  return Boolean(piece) && !piece.sealedAt;
+}
+
+/** Only the pieces that have ended. What every chart and total wants. */
+export function finished(pieces) {
+  return (pieces || []).filter((p) => !isLive(p));
+}
+
+/**
  * Normalize a PDS record into the shape the charts consume. Tolerates missing
  * sub-objects so a hand-edited record can't crash the renderer.
  */
