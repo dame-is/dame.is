@@ -314,13 +314,33 @@ export function pieceMarks(value, bundled) {
   }));
 }
 
-/** `48832` → `48.8 seconds`; `905000` → `15 minutes`. The hero line. */
-function longDuration(ms) {
-  const s = (ms || 0) / 1000;
-  if (s < 90) return `${s < 10 ? s.toFixed(1) : Math.round(s)} seconds`;
-  const m = s / 60;
-  if (m < 90) return `${m < 10 ? m.toFixed(1) : Math.round(m)} minutes`;
-  return `${Math.round(m / 60)} hours`;
+/** `48832` → `49s`; `1763900` → `29m24s`. Sized for the gutter figure. */
+function shortDuration(ms) {
+  const s = Math.round((ms || 0) / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
+}
+
+/**
+ * `2026-08-13T18:21:16Z` → `August 13, 2026`, in the artist's own clock.
+ *
+ * Eastern rather than UTC for the reason the week grid is: the pieces were made
+ * at a particular time of day in a particular place, and four of them cross a
+ * date boundary when read in UTC.
+ */
+function longDate(iso) {
+  const d = new Date(iso || '');
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(d);
+  } catch {
+    return String(iso).slice(0, 10);
+  }
 }
 
 function ratioedCard(t, { piece, marks, scale, avatarUri }) {
@@ -367,8 +387,10 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
   return shell(
     t,
     [
-      at('take', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
-      at(String(piece.take).padStart(2, '0'), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+      // The gutter carries how long it stood, where every other card carries
+      // the day-of-life folio. It's the piece's one number.
+      at('alive', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+      at(shortDuration(piece.lifespanMs), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
       avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
       // The real path, since a piece genuinely sits two levels down.
       rowAt(breadcrumbParts(t, ['creating', 'ratioed']), {
@@ -377,14 +399,14 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
         left: avatarUri ? CX + 46 + 18 : CX,
       }),
 
-      // The project's name at the size every other card gives its section —
-      // accent italic, the .gerund treatment. A card that only named it in the
-      // breadcrumb made the work anonymous at a glance, which is the one thing
-      // a share card cannot be.
-      at('Ratioed', { size: 104, by: 3 * P - 4, left: CX, italic: true, color: t.accent }),
+      // The project's name at the size every other card gives its section. A
+      // card that only named it in the breadcrumb made the work anonymous at a
+      // glance, which is the one thing a share card cannot be. Roman rather
+      // than the gerund's italic: this is a title, not a verb.
+      at('Ratioed', { size: 104, by: 3 * P - 10, left: CX, color: t.accent }),
 
-      // Then the finding, in ink: how long this one stood.
-      at(`alive ${longDuration(piece.lifespanMs)}`, {
+      // Which one of them, under the name.
+      at(`take ${String(piece.take).padStart(2, '0')}`, {
         size: 46,
         by: 4 * P - 8,
         left: CX,
@@ -402,7 +424,9 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
       h('div', { style: { position: 'absolute', left: trackL + aliveW + gap / 2 - 1, top: y - 17, width: 3, height: 34, background: scale.like } }),
       ...marks.map(dot),
 
-      at('alive', { size: 21, by: 5 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 }),
+      // Not "alive" — the gutter says that. What this end of the line is, is
+      // the moment the post went up.
+      at('posted', { size: 21, by: 5 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 }),
       at('after the seal', { size: 21, by: 5 * P + HP - 6, right: PAD, color: t.inkFaint, weight: 400 }),
 
       at(
@@ -416,10 +440,10 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
         { size: 27, by: 7 * P - 8, left: CX, color: t.inkMuted, weight: 400 },
       ),
 
-      at('is.dame.creating.ratioed.piece', { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
-      // Which day it happened. The series runs across more than a year, and the
-      // gutter is carrying the take number where a date would otherwise sit.
-      at((piece.postedAt || '').slice(0, 10), { size: 22, by: 8 * P - LE, right: PAD, color: t.inkFaint }),
+      // Where the other cards put their NSID. The lexicon name is on the page
+      // itself and in the head; what a card wants at the bottom of a work that
+      // ran across more than a year is when it happened.
+      at(longDate(piece.postedAt), { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
     ],
     { verticals: [PAD, { x: 320, strong: true }, W - PAD], halfBands: [{ from: 6 * P, to: 7 * P }] },
   );
