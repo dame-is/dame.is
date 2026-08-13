@@ -343,6 +343,48 @@ function longDate(iso) {
   }
 }
 
+
+// The block under the line: label over figure, the same marginalia pattern the
+// gutter uses, rather than a sentence. Four facts, and none of them a repeat of
+// what the marks already say.
+//
+// `ratio` is the project's own figure and its own name — non-like engagement
+// against likes — set the way the essay's summary sets it: the count big, the
+// `:likes` small beside it. It reads `56 :0` for a piece whose breaking like
+// was deleted, which is not a division error but the finding.
+function factBlock(t, { b, measured, piece, CX }) {
+  const who = `@${b.currentHandle || b.handle}`;
+  const pre = piece.preSeal || {};
+  const nonLike = (pre.threadPosts || 0) + (pre.reposts || 0) + (pre.quotes || 0);
+  // Columns are unequal because a handle is not a number: dame has recorded
+  // breakers as long as @bolsonarosex.myatproto.social.
+  const X = [CX, CX + 330, CX + 500, CX + 660];
+  const label = (text, i) =>
+    at(text, { size: 19, by: 6 * P + HP - 8, left: X[i], color: t.inkFaint, weight: 400, ls: '0.1em' });
+  const value = (text, i, size = 30) =>
+    at(text, { size, by: 7 * P - 8, left: X[i], color: t.ink, weight: 600 });
+
+  return [
+    label('ended by', 0),
+    // Shrink rather than truncate: the name is the one thing on this card that
+    // belongs to somebody else.
+    value(who, 0, Math.max(19, Math.min(30, Math.floor(310 / (who.length * 0.49))))),
+    label('reaction', 1),
+    value(measured ? `${(b.reactionMs / 1000).toFixed(1)}s` : 'deleted', 1),
+    label('ratio', 2),
+    value(String(nonLike), 2),
+    at(`:${pre.likes || 0}`, {
+      size: 20,
+      by: 7 * P - 8,
+      left: X[2] + String(nonLike).length * 17 + 6,
+      color: t.inkMuted,
+      weight: 400,
+    }),
+    label('people', 3),
+    value(String(pre.participants || 0), 3),
+  ];
+}
+
 function ratioedCard(t, { piece, marks, scale, avatarUri }) {
   const CX = 320, bcBy = P - LE;
   const trackL = CX;
@@ -357,12 +399,6 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
 
   const b = piece.breaker || {};
   const measured = typeof b.reactionMs === 'number';
-  const people = piece.preSeal?.participants || 0;
-  const since =
-    (piece.postSeal?.likes || 0) +
-    (piece.postSeal?.reposts || 0) +
-    (piece.postSeal?.quotes || 0) +
-    (piece.postSeal?.threadPosts || 0);
 
   const dot = (m) => {
     const alive = m.at <= 1;
@@ -429,16 +465,7 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
       at('posted', { size: 21, by: 5 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 }),
       at('after the seal', { size: 21, by: 5 * P + HP - 6, right: PAD, color: t.inkFaint, weight: 400 }),
 
-      at(
-        measured
-          ? `ended by @${b.currentHandle || b.handle} · caught in ${(b.reactionMs / 1000).toFixed(1)}s`
-          : `ended by @${b.currentHandle || b.handle} · their like has been deleted`,
-        { size: 27, by: 6 * P + HP - 8, left: CX, color: t.inkSoft, weight: 400 },
-      ),
-      at(
-        `${people === 0 ? 'nobody' : `${people} ${people === 1 ? 'person' : 'people'}`} while it was alive · ${since} since`,
-        { size: 27, by: 7 * P - 8, left: CX, color: t.inkMuted, weight: 400 },
-      ),
+      ...factBlock(t, { b, measured, piece, CX }),
 
       // Where the other cards put their NSID. The lexicon name is on the page
       // itself and in the head; what a card wants at the bottom of a work that
