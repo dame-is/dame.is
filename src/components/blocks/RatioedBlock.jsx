@@ -34,10 +34,26 @@ const EVENT_VARIANTS = new Set(['lifelines', 'hidden', 'participants']);
 const KIND_LABEL = { reply: 'reply', repost: 'repost', quote: 'quote', like: 'like' };
 const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
 
-// The measured reaction window, in seconds. Every deleted like landed inside
-// it, so the ghost markers are drawn across exactly this band.
-const REACTION_LO = 10;
-const REACTION_HI = 17;
+/**
+ * The window a deleted like must have fallen in: the range of every reaction
+ * that IS still measurable, in seconds. Both charts draw their inferred bars
+ * across exactly this band, because it's the only evidence there is about when
+ * a like nobody can see any more was cast.
+ *
+ * Derived, not fixed. It was a hardcoded 10–17s — the observed range at the
+ * time — and stopped being true the moment take #13 was measured at 6.4s. The
+ * inferred bars then claimed a floor that a measured piece had already gone
+ * under, and contradicted the chart's own caption, which reads the range off
+ * the data. Null when nothing is measurable, in which case there is nothing to
+ * infer from and no band gets drawn.
+ */
+function reactionBand(pieces) {
+  const ms = (pieces || [])
+    .map((p) => p.breaker?.reactionMs)
+    .filter((v) => typeof v === 'number');
+  if (!ms.length) return null;
+  return { lo: Math.min(...ms) / 1000, hi: Math.max(...ms) / 1000 };
+}
 
 /**
  * What each chart says about itself when the block carries no caption of its
@@ -618,6 +634,7 @@ function Lifelines({ pieces, events, stats, deltas, parent }) {
   const [openTake, setOpenTake] = useState(null);
 
   const maxLife = stats.maxLifespanMs / 1000 || 1;
+  const band = useMemo(() => reactionBand(pieces), [pieces]);
   const maxAft = useMemo(() => {
     if (!events) return 1;
     let m = 1;
@@ -725,13 +742,13 @@ function Lifelines({ pieces, events, stats, deltas, parent }) {
                 </span>
                 <span className="ratioed-track">
                   <span className="ratioed-bar" style={{ width: `${pct}%` }} />
-                  {ghost && (
+                  {ghost && band && (
                     <span
                       className="ratioed-ghost"
                       title="inferred window for the deleted like"
                       style={{
-                        left: `${((life - REACTION_HI) / life) * pct}%`,
-                        width: `${Math.max(((REACTION_HI - REACTION_LO) / life) * pct, 0.9)}%`,
+                        left: `${((life - band.hi) / life) * pct}%`,
+                        width: `${Math.max(((band.hi - band.lo) / life) * pct, 0.9)}%`,
                       }}
                     />
                   )}
@@ -878,6 +895,7 @@ function Mix({ m }) {
 
 function Reaction({ pieces }) {
   const MAX = 20000;
+  const band = reactionBand(pieces);
   // Chronological, not fastest-first: the point of this chart is that the
   // reaction time holds steady across thirteen months and wildly different
   // lifespans. Sorting by duration would hide exactly that.
@@ -887,8 +905,8 @@ function Reaction({ pieces }) {
       {rows.map((p) => {
         const ms = p.breaker?.reactionMs;
         const inferred = typeof ms !== 'number';
-        const lo = (REACTION_LO * 1000) / MAX;
-        const hi = (REACTION_HI * 1000) / MAX;
+        const lo = ((band?.lo || 0) * 1000) / MAX;
+        const hi = ((band?.hi || 0) * 1000) / MAX;
         return (
           <div className={`ratioed-react${inferred ? ' inferred' : ''}`} key={p.rkey}>
             <span className="ratioed-react-n">
@@ -904,7 +922,7 @@ function Reaction({ pieces }) {
                 className="ratioed-react-fill"
                 style={{ width: `${(inferred ? lo : ms / MAX) * 100}%` }}
               />
-              {inferred && (
+              {inferred && band && (
                 <span
                   className="ratioed-react-band"
                   style={{ left: `${lo * 100}%`, width: `${(hi - lo) * 100}%` }}
@@ -912,7 +930,11 @@ function Reaction({ pieces }) {
               )}
             </span>
             <span className="ratioed-react-v">
-              {inferred ? `${REACTION_LO}–${REACTION_HI}s` : fmtSeconds(ms)}
+              {!inferred
+                ? fmtSeconds(ms)
+                : band
+                  ? `${band.lo.toFixed(1)}–${band.hi.toFixed(1)}s`
+                  : 'unmeasurable'}
             </span>
           </div>
         );

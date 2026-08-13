@@ -141,12 +141,13 @@ export const RATIOED_PATH = 'ratioed';
  * overview of the project, and belongs with the creative works); this is the
  * masthead the per-piece pages carry.
  *
- * Create it with `node scripts/portfolio/create-publication.mjs --name Ratioed
- * --url https://dame.is/creating/ratioed` and paste the printed `at://` URI
- * here. While it stays null the piece pages simply advertise no publication —
- * everything else works unchanged.
+ * Made in the admin Publications panel, which shows each publication's `at://`
+ * URI for exactly this. Its `url` must stay `https://dame.is/creating/ratioed`
+ * — verification fetches `{url}/.well-known/site.standard.publication`, which
+ * api/well-known.js answers at the path RATIOED_PATH names above.
  */
-export const RATIOED_PUBLICATION = null;
+export const RATIOED_PUBLICATION =
+  'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/site.standard.publication/3msyhy6r7af2p';
 
 // --- are.na ------------------------------------------------------------------
 // The /curating galleries render live from are.na (ARENA_CHANNEL_NSID records
