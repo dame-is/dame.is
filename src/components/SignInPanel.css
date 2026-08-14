@@ -43,9 +43,11 @@
   transition: background 120ms ease, color 120ms ease;
 }
 
-.signin-button:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
+@media (hover: hover) {
+  .signin-button:hover:not(:disabled) {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
 }
 
 .signin-button:disabled {
@@ -261,7 +263,6 @@
   border-bottom: none;
 }
 
-.account-action:hover,
 .account-action:focus-visible {
   color: var(--accent);
 }
@@ -273,7 +274,19 @@
   transition: color 120ms ease;
 }
 
-.account-action:hover .account-action-glyph,
 .account-action:focus-visible .account-action-glyph {
   color: var(--accent);
+}
+
+/* The rows these hover tints belong to are where the two-tap surfaced: tapping
+   Admin lit the row and its glyph, and Safari swallowed that tap's click. Only
+   hover-capable pointers get the tint now — see the note in typography.css. */
+@media (hover: hover) {
+  .account-action:hover {
+    color: var(--accent);
+  }
+
+  .account-action:hover .account-action-glyph {
+    color: var(--accent);
+  }
 }

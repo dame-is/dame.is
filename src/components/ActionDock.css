@@ -163,9 +163,13 @@
   transition: background 120ms ease, color 120ms ease;
 }
 
-.dock-route:hover {
-  background: transparent;
-  color: var(--accent);
+/* Hover-capable pointers only — a tap that repaints the row under the finger
+   costs iOS the click that should have followed it. See typography.css. */
+@media (hover: hover) {
+  .dock-route:hover {
+    background: transparent;
+    color: var(--accent);
+  }
 }
 
 .dock-route.is-active {
@@ -204,9 +208,11 @@
   transition: color 120ms ease;
 }
 
-.dock-tool:hover {
-  background: transparent;
-  color: var(--accent);
+@media (hover: hover) {
+  .dock-tool:hover {
+    background: transparent;
+    color: var(--accent);
+  }
 }
 
 /* The display/tool button groups sit side-by-side in one row, with no
@@ -245,10 +251,16 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.dock-tool-icon:hover,
 .dock-tool-icon:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .dock-tool-icon:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+  }
 }
 
 .dock-tool-icon svg {
