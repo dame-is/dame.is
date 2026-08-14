@@ -6,6 +6,7 @@
   "scripts": {
     "prefetch": "node scripts/prefetch.mjs",
     "dev": "vite",
+    "harness": "vite --config vite.harness.config.js",
     "build": "node scripts/prefetch.mjs && vite build",
     "build:offline": "vite build",
     "preview": "vite preview",
