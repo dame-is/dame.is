@@ -1,10 +1,10 @@
 // A Jetstream subscriber that watches one post.
 //
-// Jetstream (https://github.com/bluesky-social/jetstream) is the firehose as
-// plain JSON over a websocket. It can filter by collection and by author, but
+// Jetstream v2 (https://bsky.network/docs/jetstream) is the firehose as plain
+// JSON over a websocket. It can filter by collection and by author, but
 // NOT by what a record points at — so watching one post means taking every
 // like, repost and post on the network and testing each one's subject. That is
-// roughly 320 messages a second, 180 KB/s, measured. Expensive, and worth it
+// roughly 260 messages a second, 166 KB/s, measured. Expensive, and worth it
 // for exactly one thing: a Ratioed piece's reaction time is six to seventeen
 // seconds, and polling an API every four seconds spends a quarter of that
 // window waiting. The stream arrives in real time.
@@ -17,7 +17,8 @@
 // them, and this is the only way to watch that happen rather than infer it
 // afterwards from an absence.
 
-const DEFAULT_ENDPOINT = 'wss://jetstream2.us-east.bsky.network/subscribe';
+const DEFAULT_ENDPOINT =
+  'wss://jetstream.us-east.bsky.network/xrpc/network.bsky.jetstream.subscribeEvents';
 
 // The three collections a piece can be pointed at from. Same set the backlink
 // reader uses (see fetchPieceRecords), for the same reason.
@@ -26,7 +27,7 @@ const COLLECTIONS = ['app.bsky.feed.like', 'app.bsky.feed.repost', 'app.bsky.fee
 const BACKOFF_MS = [1000, 2000, 5000, 10000, 30000];
 
 // How far back a reconnect will replay. See replayCursor.
-const MAX_REPLAY_US = 30_000_000;
+const MAX_REPLAY_MS = 30_000;
 
 // What one watch is allowed to cost before it stops itself. ~24 minutes at the
 // measured rate, and past that a piece is long-lived enough that four seconds
@@ -45,40 +46,52 @@ const MAX_TRACKED = 2000;
 /**
  * The cursor a reconnect should ask for, or null to start live.
  *
- * A cursor is how a dropped socket picks up what it missed. It is also how a
+ * v2 numbers every event with a `seq`, so resuming is exact — no rewind, no
+ * duplicates, no gap. What still needs deciding is WHETHER to resume: a cursor
+ * is how a dropped socket recovers the second it missed, and it is also how a
  * laptop that slept for an hour asks Jetstream to send an hour of firehose as
- * fast as it can, which at the measured rate is about a gigabyte. Past
- * MAX_REPLAY_US it starts live instead: the studio polls underneath and the
- * backlink index takes the real measurement afterwards, so a long gap costs
- * promptness, not data.
+ * fast as it will go, which at the measured rate is about a gigabyte. That
+ * decision is made on the clock, not the sequence number, because sequence
+ * numbers say nothing about elapsed time.
+ *
+ * Past MAX_REPLAY_MS it starts live: the studio polls underneath and the
+ * backlink index measures afterwards, so a long gap costs promptness, not data.
  */
-export function replayCursor(cursorUs, nowMs = Date.now()) {
-  if (!cursorUs) return null;
-  const gap = nowMs * 1000 - cursorUs;
-  if (gap < 0 || gap >= MAX_REPLAY_US) return null;
-  // A second of overlap, so a reconnect can't drop the one message this whole
-  // subscription exists for. Duplicates are the caller's problem and cheap; a
-  // missed like is not recoverable.
-  return cursorUs - 1_000_000;
+export function replayCursor(lastSeq, lastTimeMs, nowMs = Date.now()) {
+  if (!lastSeq || !lastTimeMs) return null;
+  const gap = nowMs - lastTimeMs;
+  if (gap < 0 || gap >= MAX_REPLAY_MS) return null;
+  return lastSeq;
 }
 
 /**
- * `time_us` off the raw string, without parsing the message.
+ * A number field off the raw string, without parsing the message.
  *
  * The cursor has to advance on every message, including the ones this never
  * looks at — otherwise a reconnect resumes from wherever the last MATCHING
- * event was, which on a quiet piece is the moment it was posted.
+ * event was, which on a quiet piece is the moment it was posted. Parsing every
+ * message to learn that costs 18x what reading it out of the string does.
  */
-function timeUsOf(raw) {
-  const i = raw.indexOf('"time_us":');
+function numberField(raw, key) {
+  const i = raw.indexOf(key);
   if (i < 0) return 0;
-  let end = i + 10;
+  let end = i + key.length;
   while (end < raw.length) {
     const ch = raw.charCodeAt(end);
     if (ch < 48 || ch > 57) break;
     end += 1;
   }
-  return Number(raw.slice(i + 10, end)) || 0;
+  return Number(raw.slice(i + key.length, end)) || 0;
+}
+
+/** `"time":"2026-08-14T00:22:52.861690Z"` → epoch ms, without parsing. */
+function timeMsOf(raw) {
+  const i = raw.indexOf('"time":"');
+  if (i < 0) return 0;
+  const end = raw.indexOf('"', i + 8);
+  if (end < 0) return 0;
+  const ms = Date.parse(raw.slice(i + 8, end));
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 /**
@@ -104,7 +117,7 @@ export function classify(collection, record, subject) {
 /**
  * Watch one post. Returns a function that closes the socket for good.
  *
- * `onEvent` receives `{ kind, op, did, rkey, timeUs, text }` — `op` is
+ * `onEvent` receives `{ kind, op, did, rkey, seq, time, text }` — `op` is
  * `'create'` or `'delete'`. A delete carries no record, so there is nothing on
  * it to match against a subject; only deletes of records this subscription
  * ALREADY reported are passed on. That means a like cast before the socket
@@ -124,7 +137,8 @@ export function watchSubject(
   let ws = null;
   let stopped = false;
   let attempt = 0;
-  let cursorUs = null;
+  let lastSeq = 0;
+  let lastTimeMs = 0;
   let bytes = 0;
   let seen = 0;
   let timer = null;
@@ -145,8 +159,11 @@ export function watchSubject(
   const connect = () => {
     if (stopped) return;
     const params = new URLSearchParams();
-    for (const c of COLLECTIONS) params.append('wantedCollections', c);
-    const cursor = replayCursor(cursorUs);
+    for (const c of COLLECTIONS) params.append('collections', c);
+    // Commits only. Identity and account events can't point at a post, and
+    // asking for them costs bytes for nothing.
+    params.append('kinds', 'commit');
+    const cursor = replayCursor(lastSeq, lastTimeMs);
     if (cursor) params.set('cursor', String(cursor));
 
     status('connecting');
@@ -178,14 +195,16 @@ export function watchSubject(
       }
 
       // The cursor advances on everything, matched or not.
-      const t = timeUsOf(raw);
-      if (t) cursorUs = t;
+      const seq = numberField(raw, '"seq":');
+      if (seq) lastSeq = seq;
+      const t = timeMsOf(raw);
+      if (t) lastTimeMs = t;
 
       // Reject before parsing. A record that points at this post carries the
       // post's key in its text; a substring test costs 0.6µs against 11µs to
       // parse, and better than 99.9% of the firehose fails it. Deletes have no
-      // subject in them at all, so they're let through to the parser — they're
-      // 6% of traffic, which is affordable.
+      // subject in them at all, so they're let through to the parser — on v2
+      // they're under 2% of traffic, which is affordable.
       if (!raw.includes(subjectKey) && !raw.includes(DELETE_MARK)) return;
 
       let e;
@@ -194,14 +213,16 @@ export function watchSubject(
       } catch {
         return;
       }
-      const c = e.commit;
-      if (e.kind !== 'commit' || !c) return;
+      // v2 wraps every event in an envelope and puts the commit's fields flat
+      // on the payload, where v1 nested them under `commit`.
+      const c = e.payload;
+      if (!c || !c.collection) return;
 
       if (c.operation === 'delete') {
         const kind = mine.get(c.rkey);
         if (!kind) return;
         mine.delete(c.rkey);
-        onEvent?.({ kind, op: 'delete', did: e.did, rkey: c.rkey, timeUs: e.time_us });
+        onEvent?.({ kind, op: 'delete', did: c.did, rkey: c.rkey, seq: c.seq, time: c.time });
         return;
       }
       const kind = classify(c.collection, c.record, subject);
@@ -212,9 +233,10 @@ export function watchSubject(
       onEvent?.({
         kind,
         op: 'create',
-        did: e.did,
+        did: c.did,
         rkey: c.rkey,
-        timeUs: e.time_us,
+        seq: c.seq,
+        time: c.time,
         text: typeof c.record?.text === 'string' ? c.record.text : '',
       });
       status('open');

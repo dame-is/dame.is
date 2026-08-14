@@ -658,7 +658,7 @@ export default function RatioedStudio({ agent, did }) {
             {feed.length === 0 ? (
               <p className="admin-field-hint rs-feed-empty">
                 Nothing yet. Every like, repost, quote and reply on the network is arriving here and
-                being tested against this post — ~180&nbsp;KB/s, which is what buys sub-second
+                being tested against this post — ~166&nbsp;KB/s, which is what buys sub-second
                 notice instead of a {WATCH_MS / 1000}s poll. It stops itself at 256&nbsp;MB, and
                 the poll carries on either way.
               </p>
