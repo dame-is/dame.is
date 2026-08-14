@@ -25,6 +25,62 @@ const COLLECTIONS = ['app.bsky.feed.like', 'app.bsky.feed.repost', 'app.bsky.fee
 
 const BACKOFF_MS = [1000, 2000, 5000, 10000, 30000];
 
+// How far back a reconnect will replay. See replayCursor.
+const MAX_REPLAY_US = 30_000_000;
+
+// What one watch is allowed to cost before it stops itself. ~24 minutes at the
+// measured rate, and past that a piece is long-lived enough that four seconds
+// of notice no longer decides anything. Stopping is reported, not silent.
+const DEFAULT_BUDGET_BYTES = 256 * 1024 * 1024;
+
+// Deletes name a collection and a record key and nothing else, so they can't be
+// pre-filtered by subject — but they're only ~6% of traffic, so parsing them
+// all is cheap. This is the literal shape on the wire.
+const DELETE_MARK = '"operation":"delete"';
+
+// Record keys held for delete-matching. A Ratioed piece draws tens of records,
+// but this must not be able to grow without bound on a busy post.
+const MAX_TRACKED = 2000;
+
+/**
+ * The cursor a reconnect should ask for, or null to start live.
+ *
+ * A cursor is how a dropped socket picks up what it missed. It is also how a
+ * laptop that slept for an hour asks Jetstream to send an hour of firehose as
+ * fast as it can, which at the measured rate is about a gigabyte. Past
+ * MAX_REPLAY_US it starts live instead: the studio polls underneath and the
+ * backlink index takes the real measurement afterwards, so a long gap costs
+ * promptness, not data.
+ */
+export function replayCursor(cursorUs, nowMs = Date.now()) {
+  if (!cursorUs) return null;
+  const gap = nowMs * 1000 - cursorUs;
+  if (gap < 0 || gap >= MAX_REPLAY_US) return null;
+  // A second of overlap, so a reconnect can't drop the one message this whole
+  // subscription exists for. Duplicates are the caller's problem and cheap; a
+  // missed like is not recoverable.
+  return cursorUs - 1_000_000;
+}
+
+/**
+ * `time_us` off the raw string, without parsing the message.
+ *
+ * The cursor has to advance on every message, including the ones this never
+ * looks at — otherwise a reconnect resumes from wherever the last MATCHING
+ * event was, which on a quiet piece is the moment it was posted.
+ */
+function timeUsOf(raw) {
+  const i = raw.indexOf('"time_us":');
+  if (i < 0) return 0;
+  let end = i + 10;
+  while (end < raw.length) {
+    const ch = raw.charCodeAt(end);
+    if (ch < 48 || ch > 57) break;
+    end += 1;
+  }
+  return Number(raw.slice(i + 10, end)) || 0;
+}
+
 /**
  * Which way this record points at `subject`, or null if it doesn't.
  *
@@ -57,11 +113,14 @@ export function classify(collection, record, subject) {
  * watches are watched from the moment they go up.
  *
  * `onStatus` receives `{ state, bytes, seen }`, where `state` is
- * `'connecting' | 'open' | 'closed'`. `bytes` is what the stream has cost so
- * far — surfaced because a caller should be able to see that number and decide
- * to stop.
+ * `'connecting' | 'open' | 'closed' | 'spent'`. `bytes` is what the stream has
+ * cost so far — surfaced because a caller should be able to see that number and
+ * decide to stop. `'spent'` is this deciding for them at `budgetBytes`.
  */
-export function watchSubject(subject, { onEvent, onStatus, endpoint = DEFAULT_ENDPOINT } = {}) {
+export function watchSubject(
+  subject,
+  { onEvent, onStatus, endpoint = DEFAULT_ENDPOINT, budgetBytes = DEFAULT_BUDGET_BYTES } = {},
+) {
   let ws = null;
   let stopped = false;
   let attempt = 0;
@@ -73,17 +132,22 @@ export function watchSubject(subject, { onEvent, onStatus, endpoint = DEFAULT_EN
   // a collection and an rkey, so this is the only way to know whether one is
   // ours — and without it the caller hears about every deletion on the network.
   const mine = new Map(); // rkey → kind
+  // The post's own record key: distinctive enough that its presence in a raw
+  // message is a near-certain sign the record points here, and cheap to test.
+  const subjectKey = String(subject || '').split('/').pop() || '\u0000';
 
-  const status = (state) => onStatus?.({ state, bytes, seen });
+  // Spending the budget is terminal, and closing the socket to enforce it fires
+  // onclose — which would otherwise report 'closed' over the top of 'spent' and
+  // leave the caller showing a stopped stream as merely disconnected.
+  let spent = false;
+  const status = (state) => onStatus?.({ state: spent ? 'spent' : state, bytes, seen });
 
   const connect = () => {
     if (stopped) return;
     const params = new URLSearchParams();
     for (const c of COLLECTIONS) params.append('wantedCollections', c);
-    // Replay from a second before the last thing we saw, so a reconnect can't
-    // drop the one message this whole subscription exists for. Duplicates are
-    // the caller's problem and cheap; a missed like is not recoverable.
-    if (cursorUs) params.set('cursor', String(cursorUs - 1_000_000));
+    const cursor = replayCursor(cursorUs);
+    if (cursor) params.set('cursor', String(cursor));
 
     status('connecting');
     try {
@@ -99,14 +163,37 @@ export function watchSubject(subject, { onEvent, onStatus, endpoint = DEFAULT_EN
     };
 
     ws.onmessage = (msg) => {
-      bytes += typeof msg.data === 'string' ? msg.data.length : 0;
+      const raw = typeof msg.data === 'string' ? msg.data : '';
+      bytes += raw.length;
+      if (bytes > budgetBytes) {
+        stopped = true;
+        spent = true;
+        status('spent');
+        try {
+          ws?.close();
+        } catch {
+          /* already gone */
+        }
+        return;
+      }
+
+      // The cursor advances on everything, matched or not.
+      const t = timeUsOf(raw);
+      if (t) cursorUs = t;
+
+      // Reject before parsing. A record that points at this post carries the
+      // post's key in its text; a substring test costs 0.6µs against 11µs to
+      // parse, and better than 99.9% of the firehose fails it. Deletes have no
+      // subject in them at all, so they're let through to the parser — they're
+      // 6% of traffic, which is affordable.
+      if (!raw.includes(subjectKey) && !raw.includes(DELETE_MARK)) return;
+
       let e;
       try {
-        e = JSON.parse(msg.data);
+        e = JSON.parse(raw);
       } catch {
         return;
       }
-      if (e.time_us) cursorUs = e.time_us;
       const c = e.commit;
       if (e.kind !== 'commit' || !c) return;
 
@@ -121,6 +208,7 @@ export function watchSubject(subject, { onEvent, onStatus, endpoint = DEFAULT_EN
       if (!kind) return;
       seen += 1;
       mine.set(c.rkey, kind);
+      if (mine.size > MAX_TRACKED) mine.delete(mine.keys().next().value);
       onEvent?.({
         kind,
         op: 'create',

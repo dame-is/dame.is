@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classify } from './jetstream.js';
+import { classify, replayCursor } from './jetstream.js';
 
 const SUBJECT = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3msyb4kntps2e';
 const OTHER = 'at://did:plc:someone/app.bsky.feed.post/3zzzzzzzzzz2z';
@@ -47,5 +47,36 @@ describe('classify', () => {
     expect(classify('app.bsky.feed.like', {}, SUBJECT)).toBeNull();
     expect(classify('app.bsky.feed.like', { subject: 'not-an-object' }, SUBJECT)).toBeNull();
     expect(classify('app.bsky.feed.like', { subject: { uri: SUBJECT } }, null)).toBeNull();
+  });
+});
+
+describe('replayCursor', () => {
+  const NOW = 1_786_666_000_000; // ms
+  const us = (ms) => ms * 1000;
+
+  it('asks for a second of overlap after a brief drop', () => {
+    const cursor = us(NOW - 2000); // saw something 2s ago
+    expect(replayCursor(cursor, NOW)).toBe(cursor - 1_000_000);
+  });
+
+  // The failure this exists for: a laptop sleeps, wakes, and asks Jetstream for
+  // an hour of firehose as fast as it will send it — about a gigabyte.
+  it('starts live rather than replaying a long gap', () => {
+    expect(replayCursor(us(NOW - 60 * 60 * 1000), NOW)).toBeNull();
+    expect(replayCursor(us(NOW - 31_000), NOW)).toBeNull();
+  });
+
+  it('holds the line right at the bound', () => {
+    expect(replayCursor(us(NOW - 29_000), NOW)).not.toBeNull();
+    expect(replayCursor(us(NOW - 30_000), NOW)).toBeNull();
+  });
+
+  it('starts live when nothing has been seen yet', () => {
+    expect(replayCursor(null, NOW)).toBeNull();
+    expect(replayCursor(0, NOW)).toBeNull();
+  });
+
+  it('starts live on a cursor from the future, which a clock skew can produce', () => {
+    expect(replayCursor(us(NOW + 5000), NOW)).toBeNull();
   });
 });
