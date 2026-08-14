@@ -233,7 +233,15 @@ export default function RatioedPiece() {
           </div>
           <div>
             <dt>reaction</dt>
-            <dd>{b.likeSurvives ? fmtSeconds(b.reactionMs) : <span className="ratioed-piece-gone">deleted</span>}</dd>
+            {/* A recovered time comes from a like that no longer exists — the
+                figure is real, the record it was read from is gone. */}
+            <dd>
+              {typeof b.reactionMs === 'number' ? (
+                fmtSeconds(b.reactionMs)
+              ) : (
+                <span className="ratioed-piece-gone">deleted</span>
+              )}
+            </dd>
           </div>
           <div>
             <dt>while alive</dt>

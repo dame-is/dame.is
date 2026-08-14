@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classify, replayCursor } from './jetstream.js';
+import { classify, replayCursor, withinLookback, replayWindow } from './jetstream.js';
 
 const SUBJECT = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3msyb4kntps2e';
 const OTHER = 'at://did:plc:someone/app.bsky.feed.post/3zzzzzzzzzz2z';
@@ -82,5 +82,49 @@ describe('replayCursor', () => {
   // stream must not be able to request an unbounded replay.
   it('starts live on a timestamp from the future, which clock skew produces', () => {
     expect(replayCursor(SEQ, NOW + 5000, NOW)).toBeNull();
+  });
+});
+
+describe('withinLookback', () => {
+  const NOW = 1_786_666_000_000;
+  const hours = (h) => NOW - h * 3600 * 1000;
+
+  it('covers the window the live socket will actually replay', () => {
+    expect(withinLookback(hours(1), NOW)).toBe(true);
+    expect(withinLookback(hours(35), NOW)).toBe(true);
+  });
+
+  // Past this the like that ended a piece is gone for good — which is what
+  // happened to six of the first thirteen.
+  it('refuses anything older than the lookback', () => {
+    expect(withinLookback(hours(36), NOW)).toBe(false);
+    expect(withinLookback(hours(24 * 30), NOW)).toBe(false);
+  });
+
+  it('refuses the future and the unset', () => {
+    expect(withinLookback(NOW + 5000, NOW)).toBe(false);
+    expect(withinLookback(0, NOW)).toBe(false);
+    expect(withinLookback(null, NOW)).toBe(false);
+  });
+});
+
+describe('replayWindow guards', () => {
+  it('refuses a window it cannot reach rather than opening a socket', async () => {
+    const r = await replayWindow('at://did:plc:x/app.bsky.feed.post/abc', {
+      fromMs: Date.now() - 40 * 3600 * 1000,
+      toMs: Date.now() - 39 * 3600 * 1000,
+    });
+    expect(r.events).toEqual([]);
+    expect(r.reachedEnd).toBe(false);
+    expect(r.error).toMatch(/lookback/);
+  });
+
+  it('refuses a nonsensical window', async () => {
+    const now = Date.now();
+    for (const w of [{ fromMs: now, toMs: now - 1000 }, { fromMs: 0, toMs: now }, {}]) {
+      const r = await replayWindow('at://did:plc:x/app.bsky.feed.post/abc', w);
+      expect(r.error).toBeTruthy();
+      expect(r.events).toEqual([]);
+    }
   });
 });
