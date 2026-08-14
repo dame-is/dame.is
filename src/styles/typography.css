@@ -43,9 +43,25 @@ a {
   transition: color 120ms ease, text-decoration-color 120ms ease;
 }
 
-a:hover {
-  color: var(--accent);
-  text-decoration-color: var(--accent);
+/* Hover tint only where a pointer can actually hover.
+
+   On touch, iOS synthesizes a mouseover before the click on the first tap. When
+   handling it repaints what's under the finger — which a color change plus a
+   120ms transition does — Safari withholds that tap's click, so the tap has to
+   be repeated, and the hover state stays stuck on whatever was touched until
+   something else is. That's the "tap Admin twice" bug in the dock's account
+   view: the first tap only lit the row up.
+
+   `(hover: hover)` keeps the affordance for mice and trackpads and leaves touch
+   with neither the stuck state nor the swallowed tap. Guarding it here is what
+   makes the component-level guards bite: `a:hover` carries a pseudo-class, so
+   at 0,1,1 it outranks a plain `.some-row { color }` and would keep tinting any
+   link on hover even with the component's own hover rule shut off. */
+@media (hover: hover) {
+  a:hover {
+    color: var(--accent);
+    text-decoration-color: var(--accent);
+  }
 }
 
 code, pre {
