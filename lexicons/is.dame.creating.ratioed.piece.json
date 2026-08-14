@@ -107,11 +107,15 @@
         },
         "likeSurvives": {
           "type": "boolean",
-          "description": "False when the like was deleted afterwards. The like is then unrecoverable and reactionMs is absent — the only evidence it existed is the threadgate firing with no visible cause."
+          "description": "False when the like was deleted afterwards. The only evidence it existed is then the threadgate firing with no visible cause, plus the reply naming who cast it. reactionMs is normally absent in that case — unless it was recovered, see reactionRecovered."
         },
         "reactionMs": {
           "type": "integer",
-          "description": "Milliseconds between the breaking like and the threadgate: how long the artist took to notice and close the piece by hand. Absent when the like was deleted."
+          "description": "Milliseconds between the breaking like and the threadgate: how long the artist took to notice and close the piece by hand. Absent when the like was deleted before anything read it, and present with likeSurvives false when it was recovered from the firehose replay afterwards."
+        },
+        "reactionRecovered": {
+          "type": "boolean",
+          "description": "True when reactionMs was recovered by replaying Jetstream's lookback window rather than read from a like that still exists. The like is gone either way; this says the timing is not. Only possible within 36 hours of the seal, which is how long that replay reaches back."
         }
       }
     },

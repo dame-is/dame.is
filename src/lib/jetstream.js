@@ -271,3 +271,157 @@ export function watchSubject(
     }
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Replaying a window that has already happened                         */
+/* ------------------------------------------------------------------ */
+
+// How long Jetstream's live socket will look back. Documented as 36 hours; a
+// cursor older than that is refused, so there is no point asking.
+export const LOOKBACK_MS = 36 * 60 * 60 * 1000;
+
+/** Is this moment still inside the lookback window? */
+export function withinLookback(ms, nowMs = Date.now()) {
+  if (!ms) return false;
+  const age = nowMs - ms;
+  return age >= 0 && age < LOOKBACK_MS;
+}
+
+/**
+ * Replay a window of the past and collect everything that pointed at a post.
+ *
+ * The live socket accepts a cursor into its own 36-hour lookback and replays
+ * from there at about 78,000 events a second — measured, so an hour of history
+ * arrives in under a minute. Unlike the backlink index, that replay carries
+ * DELETES, which is the whole reason this exists: six of the thirteen breaking
+ * likes were deleted by the people who cast them, and every one of those
+ * reaction times was lost because the like was gone before anything read it.
+ * Inside the lookback it isn't gone. It's just in the past.
+ *
+ * The window is normally a piece's own lifespan, which is seconds to minutes —
+ * the breaking like lands inside it by definition. But a cursor does not land
+ * where it is asked: Jetstream rewinds to a block boundary, measured at up to
+ * half an hour early, and that overshoot has to be read through before the
+ * window even starts. Unfiltered that is ~300 MB to recover one like.
+ *
+ * So pass `dids` whenever you know them. For a Ratioed piece you always do —
+ * the reply concluding it names the breaker, which is the only reason a
+ * deleted like has a name at all — and filtering to that one account server-
+ * side turns the whole replay into a handful of events.
+ *
+ * Resolves `{ events, bytes, reachedEnd, error }`. `reachedEnd` is false when
+ * the budget stopped it early, so a caller can tell "nothing was there" from
+ * "we stopped looking".
+ */
+export function replayWindow(
+  subject,
+  {
+    fromMs,
+    toMs,
+    dids = [],
+    collections = ['app.bsky.feed.like'],
+    endpoint = DEFAULT_ENDPOINT,
+    budgetBytes = DEFAULT_BUDGET_BYTES,
+    onProgress,
+  } = {},
+) {
+  return new Promise((resolve) => {
+    if (!subject || !fromMs || !toMs || toMs <= fromMs) {
+      resolve({ events: [], bytes: 0, reachedEnd: false, error: 'bad window' });
+      return;
+    }
+    if (!withinLookback(fromMs)) {
+      resolve({ events: [], bytes: 0, reachedEnd: false, error: 'outside the 36-hour lookback' });
+      return;
+    }
+
+    const subjectKey = String(subject).split('/').pop() || '\u0000';
+    const params = new URLSearchParams();
+    for (const c of collections) params.append('collections', c);
+    for (const d of dids) params.append('dids', d);
+    params.append('kinds', 'commit');
+    // Microseconds, and a second early so the window's own first event can't
+    // fall on the wrong side of a rounding. The server will rewind further.
+    params.set('cursor', String((fromMs - 1000) * 1000));
+
+    const events = [];
+    const mine = new Map();
+    let bytes = 0;
+    let done = false;
+    let ws;
+
+    const finish = (reachedEnd, error) => {
+      if (done) return;
+      done = true;
+      try {
+        ws?.close();
+      } catch {
+        /* already gone */
+      }
+      resolve({ events, bytes, reachedEnd, error: error || null });
+    };
+
+    try {
+      ws = new WebSocket(`${endpoint}?${params}`);
+    } catch (err) {
+      finish(false, err?.message || 'could not open the stream');
+      return;
+    }
+
+    ws.onmessage = (msg) => {
+      const raw = typeof msg.data === 'string' ? msg.data : '';
+      bytes += raw.length;
+      if (bytes > budgetBytes) {
+        finish(false, 'budget spent before the window closed');
+        return;
+      }
+
+      const t = timeMsOf(raw);
+      if (t) {
+        if (t > toMs) {
+          finish(true);
+          return;
+        }
+        onProgress?.({ at: t, bytes, found: events.length });
+      }
+
+      if (!raw.includes(subjectKey) && !raw.includes(DELETE_MARK)) return;
+      let e;
+      try {
+        e = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      const c = e.payload;
+      if (!c || !c.collection) return;
+
+      if (c.operation === 'delete') {
+        // Only deletes of records this replay already saw created — the same
+        // rule the live watch uses, and here it is exactly right: a like made
+        // and unmade inside the window is fully described by the pair.
+        const kind = mine.get(c.rkey);
+        if (!kind) return;
+        events.push({ kind, op: 'delete', did: c.did, rkey: c.rkey, seq: c.seq, time: c.time });
+        return;
+      }
+      const kind = classify(c.collection, c.record, subject);
+      if (!kind) return;
+      mine.set(c.rkey, kind);
+      events.push({
+        kind,
+        op: 'create',
+        did: c.did,
+        rkey: c.rkey,
+        seq: c.seq,
+        time: c.time,
+        text: typeof c.record?.text === 'string' ? c.record.text : '',
+      });
+    };
+
+    ws.onerror = () => {
+      /* onclose follows */
+    };
+    // A cursor the server won't serve closes the socket rather than erroring.
+    ws.onclose = () => finish(false, events.length ? null : 'the stream closed before the window did');
+  });
+}

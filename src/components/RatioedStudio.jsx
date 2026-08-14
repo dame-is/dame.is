@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
-import { Send, Lock, RefreshCw, ExternalLink, FileText, Radio } from 'lucide-react';
+import { Send, Lock, RefreshCw, ExternalLink, FileText, Radio, History } from 'lucide-react';
 import PageShell from './PageShell.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
@@ -40,13 +40,14 @@ import {
   previousPiece,
   announcementDraft,
 } from '../lib/ratioedStudio.js';
-import { watchSubject } from '../lib/jetstream.js';
+import { watchSubject, replayWindow, withinLookback } from '../lib/jetstream.js';
 import {
   resolvePds,
   getRecord,
   getLikes,
   resolveProfiles,
   resolveHandles,
+  resolveHandle,
   rkeyFromAtUri,
   tidToTimestamp,
 } from '../lib/atproto.js';
@@ -71,6 +72,19 @@ const KIND_VERB = { like: 'liked it', repost: 'reposted', quote: 'quoted', reply
 // How many rows the feed keeps. Enough to hold any piece the project has ever
 // produced several times over, and a ceiling all the same.
 const FEED_MAX = 300;
+
+// How far past the seal a recovery replay looks. The breaking like lands before
+// the seal by definition; this is slack for clock skew and for the block
+// boundary the cursor lands on.
+const RECOVER_TAIL_MS = 60_000;
+
+// How long a live read gets before this panel calls what it has final.
+const PDS_DEADLINE_MS = 6000;
+
+/** Resolve to null rather than hang. */
+function deadline(promise, ms = PDS_DEADLINE_MS) {
+  return Promise.race([promise, new Promise((r) => setTimeout(() => r(null), ms))]);
+}
 
 /** The subject post's at:// URI for a piece record key. */
 const subjectUri = (rkey) => `at://${ME_DID}/${POST}/${rkey}`;
@@ -121,11 +135,22 @@ export default function RatioedStudio({ agent, did }) {
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      const pds = await resolvePds(did).catch(() => null);
-      setPieces(await loadPieces(pds));
+      // The snapshot first and on its own. Resolving the PDS goes to
+      // plc.directory, and waiting on that before showing anything meant a slow
+      // or unreachable directory left this panel reading "Reading the series…"
+      // indefinitely — with the answer already in hand, and at the one moment
+      // it matters most, which is while a piece is up.
+      const fromSnap = await loadPieces(null);
+      if (fromSnap?.length) setPieces(fromSnap);
+
+      // Then the PDS, which is the only place a piece published since the last
+      // build exists. Worth waiting for; not worth waiting for forever.
+      const pds = await deadline(resolvePds(did).catch(() => null));
+      const fresh = pds ? await deadline(loadPieces(pds).catch(() => null)) : null;
+      setPieces(fresh?.length ? fresh : (prev) => prev ?? fromSnap ?? []);
     } catch (err) {
       setError(err?.message || String(err));
-      setPieces([]);
+      setPieces((prev) => prev ?? []);
     }
   }, [did]);
 
@@ -504,6 +529,93 @@ export default function RatioedStudio({ agent, did }) {
     }
   }
 
+  /**
+   * Recover a breaking like that was deleted, by replaying the past.
+   *
+   * The backlink index only knows what still exists, so a like withdrawn before
+   * anything read it took its reaction time with it — six of the first thirteen
+   * pieces lost theirs that way. Jetstream's lookback still has it for 36 hours,
+   * deletion and all, and the reply concluding the piece names who cast it, so
+   * the replay can be filtered to that one account: 0.1 MB instead of 300.
+   *
+   * The like stays deleted. What comes back is when it landed.
+   */
+  async function recover(piece) {
+    const b = piece.breaker || {};
+    const handle = b.currentHandle || b.handle;
+    if (!piece.sealedAt || !handle || handle === 'unknown') return;
+    setBusy(`recover:${piece.rkey}`);
+    setError(null);
+    try {
+      // Filtering the replay by the breaker turns 300 MB into 0.1 MB, so the
+      // DID is worth resolving when the record only kept a handle.
+      let breakerDid = b.did;
+      if (!breakerDid) {
+        breakerDid = await resolveHandle(handle).catch(() => null);
+        if (!breakerDid) {
+          throw new Error(`couldn't resolve @${handle} to a DID to filter the replay by`);
+        }
+      }
+      const sealedMs = Date.parse(piece.sealedAt);
+      setNote(`Replaying ${handle}'s likes around take ${pieceSlug(piece)}…`);
+      const res = await replayWindow(subjectOf(piece), {
+        fromMs: Date.parse(piece.postedAt),
+        toMs: sealedMs + RECOVER_TAIL_MS,
+        dids: [breakerDid],
+        onProgress: ({ at }) => setNote(`Replaying… reached ${new Date(at).toISOString().slice(11, 19)}`),
+      });
+      // The earliest like that landed before the gate is the one that closed it.
+      const like = res.events
+        .filter((e) => e.op === 'create' && e.kind === 'like')
+        .map((e) => ({ ...e, at: Date.parse(tidToTimestamp(e.rkey) || e.time) }))
+        .filter((e) => Number.isFinite(e.at) && e.at < sealedMs)
+        .sort((a, c) => a.at - c.at)[0];
+
+      if (!like) {
+        setNote(
+          res.reachedEnd
+            ? `Nothing found. @${handle} cast no like on take ${pieceSlug(piece)} inside the replay.`
+            : `The replay stopped early (${res.error}). Nothing recovered.`,
+        );
+        return;
+      }
+      const withdrawn = res.events.some((e) => e.op === 'delete' && e.rkey === like.rkey);
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: NSID,
+        rkey: piece.rkey,
+        record: {
+          ...(await readPiece(piece.rkey)),
+          breaker: {
+            ...b,
+            did: breakerDid,
+            // The like is still gone. Only its timing came back.
+            likeSurvives: false,
+            reactionMs: sealedMs - like.at,
+            reactionRecovered: true,
+          },
+        },
+      });
+      setNote(
+        `Recovered take ${pieceSlug(piece)}: @${handle} liked it ${fmtSeconds(sealedMs - like.at)} before the seal` +
+          `${withdrawn ? ', and the replay caught them deleting it' : ''}.`,
+      );
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** The record as it stands, so a recovery patches rather than rewrites. */
+  async function readPiece(rkey) {
+    const res = await agent.com.atproto.repo.getRecord({ repo: did, collection: NSID, rkey });
+    const value = res?.data?.value;
+    if (!value) throw new Error('could not read the piece record to update it');
+    return value;
+  }
+
   /** Post the concluding reply, in the thread it concludes. */
   async function postAnnouncement() {
     if (!announce?.text.trim() || !announce.piece) return;
@@ -854,16 +966,42 @@ export default function RatioedStudio({ agent, did }) {
           {[...done]
             .sort((a, b) => b.take - a.take)
             .slice(0, 6)
-            .map((p) => (
-              <li key={p.rkey}>
-                <Link to={piecePath(p)}>take {pieceSlug(p)}</Link>
-                <span className="rs-series-meta">
-                  {fmtDuration(p.lifespanMs)} · @{p.breaker?.handle}
-                  {p.breaker?.likeSurvives ? ` · ${fmtSeconds(p.breaker.reactionMs)}` : ' · like deleted'}
-                </span>
-              </li>
-            ))}
+            .map((p) => {
+              const b = p.breaker || {};
+              const timed = typeof b.reactionMs === 'number';
+              // Only worth offering while the replay can still reach it.
+              const recoverable = !timed && withinLookback(Date.parse(p.sealedAt));
+              return (
+                <li key={p.rkey}>
+                  <Link to={piecePath(p)}>take {pieceSlug(p)}</Link>
+                  <span className="rs-series-meta">
+                    {fmtDuration(p.lifespanMs)} · @{b.handle}
+                    {timed
+                      ? ` · ${fmtSeconds(b.reactionMs)}${b.reactionRecovered ? ' (recovered)' : ''}`
+                      : ' · like deleted'}
+                  </span>
+                  {recoverable && (
+                    <button
+                      type="button"
+                      className="admin-link-subtle rs-recover"
+                      onClick={() => recover(p)}
+                      disabled={!!busy}
+                      title="Replay Jetstream's lookback filtered to this account and find the like that ended the piece. The like stays deleted; its timing comes back."
+                    >
+                      <History size={12} aria-hidden="true" />
+                      {busy === `recover:${p.rkey}` ? 'replaying…' : 'recover the reaction'}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
         </ul>
+        <p className="admin-field-hint">
+          A piece sealed in the last 36 hours whose breaking like was deleted can still have its
+          reaction time recovered: Jetstream&rsquo;s lookback holds the like, and the reply naming
+          the breaker is what lets the replay be filtered down to one account. After that the
+          window closes and the number is gone, as it is for six of the first thirteen.
+        </p>
         <p className="admin-field-hint">
           <Link to={`/creating/${RATIOED_PATH}`}>The essay</Link> ·{' '}
           <Link to="/admin?view=ratioed">the full catalogue</Link>

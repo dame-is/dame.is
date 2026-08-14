@@ -240,3 +240,12 @@
    nobody has touched. */
 .rs-live.withdrawn { border-color: var(--ratioed-quote, #8a6f24); }
 .rs-live.withdrawn .rs-live-state { color: var(--ratioed-quote, #8a6f24); }
+
+/* Offered only on a piece the replay can still reach — 36 hours. */
+.rs-recover {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  white-space: nowrap;
+}
