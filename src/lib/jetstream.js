@@ -35,8 +35,8 @@ const MAX_REPLAY_MS = 30_000;
 const DEFAULT_BUDGET_BYTES = 256 * 1024 * 1024;
 
 // Deletes name a collection and a record key and nothing else, so they can't be
-// pre-filtered by subject — but they're only ~6% of traffic, so parsing them
-// all is cheap. This is the literal shape on the wire.
+// pre-filtered by subject — but under `kinds=commit` they're under 2% of
+// traffic, so parsing them all is cheap. This is the literal shape on the wire.
 const DELETE_MARK = '"operation":"delete"';
 
 // Record keys held for delete-matching. A Ratioed piece draws tens of records,
