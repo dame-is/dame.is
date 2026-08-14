@@ -158,7 +158,11 @@
 }
 .rs-feed-state.is-open { color: var(--ratioed-reply, #5e7a47); }
 .rs-feed-state.is-connecting,
-.rs-feed-state.is-closed { color: var(--ink-faint); }
+.rs-feed-state.is-closed,
+.rs-feed-state.is-off { color: var(--ink-faint); }
+/* Stopped itself at the budget. Not a failure — say it plainly rather than
+   quietly, since the panel is less prompt from here on. */
+.rs-feed-state.is-spent { color: var(--ratioed-quote, #8a6f24); }
 
 .rs-feed-empty { margin: 0; }
 

@@ -68,6 +68,10 @@ const WATCH_MS = 8000;
 
 const KIND_VERB = { like: 'liked it', repost: 'reposted', quote: 'quoted', reply: 'replied' };
 
+// How many rows the feed keeps. Enough to hold any piece the project has ever
+// produced several times over, and a ceiling all the same.
+const FEED_MAX = 300;
+
 /** The subject post's at:// URI for a piece record key. */
 const subjectUri = (rkey) => `at://${ME_DID}/${POST}/${rkey}`;
 
@@ -110,6 +114,9 @@ export default function RatioedStudio({ agent, did }) {
   const [stream, setStream] = useState(null); // { state, bytes, seen }
   const [profiles, setProfiles] = useState({});
   const [streamOn, setStreamOn] = useState(true);
+  // Bumped to force a fresh socket (and a fresh byte budget) after one has
+  // stopped itself.
+  const [streamRun, setStreamRun] = useState(0);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -226,12 +233,14 @@ export default function RatioedStudio({ agent, did }) {
             return f.map((x) => (x.rkey === ev.rkey ? { ...x, deleted: true } : x));
           }
           if (f.some((x) => x.rkey === ev.rkey)) return f; // a replayed cursor
-          return [{ ...ev, at: tidToTimestamp(ev.rkey) }, ...f];
+          // Newest first, and bounded: a piece draws tens of records, but this
+          // is pointed at whatever post it's given and must not grow forever.
+          return [{ ...ev, at: tidToTimestamp(ev.rkey) }, ...f].slice(0, FEED_MAX);
         });
       },
     });
     return close;
-  }, [live, sealed, streamOn]);
+  }, [live, sealed, streamOn, streamRun]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
   useEffect(() => {
@@ -617,28 +626,41 @@ export default function RatioedStudio({ agent, did }) {
           <div className="rs-feed">
             <header className="rs-feed-head">
               <span className="small-caps">as it happens</span>
-              <span className={`rs-feed-state is-${stream?.state || 'off'}`}>
+              <span className={`rs-feed-state is-${!streamOn ? 'off' : stream?.state || 'connecting'}`}>
                 <Radio size={12} aria-hidden="true" />
                 {!streamOn
-                  ? 'stream off'
-                  : stream?.state === 'open'
-                    ? `live · ${Math.round((stream.bytes || 0) / 1024 / 1024)} MB read`
-                    : stream?.state || 'connecting'}
+                  ? 'stream off · polling'
+                  : stream?.state === 'spent'
+                    ? `stopped at ${Math.round((stream.bytes || 0) / 1024 / 1024)} MB · polling`
+                    : stream?.state === 'open'
+                      ? `live · ${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB read`
+                      : stream?.state || 'connecting'}
               </span>
-              <button
-                type="button"
-                className="admin-link-subtle"
-                onClick={() => setStreamOn((v) => !v)}
-              >
-                {streamOn ? 'stop the stream' : 'start the stream'}
-              </button>
+              {stream?.state === 'spent' ? (
+                <button
+                  type="button"
+                  className="admin-link-subtle"
+                  onClick={() => setStreamRun((n) => n + 1)}
+                >
+                  start it again
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="admin-link-subtle"
+                  onClick={() => setStreamOn((v) => !v)}
+                >
+                  {streamOn ? 'stop the stream' : 'start the stream'}
+                </button>
+              )}
             </header>
 
             {feed.length === 0 ? (
               <p className="admin-field-hint rs-feed-empty">
-                Nothing yet. Every like, repost, quote and reply on the network is being read and
-                tested against this post — that&rsquo;s ~180&nbsp;KB/s, and it&rsquo;s what buys
-                sub-second notice instead of a {WATCH_MS / 1000}s poll.
+                Nothing yet. Every like, repost, quote and reply on the network is arriving here and
+                being tested against this post — ~166&nbsp;KB/s, which is what buys sub-second
+                notice instead of a {WATCH_MS / 1000}s poll. It stops itself at 256&nbsp;MB, and
+                the poll carries on either way.
               </p>
             ) : (
               <ul className="rs-feed-list">
