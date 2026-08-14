@@ -174,7 +174,11 @@ export default function RatioedPanel({ agent, did }) {
   // people into the roster, since the roster is keyed by DID. The first eleven
   // are drawn from the bundled log and aren't counted as missing.
   const missingLogs = Object.entries(live)
-    .filter(([rkey, v]) => !SEEDED.has(rkey))
+    .filter(([rkey]) => !SEEDED.has(rkey))
+    // A piece that is still up has no seal to measure against and nothing
+    // missing — it simply hasn't happened yet. Re-measuring one would parse an
+    // absent sealedAt and write NaN into its figures.
+    .filter(([, v]) => v?.sealedAt)
     .filter(([, v]) => !v?.events?.length || !v.events.some((e) => e.did))
     .map(([rkey, v]) => ({ rkey, value: v }));
 
@@ -290,7 +294,15 @@ export default function RatioedPanel({ agent, did }) {
       const posts = postPage.records;
       const gates = gatePage.records;
       setTruncated(postPage.truncated || gatePage.truncated);
-      const known = new Set(Object.keys(live));
+      // Only a SEALED record counts as known. The studio writes a record when
+      // the post goes up, so a piece sealed by hand in the app afterwards
+      // already has one — and treating that as "measured" would make the scan
+      // skip the very piece it exists to catch.
+      const known = new Set(
+        Object.entries(live)
+          .filter(([, v]) => v?.sealedAt)
+          .map(([rkey]) => rkey),
+      );
       const candidates = findPieces(posts, gates, known).filter((p) => !p.known);
       if (!candidates.length) {
         setFound([]);

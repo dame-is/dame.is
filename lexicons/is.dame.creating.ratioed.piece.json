@@ -4,17 +4,14 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "One piece of the Ratioed art project: a Bluesky post that was sealed with a threadgate the moment it received a like. The record is a dated measurement, not a live view — six of the eleven breaking likes were deleted by the people who cast them and cannot be recovered from any index. The record key mirrors the subject post's record key, the same convention app.bsky.feed.threadgate uses.",
+      "description": "One piece of the Ratioed art project: a Bluesky post that was sealed with a threadgate the moment it received a like. The record is a dated measurement, not a live view — six of the thirteen breaking likes were deleted by the people who cast them and cannot be recovered from any index. The record key mirrors the subject post's record key, the same convention app.bsky.feed.threadgate uses. A record written the moment the post goes up, before anyone has liked it, carries only take, subject and postedAt: the piece is alive, nothing has been measured yet, and the absence of sealedAt is what says so. Every other figure arrives when it is sealed.",
       "key": "any",
       "record": {
         "type": "object",
         "required": [
           "take",
           "subject",
-          "postedAt",
-          "sealedAt",
-          "lifespanMs",
-          "measuredAt"
+          "postedAt"
         ],
         "properties": {
           "take": {
@@ -35,11 +32,11 @@
           "sealedAt": {
             "type": "string",
             "format": "datetime",
-            "description": "createdAt of the app.bsky.feed.threadgate record that closed replies. This is the moment the piece ended — always earlier than the reply announcing it."
+            "description": "createdAt of the app.bsky.feed.threadgate record that closed replies. This is the moment the piece ended — always earlier than the reply announcing it. Absent while the piece is still alive."
           },
           "lifespanMs": {
             "type": "integer",
-            "description": "How long the piece was alive: sealedAt minus postedAt, in milliseconds. Lexicon v1 has no float type, so the sub-second precision that the reaction-time finding depends on is carried in milliseconds throughout."
+            "description": "How long the piece was alive: sealedAt minus postedAt, in milliseconds. Lexicon v1 has no float type, so the sub-second precision that the reaction-time finding depends on is carried in milliseconds throughout. Absent while the piece is still alive."
           },
           "announceLagMs": {
             "type": "integer",
@@ -76,7 +73,7 @@
           "measuredAt": {
             "type": "string",
             "format": "datetime",
-            "description": "When these figures were taken. Post-seal counts are only true as of this moment."
+            "description": "When these figures were taken. Post-seal counts are only true as of this moment. Absent while the piece is still alive."
           },
           "source": {
             "type": "string",

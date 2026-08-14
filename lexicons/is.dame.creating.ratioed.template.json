@@ -1,0 +1,31 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.creating.ratioed.template",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The standing text a Ratioed piece is written from, kept as a record so it can be edited without a deploy. A singleton at rkey \"self\". The wording has drifted across the series — take #13 dropped the word \"experimental\" that takes #1 to #12 all carried, and that drift is the whole reason this is editable rather than compiled in. It is also why anything written from it is checked against the discovery scan before it is saved: a template the site cannot recognise as a piece produces pieces the site never measures.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "description": "The post body. Two placeholders are substituted when a piece is composed: {take} becomes the take number, and {link} becomes the URL of that piece's own page on the site. Everything else is written verbatim."
+          },
+          "announcement": {
+            "type": "string",
+            "maxLength": 3000,
+            "description": "The concluding reply, with {handle} for the account whose like ended the piece. The phrase \"was to blame\" is load-bearing: it is what the site parses the breaker back out of, and for a piece whose like was later deleted that reply is the only evidence the like ever existed."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

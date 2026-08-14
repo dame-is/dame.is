@@ -10,6 +10,7 @@ import PublicationsManager from '../components/PublicationsManager.jsx';
 import NavMenuPanel from '../components/NavMenuPanel.jsx';
 import SkyThemeStudio from '../components/SkyThemeStudio.jsx';
 import RatioedPanel from '../components/RatioedPanel.jsx';
+import RatioedStudio from '../components/RatioedStudio.jsx';
 import { AdminRecordListSkeleton, AdminPagePanelsSkeleton } from '../components/Skeleton.jsx';
 import { VARIANTS_A, VARIANTS_B } from '../components/HeroSentence.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
@@ -101,6 +102,9 @@ export default function Admin() {
   }
   if (view === 'ratioed') {
     return <RatioedPanel agent={agent} did={did} />;
+  }
+  if (view === 'ratioed-studio') {
+    return <RatioedStudio agent={agent} did={did} />;
   }
   if (view === 'resume-tailor' && rkey) {
     return <ResumeWorkbench agent={agent} did={did} rkey={rkey} />;
@@ -229,7 +233,9 @@ const PICKER_GROUPS = [
         summary: 'Every play on your PDS — multi-select to bulk-delete, or open one in the editor.' },
       { collection: COLLECTIONS.arenaChannel, label: 'Curating',
         summary: 'Are.na channels published as galleries at /curating.' },
-      { to: '/admin?view=ratioed', label: 'Ratioed', nsid: COLLECTIONS.ratioedPiece,
+      { to: '/admin?view=ratioed-studio', label: 'Ratioed studio', nsid: COLLECTIONS.ratioedPiece,
+        summary: 'Run a piece: compose the next take from the template, watch for the like that ends it, seal it, and post the reply naming who did. Sealing is always yours to press — the reaction time measures you noticing.' },
+      { to: '/admin?view=ratioed', label: 'Ratioed catalogue', nsid: COLLECTIONS.ratioedPiece,
         summary: 'Per-piece measurements for the Ratioed art project — publish the set to your PDS, re-count the afterlives, or open the essay the charts sit in.' },
     ],
   },
