@@ -28,12 +28,14 @@ import {
   fmtSeconds,
 } from '../lib/ratioed.js';
 import {
+  anchorsFromTemplate,
   findPieces,
   isAnnouncement,
   measureWindows,
   buildEventLog,
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
+import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveHandles } from '../lib/atproto.js';
 import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
@@ -281,7 +283,10 @@ export default function RatioedPanel({ agent, did }) {
       setProgress('Reading posts and threadgates…');
       const read = { posts: 0, gates: 0 };
       const tick = () => setProgress(`Read ${read.posts} posts, ${read.gates} threadgates…`);
-      const [postPage, gatePage] = await Promise.all([
+      // The template rides along because it is what the scan matches posts
+      // against: reading it here is what lets the copy be reworded in the
+      // studio without this scan needing to be taught the new wording.
+      const [postPage, gatePage, template] = await Promise.all([
         listPaged(agent, did, 'app.bsky.feed.post', (n) => {
           read.posts = n;
           tick();
@@ -290,6 +295,7 @@ export default function RatioedPanel({ agent, did }) {
           read.gates = n;
           tick();
         }),
+        loadTemplate(agent, did),
       ]);
       const posts = postPage.records;
       const gates = gatePage.records;
@@ -303,7 +309,9 @@ export default function RatioedPanel({ agent, did }) {
           .filter(([, v]) => v?.sealedAt)
           .map(([rkey]) => rkey),
       );
-      const candidates = findPieces(posts, gates, known).filter((p) => !p.known);
+      const candidates = findPieces(posts, gates, known, anchorsFromTemplate(template)).filter(
+        (p) => !p.known,
+      );
       if (!candidates.length) {
         setFound([]);
         setProgress('');

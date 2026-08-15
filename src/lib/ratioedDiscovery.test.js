@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  anchorsFromTemplate,
   isPiecePost,
   isSealed,
   takeFromText,
@@ -65,6 +66,77 @@ describe('isPiecePost', () => {
           'for liking the post\n\nat the time of this piece’s completion, it had zero engagement',
       }),
     ).toBe(false);
+  });
+
+  // Take #13's failure, generalised: the copy is rewritten so thoroughly that
+  // nothing this file was taught to look for survives. The template is the one
+  // description of a piece that is always current, so hand it over and the
+  // wording needs no teaching.
+  it('matches a wording it has never seen, given the template it came from', () => {
+    const template = [
+      'a collaborative exercise in restraint',
+      '',
+      'please do not press the heart',
+      '',
+      'this is take #{take}',
+    ].join('\n');
+    const post = { text: template.replace('{take}', '14') };
+    expect(isPiecePost(post)).toBe(false);
+    expect(isPiecePost(post, anchorsFromTemplate(template))).toBe(true);
+  });
+
+  // The case the anchors can't cover: a piece posted from one wording, scanned
+  // after the template moved on to another. The take line and the piece's own
+  // link are all that's left, and a valid template cannot drop either.
+  it('matches on the take line and the link with no template to hand', () => {
+    expect(
+      isPiecePost({
+        text:
+          'a collaborative exercise in restraint\n\nthis is take #14\n\ndame.is/creating/ratioed/14',
+      }),
+    ).toBe(true);
+  });
+
+  it('does not take the take line alone as a piece', () => {
+    expect(isPiecePost({ text: 'this is take #14 of my sandwich series' })).toBe(false);
+  });
+});
+
+describe('anchorsFromTemplate', () => {
+  const TEMPLATE = [
+    'i would like your help with a social art project',
+    '',
+    'this post is the project',
+    '',
+    'this is take #{take}',
+    '',
+    '{link}',
+  ].join('\n');
+
+  it('keeps the lines every piece carries verbatim', () => {
+    expect(anchorsFromTemplate(TEMPLATE)).toEqual([
+      'i would like your help with a social art project',
+      'this post is the project',
+    ]);
+  });
+
+  it('drops what the placeholders leave behind, since it differs per piece', () => {
+    expect(anchorsFromTemplate(TEMPLATE).some((a) => a.includes('take'))).toBe(false);
+  });
+
+  it('keeps the fixed part of a line that also carries a placeholder', () => {
+    expect(anchorsFromTemplate('the piece you are looking at is take #{take}')).toEqual([
+      'the piece you are looking at is take #',
+    ]);
+  });
+
+  it('ignores lines too short to be evidence of anything', () => {
+    expect(anchorsFromTemplate('hello\n\nbye\n\n{link}')).toEqual([]);
+  });
+
+  it('is unbothered by a template that is empty or absent', () => {
+    expect(anchorsFromTemplate('')).toEqual([]);
+    expect(anchorsFromTemplate(null)).toEqual([]);
   });
 });
 
@@ -159,6 +231,23 @@ describe('findPieces', () => {
 
   it('skips a piece-shaped post with no seal', () => {
     expect(findPieces(posts, [gates[0]]).map((p) => p.take)).toEqual([4]);
+  });
+
+  it('finds a piece written from a reworded template, given that template', () => {
+    const template = 'a collaborative exercise in restraint\n\nthis is take #{take}';
+    const reworded = [
+      {
+        uri: uri('3lrqm2vlfmk2v'),
+        value: { text: 'a collaborative exercise in restraint\n\nthis is take #5' },
+      },
+    ];
+    const gate = [
+      { uri: gateUri('3lrqm2vlfmk2v'), value: { allow: [], createdAt: '2025-06-16T18:42:46.543Z' } },
+    ];
+    expect(findPieces(reworded, gate).map((p) => p.take)).toEqual([]);
+    expect(
+      findPieces(reworded, gate, new Set(), anchorsFromTemplate(template)).map((p) => p.take),
+    ).toEqual([5]);
   });
 
   it('skips the meta post, which quotes a piece but is not one', () => {
