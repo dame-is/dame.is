@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classify, replayCursor, withinLookback, replayWindow } from './jetstream.js';
+import { classify, createMeter, replayCursor, withinLookback, replayWindow } from './jetstream.js';
 
 const SUBJECT = 'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3msyb4kntps2e';
 const OTHER = 'at://did:plc:someone/app.bsky.feed.post/3zzzzzzzzzz2z';
@@ -47,6 +47,33 @@ describe('classify', () => {
     expect(classify('app.bsky.feed.like', {}, SUBJECT)).toBeNull();
     expect(classify('app.bsky.feed.like', { subject: 'not-an-object' }, SUBJECT)).toBeNull();
     expect(classify('app.bsky.feed.like', { subject: { uri: SUBJECT } }, null)).toBeNull();
+  });
+});
+
+describe('createMeter', () => {
+  it('reports nothing until a full window has passed', () => {
+    const m = createMeter();
+    // The first call is the baseline: there is no window before it, and a rate
+    // over a zero-length one is worse than no rate at all.
+    expect(m.mark(0, 0, 0)).toBeNull();
+    expect(m.mark(500, 130, 66_000)).toBeNull();
+  });
+
+  it('measures the window that actually elapsed, not the one asked for', () => {
+    const m = createMeter();
+    m.mark(0, 0, 0);
+    // 64-message masks don't land on the second, so the sample is divided by
+    // the real interval rather than assuming 1000ms.
+    expect(m.mark(1250, 325, 208_000)).toEqual({ rate: 260, kbps: 163 });
+  });
+
+  it('rebases after a sample, so rates don’t drift toward the average', () => {
+    const m = createMeter();
+    m.mark(0, 0, 0);
+    m.mark(1000, 260, 170_000);
+    // The stream halves. The next sample says so rather than splitting the
+    // difference with the busy second before it.
+    expect(m.mark(2000, 390, 255_000)).toEqual({ rate: 130, kbps: 83 });
   });
 });
 

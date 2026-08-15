@@ -41,9 +41,9 @@ import {
   withdrawnOnly,
 } from '../lib/ratioedLive.js';
 import { fmtDuration } from '../lib/ratioed.js';
+import { ME_DID } from '../config.js';
+import RatioedChip from './RatioedChip.jsx';
 import './RatioedLive.css';
-
-const KIND_VERB = { like: 'liked it', repost: 'reposted it', quote: 'quoted it', reply: 'replied' };
 
 // What one visitor's stream is allowed to cost before it stops itself: about
 // six minutes at the measured rate, which is longer than all but one piece in
@@ -124,7 +124,11 @@ export default function RatioedLive({ piece }) {
     );
   }, [rows, profiles]);
 
-  const tally = useMemo(() => tallyWitness(rows), [rows]);
+  // The artist's own records are in the log and in none of the counts — the
+  // same rule every measured figure on this project follows, and it matters
+  // more here than anywhere: the studio can now reply from the dashboard, and
+  // those replies would otherwise read as the piece drawing a crowd.
+  const tally = useMemo(() => tallyWitness(rows, { selfDid: ME_DID }), [rows]);
   const breaking = useMemo(() => breakingWitness(rows), [rows]);
   const takenBack = useMemo(() => withdrawnOnly(rows), [rows]);
   const aliveMs = Number.isFinite(postedMs) ? Math.max(0, now - postedMs) : 0;
@@ -145,12 +149,23 @@ export default function RatioedLive({ piece }) {
         />
       </header>
 
+      {/* The like is not one more row in the feed. It is the end of the piece,
+          and this is where the page says so at the size it deserves. */}
+      {breaking && (
+        <div className="ratioed-live-alarm" role="status">
+          <RatioedChip kind="like" size="lg" />
+          <span className="ratioed-live-alarm-who">
+            @{profiles[breaking.did]?.handle || breaking.h || 'somebody'}
+          </span>
+          <span className="ratioed-live-alarm-when">at +{fmtDuration(breaking.offMs)}</span>
+        </div>
+      )}
+
       <p className="ratioed-live-say" aria-live="polite">
         {breaking ? (
           <>
-            <strong>@{profiles[breaking.did]?.handle || breaking.h || 'somebody'} liked it</strong>{' '}
-            at +{fmtDuration(breaking.offMs)}. The piece ends when the artist notices and closes
-            replies — that gap is the measurement, and it is being made right now.
+            It has been liked, so it is over — the artist closes replies by hand the moment they
+            notice, and the gap between those two is the measurement. It is being made right now.
           </>
         ) : takenBack ? (
           <>
@@ -170,6 +185,12 @@ export default function RatioedLive({ piece }) {
       <Ticker rows={rows} profiles={profiles} />
 
       <p className="ratioed-live-note">
+        {stream?.msgs > 0 && streamOn && (
+          <>
+            {stream.msgs.toLocaleString()} records read, {tally.total + tally.withdrawn} of them
+            about this post.{' '}
+          </>
+        )}
         {streamOn ? (
           <>
             Your browser is reading the firehose and testing every record on the network against
@@ -263,7 +284,7 @@ export function RatioedWitness({ piece }) {
         .map((r) => (r.goneMs != null && r.goneMs > head ? { ...r, goneMs: undefined } : r)),
     [rows, head],
   );
-  const tally = useMemo(() => tallyWitness(shown), [shown]);
+  const tally = useMemo(() => tallyWitness(shown, { selfDid: ME_DID }), [shown]);
 
   if (!rows.length) return null;
 
@@ -283,22 +304,32 @@ export function RatioedWitness({ piece }) {
         )}
       </div>
       <Counters tally={tally} />
-      <Ticker rows={shown} profiles={profiles} />
+      {/* Quiet: the like that ended this one ended it a long time ago, and a
+          chip that throbs about it now would be theatre. */}
+      <Ticker rows={shown} profiles={profiles} quiet />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
 
+/**
+ * What the stream is doing, in numbers that move.
+ *
+ * The rate is the honest one: a watch on a piece nobody has touched matches
+ * nothing for minutes, and a panel whose only number is a byte count that also
+ * only moved on a match looked broken for exactly as long as it was working.
+ */
 function StreamState({ on, stream, onToggle, onRestart }) {
   const mb = ((stream?.bytes || 0) / 1024 / 1024).toFixed(1);
   const state = !on ? 'off' : stream?.state || 'connecting';
+  const rate = stream?.rate ? `${stream.rate.toLocaleString()}/s · ` : '';
   const label = !on
     ? 'from the record'
     : state === 'spent'
       ? `stopped at ${mb} MB`
       : state === 'open'
-        ? `firehose · ${mb} MB read`
+        ? `${rate}${mb} MB read`
         : state;
   return (
     <span className="ratioed-live-stream">
@@ -344,8 +375,8 @@ function Counters({ tally }) {
   );
 }
 
-/** Newest first, the way a feed is read. */
-function Ticker({ rows, profiles }) {
+/** Newest first, the way a feed is read. `quiet` mutes a replayed alarm. */
+function Ticker({ rows, profiles, quiet = false }) {
   if (!rows.length) {
     return (
       <p className="ratioed-live-empty">
@@ -358,10 +389,13 @@ function Ticker({ rows, profiles }) {
       {[...rows].reverse().map((r) => {
         const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
         const avatar = profiles[r.did]?.avatar;
+        const mine = r.did === ME_DID;
         return (
           <li
             key={r.rkey}
-            className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}`}
+            className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}${
+              mine ? ' is-self' : ''
+            }`}
           >
             <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
             {avatar ? (
@@ -369,8 +403,11 @@ function Ticker({ rows, profiles }) {
             ) : (
               <span className="ratioed-live-face is-blank" aria-hidden="true" />
             )}
-            <span className="ratioed-live-who">@{handle}</span>
-            <span className="ratioed-live-what">{KIND_VERB[r.k] || r.k}</span>
+            <span className="ratioed-live-who">
+              @{handle}
+              {mine && <span className="ratioed-live-self"> the artist</span>}
+            </span>
+            <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />
             {r.goneMs != null && (
               <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
             )}

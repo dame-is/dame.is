@@ -166,12 +166,18 @@ export function witnessFromRecord(witnessed) {
  *
  * Withdrawals are counted out of the totals and counted separately, because a
  * like that was taken back is both — it isn't there any more, and it happened.
+ *
+ * `selfDid` drops the artist's own records, which is what every measured figure
+ * on this project already does. It is not bookkeeping: the studio can reply to
+ * the thread from the dashboard, and a piece that looks like it drew four
+ * people when three of them were the artist is a false reading of the artwork.
  */
-export function tallyWitness(rows) {
+export function tallyWitness(rows, { selfDid = null } = {}) {
   const out = { likes: 0, reposts: 0, quotes: 0, replies: 0, people: 0, total: 0, withdrawn: 0 };
   const bucket = { like: 'likes', repost: 'reposts', quote: 'quotes', reply: 'replies' };
   const dids = new Set();
   for (const r of rows || []) {
+    if (selfDid && r.did === selfDid) continue;
     if (r.goneMs != null) {
       out.withdrawn += 1;
       continue;

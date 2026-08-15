@@ -74,6 +74,35 @@
 }
 .ratioed-live-stream button:hover { color: var(--ink); }
 
+/* --- the alarm ------------------------------------------------------- */
+
+/* A like ends the piece, so it gets a band of its own rather than a row in the
+   feed. Complement-hued against a deck whose every other mark is the hour's own
+   hue, which is the whole argument the scale makes, at the size it deserves. */
+.ratioed-live-alarm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 70%, transparent);
+  border-left-width: 5px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent);
+}
+.ratioed-live-alarm-who {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ratioed-live-alarm-when {
+  font-family: var(--mono, monospace);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  margin-left: auto;
+}
+
 /* --- what is going on, in a sentence -------------------------------- */
 
 .ratioed-live-say {
@@ -142,11 +171,9 @@
   background: var(--rule-soft);
 }
 .ratioed-live-who { overflow-wrap: anywhere; }
-.ratioed-live-what { font-variant-caps: small-caps; color: var(--ink-soft); }
-.ratioed-live-row.ratioed-k-like .ratioed-live-what {
-  color: var(--ratioed-seal, #8c3a2e);
-  font-weight: 600;
-}
+/* The artist's own records are in the log and in none of the counts. */
+.ratioed-live-row.is-self { color: var(--ink-faint); }
+.ratioed-live-self { font-size: var(--text-xs); color: var(--ink-muted); }
 .ratioed-live-text {
   color: var(--ink-faint);
   overflow: hidden;
@@ -158,7 +185,7 @@
    that deletion is the one thing here no index can be asked about later. */
 .ratioed-live-row.is-gone .ratioed-live-when,
 .ratioed-live-row.is-gone .ratioed-live-who,
-.ratioed-live-row.is-gone .ratioed-live-what,
+.ratioed-live-row.is-gone .rk-chip,
 .ratioed-live-row.is-gone .ratioed-live-text { opacity: 0.5; }
 .ratioed-live-row.is-gone .ratioed-live-who { text-decoration: line-through; }
 .ratioed-live-row.is-gone .ratioed-live-face { filter: grayscale(1); opacity: 0.5; }
@@ -212,7 +239,7 @@
 
 @media (max-width: 34rem) {
   .ratioed-live-row { grid-template-columns: 4.5em 22px 1fr; }
-  .ratioed-live-what,
+  .rk-chip,
   .ratioed-live-undone,
   .ratioed-live-text { grid-column: 3; }
   .ratioed-live-stream { margin-left: 0; width: 100%; }

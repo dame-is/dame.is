@@ -43,6 +43,57 @@ const DELETE_MARK = '"operation":"delete"';
 // but this must not be able to grow without bound on a busy post.
 const MAX_TRACKED = 2000;
 
+// How often a watch reports what it is costing and how fast it is reading.
+//
+// Status used to be emitted only when something MATCHED, which on a piece
+// nobody has touched is never — so the panel showed "0.0 MB read" for the whole
+// life of the piece and looked broken while it was working perfectly. Reporting
+// throughput is the fix, and it has to be rate-limited or it becomes a React
+// render at 260 Hz.
+const STATUS_MS = 1000;
+
+// And how often the clock is even consulted. A power of two so the test is a
+// mask; at the measured rate this lands about four times a second, which is
+// four Date.now() calls a second to police a once-a-second update.
+const STATUS_EVERY = 64;
+
+/**
+ * Throughput over the last window, sampled rather than measured.
+ *
+ * Kept out of the socket so it can be tested with a clock you control. `mark`
+ * returns null until a full window has passed, then returns that window's rate
+ * and rebases. The first call only sets the baseline: there is no window before
+ * it, and reporting an infinite rate for a zero-length one is worse than
+ * reporting nothing.
+ */
+export function createMeter({ windowMs = STATUS_MS } = {}) {
+  let at = 0;
+  let msgs0 = 0;
+  let bytes0 = 0;
+  let started = false;
+  return {
+    mark(nowMs, msgs, bytes) {
+      if (!started) {
+        started = true;
+        at = nowMs;
+        msgs0 = msgs;
+        bytes0 = bytes;
+        return null;
+      }
+      const dt = nowMs - at;
+      if (dt < windowMs) return null;
+      const sample = {
+        rate: Math.round(((msgs - msgs0) * 1000) / dt),
+        kbps: Math.round(((bytes - bytes0) * 1000) / dt / 1024),
+      };
+      at = nowMs;
+      msgs0 = msgs;
+      bytes0 = bytes;
+      return sample;
+    },
+  };
+}
+
 /**
  * The cursor a reconnect should ask for, or null to start live.
  *
@@ -125,10 +176,14 @@ export function classify(collection, record, subject) {
  * the alternative is reporting every deletion on Bluesky, and the pieces this
  * watches are watched from the moment they go up.
  *
- * `onStatus` receives `{ state, bytes, seen }`, where `state` is
- * `'connecting' | 'open' | 'closed' | 'spent'`. `bytes` is what the stream has
- * cost so far — surfaced because a caller should be able to see that number and
- * decide to stop. `'spent'` is this deciding for them at `budgetBytes`.
+ * `onStatus` receives `{ state, bytes, seen, msgs, rate, kbps }`, where `state`
+ * is `'connecting' | 'open' | 'closed' | 'spent'`. `bytes` is what the stream
+ * has cost so far — surfaced because a caller should be able to see that number
+ * and decide to stop. `'spent'` is this deciding for them at `budgetBytes`.
+ * `msgs` is everything the socket has delivered and `rate`/`kbps` are how fast
+ * it is arriving, resampled about once a second: a watch on a piece nobody has
+ * touched matches nothing for minutes, and those three are the difference
+ * between a panel that looks broken and one that is visibly working.
  */
 export function watchSubject(
   subject,
@@ -141,7 +196,11 @@ export function watchSubject(
   let lastTimeMs = 0;
   let bytes = 0;
   let seen = 0;
+  let msgs = 0;
+  let rate = 0;
+  let kbps = 0;
   let timer = null;
+  const meter = createMeter();
   // Record keys this subscription has reported as creates. A delete names only
   // a collection and an rkey, so this is the only way to know whether one is
   // ours — and without it the caller hears about every deletion on the network.
@@ -154,7 +213,8 @@ export function watchSubject(
   // onclose — which would otherwise report 'closed' over the top of 'spent' and
   // leave the caller showing a stopped stream as merely disconnected.
   let spent = false;
-  const status = (state) => onStatus?.({ state: spent ? 'spent' : state, bytes, seen });
+  const status = (state) =>
+    onStatus?.({ state: spent ? 'spent' : state, bytes, seen, msgs, rate, kbps });
 
   const connect = () => {
     if (stopped) return;
@@ -182,6 +242,18 @@ export function watchSubject(
     ws.onmessage = (msg) => {
       const raw = typeof msg.data === 'string' ? msg.data : '';
       bytes += raw.length;
+      msgs += 1;
+      // The throughput sample, on a mask rather than on every message: this is
+      // the hot path, ~260 messages a second, and the number it feeds is a
+      // display number.
+      if ((msgs & (STATUS_EVERY - 1)) === 0) {
+        const sample = meter.mark(Date.now(), msgs, bytes);
+        if (sample) {
+          rate = sample.rate;
+          kbps = sample.kbps;
+          status('open');
+        }
+      }
       if (bytes > budgetBytes) {
         stopped = true;
         spent = true;
