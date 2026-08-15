@@ -29,13 +29,13 @@ import { relativeDay, relativeDayShort, formatDateFull, formatDateShort } from '
  * without any of it depending on the viewport (the reading column is capped at
  * 65ch and narrows on a wide window too — split screen, the print view).
  */
-export default function DocumentMeta({ date, verb = 'Published', tag = '' }) {
-  if (!date) return null;
-  const columns = [
-    { key: 'date', label: verb, long: formatDateFull(date), short: formatDateShort(date) },
-    { key: 'elapsed', label: 'Elapsed', long: relativeDay(date), short: relativeDayShort(date) },
-  ];
-  if (tag) columns.push({ key: 'tag', label: 'Tagged', long: tag, short: tag });
+export default function DocumentMeta({ date, verb = 'Published', tag = '', columns: given }) {
+  // A caller with facts of its own hands in the columns directly — a Ratioed
+  // piece is dated three times over (posted, sealed, measured) and none of them
+  // is a publication date with a tag beside it. The band's shape is the thing
+  // worth sharing; the date/verb/tag triple is only the common case.
+  const columns = given || buildColumns(date, verb, tag);
+  if (!columns?.length) return null;
 
   return (
     <dl className="document-meta" data-columns={columns.length}>
@@ -56,4 +56,16 @@ export default function DocumentMeta({ date, verb = 'Published', tag = '' }) {
       ))}
     </dl>
   );
+}
+
+/** The publication triple: when it was dated, how long ago that was, and what
+ *  it is tagged. Null date means the document has nothing to date it by. */
+function buildColumns(date, verb, tag) {
+  if (!date) return null;
+  const columns = [
+    { key: 'date', label: verb, long: formatDateFull(date), short: formatDateShort(date) },
+    { key: 'elapsed', label: 'Elapsed', long: relativeDay(date), short: relativeDayShort(date) },
+  ];
+  if (tag) columns.push({ key: 'tag', label: 'Tagged', long: tag, short: tag });
+  return columns;
 }

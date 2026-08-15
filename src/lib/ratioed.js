@@ -413,6 +413,10 @@ export function normalizePiece(rkey, value) {
     breaker: value.breaker || { handle: 'unknown', likeSurvives: false },
     preSeal: { ...EMPTY, ...(value.preSeal || {}) },
     postSeal: { ...EMPTY, ...(value.postSeal || {}) },
+    // Authored opening paragraph, when dame has written one. Empty means the
+    // page generates its own from the figures, which is always true but never
+    // says anything the numbers don't.
+    lede: value.lede || '',
     statedTally: value.statedTally || '',
     measuredAt: value.measuredAt || '',
     // Absent on any piece measured before audiences were recorded, and later

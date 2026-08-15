@@ -689,6 +689,33 @@
 }
 .ratioed-take-link:hover { text-decoration: underline; }
 
+/* The way out of an expanded row, in the site's own button idiom rather than
+   the chart's — this is navigation, not a chart control, so it matches the
+   home page's CTA (.home-hero-cta-btn) and not the small-caps toggles above
+   it. Sized to its own label instead of filling the column. */
+.ratioed-through { margin: var(--space-4) 0 0; }
+.ratioed-through-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 0.3em 1em;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.ratioed-through-btn:hover,
+.ratioed-through-btn:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 /* --- reach ---------------------------------------------------------- */
 
 /* One bar per piece on a shared axis, split at the seal. The disparity between

@@ -26,6 +26,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
+import DocumentMeta from '../components/DocumentMeta.jsx';
+import { formatDateFull, relativeDay, relativeDayShort } from '../lib/time.js';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import {
   SEED_PIECES,
@@ -280,20 +282,27 @@ export default function RatioedPiece() {
         atUri={atUri}
         cid={null}
         headTitle={`Ratioed take ${take} is live — dame.is`}
+        above={
+          <p className="ratioed-piece-crumb">
+            <Link to={`/creating/${slug}`}>← Ratioed</Link>
+          </p>
+        }
       >
         <article className="ratioed-piece reveal" style={scale}>
           <InspectMargin atUri={atUri} cid={null} />
 
-          <p className="ratioed-piece-crumb">
-            <Link to={`/creating/${slug}`}>← Ratioed</Link>
-          </p>
+          <DocumentMeta columns={provenanceColumns(piece)} />
 
-          <p className="ratioed-piece-lede">
-            Take {take} is <strong>up right now</strong>. The goal is zero likes: the first one
-            ends it, the artist closes replies by hand the moment they notice, and the seconds
-            between those two are what this whole project measures. Nothing here is a measurement
-            yet — it is a witness, and it is watching.
-          </p>
+          {piece.lede ? (
+            <p className="ratioed-piece-lede">{piece.lede}</p>
+          ) : (
+            <p className="ratioed-piece-lede">
+              Take {take} is <strong>up right now</strong>. The goal is zero likes: the first one
+              ends it, the artist closes replies by hand the moment they notice, and the seconds
+              between those two are what this whole project measures. Nothing here is a measurement
+              yet — it is a witness, and it is watching.
+            </p>
+          )}
 
           <RatioedLive piece={piece} record={longestPiece(pieces)} />
 
@@ -345,39 +354,52 @@ export default function RatioedPiece() {
       atUri={atUri}
       cid={null}
       headTitle={`Ratioed take ${take} — dame.is`}
+      /* The way back up sits above the title, where a breadcrumb belongs: a
+         reader who wants the parent wants it before reading, not after. It
+         used to be the first line of the body, which also made the lede a
+         second paragraph and got it indented by the article prose rule. */
+      above={
+        <p className="ratioed-piece-crumb">
+          <Link to={`/creating/${slug}`}>← Ratioed</Link>
+        </p>
+      }
     >
       <article className="ratioed-piece reveal" style={scale}>
         <InspectMargin atUri={atUri} cid={null} />
 
-        {/* Back to the essay by the same address the reader came in on — its
-            path or its record key, both of which resolve. */}
-        <p className="ratioed-piece-crumb">
-          <Link to={`/creating/${slug}`}>← Ratioed</Link>
-        </p>
+        {/* The document's own dates, in the band every other document page on
+            the site wears under its title. A piece is dated three times and no
+            one of them is the publication date the two-column form assumes. */}
+        <DocumentMeta columns={provenanceColumns(piece)} />
 
         {/* The whole piece in one sentence, before any chart asks for
             attention. A reader who leaves here should still know what
-            happened. */}
-        <p className="ratioed-piece-lede">
-          It stood for <strong>{fmtDuration(piece.lifespanMs)}</strong>, drew{' '}
-          {piece.preSeal.participants === 0 ? (
-            <strong>nobody</strong>
-          ) : (
-            <>
-              <strong>{piece.preSeal.participants}</strong>{' '}
-              {piece.preSeal.participants === 1 ? 'person' : 'people'}
-            </>
-          )}{' '}
-          while it was alive, and was ended by <strong>@{b.currentHandle || b.handle}</strong>
-          {b.likeSurvives ? (
-            <>
-              , whose like the artist caught {fmtSeconds(b.reactionMs)} later.
-            </>
-          ) : (
-            <>. Their like has since been deleted, so how fast it was caught can no longer be
-            measured.</>
-          )}
-        </p>
+            happened. Authored copy on the record wins: the generated sentence
+            is a floor that is always true, not a thing dame is stuck with. */}
+        {piece.lede ? (
+          <p className="ratioed-piece-lede">{piece.lede}</p>
+        ) : (
+          <p className="ratioed-piece-lede">
+            It stood for <strong>{fmtDuration(piece.lifespanMs)}</strong>, drew{' '}
+            {piece.preSeal.participants === 0 ? (
+              <strong>nobody</strong>
+            ) : (
+              <>
+                <strong>{piece.preSeal.participants}</strong>{' '}
+                {piece.preSeal.participants === 1 ? 'person' : 'people'}
+              </>
+            )}{' '}
+            while it was alive, and was ended by <strong>@{b.currentHandle || b.handle}</strong>
+            {b.likeSurvives ? (
+              <>
+                , whose like the artist caught {fmtSeconds(b.reactionMs)} later.
+              </>
+            ) : (
+              <>. Their like has since been deleted, so how fast it was caught can no longer be
+              measured.</>
+            )}
+          </p>
+        )}
 
         <dl className="ratioed-piece-figures">
           <div>
@@ -563,6 +585,10 @@ export default function RatioedPiece() {
 
         <section className="ratioed-piece-section">
           <h2>Provenance</h2>
+          {/* The dates live in the band under the title now. What stays here is
+              everything that needs a sentence rather than a column: the exact
+              timestamps to the second, which is the precision the reaction-time
+              finding turns on and which a date alone throws away. */}
           <dl className="ratioed-piece-kv">
             <dt>posted</dt>
             <dd>
@@ -606,6 +632,41 @@ export default function RatioedPiece() {
 
 function engagementTotal(w) {
   return (w?.threadPosts || 0) + (w?.reposts || 0) + (w?.quotes || 0) + (w?.likes || 0);
+}
+
+/**
+ * A piece's provenance, for the header band under the title.
+ *
+ * The same three-column shape a blog post wears, answering the same questions
+ * about a different kind of document: when it happened, how long ago that was,
+ * and when the figures below it were taken.
+ *
+ * Deliberately not the lifespan, which was the first thing to go in here and
+ * read as provenance for about a second: the figures row directly below already
+ * leads with `alive`, and a band that repeats the number under it is furniture.
+ * The exact timestamps stay in the Provenance section at the foot, where there
+ * is room for the seconds the reaction-time finding depends on.
+ */
+function provenanceColumns(piece) {
+  const day = (iso) => (iso || '').slice(0, 10);
+  const columns = [
+    { key: 'date', label: 'Posted', long: formatDateFull(piece.postedAt), short: day(piece.postedAt) },
+    {
+      key: 'elapsed',
+      label: 'Elapsed',
+      long: relativeDay(piece.postedAt),
+      short: relativeDayShort(piece.postedAt),
+    },
+  ];
+  if (piece.measuredAt) {
+    columns.push({
+      key: 'measured',
+      label: 'Measured',
+      long: formatDateFull(piece.measuredAt),
+      short: day(piece.measuredAt),
+    });
+  }
+  return columns;
 }
 
 const REACH_ACT = { repost: 'reposted', quote: 'quoted', reply: 'replied', like: 'liked' };

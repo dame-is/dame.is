@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
 import {
   SEED_PIECES,
   SEED_PEOPLE,
@@ -941,9 +942,16 @@ function PieceDetail({ piece, delta, parent }) {
           {/* This panel is as far as the essay can go at its own altitude —
               all thirteen share one axis here. The piece's own page has the
               log, the faces and the replay. */}
-          <p className="ratioed-more">
-            <Link to={piecePath(piece, parent)}>
-              Everything on take {String(piece.take).padStart(2, '0')} →
+          {/* Its own class rather than `ratioed-more`, which is the "show all
+              N" toggle's box: wrapping a link in it produced a full-width
+              bordered slab with an underlined link floating inside it. */}
+          <p className="ratioed-through">
+            <Link className="ratioed-through-btn" to={piecePath(piece, parent)}>
+              Everything on take {String(piece.take).padStart(2, '0')}
+              {/* The lucide icon the site's other buttons use, rather than a
+                  text arrow: --sans is Crimson Pro here, whose → carries a
+                  side bearing wide enough to read as a stray gap. */}
+              <ArrowRight size={14} strokeWidth={1.75} aria-hidden="true" />
             </Link>
           </p>
         </div>

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   REACH_WEIGHTS,
   audienceRatio,
+  looksFarmed,
   qualityFactor,
   foldAudience,
   windowReach,
@@ -35,20 +36,46 @@ describe('audienceRatio', () => {
   });
 });
 
+describe('looksFarmed', () => {
+  it('catches two large numbers of roughly the same size', () => {
+    expect(looksFarmed(20000, 21000)).toBe(true);
+    expect(looksFarmed(4000, 3000)).toBe(true);
+  });
+
+  it('leaves a reader who follows widely alone', () => {
+    // 200 followers against 5,000 follows: no audience was farmed here, and
+    // the 200 are as real as anyone's.
+    expect(looksFarmed(200, 5000)).toBe(false);
+  });
+
+  it('leaves an account with an audience that chose it alone', () => {
+    expect(looksFarmed(63000, 2150)).toBe(false);
+  });
+
+  it('leaves a small mutual-heavy community alone', () => {
+    // Everyone follows everyone, but at 400 accounts nobody farmed anything.
+    expect(looksFarmed(400, 380)).toBe(false);
+  });
+
+  it('says nothing about an account it cannot measure', () => {
+    expect(looksFarmed(null, 21000)).toBe(false);
+    expect(looksFarmed(20000, undefined)).toBe(false);
+  });
+});
+
 describe('qualityFactor', () => {
-  it('never inflates an audience, however good the ratio', () => {
-    for (const ratio of [1, 4, 90, 5000]) expect(qualityFactor(ratio)).toBe(1);
+  it('leaves almost everyone exactly as measured', () => {
+    for (const [fr, fo] of [[63000, 2150], [200, 5000], [400, 380], [1200, 800]]) {
+      expect(qualityFactor(fr, fo)).toBe(1);
+    }
   });
 
-  it('discounts a follow-back audience by the root of its ratio', () => {
-    expect(qualityFactor(0.25)).toBeCloseTo(0.5, 5);
-    expect(qualityFactor(0.04)).toBeCloseTo(0.2, 5);
+  it('halves a farmed audience rather than zeroing it', () => {
+    expect(qualityFactor(20000, 21000)).toBe(0.5);
   });
 
-  it('makes no adjustment when the ratio is unknown', () => {
-    expect(qualityFactor(null)).toBe(1);
-    expect(qualityFactor(0)).toBe(1);
-    expect(qualityFactor(Number.NaN)).toBe(1);
+  it('never inflates anyone, however good their ratio', () => {
+    expect(qualityFactor(90000, 12)).toBe(1);
   });
 });
 
@@ -132,11 +159,23 @@ describe('windowReach', () => {
     expect(w.raw).toBe(40020);
   });
 
-  it('applies the ratio discount only to the accounts that earn one', () => {
+  it('leaves the total alone when nobody in it is farming follows', () => {
+    // Nobody here carries the signature: the big account's audience chose it,
+    // and the small one is a reader who follows widely.
     const w = windowReach(events, true);
-    // The big account keeps all 40000; the reply's 20 keeps sqrt(0.04) = 20%.
-    expect(w.weighted).toBe(Math.round(40000 + 20 * 0.2));
-    expect(w.weighted).toBeLessThan(w.raw);
+    expect(w.weighted).toBe(w.raw);
+  });
+
+  it('halves a farmed audience inside the total', () => {
+    const w = windowReach(
+      [
+        ev('repost', { did: 'did:plc:farm', h: 'farm.example', fr: 20000, fo: 21000, pre: 1 }),
+        ev('repost', { did: 'did:plc:real', h: 'real.example', fr: 3000, fo: 90, pre: 1, off: 4 }),
+      ],
+      true,
+    );
+    expect(w.raw).toBe(23000);
+    expect(w.weighted).toBe(13000);
   });
 
   it('separates people it could not measure from people who reached nobody', () => {

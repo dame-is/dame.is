@@ -65,19 +65,59 @@ export function audienceRatio(followers, follows) {
 }
 
 /**
- * How much of a stated audience to believe, from its ratio.
+ * What follow-farming looks like from outside.
  *
- * `sqrt`, clamped at 1, so the adjustment can only ever TAKE AWAY. An account
- * with a healthy ratio is left exactly as measured and no account is ever
- * inflated for being popular — which keeps this from becoming a thumb on the
- * scale. A 200-follower account that follows 5,000 keeps a fifth of its stated
- * audience; one that follows 200 keeps all of it.
+ * An account that follows tens of thousands of people to collect follow-backs
+ * ends up with two large numbers of roughly the same size: 20,000 followers
+ * against 21,000 follows. That audience is mostly reciprocal and mostly not
+ * looking, so counting it at face value overstates the reach.
  *
- * An unknown ratio is not a penalty: 1, meaning "no adjustment made".
+ * All three conditions have to hold, and each rules out something the earlier
+ * blanket ratio test got wrong:
+ *
+ *   Both sides large. Somebody with 200 followers who follows 5,000 accounts
+ *     is a reader, not a farmer. They gained no audience by it, and their 200
+ *     followers are as real as anyone's. The old sqrt(ratio) rule cut them to
+ *     a fifth for the crime of following people.
+ *   Sizes comparable. An account with 63,000 followers and 2,000 follows has
+ *     an audience that chose it. That is the shape farming is defined against.
+ *   Follows large in absolute terms. Nobody follows 2,000 accounts by
+ *     accident, which is what separates a farmer from a mutual-heavy small
+ *     community where everyone follows everyone.
  */
-export function qualityFactor(ratio) {
-  if (typeof ratio !== 'number' || !Number.isFinite(ratio) || ratio <= 0) return 1;
-  return Math.min(1, Math.sqrt(ratio));
+const FARM_MIN = 2000;
+const FARM_RATIO_LO = 0.5;
+const FARM_RATIO_HI = 2;
+
+/** Does this account carry the follow-farming signature? */
+export function looksFarmed(followers, follows) {
+  if (typeof followers !== 'number' || typeof follows !== 'number') return false;
+  if (followers < FARM_MIN || follows < FARM_MIN) return false;
+  const ratio = followers / follows;
+  return ratio >= FARM_RATIO_LO && ratio <= FARM_RATIO_HI;
+}
+
+/**
+ * How much of a stated audience to believe.
+ *
+ * 1 for almost everyone. The ratio between followers and follows says less
+ * about whether an audience is real than it seems to: a lurker with a lopsided
+ * ratio still has whatever followers they have, and discounting them was
+ * punishing people for reading widely.
+ *
+ * The one case worth discounting is follow-farming, where the audience is a
+ * by-product of the follow list rather than of anything the account posted.
+ * Those are halved. Half rather than zeroed because a farmed audience is not
+ * an empty one; some of those followers are real people who will see the post.
+ *
+ * Like the rule it replaces, this can only ever TAKE AWAY. No account is
+ * inflated for being popular, so the adjustment can't become a thumb on the
+ * scale.
+ */
+export const FARM_PENALTY = 0.5;
+
+export function qualityFactor(followers, follows) {
+  return looksFarmed(followers, follows) ? FARM_PENALTY : 1;
 }
 
 /** Does this event carry an audience measurement at all? */
@@ -166,7 +206,8 @@ export function foldAudience(events, { pre } = {}) {
     const followers = known ? person.fr : null;
     const follows = typeof person.fo === 'number' ? person.fo : null;
     const ratio = audienceRatio(followers, follows);
-    const quality = qualityFactor(ratio);
+    const farmed = looksFarmed(followers, follows);
+    const quality = qualityFactor(followers, follows);
     out.push({
       ...person,
       kind,
@@ -174,6 +215,7 @@ export function foldAudience(events, { pre } = {}) {
       followers,
       follows,
       ratio,
+      farmed,
       quality,
       known,
       // An unmeasured audience contributes nothing to the total, which is why

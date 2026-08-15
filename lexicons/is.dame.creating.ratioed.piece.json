@@ -78,6 +78,12 @@
             "type": "integer",
             "description": "Milliseconds after postedAt at which watching began. Everything before it is unwitnessed rather than empty — the studio can be opened on a piece that is already running, and the difference matters when reading the log for what is absent from it."
           },
+          "lede": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "The opening paragraph of the piece's page, when the artist has written one. Absent means the page composes its own sentence from the measured figures — always true, and never able to say anything the numbers do not. Prose, not markup: it is rendered as a single paragraph.",
+            "maxGraphemes": 1000
+          },
           "statedTally": {
             "type": "string",
             "maxLength": 300,
