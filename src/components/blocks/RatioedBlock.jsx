@@ -92,8 +92,8 @@ const DEFAULT_CAPTIONS = {
     }`,
   reach: ({ reach }) =>
     reach
-      ? `Audience carried to, weighted by act: a repost or quote counts a whole following, a reply a tenth, a like a fiftieth. ${fmtReach(reach.aliveRaw)} while the pieces were alive against ${fmtReach(reach.afterRaw)} after they were sealed. A ceiling, not a headcount: shared followers are counted twice.`
-      : 'Audience carried to, weighted by act: a repost or quote counts a whole following, a reply a fraction of one.',
+      ? `A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type. A repost or quote counts as a whole following, a reply a tenth, a like a fiftieth. ${fmtReach(reach.aliveRaw)} while the pieces were alive against ${fmtReach(reach.afterRaw)} after they were sealed.`
+      : 'A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type. A repost or quote counts as a whole following, a reply a tenth, a like a fiftieth.',
   when: () =>
     'Every piece by the clock it was made on, in Eastern time. The core is how long it lived, the ring how much it drew, both scaled by area.',
 };

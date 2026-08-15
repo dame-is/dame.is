@@ -790,8 +790,9 @@ function ReachSection({ reach, audienceAt, piece }) {
       )}
 
       <p className="ratioed-piece-note">
-        A repost or quote counts a whole following, a reply a tenth, a like a fiftieth; each
-        account once. A ceiling, not a headcount: shared followers are counted twice.
+        A score measuring the potential reach a piece had based on the social graphs of all the
+        participants, weighted by engagement type. A repost or quote counts as a whole following,
+        a reply a tenth, a like a fiftieth.
         {unknown > 0 && (
           <>
             {' '}
