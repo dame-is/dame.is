@@ -7,11 +7,21 @@
 // its record carries — the event log, the roster, the reaction time, the
 // afterlife it has accrued since — has room to be read rather than summarised.
 //
-// Every figure on this page is a DATED MEASUREMENT, for the reason the whole
-// project is recorded rather than queried: Constellation indexes live state,
-// and the like that ended a piece is usually deleted within minutes. What the
-// record says happened is the only evidence it happened. The one live number is
-// the afterlife delta, which is additive and clearly labelled as of now.
+// Every figure on a FINISHED piece is a DATED MEASUREMENT, for the reason the
+// whole project is recorded rather than queried: Constellation indexes live
+// state, and the like that ended a piece is usually deleted within minutes.
+// What the record says happened is the only evidence it happened. The one live
+// number is the afterlife delta, which is additive and labelled as of now.
+//
+// A piece that is still up is the exception, and gets a different page: there
+// is no seal to measure against, so none of the sections below can be drawn,
+// and what can be shown instead is the thing that will never be available
+// again — the piece happening. That view is a witness rather than a
+// measurement and says so. It comes from two readers: the piece's own record,
+// which the studio writes its live log onto as it watches, and optionally the
+// visitor's own firehose. When the record turns up sealed, the page becomes
+// the measurement under the reader, and the log it was watching is kept —
+// folded away, replayable, never merged into the measured figures.
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -24,17 +34,21 @@ import {
   pieceSlug,
   piecePath,
   isRatioedParent,
+  isLive,
+  longestPiece,
+  normalizePiece,
   fetchLiveDeltas,
   fmtDuration,
   fmtSeconds,
   fmtElapsed,
 } from '../lib/ratioed.js';
-import { resolvePds, resolveProfiles } from '../lib/atproto.js';
+import { getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { ME_DID, ME_HANDLE, RATIOED_DOC_RKEY, COLLECTIONS } from '../config.js';
 import PieceReplay from '../components/RatioedReplay.jsx';
 import PieceFaces from '../components/RatioedFaces.jsx';
+import RatioedLive, { RatioedWitness } from '../components/RatioedLive.jsx';
 import './RatioedPiece.css';
 
 const KIND_LABEL = { like: 'like', repost: 'repost', quote: 'quote', reply: 'reply' };
@@ -43,6 +57,11 @@ const KIND_LABEL = { like: 'like', repost: 'repost', quote: 'quote', reply: 'rep
 // has final. Only "no such piece" turns on this — a piece the snapshot knows
 // about is already on screen well before it elapses.
 const PDS_DEADLINE_MS = 6000;
+
+// How often a live piece's record is re-read. The studio writes to it every
+// couple of seconds while something is happening, so this is the lag on the
+// cheap reader — the firehose, for anyone who opens it, is instant.
+const LIVE_POLL_MS = 10_000;
 
 /** Resolve to null rather than hang. */
 function deadline(promise, ms = PDS_DEADLINE_MS) {
@@ -135,8 +154,15 @@ export default function RatioedPiece() {
     };
   }, [events]);
 
+  // Is this piece still up? A record written the moment the post goes up and
+  // sealed later, so `sealedAt` is the whole test — and while it's absent this
+  // page is a dashboard rather than a measurement.
+  const running = isLive(piece);
+
   useEffect(() => {
-    if (!piece?.subject) return undefined;
+    // Nothing to add to a piece that is still accruing its first anything, and
+    // the delta is defined against a measurement that hasn't been taken.
+    if (!piece?.subject || running) return undefined;
     let alive = true;
     fetchLiveDeltas([piece]).then((d) => {
       if (alive) setDelta(d?.[piece.rkey] || null);
@@ -144,7 +170,39 @@ export default function RatioedPiece() {
     return () => {
       alive = false;
     };
-  }, [piece]);
+  }, [piece, running]);
+
+  // While a piece is up, its record is the one thing on this site that changes
+  // as you watch: the studio writes what it witnesses onto it as the piece
+  // runs, and sealing writes the measurement. So it's re-read on a timer — one
+  // small fetch, and it's what turns this page from a dashboard into a record
+  // at the moment the piece ends, without anybody reloading anything.
+  useEffect(() => {
+    if (!running || !piece?.rkey) return undefined;
+    const rkey = piece.rkey;
+    let on = true;
+    let timer = null;
+    (async () => {
+      const pds = await resolvePds(ME_DID).catch(() => null);
+      if (!pds || !on) return;
+      const read = async () => {
+        const res = await getRecord(pds, {
+          repo: ME_DID,
+          collection: COLLECTIONS.ratioedPiece,
+          rkey,
+        }).catch(() => null);
+        const fresh = res?.value ? normalizePiece(rkey, res.value) : null;
+        if (!on || !fresh) return;
+        setPieces((prev) => prev.map((p) => (p.rkey === rkey ? fresh : p)));
+      };
+      await read();
+      if (on) timer = setInterval(read, LIVE_POLL_MS);
+    })();
+    return () => {
+      on = false;
+      if (timer) clearInterval(timer);
+    };
+  }, [running, piece?.rkey]);
 
   // A piece page hangs off the essay, so it only answers under the essay's own
   // address — either form of it. Anything else is somebody else's work with a
@@ -185,6 +243,79 @@ export default function RatioedPiece() {
   // so it can't drift from the pieces on screen the way a hardcoded figure did
   // in the essay's reaction chart.
   const deletedLikes = pieces.filter((p) => p.breaker?.likeSurvives === false).length;
+  // Records somebody made and unmade while the piece was being watched. The
+  // measured log has no row for any of them, by construction.
+  const witnessedGone = (piece.witnessed || []).filter((w) => w.goneMs != null).length;
+
+  // A piece that is still up gets the whole page as a dashboard. None of the
+  // sections below it can be drawn yet — every one of them is defined against
+  // the seal — and the one thing that CAN be shown is the only thing that will
+  // never be available again afterwards: the piece happening.
+  if (running) {
+    return (
+      <PageShell
+        title={`Ratioed, take ${take}`}
+        atUri={atUri}
+        cid={null}
+        headTitle={`Ratioed take ${take} is live — dame.is`}
+      >
+        <article className="ratioed-piece reveal" style={scale}>
+          <InspectMargin atUri={atUri} cid={null} />
+
+          <p className="ratioed-piece-crumb">
+            <Link to={`/creating/${slug}`}>← Ratioed</Link>
+          </p>
+
+          <p className="ratioed-piece-lede">
+            Take {take} is <strong>up right now</strong>. The goal is zero likes: the first one
+            ends it, the artist closes replies by hand the moment they notice, and the seconds
+            between those two are what this whole project measures. Nothing here is a measurement
+            yet — it is a witness, and it is watching.
+          </p>
+
+          <RatioedLive piece={piece} record={longestPiece(pieces)} />
+
+          <section className="ratioed-piece-section">
+            <h2>What happens when it ends</h2>
+            <p className="ratioed-piece-note">
+              Replies close, and this page becomes what every other piece&rsquo;s page is: a
+              lifespan, a reaction time, an event log measured from a backlink index, and a replay
+              you can watch at the speed it happened. The log above is kept alongside that
+              measurement rather than folded into it — an index can only report what still exists,
+              and a like cast and taken back leaves nothing behind. Six of the first thirteen
+              breaking likes went exactly that way.
+            </p>
+            <p className="ratioed-piece-note">
+              You don&rsquo;t need to reload. This page is reading the piece&rsquo;s own record and
+              will change under you when it&rsquo;s sealed.
+            </p>
+          </section>
+
+          <section className="ratioed-piece-section">
+            <h2>Provenance</h2>
+            <dl className="ratioed-piece-kv">
+              <dt>posted</dt>
+              <dd>
+                <time dateTime={piece.postedAt}>
+                  {piece.postedAt.replace('T', ' ').slice(0, 19)}Z
+                </time>
+              </dd>
+              <dt>sealed</dt>
+              <dd>not yet</dd>
+              <dt>the piece</dt>
+              <dd>
+                <a href={bskyUrl(piece.rkey)} target="_blank" rel="noreferrer noopener">
+                  bsky.app/…/{piece.rkey}
+                </a>
+              </dd>
+            </dl>
+          </section>
+
+          <PieceNav pieces={pieces} take={piece.take} parent={slug} />
+        </article>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell
@@ -264,6 +395,35 @@ export default function RatioedPiece() {
           </p>
           <PieceReplay piece={piece} events={events} profiles={profiles} />
         </section>
+
+        {/* What was actually watched, kept as it ran. Closed by default: the
+            piece is over, and opening an emergency dashboard automatically for
+            something that ended a year ago would be a lie about what you're
+            looking at. */}
+        {piece.witnessed?.length > 0 && (
+          <section className="ratioed-piece-section">
+            <details className="ratioed-piece-witness">
+              <summary>
+                <span>The dashboard, as it ran</span>
+                <span className="ratioed-piece-witness-count">
+                  {piece.witnessed.length} witnessed
+                  {witnessedGone > 0 ? ` · ${witnessedGone} taken back` : ''}
+                </span>
+              </summary>
+              <p className="ratioed-piece-note">
+                This is the live panel the piece was watched on, recorded as it happened rather
+                than measured afterwards, and it is the only place a deletion appears: a record
+                that no longer exists is absent from every index, so the measurement below can say
+                a like is missing and only this can say it was there.
+                {piece.witnessFromMs > 1000 && (
+                  <> Watching began {fmtDuration(piece.witnessFromMs)} in, so anything before that
+                  is unwitnessed rather than absent.</>
+                )}
+              </p>
+              <RatioedWitness piece={piece} />
+            </details>
+          </section>
+        )}
 
         <section className="ratioed-piece-section">
           <h2>Who was there</h2>

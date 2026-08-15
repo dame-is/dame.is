@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "One piece of the Ratioed art project: a Bluesky post that was sealed with a threadgate the moment it received a like. The record is a dated measurement, not a live view — six of the thirteen breaking likes were deleted by the people who cast them and cannot be recovered from any index. The record key mirrors the subject post's record key, the same convention app.bsky.feed.threadgate uses. A record written the moment the post goes up, before anyone has liked it, carries only take, subject and postedAt: the piece is alive, nothing has been measured yet, and the absence of sealedAt is what says so. Every other figure arrives when it is sealed.",
+      "description": "One piece of the Ratioed art project: a Bluesky post that was sealed with a threadgate the moment it received a like. The record is a dated measurement, not a live view — six of the thirteen breaking likes were deleted by the people who cast them and cannot be recovered from any index. The record key mirrors the subject post's record key, the same convention app.bsky.feed.threadgate uses. A record written the moment the post goes up, before anyone has liked it, carries only take, subject and postedAt: the piece is alive, nothing has been measured yet, and the absence of sealedAt is what says so. One field does fill in while it runs — `witnessed`, the log the studio writes as it watches, which is what lets the piece's own page be a live view of itself and is the only account that will exist of a like cast and taken back. Every measured figure arrives when it is sealed.",
       "key": "any",
       "record": {
         "type": "object",
@@ -64,6 +64,19 @@
             },
             "maxLength": 2000,
             "description": "Every backlinking record, individually, so the piece can be drawn as a lifeline and not merely counted. Absent on the first eleven pieces, whose log was harvested offline before this field existed; the site falls back to that log for them."
+          },
+          "witnessed": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#witness"
+            },
+            "maxLength": 1000,
+            "description": "What was watched arriving while the piece was still up, written as it happened rather than read back afterwards. Distinct from `events`, which is measured from a backlink index once the piece is over and therefore holds only what still exists: this holds what existed at the time, deletions and all. Present on pieces run through the studio with the stream open; absent otherwise, which is not evidence that nothing happened."
+          },
+          "witnessFromMs": {
+            "type": "integer",
+            "description": "Milliseconds after postedAt at which watching began. Everything before it is unwitnessed rather than empty — the studio can be opened on a piece that is already running, and the difference matters when reading the log for what is absent from it."
           },
           "statedTally": {
             "type": "string",
@@ -139,6 +152,52 @@
         "participants": {
           "type": "integer",
           "description": "Distinct accounts, counted by DID."
+        }
+      }
+    },
+    "witness": {
+      "type": "object",
+      "description": "One record seen landing on the piece while it was still alive, timed by the same clock as everything else here — the record key's TID, not the relay's envelope. The one exception is goneMs, which describes a deletion, and a deletion writes no record to read a TID off.",
+      "required": [
+        "k",
+        "offMs"
+      ],
+      "properties": {
+        "k": {
+          "type": "string",
+          "knownValues": [
+            "like",
+            "repost",
+            "quote",
+            "reply"
+          ]
+        },
+        "offMs": {
+          "type": "integer",
+          "description": "Milliseconds after postedAt."
+        },
+        "rkey": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "The record's own key, kept because it is the only thing that identifies a record that no longer exists."
+        },
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "h": {
+          "type": "string",
+          "maxLength": 253,
+          "description": "The author's handle as it resolved while the piece was running."
+        },
+        "goneMs": {
+          "type": "integer",
+          "description": "Present when the record was deleted while the piece was still being watched: milliseconds after postedAt at which the deletion came through. A like that carries this is a like somebody cast and took back, which is the project's own subject matter and the one thing no index can be asked about afterwards."
+        },
+        "t": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "The post's text, when it carried any."
         }
       }
     },

@@ -12,8 +12,10 @@ import {
   whenMarks,
   areaRadius,
   aggregate,
+  longestPiece,
   fmtDuration,
   fmtSeconds,
+  fmtStopwatch,
   fmtElapsed,
   pieceSlug,
   piecePath,
@@ -165,6 +167,33 @@ describe('aggregate', () => {
     expect(empty.count).toBe(0);
     expect(empty.meanReactionMs).toBeNull();
     expect(empty.maxLifespanMs).toBe(0);
+  });
+});
+
+describe('longestPiece', () => {
+  it('is the record a live piece is running at — take 4, at 29 minutes', () => {
+    const record = longestPiece(SEED_PIECES);
+    expect(record.take).toBe(4);
+    expect(Math.round(record.lifespanMs / 1000)).toBe(1764);
+  });
+
+  it('never answers with a piece that is still up', () => {
+    // A live piece has no lifespan yet. Offering one as the record to beat
+    // would have every live piece chasing itself.
+    const live = { rkey: 'live', take: 99, postedAt: '2026-08-15T00:00:00Z', lifespanMs: 0 };
+    expect(longestPiece([...SEED_PIECES, live]).take).toBe(4);
+    expect(longestPiece([live])).toBeNull();
+  });
+
+  it('is null before anything has ended, which was true exactly once', () => {
+    expect(longestPiece([])).toBeNull();
+    expect(longestPiece(null)).toBeNull();
+  });
+
+  it('keeps the first of a tie, which in take order is the one that got there first', () => {
+    const a = { take: 2, sealedAt: 'x', lifespanMs: 1000 };
+    const b = { take: 5, sealedAt: 'x', lifespanMs: 1000 };
+    expect(longestPiece([a, b]).take).toBe(2);
   });
 });
 
@@ -495,6 +524,22 @@ describe('formatters', () => {
   it('keeps one decimal on reaction times and marks unknowns', () => {
     expect(fmtSeconds(11_304)).toBe('11.3s');
     expect(fmtSeconds(undefined)).toBe('—');
+  });
+
+  it('keeps two on a stopwatch, because that one is read while it moves', () => {
+    expect(fmtStopwatch(4_283)).toBe('4.28s');
+    expect(fmtStopwatch(0)).toBe('0.00s');
+    // Minutes only when they exist, and the seconds stay padded so the number
+    // doesn't change width as it ticks.
+    expect(fmtStopwatch(67_420)).toBe('1m07.42s');
+    expect(fmtStopwatch(600_000)).toBe('10m00.00s');
+  });
+
+  it('never runs a stopwatch backwards past zero', () => {
+    // Local clock against a PDS write clock: the two can disagree by enough to
+    // make "now" land before the like did.
+    expect(fmtStopwatch(-250)).toBe('0.00s');
+    expect(fmtStopwatch(null)).toBe('0.00s');
   });
 
   it('floats the unit across the afterlife range', () => {

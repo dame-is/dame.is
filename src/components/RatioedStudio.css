@@ -81,6 +81,90 @@
   color: #fff;
 }
 
+/* --- the alarm ------------------------------------------------------- */
+
+/* A like has landed and the reaction time is running. Everything else in this
+   panel is drawn in the hour's own hue; this is its complement, at the top,
+   with the button that stops the clock inside the same box — so the thing you
+   look at and the thing you press are not a foot apart. */
+.rs-alarm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--ratioed-seal, #8c3a2e);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent);
+  animation: rs-alarm-flash 1.15s ease-in-out infinite;
+}
+@keyframes rs-alarm-flash {
+  0%, 100% { background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent); }
+  50% { background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 22%, transparent); }
+}
+
+.rs-alarm-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rs-alarm-when {
+  font-family: var(--mono, monospace);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The measurement, running. Two decimals and twenty ticks a second, because
+   this is the one number on the site being read while it moves — and it is the
+   number the record will carry, so it is sized like the thing it is rather
+   than like a caption. */
+.rs-alarm-race {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: var(--space-2);
+}
+.rs-alarm-clock {
+  font-size: var(--text-2xl);
+  line-height: 1;
+  font-weight: 700;
+  color: var(--ratioed-seal, #8c3a2e);
+}
+.rs-alarm-race-label { font-size: var(--text-xs); color: var(--ink-muted); }
+
+.rs-alarm-seal {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border: 0;
+  border-radius: 4px;
+  background: var(--ratioed-seal, #8c3a2e);
+  /* The ground colour, not white: the scale solves the seal for contrast
+     against the page, so the page is the one text colour guaranteed to clear
+     it at whatever hour the sky is on. Large and bold so 3:1 is the bar it
+     has to clear rather than 4.5:1. */
+  color: var(--page);
+  font: inherit;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+.rs-alarm-seal:hover:not(:disabled) { filter: brightness(1.12); }
+.rs-alarm-seal:disabled { opacity: 0.6; cursor: default; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-alarm { animation: none; }
+}
+
 /* --- just sealed ---------------------------------------------------- */
 
 .rs-announce {
@@ -175,21 +259,67 @@
   font-size: var(--text-sm);
 }
 
+/* Flex rather than a grid, because a row can now carry an action pair and a
+   composer, and a fixed column count fought both. */
 .rs-feed-row {
-  display: grid;
-  grid-template-columns: 5em minmax(0, 12em) auto 1fr;
-  gap: var(--space-2) var(--space-3);
-  align-items: baseline;
-  padding: var(--space-1) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) 0;
   border-bottom: 1px solid var(--rule-soft);
 }
-.rs-feed-when { font-family: var(--mono, monospace); color: var(--ink-muted); }
-.rs-feed-who { overflow-wrap: anywhere; }
-.rs-feed-kind { font-variant-caps: small-caps; color: var(--ink-soft); }
-.rs-feed-text { color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-feed-when { font-family: var(--mono, monospace); color: var(--ink-muted); flex: none; width: 4.5em; }
+.rs-feed-who { overflow-wrap: anywhere; flex: 0 1 12em; }
+.rs-feed-mine { font-size: var(--text-xs); color: var(--ink-muted); }
+.rs-feed-row.mine { color: var(--ink-faint); }
+.rs-feed-text {
+  color: var(--ink-faint);
+  flex: 1 1 10em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rs-feed-scan { font-variant-numeric: tabular-nums; }
 
-/* The like is the one that ends it, so it reads as the one that ends it. */
-.rs-feed-row.rs-k-like .rs-feed-kind { color: var(--ratioed-seal, #8c3a2e); font-weight: 600; }
+/* --- acting on a row ------------------------------------------------- */
+
+/* Liking or answering somebody without leaving the panel that is watching for
+   the like that ends the piece. Deliberately quiet until you reach for them:
+   the one control on this screen that should catch the eye is the seal. */
+.rs-feed-acts {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+  flex: none;
+}
+.rs-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.rs-act:hover:not(:disabled) { color: var(--ink); border-color: var(--rule); }
+.rs-act:disabled { opacity: 0.4; cursor: default; }
+.rs-act.on { color: var(--ratioed-seal, #8c3a2e); border-color: var(--rule); }
+
+.rs-reply-box { flex: 1 0 100%; padding: var(--space-2) 0 var(--space-3); }
+.rs-reply-box .admin-input { width: 100%; font-size: var(--text-sm); }
+.rs-reply-acts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+.rs-reply-where { font-size: var(--text-xs); color: var(--ink-muted); }
 
 /* Taken back. The project's central fact, watched rather than inferred from a
    gap in an index afterwards.
@@ -198,7 +328,7 @@
    piece of new information the hardest thing in the row to read. */
 .rs-feed-row.gone .rs-feed-when,
 .rs-feed-row.gone .rs-feed-who,
-.rs-feed-row.gone .rs-feed-kind,
+.rs-feed-row.gone .rk-chip,
 .rs-feed-row.gone .rs-feed-text { opacity: 0.5; }
 .rs-feed-row.gone .rs-feed-who { text-decoration: line-through; }
 .rs-feed-gone {
@@ -231,8 +361,8 @@
 }
 
 @media (max-width: 34rem) {
-  .rs-feed-row { grid-template-columns: 4.5em 1fr; }
-  .rs-feed-kind, .rs-feed-text { grid-column: 2; }
+  .rs-feed-who { flex: 1 1 8em; }
+  .rs-feed-text { flex: 1 0 100%; }
 }
 
 /* A like cast and taken back before the seal. Not an alarm any more, but not

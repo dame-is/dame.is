@@ -219,6 +219,39 @@ export async function getLikes(uri, { appview = APPVIEW, limit = 25 } = {}) {
 }
 
 /**
+ * AppView — `app.bsky.feed.getPosts`. Up to 25 posts by AT URI, keyed by URI.
+ *
+ * Exists for the CID, which is the one thing you cannot construct: liking or
+ * replying to a post needs a strong ref, and a stream event carries a record
+ * key and no hash. Also hands back the handle and the text, which is why a
+ * caller with a bare DID gets a readable row out of the same round trip.
+ *
+ * A post written seconds ago may not be in the AppView yet — the stream is
+ * faster than the index it beats, which is the entire point of the stream — so
+ * a caller that must have the ref falls back to reading the record from the
+ * author's PDS.
+ */
+export async function getPosts(uris, { appview = APPVIEW } = {}) {
+  const list = Array.from(new Set((uris || []).filter(Boolean))).slice(0, 25);
+  if (!list.length) return {};
+  const params = new URLSearchParams();
+  for (const uri of list) params.append('uris', uri);
+  const res = await fetchJson(`${appview}/xrpc/app.bsky.feed.getPosts?${params}`, {
+    cache: 'no-store',
+  });
+  const out = {};
+  for (const p of res?.posts || []) {
+    if (!p?.uri || !p?.cid) continue;
+    out[p.uri] = {
+      cid: p.cid,
+      handle: p.author?.handle || '',
+      text: typeof p.record?.text === 'string' ? p.record.text : '',
+    };
+  }
+  return out;
+}
+
+/**
  * AppView — `app.bsky.feed.getPostThread`. Returns a thread view (parent
  * chain + replies) anchored at the given AT URI.
  */

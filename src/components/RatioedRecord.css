@@ -1,0 +1,47 @@
+/* The record chase.
+   Drawn in the hour's own hue like every other mark that isn't a like — this is
+   the piece succeeding, and success here is measured in how long nothing has
+   happened. It goes to the seal colour only when the record falls, which is the
+   one moment a live piece has anything to celebrate. */
+
+.rr-chase {
+  margin-top: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.rr-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  overflow: hidden;
+}
+.rr-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--ratioed-reply, #5e7a47);
+  /* The clock ticks once a second; without this the bar jumps with it. */
+  transition: width 1s linear;
+}
+
+.rr-say {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+.rr-say strong { color: var(--ink); font-weight: 600; }
+
+/* The record has fallen. Nothing here is a comparison any more. */
+.rr-chase.is-beaten .rr-fill { background: var(--ratioed-seal, #8c3a2e); }
+.rr-chase.is-beaten .rr-say strong { color: var(--ratioed-seal, #8c3a2e); }
+.rr-chase.is-beaten .rr-track {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 45%, transparent);
+}
+
+.rr-chase.is-compact .rr-say { font-size: var(--text-xs); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rr-fill { transition: none; }
+}

@@ -14,17 +14,34 @@
 // alive, and it's why the lexicon's seal fields are optional (see the note on
 // `isLive`). Sealing fills them in.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
-import { Send, Lock, RefreshCw, ExternalLink, FileText, Radio, History } from 'lucide-react';
+import {
+  Send,
+  Lock,
+  RefreshCw,
+  ExternalLink,
+  ArrowUpRight,
+  FileText,
+  Radio,
+  History,
+  Heart,
+  HeartOff,
+  MessageSquareReply,
+} from 'lucide-react';
 import PageShell from './PageShell.jsx';
+import RatioedChip from './RatioedChip.jsx';
+import RatioedClock from './RatioedClock.jsx';
+import RatioedRecord from './RatioedRecord.jsx';
+import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
   normalizePiece,
   isLive,
   finished,
+  longestPiece,
   piecePath,
   pieceSlug,
   fetchPieceRecords,
@@ -32,6 +49,17 @@ import {
   fmtSeconds,
 } from '../lib/ratioed.js';
 import { measureWindows, buildEventLog } from '../lib/ratioedDiscovery.js';
+import {
+  witnessRow,
+  witnessToRecord,
+  witnessFromRecord,
+  mergeWitness,
+  mergeWitnessRow,
+  withdrawWitness,
+  witnessChanged,
+  breakingWitness,
+  withdrawnOnly,
+} from '../lib/ratioedLive.js';
 import {
   DEFAULT_TEMPLATE,
   fillTemplate,
@@ -46,18 +74,22 @@ import {
   resolvePds,
   getRecord,
   getLikes,
+  getPosts,
   resolveProfiles,
   resolveHandles,
   resolveHandle,
   rkeyFromAtUri,
   tidToTimestamp,
 } from '../lib/atproto.js';
+import { ratioedScaleVars } from '../lib/ratioedPalette.js';
+import { useTheme } from '../hooks/useTheme.jsx';
 import './RatioedStudio.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
 const TEMPLATE_NSID = COLLECTIONS.ratioedTemplate;
 const POST = 'app.bsky.feed.post';
 const GATE = 'app.bsky.feed.threadgate';
+const LIKE = 'app.bsky.feed.like';
 
 // How often the live watch asks the AppView whether anybody has liked it.
 //
@@ -68,11 +100,21 @@ const GATE = 'app.bsky.feed.threadgate';
 // now doing the noticing.
 const WATCH_MS = 8000;
 
-const KIND_VERB = { like: 'liked it', repost: 'reposted', quote: 'quoted', reply: 'replied' };
-
 // How many rows the feed keeps. Enough to hold any piece the project has ever
-// produced several times over, and a ceiling all the same.
+// produced several times over, and a ceiling all the same. Past it the EARLIEST
+// rows are the ones kept: the beginning of a piece is where the reaction time
+// lives, and the end of a runaway thread is where it doesn't.
 const FEED_MAX = 300;
+
+// How long a new arrival waits before the witnessed log is written to the piece's
+// record. Short enough that the piece's own page, which reads that record, is
+// never far behind what the studio can see; long enough that a burst of replies
+// is one write rather than nine.
+const WITNESS_SAVE_MS = 2500;
+
+// And how long the log is allowed to go unwritten while arrivals keep resetting
+// that timer. A busy piece must still reach the record.
+const WITNESS_SAVE_MAX_MS = 12_000;
 
 // How far past the seal a recovery replay looks. The breaking like lands before
 // the seal by definition; this is slack for clock skew and for the block
@@ -92,6 +134,21 @@ const subjectUri = (rkey) => `at://${ME_DID}/${POST}/${rkey}`;
 
 /** A piece's subject: the field the record carries, or the key it implies. */
 const subjectOf = (piece) => piece?.subject || subjectUri(piece?.rkey);
+
+// Which collection a witnessed row lives in. A quote and a reply are both
+// posts; only the way they point at the piece differs.
+const KIND_COLLECTION = {
+  like: 'app.bsky.feed.like',
+  repost: 'app.bsky.feed.repost',
+  quote: POST,
+  reply: POST,
+};
+
+/** The at:// URI of a witnessed row, which the stream gives us in parts. */
+const rowUri = (row) => (row?.did && row?.rkey ? `at://${row.did}/${KIND_COLLECTION[row.k]}/${row.rkey}` : '');
+
+/** The two kinds you can answer. A like and a repost carry no text to answer. */
+const ANSWERABLE = new Set(['reply', 'quote']);
 
 export default function RatioedStudio({ agent, did }) {
   const [pieces, setPieces] = useState(null);
@@ -120,18 +177,49 @@ export default function RatioedStudio({ agent, did }) {
   const [template, setTemplate] = useState(undefined);
   const [tplDraft, setTplDraft] = useState(null); // non-null while editing
 
-  // What the stream has seen on the live piece, newest first. Separate from the
-  // measurement: this is a witness, not a record, and it is thrown away when
-  // the panel closes. Its value is that it arrives in real time and it carries
-  // rkeys — so at seal time the breaking like's exact write time is already in
-  // hand, without waiting for the backlink index to catch up.
+  // What the stream has seen on the live piece, earliest first. Separate from
+  // the measurement — this is a witness, not an index — and its value is that
+  // it arrives in real time and carries rkeys, so at seal time the breaking
+  // like's exact write time is already in hand without waiting for the backlink
+  // index to catch up.
+  //
+  // It is no longer thrown away when the panel closes. It's written to the
+  // piece's record as it happens (see saveWitness), which survives this tab,
+  // feeds the piece's own public page while it runs, and is the only account
+  // that will exist of a like somebody cast and took back.
   const [feed, setFeed] = useState([]);
-  const [stream, setStream] = useState(null); // { state, bytes, seen }
+  // Milliseconds after postedAt at which watching began. Everything before it
+  // is unwitnessed rather than empty, and the record says which.
+  const [witnessFrom, setWitnessFrom] = useState(null);
+  // What has actually reached the record, so a tick of the clock isn't a write.
+  // `stop` is the measurement taking the record over at seal time.
+  const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
+  const [stream, setStream] = useState(null); // { state, bytes, seen, msgs, rate }
   const [profiles, setProfiles] = useState({});
   const [streamOn, setStreamOn] = useState(true);
   // Bumped to force a fresh socket (and a fresh byte budget) after one has
   // stopped itself.
   const [streamRun, setStreamRun] = useState(0);
+
+  // Answering the thread from here rather than from the app. Keyed by the
+  // target's record key: what has been liked (so it can be un-liked), what is
+  // being worked on, and which row has the composer open.
+  const [acted, setActed] = useState({}); // rkey → { likeUri }
+  const [acting, setActing] = useState(null); // rkey
+  const [replyTo, setReplyTo] = useState(null); // a row, plus `text`
+
+  // The chips in the feed use the same scale the charts do, derived from
+  // whatever hour the sky is showing: reply, repost and quote are an analogous
+  // trio around that hour's hue, and the like is its complement. The studio is
+  // where that matters most — it's the one screen somebody reads at a glance
+  // while deciding whether to act in the next four seconds.
+  const { skyDisplayHour } = useTheme();
+  const scale = useMemo(() => ratioedScaleVars(skyDisplayHour), [skyDisplayHour]);
+
+  // The site's own "Open in…" picker, so a row in the feed can be opened in
+  // whichever client you actually want to read it in — the same sheet every
+  // at:// link on the site goes through.
+  const { openWaypoints } = useWaypointsModal();
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -177,6 +265,8 @@ export default function RatioedStudio({ agent, did }) {
   const done = useMemo(() => finished(pieces), [pieces]);
   const take = useMemo(() => nextTake(pieces), [pieces]);
   const prev = useMemo(() => previousPiece(done), [done]);
+  // The record a live piece is running at: the longest one that has ended.
+  const longest = useMemo(() => longestPiece(done), [done]);
 
   useEffect(() => {
     if (!prev || live) {
@@ -215,13 +305,13 @@ export default function RatioedStudio({ agent, did }) {
 
   // The watch. Only runs while something is actually up and unsealed.
   // Either reader will do; the stream simply gets there first.
-  const streamLike = feed.find((e) => e.kind === 'like' && !e.deleted) || null;
+  const streamLike = breakingWitness(feed);
   const seenLike = Boolean(streamLike) || Boolean(likes?.likes?.length);
   // Somebody liked it and took it back before it was sealed. The alarm must not
   // simply go quiet on that: it's the project's own subject matter happening in
   // front of you, and whether a withdrawn like still ends a piece is a question
   // for the artist, not for a boolean.
-  const withdrawn = !seenLike && feed.some((e) => e.kind === 'like' && e.deleted);
+  const withdrawn = !seenLike && withdrawnOnly(feed);
   useEffect(() => {
     if (!live || sealed) {
       if (!live) setLikes(null);
@@ -240,31 +330,73 @@ export default function RatioedStudio({ agent, did }) {
     };
   }, [live, sealed]);
 
+  // A new piece starts a new log. Keyed on the record key rather than on the
+  // object, which a background refresh replaces without anything having changed.
+  const liveKey = live?.rkey || null;
+  const livePostedMs = live ? Date.parse(live.postedAt) : NaN;
+  useEffect(() => {
+    setFeed([]);
+    setWitnessFrom(null);
+    setActed({});
+    setReplyTo(null);
+    savedWitness.current = { rows: null, at: 0, busy: false, stop: false };
+  }, [liveKey]);
+
+  // What the record already holds, folded in. This is what makes the studio
+  // survivable: a tab closed and reopened mid-piece, or a second one on another
+  // machine, picks up everything the first witnessed instead of starting blind
+  // and then overwriting it with less.
+  const recordedWitness = live?.witnessed;
+  const recordedFrom = live?.witnessFromMs;
+  useEffect(() => {
+    if (!liveKey || !recordedWitness?.length) return;
+    // What's already on the record counts as written, so reopening the studio
+    // mid-piece doesn't write the same log straight back to it.
+    if (!savedWitness.current.rows) {
+      savedWitness.current.rows = witnessToRecord(recordedWitness);
+    }
+    setFeed((f) => {
+      const next = mergeWitness(f, recordedWitness);
+      return witnessChanged(f, next) ? next : f;
+    });
+    setWitnessFrom((v) =>
+      typeof recordedFrom === 'number' ? Math.min(v ?? recordedFrom, recordedFrom) : v,
+    );
+  }, [liveKey, recordedWitness, recordedFrom]);
+
   // The stream. Open only while a piece is actually up and unsealed — it is a
   // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
   // like. The moment the piece is sealed there is nothing left to notice.
   useEffect(() => {
     if (!live || sealed || !streamOn) return undefined;
-    setFeed([]);
+    setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
     const close = watchSubject(subjectOf(live), {
+      // No budget here. A cap made sense while this was a curiosity; it does not
+      // survive contact with a piece that stands for an hour, because the thing
+      // the cap ends is the watch, and the watch is the measurement. The bytes
+      // are the artist's own, they are reported as they accrue, and the button
+      // beside them stops it whenever she wants. Nothing else should.
+      budgetBytes: null,
       onStatus: setStream,
       onEvent: (ev) => {
         setFeed((f) => {
           if (ev.op === 'delete') {
             // Somebody taking it back, watched rather than inferred. Six of the
             // thirteen breaking likes were deleted; this is the only way to see
-            // one happen.
-            return f.map((x) => (x.rkey === ev.rkey ? { ...x, deleted: true } : x));
+            // one happen — and now the only way it gets recorded.
+            return withdrawWitness(f, ev.rkey, ev.time ? Date.parse(ev.time) : Date.now(), livePostedMs);
           }
-          if (f.some((x) => x.rkey === ev.rkey)) return f; // a replayed cursor
-          // Newest first, and bounded: a piece draws tens of records, but this
-          // is pointed at whatever post it's given and must not grow forever.
-          return [{ ...ev, at: tidToTimestamp(ev.rkey) }, ...f].slice(0, FEED_MAX);
+          const row = witnessRow(ev, livePostedMs);
+          if (!row) return f;
+          // Bounded: a piece draws tens of records, but this is pointed at
+          // whatever post it's given and must not grow forever.
+          if (f.length >= FEED_MAX && !f.some((x) => x.rkey === row.rkey)) return f;
+          return mergeWitnessRow(f, row);
         });
       },
     });
     return close;
-  }, [live, sealed, streamOn, streamRun]);
+  }, [live, sealed, streamOn, streamRun, livePostedMs]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
   useEffect(() => {
@@ -274,6 +406,171 @@ export default function RatioedStudio({ agent, did }) {
       setProfiles((old) => ({ ...old, ...p })),
     );
   }, [feed, profiles]);
+
+  /**
+   * Write the witnessed log onto the piece's record, mid-piece.
+   *
+   * A read-modify-write rather than a blind put: the record is small and the
+   * piece is live, but the seal writes the same key and losing a measurement to
+   * a late witness write would be much worse than losing a witness row. If the
+   * record has been sealed since this was scheduled, the measurement owns it
+   * from here and this backs off entirely.
+   *
+   * Never surfaces an error. The log is a bonus on top of the watch; a PDS
+   * hiccup must not put a red line across the panel at the one moment its job
+   * is to show one like.
+   */
+  async function saveWitness(piece, rows, fromMs) {
+    if (!piece || !rows.length || savedWitness.current.busy || savedWitness.current.stop) return;
+    savedWitness.current.busy = true;
+    try {
+      const current = await readPiece(piece.rkey);
+      if (current.sealedAt) return; // measured since; not ours to write
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: NSID,
+        rkey: piece.rkey,
+        record: {
+          ...current,
+          witnessed: rows,
+          ...(fromMs != null ? { witnessFromMs: Math.round(fromMs) } : {}),
+        },
+      });
+      savedWitness.current.rows = rows;
+      savedWitness.current.at = Date.now();
+    } catch {
+      /* try again on the next arrival */
+    } finally {
+      savedWitness.current.busy = false;
+    }
+  }
+
+  // The log, on its way to the record while the piece is still running. The
+  // first arrival goes immediately — a viewer on the piece's own page should
+  // see it — and a burst after that is collected for a couple of seconds so a
+  // busy thread is one write rather than nine.
+  useEffect(() => {
+    if (!live || sealed || !feed.length) return undefined;
+    const rows = witnessToRecord(feed, { profiles });
+    if (!witnessChanged(savedWitness.current.rows, rows)) return undefined;
+    const since = Date.now() - savedWitness.current.at;
+    const id = setTimeout(
+      () => saveWitness(live, rows, witnessFrom),
+      since > WITNESS_SAVE_MAX_MS ? 0 : WITNESS_SAVE_MS,
+    );
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, sealed, feed, profiles, witnessFrom]);
+
+  /* ---------------------------------------------------------------- */
+  /* Answering the thread from the dashboard                            */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * A strong ref for something the stream just reported.
+   *
+   * Liking or replying needs the target's CID, and a stream event carries a
+   * record key and no hash. The AppView has both and is one call — but it is
+   * also the index the stream exists to beat, and a reply written four seconds
+   * ago may not be in it yet. So the author's own PDS is the fallback: slower
+   * (a DID document, then the record) and always right.
+   */
+  async function strongRef(uri, { did: author, collection, rkey }) {
+    const viaApp = await getPosts([uri]).catch(() => ({}));
+    if (viaApp[uri]?.cid) return { uri, cid: viaApp[uri].cid };
+    const pds = await resolvePds(author);
+    const rec = await getRecord(pds, { repo: author, collection, rkey });
+    if (!rec?.cid) throw new Error('could not read that post’s CID to act on it');
+    return { uri, cid: rec.cid };
+  }
+
+  /**
+   * Like a reply or a quote. Not the piece — nothing here can like the piece,
+   * and a like on somebody's reply is a like on their post, which is neither a
+   * backlink of the piece nor in any of its counts.
+   *
+   * Toggles, because the reason to have this at all is that the piece is up and
+   * you are moving fast, and moving fast is how you like the wrong row.
+   */
+  async function likeRow(row) {
+    const uri = rowUri(row);
+    if (!uri || acting) return;
+    setActing(row.rkey);
+    setError(null);
+    try {
+      const existing = acted[row.rkey]?.likeUri;
+      if (existing) {
+        await agent.com.atproto.repo.deleteRecord({
+          repo: did,
+          collection: LIKE,
+          rkey: rkeyFromAtUri(existing),
+        });
+        setActed((a) => ({ ...a, [row.rkey]: {} }));
+        return;
+      }
+      const subject = await strongRef(uri, {
+        did: row.did,
+        collection: KIND_COLLECTION[row.k],
+        rkey: row.rkey,
+      });
+      const res = await agent.com.atproto.repo.createRecord({
+        repo: did,
+        collection: LIKE,
+        record: { $type: LIKE, subject, createdAt: new Date().toISOString() },
+      });
+      setActed((a) => ({ ...a, [row.rkey]: { likeUri: res?.data?.uri || '' } }));
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setActing(null);
+    }
+  }
+
+  /**
+   * Answer a row, in the thread it belongs to.
+   *
+   * A reply to the piece is in the piece's thread, so the root is the piece. A
+   * quote is the root of its own thread somewhere else entirely, so it is its
+   * own root. Getting that backwards doesn't fail — it posts into the wrong
+   * conversation, which is worse.
+   */
+  async function sendReply() {
+    const target = replyTo;
+    if (!target?.text?.trim() || !live) return;
+    setActing(target.rkey);
+    setError(null);
+    try {
+      const parent = await strongRef(rowUri(target), {
+        did: target.did,
+        collection: KIND_COLLECTION[target.k],
+        rkey: target.rkey,
+      });
+      const root =
+        target.k === 'reply'
+          ? await strongRef(subjectOf(live), { did, collection: POST, rkey: live.rkey })
+          : parent;
+      const rt = new RichText({ text: target.text.trim() });
+      await rt.detectFacets(agent);
+      await agent.com.atproto.repo.createRecord({
+        repo: did,
+        collection: POST,
+        record: {
+          $type: POST,
+          text: rt.text,
+          ...(rt.facets?.length ? { facets: rt.facets } : {}),
+          reply: { root, parent },
+          langs: ['en'],
+          createdAt: new Date().toISOString(),
+        },
+      });
+      setReplyTo(null);
+      setNote(`Replied to @${profiles[target.did]?.handle || target.h || 'them'}.`);
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setActing(null);
+    }
+  }
 
   // The tab title carries the alarm, so a piece that gets liked while this is
   // in a background tab still says so in the tab strip.
@@ -408,6 +705,30 @@ export default function RatioedStudio({ agent, did }) {
       handles,
     });
 
+    // From here the measurement owns this record. A pending witness write is
+    // cancelled by the effect that scheduled it, but one already in flight read
+    // an unsealed record and would put the piece back to alive if it landed
+    // last, so it gets waited out rather than raced.
+    savedWitness.current.stop = true;
+    for (let i = 0; i < 40 && savedWitness.current.busy; i += 1) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    // The witnessed log, as it will be written: whatever is in this panel now,
+    // folded over whatever the record already holds. Read back rather than
+    // assumed, because a re-measure minutes later runs with an empty feed — the
+    // piece stopped being live and the panel let it go — and the log written
+    // while it ran must survive that.
+    const held = await readPiece(piece.rkey).catch(() => null);
+    const witnessRows = mergeWitness(witnessFromRecord(held?.witnessed) || [], feed);
+    const witnessed = witnessToRecord(witnessRows, { profiles });
+    const witnessFromMs =
+      typeof held?.witnessFromMs === 'number'
+        ? held.witnessFromMs
+        : witnessFrom != null
+          ? Math.round(witnessFrom)
+          : null;
+
     // Who to name, and when they did it.
     //
     // The backlink index is the authority and lags by up to a minute; the
@@ -415,14 +736,12 @@ export default function RatioedStudio({ agent, did }) {
     // same TID the index would eventually report. So when the index hasn't
     // caught up, the witnessed like stands in — the reaction time is otherwise
     // lost to a wait, which is exactly the failure this project can't absorb.
-    const witnessed = feed.filter((e) => e.kind === 'like' && !e.deleted).sort((a, b) =>
-      String(a.rkey).localeCompare(String(b.rkey)),
-    )[0] || null;
-    const witnessedAt = witnessed ? Date.parse(tidToTimestamp(witnessed.rkey) || '') : NaN;
+    const seen = breakingWitness(witnessRows);
+    const seenAt = seen ? postedMs + seen.offMs : NaN;
     const breaking =
       windows.breakingLike ||
-      (witnessed && Number.isFinite(witnessedAt) && witnessedAt < sealedMs
-        ? { at: witnessedAt, did: witnessed.did }
+      (seen && Number.isFinite(seenAt) && seenAt < sealedMs
+        ? { at: seenAt, did: seen.did }
         : null);
 
     const breakerDid = breaking?.did || likes?.likes?.[0]?.actor?.did || null;
@@ -449,6 +768,11 @@ export default function RatioedStudio({ agent, did }) {
       preSeal: windows.preSeal,
       postSeal: windows.postSeal,
       ...(events.length ? { events } : {}),
+      // Measured and witnessed side by side, never merged. The index can only
+      // report what still exists; the log can only report what something was
+      // watching for. The piece's page shows both and says which is which.
+      ...(witnessed.length ? { witnessed } : {}),
+      ...(witnessFromMs != null ? { witnessFromMs } : {}),
       measuredAt: new Date().toISOString(),
       source: 'constellation.microcosm.blue',
     };
@@ -658,11 +982,26 @@ export default function RatioedStudio({ agent, did }) {
 
   /* ---------------------------------------------------------------- */
 
+  // The log is held earliest-first, the way it's recorded and replayed. It's
+  // read newest-first, the way a feed is watched.
+  const newestFirst = useMemo(() => [...feed].reverse(), [feed]);
+
   const justSealed = Boolean(live && sealed?.rkey === live.rkey);
   const aliveMs = live
     ? (justSealed ? Date.parse(sealed.sealedAt) : now) - Date.parse(live.postedAt)
     : 0;
   const firstLike = likes?.likes?.[0] || null;
+  // Who ended it, and how long ago. The second number is the reaction time
+  // accruing in front of you: it stops when you press the button, and what it
+  // reads at that moment is what the record will carry forever.
+  const breakerName =
+    (streamLike && (profiles[streamLike.did]?.handle || streamLike.h)) ||
+    firstLike?.actor?.handle ||
+    'somebody';
+  // When the like landed, on the same clock the record will subtract from.
+  // Null when only the AppView poll has seen it: that answers WHO but not the
+  // instant, and a stopwatch counting from a guess is worse than no stopwatch.
+  const likeAtMs = streamLike && live ? Date.parse(live.postedAt) + streamLike.offMs : null;
 
   return (
     <PageShell
@@ -682,12 +1021,49 @@ export default function RatioedStudio({ agent, did }) {
         <p className="admin-field-hint">Reading the series…</p>
       ) : live ? (
         <section
+          style={scale}
           className={`rs-live${justSealed ? '' : seenLike ? ' liked' : withdrawn ? ' withdrawn' : ''}`}
         >
           <header className="rs-live-head">
             <span className="rs-live-take">take {pieceSlug(live)}</span>
             <span className="rs-live-clock">{fmtDuration(aliveMs)}</span>
           </header>
+
+          {/* How this one is doing, in the only unit the project has: the
+              longest piece so far. */}
+          <RatioedRecord elapsedMs={aliveMs} record={longest} />
+
+          {/* The alarm. A like is the end of the piece and the start of the one
+              measurement this project exists to take, so it does not arrive as
+              one more row in a feed — it takes the top of the panel, in the
+              complement of the hour every other mark here is drawn in, with the
+              button that ends it inside the same box. */}
+          {seenLike && !justSealed && (
+            <div className="rs-alarm" role="alert">
+              <RatioedChip kind="like" size="lg" />
+              <span className="rs-alarm-who">
+                @{breakerName}
+                {streamLike && (
+                  <span className="rs-alarm-when">liked it at +{fmtDuration(streamLike.offMs)}</span>
+                )}
+              </span>
+              {/* The measurement, running. Frozen the moment the seal is
+                  pressed, because that is the moment it stops being a display
+                  and becomes what the record says. */}
+              {likeAtMs != null && (
+                <span className="rs-alarm-race">
+                  <RatioedClock fromMs={likeAtMs} running={!busy} className="rs-alarm-clock" />
+                  <span className="rs-alarm-race-label">
+                    your reaction, as the record will carry it
+                  </span>
+                </span>
+              )}
+              <button type="button" className="rs-alarm-seal" onClick={seal} disabled={!!busy}>
+                <Lock size={16} aria-hidden="true" />
+                {busy === 'seal' ? 'Sealing…' : 'Seal it'}
+              </button>
+            </div>
+          )}
 
           <p className="rs-live-state">
             {justSealed ? (
@@ -707,7 +1083,10 @@ export default function RatioedStudio({ agent, did }) {
           </p>
 
           <div className="rs-actions">
-            {!justSealed && (
+            {/* One seal button at a time: when the alarm is up it owns that
+                click, and two identical buttons a foot apart is how you hesitate
+                over which one is real. */}
+            {!justSealed && !seenLike && (
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal this piece'}
@@ -737,6 +1116,12 @@ export default function RatioedStudio({ agent, did }) {
           <div className="rs-feed">
             <header className="rs-feed-head">
               <span className="small-caps">as it happens</span>
+              {/* Throughput, not just cost. A piece nobody has touched matched
+                  nothing for minutes and the old byte counter only moved on a
+                  match, so the panel read as broken for exactly as long as it
+                  was working. The rate is resampled about once a second inside
+                  the socket, on a 64-message mask — cheaper than the timestamp
+                  parse already happening on every message. */}
               <span className={`rs-feed-state is-${!streamOn ? 'off' : stream?.state || 'connecting'}`}>
                 <Radio size={12} aria-hidden="true" />
                 {!streamOn
@@ -744,9 +1129,14 @@ export default function RatioedStudio({ agent, did }) {
                   : stream?.state === 'spent'
                     ? `stopped at ${Math.round((stream.bytes || 0) / 1024 / 1024)} MB · polling`
                     : stream?.state === 'open'
-                      ? `live · ${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB read`
+                      ? `live · ${(stream.rate || 0).toLocaleString()} rec/s · ${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB`
                       : stream?.state || 'connecting'}
               </span>
+              {streamOn && stream?.msgs > 0 && (
+                <span className="rs-feed-scan">
+                  {stream.msgs.toLocaleString()} scanned · {feed.length} matched
+                </span>
+              )}
               {stream?.state === 'spent' ? (
                 <button
                   type="button"
@@ -770,24 +1160,124 @@ export default function RatioedStudio({ agent, did }) {
               <p className="admin-field-hint rs-feed-empty">
                 Nothing yet. Every like, repost, quote and reply on the network is arriving here and
                 being tested against this post — ~166&nbsp;KB/s, which is what buys sub-second
-                notice instead of a {WATCH_MS / 1000}s poll. It stops itself at 256&nbsp;MB, and
-                the poll carries on either way.
+                notice instead of a {WATCH_MS / 1000}s poll. It runs until you stop it: the cost is
+                above and the {WATCH_MS / 1000}s poll carries on underneath either way.
               </p>
             ) : (
               <ul className="rs-feed-list">
-                {feed.map((e) => (
-                  <li key={e.rkey} className={`rs-feed-row rs-k-${e.kind}${e.deleted ? ' gone' : ''}`}>
-                    <span className="rs-feed-when">
-                      {e.at ? `+${fmtDuration(Date.parse(e.at) - Date.parse(live.postedAt))}` : '—'}
-                    </span>
-                    <span className="rs-feed-who">
-                      @{profiles[e.did]?.handle || e.did.slice(0, 18)}
-                    </span>
-                    <span className="rs-feed-kind">{KIND_VERB[e.kind] || e.kind}</span>
-                    {e.deleted && <span className="rs-feed-gone">deleted it</span>}
-                    {e.text && <span className="rs-feed-text">{e.text.slice(0, 90)}</span>}
-                  </li>
-                ))}
+                {newestFirst.map((e) => {
+                  const mine = e.did === did;
+                  // A post that still exists can be opened anywhere. Acting on
+                  // one is narrower: not your own, not deleted, not after the
+                  // seal.
+                  const openable = ANSWERABLE.has(e.k) && e.goneMs == null && Boolean(e.did);
+                  const answerable = openable && !mine && !justSealed;
+                  const liked = Boolean(acted[e.rkey]?.likeUri);
+                  return (
+                    <li
+                      key={e.rkey}
+                      className={`rs-feed-row rs-k-${e.k}${e.goneMs != null ? ' gone' : ''}${
+                        mine ? ' mine' : ''
+                      }`}
+                    >
+                      <span className="rs-feed-when">+{fmtDuration(e.offMs)}</span>
+                      <span className="rs-feed-who">
+                        @{profiles[e.did]?.handle || e.h || e.did?.slice(0, 18) || 'unknown'}
+                        {mine && <span className="rs-feed-mine"> you</span>}
+                      </span>
+                      <RatioedChip kind={e.k} muted={e.goneMs != null} />
+                      {e.goneMs != null && <span className="rs-feed-gone">deleted it</span>}
+                      {e.t && <span className="rs-feed-text">{e.t.slice(0, 90)}</span>}
+                      {openable && (
+                        <span className="rs-feed-acts">
+                          <button
+                            type="button"
+                            className="rs-act"
+                            onClick={() => openWaypoints(rowUri(e))}
+                            title="Open this post in another client"
+                            aria-label="Open this post in another client"
+                          >
+                            <ArrowUpRight size={13} aria-hidden="true" />
+                          </button>
+                          {answerable && (
+                            <>
+                              {/* On the row, not the piece: this likes
+                                  somebody's reply, which is not a backlink of
+                                  the piece and is in none of its counts. */}
+                              <button
+                                type="button"
+                                className={`rs-act${liked ? ' on' : ''}`}
+                                onClick={() => likeRow(e)}
+                                disabled={Boolean(acting)}
+                                title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
+                                aria-label={liked ? 'Undo that like' : 'Like this reply'}
+                              >
+                                {liked ? (
+                                  <HeartOff size={13} aria-hidden="true" />
+                                ) : (
+                                  <Heart size={13} aria-hidden="true" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
+                                onClick={() =>
+                                  setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
+                                }
+                                disabled={Boolean(acting)}
+                                title={
+                                  e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'
+                                }
+                                aria-label="Reply to this"
+                              >
+                                <MessageSquareReply size={13} aria-hidden="true" />
+                              </button>
+                            </>
+                          )}
+                        </span>
+                      )}
+                      {replyTo?.rkey === e.rkey && (
+                        <div className="rs-reply-box">
+                          <textarea
+                            className="admin-input"
+                            rows={3}
+                            autoFocus
+                            placeholder={
+                              e.k === 'quote'
+                                ? 'Replying under their quote post…'
+                                : 'Replying in the piece’s own thread…'
+                            }
+                            value={replyTo.text}
+                            onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
+                          />
+                          <div className="rs-reply-acts">
+                            <button
+                              type="button"
+                              className="admin-gate-button"
+                              onClick={sendReply}
+                              disabled={Boolean(acting) || !replyTo.text.trim()}
+                            >
+                              <Send size={13} aria-hidden="true" />
+                              {acting === e.rkey ? 'Posting…' : 'Reply'}
+                            </button>
+                            <button
+                              type="button"
+                              className="admin-link-subtle"
+                              onClick={() => setReplyTo(null)}
+                            >
+                              cancel
+                            </button>
+                            <span className="rs-reply-where">
+                              {e.k === 'quote'
+                                ? 'their thread — this piece never sees it'
+                                : 'this piece’s thread, and your own records are excluded from every count'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -796,6 +1286,15 @@ export default function RatioedStudio({ agent, did }) {
             The stream is the fast reader; the AppView is polled every {WATCH_MS / 1000}s underneath
             it as a backstop, because a socket can drop and a missed like costs the piece. The
             measurement afterwards uses the backlink index, which is slower and more complete.
+          </p>
+          <p className="admin-field-hint">
+            This log is written onto the piece&rsquo;s record as it happens, so{' '}
+            <Link to={piecePath(live)}>its own page</Link> shows the same thing to anyone watching,
+            and so a like somebody casts and takes back leaves an account of itself — the index
+            afterwards can only report what still exists.{' '}
+            {savedWitness.current.rows?.length
+              ? `${savedWitness.current.rows.length} recorded.`
+              : 'Nothing recorded yet.'}
           </p>
         </section>
       ) : announce ? null : (
