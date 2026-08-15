@@ -14,7 +14,7 @@
 // alive, and it's why the lexicon's seal fields are optional (see the note on
 // `isLive`). Sealing fills them in.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
 import { Send, Lock, RefreshCw, ExternalLink, FileText, Radio, History } from 'lucide-react';
@@ -32,6 +32,17 @@ import {
   fmtSeconds,
 } from '../lib/ratioed.js';
 import { measureWindows, buildEventLog } from '../lib/ratioedDiscovery.js';
+import {
+  witnessRow,
+  witnessToRecord,
+  witnessFromRecord,
+  mergeWitness,
+  mergeWitnessRow,
+  withdrawWitness,
+  witnessChanged,
+  breakingWitness,
+  withdrawnOnly,
+} from '../lib/ratioedLive.js';
 import {
   DEFAULT_TEMPLATE,
   fillTemplate,
@@ -71,8 +82,20 @@ const WATCH_MS = 8000;
 const KIND_VERB = { like: 'liked it', repost: 'reposted', quote: 'quoted', reply: 'replied' };
 
 // How many rows the feed keeps. Enough to hold any piece the project has ever
-// produced several times over, and a ceiling all the same.
+// produced several times over, and a ceiling all the same. Past it the EARLIEST
+// rows are the ones kept: the beginning of a piece is where the reaction time
+// lives, and the end of a runaway thread is where it doesn't.
 const FEED_MAX = 300;
+
+// How long a new arrival waits before the witnessed log is written to the piece's
+// record. Short enough that the piece's own page, which reads that record, is
+// never far behind what the studio can see; long enough that a burst of replies
+// is one write rather than nine.
+const WITNESS_SAVE_MS = 2500;
+
+// And how long the log is allowed to go unwritten while arrivals keep resetting
+// that timer. A busy piece must still reach the record.
+const WITNESS_SAVE_MAX_MS = 12_000;
 
 // How far past the seal a recovery replay looks. The breaking like lands before
 // the seal by definition; this is slack for clock skew and for the block
@@ -120,12 +143,23 @@ export default function RatioedStudio({ agent, did }) {
   const [template, setTemplate] = useState(undefined);
   const [tplDraft, setTplDraft] = useState(null); // non-null while editing
 
-  // What the stream has seen on the live piece, newest first. Separate from the
-  // measurement: this is a witness, not a record, and it is thrown away when
-  // the panel closes. Its value is that it arrives in real time and it carries
-  // rkeys — so at seal time the breaking like's exact write time is already in
-  // hand, without waiting for the backlink index to catch up.
+  // What the stream has seen on the live piece, earliest first. Separate from
+  // the measurement — this is a witness, not an index — and its value is that
+  // it arrives in real time and carries rkeys, so at seal time the breaking
+  // like's exact write time is already in hand without waiting for the backlink
+  // index to catch up.
+  //
+  // It is no longer thrown away when the panel closes. It's written to the
+  // piece's record as it happens (see saveWitness), which survives this tab,
+  // feeds the piece's own public page while it runs, and is the only account
+  // that will exist of a like somebody cast and took back.
   const [feed, setFeed] = useState([]);
+  // Milliseconds after postedAt at which watching began. Everything before it
+  // is unwitnessed rather than empty, and the record says which.
+  const [witnessFrom, setWitnessFrom] = useState(null);
+  // What has actually reached the record, so a tick of the clock isn't a write.
+  // `stop` is the measurement taking the record over at seal time.
+  const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
   const [stream, setStream] = useState(null); // { state, bytes, seen }
   const [profiles, setProfiles] = useState({});
   const [streamOn, setStreamOn] = useState(true);
@@ -215,13 +249,13 @@ export default function RatioedStudio({ agent, did }) {
 
   // The watch. Only runs while something is actually up and unsealed.
   // Either reader will do; the stream simply gets there first.
-  const streamLike = feed.find((e) => e.kind === 'like' && !e.deleted) || null;
+  const streamLike = breakingWitness(feed);
   const seenLike = Boolean(streamLike) || Boolean(likes?.likes?.length);
   // Somebody liked it and took it back before it was sealed. The alarm must not
   // simply go quiet on that: it's the project's own subject matter happening in
   // front of you, and whether a withdrawn like still ends a piece is a question
   // for the artist, not for a boolean.
-  const withdrawn = !seenLike && feed.some((e) => e.kind === 'like' && e.deleted);
+  const withdrawn = !seenLike && withdrawnOnly(feed);
   useEffect(() => {
     if (!live || sealed) {
       if (!live) setLikes(null);
@@ -240,12 +274,44 @@ export default function RatioedStudio({ agent, did }) {
     };
   }, [live, sealed]);
 
+  // A new piece starts a new log. Keyed on the record key rather than on the
+  // object, which a background refresh replaces without anything having changed.
+  const liveKey = live?.rkey || null;
+  const livePostedMs = live ? Date.parse(live.postedAt) : NaN;
+  useEffect(() => {
+    setFeed([]);
+    setWitnessFrom(null);
+    savedWitness.current = { rows: null, at: 0, busy: false, stop: false };
+  }, [liveKey]);
+
+  // What the record already holds, folded in. This is what makes the studio
+  // survivable: a tab closed and reopened mid-piece, or a second one on another
+  // machine, picks up everything the first witnessed instead of starting blind
+  // and then overwriting it with less.
+  const recordedWitness = live?.witnessed;
+  const recordedFrom = live?.witnessFromMs;
+  useEffect(() => {
+    if (!liveKey || !recordedWitness?.length) return;
+    // What's already on the record counts as written, so reopening the studio
+    // mid-piece doesn't write the same log straight back to it.
+    if (!savedWitness.current.rows) {
+      savedWitness.current.rows = witnessToRecord(recordedWitness);
+    }
+    setFeed((f) => {
+      const next = mergeWitness(f, recordedWitness);
+      return witnessChanged(f, next) ? next : f;
+    });
+    setWitnessFrom((v) =>
+      typeof recordedFrom === 'number' ? Math.min(v ?? recordedFrom, recordedFrom) : v,
+    );
+  }, [liveKey, recordedWitness, recordedFrom]);
+
   // The stream. Open only while a piece is actually up and unsealed — it is a
   // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
   // like. The moment the piece is sealed there is nothing left to notice.
   useEffect(() => {
     if (!live || sealed || !streamOn) return undefined;
-    setFeed([]);
+    setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
     const close = watchSubject(subjectOf(live), {
       onStatus: setStream,
       onEvent: (ev) => {
@@ -253,18 +319,20 @@ export default function RatioedStudio({ agent, did }) {
           if (ev.op === 'delete') {
             // Somebody taking it back, watched rather than inferred. Six of the
             // thirteen breaking likes were deleted; this is the only way to see
-            // one happen.
-            return f.map((x) => (x.rkey === ev.rkey ? { ...x, deleted: true } : x));
+            // one happen — and now the only way it gets recorded.
+            return withdrawWitness(f, ev.rkey, ev.time ? Date.parse(ev.time) : Date.now(), livePostedMs);
           }
-          if (f.some((x) => x.rkey === ev.rkey)) return f; // a replayed cursor
-          // Newest first, and bounded: a piece draws tens of records, but this
-          // is pointed at whatever post it's given and must not grow forever.
-          return [{ ...ev, at: tidToTimestamp(ev.rkey) }, ...f].slice(0, FEED_MAX);
+          const row = witnessRow(ev, livePostedMs);
+          if (!row) return f;
+          // Bounded: a piece draws tens of records, but this is pointed at
+          // whatever post it's given and must not grow forever.
+          if (f.length >= FEED_MAX && !f.some((x) => x.rkey === row.rkey)) return f;
+          return mergeWitnessRow(f, row);
         });
       },
     });
     return close;
-  }, [live, sealed, streamOn, streamRun]);
+  }, [live, sealed, streamOn, streamRun, livePostedMs]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
   useEffect(() => {
@@ -274,6 +342,61 @@ export default function RatioedStudio({ agent, did }) {
       setProfiles((old) => ({ ...old, ...p })),
     );
   }, [feed, profiles]);
+
+  /**
+   * Write the witnessed log onto the piece's record, mid-piece.
+   *
+   * A read-modify-write rather than a blind put: the record is small and the
+   * piece is live, but the seal writes the same key and losing a measurement to
+   * a late witness write would be much worse than losing a witness row. If the
+   * record has been sealed since this was scheduled, the measurement owns it
+   * from here and this backs off entirely.
+   *
+   * Never surfaces an error. The log is a bonus on top of the watch; a PDS
+   * hiccup must not put a red line across the panel at the one moment its job
+   * is to show one like.
+   */
+  async function saveWitness(piece, rows, fromMs) {
+    if (!piece || !rows.length || savedWitness.current.busy || savedWitness.current.stop) return;
+    savedWitness.current.busy = true;
+    try {
+      const current = await readPiece(piece.rkey);
+      if (current.sealedAt) return; // measured since; not ours to write
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: NSID,
+        rkey: piece.rkey,
+        record: {
+          ...current,
+          witnessed: rows,
+          ...(fromMs != null ? { witnessFromMs: Math.round(fromMs) } : {}),
+        },
+      });
+      savedWitness.current.rows = rows;
+      savedWitness.current.at = Date.now();
+    } catch {
+      /* try again on the next arrival */
+    } finally {
+      savedWitness.current.busy = false;
+    }
+  }
+
+  // The log, on its way to the record while the piece is still running. The
+  // first arrival goes immediately — a viewer on the piece's own page should
+  // see it — and a burst after that is collected for a couple of seconds so a
+  // busy thread is one write rather than nine.
+  useEffect(() => {
+    if (!live || sealed || !feed.length) return undefined;
+    const rows = witnessToRecord(feed, { profiles });
+    if (!witnessChanged(savedWitness.current.rows, rows)) return undefined;
+    const since = Date.now() - savedWitness.current.at;
+    const id = setTimeout(
+      () => saveWitness(live, rows, witnessFrom),
+      since > WITNESS_SAVE_MAX_MS ? 0 : WITNESS_SAVE_MS,
+    );
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, sealed, feed, profiles, witnessFrom]);
 
   // The tab title carries the alarm, so a piece that gets liked while this is
   // in a background tab still says so in the tab strip.
@@ -408,6 +531,30 @@ export default function RatioedStudio({ agent, did }) {
       handles,
     });
 
+    // From here the measurement owns this record. A pending witness write is
+    // cancelled by the effect that scheduled it, but one already in flight read
+    // an unsealed record and would put the piece back to alive if it landed
+    // last, so it gets waited out rather than raced.
+    savedWitness.current.stop = true;
+    for (let i = 0; i < 40 && savedWitness.current.busy; i += 1) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+
+    // The witnessed log, as it will be written: whatever is in this panel now,
+    // folded over whatever the record already holds. Read back rather than
+    // assumed, because a re-measure minutes later runs with an empty feed — the
+    // piece stopped being live and the panel let it go — and the log written
+    // while it ran must survive that.
+    const held = await readPiece(piece.rkey).catch(() => null);
+    const witnessRows = mergeWitness(witnessFromRecord(held?.witnessed) || [], feed);
+    const witnessed = witnessToRecord(witnessRows, { profiles });
+    const witnessFromMs =
+      typeof held?.witnessFromMs === 'number'
+        ? held.witnessFromMs
+        : witnessFrom != null
+          ? Math.round(witnessFrom)
+          : null;
+
     // Who to name, and when they did it.
     //
     // The backlink index is the authority and lags by up to a minute; the
@@ -415,14 +562,12 @@ export default function RatioedStudio({ agent, did }) {
     // same TID the index would eventually report. So when the index hasn't
     // caught up, the witnessed like stands in — the reaction time is otherwise
     // lost to a wait, which is exactly the failure this project can't absorb.
-    const witnessed = feed.filter((e) => e.kind === 'like' && !e.deleted).sort((a, b) =>
-      String(a.rkey).localeCompare(String(b.rkey)),
-    )[0] || null;
-    const witnessedAt = witnessed ? Date.parse(tidToTimestamp(witnessed.rkey) || '') : NaN;
+    const seen = breakingWitness(witnessRows);
+    const seenAt = seen ? postedMs + seen.offMs : NaN;
     const breaking =
       windows.breakingLike ||
-      (witnessed && Number.isFinite(witnessedAt) && witnessedAt < sealedMs
-        ? { at: witnessedAt, did: witnessed.did }
+      (seen && Number.isFinite(seenAt) && seenAt < sealedMs
+        ? { at: seenAt, did: seen.did }
         : null);
 
     const breakerDid = breaking?.did || likes?.likes?.[0]?.actor?.did || null;
@@ -449,6 +594,11 @@ export default function RatioedStudio({ agent, did }) {
       preSeal: windows.preSeal,
       postSeal: windows.postSeal,
       ...(events.length ? { events } : {}),
+      // Measured and witnessed side by side, never merged. The index can only
+      // report what still exists; the log can only report what something was
+      // watching for. The piece's page shows both and says which is which.
+      ...(witnessed.length ? { witnessed } : {}),
+      ...(witnessFromMs != null ? { witnessFromMs } : {}),
       measuredAt: new Date().toISOString(),
       source: 'constellation.microcosm.blue',
     };
@@ -658,6 +808,10 @@ export default function RatioedStudio({ agent, did }) {
 
   /* ---------------------------------------------------------------- */
 
+  // The log is held earliest-first, the way it's recorded and replayed. It's
+  // read newest-first, the way a feed is watched.
+  const newestFirst = useMemo(() => [...feed].reverse(), [feed]);
+
   const justSealed = Boolean(live && sealed?.rkey === live.rkey);
   const aliveMs = live
     ? (justSealed ? Date.parse(sealed.sealedAt) : now) - Date.parse(live.postedAt)
@@ -775,17 +929,15 @@ export default function RatioedStudio({ agent, did }) {
               </p>
             ) : (
               <ul className="rs-feed-list">
-                {feed.map((e) => (
-                  <li key={e.rkey} className={`rs-feed-row rs-k-${e.kind}${e.deleted ? ' gone' : ''}`}>
-                    <span className="rs-feed-when">
-                      {e.at ? `+${fmtDuration(Date.parse(e.at) - Date.parse(live.postedAt))}` : '—'}
-                    </span>
+                {newestFirst.map((e) => (
+                  <li key={e.rkey} className={`rs-feed-row rs-k-${e.k}${e.goneMs != null ? ' gone' : ''}`}>
+                    <span className="rs-feed-when">+{fmtDuration(e.offMs)}</span>
                     <span className="rs-feed-who">
-                      @{profiles[e.did]?.handle || e.did.slice(0, 18)}
+                      @{profiles[e.did]?.handle || e.h || e.did?.slice(0, 18) || 'unknown'}
                     </span>
-                    <span className="rs-feed-kind">{KIND_VERB[e.kind] || e.kind}</span>
-                    {e.deleted && <span className="rs-feed-gone">deleted it</span>}
-                    {e.text && <span className="rs-feed-text">{e.text.slice(0, 90)}</span>}
+                    <span className="rs-feed-kind">{KIND_VERB[e.k] || e.k}</span>
+                    {e.goneMs != null && <span className="rs-feed-gone">deleted it</span>}
+                    {e.t && <span className="rs-feed-text">{e.t.slice(0, 90)}</span>}
                   </li>
                 ))}
               </ul>
@@ -796,6 +948,15 @@ export default function RatioedStudio({ agent, did }) {
             The stream is the fast reader; the AppView is polled every {WATCH_MS / 1000}s underneath
             it as a backstop, because a socket can drop and a missed like costs the piece. The
             measurement afterwards uses the backlink index, which is slower and more complete.
+          </p>
+          <p className="admin-field-hint">
+            This log is written onto the piece&rsquo;s record as it happens, so{' '}
+            <Link to={piecePath(live)}>its own page</Link> shows the same thing to anyone watching,
+            and so a like somebody casts and takes back leaves an account of itself — the index
+            afterwards can only report what still exists.{' '}
+            {savedWitness.current.rows?.length
+              ? `${savedWitness.current.rows.length} recorded.`
+              : 'Nothing recorded yet.'}
           </p>
         </section>
       ) : announce ? null : (

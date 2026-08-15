@@ -143,6 +143,27 @@
 .ratioed-piece-who { overflow-wrap: anywhere; }
 .ratioed-piece-kind { font-variant-caps: small-caps; }
 
+/* --- the witnessed log, folded away --------------------------------- */
+
+.ratioed-piece-witness > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  cursor: pointer;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: var(--text-lg);
+}
+.ratioed-piece-witness > summary::marker { color: var(--ink-muted); }
+.ratioed-piece-witness-count {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ratioed-piece-witness[open] > summary { margin-bottom: var(--space-3); }
+
 /* --- provenance ----------------------------------------------------- */
 
 .ratioed-piece-kv {

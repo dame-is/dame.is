@@ -15,6 +15,7 @@ import PEOPLE from '../data/ratioedPeople.json';
 import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from './constellation.js';
 import { ME_DID, COLLECTIONS, RATIOED_PATH } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
+import { witnessFromRecord } from './ratioedLive.js';
 import { fetchSnapshot } from './snapshot.js';
 
 /** Link sources that count as engagement, mapped to our bucket names. */
@@ -397,6 +398,11 @@ export function normalizePiece(rkey, value) {
     measuredAt: value.measuredAt || '',
     source: value.source || '',
     events: eventsFromRecord(value.events),
+    // What was watched happening, as opposed to what was measured afterwards.
+    // Kept in milliseconds, unlike `events`, because the live panels it feeds
+    // are working in the same units the stream reports.
+    witnessed: witnessFromRecord(value.witnessed),
+    witnessFromMs: typeof value.witnessFromMs === 'number' ? value.witnessFromMs : null,
   };
 }
 

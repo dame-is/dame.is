@@ -1,0 +1,383 @@
+// A Ratioed piece while it is still happening.
+//
+// Every other view of this project is retrospective, and has to be: the numbers
+// are a dated measurement, the like that ended a piece is usually deleted within
+// minutes, and the whole apparatus exists because live state cannot be trusted
+// to still be there tomorrow. This is the one view that is not. For the seconds
+// or minutes a piece is up there is nothing to reconstruct, because it is
+// happening — and the argument the essay makes with charts ("these things were
+// over before most people saw them") is available here as an experience rather
+// than a claim, which is a different and better way to make it.
+//
+// Two readers, and a visitor gets to choose how much they spend on this.
+//
+//   The record. The studio writes what it witnesses onto the piece's own record
+//   as the piece runs, so this page can show the same log a few seconds behind
+//   for the cost of one small fetch. That is the default, and on a phone on a
+//   train it is the whole thing.
+//
+//   The firehose. Jetstream can't filter by what a record points at, so
+//   watching one post means reading everything and testing each one — ~166 KB/s
+//   for sub-second notice. The studio pays that because a reaction time is
+//   being measured. Nothing is being measured here, so it is offered, labelled
+//   with what it costs, and stopped at a budget.
+//
+// Sealed pieces get the same deck under RatioedWitness, closed by default and
+// replayable — by then the piece is over and expanding it automatically would
+// be showing an emergency that has already ended.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Radio } from 'lucide-react';
+import { watchSubject } from '../lib/jetstream.js';
+import { resolveProfiles } from '../lib/atproto.js';
+import {
+  witnessRow,
+  mergeWitness,
+  mergeWitnessRow,
+  withdrawWitness,
+  witnessChanged,
+  tallyWitness,
+  breakingWitness,
+  withdrawnOnly,
+} from '../lib/ratioedLive.js';
+import { fmtDuration } from '../lib/ratioed.js';
+import './RatioedLive.css';
+
+const KIND_VERB = { like: 'liked it', repost: 'reposted it', quote: 'quoted it', reply: 'replied' };
+
+// What one visitor's stream is allowed to cost before it stops itself: about
+// six minutes at the measured rate, which is longer than all but one piece in
+// the series has ever stood. The studio's own budget is four times this,
+// because the studio is the one that can't afford to miss anything.
+const BUDGET_BYTES = 64 * 1024 * 1024;
+
+// How often the deck's own clock ticks. The piece's record is polled by the
+// page that owns it, not here.
+const TICK_MS = 1000;
+
+/** Is this a connection somebody would want a firehose on by default? */
+function firehoseIsPolite() {
+  if (typeof navigator === 'undefined') return false;
+  const c = navigator.connection;
+  if (c?.saveData) return false;
+  if (c?.effectiveType && /2g|3g/.test(c.effectiveType)) return false;
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * The live deck. `piece` is the record as it stands; its `witnessed` log seeds
+ * the ticker, so somebody arriving forty seconds in sees the forty seconds they
+ * missed rather than an empty panel.
+ */
+export default function RatioedLive({ piece }) {
+  const postedMs = Date.parse(piece?.postedAt || '');
+  const [rows, setRows] = useState(() => piece?.witnessed || []);
+  const [profiles, setProfiles] = useState({});
+  const [now, setNow] = useState(() => Date.now());
+  const [streamOn, setStreamOn] = useState(firehoseIsPolite);
+  const [stream, setStream] = useState(null);
+  const [run, setRun] = useState(0);
+
+  // Whatever the record has picked up since. The studio is a second witness
+  // with a better view — it has been watching since the piece went up — so its
+  // log is folded in rather than competed with.
+  const recorded = piece?.witnessed;
+  useEffect(() => {
+    if (!recorded?.length) return;
+    setRows((r) => {
+      const next = mergeWitness(r, recorded);
+      return witnessChanged(r, next) ? next : r;
+    });
+  }, [recorded]);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (!streamOn || !piece?.subject || !Number.isFinite(postedMs)) return undefined;
+    return watchSubject(piece.subject, {
+      budgetBytes: BUDGET_BYTES,
+      onStatus: setStream,
+      onEvent: (ev) => {
+        setRows((r) => {
+          if (ev.op === 'delete') {
+            return withdrawWitness(r, ev.rkey, ev.time ? Date.parse(ev.time) : Date.now(), postedMs);
+          }
+          const row = witnessRow(ev, postedMs);
+          return row ? mergeWitnessRow(r, row) : r;
+        });
+      },
+    });
+  }, [streamOn, run, piece?.subject, postedMs]);
+
+  // Faces and names for whoever turns up, resolved as new DIDs appear. The log
+  // carries the handle the studio stamped in; this is what makes it a face.
+  useEffect(() => {
+    const missing = rows.map((r) => r.did).filter((d) => d && !profiles[d]);
+    if (!missing.length) return;
+    resolveProfiles(Array.from(new Set(missing))).then((p) =>
+      setProfiles((old) => ({ ...old, ...p })),
+    );
+  }, [rows, profiles]);
+
+  const tally = useMemo(() => tallyWitness(rows), [rows]);
+  const breaking = useMemo(() => breakingWitness(rows), [rows]);
+  const takenBack = useMemo(() => withdrawnOnly(rows), [rows]);
+  const aliveMs = Number.isFinite(postedMs) ? Math.max(0, now - postedMs) : 0;
+
+  return (
+    <div className={`ratioed-live${breaking ? ' is-broken' : takenBack ? ' is-withdrawn' : ''}`}>
+      <header className="ratioed-live-head">
+        <span className="ratioed-live-pulse" aria-hidden="true" />
+        <span className="ratioed-live-clock">
+          <span className="ratioed-live-clock-value">{fmtDuration(aliveMs)}</span>
+          <span className="ratioed-live-clock-label">alive, and counting</span>
+        </span>
+        <StreamState
+          on={streamOn}
+          stream={stream}
+          onToggle={() => setStreamOn((v) => !v)}
+          onRestart={() => setRun((n) => n + 1)}
+        />
+      </header>
+
+      <p className="ratioed-live-say" aria-live="polite">
+        {breaking ? (
+          <>
+            <strong>@{profiles[breaking.did]?.handle || breaking.h || 'somebody'} liked it</strong>{' '}
+            at +{fmtDuration(breaking.offMs)}. The piece ends when the artist notices and closes
+            replies — that gap is the measurement, and it is being made right now.
+          </>
+        ) : takenBack ? (
+          <>
+            Somebody liked it and <strong>took it back</strong>. Nothing is standing against it now.
+            Six of the first thirteen breaking likes were deleted like that, and every one of those
+            reaction times was lost — this is what it looks like while it happens.
+          </>
+        ) : (
+          <>
+            Nobody has liked it. The piece is up, and it stays up until somebody does — the goal is
+            zero likes, so everything below is the piece succeeding.
+          </>
+        )}
+      </p>
+
+      <Counters tally={tally} />
+      <Ticker rows={rows} profiles={profiles} />
+
+      <p className="ratioed-live-note">
+        {streamOn ? (
+          <>
+            Your browser is reading the firehose and testing every record on the network against
+            this post — about 166&nbsp;KB/s, because Jetstream can filter by collection but not by
+            what a record points at. It stops itself at {BUDGET_BYTES / 1024 / 1024}&nbsp;MB.
+          </>
+        ) : (
+          <>
+            Reading the piece&rsquo;s own record, which the studio writes to as it watches. A few
+            seconds behind, and the cost of a small fetch.
+          </>
+        )}{' '}
+        Either way this is a witness, not a measurement: the figures on this page after the seal are
+        taken from a backlink index, and they will not be identical.
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+/**
+ * The same deck for a piece that is over: closed, and replayable.
+ *
+ * A sealed piece has nothing to watch, so nothing opens by itself here — the
+ * page's own replay and figures are the retrospective view, and this is the
+ * live one kept as it ran. What it holds that nothing else does is the
+ * withdrawals: a like cast and deleted leaves no record for any index to
+ * report, and this log saw it.
+ */
+export function RatioedWitness({ piece }) {
+  // Memoised because the effects below key off it: a fresh [] every render
+  // would re-resolve every profile on every render, forever.
+  const rows = useMemo(() => piece?.witnessed || [], [piece?.witnessed]);
+  const lifespanMs = piece?.lifespanMs || 0;
+  const [profiles, setProfiles] = useState({});
+  const [head, setHead] = useState(Infinity); // ms after postedAt that has "happened"
+  const [playing, setPlaying] = useState(false);
+  const frame = useRef(0);
+
+  // The full span the log covers, which can run past the seal by whatever the
+  // studio was still watching when the gate went up.
+  const spanMs = useMemo(
+    () => rows.reduce((m, r) => Math.max(m, r.goneMs ?? r.offMs), lifespanMs) || 1,
+    [rows, lifespanMs],
+  );
+  // Real time up to a couple of minutes; past that, a fixed sweep. Same rule the
+  // replay above it plays by, and for the same reason: a piece that stood for
+  // seventeen seconds should take seventeen seconds to watch.
+  const rate = spanMs <= 120_000 ? 1 : spanMs / 8000;
+
+  useEffect(() => {
+    const dids = rows.map((r) => r.did).filter(Boolean);
+    if (!dids.length) return;
+    resolveProfiles(Array.from(new Set(dids))).then(setProfiles);
+  }, [rows]);
+
+  useEffect(() => {
+    if (!playing) return undefined;
+    let last = null;
+    const step = (t) => {
+      if (last == null) last = t;
+      const dt = t - last;
+      last = t;
+      setHead((h) => {
+        const next = h + dt * rate;
+        if (next >= spanMs) {
+          setPlaying(false);
+          return Infinity;
+        }
+        return next;
+      });
+      frame.current = requestAnimationFrame(step);
+    };
+    frame.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame.current);
+  }, [playing, rate, spanMs]);
+
+  const play = useCallback(() => {
+    setHead(0);
+    setPlaying(true);
+  }, []);
+
+  // Withdrawals only strike through once the playhead reaches them, so the
+  // moment somebody took their like back is a thing that happens rather than a
+  // thing that was always true.
+  const shown = useMemo(
+    () =>
+      rows
+        .filter((r) => r.offMs <= head)
+        .map((r) => (r.goneMs != null && r.goneMs > head ? { ...r, goneMs: undefined } : r)),
+    [rows, head],
+  );
+  const tally = useMemo(() => tallyWitness(shown), [shown]);
+
+  if (!rows.length) return null;
+
+  return (
+    <div className="ratioed-live is-replay">
+      <div className="ratioed-live-controls">
+        <button type="button" className="ratioed-live-play" onClick={() => (playing ? setPlaying(false) : play())}>
+          {playing ? 'Pause' : 'Watch it run'}
+        </button>
+        <span className="ratioed-live-clock-value">
+          {head === Infinity ? fmtDuration(spanMs) : `+${fmtDuration(head)}`}
+        </span>
+        {head !== Infinity && !playing && (
+          <button type="button" className="ratioed-live-skip" onClick={() => setHead(Infinity)}>
+            show all of it
+          </button>
+        )}
+      </div>
+      <Counters tally={tally} />
+      <Ticker rows={shown} profiles={profiles} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+function StreamState({ on, stream, onToggle, onRestart }) {
+  const mb = ((stream?.bytes || 0) / 1024 / 1024).toFixed(1);
+  const state = !on ? 'off' : stream?.state || 'connecting';
+  const label = !on
+    ? 'from the record'
+    : state === 'spent'
+      ? `stopped at ${mb} MB`
+      : state === 'open'
+        ? `firehose · ${mb} MB read`
+        : state;
+  return (
+    <span className="ratioed-live-stream">
+      <span className={`ratioed-live-state is-${state}`}>
+        <Radio size={12} aria-hidden="true" />
+        {label}
+      </span>
+      {state === 'spent' ? (
+        <button type="button" onClick={onRestart}>start it again</button>
+      ) : (
+        <button type="button" onClick={onToggle}>
+          {on ? 'stop the firehose' : 'watch the firehose'}
+        </button>
+      )}
+    </span>
+  );
+}
+
+/** The counts, with the like given the weight the project gives it. */
+function Counters({ tally }) {
+  const cells = [
+    ['replies', tally.replies],
+    ['reposts', tally.reposts],
+    ['quotes', tally.quotes],
+    ['likes', tally.likes],
+    ['people', tally.people],
+  ];
+  return (
+    <dl className="ratioed-live-counters">
+      {cells.map(([label, value]) => (
+        <div key={label} className={label === 'likes' && value > 0 ? 'is-fatal' : undefined}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+      {tally.withdrawn > 0 && (
+        <div className="is-gone">
+          <dt>taken back</dt>
+          <dd>{tally.withdrawn}</dd>
+        </div>
+      )}
+    </dl>
+  );
+}
+
+/** Newest first, the way a feed is read. */
+function Ticker({ rows, profiles }) {
+  if (!rows.length) {
+    return (
+      <p className="ratioed-live-empty">
+        Nothing has touched it yet. That is the piece working.
+      </p>
+    );
+  }
+  return (
+    <ul className="ratioed-live-ticker">
+      {[...rows].reverse().map((r) => {
+        const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
+        const avatar = profiles[r.did]?.avatar;
+        return (
+          <li
+            key={r.rkey}
+            className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}`}
+          >
+            <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
+            {avatar ? (
+              <img className="ratioed-live-face" src={avatar} alt="" loading="lazy" width="22" height="22" />
+            ) : (
+              <span className="ratioed-live-face is-blank" aria-hidden="true" />
+            )}
+            <span className="ratioed-live-who">@{handle}</span>
+            <span className="ratioed-live-what">{KIND_VERB[r.k] || r.k}</span>
+            {r.goneMs != null && (
+              <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
+            )}
+            {r.t && <span className="ratioed-live-text">{r.t}</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

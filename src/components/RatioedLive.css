@@ -1,0 +1,223 @@
+/* A piece while it is still happening.
+   The four categorical hues come from the page it sits on (see
+   lib/ratioedPalette.js, written onto .ratioed-piece); the fallbacks here are
+   the same four the charts fall back to, so the deck is legible even if it is
+   ever mounted somewhere that doesn't set them. */
+
+.ratioed-live {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: var(--space-4);
+  background: var(--surface-deep, var(--page-edge));
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- the head: clock, pulse, what it is reading --------------------- */
+
+.ratioed-live-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* The one piece of motion on the page, and it earns it: the piece is running
+   while you look at it. Steady rather than urgent — it goes urgent when
+   somebody likes it, which is the only alarm this deck has. */
+.ratioed-live-pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ratioed-reply, #5e7a47);
+  align-self: center;
+  animation: ratioed-live-breathe 2.4s ease-in-out infinite;
+}
+.ratioed-live.is-broken .ratioed-live-pulse {
+  background: var(--ratioed-seal, #8c3a2e);
+  animation-duration: 0.8s;
+}
+.ratioed-live.is-withdrawn .ratioed-live-pulse { background: var(--ratioed-quote, #8a6f24); }
+
+@keyframes ratioed-live-breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.82); }
+}
+
+.ratioed-live-clock { display: flex; align-items: baseline; gap: var(--space-2); }
+.ratioed-live-clock-value {
+  font-family: var(--mono, monospace);
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+.ratioed-live-clock-label { font-size: var(--text-xs); color: var(--ink-muted); }
+
+.ratioed-live-stream {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+.ratioed-live-state { display: inline-flex; align-items: center; gap: 4px; }
+.ratioed-live-state.is-open { color: var(--ratioed-reply, #5e7a47); }
+.ratioed-live-state.is-spent { color: var(--ratioed-quote, #8a6f24); }
+.ratioed-live-stream button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.ratioed-live-stream button:hover { color: var(--ink); }
+
+/* --- what is going on, in a sentence -------------------------------- */
+
+.ratioed-live-say {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  max-width: 62ch;
+}
+.ratioed-live.is-broken .ratioed-live-say strong { color: var(--ratioed-seal, #8c3a2e); }
+.ratioed-live.is-withdrawn .ratioed-live-say strong { color: var(--ratioed-quote, #8a6f24); }
+
+/* --- the counters ---------------------------------------------------- */
+
+.ratioed-live-counters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ratioed-live-counters dt {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  margin-bottom: 2px;
+}
+.ratioed-live-counters dd {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.1;
+  font-family: var(--mono, monospace);
+}
+/* A like is not one more number in the row. It is the end of the piece. */
+.ratioed-live-counters .is-fatal dd,
+.ratioed-live-counters .is-fatal dt { color: var(--ratioed-seal, #8c3a2e); }
+.ratioed-live-counters .is-fatal dd { font-weight: 600; }
+.ratioed-live-counters .is-gone dt,
+.ratioed-live-counters .is-gone dd { color: var(--ratioed-quote, #8a6f24); }
+
+/* --- the ticker ------------------------------------------------------ */
+
+.ratioed-live-ticker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 24em;
+  overflow-y: auto;
+  font-size: var(--text-sm);
+}
+.ratioed-live-row {
+  display: grid;
+  grid-template-columns: 4.5em 22px minmax(0, 11em) auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ratioed-live-row:last-child { border-bottom: 0; }
+.ratioed-live-when { font-family: var(--mono, monospace); color: var(--ink-muted); }
+.ratioed-live-face { border-radius: 50%; object-fit: cover; }
+.ratioed-live-face.is-blank {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--rule-soft);
+}
+.ratioed-live-who { overflow-wrap: anywhere; }
+.ratioed-live-what { font-variant-caps: small-caps; color: var(--ink-soft); }
+.ratioed-live-row.ratioed-k-like .ratioed-live-what {
+  color: var(--ratioed-seal, #8c3a2e);
+  font-weight: 600;
+}
+.ratioed-live-text {
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cast and taken back. The row recedes; the marker saying WHY does not —
+   that deletion is the one thing here no index can be asked about later. */
+.ratioed-live-row.is-gone .ratioed-live-when,
+.ratioed-live-row.is-gone .ratioed-live-who,
+.ratioed-live-row.is-gone .ratioed-live-what,
+.ratioed-live-row.is-gone .ratioed-live-text { opacity: 0.5; }
+.ratioed-live-row.is-gone .ratioed-live-who { text-decoration: line-through; }
+.ratioed-live-row.is-gone .ratioed-live-face { filter: grayscale(1); opacity: 0.5; }
+.ratioed-live-undone {
+  font-size: var(--text-xs);
+  color: var(--ratioed-quote, #8a6f24);
+  font-variant-caps: small-caps;
+  font-weight: 600;
+}
+
+.ratioed-live-empty { color: var(--ink-muted); margin: 0; font-size: var(--text-sm); }
+.ratioed-live-note {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  line-height: 1.6;
+  max-width: 62ch;
+}
+
+/* --- the sealed variant ---------------------------------------------- */
+
+.ratioed-live.is-replay { background: none; }
+.ratioed-live-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.ratioed-live-play {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 0.35em 0.9em;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--surface-raised, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+.ratioed-live-play:hover { border-color: var(--ink-muted); }
+.ratioed-live-skip {
+  font: inherit;
+  font-size: var(--text-xs);
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--ink-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+@media (max-width: 34rem) {
+  .ratioed-live-row { grid-template-columns: 4.5em 22px 1fr; }
+  .ratioed-live-what,
+  .ratioed-live-undone,
+  .ratioed-live-text { grid-column: 3; }
+  .ratioed-live-stream { margin-left: 0; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ratioed-live-pulse { animation: none; }
+}
