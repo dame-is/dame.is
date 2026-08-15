@@ -12,6 +12,7 @@ import {
   whenMarks,
   areaRadius,
   aggregate,
+  longestPiece,
   fmtDuration,
   fmtSeconds,
   fmtElapsed,
@@ -165,6 +166,33 @@ describe('aggregate', () => {
     expect(empty.count).toBe(0);
     expect(empty.meanReactionMs).toBeNull();
     expect(empty.maxLifespanMs).toBe(0);
+  });
+});
+
+describe('longestPiece', () => {
+  it('is the record a live piece is running at — take 4, at 29 minutes', () => {
+    const record = longestPiece(SEED_PIECES);
+    expect(record.take).toBe(4);
+    expect(Math.round(record.lifespanMs / 1000)).toBe(1764);
+  });
+
+  it('never answers with a piece that is still up', () => {
+    // A live piece has no lifespan yet. Offering one as the record to beat
+    // would have every live piece chasing itself.
+    const live = { rkey: 'live', take: 99, postedAt: '2026-08-15T00:00:00Z', lifespanMs: 0 };
+    expect(longestPiece([...SEED_PIECES, live]).take).toBe(4);
+    expect(longestPiece([live])).toBeNull();
+  });
+
+  it('is null before anything has ended, which was true exactly once', () => {
+    expect(longestPiece([])).toBeNull();
+    expect(longestPiece(null)).toBeNull();
+  });
+
+  it('keeps the first of a tie, which in take order is the one that got there first', () => {
+    const a = { take: 2, sealedAt: 'x', lifespanMs: 1000 };
+    const b = { take: 5, sealedAt: 'x', lifespanMs: 1000 };
+    expect(longestPiece([a, b]).take).toBe(2);
   });
 });
 

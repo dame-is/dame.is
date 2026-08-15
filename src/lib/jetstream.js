@@ -30,8 +30,17 @@ const BACKOFF_MS = [1000, 2000, 5000, 10000, 30000];
 const MAX_REPLAY_MS = 30_000;
 
 // What one watch is allowed to cost before it stops itself. ~24 minutes at the
-// measured rate, and past that a piece is long-lived enough that four seconds
-// of notice no longer decides anything. Stopping is reported, not silent.
+// measured rate. Stopping is reported, not silent.
+//
+// It is also OPTIONAL: pass `budgetBytes: null` and the socket runs until the
+// caller closes it. That is the right setting wherever the person watching is
+// the person paying — the studio, where stopping is how you lose the one like
+// the whole panel exists to catch — and the wrong one on a page a stranger
+// opened, where a default that reads a firehose forever is not a default
+// anybody chose. There is no third option available at the socket: Jetstream
+// filters by collection and by author, and a Ratioed piece is watched for what
+// records POINT at, which no server-side filter can express. The bytes are the
+// bytes. All that can be decided is who spends them and for how long.
 const DEFAULT_BUDGET_BYTES = 256 * 1024 * 1024;
 
 // Deletes name a collection and a record key and nothing else, so they can't be
@@ -179,7 +188,9 @@ export function classify(collection, record, subject) {
  * `onStatus` receives `{ state, bytes, seen, msgs, rate, kbps }`, where `state`
  * is `'connecting' | 'open' | 'closed' | 'spent'`. `bytes` is what the stream
  * has cost so far — surfaced because a caller should be able to see that number
- * and decide to stop. `'spent'` is this deciding for them at `budgetBytes`.
+ * and decide to stop. `'spent'` is this deciding for them at `budgetBytes`,
+ * which only happens when a caller asked for a budget: pass `null` and the only
+ * thing that ends this socket is the function it returns.
  * `msgs` is everything the socket has delivered and `rate`/`kbps` are how fast
  * it is arriving, resampled about once a second: a watch on a piece nobody has
  * touched matches nothing for minutes, and those three are the difference
@@ -201,6 +212,8 @@ export function watchSubject(
   let kbps = 0;
   let timer = null;
   const meter = createMeter();
+  // null / 0 / Infinity all mean "run until told to stop".
+  const capped = Number.isFinite(budgetBytes) && budgetBytes > 0;
   // Record keys this subscription has reported as creates. A delete names only
   // a collection and an rkey, so this is the only way to know whether one is
   // ours — and without it the caller hears about every deletion on the network.
@@ -254,7 +267,7 @@ export function watchSubject(
           status('open');
         }
       }
-      if (bytes > budgetBytes) {
+      if (capped && bytes > budgetBytes) {
         stopped = true;
         spent = true;
         status('spent');

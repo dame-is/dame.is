@@ -378,6 +378,25 @@ export function finished(pieces) {
 }
 
 /**
+ * The piece that stood the longest — the record a live one is running at.
+ *
+ * Finished pieces only, which is not a technicality: a piece that is up right
+ * now has no lifespan, and the record it is chasing has to be a number that
+ * already happened. A tie keeps the first one in the list, which every caller
+ * hands in take order — so the piece that got there first keeps the record,
+ * which is what a record means. Null before anything has ended, which was true
+ * exactly once.
+ */
+export function longestPiece(pieces) {
+  let best = null;
+  for (const p of finished(pieces)) {
+    if (!(p.lifespanMs > 0)) continue;
+    if (!best || p.lifespanMs > best.lifespanMs) best = p;
+  }
+  return best;
+}
+
+/**
  * Normalize a PDS record into the shape the charts consume. Tolerates missing
  * sub-objects so a hand-edited record can't crash the renderer.
  */

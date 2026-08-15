@@ -61,7 +61,8 @@
 }
 .ratioed-live-state { display: inline-flex; align-items: center; gap: 4px; }
 .ratioed-live-state.is-open { color: var(--ratioed-reply, #5e7a47); }
-.ratioed-live-state.is-spent { color: var(--ratioed-quote, #8a6f24); }
+.ratioed-live-state.is-spent,
+.ratioed-live-state.is-paused { color: var(--ratioed-quote, #8a6f24); }
 .ratioed-live-stream button {
   background: none;
   border: 0;

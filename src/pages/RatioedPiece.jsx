@@ -35,6 +35,7 @@ import {
   piecePath,
   isRatioedParent,
   isLive,
+  longestPiece,
   normalizePiece,
   fetchLiveDeltas,
   fmtDuration,
@@ -272,7 +273,7 @@ export default function RatioedPiece() {
             yet — it is a witness, and it is watching.
           </p>
 
-          <RatioedLive piece={piece} />
+          <RatioedLive piece={piece} record={longestPiece(pieces)} />
 
           <section className="ratioed-piece-section">
             <h2>What happens when it ends</h2>

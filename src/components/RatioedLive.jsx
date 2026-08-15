@@ -43,13 +43,20 @@ import {
 import { fmtDuration } from '../lib/ratioed.js';
 import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
+import RatioedRecord from './RatioedRecord.jsx';
 import './RatioedLive.css';
 
 // What one visitor's stream is allowed to cost before it stops itself: about
-// six minutes at the measured rate, which is longer than all but one piece in
-// the series has ever stood. The studio's own budget is four times this,
-// because the studio is the one that can't afford to miss anything.
-const BUDGET_BYTES = 64 * 1024 * 1024;
+// half an hour at the measured rate, several times the longest piece the series
+// has produced. The studio runs with no budget at all, because the studio is
+// the artist's own machine and stopping is how a piece gets missed. This is
+// somebody else's machine, and a page that reads a firehose indefinitely
+// because it was left open is not a thing anybody agreed to.
+//
+// Spending it is not the end of the deck either way: the piece's record is
+// still being polled underneath, the ticker keeps filling from it, and starting
+// the stream again keeps every row already on screen.
+const BUDGET_BYTES = 256 * 1024 * 1024;
 
 // How often the deck's own clock ticks. The piece's record is polled by the
 // page that owns it, not here.
@@ -71,7 +78,7 @@ function firehoseIsPolite() {
  * the ticker, so somebody arriving forty seconds in sees the forty seconds they
  * missed rather than an empty panel.
  */
-export default function RatioedLive({ piece }) {
+export default function RatioedLive({ piece, record = null }) {
   const postedMs = Date.parse(piece?.postedAt || '');
   const [rows, setRows] = useState(() => piece?.witnessed || []);
   const [profiles, setProfiles] = useState({});
@@ -79,6 +86,18 @@ export default function RatioedLive({ piece }) {
   const [streamOn, setStreamOn] = useState(firehoseIsPolite);
   const [stream, setStream] = useState(null);
   const [run, setRun] = useState(0);
+  // Reading a firehose into a tab nobody is looking at is the one kind of
+  // waste here with nothing on the other side of it. The record poll carries
+  // on regardless and backfills whatever the socket missed, so a visitor who
+  // comes back to the tab has lost nothing but the milliseconds.
+  const [visible, setVisible] = useState(
+    () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
+  );
+  useEffect(() => {
+    const onVis = () => setVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
 
   // Whatever the record has picked up since. The studio is a second witness
   // with a better view — it has been watching since the piece went up — so its
@@ -98,7 +117,7 @@ export default function RatioedLive({ piece }) {
   }, []);
 
   useEffect(() => {
-    if (!streamOn || !piece?.subject || !Number.isFinite(postedMs)) return undefined;
+    if (!streamOn || !visible || !piece?.subject || !Number.isFinite(postedMs)) return undefined;
     return watchSubject(piece.subject, {
       budgetBytes: BUDGET_BYTES,
       onStatus: setStream,
@@ -112,7 +131,7 @@ export default function RatioedLive({ piece }) {
         });
       },
     });
-  }, [streamOn, run, piece?.subject, postedMs]);
+  }, [streamOn, visible, run, piece?.subject, postedMs]);
 
   // Faces and names for whoever turns up, resolved as new DIDs appear. The log
   // carries the handle the studio stamped in; this is what makes it a face.
@@ -143,11 +162,15 @@ export default function RatioedLive({ piece }) {
         </span>
         <StreamState
           on={streamOn}
+          paused={streamOn && !visible}
           stream={stream}
           onToggle={() => setStreamOn((v) => !v)}
           onRestart={() => setRun((n) => n + 1)}
         />
       </header>
+
+      {/* The clock says how long. This says whether that is a lot. */}
+      <RatioedRecord elapsedMs={aliveMs} record={record} />
 
       {/* The like is not one more row in the feed. It is the end of the piece,
           and this is where the page says so at the size it deserves. */}
@@ -195,7 +218,9 @@ export default function RatioedLive({ piece }) {
           <>
             Your browser is reading the firehose and testing every record on the network against
             this post — about 166&nbsp;KB/s, because Jetstream can filter by collection but not by
-            what a record points at. It stops itself at {BUDGET_BYTES / 1024 / 1024}&nbsp;MB.
+            what a record points at. It pauses when this tab goes to the background and stops
+            itself at {BUDGET_BYTES / 1024 / 1024}&nbsp;MB; the piece&rsquo;s record is read
+            underneath either way, so neither loses you anything but promptness.
           </>
         ) : (
           <>
@@ -320,17 +345,19 @@ export function RatioedWitness({ piece }) {
  * nothing for minutes, and a panel whose only number is a byte count that also
  * only moved on a match looked broken for exactly as long as it was working.
  */
-function StreamState({ on, stream, onToggle, onRestart }) {
+function StreamState({ on, paused, stream, onToggle, onRestart }) {
   const mb = ((stream?.bytes || 0) / 1024 / 1024).toFixed(1);
-  const state = !on ? 'off' : stream?.state || 'connecting';
+  const state = !on ? 'off' : paused ? 'paused' : stream?.state || 'connecting';
   const rate = stream?.rate ? `${stream.rate.toLocaleString()}/s · ` : '';
   const label = !on
     ? 'from the record'
-    : state === 'spent'
-      ? `stopped at ${mb} MB`
-      : state === 'open'
-        ? `${rate}${mb} MB read`
-        : state;
+    : paused
+      ? 'paused — this tab is in the background'
+      : state === 'spent'
+        ? `stopped at ${mb} MB`
+        : state === 'open'
+          ? `${rate}${mb} MB read`
+          : state;
   return (
     <span className="ratioed-live-stream">
       <span className={`ratioed-live-state is-${state}`}>

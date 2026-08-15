@@ -31,12 +31,14 @@ import {
 } from 'lucide-react';
 import PageShell from './PageShell.jsx';
 import RatioedChip from './RatioedChip.jsx';
+import RatioedRecord from './RatioedRecord.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
   normalizePiece,
   isLive,
   finished,
+  longestPiece,
   piecePath,
   pieceSlug,
   fetchPieceRecords,
@@ -255,6 +257,8 @@ export default function RatioedStudio({ agent, did }) {
   const done = useMemo(() => finished(pieces), [pieces]);
   const take = useMemo(() => nextTake(pieces), [pieces]);
   const prev = useMemo(() => previousPiece(done), [done]);
+  // The record a live piece is running at: the longest one that has ended.
+  const longest = useMemo(() => longestPiece(done), [done]);
 
   useEffect(() => {
     if (!prev || live) {
@@ -359,6 +363,12 @@ export default function RatioedStudio({ agent, did }) {
     if (!live || sealed || !streamOn) return undefined;
     setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
     const close = watchSubject(subjectOf(live), {
+      // No budget here. A cap made sense while this was a curiosity; it does not
+      // survive contact with a piece that stands for an hour, because the thing
+      // the cap ends is the watch, and the watch is the measurement. The bytes
+      // are the artist's own, they are reported as they accrue, and the button
+      // beside them stops it whenever she wants. Nothing else should.
+      budgetBytes: null,
       onStatus: setStream,
       onEvent: (ev) => {
         setFeed((f) => {
@@ -1008,6 +1018,10 @@ export default function RatioedStudio({ agent, did }) {
             <span className="rs-live-clock">{fmtDuration(aliveMs)}</span>
           </header>
 
+          {/* How this one is doing, in the only unit the project has: the
+              longest piece so far. */}
+          <RatioedRecord elapsedMs={aliveMs} record={longest} />
+
           {/* The alarm. A like is the end of the piece and the start of the one
               measurement this project exists to take, so it does not arrive as
               one more row in a feed — it takes the top of the panel, in the
@@ -1124,8 +1138,8 @@ export default function RatioedStudio({ agent, did }) {
               <p className="admin-field-hint rs-feed-empty">
                 Nothing yet. Every like, repost, quote and reply on the network is arriving here and
                 being tested against this post — ~166&nbsp;KB/s, which is what buys sub-second
-                notice instead of a {WATCH_MS / 1000}s poll. It stops itself at 256&nbsp;MB, and
-                the poll carries on either way.
+                notice instead of a {WATCH_MS / 1000}s poll. It runs until you stop it: the cost is
+                above and the {WATCH_MS / 1000}s poll carries on underneath either way.
               </p>
             ) : (
               <ul className="rs-feed-list">
