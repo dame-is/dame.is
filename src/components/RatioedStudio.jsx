@@ -22,6 +22,7 @@ import {
   Lock,
   RefreshCw,
   ExternalLink,
+  ArrowUpRight,
   FileText,
   Radio,
   History,
@@ -31,7 +32,9 @@ import {
 } from 'lucide-react';
 import PageShell from './PageShell.jsx';
 import RatioedChip from './RatioedChip.jsx';
+import RatioedClock from './RatioedClock.jsx';
 import RatioedRecord from './RatioedRecord.jsx';
+import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
@@ -212,6 +215,11 @@ export default function RatioedStudio({ agent, did }) {
   // while deciding whether to act in the next four seconds.
   const { skyDisplayHour } = useTheme();
   const scale = useMemo(() => ratioedScaleVars(skyDisplayHour), [skyDisplayHour]);
+
+  // The site's own "Open in…" picker, so a row in the feed can be opened in
+  // whichever client you actually want to read it in — the same sheet every
+  // at:// link on the site goes through.
+  const { openWaypoints } = useWaypointsModal();
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -990,7 +998,10 @@ export default function RatioedStudio({ agent, did }) {
     (streamLike && (profiles[streamLike.did]?.handle || streamLike.h)) ||
     firstLike?.actor?.handle ||
     'somebody';
-  const sinceLike = streamLike ? Math.max(0, now - (Date.parse(live.postedAt) + streamLike.offMs)) : 0;
+  // When the like landed, on the same clock the record will subtract from.
+  // Null when only the AppView poll has seen it: that answers WHO but not the
+  // instant, and a stopwatch counting from a guess is worse than no stopwatch.
+  const likeAtMs = streamLike && live ? Date.parse(live.postedAt) + streamLike.offMs : null;
 
   return (
     <PageShell
@@ -1030,10 +1041,21 @@ export default function RatioedStudio({ agent, did }) {
           {seenLike && !justSealed && (
             <div className="rs-alarm" role="alert">
               <RatioedChip kind="like" size="lg" />
-              <span className="rs-alarm-who">@{breakerName}</span>
-              {streamLike && (
-                <span className="rs-alarm-when">
-                  at +{fmtDuration(streamLike.offMs)} · <strong>{fmtSeconds(sinceLike)} ago</strong>
+              <span className="rs-alarm-who">
+                @{breakerName}
+                {streamLike && (
+                  <span className="rs-alarm-when">liked it at +{fmtDuration(streamLike.offMs)}</span>
+                )}
+              </span>
+              {/* The measurement, running. Frozen the moment the seal is
+                  pressed, because that is the moment it stops being a display
+                  and becomes what the record says. */}
+              {likeAtMs != null && (
+                <span className="rs-alarm-race">
+                  <RatioedClock fromMs={likeAtMs} running={!busy} className="rs-alarm-clock" />
+                  <span className="rs-alarm-race-label">
+                    your reaction, as the record will carry it
+                  </span>
                 </span>
               )}
               <button type="button" className="rs-alarm-seal" onClick={seal} disabled={!!busy}>
@@ -1145,7 +1167,11 @@ export default function RatioedStudio({ agent, did }) {
               <ul className="rs-feed-list">
                 {newestFirst.map((e) => {
                   const mine = e.did === did;
-                  const answerable = ANSWERABLE.has(e.k) && !mine && e.goneMs == null && !justSealed;
+                  // A post that still exists can be opened anywhere. Acting on
+                  // one is narrower: not your own, not deleted, not after the
+                  // seal.
+                  const openable = ANSWERABLE.has(e.k) && e.goneMs == null && Boolean(e.did);
+                  const answerable = openable && !mine && !justSealed;
                   const liked = Boolean(acted[e.rkey]?.likeUri);
                   return (
                     <li
@@ -1162,33 +1188,52 @@ export default function RatioedStudio({ agent, did }) {
                       <RatioedChip kind={e.k} muted={e.goneMs != null} />
                       {e.goneMs != null && <span className="rs-feed-gone">deleted it</span>}
                       {e.t && <span className="rs-feed-text">{e.t.slice(0, 90)}</span>}
-                      {answerable && (
+                      {openable && (
                         <span className="rs-feed-acts">
-                          {/* On the row, not the piece: this likes somebody's
-                              reply, which is not a backlink of the piece and is
-                              in none of its counts. */}
                           <button
                             type="button"
-                            className={`rs-act${liked ? ' on' : ''}`}
-                            onClick={() => likeRow(e)}
-                            disabled={Boolean(acting)}
-                            title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
-                            aria-label={liked ? 'Undo that like' : 'Like this reply'}
+                            className="rs-act"
+                            onClick={() => openWaypoints(rowUri(e))}
+                            title="Open this post in another client"
+                            aria-label="Open this post in another client"
                           >
-                            {liked ? <HeartOff size={13} aria-hidden="true" /> : <Heart size={13} aria-hidden="true" />}
+                            <ArrowUpRight size={13} aria-hidden="true" />
                           </button>
-                          <button
-                            type="button"
-                            className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
-                            onClick={() =>
-                              setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
-                            }
-                            disabled={Boolean(acting)}
-                            title={e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'}
-                            aria-label="Reply to this"
-                          >
-                            <MessageSquareReply size={13} aria-hidden="true" />
-                          </button>
+                          {answerable && (
+                            <>
+                              {/* On the row, not the piece: this likes
+                                  somebody's reply, which is not a backlink of
+                                  the piece and is in none of its counts. */}
+                              <button
+                                type="button"
+                                className={`rs-act${liked ? ' on' : ''}`}
+                                onClick={() => likeRow(e)}
+                                disabled={Boolean(acting)}
+                                title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
+                                aria-label={liked ? 'Undo that like' : 'Like this reply'}
+                              >
+                                {liked ? (
+                                  <HeartOff size={13} aria-hidden="true" />
+                                ) : (
+                                  <Heart size={13} aria-hidden="true" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
+                                onClick={() =>
+                                  setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
+                                }
+                                disabled={Boolean(acting)}
+                                title={
+                                  e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'
+                                }
+                                aria-label="Reply to this"
+                              >
+                                <MessageSquareReply size={13} aria-hidden="true" />
+                              </button>
+                            </>
+                          )}
                         </span>
                       )}
                       {replyTo?.rkey === e.rkey && (

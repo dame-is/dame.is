@@ -27,7 +27,7 @@
 // be showing an emergency that has already ended.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Radio } from 'lucide-react';
+import { Radio, ArrowUpRight } from 'lucide-react';
 import { watchSubject } from '../lib/jetstream.js';
 import { resolveProfiles } from '../lib/atproto.js';
 import {
@@ -43,8 +43,18 @@ import {
 import { fmtDuration } from '../lib/ratioed.js';
 import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
+import RatioedClock from './RatioedClock.jsx';
 import RatioedRecord from './RatioedRecord.jsx';
+import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import './RatioedLive.css';
+
+// A witnessed row names a DID and a record key; this is the at:// URI they
+// spell, so a reader can open the post itself in whatever client they use.
+// Only the two kinds that are posts — a like and a repost are records nobody
+// wants to look at.
+const OPENABLE = { quote: 'app.bsky.feed.post', reply: 'app.bsky.feed.post' };
+const rowUri = (r) =>
+  OPENABLE[r?.k] && r.did && r.rkey ? `at://${r.did}/${OPENABLE[r.k]}/${r.rkey}` : '';
 
 // What one visitor's stream is allowed to cost before it stops itself: about
 // half an hour at the measured rate, several times the longest piece the series
@@ -179,8 +189,15 @@ export default function RatioedLive({ piece, record = null }) {
           <RatioedChip kind="like" size="lg" />
           <span className="ratioed-live-alarm-who">
             @{profiles[breaking.did]?.handle || breaking.h || 'somebody'}
+            <span className="ratioed-live-alarm-when">at +{fmtDuration(breaking.offMs)}</span>
           </span>
-          <span className="ratioed-live-alarm-when">at +{fmtDuration(breaking.offMs)}</span>
+          {/* The measurement, running. This is the reaction time being taken —
+              it stops when the artist closes replies, and where it stops is
+              what the record will say. */}
+          <span className="ratioed-live-alarm-race">
+            <RatioedClock fromMs={postedMs + breaking.offMs} className="ratioed-live-alarm-clock" />
+            <span className="ratioed-live-alarm-label">unsealed, and being timed</span>
+          </span>
         </div>
       )}
 
@@ -404,6 +421,7 @@ function Counters({ tally }) {
 
 /** Newest first, the way a feed is read. `quiet` mutes a replayed alarm. */
 function Ticker({ rows, profiles, quiet = false }) {
+  const { openWaypoints } = useWaypointsModal();
   if (!rows.length) {
     return (
       <p className="ratioed-live-empty">
@@ -439,6 +457,19 @@ function Ticker({ rows, profiles, quiet = false }) {
               <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
             )}
             {r.t && <span className="ratioed-live-text">{r.t}</span>}
+            {/* Read it where you read things. The picker is the same one every
+                at:// link on this site goes through. */}
+            {r.goneMs == null && rowUri(r) && (
+              <button
+                type="button"
+                className="ratioed-live-open"
+                onClick={() => openWaypoints(rowUri(r))}
+                title={`Open @${handle}’s ${r.k} in another client`}
+                aria-label={`Open this ${r.k} in another client`}
+              >
+                <ArrowUpRight size={13} aria-hidden="true" />
+              </button>
+            )}
           </li>
         );
       })}

@@ -15,6 +15,7 @@ import {
   longestPiece,
   fmtDuration,
   fmtSeconds,
+  fmtStopwatch,
   fmtElapsed,
   pieceSlug,
   piecePath,
@@ -523,6 +524,22 @@ describe('formatters', () => {
   it('keeps one decimal on reaction times and marks unknowns', () => {
     expect(fmtSeconds(11_304)).toBe('11.3s');
     expect(fmtSeconds(undefined)).toBe('—');
+  });
+
+  it('keeps two on a stopwatch, because that one is read while it moves', () => {
+    expect(fmtStopwatch(4_283)).toBe('4.28s');
+    expect(fmtStopwatch(0)).toBe('0.00s');
+    // Minutes only when they exist, and the seconds stay padded so the number
+    // doesn't change width as it ticks.
+    expect(fmtStopwatch(67_420)).toBe('1m07.42s');
+    expect(fmtStopwatch(600_000)).toBe('10m00.00s');
+  });
+
+  it('never runs a stopwatch backwards past zero', () => {
+    // Local clock against a PDS write clock: the two can disagree by enough to
+    // make "now" land before the like did.
+    expect(fmtStopwatch(-250)).toBe('0.00s');
+    expect(fmtStopwatch(null)).toBe('0.00s');
   });
 
   it('floats the unit across the afterlife range', () => {

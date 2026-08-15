@@ -613,6 +613,24 @@ export function fmtSeconds(ms) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+/**
+ * A running stopwatch: `4.28s`, `1m07.42s`.
+ *
+ * Two decimals rather than one, unlike every other duration here, because this
+ * is the only one being read while it moves. The project's whole finding lives
+ * between 10 and 17 seconds; a number that ticks in whole seconds while you
+ * decide whether to press a button is not showing you the thing you are
+ * deciding about. Minutes appear only when they exist — a reaction time that
+ * needs them is a story about something else.
+ */
+export function fmtStopwatch(ms, decimals = 2) {
+  const sec = Math.max(0, (ms || 0) / 1000);
+  if (sec < 60) return `${sec.toFixed(decimals)}s`;
+  const m = Math.floor(sec / 60);
+  const rest = (sec - m * 60).toFixed(decimals).padStart(decimals + 3, '0');
+  return `${m}m${rest}s`;
+}
+
 /** Afterlife offsets span seconds to years, so the unit has to float. */
 export function fmtElapsed(sec) {
   if (sec < 90) return `${Math.round(sec)}s`;

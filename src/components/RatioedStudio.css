@@ -105,19 +105,38 @@
 }
 
 .rs-alarm-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   font-size: var(--text-xl);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 .rs-alarm-when {
   font-family: var(--mono, monospace);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
-/* The number that is still moving: how long the piece has been standing liked,
-   which is the reaction time as it accrues. */
-.rs-alarm-when strong { color: var(--ratioed-seal, #8c3a2e); font-size: var(--text-lg); }
+
+/* The measurement, running. Two decimals and twenty ticks a second, because
+   this is the one number on the site being read while it moves — and it is the
+   number the record will carry, so it is sized like the thing it is rather
+   than like a caption. */
+.rs-alarm-race {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: var(--space-2);
+}
+.rs-alarm-clock {
+  font-size: var(--text-2xl);
+  line-height: 1;
+  font-weight: 700;
+  color: var(--ratioed-seal, #8c3a2e);
+}
+.rs-alarm-race-label { font-size: var(--text-xs); color: var(--ink-muted); }
 
 .rs-alarm-seal {
   margin-left: auto;
