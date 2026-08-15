@@ -6,7 +6,7 @@ const VARIANTS = [
   ['hidden', 'Replies nobody can see', 'The replies that landed after a seal — written to the network, hidden by the threadgate.'],
   ['participants', 'Participants', 'Everyone who touched a piece, sortable, with who broke what.'],
   ['when', 'When they happened', 'Every piece on a week grid by day and hour, each mark sized by how long it lived and how much it drew.'],
-  ['reach', 'Reach', 'How large an audience each piece was carried to, from the followers of the people who carried it — a repost counts a whole following, a reply a tenth of one. An upper bound, not a count of who looked.'],
+  ['reach', 'Reach', 'How large an audience each piece was carried to, weighted by act — a repost counts a whole following, a reply a tenth of one.'],
 ];
 
 // Mirrors DEFAULT_CAPTIONS in RatioedBlock.jsx, trimmed to a placeholder. The

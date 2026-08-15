@@ -64,30 +64,37 @@ function reactionBand(pieces) {
  * What each chart says about itself when the block carries no caption of its
  * own. Functions rather than strings so a default can quote the data it is
  * describing; an authored caption replaces the whole thing.
+ *
+ * A caption is a label, not an essay. Two sentences is the ceiling: one for
+ * what the marks are, one for the thing a reader would otherwise get wrong.
+ * Everything else these used to carry — how roles are ranked, why the count is
+ * by DID, what a hatched bar stands in for — is either visible in the chart or
+ * belongs in the prose around it, and putting it here made a legend into a
+ * paragraph nobody finished.
  */
 const DEFAULT_CAPTIONS = {
   summary: ({ people }) =>
-    `${people.living} of those ${people.total} showed up while a piece was still alive. The rest only ever touched one that was already finished.`,
+    `${people.living} of the ${people.total} people involved showed up while a piece was still alive. The rest only ever touched a finished one.`,
   lifelines: () =>
-    'Every record pointing at a piece, plotted against the seconds it arrived after the piece went up. The rule is the threadgate; everything right of it happened to a post that was already finished.',
+    'Every record pointing at a piece, by the second it arrived. The rule is the threadgate; everything right of it hit a post that was already over.',
   reaction: ({ stats }) =>
-    `Mean of the ${stats.measured} still on the network: ${fmtSeconds(stats.meanReactionMs)}, range ${fmtSeconds(stats.minReactionMs)}–${fmtSeconds(stats.maxReactionMs)}, with no relationship to how long the piece had been up. The other ${stats.deleted} likes were deleted by the people who cast them, so those reactions can't be measured at all: the solid part of those bars runs to the fastest reaction ever recorded, and the hatched part is the window the like must have fallen in.`,
+    `How long each like went unnoticed: mean ${fmtSeconds(stats.meanReactionMs)}, range ${fmtSeconds(stats.minReactionMs)}–${fmtSeconds(stats.maxReactionMs)}. The ${stats.deleted} hatched bars are pieces whose like was deleted, so the window is inferred rather than measured.`,
   ledger: () =>
-    'Engagement either side of the seal. Everything right of the second rule arrived at a post that was already finished — pieces keep accruing it indefinitely.',
+    'Engagement either side of the seal. Pieces keep accruing the right-hand column indefinitely.',
   hidden: () =>
-    'A threadgate hides replies at the appview; it does not stop the records being written. These landed in the seconds after their piece sealed, and no reader of the thread has ever seen them.',
-  participants: ({ people, roster, audience }) =>
-    `The ${roster.rows.length} accounts that were there while a piece was still alive, all ${roster.breakers} breakers among them.${
+    'Replies written to the network after their piece sealed. A threadgate hides them at the appview without stopping the records, so nobody reading the thread has seen these.',
+  participants: ({ roster, audience }) =>
+    `The ${roster.rows.length} accounts present while a piece was alive, ${roster.breakers} of them breakers.${
       audience?.measuredAt
-        ? ` Audience is each account's follower count as of ${audience.measuredAt.slice(0, 10)} — as they are now, not as they were when they turned up; a dot means the account no longer resolves.`
+        ? ` Audience is their follower count as of ${audience.measuredAt.slice(0, 10)}; a dot means the account no longer resolves.`
         : ''
-    } ${roster.deleted} of those breakers deleted the like they cast, which leaves it in no index at all — the reply concluding their piece is the only record it happened, and it's marked as such rather than counted. Each role names the most consequential thing someone did while the piece was still alive, so it can differ from the mix beside it, which counts everything they ever did, whenever they did it. The ${people.afterOnly} accounts that only ever reached a finished piece aren't here. Counted by DID, not handle: two deactivated accounts share one placeholder handle.`,
+    }`,
   reach: ({ reach }) =>
     reach
-      ? `A repost or a quote counts the whole of the carrier's following, a reply a tenth of it and a like a fiftieth — once per account, however many times they acted. Across the ${reach.measured} pieces that can be scored that comes to ${fmtReach(reach.aliveRaw)} while they were alive and ${fmtReach(reach.afterRaw)} after they were sealed, so ${Math.round(reach.afterlifeShare * 100)}% of the whole project's reach landed on posts that were already finished. It is a ceiling and not an audience: two carriers who share followers have those people counted twice, and nobody outside Bluesky can count who actually looked. The follower figures are dated too — for the early pieces they were read more than a year after the pieces ran.`
-      : 'How large an audience each piece was carried to, weighted by what each kind of act does: a repost or a quote reaches the whole of a following, a reply a fraction of it.',
+      ? `Audience carried to, weighted by act: a repost or quote counts a whole following, a reply a tenth, a like a fiftieth. ${fmtReach(reach.aliveRaw)} while the pieces were alive against ${fmtReach(reach.afterRaw)} after they were sealed. A ceiling, not a headcount: shared followers are counted twice.`
+      : 'Audience carried to, weighted by act: a repost or quote counts a whole following, a reply a fraction of one.',
   when: () =>
-    'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip beside the grid is each hour’s own sky colour. Every mark names itself on hover.',
+    'Every piece by the clock it was made on, in Eastern time. The core is how long it lived, the ring how much it drew, both scaled by area.',
 };
 
 /**

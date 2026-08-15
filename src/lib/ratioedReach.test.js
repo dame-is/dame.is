@@ -7,6 +7,7 @@ import {
   windowReach,
   pieceReach,
   projectReach,
+  audienceIsFresh,
   fmtReach,
   fmtRatio,
 } from './ratioedReach.js';
@@ -223,6 +224,35 @@ describe('projectReach', () => {
 
   it('reads a piece’s own log when no resolver is given', () => {
     expect(projectReach(pieces).aliveRaw).toBe(1500);
+  });
+});
+
+describe('audienceIsFresh', () => {
+  const sealed = '2026-08-15T14:00:00Z';
+
+  it('counts a reading taken the same day as describing the piece', () => {
+    expect(audienceIsFresh('2026-08-15T19:30:00Z', sealed)).toBe(true);
+  });
+
+  it('still counts one taken a few days later', () => {
+    expect(audienceIsFresh('2026-08-20T09:00:00Z', sealed)).toBe(true);
+  });
+
+  it('stops counting past a week', () => {
+    expect(audienceIsFresh('2026-08-23T09:00:00Z', sealed)).toBe(false);
+  });
+
+  it('calls a backfilled audience stale however recently it was read', () => {
+    expect(audienceIsFresh('2026-08-15T19:00:00Z', '2025-06-16T14:09:16Z')).toBe(false);
+  });
+
+  it('accepts a reading from just before the seal, where the studio measures', () => {
+    expect(audienceIsFresh('2026-08-15T13:59:00Z', sealed)).toBe(true);
+  });
+
+  it('treats an unknown date as stale, which is what the caveat is for', () => {
+    expect(audienceIsFresh('', sealed)).toBe(false);
+    expect(audienceIsFresh('2026-08-15T19:00:00Z', '')).toBe(false);
   });
 });
 

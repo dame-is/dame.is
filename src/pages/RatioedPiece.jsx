@@ -42,7 +42,13 @@ import {
   fmtSeconds,
   fmtElapsed,
 } from '../lib/ratioed.js';
-import { pieceReach, applyAudience, fmtReach, fmtRatio } from '../lib/ratioedReach.js';
+import {
+  pieceReach,
+  applyAudience,
+  audienceIsFresh,
+  fmtReach,
+  fmtRatio,
+} from '../lib/ratioedReach.js';
 import { getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -486,7 +492,7 @@ export default function RatioedPiece() {
           <ReachSection
             reach={reach}
             audienceAt={piece.audienceAt || audience?.measuredAt || ''}
-            recorded={Boolean(piece.audienceAt)}
+            piece={piece}
           />
         )}
 
@@ -615,16 +621,12 @@ const REACH_ROWS = 12;
  * The one figure on this page that is an interpretation rather than a
  * measurement, so it carries its own arithmetic: every contributor is listed
  * with the audience they brought and what it was multiplied by, and the total
- * is the sum of that column. A reader who disagrees with the weights can see
- * exactly what changing them would do.
- *
- * Three caveats belong to the number and not to a footnote, so they are stated
- * where it is: it is a ceiling rather than a count of who looked, overlapping
- * followings are counted twice, and the follower figures are dated — for the
- * early pieces, dated more than a year after the piece itself.
+ * is the sum of that column.
  */
-function ReachSection({ reach, audienceAt, recorded }) {
+function ReachSection({ reach, audienceAt, piece }) {
+  const fresh = audienceIsFresh(audienceAt, piece?.sealedAt || piece?.postedAt);
   const { alive, after } = reach;
+
   const top = alive.top || after.top;
   // Tagged by window on the way in: the same account can carry a piece while
   // it is alive and again after the seal, and those are two separate rows
@@ -727,24 +729,20 @@ function ReachSection({ reach, audienceAt, recorded }) {
       )}
 
       <p className="ratioed-piece-note">
-        A repost or a quote puts a piece in front of the whole of someone&rsquo;s following; a
-        reply counts for a tenth of that and a like a fiftieth, and nobody is counted twice however
-        many times they acted. It is a ceiling, not an audience — two people who share followers
-        have those followers counted twice, and nobody outside Bluesky can say who actually looked.
+        A repost or quote counts a whole following, a reply a tenth, a like a fiftieth; each
+        account once. A ceiling, not a headcount: shared followers are counted twice.
         {unknown > 0 && (
           <>
             {' '}
-            {unknown} {unknown === 1 ? 'account' : 'accounts'} could not be resolved and{' '}
-            {unknown === 1 ? 'is' : 'are'} missing from the total rather than counted as zero.
+            {unknown} {unknown === 1 ? 'account' : 'accounts'} went unresolved and{' '}
+            {unknown === 1 ? 'is' : 'are'} missing rather than zero.
           </>
         )}
         {audienceAt && (
           <>
             {' '}
-            Follower counts read {audienceAt.slice(0, 10)}
-            {recorded
-              ? ', in the same pass that measured the piece.'
-              : ' — long after this piece ran, so they describe these accounts as they are now, not as they were.'}
+            Followers read {audienceAt.slice(0, 10)}
+            {fresh ? '.' : ', long after this piece ran.'}
           </>
         )}
       </p>

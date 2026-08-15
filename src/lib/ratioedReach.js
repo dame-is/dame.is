@@ -297,6 +297,34 @@ export function projectReach(pieces, resolveEvents) {
   };
 }
 
+/**
+ * How long after a piece an audience reading still describes the moment.
+ *
+ * A week. Follower counts move by a handful over seven days and by orders of
+ * magnitude over two years, so a piece measured on Tuesday and read on Thursday
+ * carries a figure that is true of the piece; one that ran in June 2025 and was
+ * read in 2026 does not, and the page has to say which it is showing.
+ */
+export const AUDIENCE_FRESH_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Does this audience reading still describe the piece it is attached to?
+ *
+ * Measured against the piece rather than against today, because what makes a
+ * reading stale is the gap between it and the thing it describes: a piece
+ * sealed a year ago has a stale audience however recently the figures were
+ * read. Unparseable dates are not fresh — an unknown gap is the case the
+ * caveat exists for.
+ */
+export function audienceIsFresh(audienceAt, pieceAt, window = AUDIENCE_FRESH_MS) {
+  const read = Date.parse(audienceAt || '');
+  const anchor = Date.parse(pieceAt || '');
+  if (!Number.isFinite(read) || !Number.isFinite(anchor)) return false;
+  // A reading taken BEFORE the piece is fresh by definition: that is the studio
+  // measuring a piece as it seals, where the clocks can land either side of it.
+  return read - anchor <= window;
+}
+
 /* ------------------------------------------------------------------ */
 /* Formatting                                                           */
 /* ------------------------------------------------------------------ */
