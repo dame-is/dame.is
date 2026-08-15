@@ -75,6 +75,11 @@
             "format": "datetime",
             "description": "When these figures were taken. Post-seal counts are only true as of this moment. Absent while the piece is still alive."
           },
+          "audienceAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the follower counts on the event log were read. Usually the same moment as measuredAt; later on the pieces whose audiences were backfilled long after they ran, which is the case a reader has to be able to tell apart. Absent when no event carries an audience at all."
+          },
           "source": {
             "type": "string",
             "maxLength": 200,
@@ -186,6 +191,16 @@
           "type": "string",
           "maxLength": 3000,
           "description": "The post's text, when it was captured. Shown on hover; absent entries simply show less."
+        },
+        "fr": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many followers this account had when the piece was measured — the audience a repost or a quote carried the piece to. Recorded rather than read live because it is the most volatile figure on the record: engagement only moves when somebody acts, a follower count drifts on its own every day, and a reach computed at render time would never twice be the same number. Absent when the account resolved to no profile, which is not the same as an account nobody follows."
+        },
+        "fo": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many accounts this one followed at the same moment. Kept beside fr because the ratio between them says what kind of audience it is: well above 1 is an audience that chose to listen, well below 1 is mostly follow-back. Absent under the same conditions as fr."
         }
       }
     }

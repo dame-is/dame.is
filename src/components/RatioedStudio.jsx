@@ -32,6 +32,7 @@ import {
   fmtSeconds,
 } from '../lib/ratioed.js';
 import { measureWindows, buildEventLog } from '../lib/ratioedDiscovery.js';
+import { pieceReach, fmtReach } from '../lib/ratioedReach.js';
 import {
   DEFAULT_TEMPLATE,
   fillTemplate,
@@ -47,7 +48,6 @@ import {
   getRecord,
   getLikes,
   resolveProfiles,
-  resolveHandles,
   resolveHandle,
   rkeyFromAtUri,
   tidToTimestamp,
@@ -400,12 +400,19 @@ export default function RatioedStudio({ agent, did }) {
     const sealedMs = Date.parse(sealedAt);
     const postedMs = Date.parse(piece.postedAt);
     const windows = measureWindows(records, sealedMs, did);
-    const handles = await resolveHandles(records.map((r) => r.did));
+    // Profiles rather than handles alone: the same call carries how many
+    // followers each participant had, which is the one figure on the record
+    // that would be a different number tomorrow. Reading it now is what makes
+    // the reach score a measurement instead of a guess about the past.
+    const measuredProfiles = await resolveProfiles(records.map((r) => r.did));
+    const handles = Object.fromEntries(
+      Object.entries(measuredProfiles).map(([k, p]) => [k, p.handle]),
+    );
     const events = buildEventLog(records, {
       postedAtMs: postedMs,
       sealedAtMs: sealedMs,
       selfDid: did,
-      handles,
+      profiles: measuredProfiles,
     });
 
     // Who to name, and when they did it.
@@ -432,6 +439,8 @@ export default function RatioedStudio({ agent, did }) {
       likes?.likes?.[0]?.actor?.handle ||
       'unknown';
     const likeSurvives = Boolean(breaking);
+    const measuredAt = new Date().toISOString();
+    const hasAudience = events.some((e) => typeof e.fr === 'number');
 
     const value = {
       $type: NSID,
@@ -449,7 +458,11 @@ export default function RatioedStudio({ agent, did }) {
       preSeal: windows.preSeal,
       postSeal: windows.postSeal,
       ...(events.length ? { events } : {}),
-      measuredAt: new Date().toISOString(),
+      measuredAt,
+      // Measured in the same pass, so the audiences are as current as the
+      // counts are. Stamped anyway — a backfilled piece carries a date years
+      // off its own, and only this field says which kind a piece is.
+      ...(hasAudience ? { audienceAt: measuredAt } : {}),
       source: 'constellation.microcosm.blue',
     };
     await agent.com.atproto.repo.putRecord({ repo: did, collection: NSID, rkey: piece.rkey, record: value });
@@ -467,12 +480,23 @@ export default function RatioedStudio({ agent, did }) {
       ref: post?.cid ? { uri: subject, cid: post.cid } : null,
       text: announcementDraft({ handle, piece: shaped, others: finished(pieces) }),
     });
+    // How far it got before the gate closed, said here because this is the one
+    // moment the figure is worth acting on: an amplifier who has just carried
+    // the piece to a real audience is the difference between a take nobody saw
+    // and a take that travelled, and the announcement is still unwritten.
+    const reach = pieceReach(shaped.events);
+    const reachNote = reach.measurable
+      ? ` Reach while alive: ${fmtReach(reach.alive.raw)}${
+          reach.alive.top ? ` — mostly @${reach.alive.top.handle}.` : '.'
+        }`
+      : '';
     setNote(
-      likeSurvives
+      (likeSurvives
         ? `Measured. Reaction ${fmtSeconds(sealedMs - breaking.at)}${
             windows.breakingLike ? '.' : ', from the like the stream witnessed — measure again once the index catches up.'
           }`
-        : 'Measured, but neither the index nor the stream has a like — measure again in a minute.',
+        : 'Measured, but neither the index nor the stream has a like — measure again in a minute.') +
+        reachNote,
     );
     await refresh();
   }

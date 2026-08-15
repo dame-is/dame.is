@@ -688,3 +688,95 @@
   text-decoration: none;
 }
 .ratioed-take-link:hover { text-decoration: underline; }
+
+/* --- reach ---------------------------------------------------------- */
+
+/* One bar per piece on a shared axis, split at the seal. The disparity between
+   a piece two friends replied to and one a 60k account reposted is the whole
+   point, so nothing here normalises a row to its own width. */
+.ratioed-reach-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+.ratioed-reach-row {
+  display: grid;
+  grid-template-columns: 2.6rem 1fr 5.5rem;
+  grid-template-areas:
+    'take track figure'
+    '.    who   who';
+  align-items: center;
+  gap: 0 var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.ratioed-reach-row > .ratioed-take-link {
+  grid-area: take;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+}
+.ratioed-reach-track {
+  grid-area: track;
+  display: flex;
+  align-items: stretch;
+  height: 0.65rem;
+  /* A piece that reached nobody is a real answer, so the empty track stays
+     visible rather than collapsing to nothing. */
+  background: var(--rule-soft);
+}
+.ratioed-reach-bar { display: block; min-width: 0; }
+.ratioed-reach-bar.is-alive { background: var(--ratioed-repost); }
+/* Everything after the seal landed on a post that was already finished, and is
+   drawn the way the other charts draw the afterlife: present, not solid. */
+.ratioed-reach-bar.is-after {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--ratioed-quote) 0 2px,
+    transparent 2px 4px
+  );
+}
+.ratioed-reach-figure {
+  grid-area: figure;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  text-align: right;
+  color: var(--ink);
+}
+.ratioed-reach-figure small { color: var(--ink-faint); font-size: 0.9em; }
+/* A reach figure is almost always one person's audience, so the person is part
+   of the figure rather than a detail under it. */
+.ratioed-reach-who {
+  grid-area: who;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  color: var(--ink-muted);
+}
+.ratioed-reach-key {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-3) 0 0;
+  font-family: var(--mono);
+  font-size: 0.64rem;
+  color: var(--ink-muted);
+}
+.ratioed-reach-swatch {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.55rem;
+  margin-left: var(--space-3);
+}
+.ratioed-reach-key > .ratioed-reach-swatch:first-child { margin-left: 0; }
+.ratioed-reach-swatch.is-alive { background: var(--ratioed-repost); }
+.ratioed-reach-swatch.is-after {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--ratioed-quote) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+@media (max-width: 30rem) {
+  .ratioed-reach-row { grid-template-columns: 2.2rem 1fr 4.4rem; }
+}

@@ -395,6 +395,10 @@ export function normalizePiece(rkey, value) {
     postSeal: { ...EMPTY, ...(value.postSeal || {}) },
     statedTally: value.statedTally || '',
     measuredAt: value.measuredAt || '',
+    // Absent on any piece measured before audiences were recorded, and later
+    // than measuredAt on the ones that were backfilled. Either way the reach
+    // section reads it before claiming a figure is current.
+    audienceAt: value.audienceAt || '',
     source: value.source || '',
     events: eventsFromRecord(value.events),
   };
@@ -419,6 +423,11 @@ function eventsFromRecord(events) {
       pre: e.pre ? 1 : 0,
       ...(e.self ? { self: 1 } : {}),
       ...(e.t ? { t: e.t } : {}),
+      // The audience this account carried the piece to, as of audienceAt.
+      // Passed through untouched — `ratioedReach` distinguishes an absent
+      // figure from a zero one, so neither can be defaulted here.
+      ...(typeof e.fr === 'number' ? { fr: e.fr } : {}),
+      ...(typeof e.fo === 'number' ? { fo: e.fo } : {}),
     }))
     .sort((a, b) => a.off - b.off);
 }

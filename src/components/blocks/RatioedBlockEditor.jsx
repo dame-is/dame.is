@@ -6,6 +6,7 @@ const VARIANTS = [
   ['hidden', 'Replies nobody can see', 'The replies that landed after a seal — written to the network, hidden by the threadgate.'],
   ['participants', 'Participants', 'Everyone who touched a piece, sortable, with who broke what.'],
   ['when', 'When they happened', 'Every piece on a week grid by day and hour, each mark sized by how long it lived and how much it drew.'],
+  ['reach', 'Reach', 'How large an audience each piece was carried to, from the followers of the people who carried it — a repost counts a whole following, a reply a tenth of one. An upper bound, not a count of who looked.'],
 ];
 
 // Mirrors DEFAULT_CAPTIONS in RatioedBlock.jsx, trimmed to a placeholder. The
@@ -21,6 +22,7 @@ const DEFAULTS = {
   hidden: 'A threadgate hides replies at the appview; it does not stop the records being written.',
   participants: 'Counted by DID, not handle — and which breakers left no trace at all.',
   when: 'Every piece by the clock it was made on, sized by how long it lived and how much it drew.',
+  reach: 'How large an audience each piece was carried to, and how much of that landed after it was already sealed.',
 };
 
 export default function RatioedBlockEditor({ block, onChange }) {
