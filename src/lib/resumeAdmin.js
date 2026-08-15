@@ -106,6 +106,37 @@ export async function renameRecordKey({
   return { newUri, updatedResumes };
 }
 
+/**
+ * Make exactly one resume version the active one — `featured: true` on `rkey`,
+ * cleared on every sibling. The site reads `featured` to decide what bare
+ * `/available` renders, so two featured versions is not a cosmetic problem: it
+ * is a coin toss over which resume a stranger reads.
+ *
+ * That invariant is why this lives here rather than in either studio. Both the
+ * resume studio's active-picker and the workbench's "Active" checkbox set the
+ * same flag, and a checkbox that only writes its own record would leave the old
+ * active version featured too. Now both go through one sibling-clearing pass.
+ *
+ * `resumes` is the loaded bundle — plain `{ uri, value }` records. Records whose
+ * flag already matches are skipped, so the common case writes exactly one or two
+ * records. Pass `rkey: null` to clear the flag everywhere (no version active).
+ * Sequential on purpose: this is a handful of writes to one repo, and the PDS
+ * has no reason to receive them all at once.
+ */
+export async function setActiveResume(agent, did, resumes, rkey) {
+  for (const rec of resumes || []) {
+    const r = rkeyFromAtUri(rec.uri);
+    const shouldBeActive = rkey != null && r === rkey;
+    if (shouldBeActive === Boolean(rec?.value?.featured)) continue;
+    await agent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: COLLECTIONS.resume,
+      rkey: r,
+      record: { ...rec.value, featured: shouldBeActive, updatedAt: new Date().toISOString() },
+    });
+  }
+}
+
 /** The backlink lists that reference each canonical collection from a resume. */
 export function backlinksFor(collection) {
   if (collection === COLLECTIONS.resumeJob) return [{ listKey: 'entries', refKey: 'job' }];

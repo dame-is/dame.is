@@ -58,7 +58,6 @@ export default function EditModeBar() {
     editSheet,
     sheetEditor,
     closeEditSheet,
-    pageEditor,
   } = useEditMode();
   const { agent, did } = useAtprotoSession();
   const { closeDock } = useActionDock();
@@ -88,19 +87,20 @@ export default function EditModeBar() {
     openEditSheet(atUri);
   }
 
-  // The bar hosts a record editor's Save / Delete / Close controls (the
-  // editor's own buttons are hidden) whenever one publishes a controller: the
-  // quick-edit sheet (`sheetEditor`) or the full admin editor page
-  // (`pageEditor`). The sheet wins if both are somehow present.
-  const onSheet = !!editSheet;
-  const ctl = onSheet ? sheetEditor : pageEditor;
-  const editing = onSheet || !!pageEditor;
+  // The bar hosts the quick-edit sheet's Save / Delete / Close controls (the
+  // editor's own buttons are hidden) whenever the sheet publishes a controller
+  // as `sheetEditor`.
+  //
+  // This used to be a two-way choice: the full admin editor page published a
+  // `pageEditor` controller and its Save / Delete landed here too, on a bar at
+  // the very bottom of the viewport, far from the form it was saving. The
+  // workbench put that cluster on the detail pane's own header instead, so the
+  // page-editor branch has no producer left and is gone. The sheet path below
+  // is untouched — it is the public site's quick-edit and must behave exactly
+  // as it always has.
+  const editing = !!editSheet;
+  const ctl = editing ? sheetEditor : null;
   const busyEditor = ctl?.saving || ctl?.deleting;
-
-  function closeEditor() {
-    if (onSheet) closeEditSheet();
-    else pageEditor?.close?.();
-  }
 
   // Publish the bar's live height on <html> as `--edit-bar-h`. The nav dock
   // reads it to lift its sheet so it expands from on top of this bar rather
@@ -200,7 +200,7 @@ export default function EditModeBar() {
                   <button
                     type="button"
                     className="edit-mode-bar-btn edit-mode-bar-clear"
-                    onClick={closeEditor}
+                    onClick={closeEditSheet}
                     disabled={busyEditor}
                   >
                     <X size={15} strokeWidth={1.75} aria-hidden="true" />

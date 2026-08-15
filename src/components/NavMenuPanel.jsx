@@ -3,13 +3,18 @@
 // relabel / hide the entries. With the override off (or no record), the site
 // uses the hardcoded routes in src/lib/navRoutes.js. Nothing is written until
 // Save.
+//
+// As a studio it is a BODY, not a page: StudioPane draws the title, the blurb
+// and the NSID, the rail is the way back, and the workbench's status strip owns
+// Save — so this file renders no PageShell, no "← All collections" link and no
+// save bar of its own. What it owes the shell instead is an honest answer to
+// "is anything unsaved?", which is `baseline` below.
 
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronUp, ChevronDown, Trash2, Plus, RotateCcw, Eye, EyeOff } from 'lucide-react';
-import PageShell from './PageShell.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { NAV_NSID } from '../config.js';
+import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { DEFAULT_ROUTES } from '../lib/navRoutes.js';
 import './NavMenuPanel.css';
 
@@ -20,7 +25,20 @@ const normalizeItem = (it) => ({
   hidden: Boolean(it?.hidden),
 });
 
+/**
+ * Value equality for the entry list. Order is part of the record — reordering
+ * two entries changes what the menu looks like — so this compares position by
+ * position rather than as a set.
+ */
+function sameItems(a, b) {
+  if (a.length !== b.length) return false;
+  return a.every(
+    (it, i) => it.to === b[i].to && it.label === b[i].label && it.hidden === b[i].hidden,
+  );
+}
+
 export default function NavMenuPanel({ agent, did }) {
+  const { registerActions, reportDirty, invalidate } = useAdminShell();
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [items, setItems] = useState([]);
@@ -28,10 +46,17 @@ export default function NavMenuPanel({ agent, did }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [flash, setFlash] = useState(false);
+  // What was last read from (or written to) the PDS. `null` until the load
+  // settles, which is what keeps the strip quiet while the editor is still empty.
+  const [baseline, setBaseline] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Both the "no record yet" and the "record exists" paths land here, so the
+      // baseline is taken from exactly what the editor was seeded with — a
+      // normalization can never read as an unsaved edit.
+      let next = { enabled: false, items: DEFAULT_ROUTES.map(toItem), createdAt: null };
       try {
         const res = await agent.com.atproto.repo.getRecord({
           repo: did,
@@ -39,24 +64,25 @@ export default function NavMenuPanel({ agent, did }) {
           rkey: 'self',
         });
         const v = res?.data?.value;
-        if (cancelled) return;
         if (v) {
-          setEnabled(Boolean(v.enabled));
-          setItems(
-            Array.isArray(v.items) && v.items.length
-              ? v.items.map(normalizeItem)
-              : DEFAULT_ROUTES.map(toItem),
-          );
-          setCreatedAt(v.createdAt || null);
-        } else {
-          setItems(DEFAULT_ROUTES.map(toItem));
+          next = {
+            enabled: Boolean(v.enabled),
+            items:
+              Array.isArray(v.items) && v.items.length
+                ? v.items.map(normalizeItem)
+                : DEFAULT_ROUTES.map(toItem),
+            createdAt: v.createdAt || null,
+          };
         }
       } catch {
         // No record yet — seed the editor from the site defaults.
-        if (!cancelled) setItems(DEFAULT_ROUTES.map(toItem));
-      } finally {
-        if (!cancelled) setLoading(false);
       }
+      if (cancelled) return;
+      setEnabled(next.enabled);
+      setItems(next.items);
+      setCreatedAt(next.createdAt);
+      setBaseline({ enabled: next.enabled, items: next.items });
+      setLoading(false);
     })();
     return () => {
       cancelled = true;
@@ -82,10 +108,24 @@ export default function NavMenuPanel({ agent, did }) {
     setItems((prev) => [...prev, { to: '', label: '', hidden: false }]);
   }
   function resetDefaults() {
+    // One click used to silently destroy every edit in the list, with no undo
+    // anywhere in this studio.
+    if (
+      !window.confirm(
+        'Replace this list with the site’s built-in routes? Any edits here are lost.',
+      )
+    ) {
+      return;
+    }
     setItems(DEFAULT_ROUTES.map(toItem));
   }
 
-  async function handleSave() {
+  // The 2400ms "Saved ✓" flash outlives a fast surface flip, so it gets a handle
+  // and a teardown rather than a fire-and-forget timeout.
+  const flashTimer = useRef(null);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+
+  const handleSave = useCallback(async () => {
     setSaving(true);
     setError(null);
     setFlash(false);
@@ -113,28 +153,77 @@ export default function NavMenuPanel({ agent, did }) {
         rkey: 'self',
         record,
       });
+      const saved = cleanItems.map(normalizeItem);
       setCreatedAt(record.createdAt);
-      setItems(cleanItems.map(normalizeItem));
+      setItems(saved);
+      // The post-save baseline is what was WRITTEN, not what was on screen when
+      // Save was pressed: saving drops the incomplete rows, so a baseline taken
+      // from the pre-save `items` would leave the strip claiming unsaved changes
+      // immediately after a successful save.
+      setBaseline({ enabled, items: saved });
       setFlash(true);
-      setTimeout(() => setFlash(false), 2400);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(false), 2400);
+      // The first save CREATES is.dame.nav/self, which flips this surface from
+      // "absent" (dimmed in the rail, zero on the Front Desk) to present. The
+      // counts cache holds for a minute, so say so rather than waiting it out.
+      invalidate([NAV_NSID]);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
       setSaving(false);
     }
-  }
+  }, [agent, did, items, enabled, createdAt, invalidate]);
+
+  /* --- what the shell needs to know ------------------------------------- */
+
+  // `handleSave` closes over the entry list, so it changes identity on every
+  // keystroke. Registering it directly would republish the shell context — and
+  // re-render every consumer of it — per character typed, so what gets
+  // registered is this one stable wrapper around a latest-value ref.
+  const saveRef = useRef(handleSave);
+  saveRef.current = handleSave;
+  const save = useCallback(() => saveRef.current(), []);
+
+  useEffect(() => {
+    registerActions({
+      save,
+      remove: null,
+      saving,
+      deleting: false,
+      loading,
+      // The nav override is a singleton the site falls back off gracefully; it
+      // is turned OFF rather than deleted, so the strip offers no Delete.
+      canDelete: false,
+      isNew: false,
+    });
+  }, [registerActions, save, saving, loading]);
+
+  const dirtyState = useMemo(() => {
+    if (!baseline) return null;
+    const fields = [];
+    if (baseline.enabled !== enabled) fields.push('Use this override');
+    if (!sameItems(baseline.items, items)) fields.push('Menu entries');
+    return fields.length ? { dirty: true, fields, records: 0, note: null } : null;
+  }, [baseline, enabled, items]);
+
+  useEffect(() => {
+    reportDirty(dirtyState);
+  }, [reportDirty, dirtyState]);
+
+  // Teardown, separately from the two publishing effects above: leaving this
+  // surface must not strand a Save button or an "unsaved changes" sentence on
+  // whatever opens next.
+  useEffect(
+    () => () => {
+      registerActions(null);
+      reportDirty(null);
+    },
+    [registerActions, reportDirty],
+  );
 
   return (
-    <PageShell
-      title="Nav menu"
-      intro="Override the site's nav-menu route list. When the override is on, these entries replace the built-in menu — reorder, relabel, or hide them. Turn it off to fall back to the hardcoded routes. Nothing is written until you press Save."
-      headTitle="Nav menu — Admin — dame.is"
-    >
-      <div className="admin-toolbar">
-        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
-        <code className="admin-collection-nsid">{NAV_NSID}/self</code>
-      </div>
-
+    <>
       {error && <p className="admin-error">{error}</p>}
 
       {loading ? (
@@ -233,20 +322,15 @@ export default function NavMenuPanel({ agent, did }) {
             <button type="button" className="admin-link-subtle" onClick={resetDefaults}>
               <RotateCcw size={13} aria-hidden="true" /> Reset to site defaults
             </button>
-          </div>
-
-          <div className="nav-save">
-            <button
-              type="button"
-              className="admin-gate-button"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? 'Saving…' : flash ? 'Saved ✓' : 'Save'}
-            </button>
+            {/* Save lives on the shell's status strip now, so the confirmation
+                it used to give inside its own button label needs somewhere to
+                land — an empty row otherwise, not a layout shift. */}
+            <span className="nav-flash" aria-live="polite">
+              {flash ? <span className="admin-success">Saved ✓</span> : null}
+            </span>
           </div>
         </>
       )}
-    </PageShell>
+    </>
   );
 }

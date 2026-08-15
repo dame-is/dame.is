@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import PageShell from './PageShell.jsx';
 import GuestbookEntryRow from './GuestbookEntryRow.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { fetchGuestbookEntries, setEntryHidden } from '../lib/guestbook.js';
 import { GUESTBOOK_NSID, GUESTBOOK_ENTRY_NSID } from '../config.js';
 
@@ -12,10 +12,20 @@ import { GUESTBOOK_NSID, GUESTBOOK_ENTRY_NSID } from '../config.js';
  * Lists every signature, hidden ones included (dimmed, badged), with
  * hide/unhide per row. Hiding edits the book record's `hidden` list; the
  * signers' records are never touched. The same controls appear on
- * /guestbook itself in owner edit mode — this view exists for working
+ * /welcoming itself in owner edit mode — this view exists for working
  * through the whole book without leaving admin.
+ *
+ * As a studio it is a BODY, not a page: StudioPane draws the title, the blurb
+ * and the book's NSID, and the rail is the way back — so there is no PageShell
+ * and no "← All collections" link here. It registers nothing with the status
+ * strip either: every control on this surface writes immediately, so there is
+ * never anything unsaved for the strip to hold.
+ *
+ * `GuestbookEntryRow` and `Guestbook.css` are shared with the public /welcoming
+ * route and are read-only from here.
  */
 export default function GuestbookModerationPanel({ agent }) {
+  const { go } = useAdminShell();
   const [entries, setEntries] = useState(null);
   const [total, setTotal] = useState(null);
   const [hiddenCount, setHiddenCount] = useState(0);
@@ -25,9 +35,22 @@ export default function GuestbookModerationPanel({ agent }) {
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // `fetchGuestbookEntries` is a Constellation backlink page, then one fetch per
+  // signer's PDS, then a profile walk — many round trips, and no signal to abort
+  // them with. A fast flip to another surface therefore lands its results on an
+  // unmounted panel unless something says not to, which is what this ref is.
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+
   const load = useCallback(async () => {
     setStatus('loading');
     const page = await fetchGuestbookEntries();
+    if (!aliveRef.current) return;
     if (!page) {
       setStatus('error');
       return;
@@ -49,6 +72,7 @@ export default function GuestbookModerationPanel({ agent }) {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     const page = await fetchGuestbookEntries({ cursor });
+    if (!aliveRef.current) return;
     if (page) {
       setEntries((prev) => [...(prev || []), ...page.entries]);
       setCursor(page.cursor);
@@ -59,6 +83,7 @@ export default function GuestbookModerationPanel({ agent }) {
 
   async function handleSetHidden(entry, hide) {
     await setEntryHidden(agent, entry.uri, hide);
+    if (!aliveRef.current) return;
     setEntries((prev) =>
       (prev || []).map((e) => (e.uri === entry.uri ? { ...e, hidden: hide } : e)),
     );
@@ -73,21 +98,27 @@ export default function GuestbookModerationPanel({ agent }) {
   const publicCount =
     typeof total === 'number' ? Math.max(0, total - hiddenCount - flaggedCount) : null;
 
+  // The book record is a normal record on this repo, so it is edited on the
+  // generic records surface. `go` is merge-only: `view` has to be cleared by
+  // name or it would beat `c` and land straight back here.
+  const bookPatch = { view: null, c: GUESTBOOK_NSID, r: 'self', mode: null, for: null };
+  const bookHref = `/admin?c=${encodeURIComponent(GUESTBOOK_NSID)}&r=self`;
+
   return (
-    <PageShell
-      title="Guestbook"
-      intro="Visitors' signatures, gathered from backlinks. Each lives on its signer's PDS — hiding one only curates what this site renders, by listing its at-uri on the book record."
-      headTitle="Guestbook — Admin — dame.is"
-    >
+    <>
       <div className="admin-toolbar">
-        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
-        <code className="admin-collection-nsid">{GUESTBOOK_ENTRY_NSID}</code>
         <Link
-          to={`/admin?c=${encodeURIComponent(GUESTBOOK_NSID)}&r=self`}
+          to={bookHref}
           className="admin-gate-button admin-gate-button-tight"
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+            event.preventDefault();
+            go(bookPatch);
+          }}
         >
           Edit the book record
         </Link>
+        {/* A real navigation off /admin, so it stays an ordinary <Link>. */}
         <Link to="/welcoming" className="admin-gate-button admin-gate-button-tight">
           View /welcoming
         </Link>
@@ -114,6 +145,22 @@ export default function GuestbookModerationPanel({ agent }) {
             </span>
           )}
         </h2>
+
+        {/* Deliberately a fact and not a task. `flagged` is recomputed from the
+            language filter on every render and is never persisted anywhere, so
+            an "awaiting review" queue built on it would have nothing to clear
+            and would nag forever. The entries themselves are below, badged. */}
+        {flaggedCount > 0 && (
+          <p className="admin-field-hint">
+            {flaggedCount} auto-hidden by the language filter, not on your hidden list (first page).
+          </p>
+        )}
+
+        <p className="admin-field-hint">
+          <code className="admin-collection-nsid">{GUESTBOOK_ENTRY_NSID}</code> — each signature
+          lives on its signer's own PDS.
+        </p>
+
         {status === 'loading' ? (
           <AdminRecordListSkeleton rows={5} label="Loading signatures" />
         ) : status === 'error' ? (
@@ -147,6 +194,6 @@ export default function GuestbookModerationPanel({ agent }) {
           </>
         )}
       </section>
-    </PageShell>
+    </>
   );
 }

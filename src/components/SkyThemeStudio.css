@@ -3,6 +3,15 @@
    contrast readout, and the site-native control grid. Square corners,
    hairline rules, mono ledger accents — in keeping with the rest of admin. */
 
+/* The studio's own root. It exists so the workbench pane — a flex column with
+   a gap — sees exactly ONE child: every section below carries its own margins,
+   and margins only collapse against each other inside a block container. As a
+   flex item it also needs `min-width: 0`, or the 24-cell arc and the slider
+   grid would hold the pane open at their content width. */
+.sky-root {
+  min-width: 0;
+}
+
 .sky-enable,
 .sky-live {
   display: flex;
@@ -473,14 +482,26 @@
   border-top: 1px solid var(--rule);
 }
 
+/* The preview card reflows on the width of the PANE it is drawn in, not the
+   viewport: the workbench detail pane is its own `wbpane` container, and it can
+   be far narrower than the window. As a viewport query this fired at 560px
+   screen while the card had been squeezed for some time. */
+@container wbpane (max-width: 560px) {
+  .sky-pv-row {
+    grid-template-columns: 4.5rem 1fr auto;
+  }
+}
+
+/* The hour bar is the exception to that conversion, and deliberately so: it is
+   portalled to <body> (SkyThemeStudio.jsx) and pinned `position: fixed` across
+   the whole window, so it has no `wbpane` ancestor to query and its width is
+   the viewport's by definition. A container query here would simply never
+   match, and the 24 cells would keep their desktop height on a phone. */
 @media (max-width: 560px) {
   .sky-arc-cell {
     height: 22px;
   }
   .sky-hourbar-meta {
     display: none;
-  }
-  .sky-pv-row {
-    grid-template-columns: 4.5rem 1fr auto;
   }
 }

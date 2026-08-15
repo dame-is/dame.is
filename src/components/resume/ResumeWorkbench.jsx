@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, GitBranch, PenLine, Plus, RotateCcw, X } from 'lucide-react';
-import PageShell from '../PageShell.jsx';
 import { AdminEditorSkeleton } from '../Skeleton.jsx';
 import { SkillGroupsField, ContactField, TagsInput } from '../resumeFields.jsx';
-import { useEditMode } from '../../hooks/useEditMode.jsx';
 import { COLLECTIONS } from '../../config.js';
+import { useAdminShell } from '../../admin/useAdminShell.jsx';
 import { rkeyFromAtUri } from '../../lib/atproto.js';
+import { setActiveResume } from '../../lib/resumeAdmin.js';
 import {
   formatDateRange,
   parseHighlightRef,
@@ -45,11 +45,19 @@ function linkLabel(link, docByUri) {
  * alternate phrasing that only this version uses.
  *
  * Bullet copy lives on the canonical job/education records, so those edits are
- * *staged* here (the touched records are listed next to Save) and written back
- * together with the resume in one save. Forking creates a variant on the job
- * (`highlights[].variants`) and points this resume's selection at it
+ * *staged* here (the touched records are counted on the status strip) and
+ * written back together with the resume in one save. Forking creates a variant
+ * on the job (`highlights[].variants`) and points this resume's selection at it
  * (`highlightIds: ["h3#v2"]`); the canonical text and every other version stay
  * untouched.
+ *
+ * As a studio it is a BODY, not a page: StudioPane draws the title and the NSID,
+ * the rail is the way back, and the workbench's status strip owns Save and
+ * Delete — so this file renders no PageShell and no save bar. It used to publish
+ * its controls into the site-wide bottom edit bar through `setPageEditor`; that
+ * bar belongs to the public quick-edit sheet, and this was one of the last two
+ * places teaching it to serve two masters. `registerActions` + `reportDirty`
+ * replace it exactly.
  */
 
 const KINDS = {
@@ -103,11 +111,27 @@ function applyPatch(obj, patch) {
   return next;
 }
 
-export default function ResumeWorkbench({ agent, did, rkey }) {
-  const navigate = useNavigate();
-  const { setPageEditor } = useEditMode();
-  const { resumes, jobs, education, documents, loading: bundleLoading, error: loadError } =
-    useResumeBundle(agent, did);
+export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
+  const { go, registerActions, reportDirty, invalidate } = useAdminShell();
+  const {
+    resumes,
+    jobs,
+    education,
+    documents,
+    loading: bundleLoading,
+    error: loadError,
+    applyWrites,
+    reload,
+  } = useResumeBundle(agent, did, bundle);
+
+  // The bundle arrives inside a prop object StudioPane rebuilds every render, so
+  // its callbacks have no stable identity. `save` must not be rebuilt with them
+  // — it is registered with the shell, and a new identity there republishes the
+  // context to every consumer — so it reaches them through latest-value refs.
+  const applyWritesRef = useRef(null);
+  const reloadRef = useRef(null);
+  applyWritesRef.current = applyWrites;
+  reloadRef.current = reload;
 
   // Portfolio posts by URI, so a job's `work` links can be labeled with the
   // post's live title in the selection UI.
@@ -132,14 +156,51 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
   // One bullet's copy editor open at a time: `${listKey}:${uri}:${baseId}`.
   const [editingKey, setEditingKey] = useState(null);
 
-  // Initialize drafts once per rkey, from the loaded bundle.
-  const initializedFor = useRef(null);
+  const isLoading = bundleLoading || (!draft && !notFound);
+  const dirty = resumeDirty || dirtyUris.size > 0;
+  // Read from the init effect below, which must not list `dirty` as a
+  // dependency: re-running that effect on every keystroke is exactly the
+  // clobber it exists to prevent. Assigning during render is the pattern
+  // useAdminShell uses for its own latest-value refs.
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+
+  // What `featured` was when this draft was seeded. The checkbox is staged like
+  // every other field, so save() can only tell whether the ACTIVE version
+  // changed — the thing that has to clear every sibling — by comparing to this.
+  const featuredAtLoad = useRef(false);
+
+  // Initialize drafts once per rkey, from the loaded bundle. The "not yet"
+  // sentinel is `undefined`, NOT null: `?view=resume-tailor` with no `&r=` is a
+  // reachable hand-typed URL (the rail and the Front Desk hide the surface
+  // because it is `requiresRkey`, they do not make it unreachable), and against
+  // a null sentinel that rkey would match on the first run and leave the pane on
+  // its skeleton forever.
+  const initializedFor = useRef(undefined);
   useEffect(() => {
     if (bundleLoading || initializedFor.current === rkey) return;
+
+    // The shell's `go()` asks before a rail or list click discards staged work,
+    // but the BROWSER BACK BUTTON does not go through `go()` — so this effect
+    // can still fire on top of a dirty draft, and reseeding would silently drop
+    // staged copy edits on shared job records with no undo anywhere in the
+    // admin. Bail, say why, and put the URL back on the version the draft
+    // actually belongs to, so Save can never write it under the wrong rkey.
+    const heldFor = initializedFor.current;
+    if (heldFor && dirtyRef.current) {
+      setError(
+        `Unsaved changes on “${heldFor}” — save them here first, or leave from the rail to discard them.`,
+      );
+      go({ view: 'resume-tailor', r: heldFor }, { replace: true, force: true });
+      return;
+    }
+
     const rec = (resumes || []).find((r) => rkeyFromAtUri(r.uri) === rkey);
     if (!rec) {
+      // Deliberately NOT latched. The bundle is hoisted and shared, so a record
+      // written elsewhere (a duplicate, a rename) can arrive in a later render;
+      // latching here would freeze this pane on "no such version" forever.
       setNotFound(true);
-      initializedFor.current = rkey;
       return;
     }
     const m = new Map();
@@ -151,11 +212,10 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
     setDirtyUris(new Set());
     setResumeDirty(false);
     setNotFound(false);
+    setError(null);
+    featuredAtLoad.current = Boolean(rec.value?.featured);
     initializedFor.current = rkey;
-  }, [bundleLoading, resumes, jobs, education, rkey]);
-
-  const isLoading = bundleLoading || (!draft && !notFound);
-  const dirty = resumeDirty || dirtyUris.size > 0;
+  }, [bundleLoading, resumes, jobs, education, rkey, go]);
 
   // Other versions, for "also shown on …" context when editing shared copy.
   const otherResumes = useMemo(
@@ -229,6 +289,7 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
     setError(null);
     try {
       const now = new Date().toISOString();
+      const written = [];
       // Canonical records first, so the resume never points at bullets that
       // don't exist yet (freshly forked variants, added bullets).
       for (const uri of dirtyUris) {
@@ -236,12 +297,14 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
         const [, collection, r] = parts;
         const value = recordDrafts.get(uri);
         if (!collection || !r || !value) continue;
+        const staged = { ...value, $type: value.$type || collection, updatedAt: now };
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection,
           rkey: r,
-          record: { ...value, $type: value.$type || collection, updatedAt: now },
+          record: staged,
         });
+        written.push({ collection, uri, value: staged });
       }
       const record = { ...draft, $type: COLLECTIONS.resume, updatedAt: now };
       if (!record.createdAt) record.createdAt = now;
@@ -258,6 +321,31 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
         rkey,
         record,
       });
+      const uri = `at://${did}/${COLLECTIONS.resume}/${rkey}`;
+      written.push({ collection: COLLECTIONS.resume, uri, value: record });
+
+      // The "Active" checkbox is staged like every other field — nothing is
+      // written on click — but the flag is an exclusive one: bare /available
+      // renders whichever version has it, so two of them is a coin toss over
+      // what a stranger reads. Only when it actually changed does the
+      // sibling-clearing pass run, and it runs AFTER our own writes, against a
+      // list where this record already carries what we just saved, so it cannot
+      // put the pre-save value back.
+      const activeChanged = Boolean(record.featured) !== featuredAtLoad.current;
+      if (activeChanged) {
+        const siblings = (resumes || []).map((r) => (r.uri === uri ? { uri, value: record } : r));
+        await setActiveResume(agent, did, siblings, record.featured ? rkey : null);
+      }
+      // Keep the hoisted bundle honest without a four-collection sweep: it is
+      // shared with the resume studio, which stays mounted behind this pane and
+      // would otherwise keep describing the pre-save records.
+      applyWritesRef.current?.(written);
+      // The one case write-through cannot describe from here: clearing the flag
+      // touched versions this pane never held. Refetch for those, on top of the
+      // write-through above so the record on screen is right immediately either
+      // way.
+      if (activeChanged) reloadRef.current?.();
+      featuredAtLoad.current = Boolean(record.featured);
       setDirtyUris(new Set());
       setResumeDirty(false);
       setSavedFlash(true);
@@ -266,7 +354,7 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
     } finally {
       setSaving(false);
     }
-  }, [agent, did, rkey, draft, recordDrafts, dirtyUris, saving]);
+  }, [agent, did, rkey, draft, recordDrafts, dirtyUris, saving, resumes]);
 
   const remove = useCallback(async () => {
     if (deleting) return;
@@ -279,38 +367,78 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
         collection: COLLECTIONS.resume,
         rkey,
       });
-      navigate('/admin?view=resume');
+      applyWritesRef.current?.([
+        { collection: COLLECTIONS.resume, uri: `at://${did}/${COLLECTIONS.resume}/${rkey}`, value: null },
+      ]);
+      invalidate([COLLECTIONS.resume]);
+      // `force`: the record is gone, so there is nothing left to warn about —
+      // and the draft the shell would ask to protect describes it.
+      go({ view: 'resume', r: null, c: null, mode: null, for: null }, { force: true });
     } catch (err) {
       setError(err?.message || String(err));
       setDeleting(false);
     }
-  }, [agent, did, rkey, deleting, navigate]);
+  }, [agent, did, rkey, deleting, go, invalidate]);
 
-  const close = useCallback(() => {
-    if (dirty && !window.confirm('Discard unsaved changes?')) return;
-    navigate('/admin?view=resume');
-  }, [dirty, navigate]);
+  /* --- what the shell needs to know ------------------------------------- */
 
-  // Ride the bottom-chrome edit bar (same contract as the record editor page).
+  // `save` and `remove` close over the whole draft, so they change identity on
+  // every keystroke. Registering them directly would republish the shell context
+  // — and re-render every consumer of it — per character typed, so what gets
+  // registered is a pair of stable wrappers around latest-value refs.
   const saveRef = useRef(null);
   const removeRef = useRef(null);
-  const closeRef = useRef(null);
   saveRef.current = save;
   removeRef.current = remove;
-  closeRef.current = close;
+  const stableSave = useCallback(() => saveRef.current?.(), []);
+  const stableRemove = useCallback(() => removeRef.current?.(), []);
+
+  // `rkey` is in the dependency list although the body never reads it, and that
+  // is load-bearing rather than sloppy. The shell drops `actions` DURING RENDER
+  // whenever the subject changes, on the promise that the pane's own effect
+  // re-registers straight after — but switching from one version to another
+  // changes nothing else here (same wrappers, same flags, draft already
+  // truthy), so without `rkey` the effect would not re-run and Save would
+  // simply vanish from the strip.
   useEffect(() => {
-    setPageEditor({
-      save: () => saveRef.current?.(),
-      remove: () => removeRef.current?.(),
-      close: () => closeRef.current?.(),
+    registerActions({
+      save: stableSave,
+      remove: stableRemove,
       saving,
       deleting,
       loading: isLoading || notFound,
       canDelete: true,
       isNew: false,
     });
-    return () => setPageEditor(null);
-  }, [setPageEditor, saving, deleting, isLoading, notFound]);
+  }, [registerActions, stableSave, stableRemove, saving, deleting, isLoading, notFound, rkey]);
+
+  // The strip names no fields on purpose. A tailoring session touches dozens of
+  // bullet refs, orders and overrides that have no single field label between
+  // them; what actually needs saying is how many SHARED job records this save
+  // will also write, which is the one thing the count carries.
+  const dirtyState = useMemo(
+    () => (dirty ? { dirty: true, fields: [], records: dirtyUris.size, note: null } : null),
+    [dirty, dirtyUris],
+  );
+  // `rkey` again, for the same reason and one sharper case: the init effect
+  // above can REFUSE a version switch that would discard staged work and put the
+  // URL back. The shell reset `dirty` to CLEAN on the way through, so unless
+  // this re-asserts, the strip would claim nothing is unsaved and `go()` would
+  // stop guarding the very edits that just blocked the navigation.
+  useEffect(() => {
+    reportDirty(dirtyState);
+  }, [reportDirty, dirtyState, rkey]);
+
+  // Teardown, separately from the two publishing effects above: leaving this
+  // surface must not strand a Save button or an "unsaved changes" sentence on
+  // whatever opens next.
+  useEffect(
+    () => () => {
+      registerActions(null);
+      reportDirty(null);
+    },
+    [registerActions, reportDirty],
+  );
 
   // Losing a workbench session to a stray tab-close hurts; warn while dirty.
   useEffect(() => {
@@ -325,33 +453,38 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
 
   /* ----------------------------- render ----------------------------- */
 
-  const headTitle = `Tailor — ${draft?.title || rkey} — Admin — dame.is`;
-
   if (notFound) {
     return (
-      <PageShell title="Tailor resume" headTitle={headTitle}>
-        <p className="placeholder-card">
-          No resume version <code>{rkey}</code>.{' '}
-          <Link to="/admin?view=resume">Back to the studio.</Link>
-        </p>
-      </PageShell>
+      <p className="placeholder-card">
+        {/* Two ways to land here: a version that no longer exists, or the bare
+            surface with no `&r=` at all — which says nothing about a missing
+            record and should not pretend it does. */}
+        {rkey ? (
+          <>
+            No resume version <code>{rkey}</code>.{' '}
+          </>
+        ) : (
+          'Tailoring works on one version at a time. '
+        )}
+        <Link to="/admin?view=resume">Back to the studio.</Link>
+      </p>
     );
   }
 
   return (
-    <PageShell title={draft?.title ? `Tailor · ${draft.title}` : 'Tailor resume'} headTitle={headTitle}>
+    <div className="rw-studio">
+      {/* The pane head names the SURFACE ("Tailor version"); WHICH version is
+          being tailored is this row's job — with the rkey, because that is the
+          record's address and the /available slug is derived from it. The
+          "unsaved" chip that used to live here is gone: the status strip says
+          it now, shared-record count and all, and two of them disagreeing by a
+          render is worse than one saying it once. */}
       <div className="admin-toolbar">
-        <Link to="/admin?view=resume" className="admin-link-subtle">← Resume studio</Link>
-        <code className="admin-record-rkey">{rkey}</code>
-        {dirty && !saving && (
-          <span className="rs-chip rs-chip-warn small-caps" title={
-            dirtyUris.size > 0
-              ? 'Includes copy edits on the shared job records — saving writes those too.'
-              : undefined
-          }>
-            unsaved{dirtyUris.size > 0 ? ` · ${dirtyUris.size} shared record${dirtyUris.size === 1 ? '' : 's'}` : ''}
-          </span>
-        )}
+        <strong className="rw-version-name">{draft?.title || rkey}</strong>
+        {/* A version with no title falls back to its rkey for the name, and
+            printing the same string twice side by side reads as a rendering
+            bug rather than as two facts. */}
+        {draft?.title && <code className="admin-record-rkey">{rkey}</code>}
         {savedFlash && <span className="rs-chip rs-chip-accent small-caps">saved</span>}
         <span className="rw-toolbar-links">
           <Link
@@ -421,7 +554,7 @@ export default function ResumeWorkbench({ agent, did, rkey }) {
           </section>
         </div>
       )}
-    </PageShell>
+    </div>
   );
 }
 
@@ -487,13 +620,17 @@ function FramingSection({ draft, patchDraft }) {
             <option value="private">private — not rendered</option>
           </select>
         </label>
+        {/* Still a staged edit — nothing is written on click. What changed is
+            what Save then does with it: ticking this now clears the flag on
+            every other version, so "keep to one version" stopped being an
+            instruction to the reader. */}
         <label className="admin-checkbox rf-checkbox">
           <input
             type="checkbox"
             checked={Boolean(draft?.featured)}
             onChange={(e) => patchDraft({ featured: e.target.checked })}
           />
-          <span>Active — the default at /available (keep to one version)</span>
+          <span>Active — the version bare /available shows. Saving clears it elsewhere.</span>
         </label>
       </div>
     </section>

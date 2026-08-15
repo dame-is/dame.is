@@ -9,14 +9,31 @@
 // that hour's sky-avatar frame as the publication icon, so the publication
 // matches the website instead of the old Leaflet look. Nothing is written until
 // you press Save.
+//
+// As a studio it is a BODY, not a page: StudioPane draws the title, the blurb
+// and the NSID, and the workbench's status strip owns Save — so there is no
+// PageShell, no "← All collections" link and no save bar here.
+//
+// **Selection lives in the URL**, which is the one structural change from the
+// version that lived at `?view=publications` and routed internally:
+//
+//   /admin?view=publications             the list
+//   /admin?view=publications&r=<rkey>    editing that publication
+//   /admin?view=publications&mode=new    the new-publication draft
+//
+// It cannot be `?c=site.standard.publication&r=<rkey>` — with no `view` that
+// resolves to the GENERIC records surface, which is a different (and still
+// valid) way to reach the same records. Because the editor is no longer thrown
+// away and rebuilt by a `key` when the selection changes, it re-syncs its lazily
+// initialised `value` from a `record.uri` effect instead.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Copy, Check } from 'lucide-react';
-import PageShell from './PageShell.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import { rkeyFromUri } from './RecordEditor.jsx';
+import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { paletteForHour, skyHourKey, easternHour } from '../lib/skyTheme.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
 import { resolvePds } from '../lib/atproto.js';
@@ -32,6 +49,16 @@ const THEME_FIELDS = [
   { key: 'accent', label: 'Accent' },
   { key: 'accentForeground', label: 'Accent text' },
 ];
+
+/** On-screen names for the top-level fields, for the status strip's sentence. */
+const FIELD_LABELS = {
+  url: 'URL',
+  name: 'Name',
+  description: 'Description',
+  preferences: 'Preferences',
+  basicTheme: 'Theme',
+  icon: 'Icon',
+};
 
 /* ---------- color helpers (hex ⇄ site.standard rgb) ---------- */
 const clamp = (n) => Math.max(0, Math.min(255, Math.round(n || 0)));
@@ -73,6 +100,24 @@ function stripUrl(node) {
 const clone = (v) => JSON.parse(JSON.stringify(v ?? {}));
 
 /**
+ * Which top-level fields differ from the last-saved record, by their on-screen
+ * labels. The status strip names them, and "URL, Theme" is a much better answer
+ * to "what is unsaved?" than "something". `$type` is skipped because the save
+ * stamps it unconditionally — it is never a change the owner made.
+ */
+function changedFields(next, base) {
+  const keys = new Set([...Object.keys(next || {}), ...Object.keys(base || {})]);
+  const out = [];
+  for (const key of keys) {
+    if (key === '$type') continue;
+    if (JSON.stringify(next?.[key]) !== JSON.stringify(base?.[key])) {
+      out.push(FIELD_LABELS[key] || key);
+    }
+  }
+  return out;
+}
+
+/**
  * A publication that doesn't exist yet.
  *
  * Same shape the editor edits, with no rkey — which is what tells the save to
@@ -83,19 +128,53 @@ function newDraft() {
   return { rkey: null, uri: null, value: { $type: PUB_NSID, name: '', url: '', description: '' } };
 }
 
+/**
+ * `go` is merge-only, so every link inside this studio names all three of the
+ * params that decide what it shows. `view` is repeated deliberately: a link
+ * built here can also be followed from a browser-restored URL that has `c` set.
+ */
+function pubLink(go, { rkey = null, mode = null } = {}) {
+  const patch = { view: 'publications', c: null, r: rkey, mode, for: null };
+  const query = new URLSearchParams({ view: 'publications' });
+  if (rkey) query.set('r', rkey);
+  if (mode) query.set('mode', mode);
+  return {
+    to: `/admin?${query}`,
+    onClick: (event) => {
+      // Modified and non-primary clicks stay the browser's, so cmd-click still
+      // opens a publication in a new tab.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      go(patch);
+    },
+  };
+}
+
 /* ======================= list ======================= */
-export default function PublicationsManager({ agent, did }) {
+export default function PublicationsManager({ agent, did, rkey = null, isNew = false }) {
+  const { go } = useAdminShell();
   const [records, setRecords] = useState(null);
   const [error, setError] = useState(null);
-  const [editingRkey, setEditingRkey] = useState(null);
-  const [draft, setDraft] = useState(null);
+
+  // `load` runs on mount AND after every save, so the cancellation guard is a
+  // ref the unmount flips rather than an effect-local flag: flipping to another
+  // surface mid-request must not write records into a panel that is gone.
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const res = await agent.com.atproto.repo.listRecords({ repo: did, collection: PUB_NSID, limit: 100 });
+      if (!aliveRef.current) return;
       setRecords((res?.data?.records || []).map((r) => ({ ...r, rkey: rkeyFromUri(r.uri) })));
     } catch (err) {
+      if (!aliveRef.current) return;
       setError(err?.message || String(err));
       setRecords([]);
     }
@@ -105,60 +184,72 @@ export default function PublicationsManager({ agent, did }) {
     load();
   }, [load]);
 
+  // One draft object for the life of the studio. The editor re-syncs on
+  // `record.uri`, and a fresh `newDraft()` per render would hand it a new object
+  // with the same null uri on every keystroke.
+  const draft = useMemo(() => newDraft(), []);
+
   const editing = useMemo(
-    () => (records || []).find((r) => r.rkey === editingRkey) || null,
-    [records, editingRkey],
+    () => (records || []).find((r) => r.rkey === rkey) || null,
+    [records, rkey],
   );
 
-  if (draft) {
+  const backLink = pubLink(go);
+  const record = isNew ? draft : editing;
+
+  if (isNew || rkey) {
+    // A deep link into an editor arrives before the list does — the record being
+    // edited is only known once `listRecords` lands.
+    if (!record) {
+      return records === null ? (
+        <AdminRecordListSkeleton rows={2} label="Loading publications" />
+      ) : (
+        <>
+          <div className="admin-toolbar">
+            <Link className="admin-link-subtle" {...backLink}>
+              ← All publications
+            </Link>
+          </div>
+          <p className="placeholder-card">
+            No <code>{PUB_NSID}</code> record with the key <code className="admin-mono">{rkey}</code>{' '}
+            under this DID.
+          </p>
+        </>
+      );
+    }
     return (
       <PublicationEditor
-        key="new"
         agent={agent}
         did={did}
-        record={draft}
-        onBack={() => setDraft(null)}
-        // Creating hands back the rkey the PDS assigned, so the page drops
-        // straight into editing the real record — with its at:// URI on
-        // screen, which is the thing that has to reach src/config.js.
-        onSaved={(rkey) => {
-          setDraft(null);
-          if (rkey) setEditingRkey(rkey);
-          load();
+        record={record}
+        isNew={isNew}
+        backLink={backLink}
+        onSaved={async (savedRkey) => {
+          // Refresh BEFORE navigating. The freshly created record has to be in
+          // `records` by the time the URL names it, or this pane would flip back
+          // to the list for a frame and unmount the editor mid-save.
+          await load();
+          // Creating hands back the rkey the PDS assigned, so the studio drops
+          // straight into editing the real record — with its at:// URI on
+          // screen, which is the thing that has to reach src/config.js. It
+          // REPLACES the `mode=new` entry (going back should land on the list,
+          // not on a draft of a record that now exists) and is forced, because
+          // the save that triggered it is the reason there is nothing to lose.
+          if (savedRkey && savedRkey !== rkey) {
+            go({ view: 'publications', c: null, r: savedRkey, mode: null, for: null }, { replace: true, force: true });
+          }
         }}
       />
     );
   }
 
-  if (editing) {
-    return (
-      <PublicationEditor
-        key={editing.rkey}
-        agent={agent}
-        did={did}
-        record={editing}
-        onBack={() => setEditingRkey(null)}
-        onSaved={load}
-      />
-    );
-  }
-
   return (
-    <PageShell
-      title="Publications"
-      intro="The site.standard.publication records behind the Standard Site link embeds. Edit their fields, or apply the site's sky theme + a dynamic avatar in one step."
-      headTitle="Publications — Admin — dame.is"
-    >
-      <div className="admin-toolbar">
-        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
-        <code className="admin-collection-nsid">{PUB_NSID}</code>
-      </div>
-
+    <>
       <div className="pub-actions">
-        <button type="button" className="admin-gate-button" onClick={() => setDraft(newDraft())}>
+        <Link className="admin-gate-button" {...pubLink(go, { mode: 'new' })}>
           <Plus size={14} aria-hidden="true" />
           New publication
-        </button>
+        </Link>
       </div>
 
       {error && <p className="admin-error">{error}</p>}
@@ -172,26 +263,27 @@ export default function PublicationsManager({ agent, did }) {
         <ul className="pub-list">
           {records.map((r) => (
             <li key={r.rkey}>
-              <button type="button" className="pub-list-row" onClick={() => setEditingRkey(r.rkey)}>
+              <Link className="pub-list-row" {...pubLink(go, { rkey: r.rkey })}>
                 <span className="pub-list-name">{r.value?.name || '(untitled)'}</span>
                 <span className="pub-list-url">{r.value?.url || '—'}</span>
                 <code className="admin-mono pub-list-rkey">{r.rkey}</code>
-              </button>
+              </Link>
             </li>
           ))}
         </ul>
       )}
-    </PageShell>
+    </>
   );
 }
 
 /* ======================= editor ======================= */
-function PublicationEditor({ agent, did, record, onBack, onSaved }) {
-  // No rkey means this publication doesn't exist yet: save creates it and lets
-  // the PDS assign the key, rather than this page inventing a TID.
-  const isNew = !record.rkey;
+function PublicationEditor({ agent, did, record, isNew, backLink, onSaved }) {
+  const { registerActions, reportDirty, invalidate } = useAdminShell();
   const rkey = record.rkey;
   const [value, setValue] = useState(() => clone(record.value));
+  // What is on the PDS, as the strip's comparison baseline. Cloned from the same
+  // source as `value`, so a JSON round-trip can never read as an unsaved edit.
+  const [baseline, setBaseline] = useState(() => clone(record.value));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [flash, setFlash] = useState(false);
@@ -216,6 +308,26 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
       cancelled = true;
     };
   }, [did]);
+
+  // Selection is a URL param now, so picking another publication hands this
+  // component a new `record` prop instead of remounting it under a new `key`.
+  // `value` is lazily initialised state — without this it would keep showing the
+  // previous publication's fields forever. Keyed on the URI rather than on the
+  // object, so a post-save `load()` that returns an equal record does NOT reset
+  // the form under the owner's hands.
+  const recordRef = useRef(record);
+  recordRef.current = record;
+  useEffect(() => {
+    const next = recordRef.current;
+    setValue(clone(next.value));
+    setBaseline(clone(next.value));
+    setRawMode(false);
+    setRawText('');
+    setRawError(null);
+    setLocalIconUrl(null);
+    setError(null);
+    setFlash(false);
+  }, [record.uri]);
 
   const patch = (fields) => setValue((v) => ({ ...v, ...fields }));
   const patchPrefs = (fields) =>
@@ -293,7 +405,12 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
     }
   }
 
-  async function handleSave() {
+  // The 2400ms "Saved ✓" flash outlives a fast surface flip, so it gets a handle
+  // and a teardown rather than a fire-and-forget timeout.
+  const flashTimer = useRef(null);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+
+  const handleSave = useCallback(async () => {
     setSaving(true);
     setError(null);
     setFlash(false);
@@ -332,36 +449,103 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
         await agent.com.atproto.repo.putRecord({ repo: did, collection: PUB_NSID, rkey, record: payload });
       }
       setValue(payload);
+      setBaseline(clone(payload));
       if (rawMode) setRawMode(false);
       setLocalIconUrl(null);
       setFlash(true);
-      setTimeout(() => setFlash(false), 2400);
-      onSaved?.(savedRkey);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(false), 2400);
+      // A create changes the collection's count, which the rail dims on and the
+      // Front Desk shows. The counts cache holds for a minute otherwise.
+      if (isNew) invalidate([PUB_NSID]);
+      await onSaved?.(savedRkey);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
       setSaving(false);
     }
-  }
+  }, [agent, did, rkey, isNew, rawMode, rawText, value, onSaved, invalidate]);
+
+  /* --- what the shell needs to know ------------------------------------- */
+
+  // `handleSave` closes over every edited field, so it changes identity on every
+  // keystroke. Registering it directly would republish the shell context — and
+  // re-render every consumer of it — per character typed, so what gets
+  // registered is this one stable wrapper around a latest-value ref.
+  const saveRef = useRef(handleSave);
+  saveRef.current = handleSave;
+  const save = useCallback(() => saveRef.current(), []);
+
+  // `record.uri` is in the deps on purpose, and it is read below so it is not an
+  // "unnecessary dependency": the shell clears `actions` whenever the subject in
+  // the URL changes, and this editor stays MOUNTED across a change of `r`. Left
+  // out, a jump straight from one publication to another would clear the strip's
+  // Save and never put it back.
+  useEffect(() => {
+    registerActions({
+      save,
+      remove: null,
+      saving,
+      deleting: false,
+      loading: false,
+      // Deleting a publication silently breaks whichever src/config.js constant
+      // points at it, so this studio has never offered it — the generic record
+      // list is the deliberate long way round.
+      canDelete: false,
+      isNew: isNew || !record.uri,
+    });
+  }, [registerActions, save, saving, isNew, record.uri]);
+
+  const dirtyState = useMemo(() => {
+    if (rawMode) {
+      let parsed;
+      try {
+        parsed = JSON.parse(rawText);
+      } catch {
+        // Half-typed JSON is still an unsaved edit — it just cannot be named
+        // field by field yet.
+        return { dirty: true, fields: [], records: 0, note: 'Raw JSON edited (not valid yet)' };
+      }
+      const fields = changedFields(parsed, baseline);
+      return fields.length ? { dirty: true, fields, records: 0, note: null } : null;
+    }
+    const fields = changedFields(value, baseline);
+    return fields.length ? { dirty: true, fields, records: 0, note: null } : null;
+  }, [rawMode, rawText, value, baseline]);
+
+  useEffect(() => {
+    reportDirty(dirtyState);
+  }, [reportDirty, dirtyState]);
+
+  // Teardown, separately from the two publishing effects above: leaving this
+  // surface must not strand a Save button or an "unsaved changes" sentence on
+  // whatever opens next.
+  useEffect(
+    () => () => {
+      registerActions(null);
+      reportDirty(null);
+    },
+    [registerActions, reportDirty],
+  );
 
   const theme = value.basicTheme || null;
 
   return (
-    <PageShell
-      title={isNew ? 'New publication' : value.name || rkey}
-      intro={
-        isNew
-          ? 'A masthead for a group of documents — what Bluesky renders instead of a plain link card. The URL matters: verification is fetched from it, so it has to be the address this publication actually lives at. Nothing is written until you press Save.'
-          : 'Edit this publication. Structured fields cover the essentials; the raw JSON toggle exposes everything (the leaflet theme, labels, …). Nothing is written until you press Save.'
-      }
-      headTitle={`${isNew ? 'New publication' : value.name || rkey} — Publications — dame.is`}
-    >
+    <>
       <div className="admin-toolbar">
-        <button type="button" className="admin-link-subtle" onClick={onBack}>
+        <Link className="admin-link-subtle" {...backLink}>
           ← All publications
-        </button>
-        <code className="admin-collection-nsid">{isNew ? PUB_NSID : `${PUB_NSID}/${rkey}`}</code>
+        </Link>
+        <h2 className="admin-collection-group-heading small-caps pub-editor-title">
+          {isNew ? 'New publication' : value.name || rkey}
+        </h2>
       </div>
+
+      <p className="admin-collection-group-note">
+        {isNew
+          ? 'A masthead for a group of documents — what Bluesky renders instead of a plain link card. The URL matters: verification is fetched from it, so it has to be the address this publication actually lives at. Nothing is written until you press Save.'
+          : 'Structured fields cover the essentials; the raw JSON toggle exposes everything (the leaflet theme, labels, …). Nothing is written until you press Save.'}
+      </p>
 
       {error && <p className="admin-error">{error}</p>}
 
@@ -511,15 +695,15 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
         </div>
       )}
 
+      {/* Save is the strip's, at the top of the pane. What stays here is the one
+          control that changes what the form IS rather than what it holds. */}
       <div className="pub-actions">
-        <button type="button" className="admin-gate-button" onClick={handleSave} disabled={saving || iconBusy}>
-          {saving ? 'Saving…' : flash ? 'Saved ✓' : isNew ? 'Create publication' : 'Save'}
-        </button>
         <button type="button" className="admin-link-subtle" onClick={toggleRaw} disabled={saving}>
           {rawMode ? '← Structured fields' : 'Edit raw JSON'}
         </button>
+        <span aria-live="polite">{flash ? <span className="admin-success">Saved ✓</span> : null}</span>
       </div>
-    </PageShell>
+    </>
   );
 }
 
@@ -534,6 +718,9 @@ function PublicationEditor({ agent, did, record, onBack, onSaved }) {
 function AtUriRow({ did, rkey }) {
   const uri = `at://${did}/${PUB_NSID}/${rkey}`;
   const [copied, setCopied] = useState(false);
+  // Same reason as the save flash: a 2s timer must not outlive the component.
+  const copiedTimer = useRef(null);
+  useEffect(() => () => clearTimeout(copiedTimer.current), []);
   return (
     <div className="pub-uri">
       <code className="admin-mono pub-uri-value">{uri}</code>
@@ -544,7 +731,8 @@ function AtUriRow({ did, rkey }) {
           try {
             await navigator.clipboard.writeText(uri);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            clearTimeout(copiedTimer.current);
+            copiedTimer.current = setTimeout(() => setCopied(false), 2000);
           } catch {
             /* no clipboard permission — the URI is on screen to select by hand */
           }

@@ -115,71 +115,19 @@
   color: var(--accent);
 }
 
-.admin-collection-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.admin-collection-row {
-  border-top: 1px solid var(--rule-soft);
-  padding-top: var(--space-3);
-}
-
-.admin-collection-row:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.admin-collection-link {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  text-decoration: none;
-  color: var(--ink);
-}
-
-.admin-collection-link:hover .admin-collection-label {
-  color: var(--accent);
-}
-
-.admin-collection-label {
-  font-family: var(--serif);
-  font-size: var(--text-xl);
-}
-
+/* The NSID of the collection a pane is looking at, rendered as a `<code>`
+   caption under the surface heading. The surrounding collection-picker rules
+   (`.admin-collection-list`/`-row`/`-link`/`-label`/`-summary`) went away with
+   the picker itself; this one survives because six admin consumers still use it
+   on its own — the record list and detail panes, the studio pane, and the
+   listening / guestbook managers. Note the deliberate `--mono-ui`, which folds
+   to the serif under the site's `[data-font='serif']` mode: that is a design
+   decision, not an oversight. */
 .admin-collection-nsid {
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink-faint);
   word-break: break-all;
-}
-
-.admin-collection-summary {
-  margin: var(--space-2) 0 0;
-  font-family: var(--serif);
-  color: var(--ink-soft);
-  font-size: var(--text-sm);
-  max-width: var(--measure);
-}
-
-.admin-custom-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.admin-custom-row .admin-collection-label {
-  width: 100%;
-}
-
-.admin-custom-row .admin-gate-input {
-  flex: 1 1 16rem;
 }
 
 .admin-toolbar {
@@ -284,100 +232,11 @@
   white-space: nowrap;
 }
 
-/* "Select" toggle sits apart from the primary toolbar buttons. */
-.admin-select-toggle {
-  margin-left: auto;
-}
-
 /* Bulk hide / unhide / delete cluster in the multi-select toolbar. */
 .admin-multiselect-actions {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
-}
-
-/* Active resume selector: pick the single version shown at /available. */
-.admin-active-resume {
-  border: 1px solid var(--rule-soft);
-  padding: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.admin-active-resume-label {
-  margin: 0;
-  font-variant: all-small-caps;
-  letter-spacing: 0.06em;
-  color: var(--ink-faint);
-}
-
-.admin-active-resume-note {
-  margin: 0;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-}
-
-.admin-active-resume-list {
-  list-style: none;
-  padding: 0;
-  margin: var(--space-1) 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.admin-active-resume-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid transparent;
-  background: none;
-  font-family: var(--sans);
-  font-size: var(--text-sm);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 200ms ease, background 200ms ease;
-}
-
-.admin-active-resume-btn:not(:disabled):hover {
-  border-color: var(--accent-soft);
-}
-
-.admin-active-resume-btn:disabled {
-  cursor: default;
-}
-
-.admin-active-resume-radio {
-  flex-shrink: 0;
-  width: 0.85em;
-  height: 0.85em;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-}
-
-.admin-active-resume-btn.is-active .admin-active-resume-radio {
-  border-color: var(--accent);
-  background: radial-gradient(circle, var(--accent) 0 45%, transparent 55%);
-}
-
-.admin-active-resume-btn.is-active {
-  border-color: var(--accent);
-}
-
-.admin-active-resume-name {
-  flex: 1;
-}
-
-.admin-active-resume-vis {
-  font-family: var(--mono-ui);
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
 }
 
 /* Multi-select record management (e.g. the listening manager): a sticky-feeling
@@ -673,37 +532,28 @@ select.admin-input {
   border-color: var(--ink);
 }
 
-/* Collection picker: quick "New …" actions + grouped surfaces. */
-.admin-quick-actions {
-  display: flex;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-6);
-  padding-bottom: var(--space-5);
-  border-bottom: 1px solid var(--rule-soft);
-}
+/* `--paper` above is defined NOWHERE and has no fallback, so that declaration is
+   invalid-at-computed-value-time and the property falls back to `inherit` — an
+   active chip renders --ink text on an --ink background, i.e. illegible. The
+   correct value is `--page`.
 
-/* The first quick action reads as the primary; the rest are quieter. */
-.admin-quick-actions .admin-gate-button:not(:first-child) {
-  color: var(--ink);
-  background: transparent;
-  border-color: var(--rule);
-}
-
-.admin-quick-actions .admin-gate-button:not(:first-child):hover:not(:disabled) {
+   It is fixed HERE, scoped to the admin shell, rather than in the rule above,
+   because this stylesheet is not admin-only: RecordEditor imports it, EditSheet
+   renders RecordEditor app-wide, and Exploring.css @imports the whole file into
+   the public /exploring route. The owner's constraint is that the public site
+   does not change, so the global rule stays byte-identical to what it has always
+   been and only the copy rendered inside `.wb` is repaired. Same test as every
+   other undefined-variable fix in this rebuild: if the selector can render
+   outside `.wb`, scope the fix. */
+.wb .category-field-chip.is-active {
   color: var(--page);
-  background: var(--ink);
-  border-color: var(--ink);
 }
 
-.admin-collection-group {
-  margin-top: var(--space-6);
-}
-
-.admin-collection-group:first-of-type {
-  margin-top: 0;
-}
-
+/* Section heading + note above a group of records or fields. The `.admin-collection-group`
+   wrapper these once sat inside belonged to the old collection picker and is gone; the head,
+   heading and note outlived it because the resume studio and workbench, the sky studio, the
+   publications manager and the pages overview all reach for them directly, and the front desk
+   mirrors their geometry. */
 .admin-collection-group-head {
   display: flex;
   flex-direction: column;
@@ -727,19 +577,6 @@ select.admin-input {
   font-size: var(--text-sm);
   color: var(--ink-faint);
   max-width: var(--measure);
-}
-
-.admin-collection-group-legacy .admin-collection-group-heading {
-  color: var(--ink-faint);
-}
-
-.admin-collection-row-legacy {
-  opacity: 0.66;
-}
-
-.admin-collection-row-legacy:hover,
-.admin-collection-row-legacy:focus-within {
-  opacity: 1;
 }
 
 /* Merged Site-pages view: two stacked sections. */

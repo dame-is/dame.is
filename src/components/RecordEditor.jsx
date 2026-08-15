@@ -1,7 +1,16 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { COLLECTIONS, ME_DID } from '../config.js';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
+import { diffRecord, labelFields, normalizeForDiff } from '../lib/recordDiff.js';
 import { resolvePds } from '../lib/atproto.js';
 import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
 import { fetchAllBlocks } from '../lib/arena.js';
@@ -59,6 +68,52 @@ function annotateRecordBlobs(record, lex, pds, did) {
 }
 
 /**
+ * Can this record type carry a blob at all? If not there is nothing for the PDS
+ * lookup to annotate, so the lookup itself is skipped — a status update and a
+ * scrobble have no images and no reason to touch plc.directory.
+ */
+function couldCarryBlobs(lex) {
+  return (lex?.fields || []).some((f) => f.type === 'image' || f.type === 'blocks');
+}
+
+/**
+ * How long the display-only PDS lookup gets before the editor gives up on it.
+ *
+ * `resolvePds` → `getPlcDocument` → `fetchJson` carries a 15-second abort, which
+ * is a reasonable ceiling for a feed refresh and a terrible one for a cosmetic
+ * image URL. It used to be awaited BEFORE the form rendered its first field:
+ * measured against a slow plc.directory, that held the editor on its skeleton
+ * for 28.6 seconds. The lookup is now off the blocking path entirely, and bounded
+ * as well, so the worst case is "images show no preview" — never "no editor".
+ */
+const PDS_LOOKUP_TIMEOUT_MS = 2500;
+
+function resolvePdsBounded(did) {
+  return Promise.race([
+    resolvePds(did),
+    new Promise((resolve) => {
+      setTimeout(() => resolve(null), PDS_LOOKUP_TIMEOUT_MS);
+    }),
+  ]).catch(() => null);
+}
+
+/** Does this text parse? Used to decide whether it is safe to overwrite. */
+function isParseableJson(text) {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Shared empty array so a clean dirty payload never changes identity. */
+const NO_FIELDS = Object.freeze([]);
+/** The two constant dirty payloads, frozen so the publishing effect can skip. */
+const CLEAN_STATUS = Object.freeze({ dirty: false, fields: NO_FIELDS, note: null });
+const RAW_DIRTY_STATUS = Object.freeze({ dirty: true, fields: NO_FIELDS, note: 'raw JSON edited' });
+
+/**
  * Reusable record editor (form + raw JSON + save/delete) shared by the admin
  * page and the atmosphere debug overlay.
  *
@@ -85,6 +140,29 @@ function annotateRecordBlobs(record, lex, pds, did) {
  *   - onStatus:    called with `{ saving, deleting, loading, isNew }` whenever
  *                  those change, so an external controller can reflect state.
  *
+ * The five props below are ADDITIVE and optional: every one of them is `undefined`
+ * for the quick-edit sheet (EditSheet.jsx) and for /exploring, which is what keeps
+ * this component's behaviour on public routes byte-for-byte what it was.
+ *
+ *   - mode:            'form' | 'raw' | 'preview'. When supplied the body mode is
+ *                      CONTROLLED: the internal rawMode/preview state is bypassed
+ *                      and `onModeChange` must drive it. Omit for today's
+ *                      uncontrolled two-button toolbar.
+ *   - onModeChange:    called with the mode the editor would like to be in.
+ *   - hideModeToolbar: suppress the internal "Edit JSON" / "Preview" row. Note
+ *                      `hideActions` does NOT hide it — that row has never had a
+ *                      compact/hideActions guard, which is why the public sheet
+ *                      shows it.
+ *   - previewNote:     caption rendered under the preview body.
+ *   - onDirtyChange:   called from its OWN effect with `{ dirty, fields, note }`
+ *                      whenever that changes. Deliberately NOT folded into
+ *                      `onStatus`: that effect's deps are four booleans that never
+ *                      change while typing, so it never fires per keystroke —
+ *                      adding dirtiness to it would republish EditModeContext on
+ *                      every character and re-render every feed row under an open
+ *                      quick-edit sheet. When this prop is absent the diff is not
+ *                      computed at all.
+ *
  * Ref (imperative handle): `{ save(), remove() }` — trigger a save or delete
  * from outside the component.
  */
@@ -101,11 +179,19 @@ const RecordEditor = forwardRef(function RecordEditor({
   initialValue = null,
   hideActions = false,
   onStatus,
+  mode,
+  onModeChange,
+  hideModeToolbar = false,
+  previewNote = null,
+  onDirtyChange,
 }, ref) {
   const lex = lexiconFor(collection);
   const isNew = !rkey;
 
-  const [original, setOriginal] = useState(null);
+  // The one baseline every dirty check is measured against, always written
+  // through `normalizeForDiff`. It replaces an `original` state that was written
+  // in three places, in three different shapes, and read in none.
+  const [baseline, setBaseline] = useState(null);
   const [value, setValue] = useState(null);
   const [rkeyDraft, setRkeyDraft] = useState(
     lex?.rkeyMode === 'fixed' ? lex.rkeyDefault || '' : '',
@@ -113,6 +199,11 @@ const RecordEditor = forwardRef(function RecordEditor({
   const [rawMode, setRawMode] = useState(initialMode === 'raw' || !lex);
   const [preview, setPreview] = useState(false);
   const [rawText, setRawText] = useState('');
+  // The text the JSON view was last SEEDED with. Raw mode has no field
+  // granularity — the whole record is one textarea — so "has the owner edited
+  // the JSON?" can only be answered by comparing the text against the text we
+  // put there, not against the record.
+  const [rawSeed, setRawSeed] = useState('');
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -127,6 +218,19 @@ const RecordEditor = forwardRef(function RecordEditor({
     if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current);
   }, []);
 
+  /** Put text in the JSON view and remember it as the "unedited" reading. */
+  const seedRaw = useCallback((text) => {
+    setRawText(text);
+    setRawSeed(text);
+  }, []);
+
+  // Where the PDS endpoint lands once the display-only lookup resolves. A REF,
+  // not state: it is read when leaving the JSON view (to re-bake the display
+  // URLs the raw text never carries) and must not re-render anything on arrival.
+  // It stays null on the new-record branch, which never runs `load()` — so every
+  // read of it has to tolerate null, exactly as `annotateRecordBlobs` already does.
+  const pdsRef = useRef(null);
+
   useEffect(() => {
     let cancelled = false;
     if (isNew) {
@@ -134,8 +238,8 @@ const RecordEditor = forwardRef(function RecordEditor({
       // new creative work) over the lexicon's blank defaults.
       const draft = { ...blankRecordFor(collection), ...(initialValue || {}) };
       setValue(draft);
-      setOriginal(draft);
-      setRawText(JSON.stringify(draft, null, 2));
+      setBaseline(normalizeForDiff(draft, lex));
+      seedRaw(JSON.stringify(draft, null, 2));
       if (!lex) setRawMode(true);
       return undefined;
     }
@@ -155,21 +259,34 @@ const RecordEditor = forwardRef(function RecordEditor({
         // (structuredClone would corrupt them and strip images on save).
         const plain = toPlainRecord(fetched);
         const migrated = lex?.migrate ? lex.migrate(plain) : plain;
-        // Bake display URLs onto blob refs so existing images render in the
-        // editor. Best-effort: a failed PDS resolve just leaves them blank.
-        let pds = null;
-        try {
-          pds = await resolvePds(did);
-        } catch {
-          /* display-only; the record still loads and saves fine */
-        }
-        if (cancelled) return;
-        if (pds) annotateRecordBlobs(migrated, lex, pds, did);
-        setOriginal(fetched);
         setValue(migrated);
+        setBaseline(normalizeForDiff(migrated, lex));
         // The raw-JSON view and payload must stay clean of `_url` annotations.
-        setRawText(JSON.stringify(stripUrlAnnotations(migrated), null, 2));
+        seedRaw(JSON.stringify(stripUrlAnnotations(migrated), null, 2));
         if (!lex) setRawMode(true);
+
+        // Baking display URLs onto blob refs is the LAST thing the record needs
+        // and it used to be the first thing it waited for: this resolve sat in
+        // front of the first field, unbounded, for a measured 28.6 seconds when
+        // plc.directory was slow. It is display-only — the record loads, edits
+        // and saves without it — so it now runs after the form has painted, is
+        // bounded, and is skipped entirely for record types that cannot carry a
+        // blob in the first place.
+        if (!couldCarryBlobs(lex)) return;
+        resolvePdsBounded(did).then((pds) => {
+          if (cancelled || !pds) return;
+          pdsRef.current = pds;
+          setValue((prev) => {
+            // Only annotate the value we loaded. If the owner has already typed,
+            // `prev` is a different object and their edit outranks a cosmetic URL.
+            if (prev !== migrated) return prev;
+            // Annotation mutates, so it has to run on a copy or React would see
+            // the same object back and skip the render the new URLs are for.
+            const annotated = toPlainRecord(prev);
+            annotateRecordBlobs(annotated, lex, pds, did);
+            return annotated;
+          });
+        });
       } catch (err) {
         if (!cancelled) setError(err?.message || String(err));
       } finally {
@@ -180,21 +297,39 @@ const RecordEditor = forwardRef(function RecordEditor({
     return () => {
       cancelled = true;
     };
-  }, [agent, did, collection, rkey, isNew, lex, initialValue]);
+  }, [agent, did, collection, rkey, isNew, lex, initialValue, seedRaw]);
 
   const updateField = useCallback((key, next) => {
     setValue((prev) => ({ ...(prev || {}), [key]: next }));
   }, []);
 
-  const buildRecordPayload = useCallback(() => {
-    if (rawMode) {
-      const parsed = JSON.parse(rawText);
-      if (lex?.typeFieldValue && !parsed.$type) parsed.$type = lex.typeFieldValue;
-      return parsed;
-    }
+  /* --- which body is on screen ----------------------------------------- */
+
+  // Controlled when the caller passes `mode`. The internal `rawMode`/`preview`
+  // state stays put — untouched and unread — so an uncontrolled caller behaves
+  // exactly as it did before this prop existed.
+  const controlled = mode != null;
+  // `|| !lex` folds in what the render used to spell out at each use site: with
+  // no lexicon there is no form to draw, so raw is the only body available.
+  const rawActive = (controlled ? mode === 'raw' : rawMode) || !lex;
+  const previewActive = controlled ? mode === 'preview' : preview;
+
+  /**
+   * The outgoing record built from the FORM's value, whatever body is on screen.
+   * Split out from `buildRecordPayload` — which dispatches on the active body —
+   * because the JSON view seeds itself from here at the very moment raw mode
+   * becomes active, and a dispatching build would hand it back the stale text it
+   * is about to replace, silently discarding every form edit made beforehand.
+   *
+   * @param {{stampAuto?: boolean}} [opts] `stampAuto: false` skips the
+   *   `autoOnEdit` bump. The JSON view seeds itself that way, because a payload
+   *   built for display would otherwise show an `updatedAt` the record does not
+   *   carry — a field invented by the act of looking at it.
+   */
+  const buildFormPayload = useCallback(({ stampAuto = true } = {}) => {
     const next = { ...(value || {}) };
     if (lex?.typeFieldValue) next.$type = lex.typeFieldValue;
-    if (lex?.fields) {
+    if (lex?.fields && stampAuto) {
       for (const f of lex.fields) {
         if (f.autoOnEdit && !isNew) {
           next[f.key] = new Date().toISOString();
@@ -221,7 +356,36 @@ const RecordEditor = forwardRef(function RecordEditor({
     // wire form; a plain recursive walk would mangle those instances), then
     // drop the `_url` display annotations so they never reach the PDS.
     return stripUrlAnnotations(toPlainRecord(next));
-  }, [value, lex, rawMode, rawText, isNew]);
+  }, [value, lex, isNew]);
+
+  /**
+   * What Save writes. The JSON body is AUTHORITATIVE while it is the active one:
+   * saving from the JSON tab saves that text, not the form behind it.
+   */
+  const buildRecordPayload = useCallback(() => {
+    if (rawActive) {
+      const parsed = JSON.parse(rawText);
+      if (lex?.typeFieldValue && !parsed.$type) parsed.$type = lex.typeFieldValue;
+      return parsed;
+    }
+    return buildFormPayload();
+  }, [buildFormPayload, lex, rawActive, rawText]);
+
+  /**
+   * The record on screen is now the record the PDS holds. Re-baseline from it so
+   * the status strip goes clean the instant the write returns rather than after
+   * a refetch, re-seed both bodies from the same object, and flash "Saved.".
+   */
+  const markSaved = useCallback(
+    (record) => {
+      setBaseline(normalizeForDiff(record, lex));
+      setValue(record);
+      seedRaw(JSON.stringify(record, null, 2));
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 2400);
+    },
+    [lex, seedRaw],
+  );
 
   async function handleSave() {
     setSaving(true);
@@ -240,6 +404,12 @@ const RecordEditor = forwardRef(function RecordEditor({
             rkey: chosen,
             record: finalRecord,
           });
+          // Refresh the editor's own state before handing off, exactly as the
+          // edit path below does. Today this branch returns without it, leaving
+          // the form claiming unsaved changes to a record already written — a
+          // gap that only stayed invisible because every caller hard-navigated
+          // afterwards. The workbench navigates in place.
+          markSaved(finalRecord);
           onCreated?.({ rkey: chosen, record: finalRecord });
           return;
         }
@@ -274,11 +444,7 @@ const RecordEditor = forwardRef(function RecordEditor({
         rkey,
         record: finalRecord,
       });
-      setOriginal(finalRecord);
-      setValue(finalRecord);
-      setRawText(JSON.stringify(finalRecord, null, 2));
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 2400);
+      markSaved(finalRecord);
       onSaved?.(finalRecord);
     } catch (err) {
       setError(err?.message || String(err));
@@ -297,24 +463,89 @@ const RecordEditor = forwardRef(function RecordEditor({
       onDeleted?.();
     } catch (err) {
       setError(err?.message || String(err));
+    } finally {
+      // Reset on SUCCESS too. Every caller before the workbench either unmounted
+      // or hard-navigated on delete, so the flag never had to come back down; a
+      // persistent pane would leave the button stuck on "Deleting…" forever.
       setDeleting(false);
     }
   }
 
+  /* --- entering and leaving the JSON body ------------------------------- */
+
+  /** Seed the textarea from the FORM's record, without the auto `updatedAt` bump. */
+  function enterRawBody() {
+    // Never clobber unparsed work. Text this view could not read on the way out
+    // means the owner is mid-edit in JSON and came back to finish; their text is
+    // the thing to keep, not a re-serialization of the value they were replacing.
+    if (rawText.trim() && !isParseableJson(rawText)) return;
+    seedRaw(JSON.stringify(buildFormPayload({ stampAuto: false }), null, 2));
+  }
+
+  /**
+   * Parse the textarea back into the form's value. Returns false when the text
+   * is not valid JSON, which is the uncontrolled toolbar's cue to stay put.
+   */
+  function leaveRawBody() {
+    let parsed;
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      return false;
+    }
+    // `rawText` is stored `_url`-free, so a plain `setValue(parsed)` drops every
+    // display URL baked on at load: existing images come back as "Click to
+    // upload" in the blocks editor and vanish from Preview. Re-bake them from
+    // the PDS cached at load — never a fresh `resolvePds` per toggle — and note
+    // that `pdsRef` is null on the new-record branch, where `annotateRecordBlobs`
+    // no-ops by its own contract.
+    annotateRecordBlobs(parsed, lex, pdsRef.current, did);
+    setValue(parsed);
+    return true;
+  }
+
   function toggleRawMode() {
     if (!lex) return; // raw is forced for unknown lexicons
-    if (!rawMode) {
-      setRawText(JSON.stringify(buildRecordPayload(), null, 2));
-    } else {
-      try {
-        const parsed = JSON.parse(rawText);
-        setValue(parsed);
-      } catch {
-        return; // stay in raw mode if parse fails
-      }
+    // Controlled: ask, don't act. The caller flips `mode`, and the effect below
+    // does the same enter/leave work this function does for everyone else.
+    if (controlled) {
+      onModeChange?.(rawActive ? 'form' : 'raw');
+      return;
     }
+    if (!rawMode) enterRawBody();
+    else if (!leaveRawBody()) return; // stay in raw mode if parse fails
     setRawMode((m) => !m);
   }
+
+  function togglePreview() {
+    if (controlled) {
+      onModeChange?.(previewActive ? (rawActive ? 'raw' : 'form') : 'preview');
+      return;
+    }
+    setPreview((p) => !p);
+  }
+
+  // A controlled caller changes `mode` from the outside, so the enter/leave work
+  // has to happen here rather than in `toggleRawMode`. Ref-held so the effect can
+  // depend on the transition alone and not on two closures that change identity
+  // every keystroke. Uncontrolled callers — the public quick-edit sheet and
+  // /exploring — never reach this branch, which is what keeps their behaviour
+  // (parse-error refusal included) byte-for-byte what it was.
+  const enterRawRef = useRef(null);
+  const leaveRawRef = useRef(null);
+  enterRawRef.current = enterRawBody;
+  leaveRawRef.current = leaveRawBody;
+  const wasRawRef = useRef(rawActive);
+  useEffect(() => {
+    const wasRaw = wasRawRef.current;
+    wasRawRef.current = rawActive;
+    if (!controlled || wasRaw === rawActive) return;
+    // Unparseable JSON on the way out keeps the last good value AND the text:
+    // nothing is lost, the tab bar is not fought, and the error the textarea
+    // already shows is the explanation.
+    if (rawActive) enterRawRef.current();
+    else leaveRawRef.current();
+  }, [controlled, rawActive]);
 
   // Expose save/delete imperatively so an external controller (the quick-edit
   // sheet's action bar) can drive them. Stable handle backed by refs so it
@@ -336,32 +567,63 @@ const RecordEditor = forwardRef(function RecordEditor({
     onStatus?.({ saving, deleting, loading, isNew });
   }, [saving, deleting, loading, isNew, onStatus]);
 
+  /* --- dirtiness -------------------------------------------------------- */
+
+  // ONE memo returning the whole payload, labels included. Splitting it into a
+  // `{dirty, keys}` memo plus a `labelFields()` call at the use site would hand
+  // the consumer a fresh array every render and loop any effect that stores it.
+  const dirtyStatus = useMemo(() => {
+    // Nobody is listening. The walk below is not free on a long blocks body, and
+    // the public quick-edit sheet passes no handler — it must not pay for a
+    // question it never asks.
+    if (!onDirtyChange) return null;
+    // Raw mode has no field granularity: the whole record is one textarea, so
+    // the only honest comparison is text against the text we seeded it with.
+    if (rawActive && rawText !== rawSeed) return RAW_DIRTY_STATUS;
+    if (!baseline) return CLEAN_STATUS;
+    // Falls through to the field diff when the textarea is untouched, because
+    // edits made in the form BEFORE switching to JSON are still unsaved.
+    const { dirty, keys } = diffRecord(baseline, normalizeForDiff(value, lex), lex);
+    if (!dirty) return CLEAN_STATUS;
+    return { dirty: true, fields: labelFields(keys, lex), note: null };
+  }, [onDirtyChange, value, rawText, rawSeed, rawActive, baseline, lex]);
+
+  useEffect(() => {
+    if (dirtyStatus) onDirtyChange?.(dirtyStatus);
+  }, [dirtyStatus, onDirtyChange]);
+
   if (loading) {
     return <AdminEditorSkeleton fields={compact ? 3 : 4} />;
   }
 
   return (
     <div className={`record-editor reveal${compact ? ' record-editor-compact' : ''}`}>
-      <div className="admin-toolbar admin-toolbar-inline">
-        {lex && !preview && (
-          <button
-            type="button"
-            className="admin-link-subtle"
-            onClick={toggleRawMode}
-          >
-            {rawMode ? 'Use form' : 'Edit JSON'}
-          </button>
-        )}
-        {lex && (
-          <button
-            type="button"
-            className="admin-link-subtle"
-            onClick={() => setPreview((p) => !p)}
-          >
-            {preview ? 'Back to editor' : 'Preview'}
-          </button>
-        )}
-      </div>
+      {/* A caller with its own tab bar hides this row. `hideActions` deliberately
+          does NOT — that prop is about Save/Delete, and this row has never been
+          under a compact or hideActions guard, which is why the public sheet
+          shows it. */}
+      {!hideModeToolbar && (
+        <div className="admin-toolbar admin-toolbar-inline">
+          {lex && !previewActive && (
+            <button
+              type="button"
+              className="admin-link-subtle"
+              onClick={toggleRawMode}
+            >
+              {rawActive ? 'Use form' : 'Edit JSON'}
+            </button>
+          )}
+          {lex && (
+            <button
+              type="button"
+              className="admin-link-subtle"
+              onClick={togglePreview}
+            >
+              {previewActive ? 'Back to editor' : 'Preview'}
+            </button>
+          )}
+        </div>
+      )}
 
       {isNew && lex?.rkeyMode === 'fixed' && !compact && (
         <div className="admin-field">
@@ -383,9 +645,15 @@ const RecordEditor = forwardRef(function RecordEditor({
         </div>
       )}
 
-      {preview && lex ? (
-        <RecordPreview lex={lex} record={previewRecordFor(rawMode, rawText, value)} />
-      ) : rawMode || !lex ? (
+      {previewActive && lex ? (
+        <>
+          <RecordPreview lex={lex} record={previewRecordFor(rawActive, rawText, value)} />
+          {/* `.wb-editor-*` because the caption is the workbench's, not the
+              preview's: `.record-preview*` is frozen public API owned by
+              Admin.css, and this component renders on public routes too. */}
+          {previewNote && <p className="admin-field-hint wb-editor-note">{previewNote}</p>}
+        </>
+      ) : rawActive ? (
         <RawJsonEditor value={rawText} onChange={setRawText} />
       ) : (
         <FormEditor

@@ -1,16 +1,21 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Copy, PenLine, ExternalLink, Plus } from 'lucide-react';
-import PageShell from '../PageShell.jsx';
 import { AdminRecordListSkeleton } from '../Skeleton.jsx';
 import { rkeyFromUri } from '../RecordEditor.jsx';
 import { COLLECTIONS } from '../../config.js';
+import { useAdminShell } from '../../admin/useAdminShell.jsx';
 import {
   formatDateRange,
   duplicateResumeValue,
   slugifyResumeTitle,
 } from '../../lib/resumeHelpers.js';
-import { renameRecordKey, backlinksFor, countBacklinks } from '../../lib/resumeAdmin.js';
+import {
+  renameRecordKey,
+  backlinksFor,
+  countBacklinks,
+  setActiveResume,
+} from '../../lib/resumeAdmin.js';
 import { useResumeBundle } from './useResumeBundle.js';
 import './resumeStudio.css';
 
@@ -22,9 +27,23 @@ import './resumeStudio.css';
  * draw from. The per-version "Tailor" link opens the workbench
  * (`/admin?view=resume-tailor&r=<rkey>`), which is where bullets get selected,
  * reordered, forked into variants, and re-worded per version.
+ *
+ * As a studio it is a BODY, not a page: StudioPane draws the title, the blurb
+ * and the NSID, and the rail is the way back — so there is no PageShell, no
+ * "← All collections" link and no second `<h1>` here. It registers nothing with
+ * the status strip either, because every action on this surface writes
+ * immediately; there is never anything staged to save.
+ *
+ * `bundle` is the working set hoisted into StudioPane so this surface and the
+ * tailoring workbench share one fetch (see useResumeBundle).
  */
-export default function ResumeStudio({ agent, did }) {
-  const { resumes, jobs, education, loading, error, reload } = useResumeBundle(agent, did);
+export default function ResumeStudio({ agent, did, bundle }) {
+  const { invalidate } = useAdminShell();
+  const { resumes, jobs, education, loading, error, reload, applyWrites } = useResumeBundle(
+    agent,
+    did,
+    bundle,
+  );
   const [actionError, setActionError] = useState(null);
   const [renamingUri, setRenamingUri] = useState(null);
 
@@ -81,6 +100,10 @@ export default function ResumeStudio({ agent, did }) {
       const value = collection === COLLECTIONS.resume ? { ...v, slug: toRkey } : v;
       await renameRecordKey({ agent, did, collection, fromRkey, toRkey, value, resumes, backlinks });
       reload();
+      // A rename is a create AND a delete, so every cached view of this
+      // collection — the rail's presence dot, the Front Desk's counts and its
+      // "latest records" list — is now describing a record key that is gone.
+      invalidate([collection]);
     } catch (err) {
       setActionError(err?.message || String(err));
     } finally {
@@ -104,22 +127,10 @@ export default function ResumeStudio({ agent, did }) {
   );
 
   return (
-    <PageShell
-      title="Resume studio"
-      intro="Every version of the resume, and the canonical jobs and education records they draw from. Tailor a version to choose, reorder, re-word, and fork its bullets; edit a job to change the shared facts and bullet pool."
-      headTitle="Resume studio — Admin — dame.is"
-    >
-      <div className="admin-toolbar">
-        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
-        <code className="admin-collection-nsid">{COLLECTIONS.resume}</code>
-        <Link
-          to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&mode=new`}
-          className="admin-gate-button admin-gate-button-tight"
-        >
-          New version
-        </Link>
-      </div>
-
+    // A block container, not a bare fragment: the sections below space
+    // themselves with collapsing top margins, which only happens inside one —
+    // as flex items of `.wb-studio` they would get the pane's gap on top.
+    <div className="rs-studio">
       {(error || actionError) && <p className="admin-error">{error || actionError}</p>}
 
       {loading ? (
@@ -132,6 +143,7 @@ export default function ResumeStudio({ agent, did }) {
             resumes={resumes}
             jobsByUri={jobsByUri}
             onChanged={reload}
+            onWritten={applyWrites}
             onError={setActionError}
             onRename={(rec) => renameRecord(COLLECTIONS.resume, rec)}
             renamingUri={renamingUri}
@@ -158,7 +170,7 @@ export default function ResumeStudio({ agent, did }) {
           />
         </>
       )}
-    </PageShell>
+    </div>
   );
 }
 
@@ -181,8 +193,18 @@ function versionCounts(value, jobsByUri) {
   return { jobs: entries.length, bullets };
 }
 
-function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, onRename, renamingUri }) {
-  const navigate = useNavigate();
+function VersionsSection({
+  agent,
+  did,
+  resumes,
+  jobsByUri,
+  onChanged,
+  onWritten,
+  onError,
+  onRename,
+  renamingUri,
+}) {
+  const { go, invalidate } = useAdminShell();
   const [busy, setBusy] = useState(null); // rkey being written
 
   const activeRkey = useMemo(() => {
@@ -190,23 +212,16 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
     return found ? rkeyFromUri(found.uri) : null;
   }, [resumes]);
 
-  // The one version shown at /available: featured=true here, cleared elsewhere.
+  // The one version shown at /available. The sibling-clearing write itself now
+  // lives in resumeAdmin.js, because the workbench's "Active" checkbox has to
+  // reach the same invariant from a staged save — this is the immediate half of
+  // it, and all that is left here is the busy/error plumbing the picker needs.
   async function setActive(rkey) {
     if (busy) return;
     setBusy(rkey);
     onError(null);
     try {
-      for (const rec of resumes) {
-        const r = rkeyFromUri(rec.uri);
-        const shouldBeActive = r === rkey;
-        if (shouldBeActive === !!rec.value?.featured) continue;
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: COLLECTIONS.resume,
-          rkey: r,
-          record: { ...rec.value, featured: shouldBeActive, updatedAt: new Date().toISOString() },
-        });
-      }
+      await setActiveResume(agent, did, resumes, rkey);
       onChanged?.();
     } catch (err) {
       onError(err?.message || String(err));
@@ -250,7 +265,20 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
         rkey: slug,
         record,
       });
-      navigate(`/admin?view=resume-tailor&r=${encodeURIComponent(slug)}`);
+      invalidate([COLLECTIONS.resume]);
+      // Write through before navigating. The bundle is hoisted into StudioPane,
+      // which stays mounted across this navigation — so without this the
+      // workbench would open on a version its snapshot has never heard of and
+      // render "no such version".
+      onWritten?.([
+        { collection: COLLECTIONS.resume, uri: `at://${did}/${COLLECTIONS.resume}/${slug}`, value: record },
+      ]);
+      // `go`, not a router navigate: it merges into the URL the shell already
+      // holds and leaves StudioPane mounted, so the workbench opens against the
+      // bundle THIS studio already loaded rather than refetching all four
+      // collections. `force` because the write has landed — there is nothing
+      // left unsaved to warn about.
+      go({ view: 'resume-tailor', r: slug, c: null, mode: null, for: null }, { force: true });
     } catch (err) {
       onError(err?.message || String(err));
       setBusy(null);
@@ -265,9 +293,9 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
         active one is what <code>/available</code> shows.
       </p>
       {(resumes || []).length === 0 ? (
-        <p className="placeholder-card">
-          No resume versions yet. <Link to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&mode=new`}>Create the first one.</Link>
-        </p>
+        // The "create the first one" link that used to live in this sentence is
+        // now the add link below, which is on screen either way.
+        <p className="placeholder-card">No resume versions yet.</p>
       ) : (
         <ul className="rs-version-list reveal-stagger">
           {resumes.map((rec) => {
@@ -358,6 +386,15 @@ function VersionsSection({ agent, did, resumes, jobsByUri, onChanged, onError, o
           })}
         </ul>
       )}
+      {/* "New version" used to sit in the studio's own toolbar, next to a back
+          link the rail replaced. It belongs at the foot of the list it adds to
+          anyway — exactly where Jobs and Education already put theirs. */}
+      <Link
+        className="rf-add rs-section-add"
+        to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&mode=new`}
+      >
+        <Plus size={15} aria-hidden="true" /> New version
+      </Link>
     </section>
   );
 }

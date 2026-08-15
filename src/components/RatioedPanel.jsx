@@ -13,12 +13,26 @@
 // The one exception is "Re-measure scanned", which repairs pieces this panel
 // measured while its backlink reader was broken. Those records were written
 // with every figure at zero, so there is no earlier measurement to protect.
+//
+// As a studio it is a BODY, not a page: the workbench pane draws the title, the
+// blurb and the NSID, and the rail is the way back — so this file renders no
+// PageShell and no back link of its own.
+//
+// It is also the one studio EXEMPT from the shell's dirty tracking, and that is
+// a statement about what this panel is rather than an oversight. `measured` and
+// `found` are the results of scans that take minutes over Constellation, and
+// they are deliberately not written: `remeasure` computes fresh afterlife
+// figures and stops there, because publishing them is a decision the artist
+// makes. Reporting them as "unsaved changes" would turn a finished reading into
+// a nagging to-do, and offering a generic Save for them would overwrite
+// pre-seal figures that no index can reconstruct. So: never reportDirty, never
+// registerActions.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw, Upload, Trash2, ExternalLink, ListPlus, Search } from 'lucide-react';
-import PageShell from './PageShell.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { COLLECTIONS, RATIOED_DOC_RKEY, RATIOED_SOURCE, ME_DID } from '../config.js';
 import {
   SEED_PIECES,
@@ -89,6 +103,12 @@ const SOURCE_BUCKETS = {
 };
 
 export default function RatioedPanel({ agent, did }) {
+  // The only thing this panel takes from the shell. Its bulk writes change the
+  // SIZE of the collection — nothing to eleven, eleven to nothing — and the
+  // counts behind the rail and the Front Desk are cached for a minute, so
+  // without this the rail would go on showing a surface that has just been
+  // emptied. Deliberately not `registerActions` / `reportDirty`: see above.
+  const { invalidate } = useAdminShell();
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState({}); // rkey → record value on the PDS
   const [busy, setBusy] = useState(null); // label of the running job
@@ -131,12 +151,21 @@ export default function RatioedPanel({ agent, did }) {
 
   // Once the records exist they become backlinks on the artwork itself. Show
   // the count so it's obvious the catalogue has joined the graph it catalogues.
+  //
+  // Cancellable: Constellation is a third-party index that can take seconds to
+  // answer, and this re-runs on every refresh of the published set — so leaving
+  // the surface mid-flight would otherwise land a setState on a pane the shell
+  // has already replaced.
   useEffect(() => {
     const subject = SEED_PIECES[0]?.subject;
-    if (!subject) return;
+    if (!subject) return undefined;
+    let alive = true;
     getBacklinkCount(subject, RATIOED_SOURCE).then((r) => {
-      if (r) setBacklinks(r.total ?? r.count ?? 0);
+      if (alive && r) setBacklinks(r.total ?? r.count ?? 0);
     });
+    return () => {
+      alive = false;
+    };
   }, [live]);
 
   const publishedCount = Object.keys(live).length;
@@ -215,6 +244,9 @@ export default function RatioedPanel({ agent, did }) {
       }
       setProgress('');
       await refresh();
+      // One call for the whole run, not one per record: each invalidation bumps
+      // the shell's data revision and re-reads every counted collection.
+      invalidate([NSID]);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -364,6 +396,7 @@ export default function RatioedPanel({ agent, did }) {
       }
       setFound(null);
       await refresh();
+      invalidate([NSID]);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -462,6 +495,7 @@ export default function RatioedPanel({ agent, did }) {
         await agent.com.atproto.repo.deleteRecord({ repo: did, collection: NSID, rkey });
       }
       await refresh();
+      invalidate([NSID]);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -470,15 +504,7 @@ export default function RatioedPanel({ agent, did }) {
   }
 
   return (
-    <PageShell
-      title="Ratioed"
-      intro="Per-piece measurements for the Ratioed art project. Publishing these makes each record a backlink on the post it measures, so the catalogue joins the graph it catalogues."
-      headTitle="Ratioed — Admin"
-    >
-      <p className="admin-back-link">
-        <Link to="/admin">← All collections</Link>
-      </p>
-
+    <>
       <div className="ratioed-panel-summary">
         <div>
           <span className="ratioed-panel-figure">{publishedCount}</span>
@@ -527,7 +553,11 @@ export default function RatioedPanel({ agent, did }) {
         {publishedCount > 0 && (
           <button
             type="button"
-            className="admin-gate-button admin-gate-button-danger"
+            // `admin-gate-button-danger` was defined in no stylesheet, so the
+            // one irreversible button on this panel rendered identically to the
+            // four beside it. `.admin-danger` (Admin.css:85) is the real
+            // modifier: outlined in --tan, filling on hover.
+            className="admin-gate-button admin-danger"
             onClick={deleteAll}
             disabled={!!busy}
           >
@@ -706,6 +736,6 @@ export default function RatioedPanel({ agent, did }) {
           })}
         </div>
       )}
-    </PageShell>
+    </>
   );
 }

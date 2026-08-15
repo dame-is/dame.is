@@ -2,6 +2,16 @@
 /* Resume studio (rs-) — the /admin?view=resume overview                */
 /* ------------------------------------------------------------------ */
 
+/* The studio's own root inside the workbench's detail pane. It exists to be a
+   BLOCK container: `.wb-studio` is a flex column with a gap, and the sections
+   below space themselves with collapsing top margins, which only happens in
+   block flow — as flex items they would carry the pane's gap on top of their
+   own margins. `min-width: 0` because a flex item defaults to `min-width: auto`
+   and would refuse to shrink below its widest line. */
+.rs-studio {
+  min-width: 0;
+}
+
 .rs-section {
   margin-top: var(--space-7);
 }
@@ -185,6 +195,25 @@
 /* Tailoring workbench (rw-)                                            */
 /* ------------------------------------------------------------------ */
 
+/* Same job as `.rs-studio`: a block container for the workbench body, so its
+   toolbar row and the `.rw` stack below space themselves rather than picking up
+   the pane's flex gap between every child. */
+.rw-studio {
+  min-width: 0;
+}
+
+/* The version being tailored. The pane head names the SURFACE ("Tailor
+   version"), so this is the only place the version's own name appears — sized
+   to sit under that title rather than compete with it. */
+.rw-version-name {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .rw {
   display: flex;
   flex-direction: column;
@@ -225,7 +254,12 @@
   grid-column: 1 / -1;
 }
 
-@media (max-width: 40rem) {
+/* Pane width, not viewport width. The workbench's detail pane is its own
+   `wbpane` container and is routinely narrower than the window — a records
+   surface with its list column open leaves roughly 34rem at any screen size. As
+   a viewport query this only fired around 640px of SCREEN, so two columns of
+   inputs stayed side by side in a pane far too narrow to hold them. */
+@container wbpane (max-width: 40rem) {
   .rw-framing {
     grid-template-columns: 1fr;
   }
@@ -551,7 +585,10 @@
   font-size: var(--text-xs);
 }
 
-@media (max-width: 40rem) {
+/* Same reasoning as the framing grid above: a bullet row and a version row both
+   run out of horizontal room on the PANE's width, which the viewport cannot
+   report. */
+@container wbpane (max-width: 40rem) {
   .rw-bullet {
     flex-wrap: wrap;
   }

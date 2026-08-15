@@ -13,12 +13,28 @@
 // That's what makes the link inside the post work while the piece is still
 // alive, and it's why the lexicon's seal fields are optional (see the note on
 // `isLive`). Sealing fills them in.
+//
+// As a studio it is a BODY, not a page: the workbench pane draws the title, the
+// blurb and the NSID, and the rail is the way back — so this file renders no
+// PageShell and no back link of its own. Two things follow from living in a
+// shell that never remounts:
+//
+//  1. **Seal is not routed through the shell's status strip.** Every
+//     millisecond between the like and the threadgate write is in the recorded
+//     reaction time, so the button stays here, next to the alarm, with no
+//     confirm and no debounce in front of it. Nothing in this studio is a
+//     staged edit waiting on a generic Save, so it reports no dirty state
+//     either.
+//  2. **Unmounting is what stops the watch.** The pane keys the studio on the
+//     surface, so selecting another surface really does unmount this component
+//     — and the effect teardowns below are the only thing that close a ~166
+//     KB/s firehose socket, an 8s poll and a 1s clock. Every effect that starts
+//     something here returns the thing that stops it.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
 import { Send, Lock, RefreshCw, ExternalLink, FileText, Radio } from 'lucide-react';
-import PageShell from './PageShell.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
@@ -243,17 +259,33 @@ export default function RatioedStudio({ agent, did }) {
   }, [live, sealed, streamOn, streamRun]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
+  //
+  // Cancellable: on a busy piece this re-runs every time the stream delivers an
+  // unknown DID, so a surface flip can leave several of these in flight against
+  // an AppView that answers in its own time. Without the guard each one lands
+  // on an unmounted component.
   useEffect(() => {
     const missing = feed.map((e) => e.did).filter((d) => d && !profiles[d]);
-    if (!missing.length) return;
-    resolveProfiles(Array.from(new Set(missing))).then((p) =>
-      setProfiles((old) => ({ ...old, ...p })),
-    );
+    if (!missing.length) return undefined;
+    let alive = true;
+    resolveProfiles(Array.from(new Set(missing))).then((p) => {
+      if (alive) setProfiles((old) => ({ ...old, ...p }));
+    });
+    return () => {
+      alive = false;
+    };
   }, [feed, profiles]);
 
   // The tab title carries the alarm, so a piece that gets liked while this is
   // in a background tab still says so in the tab strip.
   //
+  // It sits ON TOP of the shell's title rather than replacing it: the surface's
+  // own "Ratioed studio — Admin — dame.is" is set by the pane, this captures
+  // whatever is there and puts it back on the way out, and React flushes every
+  // cleanup in a commit before any effect — so leaving the surface restores the
+  // shell's title a beat before the next surface sets its own. With no piece
+  // live this effect does nothing at all, which is why the tab reads correctly
+  // on arrival.
   useEffect(() => {
     if (!live) return undefined;
     const prevTitle = document.title;
@@ -554,16 +586,14 @@ export default function RatioedStudio({ agent, did }) {
   const firstLike = likes?.likes?.[0] || null;
 
   return (
-    <PageShell
-      title="Ratioed studio"
-      intro="Compose the next piece, watch it, seal it, announce it. The studio never seals on its own — the reaction time measures you noticing, and a loop that did it for you would quietly end the measurement."
-      headTitle="Ratioed studio — Admin — dame.is"
-    >
-      <div className="admin-toolbar">
-        <Link to="/admin?view=ratioed" className="admin-link-subtle">← Ratioed catalogue</Link>
-        <code className="admin-collection-nsid">{NSID}</code>
-      </div>
-
+    // `.rs-root` earns its place twice over. It is where the three --ratioed-*
+    // hues are defined (see RatioedStudio.css — they belong to the .ratioed
+    // chart block, which is not on this page, so the studio was rendering their
+    // fallbacks by accident). And as a plain block it keeps the studio's own
+    // vertical rhythm: the sections below space themselves with collapsing
+    // margins, which only happens inside a block container — the pane itself is
+    // a flex column with a gap.
+    <div className="rs-root">
       {error && <p className="admin-error">{error}</p>}
       {note && <p className="admin-field-hint">{note}</p>}
 
@@ -866,9 +896,13 @@ export default function RatioedStudio({ agent, did }) {
         </ul>
         <p className="admin-field-hint">
           <Link to={`/creating/${RATIOED_PATH}`}>The essay</Link> ·{' '}
+          {/* An ordinary <Link>: it is a whole-query replacement rather than a
+              merge, so it cannot leave a stale `c` or `r` behind, and this
+              studio never holds an unsaved edit for the shell's `go` guard to
+              protect. */}
           <Link to="/admin?view=ratioed">the full catalogue</Link>
         </p>
       </section>
-    </PageShell>
+    </div>
   );
 }

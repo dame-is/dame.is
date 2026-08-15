@@ -10,6 +10,8 @@
   flex-direction: column;
   gap: var(--space-2);
 }
+/* A real <a> since selection moved into the URL, so cmd-click opens a
+   publication in a new tab — hence the text-decoration reset. */
 .pub-list-row {
   width: 100%;
   display: grid;
@@ -18,7 +20,11 @@
   gap: var(--space-1) var(--space-3);
   padding: var(--space-3);
   text-align: left;
-  background: var(--paper);
+  text-decoration: none;
+  /* Was `var(--paper)`, which is defined in no stylesheet and has no fallback:
+     the declaration was invalid at computed-value time and the row rendered
+     transparent. `--page-edge` is the card fill the rest of the admin uses. */
+  background: var(--page-edge);
   border: 1px solid var(--rule);
   cursor: pointer;
   transition: border-color 120ms ease;
@@ -31,8 +37,14 @@
   font-size: var(--text-lg);
   color: var(--ink);
 }
+/* Column 2 explicitly. With only a definite ROW the rkey was auto-placed in
+   step 2 of the grid algorithm — before the name and the url, which are
+   auto-row — so it took column 1 and pushed the publication's name into the
+   narrow `auto` track on the right, backwards from what every other admin row
+   does. Being definite in both axes places it first, and correctly. */
 .pub-list-rkey {
   grid-row: 1 / span 2;
+  grid-column: 2;
   align-self: center;
   color: var(--ink-faint);
 }
@@ -112,7 +124,8 @@
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
   color: var(--ink-faint);
-  background: var(--paper);
+  /* Same undefined `--paper` as .pub-list-row above. */
+  background: var(--page-edge);
 }
 .pub-file {
   cursor: pointer;
@@ -146,7 +159,15 @@
   padding: var(--space-1) var(--space-2);
 }
 
+/* `white-space: pre` keeps the JSON's own indentation, which means long lines
+   are wider than the pane. A textarea is its own scroll container, so saying so
+   explicitly keeps that overflow inside the field instead of letting the
+   workbench pane scroll sideways. */
 .pub-raw {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 100%;
+  overflow-x: auto;
   font-family: var(--mono-ui);
   font-size: var(--text-xs);
   line-height: 1.5;
@@ -154,11 +175,13 @@
   tab-size: 2;
 }
 
+/* No margins on the studio's top-level blocks: they are direct children of
+   `.wb-studio`, whose flex `gap` owns the rhythm between them. */
 .pub-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
-  margin-top: var(--space-5);
 }
 
 /* The publication's own at:// URI, on the page that creates it.
@@ -170,7 +193,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2) var(--space-3);
-  margin: 0 0 var(--space-5);
+  margin: 0;
   padding: var(--space-3);
   border: 1px solid var(--rule);
 }
@@ -185,6 +208,10 @@
 }
 .pub-uri-hint code { font-size: 0.95em; }
 
-/* The list's own create button sits above the rows rather than after them, so
-   an empty repo has something to press without scrolling past the notice. */
-.pub-list + .pub-actions { margin-top: var(--space-5); }
+/* The publication being edited, beside the way back to the list. It borrows the
+   admin's group-header vocabulary so it reads as a label for the form below
+   rather than as a second page title — the pane already has the one <h1> on
+   screen — and sits at the far end of the row, away from the back link. */
+.pub-editor-title {
+  margin-inline-start: auto;
+}

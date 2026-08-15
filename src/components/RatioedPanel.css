@@ -40,9 +40,11 @@
   gap: 0.75rem;
 }
 
+/* Square, like everything else here: --radius-1..3 are all 0 (theme.css:87-89)
+   and the two rounded corners in this file were the only ones in the admin. */
 .ratioed-panel-row {
   border: 1px solid var(--rule-soft);
-  border-radius: 3px;
+  border-radius: 0;
   padding: 0.75rem 0.9rem;
   background: var(--page-edge);
 }
@@ -65,7 +67,7 @@
   text-transform: uppercase;
   color: var(--ink-faint);
   border: 1px solid currentColor;
-  border-radius: 2px;
+  border-radius: 0;
   padding: 0.05rem 0.35rem;
 }
 .ratioed-panel-state.live { color: var(--accent); }
@@ -100,7 +102,11 @@
   margin: 0.5rem 0 0;
 }
 
-@media (max-width: 34rem) {
+/* The catalogue rows reflow on the width of the PANE they are drawn in, not the
+   viewport: the workbench detail pane is its own `wbpane` container and can sit
+   well under 34rem at any screen size. As a viewport query the label column
+   held its 5.5rem while the values beside it wrapped to three lines. */
+@container wbpane (max-width: 34rem) {
   .ratioed-panel-kv { grid-template-columns: 1fr; gap: 0 0; }
   .ratioed-panel-kv dd { margin-bottom: 0.35rem; }
 }

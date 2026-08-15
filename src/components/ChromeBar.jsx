@@ -499,6 +499,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // The admin SkyThemeStudio has its own hour bar for tuning; the chip keeps
   // its tap-to-advance behavior there instead of opening the SkyHourSheet.
   const inSkyStudio = location.pathname === '/admin' && params.get('view') === 'sky';
+  // The admin workbench owns its own editing surface: Save / Delete ride on the
+  // pane's status strip, and there is no public record markup to inspect. Two of
+  // the bottom bar's buttons are therefore withheld there — see their call sites.
+  const inAdmin = location.pathname === '/admin';
   // The resume (/available) page exposes a print / save-as-PDF control in the
   // bottom bar's page-level cluster — it replaces the old in-page print button
   // and only shows while a resume is on screen.
@@ -701,21 +705,25 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                 {/* Atmosphere inspect — the marquee "turn the page inside out"
                     mode. Toggling it reveals the AT Protocol records beneath
                     the page; entering it folds away any open panel and the
-                    owner's edit mode (they compete for the same surface). */}
-                <button
-                  type="button"
-                  className={`chrome-nav chrome-xray ${xrayActive ? 'is-open' : ''}`}
-                  onClick={() => {
-                    closePanel();
-                    if (editActive) exitEdit();
-                    toggleXray();
-                  }}
-                  aria-pressed={xrayActive}
-                  aria-label={xrayActive ? 'Stop inspecting' : 'Inspect this page'}
-                  title="Inspect — reveal the records under the page"
-                >
-                  <Microscope className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                </button>
+                    owner's edit mode (they compete for the same surface).
+                    Withheld on /admin: x-ray annotates public record markup and
+                    the workbench has none. */}
+                {!inAdmin && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-xray ${xrayActive ? 'is-open' : ''}`}
+                    onClick={() => {
+                      closePanel();
+                      if (editActive) exitEdit();
+                      toggleXray();
+                    }}
+                    aria-pressed={xrayActive}
+                    aria-label={xrayActive ? 'Stop inspecting' : 'Inspect this page'}
+                    title="Inspect — reveal the records under the page"
+                  >
+                    <Microscope className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
                 {onResumePage && (
                   <button
                     type="button"
@@ -727,7 +735,13 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     <Printer className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
-                {isOwner && (
+                {/* Withheld on /admin: the shell's PageShell registers no
+                    atUri and no selection page, so every branch below would
+                    fall through to toggleEdit() and open an empty "Tap items to
+                    select" bar over the workbench. The X below is gated on
+                    `chromeEditOpen` alone, so nobody can be trapped in edit mode
+                    by this guard. */}
+                {isOwner && !inAdmin && (
                   <button
                     type="button"
                     className={`chrome-nav chrome-edit-btn ${chromeEditOpen ? 'is-open' : ''}`}

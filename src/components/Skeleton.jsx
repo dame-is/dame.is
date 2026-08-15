@@ -488,16 +488,39 @@ export function ResumeSkeleton({ orgs = 3, education = 1, skillGroups = 3 }) {
 /* -------------------------------------------------------------------- */
 
 /**
- * Skeleton for the admin record list (RecordList, ListeningManager, the
- * Site-pages record section). Mirrors the `.admin-record-list` rows — a
- * fixed rkey column beside a flexible preview line — so the placeholder
- * lands on the same grid the real rows fill.
+ * Skeleton for an admin record list. There are two real row shapes in the
+ * admin now and a single placeholder cannot stand in for both, so the caller
+ * says which one it is about to render:
+ *
+ *   `variant="classic"` (default) — the frozen `.admin-record-list` row: a
+ *     fixed 14ch rkey column, then a flexible preview line, all on one line.
+ *     Still what PagesOverview draws.
+ *   `variant="workbench"` — the workbench list column's `.wb-list-row`: a
+ *     checkbox gutter, then the record's name on its own line with the rkey
+ *     and timestamp on a quieter line beneath it.
+ *
+ * Guessing wrong is not a cosmetic matter: the two shapes put their heaviest
+ * block on opposite sides of the column, so a mismatched placeholder reads as
+ * the list jumping sideways the instant the real rows arrive.
+ *
+ * `marker` is the workbench variant's one piece of caller knowledge: the real
+ * row draws a small visibility square before the name, but only for the four
+ * collections that have a visibility model at all (`hasState` in RecordRow).
+ * Drawing it unconditionally would indent every title by 14px in the lists
+ * that never show one; omitting it would under-indent the ones that do.
  *
  * Pass `toolbar` to prepend a `.admin-toolbar`-shaped bar, used when the
  * whole page is still resolving (e.g. the session-restore gate) and the
  * real toolbar hasn't rendered yet.
  */
-export function AdminRecordListSkeleton({ rows = 6, toolbar = false, label = 'Loading records' }) {
+export function AdminRecordListSkeleton({
+  rows = 6,
+  toolbar = false,
+  variant = 'classic',
+  marker = false,
+  label = 'Loading records',
+}) {
+  const workbench = variant === 'workbench';
   return (
     <SkeletonShell label={label}>
       {toolbar && (
@@ -508,15 +531,57 @@ export function AdminRecordListSkeleton({ rows = 6, toolbar = false, label = 'Lo
         </div>
       )}
       <ul className="skeleton-admin-list">
-        {Array.from({ length: rows }, (_, i) => (
-          <li key={i} className="skeleton-admin-row">
-            <Skeleton className="skeleton-admin-rkey" />
-            <Skeleton
-              className="skeleton-admin-preview"
-              style={{ width: `${52 + ((i * 13) % 40)}%` }}
-            />
-          </li>
-        ))}
+        {Array.from({ length: rows }, (_, i) =>
+          workbench ? (
+            <li key={i} className="skeleton-admin-row skeleton-admin-row-wb">
+              {/* A real checkbox, hidden with `visibility` so it still occupies
+                  its box. Two reasons it is not a plain <span> of a guessed
+                  width: the browser's own checkbox metrics (13px plus 4px/3px
+                  default margins) are what set the real gutter, and copying
+                  them as a literal would silently drift; and the loaded row
+                  keeps its checkbox at opacity 0 until you hover, focus or tick
+                  it, so a breathing block here would advertise a control the
+                  resolved list does not show. `disabled` and the negative
+                  tabindex keep it out of the tab order. */}
+              <input
+                type="checkbox"
+                className="skeleton-admin-gutter"
+                disabled
+                tabIndex={-1}
+                aria-hidden="true"
+                readOnly
+              />
+              {/* Heights are passed as props, not left to the stylesheet.
+                  `Skeleton` writes its `height` default as an INLINE style, so
+                  an inline rule always beats a `.skeleton-*` class and a height
+                  declared in Skeleton.css silently does nothing. Widths are the
+                  other way round — the `width` prop defaults to undefined, so
+                  those do belong in the class. */}
+              <span className="skeleton-admin-stack">
+                <span className="skeleton-admin-line">
+                  {marker && <Skeleton className="skeleton-admin-dot" height="0.4rem" />}
+                  <Skeleton
+                    className="skeleton-admin-label"
+                    height="calc(var(--text-base) * var(--leading-tight))"
+                    style={{ width: `${52 + ((i * 13) % 40)}%` }}
+                  />
+                </span>
+                <span className="skeleton-admin-meta">
+                  <Skeleton className="skeleton-admin-rkey-inline" height="1.35rem" />
+                  <Skeleton className="skeleton-admin-when" height="1.2rem" />
+                </span>
+              </span>
+            </li>
+          ) : (
+            <li key={i} className="skeleton-admin-row">
+              <Skeleton className="skeleton-admin-rkey" />
+              <Skeleton
+                className="skeleton-admin-preview"
+                style={{ width: `${52 + ((i * 13) % 40)}%` }}
+              />
+            </li>
+          ),
+        )}
       </ul>
     </SkeletonShell>
   );

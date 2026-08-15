@@ -1,0 +1,532 @@
+/* The Front Desk — the `/admin` dashboard.
+
+   THREE THINGS TO KNOW BEFORE EDITING THIS FILE.
+
+   1. Every selector here is `.fd-*`, and nothing else in the tree may write
+      one. The `.wb-*` prefixes belong to the shell, the list column and the
+      record pane; `.admin-*` and `.rf-*` are frozen public API, reachable from
+      the public quick-edit sheet and from /exploring. This file therefore reuses
+      those classes where the vocabulary already exists — the section heads
+      (`.admin-collection-group-head`), the record rows (`.admin-record-*`), the
+      text input (`.admin-input`) — and never edits one.
+
+   2. Colours come from theme.css tokens only. The live theme is
+      `data-theme="sky"`, an hour-computed palette, so a literal hex would be
+      wrong for twenty-three hours of the day.
+
+      Two roles, kept apart on purpose:
+        --accent  is INTERACTIVE. Links, hover, focus. The moss green.
+        --tan     is SEMANTIC STATE. It is the palette's warm horizon tone and
+                  is already what `.admin-danger`, `.admin-error` and
+                  `.admin-field-required` speak with. Attention on this page is
+                  a rust rule in --tan, never an accent-coloured badge, so
+                  "something is interactive" and "something needs you" can never
+                  be confused for one another.
+
+   3. Density is inherited, not declared. The shell re-scopes six global tokens
+      on `.wb`, and custom properties inherit, so every --space-* and
+      --text-base below is already the denser admin scale. Do not restate them.
+
+   Zero border-radius anywhere — --radius-1..3 are all 0 and this file adds no
+   rounded corner of its own. */
+
+.fd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Head                                                                 */
+/* ------------------------------------------------------------------ */
+
+/* The head reuses the shell's `.wb-pane-head` for its type, its wrapping and
+   its baseline alignment; `.fd-head` adds exactly one thing — the trailing
+   control, pushed to the far edge. */
+.fd-head > .fd-action {
+  margin-left: auto;
+}
+
+/* The one button vocabulary this page needs: a hairline outline in the small-caps
+   voice. Deliberately NOT `.admin-gate-button`, which is a solid --ink primary —
+   far too loud for a control the owner uses once a day to re-read a number. */
+.fd-action {
+  appearance: none;
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: none;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.fd-action:hover:not(:disabled),
+.fd-action:focus-visible:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--highlight);
+}
+
+.fd-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
+/* Counts row                                                           */
+/* ------------------------------------------------------------------ */
+
+.fd-counts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.fd-tile {
+  /* The number's type size, published as a token because the loading skeleton
+     has to match it and `Skeleton` writes its height as an inline style — a
+     class cannot reach it. One value, stepped down once at the breakpoint,
+     keeps the placeholder and the digits it stands in for the same height. */
+  --fd-value-size: var(--text-3xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--rule);
+  background: var(--page-edge);
+}
+
+/* Attention is a doubled rust rule, not a badge. The inset shadow thickens the
+   border in place — a 2px border would reflow the tile and shift its three
+   neighbours by a pixel as a number landed. */
+.fd-tile[data-attention] {
+  border-color: var(--tan);
+  box-shadow: inset 0 0 0 1px var(--tan);
+}
+
+.fd-tile-label {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+}
+
+/* --code, not --mono: the site's serif font mode (which main.jsx always sets)
+   folds --mono into the serif, and a count is data. `tnum` keeps the digits on
+   a common width so a number changing under a refresh does not jiggle. */
+.fd-tile-value {
+  font-family: var(--code);
+  font-size: var(--fd-value-size);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-feature-settings: 'tnum' 1;
+}
+
+/* Prose where a number would be — "Guestbook index unavailable". Never a 0. */
+.fd-tile-flat {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  color: var(--ink-muted);
+}
+
+/* Captions sit on the tile's floor so the four values keep a common baseline
+   even when one tile's caption runs to two lines. */
+.fd-tile-notes {
+  display: flex;
+  flex-direction: column;
+  margin-top: auto;
+  padding-top: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  color: var(--ink-faint);
+}
+
+/* A caption carrying a `title` explains an approximation; mark it as such
+   rather than leaving the tooltip undiscoverable. */
+.fd-tile-notes span[title] {
+  cursor: help;
+  text-decoration: underline dotted var(--rule);
+  text-underline-offset: 0.25em;
+}
+
+/* One failed collection costs one number, never the page. */
+.fd-warn {
+  font-family: var(--sans);
+  font-size: var(--text-xl);
+  line-height: 1.05;
+  color: var(--tan);
+  cursor: help;
+}
+
+/* ------------------------------------------------------------------ */
+/* Needs you · Latest records                                           */
+/* ------------------------------------------------------------------ */
+
+/* Not an even split: "Needs you" is a short list of sentences and is empty on a
+   healthy repo, while every "Latest records" row carries an rkey, a label, a
+   surface and a time on one line. The extra ninth goes where the content is. */
+.fd-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
+  align-items: start;
+  gap: var(--space-6);
+}
+
+.fd-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fd-empty {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--ink-muted);
+}
+
+.fd-needs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* The rust rule is uniform across work items and consistency checks. Everything
+   in this section is here precisely because it is not zero, so ranking the rows
+   against one another would be inventing a severity the data does not carry —
+   the sub-heading is what separates the two kinds. */
+.fd-need {
+  border-left: 2px solid var(--tan);
+  padding-left: var(--space-3);
+}
+
+.fd-need-link {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.fd-need-label {
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  color: var(--ink);
+  transition: color 120ms ease;
+}
+
+.fd-need-action {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  transition: color 120ms ease;
+}
+
+.fd-need-link:hover .fd-need-label,
+.fd-need-link:focus-visible .fd-need-label,
+.fd-need-link:hover .fd-need-action,
+.fd-need-link:focus-visible .fd-need-action {
+  color: var(--accent);
+}
+
+/* Per-record links under an item that has them (only drafts, today). Each one
+   goes to the surface the record is homed on, so a portfolio draft opens in
+   Creating and a blog draft in Blogging. */
+.fd-need-rows {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.fd-need-row::before {
+  content: '·';
+  margin-right: var(--space-2);
+  color: var(--ink-faint);
+}
+
+.fd-subhead {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+}
+
+/* The surface a "Latest records" row belongs to, between its label and its
+   time. Neutral on purpose — `.admin-record-chip` is the outlined --tan tag
+   that means "not on the public site", and a surface name means nothing of the
+   kind. */
+.fd-row-surface {
+  flex: 0 0 auto;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  color: var(--ink-muted);
+}
+
+.fd-skel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Surface grid                                                         */
+/* ------------------------------------------------------------------ */
+
+.fd-surfaces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.fd-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fd-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-3);
+}
+
+.fd-surface {
+  display: flex;
+  min-width: 0;
+  transition: opacity 120ms ease;
+}
+
+/* Hover borrows the rail chip's vocabulary — accent border over an accent wash
+   — so a grid tile and a rail button answer the same click the same way. */
+.fd-surface-link {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--rule-soft);
+  text-decoration: none;
+  color: var(--ink);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.fd-surface-link:hover,
+.fd-surface-link:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: var(--highlight);
+}
+
+.fd-surface-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.fd-surface-label {
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.fd-surface-count {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  font-family: var(--code);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  font-feature-settings: 'tnum' 1;
+}
+
+/* The three large collections, the off-repo guestbook and the migration tool
+   carry a way in and NO number. Not "many", not "1000+" — counting
+   app.bsky.feed.post means 246 requests, and an invented number is worse than
+   no number. */
+.fd-surface-open,
+.fd-surface-none {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+}
+
+.fd-surface-blurb {
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  color: var(--ink-faint);
+}
+
+.fd-surface-skel {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* Dimmed, never disabled: an absent collection and an empty one are
+   indistinguishable at the API and to the owner, and either way you may want to
+   write the first record. Same treatment the rail gives the same surface. */
+.fd-surface[data-absent] {
+  opacity: 0.55;
+}
+
+.fd-surface[data-absent]:hover,
+.fd-surface[data-absent]:focus-within {
+  opacity: 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Open any collection                                                  */
+/* ------------------------------------------------------------------ */
+
+.fd-any {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.fd-any-label {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+}
+
+/* `.admin-input` is `width: 100%`, which is right inside a field stack and
+   wrong in a row. Overridden through a descendant selector rather than by
+   source order, because Admin.css and this file land in different chunks and
+   their order in the built bundle is not ours to depend on. */
+.fd-any .admin-input {
+  width: auto;
+  flex: 1 1 16rem;
+  max-width: 26rem;
+  font-family: var(--code);
+  font-size: var(--text-xs);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stacked (drill-down) — 60rem / 960px                                 */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 60rem) {
+  /* 2 x 2 on a phone: at 390px the pane is about 22rem wide, which fits two
+     7.5rem columns and not three. auto-fill rather than a hard `repeat(2)` so a
+     tablet in the same range gets three or four across instead of two very wide
+     ones. */
+  .fd-counts {
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: var(--space-3);
+  }
+
+  .fd-tile {
+    --fd-value-size: var(--text-2xl);
+    padding: var(--space-3);
+  }
+
+  /* Needs you first, then Latest records — it is first in the DOM, so the
+     single column already puts it there. */
+  .fd-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+
+  /* Each group collapses to its heading plus a wrapped chip row. The blurbs are
+     a desktop affordance: on a phone they would triple the height of the one
+     part of this page that has to stay thumb-scrollable. */
+  .fd-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .fd-surface-link {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .fd-surface-head {
+    gap: var(--space-2);
+  }
+
+  .fd-surface-label {
+    font-size: var(--text-base);
+  }
+
+  .fd-surface-blurb {
+    display: none;
+  }
+
+  /* On a chip the tile IS the affordance, and "no records yet" is already said
+     by the dimming — both would only crowd the label. The number stays, because
+     it is the one thing the chip cannot say any other way. */
+  .fd-surface-open,
+  .fd-surface-none {
+    display: none;
+  }
+
+  .fd-surface-count {
+    margin-left: 0;
+  }
+
+  /* The rkey column is a fixed 14ch, which is a third of a 390px row — enough
+     to wrap every label onto three lines. On a phone the label, the surface and
+     the time are what identify a row; the rkey is one tap away on the record
+     itself. Scoped under `.fd` so the frozen `.admin-record-rkey` rule is
+     untouched everywhere else it renders, including the list column, the public
+     quick-edit sheet and /exploring. */
+  .fd .admin-record-rkey {
+    display: none;
+  }
+
+  .fd-any .admin-input {
+    flex: 1 1 12rem;
+  }
+}

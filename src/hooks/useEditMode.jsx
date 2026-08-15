@@ -52,12 +52,14 @@ export function EditModeProvider({ children }) {
   // A controller published by the open sheet's RecordEditor so the edit
   // action bar can drive save/delete: { save, remove, saving, deleting,
   // loading, canDelete } or null.
+  //
+  // There used to be a second one of these, `pageEditor`, published by the
+  // full admin record editor so that its Save / Delete / Close appeared in
+  // this same bottom bar. The workbench owns its own status strip now — Save
+  // and Delete live on the detail pane's header, inside the shell, where the
+  // record they act on is — so nothing publishes a page editor any more and
+  // the state is gone. The sheet is the only remaining producer.
   const [sheetEditor, setSheetEditor] = useState(null);
-  // The same shape, published by the full admin record editor page so its
-  // Save / Delete / Close live in the bottom-chrome action bar instead of at
-  // the foot of the page. Independent of `sheetEditor` (different source, so
-  // the two never race to null each other). Also carries `close` + `isNew`.
-  const [pageEditor, setPageEditor] = useState(null);
   const location = useLocation();
   const { open: dockOpen } = useActionDock();
   const { panel } = useChromePanel();
@@ -195,8 +197,6 @@ export function EditModeProvider({ children }) {
       closeEditSheet,
       sheetEditor,
       setSheetEditor,
-      pageEditor,
-      setPageEditor,
     }),
     [
       active,
@@ -220,8 +220,6 @@ export function EditModeProvider({ children }) {
       closeEditSheet,
       sheetEditor,
       setSheetEditor,
-      pageEditor,
-      setPageEditor,
     ],
   );
 

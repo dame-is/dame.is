@@ -1,0 +1,363 @@
+/* The record list column. Every selector here is `.wb-list*`, which is this
+   file's alone — the shell owns `.wb`, `.wb-shell`, `.wb-rail`, `.wb-pane` and
+   `.wb-strip`, the detail pane owns `.wb-editor*`, and the sub-prefixes are
+   disjoint so three owners can write `.wb-` rules without collision.
+
+   THREE THINGS TO KNOW BEFORE EDITING.
+
+   1. `Admin.css` is NOT admin-only — RecordEditor imports it, EditSheet renders
+      RecordEditor app-wide, and Exploring.css @imports the whole file into a
+      public route. The `.admin-*` classes this pane reuses (`.admin-record-list`,
+      `.admin-record-row`, `.admin-record-chip`, `.admin-multiselect-*`,
+      `.admin-input`, `.admin-gate-button`) are frozen public API: reuse them,
+      never restyle them. Where this column needs different geometry it adds a
+      `.wb-list-*` class ALONGSIDE, so the shared rule keeps doing exactly what it
+      does everywhere else.
+
+   2. Colours come from theme.css tokens only. The live theme is
+      `data-theme="sky"`, an hour-computed palette, so a hardcoded hex would be
+      wrong for 23 hours of the day. Tints are `color-mix` over `--accent` /
+      `--ink`, which follow the palette; the literals below are all opacities.
+
+   3. This column is 22rem on desktop and full width on a phone, and it is the
+      pane the shell makes an overflow scroller. Nothing in here may set a width
+      that cannot shrink: every flex row wraps, and every flex child that holds
+      text carries `min-width: 0`. */
+
+.wb-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  /* Breathing room against the detail pane, on top of the shell's grid gap.
+     Deliberately NOT a hairline rule: this column is only as tall as its own
+     content, so on a seven-record collection the rule would stop a third of the
+     way down an otherwise empty column and read as a stray mark rather than as a
+     seam. The head's bottom rule and the row hairlines carry the separation. */
+  padding-right: var(--space-4);
+}
+
+/* ------------------------------------------------------------------ */
+/* Head — title, filter, sort, bulk actions                             */
+/* ------------------------------------------------------------------ */
+
+/* Sticky INSIDE the column's own scroller (the shell gives `.wb-pane-list`
+   `overflow-y: auto`), so the filter box and the bulk actions stay reachable
+   however far down a 100-row list you are. It must paint an opaque background —
+   panes paint on `--page` — or rows would scroll through it. */
+.wb-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--page);
+}
+
+.wb-list-titlerow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Smaller than the shell's `--text-2xl` pane title. This is a column header
+   sharing a 22rem measure with a filter box and a bulk toolbar, not the title of
+   the thing you came here to read.
+
+   The descendant selector is doing real work: this rule and `.wb-pane-title` in
+   adminShell.css are both one class, and adminShell.css is emitted after this
+   file, so a bare `.wb-list-title` would lose the tie. Every rule below that
+   overrides a class from another sheet is qualified the same way. */
+.wb-list .wb-list-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-lg);
+}
+
+.wb-list-refresh {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.wb-list-refresh:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.wb-list-new {
+  flex: 0 0 auto;
+}
+
+.wb-list-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* `.admin-input` is `width: 100%`; in this row the filter takes the slack and
+   the sort control takes only what it needs. */
+.wb-list-filter {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+/* `width: auto` against `.admin-input`'s `width: 100%`, which would otherwise
+   push the select onto a line of its own. */
+.wb-list .wb-list-sort {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/* A `<code>` in a flex column is a flex item, and a stretched one reads as an
+   input field rather than as the collection's name. */
+.wb-list .wb-list-nsid {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+/* Segmented visibility filter — All / Visible / Hidden. One box divided by
+   hairlines rather than three separate chips, because the three are one choice.
+   Zero radius, like everything else here. */
+.wb-list-seg {
+  display: flex;
+  align-self: flex-start;
+  max-width: 100%;
+  border: 1px solid var(--rule);
+}
+
+.wb-list-seg-btn {
+  appearance: none;
+  padding: 0.1rem var(--space-2);
+  border: 0;
+  border-left: 1px solid var(--rule);
+  background: none;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.wb-list-seg-btn:first-child {
+  border-left: 0;
+}
+
+.wb-list-seg-btn:hover {
+  color: var(--accent);
+}
+
+.wb-list-seg-btn.is-on {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+/* The shared multiselect toolbar, tightened for a narrow column: its default
+   `--space-4` gaps and `--space-3` block padding are sized for a full-width page
+   and would wrap this row twice over. */
+.wb-list .wb-list-bulk {
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  margin-bottom: 0;
+}
+
+.wb-list-all {
+  flex: 0 0 auto;
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+/* The filter can only see what has been fetched. This line says so, and only
+   while it is actually misleading. */
+.wb-list-note {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.wb-list .wb-list-empty {
+  padding: var(--space-4);
+}
+
+/* ------------------------------------------------------------------ */
+/* Rows                                                                 */
+/* ------------------------------------------------------------------ */
+
+.wb-list-rows {
+  min-width: 0;
+}
+
+/* `.admin-record-row` already draws the hairline between rows. This adds the
+   checkbox gutter and the inset the open row's accent edge paints into — the
+   inset is permanent so that marking a row open never nudges its text sideways. */
+.wb-list-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+  transition: background 120ms ease;
+}
+
+.wb-list-row:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+/* The record the detail pane is editing. An accent edge inside the row's own box
+   rather than a border, so it costs no layout. */
+.wb-list-row.is-open {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Ticked for a bulk action. Deliberately a different signal from `is-open`: one
+   is where you are, the other is what you are about to hide or delete. */
+.wb-list-row.is-selected {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* Checkboxes are always in the DOM and always focusable — the fade is opacity,
+   never `display`, so revealing one cannot reflow the list under the pointer.
+   They come up on hover, on keyboard focus anywhere in the row, on the rows that
+   are ticked, and on every row while a selection exists. */
+.wb-list-check {
+  flex: 0 0 auto;
+  margin-top: 0.75em;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.wb-list-row:hover .wb-list-check,
+.wb-list-row:focus-within .wb-list-check,
+.wb-list-row.is-selected .wb-list-check,
+.wb-list[data-selecting] .wb-list-check {
+  opacity: 1;
+}
+
+/* Touch has no hover, and a checkbox that only appears on a state the device
+   cannot produce is a checkbox that does not exist. */
+@media (pointer: coarse) {
+  .wb-list-check {
+    opacity: 1;
+  }
+}
+
+/* Two lines: what the record is, then how it is addressed and when it was last
+   touched. The old single-line row spent 14ch on the rkey before the title
+   started, which is a third of this column. */
+.wb-list-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.wb-list-link:hover .wb-list-label {
+  color: var(--accent);
+}
+
+.wb-list-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* A square, not a dot — nothing on this site is round. It is drawn only for the
+   four collections that express "hidden from the site" at all; a marker that
+   always means nothing is noise in a column this narrow. */
+.wb-list-dot {
+  flex: 0 0 auto;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: var(--accent-soft);
+}
+
+.wb-list-dot[data-hidden] {
+  background: var(--tan);
+}
+
+.wb-list-label {
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+  /* Two lines of title, then an ellipsis: enough for a real headline, bounded so
+     one long record cannot own the column. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  transition: color 120ms ease;
+}
+
+.wb-list-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+}
+
+/* `--code`, not `--mono`: an rkey is raw data, and `--code` stays monospace in
+   every font mode while `--mono` folds into the serif under `[data-font='serif']`
+   — which is the mode main.jsx always sets. (The frozen `.admin-record-rkey` in
+   Admin.css is deliberately serif; this is a new rule, so it follows the rule for
+   new rules.) */
+.wb-list-rkey {
+  min-width: 0;
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-list-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.wb-list-more {
+  align-self: flex-start;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stacked (drill-down) — 60rem / 960px                                 */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 60rem) {
+  /* One column: there is no detail pane beside this one to be separated from. */
+  .wb-list {
+    padding-right: 0;
+  }
+
+  /* Stacked, the shell releases `.wb-pane-list` to scroll with the DOCUMENT, so
+     a sticky head here would pin to the viewport and slide under the chrome bar
+     and the rail's chip row — both of which are already sticky at offsets this
+     file cannot know. The list is the whole page at this width; it scrolls as
+     one. */
+  .wb-list-head {
+    position: static;
+  }
+}

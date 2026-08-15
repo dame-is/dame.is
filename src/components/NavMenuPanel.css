@@ -153,11 +153,18 @@
   gap: 0.35em;
 }
 
-.nav-save {
-  margin-top: var(--space-5);
+/* Pushed to the end of the footer row so the "Saved ✓" confirmation appears
+   away from the two destructive-ish buttons rather than between them. */
+.nav-flash {
+  margin-left: auto;
 }
 
-@media (max-width: 560px) {
+/* The entry row reflows on the width of the PANE it is drawn in, not the
+   viewport: the workbench's detail pane is its own `wbpane` container, and at a
+   wide viewport it can still be narrower than this — a record surface with its
+   list column open leaves ~34rem. As a viewport query this fired at ~560px
+   screen while the pane had been too narrow for a one-line row for some time. */
+@container wbpane (max-width: 560px) {
   .nav-item {
     flex-wrap: wrap;
   }

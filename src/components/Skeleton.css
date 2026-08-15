@@ -438,9 +438,13 @@
   border-top: 0;
 }
 
+/* 14ch, matching `.admin-record-rkey` (Admin.css) exactly — this block mirrors
+   that geometry by hand and had drifted to 9ch, so every admin list visibly
+   shifted its second column rightwards the moment the real rows replaced the
+   placeholder. Every consumer of AdminRecordListSkeleton is admin-only. */
 .skeleton-admin-rkey {
   flex: 0 0 auto;
-  width: 9ch;
+  width: 14ch;
   height: 0.8rem;
 }
 
@@ -448,6 +452,99 @@
   flex: 1 1 auto;
   height: 1.05em;
   max-width: var(--measure);
+}
+
+/* Variant: the workbench list column's two-line row (`.wb-list-row` in
+   recordListPane.css). The classic row above puts a 14ch rkey block on the
+   left and the title after it; the workbench row inverts that — a checkbox
+   gutter, the title on its own line, then the rkey and time on a quieter
+   second line. Mirrored here by hand, same as the block above mirrors
+   `.admin-record-list`, because a placeholder whose weight sits on the wrong
+   side of the column reads as the list lurching sideways when it resolves.
+
+   `.skeleton-admin-row` already supplies the hairline and the vertical
+   padding; these rules only add the gutter inset and the stack. The
+   `padding-left` deliberately re-opens the left edge that the shorthand
+   `padding: var(--space-3) 0` closed, matching `.wb-list-row`'s own inset —
+   the inset the open row's accent edge paints into. */
+.skeleton-admin-row-wb {
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding-left: var(--space-2);
+}
+
+/* The checkbox gutter. This IS a checkbox — see the note at the JSX — hidden
+   with `visibility` rather than `display` so it keeps its box, and with no
+   width of its own so the browser's own metrics decide the column, exactly as
+   they do for the real `.wb-list-check`. */
+.skeleton-admin-gutter {
+  flex: 0 0 auto;
+  visibility: hidden;
+}
+
+/* Mirrors `.wb-list-link`: the two stacked lines, its `--space-1` gap and its
+   right inset. The row above supplies the vertical padding. */
+.skeleton-admin-stack {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-right: var(--space-2);
+}
+
+.skeleton-admin-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* NOTE for the four rules below: they carry no `height`. `Skeleton` writes its
+   `height` prop — which defaults to `1em` — as an inline style, and an inline
+   style beats any class, so a height set here would silently do nothing. The
+   workbench rows therefore pass their heights as props at the JSX, matched to
+   the measured line boxes of `.wb-list-dot` (6.4px), `.wb-list-label` (19.8px),
+   `.wb-list-rkey` (21.6px) and `.wb-list-time` (19.2px). Widths are the
+   opposite: the `width` prop defaults to undefined, so they belong here. */
+
+/* The visibility square, at `.wb-list-dot`'s size so the title beside it starts
+   on the same pixel it will start on once the row resolves. */
+.skeleton-admin-dot {
+  flex: 0 0 auto;
+  width: 0.4rem;
+}
+
+/* One line of `.wb-list-label`. The real label may run to two before it clamps,
+   but one is the common case, and over-drawing a placeholder is the more
+   annoying error — it makes the list visibly shrink as it loads. */
+.skeleton-admin-label {
+  flex: 0 1 auto;
+  max-width: var(--measure);
+}
+
+.skeleton-admin-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+
+/* Unlike `.skeleton-admin-rkey` this is not a fixed 14ch column — the workbench
+   rkey is an ellipsizing inline `<code>` on the meta line, so the placeholder
+   claims a plausible width rather than a reserved one. 6rem is a 13-character
+   TID at `--text-xs`, plus the padding the global `code` rule adds. */
+.skeleton-admin-rkey-inline {
+  flex: 0 1 auto;
+  width: 6rem;
+}
+
+/* The relative timestamp, pushed to the far right by `.wb-list-time`'s
+   `margin-left: auto`. Sized for the "4mo ago" that both the fixture repo and
+   the real one mostly produce. */
+.skeleton-admin-when {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 2.7rem;
 }
 
 /* Variant: admin "Local vs PDS" page panels. Mirrors .admin-page-panel —
@@ -536,6 +633,43 @@
 .skeleton-admin-action-btn {
   width: 5.5rem;
   height: 2.1rem;
+}
+
+/* Inside the workbench the detail pane passes `hideActions` and registers Save
+   and Delete with the status strip on the pane header instead, so the loaded
+   form has no actions row at its foot — a placeholder that draws two buttons
+   there promises a control that never arrives, and the field stack visibly
+   shortens when it resolves.
+
+   Hidden with a rule rather than a prop because `AdminEditorSkeleton` also
+   renders on public routes: `/exploring` still gives the form its own actions
+   row (so the placeholder is correct there), and the public quick-edit sheet
+   must stay byte-identical to what it has always shown. Scoping to `.wb` is the
+   same test applied to every other fix in this rebuild — if the selector can
+   render outside the shell, scope the fix. */
+.wb .skeleton-admin-actions {
+  display: none;
+}
+
+/* The two `height` declarations above have never taken effect. `Skeleton`
+   writes its `height` prop as an INLINE style and defaults it to `1em`, so
+   every field in this placeholder has been drawing as a 16px bar rather than
+   the ~40px input and ~136px textarea the real `.admin-form` fills in with.
+   That is a long-standing bug in the shared component, not something this
+   rebuild introduced.
+
+   It is corrected here with `min-height` — a different property from the one
+   set inline, so it applies without `!important` — and scoped to `.wb` because
+   the same skeleton renders in the public quick-edit sheet and on /exploring,
+   where the loading state must stay exactly as it has always looked. The
+   values are measured off the real form in the detail pane rather than copied
+   from the dead declarations above, which guessed slightly low. */
+.wb .skeleton-admin-field-input {
+  min-height: 2.5rem;
+}
+
+.wb .skeleton-admin-field-input-tall {
+  min-height: 8.5rem;
 }
 
 /* Variant: for-hire / resume page skeleton. Mirrors the .resume article so

@@ -132,6 +132,14 @@ function SkipLink() {
 
 export default function App() {
   const location = useLocation();
+  // The admin is the one route that does not wear the site's chrome. It is a
+  // tool, not a page: it owns the whole viewport, draws its own top bar, and
+  // puts the controls the bottom bar would have offered (view the site, the
+  // hour chip) into that bar instead. Suppressing ChromeBar here rather than
+  // inside it keeps the public component free of admin branching, and it is
+  // what lets AdminShell take a fixed full-viewport frame — with no chrome to
+  // compete with, nothing is left to reserve space for or scroll under.
+  const inAdmin = location.pathname === '/admin';
   return (
     <ThemeProvider>
       <FontProvider>
@@ -146,9 +154,9 @@ export default function App() {
       <EditModeProvider>
       <XrayProvider>
       <FeedFooterProvider>
-          <div className="app-shell">
+          <div className={`app-shell${inAdmin ? ' app-shell-admin' : ''}`}>
             <SkipLink />
-            <ChromeBar />
+            {!inAdmin && <ChromeBar />}
             <main id="main-content" tabIndex={-1} className="layout">
               <div className="main">
                 <ErrorBoundary resetKey={location.pathname}>

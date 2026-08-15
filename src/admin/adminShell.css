@@ -1,0 +1,798 @@
+/* The admin workbench shell: the rail, the two panes, the tab bar, the status
+   strip and the skeleton that stands in for all of it.
+
+   THREE THINGS TO KNOW BEFORE EDITING THIS FILE.
+
+   1. `Admin.css` is NOT admin-only. RecordEditor imports it, EditSheet renders
+      RecordEditor app-wide, and Exploring.css @imports the whole file into a
+      public route. Every `.admin-*` / `.rf-*` / `.record-preview*` /
+      `.arena-cover-*` / `.category-field-*` selector is frozen public API. This
+      file adds `.wb-*` names and never touches one of those.
+
+   2. Density comes from RE-SCOPING SIX GLOBAL TOKENS on `.wb`, not from
+      restyling `.admin-*`. Custom properties inherit, so every `.admin-field`,
+      `.admin-input` and `.rf-card` rendered INSIDE the shell gets the denser
+      scale for free — while the same classes rendered in the public quick-edit
+      sheet, which portals to document.body outside `.wb`, keep the global
+      scale. No rule is duplicated and no rule is edited.
+
+   3. Colours come from the tokens in theme.css only. The live theme is
+      `data-theme="sky"`, an hour-computed palette, so a hardcoded hex would be
+      wrong for 23 hours of the day. */
+
+/* ------------------------------------------------------------------ */
+/* Taking the viewport                                                  */
+/* ------------------------------------------------------------------ */
+
+/* The admin does not wear the site's chrome. App.jsx withholds <ChromeBar/> on
+   /admin (both bars), so the workbench is free to take the whole viewport as a
+   fixed frame and let each of its three columns scroll on its own — which is
+   the point of a workbench, and impossible while the document itself scrolls.
+
+   An earlier revision widened `.main` instead and left the chrome in place. The
+   objection to a fixed frame then was real: an unscrollable document made
+   ChromeBar reveal its footer strip and permanently reserve its height. With no
+   ChromeBar on the route, there is nothing left to reveal or reserve.
+
+   AdminShell stamps `data-admin-shell` on <html> and removes it on unmount; the
+   rules below win by SPECIFICITY, not source order, because the built bundle
+   emits app.css AFTER Admin.css. */
+
+/* Nothing behind the frame may scroll, or a phone will rubber-band the frame
+   away from the viewport edge. */
+:root[data-admin-shell],
+:root[data-admin-shell] body {
+  overflow: hidden;
+}
+
+/* `.app-shell` reserves room under the page for the bottom bar and everything
+   that rides above it. None of that is rendered here. */
+.app-shell-admin {
+  padding-bottom: 0;
+  min-height: 0;
+}
+
+/* `.main` caps the page at 72rem with generous padding — right for prose, wrong
+   for a workbench. It is emptied rather than restyled: the frame is `fixed`, so
+   `.main`'s own box no longer positions anything. */
+:root[data-admin-shell] .main {
+  max-width: none;
+  padding: 0;
+}
+
+/* The frame. `inset: 0` on a fixed element is the visual viewport, which is what
+   the iOS keyboard shrinks — so the shell follows the keyboard up instead of
+   hiding the focused field behind it. */
+:root[data-admin-shell] .wb {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--page);
+}
+
+/* ------------------------------------------------------------------ */
+/* Top bar                                                              */
+/* ------------------------------------------------------------------ */
+
+/* Stands in for the public chrome on this route. Same height as `--chrome-h` so
+   the admin sits at the same rhythm as every other page, and the same raised
+   surface as the rail beneath it — the two read as one piece of furniture with
+   the panes inset into it. */
+.wb-top {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--chrome-h);
+  padding: 0 var(--space-4);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--rule);
+}
+
+.wb-top-mark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 0 0 auto;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.wb-top-mark-dot {
+  width: 1.1rem;
+  height: 1.1rem;
+  background: var(--accent);
+}
+
+.wb-top-mark b {
+  font-weight: 600;
+}
+
+.wb-top-mark-tag,
+.wb-rail-heading {
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.wb-crumbs {
+  min-width: 0;
+  flex: 1;
+}
+
+.wb-crumbs ol {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.wb-crumbs li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+.wb-crumbs li:last-child {
+  overflow: hidden;
+}
+
+.wb-crumbs a {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+.wb-crumbs a:hover {
+  color: var(--accent);
+}
+
+.wb-crumbs [aria-current='page'] {
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-crumb-sep {
+  color: var(--ink-faint);
+}
+
+.wb-crumbs code {
+  font-family: var(--code);
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.wb-top-end {
+  margin-left: auto;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.wb-top-hour {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  border: 1px solid var(--rule);
+  padding: 0.1rem 0.4rem;
+}
+
+.wb-top-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.16em;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  border: 1px solid var(--rule);
+  padding: 0.15rem var(--space-3);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.wb-top-out:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.wb-top-out-glyph {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Density                                                              */
+/* ------------------------------------------------------------------ */
+
+/* The closed set. `.wb` may redefine THESE SIX and nothing else — never a colour
+   token (that would fight [data-theme]), never `--chrome-*`, `--radius-*`,
+   `--edit-bar-h`, or a font stack. */
+.wb {
+  --space-3: 0.6rem;
+  --space-4: 0.8rem;
+  --space-5: 1.1rem;
+  --text-base: 0.95rem;
+  --leading: 1.45;
+  --measure: 68ch;
+}
+
+/* ------------------------------------------------------------------ */
+/* Grid                                                                 */
+/* ------------------------------------------------------------------ */
+
+/* The three columns fill whatever the top bar leaves, and each one scrolls on
+   its own. `min-height: 0` because a grid item defaults to `min-height: auto`
+   and would otherwise refuse to shrink below its content — which is exactly how
+   a "full height" column ends up pushing the page taller than the viewport. */
+.wb-shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--wb-rail-w) minmax(16rem, var(--wb-list-w)) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  --wb-rail-w: 13.5rem;
+  --wb-list-w: 23rem;
+  --wb-measure: var(--measure);
+}
+
+/* Column count is decided by whether a list column was RENDERED, not by the
+   surface kind — every studio and the Front Desk are rail + detail. */
+.wb-shell:not(:has(.wb-pane-list)) {
+  grid-template-columns: var(--wb-rail-w) minmax(0, 1fr);
+}
+
+/* `fullWidth` drops the measure clamp INSIDE the detail pane; it never changes
+   the column count. It is set for the surfaces whose bodies are inherently wide
+   — the sky palette grid, the ratioed live feed — and for the Front Desk, which
+   owns its own grid. */
+.wb[data-full-width] .wb-shell {
+  --wb-measure: none;
+}
+
+.wb-pane {
+  min-width: 0;
+}
+
+.wb-pane-detail {
+  /* Studios reflow on PANE width, not viewport width: a 34rem pane needs its
+     one-column layout at 1600px just as much as at 900px. This is the container
+     they query. It also makes the pane a containing block for `position: fixed`
+     descendants — verified safe, because every overlay in reach (Modal,
+     Lightbox, BottomSheet, ActionDock, the sky hour bar) portals to
+     document.body. */
+  container-type: inline-size;
+  container-name: wbpane;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-5) var(--space-8);
+}
+
+/* Clamp a form studio or a record editor to the measure so it does not stretch
+   to 1400px on a wide monitor. `--wb-measure` is `none` on a fullWidth surface.
+
+   The status strip is clamped with them, and that is not cosmetic tidiness: it
+   is the Save and Delete buttons FOR the body underneath it, and unclamped they
+   floated ~420px to the right of the form they act on at 1440px — the two
+   elements are one control surface and have to share an edge. On a fullWidth
+   surface `--wb-measure` is `none`, so the strip spans the pane exactly as the
+   studio below it does. */
+.wb-pane-detail > .wb-strip,
+.wb-pane-detail > .wb-studio,
+.wb-pane-detail > .wb-editor {
+  max-width: var(--wb-measure);
+  min-width: 0;
+}
+
+/* Each column is its own scrollport, full height of the frame. Nothing is
+   sticky and nothing is measured against the chrome any more — there is no
+   chrome on this route. */
+.wb-pane-list,
+.wb-rail {
+  min-height: 0;
+  height: 100%;
+}
+
+.wb-pane-list {
+  overflow-y: auto;
+  border-right: 1px solid var(--rule);
+  padding: var(--space-4);
+}
+
+/* ------------------------------------------------------------------ */
+/* Rail                                                                 */
+/* ------------------------------------------------------------------ */
+
+/* Panes paint on `--page`; the rail paints on `--surface-raised` with
+   `--ink-soft` glyphs only. That is why theme.css needs no new selector — its
+   raised-surface ink re-tune is for MUTED TEXT on a raised surface, and the rail
+   has none. */
+.wb-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  /* Tight on purpose. There are twenty-one surfaces, and the rail is its own
+     scroll container — every rem of slack here is a row that falls below the
+     fold on a laptop. */
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  background: var(--surface-raised);
+  border-right: 1px solid var(--rule);
+}
+
+/* Only the surface groups scroll — see the note in AdminRail.jsx. `min-height: 0`
+   for the same reason as above: a flex item will not shrink below its content
+   without it, and the scroller would push the pinned footer out of the rail. */
+.wb-rail-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  /* The rail is 3.25rem wide and cannot spare a gutter; the seam above the
+     pinned footer is what says "there is more here". */
+  scrollbar-width: none;
+}
+
+.wb-rail-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.wb-rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  width: 100%;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.wb-rail-scroll > .wb-rail-group:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* The "open any collection" control sits at the foot of the rail, outside the
+   scroller, because it is an escape hatch rather than a destination — and one
+   that must never scroll out of reach. */
+.wb-rail-group-end {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: var(--space-2);
+  padding-bottom: 0;
+  border-top: 1px solid var(--rule-soft);
+  border-bottom: 0;
+}
+
+/* Geometry and states copied from the public chrome's `.chrome-nav` so the admin
+   reads as the same site — but under a NEW class name, because `.chrome-nav`
+   belongs to the public chrome and must stay reachable only from there. */
+.wb-rail-btn {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 1.75rem;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease,
+    opacity 120ms ease;
+}
+
+/* The glyph never shrinks when a long label wraps. */
+.wb-rail-btn > svg {
+  flex: 0 0 auto;
+}
+
+.wb-rail-btn:hover,
+.wb-rail-btn:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  /* Over the chip fill, hover must be an opaque LIGHTEN — a see-through accent
+     tint would let the darker rail show through and read as the button getting
+     darker on hover. */
+  background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+.wb-rail-btn.is-open {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 20%, var(--page));
+}
+
+/* A collection that came back empty. Dimmed, never disabled: an absent
+   collection and an empty one are indistinguishable at the API, and either way
+   the owner may want to create the first record. */
+.wb-rail-btn[data-absent] {
+  opacity: 0.55;
+}
+
+.wb-rail-btn[data-absent]:hover,
+.wb-rail-btn[data-absent]:focus-visible {
+  opacity: 1;
+}
+
+/* Keep the 28px painted chip, grow the tappable area to the 44px platform
+   minimum on touch. Same trick, same numbers, as the chrome bar's buttons. */
+@media (pointer: coarse) {
+  .wb-rail-btn::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+}
+
+/* The label is in the DOM at every width — it is the accessible name's visible
+   twin, revealed when the rail becomes a chip row. */
+.wb-rail-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The group's name, in the site's small-caps signal voice. Purely a divider
+   with a word on it — the groups already carry a rule. */
+.wb-rail-heading {
+  padding: 0 var(--space-2) var(--space-1);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pane headers, studios                                                */
+/* ------------------------------------------------------------------ */
+
+.wb-studio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.wb-pane-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.wb-pane-title {
+  font-family: var(--serif);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  color: var(--ink);
+}
+
+.wb-pane-blurb {
+  max-width: var(--measure);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Tab bar (Edit · Preview · JSON)                                      */
+/* ------------------------------------------------------------------ */
+
+.wb-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--rule);
+}
+
+.wb-tab {
+  appearance: none;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.wb-tab:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.wb-tab[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.wb-tab:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
+/* Status strip                                                         */
+/* ------------------------------------------------------------------ */
+
+/* First child of `.wb-pane-detail`. On desktop it pins to the same offset the
+   list column uses, so the two tops agree. z-index 5 sits above pane content and
+   below every chrome surface. */
+.wb-strip {
+  position: sticky;
+  top: calc(var(--chrome-top-h, var(--chrome-h)) + var(--space-3));
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule);
+  background: var(--surface-raised);
+}
+
+.wb-strip-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+}
+
+/* A hairline square rather than a dot — nothing in this site is round. */
+.wb-strip-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--rule);
+}
+
+.wb-strip[data-dirty] .wb-strip-dot {
+  background: var(--accent);
+}
+
+.wb-strip[data-dirty] .wb-strip-message {
+  color: var(--ink);
+}
+
+.wb-strip-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-strip-shared {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+}
+
+.wb-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Skeleton                                                             */
+/* ------------------------------------------------------------------ */
+
+.wb-skel-chip {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+}
+
+/* The skeleton's rail is decorative and must not pin itself — it has no content
+   to scroll past. */
+.wb-skel .wb-rail {
+  position: static;
+  max-height: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stacked (drill-down) — 60rem / 960px                                 */
+/* ------------------------------------------------------------------ */
+
+/* Deliberately catches tablets: between 701px and 960px a 3.25rem rail plus a
+   22rem list column leaves the detail pane under 20rem wide, which is unusable
+   for the blocks editor. Pane-internal reflow is a CONTAINER query against
+   `wbpane` and is independent of this breakpoint — that is the point. */
+@media (max-width: 60rem) {
+  /* One column, two rows: the chip row at its own height, the visible pane
+     taking the rest. `minmax(0, 1fr)` rather than `1fr` so the pane may shrink
+     below its content and scroll, instead of growing the frame. */
+  .wb-shell,
+  .wb-shell:not(:has(.wb-pane-list)) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0;
+  }
+
+  /* The breadcrumb is the first thing to go: the chip row directly beneath it
+     already names the surface, and at 390px the crumb trail and the wordmark
+     were laying over each other. The mark and the way out both stay. */
+  .wb-crumbs {
+    display: none;
+  }
+
+  .wb-top {
+    gap: var(--space-3);
+    padding-inline: var(--chrome-pad-base);
+  }
+
+  /* The rail becomes a horizontal chip row directly under the top bar. It is a
+     flex item of the fixed frame, not a sticky box — the frame is what holds it
+     in place now, so it needs no offset to measure against. */
+  .wb-rail {
+    flex: 0 0 auto;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    /* No scrollbar here: a chip clipped by the viewport edge is its own cue,
+       and a horizontal bar under a 44px row is noise. */
+    scrollbar-width: none;
+    padding-inline: var(--chrome-pad-base);
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* The group heading is a divider's caption in a vertical rail; laid out as a
+     row it would read as one more chip. The groups keep their rule. (The
+     chips themselves stay labelled here — see the `.wb-rail-label` rule further
+     down, which is the one that governs.) */
+  .wb-rail-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  /* Stacked, the visible column is the only scrollport under the chip row. */
+  .wb-pane-list {
+    height: auto;
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    border-right: 0;
+  }
+
+  /* Laid out as one row, so the scroller stops being a box of its own and its
+     groups become direct flex items of the rail. */
+  .wb-rail-scroll {
+    display: contents;
+  }
+
+  .wb-rail-group {
+    flex-direction: row;
+    width: auto;
+    padding-bottom: 0;
+    padding-right: var(--space-3);
+    border-bottom: 0;
+    border-right: 1px solid var(--rule-soft);
+  }
+
+  .wb-rail-scroll > .wb-rail-group:last-child {
+    padding-right: 0;
+    border-right: 0;
+  }
+
+  .wb-rail-group-end {
+    margin-top: 0;
+    margin-left: auto;
+    padding-top: 0;
+    padding-left: var(--space-3);
+    border-top: 0;
+    border-left: 1px solid var(--rule-soft);
+    border-right: 0;
+  }
+
+  .wb-rail-btn {
+    width: auto;
+    min-width: 1.75rem;
+    gap: var(--space-2);
+    padding: 0 var(--space-2);
+    /* A row of chips needs its own edges; the vertical rail gets them from the
+       rows' alignment and its own border instead. */
+    border-color: var(--rule);
+    background: var(--page);
+    scroll-snap-align: center;
+    /* Room to breathe at the edges when the active chip is scrolled into view. */
+    scroll-margin-inline: var(--space-5);
+  }
+
+  .wb-rail-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    font-family: var(--sans);
+    font-size: var(--text-sm);
+    font-variant: all-small-caps;
+    letter-spacing: 0.18em;
+  }
+
+  /* Sticky, not fixed: it needs no measured custom property and so cannot
+     double-count against .app-shell's padding-bottom sum. z-index 20 is below
+     both chrome bars (30) and the edit bar (33), so the public chrome always
+     wins.
+
+     `order: 2` is what makes the pin actually happen, and it is not cosmetic.
+     A sticky box is only ever shifted to keep itself INSIDE its sticky view
+     rectangle: a `bottom` inset pulls a box UP when it would otherwise fall
+     below the fold, and never pushes one DOWN. As the pane's first child the
+     strip's natural position is already at the top of the scrollport, so
+     bottom-sticky had nothing to do and the strip scrolled away off-screen —
+     measured at y = -559 in a 390x844 viewport. `.wb-pane-detail` is a flex
+     column, so ordering the strip last puts its natural position below the
+     fold, and bottom-sticky then lifts it to exactly the wanted offset
+     (measured pinned flush above the 56px chrome bar, and released once the
+     pane's own end scrolls past). The DOM order is untouched — the strip stays
+     the FIRST child, which is what keeps desktop top-sticky working and keeps
+     the Save button outside `.blocks-editor`. */
+  .wb-strip {
+    position: sticky;
+    top: auto;
+    /* Flush to the bottom of the frame. There is no chrome bar under it on this
+       route, so nothing to clear but the home indicator. */
+    bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 20;
+    order: 2;
+  }
+
+  /* The sky studio's hour bar is body-portalled and FIXED, so it cannot stack
+     with a sticky strip — lift the strip clear of it while it is up. */
+  .wb[data-surface='sky'] .wb-strip {
+    bottom: calc(var(--sky-hourbar-h, 0px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* The detail pane is the scrollport in its grid row, exactly like the list. */
+  .wb-pane-detail {
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--chrome-pad-base);
+    padding-bottom: var(--space-8);
+  }
+}

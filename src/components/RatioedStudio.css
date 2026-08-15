@@ -3,6 +3,25 @@
    just sealed (announce). The live state is the only one that shouts, because
    it is the only one where a second costs something. */
 
+/* The studio's root, and the one place its three categorical hues are defined.
+   They are the project's own vocabulary rather than theme tokens — red oxide is
+   the like, the threadgate and death — and until now this sheet only ever
+   REFERRED to them: they are declared on `.ratioed`
+   (blocks/RatioedBlock.css:12-15), the chart block, which is not on this page.
+   So every rule below was quietly rendering its inline fallback. Defining them
+   here makes that rendering deliberate and leaves the seam a future per-hour
+   palette can hook into, exactly as ratioedPalette.js does for the chart.
+
+   Being a block also matters: the workbench pane is a flex column with a gap,
+   and the sections in this file space themselves with collapsing margins, which
+   only happens inside a block container. */
+.rs-root {
+  --ratioed-reply: #5e7a47; /* terre verte */
+  --ratioed-quote: #8a6f24; /* yellow ochre */
+  --ratioed-seal: #8c3a2e; /* red oxide */
+  min-width: 0;
+}
+
 .rs-h2 {
   font-size: var(--text-lg);
   margin: 0 0 var(--space-2);
@@ -58,10 +77,10 @@
    being an alarm: every second between here and the seal is in the recorded
    reaction time. */
 .rs-live.liked {
-  border-color: var(--ratioed-seal, #8c3a2e);
+  border-color: var(--ratioed-seal);
   border-width: 2px;
 }
-.rs-live.liked .rs-live-state { color: var(--ratioed-seal, #8c3a2e); }
+.rs-live.liked .rs-live-state { color: var(--ratioed-seal); }
 
 .rs-seal {
   padding: var(--space-2) var(--space-5);
@@ -76,8 +95,8 @@
 .rs-seal:hover { opacity: 0.85; }
 .rs-seal:disabled { opacity: 0.5; }
 .rs-live.liked .rs-seal {
-  background: var(--ratioed-seal, #8c3a2e);
-  border-color: var(--ratioed-seal, #8c3a2e);
+  background: var(--ratioed-seal);
+  border-color: var(--ratioed-seal);
   color: #fff;
 }
 
@@ -124,7 +143,11 @@
 }
 .rs-series-meta { color: var(--ink-muted); overflow-wrap: anywhere; }
 
-@media (max-width: 34rem) {
+/* Pane width, not viewport width: the workbench detail pane is its own `wbpane`
+   container and can be under 34rem at any screen size. As a viewport query the
+   take number and the clock stayed on one line long after the line had run out
+   of room. */
+@container wbpane (max-width: 34rem) {
   .rs-live-head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
   .rs-series-list li { flex-direction: column; gap: 0; }
 }
@@ -156,13 +179,13 @@
   align-items: center;
   gap: 4px;
 }
-.rs-feed-state.is-open { color: var(--ratioed-reply, #5e7a47); }
+.rs-feed-state.is-open { color: var(--ratioed-reply); }
 .rs-feed-state.is-connecting,
 .rs-feed-state.is-closed,
 .rs-feed-state.is-off { color: var(--ink-faint); }
 /* Stopped itself at the budget. Not a failure — say it plainly rather than
    quietly, since the panel is less prompt from here on. */
-.rs-feed-state.is-spent { color: var(--ratioed-quote, #8a6f24); }
+.rs-feed-state.is-spent { color: var(--ratioed-quote); }
 
 .rs-feed-empty { margin: 0; }
 
@@ -189,7 +212,7 @@
 .rs-feed-text { color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The like is the one that ends it, so it reads as the one that ends it. */
-.rs-feed-row.rs-k-like .rs-feed-kind { color: var(--ratioed-seal, #8c3a2e); font-weight: 600; }
+.rs-feed-row.rs-k-like .rs-feed-kind { color: var(--ratioed-seal); font-weight: 600; }
 
 /* Taken back. The project's central fact, watched rather than inferred from a
    gap in an index afterwards.
@@ -203,7 +226,7 @@
 .rs-feed-row.gone .rs-feed-who { text-decoration: line-through; }
 .rs-feed-gone {
   font-size: var(--text-xs);
-  color: var(--ratioed-seal, #8c3a2e);
+  color: var(--ratioed-seal);
   font-variant-caps: small-caps;
   font-weight: 600;
 }
@@ -230,7 +253,8 @@
   overflow-x: auto;
 }
 
-@media (max-width: 34rem) {
+/* Same reasoning: the four-column feed row collapses on the pane's width. */
+@container wbpane (max-width: 34rem) {
   .rs-feed-row { grid-template-columns: 4.5em 1fr; }
   .rs-feed-kind, .rs-feed-text { grid-column: 2; }
 }
@@ -238,5 +262,5 @@
 /* A like cast and taken back before the seal. Not an alarm any more, but not
    nothing either — the panel stays marked so it can't be mistaken for a piece
    nobody has touched. */
-.rs-live.withdrawn { border-color: var(--ratioed-quote, #8a6f24); }
-.rs-live.withdrawn .rs-live-state { color: var(--ratioed-quote, #8a6f24); }
+.rs-live.withdrawn { border-color: var(--ratioed-quote); }
+.rs-live.withdrawn .rs-live-state { color: var(--ratioed-quote); }

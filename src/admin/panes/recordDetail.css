@@ -1,0 +1,131 @@
+/* The record detail pane — header, tab bar, and the frame around the shared
+   RecordEditor.
+
+   THREE THINGS TO KNOW BEFORE EDITING THIS FILE.
+
+   1. `RecordEditor` is a PUBLIC-PATH component: EditSheet renders it inside the
+      quick-edit sheet, which App.jsx mounts app-wide, and /exploring renders it
+      too. Its own stylesheet (`Admin.css`) is therefore frozen public API — no
+      `.admin-*`, `.rf-*`, `.record-preview*`, `.category-field-*` rule may be
+      changed here. Every rule below either names a `.wb-editor-*` element this
+      pane owns, or is a descendant of `.wb-editor`, which exists nowhere but the
+      workbench. The quick-edit sheet portals to document.body, outside `.wb`, so
+      nothing here can reach it.
+
+   2. Rules that override a class from another sheet are QUALIFIED
+      (`.wb-editor .wb-editor-title`, not `.wb-editor-title`). `.wb-pane-title`
+      and `.wb-tabs` live in adminShell.css, which is emitted after this file, so
+      a single-class selector would lose the specificity tie by source order.
+
+   3. Colours come from the tokens in theme.css only. The live theme is
+      `data-theme="sky"`, an hour-computed palette, so a hardcoded hex would be
+      wrong for 23 hours of the day. */
+
+.wb-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* On desktop this pane is mounted for a records surface whether or not a record
+   is selected. Nothing selected is a real state and gets a real sentence — never
+   a skeleton, which would promise something is on its way. */
+.wb-editor-empty {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Header                                                               */
+/* ------------------------------------------------------------------ */
+
+.wb-editor-head {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+/* Stacked only, and always on its own line: it is a breadcrumb out of the pane,
+   not a chip beside the title. `text-align` because a full-width <button>
+   centres its own label, and this one has to line up with the title under it. */
+.wb-editor-back {
+  flex: 0 0 100%;
+  text-align: left;
+}
+
+/* Smaller than the shell's `--text-2xl` pane title. On a records surface the
+   list column already spends an <h1> on the surface's name; this is the record
+   inside it, and a studio's full-pane title should still read as the largest
+   thing in the workbench. */
+.wb-editor .wb-editor-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-xl);
+}
+
+/* The rkey is the record's identity, so it is genuinely data: `--code`, which
+   stays monospace in every font mode, unlike `--mono`. (The neighbouring
+   `.admin-collection-nsid` is deliberately serif — that is a design decision in
+   frozen public CSS, not an oversight to match.) */
+.wb-editor-rkey {
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tabs and the notes under them                                        */
+/* ------------------------------------------------------------------ */
+
+.wb-editor .wb-editor-tabs {
+  /* Opaque, because it pins itself over scrolling content when stacked. */
+  background: var(--page);
+}
+
+/* A note about what the body on screen is: the JSON caveat above the textarea,
+   the honesty caption under the preview. Both are `.admin-field-hint` for their
+   type; this only places them. */
+.wb-editor-note {
+  margin: 0;
+}
+
+/* Under the preview body specifically, the caption is a footnote to the thing
+   above it — give it the hairline that says so. */
+.record-preview + .wb-editor-note {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/* The editor body                                                      */
+/* ------------------------------------------------------------------ */
+
+/* `.record-editor` carries no layout of its own — in the quick-edit sheet its
+   children are spaced by the sheet. In the pane it is a column like every other,
+   and `min-width: 0` is what keeps a long JSON dump or a wide code block from
+   pushing the whole workbench sideways. */
+.wb-editor .record-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stacked (drill-down) — 60rem / 960px                                 */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 60rem) {
+  /* Pinned directly under the rail's chip row, which is itself sticky at
+     `--chrome-top-h`. Its height is not published anywhere, so the offset is a
+     constant — 1.75rem of chip + 2 × --space-2 of padding + its two hairlines —
+     deliberately rounded DOWN. Erring short tucks the tab bar's top edge under
+     the chip row (z-index 6 over this 4), which is invisible; erring long would
+     open a gap with page content scrolling through it, which is not. */
+  .wb-editor .wb-editor-tabs {
+    position: sticky;
+    top: calc(var(--chrome-top-h, var(--chrome-h)) + 2.6rem);
+    z-index: 4;
+  }
+}

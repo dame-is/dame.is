@@ -4,16 +4,30 @@
 // text toward the horizon for contrast, and add a soft glow to chosen
 // elements. Edits preview live on the whole site (tune on the fly) and
 // nothing persists until Save. With the override toggled off (or no
-// record), the site uses its built-in hourly palette. Follows the same
-// contract + shell as NavMenuPanel; controls are the site's own vocabulary
-// (color inputs, square/hairline sliders). The hour selector rides in a
-// sticky bar pinned above the bottom chrome (portalled to <body>, like the
-// owner edit-mode action bar), so you can switch hours from anywhere.
+// record), the site uses its built-in hourly palette. Controls are the
+// site's own vocabulary (color inputs, square/hairline sliders). The hour
+// selector rides in a sticky bar pinned above the bottom chrome (portalled
+// to <body>, like the owner edit-mode action bar), so you can switch hours
+// from anywhere.
+//
+// As a studio it is a BODY, not a page: the workbench pane draws the title,
+// the blurb and the NSID, and the rail is the way back — so this file renders
+// no PageShell and no "← All collections" link. It is the one studio that
+// KEEPS its own Save button rather than handing it to the shell's status
+// strip, because what it saves is not the record on screen: the palette is
+// already live on every pixel of the window, and a Save that sat in a strip
+// captioned "unsaved changes" would describe the preview as a pending edit
+// when the whole point is that you are looking at it.
+//
+// The one thing this studio owes the rest of the site is the palette back.
+// applySkyTheme (skyTheme.js:454) has no scoping parameter — it writes the
+// --sky-* custom properties onto <html> — so a studio that unmounts without
+// restoring would leave the tuned hour painted over the public site for the
+// rest of the session. That restore is the cleanup effect below, and it is
+// the reason this file mirrors the site's own hour in a ref.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
-import PageShell from './PageShell.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import {
   paletteForHour,
@@ -129,7 +143,15 @@ function previewStyle(vars) {
 const hourLabel = (h) => skyHourKey(h).replace('am', ' AM').replace('pm', ' PM').toUpperCase();
 
 export default function SkyThemeStudio({ agent, did }) {
-  const { installSkyTuning, setSkyPreviewHour } = useTheme();
+  const { installSkyTuning, setSkyPreviewHour, skyHour } = useTheme();
+  // The hour the REST of the site is on — the bottom bar's override if the
+  // owner has stepped the clock with the hour chip, otherwise the live Eastern
+  // hour. Held in a ref rather than read as a dependency: as a dep, every chip
+  // tap would re-run the preview effect below, which would repaint this
+  // studio's own hour straight back over the one the chip had just advanced to
+  // — and the chip is documented in the bottom bar as advancing the sky.
+  const siteHourRef = useRef(skyHour);
+  siteHourRef.current = skyHour;
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
   const [byHour, setByHour] = useState(null);
@@ -188,21 +210,33 @@ export default function SkyThemeStudio({ agent, did }) {
   // for the previewed hour regardless of the enable toggle, so a dormant
   // draft still previews, and mirrors the hour onto the chrome-bar avatar
   // mark via setSkyPreviewHour so the brand mark matches the tuned palette.
-  // Restores the real hour (and clears the avatar mirror) when off / unmount.
+  // Restores the site's own hour (and clears the avatar mirror) when off.
   useEffect(() => {
     if (loading || !byHour) return undefined;
     if (liveApply) {
       applySkyTheme(hour, draftToTuning(true, byHour));
       setSkyPreviewHour(hour);
     } else {
-      applySkyTheme(easternHour());
+      applySkyTheme(siteHourRef.current);
       setSkyPreviewHour(null);
     }
     return undefined;
   }, [loading, liveApply, hour, byHour, setSkyPreviewHour]);
+
+  // Hand the palette back on the way out — the single most important effect in
+  // this file. The studio is a pane inside a shell that does NOT remount on
+  // navigation, so "leaving" is this cleanup and nothing else; skip it and the
+  // hour being tuned stays painted on /logging, /welcoming and every other
+  // public route until the tab is reloaded.
+  //
+  // It repaints `siteHourRef` rather than `easternHour()` so an owner who
+  // stepped the clock with the bottom-bar chip gets the hour the chip is still
+  // showing, instead of the two disagreeing for the rest of the session.
+  // Clearing the preview hour is what hands control back to ThemeProvider
+  // (useTheme.jsx:105-117), which paints with the SAVED tuning from here on.
   useEffect(
     () => () => {
-      applySkyTheme(easternHour());
+      applySkyTheme(siteHourRef.current);
       setSkyPreviewHour(null);
     },
     [setSkyPreviewHour],
@@ -257,6 +291,12 @@ export default function SkyThemeStudio({ agent, did }) {
     [byHour],
   );
 
+  // The 2400 ms "Saved ✓" flash outlives a fast surface flip — the pane can be
+  // gone half a second after a save — so the timer gets a handle and a
+  // teardown rather than being fired and forgotten.
+  const flashTimer = useRef(null);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+
   async function handleSave() {
     setSaving(true);
     setError(null);
@@ -280,9 +320,10 @@ export default function SkyThemeStudio({ agent, did }) {
       // the site stays on the hour being tuned.
       installSkyTuning(record);
       if (liveApply) applySkyTheme(hour, draftToTuning(true, byHour));
-      else applySkyTheme(easternHour());
+      else applySkyTheme(siteHourRef.current);
       setFlash(true);
-      setTimeout(() => setFlash(false), 2400);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(false), 2400);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -294,16 +335,12 @@ export default function SkyThemeStudio({ agent, did }) {
   const isDay = byHour ? paletteForHour(hour, null).day : true;
 
   return (
-    <PageShell
-      title="Sky theme studio"
-      intro="Tune the hour-tracking palette. Pick an hour, adjust its background, warm the borders and faint/muted text toward the horizon for contrast, and add a soft glow to chosen elements. Edits preview live on the site; nothing is written until you Save. Turn the override off to fall back to the built-in palette."
-      headTitle="Sky theme studio — Admin — dame.is"
-    >
-      <div className="admin-toolbar">
-        <Link to="/admin" className="admin-link-subtle">← All collections</Link>
-        <code className="admin-collection-nsid">{SKY_NSID}/self</code>
-      </div>
-
+    // A plain block, not a fragment: the pane lays its children out as a flex
+    // column with a gap, and every section below already carries its own
+    // margins. One block child keeps this studio's internal vertical rhythm
+    // exactly as authored — margins collapsing against each other — rather than
+    // adding the pane's gap on top of all of them.
+    <div className="sky-root">
       {error && <p className="admin-error">{error}</p>}
 
       {loading || !byHour ? (
@@ -488,7 +525,7 @@ export default function SkyThemeStudio({ agent, did }) {
           )}
         </>
       )}
-    </PageShell>
+    </div>
   );
 }
 
