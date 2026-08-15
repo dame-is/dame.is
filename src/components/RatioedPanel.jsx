@@ -36,7 +36,7 @@ import {
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
-import { resolveHandles } from '../lib/atproto.js';
+import { resolveProfiles } from '../lib/atproto.js';
 import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
 
@@ -326,15 +326,17 @@ export default function RatioedPanel({ agent, did }) {
         const subject = `at://${did}/app.bsky.feed.post/${piece.rkey}`;
         const records = await fetchPieceRecords(subject);
         const windows = measureWindows(records, Date.parse(piece.sealedAt), did);
-        // Handles are resolved now, while the accounts still exist — the same
-        // reason the counts are recorded rather than re-queried.
-        setProgress(`Resolving handles ${n}/${candidates.length} — ${piece.rkey}`);
-        const handles = await resolveHandles(records.map((r) => r.did));
+        // Profiles are resolved now, while the accounts still exist — the same
+        // reason the counts are recorded rather than re-queried. The follower
+        // counts that ride along are the most perishable part of it: they are
+        // already drifting, and this is the earliest anyone can read them.
+        setProgress(`Resolving profiles ${n}/${candidates.length} — ${piece.rkey}`);
+        const profiles = await resolveProfiles(records.map((r) => r.did));
         const events = buildEventLog(records, {
           postedAtMs: Date.parse(piece.postedAt),
           sealedAtMs: Date.parse(piece.sealedAt),
           selfDid: did,
-          handles,
+          profiles,
         });
         // The concluding reply names the breaker; it's one of dame's own posts
         // replying to this piece.
@@ -417,14 +419,16 @@ export default function RatioedPanel({ agent, did }) {
         if (!records.length) continue;
         const sealedMs = Date.parse(value.sealedAt);
         const windows = measureWindows(records, sealedMs, did);
-        const handles = await resolveHandles(records.map((r) => r.did));
+        const profiles = await resolveProfiles(records.map((r) => r.did));
         const events = buildEventLog(records, {
           postedAtMs: Date.parse(value.postedAt),
           sealedAtMs: sealedMs,
           selfDid: did,
-          handles,
+          profiles,
         });
         const likeSurvives = Boolean(windows.breakingLike);
+        const remeasuredAt = new Date().toISOString();
+        const hasAudience = events.some((e) => typeof e.fr === 'number');
         // The breaker's handle came from the announcement reply and is still
         // good; only whether their like is still standing was wrong. Rebuilt
         // field by field so a stale reactionMs can't survive a "deleted"
@@ -446,7 +450,8 @@ export default function RatioedPanel({ agent, did }) {
             preSeal: windows.preSeal,
             postSeal: windows.postSeal,
             events,
-            measuredAt: new Date().toISOString(),
+            measuredAt: remeasuredAt,
+            ...(hasAudience ? { audienceAt: remeasuredAt } : {}),
           },
         });
       }

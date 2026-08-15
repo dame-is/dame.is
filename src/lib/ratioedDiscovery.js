@@ -247,20 +247,37 @@ export function measureWindows(records, sealedAtMs, selfDid) {
  * tomorrow leaves no trace of ever having existed.
  *
  * `handles` maps DID → handle (see resolveHandles); an unresolved DID is
- * labelled the same way the harvest labelled a deactivated account.
+ * labelled the same way the harvest labelled a deactivated account. `profiles`
+ * is the richer form of the same lookup (see resolveProfiles) and supersedes
+ * it: it also carries how many followers each account had, which is what the
+ * reach score is computed from.
+ *
+ * Those two counts are recorded here for the same reason everything else is —
+ * they are the most volatile figures on the whole record. Engagement at least
+ * only moves when somebody acts; a follower count drifts on its own, every day,
+ * for as long as the account exists. Read live at render, a piece's reach would
+ * never twice be the same number. An account that resolves to no profile gets
+ * no counts at all rather than zero: `ratioedReach` reports those separately as
+ * audiences it could not measure, and a zero would silently deflate the total.
  */
-export function buildEventLog(records, { postedAtMs, sealedAtMs, selfDid, handles = {} }) {
+export function buildEventLog(
+  records,
+  { postedAtMs, sealedAtMs, selfDid, handles = {}, profiles = {} },
+) {
   const out = [];
   for (const r of records || []) {
     const at = tidMs(r.rkey);
     if (!at) continue;
+    const profile = profiles[r.did] || null;
     out.push({
       k: r.kind,
-      h: handles[r.did] || '(unresolvable)',
+      h: profile?.handle || handles[r.did] || '(unresolvable)',
       ...(r.did ? { did: r.did } : {}),
       offMs: at - postedAtMs,
       pre: at < sealedAtMs ? 1 : 0,
       ...(r.did === selfDid ? { self: 1 } : {}),
+      ...(typeof profile?.followers === 'number' ? { fr: profile.followers } : {}),
+      ...(typeof profile?.follows === 'number' ? { fo: profile.follows } : {}),
     });
   }
   return out.sort((a, b) => a.offMs - b.offMs);
@@ -277,8 +294,16 @@ export function buildPieceRecord({
   subject,
   measuredAt,
   events,
+  audienceAt,
   source = 'constellation.microcosm.blue',
 }) {
+  // When the follower counts in the log were read. Normally the same moment as
+  // everything else, and worth its own field anyway: the backfill that gave the
+  // early pieces an audience took those figures more than a year after they
+  // ran, and a reader has to be able to tell that apart from a piece measured
+  // as it happened.
+  const audienceStamp =
+    audienceAt || (events?.some((e) => typeof e.fr === 'number') ? measuredAt : null);
   const breaker = breakerFromAnnouncement(announcement?.text) || { handle: 'unknown' };
   const likeSurvives = Boolean(windows.breakingLike);
   const announceAt = announcement?.rkey ? tidMs(announcement.rkey) : null;
@@ -299,6 +324,7 @@ export function buildPieceRecord({
     postSeal: windows.postSeal,
     ...(events?.length ? { events } : {}),
     measuredAt,
+    ...(audienceStamp ? { audienceAt: audienceStamp } : {}),
     source,
   };
 }

@@ -10,6 +10,7 @@
     "build:offline": "vite build",
     "preview": "vite preview",
     "gen:og-assets": "node scripts/gen-og-assets.mjs",
+    "gen:ratioed-audience": "node scripts/backfill-ratioed-audience.mjs",
     "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write ."

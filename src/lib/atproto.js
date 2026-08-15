@@ -173,12 +173,18 @@ export async function resolveHandles(dids, opts) {
 
 /**
  * The same call, keeping the parts a face needs: `{ did: { handle,
- * displayName, avatar } }`. `resolveHandles` is the thin wrapper over this for
- * the callers that only want names.
+ * displayName, avatar, followers, follows } }`. `resolveHandles` is the thin
+ * wrapper over this for the callers that only want names.
  *
  * A DID that resolves to nothing is simply absent — a deactivated account and
  * an account we failed to reach look the same from here, and neither should be
  * invented.
+ *
+ * The two counts are here for Ratioed, which stamps them onto an event log at
+ * measurement time to size the audience each participant carried a piece to.
+ * They are numbers or they are undefined: an account whose profile omits them
+ * has not been measured, and recording that as zero would read as an account
+ * nobody follows.
  */
 export async function resolveProfiles(dids, { appview = APPVIEW } = {}) {
   const unique = Array.from(new Set((dids || []).filter(Boolean)));
@@ -194,6 +200,8 @@ export async function resolveProfiles(dids, { appview = APPVIEW } = {}) {
           handle: p.handle || '',
           displayName: p.displayName || '',
           avatar: p.avatar || '',
+          ...(typeof p.followersCount === 'number' ? { followers: p.followersCount } : {}),
+          ...(typeof p.followsCount === 'number' ? { follows: p.followsCount } : {}),
         };
       }
     } catch {

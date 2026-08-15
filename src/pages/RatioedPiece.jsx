@@ -42,6 +42,7 @@ import {
   fmtSeconds,
   fmtElapsed,
 } from '../lib/ratioed.js';
+import { pieceReach, applyAudience, fmtReach, fmtRatio } from '../lib/ratioedReach.js';
 import { getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -77,6 +78,7 @@ export default function RatioedPiece() {
   const { slug, piece: ref } = useParams();
   const [pieces, setPieces] = useState(SEED_PIECES);
   const [bundled, setBundled] = useState(null);
+  const [audience, setAudience] = useState(null);
   const [delta, setDelta] = useState(null);
   const [profiles, setProfiles] = useState({});
   // The seed is bundled, so there is always something to render; `settled`
@@ -123,6 +125,15 @@ export default function RatioedPiece() {
         if (alive) setBundled(m.default || m);
       })
       .catch(() => {});
+    // The dated audience table, which is what gives a piece measured before
+    // follower counts were recorded a reach figure at all. Its own timestamp
+    // travels with it, because a figure taken a year after the piece ran has
+    // to be labelled as one.
+    import('../data/ratioedAudience.json')
+      .then((m) => {
+        if (alive) setAudience(m.default || m);
+      })
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -131,11 +142,16 @@ export default function RatioedPiece() {
   const piece = useMemo(() => findPieceByRef(pieces, ref), [pieces, ref]);
 
   // The record's own log wins; the bundle covers the pieces measured before
-  // records carried one.
+  // records carried one. The audience join only ever fills gaps — a log that
+  // recorded its own follower counts at measurement time keeps them.
   const events = useMemo(() => {
     if (!piece) return null;
-    return piece.events || bundled?.[piece.rkey] || null;
-  }, [piece, bundled]);
+    const log = piece.events || bundled?.[piece.rkey] || null;
+    if (!log) return null;
+    return audience ? applyAudience(log, audience) : log;
+  }, [piece, bundled, audience]);
+
+  const reach = useMemo(() => (events ? pieceReach(events) : null), [events]);
 
   // Faces for everyone in the log. Resolved live rather than recorded: the
   // COUNTS are a measurement and must not drift, but a portrait is only ever a
@@ -385,6 +401,16 @@ export default function RatioedPiece() {
               {delta?.total > 0 && <span className="ratioed-piece-fresh"> +{delta.total}</span>}
             </dd>
           </div>
+          {/* Only when there is an audience to report. A piece whose
+              participants have all deactivated has no reach that can be
+              measured, and a zero here would read as one that reached
+              nobody. */}
+          {reach?.measurable && (
+            <div>
+              <dt>reach</dt>
+              <dd>{fmtReach(reach.alive.raw)}</dd>
+            </div>
+          )}
         </dl>
 
         <section className="ratioed-piece-section">
@@ -455,6 +481,14 @@ export default function RatioedPiece() {
             </p>
           )}
         </section>
+
+        {reach?.measurable && (
+          <ReachSection
+            reach={reach}
+            audienceAt={piece.audienceAt || audience?.measuredAt || ''}
+            recorded={Boolean(piece.audienceAt)}
+          />
+        )}
 
         {hidden.length > 0 && (
           <section className="ratioed-piece-section">
@@ -566,6 +600,156 @@ export default function RatioedPiece() {
 
 function engagementTotal(w) {
   return (w?.threadPosts || 0) + (w?.reposts || 0) + (w?.quotes || 0) + (w?.likes || 0);
+}
+
+const REACH_ACT = { repost: 'reposted', quote: 'quoted', reply: 'replied', like: 'liked' };
+
+// How many contributors the reach table lists before the rest are summed into
+// one line. Twelve is where the list stops being a ranking and starts being a
+// second copy of the log below it.
+const REACH_ROWS = 12;
+
+/**
+ * How large an audience the piece was put in front of, either side of the seal.
+ *
+ * The one figure on this page that is an interpretation rather than a
+ * measurement, so it carries its own arithmetic: every contributor is listed
+ * with the audience they brought and what it was multiplied by, and the total
+ * is the sum of that column. A reader who disagrees with the weights can see
+ * exactly what changing them would do.
+ *
+ * Three caveats belong to the number and not to a footnote, so they are stated
+ * where it is: it is a ceiling rather than a count of who looked, overlapping
+ * followings are counted twice, and the follower figures are dated — for the
+ * early pieces, dated more than a year after the piece itself.
+ */
+function ReachSection({ reach, audienceAt, recorded }) {
+  const { alive, after } = reach;
+  const top = alive.top || after.top;
+  // Tagged by window on the way in: the same account can carry a piece while
+  // it is alive and again after the seal, and those are two separate rows
+  // rather than one person listed twice by accident.
+  const all = [
+    ...alive.contributors.map((p) => ({ ...p, window: 'alive' })),
+    ...after.contributors.map((p) => ({ ...p, window: 'after' })),
+  ].filter((p) => p.known && p.raw > 0);
+  const unknown = alive.unknown + after.unknown;
+
+  // The head of the list is the whole story — a piece is carried by two or
+  // three accounts with an audience and a long tail contributing a few hundred
+  // between them. The tail is summed rather than dropped, so the column still
+  // adds up to the total and nothing is quietly truncated.
+  const rows = all.slice(0, REACH_ROWS);
+  const tail = all.slice(REACH_ROWS);
+  const tailReach = tail.reduce((sum, p) => sum + p.raw, 0);
+
+  return (
+    <section className="ratioed-piece-section">
+      <h2>How far it got</h2>
+      <p className="ratioed-piece-lede">
+        While it was alive it was carried to{' '}
+        <strong>{alive.raw > 0 ? fmtReach(alive.raw) : 'nobody'}</strong>
+        {alive.raw > 0 && ' people'}
+        {top && alive.raw > 0 && alive.topShare > 0.5 && (
+          <>
+            , {Math.round(alive.topShare * 100)}% of it through <strong>@{top.handle}</strong>
+          </>
+        )}
+        . Since the seal it has reached{' '}
+        <strong>{after.raw > 0 ? fmtReach(after.raw) : 'nobody new'}</strong>
+        {after.raw > 0 && ' more'}.
+      </p>
+
+      <dl className="ratioed-piece-figures">
+        <div>
+          <dt>while alive</dt>
+          <dd>{fmtReach(alive.raw)}</dd>
+        </div>
+        <div>
+          <dt>after the seal</dt>
+          <dd>{fmtReach(after.raw)}</dd>
+        </div>
+        {/* What the follower-ratio discount took off. Shown beside the raw
+            figure rather than instead of it: the adjustment is a judgement and
+            the reader should be able to see its size. */}
+        <div>
+          <dt>discounted</dt>
+          <dd>{fmtReach(alive.weighted + after.weighted)}</dd>
+        </div>
+        <div>
+          <dt>accounts</dt>
+          <dd>
+            {alive.known + after.known}
+            {unknown > 0 && <span className="ratioed-piece-fresh"> +{unknown} unknown</span>}
+          </dd>
+        </div>
+      </dl>
+
+      {rows.length > 0 && (
+        <table className="ratioed-piece-log">
+          <thead>
+            <tr>
+              <th scope="col">who</th>
+              <th scope="col">act</th>
+              <th scope="col">audience</th>
+              <th scope="col">ratio</th>
+              <th scope="col">reach</th>
+              <th scope="col">window</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => (
+              <tr key={`${p.window}-${p.key}`}>
+                <td className="ratioed-piece-who">@{p.handle}</td>
+                <td>
+                  <span className={`ratioed-piece-kind ratioed-k-${p.kind}`}>
+                    {REACH_ACT[p.kind] || p.kind}
+                  </span>
+                </td>
+                <td>{fmtReach(p.followers)}</td>
+                <td>{fmtRatio(p.ratio)}</td>
+                <td>{fmtReach(p.raw)}</td>
+                <td>{p.window === 'alive' ? 'alive' : 'after the seal'}</td>
+              </tr>
+            ))}
+            {tail.length > 0 && (
+              <tr className="is-self">
+                <td className="ratioed-piece-who">
+                  and {tail.length} more
+                </td>
+                <td colSpan={3} />
+                <td>{fmtReach(tailReach)}</td>
+                <td />
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
+
+      <p className="ratioed-piece-note">
+        A repost or a quote puts a piece in front of the whole of someone&rsquo;s following; a
+        reply counts for a tenth of that and a like a fiftieth, and nobody is counted twice however
+        many times they acted. It is a ceiling, not an audience — two people who share followers
+        have those followers counted twice, and nobody outside Bluesky can say who actually looked.
+        {unknown > 0 && (
+          <>
+            {' '}
+            {unknown} {unknown === 1 ? 'account' : 'accounts'} could not be resolved and{' '}
+            {unknown === 1 ? 'is' : 'are'} missing from the total rather than counted as zero.
+          </>
+        )}
+        {audienceAt && (
+          <>
+            {' '}
+            Follower counts read {audienceAt.slice(0, 10)}
+            {recorded
+              ? ', in the same pass that measured the piece.'
+              : ' — long after this piece ran, so they describe these accounts as they are now, not as they were.'}
+          </>
+        )}
+      </p>
+    </section>
+  );
 }
 
 /** One window's figures, laid out the same either side of the seal. */
