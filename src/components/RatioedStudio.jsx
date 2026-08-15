@@ -35,6 +35,7 @@ import { measureWindows, buildEventLog } from '../lib/ratioedDiscovery.js';
 import {
   DEFAULT_TEMPLATE,
   fillTemplate,
+  loadTemplate,
   templateProblems,
   nextTake,
   previousPiece,
@@ -160,15 +161,13 @@ export default function RatioedStudio({ agent, did }) {
 
   useEffect(() => {
     let alive = true;
-    agent.com.atproto.repo
-      .getRecord({ repo: did, collection: TEMPLATE_NSID, rkey: 'self' })
-      .then((res) => {
-        if (alive) setTemplate(res?.data?.value?.text || DEFAULT_TEMPLATE);
-      })
-      // No record yet is the normal state until one is saved, not a fault.
-      .catch(() => {
-        if (alive) setTemplate(DEFAULT_TEMPLATE);
-      });
+    // No record yet is the normal state until one is saved, not a fault, so
+    // loadTemplate answers with the default rather than throwing. The scan
+    // reads the same record through the same function, which is what keeps the
+    // post this composes and the post that scan looks for in step.
+    loadTemplate(agent, did).then((text) => {
+      if (alive) setTemplate(text);
+    });
     return () => {
       alive = false;
     };

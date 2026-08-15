@@ -12,6 +12,7 @@
 // within seconds. Once it's gone, the reaction time is gone with it and no
 // index can bring it back. Scanning promptly is what preserves that number.
 
+import { RATIOED_PATH } from '../config.js';
 import { tidToTimestamp } from './atproto.js';
 
 /** A record key's PDS write time in epoch ms, or null if it isn't a TID.
@@ -38,18 +39,93 @@ function tidMs(rkey) {
  * of them. Loosening the text test costs nothing, because it was never the
  * thing keeping meta posts out — the seal is, and a post that merely talks
  * about the project still has its replies open.
+ *
+ * These two are the floor, not the whole test: they cover takes #1 to #13,
+ * which were written by hand before the wording lived in a record, and they go
+ * on covering them no matter how the template is rewritten later. What a piece
+ * written TODAY looks like is answered by the template itself — see
+ * `anchorsFromTemplate` below.
  */
 const PIECE_MARKERS = [/social art project/i, /this post is the project/i];
+
+/**
+ * The link every piece carries to its own page on the site.
+ *
+ * This and the take line are the two things a piece cannot lose, because
+ * `templateProblems` refuses to save a template without them — which makes the
+ * pair the one test that survives a rewording nobody told the scan about.
+ */
+const SELF_LINK = `/creating/${RATIOED_PATH}/`;
+
+/** Lowercased, with runs of whitespace flattened to one space, so a template
+ *  line still matches a post whose line breaks fall somewhere else. */
+function flatten(text) {
+  return String(text ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * The shortest phrase the project has ever used to name itself — "this post is
+ * the project" — is 24 characters. Below that a template line is a fragment
+ * ("only replies", "this is take #") that could turn up in anything, so it is
+ * not evidence of a piece.
+ */
+const MIN_ANCHOR = 24;
+
+/**
+ * The lines of a template that identify a post written from it.
+ *
+ * A piece is composed from the template with only `{take}` and `{link}`
+ * substituted, so every other line survives into the post verbatim. That makes
+ * the template the most accurate description of what a piece looks like that
+ * anyone could write — and it is already on the PDS, edited whenever the copy
+ * changes. Reading the markers off it is what keeps the scan current without a
+ * deploy; hard-coding them is what lost take #13.
+ *
+ * Splitting on the placeholders first keeps the parts of a line that don't vary
+ * and drops the parts that do. Any single anchor is enough to match, because
+ * rewording one line at a time is exactly what the series keeps doing.
+ */
+export function anchorsFromTemplate(text) {
+  const out = [];
+  for (const segment of String(text ?? '').split(/\{[a-z]+\}/gi)) {
+    for (const line of segment.split('\n')) {
+      const flat = flatten(line);
+      if (flat.length >= MIN_ANCHOR) out.push(flat);
+    }
+  }
+  return out;
+}
 
 /** How dame names the breaker in the concluding reply. */
 const BLAME_RE = /@([a-z0-9][a-z0-9.-]*)\s*(?:\/\s*(did:[a-z0-9:]+)\s*)?was to blame/i;
 
 const TAKE_RE = /this is take\s*#?\s*(\d+)/i;
 
-/** Is this post record one of the pieces? */
-export function isPiecePost(value) {
-  if (typeof value?.text !== 'string') return false;
-  return PIECE_MARKERS.some((re) => re.test(value.text));
+/**
+ * Is this post record one of the pieces?
+ *
+ * Three ways to say yes, and any one is enough. The historical markers, for the
+ * pieces that predate the template record. The take line together with the link
+ * to the piece's own page, which no valid template can drop. And the anchors
+ * read off whatever the template says today — pass them in and a wording nobody
+ * has ever seen before is recognised on the first scan.
+ *
+ * Answering yes too often is close to harmless here: the scan only offers what
+ * it finds, a human presses publish, and the seal is what actually keeps other
+ * posts out. Answering no once is permanent — the breaking like is usually
+ * deleted within seconds, and an unmeasured piece loses its reaction time for
+ * good. So this errs generous on purpose.
+ */
+export function isPiecePost(value, anchors = []) {
+  const text = value?.text;
+  if (typeof text !== 'string') return false;
+  if (PIECE_MARKERS.some((re) => re.test(text))) return true;
+  if (TAKE_RE.test(text) && text.includes(SELF_LINK)) return true;
+  const flat = flatten(text);
+  return anchors.some((anchor) => flat.includes(anchor));
 }
 
 /** A threadgate that closes replies to everyone — the seal. */
@@ -82,10 +158,14 @@ export function isAnnouncement(value) {
 /**
  * Match sealed pieces against the records already published.
  *
- * `posts` and `gates` are listRecords results ({ uri, value }). Returns the
- * pieces in take order, each tagged with whether a measurement record exists.
+ * `posts` and `gates` are listRecords results ({ uri, value }). `anchors` comes
+ * from `anchorsFromTemplate` over the template on the PDS, so the scan matches
+ * the wording in force rather than a copy of it frozen into this file; without
+ * it the historical markers and the take-plus-link test still apply. Returns
+ * the pieces in take order, each tagged with whether a measurement record
+ * exists.
  */
-export function findPieces(posts, gates, existingRkeys = new Set()) {
+export function findPieces(posts, gates, existingRkeys = new Set(), anchors = []) {
   const gateByRkey = new Map();
   for (const g of gates || []) {
     const rkey = String(g?.uri || '').split('/').pop();
@@ -94,7 +174,7 @@ export function findPieces(posts, gates, existingRkeys = new Set()) {
   const out = [];
   for (const post of posts || []) {
     const rkey = String(post?.uri || '').split('/').pop();
-    if (!rkey || !isPiecePost(post.value)) continue;
+    if (!rkey || !isPiecePost(post.value, anchors)) continue;
     const gate = gateByRkey.get(rkey);
     if (!gate) continue; // still open, or never sealed — not a finished piece
     const postedAt = tidMs(rkey);
