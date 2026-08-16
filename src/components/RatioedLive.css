@@ -190,11 +190,13 @@
 .ratioed-live-row:last-child { border-bottom: 0; }
 .ratioed-live-when { font-family: var(--mono, monospace); color: var(--ink-muted); }
 
-.ratioed-live-face { border-radius: 50%; object-fit: cover; }
+/* Square, like the roster's — see RatioedFaces.css. These are the same people
+   in the same evidence, arriving live rather than counted afterwards. */
+.ratioed-live-face { border-radius: 2px; object-fit: cover; }
 .ratioed-live-face.is-blank {
   width: 22px;
   height: 22px;
-  border-radius: 50%;
+  border-radius: 2px;
   background: var(--rule-soft);
 }
 .ratioed-live-who { overflow-wrap: anywhere; }
