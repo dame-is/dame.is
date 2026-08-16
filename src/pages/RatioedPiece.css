@@ -158,6 +158,15 @@
 .ratioed-piece-who { overflow-wrap: anywhere; }
 .ratioed-piece-kind { font-variant-caps: small-caps; }
 
+/* The record key in the header band. It is an identifier, not prose, so it
+   takes the site's data face at the size the band's other values sit at —
+   --code rather than --mono, because this one stays monospace in every font
+   mode: it is a key you might read out or type. */
+.ratioed-piece .document-meta-record .document-meta-value {
+  font-family: var(--code, monospace);
+  font-size: 0.85rem;
+}
+
 /* --- the witnessed log, folded away --------------------------------- */
 
 .ratioed-piece-witness > summary {
