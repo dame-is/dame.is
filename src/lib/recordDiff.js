@@ -147,3 +147,84 @@ export function labelFields(keys, lex) {
   for (const field of lex?.fields || []) labels.set(field.key, field.label || field.key);
   return (keys || []).map((key) => labels.get(key) || key);
 }
+
+/* ------------------------------------------------------------------ */
+/* Required fields                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Is this value absent, as far as a REQUIRED field is concerned?
+ *
+ * The three cases are exactly the three ways the form can hand back "nothing":
+ * a field never filled in (`undefined`), one cleared to empty (`''`, and
+ * whitespace is not a title), and a list control with no entries. Everything
+ * else counts as present, and two of those matter:
+ *
+ *   - `0` and `false` are legitimate values for a required number or boolean —
+ *     `lifespanMs: 0` is a real measurement — so a truthiness test here would
+ *     refuse to save a record whose data is perfectly good.
+ *   - An object is never treated as blank. `{}` can be a deliberate value for a
+ *     `json` field, and a `blocks` body carries its own empty shell that the
+ *     save path explicitly preserves ("an empty pub.leaflet.content shell is
+ *     still a valid body"), so guessing at emptiness there would block a save
+ *     the lexicon considers valid.
+ */
+function isBlankValue(value) {
+  if (value === undefined || value === null) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (Array.isArray(value)) return value.length === 0;
+  return false;
+}
+
+/**
+ * Which REQUIRED fields the outgoing record leaves empty.
+ *
+ * This exists because the asterisk in the form was decorative. `handleSave`
+ * never read `field.required`, so pressing Create on an untouched new blog post
+ * wrote a `site.standard.document` with no title and no publication into a
+ * public collection, and the status strip then said "No unsaved changes" — the
+ * only record of the mistake being a junk row at the top of the list.
+ *
+ * Takes the PAYLOAD, not the form's value, so it is answering the question that
+ * actually matters ("is the thing about to be written valid?") for whichever
+ * body composed it — the form or the raw JSON textarea.
+ *
+ * Returns KEYS, in the lexicon's own field order, so the caller can both name
+ * them (`labelFields`) and focus the first one. Without a lexicon there is
+ * nothing to be required, and the answer is empty.
+ *
+ * @param {object|null} record  the record as it would be written
+ * @param {object|null} lex
+ * @returns {string[]}
+ */
+export function missingRequired(record, lex) {
+  const value = record || {};
+  const missing = [];
+  for (const field of lex?.fields || []) {
+    if (field.required && isBlankValue(value[field.key])) missing.push(field.key);
+  }
+  return missing;
+}
+
+/**
+ * "Title and Publication are required." — the refusal, as one sentence for the
+ * status strip and the phone's action bar.
+ *
+ * Written out in full rather than as "2 required fields are empty" because the
+ * owner is looking at a form of nine fields and the useful part is WHICH ones;
+ * the caller also moves focus to the first, so the sentence and the cursor
+ * agree.
+ *
+ * @param {string[]} labels  human field labels, e.g. from `labelFields`
+ * @returns {string}
+ */
+export function requiredSentence(labels) {
+  const list = (labels || []).filter(Boolean);
+  if (list.length === 0) return 'A required field is empty.';
+  const verb = list.length === 1 ? 'is' : 'are';
+  const named =
+    list.length === 1
+      ? list[0]
+      : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+  return `${named} ${verb} required.`;
+}

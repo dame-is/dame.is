@@ -142,3 +142,29 @@ export function rowLabel(value, nsid, lex) {
   const s = override ? override(value) : null;
   return s || previewFor(value, lex !== undefined ? lex : lexiconFor(nsid));
 }
+
+/**
+ * The heading for ONE OPEN RECORD — the same question a list row asks, plus a
+ * guaranteed answer.
+ *
+ * A record detail used to be headed with its LEXICON's label: "Document" over a
+ * back link reading "← Blogging", and on Curating a page titled "Curating" under
+ * a crumb reading "Curating". That names the type, which the small-caps kicker
+ * above the title already says; the heading should name the record you opened.
+ *
+ * `rowLabel` can legitimately come back empty — a record whose only fields are
+ * numbers, a brand-new record with nothing typed in it yet — and a blank <h1> is
+ * worse than a technical one, so the rkey is the floor. It is what the URL says
+ * and what the owner searched for.
+ *
+ * @param {object|null} value
+ * @param {string} nsid
+ * @param {string|null} [rkey]
+ * @param {object|null} [lex]  The lexicon, if the caller already has it.
+ * @returns {string}
+ */
+export function recordTitle(value, nsid, rkey = null, lex = undefined) {
+  const label = rowLabel(value, nsid, lex);
+  if (label && label.trim()) return truncate(label.trim(), 120);
+  return rkey || lexiconFor(nsid)?.label || nsid;
+}

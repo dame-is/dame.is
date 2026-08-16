@@ -10,7 +10,13 @@ import {
 import { COLLECTIONS, ME_DID } from '../config.js';
 import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
-import { diffRecord, labelFields, normalizeForDiff } from '../lib/recordDiff.js';
+import {
+  diffRecord,
+  labelFields,
+  missingRequired,
+  normalizeForDiff,
+  requiredSentence,
+} from '../lib/recordDiff.js';
 import { resolvePds } from '../lib/atproto.js';
 import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
 import { fetchAllBlocks } from '../lib/arena.js';
@@ -97,6 +103,27 @@ function resolvePdsBounded(did) {
   ]).catch(() => null);
 }
 
+/**
+ * Did the read fail because the record is not there?
+ *
+ * The three tests are the three shapes the same fact arrives in: `@atproto/api`
+ * raises an `XRPCError` carrying `error: 'RecordNotFound'` (some PDS builds
+ * answer `InvalidRequest` with a 404 instead), and the message the PDS writes is
+ * "Could not locate record: <nsid>/<rkey>". Matching any of them is deliberate —
+ * a wrong answer here only changes which SENTENCE the editor shows, never
+ * whether it refuses to write, so a broad match is the safe direction.
+ */
+function isMissingRecordError(err) {
+  const code = err?.error || err?.data?.error || '';
+  if (code === 'RecordNotFound' || code === 'NotFound') return true;
+  if (err?.status === 404) return true;
+  return /could not locate record|record not found/i.test(err?.message || '');
+}
+
+/** Shown when the record cannot be read. See the `loadError` state below. */
+const GONE_SENTENCE = 'That record is gone — it may have been deleted.';
+const UNREADABLE_SENTENCE = 'This record could not be read, so it cannot be saved over.';
+
 /** Does this text parse? Used to decide whether it is safe to overwrite. */
 function isParseableJson(text) {
   try {
@@ -137,10 +164,31 @@ const RAW_DIRTY_STATUS = Object.freeze({ dirty: true, fields: NO_FIELDS, note: '
  *   - hideActions: when true, the internal Save/Delete button row is not
  *                  rendered — the caller drives save/delete via the imperative
  *                  ref instead (see the quick-edit sheet's action bar).
- *   - onStatus:    called with `{ saving, deleting, loading, isNew }` whenever
- *                  those change, so an external controller can reflect state.
+ *   - onStatus:    called with `{ saving, deleting, loading, isNew, error,
+ *                  notFound }` whenever those change, so an external controller
+ *                  can reflect state.
  *
- * The five props below are ADDITIVE and optional: every one of them is `undefined`
+ *                  `error` and `notFound` are NEW, and the spec froze this
+ *                  payload's shape (admin-rebuild-spec.md §6.2), so the lift is
+ *                  deliberate and recorded in the mobile design (§3.3, §7).
+ *                  Both exist because the editor knew two things the controller
+ *                  needed and had no way to say either:
+ *
+ *                    error    — the last SAVE or DELETE failure, as one
+ *                               sentence. The form's own `.admin-error` line can
+ *                               sit 1819px above the Save button that raised it;
+ *                               on a phone the button is in a fixed bar and the
+ *                               error was simply never seen.
+ *                    notFound — TRUE when the read failed, so there is no record
+ *                               on screen: the editor is drawing a state instead
+ *                               of a form, and neither Save nor Delete has a
+ *                               subject. A controller must retire its buttons.
+ *                               (A network failure sets it too — a record that
+ *                               could not be read must not be written over,
+ *                               whichever way the read failed. The state on
+ *                               screen says which it was.)
+ *
+ * The six props below are ADDITIVE and optional: every one of them is `undefined`
  * for the quick-edit sheet (EditSheet.jsx) and for /exploring, which is what keeps
  * this component's behaviour on public routes byte-for-byte what it was.
  *
@@ -162,9 +210,27 @@ const RAW_DIRTY_STATUS = Object.freeze({ dirty: true, fields: NO_FIELDS, note: '
  *                      every character and re-render every feed row under an open
  *                      quick-edit sheet. When this prop is absent the diff is not
  *                      computed at all.
+ *   - onLoaded:        called ONCE with the record the fetch returned (post-
+ *                      `migrate`, pre-annotation), for a caller that needs to
+ *                      name what it opened. The workbench heads the pane with
+ *                      the record's own title rather than its lexicon's label,
+ *                      and this is the only channel that carries it: `onStatus`
+ *                      carries flags, on an effect that must not fire per
+ *                      keystroke, and `onDirtyChange` reports a diff rather than
+ *                      a value. Read through a ref inside the load effect, so an
+ *                      unstable callback cannot put the fetch in a loop.
+ *   - notFoundAction:  a node rendered inside the "no record here" state — the
+ *                      way OUT of it. The editor cannot know one: it is a leaf
+ *                      that has never held a router, and the admin's "back to
+ *                      the list" is a query-param patch that only the workbench
+ *                      shell can express. Absent on public routes, where the
+ *                      state is still the honest thing to draw but the sheet's
+ *                      own close button is already the exit.
  *
- * Ref (imperative handle): `{ save(), remove() }` — trigger a save or delete
- * from outside the component.
+ * Ref (imperative handle): `{ save(), remove(opts) }` — trigger a save or delete
+ * from outside the component. `remove({ confirmed: true })` skips the editor's
+ * own `window.confirm`, for a caller that has already asked its own, better
+ * question (the workbench names the record in it).
  */
 const RecordEditor = forwardRef(function RecordEditor({
   agent,
@@ -184,6 +250,8 @@ const RecordEditor = forwardRef(function RecordEditor({
   hideModeToolbar = false,
   previewNote = null,
   onDirtyChange,
+  onLoaded,
+  notFoundAction = null,
 }, ref) {
   const lex = lexiconFor(collection);
   const isNew = !rkey;
@@ -207,7 +275,23 @@ const RecordEditor = forwardRef(function RecordEditor({
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // TWO error states, because they are two different situations and conflating
+  // them is what armed a Save button over a record that does not exist.
+  //
+  //   `error`     — a WRITE failed. The record is on screen, the form is right,
+  //                 and the message belongs beside the button that raised it (and
+  //                 now, through `onStatus`, in the phone's bar as well).
+  //   `loadError` — the READ failed. There is nothing on screen to save: the form
+  //                 would be drawn from `blankRecordFor`'s defaults, so Save would
+  //                 CREATE `is.dame.now/doesnotexist` rather than update anything,
+  //                 and Delete would call `deleteRecord` on a key that is not
+  //                 there. It replaces the form rather than sitting under it.
   const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  // Bumped by "Try again" in the load-failure state. It is in the load effect's
+  // dependency list, which is the whole mechanism — a retry is one more run of
+  // the effect that already knows how to fetch this record.
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [savedFlash, setSavedFlash] = useState(false);
   // A transient object URL so a cover image set from inside a link card shows
   // in the cover field right away (a fresh blob has no `_url` until reload).
@@ -223,6 +307,12 @@ const RecordEditor = forwardRef(function RecordEditor({
     setRawText(text);
     setRawSeed(text);
   }, []);
+
+  // Held in a ref rather than depended on: the load effect refetches whenever a
+  // dep changes identity, and a caller passing an inline arrow would turn every
+  // render into another `getRecord`.
+  const onLoadedRef = useRef(onLoaded);
+  onLoadedRef.current = onLoaded;
 
   // Where the PDS endpoint lands once the display-only lookup resolves. A REF,
   // not state: it is read when leaving the JSON view (to re-bake the display
@@ -247,6 +337,7 @@ const RecordEditor = forwardRef(function RecordEditor({
     async function load() {
       setLoading(true);
       setError(null);
+      setLoadError(null);
       try {
         const res = await agent.com.atproto.repo.getRecord({
           repo: did,
@@ -264,6 +355,11 @@ const RecordEditor = forwardRef(function RecordEditor({
         // The raw-JSON view and payload must stay clean of `_url` annotations.
         seedRaw(JSON.stringify(stripUrlAnnotations(migrated), null, 2));
         if (!lex) setRawMode(true);
+        // Before the blob annotation below, deliberately: a caller reading this
+        // wants the record's own fields (a title, a status line), and handing it
+        // the `_url`-annotated copy would leak our display artefacts into whatever
+        // it does with them.
+        onLoadedRef.current?.(migrated);
 
         // Baking display URLs onto blob refs is the LAST thing the record needs
         // and it used to be the first thing it waited for: this resolve sat in
@@ -288,7 +384,17 @@ const RecordEditor = forwardRef(function RecordEditor({
           });
         });
       } catch (err) {
-        if (!cancelled) setError(err?.message || String(err));
+        // The message is kept alongside the verdict rather than instead of it:
+        // "Could not locate record: is.dame.now/doesnotexist" is raw PDS prose
+        // with no next step in it, so the state says the human sentence and
+        // keeps this as the technical footnote for a failure that is NOT a
+        // plain 404.
+        if (!cancelled) {
+          setLoadError({
+            message: err?.message || String(err),
+            notFound: isMissingRecordError(err),
+          });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -297,7 +403,7 @@ const RecordEditor = forwardRef(function RecordEditor({
     return () => {
       cancelled = true;
     };
-  }, [agent, did, collection, rkey, isNew, lex, initialValue, seedRaw]);
+  }, [agent, did, collection, rkey, isNew, lex, initialValue, seedRaw, reloadNonce]);
 
   const updateField = useCallback((key, next) => {
     setValue((prev) => ({ ...(prev || {}), [key]: next }));
@@ -387,12 +493,59 @@ const RecordEditor = forwardRef(function RecordEditor({
     [lex, seedRaw],
   );
 
+  /**
+   * Everything that has to be true before a single byte goes to the PDS.
+   *
+   * It runs BEFORE `setSaving(true)` on purpose: a refusal is not a save in
+   * progress, and flipping the button to "Saving…" and back for a check that
+   * never touched the network reads as a failed write rather than as a form
+   * that has not been filled in.
+   *
+   * @returns {object|null} the record to write, or null when the save is refused
+   */
+  function recordToWrite() {
+    // A record we could not READ must not be written. This is the branch that
+    // used to turn a typo'd URL into a new record: `getRecord` threw, the form
+    // fell back to the lexicon's blank defaults, and Save took the `isNew ===
+    // false` path straight to `putRecord` with the rkey from the URL.
+    if (loadError) {
+      setError(UNREADABLE_SENTENCE);
+      return null;
+    }
+    let record;
+    try {
+      // Raw mode parses the textarea here, so a JSON syntax error is a refusal
+      // with the parser's own message rather than an exception in the write.
+      record = buildRecordPayload();
+    } catch (err) {
+      setError(err?.message || String(err));
+      return null;
+    }
+    // The asterisks in the form were decorative until this existed: Create on an
+    // untouched new blog post wrote a document with no title and no publication,
+    // and said "No unsaved changes" afterwards.
+    const missing = missingRequired(record, lex);
+    if (missing.length > 0) {
+      setError(requiredSentence(labelFields(missing, lex)));
+      // Name it AND go there. The field ids are the form's own
+      // (`record-editor-field-<key>`), so this works for every lexicon without a
+      // ref per field; in raw mode there is no field to focus and the sentence
+      // has to carry it alone.
+      if (!rawActive) {
+        document.getElementById(`record-editor-field-${missing[0]}`)?.focus();
+      }
+      return null;
+    }
+    return record;
+  }
+
   async function handleSave() {
-    setSaving(true);
     setError(null);
     setSavedFlash(false);
+    const record = recordToWrite();
+    if (!record) return;
+    setSaving(true);
     try {
-      const record = buildRecordPayload();
       if (isNew) {
         if (lex?.rkeyMode === 'fixed') {
           const chosen = rkeyDraft.trim();
@@ -453,9 +606,24 @@ const RecordEditor = forwardRef(function RecordEditor({
     }
   }
 
-  async function handleDelete() {
+  /**
+   * @param {{confirmed?: boolean}} [opts] `confirmed: true` when the CALLER has
+   *   already asked — the workbench asks a better question than this one can,
+   *   because it holds the record's title and can name it. Without the flag the
+   *   two confirms would stack, which is how a double-ask trains an owner to
+   *   dismiss both without reading either.
+   */
+  async function handleDelete({ confirmed = false } = {}) {
     if (isNew) return;
-    if (!window.confirm(`Delete ${collection}/${rkey}? This cannot be undone.`)) return;
+    // Nothing to delete: the read failed, so this rkey either is not there or
+    // could not be reached, and `deleteRecord` would be a guess either way.
+    if (loadError) {
+      setError(UNREADABLE_SENTENCE);
+      return;
+    }
+    if (!confirmed && !window.confirm(`Delete ${collection}/${rkey}? This cannot be undone.`)) {
+      return;
+    }
     setDeleting(true);
     setError(null);
     try {
@@ -558,14 +726,19 @@ const RecordEditor = forwardRef(function RecordEditor({
     ref,
     () => ({
       save: () => saveRef.current?.(),
-      remove: () => deleteRef.current?.(),
+      remove: (opts) => deleteRef.current?.(opts),
     }),
     [],
   );
 
+  // `error` and `notFound` join the four booleans here rather than travelling on
+  // `onDirtyChange`, and the difference is cost: this effect's deps change a
+  // handful of times per record — never per keystroke — so a controller can hold
+  // the payload in state without re-rendering the form on every character.
+  const notFound = !!loadError;
   useEffect(() => {
-    onStatus?.({ saving, deleting, loading, isNew });
-  }, [saving, deleting, loading, isNew, onStatus]);
+    onStatus?.({ saving, deleting, loading, isNew, error, notFound });
+  }, [saving, deleting, loading, isNew, error, notFound, onStatus]);
 
   /* --- dirtiness -------------------------------------------------------- */
 
@@ -593,7 +766,65 @@ const RecordEditor = forwardRef(function RecordEditor({
   }, [dirtyStatus, onDirtyChange]);
 
   if (loading) {
-    return <AdminEditorSkeleton fields={compact ? 3 : 4} />;
+    // The skeleton's job is to reserve the space the form will take, and a
+    // constant 4 could not: on `is.dame.now` it drew a 390px placeholder for a
+    // 232px form, so the pane's content bottom jumped 158px upward the moment
+    // the record landed. The lexicon is already in hand and knows how many
+    // fields it has. `compact` (the debug overlay) keeps its own tighter shape.
+    return <AdminEditorSkeleton fields={compact ? 3 : lex?.fields?.length || 4} />;
+  }
+
+  // A record that could not be read is a STATE, not a form. Drawing the form
+  // anyway is what let `?c=is.dame.now&r=doesnotexist` paint an empty, fully
+  // interactive editor whose Save CREATED the record it claimed was missing —
+  // with the only warning a 12px line of raw PDS prose below the last field.
+  //
+  // It renders for every caller, not just the workbench: the quick-edit sheet
+  // and /exploring mount this same component against records that can be
+  // deleted from another tab, and an armed Save over a record that is not there
+  // is the same hazard wherever it is drawn.
+  if (loadError) {
+    return (
+      <div
+        className={`record-editor record-editor-gone reveal${
+          compact ? ' record-editor-compact' : ''
+        }`}
+      >
+        {/* `placeholder-card` is the site's own vocabulary for "there is nothing
+            here", already worn by the pane's empty state, so this reads as a
+            state in every caller without a rule of its own. */}
+        <p className="placeholder-card record-editor-gone-line">
+          {loadError.notFound ? GONE_SENTENCE : 'That record could not be loaded.'}
+        </p>
+        <p className="admin-field-hint">
+          <code className="admin-mono">
+            {collection}/{rkey}
+          </code>
+          {!loadError.notFound && ` — ${loadError.message}`}
+        </p>
+        {/* Rendered only when it holds something. `.admin-actions` carries a
+            `margin-top`, so an empty one is 12px of dead space in a caller that
+            supplies no way out — which is every public caller, where the sheet's
+            own close button is the exit. */}
+        {(notFoundAction || !loadError.notFound) && (
+          <div className="admin-actions">
+            {notFoundAction}
+            {/* Offered only for a failure that might not repeat. A 404 is an
+                answer, not an outage, so retrying it just asks the PDS to say no
+                again. */}
+            {!loadError.notFound && (
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={() => setReloadNonce((n) => n + 1)}
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (

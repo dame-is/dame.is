@@ -1,0 +1,444 @@
+/* The phone admin's action bar and its sheets. Kept out of adminShell.css,
+   which is already long enough to hide a rule in, and because these two things
+   share one set of measurements: the sheet rests on the bar, so both read
+   `--wb-bar-h`, and both read `--wb-kb` when the software keyboard is up.
+
+   THREE THINGS TO KNOW BEFORE EDITING THIS FILE.
+
+   1. Both custom properties are published on `:root[data-admin-shell]`, not on
+      `.wb`. The sheets portal to <body> — `.wb-pane-detail` declares
+      `container-type: inline-size`, which makes it a containing block for fixed
+      descendants, so a sheet rendered in the pane would be trapped in the pane —
+      and a portalled element cannot read a property scoped to `.wb`. The
+      attribute is on <html> only while the shell is mounted, so nothing here
+      exists on a public route.
+
+   2. The bar is a FLEX ROW OF THE FIXED FRAME. Nothing in this file is
+      `position: sticky`, and nothing measures itself against `--chrome-h`,
+      `--chrome-top-h` or `--edit-bar-h`: /admin renders none of that furniture,
+      and the one of the three that IS sometimes set is an inline style on <html>
+      that no rule here could outrank.
+
+   3. Colours from theme.css tokens only — the live theme is an hour-computed
+      palette, so a literal hex is wrong for 23 hours of the day. Destructive
+      controls use `--danger`, which is the one token deliberately not derived
+      from the sky's hue. */
+
+/* ------------------------------------------------------------------ */
+/* The bar                                                              */
+/* ------------------------------------------------------------------ */
+
+/* 56px, the same rhythm as the top bar, so the frame reads as one piece of
+   furniture with the pane inset between two rails of it. A 44px control then has
+   6px of clearance top and bottom. */
+.wb-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--wb-bar-h);
+  /* The home indicator is the only thing under the bar on this route. */
+  padding: 0 var(--chrome-pad-base) env(safe-area-inset-bottom, 0px);
+  box-sizing: content-box;
+  background: var(--surface-raised);
+  border-top: 1px solid var(--rule);
+}
+
+.wb-bar-slot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Slot 1 shrinks to icon + caret before anything else does; slot 3 never
+   shrinks, because the primary action losing its label is not a degradation. */
+.wb-bar-slot-left {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* `flex-basis: 0`, not `auto`: slot 2 then contributes nothing to the flex line's
+   basis, so slots 1 and 3 keep their natural width and the status takes exactly
+   what is left over — truncating itself rather than squeezing the label off the
+   back button and the ⋯ off the primary action. */
+.wb-bar-slot-status {
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  /* The dirty sentence changes per keystroke. Fixed neighbours plus a truncating
+     centre is what stops the bar reflowing under the owner's thumb. */
+  overflow: hidden;
+}
+
+.wb-bar-slot-actions {
+  flex: 0 0 auto;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.wb-bar-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--wb-hit);
+  min-width: var(--wb-hit);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  line-height: var(--leading-tight);
+  text-align: left;
+  cursor: pointer;
+  justify-content: center;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.wb-bar-btn > svg {
+  flex: 0 0 auto;
+}
+
+.wb-bar-btn-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The primary action is the only filled control on the bar. One filled thing per
+   screen edge, so the thumb knows where to go without reading. */
+.wb-bar-btn[data-tone='primary'] {
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 20%, var(--page));
+  color: var(--accent);
+  font-variant: all-small-caps;
+  letter-spacing: 0.16em;
+  padding-inline: var(--space-3);
+}
+
+.wb-bar-btn[data-tone='danger'] {
+  color: var(--danger);
+}
+
+.wb-bar-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.wb-bar-btn:not(:disabled):hover,
+.wb-bar-btn:not(:disabled):focus-visible {
+  color: var(--accent);
+}
+
+/* The caret says "this opens upward", which is the sheet's whole affordance. */
+.wb-bar-caret {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+}
+
+.wb-bar-surface .wb-bar-btn-label,
+.wb-bar-back .wb-bar-btn-label {
+  max-width: 9rem;
+}
+
+/* Slot 2's own type. `.wb-strip-state` and its children come from adminShell.css
+   — the bar renders AdminStatusStrip's markup so the dirty sentence is written
+   once — and only the truncation is the bar's business. */
+.wb-bar .wb-strip-state {
+  min-width: 0;
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.wb-bar[data-error] .wb-strip-dot {
+  background: var(--danger);
+}
+
+.wb-bar[data-error] .wb-strip-message {
+  color: var(--danger);
+}
+
+/* 340px is where a phone stops having room for three things. Slot 2 is the one
+   that goes: a count is recoverable by looking at the list, a Save button is
+   not. */
+@media (max-width: 21.25rem) {
+  .wb-bar-slot-status {
+    display: none;
+  }
+
+  .wb-bar-surface .wb-bar-btn-label,
+  .wb-bar-back .wb-bar-btn-label {
+    max-width: 5.5rem;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Sheets                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Transparent, non-dimming: a sheet here reads as chrome, not as a modal, and
+   the bar underneath stays live and legible while it is open — the same contract
+   as BottomSheet.css. Below the sheet and the bar in z, above everything in the
+   pane. */
+.wb-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: transparent;
+}
+
+/* The animated clip box, resting on the bar — or on the keyboard once one is up.
+   max(), not a sum: the keyboard COVERS the bar, so adding the two would float
+   the sheet a bar's height above the keyboard with the page showing through the
+   gap. Motion animates this box's height 0 ↔ auto and `overflow: hidden` makes
+   the panel unfurl upward out of the bar. */
+.wb-sheet-wrap {
+  --wb-sheet-bottom: max(
+    calc(var(--wb-bar-h) + env(safe-area-inset-bottom, 0px)),
+    var(--wb-kb, 0px)
+  );
+  position: fixed;
+  bottom: var(--wb-sheet-bottom);
+  left: 0;
+  right: 0;
+  z-index: 41;
+  overflow: hidden;
+  /* Bottom-anchor the panel inside the clip so its bottom border sits on the
+     bar's top edge for the whole animation rather than sliding into place. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.wb-sheet-panel {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  /* Deeper than the bar, so the open sheet reads as its own layer above it. */
+  background: var(--surface-deep);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  /* Never covers the top bar: the owner must always be able to see where they
+     are and leave. --chrome-h is the top bar's height, which the admin does set
+     for itself. */
+  max-height: calc(100dvh - var(--chrome-h) - var(--wb-sheet-bottom));
+}
+
+/* 32×2px, centred. Decorative — see the note in AdminSheet.jsx. */
+.wb-sheet-grip {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 2rem;
+  height: 2px;
+  margin: var(--space-3) 0 var(--space-2);
+  background: var(--rule);
+}
+
+.wb-sheet-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--chrome-pad-base) var(--space-3);
+}
+
+/* The foot is the escape hatch's home: it stays on screen however long the list
+   above it is. The old ribbon put the same control 7.3 screens to the right. */
+.wb-sheet-foot {
+  flex: 0 0 auto;
+  padding: var(--space-2) var(--chrome-pad-base);
+  border-top: 1px solid var(--rule);
+  background: var(--surface-raised);
+}
+
+.wb-sheet-heading {
+  margin: var(--space-4) 0 var(--space-1);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.wb-sheet-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wb-sheet-rule {
+  height: 0;
+  margin: var(--space-2) 0;
+  border: 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* 48px, full bleed, `[icon] [label] ……… [count]`. PADDING rather than a grown
+   ::before: these rows are stacked, and pseudo-boxes on stacked siblings overlap
+   — which is precisely how the chip row let 14 of 19 adjacent pairs steal each
+   other's taps. */
+.wb-sheet-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 3rem;
+  padding: var(--space-2) 0;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wb-sheet-row > svg {
+  flex: 0 0 auto;
+  margin-left: var(--space-2);
+}
+
+.wb-sheet-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Counts are data, so they are in the ledger voice with tabular figures — a
+   column of numbers that do not line up is a column you cannot scan. */
+.wb-sheet-row-count {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-feature-settings: 'tnum' 1;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.wb-sheet-row[data-open] {
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+/* Dimmed, never disabled: an absent collection and an empty one are
+   indistinguishable at the API, and either way the owner may want to create the
+   first record. Same 0.55 the rail uses. */
+.wb-sheet-row[data-absent] {
+  opacity: 0.55;
+}
+
+.wb-sheet-row[data-tone='danger'] {
+  color: var(--danger);
+}
+
+.wb-sheet-row:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.wb-sheet-row:hover:not(:disabled),
+.wb-sheet-row:focus-visible {
+  color: var(--accent);
+}
+
+/* Focus rings are drawn INSIDE a full-bleed row: the scrollport's edge is the
+   row's edge, so an outset ring would be clipped to two horizontal bars. */
+.wb-sheet-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.wb-sheet-disclosure-caret {
+  transition: transform 160ms ease;
+}
+
+.wb-sheet-disclosure-caret[data-open] {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wb-sheet-disclosure-caret {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The "open any collection" form                                       */
+/* ------------------------------------------------------------------ */
+
+/* Shared by the sheet's foot and the desktop rail's footer, so the escape hatch
+   validates and refuses identically in both. It replaced `window.prompt`, which
+   is OS chrome in a house that draws every one of its own controls — and which
+   had nowhere to say why it refused a value. */
+.wb-nsid-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+}
+
+.wb-nsid-label {
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.wb-nsid-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.wb-nsid-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--wb-hit);
+}
+
+/* The row's buttons carry the 44px floor in their PAINT rather than in a grown
+   `::before`. They sit 8px apart, and two grown boxes 8px apart overlap by 16px —
+   the later sibling then wins the overlap and swallows taps meant for its
+   neighbour, which is the exact failure the old chip row shipped. Scoped to this
+   row: `.admin-gate-button` is frozen public API and is not being edited, only
+   given a floor where the admin's own form uses it. */
+.wb-nsid-row .admin-gate-button,
+.wb-nsid-cancel {
+  min-height: var(--wb-hit);
+}
+
+.wb-nsid-cancel {
+  flex: 0 0 auto;
+  position: relative;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.wb-nsid-cancel:hover,
+.wb-nsid-cancel:focus-visible {
+  color: var(--accent);
+}
+
+.wb-nsid-error {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+/* In the rail the form replaces a 216px-wide button, so the label and the two
+   controls stack rather than sharing a line. */
+.wb-nsid-form-rail .wb-nsid-row {
+  flex-wrap: wrap;
+}

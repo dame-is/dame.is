@@ -372,6 +372,12 @@ export const SURFACES = Object.freeze([
     kind: 'studio',
     icon: 'ChartNoAxesColumn',
     blurb: 'Per-piece measurements for the Ratioed project.',
+    // Same collection and the same project as `ratioed-studio` above, and its
+    // cards are measurement tables — a `<dl>` on a 5.5rem/1fr grid that uses
+    // every pixel it is given. Clamped to the measure while its sibling was not,
+    // the pair rendered at 544px and 1189px in the same 1224px pane, so flipping
+    // between them jumped the content column by 645px.
+    fullWidth: true,
   }),
 
   /* --- Legacy ------------------------------------------------------------- */
@@ -418,6 +424,13 @@ function derivedLegacySurfaces() {
         kind: 'records-list',
         icon: 'Archive',
         blurb: firstSentence(LEXICONS[nsid].summary),
+        // Explicitly none. `pageSlugForCollection('is.dame.creating.work')`
+        // answers `creating`, so the legacy surface was hosting the /creating
+        // page's content card — a card titled for a different surface, editing
+        // the same record the Creating surface already edits, on a surface whose
+        // records are a retired lexicon. A derived surface is a record list and
+        // nothing else.
+        pageSlug: null,
       }),
     );
 }
@@ -489,15 +502,20 @@ const syntheticCache = new Map();
 function syntheticSurface(nsid) {
   const hit = syntheticCache.get(nsid);
   if (hit) return hit;
+  // A synthetic surface never appears in the grid or the rail — both iterate
+  // allSurfaces() — but the BREADCRUMB reads its group, and `legacy` was a lie in
+  // the common case: `?c=is.dame.sky&r=…` is how you reach the raw record behind
+  // the Sky studio, and drilling out of a Site-group studio announced "Legacy".
+  // So borrow the group from whichever registered surface already owns this NSID,
+  // and keep `legacy` only for an NSID nothing here has heard of, where it is the
+  // honest bucket for "an old collection you typed in by hand".
+  const home = allSurfaces().find((s) => s.nsids.includes(nsid));
   const made = Object.freeze({
     ...surface({
       key: `c:${nsid}`,
       label: lexiconFor(nsid)?.label || nsid,
       nsid,
-      // Not a group anyone renders — a synthetic surface never appears in the
-      // grid or the rail, both of which iterate allSurfaces(). `legacy` is the
-      // closest honest bucket for "an old NSID you typed in by hand".
-      group: 'legacy',
+      group: home?.group || 'legacy',
       kind: 'records-list',
       icon: 'Database',
       blurb: '',

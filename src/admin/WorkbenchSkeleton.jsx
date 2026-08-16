@@ -41,6 +41,11 @@ export default function WorkbenchSkeleton({ rails = 12, rows = 7 }) {
           <AdminEditorSkeleton />
         </div>
       </div>
+      {/* The frame's third row below 60rem. Decorative and empty — it exists so
+          the phone's pane resolves at the height it will actually have, instead
+          of standing 56px taller and stepping the moment the session lands. CSS
+          hides it above the breakpoint, where there is no bar to stand in for. */}
+      <div className="wb-skel-bar" aria-hidden="true" />
     </div>
   );
 }

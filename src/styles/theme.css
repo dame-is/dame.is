@@ -22,6 +22,17 @@
   --highlight:   rgba(94, 122, 71, 0.16);
   --shadow:      rgba(29, 36, 25, 0.14);
 
+  /* Destructive. ADDITIVE — nothing above is redefined, so no existing rule
+     changes. It exists because "delete" was being painted in --tan, which the
+     sky theme derives from the sky's own hue: at hour 9 --tan computes #223fa0
+     and --accent #2240a0, i.e. a delete button and a save button in the same
+     colour for most of the day. A destructive control has to stay legible AS
+     destructive at every hour, so this token keeps a fixed vermilion hue and
+     lets only its lightness follow the theme. --danger-wash is the same hue at
+     the tint strength an error panel's background wants. */
+  --danger:      #a33a28;
+  --danger-wash: rgba(163, 58, 40, 0.08);
+
   /* Lightbox backdrop — theme-aware. Light themes get a bright frosted
      scrim so the photo reads against a light surround; dark themes get a
      near-black one. --scrim-clear shares the same RGB as --scrim so the
@@ -135,6 +146,10 @@
   --highlight:   rgba(163, 180, 134, 0.16);
   --shadow:      rgba(0, 0, 0, 0.45);
 
+  /* Lightened for a dark ground; ~6.8:1 on --page. */
+  --danger:      #d98b7d;
+  --danger-wash: rgba(217, 139, 125, 0.12);
+
   --scrim:       rgba(0, 0, 0, 0.78);
   --scrim-clear: rgba(0, 0, 0, 0);
   --scrim-ink:   rgba(236, 228, 203, 0.9);
@@ -168,6 +183,17 @@
   --scrim:          var(--sky-scrim, rgba(9, 9, 9, 0.8));
   --scrim-clear:    var(--sky-scrim-clear, rgba(9, 9, 9, 0));
   --scrim-ink:      var(--sky-scrim-ink, rgba(223, 231, 231, 0.9));
+
+  /* Deliberately NOT a --sky-* variable. Every token above rotates with the
+     hour's hue, which is exactly why a destructive control cannot: skyTheme.js
+     derives --tan and --accent from one hue, so at 9am they compute #223fa0 and
+     #2240a0 and "delete" and "save" become the same blue. The hue here is
+     fixed; only the lightness follows the hour, by mixing in the hour's own ink
+     — light ink at midnight lifts it, dark ink at noon deepens it — so it stays
+     legible on a near-black 2am page and on a pale noon one without ever
+     borrowing the sky's colour. */
+  --danger:         color-mix(in srgb, #d4483a 74%, var(--ink));
+  --danger-wash:    color-mix(in srgb, #d4483a 12%, transparent);
 
   /* Per-element glow, driven by the hour's tuning override (or `none`). */
   --glow-buttons:   var(--sky-glow-buttons, none);

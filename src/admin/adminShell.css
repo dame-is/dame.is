@@ -60,9 +60,24 @@
   padding: 0;
 }
 
-/* The frame. `inset: 0` on a fixed element is the visual viewport, which is what
-   the iOS keyboard shrinks — so the shell follows the keyboard up instead of
-   hiding the focused field behind it. */
+/* The frame. `inset: 0` on a fixed element is the LAYOUT viewport, which a
+   software keyboard covers rather than shrinks — an earlier comment here claimed
+   the opposite, and this project's own useKeyboardInset.js documents the truth in
+   its header. So AdminShell measures the overlap and publishes it as `--wb-kb` on
+   <html>, and the stacked block below lifts the frame's bottom edge by it: the
+   frame shrinks from the bottom, the action bar rides on the keyboard's top edge,
+   and the pane — `flex: 1; overflow-y: auto` — simply gets shorter. No
+   viewport-meta change, so index.html (shared with the public site) is untouched.
+
+   `--wb-bar-h` and `--wb-hit` are the two names this shell adds. They live on
+   :root rather than on `.wb` because the sheets portal to <body> and must rest on
+   the same edge the bar does; the attribute only exists while the shell is
+   mounted, so no public route ever sees them. */
+:root[data-admin-shell] {
+  --wb-bar-h: 3.5rem;
+  --wb-hit: 2.75rem;
+}
+
 :root[data-admin-shell] .wb {
   position: fixed;
   inset: 0;
@@ -71,6 +86,28 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--page);
+}
+
+/* The admin's own skip link. The site's "Skip to content" targets
+   `#main-content`, which here wraps the top bar and the entire workbench — so it
+   skips nothing, while the first editor field sits up to 154 tab stops in, behind
+   a record list that spends two stops per row. Visually hidden until focused,
+   exactly like the site's own. */
+.wb-skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 50;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-deep);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  font-size: var(--text-sm);
+}
+
+.wb-skip:focus-visible {
+  left: var(--space-3);
+  top: var(--space-2);
 }
 
 /* ------------------------------------------------------------------ */
@@ -92,11 +129,15 @@
   border-bottom: 1px solid var(--rule);
 }
 
+/* `min-height` rather than more padding: the mark is a link, and its painted box
+   plus the `.wb-hit` growth has to clear 44px on a phone. 28 + 8 + 8 = 44. */
 .wb-top-mark {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex: 0 0 auto;
+  min-height: 1.75rem;
   color: var(--ink);
   text-decoration: none;
 }
@@ -139,7 +180,7 @@
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--ink-muted);
 }
 
@@ -181,22 +222,29 @@
   gap: var(--space-3);
 }
 
+/* A LABEL, not a control: it names the hour the palette is tracking and does
+   nothing when clicked. The border it used to carry made it read as a button
+   beside the one real button in the corner, so the border is gone and the type is
+   on the scale. */
 .wb-top-hour {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   color: var(--ink-faint);
-  border: 1px solid var(--rule);
-  padding: 0.1rem 0.4rem;
+  padding: 0.1rem 0;
 }
 
+/* Same arithmetic as the mark: 28px painted + `.wb-hit`'s 8px on each side is the
+   44px floor, without repainting a control the desk has been using for months. */
 .wb-top-out {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  min-height: 1.75rem;
   gap: 0.3rem;
   font-variant: all-small-caps;
-  letter-spacing: 0.16em;
-  font-size: 0.82rem;
+  letter-spacing: 0.18em;
+  font-size: var(--text-xs);
   color: var(--ink-soft);
   text-decoration: none;
   border: 1px solid var(--rule);
@@ -283,7 +331,22 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-5) var(--space-5) var(--space-8);
+  /* NO BLOCK-START PADDING, on purpose. Chrome insets a sticky box by its scroll
+     container's padding, so a scrollport with `padding-top: 17.6px` pins its
+     sticky header 17.6px down and lets live content scroll visibly through the
+     band above it. The frame supplies that space to the pane's first child
+     instead (below), which is also what lets a pane pin a tab bar or a list head
+     at `top: 0` and have it land flush on the scrollport edge. */
+  padding: 0 var(--space-5) var(--space-8);
+}
+
+/* The block-start space, given to whichever child is first. When the status
+   strip is present it IS first and is deliberately flush — it is chrome, pinned
+   against the top bar — and the flex `gap` below it spaces the form. */
+.wb-pane-detail > .wb-editor:first-child,
+.wb-pane-detail > .wb-studio:first-child,
+.wb-pane-detail > .fd:first-child {
+  padding-block-start: var(--space-5);
 }
 
 /* Clamp a form studio or a record editor to the measure so it does not stretch
@@ -311,10 +374,16 @@
   height: 100%;
 }
 
+/* Same inset as the detail pane — they are sibling columns in one frame, and at
+   12.8px against 17.6px their content edges disagreed by 4.8px. Same zero
+   block-start as the detail pane, and for the same reason: the list's own head is
+   `position: sticky; top: 0`, and 12.8px of scrollport padding was pinning it
+   12.8px down with scrolled rows painting in the gap above it. The head supplies
+   its own block-start padding (recordListPane.css). */
 .wb-pane-list {
   overflow-y: auto;
   border-right: 1px solid var(--rule);
-  padding: var(--space-4);
+  padding: 0 var(--space-5) var(--space-5);
 }
 
 /* ------------------------------------------------------------------ */
@@ -341,6 +410,16 @@
 /* Only the surface groups scroll — see the note in AdminRail.jsx. `min-height: 0`
    for the same reason as above: a flex item will not shrink below its content
    without it, and the scroller would push the pinned footer out of the rail. */
+/* The overflow has to SAY it is an overflow. At 1440×800 this scroller runs 861px
+   in a 675px box — the last five destinations and the whole LEGACY heading are
+   outside it — and it used to hide its scrollbar and end on a `--rule-soft`
+   hairline identical to the one between every group, so the rail simply appeared
+   to stop after "Resume studio". A mask fade is the cue: it only paints where
+   there is something under it, it costs no layout, and unlike a scrollbar it is
+   visible before the owner scrolls (macOS overlay scrollbars appear only once you
+   already know). `padding-bottom` on top of it so the clip always lands on a row
+   boundary rather than slicing a group heading through its glyphs, which is what
+   1024×900 was doing. */
 .wb-rail-scroll {
   display: flex;
   flex-direction: column;
@@ -349,9 +428,19 @@
   width: 100%;
   min-height: 0;
   overflow-y: auto;
-  /* The rail is 3.25rem wide and cannot spare a gutter; the seam above the
-     pinned footer is what says "there is more here". */
+  padding-bottom: var(--space-2);
   scrollbar-width: none;
+  /* Scroll shadows, in four background layers. The two COVERS are painted in the
+     rail's own colour and anchored to the CONTENT (`local`), so they slide out of
+     view as you scroll; the two SHADOWS sit under them anchored to the BOX
+     (`scroll`). The result is a cue that paints only where there is really more
+     to see — at the bottom until you reach the end, at the top once you have
+     left it — and not at all when everything already fits. */
+  background:
+    linear-gradient(var(--surface-raised) 40%, transparent) top / 100% 1.25rem local no-repeat,
+    linear-gradient(transparent, var(--surface-raised) 60%) bottom / 100% 1.25rem local no-repeat,
+    linear-gradient(var(--shadow), transparent) top / 100% 0.5rem scroll no-repeat,
+    linear-gradient(transparent, var(--shadow)) bottom / 100% 0.5rem scroll no-repeat;
 }
 
 .wb-rail-scroll::-webkit-scrollbar {
@@ -402,12 +491,21 @@
   border-radius: 0;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   text-align: left;
   cursor: pointer;
   text-decoration: none;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease,
     opacity 120ms ease;
+}
+
+/* Drawn INSIDE the chip. The rail is its own scroll container and its inline
+   bounds are the chip's inline bounds, so the global `outline-offset: 2px` put
+   the ring's left and right edges outside the scrollport, where they were
+   clipped away — keyboard focus on the admin's primary navigation read as two
+   stray accent rules rather than a ring. */
+.wb-rail-btn:focus-visible {
+  outline-offset: -2px;
 }
 
 /* The glyph never shrinks when a long label wraps. */
@@ -443,13 +541,39 @@
   opacity: 1;
 }
 
-/* Keep the 28px painted chip, grow the tappable area to the 44px platform
-   minimum on touch. Same trick, same numbers, as the chrome bar's buttons. */
+/* ------------------------------------------------------------------ */
+/* The hit utility                                                      */
+/* ------------------------------------------------------------------ */
+
+/* One rule, closing a class of defect that ran to twenty-seven instances.
+   `.wb-hit` grows a control's TARGET without changing a pixel of what is
+   painted: a `::before` inset by -8px turns a 28px chip into a 44px target, and
+   `.wb-hit-lg` (-14px) does the same for a 16px glyph button. Borrowed from the
+   public chrome, which has used the trick since the bar was written, and now
+   minted as a utility so nobody has to reinvent it per component.
+     - Coarse pointers only: on a mouse an invisible 8px halo would swallow
+       hovers meant for the element beside it.
+     - The GROWN box must not overlap a sibling's. Where controls are stacked
+       (sheet rows, the Front Desk's need rows) use `padding-block` instead —
+       overlapping pseudo-boxes are exactly how the old chip row let 14 of 19
+       adjacent pairs steal each other's taps.
+     - The element needs a positioning context; `.wb-hit` sets `position:
+       relative` itself, so adding the class is the whole change. */
 @media (pointer: coarse) {
+  .wb-hit,
+  .wb-rail-btn {
+    position: relative;
+  }
+
+  .wb-hit::before,
   .wb-rail-btn::before {
     content: '';
     position: absolute;
     inset: -8px;
+  }
+
+  .wb-hit-lg::before {
+    inset: -14px;
   }
 }
 
@@ -488,6 +612,15 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-3);
+}
+
+/* The declared gap has to BE the gap. `h1` keeps `margin-bottom: 17.6px` and `p`
+   12.8px from typography.css, so once the head wrapped to two lines its real gaps
+   were 27.2px and 22.4px — three different vertical rhythms in a head that
+   declares one, and 137.5px of a 390px screen spent on a title and a blurb. On
+   desktop it was invisible only because everything shared one flex line. */
+.wb-pane-head > * {
+  margin-block: 0;
 }
 
 .wb-pane-title {
@@ -548,12 +681,21 @@
 /* Status strip                                                         */
 /* ------------------------------------------------------------------ */
 
-/* First child of `.wb-pane-detail`. On desktop it pins to the same offset the
-   list column uses, so the two tops agree. z-index 5 sits above pane content and
+/* First child of `.wb-pane-detail`, DESKTOP ONLY — AdminStatusStrip renders null
+   below 60rem, where the action bar carries the same sentence and the same Save.
+
+   `top: 0`, and that zero is load-bearing. The offset here used to be
+   `calc(var(--chrome-top-h, var(--chrome-h)) + var(--space-3))`, both terms
+   measuring against a ChromeBar this route does not render: `--chrome-top-h` was
+   never set, the 56px fallback applied, and sticky pushed the strip 65.6px DOWN
+   its own scrollport even at scrollTop 0 — landing exactly on the record header,
+   so the title, the NSID and the rkey were painted over and an empty band sat
+   above. The pane is the scrollport and it starts where the top bar ends; nothing
+   on this route is measured against chrome. z-index 5 sits above pane content and
    below every chrome surface. */
 .wb-strip {
   position: sticky;
-  top: calc(var(--chrome-top-h, var(--chrome-h)) + var(--space-3));
+  top: 0;
   z-index: 5;
   display: flex;
   flex-wrap: wrap;
@@ -588,6 +730,17 @@
 
 .wb-strip[data-dirty] .wb-strip-message {
   color: var(--ink);
+}
+
+/* A failed save. `--danger` rather than `--tan`, which under the sky theme is
+   derived from the sky's own hue and computes within one step of `--accent` for
+   most of the day — an error the same colour as a success. */
+.wb-strip[data-error] .wb-strip-dot {
+  background: var(--danger);
+}
+
+.wb-strip[data-error] .wb-strip-message {
+  color: var(--danger);
 }
 
 .wb-strip-message {
@@ -625,28 +778,61 @@
   max-height: none;
 }
 
+/* The skeleton stands in for the FRAME, so at phone widths it reserves the action
+   bar's row — otherwise the pane resolves 56px taller than the real one and the
+   whole page steps as the session lands. There is no bar on a desk, so there is
+   nothing to reserve there. */
+.wb-skel-bar {
+  display: none;
+  flex: 0 0 auto;
+  height: var(--wb-bar-h, 3.5rem);
+  background: var(--surface-raised);
+  border-top: 1px solid var(--rule);
+}
+
 /* ------------------------------------------------------------------ */
 /* Stacked (drill-down) — 60rem / 960px                                 */
 /* ------------------------------------------------------------------ */
 
-/* Deliberately catches tablets: between 701px and 960px a 3.25rem rail plus a
-   22rem list column leaves the detail pane under 20rem wide, which is unusable
+/* Deliberately catches tablets: between 701px and 960px a 13.5rem rail plus a
+   23rem list column leaves the detail pane under 20rem wide, which is unusable
    for the blocks editor. Pane-internal reflow is a CONTAINER query against
-   `wbpane` and is independent of this breakpoint — that is the point. */
+   `wbpane` and is independent of this breakpoint — that is the point.
+
+   WHAT CHANGES BELOW THIS LINE IS THE WHOLE SHAPE OF THE ADMIN, not a reflow of
+   the desk one. The rail renders `null` (AdminRail.jsx) and every rule that used
+   to turn it into a horizontal chip row is gone with it: that row measured
+   3034px — 7.78 viewport widths at 390 — with its four group headings
+   `clip-path`-hidden, no scroll cue of any kind, 41px targets whose grown hit
+   boxes overlapped by 12px, and the "open any collection" escape hatch at
+   x=2832. In its place the frame grows a third row, `.wb-bar` (adminBar.css),
+   carrying navigation, status and the surface's primary action under the thumb.
+   See docs/admin-mobile-design.md §2. */
 @media (max-width: 60rem) {
-  /* One column, two rows: the chip row at its own height, the visible pane
-     taking the rest. `minmax(0, 1fr)` rather than `1fr` so the pane may shrink
-     below its content and scroll, instead of growing the frame. */
+  /* The frame's bottom edge rides on the software keyboard. `--wb-kb` is
+     published on <html> by AdminShell from useKeyboardInset; it is 0 whenever no
+     keyboard is up, and on every platform where `visualViewport` is unavailable,
+     so this resolves to the plain frame by default. The pane is `flex: 1;
+     overflow-y: auto`, so it simply gets shorter — and because the bar is a row
+     of the frame rather than a box in the scrollport, no focused field can end
+     up underneath it and no `scroll-padding-bottom` is needed. */
+  :root[data-admin-shell] .wb {
+    bottom: var(--wb-kb, 0px);
+  }
+
+  /* One column, one row: the visible pane takes everything between the two bars.
+     `minmax(0, 1fr)` rather than `1fr` so the pane may shrink below its content
+     and scroll, instead of growing the frame. */
   .wb-shell,
   .wb-shell:not(:has(.wb-pane-list)) {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 0;
   }
 
-  /* The breadcrumb is the first thing to go: the chip row directly beneath it
-     already names the surface, and at 390px the crumb trail and the wordmark
-     were laying over each other. The mark and the way out both stay. */
+  /* The breadcrumb goes: the bar's left slot names the surface you are on, which
+     is the one job the crumb trail was doing here, and at 390px the trail and the
+     wordmark laid over each other. The mark and the way out both stay. */
   .wb-crumbs {
     display: none;
   }
@@ -656,143 +842,46 @@
     padding-inline: var(--chrome-pad-base);
   }
 
-  /* The rail becomes a horizontal chip row directly under the top bar. It is a
-     flex item of the fixed frame, not a sticky box — the frame is what holds it
-     in place now, so it needs no offset to measure against. */
+  /* The rail is not rendered at this width. The rule is kept for the SKELETON,
+     which draws a decorative rail of its own while the session is restoring and
+     would otherwise flash a column the real shell never shows. */
   .wb-rail {
-    flex: 0 0 auto;
-    height: auto;
-    flex-direction: row;
-    align-items: center;
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x proximity;
-    /* No scrollbar here: a chip clipped by the viewport edge is its own cue,
-       and a horizontal bar under a 44px row is noise. */
-    scrollbar-width: none;
-    padding-inline: var(--chrome-pad-base);
-    border-right: 0;
-    border-bottom: 1px solid var(--rule);
+    display: none;
   }
 
-  /* The group heading is a divider's caption in a vertical rail; laid out as a
-     row it would read as one more chip. The groups keep their rule. (The
-     chips themselves stay labelled here — see the `.wb-rail-label` rule further
-     down, which is the one that governs.) */
-  .wb-rail-heading {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    clip-path: inset(50%);
+  .wb-skel-bar {
+    display: block;
   }
 
-  /* Stacked, the visible column is the only scrollport under the chip row. */
-  .wb-pane-list {
+  /* Both panes: the frame's inset is `--chrome-pad-base` (16px at ≤700px), the
+     same value the public chrome insets by, so the admin sits at the site's own
+     edge rather than at a token step nothing else uses. Zero block-start on the
+     scrollport — see the note on `.wb-pane-detail` above; it is what lets a pane
+     pin a head or a tab bar at `top: 0` and have it land flush at the scrollport
+     edge instead of 16px down with live content scrolling through the band. */
+  .wb-pane-list,
+  .wb-pane-detail {
     height: auto;
     min-height: 0;
     flex: 1;
     overflow-y: auto;
     border-right: 0;
+    padding: 0 var(--chrome-pad-base) var(--space-6);
   }
 
-  /* Laid out as one row, so the scroller stops being a box of its own and its
-     groups become direct flex items of the rail. */
-  .wb-rail-scroll {
-    display: contents;
+  .wb-pane-detail > .wb-editor:first-child,
+  .wb-pane-detail > .wb-studio:first-child,
+  .wb-pane-detail > .fd:first-child {
+    padding-block-start: var(--space-4);
   }
 
-  .wb-rail-group {
-    flex-direction: row;
-    width: auto;
-    padding-bottom: 0;
-    padding-right: var(--space-3);
-    border-bottom: 0;
-    border-right: 1px solid var(--rule-soft);
-  }
-
-  .wb-rail-scroll > .wb-rail-group:last-child {
-    padding-right: 0;
-    border-right: 0;
-  }
-
-  .wb-rail-group-end {
-    margin-top: 0;
-    margin-left: auto;
-    padding-top: 0;
-    padding-left: var(--space-3);
-    border-top: 0;
-    border-left: 1px solid var(--rule-soft);
-    border-right: 0;
-  }
-
-  .wb-rail-btn {
-    width: auto;
-    min-width: 1.75rem;
-    gap: var(--space-2);
-    padding: 0 var(--space-2);
-    /* A row of chips needs its own edges; the vertical rail gets them from the
-       rows' alignment and its own border instead. */
-    border-color: var(--rule);
-    background: var(--page);
-    scroll-snap-align: center;
-    /* Room to breathe at the edges when the active chip is scrolled into view. */
-    scroll-margin-inline: var(--space-5);
-  }
-
-  .wb-rail-label {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    font-family: var(--sans);
-    font-size: var(--text-sm);
-    font-variant: all-small-caps;
-    letter-spacing: 0.18em;
-  }
-
-  /* Sticky, not fixed: it needs no measured custom property and so cannot
-     double-count against .app-shell's padding-bottom sum. z-index 20 is below
-     both chrome bars (30) and the edit bar (33), so the public chrome always
-     wins.
-
-     `order: 2` is what makes the pin actually happen, and it is not cosmetic.
-     A sticky box is only ever shifted to keep itself INSIDE its sticky view
-     rectangle: a `bottom` inset pulls a box UP when it would otherwise fall
-     below the fold, and never pushes one DOWN. As the pane's first child the
-     strip's natural position is already at the top of the scrollport, so
-     bottom-sticky had nothing to do and the strip scrolled away off-screen —
-     measured at y = -559 in a 390x844 viewport. `.wb-pane-detail` is a flex
-     column, so ordering the strip last puts its natural position below the
-     fold, and bottom-sticky then lifts it to exactly the wanted offset
-     (measured pinned flush above the 56px chrome bar, and released once the
-     pane's own end scrolls past). The DOM order is untouched — the strip stays
-     the FIRST child, which is what keeps desktop top-sticky working and keeps
-     the Save button outside `.blocks-editor`. */
-  .wb-strip {
-    position: sticky;
-    top: auto;
-    /* Flush to the bottom of the frame. There is no chrome bar under it on this
-       route, so nothing to clear but the home indicator. */
-    bottom: env(safe-area-inset-bottom, 0px);
-    z-index: 20;
-    order: 2;
-  }
-
-  /* The sky studio's hour bar is body-portalled and FIXED, so it cannot stack
-     with a sticky strip — lift the strip clear of it while it is up. */
-  .wb[data-surface='sky'] .wb-strip {
-    bottom: calc(var(--sky-hourbar-h, 0px) + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* The detail pane is the scrollport in its grid row, exactly like the list. */
-  .wb-pane-detail {
-    min-height: 0;
-    overflow-y: auto;
-    padding: var(--chrome-pad-base);
-    padding-bottom: var(--space-8);
+  /* Centre the clamped column once it is the pane's only content. Between about
+     640px and 959px the pane spans the viewport while the studio stays clamped to
+     `--wb-measure`, so it was left-aligned with a right gutter up to six times the
+     left — at 940 the content stopped at x=600 with 340px of empty pane beside it,
+     which reads as a broken layout rather than as a measure. */
+  .wb-pane-detail > .wb-studio,
+  .wb-pane-detail > .wb-editor {
+    margin-inline: auto;
   }
 }

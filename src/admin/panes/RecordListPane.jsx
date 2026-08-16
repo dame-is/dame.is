@@ -7,11 +7,11 @@
 //
 // What is genuinely different, and why:
 //
-//  1. **The pane is persistent.** It is a sibling of the detail pane rather than
-//     a page that gets replaced by one, so opening a record no longer throws the
-//     list away. Everything that used to be free — scroll position, filter text,
-//     selection — is now state on a component that stays mounted, and that is the
-//     whole reason the filter and the multiselect can exist at all.
+//  1. **The pane is persistent — above 60rem.** It is a sibling of the detail
+//     pane rather than a page that gets replaced by one, so opening a record no
+//     longer throws the list away. BELOW 60rem it is not: the frame gives the
+//     whole viewport to one column, so drilling into a record unmounts this one.
+//     That is why the view state below no longer lives here (see 6).
 //  2. **`limit: 50` → `limit: 100`.** Same request count, twice the rows; 100 is
 //     the API maximum (`limit=101` answers `InvalidRequest … maximum 100`).
 //  3. **Exhaustion is a SHORT PAGE, not a missing cursor.** The old test was
@@ -19,14 +19,32 @@
 //     on a final short page — which is why a 27-record collection has been
 //     offering a "Load more" that loads nothing. `batch.length < PAGE_LIMIT` is
 //     the real answer; the cursor check stays as a secondary guard.
-//  4. **No Select / Done mode.** Multiselect is always on: checkboxes fade in on
-//     hover or focus and stay up while anything is ticked. A mode toggle made
-//     sense on a page you left to edit a record; in a column that is always on
-//     screen beside the editor it is one click of ceremony for nothing.
-//  5. **Filter and sort are component state, never URL state.** They are a way of
-//     looking at the surface, not a place — putting them in the query string
-//     would push a history entry per keystroke and make every list link
-//     unshareable in a different way.
+//  4. **Multiselect is always on above 60rem** — checkboxes fade in on hover or
+//     focus and stay up while anything is ticked — and is a MODE below it,
+//     entered from the action bar's `⋯`. A mode is ceremony in a column that sits
+//     beside the editor all day; on a phone a permanent 13px checkbox on every
+//     row is a target nobody can hit and 24px of a 390px row spent on it.
+//  5. **Filter and sort are never URL state.** They are a way of looking at the
+//     surface, not a place — putting them in the query string would push a
+//     history entry per keystroke and make every list link unshareable in a
+//     different way.
+//  6. **The view state lives in the shell** (`listView` / `setListView`, keyed by
+//     surface). Query, sort, visibility, selection, the scroll offset and the row
+//     you last opened all survive this pane being unmounted, which is what makes
+//     "open a record, come back, carry on down the list" work on a phone. It is
+//     also why there is no reset-on-surface-change block any more: the shell
+//     keys the state by surface, so Blogging's filter simply is not Creating's.
+//  7. **Two heads, one list.** Above 60rem the head is the full instrument panel
+//     — title, nsid, filter, sort, visibility segment, bulk toolbar. Below it the
+//     head is two 44px rows (title + refresh, then filter toggle + one options
+//     chip) and everything else moves into the action bar and the options sheet,
+//     per docs/admin-mobile-design.md §3.2. The head is `position: sticky` at
+//     BOTH widths: the pane is its own scrollport at every width, so the filter
+//     and the destructive cluster cannot scroll away.
+//  8. **Nothing sits between the toolbar and the rows.** The page-content panel,
+//     the hero seeder and the "filtering loaded records only" caption all used
+//     to; a bulk Delete 350px from the row it deletes, with an unrelated card
+//     between them, is not a control surface.
 //
 // The filter is client-side over the records that are LOADED, which is a real
 // limitation rather than an implementation detail, so the pane says so on screen
@@ -36,7 +54,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw } from 'lucide-react';
+import { ChevronRight, ChevronUp, RefreshCw, Search, X } from 'lucide-react';
+import AdminSheet from '../AdminSheet.jsx';
 import PageContentPanel from '../../components/PageContentPanel.jsx';
 import { rkeyFromUri } from '../../components/RecordEditor.jsx';
 import { AdminRecordListSkeleton } from '../../components/Skeleton.jsx';
@@ -60,6 +79,15 @@ const PAGE_LIMIT = 100;
 /** Shared empty array, so an unfetched list never changes identity per render. */
 const NO_RECORDS = Object.freeze([]);
 
+/** Ditto for "nothing is ticked" — `listView.selected` is compared by identity. */
+const NO_SELECTION = Object.freeze([]);
+
+/**
+ * This pane's own sheet id. The shell owns `'surfaces'` and `'overflow'` and
+ * allows one sheet open at a time, so naming it here is the whole registration.
+ */
+const OPTIONS_SHEET = 'list-options';
+
 /**
  * Sort orders. `newest` and `oldest` both read `latestInstant` — the same
  * accessor the Front Desk orders by — which answers "when was this last
@@ -72,12 +100,56 @@ const SORTS = Object.freeze([
   Object.freeze({ key: 'key', label: 'Key A→Z' }),
 ]);
 
-/** The visibility segment. Only rendered for the four collections that have one. */
-const VISIBILITIES = Object.freeze([
-  Object.freeze({ key: 'all', label: 'All' }),
-  Object.freeze({ key: 'visible', label: 'Visible' }),
-  Object.freeze({ key: 'hidden', label: 'Hidden' }),
-]);
+/**
+ * Each collection's own visibility vocabulary, keyed by the hidden word its
+ * visibility model already publishes for the row chip: the word for the opposite
+ * state, and the two verbs for the buttons that switch between them.
+ *
+ * This exists because one state was going by three names: the segment offered
+ * All / Visible / Hidden, the row chip beneath it read DISABLED, and the detail
+ * pane's field called it "Enabled (shown in rotation)". `visibilityModelFor()`
+ * knows the hidden word — "draft" on a document, "disabled" on a hero phrase —
+ * and the rest of the vocabulary is the only part it does not carry, so it is
+ * stated once here rather than being guessed at three call sites.
+ */
+const WORDS = Object.freeze({
+  draft: Object.freeze({ shown: 'Published', hide: 'Draft', show: 'Publish' }),
+  disabled: Object.freeze({ shown: 'Enabled', hide: 'Disable', show: 'Enable' }),
+  hidden: Object.freeze({ shown: 'Visible', hide: 'Hide', show: 'Show' }),
+  private: Object.freeze({ shown: 'Public', hide: 'Hide', show: 'Publish' }),
+  unlisted: Object.freeze({ shown: 'Public', hide: 'Hide', show: 'Publish' }),
+});
+
+const FALLBACK_WORDS = Object.freeze({ shown: 'Visible', hide: 'Hide', show: 'Show' });
+
+/**
+ * How the OPEN COLLECTION talks about visibility: the segment's three options,
+ * and the two verbs the bulk buttons need. Null for the four collections that
+ * have no visibility concept at all.
+ *
+ * `chipLabel` takes a record value; called with an empty one it answers the
+ * model's default word, which is exactly the noun this is keyed by. The bulk
+ * buttons take VERBS rather than the segment's adjectives for two reasons: a
+ * button should say what it does, and three adjectives ("Disabled" "Enabled"
+ * "Delete (12)") wrap onto a second line in a 22rem column while three verbs
+ * do not — and a cluster that can wrap cannot have its space reserved.
+ *
+ * @param {ReturnType<typeof visibilityModelFor>} visModel
+ */
+function visibilityWords(visModel) {
+  if (!visModel) return null;
+  const hiddenWord = String(visModel.chipLabel({}) || 'hidden');
+  const words = WORDS[hiddenWord] || FALLBACK_WORDS;
+  return Object.freeze({
+    hide: words.hide,
+    show: words.show,
+    options: Object.freeze([
+      Object.freeze({ key: 'all', label: 'All' }),
+      Object.freeze({ key: 'visible', label: words.shown }),
+      Object.freeze({ key: 'hidden', label: hiddenWord.charAt(0).toUpperCase() + hiddenWord.slice(1) }),
+    ]),
+  });
+}
 
 /**
  * Where "New record" goes, and it must NOT change surface.
@@ -125,6 +197,12 @@ function patchFromHref(href) {
  * Admin.jsx, down to both confirm strings — it is the one-time bootstrap for
  * `is.dame.hero.phrase`, and the duplicate warning is the only thing standing
  * between a second click and fourteen extra records.
+ *
+ * It is now rendered INSIDE the empty state and in the subtle voice rather than
+ * as a permanently filled button between the toolbar and the first row: a
+ * one-time bootstrap that has already been run cannot go on being as loud as
+ * "New" on every visit forever, and the only place it ever explained itself was
+ * inside its own confirm() dialog.
  *
  * The sequential create loop is deliberate throttling and carries no
  * `no-await-in-loop` directive, because that rule is not enabled here: adding one
@@ -178,11 +256,11 @@ function HeroSeedButton({ agent, did, existingCount, onSeeded }) {
     <>
       <button
         type="button"
-        className="admin-gate-button admin-gate-button-tight"
+        className="admin-link-subtle wb-list-empty-action"
         onClick={seed}
         disabled={busy}
       >
-        {busy ? 'Seeding…' : 'Seed defaults'}
+        {busy ? 'Seeding…' : 'Seed the built-in hero phrases'}
       </button>
       {error && <p className="admin-error">{error}</p>}
     </>
@@ -194,12 +272,45 @@ function HeroSeedButton({ agent, did, existingCount, onSeeded }) {
 /* ------------------------------------------------------------------ */
 
 /**
- * One record row: a checkbox that does not navigate, and a link that does.
+ * What a row SAYS, without deciding what tapping it does. Two lines rather than
+ * the old single line, because this column is 22rem wide and the old row spent
+ * 14ch of it on the rkey before the title started. Line one is what the record
+ * IS; line two is how it is addressed and when it was last touched.
  *
- * Two lines rather than the old single line, because this column is 22rem wide
- * and the old row spent 14ch of it on the rkey before the title started. Line one
- * is what the record IS; line two is how it is addressed and when it was last
- * touched.
+ * The status square is absolutely positioned (see `.wb-list-dot`) so that a
+ * row's title and its rkey share one left edge on the four surfaces that draw
+ * one, exactly as they already do on the four that do not.
+ */
+function RowBody({ label, chip, hidden, hasState, rkey, instant }) {
+  return (
+    <>
+      <span className="wb-list-line">
+        {hasState && (
+          <span className="wb-list-dot" data-hidden={hidden ? '' : undefined} aria-hidden="true" />
+        )}
+        <span className="wb-list-label">{label || '(untitled)'}</span>
+      </span>
+      <span className="wb-list-meta">
+        <code className="wb-list-rkey">{rkey}</code>
+        {chip && <span className="admin-record-chip small-caps">{chip}</span>}
+        {instant && (
+          <time className="wb-list-time" dateTime={instant} title={instant}>
+            {relativeTime(instant)}
+          </time>
+        )}
+      </span>
+    </>
+  );
+}
+
+/**
+ * One record row, in one of its two shapes.
+ *
+ *  - NORMALLY: a checkbox that does not navigate, and a link that does.
+ *  - IN SELECTION MODE (touch only): the whole row is a `<label>` for its own
+ *    checkbox, so the tap target is the full 65px row rather than a 24px box —
+ *    no `::before` halo, no invisible target overlapping the row's link, and the
+ *    accessible name is the record's title rather than its rkey.
  *
  * No `data-nsid` attribute and no `.feed-item` class anywhere in here: ChromeBar
  * sweeps `[data-nsid]` on every scroll frame to drive the public breadcrumb's
@@ -215,6 +326,8 @@ function RecordRow({
   href,
   open,
   checked,
+  selecting,
+  showCheck,
   onOpen,
   onToggle,
   rowRef,
@@ -228,48 +341,62 @@ function RecordRow({
     .filter(Boolean)
     .join(' ');
 
+  const body = (
+    <RowBody
+      label={label}
+      chip={chip}
+      hidden={hidden}
+      hasState={hasState}
+      rkey={rkey}
+      instant={instant}
+    />
+  );
+
+  // The record's own title, not its rkey. A screen-reader user ticking rows for
+  // a bulk delete was hearing twelve characters of base32.
+  const pickLabel = `Select ${label || rkey}`;
+
   return (
     <li className={className} ref={rowRef}>
-      <input
-        type="checkbox"
-        className="wb-list-check"
-        checked={checked}
-        onChange={() => onToggle(rkey)}
-        aria-label={`Select ${rkey}`}
-      />
-      <Link
-        to={href}
-        className="wb-list-link"
-        aria-current={open ? 'true' : undefined}
-        onClick={(event) => {
-          // Let the browser have modified and non-primary clicks, so cmd-click
-          // still opens a record in a new tab. Everything else goes through
-          // `go`, which runs the unsaved-changes guard.
-          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-          event.preventDefault();
-          onOpen(rkey);
-        }}
-      >
-        <span className="wb-list-line">
-          {hasState && (
-            <span
-              className="wb-list-dot"
-              data-hidden={hidden ? '' : undefined}
-              aria-hidden="true"
+      {selecting ? (
+        <label className="wb-list-pick">
+          <input
+            type="checkbox"
+            className="wb-list-check"
+            checked={checked}
+            onChange={() => onToggle(rkey)}
+            aria-label={pickLabel}
+          />
+          <span className="wb-list-link">{body}</span>
+        </label>
+      ) : (
+        <>
+          {showCheck && (
+            <input
+              type="checkbox"
+              className="wb-list-check"
+              checked={checked}
+              onChange={() => onToggle(rkey)}
+              aria-label={pickLabel}
             />
           )}
-          <span className="wb-list-label">{label || '(untitled)'}</span>
-        </span>
-        <span className="wb-list-meta">
-          <code className="wb-list-rkey">{rkey}</code>
-          {chip && <span className="admin-record-chip small-caps">{chip}</span>}
-          {instant && (
-            <time className="wb-list-time" dateTime={instant} title={instant}>
-              {relativeTime(instant)}
-            </time>
-          )}
-        </span>
-      </Link>
+          <Link
+            to={href}
+            className="wb-list-link"
+            aria-current={open ? 'true' : undefined}
+            onClick={(event) => {
+              // Let the browser have modified and non-primary clicks, so cmd-click
+              // still opens a record in a new tab. Everything else goes through
+              // `go`, which runs the unsaved-changes guard.
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+              event.preventDefault();
+              onOpen(rkey);
+            }}
+          >
+            {body}
+          </Link>
+        </>
+      )}
     </li>
   );
 }
@@ -285,7 +412,19 @@ function RecordRow({
  * @param {string} props.did
  */
 export default function RecordListPane({ surface, agent, did }) {
-  const { rkey, isNew, go, invalidate, dataRev } = useAdminShell();
+  const {
+    rkey,
+    isNew,
+    go,
+    invalidate,
+    dataRev,
+    stacked,
+    listView,
+    setListView,
+    registerBar,
+    sheet,
+    setSheet,
+  } = useAdminShell();
   // `mode=new` beats `r`, exactly as the old param ladder did, so no row is
   // marked open while a new record is being drafted.
   const openRkey = isNew ? null : rkey;
@@ -293,18 +432,44 @@ export default function RecordListPane({ surface, agent, did }) {
   const collection = surface.nsid;
   const lex = lexiconFor(collection);
   const visModel = visibilityModelFor(collection);
+  const vis = useMemo(() => visibilityWords(visModel), [visModel]);
+  const visOptions = vis?.options || null;
   const isHero = collection === COLLECTIONS.heroPhrase;
+  // A legacy collection is one nothing writes to any more (the lexicon says so
+  // itself). Offering "New" on it is an invitation to write a record into a
+  // shape the site has already migrated away from.
+  const isLegacy = lex?.legacy === true;
 
   const [records, setRecords] = useState(NO_RECORDS);
   const [cursor, setCursor] = useState(undefined);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selected, setSelected] = useState(() => new Set()); // rkeys
   const [busy, setBusy] = useState(false);
-  const [query, setQuery] = useState('');
-  const [visibility, setVisibility] = useState('all');
-  const [sort, setSort] = useState('newest');
+  // Whether the filter INPUT is on screen, which is a property of this mount and
+  // not of the surface: the query itself is view state and survives, the row the
+  // owner typed it in does not need to.
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  /* --- view state, which lives in the shell -------------------------- */
+
+  // Keyed by surface, ref-backed, and deliberately NOT local state: below 60rem
+  // this pane unmounts the moment a record opens, and every one of these is
+  // something the owner would have to redo on the way back.
+  const surfaceKey = surface.key;
+  const { query, sort, visibility, selecting } = listView;
+  const selectedKeys = listView.selected;
+  const setView = useCallback(
+    (patch) => setListView(surfaceKey, patch),
+    [setListView, surfaceKey],
+  );
+  const selected = useMemo(() => new Set(selectedKeys), [selectedKeys]);
+
+  // The shell writes `scrollTop` and `lastOpenRkey` through a silent path (a ref
+  // write, no re-render), so the restore effect below reads them from here
+  // rather than taking a dependency on a value that is deliberately not state.
+  const viewRef = useRef(listView);
+  viewRef.current = listView;
 
   /* --- fetching ---------------------------------------------------- */
 
@@ -352,7 +517,6 @@ export default function RecordListPane({ surface, agent, did }) {
     setRecords(NO_RECORDS);
     setCursor(undefined);
     setDone(false);
-    setSelected(new Set());
     loadPage(undefined);
   }, [loadPage]);
 
@@ -448,106 +612,137 @@ export default function RecordListPane({ surface, agent, did }) {
   }, [surfaceRecords, query, visibility, sort, visModel, collection, lex]);
 
   const filtering = query.trim() !== '' || visibility !== 'all';
+  // Before the first response there is no list, so there is nothing to filter,
+  // sort, count or select — and "0+ loaded" is a measurement of nothing.
+  const firstLoad = loading && records.length === 0;
 
   /* --- selection ---------------------------------------------------- */
 
-  // Filter text and sort order are a way of LOOKING at a surface, so they follow
-  // you from record to record; a selection made on Blogging would be a live set
-  // of rkeys pointed at rows Creating does not show, so it does not. Adjusting
-  // state during render (rather than in an effect) is the same pattern the shell
-  // uses for its own per-record reset: it lands before the children render, so
-  // nothing paints against the previous surface's selection.
-  const [lastSurfaceKey, setLastSurfaceKey] = useState(surface.key);
-  if (lastSurfaceKey !== surface.key) {
-    setLastSurfaceKey(surface.key);
-    setSelected(new Set());
-    setQuery('');
-    setVisibility('all');
-  }
-
-  const toggle = useCallback((key) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
+  const toggle = useCallback(
+    (key) => {
+      const next = selectedKeys.includes(key)
+        ? selectedKeys.filter((k) => k !== key)
+        : [...selectedKeys, key];
+      setView({ selected: Object.freeze(next) });
+    },
+    [selectedKeys, setView],
+  );
 
   const shownRkeys = useMemo(() => shown.map((rec) => rkeyFromUri(rec.uri)), [shown]);
-  const allSelected = shownRkeys.length > 0 && shownRkeys.every((k) => selected.has(k));
+  const selectedShown = useMemo(
+    () => shownRkeys.filter((k) => selected.has(k)).length,
+    [shownRkeys, selected],
+  );
+  const allSelected = shownRkeys.length > 0 && selectedShown === shownRkeys.length;
+  // Ticked, but not on screen — because the filter, the visibility segment or a
+  // surface slice is hiding it. A count the list cannot corroborate is what let
+  // a live "Delete (6)" sit over the words "No loaded record matches this
+  // filter", so the number says so itself.
+  const selectedUnshown = selected.size - selectedShown;
 
-  function toggleAll() {
-    setSelected((prev) => {
-      if (shownRkeys.length > 0 && shownRkeys.every((k) => prev.has(k))) return new Set();
-      return new Set(shownRkeys);
-    });
-  }
+  // Never disabled while anything is ticked: the master checkbox is the only
+  // control that can clear a selection, and disabling it under a filter that
+  // matches nothing left the owner with an armed Delete and no way to disarm it.
+  const toggleAll = useCallback(() => {
+    if (selected.size > 0) setView({ selected: NO_SELECTION });
+    else setView({ selected: Object.freeze([...shownRkeys]) });
+  }, [selected, shownRkeys, setView]);
 
-  const selectedRecords = surfaceRecords.filter((rec) => selected.has(rkeyFromUri(rec.uri)));
+  const selectedRecords = useMemo(
+    () => surfaceRecords.filter((rec) => selected.has(rkeyFromUri(rec.uri))),
+    [surfaceRecords, selected],
+  );
+
+  // Selection is a MODE below 60rem and a permanent capability above it, so the
+  // one flag the row and the CSS read is derived rather than asked for twice.
+  const selectionOn = stacked ? selecting : selected.size > 0;
+
+  const endSelecting = useCallback(
+    () => setView({ selecting: false, selected: NO_SELECTION }),
+    [setView],
+  );
+
+  // A mode that only exists on a phone must not survive the viewport growing
+  // back — the desktop head has no Cancel to leave it with.
+  useEffect(() => {
+    if (!stacked && selecting) setView({ selecting: false });
+  }, [stacked, selecting, setView]);
 
   /* --- bulk writes -------------------------------------------------- */
 
-  async function bulkSetHidden(hidden) {
-    if (!visModel) return;
-    const targets = selectedRecords.filter((rec) => visModel.isHidden(rec.value) !== hidden);
-    if (targets.length === 0) return;
-    setBusy(true);
-    setError(null);
-    const updated = new Map(); // rkey -> new value
-    try {
-      for (const rec of targets) {
-        const r = rkeyFromUri(rec.uri);
-        // JSON round-trip first so any BlobRef instances (e.g. a document's
-        // coverImage) collapse to their plain wire form before we re-put them.
-        const plain = JSON.parse(JSON.stringify(rec.value ?? {}));
-        const next = stampAutoTimestamps(lex, visModel.setHidden(plain, hidden));
-        // eslint-disable-next-line no-await-in-loop
-        await agent.com.atproto.repo.putRecord({ repo: did, collection, rkey: r, record: next });
-        updated.set(r, next);
+  const bulkSetHidden = useCallback(
+    async (hidden) => {
+      if (!visModel) return;
+      const targets = selectedRecords.filter((rec) => visModel.isHidden(rec.value) !== hidden);
+      if (targets.length === 0) return;
+      setBusy(true);
+      setError(null);
+      const updated = new Map(); // rkey -> new value
+      try {
+        for (const rec of targets) {
+          const r = rkeyFromUri(rec.uri);
+          // JSON round-trip first so any BlobRef instances (e.g. a document's
+          // coverImage) collapse to their plain wire form before we re-put them.
+          const plain = JSON.parse(JSON.stringify(rec.value ?? {}));
+          const next = stampAutoTimestamps(lex, visModel.setHidden(plain, hidden));
+          // eslint-disable-next-line no-await-in-loop
+          await agent.com.atproto.repo.putRecord({ repo: did, collection, rkey: r, record: next });
+          updated.set(r, next);
+        }
+      } catch (err) {
+        setError(err?.message || String(err));
+      } finally {
+        if (updated.size) {
+          setRecords((prev) =>
+            prev.map((rec) => {
+              const r = rkeyFromUri(rec.uri);
+              return updated.has(r) ? { ...rec, value: updated.get(r) } : rec;
+            }),
+          );
+          // Hiding is what the Front Desk's Drafts and "Hidden elsewhere" tiles
+          // count, so the numbers are wrong until this lands. Scoped to this
+          // surface's own NSIDs — never the whole batch.
+          invalidateAfterOwnWrite(surface.nsids);
+        }
+        setBusy(false);
       }
-    } catch (err) {
-      setError(err?.message || String(err));
-    } finally {
-      if (updated.size) {
-        setRecords((prev) =>
-          prev.map((rec) => {
-            const r = rkeyFromUri(rec.uri);
-            return updated.has(r) ? { ...rec, value: updated.get(r) } : rec;
-          }),
-        );
-        // Hiding is what the Front Desk's Drafts and "Hidden elsewhere" tiles
-        // count, so the numbers are wrong until this lands. Scoped to this
-        // surface's own NSIDs — never the whole batch.
-        invalidateAfterOwnWrite(surface.nsids);
-      }
-      setBusy(false);
-    }
-  }
+    },
+    [agent, collection, did, invalidateAfterOwnWrite, lex, selectedRecords, surface.nsids, visModel],
+  );
 
-  async function bulkDelete() {
+  // What the confirm question says. Naming the record when there is one to name
+  // is the difference between "Delete 1 record?" and a sentence the owner can
+  // check against the row they think they ticked.
+  const deleteQuestion = useMemo(() => {
+    if (selectedRecords.length === 1) {
+      const rec = selectedRecords[0];
+      const name = rowLabel(rec.value, collection, lex) || rkeyFromUri(rec.uri);
+      return `Delete “${name}”? This cannot be undone.`;
+    }
+    const unshown = selectedUnshown > 0 ? ` (${selectedUnshown} of them not on screen)` : '';
+    return `Delete ${selectedRecords.length} records${unshown}? This cannot be undone.`;
+  }, [selectedRecords, collection, lex, selectedUnshown]);
+
+  // The write itself, with no question attached: the action bar asks its own
+  // (`BarAction.confirm`), and asking twice for one delete is worse than not
+  // asking at all.
+  const runDelete = useCallback(async () => {
     const rkeys = selectedRecords.map((rec) => rkeyFromUri(rec.uri));
     if (rkeys.length === 0) return;
-    const noun = rkeys.length === 1 ? 'record' : 'records';
-    if (!window.confirm(`Delete ${rkeys.length} ${noun}? This cannot be undone.`)) return;
     setBusy(true);
     setError(null);
     const deleted = new Set();
     try {
-      for (const rkey of rkeys) {
+      for (const key of rkeys) {
         // eslint-disable-next-line no-await-in-loop
-        await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey });
-        deleted.add(rkey);
+        await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey: key });
+        deleted.add(key);
       }
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
       setRecords((prev) => prev.filter((rec) => !deleted.has(rkeyFromUri(rec.uri))));
-      setSelected((prev) => {
-        const next = new Set(prev);
-        for (const k of deleted) next.delete(k);
-        return next;
-      });
+      setView({ selected: Object.freeze(selectedKeys.filter((k) => !deleted.has(k))) });
       if (deleted.size) invalidateAfterOwnWrite(surface.nsids);
       // The detail pane cannot go on editing a record that no longer exists.
       // Forced, because "discard unsaved changes?" is not a question worth
@@ -555,39 +750,309 @@ export default function RecordListPane({ surface, agent, did }) {
       if (openRkey && deleted.has(openRkey)) go({ r: null, mode: null }, { force: true });
       setBusy(false);
     }
-  }
+  }, [
+    agent,
+    collection,
+    did,
+    go,
+    invalidateAfterOwnWrite,
+    openRkey,
+    selectedKeys,
+    selectedRecords,
+    setView,
+    surface.nsids,
+  ]);
+
+  const bulkDelete = useCallback(() => {
+    if (!window.confirm(deleteQuestion)) return;
+    runDelete();
+  }, [deleteQuestion, runDelete]);
 
   /* --- navigation --------------------------------------------------- */
 
-  // The surface keys in the URL are already correct — `rowHrefFor` preserves
-  // them — so selecting a record only sets `r` and clears any `mode=new`.
-  const openRow = useCallback((key) => go({ r: key, mode: null }), [go]);
-
   const newHref = collection ? newRecordHref(surface) : '/admin';
+  const canCreate = !!collection && !isLegacy;
+  const openNew = useCallback(() => go(patchFromHref(newHref)), [go, newHref]);
+
+  // The surface keys in the URL are already correct — `rowHrefFor` preserves
+  // them — so selecting a record only sets `r` and clears any `mode=new`. The
+  // rkey is recorded first: below 60rem this pane is about to unmount, and it is
+  // what focus comes back to.
+  const openRow = useCallback(
+    (key) => {
+      setView({ lastOpenRkey: key });
+      go({ r: key, mode: null });
+    },
+    [go, setView],
+  );
+
+  /* --- the filter row ------------------------------------------------ */
+
+  // Opening the filter has to put the caret in it — the toggle exists so the
+  // input is not permanently on screen, and a control you have to tap twice
+  // would be a worse trade than the row it replaced. A ref rather than
+  // `autoFocus`, which fires on mount rather than on the owner's tap.
+  const filterRef = useRef(null);
+  useEffect(() => {
+    if (filterOpen) filterRef.current?.focus();
+  }, [filterOpen]);
+
+  /* --- the scrollport, which is the PANE and not the document -------- */
+
+  const rootRef = useRef(null);
+  const portRef = useRef(null);
+  // Which surface's offset has already been put back. A ref, not state: it must
+  // not cause a render, and it must survive one.
+  const restoredKey = useRef(null);
+
+  // Record where the column is, continuously and silently — `scrollTop` patches
+  // are a ref write in the shell with no re-render, which is what makes it safe
+  // to call from a scroll handler. One rAF per frame at most.
+  useEffect(() => {
+    const port = rootRef.current?.closest('.wb-pane-list');
+    portRef.current = port || null;
+    if (!port) return undefined;
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        // Between a surface change and its restore the offset on screen still
+        // belongs to the surface we left; writing it under the new key would
+        // hand the next list somebody else's place.
+        if (restoredKey.current !== surfaceKey) return;
+        setListView(surfaceKey, { scrollTop: port.scrollTop });
+      });
+    };
+    port.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      port.removeEventListener('scroll', onScroll);
+    };
+  }, [surfaceKey, setListView]);
+
+  // The row the owner drilled into, when we have come back to a list that is no
+  // longer showing it in a detail pane beside it. Focus lands here rather than
+  // on <body>, which is where the back button used to drop it.
+  const returnRkey = stacked && !openRkey ? listView.lastOpenRkey : null;
+  const openRowRef = useRef(null);
+  const returnRowRef = useRef(null);
+
+  // Put the column back where it was, once there is something to scroll. The
+  // wait for rows is the whole trick: at mount `records` is empty and `loading`
+  // is still false (the fetch starts in an effect, after this render), so an
+  // "on mount" restore sets `scrollTop` on a list with no height — which is a
+  // silent no-op and exactly what coming back from a record used to be. An error
+  // releases it too, because then there will never be rows.
+  useEffect(() => {
+    if (restoredKey.current === surfaceKey) return;
+    if (records.length === 0 && !error) return;
+    restoredKey.current = surfaceKey;
+    const { scrollTop } = viewRef.current;
+    const port = portRef.current;
+    if (port) port.scrollTop = scrollTop || 0;
+    // `preventScroll`, because the offset above is the answer — letting the
+    // browser scroll the focused row into view would overrule it.
+    if (returnRowRef.current) {
+      const target = returnRowRef.current.querySelector('.wb-list-link, .wb-list-check');
+      target?.focus({ preventScroll: true });
+    }
+  }, [surfaceKey, records.length, error]);
 
   // Bring the open record into view after a back/forward or a deep link.
   // `block: 'nearest'` is a no-op when the row is already visible, which is the
   // common case — you just clicked it — so the column never yanks itself.
-  const openRowRef = useRef(null);
   useEffect(() => {
     if (!openRkey) return;
     openRowRef.current?.scrollIntoView({ block: 'nearest' });
   }, [openRkey]);
 
+  /* --- paging -------------------------------------------------------- */
+
+  const moreRef = useRef(null);
+  // "Load more" used to hand focus to <body>: the button stays mounted, so the
+  // next Tab restarted from the top of the document rather than from the hundred
+  // rows that had just arrived. When the page that lands is the last one the
+  // button unmounts, and then the end of the list is the honest place to be.
+  const loadMore = useCallback(async () => {
+    await loadPage(cursor);
+    const fallback = rootRef.current?.querySelector('.wb-list-rows li:last-child .wb-list-link');
+    (moreRef.current || fallback)?.focus({ preventScroll: true });
+  }, [loadPage, cursor]);
+
+  /* --- what the head and the bar both say ---------------------------- */
+
+  const sortLabel = SORTS.find((option) => option.key === sort)?.label || SORTS[0].label;
+  const visLabel = visOptions?.find((option) => option.key === visibility)?.label || 'All';
+
+  const countLine = firstLoad
+    ? 'Loading…'
+    : selected.size
+      ? `${selected.size} selected${selectedUnshown > 0 ? ` · ${selectedUnshown} not shown` : ''}`
+      : filtering
+        ? `${shown.length} of ${surfaceRecords.length}`
+        : `${surfaceRecords.length}${done ? '' : '+'} loaded`;
+
+  /* --- the action bar, below 60rem ----------------------------------- */
+
+  // Registered unconditionally: the bar is only rendered below 60rem, so
+  // branching on `stacked` here would buy nothing and give the pane two code
+  // paths to keep in step. The shell clears the slots on any subject change, and
+  // the cleanup covers the rest.
+  useEffect(() => {
+    if (selectionOn && stacked) {
+      const actions = [];
+      if (visModel) {
+        actions.push({
+          id: 'hide',
+          label: vis.hide,
+          disabled: busy || selected.size === 0,
+          busy,
+          busyLabel: 'Working…',
+          onPress: () => bulkSetHidden(true),
+        });
+      }
+      actions.push({
+        id: 'delete',
+        label: `Delete (${selected.size})`,
+        // Never the painted primary, whatever slot it lands in: nothing in a
+        // selection is a primary action, and the irreversible member of the
+        // cluster is the last one that should look like the obvious tap.
+        tone: 'danger',
+        disabled: busy || selected.size === 0,
+        confirm: deleteQuestion,
+        onPress: runDelete,
+      });
+      registerBar({
+        left: { id: 'cancel', label: 'Cancel', onPress: endSelecting },
+        status: countLine,
+        actions,
+        overflow: visModel
+          ? [
+              {
+                id: 'unhide',
+                label: vis.show,
+                icon: 'PackageOpen',
+                disabled: busy || selected.size === 0,
+                onPress: () => bulkSetHidden(false),
+              },
+            ]
+          : [],
+      });
+    } else {
+      registerBar({
+        status: countLine,
+        actions: canCreate
+          ? [{ id: 'new', label: 'New', icon: 'FileText', onPress: openNew }]
+          : [],
+        overflow: [
+          {
+            id: 'select',
+            label: 'Select records',
+            icon: 'Files',
+            disabled: surfaceRecords.length === 0,
+            onPress: () => setView({ selecting: true }),
+          },
+        ],
+      });
+    }
+    return () => registerBar(null);
+  }, [
+    registerBar,
+    stacked,
+    selectionOn,
+    selected.size,
+    countLine,
+    busy,
+    visModel,
+    vis,
+    bulkSetHidden,
+    runDelete,
+    deleteQuestion,
+    endSelecting,
+    canCreate,
+    openNew,
+    setView,
+    surfaceRecords.length,
+  ]);
+
   /* --- render -------------------------------------------------------- */
 
   if (!collection) return null;
 
-  const countLine = selected.size
-    ? `${selected.size} selected`
-    : filtering
-      ? `${shown.length} of ${surfaceRecords.length}`
-      : `${surfaceRecords.length}${done ? '' : '+'} loaded`;
+  // Filter, sort, segment and select-all are controls over a list. With no list
+  // they are dead furniture — at 390 they used to eat the top third of the
+  // screen above the sentence explaining that there is nothing there.
+  const showControls = !firstLoad && surfaceRecords.length > 0;
+
+  const clearFilter = () => setView({ query: '', visibility: 'all' });
+
+  const emptyState = () => {
+    if (surfaceRecords.length > 0) {
+      // Loaded records, none of them matching. The way out is the filter itself,
+      // and Chrome draws no clear × on an unfocused type="search".
+      return (
+        <>
+          <p className="wb-list-empty-line">
+            {query.trim()
+              ? `No loaded record matches “${query.trim()}”.`
+              : 'No loaded record matches this filter.'}
+          </p>
+          <button type="button" className="admin-link-subtle wb-list-empty-action" onClick={clearFilter}>
+            Clear the filter
+          </button>
+        </>
+      );
+    }
+    if (surface.synthetic) {
+      // A collection nobody registered: absent and empty look identical over
+      // XRPC, so the copy must not claim to know which one this is.
+      return (
+        <p className="wb-list-empty-line">
+          Nothing here — this collection has no records, or does not exist yet.
+        </p>
+      );
+    }
+    if (isLegacy) {
+      return (
+        <p className="wb-list-empty-line">
+          Nothing in <code className="wb-list-empty-nsid">{collection}</code>. This collection is
+          legacy — new records are written elsewhere.
+        </p>
+      );
+    }
+    return (
+      <>
+        <p className="wb-list-empty-line">No records yet in this collection.</p>
+        {isHero ? (
+          <HeroSeedButton
+            agent={agent}
+            did={did}
+            existingCount={records.length}
+            // The seeded records land through the shell's invalidation, which
+            // refreshes this list and the rail's counts in one pass.
+            onSeeded={() => invalidate(surface.nsids)}
+          />
+        ) : (
+          <button type="button" className="admin-link-subtle wb-list-empty-action" onClick={openNew}>
+            Write the first one
+          </button>
+        )}
+      </>
+    );
+  };
 
   return (
-    <div className="wb-list" data-selecting={selected.size ? '' : undefined}>
-      {/* Sticky inside the column's own scroller, so the filter and the bulk
-          actions stay reachable however far down the list you are. */}
+    <div
+      className="wb-list"
+      ref={rootRef}
+      data-selecting={selectionOn ? '' : undefined}
+      data-stacked={stacked ? '' : undefined}
+      data-marker={visModel ? '' : undefined}
+    >
+      {/* Sticky inside the column's own scroller — which is what `.wb-pane-list`
+          is at EVERY width — so the filter and the bulk actions stay reachable
+          however far down the list you are. */}
       <div className="wb-list-head">
         <div className="wb-list-titlerow">
           {/* The rail is icons only and the detail pane titles the RECORD, so
@@ -601,148 +1066,212 @@ export default function RecordListPane({ surface, agent, did }) {
             title="Refresh this list"
             aria-label="Refresh this list"
           >
-            <RefreshCw size={14} aria-hidden="true" />
+            <RefreshCw size={stacked ? 20 : 14} aria-hidden="true" />
           </button>
-          <Link
-            to={newHref}
-            className="admin-gate-button admin-gate-button-tight wb-list-new"
-            onClick={(event) => {
-              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-              event.preventDefault();
-              go(patchFromHref(newHref));
-            }}
-          >
-            New
-          </Link>
+          {/* Below 60rem "New" is the bar's right slot: it is the surface's
+              primary action and belongs under the thumb, not in the corner
+              furthest from it. */}
+          {!stacked && canCreate && (
+            <Link
+              to={newHref}
+              className="admin-gate-button admin-gate-button-tight wb-list-new"
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+                event.preventDefault();
+                openNew();
+              }}
+            >
+              New
+            </Link>
+          )}
         </div>
 
-        <code className="admin-collection-nsid wb-list-nsid">{collection}</code>
-
-        <div className="wb-list-controls">
-          <input
-            type="search"
-            className="admin-input wb-list-filter"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Filter loaded"
-            aria-label={`Filter ${surface.label}`}
-          />
-          <select
-            className="admin-input wb-list-sort"
-            value={sort}
-            onChange={(event) => setSort(event.target.value)}
-            aria-label="Sort records"
-          >
-            {SORTS.map((option) => (
-              <option key={option.key} value={option.key}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Only four collections express "hidden from the site" at all, so this
-            segment appears only where it can mean something. */}
-        {visModel && (
-          <div className="wb-list-seg" role="group" aria-label="Visibility">
-            {VISIBILITIES.map((option) => (
-              <button
-                key={option.key}
-                type="button"
-                className={`wb-list-seg-btn${visibility === option.key ? ' is-on' : ''}`}
-                aria-pressed={visibility === option.key}
-                onClick={() => setVisibility(option.key)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+        {/* Developer orientation, and one line of it. On the synthetic surface the
+            <h1> IS the nsid, so printing it twice says nothing twice. */}
+        {!stacked && !surface.synthetic && (
+          <code className="admin-collection-nsid wb-list-nsid">{collection}</code>
         )}
 
-        <div className="admin-multiselect-toolbar wb-list-bulk">
-          <label className="admin-checkbox wb-list-all">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={toggleAll}
-              disabled={shown.length === 0}
-            />
-            <span>{allSelected ? 'Select none' : 'Select all'}</span>
-          </label>
-          <span className="admin-multiselect-count">{countLine}</span>
-          {/* The destructive cluster appears when there is something to act on.
-              That is not a mode — the checkboxes are live either way — it is a
-              22rem column declining to spend a permanent row on three disabled
-              buttons. */}
-          {selected.size > 0 && (
-            <div className="admin-multiselect-actions">
-              {visModel && (
+        {showControls &&
+          (stacked ? (
+            /* Two 44px controls on one 358px row. A permanent input plus a
+               three-button segment plus a sort select could not fit, and the
+               input was eating the first screen on a list you opened to read. */
+            <div className="wb-list-controls">
+              {filterOpen ? (
+                <>
+                  <input
+                    type="search"
+                    className="admin-input wb-list-filter"
+                    ref={filterRef}
+                    value={query}
+                    onChange={(event) => setView({ query: event.target.value })}
+                    placeholder="Filter loaded"
+                    aria-label={`Filter ${surface.label}`}
+                  />
+                  <button
+                    type="button"
+                    className="wb-list-ctl"
+                    onClick={() => setFilterOpen(false)}
+                  >
+                    Done
+                  </button>
+                </>
+              ) : (
                 <>
                   <button
                     type="button"
-                    className="admin-gate-button admin-gate-button-tight"
-                    onClick={() => bulkSetHidden(true)}
-                    disabled={busy}
+                    className="wb-list-ctl wb-list-ctl-grow"
+                    aria-expanded="false"
+                    onClick={() => setFilterOpen(true)}
                   >
-                    Hide
+                    <Search size={16} aria-hidden="true" />
+                    <span className="wb-list-ctl-label">
+                      {query.trim() ? `“${query.trim()}”` : 'Filter'}
+                    </span>
                   </button>
+                  {query.trim() && (
+                    <button
+                      type="button"
+                      className="wb-list-ctl wb-list-ctl-icon"
+                      aria-label="Clear the filter"
+                      onClick={() => setView({ query: '' })}
+                    >
+                      <X size={16} aria-hidden="true" />
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="admin-gate-button admin-gate-button-tight"
-                    onClick={() => bulkSetHidden(false)}
-                    disabled={busy}
+                    className="wb-list-ctl"
+                    aria-expanded={sheet === OPTIONS_SHEET}
+                    aria-controls="wb-list-options"
+                    onClick={() => setSheet(sheet === OPTIONS_SHEET ? null : OPTIONS_SHEET)}
                   >
-                    Unhide
+                    <span className="wb-list-ctl-label">
+                      {sortLabel}
+                      {visOptions ? ` · ${visLabel}` : ''}
+                    </span>
+                    <ChevronUp size={14} aria-hidden="true" />
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                className="admin-gate-button admin-gate-button-tight admin-danger"
-                onClick={bulkDelete}
-                disabled={busy}
-              >
-                {busy ? 'Working…' : `Delete (${selected.size})`}
-              </button>
             </div>
-          )}
-        </div>
+          ) : (
+            <>
+              <div className="wb-list-controls">
+                <input
+                  type="search"
+                  className="admin-input wb-list-filter"
+                  value={query}
+                  onChange={(event) => setView({ query: event.target.value })}
+                  placeholder="Filter loaded"
+                  aria-label={`Filter ${surface.label}`}
+                />
+                <select
+                  className="admin-input wb-list-sort"
+                  value={sort}
+                  onChange={(event) => setView({ sort: event.target.value })}
+                  aria-label="Sort records"
+                >
+                  {SORTS.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Only four collections express "hidden from the site" at all, so
+                  this segment appears only where it can mean something — and it
+                  says it in that collection's own words. */}
+              {visOptions && (
+                <div className="wb-list-seg" role="group" aria-label="Visibility">
+                  {visOptions.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      className={`wb-list-seg-btn${visibility === option.key ? ' is-on' : ''}`}
+                      aria-pressed={visibility === option.key}
+                      onClick={() => setView({ visibility: option.key })}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="admin-multiselect-toolbar wb-list-bulk">
+                <label className="admin-checkbox wb-list-all">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    disabled={shownRkeys.length === 0 && selected.size === 0}
+                    ref={(el) => {
+                      // Ticked rows that this view is not showing are neither
+                      // "all" nor "none"; the platform has a state for that.
+                      if (el) el.indeterminate = selected.size > 0 && !allSelected;
+                    }}
+                  />
+                  <span>{selected.size > 0 ? 'Select none' : 'Select all'}</span>
+                </label>
+                {/* aria-live so a count that changes without the owner asking —
+                    a hundred more rows landing, a bulk delete completing — is
+                    announced. Below 60rem the bar's status slot does this job. */}
+                <span className="admin-multiselect-count" aria-live="polite">
+                  {countLine}
+                </span>
+                {/* The destructive cluster keeps its line whether or not anything
+                    is ticked. `visibility: hidden` rather than a conditional
+                    render: it costs no tab stop and makes no announcement, and
+                    the reserved box is what stops the whole list jumping 41px
+                    down — under the pointer — the moment you tick one row. */}
+                <div className="admin-multiselect-actions wb-list-actions" data-armed={selected.size ? '' : undefined}>
+                  {visModel && (
+                    <>
+                      <button
+                        type="button"
+                        className="admin-gate-button admin-gate-button-tight wb-list-toggle-btn"
+                        onClick={() => bulkSetHidden(true)}
+                        disabled={busy || selected.size === 0}
+                        title={`Mark the selected records ${visOptions[2].label.toLowerCase()}`}
+                      >
+                        {vis.hide}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-gate-button admin-gate-button-tight wb-list-toggle-btn"
+                        onClick={() => bulkSetHidden(false)}
+                        disabled={busy || selected.size === 0}
+                        title={`Mark the selected records ${visOptions[1].label.toLowerCase()}`}
+                      >
+                        {vis.show}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="admin-gate-button admin-gate-button-tight wb-list-danger"
+                    onClick={bulkDelete}
+                    disabled={busy || selected.size === 0}
+                    aria-label={`Delete ${selected.size} selected records`}
+                  >
+                    {busy ? 'Working…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </>
+          ))}
       </div>
-
-      {/* The filter only ever sees what has been fetched. Say so, and only while
-          it is actually misleading — a filter narrowing a list that still has
-          pages behind it. */}
-      {filtering && !done && (
-        <p className="wb-list-note">
-          Filtering the {surfaceRecords.length} loaded records only — load more to search the rest.
-        </p>
-      )}
-
-      {isHero && (
-        <HeroSeedButton
-          agent={agent}
-          did={did}
-          existingCount={records.length}
-          // The seeded records land through the shell's invalidation, which
-          // refreshes this list and the rail's counts in one pass.
-          onSeeded={() => invalidate(surface.nsids)}
-        />
-      )}
-
-      {surface.pageSlug && <PageContentPanel agent={agent} did={did} slug={surface.pageSlug} />}
 
       {error && <p className="admin-error">{error}</p>}
 
-      {loading && records.length === 0 ? (
+      {firstLoad ? (
         // `marker` from the same `visModel` the real rows read, so the
         // placeholder titles start on the pixel the loaded titles will.
         <AdminRecordListSkeleton rows={8} variant="workbench" marker={!!visModel} />
       ) : shown.length === 0 && !error ? (
-        <p className="placeholder-card wb-list-empty">
-          {surfaceRecords.length === 0
-            ? 'No records yet in this collection.'
-            : 'No loaded record matches this filter.'}
-        </p>
+        <div className="placeholder-card wb-list-empty">{emptyState()}</div>
       ) : (
         // `.reveal`, not `.reveal-stagger`: the stagger animates each child and
         // would re-fire every row on every keystroke as the filter reorders them.
@@ -763,13 +1292,25 @@ export default function RecordListPane({ surface, agent, did }) {
                 href={rowHrefFor(surface, key)}
                 open={open}
                 checked={selected.has(key)}
+                selecting={stacked && selecting}
+                showCheck={!stacked}
                 onOpen={openRow}
                 onToggle={toggle}
-                rowRef={open ? openRowRef : undefined}
+                rowRef={open ? openRowRef : key === returnRkey ? returnRowRef : undefined}
               />
             );
           })}
         </ul>
+      )}
+
+      {/* The filter only ever sees what has been fetched. Say so, and only while
+          it is actually misleading — a filter narrowing a list that still has
+          pages behind it. Next to the button that loads them, which is the
+          answer to the sentence. */}
+      {filtering && !done && !firstLoad && (
+        <p className="wb-list-note">
+          Filtering the {surfaceRecords.length} loaded records only — load more to search the rest.
+        </p>
       )}
 
       {/* Paging is driven by the RAW record count, never the filtered one: a
@@ -778,12 +1319,86 @@ export default function RecordListPane({ surface, agent, did }) {
       {!done && records.length > 0 && (
         <button
           type="button"
+          ref={moreRef}
           className="admin-gate-button admin-gate-button-tight wb-list-more"
           disabled={loading}
-          onClick={() => loadPage(cursor)}
+          onClick={loadMore}
         >
           {loading ? 'Loading…' : 'Load more'}
         </button>
+      )}
+
+      {/* Below the rows, and below the fold, because it is a once-a-year
+          administrative chore about the PAGE this collection backs — not about
+          any record in it. It used to sit between the bulk toolbar and the first
+          row, 200px of card between a live Delete and the record it deletes, and
+          a stop in the keyboard walk between "Select all" and row one. */}
+      {surface.pageSlug &&
+        (stacked ? (
+          <details className="wb-list-page">
+            <summary className="wb-list-page-sum">
+              {surface.label} — page content
+              <ChevronRight className="wb-list-page-caret" size={14} aria-hidden="true" />
+            </summary>
+            <PageContentPanel agent={agent} did={did} slug={surface.pageSlug} />
+          </details>
+        ) : (
+          <PageContentPanel agent={agent} did={did} slug={surface.pageSlug} />
+        ))}
+
+      {/* Sort and visibility are set-once-then-forget controls, which is what
+          lets them share one chip and one sheet and give the row back to the
+          filter. Rendered only where the chip that opens it is. */}
+      {stacked && (
+        <AdminSheet
+          id="wb-list-options"
+          open={sheet === OPTIONS_SHEET}
+          onClose={() => setSheet(null)}
+          label="Sort and filter"
+          foot={
+            <button type="button" className="wb-sheet-row" onClick={() => setSheet(null)}>
+              <span className="wb-sheet-row-label">Done</span>
+            </button>
+          }
+        >
+          <p className="wb-sheet-heading">Sort</p>
+          <ul className="wb-sheet-list">
+            {SORTS.map((option) => (
+              <li key={option.key}>
+                <button
+                  type="button"
+                  className="wb-sheet-row"
+                  data-open={sort === option.key ? '' : undefined}
+                  aria-pressed={sort === option.key}
+                  onClick={() => setView({ sort: option.key })}
+                >
+                  <span className="wb-sheet-row-label">{option.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {visOptions && (
+            <>
+              <hr className="wb-sheet-rule" />
+              <p className="wb-sheet-heading">Show</p>
+              <ul className="wb-sheet-list">
+                {visOptions.map((option) => (
+                  <li key={option.key}>
+                    <button
+                      type="button"
+                      className="wb-sheet-row"
+                      data-open={visibility === option.key ? '' : undefined}
+                      aria-pressed={visibility === option.key}
+                      onClick={() => setView({ visibility: option.key })}
+                    >
+                      <span className="wb-sheet-row-label">{option.label}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </AdminSheet>
       )}
     </div>
   );

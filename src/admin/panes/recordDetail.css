@@ -28,11 +28,46 @@
   min-width: 0;
 }
 
+/* ------------------------------------------------------------------ */
+/* Nothing selected                                                     */
+/* ------------------------------------------------------------------ */
+
 /* On desktop this pane is mounted for a records surface whether or not a record
    is selected. Nothing selected is a real state and gets a real sentence — never
-   a skeleton, which would promise something is on its way. */
+   a skeleton, which would promise something is on its way.
+
+   `flex: 1` claims the whole pane so the state can sit in the middle of it. It
+   used to be a 476px card in the top-left corner of an 856×944 pane, which reads
+   as a layout that failed rather than as a page with nothing on it — and it is
+   also, after a delete, the thing the keyboard is being sent to. */
+.wb-editor-blank {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  /* The frame clamps every `.wb-editor` to `--wb-measure`; auto margins are what
+     put that clamped box in the MIDDLE of the pane rather than against its left
+     edge. (A no-op on a full-width surface, where the measure is `none`.) */
+  margin-inline: auto;
+  text-align: center;
+}
+
+/* No focus ring on the region itself: it is only ever focused programmatically,
+   never tabbed to, and a 900px-tall outline around an empty pane would read as a
+   selection. The sentence inside it is what the owner is being pointed at. */
+.wb-editor-blank:focus {
+  outline: none;
+}
+
 .wb-editor-empty {
   margin: 0;
+  max-width: var(--measure);
+}
+
+/* `.admin-gate-button` sets `align-self: flex-start` for the form rows it was
+   written for, which in a centred column pins it to the card's left edge and
+   half-undoes the centring. */
+.wb-editor-blank .admin-gate-button {
+  align-self: center;
 }
 
 /* ------------------------------------------------------------------ */
@@ -44,22 +79,42 @@
   border-bottom: 1px solid var(--rule-soft);
 }
 
-/* Stacked only, and always on its own line: it is a breadcrumb out of the pane,
-   not a chip beside the title. `text-align` because a full-width <button>
-   centres its own label, and this one has to line up with the title under it. */
-.wb-editor-back {
+/* The record's TYPE, above its name. The heading used to be the type — you
+   drilled into Curating and landed on a page headed "Curating" — so the label
+   has not been lost, it has been put where a type belongs: the small-caps voice
+   the whole admin uses for the name of a kind of thing. */
+.wb-editor-kicker {
   flex: 0 0 100%;
-  text-align: left;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
 }
 
 /* Smaller than the shell's `--text-2xl` pane title. On a records surface the
    list column already spends an <h1> on the surface's name; this is the record
    inside it, and a studio's full-pane title should still read as the largest
-   thing in the workbench. */
+   thing in the workbench.
+
+   Its own line, with the NSID and the rkey on the baseline row beneath: the
+   title is now a record's title, which can be a sentence, and a sentence sharing
+   a flex line with two code chips wraps into them.
+
+   `overflow-wrap: anywhere` because this string is the one unbounded input on
+   the screen — a hand-typed NSID collection titles its records with whatever the
+   record says — and at 320px an unbreakable one was clipped mid-word with no
+   ellipsis. Three lines is enough to recognise a record by; past that the rkey
+   chip and the NSID identify it exactly. */
 .wb-editor .wb-editor-title {
-  flex: 1 1 auto;
+  flex: 0 0 100%;
   min-width: 0;
   font-size: var(--text-xl);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 
 /* The rkey is the record's identity, so it is genuinely data: `--code`, which
@@ -73,6 +128,26 @@
   word-break: break-all;
 }
 
+/* `word-break: break-all` splits at any character, so `fm.teal.alpha.feed.play`
+   renders as two fragments reading `fm.teal.alp` / `ha.feed.play` — an NSID cut
+   mid-segment is unreadable. `anywhere` breaks at the same places when it must
+   but prefers the dots. Scoped to this pane: the declaration in Admin.css is
+   frozen public API and the quick-edit sheet portals outside `.wb-editor`. */
+.wb-editor .admin-collection-nsid {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+/* A transient confirmation ("Copied at://…") for an action taken in a sheet that
+   closes over its own press. Monospace because what it echoes is an at-uri. */
+.wb-editor-flash {
+  margin: 0;
+  font-family: var(--code);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------------ */
 /* Tabs and the notes under them                                        */
 /* ------------------------------------------------------------------ */
@@ -80,6 +155,16 @@
 .wb-editor .wb-editor-tabs {
   /* Opaque, because it pins itself over scrolling content when stacked. */
   background: var(--page);
+}
+
+/* The tabs are `aria-pressed` buttons now, not a `role="tab"` tablist that
+   implemented none of the tablist contract. adminShell.css paints the active one
+   through `[aria-selected='true']`, which those buttons correctly no longer
+   carry, so the same paint is restated here against the attribute they do —
+   qualified with `.wb-editor` to outrank a single-class rule in a later sheet. */
+.wb-editor .wb-tab[aria-pressed='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
 }
 
 /* A note about what the body on screen is: the JSON caveat above the textarea,
@@ -90,8 +175,15 @@
 }
 
 /* Under the preview body specifically, the caption is a footnote to the thing
-   above it — give it the hairline that says so. */
+   above it — give it the hairline that says so.
+
+   `max-width: 100%` because `.admin-field-hint` carries a measure clamp meant
+   for a hint under a form field, and a rule that stops 136px short of the card
+   it underlines reads as a broken border rather than as a footnote. The measure
+   is right for prose in a form; it is wrong for a line whose job is to share an
+   edge with the 544px card above it. */
 .record-preview + .wb-editor-note {
+  max-width: 100%;
   margin-top: var(--space-4);
   padding-top: var(--space-3);
   border-top: 1px solid var(--rule-soft);
@@ -112,20 +204,58 @@
   min-width: 0;
 }
 
+/* The state a record that could not be read gets instead of a form. Its sentence
+   is a `.placeholder-card`, the site's own "there is nothing here" vocabulary,
+   so it needs placing rather than styling. */
+.wb-editor .record-editor-gone-line {
+  margin: 0;
+  max-width: var(--measure);
+}
+
 /* ------------------------------------------------------------------ */
 /* Stacked (drill-down) — 60rem / 960px                                 */
 /* ------------------------------------------------------------------ */
 
 @media (max-width: 60rem) {
-  /* Pinned directly under the rail's chip row, which is itself sticky at
-     `--chrome-top-h`. Its height is not published anywhere, so the offset is a
-     constant — 1.75rem of chip + 2 × --space-2 of padding + its two hairlines —
-     deliberately rounded DOWN. Erring short tucks the tab bar's top edge under
-     the chip row (z-index 6 over this 4), which is invisible; erring long would
-     open a gap with page content scrolling through it, which is not. */
+  /* Pinned FLUSH at the top of the pane's scrollport, which is viewport y=56 —
+     the bottom edge of the admin's top bar.
+
+     The offset used to be `calc(var(--chrome-top-h, var(--chrome-h)) + 2.6rem)`
+     = 97.6px, and both terms were measuring furniture that is not on this route:
+     `--chrome-top-h` is an inline style ChromeBar leaves on <html>, unset at
+     /admin, and the 2.6rem cleared the rail's chip row, which no longer exists
+     (the rail renders null when stacked and the Surfaces sheet replaced it). The
+     result was a "sticky" bar pinned 114px INTO the pane with live form fields
+     scrolling through the band above it — measured at 390, the PATH (SLUG) label
+     was painted over by the bar's own opaque background and its input left
+     visually unlabelled.
+
+     Zero works because the frame gives `.wb-pane-detail` no block-start padding:
+     Chrome insets a sticky box by its scroll container's padding, so any value
+     there would reopen the same gap at a smaller size. */
   .wb-editor .wb-editor-tabs {
     position: sticky;
-    top: calc(var(--chrome-top-h, var(--chrome-h)) + 2.6rem);
+    top: 0;
     z-index: 4;
+  }
+
+  /* The pane's own buttons — "Back to Blogging", "New record", "Try again" —
+     measure 40px, four short of the floor. Painted rather than grown for the
+     same reason as the tabs, and scoped under `.wb-editor` so the identical
+     class in the quick-edit sheet (which portals outside the workbench) is not
+     touched. */
+  .wb-editor .admin-gate-button {
+    min-height: var(--wb-hit);
+  }
+
+  /* 44px, painted rather than grown. `.wb-hit`'s pseudo-halo is for controls
+     that must stay visually small; these are already a row of touch targets with
+     a `--space-1` gap, and two grown boxes that close would overlap by 8px and
+     hand the later sibling its neighbour's taps — which is exactly how the old
+     chip row lost 14 of 19 adjacent pairs. */
+  .wb-editor .wb-tab {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--wb-hit);
   }
 }

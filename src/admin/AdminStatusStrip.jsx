@@ -5,11 +5,17 @@
 // belongs to the public quick-edit sheet and had to be taught to serve two
 // masters. Here the controls sit on the pane they act on.
 //
-// It is the FIRST CHILD of `.wb-pane-detail`, never a grid sibling of the panes.
-// That single fact is what lets one element be top-sticky on desktop and
-// bottom-sticky when stacked: a first-child sticky box with only `bottom` set
-// floats down to the scrollport bottom and pins there until the pane's own
-// bottom edge scrolls past it. A sibling of the pane could do neither.
+// It is the FIRST CHILD of `.wb-pane-detail`, never a grid sibling of the panes,
+// and on DESKTOP it pins to the top of that scrollport.
+//
+// **It renders nothing below 60rem.** The phone's status and its Save live in
+// `AdminActionBar`, which is a row of the fixed frame rather than a sticky box
+// inside a scrollport — see docs/admin-mobile-design.md §2.1. Being sticky is
+// what put this strip 64px above the bottom of the frame with live form fields
+// scrolling through the gap underneath it, and no amount of offset arithmetic
+// fixes a box that is clamped to its containing block. The BAR renders this
+// file's `StatusMessage` with this file's classes, so the dirty sentence is
+// defined exactly once.
 //
 // **Save is a plain `<button type="button" onClick>` rendered outside
 // `.blocks-editor`, and must stay that way.** BlocksEditor's outside-press
@@ -23,45 +29,84 @@ import { Save, Trash2 } from 'lucide-react';
 import { useAdminShell } from './useAdminShell.jsx';
 
 /**
- * The sentence, in priority order: an explicit note, then named fields, then the
- * bare fact. Field labels are truncated at three because the strip is one line
- * on a phone and a nine-field list would push the buttons off screen.
+ * The sentence, in priority order: a save failure, then an explicit note, then
+ * named fields, then the bare fact. Field labels are truncated at three because
+ * the strip is one line on a phone and a nine-field list would push the buttons
+ * off screen.
+ *
+ * Exported because the action bar's centre slot says the same thing in the same
+ * words; two implementations would drift the moment one of them gained a state.
+ *
+ * @param {import('./useAdminShell.jsx').DirtyState} dirty
+ * @param {import('./useAdminShell.jsx').PaneActions|null} [actions]
+ * @returns {string}
  */
-function dirtySentence(dirty) {
-  if (dirty.note) return dirty.note;
-  const fields = dirty.fields || [];
-  if (fields.length > 0) {
-    const shown = fields.slice(0, 3).join(', ');
-    const rest = fields.length > 3 ? `, +${fields.length - 3} more` : '';
-    return `${fields.length} field${fields.length === 1 ? '' : 's'} changed: ${shown}${rest}`;
+export function dirtySentence(dirty, actions = null) {
+  if (dirty.error) return `Not saved — ${dirty.error}`;
+  if (dirty.dirty) {
+    if (dirty.note) return dirty.note;
+    const fields = dirty.fields || [];
+    if (fields.length > 0) {
+      const shown = fields.slice(0, 3).join(', ');
+      const rest = fields.length > 3 ? `, +${fields.length - 3} more` : '';
+      return `${fields.length} field${fields.length === 1 ? '' : 's'} changed: ${shown}${rest}`;
+    }
+    return 'Unsaved changes';
   }
-  return 'Unsaved changes';
+  // Three idle states, not one. "No unsaved changes" was being asserted about a
+  // record the editor had not finished loading, and about a record that does not
+  // exist yet — where "unsaved changes" is not the axis at all, which is why the
+  // button beside it already said CREATE rather than SAVE.
+  if (actions?.loading) return 'Loading…';
+  if (actions?.isNew) return 'Not created yet';
+  return 'No unsaved changes';
 }
 
-/** Renders null when there is nothing unsaved AND no pane has registered actions. */
+/**
+ * The sentence with its hairline square and the shared-records note — the strip's
+ * whole left half, so the bar can render it verbatim.
+ *
+ * @param {object} props
+ * @param {import('./useAdminShell.jsx').DirtyState} props.dirty
+ * @param {import('./useAdminShell.jsx').PaneActions|null} [props.actions]
+ */
+export function StatusMessage({ dirty, actions = null }) {
+  const records = dirty.records || 0;
+  return (
+    <p className="wb-strip-state">
+      <span className="wb-strip-dot" aria-hidden="true" />
+      <span className="wb-strip-message">{dirtySentence(dirty, actions)}</span>
+      {records > 0 && (
+        // Matches the resume workbench's own wording — that studio stages
+        // edits to sibling records, and the count is the only warning that
+        // saving will write more than the record on screen.
+        <span className="wb-strip-shared">
+          {' '}
+          · {records} shared record{records === 1 ? '' : 's'}
+        </span>
+      )}
+    </p>
+  );
+}
+
+/**
+ * Renders null when stacked (the bar has it), and when there is nothing unsaved
+ * AND no pane has registered actions.
+ */
 export default function AdminStatusStrip() {
-  const { dirty, actions } = useAdminShell();
-  if (!dirty.dirty && !actions) return null;
+  const { dirty, actions, stacked } = useAdminShell();
+  if (stacked) return null;
+  if (!dirty.dirty && !dirty.error && !actions) return null;
 
   const busy = !!actions && (actions.saving || actions.deleting || actions.loading);
-  const records = dirty.records || 0;
-  const message = dirty.dirty ? dirtySentence(dirty) : 'No unsaved changes';
 
   return (
-    <div className="wb-strip" data-dirty={dirty.dirty ? '' : undefined}>
-      <p className="wb-strip-state">
-        <span className="wb-strip-dot" aria-hidden="true" />
-        <span className="wb-strip-message">{message}</span>
-        {records > 0 && (
-          // Matches the resume workbench's own wording — that studio stages
-          // edits to sibling records, and the count is the only warning that
-          // saving will write more than the record on screen.
-          <span className="wb-strip-shared">
-            {' '}
-            · {records} shared record{records === 1 ? '' : 's'}
-          </span>
-        )}
-      </p>
+    <div
+      className="wb-strip"
+      data-dirty={dirty.dirty ? '' : undefined}
+      data-error={dirty.error ? '' : undefined}
+    >
+      <StatusMessage dirty={dirty} actions={actions} />
 
       {actions && (
         <div className="wb-strip-actions">
