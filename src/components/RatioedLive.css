@@ -192,11 +192,11 @@
 
 /* Square, like the roster's — see RatioedFaces.css. These are the same people
    in the same evidence, arriving live rather than counted afterwards. */
-.ratioed-live-face { border-radius: 2px; object-fit: cover; }
+.ratioed-live-face { border-radius: 0; object-fit: cover; }
 .ratioed-live-face.is-blank {
   width: 22px;
   height: 22px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--rule-soft);
 }
 .ratioed-live-who { overflow-wrap: anywhere; }

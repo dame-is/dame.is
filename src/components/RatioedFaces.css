@@ -33,15 +33,16 @@
 }
 .ratioed-face-link:hover .ratioed-face-name { text-decoration: underline; }
 
-/* Square, not round. A round portrait is the social-app convention — the frame
-   every one of these accounts wears inside the client this piece happened in —
-   and the roster is not that client. It is a plate of evidence: who was there,
-   in the order they arrived. Squaring the frame is the whole difference between
-   a follower list and a record of an event. */
+/* Square, not round, and squarely so. A round portrait is the social-app
+   convention — the frame every one of these accounts wears inside the client
+   this piece happened in — and the roster is not that client. It is a plate of
+   evidence: who was there, in the order they arrived. Squaring the frame is the
+   whole difference between a follower list and a record of an event, and a
+   softened corner is that difference stated hesitantly. */
 .ratioed-face-frame {
   width: 48px;
   height: 48px;
-  border-radius: 2px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--page-edge);
   border: 1px solid var(--rule);
