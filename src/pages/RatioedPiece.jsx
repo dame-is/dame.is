@@ -425,8 +425,7 @@ export default function RatioedPiece() {
           <div>
             <dt>since</dt>
             <dd>
-              {engagementTotal(piece.postSeal)}
-              {delta?.total > 0 && <span className="ratioed-piece-fresh"> +{delta.total}</span>}
+              <Figure recorded={engagementTotal(piece.postSeal)} since={delta?.total || 0} />
             </dd>
           </div>
           {/* Only when there is an audience to report. A piece whose
@@ -502,7 +501,9 @@ export default function RatioedPiece() {
           </div>
           {delta && (
             <p className="ratioed-piece-note">
-              Measured {piece.measuredAt.slice(0, 10)}.{' '}
+              {measuredAtTheSeal(piece)
+                ? 'Measured at the seal, so the afterlife column was empty when it was taken — everything on that side has landed since.'
+                : `Measured ${piece.measuredAt.slice(0, 10)}.`}{' '}
               {delta.total > 0
                 ? `${delta.total} more ${delta.total === 1 ? 'has' : 'have'} landed since.`
                 : 'Nothing has landed since.'}
@@ -632,6 +633,46 @@ export default function RatioedPiece() {
 
 function engagementTotal(w) {
   return (w?.threadPosts || 0) + (w?.reposts || 0) + (w?.quotes || 0) + (w?.likes || 0);
+}
+
+// Inside this, a measurement taken "at the seal" — the studio measures as soon
+// as it has closed replies, so the gap is a network round trip and a backlink
+// index catching up, not a window anything could land in.
+const MEASURED_AT_SEAL_MS = 5 * 60 * 1000;
+
+/** Was this piece measured close enough to its seal that its afterlife window
+ *  is empty by construction rather than by finding? */
+function measuredAtTheSeal(piece) {
+  const sealed = Date.parse(piece?.sealedAt || '');
+  const measured = Date.parse(piece?.measuredAt || '');
+  if (!Number.isFinite(sealed) || !Number.isFinite(measured)) return false;
+  return measured - sealed < MEASURED_AT_SEAL_MS;
+}
+
+/**
+ * A recorded figure, and whatever has landed since it was taken.
+ *
+ * The two are never added together — that is the rule the whole project turns
+ * on, since one of them is evidence and the other is whatever Constellation
+ * says this minute. But they were being written `0 +3`, and that zero is not a
+ * finding. Every piece is measured within a minute or two of its seal, so its
+ * afterlife window is empty BY CONSTRUCTION: no time had passed for anything to
+ * land in. Printing it as a figure gives a reader a number to interpret where
+ * there is nothing to interpret, and puts it first.
+ *
+ * So a zero with something behind it isn't printed at all — `+3` says both
+ * things at once, and says them in the right order. A zero with nothing behind
+ * it still prints, because there it IS the finding: nothing has landed since.
+ */
+function Figure({ recorded, since }) {
+  const fresh = since > 0;
+  if (!fresh) return recorded;
+  return (
+    <>
+      {recorded > 0 ? `${recorded} ` : ''}
+      <span className={`ratioed-piece-fresh${recorded > 0 ? '' : ' is-only'}`}>+{since}</span>
+    </>
+  );
 }
 
 /**
@@ -839,8 +880,7 @@ function Window({ label, figures, delta }) {
           <div key={key}>
             <dt>{human}</dt>
             <dd>
-              {figures?.[key] || 0}
-              {delta?.[key] > 0 && <span className="ratioed-piece-fresh"> +{delta[key]}</span>}
+              <Figure recorded={figures?.[key] || 0} since={delta?.[key] || 0} />
             </dd>
           </div>
         ))}

@@ -80,6 +80,10 @@
   font-size: var(--text-sm);
   color: var(--ink-muted);
 }
+/* When it is the whole value — a recorded zero with something behind it, which
+   is every piece measured at its own seal — it takes the figure's size. It is
+   the number in that cell; only its provenance is different. */
+.ratioed-piece-fresh.is-only { font-size: inherit; }
 
 /* --- sections ------------------------------------------------------ */
 
