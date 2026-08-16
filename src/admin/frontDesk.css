@@ -79,6 +79,25 @@
   cursor: default;
 }
 
+/* The six section heads — "Needs you", "Latest records" and the four group
+   names. Minted here rather than borrowed, because the borrowed pairing was
+   `.admin-collection-group-heading small-caps` and those two classes disagree:
+   the first sets 0.2em and the second 0.05em, and `.small-caps` is emitted
+   later in typography.css, so it won. The result was the only six labels on
+   this screen off the house voice — measured at 0.6px of tracking against the
+   2.16px every other small-caps label carries, with the sub-head NESTED under
+   "Needs you" at 3.6× its parent's. The `.admin-collection-group-head` wrapper
+   still supplies the rule and the spacing; only the heading's own type is ours
+   now, so this page no longer depends on a frozen public class for it. */
+.fd-section-heading {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+}
+
 /* ------------------------------------------------------------------ */
 /* Counts row                                                           */
 /* ------------------------------------------------------------------ */
@@ -89,6 +108,9 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Three shared rows — label, number, caption — which the four tiles adopt
+     through `subgrid` below. See `.fd-tile`. */
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: var(--space-4);
 }
 
@@ -98,21 +120,39 @@
      class cannot reach it. One value, stepped down once at the breakpoint,
      keeps the placeholder and the digits it stands in for the same height. */
   --fd-value-size: var(--text-3xl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  /* SUBGRID, so the label row is sized by the tallest label in the ROW rather
+     than by each tile's own. A row of counts is a comparison and has to sit on
+     one line: free-flowing labels meant "Documents published" and "Hidden from
+     the site" wrapped to two lines while "Drafts" and "Guestbook" stayed on
+     one, and every number below inherited the offset — a measured 19.2px step
+     between siblings at every width from 960 down to 320. A `min-height` of two
+     lines on the label would also level them, at the cost of a permanently
+     blank second line at 1440 where nothing wraps; this costs nothing at any
+     width. Every tile carries the same padding, so every tile's tracks are
+     inset by the same amount and they still agree. */
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: var(--space-1);
   min-width: 0;
   padding: var(--space-4);
   border: 1px solid var(--rule);
   background: var(--page-edge);
 }
 
-/* Attention is a doubled rust rule, not a badge. The inset shadow thickens the
-   border in place — a 2px border would reflow the tile and shift its three
-   neighbours by a pixel as a number landed. */
+/* Attention is a rust rule, not a badge — and a rule on ONE EDGE, not an even
+   glow, because hue alone can no longer carry it. Under the live `sky` theme
+   --tan and --accent-soft are derived from one hour-computed hue and land two
+   teals apart (measured #2295a0 against #3494b2 at hours 3, 8, 14, 19 and 22),
+   so a tan box and the open rail chip's accent box read as the same state.
+   A thick left edge is the form the `.fd-need` rows below already use for
+   attention and the form no interactive control on this page takes, so the two
+   stay distinguishable at every hour. Drawn as an inset shadow rather than a
+   border: a 3px border would reflow the tile and shift its neighbours as a
+   number landed. */
 .fd-tile[data-attention] {
   border-color: var(--tan);
-  box-shadow: inset 0 0 0 1px var(--tan);
+  box-shadow: inset 3px 0 0 var(--tan);
 }
 
 .fd-tile-label {
@@ -121,6 +161,15 @@
   font-variant: all-small-caps;
   letter-spacing: 0.18em;
   color: var(--ink-muted);
+}
+
+/* The value placeholder wears the value's own type so its `3ch` width resolves
+   against the digits it stands in for — `ch` is a font-relative unit and the
+   skeleton would otherwise be three characters of the body text, a 24px bar
+   where a ~65px number lands. */
+.fd-tile-skel {
+  font-family: var(--code);
+  font-size: var(--fd-value-size);
 }
 
 /* --code, not --mono: the site's serif font mode (which main.jsx always sets)
@@ -144,11 +193,13 @@
 }
 
 /* Captions sit on the tile's floor so the four values keep a common baseline
-   even when one tile's caption runs to two lines. */
+   even when one tile's caption runs to two lines. `align-self: end` rather than
+   the `margin-top: auto` this used before the tile became a subgrid — the
+   caption owns the last row and hangs from its bottom edge. */
 .fd-tile-notes {
   display: flex;
   flex-direction: column;
-  margin-top: auto;
+  align-self: end;
   padding-top: var(--space-2);
   font-family: var(--sans);
   font-size: var(--text-sm);
@@ -174,6 +225,70 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Counts, as a scanline                                                */
+/* ------------------------------------------------------------------ */
+
+/* What the counts row becomes below 60rem. FrontDesk renders EITHER this or
+   `.fd-counts`, never both, so these rules live here rather than in the stacked
+   block at the foot — the element does not exist above the breakpoint.
+
+   It is one wrapping LINE BOX, and that is the whole point: four tiles in an
+   auto-fill grid minted empty tracks for a fixed set of four items (up to 285px
+   of dead track at 960; three tracks for four items at 430–500, orphaning
+   Guestbook onto a row of its own) and broke their own shared baseline by
+   19.2px whenever one label wrapped and another did not. A line box has no
+   tracks to leave empty and one baseline per line whatever wraps. 56px doing
+   the work of 236.
+
+   `order: 1` is the phone's inversion: the head and the two panels are order 0,
+   so the numbers fall in behind "Needs you" and "Latest records" — what needs
+   you, then what changed, then the counts. */
+.fd-scan {
+  --fd-value-size: var(--text-lg);
+  order: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  /* Space, not a `·`: a glyph separator between wrapping items either orphans
+     onto the head of the next line or hangs off the end of the previous one. */
+  column-gap: var(--space-5);
+  row-gap: var(--space-2);
+}
+
+.fd-scan-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+/* A caption carrying a `title` explains an approximation, or in the scanline's
+   case carries the caption the tile had room to print. Mark it either way. */
+.fd-scan-item[title] {
+  cursor: help;
+}
+
+.fd-scan-value,
+.fd-scan-skel {
+  font-family: var(--code);
+  font-size: var(--fd-value-size);
+  line-height: 1.05;
+  color: var(--ink);
+  font-feature-settings: 'tnum' 1;
+}
+
+.fd-scan-label {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------------------------------ */
 /* Needs you · Latest records                                           */
 /* ------------------------------------------------------------------ */
 
@@ -183,13 +298,29 @@
 .fd-columns {
   display: grid;
   grid-template-columns: minmax(0, 4fr) minmax(0, 5fr);
-  align-items: start;
+  /* Two shared rows — head, then body — which both panels adopt through
+     `subgrid`, so the two section heads occupy ONE row and their rules land on
+     the same edge whatever their notes do. Without it the heads are sized
+     independently: at 1024 the "Latest records" note runs to three lines and
+     "Needs you" to two, which put the two 1px rules 22.4px out of level and
+     took each column's first row with them. `.admin-collection-group-head` is
+     frozen public API and cannot be given a min-height, so the levelling has to
+     come from here. */
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--space-6);
 }
 
 .fd-panel {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: subgrid;
+  min-width: 0;
+}
+
+/* Everything under the head, wrapped: a subgrid of two rows can hold exactly
+   two children per column, and "Needs you" renders up to three (a list, a
+   sub-heading and a second list). */
+.fd-panel-body {
   min-width: 0;
 }
 
@@ -217,9 +348,16 @@
   padding-left: var(--space-3);
 }
 
+/* `last baseline`, so a label that wraps puts the action verb beside its LAST
+   line rather than its first. On the first baseline the row reads "3 page
+   records the site" → "REVIEW THE RECORDS →" → "never reads", which is the
+   sentence interleaved with its own affordance. Declared after the plain
+   `baseline` so a browser that does not know the two-value form keeps the old
+   alignment rather than falling back to `stretch`. */
 .fd-need-link {
   display: flex;
   align-items: baseline;
+  align-items: last baseline;
   gap: var(--space-3);
   text-decoration: none;
   color: var(--ink);
@@ -264,10 +402,24 @@
   gap: 0.1rem;
 }
 
+/* The bullet and its link share a row rather than the link running inline after
+   the marker, so the link can be given a 44px box on a touch pointer without
+   the marker jumping onto a line of its own. Identical to the inline rendering
+   at every width where it is not. */
+.fd-need-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
 .fd-need-row::before {
   content: '·';
-  margin-right: var(--space-2);
   color: var(--ink-faint);
+}
+
+.fd-need-row a {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .fd-subhead {
@@ -280,24 +432,111 @@
   color: var(--ink-faint);
 }
 
-/* The surface a "Latest records" row belongs to, between its label and its
-   time. Neutral on purpose — `.admin-record-chip` is the outlined --tan tag
-   that means "not on the public site", and a surface name means nothing of the
-   kind. */
+/* ------------------------------------------------------------------ */
+/* A "Latest records" row                                               */
+/* ------------------------------------------------------------------ */
+
+/* FOUR COLUMNS, one line high, at every width.
+
+   `.fd-row-surface` used to live inside `.admin-record-main`, which is a
+   `flex-wrap: wrap` box holding the title, so the kind label floated
+   immediately after a title of variable length: measured across eight
+   rows its left edge spanned 358px, the gap from it to the timestamp swung from
+   373px to 39px, and a long title pushed it onto a line of its own — row
+   heights of 44.8, 68 and 94.6px inside one eight-row list. The rkeys lined up
+   and the times lined up; the one column between them never did.
+
+   The tracks are declared on the LIST and adopted by every row through
+   `subgrid`, not declared on each row: a grid per row would size its own
+   `max-content` track to its own label and the column would still zigzag —
+   which is the defect, one level down. Declared once, the kind track is exactly
+   as wide as the widest label actually on screen, so it can neither clip "Site
+   pages" nor reserve room for a label that is not there.
+
+   ALL OF THIS IS SCOPED UNDER `.fd`. `.admin-record-*` is frozen public API,
+   reached from /exploring and from the public quick-edit sheet, and none of it
+   may follow this page there. */
+.fd .admin-record-list {
+  display: grid;
+  grid-template-columns: 14ch minmax(0, 1fr) max-content max-content;
+  column-gap: var(--space-4);
+}
+
+.fd .admin-record-row,
+.fd .admin-record-link {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.fd .admin-record-link {
+  align-items: baseline;
+}
+
+/* The title truncates rather than wrapping, so every row is one line and the
+   list's height is `rows × one row` — which is what lets the placeholder
+   reserve it exactly (see LatestSkeleton). */
+.fd .admin-record-main {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The house rule is IBM Plex Mono for rkeys and at-uris, and it held in the
+   list column and the editor head but not here — the same record read as
+   Crimson Pro 12px on the dashboard and mono 12px one click away. `--code`,
+   `--text-xs`, `--ink-faint`: `.wb-list-rkey`'s exact voice, so a record looks
+   the same wherever it is listed. The fixed 14ch width goes with it; the grid
+   track owns the column now. */
+.fd .admin-record-rkey {
+  width: auto;
+  font-family: var(--code);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Same repair on the timestamp: `.wb-list-time`'s small-caps voice rather than
+   `--mono-ui` at 0.04em. `margin-left` back to 0 because the grid places it —
+   an `auto` margin inside a track only pushes it off its own column. */
+.fd .admin-record-time {
+  margin-left: 0;
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
+}
+
+/* The surface a row belongs to. Neutral on purpose — `.admin-record-chip` is
+   the outlined --tan tag that means "not on the public site", and a surface
+   name means nothing of the kind. */
 .fd-row-surface {
-  flex: 0 0 auto;
   font-family: var(--sans);
   font-size: var(--text-xs);
   font-variant: all-small-caps;
   letter-spacing: 0.14em;
   color: var(--ink-muted);
+  white-space: nowrap;
 }
 
-.fd-skel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-2);
+/* The placeholder rows are the real rows with skeletons in the tracks, so they
+   are the same height by construction — but only because the bars stay INLINE.
+   A skeleton is a span; left inline it sits in a line box whose strut is the
+   row's own serif at --text-base, so the row stands 44.8px whatever height the
+   bar itself is given. Made `display: block` it would be its own box, the strut
+   would go, and the placeholder row would come out 38.4px — 6.4px short per
+   row, which across LATEST_LIMIT rows is a 51px jump when the data lands.
+   Centred rather than baseline-aligned because a bar has no text baseline to
+   align on. */
+.fd-latest-skel .admin-record-link {
+  align-items: center;
+}
+
+/* "Needs you", loading: the section's own left rule and row geometry rather
+   than three bars floating in the column, so the placeholder reads as the
+   section it stands in for. */
+.fd-needs-skel .fd-need-link {
+  display: block;
 }
 
 /* ------------------------------------------------------------------ */
@@ -367,8 +606,24 @@
   line-height: var(--leading-tight);
 }
 
-.fd-surface-count {
-  flex: 0 0 auto;
+/* ONE trailing slot, one voice, on every tile.
+
+   It used to hold a mono count on a countable surface, a serif small-caps
+   "Open →" on the three large collections, and a small-caps "no records yet"
+   on an empty one — a fact and an action in the same position, in two
+   families, two sizes and two colours, so tiles in one row read as differently
+   interactive when the whole tile is the link in every case. Now the slot is
+   always a number in the data voice, and where there is no number honestly
+   available it is an em dash: the three large collections still carry no count
+   (246 requests for the Bluesky posts alone, and an invented number is worse
+   than no number) and still say so, but they say it in the slot's own voice
+   with the reason on hover.
+
+   "no records yet" goes with it: the tile is already dimmed to 0.55 for an
+   empty collection, which is the rail's treatment of the same surface, and `0`
+   is the honest reading of a 200 with an empty array whether the collection is
+   empty or has never existed. */
+.fd-surface-mark {
   margin-left: auto;
   white-space: nowrap;
   font-family: var(--code);
@@ -377,20 +632,8 @@
   font-feature-settings: 'tnum' 1;
 }
 
-/* The three large collections, the off-repo guestbook and the migration tool
-   carry a way in and NO number. Not "many", not "1000+" — counting
-   app.bsky.feed.post means 246 requests, and an invented number is worse than
-   no number. */
-.fd-surface-open,
-.fd-surface-none {
-  flex: 0 0 auto;
-  margin-left: auto;
-  white-space: nowrap;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
-  color: var(--ink-faint);
+.fd-surface-mark[title] {
+  cursor: help;
 }
 
 .fd-surface-blurb {
@@ -421,11 +664,15 @@
 /* Open any collection                                                  */
 /* ------------------------------------------------------------------ */
 
+/* Label ABOVE its control, like `.admin-field-label` on every other labelled
+   control in the admin — this was the one field in the tree whose label sat
+   beside its input, and 9px below the input's own top edge, so it was neither
+   stacked nor baseline-aligned. */
 .fd-any {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  align-items: start;
+  gap: var(--space-2);
   padding-top: var(--space-4);
   border-top: 1px solid var(--rule-soft);
 }
@@ -438,6 +685,18 @@
   color: var(--ink-muted);
 }
 
+/* The field and the button that submits it share a row of their own, stretched,
+   so they share BOTH edges. Centring a 29.2px button inside a 37.2px input left
+   it inset 4px top and bottom, reading as an undersized control beside a
+   full-height one. */
+.fd-any-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 30rem;
+}
+
 /* `.admin-input` is `width: 100%`, which is right inside a field stack and
    wrong in a row. Overridden through a descendant selector rather than by
    source order, because Admin.css and this file land in different chunks and
@@ -445,7 +704,7 @@
 .fd-any .admin-input {
   width: auto;
   flex: 1 1 16rem;
-  max-width: 26rem;
+  min-width: 0;
   font-family: var(--code);
   font-size: var(--text-xs);
 }
@@ -454,79 +713,183 @@
 /* Stacked (drill-down) — 60rem / 960px                                 */
 /* ------------------------------------------------------------------ */
 
+/* Nothing in here sheds CONTENT any more, which is the other half of why the
+   18-tile grid is unrendered rather than restyled: the rules that used to hide
+   the blurbs, the "Open →" marks and the rkeys fired at 960 as well as at 390,
+   so a 768px tablet with a 676px-wide pane was handed the phone's layout — the
+   grid became a redundant second copy of a chip row 500px above it, and rows
+   with 200px of empty space lost their rkey column on the grounds that it was
+   "a third of a 390px row". Everything below is a reflow the width genuinely
+   needs, which is as true at 768 as at 390; the touch floors are in their own
+   block after this one, and the two rules that really are about a phone are
+   behind a phone-sized query after that. */
 @media (max-width: 60rem) {
-  /* 2 x 2 on a phone: at 390px the pane is about 22rem wide, which fits two
-     7.5rem columns and not three. auto-fill rather than a hard `repeat(2)` so a
-     tablet in the same range gets three or four across instead of two very wide
-     ones. */
-  .fd-counts {
-    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
-    gap: var(--space-3);
-  }
-
-  .fd-tile {
-    --fd-value-size: var(--text-2xl);
-    padding: var(--space-3);
-  }
-
-  /* Needs you first, then Latest records — it is first in the DOM, so the
-     single column already puts it there. */
+  /* Needs you first, then Latest records — both are order 0 and first in the
+     DOM, so the single column already puts them ahead of the counts scanline
+     (`order: 1`) and the surfaces door (`order: 2`). */
   .fd-columns {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-5);
+    /* Stacked, these two are no longer columns: they are two more bands
+       carrying the same heading and rule as the groups, so they take the band
+       joint every other seam on this page uses. The column gutter read as a
+       halved gap — 17.6px inside a stack whose every other joint is 32. */
+    gap: var(--space-6);
   }
 
-  /* Each group collapses to its heading plus a wrapped chip row. The blurbs are
-     a desktop affordance: on a phone they would triple the height of the one
-     part of this page that has to stay thumb-scrollable. */
-  .fd-tiles {
+  /* The subgrid is a two-COLUMN arrangement. In one column each panel needs its
+     own rows, and there is no head to level against. */
+  .fd-panel {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    grid-row: auto;
+    grid-template-rows: none;
+  }
+
+  /* Each row is its own 44px box now, so these two gaps can come down to what
+     keeps two rust rules — and two record titles — from reading as one. */
+  .fd-needs {
     gap: var(--space-2);
   }
 
+  .fd-need-rows {
+    gap: 0;
+  }
+
+  /* Four columns and a 44px floor. The row's own `padding: var(--space-3) 0`
+     already stands it at 44.8, so this is a guarantee rather than a change. */
+  .fd .admin-record-list {
+    column-gap: var(--space-3);
+  }
+
+  .fd .admin-record-link {
+    min-height: var(--wb-hit);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Touch targets on a coarse pointer, at any width                      */
+/* ------------------------------------------------------------------ */
+
+/* A media query LIST, so this is "stacked OR touch" and the rules are stated
+   once. The breakpoint alone is not enough — a 1024px tablet is above it and
+   still has a thumb, and every control below measured under 44px there
+   (`.fd-need-link` 24.3, its per-record links 15, `.fd-surface-link` 32.4,
+   `.fd-action` 29.2). A fine pointer at 390px is not a phone but is how this
+   page is looked at while it is being built, and it should see what a phone
+   sees.
+
+   PAINTED height rather than the `.wb-hit` ::before halo, in every case here,
+   because all of these are stacked or gridded SIBLINGS with gaps under 16px:
+   two boxes grown 8px on every side across a 9.6px gap overlap by 6.4px and the
+   later sibling wins the tap, which is exactly how the old chip row let 14 of
+   19 adjacent pairs steal each other's taps. A control that can simply be 44px
+   tall should be 44px tall. */
+@media (max-width: 60rem), (pointer: coarse) {
+  .fd-action,
+  .fd-need-link,
   .fd-surface-link {
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--space-2);
-    padding: var(--space-1) var(--space-2);
+    min-height: var(--wb-hit);
   }
 
-  .fd-surface-head {
-    gap: var(--space-2);
+  .fd-need-row a {
+    display: flex;
+    align-items: center;
+    min-height: var(--wb-hit);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Phone only — 30rem / 480px                                           */
+/* ------------------------------------------------------------------ */
+
+/* Two rules that are about a PHONE rather than about the stacked breakpoint,
+   and are therefore behind a phone-sized query. Everything else that used to
+   fire at 60rem — hiding the surface blurbs, the "Open →" marks, the "no
+   records yet" — was written about a 390px phone and fired on a 768px tablet
+   with a 676px pane; those are gone rather than moved, because the grid they
+   styled is not rendered when stacked at all.
+
+   The rkey one survives because it is true: the rkey track is a fixed 14ch,
+   which is a third of a 358px row, and a title squeezed into what is left wraps
+   to three lines. Above 480px there is room for all four columns and they stay.
+   The label, the surface and the time are what identify a row on a phone; the
+   rkey is one tap away on the record itself. */
+@media (max-width: 30rem) {
+  .fd .admin-record-list {
+    grid-template-columns: minmax(0, 1fr) max-content max-content;
   }
 
-  .fd-surface-label {
-    font-size: var(--text-base);
-  }
-
-  .fd-surface-blurb {
-    display: none;
-  }
-
-  /* On a chip the tile IS the affordance, and "no records yet" is already said
-     by the dimming — both would only crowd the label. The number stays, because
-     it is the one thing the chip cannot say any other way. */
-  .fd-surface-open,
-  .fd-surface-none {
-    display: none;
-  }
-
-  .fd-surface-count {
-    margin-left: 0;
-  }
-
-  /* The rkey column is a fixed 14ch, which is a third of a 390px row — enough
-     to wrap every label onto three lines. On a phone the label, the surface and
-     the time are what identify a row; the rkey is one tap away on the record
-     itself. Scoped under `.fd` so the frozen `.admin-record-rkey` rule is
-     untouched everywhere else it renders, including the list column, the public
-     quick-edit sheet and /exploring. */
   .fd .admin-record-rkey {
     display: none;
   }
 
-  .fd-any .admin-input {
-    flex: 1 1 12rem;
+  /* The second of the two. A "needs you" row is a sentence and a verb; give it
+     358px and the sentence takes
+     three lines while the verb keeps its own, and `margin-left: auto` collapses
+     to the flex gap, so the row reads "3 page records" → "REVIEW THE RECORDS →"
+     → "the site never reads" with ~54px of empty space under the verb. Stacked
+     it reads in order. Above 480px the row is wide enough for both on one line
+     — and where the label still wraps, `last baseline` above keeps the verb
+     beside its last line rather than its first. No row gap: a serif sentence
+     over a small-caps verb is already two voices, and a phone screen is not
+     the place to spend 5px saying so again. */
+  .fd-need-link {
+    flex-direction: column;
+    align-items: start;
+    gap: 0;
+    padding-block: var(--space-1);
   }
+
+  .fd-need-action {
+    margin-left: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* The phone's door to everything else                                  */
+/* ------------------------------------------------------------------ */
+
+/* Rendered only when stacked, in place of the 758px surface grid. One row, one
+   tap, and the same sheet the bar's left slot opens — the directory is stated
+   once and reached from everywhere rather than drawn twice on the one screen
+   that already has the bar. */
+.fd-all {
+  order: 2;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--wb-hit);
+  padding: var(--space-2) 0;
+  border: 0;
+  border-top: 1px solid var(--rule-soft);
+  border-radius: 0;
+  background: none;
+  text-align: start;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.fd-all-label {
+  font-family: var(--serif);
+  font-size: var(--text-lg);
+  line-height: var(--leading-tight);
+}
+
+.fd-all-mark {
+  margin-left: auto;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+.fd-all:hover,
+.fd-all:focus-visible {
+  color: var(--accent);
+}
+
+.fd-all:hover .fd-all-mark,
+.fd-all:focus-visible .fd-all-mark {
+  color: var(--accent);
 }

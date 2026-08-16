@@ -25,7 +25,7 @@ export default function LegacyBlogMigration({ agent, did }) {
   // "Documents published" tile counts and what the Blogging and Creating lists
   // read. Without telling the shell, a migration of eight posts would leave both
   // reporting the pre-migration number for up to the counts cache's 60s TTL.
-  const { invalidate } = useAdminShell();
+  const { invalidate, stacked } = useAdminShell();
   // Per-slug migration state: { status, message, href }.
   const [state, setState] = useState({});
   const [migrated, setMigrated] = useState(null); // Set of already-migrated slugs
@@ -92,13 +92,36 @@ export default function LegacyBlogMigration({ agent, did }) {
     // write load gentle and the progress readable.
     for (const post of LEGACY_POSTS) {
       if (migrated?.has(post.slug)) continue;
-      // eslint-disable-next-line no-await-in-loop
       await runOne(post);
     }
     setRunningAll(false);
   }, [migrated, runOne]);
 
   const pendingCount = LEGACY_POSTS.filter((p) => !migrated?.has(p.slug)).length;
+
+  // Desktop only, and stated rather than degraded (§6 of the mobile design).
+  // This tool reads markdown out of the repo and writes records with their
+  // images; it is a one-time job whose rows are 45–60-character slugs beside a
+  // per-row button, and there is no version of that which is a phone screen.
+  // The count is the part worth carrying — "is there anything left to do" is a
+  // question you can answer from anywhere.
+  if (stacked) {
+    return (
+      <>
+        {loadError && <p className="admin-error">Couldn’t check existing posts: {loadError}</p>}
+        <p className="admin-field-hint">
+          {LEGACY_POSTS.length === 0
+            ? 'No legacy posts are bundled in this build.'
+            : migrated == null
+              ? 'Checking what has already been migrated…'
+              : pendingCount === 0
+                ? `All ${LEGACY_POSTS.length} legacy posts are migrated.`
+                : `${pendingCount} of ${LEGACY_POSTS.length} legacy posts still to migrate.`}
+        </p>
+        <p className="placeholder-card">Migration runs from a desktop.</p>
+      </>
+    );
+  }
 
   return (
     <>
@@ -131,14 +154,28 @@ export default function LegacyBlogMigration({ agent, did }) {
                   <span className="legacy-blog-title">{post.title}</span>
                   {isMigrated && <span className="small-caps legacy-blog-badge">migrated</span>}
                 </div>
-                <div className="legacy-blog-meta small-caps">
-                  {formatDateLong(post.publishedAt)}
+                {/* `small-caps` sits on the DATE and the COUNT, not on the row.
+                    On the row it also caught the slug, so a path rendered
+                    uppercased in Crimson Pro — an rkey-shaped string in the
+                    prose voice.
+
+                    And the slug is `.admin-collection-nsid`, not
+                    `.admin-record-rkey`: the latter is the record LIST's fixed
+                    left gutter (`flex-shrink: 0; width: 14ch`), so a real
+                    45–60-character slug stacked inside an 84px box 6–8 lines
+                    tall and dragged the whole row to 194–262px. This one is
+                    mono, faint and `word-break: break-all` — it shrinks and
+                    wraps like the text it is. */}
+                <div className="legacy-blog-meta">
+                  <span className="small-caps">{formatDateLong(post.publishedAt)}</span>
                   <span className="legacy-blog-dot">·</span>
-                  <code className="admin-record-rkey">/blogging/{post.slug}</code>
+                  <code className="admin-collection-nsid">/blogging/{post.slug}</code>
                   {post.images.length > 0 && (
                     <>
                       <span className="legacy-blog-dot">·</span>
-                      {post.images.length} image{post.images.length === 1 ? '' : 's'}
+                      <span className="small-caps">
+                        {post.images.length} image{post.images.length === 1 ? '' : 's'}
+                      </span>
                     </>
                   )}
                 </div>

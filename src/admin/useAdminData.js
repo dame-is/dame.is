@@ -53,8 +53,13 @@ const PAGE_LIMIT = 100;
  */
 const MAX_IN_FLIGHT = 6;
 
-/** Rows in "Latest records". */
-const LATEST_LIMIT = 8;
+/**
+ * Rows in "Latest records". Exported because the Front Desk's loading
+ * placeholder draws exactly this many rows in the real row's geometry: a
+ * skeleton that is shorter than the list it stands in for is what moved the
+ * surface grid 225px down out from under the cursor when the counts landed.
+ */
+export const LATEST_LIMIT = 8;
 
 /**
  * Cache TTL. The in-memory `feedCache` is deliberately the store: it evaporates
@@ -80,8 +85,14 @@ const GUESTBOOK_KEY = `${CACHE_PREFIX}${GUESTBOOK_NSID}`;
  * Constellation and Slingshot, and neither `fetchJson` in this tree carries a
  * timeout. A hung third party must degrade to "Guestbook index unavailable",
  * never to a tile that skeletons forever.
+ *
+ * Exported with `withDeadline` because this dashboard tile is not the only
+ * place that reads the guestbook: the moderation panel walks the same hosts
+ * with `fetchGuestbookEntries` and needs the same ceiling, and it currently
+ * declares its own copy of both. Import them from here instead and the two
+ * surfaces cannot come to disagree about how long "too long" is.
  */
-const GUESTBOOK_DEADLINE_MS = 8000;
+export const GUESTBOOK_DEADLINE_MS = 8000;
 
 /** Shared empty array, so a memo dep does not change identity every render. */
 const NO_RECORDS = Object.freeze([]);
@@ -206,7 +217,7 @@ function seedFromCache() {
 }
 
 /** Resolve `fallback` if `promise` has not settled within `ms`. */
-function withDeadline(promise, ms, fallback) {
+export function withDeadline(promise, ms, fallback) {
   let timer = null;
   const guard = new Promise((resolve) => {
     timer = setTimeout(() => resolve(fallback), ms);
@@ -563,7 +574,13 @@ export function deriveNeedsYou(entries) {
       id: 'pages-unknown',
       kind: 'check',
       count: strayPages,
-      label: `${strayPages} page ${strayPages === 1 ? 'record' : 'records'} outside the built-in surfaces`,
+      // States the CONSEQUENCE, not the mechanism. Every page on the public
+      // site calls `usePageContent(slug)` with a slug hardcoded in
+      // pageRegistry.js, and App.jsx declares one route per page with no
+      // catch-all — so an `is.dame.page` record whose rkey is not a registry
+      // key is content that nothing on the site will ever render. "Outside the
+      // built-in surfaces" named the lookup; this names what is wrong.
+      label: `${strayPages} page ${strayPages === 1 ? 'record' : 'records'} the site never reads`,
       href: '/admin?view=pages',
       rows: null,
     });
@@ -578,7 +595,12 @@ export function deriveNeedsYou(entries) {
       id: 'publications-no-url',
       kind: 'check',
       count: urllessPubs,
-      label: `${urllessPubs} ${urllessPubs === 1 ? 'publication' : 'publications'} with no url`,
+      // "URL" in caps: this string is rendered in the serif at sentence case as
+      // a row label, so a lowercase "url" reads as a typo rather than as an
+      // initialism. (The matching verb in FrontDesk's RESOLVE map renders
+      // through `font-variant: all-small-caps` and hides the same mistake —
+      // both are fixed at the source.)
+      label: `${urllessPubs} ${urllessPubs === 1 ? 'publication' : 'publications'} with no URL`,
       href: '/admin?view=publications',
       rows: null,
     });

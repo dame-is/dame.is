@@ -1,10 +1,75 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowUpRight } from 'lucide-react';
 import GuestbookEntryRow from './GuestbookEntryRow.jsx';
-import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import { Skeleton, SkeletonShell } from './Skeleton.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { fetchGuestbookEntries, setEntryHidden } from '../lib/guestbook.js';
 import { GUESTBOOK_NSID, GUESTBOOK_ENTRY_NSID } from '../config.js';
+
+/**
+ * Ceiling on one page of the book.
+ *
+ * `fetchGuestbookEntries` is a Constellation backlink page, then one fetch per
+ * signer's PDS, then a profile walk, and it takes no signal — so when the index
+ * is unreachable the panel used to sit on a skeleton for ~40 SECONDS while every
+ * hop exhausted its own network timeout, then report failure. The Front Desk's
+ * guestbook tile already gives up at 8s (`GUESTBOOK_DEADLINE_MS` in
+ * useAdminData.js), so the same failure was reporting itself twice, five times
+ * apart. This is the same number, deliberately: one guestbook, one patience.
+ *
+ * src/lib/guestbook.js is not this slot's to change, hence a race here rather
+ * than an AbortSignal threaded through the fetch. The in-flight requests are not
+ * cancelled — they are simply no longer waited on, and `aliveRef` already keeps
+ * a late answer from writing to an unmounted panel.
+ */
+const GUESTBOOK_DEADLINE_MS = 8000;
+
+/** Resolve `fallback` if `promise` has not settled within `ms`. */
+function withDeadline(promise, ms, fallback) {
+  let timer = null;
+  const guard = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([promise, guard]).finally(() => clearTimeout(timer));
+}
+
+/** Sentinel the deadline resolves with, so a slow load is distinguishable from a failed one. */
+const TIMED_OUT = Symbol('guestbook-timeout');
+
+/**
+ * A signature-shaped placeholder.
+ *
+ * The generic `AdminRecordListSkeleton` stood here until now: two flat bars per
+ * row on an unruled page, for content that is an avatar, a display name, a
+ * handle, a message, a timestamp and a hide control. It promised the wrong
+ * shape and the list jumped when the real rows landed. This mirrors
+ * `GuestbookEntryRow` — 2.5rem avatar block, two text lines, a timestamp on the
+ * right — so the page keeps its geometry across the swap.
+ */
+function GuestbookRowsSkeleton({ rows = 5 }) {
+  return (
+    <SkeletonShell label="Loading signatures">
+      <ul className="gb-skel">
+        {Array.from({ length: rows }, (_, i) => (
+          <li key={i} className="gb-skel-row">
+            {/* Sizes are PROPS, not classes: `Skeleton` writes width/height
+                inline (height defaults to 1em), so a stylesheet cannot reach
+                them. */}
+            <Skeleton className="gb-skel-avatar" width="2.5rem" height="2.5rem" />
+            <div className="gb-skel-body">
+              <div className="gb-skel-head">
+                <Skeleton width={`${7 + ((i * 3) % 5)}rem`} height="1.05rem" />
+                <Skeleton className="gb-skel-time" width="4rem" height="0.8rem" />
+              </div>
+              <Skeleton block width={`${52 + ((i * 17) % 38)}%`} height="0.9rem" />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </SkeletonShell>
+  );
+}
 
 /**
  * Admin › Guestbook — the moderation desk (`/admin?view=guestbook`).
@@ -33,6 +98,9 @@ export default function GuestbookModerationPanel({ agent }) {
   const [book, setBook] = useState(null);
   const [cursor, setCursor] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | error
+  // Which kind of failure, so the sentence beside "Try again" is the truth
+  // rather than one guess covering both: 'timeout' | 'unreachable'.
+  const [failure, setFailure] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
 
   // `fetchGuestbookEntries` is a Constellation backlink page, then one fetch per
@@ -49,9 +117,11 @@ export default function GuestbookModerationPanel({ agent }) {
 
   const load = useCallback(async () => {
     setStatus('loading');
-    const page = await fetchGuestbookEntries();
+    setFailure(null);
+    const page = await withDeadline(fetchGuestbookEntries(), GUESTBOOK_DEADLINE_MS, TIMED_OUT);
     if (!aliveRef.current) return;
-    if (!page) {
+    if (!page || page === TIMED_OUT) {
+      setFailure(page === TIMED_OUT ? 'timeout' : 'unreachable');
       setStatus('error');
       return;
     }
@@ -71,9 +141,15 @@ export default function GuestbookModerationPanel({ agent }) {
   async function loadMore() {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
-    const page = await fetchGuestbookEntries({ cursor });
+    // Same ceiling as the first page — the next one runs exactly the same hops,
+    // and "Turning the page…" for forty seconds is the same lie.
+    const page = await withDeadline(
+      fetchGuestbookEntries({ cursor }),
+      GUESTBOOK_DEADLINE_MS,
+      TIMED_OUT,
+    );
     if (!aliveRef.current) return;
-    if (page) {
+    if (page && page !== TIMED_OUT) {
       setEntries((prev) => [...(prev || []), ...page.entries]);
       setCursor(page.cursor);
       setFlaggedCount((c) => c + (page.flaggedCount || 0));
@@ -118,9 +194,15 @@ export default function GuestbookModerationPanel({ agent }) {
         >
           Edit the book record
         </Link>
-        {/* A real navigation off /admin, so it stays an ordinary <Link>. */}
-        <Link to="/welcoming" className="admin-gate-button admin-gate-button-tight">
+        {/* A real navigation off /admin, so it stays an ordinary <Link> — and
+            it is drawn OUTLINED with the top bar's outbound arrow rather than
+            as a second filled button. Two identically weighted primaries side
+            by side said nothing about the fact that one of them leaves the
+            workbench; this borrows the vocabulary "View site" already uses for
+            exactly that. */}
+        <Link to="/welcoming" className="studio-out">
           View /welcoming
+          <ArrowUpRight className="studio-out-glyph" aria-hidden="true" strokeWidth={1.75} />
         </Link>
       </div>
 
@@ -158,14 +240,21 @@ export default function GuestbookModerationPanel({ agent }) {
 
         <p className="admin-field-hint">
           <code className="admin-collection-nsid">{GUESTBOOK_ENTRY_NSID}</code> — each signature
-          lives on its signer's own PDS.
+          lives on its signer’s own PDS.
         </p>
 
         {status === 'loading' ? (
-          <AdminRecordListSkeleton rows={5} label="Loading signatures" />
+          <GuestbookRowsSkeleton rows={5} />
         ) : status === 'error' ? (
-          <p className="feed-empty">
-            The backlink index is unreachable right now — try again in a bit.
+          /* A sentence with no control was the whole error state: the only way
+             to retry was to leave the surface and come back. */
+          <p className="feed-empty gb-error">
+            {failure === 'timeout'
+              ? 'The backlink index didn’t answer within 8 seconds.'
+              : 'The backlink index is unreachable right now.'}{' '}
+            <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={load}>
+              Try again
+            </button>
           </p>
         ) : !entries || entries.length === 0 ? (
           <p className="feed-empty">No signatures yet.</p>

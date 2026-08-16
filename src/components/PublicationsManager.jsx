@@ -30,7 +30,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Copy, Check } from 'lucide-react';
-import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import { Skeleton, SkeletonShell } from './Skeleton.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import { rkeyFromUri } from './RecordEditor.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
@@ -150,9 +150,40 @@ function pubLink(go, { rkey = null, mode = null } = {}) {
   };
 }
 
+/**
+ * Publication-shaped loading rows.
+ *
+ * The generic `AdminRecordListSkeleton` stood here: unframed 35px rows holding
+ * a short bar on the LEFT and a long one on the right. The real `.pub-list-row`
+ * is a 73px bordered, filled card whose short element — the mono rkey — is on
+ * the RIGHT, so the placeholder promised the wrong height AND the mirror image
+ * of the layout, and the list grew 76px and gained two card frames when the
+ * data landed. This is the row's own box with the row's own three bars.
+ */
+function PubListSkeleton({ rows = 2 }) {
+  return (
+    <SkeletonShell label="Loading publications">
+      <ul className="pub-list pub-skel">
+        {Array.from({ length: rows }, (_, i) => (
+          <li key={i} className="pub-skel-row">
+            {/* Sizes are PROPS, not classes: `Skeleton` writes width/height
+                inline (height defaults to 1em), so a stylesheet cannot reach
+                them. */}
+            <div className="pub-skel-main">
+              <Skeleton width={`${9 + ((i * 5) % 5)}rem`} height="1.35rem" />
+              <Skeleton width={`${44 + ((i * 13) % 26)}%`} height="0.85rem" />
+            </div>
+            <Skeleton className="pub-skel-rkey" width="7rem" height="0.95rem" />
+          </li>
+        ))}
+      </ul>
+    </SkeletonShell>
+  );
+}
+
 /* ======================= list ======================= */
-export default function PublicationsManager({ agent, did, rkey = null, isNew = false }) {
-  const { go } = useAdminShell();
+export default function PublicationsManager({ agent, did, rkey = null, isNew = false, onPaneMeta }) {
+  const { go, stacked } = useAdminShell();
   const [records, setRecords] = useState(null);
   const [error, setError] = useState(null);
 
@@ -194,7 +225,68 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
     [records, rkey],
   );
 
-  const backLink = pubLink(go);
+  /* --- focus follows the subject ----------------------------------------- */
+
+  // Choosing a publication used to leave `document.activeElement` on
+  // `main.layout`: the row you pressed Enter on is unmounted by its own click,
+  // and nothing claims what replaces it. Getting back to the form then costs the
+  // whole tab run — the back link measured as the 26th stop. So a subject change
+  // moves focus to the detail pane, which is `tabIndex={-1}` for exactly this
+  // (AdminShell's `EDITOR_ANCHOR`, also where the skip link lands).
+  //
+  // The flag is set in the CLICK rather than inferred from a mount, and that is
+  // the load-bearing part: a cold deep link to `?view=publications&r=…` mounts
+  // the editor too, and a page that steals focus off the top of the document on
+  // load is a worse bug than the one being fixed.
+  //
+  // One frame late, for the reason RecordDetail documents at its own focus move:
+  // `RouteTransition` focuses `#main-content` whenever the navigation TYPE
+  // changes (RouteTransition.jsx:33-36), which the first `go()` after a cold
+  // load does — POP to PUSH — and it is an ancestor, so its effect runs after
+  // this one in the same commit and takes the focus straight back. Measured:
+  // without the frame, the first selection lands on `main.layout` and every
+  // later one lands correctly, which is a worse bug than a consistent one.
+  const focusPane = useRef(false);
+  const requestPaneFocus = useCallback(() => {
+    focusPane.current = true;
+  }, []);
+  useEffect(() => {
+    if (!focusPane.current) return undefined;
+    focusPane.current = false;
+    const frame = requestAnimationFrame(() =>
+      document.getElementById('wb-detail')?.focus({ preventScroll: true }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [rkey, isNew]);
+
+  // The same move as `backLink` below, for the action bar's slot 1 — which
+  // takes a function, not a `<Link>`. Identity-stable (the ref is what keeps
+  // `go`'s identity out of it), because the editor puts it in an effect dep
+  // array and a fresh function per render would re-register the bar forever.
+  const goRef = useRef(go);
+  goRef.current = go;
+  const onBack = useCallback(() => {
+    requestPaneFocus();
+    goRef.current({ view: 'publications', c: null, r: null, mode: null, for: null });
+  }, [requestPaneFocus]);
+
+  /** A `pubLink` that also claims focus for whatever the navigation draws. */
+  const subjectLink = (opts) => {
+    const link = pubLink(go, opts);
+    return {
+      ...link,
+      onClick: (event) => {
+        // Modified clicks open a new tab and leave this one alone, so they must
+        // not arm a focus move that would then fire on the next real one.
+        if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0)) {
+          requestPaneFocus();
+        }
+        link.onClick(event);
+      },
+    };
+  };
+
+  const backLink = subjectLink();
   const record = isNew ? draft : editing;
 
   if (isNew || rkey) {
@@ -202,9 +294,15 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
     // edited is only known once `listRecords` lands.
     if (!record) {
       return records === null ? (
-        <AdminRecordListSkeleton rows={2} label="Loading publications" />
+        <PubListSkeleton rows={2} />
       ) : (
         <>
+          {/* Kept at EVERY width, unlike the editor's below. The rule is that
+              slot 1 of the action bar owns "back" so the pane must not draw a
+              second one — but nothing reaches this branch except a URL naming a
+              record that does not exist, so the editor (which is what registers
+              that slot) never mounts and slot 1 is the Surfaces sheet. This is
+              the only way out of a dead link on a phone. */}
           <div className="admin-toolbar">
             <Link className="admin-link-subtle" {...backLink}>
               ← All publications
@@ -224,6 +322,9 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
         record={record}
         isNew={isNew}
         backLink={backLink}
+        onBack={onBack}
+        stacked={stacked}
+        onPaneMeta={onPaneMeta}
         onSaved={async (savedRkey) => {
           // Refresh BEFORE navigating. The freshly created record has to be in
           // `records` by the time the URL names it, or this pane would flip back
@@ -245,8 +346,15 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
 
   return (
     <>
-      <div className="pub-actions">
-        <Link className="admin-gate-button" {...pubLink(go, { mode: 'new' })}>
+      {/* The same action row its two sibling Site studios open with: an
+          `.admin-toolbar` (which supplies the rule that ends it) holding a
+          `-tight` button. This one was a bare 40px button with no rule under
+          it, so three surfaces that do the same job opened three ways. */}
+      <div className="admin-toolbar">
+        <Link
+          className="admin-gate-button admin-gate-button-tight"
+          {...subjectLink({ mode: 'new' })}
+        >
           <Plus size={14} aria-hidden="true" />
           New publication
         </Link>
@@ -254,7 +362,7 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
 
       {error && <p className="admin-error">{error}</p>}
       {records === null ? (
-        <AdminRecordListSkeleton rows={2} />
+        <PubListSkeleton rows={2} />
       ) : records.length === 0 ? (
         <p className="placeholder-card">
           No {PUB_NSID} records found under this DID. Create one above.
@@ -263,7 +371,7 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
         <ul className="pub-list">
           {records.map((r) => (
             <li key={r.rkey}>
-              <Link className="pub-list-row" {...pubLink(go, { rkey: r.rkey })}>
+              <Link className="pub-list-row" {...subjectLink({ rkey: r.rkey })}>
                 <span className="pub-list-name">{r.value?.name || '(untitled)'}</span>
                 <span className="pub-list-url">{r.value?.url || '—'}</span>
                 <code className="admin-mono pub-list-rkey">{r.rkey}</code>
@@ -277,8 +385,18 @@ export default function PublicationsManager({ agent, did, rkey = null, isNew = f
 }
 
 /* ======================= editor ======================= */
-function PublicationEditor({ agent, did, record, isNew, backLink, onSaved }) {
-  const { registerActions, reportDirty, invalidate } = useAdminShell();
+function PublicationEditor({
+  agent,
+  did,
+  record,
+  isNew,
+  backLink,
+  onBack,
+  stacked,
+  onPaneMeta,
+  onSaved,
+}) {
+  const { registerActions, registerBar, reportDirty, invalidate } = useAdminShell();
   const rkey = record.rkey;
   const [value, setValue] = useState(() => clone(record.value));
   // What is on the PDS, as the strip's comparison baseline. Cloned from the same
@@ -517,6 +635,36 @@ function PublicationEditor({ agent, did, record, isNew, backLink, onSaved }) {
     reportDirty(dirtyState);
   }, [reportDirty, dirtyState]);
 
+  /* --- the pane head names the RECORD, not the list ---------------------- */
+
+  // Read from `record.value`, not from the live `value`: the head should name
+  // the publication that was opened, and re-reporting per keystroke in the Name
+  // field would re-render the pane (and this editor with it) on every character
+  // for a heading that nobody is reading while they type. A rename lands in the
+  // head after the save, when `onSaved` reloads the list.
+  const paneTitle = isNew ? 'New publication' : record.value?.name || rkey;
+  const paneBlurb = isNew
+    ? 'A masthead for a group of documents — what Bluesky renders instead of a plain link card. The URL matters: verification is fetched from it, so it has to be the address this publication actually lives at. Nothing is written until you press Save.'
+    : 'Structured fields cover the essentials; the raw JSON toggle exposes everything (the leaflet theme, labels, …). Nothing is written until you press Save.';
+
+  useEffect(() => {
+    onPaneMeta?.({ title: paneTitle, blurb: paneBlurb });
+    return () => onPaneMeta?.(null);
+  }, [onPaneMeta, paneTitle, paneBlurb]);
+
+  /* --- slot 1 of the action bar is this editor's way back ----------------- */
+
+  // A studio surface is not `kind: 'records-list'`, so the bar's DEFAULT slot 1
+  // is the Surfaces sheet, not a back arrow — the shell has no way to know this
+  // studio has a record open inside it. Registering says so. `record.uri` is in
+  // the deps for the same reason it is on `registerActions` above: this editor
+  // stays mounted across a change of `r`, and the shell clears the slots on
+  // every subject change.
+  useEffect(() => {
+    registerBar({ left: { id: 'back', label: '‹ Publications', onPress: onBack } });
+    return () => registerBar(null);
+  }, [registerBar, onBack, record.uri]);
+
   // Teardown, separately from the two publishing effects above: leaving this
   // surface must not strand a Save button or an "unsaved changes" sentence on
   // whatever opens next.
@@ -529,23 +677,26 @@ function PublicationEditor({ agent, did, record, isNew, backLink, onSaved }) {
   );
 
   const theme = value.basicTheme || null;
+  // "Not set" and "black" are the same pixel in an <input type="color">, and
+  // black is also the one value that would wreck a light embed — so an absent
+  // channel is drawn as absent instead. Per channel, not per record: a
+  // half-filled basicTheme has the same problem.
+  const seedThemeField = (key) => setThemeColor(key, rgbToHex(basicThemeForHour(hour)[key]));
+  const urlSet = Boolean(String(value.url || '').trim());
 
   return (
     <>
-      <div className="admin-toolbar">
-        <Link className="admin-link-subtle" {...backLink}>
-          ← All publications
-        </Link>
-        <h2 className="admin-collection-group-heading small-caps pub-editor-title">
-          {isNew ? 'New publication' : value.name || rkey}
-        </h2>
-      </div>
-
-      <p className="admin-collection-group-note">
-        {isNew
-          ? 'A masthead for a group of documents — what Bluesky renders instead of a plain link card. The URL matters: verification is fetched from it, so it has to be the address this publication actually lives at. Nothing is written until you press Save.'
-          : 'Structured fields cover the essentials; the raw JSON toggle exposes everything (the leaflet theme, labels, …). Nothing is written until you press Save.'}
-      </p>
+      {/* Slot 1 of the action bar owns "back" when stacked — same URL change,
+          one place — so this row is drawn only where there is no bar. What used
+          to sit beside it, an <h2> naming the record at 12px, is gone: the pane
+          head names it now, at the size a subject deserves. */}
+      {!stacked && (
+        <div className="admin-toolbar">
+          <Link className="admin-link-subtle" {...backLink}>
+            ← All publications
+          </Link>
+        </div>
+      )}
 
       {error && <p className="admin-error">{error}</p>}
 
@@ -570,6 +721,14 @@ function PublicationEditor({ agent, did, record, isNew, backLink, onSaved }) {
         </div>
       ) : (
         <div className="admin-form">
+          {/* NO PLACEHOLDER on this one field. `https://dame.is/blogging` was
+              set in `--ink-soft` against a typed value's `--ink` — a contrast
+              ratio of 1.53:1 between "empty" and "filled" — so the one field
+              Save refuses without was also the one field that looked filled
+              when it was empty. You clicked through from the Front Desk's "2
+              publications with no url", read a URL in the box, pressed Save and
+              were refused for a field you believed was set. An empty box reads
+              empty; the requirement is stated in words below it instead. */}
           <label className="admin-field">
             <span className="admin-field-label">URL <span className="admin-field-hint">(base for the embed + verification)</span></span>
             <input
@@ -577,8 +736,16 @@ function PublicationEditor({ agent, did, record, isNew, backLink, onSaved }) {
               type="text"
               value={value.url || ''}
               onChange={(e) => patch({ url: e.target.value })}
-              placeholder="https://dame.is/blogging"
+              required
+              aria-invalid={urlSet ? undefined : 'true'}
+              aria-describedby={urlSet ? undefined : 'pub-url-required'}
             />
+            {!urlSet && (
+              <span className="admin-error-inline pub-required" id="pub-url-required">
+                Required. Bluesky fetches <code>/.well-known/site.standard.publication</code> from
+                this address to verify the publication, so Save refuses without it.
+              </span>
+            )}
           </label>
 
           <label className="admin-field">
@@ -627,17 +794,41 @@ function PublicationEditor({ agent, did, record, isNew, backLink, onSaved }) {
               Theme <span className="admin-field-hint">(site.standard.theme.basic — what Bluesky renders)</span>
             </span>
             <div className="pub-theme-grid">
-              {THEME_FIELDS.map((f) => (
-                <label key={f.key} className="pub-color">
-                  <input
-                    type="color"
-                    value={rgbToHex(theme?.[f.key])}
-                    onChange={(e) => setThemeColor(f.key, e.target.value)}
-                  />
-                  <span>{f.label}</span>
-                </label>
-              ))}
+              {THEME_FIELDS.map((f) =>
+                theme?.[f.key] ? (
+                  <label key={f.key} className="pub-color">
+                    <input
+                      type="color"
+                      value={rgbToHex(theme[f.key])}
+                      onChange={(e) => setThemeColor(f.key, e.target.value)}
+                    />
+                    <span>{f.label}</span>
+                  </label>
+                ) : (
+                  // An unset channel, drawn as unset. Pressing it seeds that one
+                  // colour from the sky palette at the hour selected below, which
+                  // is the only non-arbitrary starting point this studio has —
+                  // and turns the box into the real colour input.
+                  <span key={f.key} className="pub-color">
+                    <button
+                      type="button"
+                      className="pub-swatch-unset"
+                      onClick={() => seedThemeField(f.key)}
+                      title={`${f.label} is not set — start it from the site’s palette`}
+                    >
+                      unset
+                    </button>
+                    <span>{f.label}</span>
+                  </span>
+                ),
+              )}
             </div>
+            {!theme && (
+              <p className="admin-field-hint">
+                No theme on this record, so the embed renders in Bluesky’s own colours — not in
+                black. Fill all four from the site’s palette below, or set one at a time.
+              </p>
+            )}
             {theme && (
               <div
                 className="pub-theme-preview"

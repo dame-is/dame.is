@@ -108,7 +108,7 @@ export default function RatioedPanel({ agent, did }) {
   // counts behind the rail and the Front Desk are cached for a minute, so
   // without this the rail would go on showing a surface that has just been
   // emptied. Deliberately not `registerActions` / `reportDirty`: see above.
-  const { invalidate } = useAdminShell();
+  const { invalidate, stacked } = useAdminShell();
   const [loading, setLoading] = useState(true);
   const [live, setLive] = useState({}); // rkey → record value on the PDS
   const [busy, setBusy] = useState(null); // label of the running job
@@ -609,7 +609,7 @@ export default function RatioedPanel({ agent, did }) {
                     </span>
                     <span className="ratioed-panel-state">discovered</span>
                   </header>
-                  <dl className="ratioed-panel-kv">
+                  <Measurements collapse={stacked}>
                     <dt>alive</dt>
                     <dd>{fmtDuration(record.lifespanMs)}</dd>
                     <dt>broken by</dt>
@@ -624,7 +624,13 @@ export default function RatioedPanel({ agent, did }) {
                         </span>
                       )}
                     </dd>
-                    <dt>alive</dt>
+                    {/* "pre-seal", not a second "alive": the <dl> named two
+                        different quantities with the same term four rows apart
+                        — a duration and an engagement count — which is
+                        unreadable and is also an invalid description list. Its
+                        pair below is already "afterlife", so pre-seal/afterlife
+                        reads as the opposition it always was. */}
+                    <dt>pre-seal</dt>
                     <dd>
                       {record.preSeal.threadPosts} thread · {record.preSeal.reposts} RT ·{' '}
                       {record.preSeal.quotes} QT · {record.preSeal.likes} ♥ ·{' '}
@@ -635,7 +641,7 @@ export default function RatioedPanel({ agent, did }) {
                       {record.postSeal.threadPosts} thread · {record.postSeal.reposts} RT ·{' '}
                       {record.postSeal.quotes} QT · {record.postSeal.likes} ♥
                     </dd>
-                  </dl>
+                  </Measurements>
                 </article>
               ))}
               <div className="ratioed-panel-actions">
@@ -685,7 +691,7 @@ export default function RatioedPanel({ agent, did }) {
                     </Link>
                   )}
                 </header>
-                <dl className="ratioed-panel-kv">
+                <Measurements collapse={stacked}>
                   <dt>alive</dt>
                   <dd>{fmtDuration(piece.lifespanMs)}</dd>
                   <dt>broken by</dt>
@@ -697,7 +703,9 @@ export default function RatioedPanel({ agent, did }) {
                       <span className="ratioed-panel-deleted"> · like deleted</span>
                     )}
                   </dd>
-                  <dt>alive</dt>
+                  {/* See the discovered card above: this row is the pre-seal
+                      engagement, not a second lifespan. */}
+                  <dt>pre-seal</dt>
                   <dd>
                     {piece.preSeal.threadPosts} thread · {piece.preSeal.reposts} RT ·{' '}
                     {piece.preSeal.quotes} QT · {piece.preSeal.likes} ♥ ·{' '}
@@ -721,7 +729,7 @@ export default function RatioedPanel({ agent, did }) {
                       <dd>measured {published.measuredAt.slice(0, 10)}</dd>
                     </>
                   )}
-                </dl>
+                </Measurements>
                 <p className="ratioed-panel-uri">
                   <a
                     href={`https://bsky.app/profile/${ME_DID}/post/${rkey}`}
@@ -737,5 +745,27 @@ export default function RatioedPanel({ agent, did }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The measurement table — a four-row `<dl>` of durations and engagement counts.
+ *
+ * Open on desktop, behind a disclosure on a phone (§6 of the mobile design).
+ * Eight visually identical panels of transposed four-column measurements is
+ * 5,566px of scroll at 390 with no way to skim past a card you are not looking
+ * for; collapsed, a card is its take number, its state and one tap. Not a hard
+ * gate — the numbers are the point of this surface and they stay reachable —
+ * which is why it is a `<details>` and not a width check that drops them.
+ *
+ * @param {{collapse: boolean, children: React.ReactNode}} props
+ */
+function Measurements({ collapse, children }) {
+  if (!collapse) return <dl className="ratioed-panel-kv">{children}</dl>;
+  return (
+    <details className="ratioed-panel-measure">
+      <summary>Measurements</summary>
+      <dl className="ratioed-panel-kv">{children}</dl>
+    </details>
   );
 }

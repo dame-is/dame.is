@@ -16,7 +16,9 @@
 //                             LegacyBlogMigration, ListeningManager
 //   { agent }                 GuestbookModerationPanel — it derives the repo from
 //                             agent.assertDid inside setEntryHidden
-//   { agent, did, rkey, isNew } PublicationsManager — selection moved into the URL
+//   { agent, did, rkey, isNew, onPaneMeta }
+//                             PublicationsManager — selection moved into the URL,
+//                             and it renames this pane's head while a record is open
 //   { agent, did, rkey, bundle } ResumeWorkbench
 //   { agent, did, bundle }    ResumeStudio
 //
@@ -29,7 +31,7 @@
 //     unmounts RatioedStudio — and closes its Jetstream socket, ~166 KB/s — the
 //     moment another surface is selected.
 
-import { createElement } from 'react';
+import { createElement, useCallback, useRef, useState } from 'react';
 import GuestbookModerationPanel from '../../components/GuestbookModerationPanel.jsx';
 import LegacyBlogMigration from '../../components/LegacyBlogMigration.jsx';
 import ListeningManager from '../../components/ListeningManager.jsx';
@@ -42,6 +44,7 @@ import SkyThemeStudio from '../../components/SkyThemeStudio.jsx';
 import ResumeStudio from '../../components/resume/ResumeStudio.jsx';
 import ResumeWorkbench from '../../components/resume/ResumeWorkbench.jsx';
 import { useResumeBundle } from '../../components/resume/useResumeBundle.js';
+import './StudioPane.css';
 
 /** surface.key → the component that renders it. */
 const STUDIOS = {
@@ -67,6 +70,19 @@ const NEEDS_RKEY = new Set(['publications', 'resume-tailor']);
 const NEEDS_BUNDLE = new Set(['resume', 'resume-tailor']);
 /** GuestbookModerationPanel takes `agent` alone and derives the repo itself. */
 const NO_DID = new Set(['guestbook']);
+/**
+ * Studios that own a SUBJECT of their own inside the surface, and so get
+ * `onPaneMeta` to rename this pane's head.
+ *
+ * A studio surface's label and blurb describe the LIST — "Publications" / "The
+ * publications behind the Standard Site embeds." — which is the wrong caption
+ * once you are editing one record inside it. The head kept saying that while
+ * the record's own name was set 12px high in a leftover toolbar row underneath,
+ * i.e. the smallest text on the screen named the thing being edited and the
+ * 28px heading named the list you had left. A studio in this set may hand the
+ * pane a `{ title, blurb }` and the head draws that instead.
+ */
+const NEEDS_PANE_META = new Set(['publications']);
 
 /**
  * @param {object} props
@@ -86,21 +102,43 @@ export default function StudioPane({ surface, agent, did, rkey = null, isNew = f
 
   const Studio = STUDIOS[surface.key] || null;
 
+  // What the studio wants the head to say, stamped with the SUBJECT it was
+  // reported for. Stamping is what makes a stale title impossible: the studio
+  // publishes from an effect, so between the URL changing and that effect
+  // running there is one render where the old title would otherwise still be on
+  // screen over the new record. The stamp is compared below and a mismatch
+  // simply falls back to the surface's own label.
+  const subject = `${surface.key}|${rkey || ''}|${isNew ? 'new' : ''}`;
+  const subjectRef = useRef(subject);
+  subjectRef.current = subject;
+  const [meta, setMeta] = useState(null);
+  // Identity-stable, like the shell's own registration callbacks: a studio puts
+  // this in an effect's dep array, and one that changed every render would loop.
+  const onPaneMeta = useCallback(
+    (next) => setMeta(next ? { ...next, subject: subjectRef.current } : null),
+    [],
+  );
+  const active = meta && meta.subject === subject ? meta : null;
+
   const props = { agent };
   if (!NO_DID.has(surface.key)) props.did = did;
   if (NEEDS_RKEY.has(surface.key)) {
     props.rkey = rkey;
     props.isNew = isNew;
   }
+  if (NEEDS_PANE_META.has(surface.key)) props.onPaneMeta = onPaneMeta;
   if (isResume) props.bundle = bundle;
+
+  const title = active?.title || surface.label;
+  const blurb = active ? active.blurb : surface.blurb;
 
   return (
     <div className="wb-studio">
       <div className="wb-pane-head">
-        <h1 className="wb-pane-title">{surface.label}</h1>
+        <h1 className="wb-pane-title">{title}</h1>
         {surface.nsid && <code className="admin-collection-nsid">{surface.nsid}</code>}
       </div>
-      {surface.blurb && <p className="wb-pane-blurb">{surface.blurb}</p>}
+      {blurb && <p className="wb-pane-blurb">{blurb}</p>}
       {Studio ? (
         // Keyed on the surface, so switching surfaces genuinely unmounts the
         // previous studio (sockets, timers, scans) rather than reusing its

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, GitBranch, PenLine, Plus, RotateCcw, X } from 'lucide-react';
-import { AdminEditorSkeleton } from '../Skeleton.jsx';
+import { AdminEditorSkeleton, AdminRecordListSkeleton } from '../Skeleton.jsx';
 import { SkillGroupsField, ContactField, TagsInput } from '../resumeFields.jsx';
 import { COLLECTIONS } from '../../config.js';
 import { useAdminShell } from '../../admin/useAdminShell.jsx';
@@ -68,6 +68,13 @@ const KINDS = {
     overrides: true,
     heading: 'Experience',
     noun: 'job',
+    // Carried as data rather than derived from the noun's first letter: the
+    // template that needs it ("— add a job to this version —") read "a
+    // education entry" for the whole life of this surface, and a rule of thumb
+    // over one vowel is what produced that. Two nouns, two articles, written
+    // down.
+    article: 'a',
+    note: 'Which jobs this version shows, in order — and per job, exactly which bullets, in which phrasing.',
   },
   education: {
     listKey: 'education',
@@ -76,15 +83,37 @@ const KINDS = {
     overrides: false,
     heading: 'Education',
     noun: 'education entry',
+    article: 'an',
+    note: 'Which education records this version shows, in order.',
   },
 };
 
-/** Label a canonical record for card heads and pickers. */
+/** The section notes the loading state has to stand in for, said once. */
+const NOTES = {
+  framing: "This version's own copy — name, headline, and summary. Job facts stay on the job records.",
+  skills: 'Skill groups live on the version itself — emphasis is the most audience-specific part.',
+  contact: 'Leave blank to fall back to the site profile.',
+};
+
+/**
+ * Label a canonical record for card heads and pickers.
+ *
+ * The separator is bound to the segment AFTER it with a no-break space, so a
+ * card title that has to wrap breaks as "Senior designer" / "· Field & Rule"
+ * rather than stranding the middle dot at the end of the line — which is what
+ * a 320px screen did to every two-part title here.
+ */
 function recordLabel(kind, value) {
-  if (kind === 'job') {
-    return [value?.title, value?.organization].filter(Boolean).join(' · ');
-  }
-  return [value?.institution, value?.studyType || value?.area].filter(Boolean).join(' · ');
+  const parts =
+    kind === 'job'
+      ? [value?.title, value?.organization]
+      : [value?.institution, value?.studyType || value?.area];
+  return parts.filter(Boolean).join(' ·\u00a0');
+}
+
+/** The one destructive question this surface asks, named after its subject. */
+function deleteQuestion(name) {
+  return `Delete the resume version “${name}”? The jobs and their bullets stay — only the version is removed.`;
 }
 
 /** The refs an entry currently selects — explicit list, or the default set. */
@@ -112,7 +141,7 @@ function applyPatch(obj, patch) {
 }
 
 export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
-  const { go, registerActions, reportDirty, invalidate } = useAdminShell();
+  const { go, registerActions, registerBar, reportDirty, invalidate, stacked } = useAdminShell();
   const {
     resumes,
     jobs,
@@ -283,6 +312,11 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
 
   /* ----------------------------- saving ----------------------------- */
 
+  // What to call this version in a question about destroying it. The rkey is
+  // the fallback rather than the answer: "3l22xte65zzo" is not a thing anyone
+  // recognises under pressure.
+  const versionName = draft?.title || rkey;
+
   const save = useCallback(async () => {
     if (saving || !draft) return;
     setSaving(true);
@@ -356,9 +390,13 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
     }
   }, [agent, did, rkey, draft, recordDrafts, dirtyUris, saving, resumes]);
 
-  const remove = useCallback(async () => {
+  // `asked` is how the action bar's ⋯ menu says it has already put the question
+  // — with the version's NAME in it, which a generic bar confirm cannot do. The
+  // status strip's own Delete button has no confirm of its own, so the default
+  // path still asks here.
+  const remove = useCallback(async ({ asked = false } = {}) => {
     if (deleting) return;
-    if (!window.confirm(`Delete this resume version (${rkey})? The jobs and their bullets stay — only the version is removed.`)) return;
+    if (!asked && !window.confirm(deleteQuestion(versionName))) return;
     setDeleting(true);
     setError(null);
     try {
@@ -378,7 +416,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
       setError(err?.message || String(err));
       setDeleting(false);
     }
-  }, [agent, did, rkey, deleting, go, invalidate]);
+  }, [agent, did, rkey, deleting, go, invalidate, versionName]);
 
   /* --- what the shell needs to know ------------------------------------- */
 
@@ -391,7 +429,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
   saveRef.current = save;
   removeRef.current = remove;
   const stableSave = useCallback(() => saveRef.current?.(), []);
-  const stableRemove = useCallback(() => removeRef.current?.(), []);
+  const stableRemove = useCallback((opts) => removeRef.current?.(opts), []);
 
   // `rkey` is in the dependency list although the body never reads it, and that
   // is load-bearing rather than sloppy. The shell drops `actions` DURING RENDER
@@ -400,17 +438,53 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
   // changes nothing else here (same wrappers, same flags, draft already
   // truthy), so without `rkey` the effect would not re-run and Save would
   // simply vanish from the strip.
+  //
+  // NULL when there is no record. `loading: true` only greys the buttons out,
+  // which left `?view=resume-tailor` with no `&r=` — a hand-typable URL — under
+  // a live Save/Delete bar for a version that does not exist, above a sentence
+  // saying so. `registerActions(null)` is what makes the strip (and the bar's ⋯
+  // Delete) disappear entirely, so the empty state stands on its own.
   useEffect(() => {
-    registerActions({
-      save: stableSave,
-      remove: stableRemove,
-      saving,
-      deleting,
-      loading: isLoading || notFound,
-      canDelete: true,
-      isNew: false,
-    });
+    registerActions(
+      notFound
+        ? null
+        : {
+            save: stableSave,
+            remove: stableRemove,
+            saving,
+            deleting,
+            loading: isLoading,
+            canDelete: true,
+            isNew: false,
+          },
+    );
   }, [registerActions, stableSave, stableRemove, saving, deleting, isLoading, notFound, rkey]);
+
+  // Below 60rem Delete lives in the bar's ⋯ menu, and the shell will append its
+  // own generic `Delete record…` whenever `canDelete` — which would ask "Delete
+  // this record?" and then hand off to a `remove` that asks a SECOND time. One
+  // item with the reserved id `delete` replaces it with the question that names
+  // the version, and tells `remove` it has already been asked.
+  useEffect(() => {
+    registerBar(
+      notFound
+        ? null
+        : {
+            overflow: [
+              {
+                id: 'delete',
+                label: deleting ? 'Deleting…' : 'Delete version…',
+                icon: 'Archive',
+                tone: 'danger',
+                disabled: saving || deleting,
+                confirm: deleteQuestion(versionName),
+                onPress: () => removeRef.current?.({ asked: true }),
+              },
+            ],
+          },
+    );
+    return () => registerBar(null);
+  }, [registerBar, notFound, deleting, saving, versionName]);
 
   // The strip names no fields on purpose. A tailoring session touches dozens of
   // bullet refs, orders and overrides that have no single field label between
@@ -458,10 +532,17 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
       <p className="placeholder-card">
         {/* Two ways to land here: a version that no longer exists, or the bare
             surface with no `&r=` at all — which says nothing about a missing
-            record and should not pretend it does. */}
+            record and should not pretend it does.
+
+            The key is deliberately not the last thing before the full stop. An
+            inline <code> carries its own trailing padding, so a sentence that
+            ended on the chip printed as "No resume version doesnotexist999 ."
+            — five pixels of air between the glyph and the period that belongs
+            to it. */}
         {rkey ? (
           <>
-            No resume version <code>{rkey}</code>.{' '}
+            No resume version has the key <code>{rkey}</code> — it may have been renamed or
+            deleted.{' '}
           </>
         ) : (
           'Tailoring works on one version at a time. '
@@ -505,7 +586,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
       {loadError && <p className="admin-error">{loadError}</p>}
 
       {isLoading ? (
-        <AdminEditorSkeleton fields={5} />
+        <TailorSkeleton />
       ) : (
         <div className="rw reveal">
           <FramingSection draft={draft} patchDraft={patchDraft} />
@@ -514,6 +595,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
             <EntriesSection
               key={kind}
               kind={kind}
+              stacked={stacked}
               draft={draft}
               records={kind === 'job' ? jobs : education}
               recordDrafts={recordDrafts}
@@ -533,9 +615,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
 
           <section className="rw-section">
             <h2 className="admin-collection-group-heading small-caps">Skills</h2>
-            <p className="admin-collection-group-note">
-              Skill groups live on the version itself — emphasis is the most audience-specific part.
-            </p>
+            <p className="admin-collection-group-note">{NOTES.skills}</p>
             <SkillGroupsField
               value={draft?.skills}
               onChange={(v) => patchDraft({ skills: v })}
@@ -544,9 +624,7 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
 
           <section className="rw-section">
             <h2 className="admin-collection-group-heading small-caps">Contact</h2>
-            <p className="admin-collection-group-note">
-              Leave blank to fall back to the site profile.
-            </p>
+            <p className="admin-collection-group-note">{NOTES.contact}</p>
             <ContactField
               value={draft?.contact}
               onChange={(v) => patchDraft({ contact: v })}
@@ -559,6 +637,52 @@ export default function ResumeWorkbench({ agent, did, rkey, bundle }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Loading                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The shape the page is about to be, not a generic form.
+ *
+ * The old placeholder was five field blocks — the framing section and nothing
+ * else — under a page that resolves to five titled sections and roughly twice
+ * that height, so the pane grew ~880px the moment the bundle landed and every
+ * heading below the fold arrived unannounced. The headings and their notes here
+ * are the REAL ones (shared with the render below through `NOTES` / `KINDS`),
+ * so the rhythm that appears while loading is the rhythm that stays.
+ */
+function TailorSkeleton() {
+  return (
+    <div className="rw">
+      <section className="rw-section">
+        <h2 className="admin-collection-group-heading small-caps">Framing</h2>
+        <p className="admin-collection-group-note">{NOTES.framing}</p>
+        <AdminEditorSkeleton fields={5} />
+      </section>
+      {['job', 'education'].map((kind) => (
+        <section className="rw-section" key={kind}>
+          <h2 className="admin-collection-group-heading small-caps">{KINDS[kind].heading}</h2>
+          <p className="admin-collection-group-note">{KINDS[kind].note}</p>
+          <AdminRecordListSkeleton
+            rows={kind === 'job' ? 3 : 1}
+            label={`Loading ${KINDS[kind].heading.toLowerCase()}`}
+          />
+        </section>
+      ))}
+      {[
+        ['Skills', NOTES.skills],
+        ['Contact', NOTES.contact],
+      ].map(([heading, note]) => (
+        <section className="rw-section" key={heading}>
+          <h2 className="admin-collection-group-heading small-caps">{heading}</h2>
+          <p className="admin-collection-group-note">{note}</p>
+          <AdminRecordListSkeleton rows={1} label={`Loading ${heading.toLowerCase()}`} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Framing (the version's own copy)                                     */
 /* ------------------------------------------------------------------ */
 
@@ -566,9 +690,7 @@ function FramingSection({ draft, patchDraft }) {
   return (
     <section className="rw-section">
       <h2 className="admin-collection-group-heading small-caps">Framing</h2>
-      <p className="admin-collection-group-note">
-        This version's own copy — name, headline, and summary. Job facts stay on the job records.
-      </p>
+      <p className="admin-collection-group-note">{NOTES.framing}</p>
       <div className="rw-framing">
         <label className="rf-inline-field rf-inline-field-block">
           <span className="rf-inline-label">Title (internal name)</span>
@@ -623,14 +745,18 @@ function FramingSection({ draft, patchDraft }) {
         {/* Still a staged edit — nothing is written on click. What changed is
             what Save then does with it: ticking this now clears the flag on
             every other version, so "keep to one version" stopped being an
-            instruction to the reader. */}
-        <label className="admin-checkbox rf-checkbox">
+            instruction to the reader — which is what the second sentence says,
+            in place of an "it" and an "elsewhere" the reader had to resolve. */}
+        <label className="admin-checkbox rf-checkbox rw-active-check">
           <input
             type="checkbox"
             checked={Boolean(draft?.featured)}
             onChange={(e) => patchDraft({ featured: e.target.checked })}
           />
-          <span>Active — the version bare /available shows. Saving clears it elsewhere.</span>
+          <span>
+            Active — the version that bare /available shows. Saving this clears the flag on every
+            other version.
+          </span>
         </label>
       </div>
     </section>
@@ -641,8 +767,42 @@ function FramingSection({ draft, patchDraft }) {
 /* Experience / education entries                                       */
 /* ------------------------------------------------------------------ */
 
+/** One empty array for every entry-less section, so "no entries" is one identity. */
+const NO_ENTRIES = [];
+
+/**
+ * Put the keyboard back where the owner left it after a reorder or a removal.
+ *
+ * React reuses the card's DOM node now that the key is its ref URI, but a node
+ * that MOVES in the document is removed and re-inserted, and removal blurs — so
+ * the button that was just pressed still loses focus. This re-finds it by the
+ * record it belongs to (`data-entry-uri`) and the job it does (`data-ctl`),
+ * both of which survive the move.
+ *
+ * Falling back matters as much as the happy path: "move down" on the card that
+ * has just reached the bottom is now disabled and cannot hold focus, so focus
+ * goes to its opposite number rather than to <body>.
+ */
+function restoreEntryFocus(root, intent) {
+  if (!root || !intent) return;
+  const cards = Array.from(root.querySelectorAll('[data-entry-uri]'));
+  if (intent.kind === 'move') {
+    const card = cards.find((el) => el.dataset.entryUri === intent.uri);
+    const pick = (name) => card?.querySelector(`[data-ctl="${name}"]:not(:disabled)`);
+    const target = pick(intent.control) || pick(intent.control === 'up' ? 'down' : 'up') || pick('remove');
+    target?.focus();
+    return;
+  }
+  // A removal: the card that took the removed one's place, or the last card, or
+  // — when the list has just emptied — whatever adds the next one.
+  const next = cards[Math.min(intent.index, cards.length - 1)];
+  const target = next?.querySelector('[data-ctl="remove"]') || root.querySelector('[data-add-focus]');
+  target?.focus();
+}
+
 function EntriesSection({
   kind,
+  stacked,
   draft,
   records,
   recordDrafts,
@@ -658,20 +818,44 @@ function EntriesSection({
   stageRecord,
   docByUri,
 }) {
-  const { listKey, refKey, collection, heading, noun } = KINDS[kind];
-  const entries = Array.isArray(draft?.[listKey]) ? draft[listKey] : [];
+  const { listKey, refKey, collection, heading, noun, note } = KINDS[kind];
+  // Memoized for its IDENTITY, which is what the focus effect below watches:
+  // `draft` is a new object per keystroke anywhere in the form, but the entry
+  // array inside it only changes when the order or the membership does, and a
+  // shared empty constant keeps the no-entries case from looking like a change.
+  const entries = useMemo(
+    () => (Array.isArray(draft?.[listKey]) ? draft[listKey] : NO_ENTRIES),
+    [draft, listKey],
+  );
 
   const referenced = new Set(entries.map((e) => e?.[refKey]).filter(Boolean));
   const available = (records || []).filter((r) => !referenced.has(r.uri));
 
+  // Where the keyboard should land once the next list has painted. A ref rather
+  // than state: this is a note about a render that is already scheduled, and
+  // storing it in state would schedule a second one.
+  const sectionRef = useRef(null);
+  const focusIntent = useRef(null);
+  useLayoutEffect(() => {
+    const intent = focusIntent.current;
+    if (!intent) return;
+    focusIntent.current = null;
+    restoreEntryFocus(sectionRef.current, intent);
+  }, [entries]);
+
+  const move = (index, to, control) => {
+    focusIntent.current = { kind: 'move', uri: entries[index]?.[refKey], control };
+    moveEntry(listKey, index, to);
+  };
+  const drop = (index) => {
+    focusIntent.current = { kind: 'remove', index };
+    removeEntry(listKey, index);
+  };
+
   return (
-    <section className="rw-section">
+    <section className="rw-section" ref={sectionRef}>
       <h2 className="admin-collection-group-heading small-caps">{heading}</h2>
-      <p className="admin-collection-group-note">
-        {kind === 'job'
-          ? 'Which jobs this version shows, in order — and per job, exactly which bullets, in which phrasing.'
-          : 'Which education records this version shows, in order.'}
-      </p>
+      <p className="admin-collection-group-note">{note}</p>
 
       {entries.length === 0 && (
         <p className="admin-field-hint">No {noun} on this version yet — add one below.</p>
@@ -680,8 +864,16 @@ function EntriesSection({
       <div className="rw-entries">
         {entries.map((entry, i) => (
           <EntryCard
-            key={`${entry?.[refKey] || 'missing'}-${i}`}
+            /* The ref URI ALONE, never the index. With the index in the key,
+               every card below a moved one got a new key, so React unmounted
+               and remounted the lot: the pressed button's DOM node was
+               destroyed (focus fell to <body>, 23 tab stops from the pane) and
+               every card's local state went with it — including the open
+               "options" panel on cards that had not moved. A record can appear
+               on a version once, so the URI is already unique. */
+            key={entry?.[refKey] || `missing-${i}`}
             kind={kind}
+            stacked={stacked}
             entry={entry}
             index={i}
             count={entries.length}
@@ -693,8 +885,8 @@ function EntriesSection({
             editingKey={editingKey}
             setEditingKey={setEditingKey}
             patchEntry={patchEntry}
-            moveEntry={moveEntry}
-            removeEntry={removeEntry}
+            onMove={move}
+            onRemove={drop}
             stageRecord={stageRecord}
             docByUri={docByUri}
           />
@@ -702,7 +894,6 @@ function EntriesSection({
       </div>
 
       <AddEntryRow
-        noun={noun}
         kind={kind}
         available={available}
         collection={collection}
@@ -712,7 +903,8 @@ function EntriesSection({
   );
 }
 
-function AddEntryRow({ noun, kind, available, collection, onAdd }) {
+function AddEntryRow({ kind, available, collection, onAdd }) {
+  const { noun, article } = KINDS[kind];
   const [pick, setPick] = useState('');
   return (
     <div className="rw-add-entry">
@@ -720,10 +912,15 @@ function AddEntryRow({ noun, kind, available, collection, onAdd }) {
         <>
           <select
             className="admin-input rf-ref-select"
+            data-add-focus=""
             value={pick}
             onChange={(e) => setPick(e.target.value)}
           >
-            <option value="">— add a {noun} to this version —</option>
+            {/* The article travels with the noun. Deriving it from the first
+                letter is what produced "a education entry" here for months. */}
+            <option value="">
+              — add {article} {noun} to this version —
+            </option>
             {available.map((r) => (
               <option key={r.uri} value={r.uri}>
                 {recordLabel(kind, r.value) || rkeyFromAtUri(r.uri)}
@@ -749,6 +946,7 @@ function AddEntryRow({ noun, kind, available, collection, onAdd }) {
       )}
       <Link
         className="admin-link-subtle rw-add-entry-new"
+        data-add-focus=""
         to={`/admin?c=${encodeURIComponent(collection)}&mode=new`}
       >
         New {noun} record →
@@ -763,6 +961,7 @@ function AddEntryRow({ noun, kind, available, collection, onAdd }) {
  */
 function EntryCard({
   kind,
+  stacked,
   entry,
   index,
   count,
@@ -774,8 +973,8 @@ function EntryCard({
   editingKey,
   setEditingKey,
   patchEntry,
-  moveEntry,
-  removeEntry,
+  onMove,
+  onRemove,
   stageRecord,
   docByUri,
 }) {
@@ -866,7 +1065,7 @@ function EntryCard({
 
   if (recordUri && !recordValue) {
     return (
-      <div className="rw-entry rf-card">
+      <div className="rw-entry rf-card" data-entry-uri={recordUri}>
         <div className="rf-card-head">
           <p className="admin-error-inline rw-entry-missing">
             Referenced record not found: <code>{recordUri}</code>
@@ -875,7 +1074,8 @@ function EntryCard({
             <button
               type="button"
               className="rf-icon-btn rf-icon-btn-danger"
-              onClick={() => removeEntry(listKey, index)}
+              data-ctl="remove"
+              onClick={() => onRemove(index)}
               aria-label="Remove entry"
               title="Remove entry"
             >
@@ -889,11 +1089,13 @@ function EntryCard({
 
   const overrideOpen = Boolean(entry?.titleOverride || entry?.summaryOverride);
 
+  const entryName = recordLabel(kind, recordValue) || rkey;
+
   return (
-    <div className="rw-entry rf-card">
+    <div className="rw-entry rf-card" data-entry-uri={recordUri}>
       <div className="rw-entry-head">
         <div className="rw-entry-title">
-          <strong>{recordLabel(kind, recordValue) || rkey}</strong>
+          <strong>{entryName}</strong>
           <span className="rw-entry-dates">{formatDateRange(recordValue)}</span>
           {recordDirty && (
             <span className="rs-chip rs-chip-warn small-caps" title="This shared record has staged copy edits — Save writes them.">
@@ -901,11 +1103,15 @@ function EntryCard({
             </span>
           )}
         </div>
+        {/* Every control names the entry it acts on. Four glyph buttons in a row
+            all read "Move up" to a screen reader otherwise, and on a version
+            with three jobs that is three identical announcements. */}
         <div className="rf-controls">
           <Link
             className="rf-icon-btn"
+            data-ctl="open"
             to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(rkey || '')}`}
-            aria-label="Open the full record"
+            aria-label={`Open the full record for ${entryName}`}
             title="Open the full record (facts, dates, all bullets)"
           >
             <PenLine size={15} aria-hidden="true" />
@@ -913,9 +1119,10 @@ function EntryCard({
           <button
             type="button"
             className="rf-icon-btn"
-            onClick={() => moveEntry(listKey, index, index - 1)}
+            data-ctl="up"
+            onClick={() => onMove(index, index - 1, 'up')}
             disabled={index === 0}
-            aria-label="Move up"
+            aria-label={`Move ${entryName} up`}
             title="Move up"
           >
             <ChevronUp size={15} aria-hidden="true" />
@@ -923,9 +1130,10 @@ function EntryCard({
           <button
             type="button"
             className="rf-icon-btn"
-            onClick={() => moveEntry(listKey, index, index + 1)}
+            data-ctl="down"
+            onClick={() => onMove(index, index + 1, 'down')}
             disabled={index === count - 1}
-            aria-label="Move down"
+            aria-label={`Move ${entryName} down`}
             title="Move down"
           >
             <ChevronDown size={15} aria-hidden="true" />
@@ -933,8 +1141,9 @@ function EntryCard({
           <button
             type="button"
             className="rf-icon-btn rf-icon-btn-danger"
-            onClick={() => removeEntry(listKey, index)}
-            aria-label="Remove from this version"
+            data-ctl="remove"
+            onClick={() => onRemove(index)}
+            aria-label={`Remove ${entryName} from this version`}
             title="Remove from this version (the record itself stays)"
           >
             <X size={15} aria-hidden="true" />
@@ -970,13 +1179,16 @@ function EntryCard({
         </details>
       )}
 
-      <div className="rw-bullets">
-        <div className="rw-bullets-head">
-          <span className="rf-inline-label">
-            {refs.length} of {highlights.length} bullet{highlights.length === 1 ? '' : 's'} shown
-            {!explicit && highlights.length > 0 && ' — default (all, job order)'}
-          </span>
-          {explicit && (
+      <BoardShell
+        stacked={stacked}
+        /* Same grammar as the work-samples board four rows down, which led with
+           its label while this one led with its count — two labels doing one
+           job, written two ways, inside one card. */
+        label={`Bullets — ${refs.length} of ${highlights.length} shown${
+          !explicit && highlights.length > 0 ? ' (default: all, in job order)' : ''
+        }`}
+        reset={
+          explicit && (
             <button
               type="button"
               className="admin-link-subtle rw-reset"
@@ -988,9 +1200,9 @@ function EntryCard({
             >
               <RotateCcw size={12} aria-hidden="true" /> reset to default
             </button>
-          )}
-        </div>
-
+          )
+        }
+      >
         {highlights.length === 0 && (
           <p className="admin-field-hint">This record has no bullets yet.</p>
         )}
@@ -1068,18 +1280,64 @@ function EntryCard({
           <Plus size={15} aria-hidden="true" /> Add bullet
           <span className="rw-add-bullet-note">(added to the shared {KINDS[kind].noun} record)</span>
         </button>
-      </div>
+      </BoardShell>
 
       {kind === 'job' && (
         <LinkBoard
           links={Array.isArray(recordValue?.links) ? recordValue.links : []}
           entry={entry}
+          stacked={stacked}
           docByUri={docByUri}
           collection={collection}
           rkey={rkey}
           onChange={(linkIds) => patchEntry(listKey, index, { linkIds })}
         />
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* The two selection boards                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The frame both selection boards sit in: a small-caps count line, an optional
+ * "reset to default" beside it, and the list itself.
+ *
+ * Below the stacked breakpoint the list FOLDS behind that count line. A bullet
+ * board is the densest thing in the admin — per bullet, a checkbox, two order
+ * buttons and three text actions — and a job with eight of them buries the next
+ * job a screen and a half down a phone. The count line is the summary either
+ * way, so a closed board still says what it is hiding, and the disclosure is a
+ * `<details>`: it has keyboard behaviour, an accessible name and open state
+ * without a line of script (see admin-mobile-design.md §6).
+ *
+ * `reset` moves inside the fold when stacked, because a control that discards a
+ * whole selection should not be reachable without opening the thing it is about.
+ */
+function BoardShell({ stacked, label, reset, className = '', children }) {
+  const classes = `rw-bullets${className ? ` ${className}` : ''}`;
+  if (stacked) {
+    return (
+      <div className={classes}>
+        <details className="rw-board">
+          <summary className="rw-board-summary rf-inline-label">{label}</summary>
+          <div className="rw-board-body">
+            {reset}
+            {children}
+          </div>
+        </details>
+      </div>
+    );
+  }
+  return (
+    <div className={classes}>
+      <div className="rw-bullets-head">
+        <span className="rf-inline-label">{label}</span>
+        {reset}
+      </div>
+      {children}
     </div>
   );
 }
@@ -1094,7 +1352,7 @@ function EntryCard({
  * bullet board; the link pool itself is edited on the job record. Selection is
  * stored on the resume entry as `linkIds` (omit = all non-private).
  */
-function LinkBoard({ links, entry, docByUri, collection, rkey, onChange }) {
+function LinkBoard({ links, entry, stacked, docByUri, collection, rkey, onChange }) {
   const explicit = Array.isArray(entry?.linkIds);
   const refs = explicit ? entry.linkIds : defaultLinkIds({ links });
   const included = new Set(refs);
@@ -1122,13 +1380,14 @@ function LinkBoard({ links, entry, docByUri, collection, rkey, onChange }) {
   const moveLink = (pos, dir) => onChange(moveItem(refs, pos, pos + dir));
 
   return (
-    <div className="rw-bullets rw-links">
-      <div className="rw-bullets-head">
-        <span className="rf-inline-label">
-          Work samples — {refs.length} of {links.length} shown
-          {!explicit && links.length > 0 && ' — default (all)'}
-        </span>
-        {explicit && (
+    <BoardShell
+      stacked={stacked}
+      className="rw-links"
+      label={`Work samples — ${refs.length} of ${links.length} shown${
+        !explicit && links.length > 0 ? ' (default: all)' : ''
+      }`}
+      reset={
+        explicit && (
           <button
             type="button"
             className="admin-link-subtle rw-reset"
@@ -1137,9 +1396,9 @@ function LinkBoard({ links, entry, docByUri, collection, rkey, onChange }) {
           >
             <RotateCcw size={12} aria-hidden="true" /> reset to default
           </button>
-        )}
-      </div>
-
+        )
+      }
+    >
       {links.length === 0 ? (
         <p className="admin-field-hint">
           No work samples on this job yet.{' '}
@@ -1200,7 +1459,7 @@ function LinkBoard({ links, entry, docByUri, collection, rkey, onChange }) {
           )}
         </>
       )}
-    </div>
+    </BoardShell>
   );
 }
 

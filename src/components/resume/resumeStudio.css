@@ -35,10 +35,21 @@
   padding: 0;
 }
 
+/* A three-track grid, not a flex row: the picker, the version's own facts, and
+   the actions. The actions column holds the same two buttons on every row, so
+   its width is the same on every row and the pair share a left edge down the
+   list — which a flex row could not promise, because the secondary links used
+   to live in that group and a version with no public URL has one fewer of them.
+   That difference measured 48px, and it moved every button on the private row.
+
+   `minmax(0, 1fr)` on the middle track for the usual reason: an `auto`/`1fr`
+   track refuses to shrink below its widest word, and a long version title would
+   push the actions off the pane instead of wrapping. */
 .rs-version {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2) var(--space-3);
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--rule-soft);
 }
@@ -47,7 +58,7 @@
   border-bottom: none;
 }
 
-/* Featured / active picker: a quiet radio that fills when active. */
+/* Featured / active picker: a quiet square that fills when active. */
 .rs-active-radio {
   display: inline-flex;
   align-items: center;
@@ -62,10 +73,13 @@
   flex-shrink: 0;
 }
 
+/* Square, not round. The shell's own status dot was deliberately squared with
+   the note "nothing in this site is round" (adminShell.css); this was the one
+   circle left in the admin, and it is the same signal — a hairline box that
+   fills with the accent when it is on. */
 .rs-radio-dot {
   width: 0.85rem;
   height: 0.85rem;
-  border-radius: 50%;
   border: 1px solid var(--rule);
   transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
@@ -97,32 +111,71 @@
   font-size: var(--text-lg);
   color: var(--ink);
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 .rs-version-title:hover {
   color: var(--accent);
 }
 
-.rs-version-meta {
+/* A version with no title still needs a heading, and the heading should look
+   like the placeholder it is rather than like a name someone chose. */
+.rs-version-title.is-untitled {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.rs-version-meta,
+.rs-record-counts {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-top: var(--space-1);
   color: var(--ink-faint);
   font-size: var(--text-xs);
   font-family: var(--sans);
 }
 
-.rs-dot {
+.rs-version-meta {
+  margin-top: var(--space-1);
+}
+
+/* The separator belongs to the item it precedes, drawn as a `::before` rather
+   than sitting in the markup as its own <span>. As a flex item of its own a
+   middle dot wraps like any other, which is how this line used to end on a
+   stranded "·" with "0 bullets" alone underneath. */
+.rs-version-meta > * + *::before,
+.rs-record-counts > * + *::before {
+  content: '·';
+  margin-inline-end: var(--space-2);
   color: var(--rule);
 }
 
+/* The key is one fact on a flowing line here, not a column in a table: the
+   record list's fixed 14ch gutter leaves visible empty grey inside the chip
+   after a 12-character TID. Scoped to the two resume roots so the shared
+   `.admin-record-rkey` column keeps its width everywhere else — including the
+   quick-edit sheet, which portals outside the shell and reuses this class. */
+.rs-studio .admin-record-rkey,
+.rw-studio .admin-record-rkey {
+  width: auto;
+}
+
+/* The actions column: the two buttons on one line, the secondary links under
+   them. Right-aligned so the column reads as one block against the pane edge,
+   and `justify-items` rather than a nested flex so the links can never widen
+   the track past the buttons. */
 .rs-version-actions {
+  display: grid;
+  justify-items: end;
+  gap: var(--space-2);
+}
+
+.rs-version-buttons,
+.rs-version-links {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -138,6 +191,78 @@
   align-items: center;
   gap: 0.25em;
   font-size: var(--text-xs);
+}
+
+/* The row's ⋯. Painted at the full target size rather than grown with a
+   `.wb-hit` halo: it sits beside `Duplicate` with an 12px gap, and two grown
+   pseudo-boxes that close overlap — the later sibling wins the tap. */
+.rs-row-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--wb-hit, 2.75rem);
+  min-height: var(--wb-hit, 2.75rem);
+  padding: 0;
+  border: 1px solid var(--rule);
+  background: var(--page);
+  color: var(--ink-soft);
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.rs-row-more:hover,
+.rs-row-more[aria-expanded='true'] {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+/* The row menu's rows. `.wb-sheet-row` is drawn for the shell's own sheets,
+   whose rows are all <button>s, so a row that is a LINK arrives with the site's
+   underline on it and two of the three rows here read as a different control
+   from the third. Addressed by the sheet's id because the panel portals to
+   <body>, outside both studio roots. */
+#rs-version-sheet a.wb-sheet-row {
+  text-decoration: none;
+}
+
+/* ---------------------- renaming / duplicating --------------------- */
+
+/* The inline replacement for two stacked native dialogs. It spans the whole
+   row so the field is not squeezed into the middle track, and it sits under the
+   row it is about so the record being renamed stays on screen and readable —
+   neither of which a `window.prompt` could do. */
+.rs-keyform {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--rule-soft);
+  background: color-mix(in srgb, var(--ink) 2%, var(--page));
+}
+
+.rs-keyform-field .admin-input {
+  font-family: var(--code);
+}
+
+.rs-keyform-note {
+  margin: 0;
+  text-indent: 0;
+}
+
+/* The collision, beside the field that caused it, in the same colour the strip
+   uses for a failed save — not as a banner at the top of the page after the
+   fact. */
+.rs-keyform-note.is-problem {
+  color: var(--danger);
+}
+
+.rs-keyform-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .rs-chip {
@@ -160,28 +285,38 @@
   border-color: currentColor;
 }
 
+/* Its own line under the record's name, like the version rows above and the
+   record list's `.wb-list-meta`: `.admin-record-main` is a wrapping flex row,
+   so without this the key and the counts trail the title on one line and the
+   list has two row shapes again. */
 .rs-record-counts {
-  display: block;
+  flex: 1 0 100%;
   margin-top: 0.15rem;
-  color: var(--ink-faint);
-  font-size: var(--text-xs);
-  font-family: var(--sans);
 }
 
-/* Record rows in the studio carry a "rename key" action beside the link. */
+/* Record rows in the studio carry a "rename key" action beside the link, and —
+   when it is open — the key form under both, spanning the row. A grid rather
+   than a flex row so that span is expressible at all. */
 .rs-record-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: baseline;
   gap: var(--space-3);
 }
 
 .rs-record-row .admin-record-link {
-  flex: 1;
   min-width: 0;
 }
 
+/* The date column reads as a column: proportional figures give every year a
+   different advance, so "JAN 2020 – JAN 2023" and "AUG 2011 – MAY 2015" agreed
+   only on their right edge. */
+.rs-record-row .admin-record-time,
+.rw-entry-dates {
+  font-variant-numeric: tabular-nums;
+}
+
 .rs-rename {
-  flex-shrink: 0;
   font-size: var(--text-xs);
   white-space: nowrap;
 }
@@ -295,6 +430,7 @@
   font-size: var(--text-xs);
   font-family: var(--sans);
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .rw-entry-head .rf-controls {
@@ -342,6 +478,37 @@
   align-items: baseline;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+/* The stacked-width fold. Same disclosure glyphs as `.rw-overrides` below, so
+   the two things that open inside a card open the same way. */
+.rw-board-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--wb-hit, 2.75rem);
+  cursor: pointer;
+  list-style: none;
+}
+
+.rw-board-summary::-webkit-details-marker {
+  display: none;
+}
+
+.rw-board-summary::before {
+  content: '▸';
+  color: var(--ink-faint);
+}
+
+.rw-board[open] > .rw-board-summary::before {
+  content: '▾';
+}
+
+.rw-board-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
 }
 
 .rw-reset {
@@ -562,17 +729,37 @@
   font-size: var(--text-xs);
 }
 
+/* A grid, so the two add-rows on this page share their column edges. Sized by
+   content, the native selects took their width from their longest OPTION —
+   "— add an education entry to this version —" against a list of job titles —
+   which put the Experience and Education `Add` buttons 59px apart in two rows
+   that are otherwise the same row.
+   Two tracks, not three: the "New … record →" link is a different verb (mint a
+   canonical record, rather than put an existing one on this version) and its
+   label is a different length in each section, which would have moved the
+   `Add` beside it by exactly as much as the option text used to. */
 .rw-add-entry {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
   margin-top: var(--space-4);
 }
 
+.rw-add-entry-new {
+  grid-column: 1 / -1;
+}
+
 .rw-add-entry .rf-ref-select {
-  flex: 1;
-  min-width: 14rem;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Both controls on the row stand the height of the text inputs above them,
+   rather than 35px and 32px passing for the same line. */
+.rw-add-entry .rf-ref-select,
+.rw-add-entry .admin-gate-button {
+  min-height: 2.5rem;
 }
 
 .rw-add-entry .admin-gate-button {
@@ -598,13 +785,246 @@
     margin-left: auto;
   }
 
-  .rs-version {
+  /* The entry card's four controls take their own line so the job title gets
+     the full width of the card. At 44px each they are 200px of a 288px content
+     column at 320, which was breaking two-part titles onto three lines. */
+  .rw-entry-head {
     flex-wrap: wrap;
   }
 
+  .rw-entry-title {
+    flex: 1 0 100%;
+  }
+
+  .rw-entry-head .rf-controls {
+    margin-left: 0;
+    gap: var(--space-2);
+  }
+
+  /* The rename form spans the picker's gutter too — it is the whole row's
+     business, and a 288px screen has no width to give away. */
+  .rs-version .rs-keyform {
+    grid-column: 1 / -1;
+  }
+
+  .rs-record-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Drawn controls                                                       */
+/* ------------------------------------------------------------------ */
+
+/* This admin draws everything else itself, and then handed its two most-used
+ * controls to the platform. The include/exclude checkbox — one per bullet, the
+ * bullet board's primary control — paints in the UA's own blue with rounded
+ * corners: a fixed hex with no relation to the sky palette, which recomputes
+ * every hour, and a radius in a system with none. The selects arrive with the
+ * platform chevron, rounded corners on macOS and iOS, and three different
+ * heights against a 40px text input.
+ *
+ * Both are shared `.admin-*` classes in Admin.css, which is frozen public API —
+ * `EditSheet` renders the same markup on public routes through a body portal —
+ * so these are scoped to the two resume roots rather than written against the
+ * class. The right home for them is one added rule in Admin.css; that file
+ * belongs to another slot.
+ */
+.rs-studio select.admin-input,
+.rw-studio select.admin-input {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 2.5rem;
+  /* Room for the chevron, which is painted rather than dropped in as an asset:
+     two gradient wedges take `--ink-muted` from the live palette, where an SVG
+     data URI would have to bake a hex in. */
+  padding-inline-end: var(--space-6);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) calc(50% - 1px),
+    calc(100% - 0.7rem) calc(50% - 1px);
+  background-size: 0.3rem 0.3rem;
+  background-repeat: no-repeat;
+}
+
+.rs-studio select.admin-input:disabled,
+.rw-studio select.admin-input:disabled {
+  opacity: 0.5;
+}
+
+/* A hairline square that fills with the accent when it is on — the treatment
+   `.wb-strip-dot` already defines, and the same one the version picker uses two
+   sections up. `box-shadow` for the inner ring rather than a border, so the
+   painted box never changes size between states. */
+.rs-studio input[type='checkbox'],
+.rw-studio input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.rs-studio input[type='checkbox']:checked,
+.rw-studio input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--page);
+}
+
+.rs-studio input[type='checkbox']:disabled,
+.rw-studio input[type='checkbox']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
+/* Touch                                                                */
+/* ------------------------------------------------------------------ */
+
+/* Under the stacked breakpoint every control on these two surfaces clears
+   44px, PAINTED rather than grown with a `.wb-hit` halo: an entry card's four
+   controls sit 8px apart and a version row's two buttons 12px, and two grown
+   pseudo-boxes that close overlap — the later sibling wins the tap, which is
+   the failure the halo exists to prevent (adminShell.css says so where the
+   utility is defined).
+ *
+ * `.rf-icon-btn`, `.admin-gate-button-tight`, `.admin-input` and
+ * `.admin-link-subtle` are shared Admin.css classes whose desktop sizes are
+ * right on a desktop, and Admin.css is frozen public API — the quick-edit sheet
+ * portals outside the shell and draws the same classes. So these are scoped to
+ * the two resume roots. StudioPane.css carries the same declaration for the
+ * gate button and the subtle link across all studios; repeating it here costs a
+ * duplicate rule and buys independence from another slot's file. */
+@media (max-width: 60rem) {
+  .rs-studio .admin-gate-button-tight,
+  .rw-studio .admin-gate-button-tight,
+  .rs-studio .rf-add,
+  .rw-studio .rf-add {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  .rs-studio .admin-link-subtle,
+  .rw-studio .admin-link-subtle {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  /* Four 28px squares with 4px gaps were the most urgent targets on either
+     surface: one of them removes a job from the version. */
+  .rw-studio .rf-icon-btn {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+  }
+
+  /* The include/exclude checkbox is the bullet board's primary control, one per
+     bullet. The BOX stays 1rem — see the drawn square above — and the label
+     around it becomes the target. */
+  .rw-studio .rw-bullet-check {
+    justify-content: center;
+    min-width: var(--wb-hit, 2.75rem);
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  .rw-studio .rf-checkbox,
+  .rw-studio .rw-overrides > summary {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  .rw-studio .rf-checkbox {
+    align-items: center;
+  }
+
+  /* The version row keeps its three tracks but changes what is in them: the ⋯
+     takes the third, beside the title it is about, and the buttons drop to
+     their own line rather than competing with the title for a 288px column.
+     These ride on the BREAKPOINT rather than on the pane's container query
+     because the ⋯ itself is rendered from `stacked`, which is that breakpoint:
+     a tablet whose pane is wider than the container query would otherwise draw
+     the button with nowhere to put it, and auto-placement would push the
+     buttons into the picker's gutter and stretch it to their width. */
+  .rs-row-more {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+  }
+
   .rs-version-actions {
-    width: 100%;
+    grid-column: 2 / -1;
+    justify-items: start;
+  }
+
+  .rs-version-buttons,
+  .rs-version-links {
     justify-content: flex-start;
-    padding-left: calc(1.6rem + var(--space-3));
+  }
+
+  /* The picker that decides which version the public /available page serves.
+     25.6px is not a target for something with that consequence. */
+  .rs-active-radio {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+    margin-top: 0;
+  }
+
+  /* Text inputs already stand 40px; the selects were 27–35 and the fields they
+     sit beside are the same form. The `select` element is named again here
+     because the drawn-control rule above is `.rw-studio select.admin-input` —
+     one element more specific than a bare class pair, so a rule that only said
+     `.rw-studio .admin-input` would lose to it whatever the order. */
+  .rs-studio .admin-input,
+  .rw-studio .admin-input,
+  .rs-studio select.admin-input,
+  .rw-studio select.admin-input,
+  .rw-add-entry .admin-gate-button {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  /* Bare text buttons that stand alone as controls rather than inside a
+     sentence — the workbench's two outbound links, the key form's Cancel —
+     carry the width their target needs. A link inside prose ("Add portfolio
+     links on the job record →") deliberately does not: padding a word out to
+     44px inside a paragraph breaks the paragraph. */
+  .rw-toolbar-links .admin-link-subtle,
+  .rs-keyform-actions .admin-link-subtle {
+    justify-content: center;
+    min-width: var(--wb-hit, 2.75rem);
+  }
+
+  /* The bullet copy is a button — click it to edit — and one line of it is
+     20px tall. It is also the widest thing in the row, so the height is the
+     only axis that needs help. */
+  .rw-bullet-text {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  /* `reword` / `fork` measure 36px across a 44px line. They sit 8px apart in a
+     wrapping row, so widening them to the target cannot make two of them
+     overlap — which is why this is padding rather than a grown ::before. */
+  .rw-bullet-action {
+    justify-content: center;
+    min-width: var(--wb-hit, 2.75rem);
+  }
+
+  /* The row title is a link to the same place the Tailor button goes, so it is
+     a target in its own right. Centring the head keeps its chips on the title's
+     midline once it is 44px tall. */
+  .rs-version-head {
+    align-items: center;
+  }
+
+  .rs-version-title {
+    display: flex;
+    align-items: center;
+    min-height: var(--wb-hit, 2.75rem);
   }
 }

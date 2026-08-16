@@ -117,6 +117,15 @@ export default function PagesOverview({ agent, did }) {
                     <span className="admin-record-preview">
                       {rec.value?.title || rec.value?.intro || ''}
                     </span>
+                    {/* The rows the count under this list is about. It used to
+                        name a number — "3 records outside the built-in page
+                        surfaces" — over eight rows drawn identically, so there
+                        was no way to tell WHICH three; and the Front Desk sends
+                        you here with the same number as a task. Same chip
+                        vocabulary as the LOCAL / PDS badges above. */}
+                    {!known.has(r) && (
+                      <span className="admin-badge admin-badge-local pages-extra-badge">extra</span>
+                    )}
                   </Link>
                 </li>
               );
@@ -125,8 +134,9 @@ export default function PagesOverview({ agent, did }) {
         )}
         {extraRecords.length > 0 && (
           <p className="admin-field-hint">
-            {extraRecords.length} record{extraRecords.length === 1 ? '' : 's'} outside the
-            built-in page surfaces.
+            The {extraRecords.length} row{extraRecords.length === 1 ? '' : 's'} badged{' '}
+            <strong>extra</strong> {extraRecords.length === 1 ? 'is a page slug' : 'are page slugs'}{' '}
+            beyond the built-in surfaces above.
           </p>
         )}
       </section>

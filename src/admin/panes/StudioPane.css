@@ -1,0 +1,212 @@
+/* Corrections that belong to the studio BODIES, drawn once for all of them.
+ *
+ * StudioPane is the single dispatch point for the eleven bespoke studios, so
+ * this is the one stylesheet that is loaded exactly when a studio is on screen
+ * and never on a public route. Everything here is either
+ *
+ *   (a) an admin-only override of a rule that is shared with the public site
+ *       and therefore cannot be edited in place — `.guestbook-*` is drawn on
+ *       /welcoming too, and a studio is a section inside a pane where the same
+ *       markup is a whole page; or
+ *   (b) a correction to a shared `.admin-*` rule in src/pages/Admin.css, which
+ *       is not this slot's file. Each of those is scoped to `.wb-studio` so it
+ *       cannot reach the quick-edit sheet — which portals to <body>, outside
+ *       the shell, and reuses the same `.admin-*` classes. Where the real fix
+ *       is one additive line in Admin.css, the comment says so.
+ *
+ * Tokens only, from src/styles/theme.css: the live palette is recomputed per
+ * hour, so a literal colour is wrong for twenty-three hours of the day.
+ */
+
+/* ---- identifiers are monospaced ------------------------------------- */
+
+/* The house rule is IBM Plex Mono for rkeys, NSIDs and at-uris, and the studios
+ * broke it in the most visible place there is: `.admin-collection-nsid` (the
+ * chip under every studio's title) and `.admin-record-rkey` both resolve
+ * `--mono-ui`, which theme.css maps to the SERIF. So `is.dame.page` in the pane
+ * head was set proportionally while `is.dame.page/creating` two inches below it
+ * — a bare <code>, and therefore `--code` — was monospaced. Same class of
+ * string, one screen, two voices.
+ *
+ * The real fix is to point those two Admin.css rules at `--code`; that file is
+ * owned elsewhere this pass, and the record-list pane draws the same two
+ * classes, so this only straightens the studios. `--mono-ui`'s serif fold is
+ * deliberate for prose-adjacent metadata (Admin.css:118-125 says so) — it is
+ * just wrong for an identifier, which is a string you read character by
+ * character and sometimes retype.
+ */
+.wb-studio .admin-collection-nsid,
+.wb-studio .admin-record-rkey {
+  font-family: var(--code);
+}
+
+/* ---- an anchor gate-button keeps its label on hover ------------------ */
+
+/* `a:hover { color: var(--accent) }` (typography.css:46, specificity 0-1-1)
+ * outranks `.admin-gate-button { color: var(--page) }` (0-1-0), and the button's
+ * own hover rule only repaints the background — to `--accent`. So every gate
+ * button that is a LINK rather than a <button> turned into a filled rectangle
+ * with its label the same colour as its fill: measured `color` and
+ * `background-color` both rgb(15,116,138) on the Site-pages "Edit" link.
+ *
+ * The one-line fix is additive in Admin.css beside the existing hover rule —
+ * `a.admin-gate-button:hover:not(:disabled) { color: var(--page) }` — and would
+ * cover the record list's "New" button and the record detail's links too. This
+ * is the same declaration scoped to the studios, which is as far as this slot
+ * reaches.
+ */
+.wb-studio a.admin-gate-button:hover:not(:disabled) {
+  color: var(--page);
+}
+
+/* ---- leaving the admin looks like leaving the admin ------------------ */
+
+/* A studio's outbound link — "View /welcoming" — in the top bar's outbound
+ * vocabulary: outlined rather than filled, with the same arrow glyph. Two
+ * equally weighted filled buttons said nothing about the fact that one of them
+ * navigates off /admin entirely. Sized to sit in an `.admin-toolbar` beside
+ * `.admin-gate-button-tight`, which measures 32px.
+ */
+.studio-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2rem;
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.studio-out:hover {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.studio-out-glyph {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+/* ---- the guestbook studio ------------------------------------------- */
+
+/* `.guestbook-entries` is a whole page's worth of section on /welcoming: it
+ * closes the sign-up form above it with a rule and its own space. Inside a
+ * studio the `.admin-toolbar` directly above it ALREADY ends with a rule, so
+ * the two landed 30.4px apart with nothing but whitespace between them — the
+ * only doubled rule anywhere in the admin. The studio's flex `gap` owns the
+ * rhythm here, so the section keeps none of its page-level framing.
+ */
+.wb-studio .guestbook-entries {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* The section heading. Its shared rule sets a family, tracking and colour but
+ * no size, so it inherits the site's <h2> — 28px, identical to `.wb-pane-title`
+ * on the same screen, and "SIGNATURES" read as a second page title. Every other
+ * section heading in the workbench (`.wb-rail-heading`, `.fd-subhead`) is 12px.
+ */
+.wb-studio .guestbook-entries-heading {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* The error state's sentence and its retry control on one line. `text-indent`
+ * is 24px on a paragraph in this pane — right for prose, wrong for a status
+ * line whose first character would sit 24px in from every other left edge on
+ * the surface. */
+.wb-studio .gb-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  text-indent: 0;
+}
+
+/* Signature-shaped loading rows: `GuestbookRowsSkeleton` mirrors
+ * `.guestbook-entry`'s box so the list does not jump when the real rows land. */
+.gb-skel {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.gb-skel-row {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.gb-skel-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.gb-skel-avatar {
+  flex: none;
+}
+
+.gb-skel-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.gb-skel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.gb-skel-time {
+  flex: none;
+}
+
+/* ---- the site-pages studio ------------------------------------------ */
+
+/* The "extra" chip on a page record whose slug is not one of the built-in page
+ * surfaces. `.admin-record-preview` is not a flex child that grows, so without
+ * this the chip would sit against the end of the title instead of at the end of
+ * the row where `.admin-record-time` sits on every other record list. */
+.pages-extra-badge {
+  margin-inline-start: auto;
+}
+
+/* ---- touch targets --------------------------------------------------- */
+
+/* Under the stacked breakpoint every control clears 44px. These are all painted
+ * out rather than given `.wb-hit` halos: they sit in rows and columns of
+ * siblings a few pixels apart, and two grown pseudo-boxes that close overlap —
+ * the later sibling wins the tap, which is the failure the halo exists to
+ * prevent. A studio's controls have the room to simply be bigger.
+ *
+ * `.admin-gate-button-tight` is a shared Admin.css class (its 32px is right on
+ * a desktop), and `.admin-link-subtle` is a bare text button at 22px; both are
+ * also used by the quick-edit sheet on the public site, which is why these are
+ * scoped to `.wb-studio` rather than written against the class itself.
+ */
+@media (max-width: 60rem) {
+  .wb-studio .admin-gate-button-tight,
+  .wb-studio .studio-out {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  .wb-studio .admin-link-subtle {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--wb-hit, 2.75rem);
+  }
+}

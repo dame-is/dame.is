@@ -132,9 +132,28 @@
   border-color: var(--accent-soft);
 }
 
+/* The one destructive control in the row, and it sits beside a benign toggle
+   drawn in the same square box. It used to be identical to that toggle until
+   you hovered it — and a phone has no hover — so the only thing distinguishing
+   "hide this entry" from "delete this entry" was the glyph inside a 27px box.
+   It carries the danger tone at rest now. `--danger` is a theme token: the old
+   literal `#c17d3f` was one hard-coded warm brown against a palette that is
+   recomputed every hour, so for most of the day it was neither the admin's tan
+   nor anything else on the page. */
+.nav-item-remove {
+  color: var(--danger);
+}
+
 .nav-item-remove:hover:not(:disabled) {
-  color: #c17d3f;
-  border-color: #c17d3f;
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-wash);
+}
+
+/* Reversing the removal, in the footer row beside Add entry. */
+.nav-undo strong {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* ---- footer actions ----------------------------------------------- */
@@ -171,5 +190,41 @@
   .nav-item-fields {
     order: 3;
     flex-basis: 100%;
+  }
+  /* Side by side once the fields have dropped to their own line. Stacked, two
+     44px reorder buttons make a 92px-tall row before the fields are even drawn;
+     laid out as a pair they cost one 44px line, and the row is the same height
+     as the one below it. */
+  .nav-item-reorder {
+    flex-direction: row;
+  }
+}
+
+/* ---- touch ---------------------------------------------------------- */
+
+/* Under the workbench's stacked breakpoint every control in a row has to clear
+   44px. These four are drawn 27x27 and 27x20, and the two reorder buttons SHARE
+   AN EDGE — measured at 390 their centres are 20px apart, which is a coin flip
+   under a thumb. They are painted out to 44px rather than given `.wb-hit`
+   halos: the halo trick grows the target without moving the paint, and two
+   grown boxes this close would overlap by 16px and the later sibling would win
+   the tap — the exact failure it exists to prevent. A phone has the room; a
+   nav row is three controls and two fields. */
+@media (max-width: 60rem) {
+  .nav-item-btn,
+  .nav-item-reorder .nav-item-btn {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+  }
+
+  /* Real space between the hit rects, not just between the paint: at this size
+     a shared edge is what puts "remove" under a thumb aiming at "hide". */
+  .nav-item-reorder,
+  .nav-item-actions {
+    gap: var(--space-2);
+  }
+
+  .nav-item {
+    gap: var(--space-2);
   }
 }

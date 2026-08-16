@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { pageDefault } from '../lib/pageRegistry.js';
 import { blankRecordFor } from '../lib/lexicons.js';
@@ -84,6 +84,25 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
     };
   }, [agent, did, slug, initialExists]);
 
+  /* --- focus survives the card rebuilding itself -------------------------- */
+
+  // Migrate and Revert each REPLACE the control that was pressed: the card's
+  // action row swaps between "Edit + Revert to local" and "Migrate to PDS", so
+  // the button the owner activated is unmounted by their own click and focus
+  // lands on <body>. Getting back then costs the full tab run past the top bar
+  // and the whole rail. So the card claims focus for whatever now stands where
+  // the pressed control was — its new primary.
+  const primaryRef = useRef(null);
+  const wantFocus = useRef(false);
+  useLayoutEffect(() => {
+    const el = primaryRef.current;
+    // Left armed rather than cleared when the target is momentarily disabled
+    // (`busy`), so the focus still lands on the commit that re-enables it.
+    if (!wantFocus.current || !el || el.disabled) return;
+    wantFocus.current = false;
+    el.focus();
+  });
+
   const migrate = useCallback(async () => {
     setBusy(true);
     setError(null);
@@ -96,6 +115,7 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
         rkey: slug,
         record,
       });
+      wantFocus.current = true;
       setExists(true);
     } catch (err) {
       setError(err?.message || String(err));
@@ -116,6 +136,7 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
     setError(null);
     try {
       await agent.com.atproto.repo.deleteRecord({ repo: did, collection: COLLECTIONS.page, rkey: slug });
+      wantFocus.current = true;
       setExists(false);
     } catch (err) {
       setError(err?.message || String(err));
@@ -160,7 +181,11 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
       <div className="admin-page-panel-actions">
         {exists ? (
           <>
-            <Link className="admin-gate-button admin-gate-button-tight" {...pageRecordLink(go, slug)}>
+            <Link
+              ref={primaryRef}
+              className="admin-gate-button admin-gate-button-tight"
+              {...pageRecordLink(go, slug)}
+            >
               Edit
             </Link>
             <button
@@ -174,6 +199,7 @@ export default function PageContentPanel({ agent, did, slug, exists: initialExis
           </>
         ) : (
           <button
+            ref={primaryRef}
             type="button"
             className="admin-gate-button admin-gate-button-tight"
             onClick={migrate}

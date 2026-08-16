@@ -48,24 +48,33 @@
   font-size: var(--text-sm);
 }
 
-/* ---- hour bar: a sticky expanded panel above the bottom chrome ----
-   Portalled to <body> and pinned just above the fixed bottom chrome bar,
-   like the owner edit-mode action bar. Its height is fed back into the
-   .app-shell bottom padding (--sky-hourbar-h) so content always clears it. */
+/* ---- hour bar: the studio's own sticky header ----
+   IN FLOW, inside the pane, pinned to the top of the pane's scrollport. It was
+   `position: fixed; left: 0; right: 0; bottom: calc(var(--chrome-h) + safe-area)`
+   and portalled to <body> — three coordinates that all describe the PUBLIC site,
+   which wears a 56px bottom ChromeBar that /admin does not render. See the note
+   at the top of SkyThemeStudio.jsx for what each one cost.
+
+   `top: 0` and no offset of its own: the detail pane is the scrollport and has
+   no block-start padding (adminShell.css), so this lands flush against the top
+   bar rather than a chrome-height down it. No z-index war either — one stacking
+   context, above unpositioned pane content, and nowhere near the frame's own
+   chrome. */
 .sky-hourbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--chrome-h) + env(safe-area-inset-bottom, 0px));
-  z-index: 31;
+  position: sticky;
+  top: 0;
+  z-index: 4;
   background: var(--surface-deep);
-  border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
+  margin-bottom: var(--space-4);
 }
+/* No `max-width: 72rem; margin: 0 auto` any more, and no inline padding: those
+   centred the strip on the WINDOW while everything else on the surface lines up
+   with the pane's content column — at 1440 the strip started 74px left of every
+   other left edge and stopped 143px short on the right. In the pane it inherits
+   that column by being in it. */
 .sky-hourbar-inner {
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: var(--space-2) var(--space-4) calc(var(--space-2) + 2px);
+  padding: var(--space-2) 0 calc(var(--space-2) + 2px);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -82,6 +91,11 @@
   color: var(--ink-muted);
   white-space: nowrap;
 }
+/* Painted to 44px on a touch screen rather than grown with `.wb-hit`: on a
+   phone this pair IS the hour picker (the 24-cell arc is gated out below
+   60rem), so the target has to be visible, not just present. Two `.wb-hit`
+   pseudo-boxes 12px apart would also overlap by 4px and the later sibling would
+   take both taps. */
 .sky-step {
   width: 1.9rem;
   height: 1.9rem;
@@ -92,6 +106,13 @@
   cursor: pointer;
   font-size: 1.1rem;
   line-height: 1;
+}
+@media (pointer: coarse) {
+  .sky-step {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+    font-size: 1.3rem;
+  }
 }
 .sky-step:hover {
   color: var(--ink);
@@ -140,6 +161,52 @@
 .sky-arc-cell:focus-visible {
   box-shadow: inset 0 0 0 2px var(--accent);
   z-index: 2;
+}
+
+/* ---- the phone's read-only palette strip ----
+   What the arc was being asked to show (this hour's colour) without the part it
+   could not do at 13px a cell (choosing one). Explicit column counts rather
+   than an `auto-fill` track: six entries want to land as 3+3 or 6, and a
+   minmax() that fits five leaves one swatch alone on a second row. The
+   breakpoint is on the PANE, which is what the strip actually lives in. */
+.sky-swatches {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2) var(--space-3);
+}
+@container wbpane (min-width: 26rem) {
+  .sky-swatches {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+.sky-swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  min-width: 0;
+}
+.sky-swatch-chip {
+  height: 1.75rem;
+  border: 1px solid var(--rule);
+}
+.sky-swatch-label {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* The sentence that stands where the tuning half is gated out. A statement of
+   what this screen does not do, not an error — muted, sitting on the rule the
+   controls would have sat under. */
+.sky-gate {
+  margin: var(--space-5) 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
 }
 
 /* ---- live preview card ---- */
@@ -324,15 +391,33 @@
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--rule);
 }
+/* A GRID, not a wrapping flex row, and the difference is the whole point: as
+   `flex: 1 1 220px` in a wrapping row each field inherited whatever the field
+   before it left over, so the same Hue/Saturation/Brightness group measured
+   606px under "Background", 1189px under "Horizon pop" and 411px under
+   "Glow / shine" — three widths for one control, in a single scroll.
+
+   `auto-fill` rather than the `auto-fit` the audit proposed: `auto-fit`
+   collapses the empty tracks and stretches what is left, which is exactly the
+   inconsistency being fixed — a one-field section would take the full pane
+   while a three-field section divided it. With `auto-fill` the column is the
+   same width in every section, and a short section simply leaves the rest of
+   the row empty.
+
+   `align-items: start` stops a single-slider field from being stretched to its
+   tallest neighbour: "Surface separation" was a 225px-tall box around a 47px
+   control, ~178px of dead space beside the colour field next to it. */
 .sky-fields {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  align-items: start;
   gap: var(--space-4) var(--space-5);
 }
 .sky-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: 0;
 }
 .sky-color-row {
   display: inline-flex;
@@ -368,36 +453,18 @@
   color: var(--ink);
   border-color: var(--accent-soft);
 }
-.sky-color-field {
-  flex: 1 1 260px;
-  min-width: 240px;
+/* Both field kinds are grid items now; the flex bases they carried are what the
+   grid template replaces. `min-width: 0` because a grid item's automatic
+   minimum is its content, and a 24-cell arc or a long hex would hold the track
+   open past its column. */
+.sky-color-field,
+.sky-slider-field {
+  min-width: 0;
 }
 .sky-hsl-group {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-}
-/* Hue track: a static rainbow so the current hue's position reads at a
-   glance. Saturation / Brightness tracks: gradients computed per-render
-   from the color's own hue (and, for saturation, lightness too) into CSS
-   vars, so each track always centers on what the swatch is actually
-   mixing rather than a generic ramp. */
-.sky-slider-hue {
-  background: linear-gradient(
-    to right,
-    hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%),
-    hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%)
-  );
-}
-.sky-slider-saturation {
-  background: linear-gradient(to right, var(--sky-slider-sat-lo, #888), var(--sky-slider-sat-hi, #888));
-}
-.sky-slider-lightness {
-  background: linear-gradient(to right, #000, var(--sky-slider-mid, #888), #fff);
-}
-.sky-slider-field {
-  flex: 1 1 220px;
-  min-width: 200px;
 }
 .sky-slider-label {
   display: flex;
@@ -411,14 +478,59 @@
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
+/* A 2px LINE and a grabbable BOX are two different measurements, and this rule
+   is where they were the same one. The input was `height: 2px`, so the element
+   the pointer had to hit was two pixels tall; Chromium forgives a range input
+   about ±8px around the thumb, which is still a third of the 44px floor and
+   invisible either way — nothing painted told you where the forgiving band was.
+   The box is now a comfortable 1.5rem (a full 44px on a touch screen) and the
+   hairline is painted INSIDE it as a centred background band, so the studio
+   looks identical and the target is a thumb's worth.
+   `background-image`, never the `background` shorthand: the three track
+   gradients below set only the image, and a shorthand anywhere in this chain
+   would reset the size/position that make the band 2px. */
 .sky-slider {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 2px;
-  background: var(--rule);
+  height: 1.5rem;
+  background-color: transparent;
+  background-image: linear-gradient(var(--rule), var(--rule));
+  background-repeat: no-repeat;
+  background-size: 100% 2px;
+  background-position: center;
   cursor: pointer;
-  margin: 0.45em 0;
+  margin: 0;
+}
+@media (pointer: coarse) {
+  .sky-slider {
+    height: var(--wb-hit, 2.75rem);
+  }
+}
+
+/* Hue track: a static rainbow so the current hue's position reads at a
+   glance. Saturation / Brightness tracks: gradients computed per-render
+   from the color's own hue (and, for saturation, lightness too) into CSS
+   vars, so each track always centers on what the swatch is actually
+   mixing rather than a generic ramp.
+
+   THESE MUST STAY BELOW `.sky-slider`. They were above it, and since both
+   selectors are one class the later rule won — `.sky-slider { background:
+   var(--rule) }` overwrote every one of them and all thirteen tracks rendered
+   as the same flat hairline. Measured: `getComputedStyle('.sky-slider-hue')
+   .backgroundImage === 'none'`. */
+.sky-slider-hue {
+  background-image: linear-gradient(
+    to right,
+    hsl(0 100% 50%), hsl(60 100% 50%), hsl(120 100% 50%),
+    hsl(180 100% 50%), hsl(240 100% 50%), hsl(300 100% 50%), hsl(360 100% 50%)
+  );
+}
+.sky-slider-saturation {
+  background-image: linear-gradient(to right, var(--sky-slider-sat-lo, #888), var(--sky-slider-sat-hi, #888));
+}
+.sky-slider-lightness {
+  background-image: linear-gradient(to right, #000, var(--sky-slider-mid, #888), #fff);
 }
 .sky-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -492,15 +604,14 @@
   }
 }
 
-/* The hour bar is the exception to that conversion, and deliberately so: it is
-   portalled to <body> (SkyThemeStudio.jsx) and pinned `position: fixed` across
-   the whole window, so it has no `wbpane` ancestor to query and its width is
-   the viewport's by definition. A container query here would simply never
-   match, and the 24 cells would keep their desktop height on a phone. */
-@media (max-width: 560px) {
-  .sky-arc-cell {
-    height: 22px;
-  }
+/* The hour bar reflows on the pane too, now that it is inside it. The old rule
+   here was a viewport `@media (max-width: 560px)` that made the 24 arc cells
+   SHORTER on a phone — 26px down to 22px, i.e. the one width where the cells
+   were already 13px wide got the smaller target. The arc is not rendered below
+   60rem at all any more (SkyThemeStudio.jsx swaps in the read-only swatch
+   strip), so what is left is the count, which has nothing to sit beside once
+   the stepper has taken the row. */
+@container wbpane (max-width: 30rem) {
   .sky-hourbar-meta {
     display: none;
   }

@@ -27,12 +27,76 @@
   margin: 0 0 var(--space-2);
 }
 
+/* ONE ROW, ONE BASELINE, TWO GROUPS.
+   Every action row in this studio mixes a filled `.admin-gate-button` (or
+   `.rs-seal`) with one or two `.admin-link-subtle` text buttons, and the three
+   disagreed on all three counts: the primary was 40–42px tall and the
+   secondaries 22–29px, so the row's bottom edge was ragged by 9px; the gap was
+   9–10px throughout, so "cancel" and "restore the built-in" read as one phrase
+   with the button they follow; and a bare `.admin-link-subtle` has no border,
+   no underline and hover-only colour, which on a touch screen is prose, not a
+   control.
+
+   `align-items: stretch` + one `min-height` gives the row a shared bottom edge;
+   the underline says these are controls; and the margin after the last filled
+   button separates the primary from its alternatives. Scoped to `.rs-actions`
+   so `.admin-link-subtle` is untouched everywhere else it is used — including
+   the public quick-edit sheet, which reuses these same admin classes. */
 .rs-actions {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-top: var(--space-4);
+}
+.rs-actions > * {
+  min-height: 2.5rem;
+}
+.rs-actions .admin-link-subtle {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--space-1);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  text-decoration-color: var(--rule);
+}
+.rs-actions .admin-link-subtle:hover {
+  text-decoration-color: currentColor;
+}
+.rs-actions .admin-gate-button + .admin-link-subtle,
+.rs-actions .rs-seal + .admin-link-subtle {
+  margin-inline-start: var(--space-3);
+}
+@media (pointer: coarse) {
+  .rs-actions > * {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+}
+
+/* The degraded-read notice: a sentence and one action, boxed so it reads as a
+   note ABOUT the series rather than as the first line of it. Its own rule
+   rather than `.rs-actions`, which would put a 40px floor on the sentence and
+   squeeze it into two lines beside the button. */
+.rs-degraded {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-4) 0 var(--space-5);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule-soft);
+}
+.rs-degraded > p {
+  margin: 0;
+  flex: 1 1 20rem;
+}
+.rs-degraded > button {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--wb-hit, 2.75rem);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  text-decoration-color: var(--rule);
 }
 
 .rs-draft {
@@ -82,12 +146,21 @@
 }
 .rs-live.liked .rs-live-state { color: var(--ratioed-seal); }
 
+/* The seal button takes `.admin-gate-button`'s voice — 14px sans, all-small-caps,
+   0.18em — rather than the 15.2px sentence-case serif it had. It sits between
+   two of them in the live-piece row, and one button in three speaking
+   differently reads as three different kinds of control rather than one row of
+   them. What it keeps is its own weight: a wider pad and, once the piece has
+   been liked, the seal's own red oxide. */
 .rs-seal {
   padding: var(--space-2) var(--space-5);
   border: 1px solid var(--ink);
   background: var(--ink);
   color: var(--page);
-  font-size: var(--text-base, 1rem);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);

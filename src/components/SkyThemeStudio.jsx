@@ -5,19 +5,37 @@
 // elements. Edits preview live on the whole site (tune on the fly) and
 // nothing persists until Save. With the override toggled off (or no
 // record), the site uses its built-in hourly palette. Controls are the
-// site's own vocabulary (color inputs, square/hairline sliders). The hour
-// selector rides in a sticky bar pinned above the bottom chrome (portalled
-// to <body>, like the owner edit-mode action bar), so you can switch hours
-// from anywhere.
+// site's own vocabulary (color inputs, square/hairline sliders).
+//
+// THE HOUR BAR IS AN IN-FLOW STICKY HEADER OF THIS PANE, and that is the one
+// structural thing to know before editing this file. It used to be portalled to
+// <body> and pinned `position: fixed; left: 0; right: 0; bottom: calc(--chrome-h
+// + safe-area)` — a set of coordinates that describes the PUBLIC site, which
+// wears a 56px bottom ChromeBar. /admin does not render that bar, so every term
+// was wrong here: the bar lay across the 216px rail (measured 1440×84 at 1440,
+// with "Legacy blog migration" and "Created work (legacy)" hit-testing to
+// DIV.sky-hourbar and unreachable at every desktop height), it floated 56px
+// above the frame with live studio content sliding through the slit, it covered
+// this studio's only Save, and being a child of <body> it landed after
+// everything else in the tab order — the control that decides which hour every
+// slider edits was ~50 tab stops away, past Save.
+//
+// As a `position: sticky; top: 0` block inside the pane it cannot collide with
+// the rail by construction, it aligns with the studio's own content column at
+// every width, it pins flush at the scrollport top (the pane has no block-start
+// padding, on purpose — see adminShell.css), and DOM order is visual order: the
+// hour comes before the controls it governs, and Save comes last.
 //
 // As a studio it is a BODY, not a page: the workbench pane draws the title,
 // the blurb and the NSID, and the rail is the way back — so this file renders
-// no PageShell and no "← All collections" link. It is the one studio that
-// KEEPS its own Save button rather than handing it to the shell's status
-// strip, because what it saves is not the record on screen: the palette is
-// already live on every pixel of the window, and a Save that sat in a strip
-// captioned "unsaved changes" would describe the preview as a pending edit
-// when the whole point is that you are looking at it.
+// no PageShell and no "← All collections" link. It KEEPS its own Save button on
+// desktop rather than handing it to the shell's status strip, because what it
+// saves is not the record on screen: the palette is already live on every pixel
+// of the window, and a Save that sat in a strip captioned "unsaved changes"
+// would describe the preview as a pending edit when the whole point is that you
+// are looking at it. Below 60rem that button would be a second save control
+// competing with the frame's action bar, so there it registers into the bar
+// instead (registerBar) and the in-flow row is not drawn.
 //
 // The one thing this studio owes the rest of the site is the palette back.
 // applySkyTheme (skyTheme.js:454) has no scoping parameter — it writes the
@@ -27,8 +45,8 @@
 // the reason this file mirrors the site's own hour in a ref.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
+import { useAdminShell } from '../admin/useAdminShell.jsx';
 import {
   paletteForHour,
   applySkyTheme,
@@ -142,8 +160,28 @@ function previewStyle(vars) {
 
 const hourLabel = (h) => skyHourKey(h).replace('am', ' AM').replace('pm', ' PM').toUpperCase();
 
+/* The palette entries the phone's read-only swatch strip shows, in the order a
+   page is built out of them: the ground, the chrome that sits on it, the three
+   inks and the two lines. Labels are the studio's own vocabulary rather than the
+   raw custom-property names — "muted ink" is what the contrast readout above
+   calls it, and nobody needs to read `--sky-ink-muted` off a phone. */
+const SWATCHES = [
+  { key: '--sky-page', label: 'page' },
+  { key: '--sky-surface-raised', label: 'chrome' },
+  { key: '--sky-ink', label: 'ink' },
+  { key: '--sky-ink-muted', label: 'muted' },
+  { key: '--sky-rule', label: 'rule' },
+  { key: '--sky-accent', label: 'accent' },
+];
+
 export default function SkyThemeStudio({ agent, did }) {
   const { installSkyTuning, setSkyPreviewHour, skyHour } = useTheme();
+  // `stacked` gates the tuning half (§6 of the mobile design): thirteen 2px-tall
+  // range inputs and a 24-cell arc at 13px per hour are the desktop control at
+  // phone width, and nobody colour-grades an hourly palette on a 390px screen.
+  // What survives is everything that is a DECISION rather than a nudge — the
+  // override toggle, the live preview, the hour, and what that hour looks like.
+  const { stacked, registerBar } = useAdminShell();
   // The hour the REST of the site is on — the bottom bar's override if the
   // owner has stepped the clock with the hour chip, otherwise the live Eastern
   // hour. Held in a ref rather than read as a dependency: as a dep, every chip
@@ -161,27 +199,12 @@ export default function SkyThemeStudio({ agent, did }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [flash, setFlash] = useState(false);
-  const hourBarRef = useRef(null);
 
-  // Reserve page space for the fixed hour bar (measured live) by feeding its
-  // height into the .app-shell bottom padding, the same way the edit-mode
-  // action bar does — so the last controls always clear it.
-  useEffect(() => {
-    if (loading || !byHour) return undefined;
-    const el = hourBarRef.current;
-    if (!el) return undefined;
-    const root = document.documentElement;
-    const measure = () => root.style.setProperty('--sky-hourbar-h', `${el.offsetHeight}px`);
-    measure();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    ro?.observe(el);
-    window.addEventListener('resize', measure);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener('resize', measure);
-      root.style.removeProperty('--sky-hourbar-h');
-    };
-  }, [loading, byHour]);
+  // No `--sky-hourbar-h` reservation any more, and nothing to measure: the bar
+  // is in flow, so it takes its own space out of the pane the way every other
+  // block does. The old effect fed its height into `.app-shell`'s bottom
+  // padding — a public-site variable, on a route with no `.app-shell` padding
+  // left to give.
 
   // Load the existing override (or seed the two shoulder hours with the fix).
   useEffect(() => {
@@ -297,7 +320,7 @@ export default function SkyThemeStudio({ agent, did }) {
   const flashTimer = useRef(null);
   useEffect(() => () => clearTimeout(flashTimer.current), []);
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     setSaving(true);
     setError(null);
     setFlash(false);
@@ -329,7 +352,41 @@ export default function SkyThemeStudio({ agent, did }) {
     } finally {
       setSaving(false);
     }
-  }
+  }, [agent, did, byHour, enabled, createdAt, liveApply, hour, installSkyTuning]);
+
+  // Below 60rem the frame's action bar is where a surface's primary action
+  // lives, so Save goes there and the in-flow `.sky-actions` row is not drawn.
+  //
+  // `onPress` reaches the save through a ref rather than taking `handleSave`
+  // directly, and that indirection is the whole reason this registration is
+  // cheap: `handleSave` closes over `byHour`, so it is a new function on every
+  // slider drag, and a new function in this effect's deps would re-register the
+  // bar — a shell-wide re-render — on every pixel of a hue drag. Registered
+  // unconditionally, per the bar contract: the bar is only rendered when
+  // stacked, and branching here would be a second code path to keep in step.
+  const saveRef = useRef(handleSave);
+  saveRef.current = handleSave;
+  const onSave = useCallback(() => saveRef.current(), []);
+  const hourKey = skyHourKey(hour);
+  useEffect(() => {
+    registerBar({
+      status: error ? `Not saved — ${error}` : flash ? 'Saved' : `${overriddenCount}/24 tuned`,
+      actions: [
+        {
+          id: 'save',
+          label: 'Save',
+          // The same glyph the shell puts on its own Save (AdminActionBar), so
+          // slot 3 does not change shape between a record and this studio.
+          icon: 'Archive',
+          onPress: onSave,
+          busy: saving,
+          busyLabel: 'Saving…',
+        },
+      ],
+      overflow: [{ id: 'reset-hour', label: `Reset ${hourKey}`, onPress: resetHour }],
+    });
+    return () => registerBar(null);
+  }, [registerBar, onSave, resetHour, saving, flash, error, overriddenCount, hourKey]);
 
   const avatarUrl = skyAvatarUrl(hour);
   const isDay = byHour ? paletteForHour(hour, null).day : true;
@@ -347,6 +404,58 @@ export default function SkyThemeStudio({ agent, did }) {
         <AdminRecordListSkeleton rows={5} />
       ) : (
         <>
+          {/* Hour selector: the studio's own header, sticky against the top of
+              the pane's scrollport. FIRST in the DOM because it governs
+              everything under it — which is also what puts it first in the tab
+              order instead of ~50 stops away past Save. */}
+          <div className="sky-hourbar">
+            <div className="sky-hourbar-inner">
+              <div className="sky-hourbar-row">
+                <button type="button" className="sky-step" onClick={() => setHour((h) => (h + 23) % 24)} aria-label="Previous hour">‹</button>
+                <span className="sky-hour-name">
+                  {hourLabel(hour)}{' '}
+                  <span className="sky-hour-tag">{isDay ? 'day' : 'night'}{hasOverride(cfg) ? ' · override' : ''}</span>
+                </span>
+                <button type="button" className="sky-step" onClick={() => setHour((h) => (h + 1) % 24)} aria-label="Next hour">›</button>
+                <span className="sky-hourbar-meta">{overriddenCount}/24 tuned</span>
+              </div>
+              {stacked ? (
+                /* The phone's stand-in for the 24-cell arc: what this hour
+                   actually looks like, read-only. The arc is a 24-across grid of
+                   13px cells at 390 (10px at 320) — picking 2 PM over 3 PM on it
+                   is a coin flip — and the stepper beside it does the same job at
+                   a thumb's size, so the strip spends the width on the answer
+                   instead of on an unusable control. */
+                <div className="sky-swatches">
+                  {SWATCHES.map((s) => (
+                    <span className="sky-swatch" key={s.key}>
+                      <span className="sky-swatch-chip" style={{ background: tunedVars[s.key] }} />
+                      <span className="sky-swatch-label">{s.label}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="sky-arc" role="tablist" aria-label="Hour">
+                  {Array.from({ length: 24 }, (_, h) => {
+                    const pv = paletteForHour(h, draftToTuning(true, byHour)).vars['--sky-page'];
+                    return (
+                      <button
+                        key={h}
+                        type="button"
+                        role="tab"
+                        aria-selected={h === hour}
+                        className={`sky-arc-cell ${h === hour ? 'is-sel' : ''} ${hasOverride(byHour[h]) ? 'is-ovr' : ''}`}
+                        style={{ background: pv }}
+                        title={skyHourKey(h)}
+                        onClick={() => setHour(h)}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
           <label className="sky-enable">
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
             <span>
@@ -399,129 +508,106 @@ export default function SkyThemeStudio({ agent, did }) {
           </label>
 
           {/* ---- contrast readout ---- */}
-          <div className="sky-readout">
-            {rows.map((r) => (
-              <div key={r.name} className="sky-read-row">
-                <span className="sky-read-name">{r.name}</span>
-                <span className="sky-read-nums">
-                  <span className={`sky-chip ${grade(r.now, r.target)}`}>{r.now.toFixed(2)}</span>
-                  <span className="sky-read-arrow">→</span>
-                  <span className={`sky-chip ${grade(r.tuned, r.target)}`}>{r.tuned.toFixed(2)}</span>
-                  <span className="sky-read-target">/ {r.target.toFixed(1)}</span>
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* Part of the tuning half: four ratios that only mean something
+              beside the sliders that move them. */}
+          {stacked ? null : (
+            <div className="sky-readout">
+              {rows.map((r) => (
+                <div key={r.name} className="sky-read-row">
+                  <span className="sky-read-name">{r.name}</span>
+                  <span className="sky-read-nums">
+                    <span className={`sky-chip ${grade(r.now, r.target)}`}>{r.now.toFixed(2)}</span>
+                    <span className="sky-read-arrow">→</span>
+                    <span className={`sky-chip ${grade(r.tuned, r.target)}`}>{r.tuned.toFixed(2)}</span>
+                    <span className="sky-read-target">/ {r.target.toFixed(1)}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ---- controls ---- */}
-          <div className="sky-controls">
-            <section className="sky-group">
-              <h3 className="admin-collection-group-heading small-caps">Background</h3>
-              <div className="sky-fields">
-                <ColorField
-                  label="Page color"
-                  hint={cfg.page ? 'custom' : 'auto (sun-tracked)'}
-                  value={cfg.page || baseVars['--sky-page']}
-                  onChange={(v) => patchHour({ page: v })}
-                  onReset={cfg.page ? () => patchHour({ page: null }) : null}
-                />
-                <SliderField label="Surface separation" value={cfg.surfaceSep} min={0.4} max={2} step={0.1} display={`${cfg.surfaceSep.toFixed(1)}×`} onChange={(v) => patchHour({ surfaceSep: v })} />
-              </div>
-            </section>
-
-            <section className="sky-group">
-              <h3 className="admin-collection-group-heading small-caps">Horizon pop</h3>
-              <div className="sky-fields">
-                <ColorField
-                  label="Pop color"
-                  hint="warms borders + text + highlight"
-                  value={cfg.pop}
-                  onChange={(v) => patchHour({ pop: v })}
-                  onReset={cfg.pop !== defaultPopForHour(hour) ? () => patchHour({ pop: defaultPopForHour(hour) }) : null}
-                />
-              </div>
-            </section>
-
-            <section className="sky-group">
-              <h3 className="admin-collection-group-heading small-caps">Borders</h3>
-              <div className="sky-fields">
-                <SliderField label="Warmth" value={Math.round(cfg.ruleWarmth * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.ruleWarmth * 100)}%`} onChange={(v) => patchHour({ ruleWarmth: v / 100 })} />
-                <SliderField label="Contrast" value={cfg.ruleContrast} min={0} max={0.45} step={0.02} display={cfg.ruleContrast.toFixed(2)} onChange={(v) => patchHour({ ruleContrast: v })} />
-              </div>
-            </section>
-
-            <section className="sky-group">
-              <h3 className="admin-collection-group-heading small-caps">Faint &amp; muted text</h3>
-              <div className="sky-fields">
-                <SliderField label="Warmth" value={Math.round(cfg.inkWarmth * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.inkWarmth * 100)}%`} onChange={(v) => patchHour({ inkWarmth: v / 100 })} />
-                <SliderField label="Contrast" value={cfg.inkContrast} min={0} max={0.45} step={0.02} display={cfg.inkContrast.toFixed(2)} onChange={(v) => patchHour({ inkContrast: v })} />
-              </div>
-            </section>
-
-            <section className="sky-group">
-              <h3 className="admin-collection-group-heading small-caps">Glow / shine</h3>
-              <div className="sky-fields">
-                <ColorField label="Glow color" value={cfg.glowColor} onChange={(v) => patchHour({ glowColor: v })} onReset={cfg.glowColor !== cfg.pop ? () => patchHour({ glowColor: cfg.pop }) : null} />
-                <SliderField label="Size" value={cfg.glowSize} min={0} max={48} step={2} display={`${cfg.glowSize}px`} onChange={(v) => patchHour({ glowSize: v })} />
-                <SliderField label="Strength" value={Math.round(cfg.glowStrength * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.glowStrength * 100)}%`} onChange={(v) => patchHour({ glowStrength: v / 100 })} />
-              </div>
-              <div className="sky-targets">
-                <span className="admin-field-label">Applies to</span>
-                <div className="sky-targets-grid">
-                  {GLOW_GROUPS.map((g) => (
-                    <label key={g} className="sky-check">
-                      <input type="checkbox" checked={Boolean(cfg.glowTargets[g])} onChange={(e) => patchGlowTarget(g, e.target.checked)} />
-                      {GLOW_LABELS[g]}
-                    </label>
-                  ))}
+          {stacked ? (
+            <p className="sky-gate">Fine-tuning the palette is available on a larger screen.</p>
+          ) : (
+            <div className="sky-controls">
+              <section className="sky-group">
+                <h3 className="admin-collection-group-heading small-caps">Background</h3>
+                <div className="sky-fields">
+                  <ColorField
+                    label="Page color"
+                    hint={cfg.page ? 'custom' : 'auto (sun-tracked)'}
+                    value={cfg.page || baseVars['--sky-page']}
+                    onChange={(v) => patchHour({ page: v })}
+                    onReset={cfg.page ? () => patchHour({ page: null }) : null}
+                  />
+                  <SliderField label="Surface separation" value={cfg.surfaceSep} min={0.4} max={2} step={0.1} display={`${cfg.surfaceSep.toFixed(1)}×`} onChange={(v) => patchHour({ surfaceSep: v })} />
                 </div>
-              </div>
-            </section>
-          </div>
+              </section>
 
-          <div className="sky-actions">
-            <button type="button" className="admin-gate-button" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : flash ? 'Saved ✓' : 'Save'}
-            </button>
-            <button type="button" className="admin-link-subtle" onClick={resetHour} disabled={saving}>
-              Reset {skyHourKey(hour)}
-            </button>
-          </div>
+              <section className="sky-group">
+                <h3 className="admin-collection-group-heading small-caps">Horizon pop</h3>
+                <div className="sky-fields">
+                  <ColorField
+                    label="Pop color"
+                    hint="warms borders + text + highlight"
+                    value={cfg.pop}
+                    onChange={(v) => patchHour({ pop: v })}
+                    onReset={cfg.pop !== defaultPopForHour(hour) ? () => patchHour({ pop: defaultPopForHour(hour) }) : null}
+                  />
+                </div>
+              </section>
 
-          {/* Hour selector: a sticky bar above the bottom chrome (portalled so
-              a transformed route wrapper can't break its fixed position). */}
-          {createPortal(
-            <div className="sky-hourbar" ref={hourBarRef}>
-              <div className="sky-hourbar-inner">
-                <div className="sky-hourbar-row">
-                  <button type="button" className="sky-step" onClick={() => setHour((h) => (h + 23) % 24)} aria-label="Previous hour">‹</button>
-                  <span className="sky-hour-name">
-                    {hourLabel(hour)}{' '}
-                    <span className="sky-hour-tag">{isDay ? 'day' : 'night'}{hasOverride(cfg) ? ' · override' : ''}</span>
-                  </span>
-                  <button type="button" className="sky-step" onClick={() => setHour((h) => (h + 1) % 24)} aria-label="Next hour">›</button>
-                  <span className="sky-hourbar-meta">{overriddenCount}/24 tuned</span>
+              <section className="sky-group">
+                <h3 className="admin-collection-group-heading small-caps">Borders</h3>
+                <div className="sky-fields">
+                  <SliderField label="Warmth" value={Math.round(cfg.ruleWarmth * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.ruleWarmth * 100)}%`} onChange={(v) => patchHour({ ruleWarmth: v / 100 })} />
+                  <SliderField label="Contrast" value={cfg.ruleContrast} min={0} max={0.45} step={0.02} display={cfg.ruleContrast.toFixed(2)} onChange={(v) => patchHour({ ruleContrast: v })} />
                 </div>
-                <div className="sky-arc" role="tablist" aria-label="Hour">
-                  {Array.from({ length: 24 }, (_, h) => {
-                    const pv = paletteForHour(h, draftToTuning(true, byHour)).vars['--sky-page'];
-                    return (
-                      <button
-                        key={h}
-                        type="button"
-                        role="tab"
-                        aria-selected={h === hour}
-                        className={`sky-arc-cell ${h === hour ? 'is-sel' : ''} ${hasOverride(byHour[h]) ? 'is-ovr' : ''}`}
-                        style={{ background: pv }}
-                        title={skyHourKey(h)}
-                        onClick={() => setHour(h)}
-                      />
-                    );
-                  })}
+              </section>
+
+              <section className="sky-group">
+                <h3 className="admin-collection-group-heading small-caps">Faint &amp; muted text</h3>
+                <div className="sky-fields">
+                  <SliderField label="Warmth" value={Math.round(cfg.inkWarmth * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.inkWarmth * 100)}%`} onChange={(v) => patchHour({ inkWarmth: v / 100 })} />
+                  <SliderField label="Contrast" value={cfg.inkContrast} min={0} max={0.45} step={0.02} display={cfg.inkContrast.toFixed(2)} onChange={(v) => patchHour({ inkContrast: v })} />
                 </div>
-              </div>
-            </div>,
-            document.body,
+              </section>
+
+              <section className="sky-group">
+                <h3 className="admin-collection-group-heading small-caps">Glow / shine</h3>
+                <div className="sky-fields">
+                  <ColorField label="Glow color" value={cfg.glowColor} onChange={(v) => patchHour({ glowColor: v })} onReset={cfg.glowColor !== cfg.pop ? () => patchHour({ glowColor: cfg.pop }) : null} />
+                  <SliderField label="Size" value={cfg.glowSize} min={0} max={48} step={2} display={`${cfg.glowSize}px`} onChange={(v) => patchHour({ glowSize: v })} />
+                  <SliderField label="Strength" value={Math.round(cfg.glowStrength * 100)} min={0} max={100} step={5} display={`${Math.round(cfg.glowStrength * 100)}%`} onChange={(v) => patchHour({ glowStrength: v / 100 })} />
+                </div>
+                <div className="sky-targets">
+                  <span className="admin-field-label">Applies to</span>
+                  <div className="sky-targets-grid">
+                    {GLOW_GROUPS.map((g) => (
+                      <label key={g} className="sky-check">
+                        <input type="checkbox" checked={Boolean(cfg.glowTargets[g])} onChange={(e) => patchGlowTarget(g, e.target.checked)} />
+                        {GLOW_LABELS[g]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* Desktop only: below 60rem this same Save is slot 3 of the frame's
+              action bar (registerBar, above), and a pane that also drew its own
+              would be two save buttons for one record. */}
+          {stacked ? null : (
+            <div className="sky-actions">
+              <button type="button" className="admin-gate-button" onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : flash ? 'Saved ✓' : 'Save'}
+              </button>
+              <button type="button" className="admin-link-subtle" onClick={resetHour} disabled={saving}>
+                Reset {skyHourKey(hour)}
+              </button>
+            </div>
           )}
         </>
       )}

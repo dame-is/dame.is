@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Copy, PenLine, ExternalLink, Plus } from 'lucide-react';
+import { Copy, PenLine, ExternalLink, MoreHorizontal, Plus } from 'lucide-react';
 import { AdminRecordListSkeleton } from '../Skeleton.jsx';
 import { rkeyFromUri } from '../RecordEditor.jsx';
 import { COLLECTIONS } from '../../config.js';
+import AdminSheet from '../../admin/AdminSheet.jsx';
 import { useAdminShell } from '../../admin/useAdminShell.jsx';
 import {
   formatDateRange,
@@ -37,6 +38,28 @@ import './resumeStudio.css';
  * `bundle` is the working set hoisted into StudioPane so this surface and the
  * tailoring workbench share one fetch (see useResumeBundle).
  */
+
+/** The section notes, hoisted so the loading state can stand in for them. */
+const SECTIONS = {
+  versions: {
+    heading: 'Versions',
+    rows: 3,
+  },
+  jobs: {
+    heading: 'Jobs',
+    note: 'Canonical positions — each owns its facts and the shared pool of bullets (and their forked phrasings).',
+    rows: 3,
+  },
+  education: {
+    heading: 'Education',
+    note: 'Canonical education entries, referenced by versions the same way jobs are.',
+    rows: 1,
+  },
+};
+
+/** The id the versions row-menu registers with the shell's one-sheet-at-a-time. */
+const VERSION_SHEET = 'resume-version-actions';
+
 export default function ResumeStudio({ agent, did, bundle }) {
   const { invalidate } = useAdminShell();
   const { resumes, jobs, education, loading, error, reload, applyWrites } = useResumeBundle(
@@ -47,58 +70,49 @@ export default function ResumeStudio({ agent, did, bundle }) {
   const [actionError, setActionError] = useState(null);
   const [renamingUri, setRenamingUri] = useState(null);
 
-  const listFor = (collection) =>
-    collection === COLLECTIONS.resumeJob
-      ? jobs
-      : collection === COLLECTIONS.resumeEducation
-        ? education
-        : resumes;
+  // What a rename is about to do to the rest of the repo, as a sentence, for
+  // whichever key is currently typed into the inline form. It used to be the
+  // body of a second native `confirm` stacked on top of the first — a create
+  // AND a delete of an at:// record driven by two OS dialogs that ignore the
+  // theme and cannot show a collision beside the field that caused it. Said
+  // here, live, under the input, it is the same information the moment it is
+  // true rather than after the decision.
+  const renameNote = (collection, rec, toRkey) => {
+    const fromRkey = rkeyFromUri(rec.uri);
+    const backlinks = backlinksFor(collection);
+    if (!backlinks.length) {
+      return `Recreates this version as “${toRkey}” — its slug and /available URL follow the key — and deletes “${fromRkey}”.`;
+    }
+    const refCount = countBacklinks(resumes, rec.uri, backlinks);
+    return `Recreates the record as “${toRkey}”, repoints ${refCount} resume version${
+      refCount === 1 ? '' : 's'
+    } that reference it, and deletes “${fromRkey}”.`;
+  };
 
   // "Rename" a record's key. Because AT keys records immutably, this recreates
   // the record under the new key, repoints resume backlinks, and deletes the
-  // old one (see renameRecordKey). Jobs/education warn with how many versions
-  // reference them; a version rename also syncs its slug + /available URL.
-  async function renameRecord(collection, rec) {
+  // old one (see renameRecordKey). The caller — the inline form in the row —
+  // owns the question and the validation; this owns the writes.
+  async function renameRecord(collection, rec, toRkey) {
     if (renamingUri) return;
     const fromRkey = rkeyFromUri(rec.uri);
     const v = rec.value || {};
-    const siblings = listFor(collection) || [];
-    const taken = new Set(siblings.map((r) => rkeyFromUri(r.uri)));
-    const label =
-      [v.title || v.institution, v.organization || v.area].filter(Boolean).join(' · ') || fromRkey;
-
-    const input = window.prompt(
-      `New record key for “${label}”.\n` +
-        'Lowercase letters, numbers, and dashes — it drives the record\'s at:// URI' +
-        (collection === COLLECTIONS.resume ? ' and /available/<slug>.' : '.'),
-      fromRkey,
-    );
-    if (input == null) return;
-    const toRkey = slugifyResumeTitle(input);
-    if (!toRkey) {
-      setActionError('That key is empty once cleaned up — use letters, numbers, and dashes.');
-      return;
-    }
-    if (toRkey === fromRkey) return;
-    if (taken.has(toRkey)) {
-      setActionError(`A record with the key “${toRkey}” already exists.`);
-      return;
-    }
-
-    const backlinks = backlinksFor(collection);
-    const refCount = backlinks.length ? countBacklinks(resumes, rec.uri, backlinks) : 0;
-    const detail = backlinks.length
-      ? `\n\nThis recreates it as “${toRkey}”, repoints ${refCount} resume version${
-          refCount === 1 ? '' : 's'
-        } that reference it, and deletes the old “${fromRkey}”.`
-      : `\n\nThis recreates it as “${toRkey}” (syncing its slug + /available URL) and deletes the old one.`;
-    if (!window.confirm(`Rename ${fromRkey} → ${toRkey}?${detail}`)) return;
+    if (!toRkey || toRkey === fromRkey) return;
 
     setRenamingUri(rec.uri);
     setActionError(null);
     try {
       const value = collection === COLLECTIONS.resume ? { ...v, slug: toRkey } : v;
-      await renameRecordKey({ agent, did, collection, fromRkey, toRkey, value, resumes, backlinks });
+      await renameRecordKey({
+        agent,
+        did,
+        collection,
+        fromRkey,
+        toRkey,
+        value,
+        resumes,
+        backlinks: backlinksFor(collection),
+      });
       reload();
       // A rename is a create AND a delete, so every cached view of this
       // collection — the rail's presence dot, the Front Desk's counts and its
@@ -134,7 +148,7 @@ export default function ResumeStudio({ agent, did, bundle }) {
       {(error || actionError) && <p className="admin-error">{error || actionError}</p>}
 
       {loading ? (
-        <AdminRecordListSkeleton rows={6} label="Loading resume records" />
+        <StudioSkeleton />
       ) : (
         <>
           <VersionsSection
@@ -145,27 +159,30 @@ export default function ResumeStudio({ agent, did, bundle }) {
             onChanged={reload}
             onWritten={applyWrites}
             onError={setActionError}
-            onRename={(rec) => renameRecord(COLLECTIONS.resume, rec)}
+            onRename={(rec, toRkey) => renameRecord(COLLECTIONS.resume, rec, toRkey)}
+            renameNote={(rec, toRkey) => renameNote(COLLECTIONS.resume, rec, toRkey)}
             renamingUri={renamingUri}
           />
           <RecordsSection
-            heading="Jobs"
-            note="Canonical positions — each owns its facts and the shared pool of bullets (and their forked phrasings)."
+            heading={SECTIONS.jobs.heading}
+            note={SECTIONS.jobs.note}
             collection={COLLECTIONS.resumeJob}
             records={sortedJobs}
             labelFor={(v) => [v.title, v.organization].filter(Boolean).join(' · ')}
             newLabel="New job"
-            onRename={(rec) => renameRecord(COLLECTIONS.resumeJob, rec)}
+            onRename={(rec, toRkey) => renameRecord(COLLECTIONS.resumeJob, rec, toRkey)}
+            renameNote={(rec, toRkey) => renameNote(COLLECTIONS.resumeJob, rec, toRkey)}
             renamingUri={renamingUri}
           />
           <RecordsSection
-            heading="Education"
-            note="Canonical education entries, referenced by versions the same way jobs are."
+            heading={SECTIONS.education.heading}
+            note={SECTIONS.education.note}
             collection={COLLECTIONS.resumeEducation}
             records={sortedEducation}
             labelFor={(v) => [v.institution, v.studyType || v.area].filter(Boolean).join(' · ')}
             newLabel="New education entry"
-            onRename={(rec) => renameRecord(COLLECTIONS.resumeEducation, rec)}
+            onRename={(rec, toRkey) => renameRecord(COLLECTIONS.resumeEducation, rec, toRkey)}
+            renameNote={(rec, toRkey) => renameNote(COLLECTIONS.resumeEducation, rec, toRkey)}
             renamingUri={renamingUri}
           />
         </>
@@ -175,8 +192,166 @@ export default function ResumeStudio({ agent, did, bundle }) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Loading                                                              */
+/* ------------------------------------------------------------------ */
+
+/** The versions note, said once for both the loading state and the loaded one. */
+function VersionsNote() {
+  return (
+    <p className="admin-collection-group-note">
+      Each version selects, orders, and phrases its own view of the shared records. The
+      active one is what <code>/available</code> shows.
+    </p>
+  );
+}
+
+/**
+ * Three titled sections, because that is what this page resolves to.
+ *
+ * The old placeholder was six uniform rows — about 200px of undifferentiated
+ * list standing in for 935px of content in three headed sections — so the pane
+ * grew by roughly 735px when the bundle landed, and none of the structure below
+ * the fold was announced. The headings and notes are the real ones; the row
+ * counts are the fixture's shape (3 versions, 3 jobs, 1 education), which is
+ * the honest guess before the data says otherwise.
+ */
+function StudioSkeleton() {
+  return (
+    <>
+      <section className="admin-page-section rs-section">
+        <h2 className="admin-collection-group-heading small-caps">{SECTIONS.versions.heading}</h2>
+        <VersionsNote />
+        <AdminRecordListSkeleton rows={SECTIONS.versions.rows} label="Loading resume versions" />
+      </section>
+      {['jobs', 'education'].map((key) => (
+        <section className="admin-page-section rs-section" key={key}>
+          <h2 className="admin-collection-group-heading small-caps">{SECTIONS[key].heading}</h2>
+          <p className="admin-collection-group-note">{SECTIONS[key].note}</p>
+          <AdminRecordListSkeleton
+            rows={SECTIONS[key].rows}
+            label={`Loading ${SECTIONS[key].heading.toLowerCase()}`}
+          />
+        </section>
+      ))}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Renaming and duplicating a key, in the row                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The inline form that replaced two stacked `window.prompt`s.
+ *
+ * Both operations it serves — renaming a record's key, and forking a version
+ * under a new slug — are structural: they mint an at:// URI and, for a version,
+ * a public /available URL. A native prompt cannot show the constraint next to
+ * the field, cannot say what the typed key will actually be saved as, and
+ * cannot put a collision anywhere but a banner at the top of the page, after
+ * the fact. This says all three under the input, live, as you type.
+ *
+ * `slugifyResumeTitle` is the same normalizer the write path uses, so what the
+ * hint promises is exactly what lands.
+ *
+ * @param {object} props
+ * @param {string} props.label        The field's own label.
+ * @param {string} props.from         The starting value (current key, or a suggestion).
+ * @param {Set<string>} props.taken   Keys already in use in this collection.
+ * @param {string|null} props.sameKeyMessage  Shown when the typed key is `from` — null when
+ *                                    `from` is a suggestion rather than an existing key.
+ * @param {(key: string) => string} props.noteFor  What this will do to the repo, live.
+ * @param {string} props.submitLabel
+ * @param {boolean} props.busy
+ */
+function KeyForm({ label, from, taken, sameKeyMessage, noteFor, submitLabel, busy, onCancel, onSubmit }) {
+  const [typed, setTyped] = useState(from);
+  const key = slugifyResumeTitle(typed);
+  // Focused on open, in a frame of its own rather than with `autoFocus`. On a
+  // phone this form is opened FROM the row's ⋯ sheet, and AdminSheet's focus
+  // trap hands focus back to whatever opened it as it closes — which lands
+  // after mount and would take the field back to the ⋯ button. The form only
+  // exists because the owner just asked for it, and it stands in for a native
+  // prompt that took focus outright; landing them a Tab away would be a
+  // regression on the thing it replaced.
+  const fieldRef = useRef(null);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => fieldRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const problem = !key
+    ? 'A key needs letters, numbers or dashes — that one is empty once cleaned up.'
+    : sameKeyMessage && key === from
+      ? sameKeyMessage
+      : taken.has(key)
+        ? `A record with the key “${key}” already exists.`
+        : null;
+
+  return (
+    <form
+      className="rs-keyform"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!problem && !busy) onSubmit(key);
+      }}
+    >
+      <label className="rf-inline-field rf-inline-field-block rs-keyform-field">
+        <span className="rf-inline-label">{label}</span>
+        <input
+          ref={fieldRef}
+          className="admin-input"
+          type="text"
+          value={typed}
+          spellCheck={false}
+          autoCapitalize="none"
+          autoCorrect="off"
+          onChange={(e) => setTyped(e.target.value)}
+        />
+      </label>
+      <p className={`admin-field-hint rs-keyform-note${problem ? ' is-problem' : ''}`}>
+        {problem || noteFor(key)}
+      </p>
+      <div className="rs-keyform-actions">
+        <button
+          type="submit"
+          className="admin-gate-button admin-gate-button-tight"
+          disabled={!!problem || busy}
+        >
+          {busy ? 'Working…' : submitLabel}
+        </button>
+        <button type="button" className="admin-link-subtle" onClick={onCancel} disabled={busy}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Versions                                                             */
 /* ------------------------------------------------------------------ */
+
+/**
+ * What to call a version on screen.
+ *
+ * Deliberately NOT the rkey: a version's key is already in the row, in the mono
+ * chip on the meta line, and a title slot that repeats it prints the same
+ * twelve characters twice — which is the default state of every freshly created
+ * version, not an edge case. An untitled one says so, and the row keeps a
+ * heading you can read at a glance.
+ */
+function versionName(value) {
+  return value?.title || 'Untitled version';
+}
+
+/**
+ * The same name for a screen reader, where the rkey earns its place: three rows
+ * all announcing "Untitled version" is three controls with one name, and the
+ * chip that disambiguates them visually is not part of the button.
+ */
+function versionLabel(value, rkey) {
+  return value?.title || `Untitled version ${rkey}`;
+}
 
 /** "5 jobs · 23 bullets" summary for one resume against the job pool. */
 function versionCounts(value, jobsByUri) {
@@ -202,10 +377,29 @@ function VersionsSection({
   onWritten,
   onError,
   onRename,
+  renameNote,
   renamingUri,
 }) {
-  const { go, invalidate } = useAdminShell();
+  const { go, invalidate, stacked, sheet, setSheet } = useAdminShell();
   const [busy, setBusy] = useState(null); // rkey being written
+  // Which row has its key form open, and which question it is asking. One at a
+  // time: two open forms would be two claims on the same collection's keys.
+  const [form, setForm] = useState(null); // { uri, kind: 'rename' | 'duplicate' }
+  // Which row the ⋯ menu belongs to. The shell owns whether a sheet is OPEN
+  // (one at a time, cleared on any subject change); this owns which subject it
+  // is about.
+  const [menuUri, setMenuUri] = useState(null);
+
+  const takenKeys = useMemo(
+    () => new Set((resumes || []).map((r) => rkeyFromUri(r.uri))),
+    [resumes],
+  );
+
+  const closeMenu = () => setSheet(null);
+  const openForm = (uri, kind) => {
+    setSheet(null);
+    setForm({ uri, kind });
+  };
 
   const activeRkey = useMemo(() => {
     const found = (resumes || []).find((rec) => rec.value?.featured);
@@ -230,27 +424,23 @@ function VersionsSection({
     }
   }
 
-  // Fork a whole version: copy the record under a new slug (never featured,
-  // private until published) and jump straight into tailoring it.
-  async function duplicate(rec) {
+  /** The slug a fork should start from: the source's, made unique. */
+  function duplicateSuggestion(rec) {
     const srcRkey = rkeyFromUri(rec.uri);
-    const taken = new Set((resumes || []).map((r) => rkeyFromUri(r.uri)));
     let suggestion = `${rec.value?.slug || srcRkey}-copy`;
-    while (taken.has(suggestion)) suggestion = `${suggestion}-2`;
-    const input = window.prompt(
-      'Slug for the new version (also its record key and /available/<slug> URL):',
-      suggestion,
-    );
-    if (input == null) return;
-    const slug = slugifyResumeTitle(input);
-    if (!slug) {
-      onError('That slug is empty once cleaned up — use letters, numbers, and dashes.');
-      return;
-    }
-    if (taken.has(slug)) {
-      onError(`A version with the slug “${slug}” already exists.`);
-      return;
-    }
+    while (takenKeys.has(suggestion)) suggestion = `${suggestion}-2`;
+    return suggestion;
+  }
+
+  // Fork a whole version: copy the record under a new slug (never featured,
+  // private until published) and jump straight into tailoring it. The slug
+  // comes from the row's own form — this used to be a third `window.prompt` on
+  // this surface, and the collision it could raise landed as a banner at the
+  // top of the page rather than beside the field that caused it.
+  async function duplicate(rec, slug) {
+    const srcRkey = rkeyFromUri(rec.uri);
+    if (!slug) return;
+    setForm(null);
     setBusy(srcRkey);
     onError(null);
     try {
@@ -285,13 +475,13 @@ function VersionsSection({
     }
   }
 
+  const menuRec = (resumes || []).find((rec) => rec.uri === menuUri) || null;
+  const menuName = menuRec ? versionName(menuRec.value) : '';
+
   return (
     <section className="admin-page-section rs-section">
-      <h2 className="admin-collection-group-heading small-caps">Versions</h2>
-      <p className="admin-collection-group-note">
-        Each version selects, orders, and phrases its own view of the shared records. The
-        active one is what <code>/available</code> shows.
-      </p>
+      <h2 className="admin-collection-group-heading small-caps">{SECTIONS.versions.heading}</h2>
+      <VersionsNote />
       {(resumes || []).length === 0 ? (
         // The "create the first one" link that used to live in this sentence is
         // now the add link below, which is on screen either way.
@@ -305,6 +495,8 @@ function VersionsSection({
             const counts = versionCounts(v, jobsByUri);
             const vis = v.visibility || 'private';
             const slug = v.slug || r;
+            const rowForm = form?.uri === rec.uri ? form.kind : null;
+            const rowBusy = busy === r || renamingUri === rec.uri;
             return (
               <li key={rec.uri} className={`rs-version${isActive ? ' is-active' : ''}`}>
                 <button
@@ -313,79 +505,212 @@ function VersionsSection({
                   onClick={() => !isActive && setActive(r)}
                   disabled={!!busy}
                   aria-pressed={isActive}
+                  /* Named after the version rather than "Make this the active
+                     version": three identical announcements in a column of
+                     three tell a screen-reader user nothing about which one
+                     they are on. */
+                  aria-label={
+                    isActive
+                      ? `${versionLabel(v, r)} — the active version, shown at /available`
+                      : `Make ${versionLabel(v, r)} the active version`
+                  }
                   title={isActive ? 'Active — shown at /available' : 'Make this the active version'}
                 >
                   <span className="rs-radio-dot" aria-hidden="true" />
                 </button>
                 <div className="rs-version-main">
                   <div className="rs-version-head">
+                    {/* The version's own name leads the row. It used to be the
+                        rkey — a 12-character base32 string, printed AGAIN in
+                        the chip on the line below, which is the default state
+                        of every freshly created version and reads as a
+                        rendering bug rather than as two facts. The workbench
+                        already refused to print it twice; this is the same
+                        rule on the surface that lists them. */}
                     <Link
-                      className="rs-version-title"
+                      className={`rs-version-title${v.title ? '' : ' is-untitled'}`}
                       to={`/admin?view=resume-tailor&r=${encodeURIComponent(r)}`}
                     >
-                      {v.title || r}
+                      {versionName(v)}
                     </Link>
                     {isActive && <span className="rs-chip rs-chip-accent small-caps">active</span>}
                     {vis !== 'public' && <span className="rs-chip small-caps">{vis}</span>}
-                    {busy === r && <span className="rs-chip small-caps">saving…</span>}
+                    {rowBusy && <span className="rs-chip small-caps">saving…</span>}
                   </div>
+                  {/* Separators are drawn by the items themselves (::before), so
+                      a middle dot can never be the last thing on a wrapped line
+                      the way a free-standing <span> could. */}
                   <div className="rs-version-meta">
                     <code className="admin-record-rkey">{slug}</code>
-                    <span className="rs-dot">·</span>
-                    {counts.jobs} job{counts.jobs === 1 ? '' : 's'}
-                    <span className="rs-dot">·</span>
-                    {counts.bullets} bullet{counts.bullets === 1 ? '' : 's'}
+                    <span>
+                      {counts.jobs} job{counts.jobs === 1 ? '' : 's'}
+                    </span>
+                    <span>
+                      {counts.bullets} bullet{counts.bullets === 1 ? '' : 's'}
+                    </span>
                   </div>
                 </div>
-                <div className="rs-version-actions">
-                  <Link
-                    className="admin-gate-button admin-gate-button-tight"
-                    to={`/admin?view=resume-tailor&r=${encodeURIComponent(r)}`}
-                  >
-                    <PenLine size={13} aria-hidden="true" /> Tailor
-                  </Link>
+                {/* On a phone the three secondary links become one 44px control
+                    (admin-mobile-design.md §6): 19px text links 4px apart are
+                    not a target, and three of them is most of the row. It sits
+                    at the row's top corner, beside what it is about, rather
+                    than in the button cluster — at 320 the cluster is already
+                    16px wider than the column. */}
+                {stacked && (
                   <button
                     type="button"
-                    className="admin-gate-button admin-gate-button-tight"
-                    onClick={() => duplicate(rec)}
-                    disabled={!!busy}
-                    title="Fork this version under a new slug"
+                    className="rs-row-more"
+                    onClick={() => {
+                      setMenuUri(rec.uri);
+                      setSheet(VERSION_SHEET);
+                    }}
+                    aria-haspopup="dialog"
+                    aria-label={`More actions for ${versionLabel(v, r)}`}
                   >
-                    <Copy size={13} aria-hidden="true" /> Duplicate
+                    <MoreHorizontal size={16} aria-hidden="true" />
                   </button>
-                  <Link
-                    className="admin-link-subtle rs-version-raw"
-                    to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&r=${encodeURIComponent(r)}`}
-                    title="Open the raw record editor"
-                  >
-                    record
-                  </Link>
-                  {onRename && (
+                )}
+                <div className="rs-version-actions">
+                  {/* Two buttons and nothing else in this row: it is the same
+                      two on every version, so the column has one width and the
+                      pair share a left edge down the list. The text links used
+                      to sit beside them, and a private version has one fewer of
+                      them — which measured 48px, and moved every button on that
+                      row by all of it. */}
+                  <div className="rs-version-buttons">
+                    <Link
+                      className="admin-gate-button admin-gate-button-tight"
+                      to={`/admin?view=resume-tailor&r=${encodeURIComponent(r)}`}
+                    >
+                      <PenLine size={13} aria-hidden="true" /> Tailor
+                    </Link>
                     <button
                       type="button"
-                      className="admin-link-subtle rs-version-raw"
-                      onClick={() => onRename(rec)}
+                      className="admin-gate-button admin-gate-button-tight"
+                      onClick={() => openForm(rec.uri, 'duplicate')}
                       disabled={!!busy || !!renamingUri}
-                      title="Change this version's key + slug (/available URL)"
+                      title="Fork this version under a new slug"
                     >
-                      {renamingUri === rec.uri ? 'renaming…' : 'rename'}
+                      <Copy size={13} aria-hidden="true" /> Duplicate
                     </button>
-                  )}
-                  {vis !== 'private' && (
-                    <Link
-                      className="admin-link-subtle rs-version-raw"
-                      to={`/available/${encodeURIComponent(slug)}`}
-                      title="View on the site"
-                    >
-                      <ExternalLink size={12} aria-hidden="true" /> view
-                    </Link>
+                  </div>
+                  {!stacked && (
+                    <div className="rs-version-links">
+                      <Link
+                        className="admin-link-subtle rs-version-raw"
+                        to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&r=${encodeURIComponent(r)}`}
+                        title="Open the raw record editor"
+                      >
+                        record
+                      </Link>
+                      {onRename && (
+                        <button
+                          type="button"
+                          className="admin-link-subtle rs-version-raw"
+                          onClick={() => openForm(rec.uri, 'rename')}
+                          disabled={!!busy || !!renamingUri}
+                          title="Change this version's key + slug (/available URL)"
+                        >
+                          {renamingUri === rec.uri ? 'renaming…' : 'rename'}
+                        </button>
+                      )}
+                      {vis !== 'private' && (
+                        <Link
+                          className="admin-link-subtle rs-version-raw"
+                          to={`/available/${encodeURIComponent(slug)}`}
+                          title="View on the site"
+                        >
+                          <ExternalLink size={12} aria-hidden="true" /> view
+                        </Link>
+                      )}
+                    </div>
                   )}
                 </div>
+                {rowForm === 'rename' && onRename && (
+                  <KeyForm
+                    label="New record key"
+                    from={r}
+                    taken={takenKeys}
+                    sameKeyMessage="That is already this version's key."
+                    noteFor={(key) => renameNote(rec, key)}
+                    submitLabel="Rename"
+                    busy={renamingUri === rec.uri}
+                    onCancel={() => setForm(null)}
+                    onSubmit={(key) => {
+                      setForm(null);
+                      onRename(rec, key);
+                    }}
+                  />
+                )}
+                {rowForm === 'duplicate' && (
+                  <KeyForm
+                    label="Slug for the copy"
+                    from={duplicateSuggestion(rec)}
+                    taken={takenKeys}
+                    sameKeyMessage={null}
+                    noteFor={(key) =>
+                      `Copies this version to “${key}” — its record key and /available/${key} URL — private and not active, and opens it for tailoring.`
+                    }
+                    submitLabel="Duplicate"
+                    busy={busy === r}
+                    onCancel={() => setForm(null)}
+                    onSubmit={(key) => duplicate(rec, key)}
+                  />
+                )}
               </li>
             );
           })}
         </ul>
       )}
+
+      {/* One sheet for whichever row asked, rather than one per row: the shell
+          keeps a single sheet open at a time and clears it on any subject
+          change, so the menu cannot outlive the list it describes. */}
+      <AdminSheet
+        open={sheet === VERSION_SHEET && !!menuRec}
+        onClose={closeMenu}
+        id="rs-version-sheet"
+        label={menuRec ? `Actions for ${menuName}` : 'Version actions'}
+      >
+        <p className="wb-sheet-heading">{menuName}</p>
+        <ul className="wb-sheet-list">
+          <li>
+            <Link
+              className="wb-sheet-row"
+              to={`/admin?c=${encodeURIComponent(COLLECTIONS.resume)}&r=${encodeURIComponent(
+                menuRec ? rkeyFromUri(menuRec.uri) : '',
+              )}`}
+              onClick={closeMenu}
+            >
+              <span className="wb-sheet-row-label">Open the raw record</span>
+            </Link>
+          </li>
+          {onRename && (
+            <li>
+              <button
+                type="button"
+                className="wb-sheet-row"
+                onClick={() => menuRec && openForm(menuRec.uri, 'rename')}
+              >
+                <span className="wb-sheet-row-label">Rename key and slug…</span>
+              </button>
+            </li>
+          )}
+          {menuRec && (menuRec.value?.visibility || 'private') !== 'private' && (
+            <li>
+              <Link
+                className="wb-sheet-row"
+                to={`/available/${encodeURIComponent(
+                  menuRec.value?.slug || rkeyFromUri(menuRec.uri),
+                )}`}
+                onClick={closeMenu}
+              >
+                <span className="wb-sheet-row-label">View on the site ↗</span>
+              </Link>
+            </li>
+          )}
+        </ul>
+      </AdminSheet>
       {/* "New version" used to sit in the studio's own toolbar, next to a back
           link the rail replaced. It belongs at the foot of the list it adds to
           anyway — exactly where Jobs and Education already put theirs. */}
@@ -403,7 +728,23 @@ function VersionsSection({
 /* Canonical record lists (jobs / education)                            */
 /* ------------------------------------------------------------------ */
 
-function RecordsSection({ heading, note, collection, records, labelFor, newLabel, onRename, renamingUri }) {
+function RecordsSection({
+  heading,
+  note,
+  collection,
+  records,
+  labelFor,
+  newLabel,
+  onRename,
+  renameNote,
+  renamingUri,
+}) {
+  const [formUri, setFormUri] = useState(null);
+  const takenKeys = useMemo(
+    () => new Set((records || []).map((r) => rkeyFromUri(r.uri))),
+    [records],
+  );
+
   return (
     <section className="admin-page-section rs-section">
       <h2 className="admin-collection-group-heading small-caps">{heading}</h2>
@@ -428,13 +769,27 @@ function RecordsSection({ heading, note, collection, records, labelFor, newLabel
                   to={`/admin?c=${encodeURIComponent(collection)}&r=${encodeURIComponent(r)}`}
                   className="admin-record-link"
                 >
-                  <code className="admin-record-rkey">{r}</code>
+                  {/* Name first, key underneath — the same order as the version
+                      rows above and as every row in the record list. This list
+                      used to lead with the rkey, so one studio drew three
+                      different row shapes. */}
                   <span className="admin-record-main">
                     <span className="admin-record-preview">{labelFor(v) || r}</span>
                     <span className="rs-record-counts">
-                      {highlights.length} bullet{highlights.length === 1 ? '' : 's'}
-                      {forks > 0 && ` · ${forks} fork${forks === 1 ? '' : 's'}`}
-                      {linkCount > 0 && ` · ${linkCount} link${linkCount === 1 ? '' : 's'}`}
+                      <code className="admin-record-rkey">{r}</code>
+                      <span>
+                        {highlights.length} bullet{highlights.length === 1 ? '' : 's'}
+                      </span>
+                      {forks > 0 && (
+                        <span>
+                          {forks} fork{forks === 1 ? '' : 's'}
+                        </span>
+                      )}
+                      {linkCount > 0 && (
+                        <span>
+                          {linkCount} link{linkCount === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </span>
                   </span>
                   {dates && <span className="admin-record-time small-caps">{dates}</span>}
@@ -443,12 +798,29 @@ function RecordsSection({ heading, note, collection, records, labelFor, newLabel
                   <button
                     type="button"
                     className="admin-link-subtle rs-rename"
-                    onClick={() => onRename(rec)}
+                    onClick={() => setFormUri((open) => (open === rec.uri ? null : rec.uri))}
                     disabled={!!renamingUri}
+                    aria-expanded={formUri === rec.uri}
                     title="Change this record's key (slug), updating every version that references it"
                   >
                     {renamingUri === rec.uri ? 'renaming…' : 'rename key'}
                   </button>
+                )}
+                {formUri === rec.uri && onRename && (
+                  <KeyForm
+                    label="New record key"
+                    from={r}
+                    taken={takenKeys}
+                    sameKeyMessage="That is already this record's key."
+                    noteFor={(key) => renameNote(rec, key)}
+                    submitLabel="Rename"
+                    busy={renamingUri === rec.uri}
+                    onCancel={() => setFormUri(null)}
+                    onSubmit={(key) => {
+                      setFormUri(null);
+                      onRename(rec, key);
+                    }}
+                  />
                 )}
               </li>
             );

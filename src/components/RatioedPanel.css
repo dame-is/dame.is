@@ -13,12 +13,25 @@
   line-height: 1;
   color: var(--ink);
 }
+/* ---- the microlabel voice -------------------------------------------
+   Every small label in this pane used to be a hard-coded rem value under the
+   shell's floor: 0.62rem (9.92px) on the figure captions and the two links,
+   0.58rem (9.28px) on the state chips and all 76 <dt>s, 0.68rem (10.88px) on
+   the values. Four sizes, three of them smaller than anything else in the
+   admin, which sets its small-caps voice at var(--text-xs) — 12px with 0.18em
+   tracking (.wb-rail-heading, .wb-top-mark-tag).
+
+   They are all `--text-xs` now, and the labels take the shell's treatment
+   (`font-variant: all-small-caps` on the sans, not `text-transform: uppercase`
+   on the mono) so they read as the same voice and not merely the same size.
+   The DATA — durations, counts, at-uris — stays mono, which is the house rule
+   these labels were on the wrong side of. */
 .ratioed-panel-label {
   display: block;
-  font-family: var(--mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
   color: var(--ink-muted);
   margin-top: 0.4rem;
 }
@@ -61,44 +74,80 @@
   color: var(--ink);
 }
 .ratioed-panel-state {
-  font-family: var(--mono);
-  font-size: 0.58rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
   color: var(--ink-faint);
   border: 1px solid currentColor;
   border-radius: 0;
-  padding: 0.05rem 0.35rem;
+  padding: 0.05rem 0.4rem;
 }
 .ratioed-panel-state.live { color: var(--accent); }
 .ratioed-panel-edit {
-  font-family: var(--mono);
-  font-size: 0.62rem;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
   margin-left: auto;
 }
 
 .ratioed-panel-kv {
   display: grid;
-  grid-template-columns: 5.5rem 1fr;
+  grid-template-columns: 6.5rem 1fr;
   gap: 0.15rem 0.9rem;
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: var(--text-xs);
   margin: 0;
 }
 .ratioed-panel-kv dt {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
   color: var(--ink-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  font-size: 0.58rem;
+  font-size: var(--text-xs);
   padding-top: 0.15rem;
 }
 .ratioed-panel-kv dd { margin: 0; color: var(--ink-soft); }
+
+/* The phone's per-card disclosure. A 44px summary row in the same small-caps
+   voice as the labels inside it, with the triangle the browser draws — a
+   `<details>` is the one collapsible that works with no state and no script,
+   and it is keyboard- and screen-reader-native. */
+.ratioed-panel-measure > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--wb-hit, 2.75rem);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.ratioed-panel-measure > summary:hover {
+  color: var(--ink);
+}
+/* `display: flex` on a <summary> suppresses the browser's own disclosure
+   triangle, so the row has to draw one or it reads as a heading rather than a
+   control. A glyph rather than a rotated box: everything here is square and a
+   transform would be the only animation on the surface. */
+.ratioed-panel-measure > summary::after {
+  content: '▸';
+  font-size: 0.9em;
+}
+.ratioed-panel-measure[open] > summary::after {
+  content: '▾';
+}
 .ratioed-panel-deleted { color: var(--tan); }
 .ratioed-panel-fresh { color: var(--accent); }
 
 .ratioed-panel-uri {
-  font-family: var(--mono);
-  font-size: 0.62rem;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
   margin: 0.5rem 0 0;
 }
 
@@ -109,6 +158,25 @@
 @container wbpane (max-width: 34rem) {
   .ratioed-panel-kv { grid-template-columns: 1fr; gap: 0 0; }
   .ratioed-panel-kv dd { margin-bottom: 0.35rem; }
+
+  /* The two per-piece links measured 57×11 and 43×16 at 390 — the smallest
+     interactive targets anywhere in the admin, nineteen and eight of them down
+     a 5,566px page. Painted to the 44px floor rather than grown with `.wb-hit`:
+     a pseudo-halo on "view the piece" would reach into the next panel's "edit
+     record" (the panels are 12px apart), which is the exact collision the
+     utility's own contract warns about for stacked siblings. `edit record`
+     keeps its `margin-left: auto` and simply becomes a taller cell in the
+     card's header row; `view the piece` becomes the card's footer row. */
+  .ratioed-panel-edit,
+  .ratioed-panel-uri a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--wb-hit, 2.75rem);
+  }
+  .ratioed-panel-uri {
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--rule-soft);
+  }
 }
 
 /* --- discovered pieces -------------------------------------------- */

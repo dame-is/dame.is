@@ -41,19 +41,55 @@
    step 2 of the grid algorithm — before the name and the url, which are
    auto-row — so it took column 1 and pushed the publication's name into the
    narrow `auto` track on the right, backwards from what every other admin row
-   does. Being definite in both axes places it first, and correctly. */
+   does. Being definite in both axes places it first, and correctly.
+
+   It sits on ROW ONE, not spanning both, and takes the row's `align-items:
+   baseline`. Spanning two rows with `align-self: center` floated the key
+   between the two lines of the left column — measured 9.6px below the title's
+   baseline and 16.2px above the URL's, i.e. aligned to nothing. The comparable
+   list one surface over (Site pages' `.admin-record-link`) shares its rkey and
+   title baseline exactly, and now so does this one. */
 .pub-list-rkey {
-  grid-row: 1 / span 2;
+  grid-row: 1;
   grid-column: 2;
-  align-self: center;
   color: var(--ink-faint);
 }
+/* `--code`, not `--mono-ui`: a publication's URL is an identifier you read
+   character by character, and `--mono-ui` folds to the SERIF under the site's
+   serif font mode — which put the mono rkey and the proportional URL on the
+   same row of the same card. */
 .pub-list-url {
   grid-column: 1;
-  font-family: var(--mono-ui);
+  font-family: var(--code);
   font-size: var(--text-xs);
   color: var(--ink-muted);
   word-break: break-all;
+}
+
+/* ---- the list's loading shape ---------------------------------------- */
+
+/* `.pub-skel-row` is `.pub-list-row`'s box: same border, same fill, same
+   padding, and the short bar on the RIGHT where the mono rkey lands. The
+   generic record-list skeleton stood here and was 35px, unframed, and mirrored
+   — the list gained 76px and two card frames when the data arrived. */
+.pub-skel-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--page-edge);
+  border: 1px solid var(--rule);
+}
+.pub-skel-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.pub-skel-rkey {
+  flex: none;
 }
 
 .pub-check {
@@ -86,6 +122,46 @@
   border: 1px solid var(--rule);
   background: none;
   cursor: pointer;
+}
+/* "Not set" drawn as not set. An <input type="color"> has no empty state, so an
+   absent channel used to render as a solid black square — indistinguishable
+   from a deliberate black, which is also the one value that would wreck a light
+   embed. The hatch is the same device `.nav-item.is-hidden` uses for "present
+   but not in play". */
+.pub-swatch-unset {
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  border: 1px dashed var(--rule);
+  border-radius: 0;
+  font-family: var(--sans);
+  font-size: 0.5rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--page),
+    var(--page) 4px,
+    var(--surface-raised) 4px,
+    var(--surface-raised) 5px
+  );
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.pub-swatch-unset:hover {
+  border-color: var(--accent-soft);
+  color: var(--ink-muted);
+}
+
+/* The one field Save refuses without, said in words under the box rather than
+   only in a refusal after the fact. */
+.pub-required {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+}
+.pub-required code {
+  font-size: 0.95em;
 }
 .pub-theme-preview {
   display: flex;
@@ -150,12 +226,19 @@
   font-size: var(--text-sm);
   color: var(--ink-soft);
 }
+/* Same 32px box as the `.admin-gate-button-tight` it sits beside. The native
+   select measured 27px against that button's 32px — a 5px mismatch between two
+   adjacent controls in one flex row, which reads as a mistake rather than as
+   hierarchy — and kept the UA's rounded chrome on a surface with no radius
+   anywhere else. */
 .pub-hour select {
+  min-block-size: 2rem;
   font-family: var(--mono-ui);
   font-size: var(--text-sm);
   color: var(--ink);
   background: var(--page);
   border: 1px solid var(--rule);
+  border-radius: 0;
   padding: var(--space-1) var(--space-2);
 }
 
@@ -208,10 +291,25 @@
 }
 .pub-uri-hint code { font-size: 0.95em; }
 
-/* The publication being edited, beside the way back to the list. It borrows the
-   admin's group-header vocabulary so it reads as a label for the form below
-   rather than as a second page title — the pane already has the one <h1> on
-   screen — and sits at the far end of the row, away from the back link. */
-.pub-editor-title {
-  margin-inline-start: auto;
+/* ---- touch ---------------------------------------------------------- */
+
+/* Under the workbench's stacked breakpoint. All painted, not haloed: these are
+   rows of siblings a few pixels apart, and two `.wb-hit` pseudo-boxes that
+   close overlap — the later sibling would take the tap.
+
+   The 34px colour swatches are the interesting case: they carry no label of
+   their own inside the box, so growing them to 44 costs nothing but room, and
+   four of them in a wrapping row is exactly where a thumb needs the margin. */
+@media (max-width: 60rem) {
+  .pub-check {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+  .pub-color input[type='color'],
+  .pub-swatch-unset {
+    inline-size: var(--wb-hit, 2.75rem);
+    block-size: var(--wb-hit, 2.75rem);
+  }
+  .pub-hour select {
+    min-block-size: var(--wb-hit, 2.75rem);
+  }
 }

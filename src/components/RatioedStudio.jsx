@@ -34,7 +34,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RichText } from '@atproto/api';
-import { Send, Lock, RefreshCw, ExternalLink, FileText, Radio } from 'lucide-react';
+import { Send, Lock, RefreshCw, ExternalLink, Radio } from 'lucide-react';
+import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
@@ -134,11 +135,33 @@ export default function RatioedStudio({ agent, did }) {
   // stopped itself.
   const [streamRun, setStreamRun] = useState(0);
 
+  // How long the studio will wait on plc.directory before painting from what it
+  // already has. `resolvePds` is an un-timed fetch of a third-party directory:
+  // measured here, one run answered in 8.0s and another in 24–28s, and for the
+  // whole of that the series section was a single 12px line of grey text with
+  // no progress, no error and no retry — while the seed measurements that
+  // eventually painted it were in the bundle the entire time. Five seconds is
+  // about twice a healthy PLC read and well under a wait anyone will sit out.
+  const PDS_DEADLINE_MS = 5000;
+  const [pdsSlow, setPdsSlow] = useState(false);
+
   const refresh = useCallback(async () => {
     setError(null);
+    setPdsSlow(false);
     try {
-      const pds = await resolvePds(did).catch(() => null);
-      setPieces(await loadPieces(pds));
+      // A deadline rather than an AbortSignal: `resolvePds` takes a DID and
+      // nothing else (lib/atproto.js), and racing it here needs no change to a
+      // module five other surfaces share. Losing the race is not an error —
+      // `loadPieces(null)` falls back to the snapshot and then to SEED_PIECES,
+      // which is a complete, correct series minus anything published since.
+      const pds = await Promise.race([
+        resolvePds(did).catch(() => null),
+        new Promise((resolve) => {
+          setTimeout(() => resolve(undefined), PDS_DEADLINE_MS);
+        }),
+      ]);
+      if (pds === undefined) setPdsSlow(true);
+      setPieces(await loadPieces(pds || null));
     } catch (err) {
       setError(err?.message || String(err));
       setPieces([]);
@@ -597,8 +620,27 @@ export default function RatioedStudio({ agent, did }) {
       {error && <p className="admin-error">{error}</p>}
       {note && <p className="admin-field-hint">{note}</p>}
 
+      {/* Said once the wait is over, not during it: the series below is the
+          bundled measurement, which is right for every sealed piece and stale
+          only for one published in the last few minutes. Retry re-runs the same
+          read rather than reloading the page. */}
+      {pdsSlow && pieces !== null && (
+        <div className="rs-degraded">
+          <p className="admin-field-hint">
+            The PLC directory didn’t answer in {PDS_DEADLINE_MS / 1000}s, so this is the bundled
+            series rather than a fresh read of the PDS.
+          </p>
+          <button type="button" className="admin-link-subtle" onClick={refresh}>
+            try again
+          </button>
+        </div>
+      )}
+
       {pieces === null ? (
-        <p className="admin-field-hint">Reading the series…</p>
+        /* The same skeleton the catalogue draws for the same wait — a shape
+           where the series is about to be, rather than one line of grey text
+           that reads as the finished answer. */
+        <AdminRecordListSkeleton rows={4} label="Reading the series" />
       ) : live ? (
         <section
           className={`rs-live${justSealed ? '' : seenLike ? ' liked' : withdrawn ? ' withdrawn' : ''}`}
@@ -814,9 +856,10 @@ export default function RatioedStudio({ agent, did }) {
 
       {!live && (
         <section className="rs-template">
-          <h2 className="rs-h2">
-            <FileText size={15} aria-hidden="true" /> The template
-          </h2>
+          {/* No glyph. Its two siblings — "Take 12" and "The series" — are the
+              same `.rs-h2` with none, and one iconised heading in three reads as
+              an accident rather than a system. */}
+          <h2 className="rs-h2">The template</h2>
           {tplDraft === null ? (
             <>
               <p className="admin-field-hint">
@@ -894,8 +937,11 @@ export default function RatioedStudio({ agent, did }) {
               </li>
             ))}
         </ul>
+        {/* Both links lowercase. They are one caption, and "The essay · the
+            full catalogue" set one of them as a title and the other as a
+            phrase. */}
         <p className="admin-field-hint">
-          <Link to={`/creating/${RATIOED_PATH}`}>The essay</Link> ·{' '}
+          <Link to={`/creating/${RATIOED_PATH}`}>the essay</Link> ·{' '}
           {/* An ordinary <Link>: it is a whole-query replacement rather than a
               merge, so it cannot leave a stale `c` or `r` behind, and this
               studio never holds an unsaved edit for the shell's `go` guard to
