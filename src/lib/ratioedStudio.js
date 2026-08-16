@@ -12,9 +12,9 @@
 // function that sealed on its own would replace that with a polling interval
 // and quietly end the thing being measured.
 
-import { RATIOED_PATH } from '../config.js';
+import { COLLECTIONS, RATIOED_PATH } from '../config.js';
 import { fmtDuration } from './ratioed.js';
-import { isPiecePost, takeFromText } from './ratioedDiscovery.js';
+import { anchorsFromTemplate, isPiecePost, takeFromText } from './ratioedDiscovery.js';
 
 /**
  * The template's placeholders. `{take}` is the number as written in the post
@@ -38,15 +38,22 @@ export function fillTemplate(text, take, { origin = 'dame.is' } = {}) {
  * same two functions the discovery scan uses — so this can never drift from
  * what the scan actually accepts.
  *
+ * The scan now reads this same record and matches on the template's own lines,
+ * so rewording the copy no longer needs a code change. That covers a piece
+ * posted from the template as it stands; a piece posted from a template that
+ * has since been rewritten twice over has only the take line and the link left
+ * to be found by, which is why those two are still required here rather than
+ * merely encouraged.
+ *
  * Returns a list of problems; empty means good.
  */
 export function templateProblems(text, take = 99) {
   const filled = fillTemplate(text, take);
   const out = [];
   if (!filled.trim()) out.push('The template is empty.');
-  if (!isPiecePost({ text: filled })) {
+  if (!isPiecePost({ text: filled }, anchorsFromTemplate(text))) {
     out.push(
-      'The scan wouldn’t recognise this as a piece. It needs to say either “social art project” or “this post is the project”.',
+      'The scan wouldn’t recognise this as a piece. Keep the take line and {link}, or a line of at least 24 characters that every piece will carry.',
     );
   }
   if (takeFromText(filled) !== take) {
@@ -59,23 +66,46 @@ export function templateProblems(text, take = 99) {
 }
 
 /**
- * The standing text, as take #13 last worded it, with the placeholders still
- * in. This is the shape that gets stored on the PDS and edited in the studio;
- * it's the fallback when no record has been written yet.
+ * The standing text with the placeholders still in. This is the shape that gets
+ * stored on the PDS and edited in the studio; it's the fallback when no record
+ * has been written yet, which is also the state the site starts in — so this
+ * tracks the current wording rather than freezing an old one.
  */
 export const DEFAULT_TEMPLATE = [
   'i would like your help with a social art project',
   '',
   'this post is the project',
   '',
-  'the goal of this post is for it to receive ZERO likes… only replies, reposts, or quotes allowed',
+  'the goal is for this post to receive ZERO likes… only replies, reposts, or quotes',
   '',
-  'once it is liked, replies are immediately disabled, thereby sealing & finishing it',
+  "once it's liked, replies are immediately disabled, thereby finishing the piece",
   '',
   'this is take #{take}',
   '',
   '{link}',
 ].join('\n');
+
+/**
+ * The standing text as stored on the PDS, falling back to the default when no
+ * record has been written yet.
+ *
+ * Never throws. Both callers are reading it to do something else — compose a
+ * piece, scan for one — and neither should stop because the template couldn't
+ * be fetched; the wording the code already knows is a good enough answer for
+ * both.
+ */
+export async function loadTemplate(agent, did) {
+  try {
+    const res = await agent.com.atproto.repo.getRecord({
+      repo: did,
+      collection: COLLECTIONS.ratioedTemplate,
+      rkey: 'self',
+    });
+    return res?.data?.value?.text || DEFAULT_TEMPLATE;
+  } catch {
+    return DEFAULT_TEMPLATE;
+  }
+}
 
 /** The default template with a take number in it. */
 export function pieceTemplate(take, opts) {

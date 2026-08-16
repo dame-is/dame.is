@@ -15,6 +15,7 @@ import PEOPLE from '../data/ratioedPeople.json';
 import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from './constellation.js';
 import { ME_DID, COLLECTIONS, RATIOED_PATH } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
+import { witnessFromRecord } from './ratioedLive.js';
 import { fetchSnapshot } from './snapshot.js';
 
 /** Link sources that count as engagement, mapped to our bucket names. */
@@ -377,6 +378,25 @@ export function finished(pieces) {
 }
 
 /**
+ * The piece that stood the longest — the record a live one is running at.
+ *
+ * Finished pieces only, which is not a technicality: a piece that is up right
+ * now has no lifespan, and the record it is chasing has to be a number that
+ * already happened. A tie keeps the first one in the list, which every caller
+ * hands in take order — so the piece that got there first keeps the record,
+ * which is what a record means. Null before anything has ended, which was true
+ * exactly once.
+ */
+export function longestPiece(pieces) {
+  let best = null;
+  for (const p of finished(pieces)) {
+    if (!(p.lifespanMs > 0)) continue;
+    if (!best || p.lifespanMs > best.lifespanMs) best = p;
+  }
+  return best;
+}
+
+/**
  * Normalize a PDS record into the shape the charts consume. Tolerates missing
  * sub-objects so a hand-edited record can't crash the renderer.
  */
@@ -393,10 +413,23 @@ export function normalizePiece(rkey, value) {
     breaker: value.breaker || { handle: 'unknown', likeSurvives: false },
     preSeal: { ...EMPTY, ...(value.preSeal || {}) },
     postSeal: { ...EMPTY, ...(value.postSeal || {}) },
+    // Authored opening paragraph, when dame has written one. Empty means the
+    // page generates its own from the figures, which is always true but never
+    // says anything the numbers don't.
+    lede: value.lede || '',
     statedTally: value.statedTally || '',
     measuredAt: value.measuredAt || '',
+    // Absent on any piece measured before audiences were recorded, and later
+    // than measuredAt on the ones that were backfilled. Either way the reach
+    // section reads it before claiming a figure is current.
+    audienceAt: value.audienceAt || '',
     source: value.source || '',
     events: eventsFromRecord(value.events),
+    // What was watched happening, as opposed to what was measured afterwards.
+    // Kept in milliseconds, unlike `events`, because the live panels it feeds
+    // are working in the same units the stream reports.
+    witnessed: witnessFromRecord(value.witnessed),
+    witnessFromMs: typeof value.witnessFromMs === 'number' ? value.witnessFromMs : null,
   };
 }
 
@@ -419,6 +452,11 @@ function eventsFromRecord(events) {
       pre: e.pre ? 1 : 0,
       ...(e.self ? { self: 1 } : {}),
       ...(e.t ? { t: e.t } : {}),
+      // The audience this account carried the piece to, as of audienceAt.
+      // Passed through untouched — `ratioedReach` distinguishes an absent
+      // figure from a zero one, so neither can be defaulted here.
+      ...(typeof e.fr === 'number' ? { fr: e.fr } : {}),
+      ...(typeof e.fo === 'number' ? { fo: e.fo } : {}),
     }))
     .sort((a, b) => a.off - b.off);
 }
@@ -586,6 +624,24 @@ export function fmtDuration(ms) {
 export function fmtSeconds(ms) {
   if (typeof ms !== 'number') return '—';
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/**
+ * A running stopwatch: `4.28s`, `1m07.42s`.
+ *
+ * Two decimals rather than one, unlike every other duration here, because this
+ * is the only one being read while it moves. The project's whole finding lives
+ * between 10 and 17 seconds; a number that ticks in whole seconds while you
+ * decide whether to press a button is not showing you the thing you are
+ * deciding about. Minutes appear only when they exist — a reaction time that
+ * needs them is a story about something else.
+ */
+export function fmtStopwatch(ms, decimals = 2) {
+  const sec = Math.max(0, (ms || 0) / 1000);
+  if (sec < 60) return `${sec.toFixed(decimals)}s`;
+  const m = Math.floor(sec / 60);
+  const rest = (sec - m * 60).toFixed(decimals).padStart(decimals + 3, '0');
+  return `${m}m${rest}s`;
 }
 
 /** Afterlife offsets span seconds to years, so the unit has to float. */

@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "One piece of the Ratioed art project: a Bluesky post that was sealed with a threadgate the moment it received a like. The record is a dated measurement, not a live view — six of the thirteen breaking likes were deleted by the people who cast them and cannot be recovered from any index. The record key mirrors the subject post's record key, the same convention app.bsky.feed.threadgate uses. A record written the moment the post goes up, before anyone has liked it, carries only take, subject and postedAt: the piece is alive, nothing has been measured yet, and the absence of sealedAt is what says so. Every other figure arrives when it is sealed.",
+      "description": "One piece of the Ratioed art project: a Bluesky post that was sealed with a threadgate the moment it received a like. The record is a dated measurement, not a live view — six of the thirteen breaking likes were deleted by the people who cast them and cannot be recovered from any index. The record key mirrors the subject post's record key, the same convention app.bsky.feed.threadgate uses. A record written the moment the post goes up, before anyone has liked it, carries only take, subject and postedAt: the piece is alive, nothing has been measured yet, and the absence of sealedAt is what says so. One field does fill in while it runs — `witnessed`, the log the studio writes as it watches, which is what lets the piece's own page be a live view of itself and is the only account that will exist of a like cast and taken back. Every measured figure arrives when it is sealed.",
       "key": "any",
       "record": {
         "type": "object",
@@ -65,6 +65,25 @@
             "maxLength": 2000,
             "description": "Every backlinking record, individually, so the piece can be drawn as a lifeline and not merely counted. Absent on the first eleven pieces, whose log was harvested offline before this field existed; the site falls back to that log for them."
           },
+          "witnessed": {
+            "type": "array",
+            "items": {
+              "type": "ref",
+              "ref": "#witness"
+            },
+            "maxLength": 1000,
+            "description": "What was watched arriving while the piece was still up, written as it happened rather than read back afterwards. Distinct from `events`, which is measured from a backlink index once the piece is over and therefore holds only what still exists: this holds what existed at the time, deletions and all. Present on pieces run through the studio with the stream open; absent otherwise, which is not evidence that nothing happened."
+          },
+          "witnessFromMs": {
+            "type": "integer",
+            "description": "Milliseconds after postedAt at which watching began. Everything before it is unwitnessed rather than empty — the studio can be opened on a piece that is already running, and the difference matters when reading the log for what is absent from it."
+          },
+          "lede": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "The opening paragraph of the piece's page, when the artist has written one. Absent means the page composes its own sentence from the measured figures — always true, and never able to say anything the numbers do not. Prose, not markup: it is rendered as a single paragraph.",
+            "maxGraphemes": 1000
+          },
           "statedTally": {
             "type": "string",
             "maxLength": 300,
@@ -74,6 +93,11 @@
             "type": "string",
             "format": "datetime",
             "description": "When these figures were taken. Post-seal counts are only true as of this moment. Absent while the piece is still alive."
+          },
+          "audienceAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the follower counts on the event log were read. Usually the same moment as measuredAt; later on the pieces whose audiences were backfilled long after they ran, which is the case a reader has to be able to tell apart. Absent when no event carries an audience at all."
           },
           "source": {
             "type": "string",
@@ -107,11 +131,15 @@
         },
         "likeSurvives": {
           "type": "boolean",
-          "description": "False when the like was deleted afterwards. The like is then unrecoverable and reactionMs is absent — the only evidence it existed is the threadgate firing with no visible cause."
+          "description": "False when the like was deleted afterwards. The only evidence it existed is then the threadgate firing with no visible cause, plus the reply naming who cast it. reactionMs is normally absent in that case — unless it was recovered, see reactionRecovered."
         },
         "reactionMs": {
           "type": "integer",
-          "description": "Milliseconds between the breaking like and the threadgate: how long the artist took to notice and close the piece by hand. Absent when the like was deleted."
+          "description": "Milliseconds between the breaking like and the threadgate: how long the artist took to notice and close the piece by hand. Absent when the like was deleted before anything read it, and present with likeSurvives false when it was recovered from the firehose replay afterwards."
+        },
+        "reactionRecovered": {
+          "type": "boolean",
+          "description": "True when reactionMs was recovered by replaying Jetstream's lookback window rather than read from a like that still exists. The like is gone either way; this says the timing is not. Only possible within 36 hours of the seal, which is how long that replay reaches back."
         }
       }
     },
@@ -135,6 +163,52 @@
         "participants": {
           "type": "integer",
           "description": "Distinct accounts, counted by DID."
+        }
+      }
+    },
+    "witness": {
+      "type": "object",
+      "description": "One record seen landing on the piece while it was still alive, timed by the same clock as everything else here — the record key's TID, not the relay's envelope. The one exception is goneMs, which describes a deletion, and a deletion writes no record to read a TID off.",
+      "required": [
+        "k",
+        "offMs"
+      ],
+      "properties": {
+        "k": {
+          "type": "string",
+          "knownValues": [
+            "like",
+            "repost",
+            "quote",
+            "reply"
+          ]
+        },
+        "offMs": {
+          "type": "integer",
+          "description": "Milliseconds after postedAt."
+        },
+        "rkey": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "The record's own key, kept because it is the only thing that identifies a record that no longer exists."
+        },
+        "did": {
+          "type": "string",
+          "format": "did"
+        },
+        "h": {
+          "type": "string",
+          "maxLength": 253,
+          "description": "The author's handle as it resolved while the piece was running."
+        },
+        "goneMs": {
+          "type": "integer",
+          "description": "Present when the record was deleted while the piece was still being watched: milliseconds after postedAt at which the deletion came through. A like that carries this is a like somebody cast and took back, which is the project's own subject matter and the one thing no index can be asked about afterwards."
+        },
+        "t": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "The post's text, when it carried any."
         }
       }
     },
@@ -182,6 +256,16 @@
           "type": "string",
           "maxLength": 3000,
           "description": "The post's text, when it was captured. Shown on hover; absent entries simply show less."
+        },
+        "fr": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many followers this account had when the piece was measured — the audience a repost or a quote carried the piece to. Recorded rather than read live because it is the most volatile figure on the record: engagement only moves when somebody acts, a follower count drifts on its own every day, and a reach computed at render time would never twice be the same number. Absent when the account resolved to no profile, which is not the same as an account nobody follows."
+        },
+        "fo": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many accounts this one followed at the same moment. Kept beside fr because the ratio between them says what kind of audience it is: well above 1 is an audience that chose to listen, well below 1 is mostly follow-back. Absent under the same conditions as fr."
         }
       }
     }

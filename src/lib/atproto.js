@@ -173,12 +173,18 @@ export async function resolveHandles(dids, opts) {
 
 /**
  * The same call, keeping the parts a face needs: `{ did: { handle,
- * displayName, avatar } }`. `resolveHandles` is the thin wrapper over this for
- * the callers that only want names.
+ * displayName, avatar, followers, follows } }`. `resolveHandles` is the thin
+ * wrapper over this for the callers that only want names.
  *
  * A DID that resolves to nothing is simply absent — a deactivated account and
  * an account we failed to reach look the same from here, and neither should be
  * invented.
+ *
+ * The two counts are here for Ratioed, which stamps them onto an event log at
+ * measurement time to size the audience each participant carried a piece to.
+ * They are numbers or they are undefined: an account whose profile omits them
+ * has not been measured, and recording that as zero would read as an account
+ * nobody follows.
  */
 export async function resolveProfiles(dids, { appview = APPVIEW } = {}) {
   const unique = Array.from(new Set((dids || []).filter(Boolean)));
@@ -194,6 +200,8 @@ export async function resolveProfiles(dids, { appview = APPVIEW } = {}) {
           handle: p.handle || '',
           displayName: p.displayName || '',
           avatar: p.avatar || '',
+          ...(typeof p.followersCount === 'number' ? { followers: p.followersCount } : {}),
+          ...(typeof p.followsCount === 'number' ? { follows: p.followsCount } : {}),
         };
       }
     } catch {
@@ -216,6 +224,39 @@ export async function getLikes(uri, { appview = APPVIEW, limit = 25 } = {}) {
   const params = new URLSearchParams({ uri, limit: String(limit) });
   // No HTTP cache: a stale answer here is a piece left standing.
   return fetchJson(`${appview}/xrpc/app.bsky.feed.getLikes?${params}`, { cache: 'no-store' });
+}
+
+/**
+ * AppView — `app.bsky.feed.getPosts`. Up to 25 posts by AT URI, keyed by URI.
+ *
+ * Exists for the CID, which is the one thing you cannot construct: liking or
+ * replying to a post needs a strong ref, and a stream event carries a record
+ * key and no hash. Also hands back the handle and the text, which is why a
+ * caller with a bare DID gets a readable row out of the same round trip.
+ *
+ * A post written seconds ago may not be in the AppView yet — the stream is
+ * faster than the index it beats, which is the entire point of the stream — so
+ * a caller that must have the ref falls back to reading the record from the
+ * author's PDS.
+ */
+export async function getPosts(uris, { appview = APPVIEW } = {}) {
+  const list = Array.from(new Set((uris || []).filter(Boolean))).slice(0, 25);
+  if (!list.length) return {};
+  const params = new URLSearchParams();
+  for (const uri of list) params.append('uris', uri);
+  const res = await fetchJson(`${appview}/xrpc/app.bsky.feed.getPosts?${params}`, {
+    cache: 'no-store',
+  });
+  const out = {};
+  for (const p of res?.posts || []) {
+    if (!p?.uri || !p?.cid) continue;
+    out[p.uri] = {
+      cid: p.cid,
+      handle: p.author?.handle || '',
+      text: typeof p.record?.text === 'string' ? p.record.text : '',
+    };
+  }
+  return out;
 }
 
 /**

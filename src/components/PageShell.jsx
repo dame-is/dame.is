@@ -15,6 +15,7 @@ import { useEditMode } from '../hooks/useEditMode.jsx';
 export default function PageShell({
   title,
   intro,
+  above,
   atUri,
   cid,
   children,
@@ -34,6 +35,10 @@ export default function PageShell({
   return (
     <article className="page">
       <AtUriHead atUri={atUri} cid={cid} title={headTitle} />
+      {/* Anything that belongs before the title rather than inside the page:
+          a breadcrumb up to the parent, chiefly. A page whose title is not the
+          first thing a reader meets is the exception, so this stays opt-in. */}
+      {above}
       {title && (
         <h1 className="page-title">
           {title}

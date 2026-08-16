@@ -30,7 +30,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Upload, Trash2, ExternalLink, ListPlus, Search } from 'lucide-react';
+import { RefreshCw, Upload, Trash2, ExternalLink, ListPlus, Search, Users } from 'lucide-react';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { COLLECTIONS, RATIOED_DOC_RKEY, RATIOED_SOURCE, ME_DID } from '../config.js';
@@ -42,13 +42,15 @@ import {
   fmtSeconds,
 } from '../lib/ratioed.js';
 import {
+  anchorsFromTemplate,
   findPieces,
   isAnnouncement,
   measureWindows,
   buildEventLog,
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
-import { resolveHandles } from '../lib/atproto.js';
+import { loadTemplate } from '../lib/ratioedStudio.js';
+import { resolveProfiles } from '../lib/atproto.js';
 import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
 
@@ -211,6 +213,15 @@ export default function RatioedPanel({ agent, did }) {
     .filter(([, v]) => !v?.events?.length || !v.events.some((e) => e.did))
     .map(([rkey, v]) => ({ rkey, value: v }));
 
+  // Pieces whose event log has no follower counts on it. Everything measured
+  // before the reach score existed is in here, and so is anything measured by
+  // an older build — the audiences for those are currently joined on from the
+  // shared table at render, which is a fallback, not a record.
+  const missingAudience = Object.entries(live)
+    .filter(([, v]) => v?.sealedAt && v?.events?.length)
+    .filter(([, v]) => !v.events.some((e) => typeof e.fr === 'number'))
+    .map(([rkey, v]) => ({ rkey, value: v }));
+
   /** Write every piece with putRecord — deterministic rkeys, so re-running
    *  updates in place instead of duplicating. */
   async function publishAll() {
@@ -313,7 +324,10 @@ export default function RatioedPanel({ agent, did }) {
       setProgress('Reading posts and threadgates…');
       const read = { posts: 0, gates: 0 };
       const tick = () => setProgress(`Read ${read.posts} posts, ${read.gates} threadgates…`);
-      const [postPage, gatePage] = await Promise.all([
+      // The template rides along because it is what the scan matches posts
+      // against: reading it here is what lets the copy be reworded in the
+      // studio without this scan needing to be taught the new wording.
+      const [postPage, gatePage, template] = await Promise.all([
         listPaged(agent, did, 'app.bsky.feed.post', (n) => {
           read.posts = n;
           tick();
@@ -322,6 +336,7 @@ export default function RatioedPanel({ agent, did }) {
           read.gates = n;
           tick();
         }),
+        loadTemplate(agent, did),
       ]);
       const posts = postPage.records;
       const gates = gatePage.records;
@@ -335,7 +350,9 @@ export default function RatioedPanel({ agent, did }) {
           .filter(([, v]) => v?.sealedAt)
           .map(([rkey]) => rkey),
       );
-      const candidates = findPieces(posts, gates, known).filter((p) => !p.known);
+      const candidates = findPieces(posts, gates, known, anchorsFromTemplate(template)).filter(
+        (p) => !p.known,
+      );
       if (!candidates.length) {
         setFound([]);
         setProgress('');
@@ -350,15 +367,17 @@ export default function RatioedPanel({ agent, did }) {
         const subject = `at://${did}/app.bsky.feed.post/${piece.rkey}`;
         const records = await fetchPieceRecords(subject);
         const windows = measureWindows(records, Date.parse(piece.sealedAt), did);
-        // Handles are resolved now, while the accounts still exist — the same
-        // reason the counts are recorded rather than re-queried.
-        setProgress(`Resolving handles ${n}/${candidates.length} — ${piece.rkey}`);
-        const handles = await resolveHandles(records.map((r) => r.did));
+        // Profiles are resolved now, while the accounts still exist — the same
+        // reason the counts are recorded rather than re-queried. The follower
+        // counts that ride along are the most perishable part of it: they are
+        // already drifting, and this is the earliest anyone can read them.
+        setProgress(`Resolving profiles ${n}/${candidates.length} — ${piece.rkey}`);
+        const profiles = await resolveProfiles(records.map((r) => r.did));
         const events = buildEventLog(records, {
           postedAtMs: Date.parse(piece.postedAt),
           sealedAtMs: Date.parse(piece.sealedAt),
           selfDid: did,
-          handles,
+          profiles,
         });
         // The concluding reply names the breaker; it's one of dame's own posts
         // replying to this piece.
@@ -442,14 +461,16 @@ export default function RatioedPanel({ agent, did }) {
         if (!records.length) continue;
         const sealedMs = Date.parse(value.sealedAt);
         const windows = measureWindows(records, sealedMs, did);
-        const handles = await resolveHandles(records.map((r) => r.did));
+        const profiles = await resolveProfiles(records.map((r) => r.did));
         const events = buildEventLog(records, {
           postedAtMs: Date.parse(value.postedAt),
           sealedAtMs: sealedMs,
           selfDid: did,
-          handles,
+          profiles,
         });
         const likeSurvives = Boolean(windows.breakingLike);
+        const remeasuredAt = new Date().toISOString();
+        const hasAudience = events.some((e) => typeof e.fr === 'number');
         // The breaker's handle came from the announcement reply and is still
         // good; only whether their like is still standing was wrong. Rebuilt
         // field by field so a stale reactionMs can't survive a "deleted"
@@ -471,11 +492,88 @@ export default function RatioedPanel({ agent, did }) {
             preSeal: windows.preSeal,
             postSeal: windows.postSeal,
             events,
-            measuredAt: new Date().toISOString(),
+            measuredAt: remeasuredAt,
+            ...(hasAudience ? { audienceAt: remeasuredAt } : {}),
           },
         });
       }
       setProgress('');
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Write follower counts onto the event logs of pieces measured before the
+   * reach score existed.
+   *
+   * The audiences for those pieces are currently joined on from a shared,
+   * dated table at render time. That works, but it is a fallback: the table is
+   * one snapshot for the whole project, it is regenerated by a script nobody
+   * runs on a schedule, and an account it can't resolve is missing from every
+   * piece at once. A count on the record is the piece's own measurement, kept
+   * with the log it belongs to.
+   *
+   * Only the audience is touched. Engagement, the breaking like, the reaction
+   * time and the log itself are left exactly as measured — this reads profiles,
+   * not backlinks, so there is nothing here that could overwrite a figure with
+   * a fresher and worse one. `audienceAt` is stamped with today, which is the
+   * honest date for a follower count read today, however old the piece is.
+   */
+  async function backfillAudience() {
+    if (!missingAudience.length) return;
+    if (
+      !window.confirm(
+        `Read follower counts for ${missingAudience.length} piece(s)?\n\n` +
+          'Writes an audience onto each event log so the reach score comes ' +
+          'from the record instead of the shared table. Engagement figures ' +
+          'and reaction times are not touched.',
+      )
+    ) {
+      return;
+    }
+    setBusy('audience');
+    setError(null);
+    try {
+      let n = 0;
+      let stamped = 0;
+      for (const { rkey, value } of missingAudience) {
+        n += 1;
+        setProgress(`Reading audiences ${n}/${missingAudience.length} — take ${value.take}`);
+        const dids = value.events.map((e) => e.did).filter(Boolean);
+        if (!dids.length) continue;
+        const profiles = await resolveProfiles(dids);
+        const events = value.events.map((e) => {
+          const p = e.did ? profiles[e.did] : null;
+          if (typeof p?.followers !== 'number') return e;
+          return {
+            ...e,
+            fr: p.followers,
+            ...(typeof p.follows === 'number' ? { fo: p.follows } : {}),
+          };
+        });
+        // Nobody resolved: the accounts are gone, and writing the record again
+        // would only move audienceAt onto a log that still has no audience.
+        if (!events.some((e) => typeof e.fr === 'number')) continue;
+        const audienceAt = new Date().toISOString();
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: NSID,
+          rkey,
+          record: { $type: NSID, ...value, events, audienceAt },
+        });
+        stamped += 1;
+      }
+      // Left on screen rather than cleared: the interesting outcome is the
+      // gap between what was asked for and what answered.
+      setProgress(
+        stamped === missingAudience.length
+          ? `Audiences written to ${stamped} piece(s).`
+          : `Audiences written to ${stamped} of ${missingAudience.length}; the rest resolved to nobody.`,
+      );
       await refresh();
     } catch (err) {
       setError(err?.message || String(err));
@@ -548,6 +646,20 @@ export default function RatioedPanel({ agent, did }) {
           >
             <ListPlus size={14} aria-hidden="true" />
             {busy === 'repair' ? 'Re-measuring…' : `Re-measure scanned (${missingLogs.length})`}
+          </button>
+        )}
+        {missingAudience.length > 0 && (
+          <button
+            type="button"
+            className="admin-gate-button"
+            onClick={backfillAudience}
+            disabled={!!busy}
+            title="These pieces were measured before follower counts were recorded, so their reach is joined on from the shared audience table. Reads each participant's followers now and writes them onto the piece's own event log. Engagement figures and reaction times are not touched."
+          >
+            <Users size={14} aria-hidden="true" />
+            {busy === 'audience'
+              ? 'Reading audiences…'
+              : `Backfill audiences (${missingAudience.length})`}
           </button>
         )}
         {publishedCount > 0 && (

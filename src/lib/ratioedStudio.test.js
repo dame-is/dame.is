@@ -10,7 +10,12 @@ import {
   fillTemplate,
   DEFAULT_TEMPLATE,
 } from './ratioedStudio.js';
-import { breakerFromAnnouncement, takeFromText, isPiecePost } from './ratioedDiscovery.js';
+import {
+  anchorsFromTemplate,
+  breakerFromAnnouncement,
+  takeFromText,
+  isPiecePost,
+} from './ratioedDiscovery.js';
 
 describe('nextTake', () => {
   it('counts off the highest take, not the number of pieces', () => {
@@ -144,11 +149,22 @@ describe('templateProblems', () => {
     expect(templateProblems(DEFAULT_TEMPLATE, 14)).toEqual([]);
   });
 
-  // The exact drift that lost take #13: the wording changed and the scan
-  // stopped recognising it. A template editor that can't catch this is worse
-  // than no template editor.
-  it('catches wording the discovery scan would not recognise', () => {
-    const problems = templateProblems('here is a post about nothing\n\nthis is take #{take}\n\n{link}', 14);
+  // The drift that lost take #13 is no longer a matter of guessing the phrase
+  // the scan was taught: the scan reads the wording off this same record. So a
+  // rewrite nobody has seen before is allowed through — and is findable, which
+  // is the half that matters.
+  it('accepts a rewording, and the scan finds what that rewording produces', () => {
+    const reworded = ['here is a post about nothing', '', 'this is take #{take}', '', '{link}'].join(
+      '\n',
+    );
+    expect(templateProblems(reworded, 14)).toEqual([]);
+    expect(
+      isPiecePost({ text: fillTemplate(reworded, 14) }, anchorsFromTemplate(reworded)),
+    ).toBe(true);
+  });
+
+  it('still catches a template with nothing the scan could match', () => {
+    const problems = templateProblems('hi\n\nbye', 14);
     expect(problems.some((p) => p.includes('recognise'))).toBe(true);
   });
 

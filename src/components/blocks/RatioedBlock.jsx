@@ -20,6 +20,7 @@ import {
   fmtSeconds,
   fmtElapsed,
 } from '../../lib/ratioed.js';
+import { pieceReach, projectReach, applyAudience, fmtReach } from '../../lib/ratioedReach.js';
 import { resolvePds } from '../../lib/atproto.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
 import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
@@ -31,7 +32,10 @@ const KINDS = ['reply', 'repost', 'quote', 'like'];
 // Variants that need the per-record event log — a separate ~27kB chunk, so the
 // ones that only read counts never pay for it. Participants is here because a
 // person's role turns on WHEN they acted, which only the log knows.
-const EVENT_VARIANTS = new Set(['lifelines', 'hidden', 'participants']);
+const EVENT_VARIANTS = new Set(['lifelines', 'hidden', 'participants', 'reach']);
+// Variants that also need the dated audience table, which is what gives the
+// pieces measured before follower counts were recorded a reach at all.
+const AUDIENCE_VARIANTS = new Set(['reach', 'participants']);
 const KIND_LABEL = { reply: 'reply', repost: 'repost', quote: 'quote', like: 'like' };
 const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
 
@@ -60,26 +64,41 @@ function reactionBand(pieces) {
  * What each chart says about itself when the block carries no caption of its
  * own. Functions rather than strings so a default can quote the data it is
  * describing; an authored caption replaces the whole thing.
+ *
+ * A caption is a label, not an essay. Two sentences is the ceiling: one for
+ * what the marks are, one for the thing a reader would otherwise get wrong.
+ * Everything else these used to carry — how roles are ranked, why the count is
+ * by DID, what a hatched bar stands in for — is either visible in the chart or
+ * belongs in the prose around it, and putting it here made a legend into a
+ * paragraph nobody finished.
  */
 const DEFAULT_CAPTIONS = {
   summary: ({ people }) =>
-    `${people.living} of those ${people.total} showed up while a piece was still alive. The rest only ever touched one that was already finished.`,
+    `${people.living} of the ${people.total} people involved showed up while a piece was still alive. The rest only ever touched a finished one.`,
   lifelines: () =>
-    'Every record pointing at a piece, plotted against the seconds it arrived after the piece went up. The rule is the threadgate; everything right of it happened to a post that was already finished.',
+    'Every record pointing at a piece, by the second it arrived. The rule is the threadgate; everything right of it hit a post that was already over.',
   reaction: ({ stats }) =>
-    `Mean of the ${stats.measured} still on the network: ${fmtSeconds(stats.meanReactionMs)}, range ${fmtSeconds(stats.minReactionMs)}–${fmtSeconds(stats.maxReactionMs)}, with no relationship to how long the piece had been up. The other ${stats.deleted} likes were deleted by the people who cast them, so those reactions can't be measured at all: the solid part of those bars runs to the fastest reaction ever recorded, and the hatched part is the window the like must have fallen in.`,
+    `How long each like went unnoticed: mean ${fmtSeconds(stats.meanReactionMs)}, range ${fmtSeconds(stats.minReactionMs)}–${fmtSeconds(stats.maxReactionMs)}. The ${stats.deleted} hatched bars are pieces whose like was deleted, so the window is inferred rather than measured.`,
   ledger: () =>
-    'Engagement either side of the seal. Everything right of the second rule arrived at a post that was already finished — pieces keep accruing it indefinitely.',
+    'Engagement either side of the seal. Pieces keep accruing the right-hand column indefinitely.',
   hidden: () =>
-    'A threadgate hides replies at the appview; it does not stop the records being written. These landed in the seconds after their piece sealed, and no reader of the thread has ever seen them.',
-  participants: ({ people, roster }) =>
-    `The ${roster.rows.length} accounts that were there while a piece was still alive, all ${roster.breakers} breakers among them. ${roster.deleted} of those breakers deleted the like they cast, which leaves it in no index at all — the reply concluding their piece is the only record it happened, and it's marked as such rather than counted. Each role names the most consequential thing someone did while the piece was still alive, so it can differ from the mix beside it, which counts everything they ever did, whenever they did it. The ${people.afterOnly} accounts that only ever reached a finished piece aren't here. Counted by DID, not handle: two deactivated accounts share one placeholder handle.`,
+    'Replies written to the network after their piece sealed. A threadgate hides them at the appview without stopping the records, so nobody reading the thread has seen these.',
+  participants: ({ roster, audience }) =>
+    `The ${roster.rows.length} accounts present while a piece was alive, ${roster.breakers} of them breakers.${
+      audience?.measuredAt
+        ? ` Audience is their follower count as of ${audience.measuredAt.slice(0, 10)}; a dot means the account no longer resolves.`
+        : ''
+    }`,
+  reach: ({ reach }) =>
+    reach
+      ? `A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type. A repost or quote counts as a whole following, a reply a tenth, a like a fiftieth. ${fmtReach(reach.aliveRaw)} while the pieces were alive against ${fmtReach(reach.afterRaw)} after they were sealed.`
+      : 'A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type. A repost or quote counts as a whole following, a reply a tenth, a like a fiftieth.',
   when: () =>
-    'Every piece placed by the clock it was made on, in Eastern time — the same zone the rest of this site runs on. The solid core is how long a piece stayed alive; the ring around it is how much it drew while it was. Both are scaled by area, so a mark twice the size means twice the quantity, not four times. The strip beside the grid is each hour’s own sky colour. Every mark names itself on hover.',
+    'Every piece by the clock it was made on, in Eastern time. The core is how long it lived, the ring how much it drew, both scaled by area.',
 };
 
 /**
- * Ratioed data visualisation. Six variants share one data load:
+ * Ratioed data visualisation. Every variant shares one data load:
  *
  *   summary      — the project in six figures
  *   lifelines    — every backlink plotted against time, threadgate as a hard rule
@@ -88,6 +107,7 @@ const DEFAULT_CAPTIONS = {
  *   hidden       — the replies that landed after the seal and can't be seen
  *   participants — everyone who touched a piece
  *   when         — where the pieces fall across a week, sized by scale
+ *   reach        — how large an audience each piece was carried to
  *
  * Pieces come from the PDS when reachable and from the bundled seed otherwise.
  * The event log is a separate ~27kB chunk, loaded only by the two variants that
@@ -107,6 +127,7 @@ export default function RatioedBlock({ block, style }) {
   const [pieces, setPieces] = useState(SEED_PIECES);
   const [people, setPeople] = useState(SEED_PEOPLE);
   const [events, setEvents] = useState(null);
+  const [audience, setAudience] = useState(null);
   const [deltas, setDeltas] = useState(null);
 
   // The roster the build regenerated, which knows about pieces added since the
@@ -149,16 +170,37 @@ export default function RatioedBlock({ block, style }) {
     };
   }, [variant]);
 
+  useEffect(() => {
+    if (!AUDIENCE_VARIANTS.has(variant)) return undefined;
+    let alive = true;
+    import('../../data/ratioedAudience.json')
+      .then((m) => {
+        if (alive) setAudience(m.default || m);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [variant]);
+
   // A piece measured by the admin panel records its own event log; the first
   // eleven predate the field and come from the bundled one. Keyed by rkey, so
   // the two merge without either knowing about the other — and without a new
   // piece plotting as an empty row while it waits for the next build.
+  //
+  // The audience join runs last and only fills gaps: a log that recorded its
+  // own follower counts at measurement time keeps them, and the dated table
+  // only reaches the logs that have none.
   const eventLog = useMemo(() => {
     if (!events && !pieces.some((p) => p.events)) return null;
     const merged = { ...(events || {}) };
     for (const p of pieces) if (p.events) merged[p.rkey] = p.events;
+    if (!audience) return merged;
+    for (const [rkey, log] of Object.entries(merged)) {
+      merged[rkey] = applyAudience(log, audience);
+    }
     return merged;
-  }, [events, pieces]);
+  }, [events, pieces, audience]);
 
   useEffect(() => {
     if (!block?.showLive || !pieces?.length) return undefined;
@@ -180,9 +222,21 @@ export default function RatioedBlock({ block, style }) {
 
   const split = useMemo(() => splitParticipants(people), [people]);
   const roster = useMemo(() => livingRoster(pieces, people, eventLog), [pieces, people, eventLog]);
+  // Project-wide reach, for the caption to quote. Null until both halves of the
+  // join are in, which is what keeps the caption from stating a total drawn
+  // from the two pieces that carry their own audience.
+  const reachTotals = useMemo(
+    () =>
+      variant === 'reach' && eventLog && audience
+        ? projectReach(pieces, (p) => eventLog[p.rkey])
+        : null,
+    [variant, pieces, eventLog, audience],
+  );
+
   const fallback = DEFAULT_CAPTIONS[variant];
   const caption =
-    block?.caption?.trim() || (fallback ? fallback({ stats, people: split, roster }) : '');
+    block?.caption?.trim() ||
+    (fallback ? fallback({ stats, people: split, roster, reach: reachTotals, audience }) : '');
   const showCaption = block?.showCaption !== false && Boolean(caption);
 
   return (
@@ -198,7 +252,13 @@ export default function RatioedBlock({ block, style }) {
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} parent={parentSlug} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
-      {variant === 'participants' && <Participants rows={roster.rows} />}
+      {variant === 'participants' && <Participants rows={roster.rows} audience={audience} />}
+      {/* Both halves or neither: without the audience table the early pieces
+          have no follower counts to score, and a chart drawn from the two
+          recent ones alone would read as the whole project. */}
+      {variant === 'reach' && (
+        <Reach pieces={pieces} events={audience ? eventLog : null} parent={parentSlug} />
+      )}
       {variant === 'when' && <When pieces={pieces} />}
       {showCaption && <figcaption className="ratioed-caption">{caption}</figcaption>}
     </figure>
@@ -501,6 +561,7 @@ function pieceList(person) {
 
 const PEOPLE_COLUMNS = [
   { key: 'h', label: 'Handle' },
+  { key: 'fr', label: 'Audience', num: true },
   { key: 'ev', label: 'Events', num: true },
   { key: 'live', label: 'Live', num: true },
   { key: 'after', label: 'After', num: true },
@@ -511,20 +572,31 @@ const PEOPLE_COLUMNS = [
 // tail is one click away for anyone who wants to find themselves in it.
 const PEOPLE_PREVIEW = 20;
 
-function Participants({ rows: roster }) {
+function Participants({ rows: roster, audience }) {
   const [sort, setSort] = useState('ev');
   const [dir, setDir] = useState(-1);
   const [expanded, setExpanded] = useState(false);
 
   const rows = useMemo(() => {
     const key = sort;
-    return roster.slice().sort((a, b) => {
+    // The audience each person brought, joined from the dated table rather than
+    // stored on the roster: it is a figure about the account as it is now, and
+    // the roster is a measurement of what people did years ago. Keeping them in
+    // separate places is what stops the two being read as one date. Somebody
+    // the table doesn't know sorts as -1, so unknown audiences fall to the
+    // bottom instead of tying with the accounts nobody follows.
+    const accounts = audience?.accounts || null;
+    const withAudience = roster.map((p) => {
+      const found = accounts ? accounts[p.did] || accounts[p.h] : null;
+      return { ...p, fr: typeof found?.fr === 'number' ? found.fr : -1 };
+    });
+    return withAudience.sort((a, b) => {
       const A = a[key];
       const B = b[key];
       const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
       return cmp * dir || b.ev - a.ev;
     });
-  }, [roster, sort, dir]);
+  }, [roster, sort, dir, audience]);
 
   // Every breaker stays in the preview whatever the sort says. Ranking is by
   // events, and the ones whose like was deleted have none — they'd sit at the
@@ -575,6 +647,10 @@ function Participants({ rows: roster }) {
                   @{p.h}
                   {p.dn && <span className="ratioed-people-dn">{p.dn}</span>}
                 </td>
+                {/* -1 is the marker for an account the audience table doesn't
+                    know — deactivated, renamed, or simply never resolved. Not
+                    a zero: nobody here is being reported as unfollowed. */}
+                <td className="num">{p.fr >= 0 ? fmtReach(p.fr) : '·'}</td>
                 <td className="num">{p.ev || '·'}</td>
                 <td className="num">{p.live || '·'}</td>
                 <td className="num">{p.after || '·'}</td>
@@ -865,9 +941,15 @@ function PieceDetail({ piece, delta, parent }) {
           {/* This panel is as far as the essay can go at its own altitude —
               all thirteen share one axis here. The piece's own page has the
               log, the faces and the replay. */}
-          <p className="ratioed-more">
-            <Link to={piecePath(piece, parent)}>
-              Everything on take {String(piece.take).padStart(2, '0')} →
+          {/* Its own class rather than `ratioed-more`, which is the "show all
+              N" toggle's box: wrapping a link in it produced a full-width
+              bordered slab with an underlined link floating inside it. */}
+          <p className="ratioed-through">
+            {/* Label only. An arrow — text or icon — reads as a stray gap at
+                this size, and the button is already the only link in the
+                card. */}
+            <Link className="ratioed-through-btn" to={piecePath(piece, parent)}>
+              View take {String(piece.take).padStart(2, '0')}
             </Link>
           </p>
         </div>
@@ -960,6 +1042,80 @@ const LEDGER_COLUMNS = [
   ['quotes', 'QT'],
   ['threadPosts', 'thread'],
 ];
+
+/* ------------------------------------------------------------------ */
+/* Reach — how big an audience each piece was carried to                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One bar per piece, split at the seal, on a shared axis.
+ *
+ * A shared axis rather than a per-piece one because the disparity IS the
+ * finding: most pieces were carried by people with a few hundred followers, and
+ * one or two were picked up by an account with sixty thousand. Normalising each
+ * row would hide the only thing worth seeing.
+ *
+ * The named account under each bar is the single largest contributor to it,
+ * because a reach figure without one reads as a property of the piece when it
+ * is almost always a property of one person who reposted it.
+ */
+function Reach({ pieces, events, parent }) {
+  const rows = useMemo(() => {
+    if (!events) return null;
+    return (pieces || [])
+      .map((p) => ({ piece: p, reach: pieceReach(events[p.rkey]) }))
+      .filter((r) => r.reach.measurable);
+  }, [pieces, events]);
+
+  if (!rows) return <p className="ratioed-note">Loading the event log…</p>;
+  if (!rows.length) {
+    return <p className="ratioed-note">No piece has an audience measurement yet.</p>;
+  }
+
+  const max = Math.max(...rows.map((r) => r.reach.alive.raw + r.reach.after.raw), 1);
+
+  return (
+    <div className="ratioed-reach">
+      <ol className="ratioed-reach-rows">
+        {rows.map(({ piece, reach }) => {
+          const alive = reach.alive.raw;
+          const after = reach.after.raw;
+          const top = reach.alive.top || reach.after.top;
+          return (
+            <li className="ratioed-reach-row" key={piece.rkey}>
+              <Link className="ratioed-take-link" to={piecePath(piece, parent)}>
+                <b>#{String(piece.take).padStart(2, '0')}</b>
+              </Link>
+              <div className="ratioed-reach-track">
+                <span
+                  className="ratioed-reach-bar is-alive"
+                  style={{ width: `${(alive / max) * 100}%` }}
+                  title={`${fmtReach(alive)} while alive`}
+                />
+                <span
+                  className="ratioed-reach-bar is-after"
+                  style={{ width: `${(after / max) * 100}%` }}
+                  title={`${fmtReach(after)} after the seal`}
+                />
+              </div>
+              <span className="ratioed-reach-figure">
+                {alive > 0 ? fmtReach(alive) : '·'}
+                <small>{after > 0 ? ` +${fmtReach(after)}` : ''}</small>
+              </span>
+              <span className="ratioed-reach-who">
+                {top ? `@${top.handle} · ${fmtReach(top.followers)}` : 'nobody with an audience'}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <p className="ratioed-reach-key">
+        <span className="ratioed-reach-swatch is-alive" /> while alive
+        <span className="ratioed-reach-swatch is-after" /> after the seal
+      </p>
+    </div>
+  );
+}
 
 function Ledger({ pieces, deltas, parent }) {
   return (

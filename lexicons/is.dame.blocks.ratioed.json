@@ -18,9 +18,10 @@
             "ledger",
             "hidden",
             "participants",
-            "when"
+            "when",
+            "reach"
           ],
-          "description": "summary — the project in six figures. lifelines — every backlink plotted against time, with the threadgate as a hard rule and a log-scaled afterlife. reaction — how long the artist took to close each piece by hand. ledger — engagement before and after the seal, per piece. hidden — the replies that landed after a seal, written to the network but hidden by the threadgate. participants — everyone who touched a piece. when — every piece placed on a week grid by day and time of day, in the artist’s local zone, each mark sized by how long the piece lived and how much it drew."
+          "description": "summary — the project in six figures. lifelines — every backlink plotted against time, with the threadgate as a hard rule and a log-scaled afterlife. reaction — how long the artist took to close each piece by hand. ledger — engagement before and after the seal, per piece. hidden — the replies that landed after a seal, written to the network but hidden by the threadgate. participants — everyone who touched a piece. when — every piece placed on a week grid by day and time of day, in the artist’s local zone, each mark sized by how long the piece lived and how much it drew. reach — a score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type: a repost or quote counts as a whole following, a reply a tenth, a like a fiftieth."
         },
         "alt": {
           "type": "string",

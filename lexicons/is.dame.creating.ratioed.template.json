@@ -4,7 +4,7 @@
   "defs": {
     "main": {
       "type": "record",
-      "description": "The standing text a Ratioed piece is written from, kept as a record so it can be edited without a deploy. A singleton at rkey \"self\". The wording has drifted across the series — take #13 dropped the word \"experimental\" that takes #1 to #12 all carried, and that drift is the whole reason this is editable rather than compiled in. It is also why anything written from it is checked against the discovery scan before it is saved: a template the site cannot recognise as a piece produces pieces the site never measures.",
+      "description": "The standing text a Ratioed piece is written from, kept as a record so it can be edited without a deploy. A singleton at rkey \"self\". The wording has drifted across the series — take #13 dropped the word \"experimental\" that takes #1 to #12 all carried, and that drift is the whole reason this is editable rather than compiled in. The discovery scan reads this record as well, and matches posts on the template's own lines, so a rewording needs no code change on either side. What is still checked before a save is the take line and the link: if the template is rewritten again before a piece written from the old one has been scanned, those two are all that is left to find it by, and a piece the site never finds is a piece it never measures.",
       "key": "literal:self",
       "record": {
         "type": "object",
