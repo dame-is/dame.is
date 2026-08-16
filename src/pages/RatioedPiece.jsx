@@ -51,7 +51,7 @@ import {
   fmtReach,
   fmtRatio,
 } from '../lib/ratioedReach.js';
-import { getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
+import { aturiUniversalUrl, getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { ME_DID, ME_HANDLE, RATIOED_DOC_RKEY, COLLECTIONS } from '../config.js';
@@ -637,9 +637,16 @@ function engagementTotal(w) {
 /**
  * A piece's provenance, for the header band under the title.
  *
- * The same three-column shape a blog post wears, answering the same questions
- * about a different kind of document: when it happened, how long ago that was,
- * and when the figures below it were taken.
+ * The same three-column shape a blog post wears, answering the questions a
+ * reader has before reading: when it happened, how long ago that was, and where
+ * the record itself is.
+ *
+ * The third column used to be the measurement date, and it was the wrong fact
+ * to put third — the same date as the first one on every recent piece, and
+ * already stated twice below, once beside the delta that depends on it and once
+ * in Provenance with its source. What a reader can't get anywhere else on the
+ * page is the record: this whole project is an argument that the record is the
+ * artwork, so the band that dates the document links to it.
  *
  * Deliberately not the lifespan, which was the first thing to go in here and
  * read as provenance for about a second: the figures row directly below already
@@ -658,13 +665,17 @@ function provenanceColumns(piece) {
       short: relativeDayShort(piece.postedAt),
     },
   ];
-  if (piece.measuredAt) {
-    columns.push({
-      key: 'measured',
-      label: 'Measured',
-      long: formatDateFull(piece.measuredAt),
-      short: day(piece.measuredAt),
-    });
+  // One element, handed in as both renderings: DocumentMeta shows a single
+  // value when the long and short forms are the same thing, and a record key is
+  // already as short as it gets.
+  const record = aturiUniversalUrl(`at://${ME_DID}/${COLLECTIONS.ratioedPiece}/${piece.rkey}`);
+  if (record) {
+    const link = (
+      <a href={record} target="_blank" rel="noreferrer noopener">
+        {piece.rkey}
+      </a>
+    );
+    columns.push({ key: 'record', label: 'Record', long: link, short: link });
   }
   return columns;
 }

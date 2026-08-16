@@ -674,6 +674,20 @@
   .ratioed-bar { transition: none; }
 }
 
+/* Nothing a block draws is prose.
+
+   The essay's own paragraphs take the article indent rule
+   (`article p + p { text-indent: 1.5em }`), and a chart's cards are full of
+   <p> siblings that rule can't tell apart from a second paragraph — so the
+   figures under a heading were being indented like a novel. Worse, text-indent
+   INHERITS: a <p> caught by the rule passed the indent down into the label of
+   the button inside it, which read as a blank slot where an icon should be.
+   Neutralised once at the block root. */
+.ratioed p,
+.ratioed dl,
+.ratioed dd,
+.ratioed li { text-indent: 0; }
+
 /* --- through to a piece's own page --------------------------------- */
 
 /* The essay reads all thirteen against one axis, which is the argument it
