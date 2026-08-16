@@ -134,6 +134,19 @@ function isParseableJson(text) {
   }
 }
 
+/**
+ * The lexicon field types whose control is taller than one line, so the loading
+ * skeleton can reserve the right box per row instead of guessing.
+ *
+ * Kept beside the renderer it describes: `textarea` and `markdown` both mount a
+ * `<textarea>` (4 and 16 rows), and `highlights` / `blocks` both mount the
+ * blocks editor, which is taller than either. Everything else in the switch —
+ * text, datetime, tags, number, select, boolean, json, the pickers — is one
+ * input tall. If a new tall type is added to the switch it belongs here too;
+ * the cost of forgetting is a placeholder that under-reserves, not a break.
+ */
+const TALL_FIELD_TYPES = new Set(['textarea', 'markdown', 'blocks', 'highlights']);
+
 /** Shared empty array so a clean dirty payload never changes identity. */
 const NO_FIELDS = Object.freeze([]);
 /** The two constant dirty payloads, frozen so the publishing effect can skip. */
@@ -770,8 +783,32 @@ const RecordEditor = forwardRef(function RecordEditor({
     // constant 4 could not: on `is.dame.now` it drew a 390px placeholder for a
     // 232px form, so the pane's content bottom jumped 158px upward the moment
     // the record landed. The lexicon is already in hand and knows how many
-    // fields it has. `compact` (the debug overlay) keeps its own tighter shape.
-    return <AdminEditorSkeleton fields={compact ? 3 : lex?.fields?.length || 4} />;
+    // fields it has, and — via `shapes` — which of them are tall.
+    //
+    // Field COUNT closed most of the gap; the last 82px was the skeleton's own
+    // default, which draws its final row as a 136px textarea whatever the form
+    // holds. On `is.dame.now`, three one-line fields and no textarea anywhere,
+    // that default was the entire remaining jump. `shapes` states the truth
+    // per row instead: the four field types that render a multi-line control
+    // (`textarea`, `markdown`, and the two that mount the blocks editor) draw
+    // tall, everything else draws a single input.
+    //
+    // `compact` (the debug overlay) keeps its own tighter shape and its own
+    // default, and callers that pass no lexicon still get the old four rows —
+    // this narrows the placeholder where the lexicon is known, and changes
+    // nothing where it is not.
+    return (
+      <AdminEditorSkeleton
+        fields={compact ? 3 : lex?.fields?.length || 4}
+        shapes={
+          compact || !lex?.fields?.length
+            ? null
+            : lex.fields.map((f) =>
+                TALL_FIELD_TYPES.has(f.type) ? 'tall' : 'short'
+              )
+        }
+      />
+    );
   }
 
   // A record that could not be read is a STATE, not a form. Drawing the form

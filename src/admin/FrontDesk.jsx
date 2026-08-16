@@ -574,9 +574,17 @@ export default function FrontDesk() {
       actions: [
         {
           id: 'refresh',
-          label: 'Refresh counts',
+          // `Refresh`, not the head button's `Refresh counts` — §2.1's bar table
+          // says `↻ Refresh`, and it is right: the glyph and the word are the
+          // whole message on a 320px row, where "counts" cost 60px and pushed
+          // slot 1's label into an ellipsis. The head button keeps the longer
+          // label, because up there it is the only thing naming what it acts on.
+          label: 'Refresh',
+          // The bar's other actions all carry a glyph; this one had none, so it
+          // was the only unglyphed control on the bar.
+          icon: 'RefreshCw',
           busy: loading,
-          busyLabel: 'Counting…',
+          busyLabel: 'Refreshing…',
           onPress: () => refresh(),
         },
       ],

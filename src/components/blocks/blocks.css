@@ -673,3 +673,110 @@
 .blocks-editor-item.is-run-member:not(:hover) > .blocks-editor-insert {
   opacity: 0;
 }
+
+/* ------------------------------------------------------------------ */
+/* Touch                                                                */
+/* ------------------------------------------------------------------ */
+
+/* On a device with no hover, three of this editor's four per-block controls DO
+ * NOT EXIST. `.blocks-editor-delete`, `.blocks-editor-insert-btn` and
+ * `.blocks-editor-handle` are all `opacity: 0` until `.blocks-editor-item:hover`
+ * — a state a finger cannot produce — so on a phone a block could be edited but
+ * never deleted, and a new one could never be inserted between two existing
+ * ones. That is the defect; the sizes (22.4 × 22.4, 22.4 wide, 35.6 tall) are
+ * the second half of it.
+ *
+ * `(hover: none)` rather than a width, because this is a question about the
+ * POINTER and not about the layout: a touch tablet at 1024px has the same
+ * problem and is above the stacked breakpoint, while a desktop window dragged
+ * narrow has a mouse and does not.
+ *
+ * Scoped to `.wb`, the admin shell's root, for the standing reason: `EditSheet`
+ * renders `RecordEditor` — and therefore this editor — app-wide through a portal
+ * to <body>, outside the shell, and the quick-edit sheet's rendering has to stay
+ * byte-identical. The same defect is live there and closing it is a separate
+ * decision about the public site.
+ *
+ * Reordering is NOT restored. The design gates it to a desktop deliberately
+ * (§6): drag-reorder on a scrolling touch surface is a project of its own, and a
+ * 17.6px grab handle that starts a drag inside a scrollport is worse than no
+ * handle. The handle is hidden rather than grown so it does not read as a
+ * control that is simply hard to hit.
+ */
+@media (hover: none) {
+  .wb .blocks-editor-delete,
+  .wb .blocks-editor-insert-btn {
+    opacity: 1;
+  }
+
+  /* Painted out, not grown with a pseudo-halo: the "+" straddles the gap
+     BETWEEN two blocks and the delete runs the full height of one, so grown
+     boxes would overlap the block above and below and steal their taps — and
+     the block bodies are text editors, where a stolen tap is a caret that will
+     not go where it was put. */
+  .wb .blocks-editor-insert-btn {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+  }
+
+  /* The gap has to hold it, and it has to sit IN the gap rather than across it.
+     `translateY(-50%)` centres the "+" on the boundary between two blocks,
+     which is right at 22px and wrong at 44px: it covered 20px of the text at
+     the top of the block below, opaquely, because it paints a `--page` ground.
+     `-100%` moves it wholly above the boundary and the 44px gap is exactly the
+     room that needs. The pair costs 32px per block boundary, which a form can
+     afford and an unreachable insert control cannot. */
+  .wb .blocks-editor-list {
+    gap: var(--wb-hit, 2.75rem);
+  }
+
+  .wb .blocks-editor-insert {
+    transform: translateY(-100%);
+  }
+
+  .wb .blocks-editor-delete {
+    width: var(--wb-hit, 2.75rem);
+  }
+
+  .wb .blocks-editor-add-btn {
+    min-height: var(--wb-hit, 2.75rem);
+    padding-inline: var(--space-3);
+  }
+
+  .wb .blocks-editor-handle {
+    display: none;
+  }
+}
+
+/* The delete's hover ink was `--tan`, which under `data-theme="sky"` is derived
+   from the sky's own hue and computes within a step of `--accent` for most of
+   the day — so hovering "delete this block" looked like hovering a link.
+   `--danger` holds a fixed vermilion and lets only its lightness follow the
+   hour. `.wb`-scoped for the same portal reason as the block above. */
+.wb .blocks-editor-delete:hover {
+  color: var(--danger);
+}
+
+/* The gate's own sentence. Hidden wherever the handles are actually there, so
+   it can never contradict what is on screen — and hidden in the quick-edit
+   sheet at every width, because the sheet portals outside `.wb` and the
+   standing constraint is that its rendering does not move. The sentence would
+   be TRUE there (the handles are `opacity: 0` on a hoverless device wherever
+   they are drawn), but a new line of copy is still a change to a public
+   surface, and closing that half is a separate decision. */
+.blocks-editor-touch-note {
+  display: none;
+}
+
+@media (hover: none) {
+  .wb .blocks-editor-touch-note {
+    display: block;
+    margin: 0;
+    font-family: var(--sans);
+    font-size: var(--text-xs);
+    font-variant: all-small-caps;
+    letter-spacing: 0.18em;
+    color: var(--ink-faint);
+    text-indent: 0;
+  }
+}

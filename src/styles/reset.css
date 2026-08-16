@@ -52,13 +52,29 @@ input, button, textarea, select {
 
 /* Placeholders otherwise render in the UA's fixed gray, which ignores the
    theme entirely and washes out against several hours of the sky theme's
-   pages. Ride the theme's ink ramp instead — --ink-soft is the strongest
-   secondary step, re-derived every sky hour, so the hint text keeps its
-   contrast at dawn and dusk while staying quieter than the typed text's
-   full --ink. The opacity resets Firefox's extra placeholder dimming. */
+   pages. Ride the theme's ink ramp instead, re-derived every sky hour, so the
+   hint text keeps its contrast at dawn and dusk. The opacity resets Firefox's
+   extra placeholder dimming.
+
+   --ink-MUTED, not --ink-soft. A placeholder has one job that outranks being
+   readable: it must never be mistaken for a value. On --ink-soft it was — the
+   two inks measured 1.30–1.56:1 apart from each other at every sky hour (1.47
+   on the light palette), so an empty field with a placeholder was
+   indistinguishable from a filled one. The resume tailor showed three empty
+   framing fields reading as "Product & design résumé", "Creative Technologist
+   & Product Designer" and "City, Country" beside a genuinely filled summary.
+
+   --ink-muted puts 2.05–2.58:1 between the hint and a typed value while
+   holding 3.39–6.85:1 against the page across all 24 sky hours (worst: 3.39 at
+   19:00, 3.53 at 06:00) and 4.31:1 on the light palette. The next step down,
+   --ink-faint, separates better (3.2–4.0:1) but collapses to 2.05:1 on the
+   06:00 page and 2.17:1 at 19:00 — a hint nobody can read at dawn or dusk,
+   which trades one defect for another. --ink-muted is also exactly the ink
+   .admin-field-label and .metadata use, which is the register a placeholder
+   belongs in: it is a label for an empty field, not content. */
 input::placeholder,
 textarea::placeholder {
-  color: var(--ink-soft);
+  color: var(--ink-muted);
   opacity: 1;
 }
 

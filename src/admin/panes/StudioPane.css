@@ -18,46 +18,19 @@
  * hour, so a literal colour is wrong for twenty-three hours of the day.
  */
 
-/* ---- identifiers are monospaced ------------------------------------- */
-
-/* The house rule is IBM Plex Mono for rkeys, NSIDs and at-uris, and the studios
- * broke it in the most visible place there is: `.admin-collection-nsid` (the
- * chip under every studio's title) and `.admin-record-rkey` both resolve
- * `--mono-ui`, which theme.css maps to the SERIF. So `is.dame.page` in the pane
- * head was set proportionally while `is.dame.page/creating` two inches below it
- * — a bare <code>, and therefore `--code` — was monospaced. Same class of
- * string, one screen, two voices.
+/* Two blocks that used to open this file are gone, both because the real fix
+ * landed in src/pages/Admin.css during the integration pass and a scoped copy
+ * of a rule that is now unscoped is only a place for the two to drift apart:
  *
- * The real fix is to point those two Admin.css rules at `--code`; that file is
- * owned elsewhere this pass, and the record-list pane draws the same two
- * classes, so this only straightens the studios. `--mono-ui`'s serif fold is
- * deliberate for prose-adjacent metadata (Admin.css:118-125 says so) — it is
- * just wrong for an identifier, which is a string you read character by
- * character and sometimes retype.
+ *   - `.wb-studio .admin-collection-nsid` / `.admin-record-rkey` forcing
+ *     `--code` over `--mono-ui`'s serif fold. Both shared rules now say `--code`
+ *     themselves, so the record LIST pane's chips and rkeys are monospaced too
+ *     rather than only the studios'.
+ *   - `.wb-studio a.admin-gate-button:hover { color: var(--page) }`. Admin.css
+ *     now carries `a.admin-gate-button:hover:not(:disabled)` unscoped, which
+ *     also reaches the list's "New" and the page-content card that
+ *     RecordListPane renders outside any studio.
  */
-.wb-studio .admin-collection-nsid,
-.wb-studio .admin-record-rkey {
-  font-family: var(--code);
-}
-
-/* ---- an anchor gate-button keeps its label on hover ------------------ */
-
-/* `a:hover { color: var(--accent) }` (typography.css:46, specificity 0-1-1)
- * outranks `.admin-gate-button { color: var(--page) }` (0-1-0), and the button's
- * own hover rule only repaints the background — to `--accent`. So every gate
- * button that is a LINK rather than a <button> turned into a filled rectangle
- * with its label the same colour as its fill: measured `color` and
- * `background-color` both rgb(15,116,138) on the Site-pages "Edit" link.
- *
- * The one-line fix is additive in Admin.css beside the existing hover rule —
- * `a.admin-gate-button:hover:not(:disabled) { color: var(--page) }` — and would
- * cover the record list's "New" button and the record detail's links too. This
- * is the same declaration scoped to the studios, which is as far as this slot
- * reaches.
- */
-.wb-studio a.admin-gate-button:hover:not(:disabled) {
-  color: var(--page);
-}
 
 /* ---- leaving the admin looks like leaving the admin ------------------ */
 
@@ -187,26 +160,13 @@
 
 /* ---- touch targets --------------------------------------------------- */
 
-/* Under the stacked breakpoint every control clears 44px. These are all painted
- * out rather than given `.wb-hit` halos: they sit in rows and columns of
- * siblings a few pixels apart, and two grown pseudo-boxes that close overlap —
- * the later sibling wins the tap, which is the failure the halo exists to
- * prevent. A studio's controls have the room to simply be bigger.
- *
- * `.admin-gate-button-tight` is a shared Admin.css class (its 32px is right on
- * a desktop), and `.admin-link-subtle` is a bare text button at 22px; both are
- * also used by the quick-edit sheet on the public site, which is why these are
- * scoped to `.wb-studio` rather than written against the class itself.
- */
+/* `.studio-out` is this file's own class, so its 44px floor lives here. The
+ * `.admin-gate-button-tight` and `.admin-link-subtle` floors that used to sit
+ * beside it moved to Admin.css under `.wb`, where they cover the record list,
+ * the record detail and the blocks editor as well as the studios — see the
+ * collected touch block at the foot of that file. */
 @media (max-width: 60rem) {
-  .wb-studio .admin-gate-button-tight,
   .wb-studio .studio-out {
-    min-height: var(--wb-hit, 2.75rem);
-  }
-
-  .wb-studio .admin-link-subtle {
-    display: inline-flex;
-    align-items: center;
     min-height: var(--wb-hit, 2.75rem);
   }
 }

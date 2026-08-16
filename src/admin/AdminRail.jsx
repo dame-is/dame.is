@@ -41,6 +41,7 @@ import {
   Newspaper,
   PackageOpen,
   Radio,
+  RefreshCw,
   Scissors,
   Shapes,
   Sparkles,
@@ -54,6 +55,12 @@ import { useAdminShell } from './useAdminShell.jsx';
  * Surface icon NAME → component. Exported so the sheet and the action bar draw a
  * surface with the same glyph the rail does; `Database` is the fallback for a
  * synthetic surface and for any name a future registry entry gets wrong.
+ *
+ * It is a glyph registry rather than strictly a SURFACE registry: the action
+ * bar resolves its own `BarAction.icon` through the same table, so an action's
+ * glyph and a surface's glyph can never come from two different maps. That is
+ * why `RefreshCw` is here with no surface using it — the Front Desk's bar action
+ * needs it, and adding it here is a one-word change at the call site.
  */
 export const SURFACE_ICONS = {
   Activity,
@@ -73,6 +80,7 @@ export const SURFACE_ICONS = {
   Newspaper,
   PackageOpen,
   Radio,
+  RefreshCw,
   Scissors,
   Shapes,
   Sparkles,

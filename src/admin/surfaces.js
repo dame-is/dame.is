@@ -45,6 +45,9 @@ const STANDARD_DOC = 'site.standard.document';
  *                                and the round-trip invariant are all defined in terms of THIS
  *                                field, never `kind`.
  * @property {string}  label      Display name, e.g. "Blogging".
+ * @property {string}  shortLabel Display name for the phone's action bar, where the surface name
+ *                                shares a 390px row with a status and a Save. Always `label` or a
+ *                                shorter form of it; defaults to `label`.
  * @property {string|null} nsid   Primary NSID, or null (legacy-blogs has none).
  * @property {string[]} nsids     Every NSID this surface reads. `listening` has two; `guestbook`
  *                                lists the entry NSID for labelling only.
@@ -126,6 +129,17 @@ function surface(entry) {
     key: entry.key,
     urlByView,
     label: entry.label,
+    // What the phone's action bar puts in slot 1, where the surface name shares
+    // a 390px row with a status and a Save. Defaults to `label`, and is only
+    // worth setting where the full name is long enough to starve its
+    // neighbours: `Sky theme studio` took 170px of a 338px row and left the
+    // status 33px, rendering "2/24 tuned" as "2/2…". The design's own bar mock
+    // reads `▤ Sky theme ▾` for exactly this reason (§2.1).
+    //
+    // It is only ever a SHORTER FORM of `label` — never a different name — so
+    // the bar and the rail always agree about where you are, and the pane's own
+    // <h1> two inches above still carries the full name.
+    shortLabel: entry.shortLabel || entry.label,
     nsid,
     nsids: Object.freeze(entry.nsids ? [...entry.nsids] : nsid ? [nsid] : []),
     group: entry.group,
@@ -272,6 +286,7 @@ export const SURFACES = Object.freeze([
     key: 'sky',
     urlByView: true,
     label: 'Sky theme studio',
+    shortLabel: 'Sky theme',
     nsid: COLLECTIONS.sky,
     group: 'site',
     kind: 'studio',
@@ -332,6 +347,7 @@ export const SURFACES = Object.freeze([
     key: 'resume',
     urlByView: true,
     label: 'Resume studio',
+    shortLabel: 'Resume',
     nsid: COLLECTIONS.resume,
     group: 'studios',
     kind: 'studio',
@@ -342,6 +358,7 @@ export const SURFACES = Object.freeze([
     key: 'resume-tailor',
     urlByView: true,
     label: 'Tailor version',
+    shortLabel: 'Tailor',
     nsid: COLLECTIONS.resume,
     group: 'studios',
     kind: 'studio',
@@ -355,6 +372,7 @@ export const SURFACES = Object.freeze([
     key: 'ratioed-studio',
     urlByView: true,
     label: 'Ratioed studio',
+    shortLabel: 'Ratioed',
     nsid: COLLECTIONS.ratioedPiece,
     group: 'studios',
     kind: 'studio',
@@ -367,6 +385,7 @@ export const SURFACES = Object.freeze([
     key: 'ratioed',
     urlByView: true,
     label: 'Ratioed catalogue',
+    shortLabel: 'Catalogue',
     nsid: COLLECTIONS.ratioedPiece,
     group: 'studios',
     kind: 'studio',
@@ -385,6 +404,7 @@ export const SURFACES = Object.freeze([
     key: 'legacy-blogs',
     urlByView: true,
     label: 'Legacy blog migration',
+    shortLabel: 'Legacy blogs',
     // No NSID of its own: it READS site.standard.document to decide what is
     // already migrated, but it is a tool, not a collection.
     nsid: null,

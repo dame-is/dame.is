@@ -470,6 +470,15 @@ export default function BlocksEditor({ agent, did, value, onChange, onSetCover }
           <span className="small-caps">Markdown</span>
         </label>
       </div>
+      {/* Says out loud what the stylesheet does silently: on a device with no
+          hover the drag handles are hidden, because drag-reorder inside a
+          scrolling touch surface is a project of its own and a 17.6px grab
+          target that starts one is worse than no target
+          (docs/admin-mobile-design.md §6). Editing, inserting and deleting all
+          stay — those are how a paragraph gets fixed from a phone. Rendered
+          always and shown by `@media (hover: none)`, so it never appears beside
+          handles that are right there. */}
+      <p className="blocks-editor-touch-note">Reorder blocks on a larger screen.</p>
       <ol className="blocks-editor-list">
         {blocks.map((wrap, i) => {
           const block = wrap?.block || {};

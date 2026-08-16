@@ -118,9 +118,12 @@
 }
 
 /* The rkey is the record's identity, so it is genuinely data: `--code`, which
-   stays monospace in every font mode, unlike `--mono`. (The neighbouring
-   `.admin-collection-nsid` is deliberately serif — that is a design decision in
-   frozen public CSS, not an oversight to match.) */
+   stays monospace in every font mode, unlike `--mono`. The neighbouring
+   `.admin-collection-nsid` now agrees — an earlier version of this comment
+   recorded its serif as a deliberate design decision in frozen public CSS, and
+   that was wrong twice over: the class has no public consumer, and an NSID is
+   the same class of string as the rkey under it. Admin.css sets it to `--code`
+   itself now. */
 .wb-editor-rkey {
   font-family: var(--code);
   font-size: var(--text-xs);
@@ -128,15 +131,11 @@
   word-break: break-all;
 }
 
-/* `word-break: break-all` splits at any character, so `fm.teal.alpha.feed.play`
-   renders as two fragments reading `fm.teal.alp` / `ha.feed.play` — an NSID cut
-   mid-segment is unreadable. `anywhere` breaks at the same places when it must
-   but prefers the dots. Scoped to this pane: the declaration in Admin.css is
-   frozen public API and the quick-edit sheet portals outside `.wb-editor`. */
-.wb-editor .admin-collection-nsid {
-  word-break: normal;
-  overflow-wrap: anywhere;
-}
+/* The `.wb-editor .admin-collection-nsid { overflow-wrap: anywhere }` override
+   that used to sit here is gone with the same reasoning as the `--code` note
+   above: Admin.css makes that swap on the class itself now, so every surface
+   drawing an NSID stops splitting `fm.teal.alpha.feed.play` into two fragments
+   reading `fm.teal.alp` / `ha.feed.play`, not just this pane. */
 
 /* A transient confirmation ("Copied at://…") for an action taken in a sheet that
    closes over its own press. Monospace because what it echoes is an at-uri. */

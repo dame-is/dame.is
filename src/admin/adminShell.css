@@ -98,6 +98,13 @@
   left: -9999px;
   top: 0;
   z-index: 50;
+  /* It is off screen until it is focused, so it is easy to forget it is a
+     control like any other — and it measured 40.4px tall, the only focusable
+     element in the shell still under the floor on every surface. A skip link is
+     reached by keyboard, but a keyboard user on a touch device then TAPS it. */
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--wb-hit);
   padding: var(--space-2) var(--space-3);
   background: var(--surface-deep);
   color: var(--ink);
@@ -879,9 +886,23 @@
      640px and 959px the pane spans the viewport while the studio stays clamped to
      `--wb-measure`, so it was left-aligned with a right gutter up to six times the
      left — at 940 the content stopped at x=600 with 340px of empty pane beside it,
-     which reads as a broken layout rather than as a measure. */
+     which reads as a broken layout rather than as a measure.
+
+     `max-width: 100%` and `align-self: center` come WITH the auto margin, and
+     are not decoration. The pane is a flex column, so its children are stretched
+     to its width by default — and an auto inline margin CANCELS that stretch,
+     which makes the child size to its own MIN-CONTENT instead. A studio whose
+     min-content is wider than the pane then turns the whole pane into a
+     horizontal scroller rather than truncating: measured on listening at 390
+     before its row was fixed, pane scrollWidth 492 against clientWidth 390, and
+     the row's min-content was already 357.8px against a 358px pane, so one more
+     column of any kind tipped it over. Stating the cap here means the next
+     studio that grows a column clips or wraps — a local defect — instead of
+     making the frame scroll sideways, which is a defect everywhere at once. */
   .wb-pane-detail > .wb-studio,
   .wb-pane-detail > .wb-editor {
     margin-inline: auto;
+    align-self: center;
+    max-width: min(var(--wb-measure, 100%), 100%);
   }
 }

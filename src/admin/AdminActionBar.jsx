@@ -169,26 +169,35 @@ export default function AdminActionBar() {
         <div className="wb-bar-slot wb-bar-slot-left">
           {left === undefined ? (
             onRecord ? (
+              // An explicit accessible name on both, because slot 1's label is
+              // the one on the bar allowed to clip: it is `flex: 0 1 auto` over
+              // `min-width: 0`, so on a narrow screen with a long surface name
+              // it ellipses (§3.5's "slot 1 shrinks toward icon + caret"). A
+              // name read from clipped text is a name with a piece missing.
+              // Both strings CONTAIN the visible words, so voice control still
+              // addresses the control by what is on screen.
               <button
                 type="button"
                 className="wb-bar-btn wb-bar-back"
                 data-tone="quiet"
+                aria-label={`Back to ${surface.label}`}
                 onClick={() => go({ r: null, mode: null })}
               >
                 <ChevronLeft size={18} aria-hidden="true" />
-                <span className="wb-bar-btn-label">{surface.label}</span>
+                <span className="wb-bar-btn-label">{surface.shortLabel}</span>
               </button>
             ) : (
               <button
                 type="button"
                 className="wb-bar-btn wb-bar-surface"
                 data-tone="quiet"
+                aria-label={`${surface.label} — change surface`}
                 aria-expanded={sheet === SURFACES_SHEET}
                 aria-controls="wb-surfaces-sheet"
                 onClick={() => setSheet(sheet === SURFACES_SHEET ? null : SURFACES_SHEET)}
               >
                 <SurfaceIcon name={surface.icon} size={17} />
-                <span className="wb-bar-btn-label">{surface.label}</span>
+                <span className="wb-bar-btn-label">{surface.shortLabel}</span>
                 <ChevronUp className="wb-bar-caret" size={14} aria-hidden="true" />
               </button>
             )
@@ -205,7 +214,17 @@ export default function AdminActionBar() {
           {showDefaultStatus ? (
             <StatusMessage dirty={dirty} actions={actions} />
           ) : (
-            slots.status && <p className="wb-strip-state">{slots.status}</p>
+            // `.wb-strip-message` around a pane's own status, not just around
+            // the dirty sentence: it carries the ellipsis, and without it a
+            // string long enough to fill the slot WRAPPED instead — measured on
+            // listening at 390, where "100 loaded · more to fetch" took two
+            // lines and pushed the bar's own controls apart. Slot 2 truncates;
+            // it never grows the bar.
+            slots.status && (
+              <p className="wb-strip-state">
+                <span className="wb-strip-message">{slots.status}</span>
+              </p>
+            )
           )}
         </div>
 

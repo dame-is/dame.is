@@ -13,6 +13,9 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="./main.jsx"></script>
+    <!-- Absolute, not `./main.jsx`: this shell is served for every navigation
+         (`/admin`, `/admin?view=sky`), so a relative specifier would resolve
+         against the URL the browser asked for rather than against this file. -->
+    <script type="module" src="/harness/main.jsx"></script>
   </body>
 </html>

@@ -162,6 +162,16 @@ export const CLEAN = Object.freeze({
  * @property {boolean}  selecting    Is the list in selection mode?
  * @property {number}   scrollTop    Last scroll offset of the list's scrollport.
  * @property {string|null} lastOpenRkey  The row that was drilled into, so focus can return to it.
+ * @property {number}   loadedCount  How many records this surface has loaded, or -1 while that is
+ *                                   not yet known. The list column owns the fetch; the DETAIL
+ *                                   column, which does not, needs the one bit of it — is there
+ *                                   anything to pick? — so its empty state can stop telling the
+ *                                   owner to pick a record from a list that has none.
+ * @property {number}   lastOpenIndex Where that row SAT in the visible order, so focus still has
+ *                                   somewhere to go when the record no longer exists. Deleting from
+ *                                   the record pane below 60rem unmounts the pane and mounts this
+ *                                   list; the rkey then matches nothing, and without a position the
+ *                                   only honest target left is the surface heading.
  */
 
 /**
@@ -312,18 +322,21 @@ function emptyListView() {
     selected: NO_FIELDS,
     selecting: false,
     scrollTop: 0,
+    loadedCount: -1,
     lastOpenRkey: null,
+    lastOpenIndex: -1,
   };
 }
 
 /**
  * Does this patch only touch state that NOTHING ON SCREEN reads until the list
  * column is rebuilt? `scrollTop` is written on every scroll frame and
- * `lastOpenRkey` on every drill-in; re-rendering the whole shell for either
- * would make scrolling a phone list a state update per frame.
+ * `lastOpenRkey` / `lastOpenIndex` on every drill-in; re-rendering the whole
+ * shell for either would make scrolling a phone list a state update per frame.
  */
+const SILENT_LIST_KEYS = new Set(['scrollTop', 'lastOpenRkey', 'lastOpenIndex']);
 function isSilentListPatch(patch) {
-  return Object.keys(patch).every((k) => k === 'scrollTop' || k === 'lastOpenRkey');
+  return Object.keys(patch).every((k) => SILENT_LIST_KEYS.has(k));
 }
 
 /**

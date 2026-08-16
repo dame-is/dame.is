@@ -4,35 +4,28 @@ import { ArrowUpRight } from 'lucide-react';
 import GuestbookEntryRow from './GuestbookEntryRow.jsx';
 import { Skeleton, SkeletonShell } from './Skeleton.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
+import { GUESTBOOK_DEADLINE_MS, withDeadline } from '../admin/useAdminData.js';
 import { fetchGuestbookEntries, setEntryHidden } from '../lib/guestbook.js';
 import { GUESTBOOK_NSID, GUESTBOOK_ENTRY_NSID } from '../config.js';
 
-/**
- * Ceiling on one page of the book.
+/*
+ * The ceiling on one page of the book, and the race that enforces it, are
+ * IMPORTED rather than declared here.
  *
  * `fetchGuestbookEntries` is a Constellation backlink page, then one fetch per
  * signer's PDS, then a profile walk, and it takes no signal — so when the index
- * is unreachable the panel used to sit on a skeleton for ~40 SECONDS while every
- * hop exhausted its own network timeout, then report failure. The Front Desk's
- * guestbook tile already gives up at 8s (`GUESTBOOK_DEADLINE_MS` in
- * useAdminData.js), so the same failure was reporting itself twice, five times
- * apart. This is the same number, deliberately: one guestbook, one patience.
+ * is unreachable this panel used to sit on a skeleton for ~40 SECONDS while
+ * every hop exhausted its own network timeout, then report failure. The Front
+ * Desk's guestbook tile gives up at 8s. Two surfaces reporting the same outage
+ * five times apart is the defect; two surfaces holding their own copy of the
+ * number is how it would come back. useAdminData.js exports both because of
+ * this panel — one guestbook, one patience.
  *
- * src/lib/guestbook.js is not this slot's to change, hence a race here rather
- * than an AbortSignal threaded through the fetch. The in-flight requests are not
- * cancelled — they are simply no longer waited on, and `aliveRef` already keeps
- * a late answer from writing to an unmounted panel.
+ * src/lib/guestbook.js takes no AbortSignal, hence a race rather than a
+ * cancellation: the in-flight requests are not stopped, they are simply no
+ * longer waited on, and `aliveRef` already keeps a late answer from writing to
+ * an unmounted panel.
  */
-const GUESTBOOK_DEADLINE_MS = 8000;
-
-/** Resolve `fallback` if `promise` has not settled within `ms`. */
-function withDeadline(promise, ms, fallback) {
-  let timer = null;
-  const guard = new Promise((resolve) => {
-    timer = setTimeout(() => resolve(fallback), ms);
-  });
-  return Promise.race([promise, guard]).finally(() => clearTimeout(timer));
-}
 
 /** Sentinel the deadline resolves with, so a slow load is distinguishable from a failed one. */
 const TIMED_OUT = Symbol('guestbook-timeout');

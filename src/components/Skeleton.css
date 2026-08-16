@@ -438,19 +438,36 @@
   border-top: 0;
 }
 
-/* 14ch, matching `.admin-record-rkey` (Admin.css) exactly — this block mirrors
-   that geometry by hand and had drifted to 9ch, so every admin list visibly
-   shifted its second column rightwards the moment the real rows replaced the
-   placeholder. Every consumer of AdminRecordListSkeleton is admin-only. */
+/* 14ch, matching `.admin-record-rkey` (Admin.css) — this block mirrors that
+   geometry by hand and had drifted to 9ch, so every admin list visibly shifted
+   its second column rightwards the moment the real rows replaced the
+   placeholder. Every consumer of AdminRecordListSkeleton is admin-only.
+
+   The font declarations are what make the 14ch honest, and they are not
+   decoration: `ch` is the advance width of "0" IN THE ELEMENT'S OWN FONT, so
+   the same `width: 14ch` meant 100.8px on the real chip (12px IBM Plex Mono)
+   and 112px on this blank block, which inherits the 16px serif. The placeholder
+   column was 11px wider than the column it stood for, and the title beside it
+   started 10px right of where it would land. Nothing here draws a glyph; the
+   font is here purely to give `ch` the right basis.
+
+   `height` is NOT set here — see the note further down: `Skeleton` writes it
+   inline and an inline style beats a class, so the value has to be passed as a
+   prop at the JSX, which it now is. */
 .skeleton-admin-rkey {
   flex: 0 0 auto;
   width: 14ch;
-  height: 0.8rem;
+  font-family: var(--code);
+  font-size: var(--text-xs);
 }
 
+/* `flex: 0 1 auto`, not `1 1 auto`. Growing meant the bar ran to the right edge
+   of the column whatever width the JSX asked for — 419px of the 544px row —
+   promising a full-width line of text where the real rows hold a short title
+   and then stop. It may still SHRINK, so a long width in a narrow column is
+   clamped rather than overflowing. Height comes from the JSX (see above). */
 .skeleton-admin-preview {
-  flex: 1 1 auto;
-  height: 1.05em;
+  flex: 0 1 auto;
   max-width: var(--measure);
 }
 

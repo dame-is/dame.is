@@ -64,10 +64,28 @@
 .wb-bar-slot-status {
   flex: 1 1 0;
   justify-content: center;
-  min-width: 0;
+  /* A floor, not a width. With `min-width: 0` slot 2 got only what slots 1 and 3
+     left over, and on a surface with a long name that was nothing: measured on
+     the sky studio at 390, slot 1 took 170.5px for "Sky theme studio" and slot 2
+     was 33.1px wide, rendering "2/24 tuned" as "2/2…". 4.5rem is the width of
+     the shortest useful status ("20 loaded", "2/24 tuned") and forces the flex
+     line to overflow instead, at which point slot 1 — which is `flex: 0 1 auto`
+     over a label that already ellipses — gives the room up. That is the
+     degradation order §2.1 asks for: slot 3 never shrinks, slot 1 shrinks
+     toward icon + caret, slot 2 truncates and only disappears below 340px. Slot
+     1's label is also the one thing on the bar that is redundant — the pane's
+     own <h1> says the surface name two inches above it.
+
+     `:not(:empty)`, because a surface with no status must not charge slot 1 for
+     the space: the Front Desk registers none, and with an unconditional floor
+     its slot 1 read "Front…" beside 72px of nothing. */
   /* The dirty sentence changes per keystroke. Fixed neighbours plus a truncating
      centre is what stops the bar reflowing under the owner's thumb. */
   overflow: hidden;
+}
+
+.wb-bar-slot-status:not(:empty) {
+  min-width: 4.5rem;
 }
 
 .wb-bar-slot-actions {
@@ -169,9 +187,18 @@
     display: none;
   }
 
+  /* The cap that used to sit here — 5.5rem, tighter than the 9rem above —
+     rendered "Front d…" and "Sky the…" at 320 while slot 2 beside it was
+     `display: none` and 141px of the row was empty: an ellipsis where a word
+     should be, bought with space nothing else wanted. With no cap the label is
+     `flex: 0 1 auto` over `min-width: 0` inside a slot that is the same, so it
+     takes what is there and ellipses only when the row genuinely runs out —
+     which is §3.5's "slot 1 shrinks toward icon + caret", expressed as a
+     consequence rather than as a fixed number. Both buttons carry an
+     `aria-label`, so a label that does have to clip costs no accessible name. */
   .wb-bar-surface .wb-bar-btn-label,
   .wb-bar-back .wb-bar-btn-label {
-    max-width: 5.5rem;
+    max-width: none;
   }
 }
 
@@ -296,6 +323,13 @@
   font-size: var(--text-base);
   text-align: left;
   cursor: pointer;
+  /* A sheet row is a row of the sheet, whatever element it happens to be. Most
+     are <button>s, but the résumé studio's version sheet has two that are
+     <Link>s, and those arrived with the site's underline and read as a
+     different kind of control from the rows above and below them. Declared on
+     the class rather than as a `#rs-version-sheet a` override, because the next
+     sheet with a link row would hit the same thing. */
+  text-decoration: none;
 }
 
 .wb-sheet-row > svg {

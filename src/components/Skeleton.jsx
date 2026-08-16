@@ -574,10 +574,28 @@ export function AdminRecordListSkeleton({
             </li>
           ) : (
             <li key={i} className="skeleton-admin-row">
-              <Skeleton className="skeleton-admin-rkey" />
+              {/* Heights as PROPS, for the reason spelled out in the workbench
+                  branch above: `Skeleton` writes `height` as an inline style, so
+                  a height in the stylesheet is silently dead. Both numbers are
+                  the real row's measured line boxes — 1.35rem is the `<code>`
+                  rkey chip's 21.6px, 1.6rem the `.admin-record-preview`'s 25.6px
+                  — which is what brings the row from 36.2px to `.admin-record-
+                  link`'s 45.8px. Every one of this variant's callers had a real
+                  row TALLER than the placeholder (45.8 on Site pages, 39.4 on
+                  Listening, 56.4 in the nav menu, 73.7 in the resume studio), so
+                  the list shrank on every one of them as the data landed. */}
+              <Skeleton className="skeleton-admin-rkey" height="1.35rem" />
               <Skeleton
                 className="skeleton-admin-preview"
-                style={{ width: `${52 + ((i * 13) % 40)}%` }}
+                height="1.6rem"
+                /* 38–72% rather than 52–92%. With the flex-grow removed (see
+                   Skeleton.css) this width is now what the bar actually gets,
+                   and a bar that reaches the right edge promises a full-width
+                   line of text where the real rows hold a short title with the
+                   rest of the row empty — the play list's rows are a label at
+                   the left and a small "Edit →" at the right with ~300px of
+                   nothing between them. */
+                style={{ width: `${38 + ((i * 13) % 34)}%` }}
               />
             </li>
           ),
@@ -627,12 +645,30 @@ export function AdminPagePanelsSkeleton({ panels = 4 }) {
  * existing record). Mirrors the `.admin-form` stack — small-caps field
  * labels above inputs, one tall block for the body textarea, and an
  * actions row.
+ *
+ * `fields` is a count and gets the historical shape: every field a short input
+ * except the last, which is drawn as a textarea. That is a GUESS, and it is
+ * wrong whenever the lexicon has no long-text field at all — on an `is.dame.now`
+ * record the placeholder draws two 40px inputs and a 136px block, then resolves
+ * to three short fields and no textarea, so the form visibly collapses by ~96px
+ * and everything under it jumps.
+ *
+ * `shapes` is the way out: pass an array of `'short'` / `'tall'`, one per field,
+ * and the placeholder draws exactly the form that is coming. The caller is the
+ * only one that can know — RecordEditor has the lexicon in hand at the call site
+ * and can map its field types — so the knob is here and the knowledge stays
+ * there. It is opt-in rather than the default because this component also
+ * renders on public routes (the quick-edit sheet portals to <body>, and
+ * /exploring draws the same form), where the loading state has to stay exactly
+ * as it has always looked.
  */
-export function AdminEditorSkeleton({ fields = 4 }) {
+export function AdminEditorSkeleton({ fields = 4, shapes = null }) {
+  const rows = Array.isArray(shapes) && shapes.length ? shapes : null;
+  const count = rows ? rows.length : fields;
   return (
     <SkeletonShell label="Loading record" className="skeleton-admin-form">
-      {Array.from({ length: fields }, (_, i) => {
-        const tall = i === fields - 1;
+      {Array.from({ length: count }, (_, i) => {
+        const tall = rows ? rows[i] === 'tall' : i === count - 1;
         return (
           <div key={i} className="skeleton-admin-field">
             <Skeleton

@@ -405,54 +405,89 @@ export function buildRepo() {
     ),
   ]);
 
-  /* Resume versions + canonical jobs and education */
+  /* Resume versions + canonical jobs and education.
+   *
+   * These follow `is.dame.resume` / `is.dame.resume.job` as the LEXICON defines
+   * them (src/lib/lexicons.js), which an earlier version of this file did not:
+   * versions carried `name` where the lexicon says `title`, and jobs carried
+   * `bullets` where it says `highlights`. Neither is a field the app reads, so
+   * every fixture version rendered as "Untitled version" and every job as "0
+   * bullets" — the résumé studio and the whole tailoring workbench, which is the
+   * one surface in the admin built entirely around bullets, could not be looked
+   * at in the harness at all. Nothing was wrong with the code; the fixtures were
+   * describing a different schema.
+   */
+  const resumeJobs = [
+    ['Design lead', 'Anisota', '2023', ''],
+    ['Senior designer', 'Field & Rule', '2020', '2023'],
+    ['Designer', 'Marginalia Co.', '2017', '2020'],
+  ].map(([title, org, start, end], i) =>
+    rec(COLLECTIONS.resumeJob, {
+      $type: COLLECTIONS.resumeJob,
+      title,
+      organization: org,
+      startDate: `${start}-01`,
+      endDate: end ? `${end}-01` : undefined,
+      current: !end,
+      // `highlights`, the lexicon's name, and shaped the way `resumeHelpers.js`
+      // resolves them: an `id` per bullet, plus one alternate phrasing so the
+      // workbench's "reword" control has something real to switch between.
+      highlights: [
+        {
+          id: `h${i}a`,
+          text: 'Rebuilt the internal tooling around a single durable data model.',
+          variants: [
+            { id: 'short', text: 'Rebuilt internal tooling on one durable data model.' },
+          ],
+        },
+        { id: `h${i}b`, text: 'Cut the design system down to what was actually used.' },
+        { id: `h${i}c`, text: 'Wrote the migration that moved six years of posts onto the PDS.' },
+      ],
+      createdAt: ago(80000 + i * 500),
+    }),
+  );
+  put(COLLECTIONS.resumeJob, resumeJobs);
   put(COLLECTIONS.resume, [
     rec(COLLECTIONS.resume, {
       $type: COLLECTIONS.resume,
-      name: 'studio-lead',
+      title: 'Studio lead',
+      slug: 'studio-lead',
+      headline: 'Design lead, small durable tools',
       visibility: 'public',
+      featured: true,
       summary: 'Design lead with a long tail of small, durable tools.',
+      // Every job, no explicit highlight selection: "all non-private", which is
+      // the state a freshly tailored version starts in.
+      entries: resumeJobs.map((r) => ({ job: r.uri })),
       createdAt: ago(60000),
       updatedAt: ago(11000),
     }),
     rec(COLLECTIONS.resume, {
       $type: COLLECTIONS.resume,
-      name: 'engineering',
+      title: 'Engineering',
+      slug: 'engineering',
       visibility: 'unlisted',
       summary: 'Front-end heavy, protocol-curious.',
+      // A tailored version: two of the three jobs, and the first of those
+      // showing two of its three bullets with one of them reworded. This is the
+      // state the bullet board exists to edit, so it needs to exist in fixtures.
+      entries: [
+        { job: resumeJobs[0].uri, highlightIds: ['h0a#short', 'h0c'] },
+        { job: resumeJobs[1].uri },
+      ],
       createdAt: ago(70000),
       updatedAt: ago(30000),
     }),
     rec(COLLECTIONS.resume, {
       $type: COLLECTIONS.resume,
-      name: 'archive-2024',
+      title: 'Archive 2024',
+      slug: 'archive-2024',
       visibility: 'private',
       summary: 'Kept for reference.',
       createdAt: ago(200000),
       updatedAt: ago(190000),
     }),
   ]);
-  put(
-    COLLECTIONS.resumeJob,
-    [
-      ['Design lead', 'Anisota', '2023', ''],
-      ['Senior designer', 'Field & Rule', '2020', '2023'],
-      ['Designer', 'Marginalia Co.', '2017', '2020'],
-    ].map(([title, org, start, end], i) =>
-      rec(COLLECTIONS.resumeJob, {
-        $type: COLLECTIONS.resumeJob,
-        title,
-        organization: org,
-        startDate: `${start}-01`,
-        endDate: end ? `${end}-01` : undefined,
-        bullets: [
-          'Rebuilt the internal tooling around a single durable data model.',
-          'Cut the design system down to what was actually used.',
-        ],
-        createdAt: ago(80000 + i * 500),
-      }),
-    ),
-  );
   put(COLLECTIONS.resumeEducation, [
     rec(COLLECTIONS.resumeEducation, {
       $type: COLLECTIONS.resumeEducation,
@@ -464,19 +499,27 @@ export function buildRepo() {
     }),
   ]);
 
-  /* Ratioed pieces */
+  /* Ratioed pieces.
+   *
+   * `take`, `postedAt` and `lifespanMs` are the lexicon's own field names
+   * (is.dame.creating.ratioed.piece). An earlier version of this block wrote
+   * `index`, `createdAt` and `reactionMs`, none of which the catalogue reads —
+   * so all eight cards rendered as take "00" with no lifespan, and the one
+   * surface whose whole job is per-piece measurement showed the same
+   * unmeasurable card eight times over. */
   put(
     COLLECTIONS.ratioedPiece,
     Array.from({ length: 8 }, (_, i) => {
       const running = i === 0;
       return rec(COLLECTIONS.ratioedPiece, {
         $type: COLLECTIONS.ratioedPiece,
-        index: 8 - i,
+        take: 8 - i,
         subject: `at://${ME_DID}/app.bsky.feed.post/${tid()}`,
+        postedAt: ago(running ? 4320 : 5000 + i * 4000),
         sealed: !running,
         sealedAt: running ? undefined : ago(1200 + i * 4000),
-        reactionMs: running ? undefined : 2_460_000 + i * 130_000,
-        createdAt: ago(running ? 4320 : 1500 + i * 4000),
+        lifespanMs: running ? undefined : 2_460_000 + i * 130_000,
+        createdAt: ago(running ? 4320 : 5000 + i * 4000),
       });
     }),
   );

@@ -471,6 +471,12 @@ export default function RecordListPane({ surface, agent, did }) {
   const viewRef = useRef(listView);
   viewRef.current = listView;
 
+  // The surface heading, declared up here because two things far apart in this
+  // file need it: the bulk delete, which loses focus when its own button goes
+  // away, and the return-from-a-record restore. It carries `tabIndex={-1}` so it
+  // can take focus without taking a tab stop.
+  const headingRef = useRef(null);
+
   /* --- fetching ---------------------------------------------------- */
 
   // Which fetch is allowed to write to state. The pane now refreshes itself
@@ -616,6 +622,28 @@ export default function RecordListPane({ surface, agent, did }) {
   // sort, count or select — and "0+ loaded" is a measurement of nothing.
   const firstLoad = loading && records.length === 0;
 
+  // Publish how many records this surface actually has, for the DETAIL column —
+  // which is mounted beside this one on a desktop, does no fetching of its own,
+  // and used to answer an empty collection with "Nothing selected — pick a
+  // record from the list" while the list next to it said there were none. `-1`
+  // means "not known yet", so the pane can tell an empty collection from one
+  // that has not answered. Written after the fetch settles, never during it:
+  // mid-flight the count is zero for a reason that has nothing to do with the
+  // collection. `setListView` bails when the value has not moved, so this is one
+  // shell render per load, not one per render.
+  useEffect(() => {
+    if (firstLoad) return;
+    setView({ loadedCount: error ? -1 : surfaceRecords.length });
+  }, [firstLoad, error, surfaceRecords.length, setView]);
+
+  // The visible order, as rkeys, for the two places that need a POSITION rather
+  // than a record: `openRow` records where the row it is leaving sat, and the
+  // restore effect reads it back when that row no longer exists. A ref, because
+  // both are event/effect callers that must see the latest order without taking
+  // a dependency on an array that changes identity on every keystroke.
+  const shownKeysRef = useRef([]);
+  shownKeysRef.current = useMemo(() => shown.map((rec) => rkeyFromUri(rec.uri)), [shown]);
+
   /* --- selection ---------------------------------------------------- */
 
   const toggle = useCallback(
@@ -742,13 +770,27 @@ export default function RecordListPane({ surface, agent, did }) {
       setError(err?.message || String(err));
     } finally {
       setRecords((prev) => prev.filter((rec) => !deleted.has(rkeyFromUri(rec.uri))));
-      setView({ selected: Object.freeze(selectedKeys.filter((k) => !deleted.has(k))) });
+      // Selection mode ends with the records it was about. Leaving it armed over
+      // an empty selection keeps `[Cancel] [0 selected] [Delete (0)]` under the
+      // thumb after the job is done, and the owner has to dismiss a mode they
+      // already finished with.
+      setView({ selected: NO_SELECTION, selecting: false });
       if (deleted.size) invalidateAfterOwnWrite(surface.nsids);
       // The detail pane cannot go on editing a record that no longer exists.
       // Forced, because "discard unsaved changes?" is not a question worth
       // asking about a record you have just deleted.
       if (openRkey && deleted.has(openRkey)) go({ r: null, mode: null }, { force: true });
       setBusy(false);
+      // Where focus goes when the control that was holding it has just gone.
+      // The Delete that ran this is in the selection cluster, and that cluster
+      // is hidden (desktop) or swapped out of the bar (stacked) the moment the
+      // selection empties — measured `activeElement` was BODY on both routes.
+      // The heading is the one element on the surface guaranteed to still be
+      // there, it names where the owner is, and the count beside it is already
+      // `aria-live`, so the new total is announced without a second region
+      // saying the same thing. One frame late, to land after `RouteTransition`
+      // if the delete also closed an open record.
+      requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
     }
   }, [
     agent,
@@ -757,7 +799,6 @@ export default function RecordListPane({ surface, agent, did }) {
     go,
     invalidateAfterOwnWrite,
     openRkey,
-    selectedKeys,
     selectedRecords,
     setView,
     surface.nsids,
@@ -778,9 +819,14 @@ export default function RecordListPane({ surface, agent, did }) {
   // them — so selecting a record only sets `r` and clears any `mode=new`. The
   // rkey is recorded first: below 60rem this pane is about to unmount, and it is
   // what focus comes back to.
+  //
+  // Its POSITION is recorded with it, because the rkey is not always still there
+  // to come back to. Delete the record from the detail pane on a phone and this
+  // list mounts in its place with the row gone; the position is what lets focus
+  // land on whatever took it rather than on <main>.
   const openRow = useCallback(
     (key) => {
-      setView({ lastOpenRkey: key });
+      setView({ lastOpenRkey: key, lastOpenIndex: shownKeysRef.current.indexOf(key) });
       go({ r: key, mode: null });
     },
     [go, setView],
@@ -845,18 +891,53 @@ export default function RecordListPane({ surface, agent, did }) {
   // silent no-op and exactly what coming back from a record used to be. An error
   // releases it too, because then there will never be rows.
   useEffect(() => {
-    if (restoredKey.current === surfaceKey) return;
-    if (records.length === 0 && !error) return;
+    if (restoredKey.current === surfaceKey) return undefined;
+    if (records.length === 0 && !error) return undefined;
     restoredKey.current = surfaceKey;
-    const { scrollTop } = viewRef.current;
+    const { scrollTop, lastOpenRkey, lastOpenIndex } = viewRef.current;
     const port = portRef.current;
     if (port) port.scrollTop = scrollTop || 0;
-    // `preventScroll`, because the offset above is the answer — letting the
-    // browser scroll the focused row into view would overrule it.
-    if (returnRowRef.current) {
-      const target = returnRowRef.current.querySelector('.wb-list-link, .wb-list-check');
-      target?.focus({ preventScroll: true });
-    }
+
+    // Focus only moves when we have COME BACK from a record — `lastOpenRkey` is
+    // the record we left. Arriving at a list any other way (a deep link, a
+    // surface change, a reload) leaves focus alone, because there is nothing to
+    // restore and the shell has its own answer for where a new route starts.
+    if (!lastOpenRkey) return undefined;
+
+    // Where focus goes, in the order of how much it knows.
+    //
+    // 1. The row we drilled into, if it is still here. This is the ordinary
+    //    back-out, and `preventScroll` matters: the offset restored above is the
+    //    answer, and letting the browser scroll the focused row into view would
+    //    overrule it.
+    // 2. The row that took its place. Reached when the record was DELETED from
+    //    the detail pane on a phone — that pane unmounts, this column mounts,
+    //    and nothing in the pane's own slot is alive to receive focus, so the
+    //    measured `activeElement` was MAIN.layout. The position was recorded on
+    //    the way in for exactly this case; if the deleted row was last, the new
+    //    last row is the nearest thing to where the owner was standing.
+    // 3. The heading. Reached when the delete emptied the list. It carries
+    //    `tabIndex={-1}` for this, and it names the surface, which is the one
+    //    fact worth announcing when there is no longer a row to stand on.
+    //
+    // Deferred one frame. `RouteTransition`'s effect focuses `#main-content` on
+    // `[pathname, navType]`, and `go()` flips navType POP→PUSH on the first
+    // in-admin navigation of a session — it is an ancestor, so its effect runs
+    // AFTER this one in the same commit and takes focus straight back off
+    // whatever we put it on. A frame later is after that, and still before any
+    // input the owner could have produced.
+    const frame = requestAnimationFrame(() => {
+      let target = null;
+      if (returnRowRef.current) {
+        target = returnRowRef.current.querySelector('.wb-list-link, .wb-list-check');
+      } else if (lastOpenIndex >= 0 && shownKeysRef.current.length) {
+        const rows = rootRef.current?.querySelectorAll('.wb-list-rows > li') || [];
+        const at = Math.min(lastOpenIndex, rows.length - 1);
+        target = rows[at]?.querySelector('.wb-list-link, .wb-list-check') || null;
+      }
+      (target || headingRef.current)?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [surfaceKey, records.length, error]);
 
   // Bring the open record into view after a back/forward or a deep link.
@@ -1056,8 +1137,16 @@ export default function RecordListPane({ surface, agent, did }) {
       <div className="wb-list-head">
         <div className="wb-list-titlerow">
           {/* The rail is icons only and the detail pane titles the RECORD, so
-              this is the one place a records surface says its own name. */}
-          <h1 className="wb-pane-title wb-list-title">{surface.label}</h1>
+              this is the one place a records surface says its own name.
+
+              `tabIndex={-1}` makes it programmatically focusable without adding
+              a stop to the tab order. It is the last resort of the restore
+              effect above and the landing place after a bulk delete: when the
+              rows a delete acted on are gone, the surface's name is the honest
+              thing to announce. */}
+          <h1 className="wb-pane-title wb-list-title" ref={headingRef} tabIndex={-1}>
+            {surface.label}
+          </h1>
           <button
             type="button"
             className="admin-link-subtle wb-list-refresh"

@@ -152,17 +152,11 @@
   flex: 0 0 auto;
 }
 
-/* Both gate-buttons in this column that are `<a>`s — "New", and the page
-   panel's "Edit" — are react-router `<Link>`s, and `typography.css`'s
-   `a:hover { color: var(--accent) }` (0-1-1) outranks `.admin-gate-button`'s own
-   `color` (0-1-0) while the button's hover repaints the BACKGROUND to `--accent`.
-   The label and the ground landed on the same token, so "New" became an empty
-   filled rectangle under the pointer. The real fix is one additive rule in
-   Admin.css, which is not this slot's to edit; scoped to `.wb-list`, no public
-   rendering moves by a pixel. */
-.wb-list a.admin-gate-button:hover:not(:disabled) {
-  color: var(--page);
-}
+/* The `.wb-list a.admin-gate-button:hover` override that used to sit here — the
+   one that kept "New" from becoming an empty filled rectangle under the pointer
+   — is gone: Admin.css now carries `a.admin-gate-button:hover:not(:disabled)`
+   unscoped, which covers this column and the eight other anchor gate-buttons in
+   the admin that a `.wb-list` scope could never reach. */
 
 .wb-list-controls {
   display: flex;

@@ -77,6 +77,27 @@
   border-color: var(--accent);
 }
 
+/* An anchor gate-button keeps its label on hover.
+ *
+ * `a:hover { color: var(--accent) }` (typography.css:46, specificity 0-1-1)
+ * outranks `.admin-gate-button { color: var(--page) }` (0-1-0), and the hover
+ * rule directly above repaints the BACKGROUND to `--accent` as well. So every
+ * gate button rendered as a <Link> rather than a <button> — the record list's
+ * "New", the Site-pages "Edit", the publications and guestbook studios' outbound
+ * links, the page-content card — turned into a filled rectangle with its label
+ * the exact colour of its fill on hover: measured `color` and `background-color`
+ * both rgb(15,116,138) on Site pages' Edit. Ten anchors across the admin.
+ *
+ * `a.`, so it costs one element of specificity and beats `a:hover` without
+ * touching the <button> case, which never had the bug. This is byte-identical on
+ * the public site by construction: every public consumer of `.admin-gate-button`
+ * — RecordEditor's Save / Delete / Try again inside the quick-edit sheet, and
+ * /exploring's search and Load more — renders a <button>, so this selector
+ * matches nothing outside the admin. Verified by grep before it was written. */
+a.admin-gate-button:hover:not(:disabled) {
+  color: var(--page);
+}
+
 .admin-gate-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -120,14 +141,36 @@
    (`.admin-collection-list`/`-row`/`-link`/`-label`/`-summary`) went away with
    the picker itself; this one survives because six admin consumers still use it
    on its own — the record list and detail panes, the studio pane, and the
-   listening / guestbook managers. Note the deliberate `--mono-ui`, which folds
-   to the serif under the site's `[data-font='serif']` mode: that is a design
-   decision, not an oversight. */
+   listening / guestbook managers.
+
+   `--code`, NOT `--mono-ui`. An earlier comment here defended `--mono-ui` — which
+   theme.css folds to the SERIF — as "a design decision, not an oversight". That
+   reasoning holds for prose-adjacent metadata, which is what `--mono-ui` is for;
+   it does not hold for an NSID. An NSID is an identifier: a string you read
+   character by character, compare against another one, and sometimes retype, and
+   the house rule is IBM Plex Mono for rkeys, NSIDs and at-uris. Leaving it serif
+   also broke the rule visibly rather than quietly — `is.dame.page` in a studio
+   head was proportional while the bare `<code>` two inches below it, which
+   resolves `--code`, was monospaced: the same class of string, one screen, two
+   voices. Three surfaces had already patched around it locally (StudioPane.css,
+   frontDesk.css); this is the fix they were patching around, and those overrides
+   are now redundant rather than load-bearing. Every consumer is admin-only —
+   nothing here renders in the public quick-edit sheet or on /exploring — so this
+   is edited in place rather than scoped to `.wb`.
+
+   `overflow-wrap: anywhere` rather than `word-break: break-all`. Both stop a long
+   NSID overflowing its column, but `break-all` breaks at whatever character the
+   line runs out on EVEN WHEN the token would fit on the next line whole: at 320
+   the inline `fm.teal.alpha.feed.play` split into "fm.teal.alp" / "ha.feed.play"
+   across two boxes, unreadable and unselectable as an identifier, in a 288px
+   parent it needed only 177px to sit on one line. `anywhere` lets it wrap to the
+   next line intact and only breaks mid-token when there is genuinely no line long
+   enough to hold it. */
 .admin-collection-nsid {
-  font-family: var(--mono-ui);
+  font-family: var(--code);
   font-size: var(--text-xs);
   color: var(--ink-faint);
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 
 .admin-toolbar {
@@ -183,10 +226,24 @@
   color: var(--accent);
 }
 
+/* The record's rkey, in a fixed column at the head of the row. `--code` for the
+   same reason as `.admin-collection-nsid` above: recordListPane.css called this
+   one "frozen … deliberately serif", but the SAME rkeys were already rendering in
+   IBM Plex Mono one click away in `.wb-list-rkey`, so the freeze bought two fonts
+   for one string rather than consistency. Site pages showed both at once: a mono
+   `<code>` chip in the section note, serif rkey chips in the list beneath it, on
+   identical chip backgrounds. Admin-only (FrontDesk, PagesOverview, the resume
+   studio and workbench, LegacyBlogMigration), so edited in place.
+
+   `14ch` now means 14 characters of the font it is actually set in. It always
+   read as "the same 14ch as the real column", but `ch` resolves against the
+   ELEMENT's own font-size and family, so 14ch of 12px Plex Mono is 100.8px where
+   14ch of the serif was 112px — which is why Skeleton.css's mirror of this column
+   had to be corrected in the same pass. */
 .admin-record-rkey {
   flex-shrink: 0;
   width: 14ch;
-  font-family: var(--mono-ui);
+  font-family: var(--code);
   font-size: var(--text-xs);
   color: var(--ink-faint);
 }
@@ -251,9 +308,22 @@
   margin-bottom: var(--space-2);
 }
 
+/* "20 loaded", opposite "Select all" on the same toolbar row. It used to be set
+   in a different voice AND a different size from its row-mate — 12px normal caps
+   with no tracking against 14px all-small-caps at 0.18em — so a label and its
+   value read as two unrelated things, and because the two boxes were different
+   heights their x-heights did not line up either (the toolbar centres its items;
+   equal type sizes are what puts equal boxes on one baseline).
+   `tnum` because this is the one number in the pane that changes as you page —
+   Crimson Pro's proportional digits made its right edge jitter from 20 to 100 to
+   240. `.fd-tile-value` and `.fd-surface-count` already ask for tabular figures
+   for the same reason. */
 .admin-multiselect-count {
   font-family: var(--sans);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.18em;
+  font-feature-settings: 'tnum' 1;
   color: var(--ink-faint);
   margin-left: auto;
 }
@@ -579,14 +649,19 @@ select.admin-input {
   max-width: var(--measure);
 }
 
-/* Merged Site-pages view: two stacked sections. */
-.admin-page-section {
-  margin-top: var(--space-7);
-}
+/* Merged Site-pages view: two stacked sections.
 
-.admin-page-section:first-of-type {
-  margin-top: var(--space-5);
-}
+   No `margin-top`. These sections were written when Site pages was a whole page
+   with nothing above it, so each one paid for its own air. Inside the studio pane
+   they are flex items of `.wb-studio`, whose `gap` already spaces every top-level
+   block — and a flex item's margin ADDS to the gap rather than collapsing with
+   it, so the boundary between the two sections measured 65.6px (17.6 gap + 48
+   margin) against 17.6px for every other boundary on the same surface: four
+   different gaps down one column, with a conspicuous hole between the last page
+   card and the PAGE RECORDS label. The gap owns the rhythm now, and a section
+   still announces itself with `.admin-collection-group-head`'s rule and label.
+   `.rs-section` (resumeStudio.css) carries its own copy of these margins, so the
+   resume studio's spacing is unaffected by their removal here. */
 
 .admin-page-section > .admin-collection-group-heading {
   display: block;
@@ -643,8 +718,14 @@ select.admin-input {
   font-size: var(--text-xs);
 }
 
+/* The "·" between the date, the slug and the image count. `--rule` is calibrated
+   for 1px hairlines, not for a 12px glyph: at that size it measured #8a9ec2 on a
+   #b5cbf2 page, i.e. effectively not drawn, and the three metadata items read as
+   floating with unexplained gaps between them. `--ink-faint` is the colour the
+   metadata beside it already uses, which is what a separator inside a run of
+   metadata should be. */
 .legacy-blog-dot {
-  color: var(--rule);
+  color: var(--ink-faint);
 }
 
 .legacy-blog-excerpt {
@@ -908,4 +989,410 @@ select.admin-input {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 16rem;
+}
+
+/* ==================================================================== */
+/* Corrections scoped to the admin shell                                */
+/* ==================================================================== */
+
+/* Everything below repairs a rule ABOVE that cannot be edited in place — all but
+ * one of them because the rule is public API, and the last one (the sticky bulk
+ * toolbar) because one of its two consumers already solves the same problem a
+ * different way. Each rule says which.
+ *
+ * This stylesheet is not admin-only. RecordEditor imports it, EditSheet renders
+ * RecordEditor app-wide (the quick-edit sheet portals to <body>, outside the
+ * shell), and Exploring.css `@import`s the whole file into the public
+ * /exploring route — where `.admin-error`, `.admin-link-subtle`, `.admin-input`
+ * and `.admin-gate-button` are all drawn. So every `.admin-*` / `.rf-*` /
+ * `.record-preview*` / `.category-field-*` selector is public API, and the
+ * standing constraint is that the public rendering does not move by a pixel.
+ *
+ * The pattern, already used by `.wb .category-field-chip.is-active` above and by
+ * recordListPane.css, frontDesk.css and StudioPane.css: leave the shared rule
+ * byte-identical and re-declare the corrected property under `.wb`, the admin
+ * shell's root element (AdminShell.jsx). Nothing outside the shell carries that
+ * class, so the sheet and /exploring keep exactly what they had.
+ *
+ * Each of these is therefore a HALF fix by design: the same defect is still on
+ * screen in the quick-edit sheet, and closing it there is a separate decision
+ * about changing the public site, not something to slip in under a selector.
+ *
+ * Colours are theme.css tokens only — the live theme is `data-theme="sky"`, an
+ * hour-computed palette, so a literal hex is wrong for 23 hours of the day.
+ */
+
+/* ---- failure reads as failure -------------------------------------- */
+
+/* The error card carried a hardcoded `rgba(168, 140, 95, 0.08)` — the LIGHT
+ * theme's warm brown, baked in — under text painted `--tan`, which the sky theme
+ * redefines as the sky's OWN hue. Ink and tint therefore came from two different
+ * palettes and could never agree: measured at 14:00 the box was a warm-brown wash
+ * under teal text on a periwinkle page, and at 09:00 `--tan` computes #223fa0
+ * against `--accent` #2240a0, so a refused save was painted the same blue as a
+ * link. `--danger` / `--danger-wash` (theme.css) hold a fixed vermilion hue and
+ * let only their lightness follow the hour, which is what a warning has to do.
+ *
+ * `--text-sm`, because at `--text-xs` the message that matters most on the
+ * surface was the smallest type on it — a 12px caption interrupting 14px copy.
+ *
+ * The measure for the same reason as the hints further down: this is a <p>, so
+ * `p { max-width: var(--measure) }` sized the BOX at 68ch of its own font — 476px
+ * inside a 544px column, a bordered card ending 68px short of every field under
+ * it. A card's width is not a reading measure; it belongs to the column. */
+.wb .admin-error {
+  max-width: 34rem;
+  font-size: var(--text-sm);
+  color: var(--danger);
+  background: var(--danger-wash);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--rule-soft));
+}
+
+.wb .admin-error-inline {
+  color: var(--danger);
+}
+
+/* Bulk delete, "Delete all", "Delete (200)". Same story as the error card: an
+ * outlined `--tan` button in a row of filled neutral ones read as the QUIETEST
+ * control on the toolbar while being the only irreversible one. */
+.wb .admin-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.wb .admin-danger:hover:not(:disabled) {
+  color: var(--page);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+/* The entry card's remove button. Its ONLY rule in the codebase was a `:hover`,
+ * so at rest — and on every touch device, which has no rest state to leave — it
+ * was the fourth of four identical 28px squares 4px apart, distinguished from the
+ * two reorder chevrons by its glyph alone. The hover did not distinguish it
+ * either: it painted `--tan`, which tracks the sky's hue, so for most of the day
+ * hovering "Remove from this version" looked like hovering "Open the full
+ * record".
+ *
+ * Two changes, both at rest: danger ink, and a gap that takes it out of the run.
+ * `:not(:first-child)` because ResumeWorkbench also renders it alone, as the only
+ * control on a missing-entry row, where a leading margin would just push it. */
+.wb .rf-icon-btn-danger {
+  color: var(--danger);
+}
+
+.wb .rf-controls .rf-icon-btn-danger:not(:first-child) {
+  margin-inline-start: var(--space-2);
+}
+
+.wb .rf-icon-btn-danger:hover:not(:disabled) {
+  color: var(--page);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ---- a control is not prose ---------------------------------------- */
+
+/* "← All publications" — a studio's only way back — plus "Edit raw JSON" and
+ * "theme only" all computed to `--ink-soft`, 14px, no underline, no border, no
+ * background. Beside 14px body copy in `--ink-faint` that makes an interactive
+ * thing distinguishable from a sentence by weight of ink alone, and on a phone
+ * there is no hover to disambiguate it. `--accent` was going unused on all three.
+ *
+ * The treatment is the site's own link vocabulary from typography.css — accent
+ * ink, a 1px underline in `--accent-soft` offset 3px, darkening on hover — so
+ * these read as links because they look like every other link on the site. */
+.wb .admin-link-subtle {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.wb .admin-link-subtle:hover {
+  text-decoration-color: var(--accent);
+}
+
+/* ---- one height for two rank-equal controls ------------------------- */
+
+/* `<input class="admin-input">` and `<select class="admin-input">` carry the same
+ * class, the same padding, the same font-size and the same border, and landed
+ * 5.4px apart — 40.4px against 35.0px — because a select's content box is the
+ * option row rather than the input's `--leading` line box. They sit side by side
+ * in the list toolbar and stacked in every record form (TITLE input above
+ * PUBLICATION select), where two rank-equal controls at two heights read as a
+ * mistake.
+ *
+ * `min-height`, not `line-height`: Blink forces `line-height: normal` on a
+ * non-multiple <select> and ignores an author value, so the obvious fix silently
+ * does nothing (measured: the declaration lands, the box does not move). The
+ * calc is the input's own height written out — one line box of `--text-sm`, its
+ * two `--space-2` paddings, its two 1px borders — so the pair stays locked
+ * together if any of those tokens moves rather than agreeing by coincidence.
+ *
+ * The 1.6 is a LITERAL on purpose, and `var(--leading)` would be wrong here.
+ * `.wb` re-scopes `--leading` to 1.45 for density, but the input's line box does
+ * not use that: `line-height` is inherited as a computed NUMBER from <body>,
+ * where the token still resolved to 1.6, and an inherited number is not
+ * re-resolved against the descendant's variables. Using `var(--leading)` lands
+ * 38.3px against the input's measured 40.4px — a smaller mismatch than the one
+ * it was fixing, but still a mismatch.
+ *
+ * resumeStudio.css already carries this declaration at `min-height: 2.5rem` for
+ * its own two roots, with a comment saying the right home for it is one rule in
+ * this file. This is that rule; the two selectors tie on specificity and differ
+ * by 0.4px, so whichever wins inside the resume studio is immaterial.
+ *
+ * The select is written to three times in this file, deliberately and without
+ * conflict: here for its DESKTOP height, in the block below for how it is
+ * PAINTED, and in the touch block at the foot for the 44px floor that replaces
+ * this height under 60rem. Three questions, three answers, each with the reason
+ * beside it — merging them would put three unrelated rationales in one comment. */
+.wb select.admin-input {
+  min-height: calc(var(--text-sm) * 1.6 + var(--space-2) * 2 + 2px);
+}
+
+/* ---- the admin draws its own controls ------------------------------- */
+
+/* This admin draws every other control itself and then handed its two most-used
+ * ones to the platform. A `<select class="admin-input">` arrives with the OS
+ * chevron and, on macOS and iOS, rounded corners — in a system whose stated rule
+ * is zero border-radius. A bare `<input type="checkbox">` paints in the UA's own
+ * blue with a rounded box: a fixed hex with no relation to `data-theme="sky"`,
+ * which recomputes the whole palette every hour, so for most of the day the tick
+ * is a colour that appears nowhere else on screen.
+ *
+ * These two rules were written first in resumeStudio.css, scoped to
+ * `.rs-studio` / `.rw-studio`, with a comment saying the right home was one rule
+ * here. This is that rule, one scope wider than the class itself so the record
+ * detail's publication picker, the listening studio's 240 selection boxes,
+ * RecordEditor's boolean fields and the sky studio's preview toggle are drawn
+ * the same way as the résumé board's — and so the quick-edit sheet, which
+ * portals to <body> outside `.wb` and draws the identical markup, keeps the
+ * platform controls it has today. */
+.wb select.admin-input {
+  -webkit-appearance: none;
+  appearance: none;
+  /* Room for the chevron, which is painted rather than dropped in as an asset:
+     two gradient wedges take `--ink-muted` from the live palette, where an SVG
+     data URI would have to bake a hex in. */
+  padding-inline-end: var(--space-6);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) calc(50% - 1px),
+    calc(100% - 0.7rem) calc(50% - 1px);
+  background-size: 0.3rem 0.3rem;
+  background-repeat: no-repeat;
+}
+
+.wb select.admin-input:disabled {
+  opacity: 0.5;
+}
+
+/* A hairline square that fills with the accent when it is on — the treatment
+   `.wb-strip-dot` already defines. `box-shadow` for the inner ring rather than a
+   border, so the painted box never changes size between states. */
+.wb input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.wb input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--page);
+}
+
+.wb input[type='checkbox']:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The size is a DEFAULT, not a declaration: `:where()` contributes nothing to
+   specificity, so any rule that sizes a particular checkbox wins without having
+   to out-specify this one. `.wb-list-check` is the case that needs it — its
+   13px box is what the record list's `--wb-list-check` gutter arithmetic is
+   written against, and a 16px box would put the column 3px out. Without a
+   default at all, `appearance: none` leaves the box at whatever intrinsic size
+   the UA gives it, which is not a number this design should be inheriting. */
+:where(.wb input[type='checkbox']) {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ---- annotations get the page's measure ---------------------------- */
+
+/* Two prose rules from typography.css reach these UI paragraphs and neither
+ * should:
+ *
+ * `p { max-width: var(--measure) }` is 68ch, and `ch` resolves against the
+ * ELEMENT's own font-size — so 68ch of a 12px hint is 408px where 68ch of 16px
+ * body text is 544px. A hint annotating a 1189px textarea in a full-width studio
+ * collapsed to a 408px ribbon, and three different measures (408 / 476 / 1189)
+ * stacked on one screen. 34rem is 544px: the same PHYSICAL measure the site's own
+ * body paragraphs get, held steady instead of shrinking with the type size.
+ *
+ * `p + p { text-indent: 1.5em }` is the site's prose paragraph indent, and it
+ * caught any hint that happened to follow another paragraph: "No job on this
+ * version yet" and "No education entry on this version yet" started 18px in while
+ * "No skill groups yet." — same form, no preceding <p> — sat flush with every
+ * heading, label and control on the surface. The bare `p + p` selector stays as
+ * it is: it also zeroes the bottom margin of consecutive paragraphs, which the
+ * public site's prose spacing is built on. */
+.wb .admin-field-hint,
+.wb .admin-collection-group-note {
+  max-width: 34rem;
+  text-indent: 0;
+}
+
+/* ---- the bulk toolbar stays with the list -------------------------- */
+
+/* The listening studio's multi-select toolbar holds the only Delete and the only
+ * "N selected" feedback for a 240-row list, and it was `position: static`:
+ * scrolled 2000px into the pane its rect was y = -1765, nearly two screens above
+ * the fold, so selecting rows deep in the list meant scrolling all the way back
+ * to act on them and never seeing the count while selecting.
+ *
+ * Scoped to `.wb-studio` rather than the class, because the record-list pane's
+ * copy of this toolbar already rides inside `.wb-list-head`, which is sticky and
+ * carefully sized (recordListPane.css) — a second sticky box inside it would be
+ * pinning against a moving target. The detail pane IS the scroll container and
+ * deliberately carries no block-start padding, so `top: 0` lands flush on its
+ * edge; the opaque background is what stops rows painting through the strip. */
+.wb-studio .admin-multiselect-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--page);
+}
+
+/* ---- touch --------------------------------------------------------- */
+
+/* A play row measured 38.4 × 358px on a phone, and the only thing in it that
+ * answers a tap is the ~40 × 19px "Edit →" at the far right — 240 of these.
+ * Painted rather than grown with a `.wb-hit` halo: the rows are stacked
+ * hairline-to-hairline, and two grown pseudo-boxes on adjacent rows would
+ * overlap, which is the failure the halo exists to avoid.
+ *
+ * It is the LABEL that grows, not the row. The label is the checkbox's target
+ * and the flex child that fills the row, so growing it is what actually enlarges
+ * the area a thumb can select with; a `min-height` on the row would leave a
+ * 22.4px label floating in a 44px box and only pad the untappable margin around
+ * it. The row follows to 60px on its own — 44px of label inside its two
+ * `--space-2` paddings — which is the height `.wb-list-row` already uses on a
+ * phone, so the two record lists agree.
+ *
+ * The other control in the row, `.admin-multiselect-edit`, is an
+ * `.admin-link-subtle`, which StudioPane.css already grows to 44px inside a
+ * studio. What is NOT fixed here is that the row BODY is not a link — reaching a
+ * record still means hitting the small link at the end of the row — because that
+ * is ListeningManager's markup, not a rule. */
+/* The floors below were each written three or four times over during the pass,
+ * scoped to whichever root the owner of the moment could reach — `.wb-studio`
+ * (StudioPane.css), `.rs-studio` / `.rw-studio` (resumeStudio.css), `.wb-list`
+ * (recordListPane.css). Every one of them carried a comment saying the rule
+ * belonged here and was scoped only because this file was another slot's. They
+ * are collected here now, once, under `.wb` — which is the admin shell's root
+ * element and the whole admin, so the record list, the record detail, the
+ * dashboard and the blocks editor pick them up along with the studios, and the
+ * quick-edit sheet (portalled to <body>, outside the shell) and /exploring pick
+ * up none of them. The per-studio duplicates are deleted with this commit; what
+ * stays in those files is only what is genuinely local to a surface. */
+@media (max-width: 60rem) {
+  .wb .admin-multiselect-check {
+    display: flex;
+    align-items: center;
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  /* Painted rather than grown with a `.wb-hit` halo, throughout. These controls
+     sit in rows of siblings 4–12px apart — the blocks editor's Undo/Redo pair,
+     an entry card's four icon squares, a bullet row's reword/fork — and two
+     grown pseudo-boxes that close overlap, at which point the later sibling
+     wins the tap. That is the failure the halo exists to prevent, and
+     adminShell.css says so where the utility is defined. */
+  /* Both ranks. The plain gate button measured 40.4px — close enough to look
+     right and 3.6px short of the floor — on the Ratioed catalogue's six bulk
+     actions, the empty pane's "New record", and every studio's Migrate. */
+  .wb .admin-gate-button,
+  .wb .admin-gate-button-tight {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  /* A bare text button — "Edit raw JSON", "now", "Undo", "Cancel", the blocks
+     editor's per-block controls — is 22px tall and as wide as its word. Every
+     `.admin-link-subtle` in the tree is a standalone control in an action row,
+     never a phrase inside a sentence (checked: the one in-prose link in the
+     admin, ResumeWorkbench's "Add portfolio links on the job record →", is a
+     bare <Link> and is deliberately not this class), so `inline-flex` cannot
+     break a paragraph here. */
+  .wb .admin-link-subtle {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--wb-hit, 2.75rem);
+    /* Both axes. Height alone left `Edit →` on a listening row at 40.8 × 44 and
+       `now` on a datetime field at 31 × 44 — a target that clears the floor
+       vertically and misses it horizontally is still a target you have to aim
+       at. A label wider than 44px is unaffected.
+
+       No `justify-content` here, deliberately. Centring the label inside the
+       grown box is right for a lone chip and wrong for a link that fills its
+       row: this selector also catches the Front Desk's per-draft links, which
+       are `flex: 1` inside their own row, and a centred one floated in the
+       middle of the pane away from the "·" that introduces it. Surfaces that
+       want their short labels centred say so themselves (`.rw-bullet-action`,
+       `.rw-toolbar-links`). */
+    min-width: var(--wb-hit, 2.75rem);
+  }
+
+  /* The 28px icon square: reorder chevrons, "open the record", "remove from
+     this version". They come in runs of four. */
+  .wb .rf-icon-btn {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+  }
+
+  /* A record row on the surfaces that still draw the classic list — Site pages,
+     the resume studio, legacy blogs, the Front Desk's latest-records list. The
+     LINK carries the height, not the row: a `min-height` on the <li> would
+     leave a 22px link floating inside a 44px box and pad only the untappable
+     margin around it. */
+  .wb .admin-record-link {
+    min-height: var(--wb-hit, 2.75rem);
+    align-items: center;
+  }
+
+  /* `<select class="admin-input">` and the datetime inputs. Plain text inputs
+     already stand 44px from app.css's ≤700px form-control rule, but that rule
+     stops at 700px and this breakpoint runs to 960px, so a tablet in the
+     stacked layout had 35px selects beside 40px inputs.
+
+     `input` and `select` are named rather than the bare class because
+     `.admin-textarea-tall` (the raw-JSON editor) is also an `.admin-input`, and
+     its 18rem lives at one class of specificity — a `.wb .admin-input` floor
+     would outrank it and collapse the JSON box to 44px. */
+  .wb input.admin-input,
+  .wb select.admin-input {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+
+  /* The checkbox's LABEL is the target; the box stays 13–16px painted. Growing
+     the input itself would need a halo on stacked siblings 16px apart, which
+     the halo's own contract forbids — see the note above. The class is already
+     `display: flex; align-items: center`, so the height is all that is added:
+     switching it to `inline-flex` would take the label out of the block flow it
+     fills on the listening rows. */
+  .wb .admin-checkbox {
+    min-height: var(--wb-hit, 2.75rem);
+  }
 }

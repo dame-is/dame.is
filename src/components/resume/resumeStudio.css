@@ -217,14 +217,11 @@
   border-color: var(--accent-soft);
 }
 
-/* The row menu's rows. `.wb-sheet-row` is drawn for the shell's own sheets,
-   whose rows are all <button>s, so a row that is a LINK arrives with the site's
-   underline on it and two of the three rows here read as a different control
-   from the third. Addressed by the sheet's id because the panel portals to
-   <body>, outside both studio roots. */
-#rs-version-sheet a.wb-sheet-row {
-  text-decoration: none;
-}
+/* The `#rs-version-sheet a.wb-sheet-row { text-decoration: none }` that used to
+   sit here is gone: `.wb-sheet-row` carries the declaration itself now
+   (adminBar.css), so the two link rows in this menu read as rows of the sheet
+   rather than as links dropped into one — and so does the next sheet that gets
+   a link row. */
 
 /* ---------------------- renaming / duplicating --------------------- */
 
@@ -816,74 +813,21 @@
 /* Drawn controls                                                       */
 /* ------------------------------------------------------------------ */
 
-/* This admin draws everything else itself, and then handed its two most-used
- * controls to the platform. The include/exclude checkbox — one per bullet, the
- * bullet board's primary control — paints in the UA's own blue with rounded
- * corners: a fixed hex with no relation to the sky palette, which recomputes
- * every hour, and a radius in a system with none. The selects arrive with the
- * platform chevron, rounded corners on macOS and iOS, and three different
- * heights against a 40px text input.
- *
- * Both are shared `.admin-*` classes in Admin.css, which is frozen public API —
- * `EditSheet` renders the same markup on public routes through a body portal —
- * so these are scoped to the two resume roots rather than written against the
- * class. The right home for them is one added rule in Admin.css; that file
- * belongs to another slot.
- */
+/* The two rules that used to open this section — `select.admin-input`'s drawn
+ * chevron and the checkbox's hairline square, both scoped to `.rs-studio` /
+ * `.rw-studio` because Admin.css belonged to another slot at the time — moved to
+ * Admin.css under `.wb` during integration, which is where their own comments
+ * said they belonged. Every admin surface draws them now, not only these two;
+ * the quick-edit sheet, which portals outside `.wb`, still gets the platform
+ * controls. All that is left here is the one measurement that is genuinely
+ * local. */
+
+/* The resume selects are the widest in the admin and sit in rows with a 40px
+   text input; 2.5rem holds the pair level at every width, above the shared
+   `.wb select.admin-input` floor as well as below it. */
 .rs-studio select.admin-input,
 .rw-studio select.admin-input {
-  -webkit-appearance: none;
-  appearance: none;
   min-height: 2.5rem;
-  /* Room for the chevron, which is painted rather than dropped in as an asset:
-     two gradient wedges take `--ink-muted` from the live palette, where an SVG
-     data URI would have to bake a hex in. */
-  padding-inline-end: var(--space-6);
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
-    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 1rem) calc(50% - 1px),
-    calc(100% - 0.7rem) calc(50% - 1px);
-  background-size: 0.3rem 0.3rem;
-  background-repeat: no-repeat;
-}
-
-.rs-studio select.admin-input:disabled,
-.rw-studio select.admin-input:disabled {
-  opacity: 0.5;
-}
-
-/* A hairline square that fills with the accent when it is on — the treatment
-   `.wb-strip-dot` already defines, and the same one the version picker uses two
-   sections up. `box-shadow` for the inner ring rather than a border, so the
-   painted box never changes size between states. */
-.rs-studio input[type='checkbox'],
-.rw-studio input[type='checkbox'] {
-  -webkit-appearance: none;
-  appearance: none;
-  flex: 0 0 auto;
-  width: 1rem;
-  height: 1rem;
-  margin: 0;
-  border: 1px solid var(--rule);
-  border-radius: 0;
-  background: var(--page);
-  cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
-}
-
-.rs-studio input[type='checkbox']:checked,
-.rw-studio input[type='checkbox']:checked {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: inset 0 0 0 2px var(--page);
-}
-
-.rs-studio input[type='checkbox']:disabled,
-.rw-studio input[type='checkbox']:disabled {
-  opacity: 0.45;
-  cursor: default;
 }
 
 /* ------------------------------------------------------------------ */
@@ -897,33 +841,15 @@
    the failure the halo exists to prevent (adminShell.css says so where the
    utility is defined).
  *
- * `.rf-icon-btn`, `.admin-gate-button-tight`, `.admin-input` and
- * `.admin-link-subtle` are shared Admin.css classes whose desktop sizes are
- * right on a desktop, and Admin.css is frozen public API — the quick-edit sheet
- * portals outside the shell and draws the same classes. So these are scoped to
- * the two resume roots. StudioPane.css carries the same declaration for the
- * gate button and the subtle link across all studios; repeating it here costs a
- * duplicate rule and buys independence from another slot's file. */
+ * The floors for the shared classes these surfaces draw — `.rf-icon-btn`,
+ * `.admin-gate-button-tight`, `.admin-input`, `.admin-link-subtle` — used to be
+ * repeated here, scoped to the two résumé roots because Admin.css was another
+ * slot's file. They are collected in Admin.css under `.wb` now, one copy for the
+ * whole admin. What is left below is this file's own classes. */
 @media (max-width: 60rem) {
-  .rs-studio .admin-gate-button-tight,
-  .rw-studio .admin-gate-button-tight,
   .rs-studio .rf-add,
   .rw-studio .rf-add {
     min-height: var(--wb-hit, 2.75rem);
-  }
-
-  .rs-studio .admin-link-subtle,
-  .rw-studio .admin-link-subtle {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--wb-hit, 2.75rem);
-  }
-
-  /* Four 28px squares with 4px gaps were the most urgent targets on either
-     surface: one of them removes a job from the version. */
-  .rw-studio .rf-icon-btn {
-    width: var(--wb-hit, 2.75rem);
-    height: var(--wb-hit, 2.75rem);
   }
 
   /* The include/exclude checkbox is the bullet board's primary control, one per
@@ -976,15 +902,8 @@
     margin-top: 0;
   }
 
-  /* Text inputs already stand 40px; the selects were 27–35 and the fields they
-     sit beside are the same form. The `select` element is named again here
-     because the drawn-control rule above is `.rw-studio select.admin-input` —
-     one element more specific than a bare class pair, so a rule that only said
-     `.rw-studio .admin-input` would lose to it whatever the order. */
-  .rs-studio .admin-input,
-  .rw-studio .admin-input,
-  .rs-studio select.admin-input,
-  .rw-studio select.admin-input,
+  /* `.admin-input`'s floor is in Admin.css now. This one is a gate button that
+     submits a form, not an input, so it has no floor of its own to inherit. */
   .rw-add-entry .admin-gate-button {
     min-height: var(--wb-hit, 2.75rem);
   }

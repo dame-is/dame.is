@@ -50,10 +50,55 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COLLECTIONS, PORTFOLIO_PUBLICATION } from '../../config.js';
 import { lexiconFor } from '../../lib/lexicons.js';
+import { nsidConfig, recordHrefFor } from '../../lib/verbRegistry.js';
+import { canonicalWorkPath, isDraft, showOnBlog, showOnCreating } from '../../lib/publications.js';
 import RecordEditor from '../../components/RecordEditor.jsx';
 import { recordTitle } from '../recordFields.js';
 import { useAdminShell } from '../useAdminShell.jsx';
 import './recordDetail.css';
+
+/** The two NSIDs whose public path is decided by publication rather than by NSID. */
+const DOCUMENT_NSIDS = new Set(['site.standard.document', 'pub.leaflet.document']);
+
+/**
+ * Where this record can be READ on the public site, or null when it cannot be.
+ *
+ * The "View on site ↗" item was deferred once on the grounds that no
+ * record→public-URL model existed. It does: `verbRegistry.js` maps an NSID to
+ * the verb that owns it and every verb declares its own `recordHref`, which is
+ * the same function the feed cards use to link a record. Nothing is invented
+ * here; this only picks the right existing answer, and returns null rather than
+ * guessing.
+ *
+ * The one case the registry cannot answer alone is a document, because its path
+ * depends on the PUBLICATION it was written into rather than on its NSID: the
+ * same `site.standard.document` reads at `/blogging/<rkey>` on the blog and at
+ * `/creating/<slug>` in the portfolio, and it can be on both. `publications.js`
+ * owns those three predicates already, so they answer it — with the SURFACE
+ * breaking the tie, since a document opened from Creating should offer the
+ * portfolio URL and the same record opened from Blogging should offer the blog
+ * one.
+ *
+ * A draft has no public page at all, and neither does a record whose verb
+ * declines to give one. Both return null, and the caller then renders no menu
+ * item — an absent link being the only honest alternative to a wrong one.
+ */
+function publicHrefFor(surface, collection, rkey, atUri, value) {
+  if (!rkey || !value || !atUri) return null;
+  if (DOCUMENT_NSIDS.has(collection)) {
+    if (isDraft(value)) return null;
+    const portfolioFirst = surface?.key === 'creating';
+    if (portfolioFirst && showOnCreating(value)) return canonicalWorkPath(value, rkey);
+    if (showOnBlog(value)) return `/blogging/${encodeURIComponent(rkey)}`;
+    if (showOnCreating(value)) return canonicalWorkPath(value, rkey);
+    return null;
+  }
+  // `nsidConfig` hands back `{ verb, collection }` where `verb` is the whole
+  // registry entry; `recordHrefFor` wants the gerund string off it.
+  const verb = nsidConfig(collection)?.verb?.verb;
+  if (!verb) return null;
+  return recordHrefFor(verb, { atUri, rkey, payload: value });
+}
 
 /** The tab bar, in order. Preview and JSON are dropped when there is no lexicon. */
 const TABS = Object.freeze([
@@ -109,6 +154,7 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
     registerBar,
     reportDirty,
     stacked,
+    listView,
   } = useAdminShell();
 
   const lex = lexiconFor(collection);
@@ -252,6 +298,15 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
     );
   }, [atUri, showFlash]);
 
+  // Where this record reads on the public site, when it reads anywhere. Depends
+  // on the loaded VALUE, not just the address — a draft has no page and a
+  // document's path is decided by its publication — so it recomputes as the
+  // editor reports what it loaded and again after a save changes it.
+  const publicHref = useMemo(
+    () => publicHrefFor(surface, collection, rkey, atUri, record),
+    [surface, collection, rkey, atUri, record],
+  );
+
   // Slot 1, slot 2 and slot 3 are all left to the shell's defaults here: `‹
   // <surface>`, the record's dirty sentence, and Save/Create from
   // `registerActions` are exactly what this pane wants in them. Only the `⋯`
@@ -275,6 +330,18 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
     if (atUri) {
       items.push({ id: 'copy-uri', label: 'Copy at-uri', icon: 'Files', onPress: copyUri });
     }
+    // Only when the record HAS a public page. A draft, a publication, a nav
+    // record and anything the verb registry declines to route all return null,
+    // and the item is simply absent — better than a menu row that lands on a
+    // 404 or that lies about a draft being live.
+    if (publicHref) {
+      items.push({
+        id: 'view-site',
+        label: 'View on site ↗',
+        icon: 'Newspaper',
+        onPress: () => window.open(publicHref, '_blank', 'noopener'),
+      });
+    }
     if (rkey) {
       // Supplied rather than left to the shell, which would inject a Delete with
       // a generic confirm. `id: 'delete'` is the reserved id that replaces it.
@@ -295,6 +362,7 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
     setTab,
     atUri,
     copyUri,
+    publicHref,
     rkey,
     armed,
     status.deleting,
@@ -359,6 +427,11 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
   // itself), and the list column already declines to offer New on one. The empty
   // pane must not offer what the list refuses.
   const canCreate = lex?.legacy !== true;
+  // Whether the list column beside this one came back with nothing. It owns the
+  // fetch and publishes the count through the shell's per-surface list view;
+  // `-1` is "not answered yet", and only a settled zero counts as empty — an
+  // in-flight list must not be described as an empty one.
+  const emptyCollection = listView.loadedCount === 0;
   // `for=creating` is what stamps the portfolio publication onto a new document,
   // and it is declared once — in the registry's `newHref` — so it is read back
   // from there rather than restated. Without it, starting a creative work from
@@ -447,9 +520,17 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
         <p className="placeholder-card wb-editor-empty">
           {deleted ? (
             <>
-              Deleted <strong>{deleted}</strong>. Pick another record from the list
-              {canCreate ? ', or start a new one.' : '.'}
+              Deleted <strong>{deleted}</strong>.{' '}
+              {emptyCollection
+                ? 'That was the last record in this collection.'
+                : `Pick another record from the list${canCreate ? ', or start a new one.' : '.'}`}
             </>
+          ) : emptyCollection ? (
+            // The list column three inches away is already saying "No records
+            // yet in this collection". Answering that with "pick a record from
+            // the list" sent the owner to a list with nothing in it — two panes
+            // describing one collection, one of them wrong.
+            `There are no records in this collection yet${canCreate ? '.' : ' — and this surface is read-only.'}`
           ) : (
             `Nothing selected — pick a record from the list${
               canCreate ? ', or start a new one.' : '.'
