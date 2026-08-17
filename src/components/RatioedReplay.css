@@ -36,8 +36,11 @@
   min-width: 15ch;
 }
 
-/* Matches the charts' segmented control so the two read as one vocabulary. */
-.ratioed-replay .ratioed-seg { display: inline-flex; margin-left: auto; }
+/* Matches the charts' segmented control so the two read as one vocabulary.
+   Sits directly after the play button: the two things you can press belong
+   together, and the clock is a readout rather than a control — pushed to the
+   far edge it looked like a third one. */
+.ratioed-replay .ratioed-seg { display: inline-flex; }
 .ratioed-replay .ratioed-seg button {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--rule);
@@ -202,5 +205,4 @@
 @media (max-width: 34rem) {
   .ratioed-replay-track,
   .ratioed-replay-legend { grid-template-columns: 2fr auto 1fr; }
-  .ratioed-replay .ratioed-seg { margin-left: 0; }
 }

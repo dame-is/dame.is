@@ -178,7 +178,6 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
         >
           {playing ? 'Pause' : progress >= 2 ? 'Replay' : 'Play'}
         </button>
-        <span className="ratioed-replay-clock">{clock}</span>
         {/* Two words, no numbers. The durations used to be printed inside the
             buttons, which made the pair wide enough to wrap onto its own line
             at a phone width — and the one they were there to tell you, how
@@ -201,6 +200,7 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
             </button>
           ))}
         </div>
+        <span className="ratioed-replay-clock">{clock}</span>
       </div>
 
       <div className="ratioed-replay-track">
