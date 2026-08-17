@@ -148,25 +148,79 @@
   background: var(--surface-raised);
 }
 
+/* EVERY INK STEP IN THIS FILE IS ONE ROLE STRONGER THAN THE SAME THING ON A
+   PAGE, and that is not a preference — it is the fix for a measured failure.
+   theme.css tunes `--ink-muted` and `--ink-faint` against `--page`, and re-tunes
+   them for `--surface-raised` under a selector list of exactly two entries:
+   `.chrome-bar` and `.modal-panel`. These sheets are neither. They portal to
+   <body> and paint on `--surface-deep`, which is a further step again, so they
+   inherit the ON-PAGE values and land where nothing was meant to: measured in
+   the sky theme at 19:00, a `--ink-faint` count on this panel came to 2.70:1,
+   against the 4.5:1 that small text has to clear.
+
+   Two ways to fix that. Add a third and fourth selector to theme.css's re-tune —
+   but its values are computed for the RAISED surface, and the sky theme
+   generates them per hour, so a deep-surface set would mean a new pair of hourly
+   variables for two components. Or choose the role that is already correct at
+   this depth, which is what this file does. Every piece of TEXT moves up two
+   steps: labels to `--ink`, headings and counts to `--ink-soft`. Measured on the
+   sky panel across the day, that takes a count from 2.7:1 to between 6.4 and
+   12.5 at every hour but one.
+
+   The GLYPHS go the other way, down to `--ink-muted`, and the split is the point
+   rather than an inconsistency: they are `aria-hidden` marks beside a text
+   label, so the threshold they owe is the 3:1 of a UI graphic, not 4.5. Spending
+   the difference buys the thing a column of twenty destinations actually needs —
+   the words leading and the icons following, instead of twenty full-contrast
+   marks competing with them.
+
+   THE ONE HOUR IS 07:00, and it is not this file's to fix. The dawn palette is a
+   mid-tone blue: `--ink` itself measures 4.96:1 on `--page` there, `--ink-soft`
+   3.46, `--ink-muted` 2.75 — the sky's own ink steps fail on the sky's own page,
+   before any surface of ours is involved. The site's InfoSheet body copy, on
+   this same `--surface-deep`, measures 3.07:1 at that hour; a heading here now
+   measures exactly the same 3.07. So this panel is as legible as the site is,
+   which is as far as a stylesheet can carry it. The remedy is in the hourly ink
+   generation, and it would lift every page at once. */
 .wb-sheet-heading {
-  margin: var(--space-4) 0 var(--space-1);
+  margin: var(--space-5) 0 var(--space-2);
   font-variant: all-small-caps;
   letter-spacing: 0.18em;
   font-size: var(--text-xs);
-  color: var(--ink-faint);
+  color: var(--ink-soft);
 }
 
+/* Ruled like the nav dock's page list (ActionDock.css), which is the site's
+   answer to this exact question — a stack of destinations in a panel of the
+   bottom chrome. A hairline opens each list and one sits between every pair of
+   rows; the last row has none, so a list closes on its content rather than on a
+   line hanging under it. Whitespace alone was doing this job before, and at
+   48px a row with no rule between them the list read as one undifferentiated
+   column. */
 .wb-sheet-list {
   margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--rule-soft);
 }
 
+.wb-sheet-list li + li > .wb-sheet-row {
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* A section break is a stronger statement than a row break, so it gets the
+   solid `--rule` — and the list under it drops its own opening hairline, or the
+   two would draw a double line 8px apart. */
 .wb-sheet-rule {
   height: 0;
-  margin: var(--space-2) 0;
+  margin: var(--space-4) 0 0;
   border: 0;
-  border-top: 1px solid var(--rule-soft);
+  border-top: 1px solid var(--rule);
+}
+
+.wb-sheet-rule + .wb-sheet-list,
+.wb-sheet-rule + .wb-sheet-row {
+  border-top: 0;
 }
 
 /* 48px, full bleed, `[icon] [label] ……… [count]`. PADDING rather than a grown
@@ -181,14 +235,14 @@
   min-height: 3rem;
   padding: var(--space-2) 0;
   border: 0;
-  border-left: 2px solid transparent;
   border-radius: 0;
   background: transparent;
-  color: var(--ink-soft);
+  color: var(--ink);
   font-family: var(--serif);
   font-size: var(--text-base);
   text-align: left;
   cursor: pointer;
+  transition: color 120ms ease;
   /* A sheet row is a row of the sheet, whatever element it happens to be. Most
      are <button>s, but the résumé studio's version sheet has two that are
      <Link>s, and those arrived with the site's underline and read as a
@@ -198,9 +252,13 @@
   text-decoration: none;
 }
 
+/* A step behind the label, so the words lead. `margin-left` rather than a
+   padding on the row, because the row is the tap target and starts at the
+   scrollport edge. */
 .wb-sheet-row > svg {
   flex: 0 0 auto;
   margin-left: var(--space-2);
+  color: var(--ink-muted);
 }
 
 .wb-sheet-row-label {
@@ -218,12 +276,22 @@
   font-family: var(--mono);
   font-feature-settings: 'tnum' 1;
   font-size: var(--text-sm);
-  color: var(--ink-faint);
+  color: var(--ink-soft);
 }
 
+/* The surface you are on. `box-shadow` rather than the `border-left` this used
+   to be: a left border on a row that now also carries a top rule miters the two
+   together, and the miter cuts a 2px notch out of the left end of every
+   hairline in the list. An inset shadow occupies no layout at all, so it also
+   costs the glyphs the 2px they used to be pushed over by. */
 .wb-sheet-row[data-open] {
   color: var(--accent);
-  border-left-color: var(--accent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.wb-sheet-row[data-open] > svg,
+.wb-sheet-row[data-open] .wb-sheet-row-count {
+  color: inherit;
 }
 
 /* Dimmed, never disabled: an absent collection and an empty one are
@@ -233,7 +301,8 @@
   opacity: 0.55;
 }
 
-.wb-sheet-row[data-tone='danger'] {
+.wb-sheet-row[data-tone='danger'],
+.wb-sheet-row[data-tone='danger'] > svg {
   color: var(--danger);
 }
 
@@ -242,8 +311,22 @@
   cursor: default;
 }
 
-.wb-sheet-row:hover:not(:disabled),
-.wb-sheet-row:focus-visible {
+/* Hover-capable pointers only, which is the site's standing rule for rows in
+   the bottom chrome (see the same guard on `.dock-route` in ActionDock.css): on
+   iOS a tap that repaints the row under the finger costs the click that should
+   have followed it. The glyph follows the label into the accent, so a hovered
+   row changes as one thing rather than in two halves. */
+@media (hover: hover) {
+  .wb-sheet-row:hover:not(:disabled),
+  .wb-sheet-row:hover:not(:disabled) > svg,
+  .wb-sheet-row:hover:not(:disabled) .wb-sheet-row-count {
+    color: var(--accent);
+  }
+}
+
+.wb-sheet-row:focus-visible,
+.wb-sheet-row:focus-visible > svg,
+.wb-sheet-row:focus-visible .wb-sheet-row-count {
   color: var(--accent);
 }
 
@@ -251,6 +334,19 @@
    row's edge, so an outset ring would be clipped to two horizontal bars. */
 .wb-sheet-row:focus-visible {
   outline-offset: -2px;
+}
+
+/* LEGACY is a group like the others, so it stands off from the one above it by
+   the same step a heading does — and opens on a hairline, because the
+   disclosure is a row and every row in this sheet sits on one. Its own list
+   brings the second rule when it expands, which is what makes the four
+   collections underneath read as contents rather than as siblings. */
+.wb-sheet-legacy {
+  margin-top: var(--space-5);
+}
+
+.wb-sheet-legacy > .wb-sheet-disclosure {
+  border-top: 1px solid var(--rule-soft);
 }
 
 .wb-sheet-disclosure-caret {
@@ -327,14 +423,20 @@
 /* The state sentence, above the actions it describes. This is where the FULL
    sentence lives: the chrome has room for a dot and nothing else, which is the
    whole reason this panel exists, so the truncation `.wb-strip-message` carries
-   for the bar is undone here and the sentence wraps. */
+   for the bar is undone here and the sentence wraps.
+
+   No rule of its own: the action list below opens with one, and two hairlines
+   three pixels apart is a seam rather than a divider. `--ink-soft` for the same
+   reason every other piece of text in this file takes it — `.wb-strip-state` is
+   written for a pane on `--page`, and this is a portalled panel on
+   `--surface-deep`. */
 .wb-panel-state {
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--rule-soft);
+  padding-bottom: var(--space-3);
 }
 
 .wb-panel-state .wb-strip-state {
   align-items: flex-start;
+  color: var(--ink-soft);
 }
 
 .wb-panel-state .wb-strip-message {
