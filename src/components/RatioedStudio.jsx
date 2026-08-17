@@ -490,14 +490,35 @@ export default function RatioedStudio({ agent, did }) {
     try {
       const current = await readPiece(piece.rkey);
       if (current.sealedAt) return; // measured since; not ours to write
+      // Folded over what the record already holds, not written in place of it.
+      // Two tabs can watch one piece — a laptop open since it went up and a
+      // phone opened forty seconds in — and Jetstream only reports a delete to
+      // a subscription that saw the create, so the phone never learns that a
+      // like from +10s was taken back at +60s. Writing this panel's rows flat
+      // would erase the laptop's `goneMs`, and if the phone is the tab that
+      // seals, the withdrawal is gone for good. `mergeWitnessRow` keeps a row
+      // known to be gone gone, which is exactly the rule this needs.
+      const merged = witnessToRecord(
+        mergeWitness(witnessFromRecord(current.witnessed) || [], witnessFromRecord(rows) || []),
+      );
       await agent.com.atproto.repo.putRecord({
         repo: did,
         collection: NSID,
         rkey: piece.rkey,
         record: {
           ...current,
-          witnessed: rows,
-          ...(fromMs != null ? { witnessFromMs: Math.round(fromMs) } : {}),
+          witnessed: merged,
+          ...(fromMs != null
+            ? {
+                // The earliest watch wins: a tab that started later must not
+                // narrow the window the record claims to have covered.
+                witnessFromMs: Math.round(
+                  typeof current.witnessFromMs === 'number'
+                    ? Math.min(current.witnessFromMs, fromMs)
+                    : fromMs,
+                ),
+              }
+            : {}),
         },
       });
       savedWitness.current.rows = rows;
@@ -848,23 +869,42 @@ export default function RatioedStudio({ agent, did }) {
     const measuredAt = new Date().toISOString();
     const hasAudience = events.some((e) => typeof e.fr === 'number');
 
+    // Who broke it, with the held answer underneath: a name this pass cannot
+    // find must not erase one somebody entered by hand, and a re-measure runs
+    // with no live piece, so it finds no breaker of its own.
+    const breaker = { ...(held?.breaker || {}) };
+    if (handle !== 'unknown' || !breaker.handle) breaker.handle = handle;
+    if (breakerDid) breaker.did = breakerDid;
+    breaker.likeSurvives = likeSurvives;
+    // Present with `likeSurvives: false` when the log timed a like the index
+    // can no longer be shown — the lexicon's `reactionRecovered` case, and the
+    // reason the log is written to the record at all.
+    if (breaking) breaker.reactionMs = sealedMs - breaking.at;
+    if (breaking?.recovered) breaker.reactionRecovered = true;
+    // Cleared by a pass that found the like standing, so the flag can never
+    // outlive the condition it describes.
+    else if (likeSurvives) delete breaker.reactionRecovered;
+
+    // Whatever the record already holds, with this pass's measurement over it.
+    //
+    // This used to be a bare literal, which made "Measure again" the one writer
+    // in the subsystem that replaced instead of patching — every other one
+    // ({...current}, {...held}, {...v}) merges. The cost was specific and
+    // silent: a piece measured while the index lagged offers "name the breaker"
+    // and "Measure again" side by side, and pressing the second after the first
+    // put back `{handle: 'unknown', likeSurvives: false}` over the name and DID
+    // just entered by hand, because a re-measure runs with no live piece and so
+    // finds no breaker of its own. `lede`, `statedTally` and `announceLagMs` —
+    // none of which this pass produces — went the same way.
     const value = {
+      ...(held || {}),
       $type: NSID,
       take: piece.take,
       subject,
       postedAt: piece.postedAt,
       sealedAt,
       lifespanMs: sealedMs - postedMs,
-      breaker: {
-        handle,
-        ...(breakerDid ? { did: breakerDid } : {}),
-        likeSurvives,
-        // Present with `likeSurvives: false` when the log timed a like the
-        // index can no longer be shown — the lexicon's `reactionRecovered`
-        // case, and the reason the log is written to the record at all.
-        ...(breaking ? { reactionMs: sealedMs - breaking.at } : {}),
-        ...(breaking?.recovered ? { reactionRecovered: true } : {}),
-      },
+      breaker,
       preSeal: windows.preSeal,
       postSeal: windows.postSeal,
       ...(events.length ? { events } : {}),

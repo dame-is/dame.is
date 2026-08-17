@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pieceGaps, worthRepairing, healPiece } from './ratioedRepair.js';
+import { pieceGaps, worthRepairing, gapSummary, healPiece } from './ratioedRepair.js';
 
 const POSTED = '2026-08-17T00:00:00.000Z';
 const postedMs = Date.parse(POSTED);
@@ -193,5 +193,135 @@ describe('healPiece — what they said', () => {
       selfDid: 'did:plc:me',
     });
     expect(value.events.find((e) => !e.pre).t).toBeUndefined();
+  });
+});
+
+describe('healPiece — what a rebuild must not lose', () => {
+  // The afterlife is rebuilt from the index on every repair, which is right:
+  // it is the one window that stays readable. But a rebuilt row is only as good
+  // as what the network answers today, and two things on the old row are better
+  // than that.
+  const late = tidAt(postedMs + 900_000 + 300_000);
+  const recorded = piece({
+    events: [
+      { k: 'reply', offMs: 65_202, did: 'did:plc:a1', h: 'a.test', pre: 1, fr: 100 },
+      {
+        k: 'reply',
+        offMs: 1_200_000,
+        did: 'did:plc:late',
+        h: 'late.test',
+        t: 'what they said at the seal',
+        fr: 4988,
+        fo: 685,
+      },
+    ],
+    postSeal: { likes: 0, quotes: 0, reposts: 0, threadPosts: 1, participants: 1 },
+    audienceAt: SEALED,
+  });
+
+  it('keeps text the AppView will no longer serve', () => {
+    const { value } = healPiece(recorded, {
+      profiles: { 'did:plc:late': { handle: 'late.test', followers: 9 } },
+      records: [{ kind: 'reply', did: 'did:plc:late', rkey: late }],
+      texts: {}, // the author deactivated; nothing comes back
+      selfDid: 'did:plc:me',
+    });
+    expect(value.events.find((e) => !e.pre).t).toBe('what they said at the seal');
+  });
+
+  it('keeps the follower count read at the seal, not the one read today', () => {
+    const { value } = healPiece(recorded, {
+      profiles: { 'did:plc:late': { handle: 'late.test', followers: 9, follows: 3 } },
+      records: [{ kind: 'reply', did: 'did:plc:late', rkey: late }],
+      texts: {},
+      selfDid: 'did:plc:me',
+    });
+    const after = value.events.find((e) => !e.pre);
+    expect(after.fr).toBe(4988);
+    expect(after.fo).toBe(685);
+  });
+
+  it('takes a fresher text when there is one', () => {
+    const { value } = healPiece(recorded, {
+      profiles: {},
+      records: [{ kind: 'reply', did: 'did:plc:late', rkey: late }],
+      texts: { [`did:plc:late/${late}`]: 'read again today' },
+      selfDid: 'did:plc:me',
+    });
+    expect(value.events.find((e) => !e.pre).t).toBe('read again today');
+  });
+});
+
+describe('healPiece — the like the index still holds', () => {
+  // A piece sealed while Constellation lagged is measured with no reaction time
+  // and `likeSurvives: false`. The repair fetches the backlinks anyway; it used
+  // to use only the afterlife half of that read and hand the breaker question
+  // to the replay, which hard-codes "deleted".
+  const lagged = piece({
+    breaker: { handle: 'ponder.ooo', likeSurvives: false },
+    witnessed: [],
+    events: [],
+  });
+
+  it('recovers the reaction from the index and says the like still stands', () => {
+    const likeRkey = tidAt(postedMs + 895_000);
+    const { value, changes } = healPiece(lagged, {
+      profiles: {},
+      records: [{ kind: 'like', did: 'did:plc:breaker', rkey: likeRkey }],
+      selfDid: 'did:plc:me',
+    });
+    expect(value.breaker.likeSurvives).toBe(true);
+    expect(value.breaker.reactionRecovered).toBeUndefined();
+    expect(value.breaker.reactionMs).toBe(900_000 - 895_000);
+    expect(changes.join(' ')).toMatch(/reaction/);
+  });
+
+  it('still falls back to the replay when no like survives', () => {
+    const { value } = healPiece(lagged, {
+      profiles: {},
+      records: [{ kind: 'reply', did: 'did:plc:x', rkey: tidAt(postedMs + 100_000) }],
+      replayLike: { at: postedMs + 880_000, rkey: 'R1' },
+      selfDid: 'did:plc:me',
+    });
+    expect(value.breaker.likeSurvives).toBe(false);
+    expect(value.breaker.reactionRecovered).toBe(true);
+  });
+});
+
+describe('gapSummary counts what a repair would actually write', () => {
+  it('counts a piece whose only gap is an unnamed row', () => {
+    // These four rows read as permanently stuck while one of them resolves
+    // today: unnamed means nothing could name it AT MEASURE TIME.
+    const stuck = piece({
+      breaker: { handle: 'ponder.ooo', did: 'did:plc:breaker', likeSurvives: true, reactionMs: 4596 },
+      events: [{ k: 'reply', offMs: 65_202, did: 'did:plc:a1', h: '(unresolvable)', pre: 1, fr: 10 }],
+    });
+    expect(worthRepairing(stuck)).toBe(true);
+    expect(gapSummary([stuck]).fixable).toBe(1);
+  });
+});
+
+describe('healPiece — audienceAt', () => {
+  it('stamps when the afterlife rebuild is what put follower counts on the record', () => {
+    const rkey = tidAt(postedMs + 900_000 + 300_000);
+    const { value } = healPiece(piece({ events: [] }), {
+      profiles: { 'did:plc:late': { handle: 'late.test', followers: 5, follows: 2 } },
+      records: [{ kind: 'reply', did: 'did:plc:late', rkey }],
+      texts: {},
+      selfDid: 'did:plc:me',
+      at: '2026-08-18T00:00:00.000Z',
+    });
+    expect(value.events.some((e) => typeof e.fr === 'number')).toBe(true);
+    expect(value.audienceAt).toBe('2026-08-18T00:00:00.000Z');
+  });
+
+  it('does not restamp a record that already carries one', () => {
+    const { value } = healPiece(piece({ audienceAt: SEALED, events: [] }), {
+      profiles: { 'did:plc:late': { handle: 'late.test', followers: 5 } },
+      records: [{ kind: 'reply', did: 'did:plc:late', rkey: tidAt(postedMs + 1_200_000) }],
+      selfDid: 'did:plc:me',
+      at: '2026-08-18T00:00:00.000Z',
+    });
+    expect(value.audienceAt).toBe(SEALED);
   });
 });

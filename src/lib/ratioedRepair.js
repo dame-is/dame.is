@@ -129,9 +129,14 @@ export function gapSummary(values, nowMs = Date.now()) {
       stuckPieces += 1;
     }
     if (g.needsAName) needAName += 1;
-    if (g.breakerUnnamed || g.breakerNoDid || g.reactionLost || g.replayable || g.audienceMissing) {
-      fixable += 1;
-    }
+    // The same question `worthRepairing` asks, asked once. These two had
+    // diverged by exactly the `unnamedRows` term, and that gap was doing real
+    // damage: a row is recorded as unnamed because nothing could name it AT
+    // MEASURE TIME, and accounts come back. Four rows across the series read as
+    // permanently stuck while one of them resolves today — a repair would name
+    // it and fill its follower count — and the button offered no "· N to fill"
+    // to say so.
+    if (worthRepairing(v, nowMs)) fixable += 1;
   }
   return { stuckRows, stuckPieces, needAName, fixable };
 }
@@ -180,11 +185,24 @@ export function healPiece(value, inputs = {}) {
 
   /* --- who ended it, and how fast it was caught -------------------- */
 
+  // Read once, up here, because the breaker resolution wants it too. It used to
+  // be computed below, for the afterlife alone, and the like it found was
+  // thrown away — so a piece sealed while the index lagged (measured with
+  // `likeSurvives: false` and no reaction time) got repaired by the REPLAY
+  // branch, which hard-codes "deleted", while the surviving like sat in the
+  // array this call had just fetched. Past the replay's 36h window nothing was
+  // fixable at all and the record said "like deleted" forever, with the exact
+  // reaction time still in the index.
+  const windows =
+    records && Number.isFinite(postedMs) && Number.isFinite(sealedMs)
+      ? measureWindows(records, sealedMs, selfDid)
+      : null;
+
   const b = { ...(v.breaker || {}) };
   const named = Boolean(b.handle) && b.handle !== 'unknown';
   const witnessedLike =
     Number.isFinite(postedMs) && Number.isFinite(sealedMs)
-      ? resolveBreaker({ indexLike: null, rows, postedMs, sealedMs })
+      ? resolveBreaker({ indexLike: windows?.breakingLike || null, rows, postedMs, sealedMs })
       : null;
 
   if (!named && witnessedLike?.handle) {
@@ -227,8 +245,7 @@ export function healPiece(value, inputs = {}) {
 
   // The afterlife, if a fresh read was handed in. Rows recorded as `pre` are
   // kept exactly as they are — see the contract at the top of this file.
-  if (records && Number.isFinite(postedMs) && Number.isFinite(sealedMs)) {
-    const windows = measureWindows(records, sealedMs, selfDid);
+  if (windows) {
     const fresh = buildEventLog(records, {
       postedAtMs: postedMs,
       sealedAtMs: sealedMs,
@@ -256,9 +273,33 @@ export function healPiece(value, inputs = {}) {
       if (t) fresh[i] = { ...fresh[i], t };
     }
     const kept = events.filter((e) => e.pre);
-    const after = fresh.filter((e) => !e.pre);
     const wasAfter = events.filter((e) => !e.pre);
     const before = wasAfter.length;
+    // Carried forward from the row this one replaces, where there is one.
+    //
+    // The afterlife is rebuilt from the index on every repair, which is right —
+    // it is the one window that stays readable. But a rebuilt row is only ever
+    // as good as what the network will answer TODAY, and two things on the old
+    // row are better than that. Its `t` was read when the AppView would still
+    // serve the post, so a reply whose author has since deactivated keeps what
+    // it said instead of reverting to "(image, no text)". Its `fr`/`fo` were
+    // read at the seal, and the project's rule everywhere else is that a
+    // recorded follower count is never replaced by a later reading of the same
+    // account — `backfill-ratioed-audience.mjs` skips exactly these accounts for
+    // that reason. The matching predicate below is the same one `gainedText`
+    // was already using a few lines down to count what it found.
+    const after = fresh
+      .filter((e) => !e.pre)
+      .map((e) => {
+        const old = wasAfter.find((o) => o.did === e.did && o.offMs === e.offMs);
+        if (!old) return e;
+        return {
+          ...e,
+          ...(old.t && !e.t ? { t: old.t } : {}),
+          ...(typeof old.fr === 'number' ? { fr: old.fr } : {}),
+          ...(typeof old.fo === 'number' ? { fo: old.fo } : {}),
+        };
+      });
     // Text is its own reason to write. A piece whose afterlife has not moved
     // since the last repair keeps the same rows, and the first repair that can
     // read what those posts SAY would otherwise have nothing to report and
@@ -314,10 +355,15 @@ export function healPiece(value, inputs = {}) {
     return out;
   });
   if (renamed) changes.push(`named ${renamed} account${renamed === 1 ? '' : 's'} in the log`);
-  if (audienced) {
-    changes.push(`read ${audienced} audience${audienced === 1 ? '' : 's'}`);
-    if (!v.audienceAt) next.audienceAt = at;
-  }
+  if (audienced) changes.push(`read ${audienced} audience${audienced === 1 ? '' : 's'}`);
+  // Stamped for any follower count this pass put on the record, not only the
+  // ones the gap-fill above added. The afterlife rebuild produces rows that
+  // already carry `fr`, so it never incremented `audienced` — which is how
+  // takes 1–11 ended up with a full set of readings and no `audienceAt`,
+  // against a lexicon that says the field is absent only when no event carries
+  // an audience at all. The piece page then fell through to the dated table and
+  // printed its date under counts read two days later.
+  if (!v.audienceAt && events.some((e) => typeof e.fr === 'number')) next.audienceAt = at;
   if (events.length) next.events = events;
 
   return { value: next, changes };

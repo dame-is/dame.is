@@ -67,6 +67,9 @@ import { getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
+// Which pieces the bundle covers, so a row can say whether the PDS record is
+// the only copy of it that exists anywhere.
+const SEED_KEYS = new Set(SEED_PIECES.map((p) => p.rkey));
 const STANDARD_DOC = 'site.standard.document';
 
 // The pieces the bundled event log covers. They were measured before records
@@ -184,11 +187,20 @@ export default function RatioedPanel({ agent, did }) {
    * the PDS, so there was nothing in the bundle to hang a row on, and the list
    * stayed at eleven no matter what the count above it said.
    */
-  // `piece` is the display shape; `record` is what publishing writes. For a
-  // bundled piece that's the bundle; for one that only lives on the PDS it's
-  // its own record, kept raw — the display shape carries defaults (a null
-  // announceLagMs, an empty statedTally, an event log decoded to seconds) that
-  // were never in it and mustn't be written back.
+  // `piece` is the display shape; `record` is what publishing writes. Both come
+  // from the PDS wherever the PDS has an answer, and from the bundle only where
+  // it does not. `record` stays the RAW record value either way — the display
+  // shape carries defaults (a null announceLagMs, an empty statedTally, an event
+  // log decoded to seconds) that were never in it and mustn't be written back.
+  //
+  // The bundle used to win. It is a frozen seed of the first eleven pieces as
+  // they were measured in July, and every one of them has since been repaired:
+  // event logs written onto them, afterlife counts corrected, a breaker's DID
+  // recovered. Letting it win meant the cards below showed those eleven pieces
+  // as they were rather than as they are — and, far worse, that `record` was
+  // the stale bundle, so the whole-value putRecord in `publishAll` would have
+  // written the July value back over the repaired one. One press, 126 recorded
+  // event rows gone.
   const roster = useMemo(() => {
     const byKey = new Map();
     for (const piece of SEED_PIECES) {
@@ -196,9 +208,9 @@ export default function RatioedPanel({ agent, did }) {
       byKey.set(rkey, { rkey, piece, record });
     }
     for (const [rkey, record] of Object.entries(live)) {
-      if (byKey.has(rkey)) continue;
       const piece = normalizePiece(rkey, record);
-      if (piece) byKey.set(rkey, { rkey, piece, record, pdsOnly: true });
+      if (!piece) continue;
+      byKey.set(rkey, { rkey, piece, record, pdsOnly: !SEED_KEYS.has(rkey) });
     }
     return Array.from(byKey.values()).sort((a, b) => a.piece.take - b.piece.take);
   }, [live]);
@@ -223,14 +235,28 @@ export default function RatioedPanel({ agent, did }) {
   const sealedCount = Object.values(live).filter((v) => v?.sealedAt).length;
   const gaps = gapSummary(Object.values(live));
 
-  /** Write every piece with putRecord — deterministic rkeys, so re-running
-   *  updates in place instead of duplicating. */
+  /**
+   * Put the bundled pieces onto the PDS. Deterministic rkeys, so re-running is
+   * safe rather than duplicating.
+   *
+   * Only the ones that aren't there yet. This writes whole record values, and a
+   * record already on the PDS is by definition the newer of the two — it has
+   * been measured, repaired, or hand-edited since the bundle froze. Rewriting
+   * it could only ever take something away, so it isn't offered: the button
+   * seeds, it does not sync.
+   */
   async function publishAll() {
+    const missing = roster.filter(({ rkey }) => !live[rkey]);
+    if (!missing.length) {
+      setError('Every piece is already on the PDS. Nothing to write.');
+      return;
+    }
     if (
       !window.confirm(
-        `Write ${roster.length} ${NSID} records to your PDS?\n\n` +
-          'Record keys match each post, so this overwrites rather than duplicates. ' +
-          'Publishing also makes each record a backlink on the post it measures.',
+        `Write ${missing.length} ${NSID} record${missing.length === 1 ? '' : 's'} to your PDS?\n\n` +
+          `Takes ${missing.map((m) => m.piece.take).join(', ')} — the ones not there yet. ` +
+          `The ${roster.length - missing.length} already published are left alone.\n\n` +
+          'Publishing makes each record a backlink on the post it measures.',
       )
     ) {
       return;
@@ -239,7 +265,7 @@ export default function RatioedPanel({ agent, did }) {
     setError(null);
     try {
       let n = 0;
-      for (const { rkey, piece, record } of roster) {
+      for (const { rkey, piece, record } of missing) {
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: NSID,
@@ -247,7 +273,7 @@ export default function RatioedPanel({ agent, did }) {
           record: { $type: NSID, ...record },
         });
         n += 1;
-        setProgress(`${n}/${roster.length} — take ${piece.take}`);
+        setProgress(`${n}/${missing.length} — take ${piece.take}`);
       }
       setProgress('');
       await refresh();
@@ -363,11 +389,19 @@ export default function RatioedPanel({ agent, did }) {
     setError(null);
     try {
       for (const { piece, record } of found) {
+        // Merged over whatever is already there, not written in place of it.
+        // The scan looks for pieces with no `sealedAt` — which is exactly the
+        // shape of a piece the studio has been watching, writing `witnessed`
+        // rows onto the record as they arrive. `buildPieceRecord` has no
+        // `witnessed`, no `witnessFromMs`, no `lede` and no `statedTally`, so a
+        // replacement would delete the live log of the piece it is measuring:
+        // post take 18 from the studio, seal it by hand in the app, scan, and
+        // the only evidence of a like that was cast and taken back is gone.
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: NSID,
           rkey: piece.rkey,
-          record: { $type: NSID, ...record },
+          record: { $type: NSID, ...(live[piece.rkey] || {}), ...record },
         });
       }
       setFound(null);
@@ -534,7 +568,27 @@ export default function RatioedPanel({ agent, did }) {
   async function deleteAll() {
     const keys = Object.keys(live);
     if (!keys.length) return;
-    if (!window.confirm(`Delete all ${keys.length} ${NSID} records from your PDS?`)) return;
+    // Name the part that cannot be undone. The bundle can re-seed the first
+    // eleven; nothing can re-seed the rest — their event logs, their witnessed
+    // logs and their measurements exist on the PDS and nowhere else, and
+    // public/data/ratioed.json is not a backup, it is regenerated FROM the PDS
+    // on the next build. A dialog that says only "delete 17 records" is not
+    // asking the question it is actually asking.
+    const orphans = roster.filter((r) => live[r.rkey] && !SEED_KEYS.has(r.rkey));
+    const takes = orphans.map((r) => r.piece.take).sort((a, b) => a - b);
+    if (
+      !window.confirm(
+        `Delete all ${keys.length} ${NSID} records from your PDS?\n\n` +
+          (orphans.length
+            ? `${orphans.length} of them exist nowhere else: take${orphans.length === 1 ? '' : 's'} ` +
+              `${takes.join(', ')}, with their event logs and everything the studio ` +
+              `witnessed while they ran. Those cannot be recovered — the bundled seed ` +
+              `only covers takes ${SEED_PIECES[0]?.take}–${SEED_PIECES[SEED_PIECES.length - 1]?.take}.`
+            : 'All of them are in the bundled seed and can be re-published.'),
+      )
+    ) {
+      return;
+    }
     setBusy('delete');
     setError(null);
     try {
