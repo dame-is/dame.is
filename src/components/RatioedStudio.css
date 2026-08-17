@@ -512,11 +512,41 @@
 .rs-live.withdrawn { border-color: var(--ratioed-quote); }
 .rs-live.withdrawn .rs-live-state { color: var(--ratioed-quote); }
 
-/* Offered only on a piece the replay can still reach — 36 hours. */
-.rs-recover {
+/* What can be done to a finished piece: recover its reaction time, say who
+   ended it, read what has landed since. At the end of the row on a desk, on
+   their own line under it on a phone, and each one keeps its glyph beside its
+   label rather than wrapping between them. */
+.rs-series-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.rs-series-acts button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: auto;
   white-space: nowrap;
+}
+
+/* The one form in this studio that writes something nobody measured: the
+   breaker's name. Full width under the row it belongs to, so it reads as an
+   edit to that piece rather than as a search box. */
+.rs-series-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  flex: 1 0 100%;
+  margin-top: var(--space-2);
+}
+.rs-series-name .admin-input {
+  flex: 1 1 14em;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+@container wbpane (max-width: 34rem) {
+  .rs-series-acts { margin-left: 0; width: 100%; }
 }

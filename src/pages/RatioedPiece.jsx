@@ -165,10 +165,16 @@ export default function RatioedPiece() {
   // COUNTS are a measurement and must not drift, but a portrait is only ever a
   // portrait — showing today's is right, and showing a year-old cached one
   // would be worse.
+  // The breaker's DID rides along. On a piece whose breaking like was deleted
+  // they are in no log and no index, so resolving only the log's DIDs left the
+  // one person the piece is *about* as an empty frame beside twelve portraits.
+  const breakerDid = piece?.breaker?.did || null;
   useEffect(() => {
-    if (!events?.length) return undefined;
     let alive = true;
-    const dids = events.filter((e) => e.did && !e.self).map((e) => e.did);
+    const dids = [
+      ...(events || []).filter((e) => e.did && !e.self).map((e) => e.did),
+      ...(breakerDid ? [breakerDid] : []),
+    ];
     if (!dids.length) return undefined;
     resolveProfiles(dids).then((p) => {
       if (alive) setProfiles(p);
@@ -176,7 +182,7 @@ export default function RatioedPiece() {
     return () => {
       alive = false;
     };
-  }, [events]);
+  }, [events, breakerDid]);
 
   // Is this piece still up? A record written the moment the post goes up and
   // sealed later, so `sealedAt` is the whole test — and while it's absent this
@@ -561,6 +567,7 @@ export default function RatioedPiece() {
                   deletedLikes === 1 ? 'has' : 'have'
                 } since been deleted by the people who cast them.`}
             </p>
+            <div className="ratioed-piece-scroll">
             <table className="ratioed-piece-log">
               <thead>
                 <tr>
@@ -590,6 +597,7 @@ export default function RatioedPiece() {
                 ))}
               </tbody>
             </table>
+            </div>
             </details>
           </section>
         )}
@@ -810,51 +818,58 @@ function ReachSection({ reach, audienceAt, piece }) {
         </div>
       </dl>
 
+      {/* Six columns, and on a phone it becomes six rows: the cells carry their
+          own labels (see `data-label`) and the stylesheet re-lays them as a
+          block per account under 34rem. A table this wide could not be made to
+          fit by shrinking, and shrinking it was what pushed the whole page
+          sideways. `.ratioed-piece-scroll` is the backstop for the widths in
+          between, where it is a table again but a long handle can still take it
+          past the column. */}
       {rows.length > 0 && (
-        <table className="ratioed-piece-log">
-          <thead>
-            <tr>
-              <th scope="col">who</th>
-              <th scope="col">act</th>
-              <th scope="col">audience</th>
-              <th scope="col" className="ratioed-piece-ratio">ratio</th>
-              <th scope="col">reach</th>
-              <th scope="col">window</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((p) => (
-              <tr key={`${p.window}-${p.key}`}>
-                <td className="ratioed-piece-who">@{p.handle}</td>
-                <td>
-                  <span className={`ratioed-piece-kind ratioed-k-${p.kind}`}>
-                    {REACH_ACT[p.kind] || p.kind}
-                  </span>
-                </td>
-                <td>{fmtReach(p.followers)}</td>
-                <td className="ratioed-piece-ratio">{fmtRatio(p.ratio)}</td>
-                <td>{fmtReach(p.raw)}</td>
-                <td>{p.window === 'alive' ? 'alive' : 'after the seal'}</td>
+        <div className="ratioed-piece-scroll">
+          <table className="ratioed-piece-log ratioed-piece-reach">
+            <thead>
+              <tr>
+                <th scope="col">who</th>
+                <th scope="col">act</th>
+                <th scope="col">audience</th>
+                <th scope="col" className="ratioed-piece-ratio">ratio</th>
+                <th scope="col">reach</th>
+                <th scope="col">window</th>
               </tr>
-            ))}
-            {tail.length > 0 && (
-              <tr className="is-self">
-                <td className="ratioed-piece-who">
-                  and {tail.length} more
-                </td>
-                {/* A cell per column rather than one `colSpan={3}`: the ratio
-                    column is hidden on a phone, and a column only disappears
-                    when every cell in it does. A spanning cell kept it open as
-                    an empty stripe. */}
-                <td />
-                <td />
-                <td className="ratioed-piece-ratio" />
-                <td>{fmtReach(tailReach)}</td>
-                <td />
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((p) => (
+                <tr key={`${p.window}-${p.key}`}>
+                  <td className="ratioed-piece-who">@{p.handle}</td>
+                  <td>
+                    <span className={`ratioed-piece-kind ratioed-k-${p.kind}`}>
+                      {REACH_ACT[p.kind] || p.kind}
+                    </span>
+                  </td>
+                  <td data-label="audience">{fmtReach(p.followers)}</td>
+                  <td className="ratioed-piece-ratio" data-label="ratio">{fmtRatio(p.ratio)}</td>
+                  <td data-label="reach">{fmtReach(p.raw)}</td>
+                  <td>{p.window === 'alive' ? 'alive' : 'after the seal'}</td>
+                </tr>
+              ))}
+              {tail.length > 0 && (
+                <tr className="is-self">
+                  <td className="ratioed-piece-who">and {tail.length} more</td>
+                  {/* A cell per column rather than one `colSpan={3}`: the ratio
+                      column is hidden on a phone, and a column only disappears
+                      when every cell in it does. A spanning cell kept it open as
+                      an empty stripe. */}
+                  <td />
+                  <td />
+                  <td className="ratioed-piece-ratio" />
+                  <td data-label="reach">{fmtReach(tailReach)}</td>
+                  <td />
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <p className="ratioed-piece-note">
