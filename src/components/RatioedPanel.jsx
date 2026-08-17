@@ -57,7 +57,7 @@ import {
   buildEventLog,
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
-import { repairPiece, worthRepairing } from '../lib/ratioedRepair.js';
+import { repairPiece, gapSummary } from '../lib/ratioedRepair.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveProfiles } from '../lib/atproto.js';
 import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
@@ -227,7 +227,7 @@ export default function RatioedPanel({ agent, did }) {
   // landed since; `worthRepairing` is the narrower question of whether the
   // record is missing something it should already have.
   const sealedCount = Object.values(live).filter((v) => v?.sealedAt).length;
-  const incomplete = Object.values(live).filter((v) => worthRepairing(v)).length;
+  const gaps = gapSummary(Object.values(live));
 
   /** Write every piece with putRecord — deterministic rkeys, so re-running
    *  updates in place instead of duplicating. */
@@ -658,7 +658,7 @@ export default function RatioedPanel({ agent, did }) {
             <Wrench size={14} aria-hidden="true" />
             {busy === 'repair-all'
               ? 'Repairing…'
-              : `Repair all (${sealedCount})${incomplete ? ` · ${incomplete} incomplete` : ''}`}
+              : `Repair all (${sealedCount})${gaps.fixable ? ` · ${gaps.fixable} to fill` : ''}`}
           </button>
         )}
         {publishedCount > 0 && (
@@ -687,6 +687,28 @@ export default function RatioedPanel({ agent, did }) {
 
       {progress && <p className="admin-field-hint">{progress}</p>}
       {error && <p className="admin-error">{error}</p>}
+      {/* What a repair will not close, said plainly, because the alternative is
+          a count that goes on reading "4 incomplete" after four repairs. Every
+          one of those four is a suspended or deleted account: the row names a
+          DID, `getProfiles` answers nothing, and the log says so. */}
+      {(gaps.stuckRows > 0 || gaps.needAName > 0) && (
+        <p className="admin-field-hint">
+          {gaps.stuckRows > 0 && (
+            <>
+              {gaps.stuckRows} log row{gaps.stuckRows === 1 ? '' : 's'} across {gaps.stuckPieces}{' '}
+              piece{gaps.stuckPieces === 1 ? '' : 's'} name an account that no longer resolves.
+              Repairing again will not name them: the account is suspended or deleted, and
+              &ldquo;{'(unresolvable)'}&rdquo; is the record saying so.{' '}
+            </>
+          )}
+          {gaps.needAName > 0 && (
+            <>
+              {gaps.needAName} piece{gaps.needAName === 1 ? '' : 's'} lost the breaker with nothing
+              watching, so only you can say who it was — name them in the studio.
+            </>
+          )}
+        </p>
+      )}
       {measured && (
         <p className="admin-field-hint">
           Fresh afterlife counts below. They aren&rsquo;t saved until you republish — pre-seal

@@ -107,6 +107,35 @@ export function pieceGaps(value, nowMs = Date.now()) {
   };
 }
 
+/**
+ * What is standing across a set of records, in the two kinds that matter.
+ *
+ * `stuck` is the important one and it is why the catalogue does not report a
+ * gap count as "incomplete": an event row naming a DID that resolves to nothing
+ * is an account that has been suspended or deleted, and no number of repairs
+ * will name it. `(unresolvable)` is the record saying so, which is a finding
+ * about the network rather than a defect in the record.
+ */
+export function gapSummary(values, nowMs = Date.now()) {
+  let stuckRows = 0;
+  let stuckPieces = 0;
+  let needAName = 0;
+  let fixable = 0;
+  for (const v of values || []) {
+    const g = pieceGaps(v, nowMs);
+    if (!g.sealed) continue;
+    if (g.unnamedRows) {
+      stuckRows += g.unnamedRows;
+      stuckPieces += 1;
+    }
+    if (g.needsAName) needAName += 1;
+    if (g.breakerUnnamed || g.breakerNoDid || g.reactionLost || g.replayable || g.audienceMissing) {
+      fixable += 1;
+    }
+  }
+  return { stuckRows, stuckPieces, needAName, fixable };
+}
+
 /** Is there anything here a repair would actually write? */
 export function worthRepairing(value, nowMs = Date.now()) {
   const g = pieceGaps(value, nowMs);

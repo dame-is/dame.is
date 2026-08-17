@@ -287,8 +287,28 @@ export default function RatioedPiece() {
   // in the essay's reaction chart.
   const deletedLikes = pieces.filter((p) => p.breaker?.likeSurvives === false).length;
   // Records somebody made and unmade while the piece was being watched. The
-  // measured log has no row for any of them, by construction.
-  const witnessedGone = (piece.witnessed || []).filter((w) => w.goneMs != null).length;
+  // measured log has no row for any of them, by construction: a record that no
+  // longer exists is in no index.
+  //
+  // Which is why they are folded into the log rather than left to the witnessed
+  // panel alone. The breaker's like is the case that matters — on take 16 it
+  // stood for 329ms — and a log that shows every reply and no like reads as a
+  // piece that ended for no reason. They are marked as what they are: struck
+  // through, in the window column, and in the note above the table. Measured
+  // and witnessed still say which is which; they are just no longer on
+  // different screens.
+  const withdrawn = (piece.witnessed || [])
+    .filter((w) => w.goneMs != null)
+    .map((w) => ({
+      k: w.k,
+      h: w.h || '',
+      did: w.did || null,
+      off: w.offMs / 1000,
+      pre: w.offMs <= piece.lifespanMs,
+      gone: true,
+    }));
+  const witnessedGone = withdrawn.length;
+  const logRows = [...(events || []), ...withdrawn].sort((x, y) => x.off - y.off);
 
   // A piece that is still up gets the whole page as a dashboard. None of the
   // sections below it can be drawn yet — every one of them is defined against
@@ -567,7 +587,7 @@ export default function RatioedPiece() {
               <summary>
                 <span>The log</span>
                 <span className="ratioed-piece-witness-count">
-                  {events.length} record{events.length === 1 ? '' : 's'}
+                  {logRows.length} record{logRows.length === 1 ? '' : 's'}
                 </span>
               </summary>
             {/* The one place on the page that argues for the whole method, so
@@ -575,6 +595,8 @@ export default function RatioedPiece() {
             <p className="ratioed-piece-note">
               Every record pointing at this piece, timed from the moment it went up, as counted at
               measurement time.
+              {withdrawn.length > 0 &&
+                ' The struck-through rows are from the log the studio kept: those records were deleted, so no index holds them.'}
               {deletedLikes > 0 &&
                 ` ${deletedLikes} of the project's ${pieces.length} breaking likes ${
                   deletedLikes === 1 ? 'has' : 'have'
@@ -591,8 +613,11 @@ export default function RatioedPiece() {
                 </tr>
               </thead>
               <tbody>
-                {events.map((e, i) => (
-                  <tr key={`${e.did || e.h}-${e.off}-${i}`} className={e.self ? 'is-self' : ''}>
+                {logRows.map((e, i) => (
+                  <tr
+                    key={`${e.did || e.h}-${e.off}-${i}`}
+                    className={`${e.self ? 'is-self' : ''}${e.gone ? ' is-gone' : ''}`}
+                  >
                     <td className="ratioed-piece-when">
                       {e.off < 0 ? '—' : `+${fmtElapsed(e.off)}`}
                     </td>
@@ -605,7 +630,9 @@ export default function RatioedPiece() {
                       @{e.h}
                       {e.self ? ' (the artist)' : ''}
                     </td>
-                    <td>{e.pre ? 'alive' : 'after the seal'}</td>
+                    <td>
+                      {e.gone ? 'deleted' : e.pre ? 'alive' : 'after the seal'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

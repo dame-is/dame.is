@@ -158,6 +158,12 @@
 /* The artist's own records sit in the log for completeness and in none of the
    counts; the row says so by receding. */
 .ratioed-piece-log tr.is-self { color: var(--ink-faint); }
+/* A record that was made and unmade while the piece ran. It is in the log
+   because it happened and struck through because it is gone — the one row on
+   the page that no index can be asked to confirm. */
+.ratioed-piece-log tr.is-gone { color: var(--ink-muted); }
+.ratioed-piece-log tr.is-gone .ratioed-piece-who { text-decoration: line-through; }
+.ratioed-piece-log tr.is-gone td:last-child { color: var(--ratioed-seal); }
 .ratioed-piece-when { color: var(--ink-muted); font-family: var(--mono, monospace); }
 .ratioed-piece-who { overflow-wrap: anywhere; }
 .ratioed-piece-kind { font-variant-caps: small-caps; }
