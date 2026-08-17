@@ -13,11 +13,16 @@
       attribute is on <html> only while the shell is mounted, so nothing here
       exists on a public route.
 
-   2. The bar is a FLEX ROW OF THE FIXED FRAME. Nothing in this file is
-      `position: sticky`, and nothing measures itself against `--chrome-h`,
-      `--chrome-top-h` or `--edit-bar-h`: /admin renders none of that furniture,
-      and the one of the three that IS sometimes set is an inline style on <html>
-      that no rule here could outrank.
+   2. Nothing in this file is `position: sticky`. The bar is a FLEX ROW OF THE
+      FIXED FRAME and the sheets are fixed boxes resting on it, so nothing here
+      is ever clamped to a containing block it did not choose.
+
+      What everything DOES measure against is `--wb-ceiling` / `--wb-floor` from
+      adminShell.css — the two edges the chrome leaves — and never `--chrome-h`
+      or `--chrome-top-h` directly. Those two used to be simply wrong here (the
+      route rendered no ChromeBar at all); below the stacked breakpoint they are
+      now exactly right, and above it they are still wrong. One indirection is
+      what lets the same sheet be correct in both.
 
    3. Colours from theme.css tokens only — the live theme is an hour-computed
       palette, so a literal hex is wrong for 23 hours of the day. Destructive
@@ -218,14 +223,20 @@
 }
 
 /* The animated clip box, resting on the bar — or on the keyboard once one is up.
-   max(), not a sum: the keyboard COVERS the bar, so adding the two would float
-   the sheet a bar's height above the keyboard with the page showing through the
-   gap. Motion animates this box's height 0 ↔ auto and `overflow: hidden` makes
-   the panel unfurl upward out of the bar. */
+   Motion animates this box's height 0 ↔ auto and `overflow: hidden` makes the
+   panel unfurl upward out of the bar.
+
+   `--wb-floor` is where the bottom chrome begins, published by adminShell.css
+   while the frame wears the SITE's bars: the bar is lifted onto the keyboard
+   there, so the two are summed rather than max()ed and the sheet rests on the
+   bar either way. The fallback is the admin's OWN bar, where max() is right for
+   the reason it always was — the keyboard COVERS that bar, so adding the two
+   would float the sheet a bar's height above the keyboard with the page showing
+   through the gap. */
 .wb-sheet-wrap {
-  --wb-sheet-bottom: max(
-    calc(var(--wb-bar-h) + env(safe-area-inset-bottom, 0px)),
-    var(--wb-kb, 0px)
+  --wb-sheet-bottom: var(
+    --wb-floor,
+    max(calc(var(--wb-bar-h) + env(safe-area-inset-bottom, 0px)), var(--wb-kb, 0px))
   );
   position: fixed;
   bottom: var(--wb-sheet-bottom);
@@ -251,9 +262,10 @@
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   /* Never covers the top bar: the owner must always be able to see where they
-     are and leave. --chrome-h is the top bar's height, which the admin does set
-     for itself. */
-  max-height: calc(100dvh - var(--chrome-h) - var(--wb-sheet-bottom));
+     are and leave. `--wb-ceiling` is the site chrome's live bottom edge when the
+     frame is wearing it; the fallback is `--chrome-h`, the height of the admin's
+     own top bar. */
+  max-height: calc(100dvh - var(--wb-ceiling, var(--chrome-h)) - var(--wb-sheet-bottom));
 }
 
 /* 32×2px, centred. Decorative — see the note in AdminSheet.jsx. */
@@ -266,15 +278,36 @@
   background: var(--rule);
 }
 
+/* THE OVERFLOW HAS TO SAY IT IS AN OVERFLOW, and in this sheet more than
+   anywhere: twenty-one destinations in a ~680px panel means the list is always
+   longer than the box, and the foot below it is opaque, full-width and bordered
+   — so a directory that gave no cue read as a directory that ENDED at "Open any
+   collection". The owner's own report was that the sheet had no scroll, and the
+   surfaces below the fold might as well not have existed.
+
+   Same four-layer trick as `.wb-rail-scroll` in adminShell.css, in this
+   surface's colour. The two COVERS are painted in the panel's own background and
+   anchored to the CONTENT (`local`), so they slide away as you scroll; the two
+   SHADOWS sit under them anchored to the BOX (`scroll`). The result paints only
+   where there is really more to see — at the bottom until you reach the end, at
+   the top once you have left it — and not at all when everything already fits,
+   which is what a fixed fade cannot do. */
 .wb-sheet-body {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 var(--chrome-pad-base) var(--space-3);
+  background:
+    linear-gradient(var(--surface-deep) 40%, transparent) top / 100% 1.5rem local no-repeat,
+    linear-gradient(transparent, var(--surface-deep) 60%) bottom / 100% 1.5rem local no-repeat,
+    linear-gradient(var(--shadow), transparent) top / 100% 0.5rem scroll no-repeat,
+    linear-gradient(transparent, var(--shadow)) bottom / 100% 0.5rem scroll no-repeat;
 }
 
 /* The foot is the escape hatch's home: it stays on screen however long the list
-   above it is. The old ribbon put the same control 7.3 screens to the right. */
+   above it is, OUTSIDE the scroller — the old ribbon put the same control 7.3
+   screens to the right. Raised rather than deep, so it reads as the sheet's own
+   edge and not as one more row of the list that happens to be last. */
 .wb-sheet-foot {
   flex: 0 0 auto;
   padding: var(--space-2) var(--chrome-pad-base);
@@ -399,6 +432,84 @@
   .wb-sheet-disclosure-caret {
     transition: none;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Panels of the site's bottom chrome                                   */
+/* ------------------------------------------------------------------ */
+
+/* Below the stacked breakpoint the admin has no bar of its own: its two chrome
+   surfaces are `BottomSheet` panels of the SITE's bottom bar, opened from two
+   buttons ChromeBar draws (AdminChromePanels.jsx). What is inside them is
+   already styled — they render the same `.wb-sheet-*` rows the desk sheets do —
+   so this section is only the three things the shared sheet does not do for
+   itself. */
+
+/* 1. Rest on the site's bar wherever that bar currently is. BottomSheet's own
+      `--sheet-bottom` is a max() against the keyboard, which is right on a
+      public page (the bar hides behind the keyboard there) and wrong here (the
+      bar is lifted onto it — see adminShell.css). Same `--wb-floor` the frame
+      reads, so the panel and the frame's bottom edge cannot disagree. */
+:root[data-admin-frame='site'] .bottom-sheet-wrap {
+  --sheet-bottom: var(--wb-floor);
+}
+
+/* 2. Give the `fill` panel a foot. That panel IS the scrollport, so a foot
+      inside it would scroll away with the list — the one thing an escape hatch
+      must never do. Turn it back into a flex column and hand the scroll to
+      `.wb-sheet-body`, exactly as AdminSheet's own panel is built. Compounded
+      with `.wb-panel` so the selector cannot reach any other sheet on the
+      site. */
+.bottom-sheet-panel.wb-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 3. The actions panel's own inset. It matches the bar's content column
+      (`--chrome-pad-x`) rather than the admin's, because at this width the bar
+      above it IS the site's. */
+.wb-panel-actions {
+  padding: var(--space-2) var(--chrome-pad-x) var(--space-3);
+}
+
+/* The state sentence, above the actions it describes. This is where the FULL
+   sentence lives: the chrome has room for a dot and nothing else, which is the
+   whole reason this panel exists, so the truncation `.wb-strip-message` carries
+   for the bar is undone here and the sentence wraps. */
+.wb-panel-state {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.wb-panel-state .wb-strip-state {
+  align-items: flex-start;
+}
+
+.wb-panel-state .wb-strip-message {
+  overflow: visible;
+  white-space: normal;
+}
+
+.wb-panel-state .wb-strip-dot {
+  /* Back onto the first line's optical centre once the sentence can wrap. */
+  margin-top: 0.4em;
+}
+
+.wb-panel-state[data-dirty] .wb-strip-dot {
+  background: var(--accent);
+}
+
+.wb-panel-state[data-dirty] .wb-strip-message {
+  color: var(--ink);
+}
+
+.wb-panel-state[data-error] .wb-strip-dot {
+  background: var(--danger);
+}
+
+.wb-panel-state[data-error] .wb-strip-message {
+  color: var(--danger);
 }
 
 /* ------------------------------------------------------------------ */

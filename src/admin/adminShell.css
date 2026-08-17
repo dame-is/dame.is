@@ -24,22 +24,35 @@
 /* Taking the viewport                                                  */
 /* ------------------------------------------------------------------ */
 
-/* The admin does not wear the site's chrome. App.jsx withholds <ChromeBar/> on
-   /admin (both bars), so the workbench is free to take the whole viewport as a
-   fixed frame and let each of its three columns scroll on its own — which is
-   the point of a workbench, and impossible while the document itself scrolls.
+/* The frame is FIXED in both chromes, and only its edges differ.
+
+   At desk widths the admin wears no site chrome at all: App.jsx withholds
+   <ChromeBar/> above the stacked breakpoint, so the workbench takes the whole
+   viewport (`inset: 0`) and lets each of its three columns scroll on its own —
+   which is the point of a workbench, and impossible while the document itself
+   scrolls.
+
+   Below the breakpoint the site's two bars are back, and the frame sits BETWEEN
+   them: `--wb-ceiling` down to `--wb-floor`, both named below. It stays fixed
+   rather than flowing into `.main`, because the reason for a fixed frame is
+   unchanged — the pane has to be its own scrollport, or the record list and the
+   editor share the document's one scroll position and the phone loses its place
+   every time it drills in.
 
    An earlier revision widened `.main` instead and left the chrome in place. The
    objection to a fixed frame then was real: an unscrollable document made
-   ChromeBar reveal its footer strip and permanently reserve its height. With no
-   ChromeBar on the route, there is nothing left to reveal or reserve.
+   ChromeBar reveal its footer strip and permanently reserve its height. It is
+   still the thing to watch under `site` — `.app-shell` keeps its own
+   `min-height: 100vh` and its bottom reservation there, which is what keeps the
+   document taller than the viewport and the strip tucked away.
 
-   AdminShell stamps `data-admin-shell` on <html> and removes it on unmount; the
-   rules below win by SPECIFICITY, not source order, because the built bundle
-   emits app.css AFTER Admin.css. */
+   AdminShell stamps `data-admin-shell` and `data-admin-frame` on <html> and
+   removes both on unmount; the rules below win by SPECIFICITY, not source order,
+   because the built bundle emits app.css AFTER Admin.css. */
 
 /* Nothing behind the frame may scroll, or a phone will rubber-band the frame
-   away from the viewport edge. */
+   away from the viewport edge — and under the site's chrome it would drag the
+   sticky top bar and the fixed bottom bar along with it. */
 :root[data-admin-shell],
 :root[data-admin-shell] body {
   overflow: hidden;
@@ -86,6 +99,62 @@
   flex-direction: column;
   overflow: hidden;
   background: var(--page);
+}
+
+/* ------------------------------------------------------------------ */
+/* Wearing the site's chrome                                            */
+/* ------------------------------------------------------------------ */
+
+/* Two names, and everything that has to line up with the site's bars reads them
+   instead of doing the arithmetic again: the frame, the admin's own sheets, and
+   the shared BottomSheet the chrome panels ride on.
+
+   --wb-ceiling  where the top chrome ends. `--chrome-top-h` is ChromeBar's own
+                 live measurement of that edge (it grows when the atmosphere rows
+                 expand), published as an INLINE style on <html> — which is
+                 precisely why no rule here could ever have fought it, and why
+                 reading it is the only correct move.
+   --wb-floor    where the bottom chrome begins. Three terms, and each earns its
+                 place. `--chrome-h` is the bar's content row; `2px` is its two
+                 hairlines, one on each edge, which `.app-shell` leaves out
+                 because a page sliding a hairline under the bar is invisible —
+                 a fixed frame's scroll END is not, and without them the pane's
+                 last two pixels finish behind the bar. And `--wb-kb` is SUMMED
+                 rather than max()ed, unlike every other keyboard offset in this
+                 codebase, because the bar is LIFTED onto the keyboard's top edge
+                 below: once a keyboard is up, the bar's own height still has to
+                 be cleared on top of it.
+
+   Lifting the site's bottom bar is the one public rule this file writes, and it
+   pays for the design's best property: Save stays under the thumb while the
+   owner types. `.chrome-bar-bottom` is `bottom: 0` on every public page and
+   disappears behind the software keyboard there; on /admin it must not, because
+   the whole point of publishing the primary action into the bar is that it is
+   reachable from inside a form. The selector cannot match on a public route —
+   `data-admin-frame` exists only while the shell is mounted. */
+:root[data-admin-frame='site'] {
+  --wb-ceiling: var(--chrome-top-h, var(--chrome-h));
+  --wb-floor: calc(var(--wb-kb, 0px) + var(--chrome-h) + 2px + env(safe-area-inset-bottom, 0px));
+}
+
+:root[data-admin-frame='site'] .wb {
+  top: var(--wb-ceiling);
+  bottom: var(--wb-floor);
+}
+
+:root[data-admin-frame='site'] .chrome-bar-bottom {
+  bottom: var(--wb-kb, 0px);
+}
+
+/* The site's footer strip reveals itself on a page too short to scroll, and the
+   admin's document is exactly that: the frame is fixed, so `.main` holds
+   nothing. Revealed, the strip would paint the site's colophon over the bottom
+   of the pane — content from a page the owner is not on, in the one band of the
+   screen the admin needs most. `.app-shell` normally keeps the document tall
+   enough that this never fires; this is the belt to that braces, and it costs a
+   route nothing that route can use. */
+:root[data-admin-frame='site'] .chrome-bar-footer-wrap {
+  display: none;
 }
 
 /* The admin's own skip link. The site's "Skip to content" targets
@@ -803,18 +872,6 @@
   max-height: none;
 }
 
-/* The skeleton stands in for the FRAME, so at phone widths it reserves the action
-   bar's row — otherwise the pane resolves 56px taller than the real one and the
-   whole page steps as the session lands. There is no bar on a desk, so there is
-   nothing to reserve there. */
-.wb-skel-bar {
-  display: none;
-  flex: 0 0 auto;
-  height: var(--wb-bar-h, 3.5rem);
-  background: var(--surface-raised);
-  border-top: 1px solid var(--rule);
-}
-
 /* ------------------------------------------------------------------ */
 /* Stacked (drill-down) — 60rem / 960px                                 */
 /* ------------------------------------------------------------------ */
@@ -830,24 +887,20 @@
    3034px — 7.78 viewport widths at 390 — with its four group headings
    `clip-path`-hidden, no scroll cue of any kind, 41px targets whose grown hit
    boxes overlapped by 12px, and the "open any collection" escape hatch at
-   x=2832. In its place the frame grows a third row, `.wb-bar` (adminBar.css),
-   carrying navigation, status and the surface's primary action under the thumb.
-   See docs/admin-mobile-design.md §2. */
+   x=2832. In its place the frame gives its chrome away entirely: the top bar is
+   not rendered, and navigation, status and the surface's primary action are
+   published into the SITE's bottom bar, under the thumb, with the directory and
+   the rest of the actions as two panels of it (AdminChromePanels.jsx). See
+   docs/admin-mobile-design.md §2, and the frame-mode block near the top of this
+   file for the geometry. */
 @media (max-width: 60rem) {
-  /* The frame's bottom edge rides on the software keyboard. `--wb-kb` is
-     published on <html> by AdminShell from useKeyboardInset; it is 0 whenever no
-     keyboard is up, and on every platform where `visualViewport` is unavailable,
-     so this resolves to the plain frame by default. The pane is `flex: 1;
-     overflow-y: auto`, so it simply gets shorter — and because the bar is a row
-     of the frame rather than a box in the scrollport, no focused field can end
-     up underneath it and no `scroll-padding-bottom` is needed. */
-  :root[data-admin-shell] .wb {
-    bottom: var(--wb-kb, 0px);
-  }
-
   /* One column, one row: the visible pane takes everything between the two bars.
      `minmax(0, 1fr)` rather than `1fr` so the pane may shrink below its content
-     and scroll, instead of growing the frame. */
+     and scroll, instead of growing the frame.
+
+     The frame's own bottom edge rides on the software keyboard through
+     `--wb-floor` above; the pane is `flex: 1; overflow-y: auto`, so it simply
+     gets shorter, and no focused field can end up underneath the chrome. */
   .wb-shell,
   .wb-shell:not(:has(.wb-pane-list)) {
     grid-template-columns: minmax(0, 1fr);
@@ -855,27 +908,11 @@
     gap: 0;
   }
 
-  /* The breadcrumb goes: the bar's left slot names the surface you are on, which
-     is the one job the crumb trail was doing here, and at 390px the trail and the
-     wordmark laid over each other. The mark and the way out both stay. */
-  .wb-crumbs {
-    display: none;
-  }
-
-  .wb-top {
-    gap: var(--space-3);
-    padding-inline: var(--chrome-pad-base);
-  }
-
   /* The rail is not rendered at this width. The rule is kept for the SKELETON,
      which draws a decorative rail of its own while the session is restoring and
      would otherwise flash a column the real shell never shows. */
   .wb-rail {
     display: none;
-  }
-
-  .wb-skel-bar {
-    display: block;
   }
 
   /* Both panes: the frame's inset is `--chrome-pad-base` (16px at ≤700px), the

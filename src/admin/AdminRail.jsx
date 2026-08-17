@@ -28,6 +28,7 @@ import {
   Archive,
   BriefcaseBusiness,
   ChartNoAxesColumn,
+  ChevronLeft,
   CloudSun,
   Database,
   FileText,
@@ -60,13 +61,16 @@ import { useAdminShell } from './useAdminShell.jsx';
  * bar resolves its own `BarAction.icon` through the same table, so an action's
  * glyph and a surface's glyph can never come from two different maps. That is
  * why `RefreshCw` is here with no surface using it — the Front Desk's bar action
- * needs it, and adding it here is a one-word change at the call site.
+ * needs it, and adding it here is a one-word change at the call site. Same for
+ * `ChevronLeft`, which the chrome's actions panel draws on its way out of a
+ * record.
  */
 export const SURFACE_ICONS = {
   Activity,
   Archive,
   BriefcaseBusiness,
   ChartNoAxesColumn,
+  ChevronLeft,
   CloudSun,
   Database,
   FileText,

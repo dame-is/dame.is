@@ -554,6 +554,79 @@
   text-transform: uppercase;
 }
 
+/* ------------------------------------------------------------------ */
+/* The admin's three                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Below the stacked breakpoint /admin stops drawing its own bars and wears this
+   one; three controls then appear in the left cluster and nowhere else on the
+   site. They exist for exactly as long as the admin has published a surface
+   through AdminChromeProvider — see ChromeBar.jsx, and src/admin/adminBar.css
+   for the panels two of them open. Nothing here is admin-specific in its
+   geometry: they are `.chrome-nav` chips like every other button in the bar. */
+
+/* The state dot, in the admin status strip's own vocabulary: a hairline square
+   at the strip's own 8px, quiet until there is something to say. */
+.chrome-admin-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--rule);
+}
+
+.chrome-nav.chrome-admin-state[data-dirty] .chrome-admin-dot {
+  background: var(--accent);
+}
+
+/* `--danger` rather than a warm tan: under the sky theme every derived hue sits
+   within a step or two of `--accent` for most of the day, and an error the same
+   colour as a success is not an error anybody sees. */
+.chrome-nav.chrome-admin-state[data-error] .chrome-admin-dot {
+  background: var(--danger);
+}
+
+/* The primary action. A TEXT button like the hour chip, not a glyph: Save,
+   Create, New and Refresh differ by a word, and a bar that makes the owner guess
+   which one their thumb is on is worse than one that spends 30px on the word.
+   Filled, because it is the control the thumb is aiming for — and the only
+   filled thing in this cluster, so it does not have to compete. */
+.chrome-nav.chrome-admin-action {
+  width: auto;
+  min-width: 1.75rem;
+  padding: 0 var(--space-2);
+  font-size: 0.72rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  border-color: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 20%, var(--page));
+  color: var(--accent);
+  /* The one control in this bar whose width is set by a STRING, and the strings
+     grow under the owner's thumb: Save becomes Saving…, Create becomes
+     Creating…. At 320 the row has about seven pixels of slack, so a label that
+     grows must take it out of ITSELF and not out of the compass at the far end
+     — losing the menu button off the right edge is not a degradation, it is a
+     trap. `flex: 0 1 auto` over a `min-width: 0` cluster is what makes the
+     ellipsis the last resort rather than the overflow. */
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A destructive action never reaches this button — the admin publishes the last
+   NON-destructive control as its primary and sends the rest to the panel. The
+   rule stands because a surface may one day have nothing else to offer, and a
+   Delete painted in the accent would be the worst possible way to find out. */
+.chrome-nav.chrome-admin-action[data-tone='danger'] {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, var(--page));
+  color: var(--danger);
+}
+
+.chrome-nav.chrome-admin-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* The compass nav button is the menu trigger — promote it to a filled,
    accent-tinted primary so it reads as the main action among the
    bottom-bar controls. */
@@ -681,6 +754,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* So a label-width control inside it (the admin's primary action) can give
+     room back instead of pushing the right cluster off the screen — see
+     `.chrome-admin-action`. Every other member is a fixed 28px chip, so this
+     changes nothing anywhere else. */
+  min-width: 0;
 }
 
 /* Push the right-hand action cluster (filter + menu) away from the

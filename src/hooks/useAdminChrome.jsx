@@ -45,6 +45,18 @@ export function useStackedViewport() {
   return stacked;
 }
 
+/**
+ * The two chrome panels the admin adds, and the DOM ids of their bodies. Stated
+ * HERE rather than in either half, because the trigger lives in ChromeBar and
+ * the panel lives in the admin: the button's `aria-controls` and the panel's
+ * `id` have to be the same string, and neither file may import the other.
+ * `useChromePanel` knows both names too — see CHROME_PANELS.
+ */
+export const ADMIN_NAV_PANEL = 'admin-nav';
+export const ADMIN_ACTIONS_PANEL = 'admin-actions';
+export const ADMIN_NAV_PANEL_ID = 'chrome-admin-nav-sheet';
+export const ADMIN_ACTIONS_PANEL_ID = 'chrome-admin-actions-sheet';
+
 /** Nothing published — what every public route sees. */
 const EMPTY = Object.freeze({
   surface: null,
@@ -71,13 +83,30 @@ export function AdminChromeProvider({ children }) {
 /**
  * What the admin has published for the chrome to draw.
  *
- *   surface  — `{ key, label, icon }` for the open surface, or null off /admin
- *   actions  — `{ primary, secondary[] }`, each `{ id, label, icon, run,
- *              disabled, danger }`. `primary` is the one the chrome draws as a
- *              button; `secondary` fills the actions sheet.
- *   state    — `{ dirty, message, count }` or null. `message` is the full
- *              sentence for the sheet; `count` is the compact form for the chip.
- *   publish  — AdminShell only.
+ *   surface  — `{ key, label, shortLabel }` for the open surface, or null off
+ *              /admin. Deliberately NO icon: a surface names its glyph as a
+ *              lucide STRING, and resolving a name to a component needs the
+ *              whole icon set — `import * as icons from 'lucide-react'` in
+ *              ChromeBar would put every icon in the eager bundle for every
+ *              visitor. The chrome draws one fixed glyph and takes the name
+ *              from `label`.
+ *   actions  — `{ primary, more }`. `primary` is the surface's one-tap action —
+ *              `{ id, label, run, disabled, busy, danger }` — or null; its
+ *              confirm question, if it has one, is already inside `run`, so the
+ *              chrome never has to know an action can refuse to run. `more`
+ *              counts what is waiting in the `admin-actions` panel, which is
+ *              the only thing the chrome needs to decide whether to draw the
+ *              button that opens it.
+ *   state    — `{ dirty, error, message }`, or null when the surface has
+ *              nothing to say. The chrome paints the dot from `dirty`/`error`
+ *              and names the button with `message`; the SENTENCE itself is
+ *              drawn by the admin, inside the panel, from its own component.
+ *   publish  — the admin only. It publishes the whole object at once (see
+ *              above) and publishes `null` on unmount.
+ *
+ * PANELS ARE NOT PUBLISHED. `admin-nav` and `admin-actions` are rendered by the
+ * admin, which is the only tree that can draw a surface directory; the chrome
+ * only owns the two buttons that toggle them through `useChromePanel`.
  */
 export function useAdminChrome() {
   return useContext(Ctx) || { ...EMPTY, publish: () => {} };

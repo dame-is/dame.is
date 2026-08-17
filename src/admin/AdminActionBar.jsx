@@ -30,11 +30,10 @@
 // because at 32px tall and 8px from Save it was a mis-tap away from destroying
 // a record on a live PDS with no undo anywhere in the data layer.
 
-import { useMemo } from 'react';
 import { ChevronLeft, ChevronUp, Ellipsis } from 'lucide-react';
 import AdminSheet from './AdminSheet.jsx';
 import AdminSurfaceSheet from './AdminSurfaceSheet.jsx';
-import { StatusMessage } from './AdminStatusStrip.jsx';
+import { BarStatus, press, useBarModel } from './AdminChromePanels.jsx';
 import { SurfaceIcon } from './AdminRail.jsx';
 import { useAdminShell } from './useAdminShell.jsx';
 import './adminBar.css';
@@ -42,19 +41,6 @@ import './adminBar.css';
 /** The sheet ids this component owns. Panes name their own; these two are ours. */
 const SURFACES_SHEET = 'surfaces';
 const OVERFLOW_SHEET = 'overflow';
-
-/**
- * Run a bar action, asking its confirm question first when it has one. Confirms
- * live on the ACTION rather than in the bar so a pane can word its own — "Delete
- * *On keeping a website like a garden*? This cannot be undone." names the record,
- * which `window.confirm` inside a generic bar never could.
- */
-function press(action, after) {
-  if (!action || action.disabled || action.busy) return;
-  if (action.confirm && !window.confirm(action.confirm)) return;
-  after?.();
-  action.onPress?.();
-}
 
 /**
  * One control in slot 1 or slot 3. `tone` decides the paint; the 44px floor is
@@ -87,81 +73,14 @@ function BarButton({ action, tone, onRun }) {
  * about the breakpoint itself.
  */
 export default function AdminActionBar() {
-  const {
-    surface,
-    column,
-    go,
-    actions,
-    dirty,
-    barSlots,
-    sheet,
-    setSheet,
-    rkey,
-    isNew,
-  } = useAdminShell();
-
-  const slots = barSlots || {};
-  // A record is open when the URL says so — `column` is derived from the URL and
-  // only from the URL, which is the single reason the on-screen back and the
-  // browser back cannot desync.
-  const onRecord = column === 'detail' && surface.kind === 'records-list' && (rkey || isNew);
-
-  /* --- slot 1: outward --------------------------------------------------- */
+  const { sheet, setSheet } = useAdminShell();
+  // Every slot, the ⋯ menu and the dirty sentence come from the shared model, so
+  // the bar and the site-chrome panels can never disagree about what a surface
+  // offers. See AdminChromePanels.jsx.
+  const model = useBarModel();
+  const { surface, go, dirty, slots, onRecord, rightActions, overflow } = model;
 
   const left = slots.left;
-
-  /* --- slot 3: the primary action ---------------------------------------- */
-
-  // Default from `registerActions`: Save (or Create), never Delete. `loading`
-  // disables rather than hides, so the button does not appear late and move the
-  // two beside it.
-  const defaultActions = useMemo(() => {
-    if (!actions?.save) return [];
-    const saving = actions.saving === true;
-    return [
-      {
-        id: 'save',
-        label: actions.isNew ? 'Create' : 'Save',
-        busy: saving,
-        busyLabel: actions.isNew ? 'Creating…' : 'Saving…',
-        disabled: actions.deleting === true || actions.loading === true,
-        tone: 'primary',
-        onPress: () => actions.save?.(),
-      },
-    ];
-  }, [actions]);
-
-  const rightActions = slots.actions === undefined ? defaultActions : slots.actions || [];
-
-  /* --- the ⋯ menu -------------------------------------------------------- */
-
-  // The shell contributes exactly one item, and only when the pane says the
-  // record can be deleted. A pane that wants to name the record in its confirm
-  // supplies its own `{ id: 'delete' }` and this one steps aside.
-  const overflow = useMemo(() => {
-    const own = slots.overflow || [];
-    if (!actions?.canDelete || own.some((item) => item.id === 'delete')) return own;
-    return [
-      ...own,
-      {
-        id: 'delete',
-        label: actions.deleting ? 'Deleting…' : 'Delete record…',
-        icon: 'Archive',
-        tone: 'danger',
-        disabled: actions.deleting === true || actions.saving === true,
-        confirm: 'Delete this record? This cannot be undone.',
-        onPress: () => actions.remove?.(),
-      },
-    ];
-  }, [slots.overflow, actions]);
-
-  /* --- slot 2: status ---------------------------------------------------- */
-
-  // `undefined` means "the shell decides"; `null` means "say nothing". The shell's
-  // decision is the record's own dirty sentence, rendered from AdminStatusStrip's
-  // component with the strip's classes so there is one sentence in the codebase.
-  const showDefaultStatus =
-    slots.status === undefined && (!!actions || dirty.dirty || !!dirty.error);
 
   return (
     <>
@@ -211,21 +130,8 @@ export default function AdminActionBar() {
             focus. Fixed-width neighbours plus `min-width: 0` here is what stops
             the dirty sentence reflowing the bar per keystroke. */}
         <div className="wb-bar-slot wb-bar-slot-status" aria-live="polite">
-          {showDefaultStatus ? (
-            <StatusMessage dirty={dirty} actions={actions} />
-          ) : (
-            // `.wb-strip-message` around a pane's own status, not just around
-            // the dirty sentence: it carries the ellipsis, and without it a
-            // string long enough to fill the slot WRAPPED instead — measured on
-            // listening at 390, where "100 loaded · more to fetch" took two
-            // lines and pushed the bar's own controls apart. Slot 2 truncates;
-            // it never grows the bar.
-            slots.status && (
-              <p className="wb-strip-state">
-                <span className="wb-strip-message">{slots.status}</span>
-              </p>
-            )
-          )}
+          {/* Slot 2 truncates; it never grows the bar. */}
+          <BarStatus model={model} />
         </div>
 
         <div className="wb-bar-slot wb-bar-slot-actions">

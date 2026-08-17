@@ -23,6 +23,7 @@
 
 import { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
+import BottomSheet from '../components/BottomSheet.jsx';
 import AdminSheet from './AdminSheet.jsx';
 import { NsidForm, SurfaceIcon, useSurfaceList } from './AdminRail.jsx';
 import { useAdminData } from './useAdminData.js';
@@ -81,8 +82,16 @@ function SurfaceRow({ surf, active, absent, count, onGo }) {
  * @param {boolean} props.open
  * @param {() => void} props.onClose
  * @param {string} [props.id]
+ * @param {boolean} [props.asPanel]  Draw as a panel of the SITE's bottom chrome
+ *   (`BottomSheet`) rather than as a sheet of the admin's own bar (`AdminSheet`).
+ *   Below the stacked breakpoint the admin has no bar of its own to rest on —
+ *   ChromeBar is the furniture there — and BottomSheet is positioned in exactly
+ *   the public chrome constants that are then the true ones. See the header of
+ *   AdminSheet.jsx for why the DESK sheet cannot use BottomSheet: it is the same
+ *   argument, read the other way round. The body is identical either way; only
+ *   the box it unfurls out of changes.
  */
-export default function AdminSurfaceSheet({ open, onClose, id }) {
+export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }) {
   const { agent, did, dataRev, surface: current, go, confirmLeave, recents } = useAdminShell();
   const { home, groups } = useSurfaceList();
   const { countFor, isAbsent } = useAdminData({ agent, did, dataRev });
@@ -131,31 +140,24 @@ export default function AdminSurfaceSheet({ open, onClose, id }) {
   const legacy = groups.find((group) => group.key === 'legacy');
   const mainGroups = groups.filter((group) => group.key !== 'legacy');
 
-  return (
-    <AdminSheet
-      id={id}
-      open={open}
-      onClose={onClose}
-      label="Admin surfaces"
-      className="wb-sheet-surfaces"
-      foot={
-        askingNsid ? (
-          <NsidForm
-            autoFocus
-            onCancel={() => setAskingNsid(false)}
-            onOpen={(nsid) => {
-              setAskingNsid(false);
-              leave({ view: null, c: nsid, r: null, mode: null, for: null });
-            }}
-          />
-        ) : (
-          <button type="button" className="wb-sheet-row" onClick={() => setAskingNsid(true)}>
-            <SurfaceIcon name="Database" size={17} />
-            <span className="wb-sheet-row-label">Open any collection</span>
-          </button>
-        )
-      }
-    >
+  const foot = askingNsid ? (
+    <NsidForm
+      autoFocus
+      onCancel={() => setAskingNsid(false)}
+      onOpen={(nsid) => {
+        setAskingNsid(false);
+        leave({ view: null, c: nsid, r: null, mode: null, for: null });
+      }}
+    />
+  ) : (
+    <button type="button" className="wb-sheet-row" onClick={() => setAskingNsid(true)}>
+      <SurfaceIcon name="Database" size={17} />
+      <span className="wb-sheet-row-label">Open any collection</span>
+    </button>
+  );
+
+  const body = (
+    <>
       {recentSurfaces.length > 0 && (
         <>
           <p className="wb-sheet-heading">Recent</p>
@@ -193,6 +195,40 @@ export default function AdminSurfaceSheet({ open, onClose, id }) {
           {showLegacy && <ul className="wb-sheet-list">{legacy.items.map(rowFor)}</ul>}
         </div>
       )}
+    </>
+  );
+
+  // Panel mode composes the body and the foot by hand, because BottomSheet has
+  // no `foot` of its own: its `fill` panel IS the scrollport. `.wb-panel` turns
+  // that panel back into a flex column with the scroll on the body, so the
+  // escape hatch stays on screen however long the directory is — the same
+  // contract as AdminSheet's foot, expressed in adminBar.css.
+  if (asPanel) {
+    return (
+      <BottomSheet
+        id={id}
+        open={open}
+        onClose={onClose}
+        label="Admin surfaces"
+        size="fill"
+        className="wb-panel wb-panel-surfaces"
+      >
+        <div className="wb-sheet-body">{body}</div>
+        <div className="wb-sheet-foot">{foot}</div>
+      </BottomSheet>
+    );
+  }
+
+  return (
+    <AdminSheet
+      id={id}
+      open={open}
+      onClose={onClose}
+      label="Admin surfaces"
+      className="wb-sheet-surfaces"
+      foot={foot}
+    >
+      {body}
     </AdminSheet>
   );
 }

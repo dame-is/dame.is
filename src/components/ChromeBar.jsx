@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -9,6 +9,13 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { useFeedFilter } from '../hooks/useFeedFilter.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import {
+  ADMIN_ACTIONS_PANEL,
+  ADMIN_ACTIONS_PANEL_ID,
+  ADMIN_NAV_PANEL,
+  ADMIN_NAV_PANEL_ID,
+  useAdminChrome,
+} from '../hooks/useAdminChrome.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { useFont, FONT_SWITCHER_ENABLED } from '../hooks/useFont.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
@@ -503,6 +510,24 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // pane's status strip, and there is no public record markup to inspect. Two of
   // the bottom bar's buttons are therefore withheld there — see their call sites.
   const inAdmin = location.pathname === '/admin';
+  // …and below the stacked breakpoint, where the admin stops drawing furniture
+  // of its own, this bar grows three of ITS controls instead. Everything drawn
+  // from them is a plain string or a plain function published upward through
+  // AdminChromeProvider: no admin module is imported here, and none may be —
+  // the admin transitively pulls in @atproto/api, which App.jsx keeps out of the
+  // eager bundle with a `lazy()` for every visitor who is not the owner. The
+  // panels these two buttons open are rendered by the admin itself
+  // (AdminChromePanels.jsx), for the same reason.
+  const { surface: adminSurface, actions: adminActions, state: adminState } = useAdminChrome();
+  const adminNavOpen = panel === ADMIN_NAV_PANEL;
+  const adminActionsOpen = panel === ADMIN_ACTIONS_PANEL;
+  const adminPrimary = adminActions?.primary || null;
+  // The state button is the way to everything the bar has no room for — the full
+  // sentence, the way out of a record or a selection, and the ⋯ menu — so it is
+  // drawn whenever there is either. A dot alone is a legitimate reason to draw
+  // it: "there is unsaved work here" is the one thing the owner must be able to
+  // see without opening anything.
+  const showAdminState = !!adminSurface && (!!adminState || (adminActions?.more || 0) > 0);
   // The resume (/available) page exposes a print / save-as-PDF control in the
   // bottom bar's page-level cluster — it replaces the old in-page print button
   // and only shows while a resume is on screen.
@@ -692,16 +717,82 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     <Search className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
-                <button
-                  type="button"
-                  className={`chrome-nav chrome-info-btn ${infoPanelOpen ? 'is-open' : ''}`}
-                  onClick={() => togglePanel('info')}
-                  aria-expanded={infoPanelOpen}
-                  aria-controls="chrome-info-sheet"
-                  aria-label="About this site"
-                >
-                  <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                </button>
+                {/* Withheld on /admin, and this one is about ROOM rather than
+                    about sense. The bar carries three admin controls there, and
+                    at 320 the row runs 65px past the compass — which is to say
+                    the menu button falls off the screen. This is the primer for
+                    a visitor arriving at the site ("what is this place"), the
+                    one control in the cluster whose audience is definitionally
+                    not the person signed into the admin, so it is the one that
+                    gives its 36px up. */}
+                {!inAdmin && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-info-btn ${infoPanelOpen ? 'is-open' : ''}`}
+                    onClick={() => togglePanel('info')}
+                    aria-expanded={infoPanelOpen}
+                    aria-controls="chrome-info-sheet"
+                    aria-label="About this site"
+                  >
+                    <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
+                {/* The admin's three, in the order the thumb reads them: where
+                    am I, what is happening, what do I do. The glyph is fixed
+                    rather than the surface's own — a surface names its icon as a
+                    lucide STRING, and resolving a name here would mean importing
+                    the whole icon set into the eager bundle. The surface's NAME
+                    carries that job instead, in the accessible name and the
+                    title, where it is not competing for 28px of a 390px row. */}
+                {adminSurface && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-admin-nav ${adminNavOpen ? 'is-open' : ''}`}
+                    onClick={() => togglePanel(ADMIN_NAV_PANEL)}
+                    aria-expanded={adminNavOpen}
+                    aria-controls={ADMIN_NAV_PANEL_ID}
+                    aria-label={`${adminSurface.label} — change admin surface`}
+                    title={`${adminSurface.label} — change surface`}
+                  >
+                    <LayoutGrid className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+                  </button>
+                )}
+                {showAdminState && (
+                  <button
+                    type="button"
+                    className={`chrome-nav chrome-admin-state ${adminActionsOpen ? 'is-open' : ''}`}
+                    data-dirty={adminState?.dirty ? '' : undefined}
+                    data-error={adminState?.error ? '' : undefined}
+                    onClick={() => togglePanel(ADMIN_ACTIONS_PANEL)}
+                    aria-expanded={adminActionsOpen}
+                    aria-controls={ADMIN_ACTIONS_PANEL_ID}
+                    aria-label={
+                      adminState ? `${adminState.message} — more actions` : 'More admin actions'
+                    }
+                    title={adminState?.message || 'More actions'}
+                  >
+                    {/* The strip's hairline square, at the strip's size. Nothing
+                        in this site is round, and this is the same signal the
+                        desk's status strip paints — one vocabulary, two
+                        widths. */}
+                    <span className="chrome-admin-dot" aria-hidden="true" />
+                  </button>
+                )}
+                {adminPrimary && (
+                  // One tap, no sheet in the way: Save, Create, New, Refresh.
+                  // Any confirm question the action carries is already inside
+                  // `run`, so this button never has to know an action can refuse.
+                  <button
+                    type="button"
+                    className="chrome-nav chrome-admin-action"
+                    data-tone={adminPrimary.danger ? 'danger' : 'primary'}
+                    disabled={adminPrimary.disabled}
+                    aria-busy={adminPrimary.busy ? 'true' : undefined}
+                    onClick={adminPrimary.run}
+                  >
+                    {adminPrimary.label}
+                  </button>
+                )}
                 {/* Atmosphere inspect — the marquee "turn the page inside out"
                     mode. Toggling it reveals the AT Protocol records beneath
                     the page; entering it folds away any open panel and the
@@ -826,19 +917,27 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             </motion.button>
           )}
         </AnimatePresence>
-        <motion.button
-          layout={layoutProp}
-          type="button"
-          className="chrome-nav chrome-scroll-jump"
-          onClick={atTop ? scrollToBottom : scrollToTop}
-          aria-label={atTop ? 'Scroll to bottom' : 'Scroll to top'}
-        >
-          {atTop ? (
-            <ArrowDown className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          ) : (
-            <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-          )}
-        </motion.button>
+        {/* Withheld on /admin because it is INERT there, not merely unwanted:
+            the workbench is a fixed frame over an `overflow: hidden` document,
+            and each of its panes is its own scrollport. `window.scrollTo` has
+            nothing to move. A button that does nothing when pressed is worse
+            than an absent one, and its 36px is exactly what the admin's own
+            three controls need at 320. */}
+        {!inAdmin && (
+          <motion.button
+            layout={layoutProp}
+            type="button"
+            className="chrome-nav chrome-scroll-jump"
+            onClick={atTop ? scrollToBottom : scrollToTop}
+            aria-label={atTop ? 'Scroll to bottom' : 'Scroll to top'}
+          >
+            {atTop ? (
+              <ArrowDown className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            ) : (
+              <ArrowUp className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+            )}
+          </motion.button>
+        )}
         <AnimatePresence mode="popLayout" initial={false}>
           {!onHomePage && (
             <MotionLink

@@ -64,6 +64,23 @@ legacy migration) say so honestly instead of rendering broken.
 
 ### 2.1 The bottom bar is the admin's chrome
 
+> **SUPERSEDED, in its mechanism only — the shape below is what shipped, but the bar is the
+> SITE's.** This section was built as written: `.wb` grew a third flex row, `.wb-bar`, with the
+> three slots and the sheets described here. It then lost an argument to the phone itself. The
+> admin's bar and Safari's own toolbar stacked up at the bottom of a ~660px viewport, and the
+> site's hour, theme and home controls vanished on the one route where the owner most wants a
+> way out. So below 60rem the admin now draws **no chrome at all**: `AdminTopBar` and `.wb-bar`
+> are both gone, `ChromeBar` comes back on `/admin`, and the admin publishes its surface, its
+> primary action and its state up into the site's bottom bar
+> (`src/hooks/useAdminChrome.jsx`, `src/admin/AdminChromePanels.jsx`).
+>
+> Everything below still holds, read against that bar instead of a bar of our own: the three
+> jobs (outward / status / primary), the degradation order, one dirty sentence in the codebase,
+> Delete behind a named confirm and never the painted primary, and the keyboard rule — which is
+> now paid for by lifting `.chrome-bar-bottom` onto the keyboard's top edge for the length of
+> the route. What changed is that slot 1 became a panel of the site's bar rather than a sheet of
+> ours, slot 2's sentence moved into that panel behind a dot, and the `⋯` menu merged with it.
+
 Below 60rem the horizontal chip row is **deleted**. `AdminRail` renders `null` when `stacked`.
 In its place, `.wb` gains a third flex row after `.wb-shell`:
 

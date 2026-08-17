@@ -12,6 +12,12 @@
 // It DOES import from Skeleton.jsx — the editor and record-list skeletons are
 // already written and already in that eager bundle, so reusing them is free and
 // a second implementation would just drift from the real geometry.
+//
+// It reserves NO bar row. It used to draw one below 60rem, because the frame had
+// a third row there; the phone admin now wears the site's bottom bar, which is
+// outside the frame and already on screen behind this placeholder, so reserving
+// 56px would make the skeleton stand a bar taller than the shell it resolves
+// into — the exact step the reservation existed to prevent.
 
 import { Skeleton, AdminEditorSkeleton, AdminRecordListSkeleton } from '../components/Skeleton.jsx';
 import './adminShell.css';
@@ -41,11 +47,6 @@ export default function WorkbenchSkeleton({ rails = 12, rows = 7 }) {
           <AdminEditorSkeleton />
         </div>
       </div>
-      {/* The frame's third row below 60rem. Decorative and empty — it exists so
-          the phone's pane resolves at the height it will actually have, instead
-          of standing 56px taller and stepping the moment the session lands. CSS
-          hides it above the breakpoint, where there is no bar to stand in for. */}
-      <div className="wb-skel-bar" aria-hidden="true" />
     </div>
   );
 }

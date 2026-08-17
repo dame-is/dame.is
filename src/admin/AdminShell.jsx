@@ -6,13 +6,20 @@
 // stays put, and RouteTransition plays no crossfade because the pathname is
 // always `/admin`.
 //
-// THE FRAME HAS THREE ROWS, and the third one only exists on a phone:
+// THE FRAME WEARS ONE OF TWO CHROMES, and which one is the whole of `stacked`:
 //
-//   .wb-top     the admin's own top bar (the site's ChromeBar is withheld here)
-//   .wb-shell   rail + list + detail, each its own scrollport
-//   .wb-bar     the action bar, below 60rem only — a ROW OF THE FRAME, not a
-//               sticky box inside a pane. See AdminActionBar.jsx for why that
-//               distinction retires a whole class of defect.
+//   own   (above 60rem)  `.wb-top` + `.wb-shell`. The admin takes the viewport,
+//                        App.jsx withholds ChromeBar, and the workbench draws
+//                        its own top bar because three panes want the width and
+//                        the breadcrumb has nowhere else to live.
+//   site  (below 60rem)  `.wb-shell` alone, sitting between ChromeBar's two
+//                        bars. There is one column either way at this width, so
+//                        the admin gains nothing by owning the frame — and it
+//                        loses the site's hour, theme and home controls, and
+//                        stacks its own bar on top of the browser's toolbar in
+//                        a ~660px viewport. AdminChromePanels publishes the
+//                        surface, its primary action and its state up into the
+//                        site's bottom bar instead.
 //
 // Three document-level side effects live here and nowhere else:
 //
@@ -20,6 +27,9 @@
 //     which app.css caps at 72rem. It MUST be removed on unmount or the public
 //     site inherits the admin's full-bleed layout. RouteTransition runs
 //     `mode="wait"`, so this cleanup lands before any public page paints.
+//     `data-admin-frame` rides with it and names which of the two chromes is on,
+//     because the frame's own geometry differs: `inset: 0` under `own`, and the
+//     gap between the site's bars under `site`.
 //  2. `--wb-kb` on <html>: how much of the layout viewport the software keyboard
 //     is covering. It is published on the ROOT rather than on `.wb` because the
 //     sheets portal to <body> and have to rest on the same edge the bar does —
@@ -36,7 +46,7 @@ import { useEffect, useRef } from 'react';
 import PageShell from '../components/PageShell.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
-import AdminActionBar from './AdminActionBar.jsx';
+import AdminChromePanels from './AdminChromePanels.jsx';
 import AdminRail from './AdminRail.jsx';
 import AdminStatusStrip from './AdminStatusStrip.jsx';
 import AdminTopBar from './AdminTopBar.jsx';
@@ -79,6 +89,19 @@ export default function AdminShell({ agent, did }) {
       delete root.dataset.adminShell;
     };
   }, []);
+
+  // Which chrome the frame is wearing. Written as an attribute rather than
+  // inferred from a media query in the stylesheet, because the same fact decides
+  // whether App.jsx renders ChromeBar at all — and a stylesheet that guessed it
+  // for itself is exactly how a frame ends up covering a bar it did not know was
+  // there. One JS truth, two consumers.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.adminFrame = stacked ? 'site' : 'own';
+    return () => {
+      delete root.dataset.adminFrame;
+    };
+  }, [stacked]);
 
   // Clear any residual select mode inherited from a public route. `exit` is
   // useCallback-stable, so this runs exactly once.
@@ -188,7 +211,12 @@ export default function AdminShell({ agent, did }) {
           <a className="wb-skip" href={`#${EDITOR_ANCHOR}`}>
             Skip to editor
           </a>
-          <AdminTopBar />
+          {/* Desk only. Below the breakpoint the site's own top bar is on
+              screen, and a second one under it would be two wordmarks, two ways
+              out and 112px of the viewport spent before any work starts. What
+              the crumb trail was doing here is done by the surface directory,
+              which names where you are on the button that opens it. */}
+          {!stacked && <AdminTopBar />}
           <div className="wb-shell">
             <AdminRail />
             {showList && (
@@ -208,10 +236,12 @@ export default function AdminShell({ agent, did }) {
               </div>
             )}
           </div>
-          {/* The third row of the frame. Rendered only when stacked, so nothing
-              in it has to ask about the breakpoint, and unmounted rather than
-              hidden at desk widths so it costs a desk session nothing. */}
-          {stacked && <AdminActionBar />}
+          {/* Renders no box of its own: it publishes this surface into the
+              site's bottom bar and hosts the two panels that bar's buttons
+              open. Mounted only when stacked, so nothing in it has to ask about
+              the breakpoint, and at desk widths the admin's own status strip and
+              rail carry the same jobs. */}
+          {stacked && <AdminChromePanels />}
         </div>
       </PageShell>
     </AdminShellProvider>

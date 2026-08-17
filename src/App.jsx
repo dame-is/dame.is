@@ -47,7 +47,7 @@ import { WaypointsModalProvider } from './hooks/useWaypointsModal.jsx';
 import { FeedFooterProvider } from './hooks/useFeedFooter.jsx';
 import { EditModeProvider } from './hooks/useEditMode.jsx';
 import { XrayProvider } from './hooks/useXray.jsx';
-import { AdminChromeProvider } from './hooks/useAdminChrome.jsx';
+import { AdminChromeProvider, useStackedViewport } from './hooks/useAdminChrome.jsx';
 import './components/Xray.css';
 
 /**
@@ -146,19 +146,17 @@ export default function App() {
   // most useful. So below the breakpoint the site's chrome comes back and the
   // admin publishes its surface, its primary action and its state into the
   // bottom bar through AdminChromeProvider.
-  // NOT YET SWITCHED ON. The seam is in place — AdminChromeProvider is mounted
-  // and `useStackedViewport` reports the breakpoint — but flipping this to
-  // `inAdmin && !stacked` before AdminShell stops drawing its own bars, and
-  // before adminShell.css stops taking the viewport with `position: fixed`,
-  // paints two chromes on top of each other. So for now the admin owns the
-  // chrome at every width, exactly as it did before, and the next change is:
-  //   1. AdminShell publishes surface/actions/state and drops its top bar and
-  //      action bar when stacked
-  //   2. the stacked frame sits between the site's bars instead of over them
-  //   3. ChromeBar's page cluster grows the nav + action buttons
-  //   4. this becomes `inAdmin && !stacked`
+  //
+  // `useStackedViewport` duplicates the admin's 60rem query rather than
+  // importing it, and that is deliberate: importing the admin's copy would pull
+  // the whole admin — and with it @atproto/api — into the eager bundle and undo
+  // the `lazy()` above. The two must stay in step; useAdminChrome.jsx says so at
+  // the constant, and AdminShell stamps the answer it reached onto <html> as
+  // `data-admin-frame` so the frame's own geometry follows this decision rather
+  // than guessing at it again in CSS.
   const inAdmin = location.pathname === '/admin';
-  const adminOwnsChrome = inAdmin;
+  const stacked = useStackedViewport();
+  const adminOwnsChrome = inAdmin && !stacked;
   return (
     <ThemeProvider>
       <FontProvider>
