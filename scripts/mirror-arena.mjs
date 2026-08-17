@@ -91,7 +91,8 @@ async function main() {
   const password = process.env.BSKY_APP_PASSWORD || process.env.ATP_APP_PASSWORD;
   const token =
     process.env.ARENA_ACCESS_TOKEN || process.env.ARENA_TOKEN || process.env.ARENA_API_KEY;
-  if (!token) log('note: no ARENA_ACCESS_TOKEN set — using the 30 req/min guest tier, private channels invisible.');
+  if (!token) log('note: no arena token set — using the 30 req/min guest tier, private channels invisible.');
+  if (!password && !args.dryRun) die('missing app password. Create one at https://bsky.app/settings/app-passwords or use --dry-run to preview.');
 
   let did;
   let pds = args.pds;
@@ -104,13 +105,6 @@ async function main() {
   }
   log(`identity: ${identifier} → ${did}`);
   log(`pds: ${pds}`);
-
-  if (!password && !args.dryRun) {
-    die(
-      'missing app password. Set BSKY_APP_PASSWORD (and optionally BSKY_IDENTIFIER). ' +
-        'Create one at https://bsky.app/settings/app-passwords. Use --dry-run to preview.',
-    );
-  }
 
   const agent = new AtpAgent({ service: pds });
   if (password) {
