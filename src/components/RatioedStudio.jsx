@@ -227,6 +227,9 @@ export default function RatioedStudio({ agent, did }) {
   const [witnessFrom, setWitnessFrom] = useState(null);
   // What has actually reached the record, so a tick of the clock isn't a write.
   // `stop` is the measurement taking the record over at seal time.
+  // A post that landed with no record behind it. Blocks a second publish, and
+  // offers the one write that is missing.
+  const [orphan, setOrphan] = useState(null);
   const askedProfiles = useRef(new Set());
   const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
   const [stream, setStream] = useState(null); // { state, bytes, seen, msgs, rate }
@@ -735,23 +738,54 @@ export default function RatioedStudio({ agent, did }) {
       const rkey = rkeyFromAtUri(res?.data?.uri);
       if (!rkey) throw new Error('the post was written but its record key came back empty');
 
-      // The record, immediately: a live piece with nothing measured. The link
-      // inside the post points at a page that needs this to resolve.
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: NSID,
-        rkey,
-        record: {
-          $type: NSID,
-          take,
-          subject: subjectUri(rkey),
-          // The PDS write time, decoded from the key it just assigned — the
-          // same clock every other piece's postedAt was read from.
-          postedAt: tidToTimestamp(rkey) || new Date().toISOString(),
-        },
-      });
+      // Held from here on, because the post now EXISTS. Everything downstream
+      // — the stream, the poll, the seal button, this page's whole reason to be
+      // open — hangs off the record below, and a failure writing it used to
+      // leave the composer exactly as it was: same draft, same take number,
+      // same button. Pressing it again posted a byte-identical duplicate, and
+      // only the second one got a record. The first was invisible to the studio
+      // and to the scan until it was threadgated by hand, while the link inside
+      // it 404'd.
+      setOrphan({ rkey, take });
+      await writePieceRecord(rkey, take);
+      setOrphan(null);
       setDraft('');
       setNote(`Take ${take} is up. Watching for the like.`);
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** The record a live piece needs: itself, and nothing measured. */
+  async function writePieceRecord(rkey, forTake) {
+    await agent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: NSID,
+      rkey,
+      record: {
+        $type: NSID,
+        take: forTake,
+        subject: subjectUri(rkey),
+        // The PDS write time, decoded from the key it just assigned — the same
+        // clock every other piece's postedAt was read from.
+        postedAt: tidToTimestamp(rkey) || new Date().toISOString(),
+      },
+    });
+  }
+
+  /** Finish a post whose record never landed. */
+  async function finishOrphan() {
+    if (!orphan) return;
+    setBusy('publish');
+    setError(null);
+    try {
+      await writePieceRecord(orphan.rkey, orphan.take);
+      setOrphan(null);
+      setDraft('');
+      setNote(`Take ${orphan.take} is up. Watching for the like.`);
       await refresh();
     } catch (err) {
       setError(err?.message || String(err));
@@ -1620,11 +1654,42 @@ export default function RatioedStudio({ agent, did }) {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
+          {/* The post landed; its record did not. Nothing else can be done
+              from here until that write goes through — the piece is standing on
+              Bluesky right now with a link in it to a page that needs this
+              record to resolve, and posting again would only duplicate it. */}
+          {orphan && (
+            <p className="rs-degraded">
+              Take {String(orphan.take).padStart(2, '0')} is posted, but its record was not
+              written — so nothing is watching it and its own page does not exist yet.{' '}
+              <a
+                href={`https://bsky.app/profile/${ME_HANDLE}/post/${orphan.rkey}`}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                the post
+              </a>
+            </p>
+          )}
           <div className="rs-actions">
-            <button type="button" className="admin-gate-button" onClick={publish} disabled={!!busy}>
-              <Send size={14} aria-hidden="true" />
-              {busy === 'publish' ? 'Posting…' : `Post take ${String(take).padStart(2, '0')}`}
-            </button>
+            {orphan ? (
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={finishOrphan}
+                disabled={!!busy}
+              >
+                <Send size={14} aria-hidden="true" />
+                {busy === 'publish'
+                  ? 'Writing…'
+                  : `Finish take ${String(orphan.take).padStart(2, '0')}'s record`}
+              </button>
+            ) : (
+              <button type="button" className="admin-gate-button" onClick={publish} disabled={!!busy}>
+                <Send size={14} aria-hidden="true" />
+                {busy === 'publish' ? 'Posting…' : `Post take ${String(take).padStart(2, '0')}`}
+              </button>
+            )}
             <button
               type="button"
               className="admin-link-subtle"

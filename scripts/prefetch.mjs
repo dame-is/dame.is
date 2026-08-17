@@ -115,7 +115,21 @@ async function previousSnapshotData(name, path) {
   return null;
 }
 
-async function writeJson(name, data, { guardEmpty = false } = {}) {
+/**
+ * Write a snapshot, and RETURN WHAT WAS WRITTEN.
+ *
+ * The return value matters: the guard below can decide to keep the previous
+ * snapshot instead of the new one, and callers that go on to build something
+ * else out of the same array — sitemap.xml, feed.xml — were using their own
+ * copy, the one the guard had just rejected. So a failed read preserved
+ * blogs.json and still shipped an Atom feed with no entries in it.
+ *
+ * `minRatio` is the second half of the guard. Zero is not the only bad answer:
+ * the ratioed roster is written from a bundle when a live read fails, which is
+ * 135 entries against 275 — a number that passes any is-it-empty test while
+ * silently dropping every participant of the last six pieces.
+ */
+async function writeJson(name, data, { guardEmpty = false, minRatio = 0 } = {}) {
   await mkdir(OUT, { recursive: true });
   const path = resolve(OUT, `${name}.json`);
   const newCount = snapshotCount(data);
@@ -124,22 +138,25 @@ async function writeJson(name, data, { guardEmpty = false } = {}) {
   // transient upstream failure can yield 0 items; if the previous snapshot had
   // many, carry the prior data forward and flag the build as degraded rather
   // than shipping thin content for up to 6h.
-  if (guardEmpty && newCount === 0) {
+  if (guardEmpty || minRatio > 0) {
     const prev = await previousSnapshotData(name, path);
     const prevCount = snapshotCount(prev);
-    if (prevCount && prevCount > 0) {
+    const floor = minRatio > 0 ? Math.floor((prevCount || 0) * minRatio) : 0;
+    const tooSmall = newCount === 0 || (minRatio > 0 && newCount < floor);
+    if (prevCount > 0 && tooSmall) {
       warn(
-        `refusing to overwrite ${name}.json with 0 items — previous snapshot had ` +
+        `refusing to overwrite ${name}.json with ${newCount} items — previous snapshot had ` +
           `${prevCount}. Carrying prior data forward and marking meta ok:false.`,
       );
       await writeFile(path, JSON.stringify(prev, null, 2) + '\n', 'utf-8');
-      preservedSnapshots.push({ name, prevCount });
-      return;
+      preservedSnapshots.push({ name, prevCount, rejected: newCount });
+      return prev;
     }
   }
 
   await writeFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
   log(`wrote ${name}.json (${newCount == null ? '—' : newCount})`);
+  return data;
 }
 
 async function writePublicFile(name, content) {
@@ -226,25 +243,44 @@ async function writeRatioedRoster(records) {
   // carries verbatim, so there's nothing to normalize first.
   const derived = rosterFromEvents((records || []).map((r) => r?.value).filter(Boolean));
   if (derived.length === 0) {
+    // Guarded, because "the bundle" is a real answer of 135 entries and the
+    // deployed roster is 275. A failed piece read landed here, wrote the
+    // bundle over the snapshot, and dropped every participant of takes 12–17 —
+    // and `guardEmpty` alone could never catch it, since 135 is not zero.
     log('ratioed roster: no recorded event logs; keeping the bundled roster');
-    await writeJson('ratioedPeople', bundled);
+    await writeJson('ratioedPeople', bundled, { minRatio: 0.9 });
     return;
   }
   const merged = mergeRoster(bundled, derived);
-  const known = new Set(bundled.map((p) => p.did));
-  const fresh = merged.filter((p) => !known.has(p.did));
-  if (fresh.length) {
+
+  // Names the last build already resolved, carried forward before anything is
+  // fetched. Two things follow from this. A getProfiles failure now costs a
+  // name nobody had yet rather than every name on the roster — nothing here
+  // carried a name forward, so a single 429 blanked up to 25 of them. And the
+  // fetch below asks only about people with no name at all, where it used to
+  // re-ask about every DID outside the bundle on every single build.
+  const prior = await previousSnapshotData('ratioedPeople', resolve(OUT, 'ratioedPeople.json'));
+  const priorNames = new Map(
+    (Array.isArray(prior) ? prior : []).filter((p) => p?.did && p.dn).map((p) => [p.did, p.dn]),
+  );
+  for (const p of merged) if (!p.dn && priorNames.has(p.did)) p.dn = priorNames.get(p.did);
+
+  const unnamed = merged.filter((p) => !p.dn && p.did?.startsWith('did:'));
+  if (unnamed.length) {
     const names = await safe(
       'getProfiles:ratioedRoster',
-      () => fetchDisplayNames(fresh.map((p) => p.did)),
+      () => fetchDisplayNames(unnamed.map((p) => p.did)),
       {},
     );
-    for (const p of fresh) if (names[p.did]) p.dn = names[p.did];
+    for (const p of unnamed) if (names[p.did]) p.dn = names[p.did];
   }
   log(
-    `ratioed roster: ${bundled.length} bundled + ${fresh.length} new = ${merged.length}`,
+    `ratioed roster: ${bundled.length} bundled + ${merged.length - bundled.length} new = ${merged.length}` +
+      ` · ${unnamed.length} name${unnamed.length === 1 ? '' : 's'} to look up`,
   );
-  await writeJson('ratioedPeople', merged);
+  // Same guard on the happy path: a partial read that yields a few pieces
+  // still produces a merged roster, just a much smaller one.
+  await writeJson('ratioedPeople', merged, { minRatio: 0.9 });
 }
 
 /** DID → display name, 25 at a time (the appview's limit). */
@@ -255,7 +291,10 @@ async function fetchDisplayNames(dids) {
     const params = new URLSearchParams();
     for (const did of real.slice(i, i + 25)) params.append('actors', did);
     const res = await fetch(`${APPVIEW}/xrpc/app.bsky.actor.getProfiles?${params}`);
-    if (!res.ok) continue;
+    // Thrown rather than skipped: `continue` meant the `safe()` wrapper around
+    // this never saw a failure and its backoff never fired, so one 429 blanked
+    // up to 25 display names and the build log read clean.
+    if (!res.ok) throw new Error(`getProfiles HTTP ${res.status}`);
     const body = await res.json();
     for (const p of body?.profiles || []) if (p?.did && p?.displayName) out[p.did] = p.displayName;
   }
@@ -511,7 +550,10 @@ async function main() {
     () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.ratioedPiece, max: 100 }),
     [],
   );
-  await writeJson('ratioed', ratioedPieces);
+  // Guarded like every other snapshot, and the guarded value is what the
+  // sitemap is built from below: without this, a failed read dropped all
+  // seventeen /creating/ratioed/NN URLs while snapshot-meta still said ok.
+  const ratioedWritten = await writeJson('ratioed', ratioedPieces, { guardEmpty: true });
   await writeRatioedRoster(ratioedPieces);
 
   // The prose on a piece's page, edited in the studio and read here so the page
@@ -671,8 +713,14 @@ async function main() {
 
   await writeJson('posts', authorFeed, { guardEmpty: true });
 
+  // What landed on disk, which is not always what was fetched: the guard can
+  // decide to keep the previous snapshot. The XML below is built from these
+  // rather than from the fetched arrays — it has no bundled seed and nothing
+  // corrects it at runtime, so a failed read used to preserve blogs.json and
+  // still ship an Atom feed with zero entries to every subscriber.
+  const written = {};
   for (const [name, records] of Object.entries(perCollection)) {
-    await writeJson(name, records, { guardEmpty: true });
+    written[name] = await writeJson(name, records, { guardEmpty: true });
   }
 
   // Multi-collection verbs also write a combined `<verb>.json` for
@@ -695,8 +743,8 @@ async function main() {
   // `blogs` snapshot (site.standard.document); creative works are the legacy
   // `creations` plus any portfolio-/cross-posted standard doc; curating
   // channels are the enabled are.na galleries.
-  const blogRecords = Array.isArray(perCollection.blogs) ? perCollection.blogs : [];
-  const creationRecords = Array.isArray(perCollection.creations) ? perCollection.creations : [];
+  const blogRecords = Array.isArray(written.blogs) ? written.blogs : [];
+  const creationRecords = Array.isArray(written.creations) ? written.creations : [];
   const creatingRecords = [
     ...blogRecords.filter((r) => showOnCreating(r?.value)),
     ...creationRecords,
@@ -711,7 +759,7 @@ async function main() {
           blogRecords,
           creatingRecords,
           curatingChannels: galleries,
-          ratioedPieces,
+          ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
           builtAt,
         }),
       ),
