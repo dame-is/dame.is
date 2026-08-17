@@ -22,11 +22,11 @@
 //   being measured. Nothing is being measured here, so it is offered, labelled
 //   with what it costs, and stopped at a budget.
 //
-// Sealed pieces get the same deck under RatioedWitness, closed by default and
-// replayable — by then the piece is over and expanding it automatically would
-// be showing an emergency that has already ended.
+// A sealed piece has no use for any of this: there is nothing left to notice.
+// Its log lives on under the replay, arriving off the replay's own playhead —
+// same rows, same component, one clock.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Radio } from 'lucide-react';
 import { watchSubject } from '../lib/jetstream.js';
 import { resolveProfiles } from '../lib/atproto.js';
@@ -221,105 +221,6 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
 }
 
 /* ------------------------------------------------------------------ */
-
-/**
- * The same deck for a piece that is over: closed, and replayable.
- *
- * A sealed piece has nothing to watch, so nothing opens by itself here — the
- * page's own replay and figures are the retrospective view, and this is the
- * live one kept as it ran. What it holds that nothing else does is the
- * withdrawals: a like cast and deleted leaves no record for any index to
- * report, and this log saw it.
- */
-export function RatioedWitness({ piece }) {
-  // Memoised because the effects below key off it: a fresh [] every render
-  // would re-resolve every profile on every render, forever.
-  const rows = useMemo(() => piece?.witnessed || [], [piece?.witnessed]);
-  const lifespanMs = piece?.lifespanMs || 0;
-  const [profiles, setProfiles] = useState({});
-  const [head, setHead] = useState(Infinity); // ms after postedAt that has "happened"
-  const [playing, setPlaying] = useState(false);
-  const frame = useRef(0);
-
-  // The full span the log covers, which can run past the seal by whatever the
-  // studio was still watching when the gate went up.
-  const spanMs = useMemo(
-    () => rows.reduce((m, r) => Math.max(m, r.goneMs ?? r.offMs), lifespanMs) || 1,
-    [rows, lifespanMs],
-  );
-  // Real time up to a couple of minutes; past that, a fixed sweep. Same rule the
-  // replay above it plays by, and for the same reason: a piece that stood for
-  // seventeen seconds should take seventeen seconds to watch.
-  const rate = spanMs <= 120_000 ? 1 : spanMs / 8000;
-
-  useEffect(() => {
-    const dids = rows.map((r) => r.did).filter(Boolean);
-    if (!dids.length) return;
-    resolveProfiles(Array.from(new Set(dids))).then(setProfiles);
-  }, [rows]);
-
-  useEffect(() => {
-    if (!playing) return undefined;
-    let last = null;
-    const step = (t) => {
-      if (last == null) last = t;
-      const dt = t - last;
-      last = t;
-      setHead((h) => {
-        const next = h + dt * rate;
-        if (next >= spanMs) {
-          setPlaying(false);
-          return Infinity;
-        }
-        return next;
-      });
-      frame.current = requestAnimationFrame(step);
-    };
-    frame.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame.current);
-  }, [playing, rate, spanMs]);
-
-  const play = useCallback(() => {
-    setHead(0);
-    setPlaying(true);
-  }, []);
-
-  // Withdrawals only strike through once the playhead reaches them, so the
-  // moment somebody took their like back is a thing that happens rather than a
-  // thing that was always true.
-  const shown = useMemo(
-    () =>
-      rows
-        .filter((r) => r.offMs <= head)
-        .map((r) => (r.goneMs != null && r.goneMs > head ? { ...r, goneMs: undefined } : r)),
-    [rows, head],
-  );
-  const tally = useMemo(() => tallyWitness(shown, { selfDid: ME_DID }), [shown]);
-
-  if (!rows.length) return null;
-
-  return (
-    <div className="ratioed-live is-replay">
-      <div className="ratioed-live-controls">
-        <button type="button" className="ratioed-live-play" onClick={() => (playing ? setPlaying(false) : play())}>
-          {playing ? 'Pause' : 'Watch it run'}
-        </button>
-        <span className="ratioed-live-clock-value">
-          {head === Infinity ? fmtDuration(spanMs) : `+${fmtDuration(head)}`}
-        </span>
-        {head !== Infinity && !playing && (
-          <button type="button" className="ratioed-live-skip" onClick={() => setHead(Infinity)}>
-            show all of it
-          </button>
-        )}
-      </div>
-      <RatioedCounters tally={tally} />
-      {/* Quiet: the like that ended this one ended it a long time ago, and a
-          chip that throbs about it now would be theatre. */}
-      <RatioedTicker rows={shown} profiles={profiles} quiet />
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 

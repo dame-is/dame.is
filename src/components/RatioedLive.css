@@ -239,6 +239,18 @@
   font-weight: 600;
 }
 
+/* A row from the afterlife, in the replay's transcript. Quieter than the
+   withdrawal marker beside it: landing after the seal is ordinary — most
+   pieces keep collecting for years — where a record being taken back is the
+   thing no index can be asked about later. */
+.ratioed-live-after {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+}
+.ratioed-live-row:has(.ratioed-live-after) .ratioed-live-when { opacity: 0.6; }
+
 .ratioed-live-empty { color: var(--ink-muted); margin: 0; font-size: var(--text-sm); }
 .ratioed-live-note {
   margin: var(--space-4) 0 0;

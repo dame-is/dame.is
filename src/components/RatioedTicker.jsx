@@ -69,6 +69,10 @@ export function RatioedCounters({ tally }) {
  * @param {boolean} [props.quiet]  mute a replayed alarm: a like that ended a
  *                                 piece a year ago should not throb about it
  * @param {string} [props.empty]   what to say when nothing has happened
+ * @param {boolean} [props.openable]  draw the "open it elsewhere" button. Off
+ *                                 in the replay, where only some rows carry a
+ *                                 record key and a button on half of them
+ *                                 reads as a fault rather than as an offer
  * @param {(row) => JSX} [props.actions]  drawn at the end of a row
  * @param {(row) => JSX} [props.below]    drawn under a row, full width
  */
@@ -77,6 +81,7 @@ export default function RatioedTicker({
   profiles = {},
   quiet = false,
   empty = 'Nothing has touched it yet. That is the piece working.',
+  openable = true,
   actions = null,
   below = null,
 }) {
@@ -107,6 +112,10 @@ export default function RatioedTicker({
               {mine && <span className="ratioed-live-self"> the artist</span>}
             </span>
             <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />
+            {/* A row from the afterlife. It reads as "+45m12s" beside a piece
+                that stood 41m45s, which is decodable and not obvious; this is
+                the sentence that makes it obvious. */}
+            {r.after && <span className="ratioed-live-after">after the seal</span>}
             {r.goneMs != null && (
               <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
             )}
@@ -117,6 +126,7 @@ export default function RatioedTicker({
             {extra ? (
               <span className="ratioed-live-acts">{extra}</span>
             ) : (
+              openable &&
               r.goneMs == null &&
               rowUri(r) && (
                 <button

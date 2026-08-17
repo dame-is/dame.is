@@ -40,7 +40,7 @@ export const DEFAULT_COPY = {
   deckRecord: 'Reading the piece’s own record, a few seconds behind.',
   replay: 'The rule is the threadgate. Everything past it landed on a finished post.',
   witnessed:
-    'Written as it happened rather than measured afterwards, so it is the only place a deleted record still appears.',
+    'The list under it is what the studio watched arrive, so it is the only place a record somebody deleted still appears.',
   roster: 'In the order they arrived. Portraits are current; the counts under them are not.',
   hidden: 'A threadgate hides replies at the appview. It does not stop the records being made.',
   log: 'Every record pointing at this piece, timed from the moment it went up, as counted at measurement time.',
@@ -64,7 +64,11 @@ export const COPY_FIELDS = [
   { key: 'deckStream', label: 'Dashboard: reading the firehose', hint: 'What the reader’s own browser is doing. {budget} becomes the MB cap.' },
   { key: 'deckRecord', label: 'Dashboard: reading the record', hint: 'The cheap reader, which is the default on a phone.' },
   { key: 'replay', label: 'Sealed piece: replay', hint: 'Over the replay of a finished piece.' },
-  { key: 'witnessed', label: 'Sealed piece: the dashboard as it ran', hint: 'Over the log the studio kept while it was up.' },
+  {
+    key: 'witnessed',
+    label: 'Sealed piece: the replay’s transcript',
+    hint: 'Added after the replay sentence, on a piece the studio watched. The log it kept is now the list under the replay rather than a section of its own.',
+  },
   { key: 'roster', label: 'Sealed piece: who was there', hint: 'Over the faces.' },
   { key: 'hidden', label: 'Sealed piece: replies hidden by the threadgate', hint: 'Written into a thread that was already closed.' },
   { key: 'log', label: 'Sealed piece: the log', hint: 'The site appends how many breaking likes have since been deleted.' },

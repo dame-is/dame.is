@@ -11,9 +11,20 @@
 // linear and short. After the seal it runs to years, so the tail is log-scaled
 // exactly as the essay's afterlife axis is, and the playhead crosses it at its
 // own pace. The rule between them is the threadgate.
+//
+// The transcript under the track is the same playhead. It used to be a second
+// component in a folded section below this one, with its own play button, its
+// own clock and its own idea of how fast a replay should run — two players for
+// one piece, and nothing to tell a reader that the marks up here and the rows
+// down there were the same records. Now the marks and the rows arrive
+// together, off one clock: the track is where in the piece you are, the rows
+// are what has happened by the time you got there.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fmtDuration, fmtElapsed } from '../lib/ratioed.js';
+import { tallyWitness } from '../lib/ratioedLive.js';
+import { ME_DID } from '../config.js';
+import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
 import './RatioedReplay.css';
 
 const KIND_VERB = { like: 'liked it', repost: 'reposted it', quote: 'quoted it', reply: 'replied' };
@@ -65,6 +76,17 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
     return m;
   }, [shown, lifeSec]);
 
+  // Where a moment sits on the 0 → 2 scale. Used for the marks, and again for
+  // the moment a withdrawn record was taken back, which is a second position
+  // the same row has to be measured at.
+  const posOf = useCallback(
+    (offSec) =>
+      offSec <= lifeSec
+        ? Math.min(1, Math.max(0, offSec / lifeSec))
+        : 1 + tailPos(offSec - lifeSec, maxTail),
+    [lifeSec, maxTail],
+  );
+
   const marks = useMemo(
     () =>
       shown
@@ -110,9 +132,37 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
     setPlaying(true);
   }, []);
 
-  const arrived = marks.filter((m) => m.at <= progress);
+  const arrived = useMemo(() => marks.filter((m) => m.at <= progress), [marks, progress]);
   const latest = arrived[arrived.length - 1] || null;
   const sealed = progress >= 1;
+
+  // The same records, in the shape the live feed reads them in — so a piece
+  // being replayed a year later looks like the piece being watched, which is
+  // the only honest thing for it to look like.
+  //
+  // The key is made rather than read: the measured log has no record keys in
+  // it, because an index answers a piece with counts and handles, not rkeys.
+  // Who, what and when is unique enough for a list that never re-orders.
+  const feedRows = useMemo(
+    () =>
+      arrived.map(({ e }) => {
+        const goneAt = e.goneMs != null ? posOf(e.goneMs / 1000) : null;
+        return {
+          ...e,
+          rkey: e.rkey || `${e.k}:${Math.round(e.off * 1000)}:${e.did || e.h}`,
+          offMs: e.off * 1000,
+          after: !e.pre,
+          // A withdrawal is something that happens rather than something that
+          // was always true: the row stands until the playhead reaches the
+          // moment it was taken back, and strikes through there.
+          goneMs: goneAt != null && goneAt <= progress ? e.goneMs : undefined,
+        };
+      }),
+    [arrived, progress, posOf],
+  );
+  const aliveRows = useMemo(() => feedRows.filter((r) => !r.after), [feedRows]);
+  const since = feedRows.length - aliveRows.length;
+  const tally = useMemo(() => tallyWitness(aliveRows, { selfDid: ME_DID }), [aliveRows]);
 
   const clock = sealed
     ? `sealed · +${fmtElapsed(tailSec(progress - 1, maxTail))}`
@@ -129,22 +179,25 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
           {playing ? 'Pause' : progress >= 2 ? 'Replay' : 'Play'}
         </button>
         <span className="ratioed-replay-clock">{clock}</span>
-        {/* How long each option takes, on the option. The choice is between
-            watching the piece and watching a diagram of it, and the cost of
-            the first is the only thing anyone needs to decide. */}
+        {/* Two words, no numbers. The durations used to be printed inside the
+            buttons, which made the pair wide enough to wrap onto its own line
+            at a phone width — and the one they were there to tell you, how
+            long real time takes, is already under the track in the legend.
+            They stay in the labels a screen reader and a tooltip read. */}
         <div className="ratioed-seg" role="group" aria-label="Playback speed">
           {[
-            [true, 'Real time', fmtDuration(piece?.lifespanMs)],
-            [false, 'Quick', fmtDuration(FAST_ALIVE_MS)],
+            [true, 'Real', `the piece's own ${fmtDuration(piece?.lifespanMs)}`],
+            [false, 'Quick', `a ${fmtDuration(FAST_ALIVE_MS)} sweep`],
           ].map(([v, label, cost]) => (
             <button
               key={label}
               type="button"
               aria-pressed={realTime === v}
-              aria-label={`${label} — the alive stretch takes ${cost}`}
+              aria-label={`${label} — ${cost}`}
+              title={cost}
               onClick={() => setRealTime(v)}
             >
-              {label} <span className="ratioed-seg-cost">{cost}</span>
+              {label}
             </button>
           ))}
         </div>
@@ -201,34 +254,39 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
         />
       </div>
 
-      {/* The running commentary. Live region so a screen reader hears the
-          piece happen rather than watching it. */}
-      <p className="ratioed-replay-caption" aria-live="polite">
-        {latest ? (
-          <>
-            <span className={`ratioed-replay-kind ratioed-k-${latest.e.k}`}>
-              {KIND_VERB[latest.e.k] || latest.e.k}
-            </span>{' '}
-            <span className="ratioed-replay-who">
-              @{profiles[latest.e.did]?.handle || latest.e.h}
-            </span>{' '}
-            <span className="ratioed-replay-off">
-              {latest.e.pre
+      {/* The running commentary, for a reader who is hearing this rather than
+          watching it. It says what the top of the list below says; on screen
+          that is a duplicate, to a screen reader it is the difference between
+          a piece happening and a table appearing. */}
+      <p className="ratioed-replay-said" aria-live="polite">
+        {latest
+          ? `${KIND_VERB[latest.e.k] || latest.e.k} — @${
+              profiles[latest.e.did]?.handle || latest.e.h
+            } ${
+              latest.e.pre
                 ? `at +${fmtDuration(latest.e.off * 1000)}`
-                : `+${fmtElapsed(latest.e.off - lifeSec)} after the seal`}
-            </span>
-          </>
-        ) : (
-          <span className="ratioed-replay-off">
-            Nothing yet. Nobody has touched it.
-          </span>
-        )}
+                : `+${fmtElapsed(latest.e.off - lifeSec)} after the seal`
+            }`
+          : 'Nothing yet. Nobody has touched it.'}
       </p>
 
-      <p className="ratioed-replay-count">
-        {arrived.filter((m) => m.at <= 1).length} while it was alive ·{' '}
-        {arrived.filter((m) => m.at > 1).length} since
-      </p>
+      {/* What the piece has drawn by the time the playhead got here. The
+          counters are the alive window only — that is the measurement, and a
+          number that keeps climbing through the afterlife is a different
+          claim. What has landed since gets its own line. */}
+      <RatioedCounters tally={tally} />
+      {since > 0 && (
+        <p className="ratioed-replay-count">
+          {since} more since the seal, on a post nobody can reply to
+        </p>
+      )}
+      <RatioedTicker
+        rows={feedRows}
+        profiles={profiles}
+        openable={false}
+        quiet
+        empty="Nothing yet. Nobody has touched it."
+      />
     </div>
   );
 }

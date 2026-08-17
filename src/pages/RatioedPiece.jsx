@@ -61,7 +61,7 @@ import { useTheme } from '../hooks/useTheme.jsx';
 import { ME_DID, ME_HANDLE, RATIOED_DOC_RKEY, COLLECTIONS } from '../config.js';
 import PieceReplay from '../components/RatioedReplay.jsx';
 import PieceFaces from '../components/RatioedFaces.jsx';
-import RatioedLive, { RatioedWitness } from '../components/RatioedLive.jsx';
+import RatioedLive from '../components/RatioedLive.jsx';
 import './RatioedPiece.css';
 
 const KIND_LABEL = { like: 'like', repost: 'repost', quote: 'quote', reply: 'reply' };
@@ -435,18 +435,23 @@ export default function RatioedPiece() {
   // through, in the window column, and in the note above the table. Measured
   // and witnessed still say which is which; they are just no longer on
   // different screens.
-  const withdrawn = (piece.witnessed || [])
-    .filter((w) => w.goneMs != null)
-    .map((w) => ({
-      k: w.k,
-      h: w.h || '',
-      did: w.did || null,
-      off: w.offMs / 1000,
-      pre: w.offMs <= piece.lifespanMs,
-      gone: true,
-    }));
-  const witnessedGone = withdrawn.length;
-  const logRows = [...(events || []), ...withdrawn].sort((x, y) => x.off - y.off);
+  const witnessRows = (piece.witnessed || []).map((w) => ({
+    k: w.k,
+    h: w.h || '',
+    did: w.did || null,
+    off: w.offMs / 1000,
+    pre: w.offMs <= piece.lifespanMs,
+    rkey: w.rkey,
+    ...(w.t ? { t: w.t } : {}),
+    ...(w.goneMs != null ? { goneMs: w.goneMs, gone: true } : {}),
+  }));
+  // Composed by the same function that folds in the bundled harvest, and for
+  // the same two reasons: the withdrawn records exist in no index and are here
+  // only because they were watched, and the text of a reply is on the watched
+  // row where the measured one has only a count. On take 17 that is the
+  // difference between three rows carrying what somebody said and forty-three.
+  const logRows = composeEventLog(events, witnessRows) || [];
+  const withdrawn = logRows.filter((r) => r.gone);
 
   // A piece that is still up gets the whole page as a dashboard. None of the
   // sections below it can be drawn yet — every one of them is defined against
@@ -581,36 +586,21 @@ export default function RatioedPiece() {
         <RatioedStats cells={headline} />
         <RatioedStats cells={texture} dense />
 
+        {/* One player, one clock. The dashboard the studio kept while this ran
+            used to be a second replay in a folded section below this one, with
+            its own play button and its own idea of how fast to go; it is now
+            the list under the track, arriving off the same playhead. */}
         <section className="ratioed-piece-section">
           <h2>Replay</h2>
-          <p className="ratioed-piece-note">{copy.replay}</p>
-          <PieceReplay piece={piece} events={events} profiles={profiles} />
+          <p className="ratioed-piece-note">
+            {copy.replay}
+            {piece.witnessed?.length > 0 && <> {copy.witnessed}</>}
+            {piece.witnessFromMs > 1000 && (
+              <> Watching began {fmtDuration(piece.witnessFromMs)} in.</>
+            )}
+          </p>
+          <PieceReplay piece={piece} events={logRows} profiles={profiles} />
         </section>
-
-        {/* What was actually watched, kept as it ran. Closed by default: the
-            piece is over, and opening an emergency dashboard automatically for
-            something that ended a year ago would be a lie about what you're
-            looking at. */}
-        {piece.witnessed?.length > 0 && (
-          <section className="ratioed-piece-section">
-            <details className="ratioed-piece-witness">
-              <summary>
-                <span>The dashboard, as it ran</span>
-                <span className="ratioed-piece-witness-count">
-                  {piece.witnessed.length} witnessed
-                  {witnessedGone > 0 ? ` · ${witnessedGone} taken back` : ''}
-                </span>
-              </summary>
-              <p className="ratioed-piece-note">
-                {copy.witnessed}
-                {piece.witnessFromMs > 1000 && (
-                  <> Watching began {fmtDuration(piece.witnessFromMs)} in.</>
-                )}
-              </p>
-              <RatioedWitness piece={piece} />
-            </details>
-          </section>
-        )}
 
         <section className="ratioed-piece-section">
           <h2>Who was there</h2>
