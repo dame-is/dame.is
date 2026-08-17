@@ -289,12 +289,55 @@ export function windowReach(events, pre) {
  */
 export function pieceReach(events) {
   const list = Array.isArray(events) ? events : [];
-  const measurable = list.some((e) => !e.self && hasAudience(e));
+  const alive = windowReach(list, true);
+  const after = windowReach(list, false);
   return {
-    measurable,
-    alive: windowReach(list, true),
-    after: windowReach(list, false),
+    // Whether ANY window can be priced, which is what a caller asking "is there
+    // a reach section to draw at all" wants...
+    measurable: list.some((e) => !e.self && hasAudience(e)),
+    // ...and per window, which is what a caller drawing ONE of them wants. The
+    // single flag was doing both jobs, so takes 2 and 7 — nothing touched them
+    // while they were alive, and both collected likes afterwards — passed the
+    // filter on the alive chart and drew a zero-width bar with a confident
+    // "approx. reach 0" beside an account that only acted after the seal.
+    alive: { ...alive, measurable: alive.known > 0 },
+    after: { ...after, measurable: after.known > 0 },
   };
+}
+
+/**
+ * Everyone's audience, keyed the way the logs name them.
+ *
+ * There are two sources and they are deliberately complementary. A piece
+ * measured since the audience field existed records each participant's
+ * follower count as it reads it, at the seal — the authoritative figure, and
+ * the only one that is contemporary with the piece. The dated table
+ * (`backfill-ratioed-audience.mjs`) covers everybody else, and that script
+ * SKIPS any account whose log already carries one, precisely so the recorded
+ * figure is never overwritten by a later reading.
+ *
+ * Which is why anything reading only the table had a hole in it exactly the
+ * size of the recent pieces: take 17's sixty-eight participants are all in
+ * their own log and none of them are in the table, so the roster priced 125
+ * of 199 accounts and sorted the rest to the bottom as unknown. Pass logs that
+ * `applyAudience` has already been run over and both halves arrive together.
+ *
+ * Later takes win, so an account that turned up twice is priced at the most
+ * recent reading of it. Keyed by DID and by handle, because the harvest that
+ * covers the first eleven pieces predates recorded DIDs.
+ */
+export function audienceFromEvents(pieces, resolveEvents) {
+  const out = {};
+  const inOrder = [...(pieces || [])].sort((a, b) => (a.take || 0) - (b.take || 0));
+  for (const p of inOrder) {
+    for (const e of resolveEvents?.(p) || []) {
+      if (e.self || !hasAudience(e)) continue;
+      const entry = { fr: e.fr, ...(typeof e.fo === 'number' ? { fo: e.fo } : {}) };
+      if (e.did) out[e.did] = entry;
+      if (e.h && e.h !== '(unresolvable)') out[e.h] = entry;
+    }
+  }
+  return out;
 }
 
 /**
@@ -385,10 +428,3 @@ export function fmtReach(n) {
   return `${Math.round(v / 1000000)}M`;
 }
 
-/** `12.4` → `12.4×`, `0.04` → `0.04×`. The unit is "followers per follow". */
-export function fmtRatio(ratio) {
-  if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return '—';
-  if (ratio >= 100) return `${Math.round(ratio)}×`;
-  if (ratio >= 10) return `${ratio.toFixed(1)}×`;
-  return `${ratio.toFixed(2)}×`;
-}

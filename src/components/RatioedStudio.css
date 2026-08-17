@@ -187,7 +187,6 @@
   margin-top: var(--space-4);
   padding: var(--space-3) var(--space-4);
   border: 2px solid var(--ratioed-seal, #8c3a2e);
-  border-radius: 5px;
   background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent);
   animation: rs-alarm-flash 1.15s ease-in-out infinite;
 }
@@ -237,7 +236,6 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   border: 0;
-  border-radius: 4px;
   background: var(--ratioed-seal, #8c3a2e);
   /* The ground colour, not white: the scale solves the seal for contrast
      against the page, so the page is the one text colour guaranteed to clear
@@ -307,6 +305,12 @@
 @container wbpane (max-width: 34rem) {
   .rs-live-head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
   .rs-series-list li { flex-direction: column; gap: 0; }
+  /* 24px of inset on each side of a 358px pane is 13% of the panel spent on
+     margin, and the feed row inside it is the widest thing in the studio — the
+     row that has to hold a time, a handle, a chip and three buttons. The border
+     still says where the panel is at 12px. */
+  .rs-live,
+  .rs-announce { padding: var(--space-3); }
 }
 
 /* --- the live feed -------------------------------------------------- */
@@ -346,48 +350,25 @@
 
 .rs-feed-empty { margin: 0; }
 
-.rs-feed-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 22em;
-  overflow-y: auto;
-  font-size: var(--text-sm);
-}
-
-/* Flex rather than a grid, because a row can now carry an action pair and a
-   composer, and a fixed column count fought both. */
-.rs-feed-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-  flex-wrap: wrap;
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--rule-soft);
-}
-.rs-feed-when { font-family: var(--mono, monospace); color: var(--ink-muted); flex: none; width: 4.5em; }
-.rs-feed-who { overflow-wrap: anywhere; flex: 0 1 12em; }
-.rs-feed-mine { font-size: var(--text-xs); color: var(--ink-muted); }
-.rs-feed-row.mine { color: var(--ink-faint); }
-.rs-feed-text {
-  color: var(--ink-faint);
-  flex: 1 1 10em;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* The rows themselves are RatioedTicker's, styled by RatioedLive.css — the
+   same list the piece's own page draws, so the two cannot drift again. What is
+   left here is what the studio adds: the buttons at the end of a row and the
+   composer under it. The ticker's own scroller is 24em; the studio's panel is
+   inside a pane with a seal button above it, so it keeps a shorter one. */
+.rs-feed .ratioed-live-ticker { max-height: 22em; }
 .rs-feed-scan { font-variant-numeric: tabular-nums; }
-
-/* The like is the one that ends it, so it reads as the one that ends it. */
-.rs-feed-row.rs-k-like .rs-feed-kind { color: var(--ratioed-seal); font-weight: 600; }
 
 /* --- acting on a row ------------------------------------------------- */
 
 /* Liking or answering somebody without leaving the panel that is watching for
    the like that ends the piece. Deliberately quiet until you reach for them:
    the one control on this screen that should catch the eye is the seal. */
-.rs-feed-acts {
+/* `.ratioed-live-acts` is what RatioedTicker actually emits — the slot the
+   studio's three buttons arrive in. This rule was written against `.rs-feed-acts`
+   back when the studio had its own row markup, and stayed pointed at a class no
+   JSX renders when the two feeds were merged: the buttons lost their right-edge
+   alignment and their 2px gap, visibly so on a row with no text. */
+.rs-feed .ratioed-live-acts {
   margin-left: auto;
   display: inline-flex;
   gap: 2px;
@@ -400,7 +381,6 @@
   width: 26px;
   height: 26px;
   border: 1px solid transparent;
-  border-radius: 4px;
   background: none;
   color: var(--ink-faint);
   cursor: pointer;
@@ -408,6 +388,21 @@
 .rs-act:hover:not(:disabled) { color: var(--ink); border-color: var(--rule); }
 .rs-act:disabled { opacity: 0.4; cursor: default; }
 .rs-act.on { color: var(--ratioed-seal, #8c3a2e); border-color: var(--rule); }
+
+/* 26px is a mouse target. On a phone these three sit at the end of a feed row
+   that is already wrapping, so they land as their own strip at the row's end —
+   which is a fine place for them and a bad size, at 26px against the 44px floor
+   the rest of the admin holds (see the collected touch block in Admin.css). The
+   glyph inside stays 13px; only the box grows. Same `(pointer: coarse)` query
+   `.rs-actions` above already uses, so the studio has one touch rule and not
+   two disagreeing ones. */
+@media (pointer: coarse) {
+  .rs-act {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+  }
+  .rs-feed .ratioed-live-acts { gap: 0; }
+}
 
 .rs-reply-box { flex: 1 0 100%; padding: var(--space-2) 0 var(--space-3); }
 .rs-reply-box .admin-input { width: 100%; font-size: var(--text-sm); }
@@ -419,23 +414,6 @@
   margin-top: var(--space-2);
 }
 .rs-reply-where { font-size: var(--text-xs); color: var(--ink-muted); }
-
-/* Taken back. The project's central fact, watched rather than inferred from a
-   gap in an index afterwards.
-   The row recedes; the marker saying WHY does not. The strikethrough already
-   carries "this is gone", and dimming the label along with it made the one
-   piece of new information the hardest thing in the row to read. */
-.rs-feed-row.gone .rs-feed-when,
-.rs-feed-row.gone .rs-feed-who,
-.rs-feed-row.gone .rk-chip,
-.rs-feed-row.gone .rs-feed-text { opacity: 0.5; }
-.rs-feed-row.gone .rs-feed-who { text-decoration: line-through; }
-.rs-feed-gone {
-  font-size: var(--text-xs);
-  color: var(--ratioed-seal);
-  font-variant-caps: small-caps;
-  font-weight: 600;
-}
 
 /* --- the template --------------------------------------------------- */
 
@@ -462,8 +440,11 @@
 /* Same reasoning: the feed row collapses on the PANE's width, not the
    viewport's — a 34rem pane needs this at 1600px just as much as at 900px. */
 @container wbpane (max-width: 34rem) {
-  .rs-feed-who { flex: 1 1 8em; }
-  .rs-feed-text { flex: 1 0 100%; }
+  /* The rows are the ticker's and collapse by RatioedLive.css's own media
+     query. What is left is the studio's own two: the buttons take a line of
+     their own under what was said, rather than between the handle and it. */
+  .rs-feed .ratioed-live-acts { order: 2; }
+  .rs-reply-box { order: 3; }
 }
 
 /* A like cast and taken back before the seal. Not an alarm any more, but not
@@ -472,11 +453,71 @@
 .rs-live.withdrawn { border-color: var(--ratioed-quote); }
 .rs-live.withdrawn .rs-live-state { color: var(--ratioed-quote); }
 
-/* Offered only on a piece the replay can still reach — 36 hours. */
-.rs-recover {
+/* What can be done to a finished piece: recover its reaction time, say who
+   ended it, read what has landed since. At the end of the row on a desk, on
+   their own line under it on a phone, and each one keeps its glyph beside its
+   label rather than wrapping between them. */
+.rs-series-acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.rs-series-acts button {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: auto;
   white-space: nowrap;
+}
+
+/* The one gap a repair cannot close. Marked rather than shouted: a piece whose
+   breaker nothing witnessed and no reply named needs a person to say who it
+   was, and until somebody does, the record is honestly incomplete. */
+.rs-series-wanted { color: var(--ratioed-quote, #8a6f24); }
+
+/* The one form in this studio that writes something nobody measured: the
+   breaker's name. Full width under the row it belongs to, so it reads as an
+   edit to that piece rather than as a search box. */
+.rs-series-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  flex: 1 0 100%;
+  margin-top: var(--space-2);
+}
+.rs-series-name .admin-input {
+  flex: 1 1 14em;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+@container wbpane (max-width: 34rem) {
+  .rs-series-acts { margin-left: 0; width: 100%; }
+}
+
+/* --- the page's words ------------------------------------------------ */
+
+/* Thirteen captions, each with what it is for above it. A stack of labelled
+   fields rather than a grid: they are sentences of different lengths and one
+   column keeps them readable at any pane width. */
+.rs-copy { margin-top: var(--space-6); }
+.rs-copy-field {
+  display: block;
+  margin-top: var(--space-4);
+}
+.rs-copy-label {
+  display: block;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+}
+.rs-copy-field .admin-field-hint { margin: 2px 0 var(--space-1); }
+.rs-copy-field .admin-input {
+  width: 100%;
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }

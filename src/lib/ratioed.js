@@ -16,6 +16,7 @@ import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from '
 import { ME_DID, COLLECTIONS, RATIOED_PATH } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
 import { witnessFromRecord } from './ratioedLive.js';
+import { identify, UNRESOLVED } from './ratioedIdentity.js';
 import { fetchSnapshot } from './snapshot.js';
 
 /** Link sources that count as engagement, mapped to our bucket names. */
@@ -75,7 +76,7 @@ export function splitParticipants(people = SEED_PEOPLE) {
     living: living.length,
     afterOnly: people.length - living.length,
     total: people.length,
-    breakersListed: living.filter((p) => p.broke).length,
+    breakersListed: living.filter((p) => brokenTakes(p).length).length,
   };
 }
 
@@ -113,6 +114,20 @@ function livingKindsByHandle(events, people) {
 }
 
 /**
+ * Which pieces somebody broke, as a list.
+ *
+ * The roster used to hold one take here, assigned in a loop, so a person who
+ * broke two pieces kept whichever record was written last — ponder.ooo broke
+ * takes 15 and 16 and the roster said only 15. It is a list now, and this reads
+ * either shape: the bundled roster is a frozen file and still holds scalars.
+ */
+export function brokenTakes(person) {
+  const b = person?.broke;
+  if (Array.isArray(b)) return b;
+  return b ? [b] : [];
+}
+
+/**
  * How someone showed up, in one word — the most consequential thing they did
  * while a piece was alive.
  *
@@ -124,12 +139,80 @@ function livingKindsByHandle(events, people) {
  * took the piece somewhere new — the Mix column beside it still shows all ten.
  */
 export function roleOf(person) {
-  if (person.broke) return { key: 'broke', label: `broke #${String(person.broke).padStart(2, '0')}` };
+  const broke = brokenTakes(person);
+  if (broke.length) {
+    return {
+      key: 'broke',
+      label: `broke ${broke.map((t) => `#${String(t).padStart(2, '0')}`).join(' & ')}`,
+    };
+  }
   const kinds = person.liveKinds || person.kinds || {};
   if (kinds.quote) return { key: 'quote', label: 'quoted' };
   if (kinds.repost) return { key: 'repost', label: 'reposted' };
   if (kinds.reply) return { key: 'reply', label: 'replied' };
   return { key: 'live', label: 'was there' };
+}
+
+/** Same order as `roleOf`, with the like ahead of everything: on one piece's
+ *  own page the like is the act the whole thing turns on. */
+const FACE_RANK = ['like', 'quote', 'repost', 'reply'];
+
+/**
+ * One entry per account for a single piece: who they are, the one act they are
+ * shown for, and when that act happened.
+ *
+ * The last of those is the whole point. A face carries a label and a time, and
+ * for a long while they described different acts — the label was the most
+ * consequential thing somebody did, the time was the first thing they did.
+ * Usually that only made a repost look earlier than it was. On take 17 it made
+ * the piece look broken: the breaker had been replying for two minutes before
+ * she liked it, so the face marked BROKE IT was stamped +39m58s, four other
+ * people appeared to act after it, and the seal landed 1m47s after a like the
+ * record says was answered in 1.6s.
+ *
+ * So the time is the labelled act's own time, and the order follows it. What a
+ * face says and when it says it happened are now the same event.
+ *
+ * Each side of the seal is resolved separately. Somebody who replied while it
+ * was alive and quoted it afterwards belongs in the living roster — being there
+ * is what that group records — and is shown for the reply, because the quote is
+ * not something they did while it was alive.
+ */
+export function foldFaces(events) {
+  const byKey = new Map();
+  // One key space, not two. A recorded row always carries a DID and a harvested
+  // one never does, so keying on `did || handle:` drew a person who acted on
+  // both sides of the seal of a bundled take as two faces — and, because the
+  // breaker is matched by DID and by handle alike, rang both of them.
+  const who = identify(events);
+  for (const e of events || []) {
+    if (e.self) continue;
+    const key = who(e);
+    if (!key) continue;
+    let p = byKey.get(key);
+    if (!p) {
+      p = { key, did: e.did || null, handle: e.h, count: 0, pre: false, kinds: {}, alive: {}, after: {} };
+      byKey.set(key, p);
+    }
+    // Whichever row names them best wins, regardless of which came first: the
+    // harvested row is usually the earlier one and carries no DID, and the face
+    // needs the DID to find a portrait.
+    if (!p.did && e.did) p.did = e.did;
+    if ((!p.handle || p.handle === UNRESOLVED) && e.h) p.handle = e.h;
+    p.count += 1;
+    p.kinds[e.k] = (p.kinds[e.k] || 0) + 1;
+    if (e.pre) p.pre = true;
+    const side = e.pre ? p.alive : p.after;
+    // Earliest of each kind: two reposts are one face, shown at the first.
+    if (side[e.k] == null || e.off < side[e.k]) side[e.k] = e.off;
+  }
+  return Array.from(byKey.values())
+    .map(({ alive, after, ...p }) => {
+      const side = p.pre ? alive : after;
+      const kind = FACE_RANK.find((k) => side[k] != null) || null;
+      return { ...p, kind, off: kind ? side[kind] : 0 };
+    })
+    .sort((a, b) => a.off - b.off);
 }
 
 /**
@@ -161,7 +244,7 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
       live: p.pre.length,
       after: p.post.length,
       liveKinds: liveKinds.get(p.h) || null,
-      likeGone: Boolean(p.broke) && likeDeleted.has(p.broke),
+      likeGone: brokenTakes(p).some((t) => likeDeleted.has(t)),
     }));
 
   // Match on either identifier: the roster is keyed by DID, but a breaker is
@@ -195,7 +278,7 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
       pre: [piece.take],
       post: [],
       kinds: likeGone ? {} : { like: 1 },
-      broke: piece.take,
+      broke: [piece.take],
       named: true,
       likeGone,
     });
@@ -205,7 +288,7 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
     rows,
     measured: measured.length,
     named: named.length,
-    breakers: rows.filter((p) => p.broke).length,
+    breakers: rows.filter((p) => brokenTakes(p).length).length,
     deleted: rows.filter((p) => p.likeGone).length,
   };
 }
@@ -434,6 +517,110 @@ export function normalizePiece(rkey, value) {
 }
 
 /**
+ * Where every other take sits on a live piece's run at the record.
+ *
+ * The bar under a running piece measures it against the longest one that has
+ * ever happened, which is the only unit this project has — but it is also the
+ * least representative piece in the series. Take 14 stood for 42 minutes; nine
+ * of the sixteen were over inside two. So the bar was one long empty run with a
+ * single mark at the end, and the thing actually happening while a piece is up
+ * — that it has now outlived take 3, and take 7, and take 12 — had no shape at
+ * all.
+ *
+ * These are that shape: one tick per finished piece at its own lifespan, and
+ * whether the live one has passed it yet. They cluster at the left, which is
+ * not a defect: the cluster IS the finding, and a piece crossing the last of
+ * them has visibly left the whole series behind.
+ *
+ * @param {Array} pieces      finished pieces
+ * @param {object} record     the longest of them, which the bar runs to
+ * @param {number} elapsedMs  how long the live piece has stood
+ */
+export function chaseTicks(pieces, record, elapsedMs = 0) {
+  const target = record?.lifespanMs || 0;
+  if (!target) return [];
+  return (pieces || [])
+    .filter((p) => p.lifespanMs > 0 && p.rkey !== record.rkey && p.lifespanMs < target)
+    .sort((a, b) => a.lifespanMs - b.lifespanMs)
+    .map((p) => ({
+      rkey: p.rkey,
+      take: p.take,
+      lifespanMs: p.lifespanMs,
+      at: p.lifespanMs / target,
+      passed: elapsedMs >= p.lifespanMs,
+    }));
+}
+
+/**
+ * One log for a piece, from the two places its rows can live.
+ *
+ * The first eleven pieces were measured offline before records carried a log,
+ * and the bundle is the only copy of their alive window — and of the TEXT of
+ * every reply, which the harvest kept and a backlink index cannot give back.
+ * A recorded log covers whatever windows it was measured over, which since the
+ * repair pass can be the afterlife alone.
+ *
+ * So neither source simply wins. The record owns the windows it has rows in,
+ * the bundle fills the windows it doesn't, and a recorded row that has no text
+ * takes it from the harvested row it plainly is — same kind, same account,
+ * within a second of the same offset. Without that last part, repairing a
+ * bundled piece replaced nine rows carrying four replies' worth of text with
+ * eight rows carrying none, and the essay's "reactions no one can see" read
+ * "(image, no text)" all the way down.
+ */
+export function composeEventLog(recordLog, bundleLog) {
+  const rec = Array.isArray(recordLog) ? recordLog : null;
+  const bun = Array.isArray(bundleLog) ? bundleLog : null;
+  if (!rec?.length) return bun?.length ? bun : null;
+  if (!bun?.length) return rec;
+
+  // The same record, measured twice: same kind, same account, within a second
+  // of the same offset. Measured against the real pair the harvest and the
+  // repair produced for the first eleven pieces, the offsets agree to about ten
+  // milliseconds, so a second and a half is slack rather than a guess.
+  //
+  // The account test is the delicate part. Matching on the handle alone missed
+  // a row whose handle had been re-resolved since: take 10 holds a recorded
+  // repost by `(unresolvable)` and a harvested one by rascalpyro.bsky.social,
+  // thirteen milliseconds apart and the same repost — plc.directory confirms
+  // the alias — so the composed log ran to 69 rows for 68 events, drew two
+  // ticks stacked at +19m24s, and put the same person on the page twice: once
+  // as a face and once as a deactivated frame. Two DIDs are decisive when both
+  // rows carry one; otherwise a handle still counts, unless it is the
+  // placeholder every unresolved account answers to, which identifies nobody.
+  const sameWho = (a, b) => {
+    if (a.did && b.did) return a.did === b.did;
+    if (!a.h || !b.h) return false;
+    if (a.h === UNRESOLVED || b.h === UNRESOLVED) return true;
+    return a.h === b.h;
+  };
+  const sameRow = (a, b) =>
+    a.k === b.k && sameWho(a, b) && Math.abs((a.off || 0) - (b.off || 0)) <= 1.5;
+
+  // What the harvest knows and the record cannot say. Text is the obvious one.
+  // `n` — whether a reply was nested under another rather than written to the
+  // piece itself — is the quieter one: the lexicon has no field for it and a
+  // backlink index does not carry it, so it survives ONLY here. Recorded rows
+  // used to win outright, which shadowed every harvested `n` and left the
+  // hidden-replies list calling all fifteen of them "reply to the sealed post".
+  const withText = rec.map((e) => {
+    if (e.t && e.n != null) return e;
+    const harvested = bun.find((x) => (x.t || x.n != null) && sameRow(e, x));
+    if (!harvested) return e;
+    return {
+      ...e,
+      ...(!e.t && harvested.t ? { t: harvested.t } : {}),
+      ...(e.n == null && harvested.n != null ? { n: harvested.n } : {}),
+    };
+  });
+  // Everything the harvest holds and the record does not: the alive window of a
+  // piece repaired long after it ran, and any row an index has since forgotten.
+  // Both are evidence, and the index cannot be asked about either.
+  const unrecorded = bun.filter((x) => !rec.some((e) => sameRow(e, x)));
+  return [...withText, ...unrecorded].sort((a, b) => a.off - b.off);
+}
+
+/**
  * A recorded event log, in the shape the charts read.
  *
  * The record stores milliseconds (lexicon v1 has no float type); the charts
@@ -452,6 +639,10 @@ function eventsFromRecord(events) {
       pre: e.pre ? 1 : 0,
       ...(e.self ? { self: 1 } : {}),
       ...(e.t ? { t: e.t } : {}),
+      // Nested under another reply rather than written to the piece. Carried
+      // through where a record happens to hold it; only the bundled harvest
+      // does today, since neither the lexicon nor any index has the field.
+      ...(e.n != null ? { n: e.n } : {}),
       // The audience this account carried the piece to, as of audienceAt.
       // Passed through untouched — `ratioedReach` distinguishes an absent
       // figure from a zero one, so neither can be defaulted here.
@@ -492,8 +683,28 @@ function mergePieces(snap, live) {
  * published after the last build stayed invisible until the site was rebuilt.
  */
 export async function loadPieces(pds) {
+  const { pieces } = await readPieces(pds);
+  return pieces;
+}
+
+/**
+ * The same read, saying which source answered.
+ *
+ * `loadPieces` deliberately hides that, and for a reader it is right to: the
+ * charts render identically from any of the three. For the STUDIO it is not.
+ * The studio decides whether a piece is live from this list, and it flagged a
+ * degraded read only when the result came back empty — which it never does,
+ * because a swallowed failure falls through to the snapshot or the seed. So a
+ * PDS 500, an expired session or a fast 5xx installed the build snapshot in
+ * silence: with take 18 live and published since the last deploy, the studio
+ * would find no live piece, draw the composer, and offer to post take 18 again.
+ *
+ * `source` is 'pds' only when the PDS itself answered.
+ */
+export async function readPieces(pds) {
   const fromSnap = fromRecords(await fetchSnapshot('ratioed'));
-  if (!pds) return fromSnap || SEED_PIECES;
+  const fallback = { pieces: fromSnap || SEED_PIECES, source: fromSnap ? 'snapshot' : 'seed' };
+  if (!pds) return fallback;
   try {
     const records = await listRecords(pds, {
       repo: ME_DID,
@@ -501,10 +712,10 @@ export async function loadPieces(pds) {
       max: 200,
     });
     const live = fromRecords(records);
-    if (!live) return fromSnap || SEED_PIECES;
-    return fromSnap ? mergePieces(fromSnap, live) : live;
-  } catch {
-    return fromSnap || SEED_PIECES;
+    if (!live) return fallback;
+    return { pieces: fromSnap ? mergePieces(fromSnap, live) : live, source: 'pds' };
+  } catch (err) {
+    return { ...fallback, error: err?.message || String(err) };
   }
 }
 
@@ -562,14 +773,31 @@ export async function fetchLiveDeltas(pieces) {
         const bucket = SOURCE_BUCKETS[row.source];
         if (bucket) now[bucket] += row.count || 0;
       }
-      // The artist's own replies are in these totals but not in the recorded
-      // figures, so a delta of "0" is the honest floor, never a negative.
+      // The artist's own records, netted out.
+      //
+      // Constellation indexes them — the concluding reply, the metrics reply,
+      // the self-quote — and `measureWindows` excludes them from both recorded
+      // windows by construction. So the subtraction was always short by however
+      // many the artist had made, and `Math.max(0, …)` could not help because
+      // the error only ever runs one way: take 1 reported "+3 since measured"
+      // and "thread +2" for records written in June 2025. The log is where they
+      // are named, and every piece's log carries them flagged.
+      const mine = { ...EMPTY };
+      for (const e of p.events || []) {
+        if (!e.self) continue;
+        const bucket = SELF_BUCKETS[e.k];
+        if (bucket) mine[bucket] += 1;
+      }
       const recorded = p.preSeal;
       const post = p.postSeal;
       const delta = {};
       let total = 0;
       for (const key of ['likes', 'reposts', 'quotes', 'threadPosts']) {
-        const since = now[key] - (recorded[key] || 0) - (post[key] || 0);
+        const since = now[key] - mine[key] - (recorded[key] || 0) - (post[key] || 0);
+        // Still floored: the log names the artist's records up to the last
+        // measurement, so one made since is not in it and would read as a
+        // stranger's. A floor of zero is the honest answer to that, where a
+        // negative is not an answer at all.
         delta[key] = Math.max(0, since);
         total += delta[key];
       }
@@ -578,6 +806,9 @@ export async function fetchLiveDeltas(pieces) {
   );
   return Object.fromEntries(results.filter(Boolean));
 }
+
+/** An event log's `k` against the buckets a backlink count arrives in. */
+const SELF_BUCKETS = { like: 'likes', repost: 'reposts', quote: 'quotes', reply: 'threadPosts' };
 
 /** Every link source that counts as engagement, as `collection:path` pairs. */
 const BACKLINK_SOURCES = [
@@ -592,6 +823,15 @@ const BACKLINK_SOURCES = [
  * Every record pointing at a piece, flattened to `{ kind, rkey, did }` — the
  * shape measureWindows() consumes. Pages through each source to the end, so a
  * busy piece is counted in full rather than to the first 100.
+ *
+ * THROWS when a page cannot be read, and that is the whole point. `getBacklinks`
+ * answers null on any failure; this used to `break` on that and return whatever
+ * it had, which for a first-page failure is `[]` — indistinguishable from a
+ * piece nobody touched. The seal path never checked, so a Constellation outage
+ * in the seconds between the threadgate write and the measurement wrote a
+ * record with every pre-seal figure at zero and stamped it measured. Nothing
+ * re-derives a pre-seal window afterwards, by design, so those zeros were
+ * permanent. A caller that would rather have a partial answer can catch.
  */
 export async function fetchPieceRecords(subject) {
   const out = [];
@@ -599,7 +839,9 @@ export async function fetchPieceRecords(subject) {
     let cursor;
     do {
       const page = await getBacklinks(subject, source, { limit: 100, cursor });
-      if (!page) break;
+      if (!page) {
+        throw new Error(`could not read ${source} for ${subject}`);
+      }
       for (const r of backlinkRows(page)) {
         out.push({ kind, rkey: r.rkey, did: r.did });
       }
@@ -637,7 +879,11 @@ export function fmtSeconds(ms) {
  * needs them is a story about something else.
  */
 export function fmtStopwatch(ms, decimals = 2) {
-  const sec = Math.max(0, (ms || 0) / 1000);
+  // Rounded first, then branched. Branching on the raw value and rounding after
+  // put 59.999s in the under-a-minute arm and printed it as "60.00s" — and, one
+  // minute up, "1m60.00s".
+  const raw = Math.max(0, (ms || 0) / 1000);
+  const sec = Number(raw.toFixed(decimals));
   if (sec < 60) return `${sec.toFixed(decimals)}s`;
   const m = Math.floor(sec / 60);
   const rest = (sec - m * 60).toFixed(decimals).padStart(decimals + 3, '0');

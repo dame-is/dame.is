@@ -314,9 +314,27 @@
 /* `fullWidth` drops the measure clamp INSIDE the detail pane; it never changes
    the column count. It is set for the surfaces whose bodies are inherently wide
    — the sky palette grid, the ratioed live feed — and for the Front Desk, which
-   owns its own grid. */
+   owns its own grid.
+
+   `100%` rather than `none`, and the difference is only visible on a phone.
+   The pane's clamp below this breakpoint is `min(var(--wb-measure, 100%), 100%)`
+   — a cap that exists precisely so a studio wider than the pane clips instead of
+   turning the frame into a horizontal scroller. `min(none, 100%)` is not a
+   length, so on a fullWidth surface that declaration was invalid at computed-value
+   time and `max-width` fell back to `none`: the guard was written, and the
+   surfaces with the widest bodies were exactly the ones it did not cover. The
+   ratioed studio is one of them, and a live piece whose feed carried one long
+   reply made the whole admin scroll sideways at 390px: pane scrollWidth 481
+   against a clientWidth of 390. What ends up in the strip off the right edge is
+   whatever a row pins there with `margin-left: auto` — the stream toggle, "its
+   page", and once somebody has liked the piece, the alarm's Seal button, which
+   measured 306–425px against a 390px screen. That is the one control in the
+   admin that is worth milliseconds, and it was off-screen until you swiped.
+
+   Nothing changes on a desk. The pane clamp above is `max-width: var(--wb-measure)`,
+   and `100%` of the pane is the same box `none` resolved to there. */
 .wb[data-full-width] .wb-shell {
-  --wb-measure: none;
+  --wb-measure: 100%;
 }
 
 .wb-pane {

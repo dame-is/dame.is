@@ -171,9 +171,22 @@ export default async function handler(req, res) {
     });
     const png = Buffer.from(await image.arrayBuffer());
 
-    const maxAge = secondsUntilNextHour();
+    // Cards are drawn in the hour's own palette, so they are good until the sky
+    // changes. A card for a piece that is STILL RUNNING is good for about as
+    // long as the piece is: it draws a clock, a lifeline and a breaker, all of
+    // which are wrong the moment somebody likes it. The URL carries a version
+    // stamp now (see records.js: cardVersion) so the sealed card is a separate
+    // resource anyway — this is the belt to that braces, for every crawler that
+    // fetched the live URL before there was anything else to fetch.
+    const live = piece && !piece.sealedAt;
+    const maxAge = live ? Math.min(60, secondsUntilNextHour()) : secondsUntilNextHour();
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=86400`);
+    res.setHeader(
+      'Cache-Control',
+      live
+        ? `public, max-age=${maxAge}, s-maxage=${maxAge}`
+        : `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=86400`,
+    );
     res.setHeader('Content-Length', String(png.length));
     return res.status(200).end(png);
   } catch (err) {

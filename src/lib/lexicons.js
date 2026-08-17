@@ -331,6 +331,32 @@ export const LEXICONS = {
     ],
   },
 
+  [COLLECTIONS.ratioedCopy]: {
+    label: 'Ratioed page words',
+    summary:
+      'The captions on a Ratioed piece’s page, kept as a record so they can be rewritten without a deploy. A singleton at "self", and every field is optional: an empty one is the site’s own sentence, not an empty caption. Edited in the Ratioed studio, which shows each field with what it is for; this generic editor is the way in if the studio is not.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'self',
+    rkeyDefault: 'self',
+    typeFieldValue: COLLECTIONS.ratioedCopy,
+    fields: [
+      { key: 'liveLede', label: 'Live: opening', type: 'textarea', hint: '{take} becomes the take number.' },
+      { key: 'liveNote', label: 'Live: under the dashboard', type: 'textarea' },
+      { key: 'deckAlive', label: 'Deck: nobody has liked it', type: 'textarea' },
+      { key: 'deckLiked', label: 'Deck: it has been liked', type: 'textarea' },
+      { key: 'deckWithdrawn', label: 'Deck: the like was taken back', type: 'textarea' },
+      { key: 'deckStream', label: 'Deck: reading the firehose', type: 'textarea', hint: '{budget} becomes the MB cap.' },
+      { key: 'deckRecord', label: 'Deck: reading the record', type: 'textarea' },
+      { key: 'replay', label: 'Sealed: replay', type: 'textarea' },
+      { key: 'witnessed', label: 'Sealed: the dashboard as it ran', type: 'textarea' },
+      { key: 'roster', label: 'Sealed: who was there', type: 'textarea' },
+      { key: 'hidden', label: 'Sealed: hidden replies', type: 'textarea' },
+      { key: 'log', label: 'Sealed: the log', type: 'textarea' },
+      { key: 'reach', label: 'Sealed: reach', type: 'textarea' },
+      { key: 'updatedAt', label: 'Updated at', type: 'datetime', default: 'now' },
+    ],
+  },
+
   [COLLECTIONS.ratioedPiece]: {
     label: 'Ratioed pieces',
     summary:
@@ -350,19 +376,31 @@ export const LEXICONS = {
         hint: 'Decoded from the post’s record key TID, not its client-set createdAt.',
       },
       {
-        key: 'sealedAt', label: 'Sealed at', type: 'datetime', required: true,
-        hint: 'createdAt of the threadgate that closed replies — the real moment the piece ended.',
+        // Not required, here or in the lexicon: a piece that is still up has no
+        // seal to record, and its record carries take, subject and postedAt
+        // alone. Marking these three required closed the raw-record editor —
+        // the documented route to a live piece's record — for exactly the
+        // pieces most likely to need it, in both form and JSON mode.
+        key: 'sealedAt', label: 'Sealed at', type: 'datetime',
+        hint: 'createdAt of the threadgate that closed replies — the real moment the piece ended. Absent while a piece is still up.',
       },
-      { key: 'lifespanMs', label: 'Lifespan (ms)', type: 'number', required: true },
+      { key: 'lifespanMs', label: 'Lifespan (ms)', type: 'number' },
       { key: 'announceLagMs', label: 'Announcement lag (ms)', type: 'number' },
       {
         key: 'breaker', label: 'Breaker', type: 'json',
-        hint: '{ handle, currentHandle?, did?, likeSurvives, reactionMs? }. reactionMs is absent when the like was deleted.',
+        hint: '{ handle, currentHandle?, did?, likeSurvives, reactionMs?, reactionRecovered? }. A deleted like still carries a reactionMs when something timed it — the witnessed log, or a replay — and reactionRecovered is what says so.',
       },
       { key: 'preSeal', label: 'While alive', type: 'json', hint: '{ likes, reposts, quotes, threadPosts, participants }' },
       { key: 'postSeal', label: 'After the seal', type: 'json', hint: 'Same shape. Only true as of measuredAt.' },
       { key: 'statedTally', label: 'Stated tally', type: 'text', hint: 'What you counted in the announcement reply.' },
-      { key: 'measuredAt', label: 'Measured at', type: 'datetime', default: 'now', required: true },
+      {
+        // Declared in the lexicon, normalized, and rendered twice — and until
+        // now written by nothing at all, because this was the only route to it
+        // and the record it belongs on could not be opened.
+        key: 'lede', label: 'Opening paragraph', type: 'textarea',
+        hint: 'Your own words to open this piece’s page. Left empty, the page writes its own from the figures — which is always true and never says anything the numbers don’t.',
+      },
+      { key: 'measuredAt', label: 'Measured at', type: 'datetime', default: 'now' },
       { key: 'source', label: 'Source', type: 'text', default: 'constellation.microcosm.blue' },
     ],
   },

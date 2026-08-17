@@ -115,7 +115,21 @@ async function previousSnapshotData(name, path) {
   return null;
 }
 
-async function writeJson(name, data, { guardEmpty = false } = {}) {
+/**
+ * Write a snapshot, and RETURN WHAT WAS WRITTEN.
+ *
+ * The return value matters: the guard below can decide to keep the previous
+ * snapshot instead of the new one, and callers that go on to build something
+ * else out of the same array — sitemap.xml, feed.xml — were using their own
+ * copy, the one the guard had just rejected. So a failed read preserved
+ * blogs.json and still shipped an Atom feed with no entries in it.
+ *
+ * `minRatio` is the second half of the guard. Zero is not the only bad answer:
+ * the ratioed roster is written from a bundle when a live read fails, which is
+ * 135 entries against 275 — a number that passes any is-it-empty test while
+ * silently dropping every participant of the last six pieces.
+ */
+async function writeJson(name, data, { guardEmpty = false, minRatio = 0 } = {}) {
   await mkdir(OUT, { recursive: true });
   const path = resolve(OUT, `${name}.json`);
   const newCount = snapshotCount(data);
@@ -124,22 +138,25 @@ async function writeJson(name, data, { guardEmpty = false } = {}) {
   // transient upstream failure can yield 0 items; if the previous snapshot had
   // many, carry the prior data forward and flag the build as degraded rather
   // than shipping thin content for up to 6h.
-  if (guardEmpty && newCount === 0) {
+  if (guardEmpty || minRatio > 0) {
     const prev = await previousSnapshotData(name, path);
     const prevCount = snapshotCount(prev);
-    if (prevCount && prevCount > 0) {
+    const floor = minRatio > 0 ? Math.floor((prevCount || 0) * minRatio) : 0;
+    const tooSmall = newCount === 0 || (minRatio > 0 && newCount < floor);
+    if (prevCount > 0 && tooSmall) {
       warn(
-        `refusing to overwrite ${name}.json with 0 items — previous snapshot had ` +
+        `refusing to overwrite ${name}.json with ${newCount} items — previous snapshot had ` +
           `${prevCount}. Carrying prior data forward and marking meta ok:false.`,
       );
       await writeFile(path, JSON.stringify(prev, null, 2) + '\n', 'utf-8');
-      preservedSnapshots.push({ name, prevCount });
-      return;
+      preservedSnapshots.push({ name, prevCount, rejected: newCount });
+      return prev;
     }
   }
 
   await writeFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
   log(`wrote ${name}.json (${newCount == null ? '—' : newCount})`);
+  return data;
 }
 
 async function writePublicFile(name, content) {
@@ -185,8 +202,12 @@ async function safe(label, fn, fallback, { attempts = 3, baseDelayMs = 400 } = {
 // --- Per-filter chip counts (mirrors FeedFilters.feedFilterCounts) ----------
 // Kept in sync with src/components/FeedFilters.jsx; replicated here (rather than
 // imported) because that module is JSX and can't load in this plain-Node build.
-// Preserved into snapshot-meta so trimming unifiedFeed.json (§6.1) doesn't cost
-// the client its estimated per-verb counts.
+//
+// This exists for snapshot-meta's `feedCounts`, which is a record of the build
+// rather than something a client reads: Home computes its chip counts over the
+// trimmed feed instead. That is a real undercount, and the comment below used
+// to claim this had solved it — worth knowing if anyone goes looking for where
+// the exact numbers live.
 function feedFilterCounts(items, myDid = null) {
   const continuing = myDid ? selfThreadMembers(items, myDid) : null;
   const out = {};
@@ -226,25 +247,87 @@ async function writeRatioedRoster(records) {
   // carries verbatim, so there's nothing to normalize first.
   const derived = rosterFromEvents((records || []).map((r) => r?.value).filter(Boolean));
   if (derived.length === 0) {
+    // Guarded, because "the bundle" is a real answer of 135 entries and the
+    // deployed roster is 275. A failed piece read landed here, wrote the
+    // bundle over the snapshot, and dropped every participant of takes 12–17 —
+    // and `guardEmpty` alone could never catch it, since 135 is not zero.
     log('ratioed roster: no recorded event logs; keeping the bundled roster');
-    await writeJson('ratioedPeople', bundled);
+    await writeJson('ratioedPeople', bundled, { minRatio: 0.9 });
     return;
   }
   const merged = mergeRoster(bundled, derived);
-  const known = new Set(bundled.map((p) => p.did));
-  const fresh = merged.filter((p) => !known.has(p.did));
-  if (fresh.length) {
+
+  // Names the last build already resolved, carried forward before anything is
+  // fetched. Two things follow from this. A getProfiles failure now costs a
+  // name nobody had yet rather than every name on the roster — nothing here
+  // carried a name forward, so a single 429 blanked up to 25 of them. And the
+  // fetch below asks only about people with no name at all, where it used to
+  // re-ask about every DID outside the bundle on every single build.
+  const prior = await previousSnapshotData('ratioedPeople', resolve(OUT, 'ratioedPeople.json'));
+  const priorNames = new Map(
+    (Array.isArray(prior) ? prior : []).filter((p) => p?.did && p.dn).map((p) => [p.did, p.dn]),
+  );
+  for (const p of merged) if (!p.dn && priorNames.has(p.did)) p.dn = priorNames.get(p.did);
+
+  const unnamed = merged.filter((p) => !p.dn && p.did?.startsWith('did:'));
+  if (unnamed.length) {
     const names = await safe(
       'getProfiles:ratioedRoster',
-      () => fetchDisplayNames(fresh.map((p) => p.did)),
+      () => fetchDisplayNames(unnamed.map((p) => p.did)),
       {},
     );
-    for (const p of fresh) if (names[p.did]) p.dn = names[p.did];
+    for (const p of unnamed) if (names[p.did]) p.dn = names[p.did];
   }
   log(
-    `ratioed roster: ${bundled.length} bundled + ${fresh.length} new = ${merged.length}`,
+    `ratioed roster: ${bundled.length} bundled + ${merged.length - bundled.length} new = ${merged.length}` +
+      ` · ${unnamed.length} name${unnamed.length === 1 ? '' : 's'} to look up`,
   );
-  await writeJson('ratioedPeople', merged);
+  // Same guard on the happy path: a partial read that yields a few pieces
+  // still produces a merged roster, just a much smaller one.
+  await writeJson('ratioedPeople', merged, { minRatio: 0.9 });
+}
+
+/**
+ * Refresh the bundled seed — the offline fallback compiled into the app.
+ *
+ * It is the last resort: no snapshot, no PDS, nothing on the network. It stopped
+ * at take 11 because nothing regenerated it, so that fallback reported a
+ * different project from the real one — eleven pieces, 74 minutes alive, a mean
+ * reaction of 13.0s against 17, 190 and 8.6s — and `loadPieces`' promise that
+ * the charts "degrade to slightly stale" had quietly stopped being true.
+ *
+ * The event LOG is deliberately not seeded with it. That is a separate 27kB
+ * chunk by design, and the seed exists to keep a page renderable rather than
+ * complete.
+ */
+async function writeRatioedSeed(records) {
+  const path = resolve(ROOT, 'src/data/ratioedPieces.json');
+  const rows = (records || [])
+    .map((r) => ({ rkey: String(r?.uri || '').split('/').pop(), record: r?.value }))
+    .filter((r) => r.rkey && r.record?.take && r.record?.sealedAt)
+    // Everything except the log, which is what makes this a seed rather than a
+    // second copy of the snapshot.
+    .map(({ rkey, record }) => {
+      const rest = { ...record };
+      for (const key of ['events', 'witnessed', 'witnessFromMs']) delete rest[key];
+      return { rkey, record: rest };
+    })
+    .sort((a, b) => a.record.take - b.record.take);
+
+  let prior = [];
+  try {
+    prior = JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    /* no seed yet */
+  }
+  // Same rule as every snapshot: a shrink is a failure, not an update.
+  if (rows.length < prior.length) {
+    warn(`ratioed seed: read ${rows.length} sealed pieces against ${prior.length} bundled — keeping the bundle`);
+    return;
+  }
+  if (rows.length === prior.length && JSON.stringify(rows) === JSON.stringify(prior)) return;
+  await writeFile(path, JSON.stringify(rows, null, 2) + '\n', 'utf-8');
+  log(`ratioed seed: ${rows.length} pieces (was ${prior.length})`);
 }
 
 /** DID → display name, 25 at a time (the appview's limit). */
@@ -255,7 +338,10 @@ async function fetchDisplayNames(dids) {
     const params = new URLSearchParams();
     for (const did of real.slice(i, i + 25)) params.append('actors', did);
     const res = await fetch(`${APPVIEW}/xrpc/app.bsky.actor.getProfiles?${params}`);
-    if (!res.ok) continue;
+    // Thrown rather than skipped: `continue` meant the `safe()` wrapper around
+    // this never saw a failure and its backoff never fired, so one 429 blanked
+    // up to 25 display names and the build log read clean.
+    if (!res.ok) throw new Error(`getProfiles HTTP ${res.status}`);
     const body = await res.json();
     for (const p of body?.profiles || []) if (p?.did && p?.displayName) out[p.did] = p.displayName;
   }
@@ -511,8 +597,23 @@ async function main() {
     () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.ratioedPiece, max: 100 }),
     [],
   );
-  await writeJson('ratioed', ratioedPieces);
+  // Guarded like every other snapshot, and the guarded value is what the
+  // sitemap is built from below: without this, a failed read dropped all
+  // seventeen /creating/ratioed/NN URLs while snapshot-meta still said ok.
+  const ratioedWritten = await writeJson('ratioed', ratioedPieces, { guardEmpty: true });
   await writeRatioedRoster(ratioedPieces);
+  await writeRatioedSeed(ratioedPieces);
+
+  // The prose on a piece's page, edited in the studio and read here so the page
+  // paints the artist's wording rather than the build's built-ins and then
+  // swapping. Absent is the ordinary state until something is rewritten, and it
+  // costs nothing: every field falls back to the sentence the site ships with.
+  const ratioedCopy = await safe(
+    'getRecord:ratioedCopy',
+    () => getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.ratioedCopy, rkey: 'self' }),
+    null,
+  );
+  await writeJson('ratioedCopy', ratioedCopy || { value: {} });
 
   // --- Resume (is.dame.resume + backlinked jobs + education) ----------------
   // One combined snapshot so /resume paints instantly; the page re-fetches
@@ -660,8 +761,14 @@ async function main() {
 
   await writeJson('posts', authorFeed, { guardEmpty: true });
 
+  // What landed on disk, which is not always what was fetched: the guard can
+  // decide to keep the previous snapshot. The XML below is built from these
+  // rather than from the fetched arrays — it has no bundled seed and nothing
+  // corrects it at runtime, so a failed read used to preserve blogs.json and
+  // still ship an Atom feed with zero entries to every subscriber.
+  const written = {};
   for (const [name, records] of Object.entries(perCollection)) {
-    await writeJson(name, records, { guardEmpty: true });
+    written[name] = await writeJson(name, records, { guardEmpty: true });
   }
 
   // Multi-collection verbs also write a combined `<verb>.json` for
@@ -684,8 +791,8 @@ async function main() {
   // `blogs` snapshot (site.standard.document); creative works are the legacy
   // `creations` plus any portfolio-/cross-posted standard doc; curating
   // channels are the enabled are.na galleries.
-  const blogRecords = Array.isArray(perCollection.blogs) ? perCollection.blogs : [];
-  const creationRecords = Array.isArray(perCollection.creations) ? perCollection.creations : [];
+  const blogRecords = Array.isArray(written.blogs) ? written.blogs : [];
+  const creationRecords = Array.isArray(written.creations) ? written.creations : [];
   const creatingRecords = [
     ...blogRecords.filter((r) => showOnCreating(r?.value)),
     ...creationRecords,
@@ -700,7 +807,7 @@ async function main() {
           blogRecords,
           creatingRecords,
           curatingChannels: galleries,
-          ratioedPieces,
+          ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
           builtAt,
         }),
       ),
@@ -719,17 +826,34 @@ async function main() {
     appview: APPVIEW,
     did: ME_DID,
     counts,
-    // §6.1: unifiedFeed.json is trimmed to the most-recent HOME_SNAPSHOT_MAX
-    // items, so estimated chip counts derived from it would undercount. Preserve
-    // the FULL per-filter counts (over the untrimmed feed) here so a client can
-    // read exact estimates without loading the heavy snapshot. Keys match
-    // FeedFilters.feedFilterCounts (verb names + `replying`).
+    // The FULL per-filter counts, over the untrimmed feed — unifiedFeed.json is
+    // cut to HOME_SNAPSHOT_MAX (§6.1), so anything counted from it undercounts.
+    // Recorded rather than consumed: Home counts the trimmed feed today. Keys
+    // match FeedFilters.feedFilterCounts (verb names + `replying`).
     feedCounts: feedFilterCounts(unified, ME_DID),
     homeFeedCount: homeFeed.length,
     // §8.3: snapshots kept from a prior good build instead of an empty fetch.
     preserved: preservedSnapshots,
     ok: preservedSnapshots.length === 0,
   });
+
+  // What the build actually shipped, said out loud.
+  //
+  // snapshot-meta records `ok` and `preserved` on every run and NOTHING reads
+  // the file — not src, not api/rebuild.js, not CI — so a degraded build was
+  // indistinguishable from a healthy one to every consumer of it, including
+  // whoever is watching the log. It stays (it is a useful record of a run), and
+  // now the run says so too. Not a failure: a preserved snapshot is the guard
+  // working, and a deploy that ships last build's blog is exactly what it is
+  // for. It just must not pass in silence.
+  if (preservedSnapshots.length) {
+    warn(
+      `DEGRADED BUILD — ${preservedSnapshots.length} snapshot(s) kept from the previous run: ` +
+        preservedSnapshots
+          .map((p) => `${p.name} (${p.prevCount} kept${p.rejected != null ? `, ${p.rejected} rejected` : ''})`)
+          .join(', '),
+    );
+  }
 
   log('done');
 }

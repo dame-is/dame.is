@@ -131,7 +131,7 @@
         },
         "likeSurvives": {
           "type": "boolean",
-          "description": "False when the like was deleted afterwards. The only evidence it existed is then the threadgate firing with no visible cause, plus the reply naming who cast it. reactionMs is normally absent in that case — unless it was recovered, see reactionRecovered."
+          "description": "False when the like was deleted afterwards. The evidence it existed is then the threadgate firing with no visible cause, the reply naming who cast it, and — on a piece the studio watched — the row for it in `witnessed`, which is also where the timing comes back from. reactionMs is absent in that case only when nothing was watching; see reactionRecovered."
         },
         "reactionMs": {
           "type": "integer",
@@ -139,7 +139,7 @@
         },
         "reactionRecovered": {
           "type": "boolean",
-          "description": "True when reactionMs was recovered by replaying Jetstream's lookback window rather than read from a like that still exists. The like is gone either way; this says the timing is not. Only possible within 36 hours of the seal, which is how long that replay reaches back."
+          "description": "True when reactionMs was recovered from something other than a like that still exists: the `witnessed` log, which was watching when the like landed and when it went, or a replay of Jetstream's lookback afterwards. The like is gone either way; this says the timing is not. The log is on the record and does not expire; the replay reaches back 36 hours from the seal and no further."
         }
       }
     },
@@ -207,7 +207,8 @@
         },
         "t": {
           "type": "string",
-          "maxLength": 300,
+          "maxLength": 3000,
+            "maxGraphemes": 300,
           "description": "The post's text, when it carried any."
         }
       }

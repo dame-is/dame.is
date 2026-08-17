@@ -19,18 +19,29 @@
 // PageShell and no back link of its own.
 //
 // It is also the one studio EXEMPT from the shell's dirty tracking, and that is
-// a statement about what this panel is rather than an oversight. `measured` and
-// `found` are the results of scans that take minutes over Constellation, and
-// they are deliberately not written: `remeasure` computes fresh afterlife
-// figures and stops there, because publishing them is a decision the artist
-// makes. Reporting them as "unsaved changes" would turn a finished reading into
-// a nagging to-do, and offering a generic Save for them would overwrite
-// pre-seal figures that no index can reconstruct. So: never reportDirty, never
+// a statement about what this panel is rather than an oversight. `found` is the
+// result of a scan that takes minutes over Constellation and is deliberately
+// not written until the artist says so. Reporting it as "unsaved changes" would
+// turn a finished reading into a nagging to-do. So: never reportDirty, never
 // registerActions.
+//
+// "Re-measure afterlife" used to sit in the row of buttons above it: it counted
+// the fresh figures, printed them beside the recorded ones, and wrote nothing
+// until you also pressed Republish all. Nobody could tell from the button that
+// it was a preview, so it read as a repair that did nothing — which is exactly
+// what it did. Repair does the real thing now, per piece and in bulk, and this
+// is gone.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Upload, Trash2, ExternalLink, ListPlus, Search, Users } from 'lucide-react';
+import {
+  Upload,
+  Trash2,
+  ExternalLink,
+  ListPlus,
+  Search,
+  Wrench,
+} from 'lucide-react';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { COLLECTIONS, RATIOED_DOC_RKEY, RATIOED_SOURCE, ME_DID } from '../config.js';
@@ -49,12 +60,17 @@ import {
   buildEventLog,
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
+import { repairPiece, gapSummary } from '../lib/ratioedRepair.js';
+import { resolveBreaker, witnessFromRecord } from '../lib/ratioedLive.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveProfiles } from '../lib/atproto.js';
-import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
+import { getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
+// Which pieces the bundle covers, so a row can say whether the PDS record is
+// the only copy of it that exists anywhere.
+const SEED_KEYS = new Set(SEED_PIECES.map((p) => p.rkey));
 const STANDARD_DOC = 'site.standard.document';
 
 // The pieces the bundled event log covers. They were measured before records
@@ -96,14 +112,6 @@ async function listPaged(agent, did, collection, onCount) {
   return { records, truncated: true };
 }
 
-const SOURCE_BUCKETS = {
-  'app.bsky.feed.like:subject.uri': 'likes',
-  'app.bsky.feed.repost:subject.uri': 'reposts',
-  'app.bsky.feed.post:embed.record.uri': 'quotes',
-  'app.bsky.feed.post:embed.record.record.uri': 'quotes',
-  'app.bsky.feed.post:reply.root.uri': 'threadPosts',
-};
-
 export default function RatioedPanel({ agent, did }) {
   // The only thing this panel takes from the shell. Its bulk writes change the
   // SIZE of the collection — nothing to eleven, eleven to nothing — and the
@@ -117,7 +125,6 @@ export default function RatioedPanel({ agent, did }) {
   const [progress, setProgress] = useState('');
   const [error, setError] = useState(null);
   const [backlinks, setBacklinks] = useState(null);
-  const [measured, setMeasured] = useState(null); // rkey → fresh postSeal
   const [found, setFound] = useState(null); // pieces on the PDS with no record yet
   const [truncated, setTruncated] = useState(false); // the scan hit its page bound
 
@@ -181,11 +188,20 @@ export default function RatioedPanel({ agent, did }) {
    * the PDS, so there was nothing in the bundle to hang a row on, and the list
    * stayed at eleven no matter what the count above it said.
    */
-  // `piece` is the display shape; `record` is what publishing writes. For a
-  // bundled piece that's the bundle; for one that only lives on the PDS it's
-  // its own record, kept raw — the display shape carries defaults (a null
-  // announceLagMs, an empty statedTally, an event log decoded to seconds) that
-  // were never in it and mustn't be written back.
+  // `piece` is the display shape; `record` is what publishing writes. Both come
+  // from the PDS wherever the PDS has an answer, and from the bundle only where
+  // it does not. `record` stays the RAW record value either way — the display
+  // shape carries defaults (a null announceLagMs, an empty statedTally, an event
+  // log decoded to seconds) that were never in it and mustn't be written back.
+  //
+  // The bundle used to win. It is a frozen seed of the first eleven pieces as
+  // they were measured in July, and every one of them has since been repaired:
+  // event logs written onto them, afterlife counts corrected, a breaker's DID
+  // recovered. Letting it win meant the cards below showed those eleven pieces
+  // as they were rather than as they are — and, far worse, that `record` was
+  // the stale bundle, so the whole-value putRecord in `publishAll` would have
+  // written the July value back over the repaired one. One press, 126 recorded
+  // event rows gone.
   const roster = useMemo(() => {
     const byKey = new Map();
     for (const piece of SEED_PIECES) {
@@ -193,9 +209,9 @@ export default function RatioedPanel({ agent, did }) {
       byKey.set(rkey, { rkey, piece, record });
     }
     for (const [rkey, record] of Object.entries(live)) {
-      if (byKey.has(rkey)) continue;
       const piece = normalizePiece(rkey, record);
-      if (piece) byKey.set(rkey, { rkey, piece, record, pdsOnly: true });
+      if (!piece) continue;
+      byKey.set(rkey, { rkey, piece, record, pdsOnly: !SEED_KEYS.has(rkey) });
     }
     return Array.from(byKey.values()).sort((a, b) => a.piece.take - b.piece.take);
   }, [live]);
@@ -213,23 +229,37 @@ export default function RatioedPanel({ agent, did }) {
     .filter(([, v]) => !v?.events?.length || !v.events.some((e) => e.did))
     .map(([rkey, v]) => ({ rkey, value: v }));
 
-  // Pieces whose event log has no follower counts on it. Everything measured
-  // before the reach score existed is in here, and so is anything measured by
-  // an older build — the audiences for those are currently joined on from the
-  // shared table at render, which is a fallback, not a record.
-  const missingAudience = Object.entries(live)
-    .filter(([, v]) => v?.sealedAt && v?.events?.length)
-    .filter(([, v]) => !v.events.some((e) => typeof e.fr === 'number'))
-    .map(([rkey, v]) => ({ rkey, value: v }));
+  // How many pieces a repair would run over, and how many of those it would
+  // actually write to. Every sealed piece is worth re-reading for what has
+  // landed since; `gapSummary`'s `fixable` is the narrower question of whether
+  // a record is missing something it should already have, and it asks
+  // `worthRepairing` rather than keeping its own copy of that question — the
+  // two had drifted apart by exactly one term.
+  const sealedCount = Object.values(live).filter((v) => v?.sealedAt).length;
+  const gaps = gapSummary(Object.values(live));
 
-  /** Write every piece with putRecord — deterministic rkeys, so re-running
-   *  updates in place instead of duplicating. */
+  /**
+   * Put the bundled pieces onto the PDS. Deterministic rkeys, so re-running is
+   * safe rather than duplicating.
+   *
+   * Only the ones that aren't there yet. This writes whole record values, and a
+   * record already on the PDS is by definition the newer of the two — it has
+   * been measured, repaired, or hand-edited since the bundle froze. Rewriting
+   * it could only ever take something away, so it isn't offered: the button
+   * seeds, it does not sync.
+   */
   async function publishAll() {
+    const missing = roster.filter(({ rkey }) => !live[rkey]);
+    if (!missing.length) {
+      setError('Every piece is already on the PDS. Nothing to write.');
+      return;
+    }
     if (
       !window.confirm(
-        `Write ${roster.length} ${NSID} records to your PDS?\n\n` +
-          'Record keys match each post, so this overwrites rather than duplicates. ' +
-          'Publishing also makes each record a backlink on the post it measures.',
+        `Write ${missing.length} ${NSID} record${missing.length === 1 ? '' : 's'} to your PDS?\n\n` +
+          `Takes ${missing.map((m) => m.piece.take).join(', ')} — the ones not there yet. ` +
+          `The ${roster.length - missing.length} already published are left alone.\n\n` +
+          'Publishing makes each record a backlink on the post it measures.',
       )
     ) {
       return;
@@ -238,65 +268,21 @@ export default function RatioedPanel({ agent, did }) {
     setError(null);
     try {
       let n = 0;
-      for (const { rkey, piece, record } of roster) {
-        const fresh = measured?.[rkey];
+      for (const { rkey, piece, record } of missing) {
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: NSID,
           rkey,
-          record: {
-            $type: NSID,
-            ...record,
-            ...(fresh ? { postSeal: fresh, measuredAt: new Date().toISOString() } : {}),
-          },
+          record: { $type: NSID, ...record },
         });
         n += 1;
-        setProgress(`${n}/${roster.length} — take ${piece.take}`);
+        setProgress(`${n}/${missing.length} — take ${piece.take}`);
       }
       setProgress('');
       await refresh();
       // One call for the whole run, not one per record: each invalidation bumps
       // the shell's data revision and re-reads every counted collection.
       invalidate([NSID]);
-    } catch (err) {
-      setError(err?.message || String(err));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  /** Re-count the post-seal figures from Constellation. Does not write. */
-  async function remeasure() {
-    setBusy('measure');
-    setError(null);
-    try {
-      const out = {};
-      let n = 0;
-      // The roster, not the bundle: a piece that only exists on the PDS accrues
-      // an afterlife like any other, and used to be skipped here.
-      for (const { piece } of roster) {
-        const flat = flattenSources(await getBacklinkSources(piece.subject));
-        n += 1;
-        setProgress(`${n}/${roster.length} — take ${piece.take}`);
-        if (!flat) continue;
-        const now = { likes: 0, reposts: 0, quotes: 0, threadPosts: 0 };
-        for (const row of flat) {
-          const bucket = SOURCE_BUCKETS[row.source];
-          if (bucket) now[bucket] += row.count || 0;
-        }
-        // Total minus what was alive = what has landed since the seal. The
-        // artist's own replies sit in the totals but not in the recorded
-        // pre-seal figures, so clamp at zero rather than going negative.
-        out[piece.rkey] = {
-          likes: Math.max(0, now.likes - piece.preSeal.likes),
-          reposts: Math.max(0, now.reposts - piece.preSeal.reposts),
-          quotes: Math.max(0, now.quotes - piece.preSeal.quotes),
-          threadPosts: Math.max(0, now.threadPosts - piece.preSeal.threadPosts),
-          participants: piece.postSeal.participants,
-        };
-      }
-      setProgress('');
-      setMeasured(out);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -401,16 +387,39 @@ export default function RatioedPanel({ agent, did }) {
   /** Publish the pieces the scan turned up. */
   async function publishFound() {
     if (!found?.length) return;
+    // A piece whose post has no readable take line passes `isPiecePost` on the
+    // historical markers alone, and `buildPieceRecord` copies the null straight
+    // into a field the lexicon declares required, integer, minimum 1. Written,
+    // it maps to take 0 and every chart filters it out — while the scan's own
+    // known-set keys on sealedAt and never offers it again. So it is a piece
+    // that exists, is invisible everywhere, and cannot be rediscovered.
+    const nameless = found.filter(({ record }) => !(record.take >= 1));
+    if (nameless.length) {
+      setError(
+        `${nameless.length} of these has no readable take number. Give it one on its own record ` +
+          `(admin → ${NSID}) before publishing, or the piece will be written and then vanish from ` +
+          'every chart.',
+      );
+      return;
+    }
     if (!window.confirm(`Write ${found.length} newly discovered piece(s) to your PDS?`)) return;
     setBusy('publish-found');
     setError(null);
     try {
       for (const { piece, record } of found) {
+        // Merged over whatever is already there, not written in place of it.
+        // The scan looks for pieces with no `sealedAt` — which is exactly the
+        // shape of a piece the studio has been watching, writing `witnessed`
+        // rows onto the record as they arrive. `buildPieceRecord` has no
+        // `witnessed`, no `witnessFromMs`, no `lede` and no `statedTally`, so a
+        // replacement would delete the live log of the piece it is measuring:
+        // post take 18 from the studio, seal it by hand in the app, scan, and
+        // the only evidence of a like that was cast and taken back is gone.
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: NSID,
           rkey: piece.rkey,
-          record: { $type: NSID, ...record },
+          record: { $type: NSID, ...(live[piece.rkey] || {}), ...record },
         });
       }
       setFound(null);
@@ -475,8 +484,24 @@ export default function RatioedPanel({ agent, did }) {
         // good; only whether their like is still standing was wrong. Rebuilt
         // field by field so a stale reactionMs can't survive a "deleted"
         // verdict by riding along in the spread.
+        //
+        // Except that a witnessed log times a like the index cannot show, and
+        // this never looked at one — unlike `healPiece`, which does. A piece
+        // sealed while the index lagged is sealed, witnessed and event-less,
+        // which is exactly this button's eligibility test, so it landed here
+        // and had its recovered reaction time deleted; `reactionRecovered` was
+        // not deleted with it, leaving a breaker flagged as recovered with
+        // nothing to have recovered. The public page then read "like deleted"
+        // and the piece dropped out of the project's mean reaction.
         const breaker = { ...(value.breaker || {}) };
+        const witnessed = resolveBreaker({
+          indexLike: windows.breakingLike,
+          rows: witnessFromRecord(value.witnessed) || [],
+          postedMs: Date.parse(value.postedAt),
+          sealedMs,
+        });
         delete breaker.reactionMs;
+        delete breaker.reactionRecovered;
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: NSID,
@@ -486,8 +511,17 @@ export default function RatioedPanel({ agent, did }) {
             ...value,
             breaker: {
               ...breaker,
-              likeSurvives,
-              ...(likeSurvives ? { reactionMs: sealedMs - windows.breakingLike.at } : {}),
+              likeSurvives: likeSurvives || Boolean(witnessed?.likeSurvives),
+              // The index first, then the log — the same order `resolveBreaker`
+              // itself uses, and the same order the studio's measurement does.
+              ...(likeSurvives
+                ? { reactionMs: sealedMs - windows.breakingLike.at }
+                : witnessed
+                  ? {
+                      reactionMs: Math.round(sealedMs - witnessed.at),
+                      ...(witnessed.recovered ? { reactionRecovered: true } : {}),
+                    }
+                  : {}),
             },
             preSeal: windows.preSeal,
             postSeal: windows.postSeal,
@@ -507,72 +541,64 @@ export default function RatioedPanel({ agent, did }) {
   }
 
   /**
-   * Write follower counts onto the event logs of pieces measured before the
-   * reach score existed.
+   * Repair every piece that has something missing.
    *
-   * The audiences for those pieces are currently joined on from a shared,
-   * dated table at render time. That works, but it is a fallback: the table is
-   * one snapshot for the whole project, it is regenerated by a script nobody
-   * runs on a schedule, and an account it can't resolve is missing from every
-   * piece at once. A count on the record is the piece's own measurement, kept
-   * with the log it belongs to.
+   * This replaced two loops in this file and two buttons in the studio, each
+   * written the day its own defect turned up: audiences that were never read,
+   * names a failed profile call lost, a reaction time nothing had recovered, an
+   * afterlife nobody had gone back for. They were separate because they were
+   * discovered separately, not because they are different kinds of work, and
+   * between them they made the artist diagnose a record before fixing it.
    *
-   * Only the audience is touched. Engagement, the breaking like, the reaction
-   * time and the log itself are left exactly as measured — this reads profiles,
-   * not backlinks, so there is nothing here that could overwrite a figure with
-   * a fresher and worse one. `audienceAt` is stamped with today, which is the
-   * honest date for a follower count read today, however old the piece is.
+   * One pass now, shared with the studio's per-piece button, and the rule it
+   * holds to is in lib/ratioedRepair.js: fill gaps, re-read only the window
+   * after the seal, never re-derive a figure measured while a piece was alive.
+   * Nothing here can make a record worse, which is what lets it run over the
+   * whole catalogue at once.
    */
-  async function backfillAudience() {
-    if (!missingAudience.length) return;
+  async function repairAll() {
+    const targets = Object.entries(live)
+      .filter(([, v]) => v?.sealedAt)
+      .map(([rkey, value]) => ({ rkey, value }));
+    if (!targets.length) return;
     if (
       !window.confirm(
-        `Read follower counts for ${missingAudience.length} piece(s)?\n\n` +
-          'Writes an audience onto each event log so the reach score comes ' +
-          'from the record instead of the shared table. Engagement figures ' +
-          'and reaction times are not touched.',
+        `Repair ${targets.length} sealed piece(s)?\n\n` +
+          'Fills in whatever each record is missing — the breaker\'s name and DID, ' +
+          'a reaction time the log still holds, handles and audiences on the log, ' +
+          'and everything that has landed since the seal. Figures measured while a ' +
+          'piece was alive are never re-read.',
       )
     ) {
       return;
     }
-    setBusy('audience');
+    setBusy('repair-all');
     setError(null);
     try {
       let n = 0;
-      let stamped = 0;
-      for (const { rkey, value } of missingAudience) {
+      let written = 0;
+      const done = [];
+      for (const { rkey, value } of targets) {
         n += 1;
-        setProgress(`Reading audiences ${n}/${missingAudience.length} — take ${value.take}`);
-        const dids = value.events.map((e) => e.did).filter(Boolean);
-        if (!dids.length) continue;
-        const profiles = await resolveProfiles(dids);
-        const events = value.events.map((e) => {
-          const p = e.did ? profiles[e.did] : null;
-          if (typeof p?.followers !== 'number') return e;
-          return {
-            ...e,
-            fr: p.followers,
-            ...(typeof p.follows === 'number' ? { fo: p.follows } : {}),
-          };
-        });
-        // Nobody resolved: the accounts are gone, and writing the record again
-        // would only move audienceAt onto a log that still has no audience.
-        if (!events.some((e) => typeof e.fr === 'number')) continue;
-        const audienceAt = new Date().toISOString();
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
+        const { changes, written: didWrite } = await repairPiece({
+          agent,
+          did,
           collection: NSID,
           rkey,
-          record: { $type: NSID, ...value, events, audienceAt },
+          value,
+          onProgress: (m) => setProgress(`Take ${value.take} (${n}/${targets.length}) — ${m}…`),
         });
-        stamped += 1;
+        if (didWrite) {
+          written += 1;
+          done.push(`take ${value.take}: ${changes.join(', ')}`);
+        }
       }
-      // Left on screen rather than cleared: the interesting outcome is the
-      // gap between what was asked for and what answered.
+      // What changed, piece by piece. A repair that reports only a count is a
+      // repair nobody can check.
       setProgress(
-        stamped === missingAudience.length
-          ? `Audiences written to ${stamped} piece(s).`
-          : `Audiences written to ${stamped} of ${missingAudience.length}; the rest resolved to nobody.`,
+        written
+          ? `Repaired ${written} of ${targets.length}. ${done.join(' · ')}.`
+          : `Nothing missing on any of the ${targets.length}.`,
       );
       await refresh();
     } catch (err) {
@@ -585,7 +611,27 @@ export default function RatioedPanel({ agent, did }) {
   async function deleteAll() {
     const keys = Object.keys(live);
     if (!keys.length) return;
-    if (!window.confirm(`Delete all ${keys.length} ${NSID} records from your PDS?`)) return;
+    // Name the part that cannot be undone. The bundle can re-seed the first
+    // eleven; nothing can re-seed the rest — their event logs, their witnessed
+    // logs and their measurements exist on the PDS and nowhere else, and
+    // public/data/ratioed.json is not a backup, it is regenerated FROM the PDS
+    // on the next build. A dialog that says only "delete 17 records" is not
+    // asking the question it is actually asking.
+    const orphans = roster.filter((r) => live[r.rkey] && !SEED_KEYS.has(r.rkey));
+    const takes = orphans.map((r) => r.piece.take).sort((a, b) => a - b);
+    if (
+      !window.confirm(
+        `Delete all ${keys.length} ${NSID} records from your PDS?\n\n` +
+          (orphans.length
+            ? `${orphans.length} of them exist nowhere else: take${orphans.length === 1 ? '' : 's'} ` +
+              `${takes.join(', ')}, with their event logs and everything the studio ` +
+              `witnessed while they ran. Those cannot be recovered — the bundled seed ` +
+              `only covers takes ${SEED_PIECES[0]?.take}–${SEED_PIECES[SEED_PIECES.length - 1]?.take}.`
+            : 'All of them are in the bundled seed and can be re-published.'),
+      )
+    ) {
+      return;
+    }
     setBusy('delete');
     setError(null);
     try {
@@ -632,10 +678,6 @@ export default function RatioedPanel({ agent, did }) {
           <Search size={14} aria-hidden="true" />
           {busy === 'scan' ? 'Scanning…' : 'Scan for new pieces'}
         </button>
-        <button type="button" className="admin-gate-button" onClick={remeasure} disabled={!!busy}>
-          <RefreshCw size={14} aria-hidden="true" />
-          {busy === 'measure' ? 'Measuring…' : 'Re-measure afterlife'}
-        </button>
         {missingLogs.length > 0 && (
           <button
             type="button"
@@ -648,18 +690,18 @@ export default function RatioedPanel({ agent, did }) {
             {busy === 'repair' ? 'Re-measuring…' : `Re-measure scanned (${missingLogs.length})`}
           </button>
         )}
-        {missingAudience.length > 0 && (
+        {sealedCount > 0 && (
           <button
             type="button"
             className="admin-gate-button"
-            onClick={backfillAudience}
+            onClick={repairAll}
             disabled={!!busy}
-            title="These pieces were measured before follower counts were recorded, so their reach is joined on from the shared audience table. Reads each participant's followers now and writes them onto the piece's own event log. Engagement figures and reaction times are not touched."
+            title="Fill in whatever each record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, and everything that has landed since the seal. Figures measured while a piece was alive are never re-read."
           >
-            <Users size={14} aria-hidden="true" />
-            {busy === 'audience'
-              ? 'Reading audiences…'
-              : `Backfill audiences (${missingAudience.length})`}
+            <Wrench size={14} aria-hidden="true" />
+            {busy === 'repair-all'
+              ? 'Repairing…'
+              : `Repair all (${sealedCount})${gaps.fixable ? ` · ${gaps.fixable} to fill` : ''}`}
           </button>
         )}
         {publishedCount > 0 && (
@@ -688,11 +730,26 @@ export default function RatioedPanel({ agent, did }) {
 
       {progress && <p className="admin-field-hint">{progress}</p>}
       {error && <p className="admin-error">{error}</p>}
-      {measured && (
+      {/* What a repair will not close, said plainly, because the alternative is
+          a count that goes on reading "4 incomplete" after four repairs. Every
+          one of those four is a suspended or deleted account: the row names a
+          DID, `getProfiles` answers nothing, and the log says so. */}
+      {(gaps.stuckRows > 0 || gaps.needAName > 0) && (
         <p className="admin-field-hint">
-          Fresh afterlife counts below. They aren&rsquo;t saved until you republish — pre-seal
-          figures and reaction times are never touched, because the deleted likes they rest on
-          can&rsquo;t be recovered from any index.
+          {gaps.stuckRows > 0 && (
+            <>
+              {gaps.stuckRows} log row{gaps.stuckRows === 1 ? '' : 's'} across {gaps.stuckPieces}{' '}
+              piece{gaps.stuckPieces === 1 ? '' : 's'} name an account that no longer resolves.
+              Repairing again will not name them: the account is suspended or deleted, and
+              &ldquo;{'(unresolvable)'}&rdquo; is the record saying so.{' '}
+            </>
+          )}
+          {gaps.needAName > 0 && (
+            <>
+              {gaps.needAName} piece{gaps.needAName === 1 ? '' : 's'} lost the breaker with nothing
+              watching, so only you can say who it was — name them in the studio.
+            </>
+          )}
         </p>
       )}
 
@@ -782,7 +839,6 @@ export default function RatioedPanel({ agent, did }) {
           {roster.map(({ rkey, piece, pdsOnly }) => {
             const onPds = live[rkey];
             const published = normalizePiece(rkey, onPds);
-            const fresh = measured?.[rkey];
             const b = piece.breaker || {};
             return (
               <article className="ratioed-panel-row" key={rkey}>
@@ -827,13 +883,6 @@ export default function RatioedPanel({ agent, did }) {
                   <dd>
                     {piece.postSeal.threadPosts} thread · {piece.postSeal.reposts} RT ·{' '}
                     {piece.postSeal.quotes} QT · {piece.postSeal.likes} ♥
-                    {fresh && (
-                      <span className="ratioed-panel-fresh">
-                        {' '}
-                        → now {fresh.threadPosts} · {fresh.reposts} · {fresh.quotes} ·{' '}
-                        {fresh.likes}
-                      </span>
-                    )}
                   </dd>
                   {published && published.measuredAt !== piece.measuredAt && (
                     <>

@@ -40,21 +40,23 @@ import {
   RefreshCw,
   ExternalLink,
   ArrowUpRight,
-  FileText,
   Radio,
-  History,
+  Wrench,
   Heart,
   HeartOff,
   MessageSquareReply,
+  UserPen,
 } from 'lucide-react';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
 import RatioedRecord from './RatioedRecord.jsx';
+import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
+  readPieces,
   normalizePiece,
   isLive,
   finished,
@@ -65,7 +67,9 @@ import {
   fmtDuration,
   fmtSeconds,
 } from '../lib/ratioed.js';
-import { measureWindows, buildEventLog } from '../lib/ratioedDiscovery.js';
+import { measureWindows, buildEventLog, UNRESOLVED_HANDLE } from '../lib/ratioedDiscovery.js';
+import { pieceGaps, repairPiece } from '../lib/ratioedRepair.js';
+import { COPY_FIELDS, DEFAULT_COPY, mergeCopy } from '../lib/ratioedCopy.js';
 import { pieceReach, fmtReach } from '../lib/ratioedReach.js';
 import {
   witnessRow,
@@ -77,17 +81,21 @@ import {
   witnessChanged,
   breakingWitness,
   withdrawnOnly,
+  tallyWitness,
+  resolveBreaker,
 } from '../lib/ratioedLive.js';
 import {
   DEFAULT_TEMPLATE,
+  DEFAULT_ANNOUNCEMENT,
   fillTemplate,
-  loadTemplate,
+  loadTemplateRecord,
   templateProblems,
   nextTake,
   previousPiece,
   announcementDraft,
+  announcementProblems,
 } from '../lib/ratioedStudio.js';
-import { watchSubject, replayWindow, withinLookback } from '../lib/jetstream.js';
+import { watchSubject } from '../lib/jetstream.js';
 import {
   resolvePds,
   getRecord,
@@ -104,6 +112,7 @@ import './RatioedStudio.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
 const TEMPLATE_NSID = COLLECTIONS.ratioedTemplate;
+const COPY_NSID = COLLECTIONS.ratioedCopy;
 const POST = 'app.bsky.feed.post';
 const GATE = 'app.bsky.feed.threadgate';
 const LIKE = 'app.bsky.feed.like';
@@ -133,10 +142,6 @@ const WITNESS_SAVE_MS = 2500;
 // that timer. A busy piece must still reach the record.
 const WITNESS_SAVE_MAX_MS = 12_000;
 
-// How far past the seal a recovery replay looks. The breaking like lands before
-// the seal by definition; this is slack for clock skew and for the block
-// boundary the cursor lands on.
-const RECOVER_TAIL_MS = 60_000;
 
 // How long a live read gets before this panel calls what it has final.
 const PDS_DEADLINE_MS = 6000;
@@ -152,6 +157,9 @@ const subjectUri = (rkey) => `at://${ME_DID}/${POST}/${rkey}`;
 /** A piece's subject: the field the record carries, or the key it implies. */
 const subjectOf = (piece) => piece?.subject || subjectUri(piece?.rkey);
 
+/** `[did, handle]` pairs as a map, dropping the ones missing either half. */
+const namedHandles = (pairs) => Object.fromEntries(pairs.filter(([d, h]) => d && h));
+
 // Which collection a witnessed row lives in. A quote and a reply are both
 // posts; only the way they point at the piece differs.
 const KIND_COLLECTION = {
@@ -161,7 +169,14 @@ const KIND_COLLECTION = {
   reply: POST,
 };
 
-/** The at:// URI of a witnessed row, which the stream gives us in parts. */
+/**
+ * The at:// URI of a witnessed row, which the stream gives us in parts.
+ *
+ * Wider than the ticker's own `rowUri`, deliberately: that one answers "can a
+ * reader open this?" and only a post can be opened, while this one has to
+ * address a LIKE and a REPOST as well, because the studio deletes and undoes
+ * them.
+ */
 const rowUri = (row) => (row?.did && row?.rkey ? `at://${row.did}/${KIND_COLLECTION[row.k]}/${row.rkey}` : '');
 
 /** The two kinds you can answer. A like and a repost carry no text to answer. */
@@ -182,6 +197,8 @@ export default function RatioedStudio({ agent, did }) {
   // Without this the panel went on offering "Seal this piece" for as long as
   // the read took, on a piece that was already closed.
   const [sealed, setSealed] = useState(null); // { rkey, sealedAt }
+  // Which piece's breaker is being named by hand, and what has been typed.
+  const [naming, setNaming] = useState(null); // { rkey, text }
   // The strong ref to the piece a new one will quote. Resolved when the
   // composer opens, not when Post is pressed: an embed needs the target post's
   // CID, and looking it up mid-publish means a momentary network failure takes
@@ -192,7 +209,16 @@ export default function RatioedStudio({ agent, did }) {
   // The template, as stored on the PDS. `undefined` while it's being read;
   // DEFAULT_TEMPLATE when no record exists yet.
   const [template, setTemplate] = useState(undefined);
+  // The concluding reply's opening sentence, from the same record. Declared in
+  // the lexicon since the beginning and read by nothing until now — the
+  // sentence was hardcoded, so the record's promise that the wording changes
+  // without a deploy held for the post and not for the reply.
+  const [announceTpl, setAnnounceTpl] = useState(null);
   const [tplDraft, setTplDraft] = useState(null); // non-null while editing
+  const [annDraft, setAnnDraft] = useState(null);
+  // The piece page's own prose. `null` until read; a draft while being edited.
+  const [copy, setCopy] = useState(null);
+  const [copyDraft, setCopyDraft] = useState(null);
 
   // What the stream has seen on the live piece, earliest first. Separate from
   // the measurement — this is a witness, not an index — and its value is that
@@ -210,6 +236,10 @@ export default function RatioedStudio({ agent, did }) {
   const [witnessFrom, setWitnessFrom] = useState(null);
   // What has actually reached the record, so a tick of the clock isn't a write.
   // `stop` is the measurement taking the record over at seal time.
+  // A post that landed with no record behind it. Blocks a second publish, and
+  // offers the one write that is missing.
+  const [orphan, setOrphan] = useState(null);
+  const askedProfiles = useRef(new Set());
   const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
   const [stream, setStream] = useState(null); // { state, bytes, seen, msgs, rate }
   const [profiles, setProfiles] = useState({});
@@ -259,9 +289,13 @@ export default function RatioedStudio({ agent, did }) {
       // Then the PDS, which is the only place a piece published since the last
       // build exists. Worth waiting for; not worth waiting for forever.
       const pds = await deadline(resolvePds(did).catch(() => null));
-      const fresh = pds ? await deadline(loadPieces(pds).catch(() => null)) : null;
-      // Nothing live came back inside the deadline, so what is on screen is the
-      // bundle. Say so rather than letting it pass for current.
+      const read = pds ? await deadline(readPieces(pds).catch(() => null)) : null;
+      // Only a read the PDS itself answered counts as current. `loadPieces`
+      // swallows a failure and falls through to the snapshot, which is never
+      // empty — so testing the result for emptiness detected a slow PLC lookup
+      // and nothing else, and a 500 from the PDS installed the build's snapshot
+      // in silence while a piece published since that build stood unwatched.
+      const fresh = read?.source === 'pds' ? read.pieces : null;
       if (!fresh?.length) setPdsSlow(true);
       setPieces(fresh?.length ? fresh : (prev) => prev ?? fromSnap ?? []);
     } catch (err) {
@@ -280,15 +314,41 @@ export default function RatioedStudio({ agent, did }) {
     // loadTemplate answers with the default rather than throwing. The scan
     // reads the same record through the same function, which is what keeps the
     // post this composes and the post that scan looks for in step.
-    loadTemplate(agent, did).then((text) => {
-      if (alive) setTemplate(text);
+    loadTemplateRecord(agent, did).then(({ text, announcement }) => {
+      if (!alive) return;
+      setTemplate(text);
+      setAnnounceTpl(announcement);
     });
+    // The page's prose, read through the same agent rather than the public
+    // snapshot: this studio edits it, so it wants what is on the PDS now.
+    agent.com.atproto.repo
+      .getRecord({ repo: did, collection: COPY_NSID, rkey: 'self' })
+      .then((res) => {
+        if (alive) setCopy(mergeCopy(res?.data?.value));
+      })
+      // No record yet is the ordinary state, and the defaults are the answer.
+      .catch(() => {
+        if (alive) setCopy(mergeCopy(null));
+      });
     return () => {
       alive = false;
     };
   }, [agent, did]);
 
   const live = useMemo(() => (pieces || []).find(isLive) || null, [pieces]);
+
+  // Whether the piece on screen is the one this session just sealed.
+  //
+  // `sealed` holds the last seal this tab performed and is cleared in exactly
+  // one place — after the announcement reply posts. Dismiss the announcement,
+  // or have that reply throw, and it stands. The effects below then read it as
+  // "the live piece is sealed" for the whole rest of the session, so publishing
+  // the NEXT take opened no socket, ran no poll and wrote no witnessed rows: no
+  // alarm could fire, the panel read "Nobody has liked it yet", and the clock
+  // counted backwards off a `now` that had stopped ticking. The render already
+  // asked the right question further down; the effects were asking a different
+  // one.
+  const sealedNow = Boolean(live && sealed?.rkey === live.rkey);
   const done = useMemo(() => finished(pieces), [pieces]);
   const take = useMemo(() => nextTake(pieces), [pieces]);
   const prev = useMemo(() => previousPiece(done), [done]);
@@ -303,9 +363,15 @@ export default function RatioedStudio({ agent, did }) {
     let alive = true;
     setQuote(undefined);
     (async () => {
-      const rec = await resolvePds(did)
-        .then((pds) => getRecord(pds, { repo: did, collection: POST, rkey: prev.rkey }))
-        .catch(() => null);
+      // Bounded by the same deadline the series read uses. Unbounded, this
+      // could sit in "looking" indefinitely against a PLC directory this file
+      // has measured at 8s and at 24–28s — and the Post button beside it is
+      // disabled for exactly as long, so an untimed lookup is a locked panel.
+      const rec = await deadline(
+        resolvePds(did)
+          .then((pds) => getRecord(pds, { repo: did, collection: POST, rkey: prev.rkey }))
+          .catch(() => null),
+      );
       if (!alive) return;
       setQuote(rec?.cid ? { uri: subjectUri(prev.rkey), cid: rec.cid } : null);
     })();
@@ -325,10 +391,10 @@ export default function RatioedStudio({ agent, did }) {
   // sits. It stops at the seal: after that the number is the lifespan, and a
   // lifespan does not keep growing.
   useEffect(() => {
-    if (!live || sealed) return undefined;
+    if (!live || sealedNow) return undefined;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [live, sealed]);
+  }, [live, sealedNow]);
 
   // The watch. Only runs while something is actually up and unsealed.
   // Either reader will do; the stream simply gets there first.
@@ -340,7 +406,7 @@ export default function RatioedStudio({ agent, did }) {
   // for the artist, not for a boolean.
   const withdrawn = !seenLike && withdrawnOnly(feed);
   useEffect(() => {
-    if (!live || sealed) {
+    if (!live || sealedNow) {
       if (!live) setLikes(null);
       return undefined;
     }
@@ -355,7 +421,7 @@ export default function RatioedStudio({ agent, did }) {
       alive = false;
       clearInterval(id);
     };
-  }, [live, sealed]);
+  }, [live, sealedNow]);
 
   // A new piece starts a new log. Keyed on the record key rather than on the
   // object, which a background refresh replaces without anything having changed.
@@ -395,7 +461,7 @@ export default function RatioedStudio({ agent, did }) {
   // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
   // like. The moment the piece is sealed there is nothing left to notice.
   useEffect(() => {
-    if (!live || sealed || !streamOn) return undefined;
+    if (!live || sealedNow || !streamOn) return undefined;
     setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
     const close = watchSubject(subjectOf(live), {
       // No budget here. A cap made sense while this was a curiosity; it does not
@@ -423,7 +489,7 @@ export default function RatioedStudio({ agent, did }) {
       },
     });
     return close;
-  }, [live, sealed, streamOn, streamRun, livePostedMs]);
+  }, [live, sealedNow, streamOn, streamRun, livePostedMs]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
   //
@@ -432,10 +498,18 @@ export default function RatioedStudio({ agent, did }) {
   // an AppView that answers in its own time. Without the guard each one lands
   // on an unmounted component.
   useEffect(() => {
-    const missing = feed.map((e) => e.did).filter((d) => d && !profiles[d]);
+    // Asked-for rather than answered-for: `resolveProfiles` omits a DID it
+    // could not resolve instead of throwing, so a single deactivated
+    // participant kept `missing` non-empty and this effect re-armed itself
+    // against the AppView for the rest of the piece.
+    const missing = feed
+      .map((e) => e.did)
+      .filter((d) => d && !profiles[d] && !askedProfiles.current.has(d));
     if (!missing.length) return undefined;
+    const batch = Array.from(new Set(missing));
+    for (const d of batch) askedProfiles.current.add(d);
     let alive = true;
-    resolveProfiles(Array.from(new Set(missing))).then((p) => {
+    resolveProfiles(batch).then((p) => {
       if (alive) setProfiles((old) => ({ ...old, ...p }));
     });
     return () => {
@@ -462,14 +536,35 @@ export default function RatioedStudio({ agent, did }) {
     try {
       const current = await readPiece(piece.rkey);
       if (current.sealedAt) return; // measured since; not ours to write
+      // Folded over what the record already holds, not written in place of it.
+      // Two tabs can watch one piece — a laptop open since it went up and a
+      // phone opened forty seconds in — and Jetstream only reports a delete to
+      // a subscription that saw the create, so the phone never learns that a
+      // like from +10s was taken back at +60s. Writing this panel's rows flat
+      // would erase the laptop's `goneMs`, and if the phone is the tab that
+      // seals, the withdrawal is gone for good. `mergeWitnessRow` keeps a row
+      // known to be gone gone, which is exactly the rule this needs.
+      const merged = witnessToRecord(
+        mergeWitness(witnessFromRecord(current.witnessed) || [], witnessFromRecord(rows) || []),
+      );
       await agent.com.atproto.repo.putRecord({
         repo: did,
         collection: NSID,
         rkey: piece.rkey,
         record: {
           ...current,
-          witnessed: rows,
-          ...(fromMs != null ? { witnessFromMs: Math.round(fromMs) } : {}),
+          witnessed: merged,
+          ...(fromMs != null
+            ? {
+                // The earliest watch wins: a tab that started later must not
+                // narrow the window the record claims to have covered.
+                witnessFromMs: Math.round(
+                  typeof current.witnessFromMs === 'number'
+                    ? Math.min(current.witnessFromMs, fromMs)
+                    : fromMs,
+                ),
+              }
+            : {}),
         },
       });
       savedWitness.current.rows = rows;
@@ -486,7 +581,7 @@ export default function RatioedStudio({ agent, did }) {
   // see it — and a burst after that is collected for a couple of seconds so a
   // busy thread is one write rather than nine.
   useEffect(() => {
-    if (!live || sealed || !feed.length) return undefined;
+    if (!live || sealedNow || !feed.length) return undefined;
     const rows = witnessToRecord(feed, { profiles });
     if (!witnessChanged(savedWitness.current.rows, rows)) return undefined;
     const since = Date.now() - savedWitness.current.at;
@@ -496,7 +591,7 @@ export default function RatioedStudio({ agent, did }) {
     );
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, sealed, feed, profiles, witnessFrom]);
+  }, [live, sealedNow, feed, profiles, witnessFrom]);
 
   /* ---------------------------------------------------------------- */
   /* Answering the thread from the dashboard                            */
@@ -664,23 +759,54 @@ export default function RatioedStudio({ agent, did }) {
       const rkey = rkeyFromAtUri(res?.data?.uri);
       if (!rkey) throw new Error('the post was written but its record key came back empty');
 
-      // The record, immediately: a live piece with nothing measured. The link
-      // inside the post points at a page that needs this to resolve.
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: NSID,
-        rkey,
-        record: {
-          $type: NSID,
-          take,
-          subject: subjectUri(rkey),
-          // The PDS write time, decoded from the key it just assigned — the
-          // same clock every other piece's postedAt was read from.
-          postedAt: tidToTimestamp(rkey) || new Date().toISOString(),
-        },
-      });
+      // Held from here on, because the post now EXISTS. Everything downstream
+      // — the stream, the poll, the seal button, this page's whole reason to be
+      // open — hangs off the record below, and a failure writing it used to
+      // leave the composer exactly as it was: same draft, same take number,
+      // same button. Pressing it again posted a byte-identical duplicate, and
+      // only the second one got a record. The first was invisible to the studio
+      // and to the scan until it was threadgated by hand, while the link inside
+      // it 404'd.
+      setOrphan({ rkey, take });
+      await writePieceRecord(rkey, take);
+      setOrphan(null);
       setDraft('');
       setNote(`Take ${take} is up. Watching for the like.`);
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** The record a live piece needs: itself, and nothing measured. */
+  async function writePieceRecord(rkey, forTake) {
+    await agent.com.atproto.repo.putRecord({
+      repo: did,
+      collection: NSID,
+      rkey,
+      record: {
+        $type: NSID,
+        take: forTake,
+        subject: subjectUri(rkey),
+        // The PDS write time, decoded from the key it just assigned — the same
+        // clock every other piece's postedAt was read from.
+        postedAt: tidToTimestamp(rkey) || new Date().toISOString(),
+      },
+    });
+  }
+
+  /** Finish a post whose record never landed. */
+  async function finishOrphan() {
+    if (!orphan) return;
+    setBusy('publish');
+    setError(null);
+    try {
+      await writePieceRecord(orphan.rkey, orphan.take);
+      setOrphan(null);
+      setDraft('');
+      setNote(`Take ${orphan.take} is up. Watching for the like.`);
       await refresh();
     } catch (err) {
       setError(err?.message || String(err));
@@ -716,6 +842,32 @@ export default function RatioedStudio({ agent, did }) {
       // The artwork is finished as of this line. Say so before the read.
       setSealed({ rkey: live.rkey, sealedAt });
       setNote('Sealed. Measuring…');
+
+      // When it ended, written before anything is measured.
+      //
+      // The measurement can fail — the backlink index goes down, a token
+      // expires — and everything after this point used to be one write at the
+      // end, so a failure left a record with no `sealedAt` at all. `isLive`
+      // stayed true while `justSealed` hid both seal buttons, and the series
+      // list iterates finished pieces, so nothing could reach it. Reloading
+      // re-offered "Seal this piece", which putRecords a fresh `createdAt` over
+      // the same threadgate rkey — destroying both witnesses to when the gate
+      // actually landed, and inflating the lifespan and the reaction time by
+      // however long the recovery took.
+      const held = await readPiece(live.rkey).catch(() => null);
+      await agent.com.atproto.repo
+        .putRecord({
+          repo: did,
+          collection: NSID,
+          rkey: live.rkey,
+          record: {
+            ...(held || {}),
+            $type: NSID,
+            sealedAt,
+            lifespanMs: Date.parse(sealedAt) - Date.parse(live.postedAt),
+          },
+        })
+        .catch(() => {}); // the measurement below is the one that must land
       await measureAndFinish(live, sealedAt);
     } catch (err) {
       setError(err?.message || String(err));
@@ -746,14 +898,8 @@ export default function RatioedStudio({ agent, did }) {
     // the reach score a measurement instead of a guess about the past.
     const measuredProfiles = await resolveProfiles(records.map((r) => r.did));
     const handles = Object.fromEntries(
-      Object.entries(measuredProfiles).map(([k, p]) => [k, p.handle]),
+      Object.entries(measuredProfiles).map(([k, p]) => [k, p.handle]).filter(([, h]) => h),
     );
-    const events = buildEventLog(records, {
-      postedAtMs: postedMs,
-      sealedAtMs: sealedMs,
-      selfDid: did,
-      profiles: measuredProfiles,
-    });
 
     // From here the measurement owns this record. A pending witness write is
     // cancelled by the effect that scheduled it, but one already in flight read
@@ -779,44 +925,89 @@ export default function RatioedStudio({ agent, did }) {
           ? Math.round(witnessFrom)
           : null;
 
-    // Who to name, and when they did it.
+    // Every name this pass has any claim on, weakest first.
     //
-    // The backlink index is the authority and lags by up to a minute; the
-    // stream saw the like as it happened and kept its record key, which is the
-    // same TID the index would eventually report. So when the index hasn't
-    // caught up, the witnessed like stands in — the reaction time is otherwise
-    // lost to a wait, which is exactly the failure this project can't absorb.
-    const seen = breakingWitness(witnessRows);
-    const seenAt = seen ? postedMs + seen.offMs : NaN;
-    const breaking =
-      windows.breakingLike ||
-      (seen && Number.isFinite(seenAt) && seenAt < sealedMs
-        ? { at: seenAt, did: seen.did }
-        : null);
+    // The measurement's own read is the freshest and wins, but it is one call
+    // to one AppView and it can simply fail — and when it does, `buildEventLog`
+    // labels every row "(unresolvable)" and writes that onto the record, where
+    // it is indistinguishable from an account that has since been deleted. It
+    // happened on take 16: thirteen people, all of them named in the witnessed
+    // log by the stream that watched them arrive, all of them recorded as
+    // unresolvable because one getProfiles call didn't answer.
+    //
+    // So the log's own handles, the profiles the panel resolved while the piece
+    // was running, and — on a re-measure — whatever the record already says,
+    // stand behind it. None of them is a measurement; a handle isn't one either.
+    const knownHandles = {
+      ...namedHandles((held?.events || []).map((e) => [e.did, e.h === UNRESOLVED_HANDLE ? '' : e.h])),
+      ...namedHandles(witnessRows.map((r) => [r.did, r.h])),
+      ...namedHandles(Object.entries(profiles).map(([d, p]) => [d, p?.handle])),
+      ...handles,
+    };
+    const events = buildEventLog(records, {
+      postedAtMs: postedMs,
+      sealedAtMs: sealedMs,
+      selfDid: did,
+      profiles: measuredProfiles,
+      handles: knownHandles,
+    });
+
+    // Who to name, and when they did it. See resolveBreaker: the index first,
+    // the standing witnessed like when the index is only lagging, and the
+    // withdrawn one when there is nothing left for any index to hold.
+    const breaking = resolveBreaker({
+      indexLike: windows.breakingLike,
+      rows: witnessRows,
+      postedMs,
+      sealedMs,
+    });
 
     const breakerDid = breaking?.did || likes?.likes?.[0]?.actor?.did || null;
     const handle =
-      (breakerDid && handles[breakerDid]) ||
-      (breakerDid && profiles[breakerDid]?.handle) ||
+      (breakerDid && knownHandles[breakerDid]) ||
+      breaking?.handle ||
       likes?.likes?.[0]?.actor?.handle ||
       'unknown';
-    const likeSurvives = Boolean(breaking);
+    const likeSurvives = Boolean(breaking?.likeSurvives);
     const measuredAt = new Date().toISOString();
     const hasAudience = events.some((e) => typeof e.fr === 'number');
 
+    // Who broke it, with the held answer underneath: a name this pass cannot
+    // find must not erase one somebody entered by hand, and a re-measure runs
+    // with no live piece, so it finds no breaker of its own.
+    const breaker = { ...(held?.breaker || {}) };
+    if (handle !== 'unknown' || !breaker.handle) breaker.handle = handle;
+    if (breakerDid) breaker.did = breakerDid;
+    breaker.likeSurvives = likeSurvives;
+    // Present with `likeSurvives: false` when the log timed a like the index
+    // can no longer be shown — the lexicon's `reactionRecovered` case, and the
+    // reason the log is written to the record at all.
+    if (breaking) breaker.reactionMs = sealedMs - breaking.at;
+    if (breaking?.recovered) breaker.reactionRecovered = true;
+    // Cleared by a pass that found the like standing, so the flag can never
+    // outlive the condition it describes.
+    else if (likeSurvives) delete breaker.reactionRecovered;
+
+    // Whatever the record already holds, with this pass's measurement over it.
+    //
+    // This used to be a bare literal, which made "Measure again" the one writer
+    // in the subsystem that replaced instead of patching — every other one
+    // ({...current}, {...held}, {...v}) merges. The cost was specific and
+    // silent: a piece measured while the index lagged offers "name the breaker"
+    // and "Measure again" side by side, and pressing the second after the first
+    // put back `{handle: 'unknown', likeSurvives: false}` over the name and DID
+    // just entered by hand, because a re-measure runs with no live piece and so
+    // finds no breaker of its own. `lede`, `statedTally` and `announceLagMs` —
+    // none of which this pass produces — went the same way.
     const value = {
+      ...(held || {}),
       $type: NSID,
       take: piece.take,
       subject,
       postedAt: piece.postedAt,
       sealedAt,
       lifespanMs: sealedMs - postedMs,
-      breaker: {
-        handle,
-        ...(breakerDid ? { did: breakerDid } : {}),
-        likeSurvives,
-        ...(likeSurvives ? { reactionMs: sealedMs - breaking.at } : {}),
-      },
+      breaker,
       preSeal: windows.preSeal,
       postSeal: windows.postSeal,
       ...(events.length ? { events } : {}),
@@ -845,7 +1036,12 @@ export default function RatioedStudio({ agent, did }) {
     setAnnounce({
       piece: shaped,
       ref: post?.cid ? { uri: subject, cid: post.cid } : null,
-      text: announcementDraft({ handle, piece: shaped, others: finished(pieces) }),
+      text: announcementDraft({
+        handle,
+        piece: shaped,
+        others: finished(pieces),
+        announcement: announceTpl,
+      }),
     });
     // How far it got before the gate closed, said here because this is the one
     // moment the figure is worth acting on: an amplifier who has just carried
@@ -858,22 +1054,65 @@ export default function RatioedStudio({ agent, did }) {
         }`
       : '';
     setNote(
-      (likeSurvives
-        ? `Measured. Reaction ${fmtSeconds(sealedMs - breaking.at)}${
-            windows.breakingLike ? '.' : ', from the like the stream witnessed — measure again once the index catches up.'
-          }`
-        : 'Measured, but neither the index nor the stream has a like — measure again in a minute.') +
-        reachNote,
+      (!breaking
+        ? 'Measured, but neither the index nor the log has a like — measure again in a minute.'
+        : breaking.recovered
+          ? `Measured. @${handle} liked it and deleted the like; the reaction time — ${fmtSeconds(
+              sealedMs - breaking.at,
+            )} — is off the log the stream kept, and the record says so.`
+          : `Measured. Reaction ${fmtSeconds(sealedMs - breaking.at)}${
+              windows.breakingLike
+                ? '.'
+                : ', from the like the stream witnessed — measure again once the index catches up.'
+            }`) + reachNote,
     );
     await refresh();
   }
 
-  async function remeasure() {
-    if (!announce?.piece) return;
+  /** Measure a sealed piece. Defaults to the one the announcement panel is
+   *  holding; also reachable from a piece whose measurement failed at the seal,
+   *  which has no announcement panel because it never got that far. */
+  async function remeasure(target) {
+    const piece = target || announce?.piece;
+    if (!piece?.sealedAt) return;
     setBusy('measure');
     setError(null);
     try {
-      await measureAndFinish(announce.piece, announce.piece.sealedAt);
+      await measureAndFinish(piece, piece.sealedAt);
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Save the page's words.
+   *
+   * A field left at its default is written as an empty string rather than as
+   * the default's text: the record then says "the site's own sentence" rather
+   * than freezing a copy of it, and rewording the built-in later reaches every
+   * page that never overrode it. Nothing here is validated against anything —
+   * it is prose, and the only thing it can break is a sentence.
+   */
+  async function saveCopy() {
+    setBusy('copy');
+    setError(null);
+    try {
+      const record = { $type: COPY_NSID, updatedAt: new Date().toISOString() };
+      for (const { key } of COPY_FIELDS) {
+        const written = (copyDraft?.[key] ?? '').trim();
+        if (written && written !== DEFAULT_COPY[key]) record[key] = written;
+      }
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: COPY_NSID,
+        rkey: 'self',
+        record,
+      });
+      setCopy(mergeCopy(record));
+      setCopyDraft(null);
+      setNote('Saved. The piece pages read it on their next load.');
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -890,7 +1129,8 @@ export default function RatioedStudio({ agent, did }) {
    * seeing it, and it went unmeasured until somebody checked by hand.
    */
   async function saveTemplate() {
-    const problems = templateProblems(tplDraft, take);
+    const announcement = annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT;
+    const problems = [...templateProblems(tplDraft, take), ...announcementProblems(announcement)];
     if (problems.length) {
       setError(problems.join(' '));
       return;
@@ -905,10 +1145,13 @@ export default function RatioedStudio({ agent, did }) {
         record: {
           $type: TEMPLATE_NSID,
           text: tplDraft,
+          announcement,
           updatedAt: new Date().toISOString(),
         },
       });
       setTemplate(tplDraft);
+      setAnnounceTpl(announcement);
+      setAnnDraft(null);
       setDraft(fillTemplate(tplDraft, take));
       setTplDraft(null);
       setNote('Template saved. The composer above is rewritten from it.');
@@ -920,75 +1163,39 @@ export default function RatioedStudio({ agent, did }) {
   }
 
   /**
-   * Recover a breaking like that was deleted, by replaying the past.
+   * Repair one piece: fill in whatever it is missing, break nothing.
    *
-   * The backlink index only knows what still exists, so a like withdrawn before
-   * anything read it took its reaction time with it — six of the first thirteen
-   * pieces lost theirs that way. Jetstream's lookback still has it for 36 hours,
-   * deletion and all, and the reply concluding the piece names who cast it, so
-   * the replay can be filtered to that one account: 0.1 MB instead of 300.
+   * This replaced four buttons — recover the reaction, put names back, backfill
+   * audiences, read the afterlife — each of which knew a different amount about
+   * what was safe to touch, and between them made the artist diagnose a record
+   * before fixing it. What is missing is something the record can be asked (see
+   * lib/ratioedRepair.js), so it is asked, and the answer decides what is
+   * written.
    *
-   * The like stays deleted. What comes back is when it landed.
+   * It cannot damage a measurement. Every step either fills a gap or replaces
+   * the window the lexicon defines as re-readable — everything after the seal.
+   * The alive figures, the reaction time and the witnessed log are never
+   * re-derived, because a like cast and deleted while a piece was up is gone
+   * from every index and a second reading of that window is always the smaller
+   * one.
    */
-  async function recover(piece) {
-    const b = piece.breaker || {};
-    const handle = b.currentHandle || b.handle;
-    if (!piece.sealedAt || !handle || handle === 'unknown') return;
-    setBusy(`recover:${piece.rkey}`);
+  async function repair(piece) {
+    setBusy(`repair:${piece.rkey}`);
     setError(null);
     try {
-      // Filtering the replay by the breaker turns 300 MB into 0.1 MB, so the
-      // DID is worth resolving when the record only kept a handle.
-      let breakerDid = b.did;
-      if (!breakerDid) {
-        breakerDid = await resolveHandle(handle).catch(() => null);
-        if (!breakerDid) {
-          throw new Error(`couldn't resolve @${handle} to a DID to filter the replay by`);
-        }
-      }
-      const sealedMs = Date.parse(piece.sealedAt);
-      setNote(`Replaying ${handle}'s likes around take ${pieceSlug(piece)}…`);
-      const res = await replayWindow(subjectOf(piece), {
-        fromMs: Date.parse(piece.postedAt),
-        toMs: sealedMs + RECOVER_TAIL_MS,
-        dids: [breakerDid],
-        onProgress: ({ at }) => setNote(`Replaying… reached ${new Date(at).toISOString().slice(11, 19)}`),
-      });
-      // The earliest like that landed before the gate is the one that closed it.
-      const like = res.events
-        .filter((e) => e.op === 'create' && e.kind === 'like')
-        .map((e) => ({ ...e, at: Date.parse(tidToTimestamp(e.rkey) || e.time) }))
-        .filter((e) => Number.isFinite(e.at) && e.at < sealedMs)
-        .sort((a, c) => a.at - c.at)[0];
-
-      if (!like) {
-        setNote(
-          res.reachedEnd
-            ? `Nothing found. @${handle} cast no like on take ${pieceSlug(piece)} inside the replay.`
-            : `The replay stopped early (${res.error}). Nothing recovered.`,
-        );
-        return;
-      }
-      const withdrawn = res.events.some((e) => e.op === 'delete' && e.rkey === like.rkey);
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
+      const value = await readPiece(piece.rkey);
+      const { changes, written } = await repairPiece({
+        agent,
+        did,
         collection: NSID,
         rkey: piece.rkey,
-        record: {
-          ...(await readPiece(piece.rkey)),
-          breaker: {
-            ...b,
-            did: breakerDid,
-            // The like is still gone. Only its timing came back.
-            likeSurvives: false,
-            reactionMs: sealedMs - like.at,
-            reactionRecovered: true,
-          },
-        },
+        value,
+        onProgress: (m) => setNote(`Take ${pieceSlug(piece)}: ${m}…`),
       });
       setNote(
-        `Recovered take ${pieceSlug(piece)}: @${handle} liked it ${fmtSeconds(sealedMs - like.at)} before the seal` +
-          `${withdrawn ? ', and the replay caught them deleting it' : ''}.`,
+        written
+          ? `Take ${pieceSlug(piece)}: ${changes.join(', ')}.`
+          : `Take ${pieceSlug(piece)} has nothing missing.`,
       );
       await refresh();
     } catch (err) {
@@ -998,6 +1205,7 @@ export default function RatioedStudio({ agent, did }) {
     }
   }
 
+
   /** The record as it stands, so a recovery patches rather than rewrites. */
   async function readPiece(rkey) {
     const res = await agent.com.atproto.repo.getRecord({ repo: did, collection: NSID, rkey });
@@ -1005,6 +1213,62 @@ export default function RatioedStudio({ agent, did }) {
     if (!value) throw new Error('could not read the piece record to update it');
     return value;
   }
+
+  /**
+   * Say who ended a piece, by hand.
+   *
+   * Everything else on a record is measured or witnessed, and this is neither:
+   * it is the artist naming somebody the apparatus lost. Take 16 is why it
+   * exists — a like deleted 329ms after it landed, recorded as "unknown", and
+   * with no name on the record the breaker is in no roster, has no face on the
+   * piece's page, and cannot be replayed against, because the replay filters
+   * the firehose by the account it is looking for.
+   *
+   * The DID is resolved and stored alongside the handle, which is the point of
+   * doing this in a form rather than by editing JSON: a handle is a rented name
+   * and the roster is keyed by DID. Nothing else on the record is touched, and
+   * a reaction time is NOT invented — if one is recoverable it comes from the
+   * log or the replay, both of which are measurements.
+   */
+  async function nameBreaker(piece, typed) {
+    const handle = String(typed || '').trim().replace(/^@+/, '').toLowerCase();
+    if (!handle) return;
+    setBusy(`name:${piece.rkey}`);
+    setError(null);
+    try {
+      const breakerDid = handle.startsWith('did:')
+        ? handle
+        : await resolveHandle(handle).catch(() => null);
+      if (!breakerDid) throw new Error(`@${handle} doesn’t resolve to a DID`);
+      const held = await readPiece(piece.rkey);
+      const b = held.breaker || {};
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: NSID,
+        rkey: piece.rkey,
+        record: {
+          ...held,
+          breaker: {
+            ...b,
+            handle: handle.startsWith('did:') ? b.handle || handle : handle,
+            did: breakerDid,
+            // Untouched unless it was never set: whether the like still exists
+            // is a fact about the network, and naming somebody is not evidence
+            // either way.
+            likeSurvives: b.likeSurvives ?? false,
+          },
+        },
+      });
+      setNaming(null);
+      setNote(`Take ${pieceSlug(piece)} was ended by @${handle}. ${breakerDid} is on the record.`);
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
 
   /** Post the concluding reply, in the thread it concludes. */
   async function postAnnouncement() {
@@ -1024,7 +1288,7 @@ export default function RatioedStudio({ agent, did }) {
 
       const rt = new RichText({ text: announce.text.trim() });
       await rt.detectFacets(agent);
-      await agent.com.atproto.repo.createRecord({
+      const posted = await agent.com.atproto.repo.createRecord({
         repo: did,
         collection: POST,
         record: {
@@ -1036,6 +1300,32 @@ export default function RatioedStudio({ agent, did }) {
           createdAt: new Date().toISOString(),
         },
       });
+
+      // How long the piece stood finished before it was announced.
+      //
+      // Takes 1–13 all carry this; 14 onwards carry none, because the only
+      // thing that ever wrote it was the legacy scan path — this function
+      // created the reply, discarded the response and never touched the record.
+      // There is no later pass that could backfill it either: `pieceGaps` has
+      // no case for it, and posting the announcement is what clears this panel.
+      // Read off the reply's own key, like every other time in the project.
+      const replyRkey = rkeyFromAtUri(posted?.data?.uri);
+      const announcedMs = Date.parse(tidToTimestamp(replyRkey) || '');
+      const sealedMs = Date.parse(announce.piece.sealedAt || '');
+      if (Number.isFinite(announcedMs) && Number.isFinite(sealedMs)) {
+        const held = await readPiece(announce.piece.rkey).catch(() => null);
+        if (held) {
+          await agent.com.atproto.repo
+            .putRecord({
+              repo: did,
+              collection: NSID,
+              rkey: announce.piece.rkey,
+              record: { ...held, $type: NSID, announceLagMs: Math.max(0, announcedMs - sealedMs) },
+            })
+            .catch(() => {}); // the reply is posted; this is a footnote to it
+        }
+      }
+
       setAnnounce(null);
       setSealed(null);
       setNote(`Take ${announce.piece.take} is finished.`);
@@ -1051,9 +1341,11 @@ export default function RatioedStudio({ agent, did }) {
 
   // The log is held earliest-first, the way it's recorded and replayed. It's
   // read newest-first, the way a feed is watched.
-  const newestFirst = useMemo(() => [...feed].reverse(), [feed]);
+  // The same counts the public deck shows, by the same rule: the artist's own
+  // records are in the log and in none of the figures.
+  const tally = useMemo(() => tallyWitness(feed, { selfDid: did }), [feed, did]);
 
-  const justSealed = Boolean(live && sealed?.rkey === live.rkey);
+  const justSealed = sealedNow;
   const aliveMs = live
     ? (justSealed ? Date.parse(sealed.sealedAt) : now) - Date.parse(live.postedAt)
     : 0;
@@ -1089,8 +1381,9 @@ export default function RatioedStudio({ agent, did }) {
       {pdsSlow && pieces !== null && (
         <div className="rs-degraded">
           <p className="admin-field-hint">
-            The PLC directory didn’t answer in {PDS_DEADLINE_MS / 1000}s, so this is the bundled
-            series rather than a fresh read of the PDS.
+            The PDS didn’t answer, so this is the build’s snapshot rather than a fresh read —
+            anything published since the last deploy is missing from it, including a piece that
+            might be live right now. Don’t post from this state.
           </p>
           <button type="button" className="admin-link-subtle" onClick={refresh}>
             try again
@@ -1115,7 +1408,7 @@ export default function RatioedStudio({ agent, did }) {
 
           {/* How this one is doing, in the only unit the project has: the
               longest piece so far. */}
-          <RatioedRecord elapsedMs={aliveMs} record={longest} />
+          <RatioedRecord elapsedMs={aliveMs} record={longest} pieces={done} />
 
           {/* The alarm. A like is the end of the piece and the start of the one
               measurement this project exists to take, so it does not arrive as
@@ -1150,7 +1443,13 @@ export default function RatioedStudio({ agent, did }) {
           )}
 
           <p className="rs-live-state">
-            {justSealed ? (
+            {justSealed && error ? (
+              <>
+                Sealed at {new Date(sealed.sealedAt).toLocaleTimeString()}, and the measurement
+                failed. The seal is on the record; nothing else is. Measure it again — the index is
+                the part that was unreachable, and it is the only part still missing.
+              </>
+            ) : justSealed ? (
               <>Sealed. Reading its records&hellip;</>
             ) : withdrawn ? (
               <>
@@ -1174,6 +1473,24 @@ export default function RatioedStudio({ agent, did }) {
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal this piece'}
+              </button>
+            )}
+            {/* A seal that landed and a measurement that did not. Without this
+                the only way back is a reload, which re-offers "Seal this piece"
+                and writes a second threadgate over the first — moving the one
+                timestamp the lifespan is measured from. */}
+            {justSealed && error && (
+              <button
+                type="button"
+                className="rs-seal"
+                onClick={() => {
+                  setError(null);
+                  remeasure();
+                }}
+                disabled={!!busy}
+              >
+                <RefreshCw size={15} aria-hidden="true" />
+                {busy === 'measure' ? 'Measuring…' : 'Measure this piece'}
               </button>
             )}
             <a
@@ -1240,130 +1557,117 @@ export default function RatioedStudio({ agent, did }) {
               )}
             </header>
 
-            {feed.length === 0 ? (
-              <p className="admin-field-hint rs-feed-empty">
-                Nothing yet. Every like, repost, quote and reply on the network is arriving here and
-                being tested against this post — ~166&nbsp;KB/s, which is what buys sub-second
-                notice instead of a {WATCH_MS / 1000}s poll. It runs until you stop it: the cost is
-                above and the {WATCH_MS / 1000}s poll carries on underneath either way.
-              </p>
-            ) : (
-              <ul className="rs-feed-list">
-                {newestFirst.map((e) => {
-                  const mine = e.did === did;
-                  // A post that still exists can be opened anywhere. Acting on
-                  // one is narrower: not your own, not deleted, not after the
-                  // seal.
-                  const openable = ANSWERABLE.has(e.k) && e.goneMs == null && Boolean(e.did);
-                  const answerable = openable && !mine && !justSealed;
-                  const liked = Boolean(acted[e.rkey]?.likeUri);
-                  return (
-                    <li
-                      key={e.rkey}
-                      className={`rs-feed-row rs-k-${e.k}${e.goneMs != null ? ' gone' : ''}${
-                        mine ? ' mine' : ''
-                      }`}
+            {/* The counts the public deck shows, on the same rows it shows
+                them on: this feed and that one are the same list of the same
+                records, and until now they were two implementations that had
+                drifted apart on avatars, spacing and what a withdrawn row
+                looks like. What the studio adds is the three buttons and the
+                composer, which arrive as render props. */}
+            <RatioedCounters tally={tally} />
+            <RatioedTicker
+              rows={feed}
+              profiles={profiles}
+              empty={`Nothing yet. Every like, repost, quote and reply on the network is arriving here and being tested against this post — ~166 KB/s, which is what buys sub-second notice instead of a ${WATCH_MS / 1000}s poll.`}
+              actions={(e) => {
+                const mine = e.did === did;
+                // A post that still exists can be opened anywhere. Acting on
+                // one is narrower: not your own, not deleted, not after the
+                // seal.
+                const openable = ANSWERABLE.has(e.k) && e.goneMs == null && Boolean(e.did);
+                if (!openable) return null;
+                const answerable = !mine && !justSealed;
+                const liked = Boolean(acted[e.rkey]?.likeUri);
+                return (
+                  <>
+                    <button
+                      type="button"
+                      className="rs-act"
+                      onClick={() => openWaypoints(rowUri(e))}
+                      title="Open this post in another client"
+                      aria-label="Open this post in another client"
                     >
-                      <span className="rs-feed-when">+{fmtDuration(e.offMs)}</span>
-                      <span className="rs-feed-who">
-                        @{profiles[e.did]?.handle || e.h || e.did?.slice(0, 18) || 'unknown'}
-                        {mine && <span className="rs-feed-mine"> you</span>}
-                      </span>
-                      <RatioedChip kind={e.k} muted={e.goneMs != null} />
-                      {e.goneMs != null && <span className="rs-feed-gone">deleted it</span>}
-                      {e.t && <span className="rs-feed-text">{e.t.slice(0, 90)}</span>}
-                      {openable && (
-                        <span className="rs-feed-acts">
-                          <button
-                            type="button"
-                            className="rs-act"
-                            onClick={() => openWaypoints(rowUri(e))}
-                            title="Open this post in another client"
-                            aria-label="Open this post in another client"
-                          >
-                            <ArrowUpRight size={13} aria-hidden="true" />
-                          </button>
-                          {answerable && (
-                            <>
-                              {/* On the row, not the piece: this likes
-                                  somebody's reply, which is not a backlink of
-                                  the piece and is in none of its counts. */}
-                              <button
-                                type="button"
-                                className={`rs-act${liked ? ' on' : ''}`}
-                                onClick={() => likeRow(e)}
-                                disabled={Boolean(acting)}
-                                title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
-                                aria-label={liked ? 'Undo that like' : 'Like this reply'}
-                              >
-                                {liked ? (
-                                  <HeartOff size={13} aria-hidden="true" />
-                                ) : (
-                                  <Heart size={13} aria-hidden="true" />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
-                                onClick={() =>
-                                  setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
-                                }
-                                disabled={Boolean(acting)}
-                                title={
-                                  e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'
-                                }
-                                aria-label="Reply to this"
-                              >
-                                <MessageSquareReply size={13} aria-hidden="true" />
-                              </button>
-                            </>
+                      <ArrowUpRight size={13} aria-hidden="true" />
+                    </button>
+                    {answerable && (
+                      <>
+                        {/* On the row, not the piece: this likes somebody's
+                            reply, which is not a backlink of the piece and is
+                            in none of its counts. */}
+                        <button
+                          type="button"
+                          className={`rs-act${liked ? ' on' : ''}`}
+                          onClick={() => likeRow(e)}
+                          disabled={Boolean(acting)}
+                          title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
+                          aria-label={liked ? 'Undo that like' : 'Like this reply'}
+                        >
+                          {liked ? (
+                            <HeartOff size={13} aria-hidden="true" />
+                          ) : (
+                            <Heart size={13} aria-hidden="true" />
                           )}
-                        </span>
-                      )}
-                      {replyTo?.rkey === e.rkey && (
-                        <div className="rs-reply-box">
-                          <textarea
-                            className="admin-input"
-                            rows={3}
-                            autoFocus
-                            placeholder={
-                              e.k === 'quote'
-                                ? 'Replying under their quote post…'
-                                : 'Replying in the piece’s own thread…'
-                            }
-                            value={replyTo.text}
-                            onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
-                          />
-                          <div className="rs-reply-acts">
-                            <button
-                              type="button"
-                              className="admin-gate-button"
-                              onClick={sendReply}
-                              disabled={Boolean(acting) || !replyTo.text.trim()}
-                            >
-                              <Send size={13} aria-hidden="true" />
-                              {acting === e.rkey ? 'Posting…' : 'Reply'}
-                            </button>
-                            <button
-                              type="button"
-                              className="admin-link-subtle"
-                              onClick={() => setReplyTo(null)}
-                            >
-                              cancel
-                            </button>
-                            <span className="rs-reply-where">
-                              {e.k === 'quote'
-                                ? 'their thread — this piece never sees it'
-                                : 'this piece’s thread, and your own records are excluded from every count'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                        </button>
+                        <button
+                          type="button"
+                          className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
+                          onClick={() =>
+                            setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
+                          }
+                          disabled={Boolean(acting)}
+                          title={
+                            e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'
+                          }
+                          aria-label="Reply to this"
+                        >
+                          <MessageSquareReply size={13} aria-hidden="true" />
+                        </button>
+                      </>
+                    )}
+                  </>
+                );
+              }}
+              below={(e) =>
+                replyTo?.rkey === e.rkey ? (
+                  <div className="rs-reply-box">
+                    <textarea
+                      className="admin-input"
+                      rows={3}
+                      autoFocus
+                      placeholder={
+                        e.k === 'quote'
+                          ? 'Replying under their quote post…'
+                          : 'Replying in the piece’s own thread…'
+                      }
+                      value={replyTo.text}
+                      onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
+                    />
+                    <div className="rs-reply-acts">
+                      <button
+                        type="button"
+                        className="admin-gate-button"
+                        onClick={sendReply}
+                        disabled={Boolean(acting) || !replyTo.text.trim()}
+                      >
+                        <Send size={13} aria-hidden="true" />
+                        {acting === e.rkey ? 'Posting…' : 'Reply'}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-link-subtle"
+                        onClick={() => setReplyTo(null)}
+                      >
+                        cancel
+                      </button>
+                      <span className="rs-reply-where">
+                        {e.k === 'quote'
+                          ? 'their thread — this piece never sees it'
+                          : 'this piece’s thread, and your own records are excluded from every count'}
+                      </span>
+                    </div>
+                  </div>
+                ) : null
+              }
+            />
           </div>
 
           <p className="admin-field-hint">
@@ -1407,11 +1711,56 @@ export default function RatioedStudio({ agent, did }) {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
+          {/* The post landed; its record did not. Nothing else can be done
+              from here until that write goes through — the piece is standing on
+              Bluesky right now with a link in it to a page that needs this
+              record to resolve, and posting again would only duplicate it. */}
+          {orphan && (
+            <p className="rs-degraded">
+              Take {String(orphan.take).padStart(2, '0')} is posted, but its record was not
+              written — so nothing is watching it and its own page does not exist yet.{' '}
+              <a
+                href={`https://bsky.app/profile/${ME_HANDLE}/post/${orphan.rkey}`}
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                the post
+              </a>
+            </p>
+          )}
           <div className="rs-actions">
-            <button type="button" className="admin-gate-button" onClick={publish} disabled={!!busy}>
-              <Send size={14} aria-hidden="true" />
-              {busy === 'publish' ? 'Posting…' : `Post take ${String(take).padStart(2, '0')}`}
-            </button>
+            {orphan ? (
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={finishOrphan}
+                disabled={!!busy}
+              >
+                <Send size={14} aria-hidden="true" />
+                {busy === 'publish'
+                  ? 'Writing…'
+                  : `Finish take ${String(orphan.take).padStart(2, '0')}'s record`}
+              </button>
+            ) : (
+              /* Disabled while the quote lookup is outstanding. `quote` is
+                 tri-state and the hint below distinguishes all three, but
+                 `publish` collapses `undefined` into "no quote" — and the
+                 lookup runs against a `resolvePds` this file has measured at
+                 eight seconds and at twenty-eight. */
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={publish}
+                disabled={!!busy || quote === undefined}
+              >
+                <Send size={14} aria-hidden="true" />
+                {busy === 'publish'
+                  ? 'Posting…'
+                  : quote === undefined
+                    ? 'Reading the take to quote…'
+                    : `Post take ${String(take).padStart(2, '0')}`}
+              </button>
+            )}
             <button
               type="button"
               className="admin-link-subtle"
@@ -1439,9 +1788,17 @@ export default function RatioedStudio({ agent, did }) {
             <div>
               <dt>reaction</dt>
               <dd>
-                {announce.piece.breaker?.likeSurvives
-                  ? fmtSeconds(announce.piece.breaker.reactionMs)
-                  : 'not indexed yet'}
+                {typeof announce.piece.breaker?.reactionMs === 'number' ? (
+                  <>
+                    {fmtSeconds(announce.piece.breaker.reactionMs)}
+                    {/* Same number, different provenance, and the record says
+                        which: a like nothing can be shown any more, timed by
+                        the log that watched it land. */}
+                    {announce.piece.breaker.likeSurvives ? '' : ' — off the log; the like is gone'}
+                  </>
+                ) : (
+                  'not indexed yet'
+                )}
               </dd>
             </div>
           </dl>
@@ -1469,7 +1826,16 @@ export default function RatioedStudio({ agent, did }) {
               <RefreshCw size={14} aria-hidden="true" />
               {busy === 'measure' ? 'Measuring…' : 'Measure again'}
             </button>
-            <button type="button" className="admin-link-subtle" onClick={() => setAnnounce(null)}>
+            <button
+              type="button"
+              className="admin-link-subtle"
+              onClick={() => {
+                // Both, or the panel goes but the seal state stays and the next
+                // piece of the session runs unwatched.
+                setAnnounce(null);
+                setSealed(null);
+              }}
+            >
               dismiss
             </button>
           </div>
@@ -1518,22 +1884,58 @@ export default function RatioedStudio({ agent, did }) {
               {templateProblems(tplDraft, take).map((p) => (
                 <p className="admin-error-inline" key={p}>{p}</p>
               ))}
+
+              {/* The other half of the record, and the reason it is here rather
+                  than in the code: on a piece whose like was deleted, this
+                  sentence is the only evidence the like ever existed. */}
+              <label className="admin-field-label" htmlFor="rs-announce-tpl">
+                The concluding reply’s first line
+              </label>
+              <p className="admin-field-hint">
+                {'{handle}'} becomes whoever ended the piece. The figures and the ranking are
+                added under it when a piece is sealed.
+              </p>
+              <textarea
+                id="rs-announce-tpl"
+                className="admin-input rs-draft"
+                rows={3}
+                spellCheck={false}
+                value={annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT}
+                onChange={(e) => setAnnDraft(e.target.value)}
+              />
+              {announcementProblems(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT).map((p) => (
+                <p className="admin-error-inline" key={p}>{p}</p>
+              ))}
               <div className="rs-actions">
                 <button
                   type="button"
                   className="admin-gate-button"
                   onClick={saveTemplate}
-                  disabled={!!busy || templateProblems(tplDraft, take).length > 0}
+                  disabled={
+                    !!busy ||
+                    templateProblems(tplDraft, take).length > 0 ||
+                    announcementProblems(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT).length > 0
+                  }
                 >
                   {busy === 'template' ? 'Saving…' : 'Save the template'}
                 </button>
-                <button type="button" className="admin-link-subtle" onClick={() => setTplDraft(null)}>
+                <button
+                  type="button"
+                  className="admin-link-subtle"
+                  onClick={() => {
+                    setTplDraft(null);
+                    setAnnDraft(null);
+                  }}
+                >
                   cancel
                 </button>
                 <button
                   type="button"
                   className="admin-link-subtle"
-                  onClick={() => setTplDraft(DEFAULT_TEMPLATE)}
+                  onClick={() => {
+                    setTplDraft(DEFAULT_TEMPLATE);
+                    setAnnDraft(DEFAULT_ANNOUNCEMENT);
+                  }}
                 >
                   restore the built-in
                 </button>
@@ -1542,6 +1944,83 @@ export default function RatioedStudio({ agent, did }) {
           )}
         </section>
       )}
+
+      {/* The words on the piece pages, which are the artist's rather than the
+          build's — the same argument the template makes, and the same shape:
+          a record, edited here, read by the page with the built-in sentence
+          behind every field.
+          Not gated on there being no live piece, unlike the template beside it:
+          composing a post while one is up is meaningless, but rewording the
+          page a piece is being READ on while it runs is the likeliest moment
+          anybody would want to. */}
+      <section className="rs-copy">
+        <h2 className="rs-h2">The page&rsquo;s words</h2>
+        {copyDraft === null ? (
+          <>
+            <p className="admin-field-hint">
+              The captions on a piece&rsquo;s own page, stored at <code>{COPY_NSID}/self</code>{' '}
+              so they can be rewritten without a deploy. The figures are not here: they are
+              measured, and a caption is not.
+            </p>
+            <div className="rs-actions">
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={() => setCopyDraft({ ...(copy || DEFAULT_COPY) })}
+                disabled={copy === null}
+              >
+                {copy === null ? 'Reading…' : 'Edit the words'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="admin-field-hint">
+              Every field falls back to the site&rsquo;s own sentence, so clearing one restores it
+              rather than emptying it.
+            </p>
+            {COPY_FIELDS.map((f) => (
+              <label className="rs-copy-field" key={f.key}>
+                <span className="rs-copy-label">{f.label}</span>
+                <span className="admin-field-hint">{f.hint}</span>
+                <textarea
+                  className="admin-input"
+                  rows={2}
+                  value={copyDraft[f.key] ?? ''}
+                  placeholder={DEFAULT_COPY[f.key]}
+                  onChange={(e) =>
+                    setCopyDraft((d) => ({ ...d, [f.key]: e.target.value }))
+                  }
+                />
+              </label>
+            ))}
+            <div className="rs-actions">
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={saveCopy}
+                disabled={!!busy}
+              >
+                {busy === 'copy' ? 'Saving…' : 'Save the words'}
+              </button>
+              <button
+                type="button"
+                className="admin-link-subtle"
+                onClick={() => setCopyDraft(null)}
+              >
+                cancel
+              </button>
+              <button
+                type="button"
+                className="admin-link-subtle"
+                onClick={() => setCopyDraft({ ...DEFAULT_COPY })}
+              >
+                restore the built-ins
+              </button>
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="rs-series">
         <h2 className="rs-h2">The series</h2>
@@ -1552,28 +2031,97 @@ export default function RatioedStudio({ agent, did }) {
             .map((p) => {
               const b = p.breaker || {};
               const timed = typeof b.reactionMs === 'number';
-              // Only worth offering while the replay can still reach it.
-              const recoverable = !timed && withinLookback(Date.parse(p.sealedAt));
+              // What this piece is missing, asked of the record rather than
+              // worked out here. `needsAName` is the one gap a repair cannot
+              // close on its own: nothing watched the like and no reply named
+              // whoever cast it, so only a person can say.
+              const gaps = pieceGaps(p);
+              const unnamed = !b.handle || b.handle === 'unknown';
+              const isNaming = naming?.rkey === p.rkey;
               return (
                 <li key={p.rkey}>
                   <Link to={piecePath(p)}>take {pieceSlug(p)}</Link>
                   <span className="rs-series-meta">
-                    {fmtDuration(p.lifespanMs)} · @{b.handle}
+                    {fmtDuration(p.lifespanMs)} · @{b.handle || 'unknown'}
+                    {b.did ? '' : ' (no did)'}
                     {timed
                       ? ` · ${fmtSeconds(b.reactionMs)}${b.reactionRecovered ? ' (recovered)' : ''}`
                       : ' · like deleted'}
                   </span>
-                  {recoverable && (
+                  <span className="rs-series-acts">
+                    {/* A seal that landed with no measurement behind it: the
+                        index was unreachable in the seconds after the gate.
+                        Repair cannot fix this one — it never re-derives the
+                        alive window — so the measurement has to be offered
+                        again, and it is the only button here that writes a
+                        pre-seal figure. */}
+                    {!p.measuredAt && (
+                      <button
+                        type="button"
+                        className="admin-link-subtle rs-series-wanted"
+                        onClick={() => remeasure(p)}
+                        disabled={!!busy}
+                        title="This piece was sealed but never measured. Read its records now."
+                      >
+                        <RefreshCw size={12} aria-hidden="true" />
+                        {busy === 'measure' ? 'measuring…' : 'measure'}
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className="admin-link-subtle rs-recover"
-                      onClick={() => recover(p)}
+                      className="admin-link-subtle"
+                      onClick={() => repair(p)}
                       disabled={!!busy}
-                      title="Replay Jetstream's lookback filtered to this account and find the like that ended the piece. The like stays deleted; its timing comes back."
+                      title="Fill in whatever this record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, and everything that has landed since the seal. The alive window is never re-read."
                     >
-                      <History size={12} aria-hidden="true" />
-                      {busy === `recover:${p.rkey}` ? 'replaying…' : 'recover the reaction'}
+                      <Wrench size={12} aria-hidden="true" />
+                      {busy === `repair:${p.rkey}` ? 'repairing…' : 'repair'}
                     </button>
+                    {/* Offered on any piece, not only the unnamed ones: a
+                        breaker recorded by handle alone predates the DID being
+                        stored, and the roster is keyed by DID. */}
+                    <button
+                      type="button"
+                      className={`admin-link-subtle${gaps.needsAName ? ' rs-series-wanted' : ''}`}
+                      onClick={() =>
+                        setNaming(isNaming ? null : { rkey: p.rkey, text: unnamed ? '' : b.handle })
+                      }
+                      disabled={!!busy}
+                      title="Say who ended this piece. The handle is resolved to a DID and both go on the record; nothing else is touched. The one repair nothing can do for you."
+                    >
+                      <UserPen size={12} aria-hidden="true" />
+                      {unnamed ? 'name the breaker' : 'rename'}
+                    </button>
+                  </span>
+                  {isNaming && (
+                    <span className="rs-series-name">
+                      <input
+                        className="admin-input"
+                        value={naming.text}
+                        autoFocus
+                        placeholder="handle.example.com"
+                        onChange={(e) => setNaming((n) => ({ ...n, text: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') nameBreaker(p, naming.text);
+                          if (e.key === 'Escape') setNaming(null);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="admin-gate-button"
+                        onClick={() => nameBreaker(p, naming.text)}
+                        disabled={!!busy || !naming.text.trim()}
+                      >
+                        {busy === `name:${p.rkey}` ? 'Resolving…' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-link-subtle"
+                        onClick={() => setNaming(null)}
+                      >
+                        cancel
+                      </button>
+                    </span>
                   )}
                 </li>
               );
@@ -1583,10 +2131,12 @@ export default function RatioedStudio({ agent, did }) {
             full catalogue" set one of them as a title and the other as a
             phrase. */}
         <p className="admin-field-hint">
-          A piece sealed in the last 36 hours whose breaking like was deleted can still have its
-          reaction time recovered: Jetstream&rsquo;s lookback holds the like, and the reply naming
-          the breaker is what lets the replay be filtered down to one account. After that the
-          window closes and the number is gone, as it is for six of the first thirteen.
+          A breaking like that was deleted can still have its reaction time recovered. A piece the
+          studio watched carries the answer on its own record — the log saw the like land and saw
+          it go — and that never expires. A piece nothing was watching has 36 hours, for as long as
+          Jetstream&rsquo;s lookback holds the like and the reply naming the breaker lets the replay
+          be filtered down to one account. After that the number is gone, as it is for six of the
+          first thirteen.
         </p>
         <p className="admin-field-hint">
           <Link to={`/creating/${RATIOED_PATH}`}>the essay</Link> ·{' '}

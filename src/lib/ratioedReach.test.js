@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  audienceFromEvents,
   REACH_WEIGHTS,
   audienceRatio,
   looksFarmed,
@@ -10,7 +11,6 @@ import {
   projectReach,
   audienceIsFresh,
   fmtReach,
-  fmtRatio,
 } from './ratioedReach.js';
 
 /** An event log entry, in the shape `normalizePiece` hands to the charts. */
@@ -304,12 +304,6 @@ describe('formatting', () => {
     expect(fmtReach(0)).toBe('0');
   });
 
-  it('prints a ratio with the precision it deserves', () => {
-    expect(fmtRatio(4.123)).toBe('4.12×');
-    expect(fmtRatio(41.2)).toBe('41.2×');
-    expect(fmtRatio(412)).toBe('412×');
-    expect(fmtRatio(null)).toBe('—');
-  });
 });
 
 describe('the weights themselves', () => {
@@ -318,5 +312,56 @@ describe('the weights themselves', () => {
     expect(REACH_WEIGHTS.quote).toBe(1);
     expect(REACH_WEIGHTS.reply).toBeLessThan(REACH_WEIGHTS.repost);
     expect(REACH_WEIGHTS.like).toBeLessThan(REACH_WEIGHTS.reply);
+  });
+});
+
+describe('audienceFromEvents', () => {
+  // The two sources are complementary: a recent piece records its participants'
+  // follower counts in its own log, and the dated table deliberately skips
+  // exactly those accounts. Reading only one of them leaves a hole.
+  const pieces = [
+    { take: 12, rkey: 'p12' },
+    { take: 17, rkey: 'p17' },
+  ];
+  const logs = {
+    p12: [
+      { h: 'erin', did: 'did:e', k: 'repost', off: 1, pre: 1, fr: 41000, fo: 600 },
+      { h: 'me', did: 'did:me', k: 'reply', off: 2, pre: 1, self: 1, fr: 221 },
+      { h: 'nobody', did: 'did:n', k: 'reply', off: 3, pre: 1 },
+    ],
+    p17: [{ h: 'erin', did: 'did:e', k: 'repost', off: 1, pre: 1, fr: 89334, fo: 685 }],
+  };
+  const resolve = (p) => logs[p.rkey];
+
+  it('keys by DID and by handle, because the two logs name people differently', () => {
+    const out = audienceFromEvents(pieces, resolve);
+    expect(out['did:e']).toEqual({ fr: 89334, fo: 685 });
+    expect(out.erin).toEqual({ fr: 89334, fo: 685 });
+  });
+
+  it('takes the most recent reading when somebody turns up twice', () => {
+    // Out of order on purpose: the take number decides, not the array.
+    const out = audienceFromEvents([pieces[1], pieces[0]], resolve);
+    expect(out['did:e'].fr).toBe(89334);
+  });
+
+  it('skips the artist and anyone with no audience recorded', () => {
+    const out = audienceFromEvents(pieces, resolve);
+    expect(out['did:me']).toBeUndefined();
+    expect(out['did:n']).toBeUndefined();
+  });
+
+  it('will not key an unresolvable handle', () => {
+    const out = audienceFromEvents(
+      [{ take: 1, rkey: 'a' }],
+      () => [{ h: '(unresolvable)', did: 'did:x', k: 'reply', off: 1, pre: 1, fr: 10 }],
+    );
+    expect(out['did:x'].fr).toBe(10);
+    expect(out['(unresolvable)']).toBeUndefined();
+  });
+
+  it('is empty rather than throwing with nothing to read', () => {
+    expect(audienceFromEvents(null, null)).toEqual({});
+    expect(audienceFromEvents(pieces, () => null)).toEqual({});
   });
 });

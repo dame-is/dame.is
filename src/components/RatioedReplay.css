@@ -14,12 +14,16 @@
   margin-bottom: var(--space-3);
 }
 
+/* Fixed width, because the label is the state: Play becomes Pause becomes
+   Replay, and a button that resizes under the cursor moved the clock beside it
+   every time playback started or ended. */
 .ratioed-replay-play {
   padding: var(--space-1) var(--space-4);
   border: 1px solid var(--ink);
   background: var(--ink);
   color: var(--page);
   font-size: var(--text-sm);
+  min-width: 7em;
 }
 .ratioed-replay-play:hover { opacity: 0.85; }
 
@@ -27,11 +31,16 @@
   font-family: var(--mono, monospace);
   font-size: var(--text-sm);
   color: var(--ink-muted);
-  min-width: 11ch;
+  /* Wide enough for the longest thing it says — "sealed · +405d" — so the
+     clock crossing the threadgate doesn't shove anything. */
+  min-width: 15ch;
 }
 
-/* Matches the charts' segmented control so the two read as one vocabulary. */
-.ratioed-replay .ratioed-seg { display: inline-flex; margin-left: auto; }
+/* Matches the charts' segmented control so the two read as one vocabulary.
+   Sits directly after the play button: the two things you can press belong
+   together, and the clock is a readout rather than a control — pushed to the
+   far edge it looked like a third one. */
+.ratioed-replay .ratioed-seg { display: inline-flex; }
 .ratioed-replay .ratioed-seg button {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--rule);
@@ -87,23 +96,30 @@
 }
 .ratioed-replay-seal[data-on] { background: var(--ratioed-seal); }
 
+/* Square, like every other mark on these pages. What separates a like from the
+   rest is the shape it is set on: a square on its corner, the same diamond the
+   essay's lifelines and their legend use. Composed through custom properties
+   because the two transforms have to coexist — a lit-up like is a diamond AND
+   scaled, and one `transform` overwriting the other drew it as an upright
+   square the moment the playhead reached it. */
 .ratioed-replay-mark {
   position: absolute;
   top: 50%;
   width: 9px;
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
-  border-radius: 50%;
+  --mark-turn: 0deg;
+  --mark-scale: 1;
+  transform: rotate(var(--mark-turn)) scale(var(--mark-scale));
   background: currentColor;
   opacity: 0.12;
   transition: opacity 140ms ease, transform 140ms ease;
 }
 .ratioed-replay-mark.on {
   opacity: 0.9;
-  transform: scale(1.15);
+  --mark-scale: 1.15;
 }
-/* The like is the one that ends it, so it keeps the shape the charts give it. */
-.ratioed-replay-mark.ratioed-k-like { border-radius: 0; }
+.ratioed-replay-mark.ratioed-k-like { --mark-turn: 45deg; }
 
 .ratioed-replay-legend {
   display: grid;
@@ -142,33 +158,42 @@
   width: 11px;
   height: 11px;
   margin-top: -5px;
-  border-radius: 50%;
   background: var(--ink);
   border: 0;
 }
 .ratioed-replay-scrub input::-moz-range-thumb {
   width: 11px;
   height: 11px;
-  border-radius: 50%;
   background: var(--ink);
   border: 0;
 }
 .ratioed-replay-scrub input:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
 
-.ratioed-replay-caption {
-  font-size: var(--text-sm);
-  min-height: 1.6em;
-  margin: 0;
+/* Said aloud, not drawn. The list below shows the same arrival; this is what
+   a screen reader hears as the playhead reaches it, and on screen it would be
+   the top row printed twice. */
+.ratioed-replay-said {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
-.ratioed-replay-kind { font-variant-caps: small-caps; }
-.ratioed-replay-who { overflow-wrap: anywhere; }
-.ratioed-replay-off { color: var(--ink-muted); }
 
 .ratioed-replay-count {
   font-size: var(--text-xs);
   color: var(--ink-muted);
-  margin: var(--space-1) 0 0;
+  margin: var(--space-1) 0 var(--space-2);
 }
+
+/* The transcript. Capped so a piece with eighty records doesn't push the rest
+   of the page below the fold, and scrolled from the top — the newest arrival
+   is the one the playhead just delivered. */
+.ratioed-replay .ratioed-live-ticker { max-height: 26em; }
 
 /* A reader who has asked for less motion still gets the whole track — every
    mark is drawn, it just doesn't grow when the playhead reaches it. */
@@ -180,5 +205,4 @@
 @media (max-width: 34rem) {
   .ratioed-replay-track,
   .ratioed-replay-legend { grid-template-columns: 2fr auto 1fr; }
-  .ratioed-replay .ratioed-seg { margin-left: 0; }
 }

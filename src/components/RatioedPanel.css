@@ -141,7 +141,6 @@
   content: '▾';
 }
 .ratioed-panel-deleted { color: var(--tan); }
-.ratioed-panel-fresh { color: var(--accent); }
 
 .ratioed-panel-uri {
   font-family: var(--sans);

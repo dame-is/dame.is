@@ -9,6 +9,9 @@ import {
   templateProblems,
   fillTemplate,
   DEFAULT_TEMPLATE,
+  fillAnnouncement,
+  announcementProblems,
+  DEFAULT_ANNOUNCEMENT,
 } from './ratioedStudio.js';
 import {
   anchorsFromTemplate,
@@ -195,5 +198,30 @@ describe('fillTemplate', () => {
 
   it('is safe on nothing', () => {
     expect(fillTemplate(null, 3)).toBe('');
+  });
+});
+
+describe('the concluding reply is a template too', () => {
+  it('fills the handle in', () => {
+    expect(fillAnnouncement('@{handle} did it', 'ponder.ooo')).toBe('@ponder.ooo did it');
+  });
+
+  it('refuses a sentence that would break the breaker parser', () => {
+    // BLAME_RE reads the breaker back out of this reply, and on a piece whose
+    // like was deleted that reply is the only evidence the like existed.
+    expect(announcementProblems('@{handle} ended it')).toHaveLength(1);
+    expect(announcementProblems('somebody was to blame')[0]).toMatch(/\{handle\}/);
+    expect(announcementProblems('')).not.toHaveLength(0);
+    expect(announcementProblems(DEFAULT_ANNOUNCEMENT)).toEqual([]);
+  });
+
+  it('opens the draft with the stored sentence, not the built-in', () => {
+    const draft = announcementDraft({
+      handle: 'ponder.ooo',
+      piece: null,
+      others: [],
+      announcement: 'it is over. @{handle} was to blame.',
+    });
+    expect(draft.split('\n')[0]).toBe('it is over. @ponder.ooo was to blame.');
   });
 });

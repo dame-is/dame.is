@@ -21,6 +21,7 @@
 // disagree in public.
 
 import { tidToTimestamp } from './atproto.js';
+import { identify } from './ratioedIdentity.js';
 
 /**
  * How many rows a record carries. A piece draws tens; this is a ceiling for the
@@ -175,7 +176,12 @@ export function witnessFromRecord(witnessed) {
 export function tallyWitness(rows, { selfDid = null } = {}) {
   const out = { likes: 0, reposts: 0, quotes: 0, replies: 0, people: 0, total: 0, withdrawn: 0 };
   const bucket = { like: 'likes', repost: 'reposts', quote: 'quotes', reply: 'replies' };
-  const dids = new Set();
+  // Counted through the identity join rather than off `did` alone. The alive
+  // window of the first eleven pieces comes entirely from the harvest, whose
+  // 255 rows carry a handle and no DID — so `if (r.did)` counted none of them,
+  // and the replay's counters read "people 0" underneath a header saying 32.
+  const who = identify(rows);
+  const people = new Set();
   for (const r of rows || []) {
     if (selfDid && r.did === selfDid) continue;
     if (r.goneMs != null) {
@@ -186,9 +192,10 @@ export function tallyWitness(rows, { selfDid = null } = {}) {
     if (!key) continue;
     out[key] += 1;
     out.total += 1;
-    if (r.did) dids.add(r.did);
+    const id = who(r);
+    if (id) people.add(id);
   }
-  out.people = dids.size;
+  out.people = people.size;
   return out;
 }
 
@@ -215,6 +222,95 @@ export function breakingWitness(rows) {
 export function withdrawnOnly(rows) {
   const list = rows || [];
   return !breakingWitness(list) && list.some((r) => r.k === 'like' && r.goneMs != null);
+}
+
+/**
+ * The earliest like in the log that was cast and taken back.
+ *
+ * `breakingWitness` skips these, correctly: while a piece is running, a like
+ * that has been deleted is not standing against it and the panel says so. Once
+ * the piece is over the same row means the opposite — it is the account of a
+ * like that ended a piece and then erased itself, which is the one event in this
+ * project no index can be asked about afterwards.
+ */
+export function withdrawnWitness(rows) {
+  let best = null;
+  for (const r of rows || []) {
+    if (r.k !== 'like' || r.goneMs == null) continue;
+    if (!best || r.offMs < best.offMs) best = r;
+  }
+  return best;
+}
+
+/**
+ * Who ended the piece, reconciling the index against the log.
+ *
+ * Three sources, in descending order of authority, and the third is the whole
+ * reason the log is written:
+ *
+ *  1. **The backlink index.** A like that still exists, timed by its own record
+ *     key. This is the measurement, and it wins whenever it is there.
+ *  2. **A standing witnessed like.** The index lags by up to a minute and the
+ *     seal happens in seconds, so a piece measured the instant it is sealed
+ *     routinely has a like the index has not caught up with. Same record key,
+ *     same TID clock: what is missing is the index, not the like.
+ *  3. **A withdrawn witnessed like.** Somebody liked it, the artist sealed, and
+ *     the like was deleted — often within the same second. Nothing survives for
+ *     any index to report, and until now the studio watched that happen, wrote
+ *     it to the log, and then recorded the piece as ended by "unknown" with no
+ *     reaction time. Six of the first thirteen pieces lost their reaction time
+ *     exactly this way, before anything was watching. This one was watched.
+ *
+ * `likeSurvives` says whether the like still exists, which is what the record's
+ * field means and what the page's "since deleted" line is drawn from — it is
+ * false in case 3 even though the timing is known. `recovered` marks a timing
+ * that came from the log rather than from a like an index can still be shown,
+ * and maps onto the record's `reactionRecovered`.
+ *
+ * @param {object} opts
+ * @param {{at:number,did?:string}|null} opts.indexLike `measureWindows().breakingLike`.
+ * @param {Array} opts.rows      The witnessed log.
+ * @param {number} opts.postedMs When the piece went up.
+ * @param {number} opts.sealedMs When it was sealed.
+ * @returns {{at:number,did:string|null,handle:string,likeSurvives:boolean,recovered:boolean}|null}
+ */
+export function resolveBreaker({ indexLike, rows, postedMs, sealedMs }) {
+  if (indexLike) {
+    return {
+      at: indexLike.at,
+      did: indexLike.did || null,
+      handle: '',
+      likeSurvives: true,
+      recovered: false,
+    };
+  }
+  // A like that landed after the gate closed did not end the piece — somebody
+  // liked a sealed post, which every piece keeps collecting afterwards.
+  const before = (row) => {
+    if (!row || !Number.isFinite(postedMs) || !Number.isFinite(sealedMs)) return false;
+    return postedMs + row.offMs < sealedMs;
+  };
+  const standing = breakingWitness(rows);
+  if (before(standing)) {
+    return {
+      at: postedMs + standing.offMs,
+      did: standing.did || null,
+      handle: standing.h || '',
+      likeSurvives: true,
+      recovered: false,
+    };
+  }
+  const gone = withdrawnWitness(rows);
+  if (before(gone)) {
+    return {
+      at: postedMs + gone.offMs,
+      did: gone.did || null,
+      handle: gone.h || '',
+      likeSurvives: false,
+      recovered: true,
+    };
+  }
+  return null;
 }
 
 /**

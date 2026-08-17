@@ -1,0 +1,98 @@
+{
+  "lexicon": 1,
+  "id": "is.dame.creating.ratioed.copy",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "The standing prose on a Ratioed piece's page, kept as a record so it can be rewritten without a deploy — the same reason the post template is a record rather than a constant. A singleton at rkey \"self\". Every field is optional and every one has a built-in default: an absent field is not an empty caption, it is the sentence the site ships with. Nothing here is a measurement. The figures, the counts, the reaction time and the log are read from the piece's own record and cannot be edited from this one; what this holds is the writing around them, which is the artist's and drifts as the project's own account of itself does.",
+      "key": "literal:self",
+      "record": {
+        "type": "object",
+        "properties": {
+          "liveLede": {
+            "type": "string",
+            "maxLength": 1000,
+            "maxGraphemes": 1000,
+            "description": "The opening paragraph of a piece that is still up. {take} is substituted with the take number. A piece with its own `lede` on its record overrides this, as it does the generated one."
+          },
+          "liveNote": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "Under the live dashboard: what the page will do when the piece ends."
+          },
+          "deckAlive": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "What the dashboard says while nobody has liked it."
+          },
+          "deckLiked": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "What it says once somebody has, which is the moment the piece is over and the reaction time is running."
+          },
+          "deckWithdrawn": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "What it says when a like was cast and taken back, and nothing is standing against the piece."
+          },
+          "deckStream": {
+            "type": "string",
+            "maxLength": 700,
+            "maxGraphemes": 700,
+            "description": "What the reader's browser is doing while the firehose is on. {budget} is substituted with the megabyte cap the stream stops itself at."
+          },
+          "deckRecord": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "The same, while the deck is reading the piece's own record instead."
+          },
+          "replay": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "Over the replay of a finished piece."
+          },
+          "witnessed": {
+            "type": "string",
+            "maxLength": 700,
+            "maxGraphemes": 700,
+            "description": "Over the log the studio kept while the piece ran, inside the folded panel."
+          },
+          "roster": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "Over the faces of everyone who was there."
+          },
+          "hidden": {
+            "type": "string",
+            "maxLength": 500,
+            "maxGraphemes": 500,
+            "description": "Over the replies written into a thread the threadgate had already closed."
+          },
+          "log": {
+            "type": "string",
+            "maxLength": 700,
+            "maxGraphemes": 700,
+            "description": "Over the measured event log. The sentence about how many breaking likes have since been deleted is appended by the site and counted from the records, not written here."
+          },
+          "reach": {
+            "type": "string",
+            "maxLength": 700,
+            "maxGraphemes": 700,
+            "description": "Under the reach table, explaining what the score is. The site appends what it could not resolve and the date the follower counts were read."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    }
+  }
+}

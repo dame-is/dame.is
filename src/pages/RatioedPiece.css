@@ -158,6 +158,12 @@
 /* The artist's own records sit in the log for completeness and in none of the
    counts; the row says so by receding. */
 .ratioed-piece-log tr.is-self { color: var(--ink-faint); }
+/* A record that was made and unmade while the piece ran. It is in the log
+   because it happened and struck through because it is gone — the one row on
+   the page that no index can be asked to confirm. */
+.ratioed-piece-log tr.is-gone { color: var(--ink-muted); }
+.ratioed-piece-log tr.is-gone .ratioed-piece-who { text-decoration: line-through; }
+.ratioed-piece-log tr.is-gone td:last-child { color: var(--ratioed-seal); }
 .ratioed-piece-when { color: var(--ink-muted); font-family: var(--mono, monospace); }
 .ratioed-piece-who { overflow-wrap: anywhere; }
 .ratioed-piece-kind { font-variant-caps: small-caps; }
@@ -216,8 +222,61 @@
   font-size: var(--text-sm);
 }
 
+/* A table cannot be allowed to set the width of the page. Both of these hold
+   as many columns as their content needs, and the reach table holds six of
+   them; at a phone's width the widest of them decided how far the whole
+   article scrolled sideways. Contained here, the worst case is a table that
+   scrolls inside its own box. */
+.ratioed-piece-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 @media (max-width: 34rem) {
   .ratioed-piece-hidden li { grid-template-columns: 1fr; gap: var(--space-1); }
   .ratioed-piece-kv { grid-template-columns: 1fr; }
   .ratioed-piece-kv dd { margin-bottom: var(--space-2); }
+  .ratioed-piece-log td,
+  .ratioed-piece-log th { padding-right: var(--space-2); }
+
+  /* The reach table stops being a table.
+     Six columns on a 390px screen is not a layout problem to be solved by
+     shrinking — the handle alone wants half the width — so each account
+     becomes a block of two lines: who, then what they did and what it carried.
+     The head is hidden and the cells that need naming carry their own label,
+     which is why they have `data-label` in the markup. The follower ratio is
+     the one figure dropped: it is the working between the audience and the
+     reach either side of it, and the note under the table gives the weighting.
+     */
+  .ratioed-piece-reach thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .ratioed-piece-reach tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--space-3);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .ratioed-piece-reach td {
+    display: block;
+    border: 0;
+    padding: 0;
+  }
+  .ratioed-piece-reach .ratioed-piece-who {
+    flex: 1 0 100%;
+    overflow-wrap: anywhere;
+  }
+  .ratioed-piece-reach td[data-label]::before {
+    content: attr(data-label) ' ';
+    color: var(--ink-muted);
+    font-size: var(--text-xs);
+  }
+  /* The window sits at the end of its line, where the column used to be. */
+  .ratioed-piece-reach td:last-child { margin-left: auto; color: var(--ink-muted); }
 }

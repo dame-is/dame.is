@@ -49,6 +49,18 @@ function tidMs(rkey) {
 const PIECE_MARKERS = [/social art project/i, /this post is the project/i];
 
 /**
+ * What a row says when nothing could put a name to the DID on it.
+ *
+ * The label the offline harvest used for a deactivated account, kept for the
+ * recorded logs so the two read the same. It says "there was somebody here and
+ * they cannot be named", which is true of a deleted account and true of a
+ * profile read that failed — and those are worth telling apart, so anything
+ * that can supply a name is asked before this is written. See `buildEventLog`'s
+ * `handles`, and the studio's `knownHandles`.
+ */
+export const UNRESOLVED_HANDLE = '(unresolvable)';
+
+/**
  * The link every piece carries to its own page on the site.
  *
  * This and the take line are the two things a piece cannot lose, because
@@ -271,7 +283,7 @@ export function buildEventLog(
     const profile = profiles[r.did] || null;
     out.push({
       k: r.kind,
-      h: profile?.handle || handles[r.did] || '(unresolvable)',
+      h: profile?.handle || handles[r.did] || UNRESOLVED_HANDLE,
       ...(r.did ? { did: r.did } : {}),
       offMs: at - postedAtMs,
       pre: at < sealedAtMs ? 1 : 0,

@@ -35,7 +35,7 @@ describe('rosterFromEvents', () => {
     const people = rosterFromEvents([
       piece(12, [ev('like', 'did:plc:a', 'a.test')], { handle: 'a.test', likeSurvives: true }),
     ]);
-    expect(people.find((p) => p.did === 'did:plc:a').broke).toBe(12);
+    expect(people.find((p) => p.did === 'did:plc:a').broke).toEqual([12]);
   });
 
   it('lists a breaker whose like was deleted, who has no events at all', () => {
@@ -49,7 +49,7 @@ describe('rosterFromEvents', () => {
       }),
     ]);
     const gone = people.find((p) => p.did === 'did:plc:gone');
-    expect(gone).toMatchObject({ h: 'gone.test', ev: 0, pre: [12], broke: 12 });
+    expect(gone).toMatchObject({ h: 'gone.test', ev: 0, pre: [12], broke: [12] });
   });
 
   it('marks an entry the log could only key by handle', () => {
@@ -72,9 +72,36 @@ describe('mergeRoster', () => {
     { did: 'did:plc:y', h: '(unresolvable)', dn: '', ev: 1, pre: [5], post: [], kinds: { reply: 1 } },
   ];
 
-  it('adds up the counts for someone in both', () => {
+  /**
+   * A derived entry in the shape `rosterFromEvents` produces, with its per-take
+   * detail filled in from the take lists. The merge reads `byTake` and nothing
+   * else, because a total with no take attached cannot be told apart from the
+   * same total read twice.
+   */
+  const derived = (over) => {
+    const takes = [...(over.pre || []), ...(over.post || [])];
+    const kinds = over.kinds || {};
+    const each = Object.entries(kinds);
+    const byTake = {};
+    // Spread evenly across the takes named; the tests below care about totals
+    // and about which takes contributed, not about the split.
+    for (const t of takes) byTake[t] = { ev: 0, kinds: {} };
+    let i = 0;
+    for (const [k, n] of each) {
+      for (let j = 0; j < n; j += 1) {
+        const t = takes[i % takes.length];
+        i += 1;
+        if (t == null) break;
+        byTake[t].ev += 1;
+        byTake[t].kinds[k] = (byTake[t].kinds[k] || 0) + 1;
+      }
+    }
+    return { pre: [], post: [], kinds: {}, ...over, byTake: over.byTake || byTake };
+  };
+
+  it('adds the counts from takes the bundle does not cover', () => {
     const out = mergeRoster(base, [
-      { did: 'did:plc:a', h: 'a.test', ev: 2, pre: [12], post: [13], kinds: { reply: 1, quote: 1 } },
+      derived({ did: 'did:plc:a', h: 'a.test', ev: 2, pre: [12], post: [13], kinds: { reply: 1, quote: 1 } }),
     ]);
     const a = out.find((p) => p.did === 'did:plc:a');
     expect(a).toMatchObject({ ev: 5, dn: 'Ada', pre: [4, 12], post: [13] });
@@ -82,23 +109,23 @@ describe('mergeRoster', () => {
   });
 
   it('keeps the bundled display name rather than the blank derived one', () => {
-    const out = mergeRoster(base, [{ did: 'did:plc:a', h: 'a.test', dn: '', ev: 1, pre: [12], post: [], kinds: {} }]);
+    const out = mergeRoster(base, [derived({ did: 'did:plc:a', h: 'a.test', dn: '', ev: 1, pre: [12], kinds: { reply: 1 } })]);
     expect(out.find((p) => p.did === 'did:plc:a').dn).toBe('Ada');
   });
 
   it('adds someone the bundle has never seen', () => {
     const out = mergeRoster(base, [
-      { did: 'did:plc:new', h: 'new.test', ev: 1, pre: [12], post: [], kinds: { reply: 1 }, broke: 12 },
+      derived({ did: 'did:plc:new', h: 'new.test', ev: 1, pre: [12], kinds: { reply: 1 }, broke: [12] }),
     ]);
     expect(out).toHaveLength(4);
-    expect(out.find((p) => p.did === 'did:plc:new').broke).toBe(12);
+    expect(out.find((p) => p.did === 'did:plc:new').broke).toEqual([12]);
   });
 
   it('refuses to merge a handle-keyed entry onto a shared placeholder', () => {
     // Two deactivated accounts answer to "(unresolvable)". Folding counts into
     // either one would invent participation for a person.
     const out = mergeRoster(base, [
-      { did: 'handle:(unresolvable)', h: '(unresolvable)', weakKey: true, ev: 5, pre: [12], post: [], kinds: { reply: 5 } },
+      derived({ did: 'handle:(unresolvable)', h: '(unresolvable)', weakKey: true, ev: 5, pre: [12], kinds: { reply: 5 } }),
     ]);
     expect(out).toHaveLength(3);
     for (const p of out.filter((x) => x.h === '(unresolvable)')) expect(p.ev).toBe(1);
@@ -106,7 +133,7 @@ describe('mergeRoster', () => {
 
   it('matches a handle-keyed entry when the handle is unambiguous', () => {
     const out = mergeRoster(base, [
-      { did: 'handle:a.test', h: 'a.test', weakKey: true, ev: 1, pre: [12], post: [], kinds: { reply: 1 } },
+      derived({ did: 'handle:a.test', h: 'a.test', weakKey: true, ev: 1, pre: [12], kinds: { reply: 1 } }),
     ]);
     expect(out).toHaveLength(3);
     expect(out.find((p) => p.did === 'did:plc:a').ev).toBe(4);
@@ -122,5 +149,62 @@ describe('mergeRoster', () => {
   it('leaves the bundle alone when there is nothing to merge', () => {
     expect(mergeRoster(base, [])).toHaveLength(3);
     expect(base[0].pre).toEqual([4]); // and doesn't mutate it
+  });
+});
+
+describe('mergeRoster does not count the same act twice', () => {
+  // The defect this file's tests could not see: every case above builds the
+  // base from one set of takes and the derived set from another, so they are
+  // disjoint by construction and the sum is always the union. In the real
+  // build they overlap — the repair pass wrote event logs onto the eleven
+  // pieces the bundle already covers — and the same act arrived from both
+  // sides.
+  const base = [
+    { did: 'did:plc:a', h: 'a.test', dn: 'Ada', ev: 3, pre: [10], post: [10], kinds: { reply: 2, repost: 1 } },
+  ];
+
+  it('leaves a person alone when the derived side only repeats a covered take', () => {
+    const out = mergeRoster(base, [
+      {
+        did: 'did:plc:a',
+        h: 'a.test',
+        ev: 3,
+        pre: [10],
+        post: [10],
+        kinds: { reply: 2, repost: 1 },
+        byTake: { 10: { ev: 3, kinds: { reply: 2, repost: 1 } } },
+      },
+    ]);
+    const a = out.find((p) => p.did === 'did:plc:a');
+    expect(a.ev).toBe(3);
+    expect(a.kinds).toEqual({ reply: 2, repost: 1 });
+  });
+
+  it('is idempotent — merging the same derived set twice changes nothing', () => {
+    const d = [
+      {
+        did: 'did:plc:a',
+        h: 'a.test',
+        ev: 4,
+        pre: [10],
+        post: [17],
+        kinds: { reply: 3, quote: 1 },
+        byTake: { 10: { ev: 3, kinds: { reply: 3 } }, 17: { ev: 1, kinds: { quote: 1 } } },
+      },
+    ];
+    const once = mergeRoster(base, d);
+    const twice = mergeRoster(once, d);
+    // Take 10 is the bundle's; only take 17 is new, and only once.
+    expect(once.find((p) => p.did === 'did:plc:a').ev).toBe(4);
+    expect(twice.find((p) => p.did === 'did:plc:a').ev).toBe(4);
+    expect(twice.find((p) => p.did === 'did:plc:a').post).toEqual([10, 17]);
+  });
+
+  it('unions the takes somebody broke rather than keeping the last one written', () => {
+    // ponder.ooo broke take 15 and take 16. Records arrive newest-first.
+    const out = mergeRoster([{ did: 'did:plc:p', h: 'ponder.ooo', dn: '', ev: 0, pre: [15], post: [], kinds: {}, broke: 15 }], [
+      { did: 'did:plc:p', h: 'ponder.ooo', ev: 0, pre: [16], post: [], kinds: {}, byTake: {}, broke: [16] },
+    ]);
+    expect(out.find((p) => p.did === 'did:plc:p').broke).toEqual([15, 16]);
   });
 });

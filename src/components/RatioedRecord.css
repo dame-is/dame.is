@@ -12,17 +12,36 @@
 .rr-track {
   position: relative;
   height: 6px;
-  border-radius: 999px;
   background: color-mix(in srgb, var(--ink) 10%, transparent);
   overflow: hidden;
 }
 .rr-fill {
   display: block;
   height: 100%;
-  border-radius: 999px;
   background: var(--ratioed-reply, #5e7a47);
   /* The clock ticks once a second; without this the bar jumps with it. */
   transition: width 1s linear;
+}
+
+/* One per finished take, at its own lifespan. Hairlines rather than dots: they
+   crowd together at the left of a long record — nine of the sixteen pieces were
+   over inside two minutes against take 14's forty-two — and a column of thin
+   rules reads as a scale, where a row of overlapping dots reads as a smudge. */
+.rr-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  margin-left: -0.5px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+}
+/* Outlived. Drawn in the page ground so it cuts the filled bar rather than
+   colouring it — the mark is that the piece is now past this one. */
+.rr-tick.is-passed {
+  background: color-mix(in srgb, var(--page) 75%, transparent);
+}
+.rr-chase.is-beaten .rr-tick.is-passed {
+  background: color-mix(in srgb, var(--page) 60%, transparent);
 }
 
 .rr-say {
@@ -40,7 +59,6 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 45%, transparent);
 }
 
-.rr-chase.is-compact .rr-say { font-size: var(--text-xs); }
 
 @media (prefers-reduced-motion: reduce) {
   .rr-fill { transition: none; }

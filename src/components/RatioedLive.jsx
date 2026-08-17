@@ -22,12 +22,12 @@
 //   being measured. Nothing is being measured here, so it is offered, labelled
 //   with what it costs, and stopped at a budget.
 //
-// Sealed pieces get the same deck under RatioedWitness, closed by default and
-// replayable — by then the piece is over and expanding it automatically would
-// be showing an emergency that has already ended.
+// A sealed piece has no use for any of this: there is nothing left to notice.
+// Its log lives on under the replay, arriving off the replay's own playhead —
+// same rows, same component, one clock.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Radio, ArrowUpRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Radio } from 'lucide-react';
 import { watchSubject } from '../lib/jetstream.js';
 import { resolveProfiles } from '../lib/atproto.js';
 import {
@@ -41,20 +41,13 @@ import {
   withdrawnOnly,
 } from '../lib/ratioedLive.js';
 import { fmtDuration } from '../lib/ratioed.js';
+import { DEFAULT_COPY, fillCopy } from '../lib/ratioedCopy.js';
 import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
 import RatioedRecord from './RatioedRecord.jsx';
-import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
+import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
 import './RatioedLive.css';
-
-// A witnessed row names a DID and a record key; this is the at:// URI they
-// spell, so a reader can open the post itself in whatever client they use.
-// Only the two kinds that are posts — a like and a repost are records nobody
-// wants to look at.
-const OPENABLE = { quote: 'app.bsky.feed.post', reply: 'app.bsky.feed.post' };
-const rowUri = (r) =>
-  OPENABLE[r?.k] && r.did && r.rkey ? `at://${r.did}/${OPENABLE[r.k]}/${r.rkey}` : '';
 
 // What one visitor's stream is allowed to cost before it stops itself: about
 // half an hour at the measured rate, several times the longest piece the series
@@ -88,7 +81,7 @@ function firehoseIsPolite() {
  * the ticker, so somebody arriving forty seconds in sees the forty seconds they
  * missed rather than an empty panel.
  */
-export default function RatioedLive({ piece, record = null }) {
+export default function RatioedLive({ piece, record = null, series = null, copy = DEFAULT_COPY }) {
   const postedMs = Date.parse(piece?.postedAt || '');
   const [rows, setRows] = useState(() => piece?.witnessed || []);
   const [profiles, setProfiles] = useState({});
@@ -145,12 +138,28 @@ export default function RatioedLive({ piece, record = null }) {
 
   // Faces and names for whoever turns up, resolved as new DIDs appear. The log
   // carries the handle the studio stamped in; this is what makes it a face.
+  //
+  // `asked` is what stops this looping. `resolveProfiles` never throws and
+  // simply omits a DID it could not resolve, so one deactivated participant
+  // left `missing` non-empty forever while every answer allocated a fresh
+  // `profiles` object — an effect that re-armed itself for the whole life of
+  // the piece, sharing a rate-limit bucket with the poll that is the fallback
+  // for the one like this page exists to notice.
+  const asked = useRef(new Set());
   useEffect(() => {
-    const missing = rows.map((r) => r.did).filter((d) => d && !profiles[d]);
-    if (!missing.length) return;
-    resolveProfiles(Array.from(new Set(missing))).then((p) =>
-      setProfiles((old) => ({ ...old, ...p })),
-    );
+    const missing = rows
+      .map((r) => r.did)
+      .filter((d) => d && !profiles[d] && !asked.current.has(d));
+    if (!missing.length) return undefined;
+    const batch = Array.from(new Set(missing));
+    for (const d of batch) asked.current.add(d);
+    let alive = true;
+    resolveProfiles(batch).then((p) => {
+      if (alive) setProfiles((old) => ({ ...old, ...p }));
+    });
+    return () => {
+      alive = false;
+    };
   }, [rows, profiles]);
 
   // The artist's own records are in the log and in none of the counts — the
@@ -180,7 +189,7 @@ export default function RatioedLive({ piece, record = null }) {
       </header>
 
       {/* The clock says how long. This says whether that is a lot. */}
-      <RatioedRecord elapsedMs={aliveMs} record={record} />
+      <RatioedRecord elapsedMs={aliveMs} record={record} pieces={series} />
 
       {/* The like is not one more row in the feed. It is the end of the piece,
           and this is where the page says so at the size it deserves. */}
@@ -201,28 +210,14 @@ export default function RatioedLive({ piece, record = null }) {
         </div>
       )}
 
+      {/* Three sentences, one per state, and all three are the artist's rather
+          than the build's — see lib/ratioedCopy.js. */}
       <p className="ratioed-live-say" aria-live="polite">
-        {breaking ? (
-          <>
-            It has been liked, so it is over — the artist closes replies by hand the moment they
-            notice, and the gap between those two is the measurement. It is being made right now.
-          </>
-        ) : takenBack ? (
-          <>
-            Somebody liked it and <strong>took it back</strong>. Nothing is standing against it now.
-            Six of the first thirteen breaking likes were deleted like that, and every one of those
-            reaction times was lost — this is what it looks like while it happens.
-          </>
-        ) : (
-          <>
-            Nobody has liked it. The piece is up, and it stays up until somebody does — the goal is
-            zero likes, so everything below is the piece succeeding.
-          </>
-        )}
+        {breaking ? copy.deckLiked : takenBack ? copy.deckWithdrawn : copy.deckAlive}
       </p>
 
-      <Counters tally={tally} />
-      <Ticker rows={rows} profiles={profiles} />
+      <RatioedCounters tally={tally} />
+      <RatioedTicker rows={rows} profiles={profiles} />
 
       <p className="ratioed-live-note">
         {stream?.msgs > 0 && streamOn && (
@@ -231,127 +226,17 @@ export default function RatioedLive({ piece, record = null }) {
             about this post.{' '}
           </>
         )}
-        {streamOn ? (
-          <>
-            Your browser is reading the firehose and testing every record on the network against
-            this post — about 166&nbsp;KB/s, because Jetstream can filter by collection but not by
-            what a record points at. It pauses when this tab goes to the background and stops
-            itself at {BUDGET_BYTES / 1024 / 1024}&nbsp;MB; the piece&rsquo;s record is read
-            underneath either way, so neither loses you anything but promptness.
-          </>
-        ) : (
-          <>
-            Reading the piece&rsquo;s own record, which the studio writes to as it watches. A few
-            seconds behind, and the cost of a small fetch.
-          </>
-        )}{' '}
-        Either way this is a witness, not a measurement: the figures on this page after the seal are
-        taken from a backlink index, and they will not be identical.
+        {streamOn
+          ? fillCopy(copy.deckStream, { budget: BUDGET_BYTES / 1024 / 1024 })
+          : copy.deckRecord}{' '}
+        This is a witness. The figures after the seal are read from a backlink index and will not
+        match.
       </p>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-
-/**
- * The same deck for a piece that is over: closed, and replayable.
- *
- * A sealed piece has nothing to watch, so nothing opens by itself here — the
- * page's own replay and figures are the retrospective view, and this is the
- * live one kept as it ran. What it holds that nothing else does is the
- * withdrawals: a like cast and deleted leaves no record for any index to
- * report, and this log saw it.
- */
-export function RatioedWitness({ piece }) {
-  // Memoised because the effects below key off it: a fresh [] every render
-  // would re-resolve every profile on every render, forever.
-  const rows = useMemo(() => piece?.witnessed || [], [piece?.witnessed]);
-  const lifespanMs = piece?.lifespanMs || 0;
-  const [profiles, setProfiles] = useState({});
-  const [head, setHead] = useState(Infinity); // ms after postedAt that has "happened"
-  const [playing, setPlaying] = useState(false);
-  const frame = useRef(0);
-
-  // The full span the log covers, which can run past the seal by whatever the
-  // studio was still watching when the gate went up.
-  const spanMs = useMemo(
-    () => rows.reduce((m, r) => Math.max(m, r.goneMs ?? r.offMs), lifespanMs) || 1,
-    [rows, lifespanMs],
-  );
-  // Real time up to a couple of minutes; past that, a fixed sweep. Same rule the
-  // replay above it plays by, and for the same reason: a piece that stood for
-  // seventeen seconds should take seventeen seconds to watch.
-  const rate = spanMs <= 120_000 ? 1 : spanMs / 8000;
-
-  useEffect(() => {
-    const dids = rows.map((r) => r.did).filter(Boolean);
-    if (!dids.length) return;
-    resolveProfiles(Array.from(new Set(dids))).then(setProfiles);
-  }, [rows]);
-
-  useEffect(() => {
-    if (!playing) return undefined;
-    let last = null;
-    const step = (t) => {
-      if (last == null) last = t;
-      const dt = t - last;
-      last = t;
-      setHead((h) => {
-        const next = h + dt * rate;
-        if (next >= spanMs) {
-          setPlaying(false);
-          return Infinity;
-        }
-        return next;
-      });
-      frame.current = requestAnimationFrame(step);
-    };
-    frame.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(frame.current);
-  }, [playing, rate, spanMs]);
-
-  const play = useCallback(() => {
-    setHead(0);
-    setPlaying(true);
-  }, []);
-
-  // Withdrawals only strike through once the playhead reaches them, so the
-  // moment somebody took their like back is a thing that happens rather than a
-  // thing that was always true.
-  const shown = useMemo(
-    () =>
-      rows
-        .filter((r) => r.offMs <= head)
-        .map((r) => (r.goneMs != null && r.goneMs > head ? { ...r, goneMs: undefined } : r)),
-    [rows, head],
-  );
-  const tally = useMemo(() => tallyWitness(shown, { selfDid: ME_DID }), [shown]);
-
-  if (!rows.length) return null;
-
-  return (
-    <div className="ratioed-live is-replay">
-      <div className="ratioed-live-controls">
-        <button type="button" className="ratioed-live-play" onClick={() => (playing ? setPlaying(false) : play())}>
-          {playing ? 'Pause' : 'Watch it run'}
-        </button>
-        <span className="ratioed-live-clock-value">
-          {head === Infinity ? fmtDuration(spanMs) : `+${fmtDuration(head)}`}
-        </span>
-        {head !== Infinity && !playing && (
-          <button type="button" className="ratioed-live-skip" onClick={() => setHead(Infinity)}>
-            show all of it
-          </button>
-        )}
-      </div>
-      <Counters tally={tally} />
-      {/* Quiet: the like that ended this one ended it a long time ago, and a
-          chip that throbs about it now would be theatre. */}
-      <Ticker rows={shown} profiles={profiles} quiet />
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 
@@ -369,7 +254,7 @@ function StreamState({ on, paused, stream, onToggle, onRestart }) {
   const label = !on
     ? 'from the record'
     : paused
-      ? 'paused — this tab is in the background'
+      ? 'paused, this tab is in the background'
       : state === 'spent'
         ? `stopped at ${mb} MB`
         : state === 'open'
@@ -389,90 +274,5 @@ function StreamState({ on, paused, stream, onToggle, onRestart }) {
         </button>
       )}
     </span>
-  );
-}
-
-/** The counts, with the like given the weight the project gives it. */
-function Counters({ tally }) {
-  const cells = [
-    ['replies', tally.replies],
-    ['reposts', tally.reposts],
-    ['quotes', tally.quotes],
-    ['likes', tally.likes],
-    ['people', tally.people],
-  ];
-  return (
-    <dl className="ratioed-live-counters">
-      {cells.map(([label, value]) => (
-        <div key={label} className={label === 'likes' && value > 0 ? 'is-fatal' : undefined}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-      {tally.withdrawn > 0 && (
-        <div className="is-gone">
-          <dt>taken back</dt>
-          <dd>{tally.withdrawn}</dd>
-        </div>
-      )}
-    </dl>
-  );
-}
-
-/** Newest first, the way a feed is read. `quiet` mutes a replayed alarm. */
-function Ticker({ rows, profiles, quiet = false }) {
-  const { openWaypoints } = useWaypointsModal();
-  if (!rows.length) {
-    return (
-      <p className="ratioed-live-empty">
-        Nothing has touched it yet. That is the piece working.
-      </p>
-    );
-  }
-  return (
-    <ul className="ratioed-live-ticker">
-      {[...rows].reverse().map((r) => {
-        const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
-        const avatar = profiles[r.did]?.avatar;
-        const mine = r.did === ME_DID;
-        return (
-          <li
-            key={r.rkey}
-            className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}${
-              mine ? ' is-self' : ''
-            }`}
-          >
-            <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
-            {avatar ? (
-              <img className="ratioed-live-face" src={avatar} alt="" loading="lazy" width="22" height="22" />
-            ) : (
-              <span className="ratioed-live-face is-blank" aria-hidden="true" />
-            )}
-            <span className="ratioed-live-who">
-              @{handle}
-              {mine && <span className="ratioed-live-self"> the artist</span>}
-            </span>
-            <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />
-            {r.goneMs != null && (
-              <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
-            )}
-            {r.t && <span className="ratioed-live-text">{r.t}</span>}
-            {/* Read it where you read things. The picker is the same one every
-                at:// link on this site goes through. */}
-            {r.goneMs == null && rowUri(r) && (
-              <button
-                type="button"
-                className="ratioed-live-open"
-                onClick={() => openWaypoints(rowUri(r))}
-                title={`Open @${handle}’s ${r.k} in another client`}
-                aria-label={`Open this ${r.k} in another client`}
-              >
-                <ArrowUpRight size={13} aria-hidden="true" />
-              </button>
-            )}
-          </li>
-        );
-      })}
-    </ul>
   );
 }
