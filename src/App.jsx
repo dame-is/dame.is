@@ -47,6 +47,7 @@ import { WaypointsModalProvider } from './hooks/useWaypointsModal.jsx';
 import { FeedFooterProvider } from './hooks/useFeedFooter.jsx';
 import { EditModeProvider } from './hooks/useEditMode.jsx';
 import { XrayProvider } from './hooks/useXray.jsx';
+import { AdminChromeProvider } from './hooks/useAdminChrome.jsx';
 import './components/Xray.css';
 
 /**
@@ -132,14 +133,32 @@ function SkipLink() {
 
 export default function App() {
   const location = useLocation();
-  // The admin is the one route that does not wear the site's chrome. It is a
-  // tool, not a page: it owns the whole viewport, draws its own top bar, and
-  // puts the controls the bottom bar would have offered (view the site, the
-  // hour chip) into that bar instead. Suppressing ChromeBar here rather than
-  // inside it keeps the public component free of admin branching, and it is
-  // what lets AdminShell take a fixed full-viewport frame — with no chrome to
-  // compete with, nothing is left to reserve space for or scroll under.
+  // The admin wears the site's chrome on a phone and its own on a desktop.
+  //
+  // On a desktop it is a tool, not a page: three panes want the whole viewport,
+  // and the breadcrumb has nowhere to live in the site's bars, so AdminShell
+  // draws its own top bar and ChromeBar stays out of the way.
+  //
+  // On a phone the calculation inverts. There is only one column either way, so
+  // the admin gains nothing by owning the frame — and it loses: its own bar and
+  // the browser's own toolbar stack up at the bottom of a ~660px viewport, and
+  // the site's hour, theme and home controls disappear exactly where they are
+  // most useful. So below the breakpoint the site's chrome comes back and the
+  // admin publishes its surface, its primary action and its state into the
+  // bottom bar through AdminChromeProvider.
+  // NOT YET SWITCHED ON. The seam is in place — AdminChromeProvider is mounted
+  // and `useStackedViewport` reports the breakpoint — but flipping this to
+  // `inAdmin && !stacked` before AdminShell stops drawing its own bars, and
+  // before adminShell.css stops taking the viewport with `position: fixed`,
+  // paints two chromes on top of each other. So for now the admin owns the
+  // chrome at every width, exactly as it did before, and the next change is:
+  //   1. AdminShell publishes surface/actions/state and drops its top bar and
+  //      action bar when stacked
+  //   2. the stacked frame sits between the site's bars instead of over them
+  //   3. ChromeBar's page cluster grows the nav + action buttons
+  //   4. this becomes `inAdmin && !stacked`
   const inAdmin = location.pathname === '/admin';
+  const adminOwnsChrome = inAdmin;
   return (
     <ThemeProvider>
       <FontProvider>
@@ -154,9 +173,10 @@ export default function App() {
       <EditModeProvider>
       <XrayProvider>
       <FeedFooterProvider>
-          <div className={`app-shell${inAdmin ? ' app-shell-admin' : ''}`}>
+      <AdminChromeProvider>
+          <div className={`app-shell${adminOwnsChrome ? ' app-shell-admin' : ''}`}>
             <SkipLink />
-            {!inAdmin && <ChromeBar />}
+            {!adminOwnsChrome && <ChromeBar />}
             <main id="main-content" tabIndex={-1} className="layout">
               <div className="main">
                 <ErrorBoundary resetKey={location.pathname}>
@@ -240,6 +260,7 @@ export default function App() {
             <AutoUpdater />
             <Analytics />
           </div>
+      </AdminChromeProvider>
       </FeedFooterProvider>
       </XrayProvider>
       </EditModeProvider>

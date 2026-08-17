@@ -22,7 +22,20 @@ const ChromePanelContext = createContext(null);
 // reason about the full set without magic strings scattered around. `debug`
 // (the atmosphere readout) is a panel too now, opened from the inspect HUD's
 // "details" affordance rather than living as a sub-view of the nav dock.
-export const CHROME_PANELS = ['search', 'filter', 'info', 'guestbook', 'debug', 'sky'];
+// `admin-nav` and `admin-actions` are the two the admin adds below the stacked
+// breakpoint: the surface directory, and the state + secondary actions for the
+// open surface. They coordinate with the rest for free — one panel at a time,
+// and opening either folds the nav dock away.
+export const CHROME_PANELS = [
+  'search',
+  'filter',
+  'info',
+  'guestbook',
+  'debug',
+  'sky',
+  'admin-nav',
+  'admin-actions',
+];
 
 export function ChromePanelProvider({ children }) {
   const { open: dockOpen, closeDock } = useActionDock();
