@@ -307,6 +307,12 @@
 @container wbpane (max-width: 34rem) {
   .rs-live-head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
   .rs-series-list li { flex-direction: column; gap: 0; }
+  /* 24px of inset on each side of a 358px pane is 13% of the panel spent on
+     margin, and the feed row inside it is the widest thing in the studio — the
+     row that has to hold a time, a handle, a chip and three buttons. The border
+     still says where the panel is at 12px. */
+  .rs-live,
+  .rs-announce { padding: var(--space-3); }
 }
 
 /* --- the live feed -------------------------------------------------- */
@@ -408,6 +414,21 @@
 .rs-act:hover:not(:disabled) { color: var(--ink); border-color: var(--rule); }
 .rs-act:disabled { opacity: 0.4; cursor: default; }
 .rs-act.on { color: var(--ratioed-seal, #8c3a2e); border-color: var(--rule); }
+
+/* 26px is a mouse target. On a phone these three sit at the end of a feed row
+   that is already wrapping, so they land as their own strip at the row's end —
+   which is a fine place for them and a bad size, at 26px against the 44px floor
+   the rest of the admin holds (see the collected touch block in Admin.css). The
+   glyph inside stays 13px; only the box grows. Same `(pointer: coarse)` query
+   `.rs-actions` above already uses, so the studio has one touch rule and not
+   two disagreeing ones. */
+@media (pointer: coarse) {
+  .rs-act {
+    width: var(--wb-hit, 2.75rem);
+    height: var(--wb-hit, 2.75rem);
+  }
+  .rs-feed-acts { gap: 0; }
+}
 
 .rs-reply-box { flex: 1 0 100%; padding: var(--space-2) 0 var(--space-3); }
 .rs-reply-box .admin-input { width: 100%; font-size: var(--text-sm); }
