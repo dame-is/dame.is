@@ -68,6 +68,7 @@ import {
 } from '../lib/ratioed.js';
 import { measureWindows, buildEventLog, UNRESOLVED_HANDLE } from '../lib/ratioedDiscovery.js';
 import { pieceGaps, repairPiece } from '../lib/ratioedRepair.js';
+import { COPY_FIELDS, DEFAULT_COPY, mergeCopy } from '../lib/ratioedCopy.js';
 import { pieceReach, fmtReach } from '../lib/ratioedReach.js';
 import {
   witnessRow,
@@ -107,6 +108,7 @@ import './RatioedStudio.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
 const TEMPLATE_NSID = COLLECTIONS.ratioedTemplate;
+const COPY_NSID = COLLECTIONS.ratioedCopy;
 const POST = 'app.bsky.feed.post';
 const GATE = 'app.bsky.feed.threadgate';
 const LIKE = 'app.bsky.feed.like';
@@ -197,6 +199,9 @@ export default function RatioedStudio({ agent, did }) {
   // DEFAULT_TEMPLATE when no record exists yet.
   const [template, setTemplate] = useState(undefined);
   const [tplDraft, setTplDraft] = useState(null); // non-null while editing
+  // The piece page's own prose. `null` until read; a draft while being edited.
+  const [copy, setCopy] = useState(null);
+  const [copyDraft, setCopyDraft] = useState(null);
 
   // What the stream has seen on the live piece, earliest first. Separate from
   // the measurement — this is a witness, not an index — and its value is that
@@ -287,6 +292,17 @@ export default function RatioedStudio({ agent, did }) {
     loadTemplate(agent, did).then((text) => {
       if (alive) setTemplate(text);
     });
+    // The page's prose, read through the same agent rather than the public
+    // snapshot: this studio edits it, so it wants what is on the PDS now.
+    agent.com.atproto.repo
+      .getRecord({ repo: did, collection: COPY_NSID, rkey: 'self' })
+      .then((res) => {
+        if (alive) setCopy(mergeCopy(res?.data?.value));
+      })
+      // No record yet is the ordinary state, and the defaults are the answer.
+      .catch(() => {
+        if (alive) setCopy(mergeCopy(null));
+      });
     return () => {
       alive = false;
     };
@@ -903,6 +919,40 @@ export default function RatioedStudio({ agent, did }) {
     setError(null);
     try {
       await measureAndFinish(announce.piece, announce.piece.sealedAt);
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /**
+   * Save the page's words.
+   *
+   * A field left at its default is written as an empty string rather than as
+   * the default's text: the record then says "the site's own sentence" rather
+   * than freezing a copy of it, and rewording the built-in later reaches every
+   * page that never overrode it. Nothing here is validated against anything —
+   * it is prose, and the only thing it can break is a sentence.
+   */
+  async function saveCopy() {
+    setBusy('copy');
+    setError(null);
+    try {
+      const record = { $type: COPY_NSID, updatedAt: new Date().toISOString() };
+      for (const { key } of COPY_FIELDS) {
+        const written = (copyDraft?.[key] ?? '').trim();
+        if (written && written !== DEFAULT_COPY[key]) record[key] = written;
+      }
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: COPY_NSID,
+        rkey: 'self',
+        record,
+      });
+      setCopy(mergeCopy(record));
+      setCopyDraft(null);
+      setNote('Saved. The piece pages read it on their next load.');
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -1600,6 +1650,83 @@ export default function RatioedStudio({ agent, did }) {
           )}
         </section>
       )}
+
+      {/* The words on the piece pages, which are the artist's rather than the
+          build's — the same argument the template makes, and the same shape:
+          a record, edited here, read by the page with the built-in sentence
+          behind every field.
+          Not gated on there being no live piece, unlike the template beside it:
+          composing a post while one is up is meaningless, but rewording the
+          page a piece is being READ on while it runs is the likeliest moment
+          anybody would want to. */}
+      <section className="rs-copy">
+        <h2 className="rs-h2">The page&rsquo;s words</h2>
+        {copyDraft === null ? (
+          <>
+            <p className="admin-field-hint">
+              The captions on a piece&rsquo;s own page, stored at <code>{COPY_NSID}/self</code>{' '}
+              so they can be rewritten without a deploy. The figures are not here: they are
+              measured, and a caption is not.
+            </p>
+            <div className="rs-actions">
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={() => setCopyDraft({ ...(copy || DEFAULT_COPY) })}
+                disabled={copy === null}
+              >
+                {copy === null ? 'Reading…' : 'Edit the words'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="admin-field-hint">
+              Every field falls back to the site&rsquo;s own sentence, so clearing one restores it
+              rather than emptying it.
+            </p>
+            {COPY_FIELDS.map((f) => (
+              <label className="rs-copy-field" key={f.key}>
+                <span className="rs-copy-label">{f.label}</span>
+                <span className="admin-field-hint">{f.hint}</span>
+                <textarea
+                  className="admin-input"
+                  rows={2}
+                  value={copyDraft[f.key] ?? ''}
+                  placeholder={DEFAULT_COPY[f.key]}
+                  onChange={(e) =>
+                    setCopyDraft((d) => ({ ...d, [f.key]: e.target.value }))
+                  }
+                />
+              </label>
+            ))}
+            <div className="rs-actions">
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={saveCopy}
+                disabled={!!busy}
+              >
+                {busy === 'copy' ? 'Saving…' : 'Save the words'}
+              </button>
+              <button
+                type="button"
+                className="admin-link-subtle"
+                onClick={() => setCopyDraft(null)}
+              >
+                cancel
+              </button>
+              <button
+                type="button"
+                className="admin-link-subtle"
+                onClick={() => setCopyDraft({ ...DEFAULT_COPY })}
+              >
+                restore the built-ins
+              </button>
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="rs-series">
         <h2 className="rs-h2">The series</h2>

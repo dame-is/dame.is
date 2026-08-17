@@ -331,6 +331,32 @@ export const LEXICONS = {
     ],
   },
 
+  [COLLECTIONS.ratioedCopy]: {
+    label: 'Ratioed page words',
+    summary:
+      'The captions on a Ratioed piece’s page, kept as a record so they can be rewritten without a deploy. A singleton at "self", and every field is optional: an empty one is the site’s own sentence, not an empty caption. Edited in the Ratioed studio, which shows each field with what it is for; this generic editor is the way in if the studio is not.',
+    rkeyMode: 'fixed',
+    rkeyPlaceholder: 'self',
+    rkeyDefault: 'self',
+    typeFieldValue: COLLECTIONS.ratioedCopy,
+    fields: [
+      { key: 'liveLede', label: 'Live: opening', type: 'textarea', hint: '{take} becomes the take number.' },
+      { key: 'liveNote', label: 'Live: under the dashboard', type: 'textarea' },
+      { key: 'deckAlive', label: 'Deck: nobody has liked it', type: 'textarea' },
+      { key: 'deckLiked', label: 'Deck: it has been liked', type: 'textarea' },
+      { key: 'deckWithdrawn', label: 'Deck: the like was taken back', type: 'textarea' },
+      { key: 'deckStream', label: 'Deck: reading the firehose', type: 'textarea', hint: '{budget} becomes the MB cap.' },
+      { key: 'deckRecord', label: 'Deck: reading the record', type: 'textarea' },
+      { key: 'replay', label: 'Sealed: replay', type: 'textarea' },
+      { key: 'witnessed', label: 'Sealed: the dashboard as it ran', type: 'textarea' },
+      { key: 'roster', label: 'Sealed: who was there', type: 'textarea' },
+      { key: 'hidden', label: 'Sealed: hidden replies', type: 'textarea' },
+      { key: 'log', label: 'Sealed: the log', type: 'textarea' },
+      { key: 'reach', label: 'Sealed: reach', type: 'textarea' },
+      { key: 'updatedAt', label: 'Updated at', type: 'datetime', default: 'now' },
+    ],
+  },
+
   [COLLECTIONS.ratioedPiece]: {
     label: 'Ratioed pieces',
     summary:

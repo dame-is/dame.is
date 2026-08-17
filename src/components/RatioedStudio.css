@@ -555,3 +555,28 @@
 @container wbpane (max-width: 34rem) {
   .rs-series-acts { margin-left: 0; width: 100%; }
 }
+
+/* --- the page's words ------------------------------------------------ */
+
+/* Thirteen captions, each with what it is for above it. A stack of labelled
+   fields rather than a grid: they are sentences of different lengths and one
+   column keeps them readable at any pane width. */
+.rs-copy { margin-top: var(--space-6); }
+.rs-copy-field {
+  display: block;
+  margin-top: var(--space-4);
+}
+.rs-copy-label {
+  display: block;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  color: var(--ink-soft);
+}
+.rs-copy-field .admin-field-hint { margin: 2px 0 var(--space-1); }
+.rs-copy-field .admin-input {
+  width: 100%;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}

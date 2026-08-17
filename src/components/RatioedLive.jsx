@@ -41,6 +41,7 @@ import {
   withdrawnOnly,
 } from '../lib/ratioedLive.js';
 import { fmtDuration } from '../lib/ratioed.js';
+import { DEFAULT_COPY, fillCopy } from '../lib/ratioedCopy.js';
 import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
@@ -88,7 +89,7 @@ function firehoseIsPolite() {
  * the ticker, so somebody arriving forty seconds in sees the forty seconds they
  * missed rather than an empty panel.
  */
-export default function RatioedLive({ piece, record = null }) {
+export default function RatioedLive({ piece, record = null, copy = DEFAULT_COPY }) {
   const postedMs = Date.parse(piece?.postedAt || '');
   const [rows, setRows] = useState(() => piece?.witnessed || []);
   const [profiles, setProfiles] = useState({});
@@ -201,22 +202,10 @@ export default function RatioedLive({ piece, record = null }) {
         </div>
       )}
 
+      {/* Three sentences, one per state, and all three are the artist's rather
+          than the build's — see lib/ratioedCopy.js. */}
       <p className="ratioed-live-say" aria-live="polite">
-        {breaking ? (
-          <>
-            It has been liked, so it is over. The clock above runs until the artist closes replies
-            by hand; where it stops is the measurement.
-          </>
-        ) : takenBack ? (
-          <>
-            Somebody liked it and <strong>took it back</strong>. Nothing stands against it now.
-          </>
-        ) : (
-          <>
-            Nobody has liked it. The goal is zero likes, so everything below is the piece
-            succeeding.
-          </>
-        )}
+        {breaking ? copy.deckLiked : takenBack ? copy.deckWithdrawn : copy.deckAlive}
       </p>
 
       <Counters tally={tally} />
@@ -229,15 +218,9 @@ export default function RatioedLive({ piece, record = null }) {
             about this post.{' '}
           </>
         )}
-        {streamOn ? (
-          <>
-            Your browser is testing every record on the network against this post, about
-            166&nbsp;KB/s. It pauses in a background tab and stops at{' '}
-            {BUDGET_BYTES / 1024 / 1024}&nbsp;MB.
-          </>
-        ) : (
-          <>Reading the piece&rsquo;s own record, a few seconds behind.</>
-        )}{' '}
+        {streamOn
+          ? fillCopy(copy.deckStream, { budget: BUDGET_BYTES / 1024 / 1024 })
+          : copy.deckRecord}{' '}
         This is a witness. The figures after the seal are read from a backlink index and will not
         match.
       </p>

@@ -53,6 +53,7 @@ import {
   fmtRatio,
 } from '../lib/ratioedReach.js';
 import { aturiUniversalUrl, getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
+import { DEFAULT_COPY, loadCopy, fillCopy } from '../lib/ratioedCopy.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { ME_DID, ME_HANDLE, RATIOED_DOC_RKEY, COLLECTIONS } from '../config.js';
@@ -90,6 +91,9 @@ export default function RatioedPiece() {
   const [audience, setAudience] = useState(null);
   const [delta, setDelta] = useState(null);
   const [profiles, setProfiles] = useState({});
+  // The page's own words. Defaults until the record answers, so nothing here
+  // ever renders blank or waits on a fetch to say anything.
+  const [copy, setCopy] = useState(DEFAULT_COPY);
   // The seed is bundled, so there is always something to render; `settled`
   // only says whether the PDS has had its say. It gates the not-found screen,
   // which must never fire on a piece the seed simply predates.
@@ -115,9 +119,13 @@ export default function RatioedPiece() {
       // Then the PDS, which is the only place a piece published since that
       // build exists. Worth waiting for; not worth waiting for forever.
       const pds = await deadline(resolvePds(ME_DID).catch(() => null));
-      const fresh = pds ? await deadline(loadPieces(pds).catch(() => null)) : null;
+      const [fresh, words] = await Promise.all([
+        pds ? deadline(loadPieces(pds).catch(() => null)) : null,
+        deadline(loadCopy(pds).catch(() => null)),
+      ]);
       if (!alive) return;
       if (fresh?.length) setPieces(fresh);
+      if (words) setCopy(words);
       setSettled(true);
     })();
     return () => {
@@ -339,19 +347,12 @@ export default function RatioedPiece() {
           {piece.lede ? (
             <p className="ratioed-piece-lede">{piece.lede}</p>
           ) : (
-            <p className="ratioed-piece-lede">
-              Take {take} is <strong>up right now</strong>. The goal is zero likes: the first one
-              ends it, and the seconds between that like and the artist closing replies are the
-              measurement.
-            </p>
+            <p className="ratioed-piece-lede">{fillCopy(copy.liveLede, { take })}</p>
           )}
 
-          <RatioedLive piece={piece} record={longestPiece(pieces)} />
+          <RatioedLive piece={piece} record={longestPiece(pieces)} copy={copy} />
 
-          <p className="ratioed-piece-note">
-            No need to reload. This page reads the piece&rsquo;s record and changes when it is
-            sealed.
-          </p>
+          <p className="ratioed-piece-note">{copy.liveNote}</p>
 
           <section className="ratioed-piece-section">
             <h2>Provenance</h2>
@@ -483,9 +484,7 @@ export default function RatioedPiece() {
 
         <section className="ratioed-piece-section">
           <h2>Replay</h2>
-          <p className="ratioed-piece-note">
-            The rule is the threadgate. Everything past it landed on a finished post.
-          </p>
+          <p className="ratioed-piece-note">{copy.replay}</p>
           <PieceReplay piece={piece} events={events} profiles={profiles} />
         </section>
 
@@ -504,8 +503,7 @@ export default function RatioedPiece() {
                 </span>
               </summary>
               <p className="ratioed-piece-note">
-                Written as it happened rather than measured afterwards, so it is the only place a
-                deleted record still appears.
+                {copy.witnessed}
                 {piece.witnessFromMs > 1000 && (
                   <> Watching began {fmtDuration(piece.witnessFromMs)} in.</>
                 )}
@@ -518,7 +516,7 @@ export default function RatioedPiece() {
         <section className="ratioed-piece-section">
           <h2>Who was there</h2>
           <p className="ratioed-piece-note">
-            In the order they arrived. Portraits are current; the counts under them are not.
+            {copy.roster}
             {b.likeSurvives === false && (
               <> @{b.currentHandle || b.handle} is here without a like to show for it.</>
             )}
@@ -553,6 +551,7 @@ export default function RatioedPiece() {
             reach={reach}
             audienceAt={piece.audienceAt || audience?.measuredAt || ''}
             piece={piece}
+            copy={copy}
           />
         )}
 
@@ -566,9 +565,7 @@ export default function RatioedPiece() {
                 <span>Replies hidden by the threadgate</span>
                 <span className="ratioed-piece-witness-count">{hidden.length}</span>
               </summary>
-            <p className="ratioed-piece-note">
-              A threadgate hides replies at the appview. It does not stop the records being made.
-            </p>
+            <p className="ratioed-piece-note">{copy.hidden}</p>
             <ul className="ratioed-piece-hidden">
               {hidden.map((e, i) => (
                 <li key={`${e.did || e.h}-${e.off}-${i}`}>
@@ -596,8 +593,7 @@ export default function RatioedPiece() {
             {/* The one place on the page that argues for the whole method, so
                 it argues with the count rather than with an adjective. */}
             <p className="ratioed-piece-note">
-              Every record pointing at this piece, timed from the moment it went up, as counted at
-              measurement time.
+              {copy.log}
               {withdrawn.length > 0 &&
                 ' The struck-through rows are from the log the studio kept: those records were deleted, so no index holds them.'}
               {deletedLikes > 0 &&
@@ -805,7 +801,7 @@ const REACH_ROWS = 12;
  * with the audience they brought and what it was multiplied by, and the total
  * is the sum of that column.
  */
-function ReachSection({ reach, audienceAt, piece }) {
+function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
   const fresh = audienceIsFresh(audienceAt, piece?.sealedAt || piece?.postedAt);
   const { alive, after } = reach;
 
@@ -917,8 +913,7 @@ function ReachSection({ reach, audienceAt, piece }) {
       )}
 
       <p className="ratioed-piece-note">
-        Followers of everyone who touched it, weighted by what they did: a repost or quote counts
-        as a whole following, a reply a tenth, a like a fiftieth.
+        {copy.reach}
         {unknown > 0 && (
           <>
             {' '}

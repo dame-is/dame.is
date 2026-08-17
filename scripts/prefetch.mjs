@@ -514,6 +514,17 @@ async function main() {
   await writeJson('ratioed', ratioedPieces);
   await writeRatioedRoster(ratioedPieces);
 
+  // The prose on a piece's page, edited in the studio and read here so the page
+  // paints the artist's wording rather than the build's built-ins and then
+  // swapping. Absent is the ordinary state until something is rewritten, and it
+  // costs nothing: every field falls back to the sentence the site ships with.
+  const ratioedCopy = await safe(
+    'getRecord:ratioedCopy',
+    () => getRecord(pds, { repo: ME_DID, collection: COLLECTIONS.ratioedCopy, rkey: 'self' }),
+    null,
+  );
+  await writeJson('ratioedCopy', ratioedCopy || { value: {} });
+
   // --- Resume (is.dame.resume + backlinked jobs + education) ----------------
   // One combined snapshot so /resume paints instantly; the page re-fetches
   // all three collections live and resolves the backlinks in the browser.
