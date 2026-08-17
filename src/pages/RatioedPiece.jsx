@@ -165,24 +165,37 @@ export default function RatioedPiece() {
   // COUNTS are a measurement and must not drift, but a portrait is only ever a
   // portrait — showing today's is right, and showing a year-old cached one
   // would be worse.
-  // The breaker's DID rides along. On a piece whose breaking like was deleted
-  // they are in no log and no index, so resolving only the log's DIDs left the
-  // one person the piece is *about* as an empty frame beside twelve portraits.
+  // The breaker rides along, by DID if the record has one and by handle if it
+  // doesn't. On a piece whose breaking like was deleted they are in no log and
+  // no index, so resolving only the log's DIDs left the one person the piece is
+  // *about* as a blank frame beside twelve portraits — and the records that
+  // predate DIDs being stored carry a handle alone, which `getProfiles` will
+  // take as an actor just as happily.
   const breakerDid = piece?.breaker?.did || null;
+  const breakerHandle = piece?.breaker?.currentHandle || piece?.breaker?.handle || '';
   useEffect(() => {
     let alive = true;
-    const dids = [
+    const named = breakerHandle && breakerHandle !== 'unknown' ? breakerHandle : '';
+    const actors = [
       ...(events || []).filter((e) => e.did && !e.self).map((e) => e.did),
-      ...(breakerDid ? [breakerDid] : []),
+      ...(breakerDid ? [breakerDid] : named ? [named] : []),
     ];
-    if (!dids.length) return undefined;
-    resolveProfiles(dids).then((p) => {
-      if (alive) setProfiles(p);
+    if (!actors.length) return undefined;
+    resolveProfiles(actors).then((p) => {
+      if (!alive) return;
+      // Keyed by handle as well as by DID. The faces grid looks a person up by
+      // whichever identifier it holds, and for a breaker named by hand that is
+      // sometimes only the name.
+      const byHandle = {};
+      for (const profile of Object.values(p)) {
+        if (profile.handle) byHandle[profile.handle] = profile;
+      }
+      setProfiles({ ...byHandle, ...p });
     });
     return () => {
       alive = false;
     };
-  }, [events, breakerDid]);
+  }, [events, breakerDid, breakerHandle]);
 
   // Is this piece still up? A record written the moment the post goes up and
   // sealed later, so `sealedAt` is the whole test — and while it's absent this

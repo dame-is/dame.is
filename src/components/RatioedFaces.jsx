@@ -74,19 +74,26 @@ export default function RatioedFaces({ piece, events, profiles = {} }) {
       if (names.has(p.did) || names.has(p.handle)) p.broke = true;
     }
     // A breaker whose like was deleted left nothing to fold, so they aren't in
-    // the log at all. Add them from the announcement — the only record of it.
+    // the log at all. Add them from whatever named them: the reply that
+    // concluded the piece, the log the studio kept, or the artist by hand.
     if (breaker.handle && breaker.handle !== 'unknown' && !folded.some((p) => p.broke)) {
+      // When the reaction time is known the moment they liked it is known too,
+      // so they take their place in the order of arrival like everybody else.
+      // Only a breaker nothing timed sits at the seal with no arrival at all.
+      const timed = typeof breaker.reactionMs === 'number';
       folded.push({
         key: breaker.did || `handle:${breaker.handle}`,
         did: breaker.did || null,
         handle: breaker.currentHandle || breaker.handle,
-        off: lifeSec,
+        off: timed ? Math.max(0, lifeSec - breaker.reactionMs / 1000) : lifeSec,
         pre: true,
         count: 0,
         kinds: {},
         broke: true,
         named: true,
+        timed,
       });
+      folded.sort((a, b) => a.off - b.off);
     }
     return folded;
   }, [events, piece, lifeSec]);
@@ -127,7 +134,15 @@ function Group({ title, people, profiles, lifeSec, muted }) {
       <h3 className="small-caps">{title}</h3>
       <ul className="ratioed-faces-grid">
         {people.map((p) => (
-          <Face key={p.key} person={p} profile={profiles[p.did]} lifeSec={lifeSec} />
+          <Face
+            key={p.key}
+            person={p}
+            /* By DID, or by handle for the one person who may have neither a
+               row in the log nor a DID on the record: a breaker whose like was
+               deleted and who was named rather than measured. */
+            profile={profiles[p.did] || profiles[p.handle]}
+            lifeSec={lifeSec}
+          />
         ))}
       </ul>
     </div>
@@ -140,11 +155,12 @@ function Face({ person, profile, lifeSec }) {
   // than prettified — it says exactly what is and isn't known.
   const gone = !profile && (!handle || handle === '(unresolvable)');
   const name = profile?.displayName || (gone ? 'deactivated' : handle);
-  const when = person.named
-    ? 'named in the concluding reply'
-    : person.pre
-      ? `at +${fmtDuration(person.off * 1000)}`
-      : `+${fmtElapsed(person.off - lifeSec)} after the seal`;
+  const when =
+    person.named && !person.timed
+      ? 'named in the concluding reply'
+      : person.pre
+        ? `at +${fmtDuration(person.off * 1000)}`
+        : `+${fmtElapsed(person.off - lifeSec)} after the seal`;
 
   const body = (
     <>
