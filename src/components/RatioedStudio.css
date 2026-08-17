@@ -530,6 +530,11 @@
   white-space: nowrap;
 }
 
+/* The one gap a repair cannot close. Marked rather than shouted: a piece whose
+   breaker nothing witnessed and no reply named needs a person to say who it
+   was, and until somebody does, the record is honestly incomplete. */
+.rs-series-wanted { color: var(--ratioed-quote, #8a6f24); }
+
 /* The one form in this studio that writes something nobody measured: the
    breaker's name. Full width under the row it belongs to, so it reads as an
    edit to that piece rather than as a search box. */

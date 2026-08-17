@@ -42,7 +42,7 @@ import {
   ArrowUpRight,
   FileText,
   Radio,
-  History,
+  Wrench,
   Heart,
   HeartOff,
   MessageSquareReply,
@@ -67,6 +67,7 @@ import {
   fmtSeconds,
 } from '../lib/ratioed.js';
 import { measureWindows, buildEventLog, UNRESOLVED_HANDLE } from '../lib/ratioedDiscovery.js';
+import { pieceGaps, repairPiece } from '../lib/ratioedRepair.js';
 import { pieceReach, fmtReach } from '../lib/ratioedReach.js';
 import {
   witnessRow,
@@ -77,7 +78,6 @@ import {
   withdrawWitness,
   witnessChanged,
   breakingWitness,
-  withdrawnWitness,
   withdrawnOnly,
   resolveBreaker,
 } from '../lib/ratioedLive.js';
@@ -90,7 +90,7 @@ import {
   previousPiece,
   announcementDraft,
 } from '../lib/ratioedStudio.js';
-import { watchSubject, replayWindow, withinLookback } from '../lib/jetstream.js';
+import { watchSubject } from '../lib/jetstream.js';
 import {
   resolvePds,
   getRecord,
@@ -136,10 +136,6 @@ const WITNESS_SAVE_MS = 2500;
 // that timer. A busy piece must still reach the record.
 const WITNESS_SAVE_MAX_MS = 12_000;
 
-// How far past the seal a recovery replay looks. The breaking like lands before
-// the seal by definition; this is slack for clock skew and for the block
-// boundary the cursor lands on.
-const RECOVER_TAIL_MS = 60_000;
 
 // How long a live read gets before this panel calls what it has final.
 const PDS_DEADLINE_MS = 6000;
@@ -953,137 +949,39 @@ export default function RatioedStudio({ agent, did }) {
   }
 
   /**
-   * Recover a breaking like that was deleted.
+   * Repair one piece: fill in whatever it is missing, break nothing.
    *
-   * The backlink index only knows what still exists, so a like withdrawn before
-   * anything read it took its reaction time with it — six of the first thirteen
-   * pieces lost theirs that way. Two things can still answer for it, and the
-   * cheap one is tried first:
+   * This replaced four buttons — recover the reaction, put names back, backfill
+   * audiences, read the afterlife — each of which knew a different amount about
+   * what was safe to touch, and between them made the artist diagnose a record
+   * before fixing it. What is missing is something the record can be asked (see
+   * lib/ratioedRepair.js), so it is asked, and the answer decides what is
+   * written.
    *
-   *   **The piece's own log.** A piece run through the studio with the stream
-   *   open watched the like land and watched it go, and both are on the record
-   *   in `witnessed`. No network, no window, and it works on a piece whose
-   *   breaker was recorded as "unknown" — which is precisely the piece that
-   *   needs it, since a name is what the replay below has to be filtered by.
-   *
-   *   **Jetstream's lookback**, for a piece nothing was watching. It holds 36
-   *   hours, deletion and all, and the reply concluding the piece names who cast
-   *   it, so the replay can be filtered to that one account: 0.1 MB instead of
-   *   300.
-   *
-   * The like stays deleted either way. What comes back is when it landed.
+   * It cannot damage a measurement. Every step either fills a gap or replaces
+   * the window the lexicon defines as re-readable — everything after the seal.
+   * The alive figures, the reaction time and the witnessed log are never
+   * re-derived, because a like cast and deleted while a piece was up is gone
+   * from every index and a second reading of that window is always the smaller
+   * one.
    */
-  async function recover(piece) {
-    const b = piece.breaker || {};
-    const handle = b.currentHandle || b.handle;
-    if (!piece.sealedAt) return;
-    const sealedAtMs = Date.parse(piece.sealedAt);
-    const postedAtMs = Date.parse(piece.postedAt);
-
-    // From the log, if the log has it.
-    const logged = resolveBreaker({
-      indexLike: null,
-      rows: witnessFromRecord(piece.witnessed) || [],
-      postedMs: postedAtMs,
-      sealedMs: sealedAtMs,
-    });
-    if (logged && !logged.likeSurvives) {
-      setBusy(`recover:${piece.rkey}`);
-      setError(null);
-      try {
-        const named = logged.handle || (handle !== 'unknown' ? handle : '') || 'somebody';
-        await agent.com.atproto.repo.putRecord({
-          repo: did,
-          collection: NSID,
-          rkey: piece.rkey,
-          record: {
-            ...(await readPiece(piece.rkey)),
-            breaker: {
-              ...b,
-              handle: logged.handle || b.handle,
-              ...(logged.did ? { did: logged.did } : {}),
-              likeSurvives: false,
-              reactionMs: sealedAtMs - logged.at,
-              reactionRecovered: true,
-            },
-          },
-        });
-        setNote(
-          `Recovered take ${pieceSlug(piece)} from the log the stream kept: @${named} liked it ` +
-            `${fmtSeconds(sealedAtMs - logged.at)} before the seal, and took it back.`,
-        );
-        await refresh();
-      } catch (err) {
-        setError(err?.message || String(err));
-      } finally {
-        setBusy(null);
-      }
-      return;
-    }
-
-    // Nothing watched this one. Replay, which needs a name to filter by.
-    if (!handle || handle === 'unknown') {
-      setError(
-        `Take ${pieceSlug(piece)} has no witnessed log and no named breaker, so there is nothing ` +
-          'to replay against — the replay reads one account’s records, not the whole firehose.',
-      );
-      return;
-    }
-    setBusy(`recover:${piece.rkey}`);
+  async function repair(piece) {
+    setBusy(`repair:${piece.rkey}`);
     setError(null);
     try {
-      // Filtering the replay by the breaker turns 300 MB into 0.1 MB, so the
-      // DID is worth resolving when the record only kept a handle.
-      let breakerDid = b.did;
-      if (!breakerDid) {
-        breakerDid = await resolveHandle(handle).catch(() => null);
-        if (!breakerDid) {
-          throw new Error(`couldn't resolve @${handle} to a DID to filter the replay by`);
-        }
-      }
-      const sealedMs = Date.parse(piece.sealedAt);
-      setNote(`Replaying ${handle}'s likes around take ${pieceSlug(piece)}…`);
-      const res = await replayWindow(subjectOf(piece), {
-        fromMs: Date.parse(piece.postedAt),
-        toMs: sealedMs + RECOVER_TAIL_MS,
-        dids: [breakerDid],
-        onProgress: ({ at }) => setNote(`Replaying… reached ${new Date(at).toISOString().slice(11, 19)}`),
-      });
-      // The earliest like that landed before the gate is the one that closed it.
-      const like = res.events
-        .filter((e) => e.op === 'create' && e.kind === 'like')
-        .map((e) => ({ ...e, at: Date.parse(tidToTimestamp(e.rkey) || e.time) }))
-        .filter((e) => Number.isFinite(e.at) && e.at < sealedMs)
-        .sort((a, c) => a.at - c.at)[0];
-
-      if (!like) {
-        setNote(
-          res.reachedEnd
-            ? `Nothing found. @${handle} cast no like on take ${pieceSlug(piece)} inside the replay.`
-            : `The replay stopped early (${res.error}). Nothing recovered.`,
-        );
-        return;
-      }
-      const withdrawn = res.events.some((e) => e.op === 'delete' && e.rkey === like.rkey);
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
+      const value = await readPiece(piece.rkey);
+      const { changes, written } = await repairPiece({
+        agent,
+        did,
         collection: NSID,
         rkey: piece.rkey,
-        record: {
-          ...(await readPiece(piece.rkey)),
-          breaker: {
-            ...b,
-            did: breakerDid,
-            // The like is still gone. Only its timing came back.
-            likeSurvives: false,
-            reactionMs: sealedMs - like.at,
-            reactionRecovered: true,
-          },
-        },
+        value,
+        onProgress: (m) => setNote(`Take ${pieceSlug(piece)}: ${m}…`),
       });
       setNote(
-        `Recovered take ${pieceSlug(piece)}: @${handle} liked it ${fmtSeconds(sealedMs - like.at)} before the seal` +
-          `${withdrawn ? ', and the replay caught them deleting it' : ''}.`,
+        written
+          ? `Take ${pieceSlug(piece)}: ${changes.join(', ')}.`
+          : `Take ${pieceSlug(piece)} has nothing missing.`,
       );
       await refresh();
     } catch (err) {
@@ -1092,6 +990,7 @@ export default function RatioedStudio({ agent, did }) {
       setBusy(null);
     }
   }
+
 
   /** The record as it stands, so a recovery patches rather than rewrites. */
   async function readPiece(rkey) {
@@ -1156,78 +1055,6 @@ export default function RatioedStudio({ agent, did }) {
     }
   }
 
-  /**
-   * Read a sealed piece's afterlife again.
-   *
-   * The studio measures the moment it seals, so a piece is written with an
-   * empty afterlife and an event log that stops at the threadgate — and the
-   * replay, the log and the roster have nothing to draw on that side of the
-   * rule no matter how much the post collects afterwards.
-   *
-   * The alive window is not re-read. That is the rule this whole project rests
-   * on: a like cast and deleted while the piece was up is gone from every
-   * index, so the figures taken at the seal are the only evidence it existed,
-   * and re-deriving them would quietly replace a measurement with a smaller
-   * one. Rows recorded as `pre` are kept exactly as they are; only the rows
-   * after the seal, the postSeal counts and `measuredAt` are replaced.
-   *
-   * `audienceAt` is left alone when the record already carries one: the new
-   * rows bring their own follower counts, read now, but the headline reach
-   * figure is the alive window's and that stamp still describes it.
-   */
-  async function readAfterlife(piece) {
-    if (!piece.sealedAt) return;
-    setBusy(`after:${piece.rkey}`);
-    setError(null);
-    try {
-      const sealedMs = Date.parse(piece.sealedAt);
-      const postedMs = Date.parse(piece.postedAt);
-      const records = await fetchPieceRecords(subjectOf(piece));
-      const windows = measureWindows(records, sealedMs, did);
-      const held = await readPiece(piece.rkey);
-      const kept = (held.events || []).filter((e) => e.pre);
-      const profilesNow = await resolveProfiles(records.map((r) => r.did));
-      const fresh = buildEventLog(records, {
-        postedAtMs: postedMs,
-        sealedAtMs: sealedMs,
-        selfDid: did,
-        profiles: profilesNow,
-        handles: namedHandles([
-          ...(held.events || []).map((e) => [e.did, e.h === UNRESOLVED_HANDLE ? '' : e.h]),
-          ...(held.witnessed || []).map((w) => [w.did, w.h]),
-        ]),
-      });
-      const after = fresh.filter((e) => !e.pre);
-      const events = [...kept, ...after].sort((a, b) => a.offMs - b.offMs);
-      const measuredAt = new Date().toISOString();
-      await agent.com.atproto.repo.putRecord({
-        repo: did,
-        collection: NSID,
-        rkey: piece.rkey,
-        record: {
-          ...held,
-          postSeal: windows.postSeal,
-          ...(events.length ? { events } : {}),
-          measuredAt,
-          ...(held.audienceAt || !after.some((e) => typeof e.fr === 'number')
-            ? {}
-            : { audienceAt: measuredAt }),
-        },
-      });
-      setNote(
-        after.length
-          ? `Take ${pieceSlug(piece)} has picked up ${after.length} record${
-              after.length === 1 ? '' : 's'
-            } since the seal. The alive window is untouched.`
-          : `Nothing has landed on take ${pieceSlug(piece)} since the seal.`,
-      );
-      await refresh();
-    } catch (err) {
-      setError(err?.message || String(err));
-    } finally {
-      setBusy(null);
-    }
-  }
 
   /** Post the concluding reply, in the thread it concludes. */
   async function postAnnouncement() {
@@ -1783,16 +1610,11 @@ export default function RatioedStudio({ agent, did }) {
             .map((p) => {
               const b = p.breaker || {};
               const timed = typeof b.reactionMs === 'number';
-              // Two ways back to a lost reaction time, and they have different
-              // reaches. The log is on the record and never expires; the replay
-              // holds 36 hours and has to be filtered by a named account, so it
-              // is worth offering only while both of those are true. Offering it
-              // otherwise is what take 16 hit: a button that returned silently
-              // on the one piece whose breaker nothing had named.
-              const logged = Boolean(withdrawnWitness(p.witnessed || []));
-              const replayable =
-                withinLookback(Date.parse(p.sealedAt)) && b.handle && b.handle !== 'unknown';
-              const recoverable = !timed && (logged || replayable);
+              // What this piece is missing, asked of the record rather than
+              // worked out here. `needsAName` is the one gap a repair cannot
+              // close on its own: nothing watched the like and no reply named
+              // whoever cast it, so only a person can say.
+              const gaps = pieceGaps(p);
               const unnamed = !b.handle || b.handle === 'unknown';
               const isNaming = naming?.rkey === p.rkey;
               return (
@@ -1806,50 +1628,30 @@ export default function RatioedStudio({ agent, did }) {
                       : ' · like deleted'}
                   </span>
                   <span className="rs-series-acts">
-                    {recoverable && (
-                      <button
-                        type="button"
-                        className="admin-link-subtle"
-                        onClick={() => recover(p)}
-                        disabled={!!busy}
-                        title={
-                          logged
-                            ? 'The studio watched this like land and watched it go, and the log is on the record. Reads the timing off it. The like stays deleted.'
-                            : "Replay Jetstream's lookback filtered to this account and find the like that ended the piece. The like stays deleted; its timing comes back."
-                        }
-                      >
-                        <History size={12} aria-hidden="true" />
-                        {busy === `recover:${p.rkey}`
-                          ? logged
-                            ? 'reading the log…'
-                            : 'replaying…'
-                          : 'recover the reaction'}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="admin-link-subtle"
+                      onClick={() => repair(p)}
+                      disabled={!!busy}
+                      title="Fill in whatever this record is missing: the breaker's name and DID, a reaction time the log or the replay still holds, handles and audiences on the log, and everything that has landed since the seal. The alive window is never re-read."
+                    >
+                      <Wrench size={12} aria-hidden="true" />
+                      {busy === `repair:${p.rkey}` ? 'repairing…' : 'repair'}
+                    </button>
                     {/* Offered on any piece, not only the unnamed ones: a
                         breaker recorded by handle alone predates the DID being
                         stored, and the roster is keyed by DID. */}
                     <button
                       type="button"
-                      className="admin-link-subtle"
+                      className={`admin-link-subtle${gaps.needsAName ? ' rs-series-wanted' : ''}`}
                       onClick={() =>
                         setNaming(isNaming ? null : { rkey: p.rkey, text: unnamed ? '' : b.handle })
                       }
                       disabled={!!busy}
-                      title="Say who ended this piece. The handle is resolved to a DID and both go on the record; nothing else is touched."
+                      title="Say who ended this piece. The handle is resolved to a DID and both go on the record; nothing else is touched. The one repair nothing can do for you."
                     >
                       <UserPen size={12} aria-hidden="true" />
-                      {unnamed ? 'name the breaker' : b.did ? 'rename' : 'add their did'}
-                    </button>
-                    <button
-                      type="button"
-                      className="admin-link-subtle"
-                      onClick={() => readAfterlife(p)}
-                      disabled={!!busy}
-                      title="Read what has landed on this piece since the seal and write it onto the log, so the replay and the roster show it. The alive window is never re-read."
-                    >
-                      <RefreshCw size={12} aria-hidden="true" />
-                      {busy === `after:${p.rkey}` ? 'reading…' : 'read the afterlife'}
+                      {unnamed ? 'name the breaker' : 'rename'}
                     </button>
                   </span>
                   {isNaming && (
