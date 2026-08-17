@@ -1,7 +1,14 @@
-/* Two tiers of the same grid. The first is headline-sized; the second is a
-   denser strip under it. When they appear together they read as one block of
-   figures, so the rule that would have run between them is dropped and the
-   pair keeps a single top and bottom. */
+/* Two tiers of the same ruled grid — the shape the project's summary tiles
+   already use, for the same reason: a dozen figures set in open space read as
+   one paragraph of numbers, and it takes a second to work out which caption
+   belongs to which. A hairline between each makes them a dozen separate
+   readings, and the eye stops having to do that work.
+
+   Ruled with cell borders rather than the summary block's 1px-gap-over-a-
+   coloured-background trick. Same result, but a short last row leaves blank
+   space here instead of a solid rule-coloured block where the missing cells
+   would be — and these rows are short whenever a piece has no measurable
+   reach or no log to read a silence out of. */
 
 /* Four columns, both tiers, so the second sits in the first's columns rather
    than beside them. Auto-fit gave the dense tier five and the headline four,
@@ -11,12 +18,26 @@
 .ratioed-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
   margin: 0 0 var(--space-6);
-  padding: var(--space-4) 0;
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
 }
+
+.ratioed-stats > div {
+  padding: var(--space-4);
+  border-left: 1px solid var(--rule);
+  border-top: 1px solid var(--rule);
+}
+/* The first row takes its rule from the block; the first column takes its edge
+   from the page, so the figures start on the same line as the prose above
+   them rather than indented by a gutter nothing else has. */
+.ratioed-stats > div:nth-child(-n + 4) { border-top: 0; }
+.ratioed-stats > div:nth-child(4n + 1) {
+  border-left: 0;
+  padding-left: 0;
+}
+.ratioed-stats > div:nth-child(4n) { padding-right: 0; }
+
 .ratioed-stats dt {
   font-size: var(--text-xs);
   text-transform: lowercase;
@@ -42,22 +63,14 @@
   font-variant-numeric: normal;
 }
 
-/* The second tier: same columns, smaller figures. */
-.ratioed-stats.is-dense {
-  gap: var(--space-4) var(--space-3);
-}
+/* The second tier: same columns, smaller figures, tighter rows. */
+.ratioed-stats.is-dense > div { padding-block: var(--space-3); }
 .ratioed-stats.is-dense dd { font-size: var(--text-lg); }
 
-/* Joined to the tier above rather than ruled off from it. */
-.ratioed-stats:has(+ .ratioed-stats.is-dense) {
-  margin-bottom: 0;
-  padding-bottom: var(--space-3);
-  border-bottom: 0;
-}
-.ratioed-stats + .ratioed-stats.is-dense {
-  padding-top: 0;
-  border-top: 0;
-}
+/* Stacked, the pair is one grid: they butt together so the vertical rules run
+   through both, and the tier above draws the horizontal rule between them. */
+.ratioed-stats:has(+ .ratioed-stats) { margin-bottom: 0; }
+.ratioed-stats + .ratioed-stats { border-top: 0; }
 
 /* Two columns is the floor: one figure per line turns a strip into a list, and
    these are meant to be scanned rather than read. */
@@ -66,4 +79,17 @@
   .ratioed-stats.is-dense {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  /* The rules move with the columns — at four they were on every fourth cell,
+     and left where they were they would run down the middle of a figure. */
+  .ratioed-stats > div {
+    border-top: 1px solid var(--rule);
+    border-left: 1px solid var(--rule);
+    padding-inline: var(--space-4);
+  }
+  .ratioed-stats > div:nth-child(-n + 2) { border-top: 0; }
+  .ratioed-stats > div:nth-child(2n + 1) {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .ratioed-stats > div:nth-child(2n) { padding-right: 0; }
 }

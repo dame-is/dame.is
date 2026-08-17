@@ -318,7 +318,11 @@ export default function RatioedPiece() {
   // named for and the only figure here that is a verdict rather than a
   // measurement.
   const headline = [
-    {
+    // Absent, not zeroed, on the two takes nothing touched at all: "0 : 0" in
+    // a grid of figures reads as a measurement that failed rather than as the
+    // finding, which is that in 68 seconds nobody did anything. A piece with a
+    // like and no replies still ratios — that one is 0 : 1 and says so.
+    (stats.ratio.nonLike || stats.ratio.likes) && {
       key: 'ratio',
       label: 'the ratio',
       value: `${stats.ratio.nonLike} : ${stats.ratio.likes}`,
@@ -363,7 +367,7 @@ export default function RatioedPiece() {
   // piece at 1.9 records a minute than at nine, and different again if four of
   // those minutes were silence.
   const texture = [
-    {
+    (stats.mix.replies || stats.mix.reposts || stats.mix.quotes) && {
       key: 'mix',
       label: 'the mix',
       value: `${stats.mix.replies} · ${stats.mix.reposts} · ${stats.mix.quotes}`,
