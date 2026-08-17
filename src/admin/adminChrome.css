@@ -104,29 +104,23 @@
   background: var(--rule);
 }
 
-/* THE OVERFLOW HAS TO SAY IT IS AN OVERFLOW, and in this sheet more than
-   anywhere: twenty-one destinations in a ~680px panel means the list is always
-   longer than the box, so a directory that gave no cue read as a directory that
-   ENDED wherever the fold happened to fall. The owner's own report was that the
-   sheet had no scroll, and the surfaces below it might as well not have existed.
+/* A PLAIN SCROLLPORT, exactly like `.dock-panel` in ActionDock.css. It carried
+   scroll shadows for a while — the same four-layer local/scroll trick the desk
+   rail uses — put there when the directory ended in an opaque sticky foot and so
+   looked like it ENDED there, with the twenty surfaces below the fold reading as
+   though they did not exist.
 
-   Same four-layer trick as `.wb-rail-scroll` in adminShell.css, in this
-   surface's colour. The two COVERS are painted in the panel's own background and
-   anchored to the CONTENT (`local`), so they slide away as you scroll; the two
-   SHADOWS sit under them anchored to the BOX (`scroll`). The result paints only
-   where there is really more to see — at the bottom until you reach the end, at
-   the top once you have left it — and not at all when everything already fits,
-   which is what a fixed fade cannot do. */
+   The foot is what was wrong, and the foot is gone. Without it the list is cut
+   mid-row by the panel's own edge, which is the scroll cue every other sheet on
+   this site relies on and the only one the bottom chrome has a vocabulary for. A
+   gradient over the last 8px of a panel that sits directly on the bottom bar
+   does not read as an overflow at all: it reads as a drop shadow under the
+   chrome, a thing nothing else here casts. */
 .wb-sheet-body {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 var(--chrome-pad-base) var(--space-4);
-  background:
-    linear-gradient(var(--surface-deep) 40%, transparent) top / 100% 1.5rem local no-repeat,
-    linear-gradient(transparent, var(--surface-deep) 60%) bottom / 100% 1.5rem local no-repeat,
-    linear-gradient(var(--shadow), transparent) top / 100% 0.5rem scroll no-repeat,
-    linear-gradient(transparent, var(--shadow)) bottom / 100% 0.5rem scroll no-repeat;
 }
 
 /* The escape hatch, when it becomes a form, is the one thing in this list that

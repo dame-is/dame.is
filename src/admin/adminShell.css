@@ -113,16 +113,13 @@
                  expand), published as an INLINE style on <html> — which is
                  precisely why no rule here could ever have fought it, and why
                  reading it is the only correct move.
-   --wb-floor    where the bottom chrome begins. Three terms, and each earns its
-                 place. `--chrome-h` is the bar's content row; `2px` is its two
-                 hairlines, one on each edge, which `.app-shell` leaves out
-                 because a page sliding a hairline under the bar is invisible —
-                 a fixed frame's scroll END is not, and without them the pane's
-                 last two pixels finish behind the bar. And `--wb-kb` is SUMMED
-                 rather than max()ed, unlike every other keyboard offset in this
-                 codebase, because the bar is LIFTED onto the keyboard's top edge
-                 below: once a keyboard is up, the bar's own height still has to
-                 be cleared on top of it.
+   --wb-floor    where the bottom chrome begins — the top of the bar's CONTENT
+                 ROW, which is the same edge `.dock-sheet-wrap` rests the nav
+                 dock on, so a sheet of ours lands exactly where a sheet of the
+                 site's does. `--wb-kb` is SUMMED rather than max()ed, unlike
+                 every other keyboard offset in this codebase, because the bar is
+                 LIFTED onto the keyboard's top edge below: once a keyboard is
+                 up, the bar's own height still has to be cleared on top of it.
 
    Lifting the site's bottom bar is the one public rule this file writes, and it
    pays for the design's best property: Save stays under the thumb while the
@@ -133,12 +130,21 @@
    `data-admin-frame` exists only while the shell is mounted. */
 :root[data-admin-frame='site'] {
   --wb-ceiling: var(--chrome-top-h, var(--chrome-h));
-  --wb-floor: calc(var(--wb-kb, 0px) + var(--chrome-h) + 2px + env(safe-area-inset-bottom, 0px));
+  --wb-floor: calc(var(--wb-kb, 0px) + var(--chrome-h) + env(safe-area-inset-bottom, 0px));
 }
 
+/* THE FRAME CLEARS THE BAR'S HAIRLINES; A SHEET PAINTS OVER THEM. That is the
+   whole of the `+ 2px`, and it is the difference between being under the bar and
+   being over it. A sheet is z 31 against the bar's 30, so it covers the bar's
+   own border-top and draws the single divider itself — the nav dock says so at
+   its `border-bottom`, and resting a sheet two pixels higher instead lets both
+   rules paint and doubles the line. The frame is z 1, underneath; without the
+   two pixels the pane's scroll ENDS behind that border. `.app-shell` omits them
+   for the same reason a page can: a page sliding a hairline under the bar is
+   invisible, and a scrollport's last row is not. */
 :root[data-admin-frame='site'] .wb {
   top: var(--wb-ceiling);
-  bottom: var(--wb-floor);
+  bottom: calc(var(--wb-floor) + 2px);
 }
 
 :root[data-admin-frame='site'] .chrome-bar-bottom {
