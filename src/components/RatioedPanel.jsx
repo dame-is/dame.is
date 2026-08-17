@@ -19,19 +19,22 @@
 // PageShell and no back link of its own.
 //
 // It is also the one studio EXEMPT from the shell's dirty tracking, and that is
-// a statement about what this panel is rather than an oversight. `measured` and
-// `found` are the results of scans that take minutes over Constellation, and
-// they are deliberately not written: `remeasure` computes fresh afterlife
-// figures and stops there, because publishing them is a decision the artist
-// makes. Reporting them as "unsaved changes" would turn a finished reading into
-// a nagging to-do, and offering a generic Save for them would overwrite
-// pre-seal figures that no index can reconstruct. So: never reportDirty, never
+// a statement about what this panel is rather than an oversight. `found` is the
+// result of a scan that takes minutes over Constellation and is deliberately
+// not written until the artist says so. Reporting it as "unsaved changes" would
+// turn a finished reading into a nagging to-do. So: never reportDirty, never
 // registerActions.
+//
+// "Re-measure afterlife" used to sit in the row of buttons above it: it counted
+// the fresh figures, printed them beside the recorded ones, and wrote nothing
+// until you also pressed Republish all. Nobody could tell from the button that
+// it was a preview, so it read as a repair that did nothing — which is exactly
+// what it did. Repair does the real thing now, per piece and in bulk, and this
+// is gone.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  RefreshCw,
   Upload,
   Trash2,
   ExternalLink,
@@ -60,7 +63,7 @@ import {
 import { repairPiece, gapSummary } from '../lib/ratioedRepair.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveProfiles } from '../lib/atproto.js';
-import { getBacklinkSources, flattenSources, getBacklinkCount } from '../lib/constellation.js';
+import { getBacklinkCount } from '../lib/constellation.js';
 import './RatioedPanel.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
@@ -105,14 +108,6 @@ async function listPaged(agent, did, collection, onCount) {
   return { records, truncated: true };
 }
 
-const SOURCE_BUCKETS = {
-  'app.bsky.feed.like:subject.uri': 'likes',
-  'app.bsky.feed.repost:subject.uri': 'reposts',
-  'app.bsky.feed.post:embed.record.uri': 'quotes',
-  'app.bsky.feed.post:embed.record.record.uri': 'quotes',
-  'app.bsky.feed.post:reply.root.uri': 'threadPosts',
-};
-
 export default function RatioedPanel({ agent, did }) {
   // The only thing this panel takes from the shell. Its bulk writes change the
   // SIZE of the collection — nothing to eleven, eleven to nothing — and the
@@ -126,7 +121,6 @@ export default function RatioedPanel({ agent, did }) {
   const [progress, setProgress] = useState('');
   const [error, setError] = useState(null);
   const [backlinks, setBacklinks] = useState(null);
-  const [measured, setMeasured] = useState(null); // rkey → fresh postSeal
   const [found, setFound] = useState(null); // pieces on the PDS with no record yet
   const [truncated, setTruncated] = useState(false); // the scan hit its page bound
 
@@ -246,16 +240,11 @@ export default function RatioedPanel({ agent, did }) {
     try {
       let n = 0;
       for (const { rkey, piece, record } of roster) {
-        const fresh = measured?.[rkey];
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: NSID,
           rkey,
-          record: {
-            $type: NSID,
-            ...record,
-            ...(fresh ? { postSeal: fresh, measuredAt: new Date().toISOString() } : {}),
-          },
+          record: { $type: NSID, ...record },
         });
         n += 1;
         setProgress(`${n}/${roster.length} — take ${piece.take}`);
@@ -265,45 +254,6 @@ export default function RatioedPanel({ agent, did }) {
       // One call for the whole run, not one per record: each invalidation bumps
       // the shell's data revision and re-reads every counted collection.
       invalidate([NSID]);
-    } catch (err) {
-      setError(err?.message || String(err));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  /** Re-count the post-seal figures from Constellation. Does not write. */
-  async function remeasure() {
-    setBusy('measure');
-    setError(null);
-    try {
-      const out = {};
-      let n = 0;
-      // The roster, not the bundle: a piece that only exists on the PDS accrues
-      // an afterlife like any other, and used to be skipped here.
-      for (const { piece } of roster) {
-        const flat = flattenSources(await getBacklinkSources(piece.subject));
-        n += 1;
-        setProgress(`${n}/${roster.length} — take ${piece.take}`);
-        if (!flat) continue;
-        const now = { likes: 0, reposts: 0, quotes: 0, threadPosts: 0 };
-        for (const row of flat) {
-          const bucket = SOURCE_BUCKETS[row.source];
-          if (bucket) now[bucket] += row.count || 0;
-        }
-        // Total minus what was alive = what has landed since the seal. The
-        // artist's own replies sit in the totals but not in the recorded
-        // pre-seal figures, so clamp at zero rather than going negative.
-        out[piece.rkey] = {
-          likes: Math.max(0, now.likes - piece.preSeal.likes),
-          reposts: Math.max(0, now.reposts - piece.preSeal.reposts),
-          quotes: Math.max(0, now.quotes - piece.preSeal.quotes),
-          threadPosts: Math.max(0, now.threadPosts - piece.preSeal.threadPosts),
-          participants: piece.postSeal.participants,
-        };
-      }
-      setProgress('');
-      setMeasured(out);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -631,10 +581,6 @@ export default function RatioedPanel({ agent, did }) {
           <Search size={14} aria-hidden="true" />
           {busy === 'scan' ? 'Scanning…' : 'Scan for new pieces'}
         </button>
-        <button type="button" className="admin-gate-button" onClick={remeasure} disabled={!!busy}>
-          <RefreshCw size={14} aria-hidden="true" />
-          {busy === 'measure' ? 'Measuring…' : 'Re-measure afterlife'}
-        </button>
         {missingLogs.length > 0 && (
           <button
             type="button"
@@ -707,13 +653,6 @@ export default function RatioedPanel({ agent, did }) {
               watching, so only you can say who it was — name them in the studio.
             </>
           )}
-        </p>
-      )}
-      {measured && (
-        <p className="admin-field-hint">
-          Fresh afterlife counts below. They aren&rsquo;t saved until you republish — pre-seal
-          figures and reaction times are never touched, because the deleted likes they rest on
-          can&rsquo;t be recovered from any index.
         </p>
       )}
 
@@ -803,7 +742,6 @@ export default function RatioedPanel({ agent, did }) {
           {roster.map(({ rkey, piece, pdsOnly }) => {
             const onPds = live[rkey];
             const published = normalizePiece(rkey, onPds);
-            const fresh = measured?.[rkey];
             const b = piece.breaker || {};
             return (
               <article className="ratioed-panel-row" key={rkey}>
@@ -848,13 +786,6 @@ export default function RatioedPanel({ agent, did }) {
                   <dd>
                     {piece.postSeal.threadPosts} thread · {piece.postSeal.reposts} RT ·{' '}
                     {piece.postSeal.quotes} QT · {piece.postSeal.likes} ♥
-                    {fresh && (
-                      <span className="ratioed-panel-fresh">
-                        {' '}
-                        → now {fresh.threadPosts} · {fresh.reposts} · {fresh.quotes} ·{' '}
-                        {fresh.likes}
-                      </span>
-                    )}
                   </dd>
                   {published && published.measuredAt !== piece.measuredAt && (
                     <>
