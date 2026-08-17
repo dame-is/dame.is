@@ -1,0 +1,69 @@
+/* Two tiers of the same grid. The first is headline-sized; the second is a
+   denser strip under it. When they appear together they read as one block of
+   figures, so the rule that would have run between them is dropped and the
+   pair keeps a single top and bottom. */
+
+/* Four columns, both tiers, so the second sits in the first's columns rather
+   than beside them. Auto-fit gave the dense tier five and the headline four,
+   and two grids on slightly different rhythms read as a rendering fault rather
+   than as a hierarchy. Four also divides the eight in the lower tier into two
+   full rows with no orphan. */
+.ratioed-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-6);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.ratioed-stats dt {
+  font-size: var(--text-xs);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  margin-bottom: var(--space-1);
+}
+.ratioed-stats dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* What the figure is made of. Its own line, because a note that wraps around
+   the end of a number reads as part of it. */
+.ratioed-stats-note {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--ink-muted);
+  font-variant-numeric: normal;
+}
+
+/* The second tier: same columns, smaller figures. */
+.ratioed-stats.is-dense {
+  gap: var(--space-4) var(--space-3);
+}
+.ratioed-stats.is-dense dd { font-size: var(--text-lg); }
+
+/* Joined to the tier above rather than ruled off from it. */
+.ratioed-stats:has(+ .ratioed-stats.is-dense) {
+  margin-bottom: 0;
+  padding-bottom: var(--space-3);
+  border-bottom: 0;
+}
+.ratioed-stats + .ratioed-stats.is-dense {
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Two columns is the floor: one figure per line turns a strip into a list, and
+   these are meant to be scanned rather than read. */
+@media (max-width: 44rem) {
+  .ratioed-stats,
+  .ratioed-stats.is-dense {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

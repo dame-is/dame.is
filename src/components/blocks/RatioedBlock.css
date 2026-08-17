@@ -527,6 +527,18 @@
   margin-top: var(--space-2);
 }
 
+/* The second row: what a piece is LIKE, under what the project adds up to.
+   Smaller figures and narrower tiles, so the two rows read as headline and
+   detail rather than as twelve equal facts. Its top border is the first row's
+   bottom one. */
+.ratioed-tiles.is-texture {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  border-top: 0;
+}
+.ratioed-tiles.is-texture .ratioed-tile { padding: var(--space-3) var(--space-4); }
+.ratioed-tiles.is-texture .ratioed-tile-v { font-size: var(--text-xl); }
+.ratioed-tiles.is-texture .ratioed-tile-l { margin-top: var(--space-1); }
+
 /* --- hidden replies ----------------------------------------------- */
 
 .ratioed-hidden-list { border-top: 1px solid var(--rule); }

@@ -22,6 +22,7 @@ import {
   fmtElapsed,
 } from '../../lib/ratioed.js';
 import { pieceReach, projectReach, applyAudience, fmtReach } from '../../lib/ratioedReach.js';
+import { projectStats } from '../../lib/ratioedStats.js';
 import { resolvePds } from '../../lib/atproto.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
 import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
@@ -32,11 +33,15 @@ import './RatioedBlock.css';
 const KINDS = ['reply', 'repost', 'quote', 'like'];
 // Variants that need the per-record event log — a separate ~27kB chunk, so the
 // ones that only read counts never pay for it. Participants is here because a
-// person's role turns on WHEN they acted, which only the log knows.
-const EVENT_VARIANTS = new Set(['lifelines', 'hidden', 'participants', 'reach']);
+// person's role turns on WHEN they acted, which only the log knows. Summary is
+// here for its second row, which asks about pace and silence and amplifiers —
+// none of them countable. Its first row is drawn from recorded figures and
+// paints immediately; the second appears when the chunk lands, and is simply
+// absent on a page where it never does.
+const EVENT_VARIANTS = new Set(['lifelines', 'hidden', 'participants', 'reach', 'summary']);
 // Variants that also need the dated audience table, which is what gives the
 // pieces measured before follower counts were recorded a reach at all.
-const AUDIENCE_VARIANTS = new Set(['reach', 'participants']);
+const AUDIENCE_VARIANTS = new Set(['reach', 'participants', 'summary']);
 const KIND_LABEL = { reply: 'reply', repost: 'repost', quote: 'quote', like: 'like' };
 const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
 
@@ -224,6 +229,14 @@ export default function RatioedBlock({ block, style }) {
 
   const stats = useMemo(() => aggregate(pieces), [pieces]);
 
+  // The series answering the same questions a single piece answers about
+  // itself. Null until the log is in — the count tiles above it are drawn from
+  // recorded figures and never wait on anything.
+  const shape = useMemo(
+    () => (variant === 'summary' ? projectStats(pieces, (p) => eventLog?.[p.rkey]) : null),
+    [variant, pieces, eventLog],
+  );
+
   // The categorical scale is derived from whatever hour the sky is showing, so
   // it re-derives whenever the hour ticks over or is previewed in the studio.
   const { skyDisplayHour } = useTheme();
@@ -254,7 +267,7 @@ export default function RatioedBlock({ block, style }) {
       style={{ ...scale, ...(style || {}) }}
       aria-label={block?.alt || undefined}
     >
-      {variant === 'summary' && <Summary stats={stats} people={split} />}
+      {variant === 'summary' && <Summary stats={stats} people={split} shape={shape} roster={roster} />}
       {variant === 'lifelines' && (
         <Lifelines pieces={pieces} events={eventLog} stats={stats} deltas={deltas} parent={parentSlug} />
       )}
@@ -499,7 +512,7 @@ function SampleMark({ core, halo }) {
 /* Summary                                                              */
 /* ------------------------------------------------------------------ */
 
-function Summary({ stats, people }) {
+function Summary({ stats, people, shape, roster }) {
   // The roster the block loaded, not the bundled one — otherwise the headline
   // count ignores everybody who turned up for a piece added since the bundle.
   const { total } = people;
@@ -511,19 +524,67 @@ function Summary({ stats, people }) {
     [fmtSeconds(stats.meanReactionMs).replace('s', ''), 's', 'mean reaction to a like'],
     [String(stats.deleted), `/${stats.count}`, 'breakers that unliked'],
   ];
+
+  // Somebody who was there, alive, for more than one take.
+  const returned = roster?.rows ? roster.rows.filter((r) => r.live > 1).length : null;
+
+  // What a piece is LIKE, under what the project adds up to. The row above is
+  // the work's size; this one is its texture, and it is the same set of
+  // questions a single piece answers about itself — so the two pages agree
+  // about what is worth measuring, and a take can be read against the middle
+  // of the series rather than against nothing.
+  //
+  // Everything here that needs the event log is dropped rather than zeroed
+  // when there isn't one, which is why this row can be shorter than it looks.
+  const texture = shape && [
+    [
+      `${shape.mix.replies}·${shape.mix.reposts}·${shape.mix.quotes}`,
+      null,
+      'replies · reposts · quotes',
+    ],
+    [fmtDuration(shape.medianMs), null, 'the middle take'],
+    shape.pace && [
+      shape.pace >= 10 ? String(Math.round(shape.pace)) : shape.pace.toFixed(1),
+      '/min',
+      'pace while alive',
+    ],
+    shape.first && [`${fmtDuration(shape.first.off * 1000)}`, null, 'typical first touch'],
+    shape.silence && [
+      fmtDuration(shape.silence.ms),
+      ` · #${String(shape.silence.take).padStart(2, '0')}`,
+      'longest silence anywhere',
+    ],
+    // From the roster rather than from the logs: it is the thing that knows a
+    // handle in an old log and a DID in a new one are one person. Counted off
+    // the logs directly this read 20 of 204, under a tile saying 135 involved.
+    returned && [String(returned), `/${roster.rows.length}`, 'came back for another'],
+    shape.audience?.top && [
+      fmtReach(shape.audience.top.followers),
+      null,
+      `biggest amplifier · @${shape.audience.top.h}`,
+    ],
+    typeof shape.audience?.median === 'number' && [
+      fmtReach(shape.audience.median),
+      null,
+      'median follower count',
+    ],
+  ];
+
+  const row = (group) =>
+    group.filter(Boolean).map(([v, suffix, label]) => (
+      <div className="ratioed-tile" key={label}>
+        <span className="ratioed-tile-v">
+          {v}
+          {suffix && <small>{suffix}</small>}
+        </span>
+        <span className="ratioed-tile-l">{label}</span>
+      </div>
+    ));
+
   return (
     <div className="ratioed-summary">
-      <div className="ratioed-tiles">
-        {tiles.map(([v, suffix, label]) => (
-          <div className="ratioed-tile" key={label}>
-            <span className="ratioed-tile-v">
-              {v}
-              {suffix && <small>{suffix}</small>}
-            </span>
-            <span className="ratioed-tile-l">{label}</span>
-          </div>
-        ))}
-      </div>
+      <div className="ratioed-tiles">{row(tiles)}</div>
+      {texture && <div className="ratioed-tiles is-texture">{row(texture)}</div>}
     </div>
   );
 }

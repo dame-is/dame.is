@@ -23,7 +23,7 @@
 // the measurement under the reader, and the log it was watching is kept —
 // folded away, replayable, never merged into the measured figures.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
@@ -54,6 +54,8 @@ import {
 } from '../lib/ratioedReach.js';
 import { aturiUniversalUrl, getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { DEFAULT_COPY, loadCopy, fillCopy } from '../lib/ratioedCopy.js';
+import { pieceStats } from '../lib/ratioedStats.js';
+import RatioedStats from '../components/RatioedStats.jsx';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { ME_DID, ME_HANDLE, RATIOED_DOC_RKEY, COLLECTIONS } from '../config.js';
@@ -63,6 +65,9 @@ import RatioedLive, { RatioedWitness } from '../components/RatioedLive.jsx';
 import './RatioedPiece.css';
 
 const KIND_LABEL = { like: 'like', repost: 'repost', quote: 'quote', reply: 'reply' };
+// What somebody did, as something a sentence can say. "reposted it", never the
+// "repostd it" that comes of gluing a suffix onto the kind.
+const KIND_ACTED = { like: 'liked it', repost: 'reposted it', quote: 'quoted it', reply: 'replied' };
 
 // How long the live read gets before the page gives up on it and calls what it
 // has final. Only "no such piece" turns on this — a piece the snapshot knows
@@ -172,6 +177,19 @@ export default function RatioedPiece() {
   }, [piece, bundled, audience]);
 
   const reach = useMemo(() => (events ? pieceReach(events) : null), [events]);
+
+  // Every other take's log, for the one figure that can only be read across
+  // the series: who had never turned up before. Same composition the page uses
+  // for its own — a repaired piece from the first eleven keeps its alive
+  // window in the harvest and its afterlife on the record.
+  const resolveEvents = useCallback(
+    (p) => composeEventLog(p.events, bundled?.[p.rkey]),
+    [bundled],
+  );
+  const stats = useMemo(
+    () => pieceStats(piece, events, { pieces, resolveEvents }),
+    [piece, events, pieces, resolveEvents],
+  );
 
   // Faces for everyone in the log. Resolved live rather than recorded: the
   // COUNTS are a measurement and must not drift, but a portrait is only ever a
@@ -291,9 +309,111 @@ export default function RatioedPiece() {
   const take = pieceSlug(piece);
   // Every piece that has ended, for the ticks along the record bar.
   const finishedPieces = pieces.filter((p) => p.lifespanMs > 0);
+
   const atUri = `at://${ME_DID}/${COLLECTIONS.ratioedPiece}/${piece.rkey}`;
   const b = piece.breaker || {};
-  const live = events?.filter((e) => e.pre && !e.self) || [];
+  // The four that answer "how did this one go", at the size the answer
+  // deserves. The ratio is the project's own — everything that isn't a like,
+  // against the likes — and it is first because it is the thing the work is
+  // named for and the only figure here that is a verdict rather than a
+  // measurement.
+  const headline = [
+    {
+      key: 'ratio',
+      label: 'the ratio',
+      value: `${stats.ratio.nonLike} : ${stats.ratio.likes}`,
+      note: 'everything else, against the likes',
+    },
+    {
+      key: 'reaction',
+      label: 'reaction',
+      // A recovered time comes from a like that no longer exists — the figure
+      // is real, the record it was read from is gone.
+      value:
+        typeof b.reactionMs === 'number' ? (
+          fmtSeconds(b.reactionMs)
+        ) : (
+          <span className="ratioed-piece-gone">deleted</span>
+        ),
+      note: 'from the like to the seal',
+    },
+    {
+      key: 'people',
+      label: 'participants',
+      value: stats.people || null,
+      // The two counts that used to sit six inches apart contradicting each
+      // other: the lede's people against the figures' records.
+      note: `${stats.records} record${stats.records === 1 ? '' : 's'} between them`,
+    },
+    // Only when there is an audience to report. A piece whose participants
+    // have all deactivated has no reach that can be measured, and a zero here
+    // would read as one that reached nobody.
+    reach?.measurable && {
+      key: 'reach',
+      label: 'approx. reach',
+      value: fmtReach(reach.alive.raw),
+      note: reach.alive.unknown
+        ? `${reach.alive.known} of ${reach.alive.people} audiences known`
+        : 'weighted by how each act travels',
+    },
+  ];
+
+  // What it was like while it stood. Eight smaller figures, every one of them
+  // something the four above can't say: the same 41 minutes is a different
+  // piece at 1.9 records a minute than at nine, and different again if four of
+  // those minutes were silence.
+  const texture = [
+    {
+      key: 'mix',
+      label: 'the mix',
+      value: `${stats.mix.replies} · ${stats.mix.reposts} · ${stats.mix.quotes}`,
+      note: 'replies · reposts · quotes',
+    },
+    stats.vsMedian && {
+      key: 'median',
+      label: 'vs median',
+      value: `${stats.vsMedian >= 10 ? Math.round(stats.vsMedian) : stats.vsMedian.toFixed(1)}×`,
+      note: `the middle take stood ${fmtDuration(stats.medianMs)}`,
+    },
+    stats.first && {
+      key: 'first',
+      label: 'first touch',
+      value: `+${fmtDuration(stats.first.off * 1000)}`,
+      note: `somebody ${KIND_ACTED[stats.first.k] || 'was there'}`,
+    },
+    stats.silence && {
+      key: 'silence',
+      label: 'longest silence',
+      value: fmtDuration(stats.silence.ms),
+      note: stats.silence.fromMs ? `from +${fmtDuration(stats.silence.fromMs)}` : 'from the start',
+    },
+    stats.pace && {
+      key: 'pace',
+      label: 'pace',
+      value: `${stats.pace >= 10 ? Math.round(stats.pace) : stats.pace.toFixed(1)}/min`,
+      note: 'records while it was alive',
+    },
+    // Held back while any earlier take's log is missing: with a gap in the
+    // history everybody from that take reads as new.
+    stats.newcomers?.blind === 0 && {
+      key: 'new',
+      label: 'first-timers',
+      value: stats.newcomers.n,
+      note: `of ${stats.newcomers.of}, never in a take before`,
+    },
+    stats.audience?.top && {
+      key: 'amp',
+      label: 'biggest amplifier',
+      value: fmtReach(stats.audience.top.followers),
+      note: `@${stats.audience.top.h} ${KIND_ACTED[stats.audience.top.kind] || 'was there'}`,
+    },
+    typeof stats.audience?.median === 'number' && {
+      key: 'med',
+      label: 'median follower count',
+      value: fmtReach(stats.audience.median),
+      note: 'what the reach is made of',
+    },
+  ];
   const after = events?.filter((e) => !e.pre && !e.self) || [];
   const hidden = after.filter((e) => e.k === 'reply');
   // What the log section makes its case with. Counted rather than written down,
@@ -454,40 +574,8 @@ export default function RatioedPiece() {
         {/* No "alive" row: the band under the title says how long it stood,
             and printing it twice on one screen was the thing that made the
             band's own column look like it was saying something else. */}
-        <dl className="ratioed-piece-figures">
-          <div>
-            <dt>reaction</dt>
-            {/* A recovered time comes from a like that no longer exists — the
-                figure is real, the record it was read from is gone. */}
-            <dd>
-              {typeof b.reactionMs === 'number' ? (
-                fmtSeconds(b.reactionMs)
-              ) : (
-                <span className="ratioed-piece-gone">deleted</span>
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt>while alive</dt>
-            <dd>{live.length || engagementTotal(piece.preSeal)}</dd>
-          </div>
-          <div>
-            <dt>since</dt>
-            <dd>
-              <Figure recorded={engagementTotal(piece.postSeal)} since={delta?.total || 0} />
-            </dd>
-          </div>
-          {/* Only when there is an audience to report. A piece whose
-              participants have all deactivated has no reach that can be
-              measured, and a zero here would read as one that reached
-              nobody. */}
-          {reach?.measurable && (
-            <div>
-              <dt>approx. reach</dt>
-              <dd>{fmtReach(reach.alive.raw)}</dd>
-            </div>
-          )}
-        </dl>
+        <RatioedStats cells={headline} />
+        <RatioedStats cells={texture} dense />
 
         <section className="ratioed-piece-section">
           <h2>Replay</h2>
@@ -693,10 +781,6 @@ export default function RatioedPiece() {
       </article>
     </PageShell>
   );
-}
-
-function engagementTotal(w) {
-  return (w?.threadPosts || 0) + (w?.reposts || 0) + (w?.quotes || 0) + (w?.likes || 0);
 }
 
 // Inside this, a measurement taken "at the seal" — the studio measures as soon
