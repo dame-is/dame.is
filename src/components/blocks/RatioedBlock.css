@@ -90,7 +90,6 @@
 .ratioed-chip .ratioed-sw {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
   background: currentColor;
   opacity: 0.28;
 }
@@ -235,20 +234,16 @@
   top: 50%;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   transform: translate(-50%, -50%);
   background: currentColor;
   transition: opacity 0.15s;
 }
-/* A square on its corner. `border-radius` has to go back to 0 — rotating a
-   circle 45 degrees is a no-op, which is why every like in the chart came out
-   as a disc while the legend key beside it was a diamond. Sized so the
-   diagonal reads a little heavier than the discs, since the like is the mark
-   that ends the piece. */
+/* A square on its corner. Every mark on these pages is square now, so what
+   separates the like is the turn: the rest sit upright, this one stands on its
+   diagonal, which reads a little heavier than they do. */
 .ratioed-dot.ratioed-k-like {
   width: 8px;
   height: 8px;
-  border-radius: 0;
   transform: translate(-50%, -50%) rotate(45deg);
 }
 .ratioed-dot.self {
@@ -624,33 +619,27 @@
   margin: 0;
 }
 .ratioed-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
-/* Each key has to be the shape it stands for. Both of the non-circular ones
-   used to inherit this 50% radius and never reset it: the like rotated a circle
-   45deg (which draws a circle), and the ghost rendered as a squashed oval
-   instead of the window it marks. */
+/* Each key is the shape it stands for, at the size the chart draws it. */
 .ratioed-key {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   background: currentColor;
   display: inline-block;
   flex: 0 0 auto;
 }
 /* A square on its corner, matching the like markers in the chart. Slightly
-   smaller than the discs so its diagonal reads the same weight as their width. */
+   smaller than the others so its diagonal reads the same weight as their width. */
 .ratioed-key.ratioed-k-like {
   width: 7px;
   height: 7px;
-  border-radius: 0;
   transform: rotate(45deg);
   margin-inline: 1px;
 }
-/* The inferred window is a rectangle spanning a span of time — square corners,
-   and wider than tall, as it is on the lifelines. */
+/* The inferred window is a rectangle spanning a span of time: wider than tall,
+   as it is on the lifelines. */
 .ratioed-key-ghost {
   width: 15px;
   height: 9px;
-  border-radius: 0;
   background: color-mix(in srgb, var(--ratioed-seal) 15%, transparent);
   border: 1px dashed var(--ratioed-seal);
 }

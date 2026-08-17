@@ -6,7 +6,6 @@
 
 .ratioed-live {
   border: 1px solid var(--rule);
-  border-radius: 6px;
   padding: var(--space-4);
   background: var(--surface-deep, var(--page-edge));
   font-variant-numeric: tabular-nums;
@@ -27,7 +26,6 @@
 .ratioed-live-pulse {
   width: 9px;
   height: 9px;
-  border-radius: 50%;
   background: var(--ratioed-reply, #5e7a47);
   align-self: center;
   animation: ratioed-live-breathe 2.4s ease-in-out infinite;
@@ -89,7 +87,6 @@
   padding: var(--space-3) var(--space-4);
   border: 1.5px solid color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 70%, transparent);
   border-left-width: 5px;
-  border-radius: 5px;
   background: color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 12%, transparent);
 }
 .ratioed-live-alarm-who {
@@ -221,7 +218,6 @@
   height: 24px;
   flex: none;
   border: 1px solid transparent;
-  border-radius: 4px;
   background: none;
   color: var(--ink-faint);
   cursor: pointer;
@@ -266,7 +262,6 @@
   font-size: var(--text-sm);
   padding: 0.35em 0.9em;
   border: 1px solid var(--rule);
-  border-radius: 4px;
   background: var(--surface-raised, transparent);
   color: inherit;
   cursor: pointer;
@@ -285,8 +280,37 @@
 }
 
 @media (max-width: 34rem) {
-  .ratioed-live-row { flex-wrap: wrap; }
-  .ratioed-live-text { flex: 1 0 100%; }
+  /* Two lines, in this order: who did what, then what they said.
+     `order` rather than markup, and it is doing the work here. The text is the
+     one item that takes a whole line of its own, and in source order it sits
+     BEFORE the open button — so the button was pushed onto a third line and
+     `margin-left: auto` parked it alone at the right, under a row it belonged
+     to. Ordered last, it wraps under a first line that ends where it should. */
+  .ratioed-live-row { flex-wrap: wrap; row-gap: 2px; }
+  .ratioed-live-text { order: 1; flex: 1 0 100%; }
+  /* Truncated, not broken. At 11em a handle like
+     @thelongesthandleyouhaveseen.ninja wrapped mid-word and stood the row two
+     lines tall before anything else had a chance to wrap, which pushed the chip
+     and the button out of line with every row above it. */
+  .ratioed-live-who {
+    flex: 1 1 6em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+  /* The withdrawal marker goes to the second line with the text. On the first
+     line it sat between the chip and the row's end and pushed that one row's
+     chip 40px left of every other. */
+  .ratioed-live-undone { order: 1; flex: 1 0 100%; }
+  /* Chips in a column, which needs the trailing slot to exist on every row: a
+     row with no post to open is 24px shorter than the rows above it, and a
+     column of chips that steps in and out by a button's width reads as a
+     mistake rather than as a row that has nothing to open. */
+  .ratioed-live-row:not(:has(.ratioed-live-open)) {
+    padding-inline-end: calc(24px + var(--space-2));
+  }
   .ratioed-live-stream { margin-left: 0; width: 100%; }
   .ratioed-live-alarm-race { margin-left: 0; align-items: flex-start; }
 }

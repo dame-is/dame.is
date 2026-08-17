@@ -87,23 +87,30 @@
 }
 .ratioed-replay-seal[data-on] { background: var(--ratioed-seal); }
 
+/* Square, like every other mark on these pages. What separates a like from the
+   rest is the shape it is set on: a square on its corner, the same diamond the
+   essay's lifelines and their legend use. Composed through custom properties
+   because the two transforms have to coexist — a lit-up like is a diamond AND
+   scaled, and one `transform` overwriting the other drew it as an upright
+   square the moment the playhead reached it. */
 .ratioed-replay-mark {
   position: absolute;
   top: 50%;
   width: 9px;
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
-  border-radius: 50%;
+  --mark-turn: 0deg;
+  --mark-scale: 1;
+  transform: rotate(var(--mark-turn)) scale(var(--mark-scale));
   background: currentColor;
   opacity: 0.12;
   transition: opacity 140ms ease, transform 140ms ease;
 }
 .ratioed-replay-mark.on {
   opacity: 0.9;
-  transform: scale(1.15);
+  --mark-scale: 1.15;
 }
-/* The like is the one that ends it, so it keeps the shape the charts give it. */
-.ratioed-replay-mark.ratioed-k-like { border-radius: 0; }
+.ratioed-replay-mark.ratioed-k-like { --mark-turn: 45deg; }
 
 .ratioed-replay-legend {
   display: grid;
@@ -142,14 +149,12 @@
   width: 11px;
   height: 11px;
   margin-top: -5px;
-  border-radius: 50%;
   background: var(--ink);
   border: 0;
 }
 .ratioed-replay-scrub input::-moz-range-thumb {
   width: 11px;
   height: 11px;
-  border-radius: 50%;
   background: var(--ink);
   border: 0;
 }

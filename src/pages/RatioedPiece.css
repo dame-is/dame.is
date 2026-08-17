@@ -220,4 +220,11 @@
   .ratioed-piece-hidden li { grid-template-columns: 1fr; gap: var(--space-1); }
   .ratioed-piece-kv { grid-template-columns: 1fr; }
   .ratioed-piece-kv dd { margin-bottom: var(--space-2); }
+  /* Six columns do not fit a phone, and the one to lose is the follower ratio:
+     it is the working between the audience beside it and the reach beside that,
+     and the note under the table states the weighting anyway. Handles get the
+     width instead, which is what was wrapping. */
+  .ratioed-piece-ratio { display: none; }
+  .ratioed-piece-log td,
+  .ratioed-piece-log th { padding-right: var(--space-2); }
 }

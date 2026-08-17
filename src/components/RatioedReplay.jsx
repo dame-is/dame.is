@@ -215,7 +215,7 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
           </>
         ) : (
           <span className="ratioed-replay-off">
-            Nothing yet — the piece is up and nobody has touched it.
+            Nothing yet. Nobody has touched it.
           </span>
         )}
       </p>
@@ -232,7 +232,7 @@ function Mark({ mark, left, on, profiles, lifeSec }) {
   const { e } = mark;
   const handle = profiles[e.did]?.handle || e.h;
   const when = e.pre
-    ? `+${fmtDuration(e.off * 1000)} — alive`
+    ? `+${fmtDuration(e.off * 1000)} · alive`
     : `+${fmtElapsed(e.off - lifeSec)} after the seal`;
   return (
     <span

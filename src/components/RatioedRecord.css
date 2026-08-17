@@ -12,14 +12,12 @@
 .rr-track {
   position: relative;
   height: 6px;
-  border-radius: 999px;
   background: color-mix(in srgb, var(--ink) 10%, transparent);
   overflow: hidden;
 }
 .rr-fill {
   display: block;
   height: 100%;
-  border-radius: 999px;
   background: var(--ratioed-reply, #5e7a47);
   /* The clock ticks once a second; without this the bar jumps with it. */
   transition: width 1s linear;

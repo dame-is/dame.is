@@ -298,29 +298,17 @@ export default function RatioedPiece() {
           ) : (
             <p className="ratioed-piece-lede">
               Take {take} is <strong>up right now</strong>. The goal is zero likes: the first one
-              ends it, the artist closes replies by hand the moment they notice, and the seconds
-              between those two are what this whole project measures. Nothing here is a measurement
-              yet — it is a witness, and it is watching.
+              ends it, and the seconds between that like and the artist closing replies are the
+              measurement.
             </p>
           )}
 
           <RatioedLive piece={piece} record={longestPiece(pieces)} />
 
-          <section className="ratioed-piece-section">
-            <h2>What happens when it ends</h2>
-            <p className="ratioed-piece-note">
-              Replies close, and this page becomes what every other piece&rsquo;s page is: a
-              lifespan, a reaction time, an event log measured from a backlink index, and a replay
-              you can watch at the speed it happened. The log above is kept alongside that
-              measurement rather than folded into it — an index can only report what still exists,
-              and a like cast and taken back leaves nothing behind. Six of the first thirteen
-              breaking likes went exactly that way.
-            </p>
-            <p className="ratioed-piece-note">
-              You don&rsquo;t need to reload. This page is reading the piece&rsquo;s own record and
-              will change under you when it&rsquo;s sealed.
-            </p>
-          </section>
+          <p className="ratioed-piece-note">
+            No need to reload. This page reads the piece&rsquo;s record and changes when it is
+            sealed.
+          </p>
 
           <section className="ratioed-piece-section">
             <h2>Provenance</h2>
@@ -403,13 +391,11 @@ export default function RatioedPiece() {
               ) : (
                 <>
                   , whose like the artist caught {fmtSeconds(b.reactionMs)} later. They deleted it
-                  afterwards, so no index holds any trace of it — that timing is off a log kept
-                  while the piece was running.
+                  afterwards; the timing is off the log below.
                 </>
               )
             ) : (
-              <>. Their like has since been deleted, so how fast it was caught can no longer be
-              measured.</>
+              <>. Their like was deleted, so the reaction time is gone with it.</>
             )}
           </p>
         )}
@@ -456,8 +442,7 @@ export default function RatioedPiece() {
         <section className="ratioed-piece-section">
           <h2>Replay</h2>
           <p className="ratioed-piece-note">
-            Press play. The rule is the threadgate; everything past it landed on a post that was
-            already finished.
+            The rule is the threadgate. Everything past it landed on a finished post.
           </p>
           <PieceReplay piece={piece} events={events} profiles={profiles} />
         </section>
@@ -477,13 +462,10 @@ export default function RatioedPiece() {
                 </span>
               </summary>
               <p className="ratioed-piece-note">
-                This is the live panel the piece was watched on, recorded as it happened rather
-                than measured afterwards, and it is the only place a deletion appears: a record
-                that no longer exists is absent from every index, so the measurement below can say
-                a like is missing and only this can say it was there.
+                Written as it happened rather than measured afterwards, so it is the only place a
+                deleted record still appears.
                 {piece.witnessFromMs > 1000 && (
-                  <> Watching began {fmtDuration(piece.witnessFromMs)} in, so anything before that
-                  is unwitnessed rather than absent.</>
+                  <> Watching began {fmtDuration(piece.witnessFromMs)} in.</>
                 )}
               </p>
               <RatioedWitness piece={piece} />
@@ -496,11 +478,7 @@ export default function RatioedPiece() {
           <p className="ratioed-piece-note">
             In the order they arrived. Portraits are current; the counts under them are not.
             {b.likeSurvives === false && (
-              <>
-                {' '}
-                @{b.currentHandle || b.handle} is here on the strength of the reply that concluded
-                the piece. Their like was deleted, so no index holds any trace of it.
-              </>
+              <> @{b.currentHandle || b.handle} is here without a like to show for it.</>
             )}
           </p>
           <PieceFaces piece={piece} events={events} profiles={profiles} />
@@ -514,8 +492,12 @@ export default function RatioedPiece() {
           </div>
           {delta && (
             <p className="ratioed-piece-note">
+              {/* Two clauses that used to be written independently and could
+                  contradict each other: a piece measured at its own seal read
+                  "everything on that side has landed since. Nothing has landed
+                  since." */}
               {measuredAtTheSeal(piece)
-                ? 'Measured at the seal, so the afterlife column was empty when it was taken — everything on that side has landed since.'
+                ? 'Measured at the seal, so the afterlife column was empty when it was taken.'
                 : `Measured ${piece.measuredAt.slice(0, 10)}.`}{' '}
               {delta.total > 0
                 ? `${delta.total} more ${delta.total === 1 ? 'has' : 'have'} landed since.`
@@ -532,12 +514,18 @@ export default function RatioedPiece() {
           />
         )}
 
+        {/* Folded, like the witnessed log above: both are the raw evidence
+            under the figures, and a reader who wants them opens them. Left
+            open, the two of them were most of the page's height on a phone. */}
         {hidden.length > 0 && (
           <section className="ratioed-piece-section">
-            <h2>Replies hidden by the threadgate</h2>
+            <details className="ratioed-piece-witness">
+              <summary>
+                <span>Replies hidden by the threadgate</span>
+                <span className="ratioed-piece-witness-count">{hidden.length}</span>
+              </summary>
             <p className="ratioed-piece-note">
-              Written to the network after the seal, and never visible in the thread. A threadgate
-              hides replies at the appview; it does not stop the records being made.
+              A threadgate hides replies at the appview. It does not stop the records being made.
             </p>
             <ul className="ratioed-piece-hidden">
               {hidden.map((e, i) => (
@@ -550,20 +538,28 @@ export default function RatioedPiece() {
                 </li>
               ))}
             </ul>
+            </details>
           </section>
         )}
 
         {events?.length > 0 && (
           <section className="ratioed-piece-section">
-            <h2>The log</h2>
+            <details className="ratioed-piece-witness">
+              <summary>
+                <span>The log</span>
+                <span className="ratioed-piece-witness-count">
+                  {events.length} record{events.length === 1 ? '' : 's'}
+                </span>
+              </summary>
             {/* The one place on the page that argues for the whole method, so
                 it argues with the count rather than with an adjective. */}
             <p className="ratioed-piece-note">
-              Every record pointing at this piece, timed from the moment it went up. Taken at
-              measurement time rather than read live
-              {deletedLikes > 0
-                ? `: ${deletedLikes} of the project's ${pieces.length} breaking likes have since been deleted by the people who cast them, and a deleted record leaves nothing to count.`
-                : ', so a record deleted since this was measured is still counted here.'}
+              Every record pointing at this piece, timed from the moment it went up, as counted at
+              measurement time.
+              {deletedLikes > 0 &&
+                ` ${deletedLikes} of the project's ${pieces.length} breaking likes ${
+                  deletedLikes === 1 ? 'has' : 'have'
+                } since been deleted by the people who cast them.`}
             </p>
             <table className="ratioed-piece-log">
               <thead>
@@ -594,6 +590,7 @@ export default function RatioedPiece() {
                 ))}
               </tbody>
             </table>
+            </details>
           </section>
         )}
 
@@ -820,7 +817,7 @@ function ReachSection({ reach, audienceAt, piece }) {
               <th scope="col">who</th>
               <th scope="col">act</th>
               <th scope="col">audience</th>
-              <th scope="col">ratio</th>
+              <th scope="col" className="ratioed-piece-ratio">ratio</th>
               <th scope="col">reach</th>
               <th scope="col">window</th>
             </tr>
@@ -835,7 +832,7 @@ function ReachSection({ reach, audienceAt, piece }) {
                   </span>
                 </td>
                 <td>{fmtReach(p.followers)}</td>
-                <td>{fmtRatio(p.ratio)}</td>
+                <td className="ratioed-piece-ratio">{fmtRatio(p.ratio)}</td>
                 <td>{fmtReach(p.raw)}</td>
                 <td>{p.window === 'alive' ? 'alive' : 'after the seal'}</td>
               </tr>
@@ -845,7 +842,13 @@ function ReachSection({ reach, audienceAt, piece }) {
                 <td className="ratioed-piece-who">
                   and {tail.length} more
                 </td>
-                <td colSpan={3} />
+                {/* A cell per column rather than one `colSpan={3}`: the ratio
+                    column is hidden on a phone, and a column only disappears
+                    when every cell in it does. A spanning cell kept it open as
+                    an empty stripe. */}
+                <td />
+                <td />
+                <td className="ratioed-piece-ratio" />
                 <td>{fmtReach(tailReach)}</td>
                 <td />
               </tr>
@@ -855,9 +858,8 @@ function ReachSection({ reach, audienceAt, piece }) {
       )}
 
       <p className="ratioed-piece-note">
-        A score measuring the potential reach a piece had based on the social graphs of all the
-        participants, weighted by engagement type. A repost or quote counts as a whole following,
-        a reply a tenth, a like a fiftieth.
+        Followers of everyone who touched it, weighted by what they did: a repost or quote counts
+        as a whole following, a reply a tenth, a like a fiftieth.
         {unknown > 0 && (
           <>
             {' '}

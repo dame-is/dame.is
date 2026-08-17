@@ -9,7 +9,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border-radius: 999px;
+  /* Never squeezed. A chip is a four-to-six letter label and every row it sits
+     in is a flex row that runs out of width on a phone; left shrinkable it was
+     the item that gave way, so "REPOST" set narrower than "REPLY" two rows
+     above it and the column of chips stopped being a column. */
+  flex: none;
   border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
   background: color-mix(in srgb, currentColor 11%, transparent);
   font-variant-caps: small-caps;

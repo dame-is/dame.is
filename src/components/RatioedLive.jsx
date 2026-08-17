@@ -204,19 +204,17 @@ export default function RatioedLive({ piece, record = null }) {
       <p className="ratioed-live-say" aria-live="polite">
         {breaking ? (
           <>
-            It has been liked, so it is over — the artist closes replies by hand the moment they
-            notice, and the gap between those two is the measurement. It is being made right now.
+            It has been liked, so it is over. The clock above runs until the artist closes replies
+            by hand; where it stops is the measurement.
           </>
         ) : takenBack ? (
           <>
-            Somebody liked it and <strong>took it back</strong>. Nothing is standing against it now.
-            Six of the first thirteen breaking likes were deleted like that, and every one of those
-            reaction times was lost — this is what it looks like while it happens.
+            Somebody liked it and <strong>took it back</strong>. Nothing stands against it now.
           </>
         ) : (
           <>
-            Nobody has liked it. The piece is up, and it stays up until somebody does — the goal is
-            zero likes, so everything below is the piece succeeding.
+            Nobody has liked it. The goal is zero likes, so everything below is the piece
+            succeeding.
           </>
         )}
       </p>
@@ -233,20 +231,15 @@ export default function RatioedLive({ piece, record = null }) {
         )}
         {streamOn ? (
           <>
-            Your browser is reading the firehose and testing every record on the network against
-            this post — about 166&nbsp;KB/s, because Jetstream can filter by collection but not by
-            what a record points at. It pauses when this tab goes to the background and stops
-            itself at {BUDGET_BYTES / 1024 / 1024}&nbsp;MB; the piece&rsquo;s record is read
-            underneath either way, so neither loses you anything but promptness.
+            Your browser is testing every record on the network against this post, about
+            166&nbsp;KB/s. It pauses in a background tab and stops at{' '}
+            {BUDGET_BYTES / 1024 / 1024}&nbsp;MB.
           </>
         ) : (
-          <>
-            Reading the piece&rsquo;s own record, which the studio writes to as it watches. A few
-            seconds behind, and the cost of a small fetch.
-          </>
+          <>Reading the piece&rsquo;s own record, a few seconds behind.</>
         )}{' '}
-        Either way this is a witness, not a measurement: the figures on this page after the seal are
-        taken from a backlink index, and they will not be identical.
+        This is a witness. The figures after the seal are read from a backlink index and will not
+        match.
       </p>
     </div>
   );
@@ -369,7 +362,7 @@ function StreamState({ on, paused, stream, onToggle, onRestart }) {
   const label = !on
     ? 'from the record'
     : paused
-      ? 'paused — this tab is in the background'
+      ? 'paused, this tab is in the background'
       : state === 'spent'
         ? `stopped at ${mb} MB`
         : state === 'open'
