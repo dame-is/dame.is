@@ -10,6 +10,7 @@ import {
   aggregate,
   splitParticipants,
   hiddenReplies,
+  composeEventLog,
   fetchLiveDeltas,
   whenMarks,
   areaRadius,
@@ -89,10 +90,13 @@ const DEFAULT_CAPTIONS = {
         ? ` Audience is their follower count as of ${audience.measuredAt.slice(0, 10)}; a dot means the account no longer resolves.`
         : ''
     }`,
-  reach: ({ reach }) =>
-    reach
-      ? `A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type. A repost or quote counts as a whole following, a reply a tenth, a like a fiftieth. ${fmtReach(reach.aliveRaw)} while the pieces were alive against ${fmtReach(reach.afterRaw)} after they were sealed.`
-      : 'A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type. A repost or quote counts as a whole following, a reply a tenth, a like a fiftieth.',
+  reach: ({ reach }) => {
+    // The alive window only. What a sealed post collects afterwards is a
+    // different subject, and the chart no longer plots it.
+    const how =
+      'Roughly how many people a piece could have reached while it was alive, from the followers of everyone who touched it: a repost or quote counts as a whole following, a reply a tenth, a like a fiftieth.';
+    return reach ? `${how} ${fmtReach(reach.aliveRaw)} across the series.` : how;
+  },
   when: () =>
     'Every piece by the clock it was made on, in Eastern time. The core is how long it lived, the ring how much it drew, both scaled by area.',
 };
@@ -194,7 +198,12 @@ export default function RatioedBlock({ block, style }) {
   const eventLog = useMemo(() => {
     if (!events && !pieces.some((p) => p.events)) return null;
     const merged = { ...(events || {}) };
-    for (const p of pieces) if (p.events) merged[p.rkey] = p.events;
+    // Composed per piece rather than replaced: a repaired piece from the first
+    // eleven has an afterlife on its record and its alive window — and all of
+    // its replies' text — only in the harvest. See composeEventLog.
+    for (const p of pieces) {
+      if (p.events) merged[p.rkey] = composeEventLog(p.events, events?.[p.rkey]);
+    }
     if (!audience) return merged;
     for (const [rkey, log] of Object.entries(merged)) {
       merged[rkey] = applyAudience(log, audience);
@@ -1072,14 +1081,17 @@ function Reach({ pieces, events, parent }) {
     return <p className="ratioed-note">No piece has an audience measurement yet.</p>;
   }
 
-  const max = Math.max(...rows.map((r) => r.reach.alive.raw + r.reach.after.raw), 1);
+  // Scaled on the alive window alone, which is the only one this chart draws.
+  // What a sealed post goes on collecting is a different subject, and plotting
+  // it beside the thing being measured made a piece that travelled after it was
+  // over look like a piece that travelled.
+  const max = Math.max(...rows.map((r) => r.reach.alive.raw), 1);
 
   return (
     <div className="ratioed-reach">
       <ol className="ratioed-reach-rows">
         {rows.map(({ piece, reach }) => {
           const alive = reach.alive.raw;
-          const after = reach.after.raw;
           const top = reach.alive.top || reach.after.top;
           return (
             <li className="ratioed-reach-row" key={piece.rkey}>
@@ -1092,16 +1104,8 @@ function Reach({ pieces, events, parent }) {
                   style={{ width: `${(alive / max) * 100}%` }}
                   title={`${fmtReach(alive)} while alive`}
                 />
-                <span
-                  className="ratioed-reach-bar is-after"
-                  style={{ width: `${(after / max) * 100}%` }}
-                  title={`${fmtReach(after)} after the seal`}
-                />
               </div>
-              <span className="ratioed-reach-figure">
-                {alive > 0 ? fmtReach(alive) : '·'}
-                <small>{after > 0 ? ` +${fmtReach(after)}` : ''}</small>
-              </span>
+              <span className="ratioed-reach-figure">{alive > 0 ? fmtReach(alive) : '·'}</span>
               <span className="ratioed-reach-who">
                 {top ? `@${top.handle} · ${fmtReach(top.followers)}` : 'nobody with an audience'}
               </span>
@@ -1110,8 +1114,7 @@ function Reach({ pieces, events, parent }) {
         })}
       </ol>
       <p className="ratioed-reach-key">
-        <span className="ratioed-reach-swatch is-alive" /> while alive
-        <span className="ratioed-reach-swatch is-after" /> after the seal
+        <span className="ratioed-reach-swatch is-alive" /> approx. reach while alive
       </p>
     </div>
   );

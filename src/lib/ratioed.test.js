@@ -6,6 +6,7 @@ import {
   livingRoster,
   roleOf,
   hiddenReplies,
+  composeEventLog,
   WEEKDAYS,
   normalizePiece,
   localSlot,
@@ -589,5 +590,53 @@ describe('addressing a piece', () => {
     expect(isRatioedParent('3mrlnl6oyuj2d', { rkey: '3mrlnl6oyuj2d' })).toBe(true);
     expect(isRatioedParent('rainbow', { rkey: '3mrlnl6oyuj2d' })).toBe(false);
     expect(isRatioedParent('', { rkey: '3mrlnl6oyuj2d' })).toBe(false);
+  });
+});
+
+describe('composeEventLog', () => {
+  // The harvest's shape: seconds, a handle, and the text of every reply.
+  const bundle = [
+    { k: 'like', h: 'round.is', off: 31.8, pre: 1 },
+    { k: 'quote', h: 'dawnkelly.bsky.social', off: 210, pre: 0, t: 'Is this why we cant have nice things?' },
+  ];
+  // A record repaired after the fact: the afterlife only, and no text, because
+  // a backlink index does not carry any.
+  const record = [
+    { k: 'quote', h: 'dawnkelly.bsky.social', off: 209.993, pre: 0, did: 'did:plc:her', fr: 532 },
+    { k: 'reply', h: 'later.test', off: 1391.2, pre: 0, did: 'did:plc:them', fr: 12 },
+  ];
+
+  it('keeps the harvested alive window a repaired record does not cover', () => {
+    const out = composeEventLog(record, bundle);
+    expect(out.filter((e) => e.pre)).toHaveLength(1);
+    expect(out[0]).toMatchObject({ k: 'like', h: 'round.is', off: 31.8 });
+  });
+
+  it('gives a recorded row the text the harvest kept for it', () => {
+    // Same kind, same account, within a second: the same record, measured
+    // twice. The reply text is the one thing the index cannot give back.
+    const out = composeEventLog(record, bundle);
+    const quote = out.find((e) => e.k === 'quote');
+    expect(quote.t).toBe('Is this why we cant have nice things?');
+    expect(quote.fr).toBe(532); // and keeps what the record measured
+  });
+
+  it('does not list the same record twice', () => {
+    const out = composeEventLog(record, bundle);
+    expect(out.filter((e) => e.k === 'quote')).toHaveLength(1);
+  });
+
+  it('keeps a harvested row no index reports any more', () => {
+    // A reply deleted since the harvest is absent from the record's fresh read
+    // and present in the only measurement that ever saw it.
+    const withGone = [...bundle, { k: 'reply', h: 'gone.test', off: 500, pre: 0, t: 'deleted since' }];
+    const out = composeEventLog(record, withGone);
+    expect(out.find((e) => e.h === 'gone.test')?.t).toBe('deleted since');
+  });
+
+  it('falls back to either source alone', () => {
+    expect(composeEventLog(null, bundle)).toBe(bundle);
+    expect(composeEventLog(record, null)).toBe(record);
+    expect(composeEventLog(null, null)).toBeNull();
   });
 });

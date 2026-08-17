@@ -167,3 +167,31 @@ describe('healPiece', () => {
     expect(value.breaker.reactionMs).toBeUndefined();
   });
 });
+
+describe('healPiece — what they said', () => {
+  it('writes the text of a post that landed after the seal', () => {
+    // The index says a reply exists; only the AppView says what it says. This
+    // is the whole of the essay's "reactions no one can see", and a repair that
+    // dropped it turned four harvested replies into "(image, no text)".
+    const rkey = tidAt(postedMs + 900_000 + 300_000);
+    const { value } = healPiece(piece(), {
+      profiles: { 'did:plc:late': { handle: 'late.test', followers: 5 } },
+      records: [{ kind: 'reply', did: 'did:plc:late', rkey }],
+      texts: { [`did:plc:late/${rkey}`]: 'nobody will ever read this' },
+      selfDid: 'did:plc:me',
+    });
+    const after = value.events.find((e) => !e.pre);
+    expect(after).toMatchObject({ k: 'reply', h: 'late.test', t: 'nobody will ever read this' });
+  });
+
+  it('leaves a row alone when no text came back for it', () => {
+    const rkey = tidAt(postedMs + 900_000 + 300_000);
+    const { value } = healPiece(piece(), {
+      profiles: {},
+      records: [{ kind: 'reply', did: 'did:plc:late', rkey }],
+      texts: {},
+      selfDid: 'did:plc:me',
+    });
+    expect(value.events.find((e) => !e.pre).t).toBeUndefined();
+  });
+});

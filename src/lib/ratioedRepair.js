@@ -30,7 +30,7 @@
 import { UNRESOLVED_HANDLE, measureWindows, buildEventLog } from './ratioedDiscovery.js';
 import { witnessFromRecord, resolveBreaker } from './ratioedLive.js';
 import { fetchPieceRecords } from './ratioed.js';
-import { resolveProfiles, resolveHandle, tidToTimestamp } from './atproto.js';
+import { resolveProfiles, resolveHandle, getPosts, tidToTimestamp } from './atproto.js';
 import { replayWindow, withinLookback } from './jetstream.js';
 
 /** How far past the seal a recovery replay looks. See `recoverable` below. */
@@ -154,6 +154,7 @@ export function worthRepairing(value, nowMs = Date.now()) {
  * @param {object} [inputs]
  * @param {string} [inputs.breakerDid]      resolved from the breaker's handle
  * @param {object} [inputs.profiles]        did → { handle, followers, follows }
+ * @param {object} [inputs.texts]           `did/rkey` → the post's own text
  * @param {Array}  [inputs.records]         backlinks as `fetchPieceRecords` returns them
  * @param {{at:number,rkey:string}} [inputs.replayLike]  a like found by replaying
  * @param {string} [inputs.at]              the timestamp to stamp, ISO
@@ -162,7 +163,14 @@ export function worthRepairing(value, nowMs = Date.now()) {
  */
 export function healPiece(value, inputs = {}) {
   const v = value || {};
-  const { breakerDid, profiles = {}, records = null, replayLike = null, selfDid = null } = inputs;
+  const {
+    breakerDid,
+    profiles = {},
+    texts = {},
+    records = null,
+    replayLike = null,
+    selfDid = null,
+  } = inputs;
   const at = inputs.at || new Date().toISOString();
   const postedMs = Date.parse(v.postedAt || '');
   const sealedMs = Date.parse(v.sealedAt || '');
@@ -228,14 +236,43 @@ export function healPiece(value, inputs = {}) {
       profiles,
       handles: known,
     });
+
+    // What they said, where the AppView will still show it. A backlink index
+    // carries none of this, and it is the whole of the essay's "reactions no
+    // one can see" — the replies written into a thread that was already closed.
+    //
+    // Matched on the account and the offset rather than on position: the log is
+    // sorted and drops any record whose key will not decode, so the two arrays
+    // do not line up.
+    const textAt = {};
+    for (const r of records) {
+      const t = texts[`${r.did}/${r.rkey}`];
+      if (!t) continue;
+      const at = Date.parse(tidToTimestamp(r.rkey) || '');
+      if (Number.isFinite(at)) textAt[`${r.did}:${at - postedMs}`] = t;
+    }
+    for (let i = 0; i < fresh.length; i += 1) {
+      const t = textAt[`${fresh[i].did}:${fresh[i].offMs}`];
+      if (t) fresh[i] = { ...fresh[i], t };
+    }
     const kept = events.filter((e) => e.pre);
     const after = fresh.filter((e) => !e.pre);
-    const before = events.filter((e) => !e.pre).length;
+    const wasAfter = events.filter((e) => !e.pre);
+    const before = wasAfter.length;
+    // Text is its own reason to write. A piece whose afterlife has not moved
+    // since the last repair keeps the same rows, and the first repair that can
+    // read what those posts SAY would otherwise have nothing to report and
+    // write nothing — which is how a log of replies nobody can see ends up
+    // saying "(image, no text)" for all of them.
+    const gainedText = after.filter(
+      (e) => e.t && !wasAfter.some((o) => o.did === e.did && o.offMs === e.offMs && o.t),
+    ).length;
     events = [...kept, ...after].sort((a, c) => a.offMs - c.offMs);
     // Compared before they are replaced, so a repair that found nothing new
     // writes nothing at all rather than stamping a fresh `measuredAt` onto an
     // unchanged record.
     const moved =
+      gainedText > 0 ||
       after.length !== before ||
       ['likes', 'reposts', 'quotes', 'threadPosts', 'participants'].some(
         (k) => (v.postSeal?.[k] || 0) !== (windows.postSeal[k] || 0),
@@ -244,13 +281,15 @@ export function healPiece(value, inputs = {}) {
       next.postSeal = windows.postSeal;
       next.measuredAt = at;
       const delta = after.length - before;
-      changes.push(
-        delta > 0
-          ? `read ${delta} more record${delta === 1 ? '' : 's'} since the seal`
-          : delta < 0
-            ? `dropped ${-delta} record${-delta === 1 ? '' : 's'} deleted since the seal`
-            : 'updated the afterlife counts',
-      );
+      if (delta > 0) {
+        changes.push(`read ${delta} more record${delta === 1 ? '' : 's'} since the seal`);
+      } else if (delta < 0) {
+        changes.push(`dropped ${-delta} record${-delta === 1 ? '' : 's'} deleted since the seal`);
+      }
+      if (gainedText) {
+        changes.push(`read what ${gainedText} of them said`);
+      }
+      if (!delta && !gainedText) changes.push('updated the afterlife counts');
     }
   }
 
@@ -329,6 +368,30 @@ export async function repairPiece({ agent, did, collection, rkey, value, onProgr
     profiles = await resolveProfiles(dids).catch(() => ({}));
   }
 
+  // The text of everything after the seal that is a post. Twenty-five at a
+  // time, which is the AppView's own bound, and only for the rows that could
+  // carry text: a like has none and a repost is a pointer.
+  const texts = {};
+  const sealedAtMs = Date.parse(v.sealedAt || '');
+  const posts = (records || []).filter((r) => {
+    if (r.kind !== 'reply' && r.kind !== 'quote') return false;
+    const at = Date.parse(tidToTimestamp(r.rkey) || '');
+    return Number.isFinite(at) && at >= sealedAtMs;
+  });
+  if (posts.length) {
+    say(`reading ${posts.length} post${posts.length === 1 ? '' : 's'}`);
+    for (let i = 0; i < posts.length; i += 25) {
+      const chunk = posts.slice(i, i + 25);
+      const found = await getPosts(
+        chunk.map((r) => `at://${r.did}/app.bsky.feed.post/${r.rkey}`),
+      ).catch(() => ({}));
+      for (const r of chunk) {
+        const post = found[`at://${r.did}/app.bsky.feed.post/${r.rkey}`];
+        if (post?.text) texts[`${r.did}/${r.rkey}`] = post.text.slice(0, 300);
+      }
+    }
+  }
+
   // The replay, only when it is the one thing that can answer for a reaction
   // time: filtered to a single account, so it reads about 0.1 MB rather than
   // the 300 MB an unfiltered window would.
@@ -355,6 +418,7 @@ export async function repairPiece({ agent, did, collection, rkey, value, onProgr
   const { value: healed, changes } = healPiece(v, {
     breakerDid,
     profiles,
+    texts,
     records,
     replayLike,
     selfDid: did,

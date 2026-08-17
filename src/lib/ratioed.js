@@ -434,6 +434,48 @@ export function normalizePiece(rkey, value) {
 }
 
 /**
+ * One log for a piece, from the two places its rows can live.
+ *
+ * The first eleven pieces were measured offline before records carried a log,
+ * and the bundle is the only copy of their alive window — and of the TEXT of
+ * every reply, which the harvest kept and a backlink index cannot give back.
+ * A recorded log covers whatever windows it was measured over, which since the
+ * repair pass can be the afterlife alone.
+ *
+ * So neither source simply wins. The record owns the windows it has rows in,
+ * the bundle fills the windows it doesn't, and a recorded row that has no text
+ * takes it from the harvested row it plainly is — same kind, same account,
+ * within a second of the same offset. Without that last part, repairing a
+ * bundled piece replaced nine rows carrying four replies' worth of text with
+ * eight rows carrying none, and the essay's "reactions no one can see" read
+ * "(image, no text)" all the way down.
+ */
+export function composeEventLog(recordLog, bundleLog) {
+  const rec = Array.isArray(recordLog) ? recordLog : null;
+  const bun = Array.isArray(bundleLog) ? bundleLog : null;
+  if (!rec?.length) return bun?.length ? bun : null;
+  if (!bun?.length) return rec;
+
+  // The same record, measured twice: same kind, same account, within a second
+  // of the same offset. Measured against the real pair the harvest and the
+  // repair produced for the first eleven pieces, the offsets agree to about ten
+  // milliseconds, so a second and a half is slack rather than a guess.
+  const sameRow = (a, b) =>
+    a.k === b.k && a.h && a.h === b.h && Math.abs((a.off || 0) - (b.off || 0)) <= 1.5;
+
+  const withText = rec.map((e) => {
+    if (e.t) return e;
+    const harvested = bun.find((x) => x.t && sameRow(e, x));
+    return harvested ? { ...e, t: harvested.t } : e;
+  });
+  // Everything the harvest holds and the record does not: the alive window of a
+  // piece repaired long after it ran, and any row an index has since forgotten.
+  // Both are evidence, and the index cannot be asked about either.
+  const unrecorded = bun.filter((x) => !rec.some((e) => sameRow(e, x)));
+  return [...withText, ...unrecorded].sort((a, b) => a.off - b.off);
+}
+
+/**
  * A recorded event log, in the shape the charts read.
  *
  * The record stores milliseconds (lexicon v1 has no float type); the charts

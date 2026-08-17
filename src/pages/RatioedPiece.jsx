@@ -32,6 +32,7 @@ import { InspectMargin } from '../components/XraySubstrate.jsx';
 import {
   SEED_PIECES,
   loadPieces,
+  composeEventLog,
   findPieceByRef,
   pieceSlug,
   piecePath,
@@ -154,7 +155,10 @@ export default function RatioedPiece() {
   // recorded its own follower counts at measurement time keeps them.
   const events = useMemo(() => {
     if (!piece) return null;
-    const log = piece.events || bundled?.[piece.rkey] || null;
+    // Composed rather than chosen — see composeEventLog. A repaired piece from
+    // the first eleven carries an afterlife of its own and takes its alive
+    // window, and every reply's text, from the harvest.
+    const log = composeEventLog(piece.events, bundled?.[piece.rkey]);
     if (!log) return null;
     return audience ? applyAudience(log, audience) : log;
   }, [piece, bundled, audience]);
@@ -472,7 +476,7 @@ export default function RatioedPiece() {
               nobody. */}
           {reach?.measurable && (
             <div>
-              <dt>reach</dt>
+              <dt>approx. reach</dt>
               <dd>{fmtReach(reach.alive.raw)}</dd>
             </div>
           )}
@@ -833,26 +837,19 @@ function ReachSection({ reach, audienceAt, piece }) {
         {after.raw > 0 && ' more'}.
       </p>
 
+      {/* One figure, not four. The raw score and the discounted one were both
+          shown because the discount is a judgement and its size is worth
+          seeing; two numbers within 10% of each other under different labels
+          only ever read as a discrepancy. The approximation is what the score
+          is, so the label says so and the row below shows the arithmetic. */}
+      {/* Not the reach again: the band at the top of the page carries it and
+          the sentence above says it in words. What is left is the only figure
+          neither of them holds — how many accounts it was carried by. */}
       <dl className="ratioed-piece-figures">
         <div>
-          <dt>while alive</dt>
-          <dd>{fmtReach(alive.raw)}</dd>
-        </div>
-        <div>
-          <dt>after the seal</dt>
-          <dd>{fmtReach(after.raw)}</dd>
-        </div>
-        {/* What the follower-ratio discount took off. Shown beside the raw
-            figure rather than instead of it: the adjustment is a judgement and
-            the reader should be able to see its size. */}
-        <div>
-          <dt>discounted</dt>
-          <dd>{fmtReach(alive.weighted + after.weighted)}</dd>
-        </div>
-        <div>
-          <dt>accounts</dt>
+          <dt>accounts carrying it</dt>
           <dd>
-            {alive.known + after.known}
+            {alive.known}
             {unknown > 0 && <span className="ratioed-piece-fresh"> +{unknown} unknown</span>}
           </dd>
         </div>
