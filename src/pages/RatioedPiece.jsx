@@ -50,7 +50,6 @@ import {
   applyAudience,
   audienceIsFresh,
   fmtReach,
-  fmtRatio,
 } from '../lib/ratioedReach.js';
 import { aturiUniversalUrl, getRecord, resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { DEFAULT_COPY, loadCopy, fillCopy } from '../lib/ratioedCopy.js';
@@ -943,13 +942,24 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
         </div>
       </dl>
 
-      {/* Six columns, and on a phone it becomes six rows: the cells carry their
+      {/* Four columns, and on a phone they become rows: the cells carry their
           own labels (see `data-label`) and the stylesheet re-lays them as a
-          block per account under 34rem. A table this wide could not be made to
-          fit by shrinking, and shrinking it was what pushed the whole page
-          sideways. `.ratioed-piece-scroll` is the backstop for the widths in
-          between, where it is a table again but a long handle can still take it
-          past the column. */}
+          block per account under 34rem. `.ratioed-piece-scroll` is the backstop
+          for the widths in between.
+
+          It was six. An "audience" column sat beside the reach one and printed
+          the same number in every row anybody ever saw — a repost or a quote
+          counts as a whole following, so for those two acts reach IS the
+          follower count, and the table is sorted by reach, so the reposts and
+          quotes are the whole top of it. Only the replies down in the tail
+          differed, at a tenth. Two columns agreeing all the way down don't
+          read as an identity, they read as a bug. The reach column is the one
+          that carries the finding, because it is the one the total is the sum
+          of, and what each act is multiplied by is in the note underneath.
+
+          The ratio column went with it: followers over follows was there to
+          show why a farm-looking account gets discounted, and both numbers it
+          is made of are now off the row. */}
       {rows.length > 0 && (
         <div className="ratioed-piece-scroll">
           <table className="ratioed-piece-log ratioed-piece-reach">
@@ -957,8 +967,6 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
               <tr>
                 <th scope="col">who</th>
                 <th scope="col">act</th>
-                <th scope="col">audience</th>
-                <th scope="col" className="ratioed-piece-ratio">ratio</th>
                 <th scope="col">reach</th>
                 <th scope="col">window</th>
               </tr>
@@ -972,8 +980,6 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
                       {REACH_ACT[p.kind] || p.kind}
                     </span>
                   </td>
-                  <td data-label="audience">{fmtReach(p.followers)}</td>
-                  <td className="ratioed-piece-ratio" data-label="ratio">{fmtRatio(p.ratio)}</td>
                   <td data-label="reach">{fmtReach(p.raw)}</td>
                   <td>{p.window === 'alive' ? 'alive' : 'after the seal'}</td>
                 </tr>
@@ -981,13 +987,7 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
               {tail.length > 0 && (
                 <tr className="is-self">
                   <td className="ratioed-piece-who">and {tail.length} more</td>
-                  {/* A cell per column rather than one `colSpan={3}`: the ratio
-                      column is hidden on a phone, and a column only disappears
-                      when every cell in it does. A spanning cell kept it open as
-                      an empty stripe. */}
                   <td />
-                  <td />
-                  <td className="ratioed-piece-ratio" />
                   <td data-label="reach">{fmtReach(tailReach)}</td>
                   <td />
                 </tr>

@@ -279,9 +279,4 @@
   }
   /* The window sits at the end of its line, where the column used to be. */
   .ratioed-piece-reach td:last-child { margin-left: auto; color: var(--ink-muted); }
-  /* After the block above, and specific enough to beat it: `.ratioed-piece-reach
-     td { display: block }` outranks a bare class and was turning the hidden
-     column back on. */
-  .ratioed-piece-log th.ratioed-piece-ratio,
-  .ratioed-piece-log td.ratioed-piece-ratio { display: none; }
 }

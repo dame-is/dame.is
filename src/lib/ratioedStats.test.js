@@ -16,15 +16,15 @@ import {
 // middle, and a breaker who had never been in a take before.
 const LIFE = 2_504_693;
 const EVENTS = [
-  { h: 'a', did: 'did:a', k: 'reply', off: 46, pre: 1, fo: 836 },
-  { h: 'b', did: 'did:b', k: 'repost', off: 95, pre: 1, fo: 852 },
-  { h: 'a', did: 'did:a', k: 'reply', off: 200, pre: 1, fo: 836 },
-  { h: 'me', did: 'did:me', k: 'quote', off: 231, pre: 1, self: 1, fo: 221 },
-  { h: 'c', did: 'did:c', k: 'repost', off: 699, pre: 1, fo: 4988 },
+  { h: 'a', did: 'did:a', k: 'reply', off: 46, pre: 1, fr: 836 },
+  { h: 'b', did: 'did:b', k: 'repost', off: 95, pre: 1, fr: 852 },
+  { h: 'a', did: 'did:a', k: 'reply', off: 200, pre: 1, fr: 836 },
+  { h: 'me', did: 'did:me', k: 'quote', off: 231, pre: 1, self: 1, fr: 221 },
+  { h: 'c', did: 'did:c', k: 'repost', off: 699, pre: 1, fr: 4988 },
   // The hush: 699 → 1003 is 5m04s, the longest stretch here.
-  { h: 'd', did: 'did:d', k: 'reply', off: 1003, pre: 1, fo: 59 },
-  { h: 'e', did: 'did:e', k: 'like', off: 2503, pre: 1, fo: 3160 },
-  { h: 'f', did: 'did:f', k: 'repost', off: 2518, pre: 0, fo: 6229 },
+  { h: 'd', did: 'did:d', k: 'reply', off: 1003, pre: 1, fr: 59 },
+  { h: 'e', did: 'did:e', k: 'like', off: 2503, pre: 1, fr: 3160 },
+  { h: 'f', did: 'did:f', k: 'repost', off: 2518, pre: 0, fr: 6229 },
 ];
 const PIECE = {
   take: 17,
@@ -111,8 +111,8 @@ describe('followerStats', () => {
 
   it('names an amplifier by their furthest-carrying act', () => {
     const s = followerStats([
-      { h: 'g', did: 'did:g', k: 'reply', off: 1, pre: 1, fo: 9000 },
-      { h: 'g', did: 'did:g', k: 'repost', off: 2, pre: 1, fo: 9000 },
+      { h: 'g', did: 'did:g', k: 'reply', off: 1, pre: 1, fr: 9000 },
+      { h: 'g', did: 'did:g', k: 'repost', off: 2, pre: 1, fr: 9000 },
     ]);
     // The repost is why they are the amplifier; the reply came first.
     expect(s.top).toMatchObject({ h: 'g', kind: 'repost' });
@@ -125,6 +125,13 @@ describe('followerStats', () => {
 
   it('is null when no event carries an audience', () => {
     expect(followerStats([{ h: 'x', k: 'reply', off: 1, pre: 1 }])).toBe(null);
+  });
+
+  it('reads followers, not follows', () => {
+    // The two fields are one letter apart and reading the wrong one is silent.
+    const s = followerStats([{ h: 'x', did: 'did:x', k: 'repost', off: 1, pre: 1, fr: 89334, fo: 685 }]);
+    expect(s.top.followers).toBe(89334);
+    expect(s.median).toBe(89334);
   });
 });
 
@@ -218,12 +225,12 @@ describe('projectStats', () => {
   ];
   const logs = {
     p1: [
-      { h: 'a', did: 'did:a', k: 'reply', off: 10, pre: 1, fo: 100 },
-      { h: 'b', did: 'did:b', k: 'reply', off: 50, pre: 1, fo: 900 },
+      { h: 'a', did: 'did:a', k: 'reply', off: 10, pre: 1, fr: 100 },
+      { h: 'b', did: 'did:b', k: 'reply', off: 50, pre: 1, fr: 900 },
     ],
     p2: [
-      { h: 'a', did: 'did:a', k: 'reply', off: 30, pre: 1, fo: 100 },
-      { h: 'c', did: 'did:c', k: 'repost', off: 40, pre: 1, fo: 5000 },
+      { h: 'a', did: 'did:a', k: 'reply', off: 30, pre: 1, fr: 100 },
+      { h: 'c', did: 'did:c', k: 'repost', off: 40, pre: 1, fr: 5000 },
     ],
   };
 

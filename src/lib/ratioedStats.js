@@ -95,7 +95,12 @@ export function longestSilence(events, lifespanMs) {
 export function followerStats(events, { pre = true } = {}) {
   const byWho = new Map();
   for (const e of events || []) {
-    if (e.self || Boolean(e.pre) !== pre || typeof e.fo !== 'number') continue;
+    // `fr` is followers and `fo` is follows — two short fields one letter
+    // apart, and reading the wrong one is silent: this counted follows for a
+    // while and named take 17's biggest amplifier as the account with 5.0k
+    // follows rather than the one with 89k followers. Everything else in the
+    // project that scores an audience reads `fr`; so does this.
+    if (e.self || Boolean(e.pre) !== pre || typeof e.fr !== 'number') continue;
     const key = e.did || `h:${e.h}`;
     const found = byWho.get(key);
     // Kept at their furthest-carrying act, weighted the way reach is weighted:
@@ -105,11 +110,11 @@ export function followerStats(events, { pre = true } = {}) {
   }
   const people = Array.from(byWho.values());
   if (!people.length) return null;
-  const top = people.reduce((m, e) => (e.fo > m.fo ? e : m));
+  const top = people.reduce((m, e) => (e.fr > m.fr ? e : m));
   return {
-    median: medianOf(people.map((e) => e.fo)),
+    median: medianOf(people.map((e) => e.fr)),
     known: people.length,
-    top: { h: top.h, did: top.did || null, followers: top.fo, kind: top.k },
+    top: { h: top.h, did: top.did || null, followers: top.fr, kind: top.k },
   };
 }
 
