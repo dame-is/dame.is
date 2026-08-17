@@ -40,6 +40,13 @@
   font-size: var(--text-xs);
 }
 .ratioed-replay .ratioed-seg button + button { border-left: 0; }
+/* What the option costs, said quietly beside it — it's the deciding fact, not
+   the name of the thing. */
+.ratioed-replay .ratioed-seg-cost {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+  margin-left: 0.35em;
+}
 .ratioed-replay .ratioed-seg button:hover { color: var(--ink); }
 .ratioed-replay .ratioed-seg button[aria-pressed='true'] {
   background: var(--ink);

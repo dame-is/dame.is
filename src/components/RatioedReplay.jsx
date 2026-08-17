@@ -22,13 +22,17 @@ const KIND_VERB = { like: 'liked it', repost: 'reposted it', quote: 'quoted it',
 // alive sweep is deliberately unhurried — the point is to be watched.
 const FAST_ALIVE_MS = 8000;
 const TAIL_MS = 4500;
-// Above this, real time stops being a viewing option and starts being a wait,
-// so it isn't offered at all.
-const REAL_TIME_CEILING_MS = 120_000;
-// And above THIS it stops being the obvious default, though it's still worth
-// offering: a piece that lived seventeen seconds should take seventeen seconds
-// to watch — that's the whole argument — but a minute of staring is a different
-// proposition, so those open on the quick sweep with real time one click away.
+// Above this, real time stops being the obvious default, though it stays one
+// click away at any length. A piece that lived seventeen seconds should take
+// seventeen seconds to watch — that's the whole argument — but a minute of
+// staring is a different proposition, and take 17's forty-two minutes is a
+// different one again. Those open on the quick sweep.
+//
+// They are still offered it. A replay that only ever runs at 8 seconds is a
+// diagram of the piece; the reason to sit through the real thing is precisely
+// that most of it is nothing happening, which is what the piece was made of
+// and the one thing a sped-up sweep cannot show. The button says how long it
+// will take, so nobody starts a forty-minute wait by accident.
 const REAL_TIME_DEFAULT_MS = 45_000;
 
 /** Where a post-seal second sits in the log-scaled tail, as a 0–1 fraction. */
@@ -48,7 +52,6 @@ function tailSec(frac, maxSec) {
  */
 export default function RatioedReplay({ piece, events, profiles = {} }) {
   const lifeSec = Math.max((piece?.lifespanMs || 0) / 1000, 0.001);
-  const canRealTime = (piece?.lifespanMs || 0) <= REAL_TIME_CEILING_MS;
   const [realTime, setRealTime] = useState((piece?.lifespanMs || 0) <= REAL_TIME_DEFAULT_MS);
   const [progress, setProgress] = useState(2); // fully played, so a still page shows everything
   const [playing, setPlaying] = useState(false);
@@ -126,23 +129,25 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
           {playing ? 'Pause' : progress >= 2 ? 'Replay' : 'Play'}
         </button>
         <span className="ratioed-replay-clock">{clock}</span>
-        {canRealTime && (
-          <div className="ratioed-seg" role="group" aria-label="Playback speed">
-            {[
-              [true, 'Real time'],
-              [false, 'Quick'],
-            ].map(([v, label]) => (
-              <button
-                key={label}
-                type="button"
-                aria-pressed={realTime === v}
-                onClick={() => setRealTime(v)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* How long each option takes, on the option. The choice is between
+            watching the piece and watching a diagram of it, and the cost of
+            the first is the only thing anyone needs to decide. */}
+        <div className="ratioed-seg" role="group" aria-label="Playback speed">
+          {[
+            [true, 'Real time', fmtDuration(piece?.lifespanMs)],
+            [false, 'Quick', fmtDuration(FAST_ALIVE_MS)],
+          ].map(([v, label, cost]) => (
+            <button
+              key={label}
+              type="button"
+              aria-pressed={realTime === v}
+              aria-label={`${label} — the alive stretch takes ${cost}`}
+              onClick={() => setRealTime(v)}
+            >
+              {label} <span className="ratioed-seg-cost">{cost}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="ratioed-replay-track">
