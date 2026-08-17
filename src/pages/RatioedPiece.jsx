@@ -27,7 +27,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
-import { formatDateFull, relativeDay, relativeDayShort } from '../lib/time.js';
+import { formatDateFull } from '../lib/time.js';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import {
   SEED_PIECES,
@@ -443,11 +443,10 @@ export default function RatioedPiece() {
           </p>
         )}
 
+        {/* No "alive" row: the band under the title says how long it stood,
+            and printing it twice on one screen was the thing that made the
+            band's own column look like it was saying something else. */}
         <dl className="ratioed-piece-figures">
-          <div>
-            <dt>alive</dt>
-            <dd>{fmtDuration(piece.lifespanMs)}</dd>
-          </div>
           <div>
             <dt>reaction</dt>
             {/* A recovered time comes from a like that no longer exists — the
@@ -759,14 +758,22 @@ function Figure({ recorded, since }) {
  */
 function provenanceColumns(piece) {
   const day = (iso) => (iso || '').slice(0, 10);
+  // The middle column is "Elapsed" on every other document on the site, where
+  // it means how long ago the thing was published and "3 months ago" is worth
+  // knowing. On a piece it read "today" beside a headline about fifteen
+  // minutes, which is both useless and, on a page whose entire subject is a
+  // duration, actively misleading — the one elapsed time a piece has is how
+  // long it stood.
   const columns = [
     { key: 'date', label: 'Posted', long: formatDateFull(piece.postedAt), short: day(piece.postedAt) },
-    {
-      key: 'elapsed',
-      label: 'Elapsed',
-      long: relativeDay(piece.postedAt),
-      short: relativeDayShort(piece.postedAt),
-    },
+    piece.sealedAt
+      ? {
+          key: 'stood',
+          label: 'Stood for',
+          long: fmtDuration(piece.lifespanMs),
+          short: fmtDuration(piece.lifespanMs),
+        }
+      : { key: 'stood', label: 'Standing', long: 'still up', short: 'still up' },
   ];
   // One element, handed in as both renderings: DocumentMeta shows a single
   // value when the long and short forms are the same thing, and a record key is
