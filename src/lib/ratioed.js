@@ -722,14 +722,31 @@ export async function fetchLiveDeltas(pieces) {
         const bucket = SOURCE_BUCKETS[row.source];
         if (bucket) now[bucket] += row.count || 0;
       }
-      // The artist's own replies are in these totals but not in the recorded
-      // figures, so a delta of "0" is the honest floor, never a negative.
+      // The artist's own records, netted out.
+      //
+      // Constellation indexes them — the concluding reply, the metrics reply,
+      // the self-quote — and `measureWindows` excludes them from both recorded
+      // windows by construction. So the subtraction was always short by however
+      // many the artist had made, and `Math.max(0, …)` could not help because
+      // the error only ever runs one way: take 1 reported "+3 since measured"
+      // and "thread +2" for records written in June 2025. The log is where they
+      // are named, and every piece's log carries them flagged.
+      const mine = { ...EMPTY };
+      for (const e of p.events || []) {
+        if (!e.self) continue;
+        const bucket = SELF_BUCKETS[e.k];
+        if (bucket) mine[bucket] += 1;
+      }
       const recorded = p.preSeal;
       const post = p.postSeal;
       const delta = {};
       let total = 0;
       for (const key of ['likes', 'reposts', 'quotes', 'threadPosts']) {
-        const since = now[key] - (recorded[key] || 0) - (post[key] || 0);
+        const since = now[key] - mine[key] - (recorded[key] || 0) - (post[key] || 0);
+        // Still floored: the log names the artist's records up to the last
+        // measurement, so one made since is not in it and would read as a
+        // stranger's. A floor of zero is the honest answer to that, where a
+        // negative is not an answer at all.
         delta[key] = Math.max(0, since);
         total += delta[key];
       }
@@ -738,6 +755,9 @@ export async function fetchLiveDeltas(pieces) {
   );
   return Object.fromEntries(results.filter(Boolean));
 }
+
+/** An event log's `k` against the buckets a backlink count arrives in. */
+const SELF_BUCKETS = { like: 'likes', repost: 'reposts', quote: 'quotes', reply: 'threadPosts' };
 
 /** Every link source that counts as engagement, as `collection:path` pairs. */
 const BACKLINK_SOURCES = [
@@ -752,6 +772,15 @@ const BACKLINK_SOURCES = [
  * Every record pointing at a piece, flattened to `{ kind, rkey, did }` — the
  * shape measureWindows() consumes. Pages through each source to the end, so a
  * busy piece is counted in full rather than to the first 100.
+ *
+ * THROWS when a page cannot be read, and that is the whole point. `getBacklinks`
+ * answers null on any failure; this used to `break` on that and return whatever
+ * it had, which for a first-page failure is `[]` — indistinguishable from a
+ * piece nobody touched. The seal path never checked, so a Constellation outage
+ * in the seconds between the threadgate write and the measurement wrote a
+ * record with every pre-seal figure at zero and stamped it measured. Nothing
+ * re-derives a pre-seal window afterwards, by design, so those zeros were
+ * permanent. A caller that would rather have a partial answer can catch.
  */
 export async function fetchPieceRecords(subject) {
   const out = [];
@@ -759,7 +788,9 @@ export async function fetchPieceRecords(subject) {
     let cursor;
     do {
       const page = await getBacklinks(subject, source, { limit: 100, cursor });
-      if (!page) break;
+      if (!page) {
+        throw new Error(`could not read ${source} for ${subject}`);
+      }
       for (const r of backlinkRows(page)) {
         out.push({ kind, rkey: r.rkey, did: r.did });
       }
@@ -797,7 +828,11 @@ export function fmtSeconds(ms) {
  * needs them is a story about something else.
  */
 export function fmtStopwatch(ms, decimals = 2) {
-  const sec = Math.max(0, (ms || 0) / 1000);
+  // Rounded first, then branched. Branching on the raw value and rounding after
+  // put 59.999s in the under-a-minute arm and printed it as "60.00s" — and, one
+  // minute up, "1m60.00s".
+  const raw = Math.max(0, (ms || 0) / 1000);
+  const sec = Number(raw.toFixed(decimals));
   if (sec < 60) return `${sec.toFixed(decimals)}s`;
   const m = Math.floor(sec / 60);
   const rest = (sec - m * 60).toFixed(decimals).padStart(decimals + 3, '0');

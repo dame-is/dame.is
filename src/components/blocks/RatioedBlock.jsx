@@ -91,7 +91,10 @@ const DEFAULT_CAPTIONS = {
   lifelines: () =>
     'Every record pointing at a piece, by the second it arrived. The rule is the threadgate; everything right of it hit a post that was already over.',
   reaction: ({ stats }) =>
-    `How long each like went unnoticed: mean ${fmtSeconds(stats.meanReactionMs)}, range ${fmtSeconds(stats.minReactionMs)}–${fmtSeconds(stats.maxReactionMs)}. The ${stats.deleted} hatched bars are pieces whose like was deleted, so the window is inferred rather than measured.`,
+    // `count - measured` rather than `deleted`: the bars are hatched when
+    // nothing timed the like, and a deleted like the studio watched land was
+    // timed. Six of the seven deleted ones now carry a recovered reaction.
+    `How long each like went unnoticed: mean ${fmtSeconds(stats.meanReactionMs)}, range ${fmtSeconds(stats.minReactionMs)}–${fmtSeconds(stats.maxReactionMs)}. The ${stats.count - stats.measured} hatched bars are pieces nothing timed, so the window is inferred rather than measured.`,
   ledger: () =>
     'Engagement either side of the seal. Pieces keep accruing the right-hand column indefinitely.',
   hidden: () =>
@@ -676,7 +679,10 @@ function Participants({ rows: roster, audiences }) {
     return withAudience.sort((a, b) => {
       const A = a[key];
       const B = b[key];
-      const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
+      // No negation: `dir` has to mean the same thing for a text column as for
+      // a numeric one. It didn't, and the two cancelled only for the numbers —
+      // so clicking Handle ran z→a under an arrow pointing up.
+      const cmp = typeof A === 'string' ? A.localeCompare(B) : A - B;
       return cmp * dir || b.ev - a.ev;
     });
   }, [roster, sort, dir, audiences]);
@@ -887,7 +893,13 @@ function Lifelines({ pieces, events, stats, deltas, parent }) {
           const pct = scale === 'true' ? (life / maxLife) * 100 : 100;
           const list = events?.[p.rkey] || [];
           const open = openTake === p.take;
-          const ghost = p.breaker?.likeSurvives === false;
+          // Whether the reaction was TIMED, not whether the record still
+          // exists. The hatched bar means "this window is inferred"; since
+          // `reactionRecovered`, a like can be deleted and still have been
+          // timed by the log that watched it land. Take 16 was drawing a
+          // hatched inferred window two lines above its own detail panel
+          // printing "reaction 4.6s".
+          const ghost = typeof p.breaker?.reactionMs !== 'number';
           return (
             <div className={`ratioed-row${open ? ' open' : ''}`} key={p.rkey}>
               <button
@@ -994,10 +1006,10 @@ function PieceDetail({ piece, delta, parent }) {
             <dt>sealed</dt>
             <dd>{fmtDuration(piece.lifespanMs)} after posting</dd>
             <dt>reaction</dt>
-            <dd className={b.likeSurvives ? 'hot' : ''}>
+            <dd className={typeof b.reactionMs === 'number' ? 'hot' : ''}>
               {typeof b.reactionMs === 'number'
-                ? fmtSeconds(b.reactionMs)
-                : `unmeasurable — like deleted`}
+                ? `${fmtSeconds(b.reactionMs)}${b.likeSurvives === false ? ' (from the log; the like was deleted)' : ''}`
+                : 'unmeasurable — nothing timed the like'}
             </dd>
             <dt>announced</dt>
             <dd>
@@ -1147,7 +1159,11 @@ function Reach({ pieces, events, parent }) {
     if (!events) return null;
     return (pieces || [])
       .map((p) => ({ piece: p, reach: pieceReach(events[p.rkey]) }))
-      .filter((r) => r.reach.measurable);
+      // The window this chart actually draws. The whole-piece flag let takes 2
+      // and 7 through — nothing touched either while it was alive — to draw a
+      // zero-width bar with `·` for the figure and an afterlife account's name
+      // under it.
+      .filter((r) => r.reach.alive.measurable);
   }, [pieces, events]);
 
   if (!rows) return <p className="ratioed-note">Loading the event log…</p>;
@@ -1166,7 +1182,10 @@ function Reach({ pieces, events, parent }) {
       <ol className="ratioed-reach-rows">
         {rows.map(({ piece, reach }) => {
           const alive = reach.alive.raw;
-          const top = reach.alive.top || reach.after.top;
+          // This window's own, never the other's: the key underneath reads
+          // "approx. reach while alive", and naming an account that only turned
+          // up after the seal answers a question nobody asked.
+          const top = reach.alive.top;
           return (
             <li className="ratioed-reach-row" key={piece.rkey}>
               <Link className="ratioed-take-link" to={piecePath(piece, parent)}>

@@ -227,6 +227,7 @@ export default function RatioedStudio({ agent, did }) {
   const [witnessFrom, setWitnessFrom] = useState(null);
   // What has actually reached the record, so a tick of the clock isn't a write.
   // `stop` is the measurement taking the record over at seal time.
+  const askedProfiles = useRef(new Set());
   const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
   const [stream, setStream] = useState(null); // { state, bytes, seen, msgs, rate }
   const [profiles, setProfiles] = useState({});
@@ -317,6 +318,19 @@ export default function RatioedStudio({ agent, did }) {
   }, [agent, did]);
 
   const live = useMemo(() => (pieces || []).find(isLive) || null, [pieces]);
+
+  // Whether the piece on screen is the one this session just sealed.
+  //
+  // `sealed` holds the last seal this tab performed and is cleared in exactly
+  // one place — after the announcement reply posts. Dismiss the announcement,
+  // or have that reply throw, and it stands. The effects below then read it as
+  // "the live piece is sealed" for the whole rest of the session, so publishing
+  // the NEXT take opened no socket, ran no poll and wrote no witnessed rows: no
+  // alarm could fire, the panel read "Nobody has liked it yet", and the clock
+  // counted backwards off a `now` that had stopped ticking. The render already
+  // asked the right question further down; the effects were asking a different
+  // one.
+  const sealedNow = Boolean(live && sealed?.rkey === live.rkey);
   const done = useMemo(() => finished(pieces), [pieces]);
   const take = useMemo(() => nextTake(pieces), [pieces]);
   const prev = useMemo(() => previousPiece(done), [done]);
@@ -353,10 +367,10 @@ export default function RatioedStudio({ agent, did }) {
   // sits. It stops at the seal: after that the number is the lifespan, and a
   // lifespan does not keep growing.
   useEffect(() => {
-    if (!live || sealed) return undefined;
+    if (!live || sealedNow) return undefined;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [live, sealed]);
+  }, [live, sealedNow]);
 
   // The watch. Only runs while something is actually up and unsealed.
   // Either reader will do; the stream simply gets there first.
@@ -368,7 +382,7 @@ export default function RatioedStudio({ agent, did }) {
   // for the artist, not for a boolean.
   const withdrawn = !seenLike && withdrawnOnly(feed);
   useEffect(() => {
-    if (!live || sealed) {
+    if (!live || sealedNow) {
       if (!live) setLikes(null);
       return undefined;
     }
@@ -383,7 +397,7 @@ export default function RatioedStudio({ agent, did }) {
       alive = false;
       clearInterval(id);
     };
-  }, [live, sealed]);
+  }, [live, sealedNow]);
 
   // A new piece starts a new log. Keyed on the record key rather than on the
   // object, which a background refresh replaces without anything having changed.
@@ -423,7 +437,7 @@ export default function RatioedStudio({ agent, did }) {
   // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
   // like. The moment the piece is sealed there is nothing left to notice.
   useEffect(() => {
-    if (!live || sealed || !streamOn) return undefined;
+    if (!live || sealedNow || !streamOn) return undefined;
     setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
     const close = watchSubject(subjectOf(live), {
       // No budget here. A cap made sense while this was a curiosity; it does not
@@ -451,7 +465,7 @@ export default function RatioedStudio({ agent, did }) {
       },
     });
     return close;
-  }, [live, sealed, streamOn, streamRun, livePostedMs]);
+  }, [live, sealedNow, streamOn, streamRun, livePostedMs]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
   //
@@ -460,10 +474,18 @@ export default function RatioedStudio({ agent, did }) {
   // an AppView that answers in its own time. Without the guard each one lands
   // on an unmounted component.
   useEffect(() => {
-    const missing = feed.map((e) => e.did).filter((d) => d && !profiles[d]);
+    // Asked-for rather than answered-for: `resolveProfiles` omits a DID it
+    // could not resolve instead of throwing, so a single deactivated
+    // participant kept `missing` non-empty and this effect re-armed itself
+    // against the AppView for the rest of the piece.
+    const missing = feed
+      .map((e) => e.did)
+      .filter((d) => d && !profiles[d] && !askedProfiles.current.has(d));
     if (!missing.length) return undefined;
+    const batch = Array.from(new Set(missing));
+    for (const d of batch) askedProfiles.current.add(d);
     let alive = true;
-    resolveProfiles(Array.from(new Set(missing))).then((p) => {
+    resolveProfiles(batch).then((p) => {
       if (alive) setProfiles((old) => ({ ...old, ...p }));
     });
     return () => {
@@ -535,7 +557,7 @@ export default function RatioedStudio({ agent, did }) {
   // see it — and a burst after that is collected for a couple of seconds so a
   // busy thread is one write rather than nine.
   useEffect(() => {
-    if (!live || sealed || !feed.length) return undefined;
+    if (!live || sealedNow || !feed.length) return undefined;
     const rows = witnessToRecord(feed, { profiles });
     if (!witnessChanged(savedWitness.current.rows, rows)) return undefined;
     const since = Date.now() - savedWitness.current.at;
@@ -545,7 +567,7 @@ export default function RatioedStudio({ agent, did }) {
     );
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [live, sealed, feed, profiles, witnessFrom]);
+  }, [live, sealedNow, feed, profiles, witnessFrom]);
 
   /* ---------------------------------------------------------------- */
   /* Answering the thread from the dashboard                            */
@@ -765,6 +787,32 @@ export default function RatioedStudio({ agent, did }) {
       // The artwork is finished as of this line. Say so before the read.
       setSealed({ rkey: live.rkey, sealedAt });
       setNote('Sealed. Measuring…');
+
+      // When it ended, written before anything is measured.
+      //
+      // The measurement can fail — the backlink index goes down, a token
+      // expires — and everything after this point used to be one write at the
+      // end, so a failure left a record with no `sealedAt` at all. `isLive`
+      // stayed true while `justSealed` hid both seal buttons, and the series
+      // list iterates finished pieces, so nothing could reach it. Reloading
+      // re-offered "Seal this piece", which putRecords a fresh `createdAt` over
+      // the same threadgate rkey — destroying both witnesses to when the gate
+      // actually landed, and inflating the lifespan and the reaction time by
+      // however long the recovery took.
+      const held = await readPiece(live.rkey).catch(() => null);
+      await agent.com.atproto.repo
+        .putRecord({
+          repo: did,
+          collection: NSID,
+          rkey: live.rkey,
+          record: {
+            ...(held || {}),
+            $type: NSID,
+            sealedAt,
+            lifespanMs: Date.parse(sealedAt) - Date.parse(live.postedAt),
+          },
+        })
+        .catch(() => {}); // the measurement below is the one that must land
       await measureAndFinish(live, sealedAt);
     } catch (err) {
       setError(err?.message || String(err));
@@ -961,12 +1009,16 @@ export default function RatioedStudio({ agent, did }) {
     await refresh();
   }
 
-  async function remeasure() {
-    if (!announce?.piece) return;
+  /** Measure a sealed piece. Defaults to the one the announcement panel is
+   *  holding; also reachable from a piece whose measurement failed at the seal,
+   *  which has no announcement panel because it never got that far. */
+  async function remeasure(target) {
+    const piece = target || announce?.piece;
+    if (!piece?.sealedAt) return;
     setBusy('measure');
     setError(null);
     try {
-      await measureAndFinish(announce.piece, announce.piece.sealedAt);
+      await measureAndFinish(piece, piece.sealedAt);
     } catch (err) {
       setError(err?.message || String(err));
     } finally {
@@ -1203,7 +1255,7 @@ export default function RatioedStudio({ agent, did }) {
   // records are in the log and in none of the figures.
   const tally = useMemo(() => tallyWitness(feed, { selfDid: did }), [feed, did]);
 
-  const justSealed = Boolean(live && sealed?.rkey === live.rkey);
+  const justSealed = sealedNow;
   const aliveMs = live
     ? (justSealed ? Date.parse(sealed.sealedAt) : now) - Date.parse(live.postedAt)
     : 0;
@@ -1300,7 +1352,13 @@ export default function RatioedStudio({ agent, did }) {
           )}
 
           <p className="rs-live-state">
-            {justSealed ? (
+            {justSealed && error ? (
+              <>
+                Sealed at {new Date(sealed.sealedAt).toLocaleTimeString()}, and the measurement
+                failed. The seal is on the record; nothing else is. Measure it again — the index is
+                the part that was unreachable, and it is the only part still missing.
+              </>
+            ) : justSealed ? (
               <>Sealed. Reading its records&hellip;</>
             ) : withdrawn ? (
               <>
@@ -1324,6 +1382,24 @@ export default function RatioedStudio({ agent, did }) {
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal this piece'}
+              </button>
+            )}
+            {/* A seal that landed and a measurement that did not. Without this
+                the only way back is a reload, which re-offers "Seal this piece"
+                and writes a second threadgate over the first — moving the one
+                timestamp the lifespan is measured from. */}
+            {justSealed && error && (
+              <button
+                type="button"
+                className="rs-seal"
+                onClick={() => {
+                  setError(null);
+                  remeasure();
+                }}
+                disabled={!!busy}
+              >
+                <RefreshCw size={15} aria-hidden="true" />
+                {busy === 'measure' ? 'Measuring…' : 'Measure this piece'}
               </button>
             )}
             <a
@@ -1614,7 +1690,16 @@ export default function RatioedStudio({ agent, did }) {
               <RefreshCw size={14} aria-hidden="true" />
               {busy === 'measure' ? 'Measuring…' : 'Measure again'}
             </button>
-            <button type="button" className="admin-link-subtle" onClick={() => setAnnounce(null)}>
+            <button
+              type="button"
+              className="admin-link-subtle"
+              onClick={() => {
+                // Both, or the panel goes but the seal state stays and the next
+                // piece of the session runs unwatched.
+                setAnnounce(null);
+                setSealed(null);
+              }}
+            >
               dismiss
             </button>
           </div>
@@ -1792,6 +1877,24 @@ export default function RatioedStudio({ agent, did }) {
                       : ' · like deleted'}
                   </span>
                   <span className="rs-series-acts">
+                    {/* A seal that landed with no measurement behind it: the
+                        index was unreachable in the seconds after the gate.
+                        Repair cannot fix this one — it never re-derives the
+                        alive window — so the measurement has to be offered
+                        again, and it is the only button here that writes a
+                        pre-seal figure. */}
+                    {!p.measuredAt && (
+                      <button
+                        type="button"
+                        className="admin-link-subtle rs-series-wanted"
+                        onClick={() => remeasure(p)}
+                        disabled={!!busy}
+                        title="This piece was sealed but never measured. Read its records now."
+                      >
+                        <RefreshCw size={12} aria-hidden="true" />
+                        {busy === 'measure' ? 'measuring…' : 'measure'}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="admin-link-subtle"

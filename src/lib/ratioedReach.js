@@ -289,11 +289,19 @@ export function windowReach(events, pre) {
  */
 export function pieceReach(events) {
   const list = Array.isArray(events) ? events : [];
-  const measurable = list.some((e) => !e.self && hasAudience(e));
+  const alive = windowReach(list, true);
+  const after = windowReach(list, false);
   return {
-    measurable,
-    alive: windowReach(list, true),
-    after: windowReach(list, false),
+    // Whether ANY window can be priced, which is what a caller asking "is there
+    // a reach section to draw at all" wants...
+    measurable: list.some((e) => !e.self && hasAudience(e)),
+    // ...and per window, which is what a caller drawing ONE of them wants. The
+    // single flag was doing both jobs, so takes 2 and 7 — nothing touched them
+    // while they were alive, and both collected likes afterwards — passed the
+    // filter on the alive chart and drew a zero-width bar with a confident
+    // "approx. reach 0" beside an account that only acted after the seal.
+    alive: { ...alive, measurable: alive.known > 0 },
+    after: { ...after, measurable: after.known > 0 },
   };
 }
 

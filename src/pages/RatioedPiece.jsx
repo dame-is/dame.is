@@ -351,7 +351,10 @@ export default function RatioedPiece() {
     // Only when there is an audience to report. A piece whose participants
     // have all deactivated has no reach that can be measured, and a zero here
     // would read as one that reached nobody.
-    reach?.measurable && {
+    // The alive window's own measurability, not the piece's: takes 2 and 7 drew
+    // nothing while they stood, and "approx. reach 0" is a confident figure for
+    // a piece nobody carried — exactly what the comment above forbids.
+    reach?.alive?.measurable && {
       key: 'reach',
       label: 'approx. reach',
       value: fmtReach(reach.alive.raw),
@@ -634,7 +637,7 @@ export default function RatioedPiece() {
           )}
         </section>
 
-        {reach?.measurable && (
+        {(reach?.alive?.measurable || reach?.after?.measurable) && (
           <ReachSection
             reach={reach}
             audienceAt={piece.audienceAt || audience?.measuredAt || ''}
@@ -893,10 +896,18 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
   // Tagged by window on the way in: the same account can carry a piece while
   // it is alive and again after the seal, and those are two separate rows
   // rather than one person listed twice by accident.
+  // Sorted after the two windows are joined, not before. Each window arrives
+  // already descending, and concatenating two descending runs does not make a
+  // descending list — so `slice(0, 12)` below took the alive window first
+  // whatever the numbers were. Take 16 listed twelve alive rows down to 25 and
+  // folded smokeyjmirror's 20,119 — half the piece's whole reach — into "and 10
+  // more". The window column already says which side each row is from.
   const all = [
     ...alive.contributors.map((p) => ({ ...p, window: 'alive' })),
     ...after.contributors.map((p) => ({ ...p, window: 'after' })),
-  ].filter((p) => p.known && p.raw > 0);
+  ]
+    .filter((p) => p.known && p.raw > 0)
+    .sort((a, b) => b.raw - a.raw);
   const unknown = alive.unknown + after.unknown;
 
   // The head of the list is the whole story — a piece is carried by two or
@@ -932,14 +943,32 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
       {/* Not the reach again: the band at the top of the page carries it and
           the sentence above says it in words. What is left is the only figure
           neither of them holds — how many accounts it was carried by. */}
+      {/* One window per row. The figure used to be the alive window's, the
+          "+N unknown" beside it the sum of both, and the table below drawn from
+          both — three populations in one line, so take 8 read "10 +1 unknown"
+          where the unresolved account only ever acted after the seal, and takes
+          2 and 7 read "0" above a table with rows in it. */}
       <dl className="ratioed-piece-figures">
         <div>
-          <dt>accounts carrying it</dt>
+          <dt>carried it while alive</dt>
           <dd>
             {alive.known}
-            {unknown > 0 && <span className="ratioed-piece-fresh"> +{unknown} unknown</span>}
+            {alive.unknown > 0 && (
+              <span className="ratioed-piece-fresh"> +{alive.unknown} unknown</span>
+            )}
           </dd>
         </div>
+        {(after.known > 0 || after.unknown > 0) && (
+          <div>
+            <dt>since the seal</dt>
+            <dd>
+              {after.known}
+              {after.unknown > 0 && (
+                <span className="ratioed-piece-fresh"> +{after.unknown} unknown</span>
+              )}
+            </dd>
+          </div>
+        )}
       </dl>
 
       {/* Four columns, and on a phone they become rows: the cells carry their
