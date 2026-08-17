@@ -565,23 +565,23 @@
    for the panels two of them open. Nothing here is admin-specific in its
    geometry: they are `.chrome-nav` chips like every other button in the bar. */
 
-/* The state dot, in the admin status strip's own vocabulary: a hairline square
-   at the strip's own 8px, quiet until there is something to say. */
-.chrome-admin-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  background: var(--rule);
-}
-
-.chrome-nav.chrome-admin-state[data-dirty] .chrome-admin-dot {
-  background: var(--accent);
+/* The state button wears `⋯`, the glyph for what it opens, and carries its state
+   in that glyph's COLOUR — which is how every other control in this bar reports
+   one, and is what lets the button look like a button when there is nothing to
+   report. Only the hairline joins in: no fill, so a record with unsaved work
+   stays distinct from the panel being open, which is `.is-open`'s accent fill
+   below. */
+.chrome-nav.chrome-admin-state[data-dirty] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
 }
 
 /* `--danger` rather than a warm tan: under the sky theme every derived hue sits
    within a step or two of `--accent` for most of the day, and an error the same
    colour as a success is not an error anybody sees. */
-.chrome-nav.chrome-admin-state[data-error] .chrome-admin-dot {
-  background: var(--danger);
+.chrome-nav.chrome-admin-state[data-error] {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 /* The primary action. A TEXT button like the hour chip, not a glyph: Save,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowLeft, ArrowUp, Compass, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -771,11 +771,18 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     }
                     title={adminState?.message || 'More actions'}
                   >
-                    {/* The strip's hairline square, at the strip's size. Nothing
-                        in this site is round, and this is the same signal the
-                        desk's status strip paints — one vocabulary, two
-                        widths. */}
-                    <span className="chrome-admin-dot" aria-hidden="true" />
+                    {/* `⋯`, which is what this button opens: the record's raw
+                        JSON, its at-uri, the way out, Delete — plus whatever
+                        the surface has said about itself. It was a bare square
+                        for a while, the status strip's own dirty mark scaled to
+                        the chip, and that was a mistake in two directions: with
+                        nothing unsaved the square is `--rule` and reads as a
+                        button somebody forgot to put a glyph in, and it named
+                        the one thing this button reports rather than the many
+                        things it does. The dirty state is still here — it moved
+                        into the glyph's own colour (ChromeBar.css), which is how
+                        every other control in this bar carries a state. */}
+                    <Ellipsis className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
                 {adminPrimary && (
