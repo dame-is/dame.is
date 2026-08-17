@@ -7,6 +7,7 @@ import {
   livingRoster,
   loadPeople,
   roleOf,
+  brokenTakes,
   aggregate,
   splitParticipants,
   hiddenReplies,
@@ -686,7 +687,7 @@ function Participants({ rows: roster, audiences }) {
   const shown = useMemo(() => {
     if (expanded) return rows;
     const top = new Set(rows.slice(0, PEOPLE_PREVIEW).map((p) => p.did));
-    return rows.filter((p) => top.has(p.did) || p.broke);
+    return rows.filter((p) => top.has(p.did) || brokenTakes(p).length);
   }, [rows, expanded]);
   const hidden = rows.length - shown.length;
 

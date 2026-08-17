@@ -21,6 +21,7 @@
 // disagree in public.
 
 import { tidToTimestamp } from './atproto.js';
+import { identify } from './ratioedIdentity.js';
 
 /**
  * How many rows a record carries. A piece draws tens; this is a ceiling for the
@@ -175,7 +176,12 @@ export function witnessFromRecord(witnessed) {
 export function tallyWitness(rows, { selfDid = null } = {}) {
   const out = { likes: 0, reposts: 0, quotes: 0, replies: 0, people: 0, total: 0, withdrawn: 0 };
   const bucket = { like: 'likes', repost: 'reposts', quote: 'quotes', reply: 'replies' };
-  const dids = new Set();
+  // Counted through the identity join rather than off `did` alone. The alive
+  // window of the first eleven pieces comes entirely from the harvest, whose
+  // 255 rows carry a handle and no DID — so `if (r.did)` counted none of them,
+  // and the replay's counters read "people 0" underneath a header saying 32.
+  const who = identify(rows);
+  const people = new Set();
   for (const r of rows || []) {
     if (selfDid && r.did === selfDid) continue;
     if (r.goneMs != null) {
@@ -186,9 +192,10 @@ export function tallyWitness(rows, { selfDid = null } = {}) {
     if (!key) continue;
     out[key] += 1;
     out.total += 1;
-    if (r.did) dids.add(r.did);
+    const id = who(r);
+    if (id) people.add(id);
   }
-  out.people = dids.size;
+  out.people = people.size;
   return out;
 }
 

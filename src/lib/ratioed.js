@@ -16,6 +16,7 @@ import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from '
 import { ME_DID, COLLECTIONS, RATIOED_PATH } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
 import { witnessFromRecord } from './ratioedLive.js';
+import { identify, UNRESOLVED } from './ratioedIdentity.js';
 import { fetchSnapshot } from './snapshot.js';
 
 /** Link sources that count as engagement, mapped to our bucket names. */
@@ -75,7 +76,7 @@ export function splitParticipants(people = SEED_PEOPLE) {
     living: living.length,
     afterOnly: people.length - living.length,
     total: people.length,
-    breakersListed: living.filter((p) => p.broke).length,
+    breakersListed: living.filter((p) => brokenTakes(p).length).length,
   };
 }
 
@@ -113,6 +114,20 @@ function livingKindsByHandle(events, people) {
 }
 
 /**
+ * Which pieces somebody broke, as a list.
+ *
+ * The roster used to hold one take here, assigned in a loop, so a person who
+ * broke two pieces kept whichever record was written last — ponder.ooo broke
+ * takes 15 and 16 and the roster said only 15. It is a list now, and this reads
+ * either shape: the bundled roster is a frozen file and still holds scalars.
+ */
+export function brokenTakes(person) {
+  const b = person?.broke;
+  if (Array.isArray(b)) return b;
+  return b ? [b] : [];
+}
+
+/**
  * How someone showed up, in one word — the most consequential thing they did
  * while a piece was alive.
  *
@@ -124,7 +139,13 @@ function livingKindsByHandle(events, people) {
  * took the piece somewhere new — the Mix column beside it still shows all ten.
  */
 export function roleOf(person) {
-  if (person.broke) return { key: 'broke', label: `broke #${String(person.broke).padStart(2, '0')}` };
+  const broke = brokenTakes(person);
+  if (broke.length) {
+    return {
+      key: 'broke',
+      label: `broke ${broke.map((t) => `#${String(t).padStart(2, '0')}`).join(' & ')}`,
+    };
+  }
   const kinds = person.liveKinds || person.kinds || {};
   if (kinds.quote) return { key: 'quote', label: 'quoted' };
   if (kinds.repost) return { key: 'repost', label: 'reposted' };
@@ -159,14 +180,25 @@ const FACE_RANK = ['like', 'quote', 'repost', 'reply'];
  */
 export function foldFaces(events) {
   const byKey = new Map();
+  // One key space, not two. A recorded row always carries a DID and a harvested
+  // one never does, so keying on `did || handle:` drew a person who acted on
+  // both sides of the seal of a bundled take as two faces — and, because the
+  // breaker is matched by DID and by handle alike, rang both of them.
+  const who = identify(events);
   for (const e of events || []) {
     if (e.self) continue;
-    const key = e.did || `handle:${e.h}`;
+    const key = who(e);
+    if (!key) continue;
     let p = byKey.get(key);
     if (!p) {
       p = { key, did: e.did || null, handle: e.h, count: 0, pre: false, kinds: {}, alive: {}, after: {} };
       byKey.set(key, p);
     }
+    // Whichever row names them best wins, regardless of which came first: the
+    // harvested row is usually the earlier one and carries no DID, and the face
+    // needs the DID to find a portrait.
+    if (!p.did && e.did) p.did = e.did;
+    if ((!p.handle || p.handle === UNRESOLVED) && e.h) p.handle = e.h;
     p.count += 1;
     p.kinds[e.k] = (p.kinds[e.k] || 0) + 1;
     if (e.pre) p.pre = true;
@@ -212,7 +244,7 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
       live: p.pre.length,
       after: p.post.length,
       liveKinds: liveKinds.get(p.h) || null,
-      likeGone: Boolean(p.broke) && likeDeleted.has(p.broke),
+      likeGone: brokenTakes(p).some((t) => likeDeleted.has(t)),
     }));
 
   // Match on either identifier: the roster is keyed by DID, but a breaker is
@@ -246,7 +278,7 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
       pre: [piece.take],
       post: [],
       kinds: likeGone ? {} : { like: 1 },
-      broke: piece.take,
+      broke: [piece.take],
       named: true,
       likeGone,
     });
@@ -256,7 +288,7 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
     rows,
     measured: measured.length,
     named: named.length,
-    breakers: rows.filter((p) => p.broke).length,
+    breakers: rows.filter((p) => brokenTakes(p).length).length,
     deleted: rows.filter((p) => p.likeGone).length,
   };
 }

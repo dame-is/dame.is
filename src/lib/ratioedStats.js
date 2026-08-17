@@ -16,6 +16,7 @@
 // "0s" would be a lie about a piece that was busy.
 
 import { REACH_WEIGHTS } from './ratioedReach.js';
+import { identify, identifyAcross } from './ratioedIdentity.js';
 
 const MIN = 60_000;
 
@@ -92,8 +93,12 @@ export function longestSilence(events, lifespanMs) {
  * away by one account with ninety thousand followers, which is exactly the
  * account `top` is for.
  */
-export function followerStats(events, { pre = true } = {}) {
+export function followerStats(events, { pre = true, who = null } = {}) {
   const byWho = new Map();
+  // Within one piece the rows are all one kind of log, so the default join is
+  // enough. Across the series they are not — see `projectStats`, which hands
+  // its own in.
+  const key = who || identify(events);
   for (const e of events || []) {
     // `fr` is followers and `fo` is follows — two short fields one letter
     // apart, and reading the wrong one is silent: this counted follows for a
@@ -101,12 +106,13 @@ export function followerStats(events, { pre = true } = {}) {
     // follows rather than the one with 89k followers. Everything else in the
     // project that scores an audience reads `fr`; so does this.
     if (e.self || Boolean(e.pre) !== pre || typeof e.fr !== 'number') continue;
-    const key = e.did || `h:${e.h}`;
-    const found = byWho.get(key);
+    const id = key(e);
+    if (!id) continue;
+    const found = byWho.get(id);
     // Kept at their furthest-carrying act, weighted the way reach is weighted:
     // somebody who replied and then reposted is an amplifier by the repost,
     // and naming the reply would credit them for the wrong thing.
-    if (!found || (REACH_WEIGHTS[e.k] || 0) > (REACH_WEIGHTS[found.k] || 0)) byWho.set(key, e);
+    if (!found || (REACH_WEIGHTS[e.k] || 0) > (REACH_WEIGHTS[found.k] || 0)) byWho.set(id, e);
   }
   const people = Array.from(byWho.values());
   if (!people.length) return null;
@@ -118,21 +124,21 @@ export function followerStats(events, { pre = true } = {}) {
   };
 }
 
-/** How the log names somebody, for counting the same person across takes. A
- *  log written before DIDs were recorded has only the handle. */
-const whoKey = (e) => e.did || `h:${e.h}`;
-
 /**
  * Who had never turned up before.
+ *
+ * The identity join is built across EVERY log first, and that is what makes the
+ * count possible at all: a handle in take 4's harvest and a DID in take 17's
+ * recorded log are the same person only if some row somewhere carries both.
+ * Keyed the naive way, nobody from takes 1–11 could ever match anybody from
+ * 12–17, so this reported take 14 as 31 newcomers of 33 where 26 is the truth.
  *
  * `blind` is how many earlier takes had no log to read. It is not a detail:
  * with a gap in the history everybody from that take reads as new, so the
  * caller shows this only when nothing is missing.
  */
 export function newcomers(events, pieces, piece, resolveEvents) {
-  const mine = new Set((events || []).filter((e) => e.pre && !e.self).map(whoKey));
-  if (!mine.size) return null;
-  const before = new Set();
+  const earlier = [];
   let blind = 0;
   for (const p of pieces || []) {
     if (!p || p.take >= piece.take) continue;
@@ -141,7 +147,14 @@ export function newcomers(events, pieces, piece, resolveEvents) {
       blind += 1;
       continue;
     }
-    for (const e of log) if (e.pre && !e.self) before.add(whoKey(e));
+    earlier.push(log);
+  }
+  const who = identifyAcross([events || [], ...earlier]);
+  const mine = new Set((events || []).filter((e) => e.pre && !e.self).map(who).filter(Boolean));
+  if (!mine.size) return null;
+  const before = new Set();
+  for (const log of earlier) {
+    for (const e of log) if (e.pre && !e.self) before.add(who(e));
   }
   let n = 0;
   for (const key of mine) if (!before.has(key)) n += 1;
@@ -219,7 +232,12 @@ export function projectStats(pieces, resolveEvents = null) {
     const s = longestSilence(log, p.lifespanMs);
     if (s && (!worst || s.ms > worst.ms)) worst = { ...s, take: p.take, rkey: p.rkey };
   }
-  const everyone = followerStats(logs.flatMap(([, log]) => log));
+  // One join over every log, so a person who turned up under a handle in one
+  // take and a DID in another is one entry in the median rather than two. Ten
+  // people were being counted twice, which put the tile at 827 where the
+  // deduped answer is 808.
+  const flat = logs.flatMap(([, log]) => log);
+  const everyone = followerStats(flat, { who: identifyAcross(logs.map(([, log]) => log)) });
 
   return {
     ratio: { nonLike: totals.replies + totals.reposts + totals.quotes, likes: totals.likes },

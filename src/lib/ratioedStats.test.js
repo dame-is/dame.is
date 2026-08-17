@@ -260,3 +260,42 @@ describe('projectStats', () => {
     expect(projectStats([{ take: 1, lifespanMs: 0 }])).toBe(null);
   });
 });
+
+describe('counting people across two kinds of log', () => {
+  // The bundled harvest names people by handle; every log written since names
+  // them by DID. Anything keying on `did || h:handle` puts one person in both
+  // spaces, and no count that spans takes can ever match them up.
+  const bundled = [
+    { h: 'cam', k: 'reply', off: 10, pre: 1, fr: 500 },
+    { h: 'solo', k: 'reply', off: 20, pre: 1, fr: 200 },
+  ];
+  const recorded = [
+    { h: 'cam', did: 'did:plc:cam', k: 'repost', off: 5, pre: 1, fr: 500 },
+    { h: 'new', did: 'did:plc:new', k: 'reply', off: 6, pre: 1, fr: 900 },
+  ];
+  const pieces = [
+    { take: 4, rkey: 'p4' },
+    { take: 17, rkey: 'p17' },
+  ];
+  const logs = { p4: bundled, p17: recorded };
+  const resolve = (p) => logs[p.rkey];
+
+  it('does not call a returning participant a first-timer', () => {
+    const n = newcomers(recorded, pieces, { take: 17 }, resolve);
+    // cam was in take 4 under a handle alone; only `new` is new.
+    expect(n).toEqual({ n: 1, of: 2, blind: 0 });
+  });
+
+  it('counts a person once in the project-wide audience', () => {
+    const s = projectStats(
+      [
+        { take: 4, rkey: 'p4', lifespanMs: 60_000, preSeal: { likes: 1, threadPosts: 2 } },
+        { take: 17, rkey: 'p17', lifespanMs: 120_000, preSeal: { likes: 1, threadPosts: 3 } },
+      ],
+      resolve,
+    );
+    // cam, solo, new — not four.
+    expect(s.audience.known).toBe(3);
+    expect(s.audience.median).toBe(500);
+  });
+});

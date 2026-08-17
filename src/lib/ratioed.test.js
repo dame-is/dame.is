@@ -7,6 +7,7 @@ import {
   roleOf,
   hiddenReplies,
   chaseTicks,
+  brokenTakes,
   foldFaces,
   composeEventLog,
   WEEKDAYS,
@@ -259,8 +260,9 @@ describe('livingRoster', () => {
     // like is marked on the row they already had.
     expect(deleted).toBe(6);
     expect(rows.find((p) => p.h === 'j4ck.xyz')).toMatchObject({ broke: 7, likeGone: true });
+    // `broke` reads through brokenTakes now, since one person can break two.
     const recovered = rows.filter((p) => p.named);
-    expect(recovered.map((p) => p.broke).sort((a, b) => a - b)).toEqual([2, 4, 5, 8, 10]);
+    expect(recovered.flatMap((p) => brokenTakes(p)).sort((a, b) => a - b)).toEqual([2, 4, 5, 8, 10]);
     for (const p of recovered) {
       expect(p.ev).toBe(0);
       expect(p.live).toBe(0);
@@ -300,13 +302,13 @@ describe('livingRoster', () => {
     const { rows } = livingRoster(SEED_PIECES);
     expect(new Set(rows.map((p) => p.did)).size).toBe(rows.length);
     // Every piece is accounted for by exactly one row.
-    const broke = rows.filter((p) => p.broke).map((p) => p.broke);
+    const broke = rows.flatMap((p) => brokenTakes(p));
     expect(new Set(broke).size).toBe(broke.length);
   });
 
   it('accounts for every piece that names a breaker', () => {
     const { rows } = livingRoster(SEED_PIECES);
-    const named = new Set(rows.filter((p) => p.broke).map((p) => p.broke));
+    const named = new Set(rows.flatMap((p) => brokenTakes(p)));
     for (const piece of SEED_PIECES) {
       if (piece.breaker.handle && piece.breaker.handle !== 'unknown') {
         expect(named.has(piece.take)).toBe(true);
@@ -724,7 +726,27 @@ describe('foldFaces', () => {
 
   it('keys on the handle when the log has no DID', () => {
     const [p] = foldFaces([{ h: 'z', k: 'reply', off: 3, pre: 1 }]);
-    expect(p.key).toBe('handle:z');
+    expect(p.key).toBe('h:z');
     expect(p.did).toBe(null);
+  });
+
+  it('is one face when the same person appears with and without a DID', () => {
+    // A bundled take: the alive window is harvest, which carries no DIDs, and
+    // the afterlife was written by a repair, which carries them. Two faces for
+    // one account — and both ringed, since the breaker matches either way.
+    const faces = foldFaces([
+      { h: 'cam', k: 'reply', off: 967, pre: 1 },
+      { h: 'cam', did: 'did:plc:cam', k: 'reply', off: 984, pre: 0 },
+    ]);
+    expect(faces).toHaveLength(1);
+    expect(faces[0]).toMatchObject({ did: 'did:plc:cam', count: 2, pre: true });
+  });
+
+  it('will not merge two accounts that share the unresolvable placeholder', () => {
+    const faces = foldFaces([
+      { h: '(unresolvable)', k: 'reply', off: 1, pre: 1, rkey: 'a' },
+      { h: '(unresolvable)', k: 'repost', off: 2, pre: 1, rkey: 'b' },
+    ]);
+    expect(faces).toHaveLength(2);
   });
 });
