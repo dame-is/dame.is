@@ -21,10 +21,11 @@
 //    when one label wraps and another does not (measured: a 19.2px step); one
 //    line box cannot break a baseline at all, and it is 56px doing the work of
 //    236.
-//  · The pane blurb and `Refresh counts` leave the head. The blurb explains the
-//    page to a first-time reader and the owner has read it; Refresh moves into
-//    the action bar's right slot, where it is 44px in the thumb's arc instead of
-//    29.2px in the hardest corner of the screen.
+//  · The pane blurb and `Refresh counts` leave the head — the blurb because it
+//    explains the page to a first-time reader and the owner has read it, and
+//    Refresh because on a phone it is not worth a control at all: counting is
+//    automatic on mount behind a 60-second cache, so leaving the surface and
+//    coming back is a refresh.
 //
 // Both renderings of the counts row read ONE array (`countItems` below), so the
 // tiles and the scanline can never come to disagree about what a number means.
@@ -67,7 +68,7 @@
 // guard. The one exception is the "open any collection" form at the foot, which
 // has no href to hand and so uses `go()` with the rail's explicit nulls.
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '../components/Skeleton.jsx';
 import { relativeTime } from '../lib/time.js';
@@ -545,8 +546,7 @@ function OpenAnyCollection({ go }) {
 
 /** The dashboard. No props — everything comes from the shell context. */
 export default function FrontDesk() {
-  const { agent, did, dataRev, invalidate, go, stacked, sheet, setSheet, registerBar } =
-    useAdminShell();
+  const { agent, did, dataRev, invalidate, go, stacked, sheet, setSheet } = useAdminShell();
   // `onInvalidate` is the shell's own invalidate, so the refresh button reaches
   // the rail's dimming as well as these numbers rather than only this subtree.
   const { countFor, tiles, needsYou, latest, refresh, loading } = useAdminData({
@@ -559,39 +559,14 @@ export default function FrontDesk() {
   const { guestbook } = tiles;
   const counts = countItems(tiles);
 
-  // Counting is automatic on mount behind a 60-second in-memory cache, so
-  // Refresh is the only way to re-read a number that has gone stale under you
-  // without reloading the page — and on a phone it belongs in the bar, where
-  // every control the owner uses more than twice in a sitting lives.
-  //
-  // Registered from an effect at EVERY width, per the bar's contract: the bar
-  // is only rendered below 60rem, so branching on `stacked` here would be one
-  // more place for this file's idea of the breakpoint to drift from the
-  // shell's. `busy` is what gives the action its 'Counting…' state, aria-busy
-  // and disabled — the same contract Save publishes.
-  useEffect(() => {
-    registerBar({
-      actions: [
-        {
-          id: 'refresh',
-          // `Refresh`, not the head button's `Refresh counts` — §2.1's bar table
-          // says `↻ Refresh`, and it is right: the glyph and the word are the
-          // whole message on a 320px row, where "counts" cost 60px and pushed
-          // slot 1's label into an ellipsis. The head button keeps the longer
-          // label, because up there it is the only thing naming what it acts on.
-          label: 'Refresh',
-          // The bar's other actions all carry a glyph; this one had none, so it
-          // was the only unglyphed control on the bar.
-          icon: 'RefreshCw',
-          busy: loading,
-          busyLabel: 'Refreshing…',
-          onPress: () => refresh(),
-        },
-      ],
-    });
-    return () => registerBar(null);
-  }, [registerBar, refresh, loading]);
-
+  // THE FRONT DESK PUBLISHES NO PRIMARY ACTION, and that is a statement about
+  // the surface rather than an omission. Refresh used to ride the phone bar's
+  // right slot, which paints its control as THE thing the thumb is aiming for —
+  // and re-reading four numbers is not what anyone opens the admin to do. It is
+  // also nearly redundant on a phone: counting happens automatically on mount
+  // behind a 60-second cache, so leaving the surface and coming back is a
+  // refresh. The desk keeps the head button, where the longer label names what
+  // it acts on.
   return (
     <div className="fd">
       <header className="wb-pane-head fd-head">

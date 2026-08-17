@@ -106,10 +106,9 @@
 
 /* THE OVERFLOW HAS TO SAY IT IS AN OVERFLOW, and in this sheet more than
    anywhere: twenty-one destinations in a ~680px panel means the list is always
-   longer than the box, and the foot below it is opaque, full-width and bordered
-   — so a directory that gave no cue read as a directory that ENDED at "Open any
-   collection". The owner's own report was that the sheet had no scroll, and the
-   surfaces below the fold might as well not have existed.
+   longer than the box, so a directory that gave no cue read as a directory that
+   ENDED wherever the fold happened to fall. The owner's own report was that the
+   sheet had no scroll, and the surfaces below it might as well not have existed.
 
    Same four-layer trick as `.wb-rail-scroll` in adminShell.css, in this
    surface's colour. The two COVERS are painted in the panel's own background and
@@ -122,7 +121,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 var(--chrome-pad-base) var(--space-3);
+  padding: 0 var(--chrome-pad-base) var(--space-4);
   background:
     linear-gradient(var(--surface-deep) 40%, transparent) top / 100% 1.5rem local no-repeat,
     linear-gradient(transparent, var(--surface-deep) 60%) bottom / 100% 1.5rem local no-repeat,
@@ -130,10 +129,18 @@
     linear-gradient(transparent, var(--shadow)) bottom / 100% 0.5rem scroll no-repeat;
 }
 
-/* The foot is the escape hatch's home: it stays on screen however long the list
-   above it is, OUTSIDE the scroller — the old ribbon put the same control 7.3
-   screens to the right. Raised rather than deep, so it reads as the sheet's own
-   edge and not as one more row of the list that happens to be last. */
+/* The escape hatch, when it becomes a form, is the one thing in this list that
+   is not a 48px row — it has no padding of its own and would otherwise sit
+   flush against the row above it. */
+.wb-sheet-body > .wb-nsid-form {
+  padding-block: var(--space-2);
+}
+
+/* A foot, for a sheet that wants one. The surface directory no longer does —
+   see the header of AdminSurfaceSheet.jsx — but the record list's sort/filter
+   sheet ends on `Done`, which is a control ABOUT the sheet rather than a row of
+   it, and belongs on the sheet's own edge. Raised rather than deep for exactly
+   that reason. */
 .wb-sheet-foot {
   flex: 0 0 auto;
   padding: var(--space-2) var(--chrome-pad-base);
@@ -280,16 +287,34 @@
   --sheet-bottom: var(--wb-floor);
 }
 
-/* 2. Give the `fill` panel a foot. That panel IS the scrollport, so a foot
-      inside it would scroll away with the list — the one thing an escape hatch
-      must never do. Turn it back into a flex column and hand the scroll to
-      `.wb-sheet-body`, exactly as AdminSheet's own panel is built. Compounded
-      with `.wb-panel` so the selector cannot reach any other sheet on the
-      site. */
+/* 2. Hand the scroll to a body inside the panel rather than to the panel
+      itself, which is what BottomSheet's `fill` does by default. The directory
+      is then built exactly as the desk sheet's is — same padding, same scroll
+      cue, same rows — and there is one surface list in the codebase rather than
+      one per container. Compounded with `.wb-panel` so the selector cannot reach
+      any other sheet on the site. */
 .bottom-sheet-panel.wb-panel {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* The panel butts the top chrome — that is what `fill` means — and it carries no
+   grip, which is the 25px of breathing room the desk sheet gets for free above
+   its first row. Without this the first destination in the directory sits
+   directly on the chrome's hairline and reads as a continuation of the bar
+   rather than as the head of a list.
+
+   The `:first-child` reset is what keeps that edge the SAME height whether or
+   not there are recents: `.wb-sheet-heading` opens with a margin of its own, so
+   a sheet that starts with RECENT would otherwise stand a step taller than one
+   that starts with the Front Desk row. */
+.wb-panel .wb-sheet-body {
+  padding-top: var(--space-4);
+}
+
+.wb-panel .wb-sheet-body > :first-child {
+  margin-top: 0;
 }
 
 /* 3. The actions panel's own inset. It matches the bar's content column

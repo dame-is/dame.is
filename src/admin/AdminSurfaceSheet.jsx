@@ -1,5 +1,5 @@
-// The Surfaces sheet: the phone's whole surface directory, summoned from slot 1
-// of the action bar.
+// The Surfaces sheet: the phone's whole surface directory, summoned from the
+// site's bottom bar.
 //
 // It replaces a 3034px horizontal chip row — 7.78 viewport widths at 390, with
 // its four group headings `clip-path`-hidden so the row was twenty-one
@@ -9,14 +9,22 @@
 // it counts, it labels, it puts the escape hatch on screen, and it is one tap
 // from every surface to every other surface.
 //
-// Three things keep it short enough to use with a thumb:
+// Two things keep it short enough to use with a thumb:
 //
 //  - RECENT, the last three distinct surfaces this session. The owner who lives
 //    in two or three surfaces never scrolls this sheet at all.
 //  - LEGACY collapsed. Four derived record lists and a one-time migration,
 //    visited about once a year; collapsing them takes the sheet from ~1010px of
 //    rows to ~810px in a ~684px panel — one short flick instead of two.
-//  - "Open any collection" as a STICKY FOOT rather than the twenty-second row.
+//
+// "Open any collection" is the LAST ROW, not a sticky foot. It was a foot, for
+// the reason the rail keeps it out of its own scroller: an escape hatch that
+// scrolls away is an escape hatch you cannot reach. But a foot is a bar, and a
+// bar directly above the site's bar is two bars — an opaque, bordered strip that
+// read as the end of the directory and made the twenty surfaces below the fold
+// look like everything there was. The scroll cue on the body is what answers
+// that need now (adminChrome.css), and it answers it for the whole list rather
+// than for one row of it.
 //
 // Counts come from `useAdminData`, the same de-duplicated cache the rail and the
 // Front Desk already read, so drawing them costs no extra request.
@@ -101,9 +109,16 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
   // Recents are stored as KEYS, so a surface that has since stopped existing —
   // a lexicon that lost its `legacy` flag, a key renamed between deploys —
   // simply drops out rather than rendering a row that goes nowhere.
+  //
+  // The Front Desk drops out too, and never because it is not recent — it is the
+  // most recent thing there is, since every session starts there. It has a
+  // permanent row of its own three lines below, and a directory that lists the
+  // same destination twice, once under a heading claiming to be a shortcut,
+  // spends a row saying nothing. The shell already applies the same rule to the
+  // CURRENT surface for the same reason.
   const recentSurfaces = useMemo(
-    () => recents.map((key) => surfaceByKey(key)).filter(Boolean),
-    [recents],
+    () => recents.map((key) => surfaceByKey(key)).filter((s) => s && s.key !== home.key),
+    [recents, home],
   );
 
   // Every navigation from this sheet passes EXPLICIT NULLS, exactly as a rail
@@ -140,7 +155,10 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
   const legacy = groups.find((group) => group.key === 'legacy');
   const mainGroups = groups.filter((group) => group.key !== 'legacy');
 
-  const foot = askingNsid ? (
+  // The escape hatch, as the directory's last row. It swaps in place for the
+  // form when asked, rather than opening anything: `autoFocus` scrolls it into
+  // view, so a row at the end of a list is as reachable as a row anywhere else.
+  const hatch = askingNsid ? (
     <NsidForm
       autoFocus
       onCancel={() => setAskingNsid(false)}
@@ -195,14 +213,17 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
           {showLegacy && <ul className="wb-sheet-list">{legacy.items.map(rowFor)}</ul>}
         </div>
       )}
+
+      <hr className="wb-sheet-rule" />
+      {hatch}
     </>
   );
 
-  // Panel mode composes the body and the foot by hand, because BottomSheet has
-  // no `foot` of its own: its `fill` panel IS the scrollport. `.wb-panel` turns
-  // that panel back into a flex column with the scroll on the body, so the
-  // escape hatch stays on screen however long the directory is — the same
-  // contract as AdminSheet's foot, expressed in adminChrome.css.
+  // Panel mode wraps the body in a scroller of its own rather than letting
+  // BottomSheet's `fill` panel be the scrollport, so the padding, the scroll cue
+  // and the row rules are the same ones the desk sheet uses — one directory,
+  // drawn twice. `.wb-panel` is what turns that panel back into a flex column
+  // (adminChrome.css).
   if (asPanel) {
     return (
       <BottomSheet
@@ -214,20 +235,12 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
         className="wb-panel wb-panel-surfaces"
       >
         <div className="wb-sheet-body">{body}</div>
-        <div className="wb-sheet-foot">{foot}</div>
       </BottomSheet>
     );
   }
 
   return (
-    <AdminSheet
-      id={id}
-      open={open}
-      onClose={onClose}
-      label="Admin surfaces"
-      className="wb-sheet-surfaces"
-      foot={foot}
-    >
+    <AdminSheet id={id} open={open} onClose={onClose} label="Admin surfaces" className="wb-sheet-surfaces">
       {body}
     </AdminSheet>
   );
