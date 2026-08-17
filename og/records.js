@@ -310,6 +310,34 @@ function pickPiece(records, ref) {
   return list.find((r) => r?.value?.take === take) || null;
 }
 
+/**
+ * A short stamp that changes whenever the piece's card would draw differently.
+ *
+ * Two halves, because two different kinds of edit change this card. `measuredAt`
+ * moves on a re-measure, `sealedAt` on the seal, and `postedAt` is all a live
+ * piece has — that is the first half, in whole seconds, base 36. The second is
+ * the four facts the card sets in type, hashed: a recovered reaction time or a
+ * breaker who finally has a name is written onto the record WITHOUT re-measuring
+ * it, deliberately, and a card that ignored that would go on saying "ended by
+ * @unknown" until something unrelated moved the clock.
+ */
+function cardVersion(v) {
+  const at = Date.parse(v?.measuredAt || v?.sealedAt || v?.postedAt || '');
+  const b = v?.breaker || {};
+  const drawn = [
+    b.currentHandle || b.handle || '',
+    b.reactionMs ?? '',
+    v?.lifespanMs ?? '',
+    v?.preSeal?.participants ?? '',
+  ].join('|');
+  // djb2. Not a checksum of the record — a cache key for the six things on the
+  // card, small enough to sit in a query string.
+  let h = 5381;
+  for (let i = 0; i < drawn.length; i += 1) h = ((h << 5) + h + drawn.charCodeAt(i)) >>> 0;
+  const stamp = Number.isFinite(at) ? Math.floor(at / 1000).toString(36) : '0';
+  return `${stamp}${h.toString(36)}`;
+}
+
 /** Seconds, minutes — the same shape src/lib/ratioed.js's fmtDuration gives. */
 function shortDuration(ms) {
   const s = Math.round((ms || 0) / 1000);
@@ -336,10 +364,16 @@ export async function pieceRecord(ref, origin) {
   try { want = decodeURIComponent(want); } catch {}
   if (!want) return null;
   const found = pickPiece(await fetchSnapshot(origin, 'ratioed'), want);
-  if (found) return found;
+  // A SEALED piece is finished, and the snapshot's copy of it is as good as the
+  // PDS's. An unsealed one is not: the studio writes the record when the post
+  // goes up, so a deploy while a piece is running bakes in a piece with no
+  // breaker, no reaction time and a lifespan of zero — and the card and the
+  // crawler description would go on saying that after it ended, until whenever
+  // the site next builds.
+  if (found?.value?.sealedAt) return found;
   // The snapshot is a build artefact; a piece published since the last deploy
   // is only on the PDS. Same reason loadPieces() re-reads it.
-  return pickPiece(await withTimeout(livePieces(), PDS_TIMEOUT_MS), want);
+  return pickPiece(await withTimeout(livePieces(), PDS_TIMEOUT_MS), want) || found;
 }
 
 export async function pieceMeta(pathname, origin) {
@@ -383,7 +417,17 @@ export async function pieceMeta(pathname, origin) {
     // has a shape (how long it stood, what landed while it did) that a title
     // and a blurb can't carry. The take is all the card needs to find it, so
     // the query stays short and nothing free-text reaches the renderer.
-    ogQuery: `piece=${encodeURIComponent(take)}`,
+    //
+    // `v` is not read by the renderer. It is there because this URL names a
+    // record whose contents change ONCE, decisively, and are cached either side
+    // of it: the post that starts a piece carries a link to this page, so every
+    // card service on the network fetches the image while the piece is still
+    // alive — a card that says 0s, ended by nobody, 0 people — and then serves
+    // that back when the announcement links the same page after the seal. Take
+    // 16 went out that way. Stamping the record's own last-written moment into
+    // the URL makes the sealed card a different resource from the live one, so
+    // nothing has to expire for it to be right.
+    ogQuery: `piece=${encodeURIComponent(take)}&v=${cardVersion(v)}`,
   };
 }
 

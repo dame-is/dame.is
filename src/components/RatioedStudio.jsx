@@ -65,7 +65,7 @@ import {
   fmtDuration,
   fmtSeconds,
 } from '../lib/ratioed.js';
-import { measureWindows, buildEventLog } from '../lib/ratioedDiscovery.js';
+import { measureWindows, buildEventLog, UNRESOLVED_HANDLE } from '../lib/ratioedDiscovery.js';
 import { pieceReach, fmtReach } from '../lib/ratioedReach.js';
 import {
   witnessRow,
@@ -76,7 +76,9 @@ import {
   withdrawWitness,
   witnessChanged,
   breakingWitness,
+  withdrawnWitness,
   withdrawnOnly,
+  resolveBreaker,
 } from '../lib/ratioedLive.js';
 import {
   DEFAULT_TEMPLATE,
@@ -746,14 +748,8 @@ export default function RatioedStudio({ agent, did }) {
     // the reach score a measurement instead of a guess about the past.
     const measuredProfiles = await resolveProfiles(records.map((r) => r.did));
     const handles = Object.fromEntries(
-      Object.entries(measuredProfiles).map(([k, p]) => [k, p.handle]),
+      Object.entries(measuredProfiles).map(([k, p]) => [k, p.handle]).filter(([, h]) => h),
     );
-    const events = buildEventLog(records, {
-      postedAtMs: postedMs,
-      sealedAtMs: sealedMs,
-      selfDid: did,
-      profiles: measuredProfiles,
-    });
 
     // From here the measurement owns this record. A pending witness write is
     // cancelled by the effect that scheduled it, but one already in flight read
@@ -779,28 +775,51 @@ export default function RatioedStudio({ agent, did }) {
           ? Math.round(witnessFrom)
           : null;
 
-    // Who to name, and when they did it.
+    // Every name this pass has any claim on, weakest first.
     //
-    // The backlink index is the authority and lags by up to a minute; the
-    // stream saw the like as it happened and kept its record key, which is the
-    // same TID the index would eventually report. So when the index hasn't
-    // caught up, the witnessed like stands in — the reaction time is otherwise
-    // lost to a wait, which is exactly the failure this project can't absorb.
-    const seen = breakingWitness(witnessRows);
-    const seenAt = seen ? postedMs + seen.offMs : NaN;
-    const breaking =
-      windows.breakingLike ||
-      (seen && Number.isFinite(seenAt) && seenAt < sealedMs
-        ? { at: seenAt, did: seen.did }
-        : null);
+    // The measurement's own read is the freshest and wins, but it is one call
+    // to one AppView and it can simply fail — and when it does, `buildEventLog`
+    // labels every row "(unresolvable)" and writes that onto the record, where
+    // it is indistinguishable from an account that has since been deleted. It
+    // happened on take 16: thirteen people, all of them named in the witnessed
+    // log by the stream that watched them arrive, all of them recorded as
+    // unresolvable because one getProfiles call didn't answer.
+    //
+    // So the log's own handles, the profiles the panel resolved while the piece
+    // was running, and — on a re-measure — whatever the record already says,
+    // stand behind it. None of them is a measurement; a handle isn't one either.
+    const named = (pairs) => Object.fromEntries(pairs.filter(([d, h]) => d && h));
+    const knownHandles = {
+      ...named((held?.events || []).map((e) => [e.did, e.h === UNRESOLVED_HANDLE ? '' : e.h])),
+      ...named(witnessRows.map((r) => [r.did, r.h])),
+      ...named(Object.entries(profiles).map(([d, p]) => [d, p?.handle])),
+      ...handles,
+    };
+    const events = buildEventLog(records, {
+      postedAtMs: postedMs,
+      sealedAtMs: sealedMs,
+      selfDid: did,
+      profiles: measuredProfiles,
+      handles: knownHandles,
+    });
+
+    // Who to name, and when they did it. See resolveBreaker: the index first,
+    // the standing witnessed like when the index is only lagging, and the
+    // withdrawn one when there is nothing left for any index to hold.
+    const breaking = resolveBreaker({
+      indexLike: windows.breakingLike,
+      rows: witnessRows,
+      postedMs,
+      sealedMs,
+    });
 
     const breakerDid = breaking?.did || likes?.likes?.[0]?.actor?.did || null;
     const handle =
-      (breakerDid && handles[breakerDid]) ||
-      (breakerDid && profiles[breakerDid]?.handle) ||
+      (breakerDid && knownHandles[breakerDid]) ||
+      breaking?.handle ||
       likes?.likes?.[0]?.actor?.handle ||
       'unknown';
-    const likeSurvives = Boolean(breaking);
+    const likeSurvives = Boolean(breaking?.likeSurvives);
     const measuredAt = new Date().toISOString();
     const hasAudience = events.some((e) => typeof e.fr === 'number');
 
@@ -815,7 +834,11 @@ export default function RatioedStudio({ agent, did }) {
         handle,
         ...(breakerDid ? { did: breakerDid } : {}),
         likeSurvives,
-        ...(likeSurvives ? { reactionMs: sealedMs - breaking.at } : {}),
+        // Present with `likeSurvives: false` when the log timed a like the
+        // index can no longer be shown — the lexicon's `reactionRecovered`
+        // case, and the reason the log is written to the record at all.
+        ...(breaking ? { reactionMs: sealedMs - breaking.at } : {}),
+        ...(breaking?.recovered ? { reactionRecovered: true } : {}),
       },
       preSeal: windows.preSeal,
       postSeal: windows.postSeal,
@@ -858,12 +881,17 @@ export default function RatioedStudio({ agent, did }) {
         }`
       : '';
     setNote(
-      (likeSurvives
-        ? `Measured. Reaction ${fmtSeconds(sealedMs - breaking.at)}${
-            windows.breakingLike ? '.' : ', from the like the stream witnessed — measure again once the index catches up.'
-          }`
-        : 'Measured, but neither the index nor the stream has a like — measure again in a minute.') +
-        reachNote,
+      (!breaking
+        ? 'Measured, but neither the index nor the log has a like — measure again in a minute.'
+        : breaking.recovered
+          ? `Measured. @${handle} liked it and deleted the like; the reaction time — ${fmtSeconds(
+              sealedMs - breaking.at,
+            )} — is off the log the stream kept, and the record says so.`
+          : `Measured. Reaction ${fmtSeconds(sealedMs - breaking.at)}${
+              windows.breakingLike
+                ? '.'
+                : ', from the like the stream witnessed — measure again once the index catches up.'
+            }`) + reachNote,
     );
     await refresh();
   }
@@ -920,20 +948,82 @@ export default function RatioedStudio({ agent, did }) {
   }
 
   /**
-   * Recover a breaking like that was deleted, by replaying the past.
+   * Recover a breaking like that was deleted.
    *
    * The backlink index only knows what still exists, so a like withdrawn before
    * anything read it took its reaction time with it — six of the first thirteen
-   * pieces lost theirs that way. Jetstream's lookback still has it for 36 hours,
-   * deletion and all, and the reply concluding the piece names who cast it, so
-   * the replay can be filtered to that one account: 0.1 MB instead of 300.
+   * pieces lost theirs that way. Two things can still answer for it, and the
+   * cheap one is tried first:
    *
-   * The like stays deleted. What comes back is when it landed.
+   *   **The piece's own log.** A piece run through the studio with the stream
+   *   open watched the like land and watched it go, and both are on the record
+   *   in `witnessed`. No network, no window, and it works on a piece whose
+   *   breaker was recorded as "unknown" — which is precisely the piece that
+   *   needs it, since a name is what the replay below has to be filtered by.
+   *
+   *   **Jetstream's lookback**, for a piece nothing was watching. It holds 36
+   *   hours, deletion and all, and the reply concluding the piece names who cast
+   *   it, so the replay can be filtered to that one account: 0.1 MB instead of
+   *   300.
+   *
+   * The like stays deleted either way. What comes back is when it landed.
    */
   async function recover(piece) {
     const b = piece.breaker || {};
     const handle = b.currentHandle || b.handle;
-    if (!piece.sealedAt || !handle || handle === 'unknown') return;
+    if (!piece.sealedAt) return;
+    const sealedAtMs = Date.parse(piece.sealedAt);
+    const postedAtMs = Date.parse(piece.postedAt);
+
+    // From the log, if the log has it.
+    const logged = resolveBreaker({
+      indexLike: null,
+      rows: witnessFromRecord(piece.witnessed) || [],
+      postedMs: postedAtMs,
+      sealedMs: sealedAtMs,
+    });
+    if (logged && !logged.likeSurvives) {
+      setBusy(`recover:${piece.rkey}`);
+      setError(null);
+      try {
+        const named = logged.handle || (handle !== 'unknown' ? handle : '') || 'somebody';
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: NSID,
+          rkey: piece.rkey,
+          record: {
+            ...(await readPiece(piece.rkey)),
+            breaker: {
+              ...b,
+              handle: logged.handle || b.handle,
+              ...(logged.did ? { did: logged.did } : {}),
+              likeSurvives: false,
+              reactionMs: sealedAtMs - logged.at,
+              reactionRecovered: true,
+            },
+          },
+        });
+        setNote(
+          `Recovered take ${pieceSlug(piece)} from the log the stream kept: @${named} liked it ` +
+            `${fmtSeconds(sealedAtMs - logged.at)} before the seal, and took it back.`,
+        );
+        await refresh();
+      } catch (err) {
+        setError(err?.message || String(err));
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+
+    // Nothing watched this one. Replay, which needs a name to filter by.
+    if (!handle || handle === 'unknown') {
+      setError(
+        `Take ${pieceSlug(piece)} has no witnessed log and no named breaker, so there is nothing ` +
+          'to replay against — the replay reads one account’s records, not the whole firehose.',
+      );
+      return;
+    }
     setBusy(`recover:${piece.rkey}`);
     setError(null);
     try {
@@ -1439,9 +1529,17 @@ export default function RatioedStudio({ agent, did }) {
             <div>
               <dt>reaction</dt>
               <dd>
-                {announce.piece.breaker?.likeSurvives
-                  ? fmtSeconds(announce.piece.breaker.reactionMs)
-                  : 'not indexed yet'}
+                {typeof announce.piece.breaker?.reactionMs === 'number' ? (
+                  <>
+                    {fmtSeconds(announce.piece.breaker.reactionMs)}
+                    {/* Same number, different provenance, and the record says
+                        which: a like nothing can be shown any more, timed by
+                        the log that watched it land. */}
+                    {announce.piece.breaker.likeSurvives ? '' : ' — off the log; the like is gone'}
+                  </>
+                ) : (
+                  'not indexed yet'
+                )}
               </dd>
             </div>
           </dl>
@@ -1552,8 +1650,16 @@ export default function RatioedStudio({ agent, did }) {
             .map((p) => {
               const b = p.breaker || {};
               const timed = typeof b.reactionMs === 'number';
-              // Only worth offering while the replay can still reach it.
-              const recoverable = !timed && withinLookback(Date.parse(p.sealedAt));
+              // Two ways back to a lost reaction time, and they have different
+              // reaches. The log is on the record and never expires; the replay
+              // holds 36 hours and has to be filtered by a named account, so it
+              // is worth offering only while both of those are true. Offering it
+              // otherwise is what take 16 hit: a button that returned silently
+              // on the one piece whose breaker nothing had named.
+              const logged = Boolean(withdrawnWitness(p.witnessed || []));
+              const replayable =
+                withinLookback(Date.parse(p.sealedAt)) && b.handle && b.handle !== 'unknown';
+              const recoverable = !timed && (logged || replayable);
               return (
                 <li key={p.rkey}>
                   <Link to={piecePath(p)}>take {pieceSlug(p)}</Link>
@@ -1569,10 +1675,18 @@ export default function RatioedStudio({ agent, did }) {
                       className="admin-link-subtle rs-recover"
                       onClick={() => recover(p)}
                       disabled={!!busy}
-                      title="Replay Jetstream's lookback filtered to this account and find the like that ended the piece. The like stays deleted; its timing comes back."
+                      title={
+                        logged
+                          ? 'The studio watched this like land and watched it go, and the log is on the record. Reads the timing off it. The like stays deleted.'
+                          : "Replay Jetstream's lookback filtered to this account and find the like that ended the piece. The like stays deleted; its timing comes back."
+                      }
                     >
                       <History size={12} aria-hidden="true" />
-                      {busy === `recover:${p.rkey}` ? 'replaying…' : 'recover the reaction'}
+                      {busy === `recover:${p.rkey}`
+                        ? logged
+                          ? 'reading the log…'
+                          : 'replaying…'
+                        : 'recover the reaction'}
                     </button>
                   )}
                 </li>
@@ -1583,10 +1697,12 @@ export default function RatioedStudio({ agent, did }) {
             full catalogue" set one of them as a title and the other as a
             phrase. */}
         <p className="admin-field-hint">
-          A piece sealed in the last 36 hours whose breaking like was deleted can still have its
-          reaction time recovered: Jetstream&rsquo;s lookback holds the like, and the reply naming
-          the breaker is what lets the replay be filtered down to one account. After that the
-          window closes and the number is gone, as it is for six of the first thirteen.
+          A breaking like that was deleted can still have its reaction time recovered. A piece the
+          studio watched carries the answer on its own record — the log saw the like land and saw
+          it go — and that never expires. A piece nothing was watching has 36 hours, for as long as
+          Jetstream&rsquo;s lookback holds the like and the reply naming the breaker lets the replay
+          be filtered down to one account. After that the number is gone, as it is for six of the
+          first thirteen.
         </p>
         <p className="admin-field-hint">
           <Link to={`/creating/${RATIOED_PATH}`}>the essay</Link> ·{' '}

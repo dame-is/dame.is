@@ -429,6 +429,31 @@ describe('buildEventLog', () => {
     expect(e.h).toBe('(unresolvable)');
   });
 
+  it('falls back to a name from somewhere else before giving up on one', () => {
+    // The profile read is what carries the follower counts, so it is the one
+    // that has to be current. A HANDLE is not a measurement, and the studio has
+    // several — the log the stream wrote, the profiles the panel resolved while
+    // the piece ran — so a failed getProfiles should cost the audience, not
+    // everybody's name. Take 16 recorded thirteen people as unresolvable off
+    // one call that didn't answer.
+    const [e] = buildEventLog([{ kind: 'reply', rkey: '3lrq5ryysys22', did: 'did:plc:them' }], {
+      ...base,
+      profiles: {}, // the read failed
+      handles: { 'did:plc:them': 'watched.test' },
+    });
+    expect(e.h).toBe('watched.test');
+    expect(e.fr).toBeUndefined();
+  });
+
+  it('prefers the profile read to the handles it was handed', () => {
+    const [e] = buildEventLog([{ kind: 'reply', rkey: '3lrq5ryysys22', did: 'did:plc:them' }], {
+      ...base,
+      profiles: { 'did:plc:them': { handle: 'renamed.test', followers: 12 } },
+      handles: { 'did:plc:them': 'stale.test' },
+    });
+    expect(e.h).toBe('renamed.test');
+  });
+
   it('sorts earliest first and skips a key that will not decode', () => {
     const log = buildEventLog(
       [

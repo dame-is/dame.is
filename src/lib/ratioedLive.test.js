@@ -10,6 +10,8 @@ import {
   tallyWitness,
   breakingWitness,
   withdrawnOnly,
+  withdrawnWitness,
+  resolveBreaker,
   witnessChanged,
   WITNESS_MAX,
   WITNESS_TEXT_MAX,
@@ -185,6 +187,105 @@ describe('breakingWitness', () => {
       { k: 'like', rkey: 'here', offMs: 6000 },
     ];
     expect(withdrawnOnly(rows)).toBe(false);
+  });
+});
+
+describe('resolveBreaker', () => {
+  const postedMs = 1_000_000;
+  const sealedMs = postedMs + 20_000;
+
+  it('takes the index over the log, and calls the like alive', () => {
+    const out = resolveBreaker({
+      indexLike: { at: postedMs + 12_000, did: 'did:plc:index' },
+      rows: [{ k: 'like', rkey: 'a', did: 'did:plc:log', h: 'log.test', offMs: 9000 }],
+      postedMs,
+      sealedMs,
+    });
+    expect(out).toMatchObject({ did: 'did:plc:index', likeSurvives: true, recovered: false });
+    expect(out.at).toBe(postedMs + 12_000);
+  });
+
+  it('stands the witnessed like in while the index is still catching up', () => {
+    const out = resolveBreaker({
+      indexLike: null,
+      rows: [{ k: 'like', rkey: 'a', did: 'did:plc:them', h: 'them.test', offMs: 9000 }],
+      postedMs,
+      sealedMs,
+    });
+    // The like exists — the index simply hasn't seen it yet — so nothing here
+    // is a recovery, and the reaction time is measured from the log's own TID.
+    expect(out).toMatchObject({
+      at: postedMs + 9000,
+      did: 'did:plc:them',
+      handle: 'them.test',
+      likeSurvives: true,
+      recovered: false,
+    });
+  });
+
+  it('names the person who liked it and took it back, and keeps the timing', () => {
+    // The case the whole witnessed log exists for. Take 16: liked at +902.874s,
+    // deleted 329ms later, sealed 4.6s after that. The index has nothing to
+    // report and never will, and the studio recorded "unknown" with no reaction
+    // time — for a like it had watched land, from an account it had named.
+    const out = resolveBreaker({
+      indexLike: null,
+      rows: [
+        { k: 'reply', rkey: 'r', offMs: 4000 },
+        { k: 'like', rkey: 'a', did: 'did:plc:them', h: 'ponder.test', offMs: 9000, goneMs: 9329 },
+      ],
+      postedMs,
+      sealedMs,
+    });
+    expect(out).toMatchObject({
+      at: postedMs + 9000,
+      did: 'did:plc:them',
+      handle: 'ponder.test',
+      // The like is gone. Only its timing came back — which is exactly what the
+      // record's `reactionRecovered` says.
+      likeSurvives: false,
+      recovered: true,
+    });
+  });
+
+  it('prefers a like that still stands to one that was taken back', () => {
+    const out = resolveBreaker({
+      indexLike: null,
+      rows: [
+        { k: 'like', rkey: 'gone', did: 'did:plc:gone', offMs: 4000, goneMs: 4500 },
+        { k: 'like', rkey: 'here', did: 'did:plc:here', offMs: 6000 },
+      ],
+      postedMs,
+      sealedMs,
+    });
+    expect(out).toMatchObject({ did: 'did:plc:here', likeSurvives: true });
+  });
+
+  it('ignores a like that landed after the gate closed', () => {
+    // A sealed piece goes on collecting likes forever; none of them ended it.
+    const rows = [{ k: 'like', rkey: 'after', offMs: 25_000, goneMs: 26_000 }];
+    expect(resolveBreaker({ indexLike: null, rows, postedMs, sealedMs })).toBeNull();
+  });
+
+  it('is null when nothing saw a like at all', () => {
+    expect(
+      resolveBreaker({ indexLike: null, rows: [{ k: 'reply', rkey: 'r', offMs: 10 }], postedMs, sealedMs }),
+    ).toBeNull();
+  });
+});
+
+describe('withdrawnWitness', () => {
+  it('takes the earliest like that was taken back', () => {
+    const rows = [
+      { k: 'like', rkey: 'late', offMs: 9000, goneMs: 9100 },
+      { k: 'like', rkey: 'early', offMs: 4000, goneMs: 4100 },
+      { k: 'like', rkey: 'standing', offMs: 1000 },
+    ];
+    expect(withdrawnWitness(rows).rkey).toBe('early');
+  });
+
+  it('is null when every like in the log still stands', () => {
+    expect(withdrawnWitness([{ k: 'like', rkey: 'a', offMs: 10 }])).toBeNull();
   });
 });
 

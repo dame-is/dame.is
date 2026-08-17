@@ -193,7 +193,20 @@ export async function resolveProfiles(dids, { appview = APPVIEW } = {}) {
     const params = new URLSearchParams();
     for (const did of unique.slice(i, i + 25)) params.append('actors', did);
     try {
-      const res = await fetchJson(`${appview}/xrpc/app.bsky.actor.getProfiles?${params}`);
+      // Tried twice. A chunk is up to 25 accounts and a Ratioed measurement is
+      // usually one chunk for the whole piece, so a single 500 or a dropped
+      // connection is the difference between a log that names thirteen people
+      // and a log that names none of them — which is what happened to take 16,
+      // and what gets written onto a record that is supposed to be permanent.
+      // Sequential and small: this is not a retry loop, it is a second ask.
+      const res = await fetchJson(`${appview}/xrpc/app.bsky.actor.getProfiles?${params}`).catch(
+        async (err) => {
+          await new Promise((r) => setTimeout(r, 400));
+          return fetchJson(`${appview}/xrpc/app.bsky.actor.getProfiles?${params}`).catch(() => {
+            throw err;
+          });
+        },
+      );
       for (const p of res?.profiles || []) {
         if (!p?.did) continue;
         out[p.did] = {

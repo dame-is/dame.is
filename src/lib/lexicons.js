@@ -357,7 +357,7 @@ export const LEXICONS = {
       { key: 'announceLagMs', label: 'Announcement lag (ms)', type: 'number' },
       {
         key: 'breaker', label: 'Breaker', type: 'json',
-        hint: '{ handle, currentHandle?, did?, likeSurvives, reactionMs? }. reactionMs is absent when the like was deleted.',
+        hint: '{ handle, currentHandle?, did?, likeSurvives, reactionMs?, reactionRecovered? }. A deleted like still carries a reactionMs when something timed it — the witnessed log, or a replay — and reactionRecovered is what says so.',
       },
       { key: 'preSeal', label: 'While alive', type: 'json', hint: '{ likes, reposts, quotes, threadPosts, participants }' },
       { key: 'postSeal', label: 'After the seal', type: 'json', hint: 'Same shape. Only true as of measuredAt.' },

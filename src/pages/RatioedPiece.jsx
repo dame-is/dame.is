@@ -390,10 +390,23 @@ export default function RatioedPiece() {
               </>
             )}{' '}
             while it was alive, and was ended by <strong>@{b.currentHandle || b.handle}</strong>
-            {b.likeSurvives ? (
-              <>
-                , whose like the artist caught {fmtSeconds(b.reactionMs)} later.
-              </>
+            {/* Three endings, not two. A like that still stands is measured; a
+                like that was deleted after something had already timed it is
+                measured and gone, which is the case the record's
+                `reactionRecovered` exists for; a like that was deleted before
+                anything saw it takes the number with it. */}
+            {typeof b.reactionMs === 'number' ? (
+              b.likeSurvives ? (
+                <>
+                  , whose like the artist caught {fmtSeconds(b.reactionMs)} later.
+                </>
+              ) : (
+                <>
+                  , whose like the artist caught {fmtSeconds(b.reactionMs)} later. They deleted it
+                  afterwards, so no index holds any trace of it — that timing is off a log kept
+                  while the piece was running.
+                </>
+              )
             ) : (
               <>. Their like has since been deleted, so how fast it was caught can no longer be
               measured.</>

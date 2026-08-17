@@ -30,7 +30,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Upload, Trash2, ExternalLink, ListPlus, Search, Users } from 'lucide-react';
+import {
+  RefreshCw,
+  Upload,
+  Trash2,
+  ExternalLink,
+  ListPlus,
+  Search,
+  Users,
+  UserSearch,
+} from 'lucide-react';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { COLLECTIONS, RATIOED_DOC_RKEY, RATIOED_SOURCE, ME_DID } from '../config.js';
@@ -48,6 +57,7 @@ import {
   measureWindows,
   buildEventLog,
   buildPieceRecord,
+  UNRESOLVED_HANDLE,
 } from '../lib/ratioedDiscovery.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveProfiles } from '../lib/atproto.js';
@@ -220,6 +230,20 @@ export default function RatioedPanel({ agent, did }) {
   const missingAudience = Object.entries(live)
     .filter(([, v]) => v?.sealedAt && v?.events?.length)
     .filter(([, v]) => !v.events.some((e) => typeof e.fr === 'number'))
+    .map(([rkey, v]) => ({ rkey, value: v }));
+
+  // Pieces whose log names a DID it could not put a handle to.
+  //
+  // "(unresolvable)" is written for a deleted account and for a profile read
+  // that simply failed, and those are not the same thing: one is a fact about
+  // the person, the other is a fact about the afternoon. Take 16 recorded
+  // thirteen of them from a single getProfiles call that didn't answer, and
+  // every one of those accounts is alive and named in the same record's
+  // witnessed log. A DID is a permanent handle on somebody; while it resolves,
+  // the row can be named.
+  const missingNames = Object.entries(live)
+    .filter(([, v]) => v?.sealedAt && v?.events?.length)
+    .filter(([, v]) => v.events.some((e) => e.did && (!e.h || e.h === UNRESOLVED_HANDLE)))
     .map(([rkey, v]) => ({ rkey, value: v }));
 
   /** Write every piece with putRecord — deterministic rkeys, so re-running
@@ -582,6 +606,81 @@ export default function RatioedPanel({ agent, did }) {
     }
   }
 
+  /**
+   * Put names back on the rows of a log that could not resolve them.
+   *
+   * Names only. The audience backfill above rewrites follower counts, which is
+   * right for a log that has none and wrong for one measured at seal time — a
+   * count read today is a worse figure than the one read while the piece ran.
+   * A handle is not a measurement at all: the record stores it so the log can
+   * be read by a human, and the DID beside it is what the roster is keyed by.
+   * So this touches `h` and nothing else, and only where it currently says
+   * nobody could be named.
+   *
+   * An account that has since been deleted stays unresolvable, which is what
+   * that label is for.
+   */
+  async function repairNames() {
+    if (!missingNames.length) return;
+    if (
+      !window.confirm(
+        `Re-read handles for ${missingNames.length} piece(s)?\n\n` +
+          'These logs name DIDs they could not put a handle to at measurement ' +
+          'time. This resolves them now and writes the names onto the log. ' +
+          'Nothing measured is touched — no counts, no audiences, no reaction times.',
+      )
+    ) {
+      return;
+    }
+    setBusy('names');
+    setError(null);
+    try {
+      let n = 0;
+      let named = 0;
+      for (const { rkey, value } of missingNames) {
+        n += 1;
+        setProgress(`Reading handles ${n}/${missingNames.length} — take ${value.take}`);
+        // Only the rows that need one, so a piece with two dead accounts costs
+        // one lookup rather than forty.
+        const dids = value.events
+          .filter((e) => e.did && (!e.h || e.h === UNRESOLVED_HANDLE))
+          .map((e) => e.did);
+        if (!dids.length) continue;
+        const profiles = await resolveProfiles(dids);
+        // The piece's own witnessed log is a second source and an older one:
+        // those handles were read while the piece was running, which is the
+        // moment the record is supposed to describe. Used where the profile
+        // read comes back empty.
+        const watched = Object.fromEntries(
+          (value.witnessed || []).filter((w) => w.did && w.h).map((w) => [w.did, w.h]),
+        );
+        const events = value.events.map((e) => {
+          if (!e.did || (e.h && e.h !== UNRESOLVED_HANDLE)) return e;
+          const handle = profiles[e.did]?.handle || watched[e.did] || '';
+          return handle ? { ...e, h: handle } : e;
+        });
+        if (!events.some((e, i) => e !== value.events[i])) continue;
+        await agent.com.atproto.repo.putRecord({
+          repo: did,
+          collection: NSID,
+          rkey,
+          record: { $type: NSID, ...value, events },
+        });
+        named += 1;
+      }
+      setProgress(
+        named === missingNames.length
+          ? `Names written to ${named} piece(s).`
+          : `Names written to ${named} of ${missingNames.length}; the rest resolve to nobody, which is what the label says.`,
+      );
+      await refresh();
+    } catch (err) {
+      setError(err?.message || String(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function deleteAll() {
     const keys = Object.keys(live);
     if (!keys.length) return;
@@ -660,6 +759,18 @@ export default function RatioedPanel({ agent, did }) {
             {busy === 'audience'
               ? 'Reading audiences…'
               : `Backfill audiences (${missingAudience.length})`}
+          </button>
+        )}
+        {missingNames.length > 0 && (
+          <button
+            type="button"
+            className="admin-gate-button"
+            onClick={repairNames}
+            disabled={!!busy}
+            title="These logs name DIDs they could not put a handle to when they were measured — usually one profile read that failed, which labels every row on the piece unresolvable. Resolves them now and writes the names on. Nothing measured is touched."
+          >
+            <UserSearch size={14} aria-hidden="true" />
+            {busy === 'names' ? 'Reading handles…' : `Put names back (${missingNames.length})`}
           </button>
         )}
         {publishedCount > 0 && (
