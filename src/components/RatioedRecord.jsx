@@ -27,7 +27,7 @@ import './RatioedRecord.css';
  * is the state take #1 was in and nothing since. `pieces` is the rest of the
  * series, for the ticks; without it the bar draws as it always did.
  */
-export default function RatioedRecord({ elapsedMs = 0, record, pieces = null, compact = false }) {
+export default function RatioedRecord({ elapsedMs = 0, record, pieces = null }) {
   if (!record?.lifespanMs) return null;
   const target = record.lifespanMs;
   const beaten = elapsedMs >= target;
@@ -37,7 +37,7 @@ export default function RatioedRecord({ elapsedMs = 0, record, pieces = null, co
   const passed = ticks.filter((t) => t.passed).length;
 
   return (
-    <div className={`rr-chase${beaten ? ' is-beaten' : ''}${compact ? ' is-compact' : ''}`}>
+    <div className={`rr-chase${beaten ? ' is-beaten' : ''}`}>
       <div
         className="rr-track"
         role="progressbar"

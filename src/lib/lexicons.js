@@ -376,10 +376,15 @@ export const LEXICONS = {
         hint: 'Decoded from the post’s record key TID, not its client-set createdAt.',
       },
       {
-        key: 'sealedAt', label: 'Sealed at', type: 'datetime', required: true,
-        hint: 'createdAt of the threadgate that closed replies — the real moment the piece ended.',
+        // Not required, here or in the lexicon: a piece that is still up has no
+        // seal to record, and its record carries take, subject and postedAt
+        // alone. Marking these three required closed the raw-record editor —
+        // the documented route to a live piece's record — for exactly the
+        // pieces most likely to need it, in both form and JSON mode.
+        key: 'sealedAt', label: 'Sealed at', type: 'datetime',
+        hint: 'createdAt of the threadgate that closed replies — the real moment the piece ended. Absent while a piece is still up.',
       },
-      { key: 'lifespanMs', label: 'Lifespan (ms)', type: 'number', required: true },
+      { key: 'lifespanMs', label: 'Lifespan (ms)', type: 'number' },
       { key: 'announceLagMs', label: 'Announcement lag (ms)', type: 'number' },
       {
         key: 'breaker', label: 'Breaker', type: 'json',
@@ -388,7 +393,14 @@ export const LEXICONS = {
       { key: 'preSeal', label: 'While alive', type: 'json', hint: '{ likes, reposts, quotes, threadPosts, participants }' },
       { key: 'postSeal', label: 'After the seal', type: 'json', hint: 'Same shape. Only true as of measuredAt.' },
       { key: 'statedTally', label: 'Stated tally', type: 'text', hint: 'What you counted in the announcement reply.' },
-      { key: 'measuredAt', label: 'Measured at', type: 'datetime', default: 'now', required: true },
+      {
+        // Declared in the lexicon, normalized, and rendered twice — and until
+        // now written by nothing at all, because this was the only route to it
+        // and the record it belongs on could not be opened.
+        key: 'lede', label: 'Opening paragraph', type: 'textarea',
+        hint: 'Your own words to open this piece’s page. Left empty, the page writes its own from the figures — which is always true and never says anything the numbers don’t.',
+      },
+      { key: 'measuredAt', label: 'Measured at', type: 'datetime', default: 'now' },
       { key: 'source', label: 'Source', type: 'text', default: 'constellation.microcosm.blue' },
     ],
   },

@@ -65,6 +65,28 @@ const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
  * the data. Null when nothing is measurable, in which case there is nothing to
  * infer from and no band gets drawn.
  */
+/**
+ * Where to put the marks on the alive axis, derived from what the axis holds.
+ *
+ * It was the literal [0, 300, … 1500] — five minutes to twenty-five — beside a
+ * header printing the real maximum. Take 14's 42m09s put the last tick at 59%
+ * and left the right two-fifths of a shared axis unlabelled; and because the
+ * ticks are absolute seconds over a max-derived denominator, a series whose
+ * longest piece dropped under 25m would have pushed them past 100% and out of a
+ * container with no overflow rule. Same class of hardcoded range this file
+ * already replaced once, for the reaction band.
+ */
+function aliveTicks(maxSec) {
+  const span = Math.max(maxSec || 0, 1);
+  // A step from the 1-2-5 family, so the labels stay round minutes.
+  const raw = span / 5;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= raw) || pow * 10;
+  const out = [];
+  for (let t = 0; t < span; t += step) out.push(Math.round(t));
+  return out;
+}
+
 function reactionBand(pieces) {
   const ms = (pieces || [])
     .map((p) => p.breaker?.reactionMs)
@@ -110,7 +132,14 @@ const DEFAULT_CAPTIONS = {
     // different subject, and the chart no longer plots it.
     const how =
       'Roughly how many people a piece could have reached while it was alive, from the followers of everyone who touched it: a repost or quote counts as a whole following, a reply a tenth, a like a fiftieth.';
-    return reach ? `${how} ${fmtReach(reach.aliveRaw)} across the series.` : how;
+    if (!reach) return how;
+    // The finding the whole scoring layer was built to test, and until now
+    // computed on every render and printed nowhere.
+    const share = Math.round(reach.afterlifeShare * 100);
+    return (
+      `${how} ${fmtReach(reach.aliveRaw)} across the series — and ${share}% of everywhere ` +
+      'these pieces have travelled, they travelled after they were over.'
+    );
   },
   when: () =>
     'Every piece by the clock it was made on, in Eastern time. The core is how long it lived, the ring how much it drew, both scaled by area.',
@@ -148,6 +177,8 @@ export default function RatioedBlock({ block, style }) {
   const [events, setEvents] = useState(null);
   const [audience, setAudience] = useState(null);
   const [deltas, setDeltas] = useState(null);
+  // Which lazily-loaded tables gave up, so a block can say which one it wants.
+  const [failed, setFailed] = useState({});
 
   // The roster the build regenerated, which knows about pieces added since the
   // bundle was harvested. Falls back to the bundle it was built from.
@@ -164,7 +195,19 @@ export default function RatioedBlock({ block, style }) {
   useEffect(() => {
     let alive = true;
     (async () => {
+      // The build's snapshot first and on its own, as the piece page already
+      // does. It is same-origin and has every piece as of the last deploy;
+      // waiting on plc.directory before reading it meant the first paint of
+      // every visit came from the bundled seed — which stopped at take 11, so
+      // the essay opened reporting 11 pieces, 74 minutes alive and a mean
+      // reaction of 13.0s against the real 17, 190 and 8.6s.
+      const fromSnap = finished(await loadPieces(null));
+      if (alive && fromSnap?.length) setPieces(fromSnap);
+
+      // Then the PDS, which is the only place a piece published since that
+      // build exists.
       const pds = await resolvePds(ME_DID).catch(() => null);
+      if (!pds) return;
       // Only the finished ones. A piece that is up right now has no seal to
       // plot against and no measurement to average, and every chart here reads
       // the project as a completed series.
@@ -183,7 +226,13 @@ export default function RatioedBlock({ block, style }) {
       .then((m) => {
         if (alive) setEvents(m.default || m);
       })
-      .catch(() => {});
+      // A chunk that never lands is a state, not a silence. Without this the
+      // Reach block parked forever on a note naming the EVENT log, which had
+      // usually arrived, and Lifelines drew eleven bars with no marks and no
+      // explanation at all.
+      .catch(() => {
+        if (alive) setFailed((f) => ({ ...f, events: true }));
+      });
     return () => {
       alive = false;
     };
@@ -196,7 +245,9 @@ export default function RatioedBlock({ block, style }) {
       .then((m) => {
         if (alive) setAudience(m.default || m);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setFailed((f) => ({ ...f, audience: true }));
+      });
     return () => {
       alive = false;
     };
@@ -284,9 +335,18 @@ export default function RatioedBlock({ block, style }) {
       style={{ ...scale, ...(style || {}) }}
       aria-label={block?.alt || undefined}
     >
-      {variant === 'summary' && <Summary stats={stats} people={split} shape={shape} roster={roster} />}
+      {variant === 'summary' && (
+        <Summary stats={stats} people={split} shape={shape} roster={roster} hasAudience={Boolean(audience)} />
+      )}
       {variant === 'lifelines' && (
-        <Lifelines pieces={pieces} events={eventLog} stats={stats} deltas={deltas} parent={parentSlug} />
+        <Lifelines
+          pieces={pieces}
+          events={eventLog}
+          failed={failed.events}
+          stats={stats}
+          deltas={deltas}
+          parent={parentSlug}
+        />
       )}
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} parent={parentSlug} />}
@@ -296,7 +356,12 @@ export default function RatioedBlock({ block, style }) {
           have no follower counts to score, and a chart drawn from the two
           recent ones alone would read as the whole project. */}
       {variant === 'reach' && (
-        <Reach pieces={pieces} events={audience ? eventLog : null} parent={parentSlug} />
+        <Reach
+          pieces={pieces}
+          events={audience ? eventLog : null}
+          failed={failed.audience || failed.events}
+          parent={parentSlug}
+        />
       )}
       {variant === 'when' && <When pieces={pieces} />}
       {showCaption && <figcaption className="ratioed-caption">{caption}</figcaption>}
@@ -529,7 +594,7 @@ function SampleMark({ core, halo }) {
 /* Summary                                                              */
 /* ------------------------------------------------------------------ */
 
-function Summary({ stats, people, shape, roster }) {
+function Summary({ stats, people, shape, roster, hasAudience }) {
   // The roster the block loaded, not the bundled one — otherwise the headline
   // count ignores everybody who turned up for a piece added since the bundle.
   const { total } = people;
@@ -575,12 +640,18 @@ function Summary({ stats, people, shape, roster }) {
     // handle in an old log and a DID in a new one are one person. Counted off
     // the logs directly this read 20 of 204, under a tile saying 135 involved.
     returned && [String(returned), `/${roster.rows.length}`, 'came back for another'],
-    shape.audience?.top && [
+    // Held back until the audience table lands, for the reason the reach block
+    // states three hundred lines down: the recent pieces carry their own
+    // follower counts and the early ones do not, so a figure drawn before the
+    // join reads as the whole project when it is two takes of it. These two
+    // flipped from 655 across 126 accounts to 808 across 202 mid-read, and
+    // stayed at the smaller number for good if the import failed.
+    hasAudience && shape.audience?.top && [
       fmtReach(shape.audience.top.followers),
       null,
       `biggest amplifier · @${shape.audience.top.h}`,
     ],
-    typeof shape.audience?.median === 'number' && [
+    hasAudience && typeof shape.audience?.median === 'number' && [
       fmtReach(shape.audience.median),
       null,
       'median follower count',
@@ -802,15 +873,20 @@ function Participants({ rows: roster, audiences }) {
 const aftPos = (sec, maxSec) =>
   0.93 * (Math.log10(Math.max(sec, 1) + 1) / Math.log10(maxSec + 1));
 
-function Lifelines({ pieces, events, stats, deltas, parent }) {
+function Lifelines({ pieces, events, failed, stats, deltas, parent }) {
   const [scale, setScale] = useState('true');
   const [on, setOn] = useState(() => new Set(KINDS));
   const [openTake, setOpenTake] = useState(null);
 
   const maxLife = stats.maxLifespanMs / 1000 || 1;
   const band = useMemo(() => reactionBand(pieces), [pieces]);
+  // Null until the log is in, rather than 1. `aftPos(s, 1)` divides by
+  // log10(2), so the 1m/1h/1d/1y labels landed at 552%, 1099%, 1525% and 2317%
+  // of a 124px gutter — up to ~2.9k px past the column, with nothing clipping
+  // them — on the first paint of every lifelines block, and permanently if
+  // both the chunk and the PDS failed.
   const maxAft = useMemo(() => {
-    if (!events) return 1;
+    if (!events) return null;
     let m = 1;
     for (const p of pieces) {
       for (const e of events[p.rkey] || []) {
@@ -866,7 +942,7 @@ function Lifelines({ pieces, events, stats, deltas, parent }) {
             {scale === 'true' ? `alive · 0 → ${fmtDuration(stats.maxLifespanMs)}` : 'alive · each row to its own scale'}
           </span>
           {(scale === 'true'
-            ? [0, 300, 600, 900, 1200, 1500].map((t) => [t / maxLife, t ? fmtDuration(t * 1000) : '0'])
+            ? aliveTicks(maxLife).map((t) => [t / maxLife, t ? fmtDuration(t * 1000) : '0'])
             : [[0, '0'], [0.25, '¼'], [0.5, '½'], [0.75, '¾'], [1, 'seal']]
           ).map(([pos, label], i, arr) => (
             <span
@@ -880,17 +956,27 @@ function Lifelines({ pieces, events, stats, deltas, parent }) {
         </div>
         <div className="ratioed-a3">
           <span className="ratioed-hd">after the seal</span>
-          {[[60, '1m'], [3600, '1h'], [86400, '1d'], [86400 * 365, '1y']].map(([s, l], i) => (
-            <span
-              key={l}
-              className={`ratioed-tick${i === 3 ? ' last' : ''}`}
-              style={{ left: `${aftPos(s, maxAft) * 100}%` }}
-            >
-              {l}
-            </span>
-          ))}
+          {/* Only once there is a span to scale against. */}
+          {maxAft != null &&
+            [[60, '1m'], [3600, '1h'], [86400, '1d'], [86400 * 365, '1y']].map(([s, l], i) => (
+              <span
+                key={l}
+                className={`ratioed-tick${i === 3 ? ' last' : ''}`}
+                style={{ left: `${aftPos(s, maxAft) * 100}%` }}
+              >
+                {l}
+              </span>
+            ))}
         </div>
       </div>
+
+      {/* Otherwise this draws seventeen bars with no marks on them and says
+          nothing about why. */}
+      {failed && (
+        <p className="ratioed-note">
+          The event log could not be loaded, so these bars have no marks on them.
+        </p>
+      )}
 
       <div className="ratioed-rows">
         {pieces.map((p) => {
@@ -953,7 +1039,7 @@ function Lifelines({ pieces, events, stats, deltas, parent }) {
                         key={i}
                         e={e}
                         piece={p}
-                        left={aftPos(e.off - life, maxAft) * 100}
+                        left={aftPos(e.off - life, maxAft || 1) * 100}
                         dim={!on.has(e.k)}
                       />
                     ))}
@@ -1159,7 +1245,7 @@ const LEDGER_COLUMNS = [
  * because a reach figure without one reads as a property of the piece when it
  * is almost always a property of one person who reposted it.
  */
-function Reach({ pieces, events, parent }) {
+function Reach({ pieces, events, failed, parent }) {
   const rows = useMemo(() => {
     if (!events) return null;
     return (pieces || [])
@@ -1171,7 +1257,15 @@ function Reach({ pieces, events, parent }) {
       .filter((r) => r.reach.alive.measurable);
   }, [pieces, events]);
 
-  if (!rows) return <p className="ratioed-note">Loading the event log…</p>;
+  if (!rows) {
+    return (
+      <p className="ratioed-note">
+        {failed
+          ? 'The audience table could not be loaded, so there is nothing to score this against.'
+          : 'Loading the event log…'}
+      </p>
+    );
+  }
   if (!rows.length) {
     return <p className="ratioed-note">No piece has an audience measurement yet.</p>;
   }

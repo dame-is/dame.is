@@ -601,7 +601,13 @@ export default function RatioedPiece() {
               <> Watching began {fmtDuration(piece.witnessFromMs)} in.</>
             )}
           </p>
-          <PieceReplay piece={piece} events={logRows} profiles={profiles} />
+          {/* Keyed, because RouteTransition's reduced-motion path renders the
+              routes with no key of its own — so for those readers the replay's
+              state initialisers never re-ran and `realTime`, `progress` and
+              `playing` travelled between pieces. Arrive from take 13 (16.7s, so
+              Real is selected) and take 14 opened ready to start a 42-minute
+              replay. */}
+          <PieceReplay key={piece.rkey} piece={piece} events={logRows} profiles={profiles} />
         </section>
 
         <section className="ratioed-piece-section">
@@ -619,7 +625,12 @@ export default function RatioedPiece() {
           <h2>Either side of the seal</h2>
           <div className="ratioed-piece-split">
             <Window label="alive" figures={piece.preSeal} />
-            <Window label="afterlife" figures={piece.postSeal} delta={delta} />
+            <Window
+              label="afterlife"
+              figures={piece.postSeal}
+              delta={delta}
+              atSeal={measuredAtTheSeal(piece)}
+            />
           </div>
           {delta && (
             <p className="ratioed-piece-note">
@@ -672,7 +683,14 @@ export default function RatioedPiece() {
           </section>
         )}
 
-        {events?.length > 0 && (
+        {/* Gated on what it renders. `measureAndFinish` writes `witnessed`
+            unconditionally but `events` only when non-empty, so a piece sealed
+            after its breaking like was deleted — with nobody else acting —
+            produces exactly a witnessed log and no events. The replay still
+            showed the struck-through like and the roster still named the
+            breaker, while the section that labels the withdrawal and makes the
+            case for the method vanished. */}
+        {logRows.length > 0 && (
           <section className="ratioed-piece-section">
             <details className="ratioed-piece-witness">
               <summary>
@@ -798,19 +816,30 @@ function measuredAtTheSeal(piece) {
  *
  * The two are never added together — that is the rule the whole project turns
  * on, since one of them is evidence and the other is whatever Constellation
- * says this minute. But they were being written `0 +3`, and that zero is not a
- * finding. Every piece is measured within a minute or two of its seal, so its
- * afterlife window is empty BY CONSTRUCTION: no time had passed for anything to
- * land in. Printing it as a figure gives a reader a number to interpret where
- * there is nothing to interpret, and puts it first.
+ * says this minute. But `0 +3` reads badly when the zero is not a finding: a
+ * piece measured seconds after its seal has an afterlife window that is empty
+ * BY CONSTRUCTION, because no time had passed for anything to land in. There,
+ * printing the zero gives a reader a number to interpret where there is nothing
+ * to interpret, and puts it first.
  *
- * So a zero with something behind it isn't printed at all — `+3` says both
- * things at once, and says them in the right order. A zero with nothing behind
- * it still prints, because there it IS the finding: nothing has landed since.
+ * `atSeal` is what says which kind of zero this is, and it has to be asked
+ * rather than assumed. The docblock here used to assert that "every piece is
+ * measured within a minute or two of its seal" — true of a piece the studio
+ * has just sealed, and false of all seventeen stored records: take 17's gap is
+ * six minutes, take 16's is over three hours, and the first nine were measured
+ * more than a year later. On a fourteen-month window a recorded `threadPosts:
+ * 0` is evidence, and suppressing it hid the finding it was meant to protect.
  */
-function Figure({ recorded, since }) {
+function Figure({ recorded, since, atSeal = false }) {
   const fresh = since > 0;
   if (!fresh) return recorded;
+  if (recorded === 0 && !atSeal) {
+    return (
+      <>
+        0 <span className="ratioed-piece-fresh">+{since}</span>
+      </>
+    );
+  }
   return (
     <>
       {recorded > 0 ? `${recorded} ` : ''}
@@ -1028,6 +1057,18 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
 
       <p className="ratioed-piece-note">
         {copy.reach}
+        {/* The discount, which the weights above do not include: an account
+            with twenty thousand followers and twenty-one thousand follows has
+            an audience that is mostly reciprocal and mostly not looking. It was
+            being computed for every row and shown nowhere, so the judgement was
+            made and never stated. */}
+        {alive.weighted > 0 && alive.weighted < alive.raw && (
+          <>
+            {' '}
+            Discounting the followings that look reciprocal rather than chosen brings the alive
+            figure to {fmtReach(alive.weighted)}.
+          </>
+        )}
         {unknown > 0 && (
           <>
             {' '}
@@ -1048,7 +1089,7 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
 }
 
 /** One window's figures, laid out the same either side of the seal. */
-function Window({ label, figures, delta }) {
+function Window({ label, figures, delta, atSeal = false }) {
   const rows = [
     ['thread', 'threadPosts'],
     ['reposts', 'reposts'],
@@ -1063,7 +1104,7 @@ function Window({ label, figures, delta }) {
           <div key={key}>
             <dt>{human}</dt>
             <dd>
-              <Figure recorded={figures?.[key] || 0} since={delta?.[key] || 0} />
+              <Figure recorded={figures?.[key] || 0} since={delta?.[key] || 0} atSeal={atSeal} />
             </dd>
           </div>
         ))}

@@ -3,371 +3,590 @@
     "rkey": "3lrq5r2ouw22b",
     "record": {
       "take": 1,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrq5r2ouw22b",
-      "postedAt": "2025-06-16T14:08:27.696Z",
-      "sealedAt": "2025-06-16T14:09:16.528Z",
-      "lifespanMs": 48832,
-      "announceLagMs": 27867,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "round.is",
         "did": "did:plc:mwfuydik5635s6did55pikiv",
-        "likeSurvives": true,
-        "reactionMs": 17049
+        "handle": "round.is",
+        "reactionMs": 17049,
+        "likeSurvives": true
       },
       "preSeal": {
         "likes": 1,
-        "reposts": 0,
         "quotes": 0,
+        "reposts": 0,
         "threadPosts": 0,
         "participants": 1
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrq5r2ouw22b",
       "postSeal": {
         "likes": 3,
-        "reposts": 1,
         "quotes": 1,
+        "reposts": 1,
         "threadPosts": 0,
         "participants": 5
       },
+      "postedAt": "2025-06-16T14:08:27.696Z",
+      "sealedAt": "2025-06-16T14:09:16.528Z",
+      "lifespanMs": 48832,
+      "measuredAt": "2026-08-17T02:23:46.252Z",
       "statedTally": "0 replies / 0 reposts",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 27867
     }
   },
   {
     "rkey": "3lrq66ghwps2g",
     "record": {
       "take": 2,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrq66ghwps2g",
-      "postedAt": "2025-06-16T14:15:56.259Z",
-      "sealedAt": "2025-06-16T14:17:04.456Z",
-      "lifespanMs": 68197,
-      "announceLagMs": 39315,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
+        "did": "did:plc:6zfgmvghpidjvcn3cqtitnx5",
         "handle": "fenny.moe",
         "likeSurvives": false
       },
       "preSeal": {
         "likes": 0,
-        "reposts": 0,
         "quotes": 0,
+        "reposts": 0,
         "threadPosts": 0,
         "participants": 0
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrq66ghwps2g",
       "postSeal": {
         "likes": 3,
-        "reposts": 0,
         "quotes": 0,
+        "reposts": 0,
         "threadPosts": 0,
         "participants": 3
       },
+      "postedAt": "2025-06-16T14:15:56.259Z",
+      "sealedAt": "2025-06-16T14:17:04.456Z",
+      "lifespanMs": 68197,
+      "measuredAt": "2026-08-17T02:23:45.396Z",
       "statedTally": "0 replies / 0 reposts",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 39315
     }
   },
   {
     "rkey": "3lrq6lgqz522p",
     "record": {
       "take": 3,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrq6lgqz522p",
-      "postedAt": "2025-06-16T14:23:12.764Z",
-      "sealedAt": "2025-06-16T14:24:19.955Z",
-      "lifespanMs": 67191,
-      "announceLagMs": 38345,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "symm.social",
-        "currentHandle": "symmetricalboy.com",
         "did": "did:plc:33d7gnwiagm6cimpiepefp72",
+        "handle": "symm.social",
+        "reactionMs": 11304,
         "likeSurvives": true,
-        "reactionMs": 11304
+        "currentHandle": "symmetricalboy.com"
       },
       "preSeal": {
         "likes": 1,
-        "reposts": 0,
         "quotes": 0,
+        "reposts": 0,
         "threadPosts": 1,
         "participants": 1
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrq6lgqz522p",
       "postSeal": {
         "likes": 2,
-        "reposts": 1,
         "quotes": 1,
+        "reposts": 1,
         "threadPosts": 0,
         "participants": 4
       },
+      "postedAt": "2025-06-16T14:23:12.764Z",
+      "sealedAt": "2025-06-16T14:24:19.955Z",
+      "lifespanMs": 67191,
+      "measuredAt": "2026-08-17T02:23:44.616Z",
       "statedTally": "1 reply / 0 reposts",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 38345
     }
   },
   {
     "rkey": "3lrqlgyvftk27",
     "record": {
       "take": 4,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrqlgyvftk27",
-      "postedAt": "2025-06-16T18:13:22.654Z",
-      "sealedAt": "2025-06-16T18:42:46.543Z",
-      "lifespanMs": 1763889,
-      "announceLagMs": 29526,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "restedwicked.xyz",
         "did": "did:plc:6vi46twa4c3dgm544rjifywb",
+        "handle": "restedwicked.xyz",
         "likeSurvives": false
       },
       "preSeal": {
         "likes": 0,
-        "reposts": 8,
         "quotes": 3,
+        "reposts": 8,
         "threadPosts": 45,
         "participants": 32
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrqlgyvftk27",
       "postSeal": {
         "likes": 3,
-        "reposts": 0,
         "quotes": 0,
+        "reposts": 0,
         "threadPosts": 1,
         "participants": 4
       },
+      "postedAt": "2025-06-16T18:13:22.654Z",
+      "sealedAt": "2025-06-16T18:42:46.543Z",
+      "lifespanMs": 1763889,
+      "measuredAt": "2026-08-17T02:23:43.593Z",
       "statedTally": "32 replies / 10 reposts / 3 quotes; 35 participants; ~30 minutes",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 29526
     }
   },
   {
     "rkey": "3lrsx2hcbus2d",
     "record": {
       "take": 5,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrsx2hcbus2d",
-      "postedAt": "2025-06-17T16:46:25.927Z",
-      "sealedAt": "2025-06-17T16:55:17.658Z",
-      "lifespanMs": 531731,
-      "announceLagMs": 36834,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "cyaneyed.lol",
         "did": "did:plc:nmm26ltnxjx4oskwzdue4xvq",
+        "handle": "cyaneyed.lol",
         "likeSurvives": false
       },
       "preSeal": {
         "likes": 0,
-        "reposts": 3,
         "quotes": 0,
+        "reposts": 3,
         "threadPosts": 6,
         "participants": 7
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lrsx2hcbus2d",
       "postSeal": {
         "likes": 1,
-        "reposts": 2,
         "quotes": 0,
+        "reposts": 2,
         "threadPosts": 0,
         "participants": 3
       },
+      "postedAt": "2025-06-17T16:46:25.927Z",
+      "sealedAt": "2025-06-17T16:55:17.658Z",
+      "lifespanMs": 531731,
+      "measuredAt": "2026-08-17T02:23:42.336Z",
       "statedTally": "7 replies / 4 reposts / 0 quotes; ~9 minutes",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 36834
     }
   },
   {
     "rkey": "3lsk5jb4juc2q",
     "record": {
       "take": 6,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lsk5jb4juc2q",
-      "postedAt": "2025-06-26T22:13:19.197Z",
-      "sealedAt": "2025-06-26T22:29:36.917Z",
-      "lifespanMs": 977720,
-      "announceLagMs": 28441,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "cameron.pfiffer.org",
-        "currentHandle": "cameron.stream",
         "did": "did:plc:gfrmhdmjvxn2sjedzboeudef",
+        "handle": "cameron.pfiffer.org",
+        "reactionMs": 10983,
         "likeSurvives": true,
-        "reactionMs": 10983
+        "currentHandle": "cameron.stream"
       },
       "preSeal": {
         "likes": 1,
-        "reposts": 2,
         "quotes": 1,
+        "reposts": 2,
         "threadPosts": 12,
         "participants": 11
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3lsk5jb4juc2q",
       "postSeal": {
         "likes": 2,
-        "reposts": 1,
         "quotes": 0,
+        "reposts": 1,
         "threadPosts": 1,
         "participants": 4
       },
+      "postedAt": "2025-06-26T22:13:19.197Z",
+      "sealedAt": "2025-06-26T22:29:36.917Z",
+      "lifespanMs": 977720,
+      "measuredAt": "2026-08-17T02:23:41.440Z",
       "statedTally": "11 replies / 4 reposts / 1 quote; ~16 minutes",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 28441
     }
   },
   {
     "rkey": "3mfdgpp4sg22r",
     "record": {
       "take": 7,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mfdgpp4sg22r",
-      "postedAt": "2026-02-21T01:08:01.648Z",
-      "sealedAt": "2026-02-21T01:08:58.980Z",
-      "lifespanMs": 57332,
-      "announceLagMs": 38620,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "j4ck.xyz",
         "did": "did:plc:4hawmtgzjx3vclfyphbhfn7v",
+        "handle": "j4ck.xyz",
         "likeSurvives": false
       },
       "preSeal": {
         "likes": 0,
-        "reposts": 0,
         "quotes": 0,
+        "reposts": 0,
         "threadPosts": 0,
         "participants": 0
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mfdgpp4sg22r",
       "postSeal": {
         "likes": 2,
-        "reposts": 0,
         "quotes": 1,
+        "reposts": 0,
         "threadPosts": 2,
         "participants": 5
       },
+      "postedAt": "2026-02-21T01:08:01.648Z",
+      "sealedAt": "2026-02-21T01:08:58.980Z",
+      "lifespanMs": 57332,
+      "measuredAt": "2026-08-17T02:23:39.291Z",
       "statedTally": "0 replies / 0 reposts / 0 quotes; ~1 minute",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 38620
     }
   },
   {
     "rkey": "3mfdgxgkvd22y",
     "record": {
       "take": 8,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mfdgxgkvd22y",
-      "postedAt": "2026-02-21T01:12:21.108Z",
-      "sealedAt": "2026-02-21T01:18:04.734Z",
-      "lifespanMs": 343626,
-      "announceLagMs": 181494,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "bolsonarosex.myatproto.social",
-        "currentHandle": "mirag-e.myatproto.social",
         "did": "did:plc:pe7ti3wxckxccbq5udlayg4m",
-        "likeSurvives": false
+        "handle": "bolsonarosex.myatproto.social",
+        "likeSurvives": false,
+        "currentHandle": "mirag-e.myatproto.social"
       },
       "preSeal": {
         "likes": 0,
-        "reposts": 4,
         "quotes": 1,
+        "reposts": 4,
         "threadPosts": 9,
         "participants": 10
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mfdgxgkvd22y",
       "postSeal": {
         "likes": 4,
-        "reposts": 3,
         "quotes": 0,
+        "reposts": 3,
         "threadPosts": 0,
         "participants": 7
       },
+      "postedAt": "2026-02-21T01:12:21.108Z",
+      "sealedAt": "2026-02-21T01:18:04.734Z",
+      "lifespanMs": 343626,
+      "measuredAt": "2026-08-17T02:23:38.361Z",
       "statedTally": "9 replies / 4 reposts / 1 quote; ~6 minutes",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 181494
     }
   },
   {
     "rkey": "3mffsnfh5hs2o",
     "record": {
       "take": 9,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mffsnfh5hs2o",
-      "postedAt": "2026-02-21T23:46:48.771Z",
-      "sealedAt": "2026-02-21T23:50:20.755Z",
-      "lifespanMs": 211984,
-      "announceLagMs": 75348,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "thetjexperiment.bsky.social",
-        "currentHandle": "punishedtj.cryptoanarchy.network",
         "did": "did:plc:kwohq43qsebtgpzjwdp65xfz",
+        "handle": "thetjexperiment.bsky.social",
+        "reactionMs": 15937,
         "likeSurvives": true,
-        "reactionMs": 15937
+        "currentHandle": "punishedtj.cryptoanarchy.network"
       },
       "preSeal": {
         "likes": 1,
-        "reposts": 1,
         "quotes": 0,
+        "reposts": 1,
         "threadPosts": 3,
         "participants": 5
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mffsnfh5hs2o",
       "postSeal": {
-        "likes": 2,
-        "reposts": 0,
+        "likes": 3,
         "quotes": 1,
+        "reposts": 0,
         "threadPosts": 0,
-        "participants": 3
+        "participants": 4
       },
+      "postedAt": "2026-02-21T23:46:48.771Z",
+      "sealedAt": "2026-02-21T23:50:20.755Z",
+      "lifespanMs": 211984,
+      "measuredAt": "2026-08-17T02:23:37.453Z",
       "statedTally": "4 replies / 1 repost; ~4 minutes",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 75348
     }
   },
   {
     "rkey": "3mrlm4jauqs2e",
     "record": {
       "take": 10,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mrlm4jauqs2e",
-      "postedAt": "2026-07-27T00:08:17.847Z",
-      "sealedAt": "2026-07-27T00:13:37.312Z",
-      "lifespanMs": 319465,
-      "announceLagMs": 31770,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "nonbinary.computer",
         "did": "did:plc:yfvwmnlztr4dwkb7hwz55r2g",
+        "handle": "nonbinary.computer",
         "likeSurvives": false
       },
       "preSeal": {
         "likes": 0,
-        "reposts": 5,
         "quotes": 1,
+        "reposts": 5,
         "threadPosts": 12,
         "participants": 12
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mrlm4jauqs2e",
       "postSeal": {
-        "likes": 6,
-        "reposts": 23,
+        "likes": 11,
         "quotes": 8,
+        "reposts": 23,
         "threadPosts": 0,
-        "participants": 36
+        "participants": 41
       },
+      "postedAt": "2026-07-27T00:08:17.847Z",
+      "sealedAt": "2026-07-27T00:13:37.312Z",
+      "lifespanMs": 319465,
+      "measuredAt": "2026-08-17T02:23:36.526Z",
       "statedTally": "10 replies / 5 reposts; ~5 minutes",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 31770
     }
   },
   {
     "rkey": "3mrlmsxbqjc2e",
     "record": {
       "take": 11,
-      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mrlmsxbqjc2e",
-      "postedAt": "2026-07-27T00:20:50.753Z",
-      "sealedAt": "2026-07-27T00:22:05.354Z",
-      "lifespanMs": 74601,
-      "announceLagMs": 34513,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
       "breaker": {
-        "handle": "darz.bsky.social",
         "did": "did:plc:2vh3ubnubxl6nit3aiumibme",
-        "likeSurvives": true,
-        "reactionMs": 9953
+        "handle": "darz.bsky.social",
+        "reactionMs": 9953,
+        "likeSurvives": true
       },
       "preSeal": {
         "likes": 1,
-        "reposts": 4,
         "quotes": 0,
+        "reposts": 4,
         "threadPosts": 2,
         "participants": 6
       },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mrlmsxbqjc2e",
       "postSeal": {
         "likes": 1,
-        "reposts": 3,
         "quotes": 0,
+        "reposts": 3,
         "threadPosts": 2,
         "participants": 6
       },
+      "postedAt": "2026-07-27T00:20:50.753Z",
+      "sealedAt": "2026-07-27T00:22:05.354Z",
+      "lifespanMs": 74601,
+      "measuredAt": "2026-08-17T02:23:34.872Z",
       "statedTally": "1 reply / 4 reposts; ~2 minutes",
-      "measuredAt": "2026-07-27T01:00:00.000Z",
-      "source": "constellation.microcosm.blue"
+      "announceLagMs": 34513
+    }
+  },
+  {
+    "rkey": "3mrnrjdsuvs2d",
+    "record": {
+      "take": 12,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:pomyvvorhladkxs5aonj3k3w",
+        "handle": "mikysp.bsky.social",
+        "reactionMs": 12659,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 4,
+        "threadPosts": 21,
+        "participants": 23
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mrnrjdsuvs2d",
+      "postSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 1,
+        "participants": 2
+      },
+      "postedAt": "2026-07-27T20:50:16.539Z",
+      "sealedAt": "2026-07-27T21:05:21.233Z",
+      "audienceAt": "2026-08-15T20:32:57.840Z",
+      "lifespanMs": 904694,
+      "measuredAt": "2026-08-17T02:23:33.975Z",
+      "announceLagMs": 65475
+    }
+  },
+  {
+    "rkey": "3msyb4kntps2e",
+    "record": {
+      "take": 13,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:bhklr7m5t5fdqebgy63hpfum",
+        "handle": "satyrs.eu",
+        "reactionMs": 6416,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 1
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3msyb4kntps2e",
+      "postSeal": {
+        "likes": 4,
+        "quotes": 0,
+        "reposts": 1,
+        "threadPosts": 0,
+        "participants": 5
+      },
+      "postedAt": "2026-08-13T18:21:16.387Z",
+      "sealedAt": "2026-08-13T18:21:33.135Z",
+      "audienceAt": "2026-08-15T20:32:57.617Z",
+      "lifespanMs": 16748,
+      "measuredAt": "2026-08-17T02:23:32.609Z",
+      "announceLagMs": 91682
+    }
+  },
+  {
+    "rkey": "3mt5ebjiwwc2p",
+    "record": {
+      "take": 14,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:ubrgpefz34woauij3bcq7eq7",
+        "handle": "jeevacation.eurosky.social",
+        "reactionMs": 2461,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 2,
+        "threadPosts": 36,
+        "participants": 33
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mt5ebjiwwc2p",
+      "postSeal": {
+        "likes": 1,
+        "quotes": 1,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 2
+      },
+      "postedAt": "2026-08-15T19:01:02.867Z",
+      "sealedAt": "2026-08-15T19:43:12.158Z",
+      "audienceAt": "2026-08-15T20:32:57.306Z",
+      "lifespanMs": 2529291,
+      "measuredAt": "2026-08-17T02:23:31.713Z"
+    }
+  },
+  {
+    "rkey": "3mt6azshhgv2p",
+    "record": {
+      "take": 15,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:i4bfh2tyxihe2ksplmtcoopk",
+        "handle": "ponder.ooo",
+        "reactionMs": 1975,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 2,
+        "participants": 3
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mt6azshhgv2p",
+      "postSeal": {
+        "likes": 1,
+        "quotes": 0,
+        "reposts": 0,
+        "threadPosts": 0,
+        "participants": 1
+      },
+      "postedAt": "2026-08-16T03:35:42.333Z",
+      "sealedAt": "2026-08-16T03:36:59.432Z",
+      "audienceAt": "2026-08-16T03:37:00.358Z",
+      "lifespanMs": 77099,
+      "measuredAt": "2026-08-17T02:23:30.483Z"
+    }
+  },
+  {
+    "rkey": "3mtafnbczxy2p",
+    "record": {
+      "take": 16,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:i4bfh2tyxihe2ksplmtcoopk",
+        "handle": "ponder.ooo",
+        "reactionMs": 4596,
+        "likeSurvives": false,
+        "reactionRecovered": true
+      },
+      "preSeal": {
+        "likes": 0,
+        "quotes": 2,
+        "reposts": 1,
+        "threadPosts": 16,
+        "participants": 13
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mtafnbczxy2p",
+      "postSeal": {
+        "likes": 2,
+        "quotes": 2,
+        "reposts": 6,
+        "threadPosts": 1,
+        "participants": 10
+      },
+      "postedAt": "2026-08-17T00:03:29.895Z",
+      "sealedAt": "2026-08-17T00:18:37.365Z",
+      "audienceAt": "2026-08-17T00:26:36.931Z",
+      "lifespanMs": 907470,
+      "measuredAt": "2026-08-17T03:37:15.263Z"
+    }
+  },
+  {
+    "rkey": "3mtaove3xsk2p",
+    "record": {
+      "take": 17,
+      "$type": "is.dame.creating.ratioed.piece",
+      "source": "constellation.microcosm.blue",
+      "breaker": {
+        "did": "did:plc:3un24uosfqjqrvftphh2syko",
+        "handle": "skyeactual.bsky.social",
+        "reactionMs": 1629,
+        "likeSurvives": true
+      },
+      "preSeal": {
+        "likes": 1,
+        "quotes": 5,
+        "reposts": 33,
+        "threadPosts": 42,
+        "participants": 68
+      },
+      "subject": "at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.feed.post/3mtaove3xsk2p",
+      "postSeal": {
+        "likes": 0,
+        "quotes": 1,
+        "reposts": 2,
+        "threadPosts": 0,
+        "participants": 3
+      },
+      "postedAt": "2026-08-17T02:49:04.921Z",
+      "sealedAt": "2026-08-17T03:30:49.614Z",
+      "audienceAt": "2026-08-17T03:30:51.095Z",
+      "lifespanMs": 2504693,
+      "measuredAt": "2026-08-17T03:37:14.012Z"
     }
   }
 ]

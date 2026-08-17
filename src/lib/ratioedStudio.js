@@ -86,6 +86,39 @@ export const DEFAULT_TEMPLATE = [
 ].join('\n');
 
 /**
+ * The concluding reply's opening sentence, with `{handle}` for the account
+ * whose like ended the piece.
+ *
+ * "was to blame" is load-bearing and not decoration: `BLAME_RE` in
+ * ratioedDiscovery parses the breaker back out of this sentence, and for a
+ * piece whose like was later deleted that reply is the only evidence the like
+ * ever existed. So a rewrite that drops the phrase is refused rather than
+ * quietly breaking the scan — see `announcementProblems`.
+ */
+export const DEFAULT_ANNOUNCEMENT =
+  'thank you for your participation, this piece has now concluded, @{handle} was to blame for liking the post';
+
+/** `{handle}` filled in. Anything else in braces is left as itself. */
+export function fillAnnouncement(text, handle) {
+  return String(text || DEFAULT_ANNOUNCEMENT).replace(/\{handle\}/g, handle || 'somebody');
+}
+
+/** What is wrong with a proposed announcement sentence, in plain words. */
+export function announcementProblems(text) {
+  const out = [];
+  const t = String(text || '');
+  if (!t.trim()) out.push('The concluding reply cannot be empty.');
+  if (!t.includes('{handle}')) out.push('It needs {handle}, which becomes the breaker’s account.');
+  if (!/was to blame/i.test(t)) {
+    out.push(
+      'It has to keep the phrase “was to blame”: that is what the site reads the breaker back out ' +
+        'of, and on a piece whose like was deleted it is the only evidence the like existed.',
+    );
+  }
+  return out;
+}
+
+/**
  * The standing text as stored on the PDS, falling back to the default when no
  * record has been written yet.
  *
@@ -95,15 +128,35 @@ export const DEFAULT_TEMPLATE = [
  * both.
  */
 export async function loadTemplate(agent, did) {
+  const { text } = await loadTemplateRecord(agent, did);
+  return text;
+}
+
+/**
+ * The whole template record: the post body AND the concluding reply's opening
+ * sentence.
+ *
+ * The second one was declared in the lexicon, described there as the wording
+ * the site parses the breaker back out of, and read by nothing — the sentence
+ * was hardcoded in JS, so the record's promise that it changes without a deploy
+ * was true of `text` and false of `announcement`. Worse, the studio's save
+ * wrote `{ $type, text, updatedAt }`, a whole-record replacement that would
+ * have silently deleted anything hand-written into it.
+ */
+export async function loadTemplateRecord(agent, did) {
   try {
     const res = await agent.com.atproto.repo.getRecord({
       repo: did,
       collection: COLLECTIONS.ratioedTemplate,
       rkey: 'self',
     });
-    return res?.data?.value?.text || DEFAULT_TEMPLATE;
+    const v = res?.data?.value || {};
+    return {
+      text: v.text || DEFAULT_TEMPLATE,
+      announcement: v.announcement || DEFAULT_ANNOUNCEMENT,
+    };
   } catch {
-    return DEFAULT_TEMPLATE;
+    return { text: DEFAULT_TEMPLATE, announcement: DEFAULT_ANNOUNCEMENT };
   }
 }
 
@@ -172,10 +225,8 @@ export function engagementPhrase(preSeal) {
  * because they're true, and they're editable because whether a piece deserves
  * a closing sentence is not a thing arithmetic decides.
  */
-export function announcementDraft({ handle, piece, others }) {
-  const lines = [
-    `thank you for your participation, this piece has now concluded, @${handle} was to blame for liking the post`,
-  ];
+export function announcementDraft({ handle, piece, others, announcement }) {
+  const lines = [fillAnnouncement(announcement || DEFAULT_ANNOUNCEMENT, handle)];
   if (piece?.preSeal) {
     lines.push('', `at the time of this piece’s completion, it had ${engagementPhrase(piece.preSeal)}`);
   }

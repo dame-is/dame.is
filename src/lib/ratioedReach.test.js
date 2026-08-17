@@ -11,7 +11,6 @@ import {
   projectReach,
   audienceIsFresh,
   fmtReach,
-  fmtRatio,
 } from './ratioedReach.js';
 
 /** An event log entry, in the shape `normalizePiece` hands to the charts. */
@@ -305,12 +304,6 @@ describe('formatting', () => {
     expect(fmtReach(0)).toBe('0');
   });
 
-  it('prints a ratio with the precision it deserves', () => {
-    expect(fmtRatio(4.123)).toBe('4.12×');
-    expect(fmtRatio(41.2)).toBe('41.2×');
-    expect(fmtRatio(412)).toBe('412×');
-    expect(fmtRatio(null)).toBe('—');
-  });
 });
 
 describe('the weights themselves', () => {

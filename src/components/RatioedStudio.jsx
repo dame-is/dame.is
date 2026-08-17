@@ -56,6 +56,7 @@ import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
 import {
   loadPieces,
+  readPieces,
   normalizePiece,
   isLive,
   finished,
@@ -85,12 +86,14 @@ import {
 } from '../lib/ratioedLive.js';
 import {
   DEFAULT_TEMPLATE,
+  DEFAULT_ANNOUNCEMENT,
   fillTemplate,
-  loadTemplate,
+  loadTemplateRecord,
   templateProblems,
   nextTake,
   previousPiece,
   announcementDraft,
+  announcementProblems,
 } from '../lib/ratioedStudio.js';
 import { watchSubject } from '../lib/jetstream.js';
 import {
@@ -206,7 +209,13 @@ export default function RatioedStudio({ agent, did }) {
   // The template, as stored on the PDS. `undefined` while it's being read;
   // DEFAULT_TEMPLATE when no record exists yet.
   const [template, setTemplate] = useState(undefined);
+  // The concluding reply's opening sentence, from the same record. Declared in
+  // the lexicon since the beginning and read by nothing until now — the
+  // sentence was hardcoded, so the record's promise that the wording changes
+  // without a deploy held for the post and not for the reply.
+  const [announceTpl, setAnnounceTpl] = useState(null);
   const [tplDraft, setTplDraft] = useState(null); // non-null while editing
+  const [annDraft, setAnnDraft] = useState(null);
   // The piece page's own prose. `null` until read; a draft while being edited.
   const [copy, setCopy] = useState(null);
   const [copyDraft, setCopyDraft] = useState(null);
@@ -280,9 +289,13 @@ export default function RatioedStudio({ agent, did }) {
       // Then the PDS, which is the only place a piece published since the last
       // build exists. Worth waiting for; not worth waiting for forever.
       const pds = await deadline(resolvePds(did).catch(() => null));
-      const fresh = pds ? await deadline(loadPieces(pds).catch(() => null)) : null;
-      // Nothing live came back inside the deadline, so what is on screen is the
-      // bundle. Say so rather than letting it pass for current.
+      const read = pds ? await deadline(readPieces(pds).catch(() => null)) : null;
+      // Only a read the PDS itself answered counts as current. `loadPieces`
+      // swallows a failure and falls through to the snapshot, which is never
+      // empty — so testing the result for emptiness detected a slow PLC lookup
+      // and nothing else, and a 500 from the PDS installed the build's snapshot
+      // in silence while a piece published since that build stood unwatched.
+      const fresh = read?.source === 'pds' ? read.pieces : null;
       if (!fresh?.length) setPdsSlow(true);
       setPieces(fresh?.length ? fresh : (prev) => prev ?? fromSnap ?? []);
     } catch (err) {
@@ -301,8 +314,10 @@ export default function RatioedStudio({ agent, did }) {
     // loadTemplate answers with the default rather than throwing. The scan
     // reads the same record through the same function, which is what keeps the
     // post this composes and the post that scan looks for in step.
-    loadTemplate(agent, did).then((text) => {
-      if (alive) setTemplate(text);
+    loadTemplateRecord(agent, did).then(({ text, announcement }) => {
+      if (!alive) return;
+      setTemplate(text);
+      setAnnounceTpl(announcement);
     });
     // The page's prose, read through the same agent rather than the public
     // snapshot: this studio edits it, so it wants what is on the PDS now.
@@ -348,9 +363,15 @@ export default function RatioedStudio({ agent, did }) {
     let alive = true;
     setQuote(undefined);
     (async () => {
-      const rec = await resolvePds(did)
-        .then((pds) => getRecord(pds, { repo: did, collection: POST, rkey: prev.rkey }))
-        .catch(() => null);
+      // Bounded by the same deadline the series read uses. Unbounded, this
+      // could sit in "looking" indefinitely against a PLC directory this file
+      // has measured at 8s and at 24–28s — and the Post button beside it is
+      // disabled for exactly as long, so an untimed lookup is a locked panel.
+      const rec = await deadline(
+        resolvePds(did)
+          .then((pds) => getRecord(pds, { repo: did, collection: POST, rkey: prev.rkey }))
+          .catch(() => null),
+      );
       if (!alive) return;
       setQuote(rec?.cid ? { uri: subjectUri(prev.rkey), cid: rec.cid } : null);
     })();
@@ -1015,7 +1036,12 @@ export default function RatioedStudio({ agent, did }) {
     setAnnounce({
       piece: shaped,
       ref: post?.cid ? { uri: subject, cid: post.cid } : null,
-      text: announcementDraft({ handle, piece: shaped, others: finished(pieces) }),
+      text: announcementDraft({
+        handle,
+        piece: shaped,
+        others: finished(pieces),
+        announcement: announceTpl,
+      }),
     });
     // How far it got before the gate closed, said here because this is the one
     // moment the figure is worth acting on: an amplifier who has just carried
@@ -1103,7 +1129,8 @@ export default function RatioedStudio({ agent, did }) {
    * seeing it, and it went unmeasured until somebody checked by hand.
    */
   async function saveTemplate() {
-    const problems = templateProblems(tplDraft, take);
+    const announcement = annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT;
+    const problems = [...templateProblems(tplDraft, take), ...announcementProblems(announcement)];
     if (problems.length) {
       setError(problems.join(' '));
       return;
@@ -1118,10 +1145,13 @@ export default function RatioedStudio({ agent, did }) {
         record: {
           $type: TEMPLATE_NSID,
           text: tplDraft,
+          announcement,
           updatedAt: new Date().toISOString(),
         },
       });
       setTemplate(tplDraft);
+      setAnnounceTpl(announcement);
+      setAnnDraft(null);
       setDraft(fillTemplate(tplDraft, take));
       setTplDraft(null);
       setNote('Template saved. The composer above is rewritten from it.');
@@ -1258,7 +1288,7 @@ export default function RatioedStudio({ agent, did }) {
 
       const rt = new RichText({ text: announce.text.trim() });
       await rt.detectFacets(agent);
-      await agent.com.atproto.repo.createRecord({
+      const posted = await agent.com.atproto.repo.createRecord({
         repo: did,
         collection: POST,
         record: {
@@ -1270,6 +1300,32 @@ export default function RatioedStudio({ agent, did }) {
           createdAt: new Date().toISOString(),
         },
       });
+
+      // How long the piece stood finished before it was announced.
+      //
+      // Takes 1–13 all carry this; 14 onwards carry none, because the only
+      // thing that ever wrote it was the legacy scan path — this function
+      // created the reply, discarded the response and never touched the record.
+      // There is no later pass that could backfill it either: `pieceGaps` has
+      // no case for it, and posting the announcement is what clears this panel.
+      // Read off the reply's own key, like every other time in the project.
+      const replyRkey = rkeyFromAtUri(posted?.data?.uri);
+      const announcedMs = Date.parse(tidToTimestamp(replyRkey) || '');
+      const sealedMs = Date.parse(announce.piece.sealedAt || '');
+      if (Number.isFinite(announcedMs) && Number.isFinite(sealedMs)) {
+        const held = await readPiece(announce.piece.rkey).catch(() => null);
+        if (held) {
+          await agent.com.atproto.repo
+            .putRecord({
+              repo: did,
+              collection: NSID,
+              rkey: announce.piece.rkey,
+              record: { ...held, $type: NSID, announceLagMs: Math.max(0, announcedMs - sealedMs) },
+            })
+            .catch(() => {}); // the reply is posted; this is a footnote to it
+        }
+      }
+
       setAnnounce(null);
       setSealed(null);
       setNote(`Take ${announce.piece.take} is finished.`);
@@ -1325,8 +1381,9 @@ export default function RatioedStudio({ agent, did }) {
       {pdsSlow && pieces !== null && (
         <div className="rs-degraded">
           <p className="admin-field-hint">
-            The PLC directory didn’t answer in {PDS_DEADLINE_MS / 1000}s, so this is the bundled
-            series rather than a fresh read of the PDS.
+            The PDS didn’t answer, so this is the build’s snapshot rather than a fresh read —
+            anything published since the last deploy is missing from it, including a piece that
+            might be live right now. Don’t post from this state.
           </p>
           <button type="button" className="admin-link-subtle" onClick={refresh}>
             try again
@@ -1685,9 +1742,23 @@ export default function RatioedStudio({ agent, did }) {
                   : `Finish take ${String(orphan.take).padStart(2, '0')}'s record`}
               </button>
             ) : (
-              <button type="button" className="admin-gate-button" onClick={publish} disabled={!!busy}>
+              /* Disabled while the quote lookup is outstanding. `quote` is
+                 tri-state and the hint below distinguishes all three, but
+                 `publish` collapses `undefined` into "no quote" — and the
+                 lookup runs against a `resolvePds` this file has measured at
+                 eight seconds and at twenty-eight. */
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={publish}
+                disabled={!!busy || quote === undefined}
+              >
                 <Send size={14} aria-hidden="true" />
-                {busy === 'publish' ? 'Posting…' : `Post take ${String(take).padStart(2, '0')}`}
+                {busy === 'publish'
+                  ? 'Posting…'
+                  : quote === undefined
+                    ? 'Reading the take to quote…'
+                    : `Post take ${String(take).padStart(2, '0')}`}
               </button>
             )}
             <button
@@ -1813,22 +1884,58 @@ export default function RatioedStudio({ agent, did }) {
               {templateProblems(tplDraft, take).map((p) => (
                 <p className="admin-error-inline" key={p}>{p}</p>
               ))}
+
+              {/* The other half of the record, and the reason it is here rather
+                  than in the code: on a piece whose like was deleted, this
+                  sentence is the only evidence the like ever existed. */}
+              <label className="admin-field-label" htmlFor="rs-announce-tpl">
+                The concluding reply’s first line
+              </label>
+              <p className="admin-field-hint">
+                {'{handle}'} becomes whoever ended the piece. The figures and the ranking are
+                added under it when a piece is sealed.
+              </p>
+              <textarea
+                id="rs-announce-tpl"
+                className="admin-input rs-draft"
+                rows={3}
+                spellCheck={false}
+                value={annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT}
+                onChange={(e) => setAnnDraft(e.target.value)}
+              />
+              {announcementProblems(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT).map((p) => (
+                <p className="admin-error-inline" key={p}>{p}</p>
+              ))}
               <div className="rs-actions">
                 <button
                   type="button"
                   className="admin-gate-button"
                   onClick={saveTemplate}
-                  disabled={!!busy || templateProblems(tplDraft, take).length > 0}
+                  disabled={
+                    !!busy ||
+                    templateProblems(tplDraft, take).length > 0 ||
+                    announcementProblems(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT).length > 0
+                  }
                 >
                   {busy === 'template' ? 'Saving…' : 'Save the template'}
                 </button>
-                <button type="button" className="admin-link-subtle" onClick={() => setTplDraft(null)}>
+                <button
+                  type="button"
+                  className="admin-link-subtle"
+                  onClick={() => {
+                    setTplDraft(null);
+                    setAnnDraft(null);
+                  }}
+                >
                   cancel
                 </button>
                 <button
                   type="button"
                   className="admin-link-subtle"
-                  onClick={() => setTplDraft(DEFAULT_TEMPLATE)}
+                  onClick={() => {
+                    setTplDraft(DEFAULT_TEMPLATE);
+                    setAnnDraft(DEFAULT_ANNOUNCEMENT);
+                  }}
                 >
                   restore the built-in
                 </button>

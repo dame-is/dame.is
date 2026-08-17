@@ -59,7 +59,6 @@
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ratioed-seal, #8c3a2e) 45%, transparent);
 }
 
-.rr-chase.is-compact .rr-say { font-size: var(--text-xs); }
 
 @media (prefers-reduced-motion: reduce) {
   .rr-fill { transition: none; }

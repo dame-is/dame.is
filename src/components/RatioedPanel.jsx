@@ -231,8 +231,10 @@ export default function RatioedPanel({ agent, did }) {
 
   // How many pieces a repair would run over, and how many of those it would
   // actually write to. Every sealed piece is worth re-reading for what has
-  // landed since; `worthRepairing` is the narrower question of whether the
-  // record is missing something it should already have.
+  // landed since; `gapSummary`'s `fixable` is the narrower question of whether
+  // a record is missing something it should already have, and it asks
+  // `worthRepairing` rather than keeping its own copy of that question — the
+  // two had drifted apart by exactly one term.
   const sealedCount = Object.values(live).filter((v) => v?.sealedAt).length;
   const gaps = gapSummary(Object.values(live));
 
@@ -385,6 +387,21 @@ export default function RatioedPanel({ agent, did }) {
   /** Publish the pieces the scan turned up. */
   async function publishFound() {
     if (!found?.length) return;
+    // A piece whose post has no readable take line passes `isPiecePost` on the
+    // historical markers alone, and `buildPieceRecord` copies the null straight
+    // into a field the lexicon declares required, integer, minimum 1. Written,
+    // it maps to take 0 and every chart filters it out — while the scan's own
+    // known-set keys on sealedAt and never offers it again. So it is a piece
+    // that exists, is invisible everywhere, and cannot be rediscovered.
+    const nameless = found.filter(({ record }) => !(record.take >= 1));
+    if (nameless.length) {
+      setError(
+        `${nameless.length} of these has no readable take number. Give it one on its own record ` +
+          `(admin → ${NSID}) before publishing, or the piece will be written and then vanish from ` +
+          'every chart.',
+      );
+      return;
+    }
     if (!window.confirm(`Write ${found.length} newly discovered piece(s) to your PDS?`)) return;
     setBusy('publish-found');
     setError(null);

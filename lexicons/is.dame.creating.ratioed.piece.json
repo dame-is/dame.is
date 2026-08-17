@@ -207,7 +207,8 @@
         },
         "t": {
           "type": "string",
-          "maxLength": 300,
+          "maxLength": 3000,
+            "maxGraphemes": 300,
           "description": "The post's text, when it carried any."
         }
       }

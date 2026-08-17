@@ -363,7 +363,12 @@
 /* Liking or answering somebody without leaving the panel that is watching for
    the like that ends the piece. Deliberately quiet until you reach for them:
    the one control on this screen that should catch the eye is the seal. */
-.rs-feed-acts {
+/* `.ratioed-live-acts` is what RatioedTicker actually emits — the slot the
+   studio's three buttons arrive in. This rule was written against `.rs-feed-acts`
+   back when the studio had its own row markup, and stayed pointed at a class no
+   JSX renders when the two feeds were merged: the buttons lost their right-edge
+   alignment and their 2px gap, visibly so on a row with no text. */
+.rs-feed .ratioed-live-acts {
   margin-left: auto;
   display: inline-flex;
   gap: 2px;
@@ -396,7 +401,7 @@
     width: var(--wb-hit, 2.75rem);
     height: var(--wb-hit, 2.75rem);
   }
-  .rs-feed-acts { gap: 0; }
+  .rs-feed .ratioed-live-acts { gap: 0; }
 }
 
 .rs-reply-box { flex: 1 0 100%; padding: var(--space-2) 0 var(--space-3); }

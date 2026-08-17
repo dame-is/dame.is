@@ -683,8 +683,28 @@ function mergePieces(snap, live) {
  * published after the last build stayed invisible until the site was rebuilt.
  */
 export async function loadPieces(pds) {
+  const { pieces } = await readPieces(pds);
+  return pieces;
+}
+
+/**
+ * The same read, saying which source answered.
+ *
+ * `loadPieces` deliberately hides that, and for a reader it is right to: the
+ * charts render identically from any of the three. For the STUDIO it is not.
+ * The studio decides whether a piece is live from this list, and it flagged a
+ * degraded read only when the result came back empty — which it never does,
+ * because a swallowed failure falls through to the snapshot or the seed. So a
+ * PDS 500, an expired session or a fast 5xx installed the build snapshot in
+ * silence: with take 18 live and published since the last deploy, the studio
+ * would find no live piece, draw the composer, and offer to post take 18 again.
+ *
+ * `source` is 'pds' only when the PDS itself answered.
+ */
+export async function readPieces(pds) {
   const fromSnap = fromRecords(await fetchSnapshot('ratioed'));
-  if (!pds) return fromSnap || SEED_PIECES;
+  const fallback = { pieces: fromSnap || SEED_PIECES, source: fromSnap ? 'snapshot' : 'seed' };
+  if (!pds) return fallback;
   try {
     const records = await listRecords(pds, {
       repo: ME_DID,
@@ -692,10 +712,10 @@ export async function loadPieces(pds) {
       max: 200,
     });
     const live = fromRecords(records);
-    if (!live) return fromSnap || SEED_PIECES;
-    return fromSnap ? mergePieces(fromSnap, live) : live;
-  } catch {
-    return fromSnap || SEED_PIECES;
+    if (!live) return fallback;
+    return { pieces: fromSnap ? mergePieces(fromSnap, live) : live, source: 'pds' };
+  } catch (err) {
+    return { ...fallback, error: err?.message || String(err) };
   }
 }
 

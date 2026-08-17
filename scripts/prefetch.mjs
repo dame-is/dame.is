@@ -202,8 +202,12 @@ async function safe(label, fn, fallback, { attempts = 3, baseDelayMs = 400 } = {
 // --- Per-filter chip counts (mirrors FeedFilters.feedFilterCounts) ----------
 // Kept in sync with src/components/FeedFilters.jsx; replicated here (rather than
 // imported) because that module is JSX and can't load in this plain-Node build.
-// Preserved into snapshot-meta so trimming unifiedFeed.json (§6.1) doesn't cost
-// the client its estimated per-verb counts.
+//
+// This exists for snapshot-meta's `feedCounts`, which is a record of the build
+// rather than something a client reads: Home computes its chip counts over the
+// trimmed feed instead. That is a real undercount, and the comment below used
+// to claim this had solved it — worth knowing if anyone goes looking for where
+// the exact numbers live.
 function feedFilterCounts(items, myDid = null) {
   const continuing = myDid ? selfThreadMembers(items, myDid) : null;
   const out = {};
@@ -281,6 +285,49 @@ async function writeRatioedRoster(records) {
   // Same guard on the happy path: a partial read that yields a few pieces
   // still produces a merged roster, just a much smaller one.
   await writeJson('ratioedPeople', merged, { minRatio: 0.9 });
+}
+
+/**
+ * Refresh the bundled seed — the offline fallback compiled into the app.
+ *
+ * It is the last resort: no snapshot, no PDS, nothing on the network. It stopped
+ * at take 11 because nothing regenerated it, so that fallback reported a
+ * different project from the real one — eleven pieces, 74 minutes alive, a mean
+ * reaction of 13.0s against 17, 190 and 8.6s — and `loadPieces`' promise that
+ * the charts "degrade to slightly stale" had quietly stopped being true.
+ *
+ * The event LOG is deliberately not seeded with it. That is a separate 27kB
+ * chunk by design, and the seed exists to keep a page renderable rather than
+ * complete.
+ */
+async function writeRatioedSeed(records) {
+  const path = resolve(ROOT, 'src/data/ratioedPieces.json');
+  const rows = (records || [])
+    .map((r) => ({ rkey: String(r?.uri || '').split('/').pop(), record: r?.value }))
+    .filter((r) => r.rkey && r.record?.take && r.record?.sealedAt)
+    // Everything except the log, which is what makes this a seed rather than a
+    // second copy of the snapshot.
+    .map(({ rkey, record }) => {
+      const rest = { ...record };
+      for (const key of ['events', 'witnessed', 'witnessFromMs']) delete rest[key];
+      return { rkey, record: rest };
+    })
+    .sort((a, b) => a.record.take - b.record.take);
+
+  let prior = [];
+  try {
+    prior = JSON.parse(await readFile(path, 'utf8'));
+  } catch {
+    /* no seed yet */
+  }
+  // Same rule as every snapshot: a shrink is a failure, not an update.
+  if (rows.length < prior.length) {
+    warn(`ratioed seed: read ${rows.length} sealed pieces against ${prior.length} bundled — keeping the bundle`);
+    return;
+  }
+  if (rows.length === prior.length && JSON.stringify(rows) === JSON.stringify(prior)) return;
+  await writeFile(path, JSON.stringify(rows, null, 2) + '\n', 'utf-8');
+  log(`ratioed seed: ${rows.length} pieces (was ${prior.length})`);
 }
 
 /** DID → display name, 25 at a time (the appview's limit). */
@@ -555,6 +602,7 @@ async function main() {
   // seventeen /creating/ratioed/NN URLs while snapshot-meta still said ok.
   const ratioedWritten = await writeJson('ratioed', ratioedPieces, { guardEmpty: true });
   await writeRatioedRoster(ratioedPieces);
+  await writeRatioedSeed(ratioedPieces);
 
   // The prose on a piece's page, edited in the studio and read here so the page
   // paints the artist's wording rather than the build's built-ins and then
@@ -778,17 +826,34 @@ async function main() {
     appview: APPVIEW,
     did: ME_DID,
     counts,
-    // §6.1: unifiedFeed.json is trimmed to the most-recent HOME_SNAPSHOT_MAX
-    // items, so estimated chip counts derived from it would undercount. Preserve
-    // the FULL per-filter counts (over the untrimmed feed) here so a client can
-    // read exact estimates without loading the heavy snapshot. Keys match
-    // FeedFilters.feedFilterCounts (verb names + `replying`).
+    // The FULL per-filter counts, over the untrimmed feed — unifiedFeed.json is
+    // cut to HOME_SNAPSHOT_MAX (§6.1), so anything counted from it undercounts.
+    // Recorded rather than consumed: Home counts the trimmed feed today. Keys
+    // match FeedFilters.feedFilterCounts (verb names + `replying`).
     feedCounts: feedFilterCounts(unified, ME_DID),
     homeFeedCount: homeFeed.length,
     // §8.3: snapshots kept from a prior good build instead of an empty fetch.
     preserved: preservedSnapshots,
     ok: preservedSnapshots.length === 0,
   });
+
+  // What the build actually shipped, said out loud.
+  //
+  // snapshot-meta records `ok` and `preserved` on every run and NOTHING reads
+  // the file — not src, not api/rebuild.js, not CI — so a degraded build was
+  // indistinguishable from a healthy one to every consumer of it, including
+  // whoever is watching the log. It stays (it is a useful record of a run), and
+  // now the run says so too. Not a failure: a preserved snapshot is the guard
+  // working, and a deploy that ships last build's blog is exactly what it is
+  // for. It just must not pass in silence.
+  if (preservedSnapshots.length) {
+    warn(
+      `DEGRADED BUILD — ${preservedSnapshots.length} snapshot(s) kept from the previous run: ` +
+        preservedSnapshots
+          .map((p) => `${p.name} (${p.prevCount} kept${p.rejected != null ? `, ${p.rejected} rejected` : ''})`)
+          .join(', '),
+    );
+  }
 
   log('done');
 }

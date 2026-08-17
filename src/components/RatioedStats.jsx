@@ -20,11 +20,11 @@ import './RatioedStats.css';
  * @param {Array} props.cells  { key, label, value, note }, falsy entries dropped
  * @param {boolean} [props.dense]  the second tier: smaller, more per row
  */
-export default function RatioedStats({ cells, dense = false, className = '' }) {
+export default function RatioedStats({ cells, dense = false }) {
   const shown = (cells || []).filter((c) => c && c.value != null && c.value !== '');
   if (!shown.length) return null;
   return (
-    <dl className={`ratioed-stats${dense ? ' is-dense' : ''}${className ? ` ${className}` : ''}`}>
+    <dl className={`ratioed-stats${dense ? ' is-dense' : ''}`}>
       {shown.map((c) => (
         <div key={c.key || c.label}>
           <dt>{c.label}</dt>

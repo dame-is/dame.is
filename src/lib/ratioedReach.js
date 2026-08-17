@@ -428,10 +428,3 @@ export function fmtReach(n) {
   return `${Math.round(v / 1000000)}M`;
 }
 
-/** `12.4` → `12.4×`, `0.04` → `0.04×`. The unit is "followers per follow". */
-export function fmtRatio(ratio) {
-  if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return '—';
-  if (ratio >= 100) return `${Math.round(ratio)}×`;
-  if (ratio >= 10) return `${ratio.toFixed(1)}×`;
-  return `${ratio.toFixed(2)}×`;
-}
