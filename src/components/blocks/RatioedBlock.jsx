@@ -625,7 +625,12 @@ function Hidden({ pieces, events }) {
           <div>
             <blockquote className="ratioed-hidden-text">{r.t || '(image, no text)'}</blockquote>
             <div className="ratioed-hidden-attr">
-              @{r.h} · {r.n ? 'nested reply' : 'reply to the sealed post'}
+              {/* Only stated when it is known. A backlink index cannot say
+                  whether a reply was nested, and only the bundled harvest
+                  recorded it — so a row with no flag is a row nothing can
+                  answer for, not a reply to the piece itself. */}
+              @{r.h}
+              {r.n != null && <> · {r.n ? 'nested reply' : 'reply to the sealed post'}</>}
             </div>
           </div>
         </div>

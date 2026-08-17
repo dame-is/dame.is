@@ -578,13 +578,40 @@ export function composeEventLog(recordLog, bundleLog) {
   // of the same offset. Measured against the real pair the harvest and the
   // repair produced for the first eleven pieces, the offsets agree to about ten
   // milliseconds, so a second and a half is slack rather than a guess.
+  //
+  // The account test is the delicate part. Matching on the handle alone missed
+  // a row whose handle had been re-resolved since: take 10 holds a recorded
+  // repost by `(unresolvable)` and a harvested one by rascalpyro.bsky.social,
+  // thirteen milliseconds apart and the same repost — plc.directory confirms
+  // the alias — so the composed log ran to 69 rows for 68 events, drew two
+  // ticks stacked at +19m24s, and put the same person on the page twice: once
+  // as a face and once as a deactivated frame. Two DIDs are decisive when both
+  // rows carry one; otherwise a handle still counts, unless it is the
+  // placeholder every unresolved account answers to, which identifies nobody.
+  const sameWho = (a, b) => {
+    if (a.did && b.did) return a.did === b.did;
+    if (!a.h || !b.h) return false;
+    if (a.h === UNRESOLVED || b.h === UNRESOLVED) return true;
+    return a.h === b.h;
+  };
   const sameRow = (a, b) =>
-    a.k === b.k && a.h && a.h === b.h && Math.abs((a.off || 0) - (b.off || 0)) <= 1.5;
+    a.k === b.k && sameWho(a, b) && Math.abs((a.off || 0) - (b.off || 0)) <= 1.5;
 
+  // What the harvest knows and the record cannot say. Text is the obvious one.
+  // `n` — whether a reply was nested under another rather than written to the
+  // piece itself — is the quieter one: the lexicon has no field for it and a
+  // backlink index does not carry it, so it survives ONLY here. Recorded rows
+  // used to win outright, which shadowed every harvested `n` and left the
+  // hidden-replies list calling all fifteen of them "reply to the sealed post".
   const withText = rec.map((e) => {
-    if (e.t) return e;
-    const harvested = bun.find((x) => x.t && sameRow(e, x));
-    return harvested ? { ...e, t: harvested.t } : e;
+    if (e.t && e.n != null) return e;
+    const harvested = bun.find((x) => (x.t || x.n != null) && sameRow(e, x));
+    if (!harvested) return e;
+    return {
+      ...e,
+      ...(!e.t && harvested.t ? { t: harvested.t } : {}),
+      ...(e.n == null && harvested.n != null ? { n: harvested.n } : {}),
+    };
   });
   // Everything the harvest holds and the record does not: the alive window of a
   // piece repaired long after it ran, and any row an index has since forgotten.
@@ -612,6 +639,10 @@ function eventsFromRecord(events) {
       pre: e.pre ? 1 : 0,
       ...(e.self ? { self: 1 } : {}),
       ...(e.t ? { t: e.t } : {}),
+      // Nested under another reply rather than written to the piece. Carried
+      // through where a record happens to hold it; only the bundled harvest
+      // does today, since neither the lexicon nor any index has the field.
+      ...(e.n != null ? { n: e.n } : {}),
       // The audience this account carried the piece to, as of audienceAt.
       // Passed through untouched — `ratioedReach` distinguishes an absent
       // figure from a zero one, so neither can be defaulted here.

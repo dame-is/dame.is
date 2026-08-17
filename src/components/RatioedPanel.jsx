@@ -61,6 +61,7 @@ import {
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
 import { repairPiece, gapSummary } from '../lib/ratioedRepair.js';
+import { resolveBreaker, witnessFromRecord } from '../lib/ratioedLive.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveProfiles } from '../lib/atproto.js';
 import { getBacklinkCount } from '../lib/constellation.js';
@@ -466,8 +467,24 @@ export default function RatioedPanel({ agent, did }) {
         // good; only whether their like is still standing was wrong. Rebuilt
         // field by field so a stale reactionMs can't survive a "deleted"
         // verdict by riding along in the spread.
+        //
+        // Except that a witnessed log times a like the index cannot show, and
+        // this never looked at one — unlike `healPiece`, which does. A piece
+        // sealed while the index lagged is sealed, witnessed and event-less,
+        // which is exactly this button's eligibility test, so it landed here
+        // and had its recovered reaction time deleted; `reactionRecovered` was
+        // not deleted with it, leaving a breaker flagged as recovered with
+        // nothing to have recovered. The public page then read "like deleted"
+        // and the piece dropped out of the project's mean reaction.
         const breaker = { ...(value.breaker || {}) };
+        const witnessed = resolveBreaker({
+          indexLike: windows.breakingLike,
+          rows: witnessFromRecord(value.witnessed) || [],
+          postedMs: Date.parse(value.postedAt),
+          sealedMs,
+        });
         delete breaker.reactionMs;
+        delete breaker.reactionRecovered;
         await agent.com.atproto.repo.putRecord({
           repo: did,
           collection: NSID,
@@ -477,8 +494,17 @@ export default function RatioedPanel({ agent, did }) {
             ...value,
             breaker: {
               ...breaker,
-              likeSurvives,
-              ...(likeSurvives ? { reactionMs: sealedMs - windows.breakingLike.at } : {}),
+              likeSurvives: likeSurvives || Boolean(witnessed?.likeSurvives),
+              // The index first, then the log — the same order `resolveBreaker`
+              // itself uses, and the same order the studio's measurement does.
+              ...(likeSurvives
+                ? { reactionMs: sealedMs - windows.breakingLike.at }
+                : witnessed
+                  ? {
+                      reactionMs: Math.round(sealedMs - witnessed.at),
+                      ...(witnessed.recovered ? { reactionRecovered: true } : {}),
+                    }
+                  : {}),
             },
             preSeal: windows.preSeal,
             postSeal: windows.postSeal,

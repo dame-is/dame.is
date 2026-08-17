@@ -750,3 +750,33 @@ describe('foldFaces', () => {
     expect(faces).toHaveLength(2);
   });
 });
+
+describe('composeEventLog matches on identity, not only on the handle', () => {
+  it('folds a re-resolved handle into the row it duplicates', () => {
+    // Take 10's shape: the repair recorded the repost under a DID whose handle
+    // would not resolve; the harvest has the same repost under the name the
+    // account answered to at the time. 13ms apart, one record.
+    const out = composeEventLog(
+      [{ k: 'repost', h: '(unresolvable)', did: 'did:plc:rascal', off: 1163.713, pre: 0 }],
+      [{ k: 'repost', h: 'rascalpyro.bsky.social', off: 1163.7, pre: 0, t: '' }],
+    );
+    expect(out).toHaveLength(1);
+  });
+
+  it('still keeps two different accounts apart at the same moment', () => {
+    const out = composeEventLog(
+      [{ k: 'repost', h: 'a.test', did: 'did:plc:a', off: 100, pre: 1 }],
+      [{ k: 'repost', h: 'b.test', did: 'did:plc:b', off: 100.2, pre: 1 }],
+    );
+    expect(out).toHaveLength(2);
+  });
+
+  it('trusts two DIDs over two handles', () => {
+    // Same handle, different accounts — a rename. Not one row.
+    const out = composeEventLog(
+      [{ k: 'reply', h: 'shared', did: 'did:plc:one', off: 10, pre: 1 }],
+      [{ k: 'reply', h: 'shared', did: 'did:plc:two', off: 10.1, pre: 1 }],
+    );
+    expect(out).toHaveLength(2);
+  });
+});
