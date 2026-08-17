@@ -27,7 +27,7 @@
 // be showing an emergency that has already ended.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Radio, ArrowUpRight } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { watchSubject } from '../lib/jetstream.js';
 import { resolveProfiles } from '../lib/atproto.js';
 import {
@@ -46,16 +46,8 @@ import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
 import RatioedRecord from './RatioedRecord.jsx';
-import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
+import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
 import './RatioedLive.css';
-
-// A witnessed row names a DID and a record key; this is the at:// URI they
-// spell, so a reader can open the post itself in whatever client they use.
-// Only the two kinds that are posts — a like and a repost are records nobody
-// wants to look at.
-const OPENABLE = { quote: 'app.bsky.feed.post', reply: 'app.bsky.feed.post' };
-const rowUri = (r) =>
-  OPENABLE[r?.k] && r.did && r.rkey ? `at://${r.did}/${OPENABLE[r.k]}/${r.rkey}` : '';
 
 // What one visitor's stream is allowed to cost before it stops itself: about
 // half an hour at the measured rate, several times the longest piece the series
@@ -89,7 +81,7 @@ function firehoseIsPolite() {
  * the ticker, so somebody arriving forty seconds in sees the forty seconds they
  * missed rather than an empty panel.
  */
-export default function RatioedLive({ piece, record = null, copy = DEFAULT_COPY }) {
+export default function RatioedLive({ piece, record = null, series = null, copy = DEFAULT_COPY }) {
   const postedMs = Date.parse(piece?.postedAt || '');
   const [rows, setRows] = useState(() => piece?.witnessed || []);
   const [profiles, setProfiles] = useState({});
@@ -181,7 +173,7 @@ export default function RatioedLive({ piece, record = null, copy = DEFAULT_COPY 
       </header>
 
       {/* The clock says how long. This says whether that is a lot. */}
-      <RatioedRecord elapsedMs={aliveMs} record={record} />
+      <RatioedRecord elapsedMs={aliveMs} record={record} pieces={series} />
 
       {/* The like is not one more row in the feed. It is the end of the piece,
           and this is where the page says so at the size it deserves. */}
@@ -208,8 +200,8 @@ export default function RatioedLive({ piece, record = null, copy = DEFAULT_COPY 
         {breaking ? copy.deckLiked : takenBack ? copy.deckWithdrawn : copy.deckAlive}
       </p>
 
-      <Counters tally={tally} />
-      <Ticker rows={rows} profiles={profiles} />
+      <RatioedCounters tally={tally} />
+      <RatioedTicker rows={rows} profiles={profiles} />
 
       <p className="ratioed-live-note">
         {stream?.msgs > 0 && streamOn && (
@@ -321,10 +313,10 @@ export function RatioedWitness({ piece }) {
           </button>
         )}
       </div>
-      <Counters tally={tally} />
+      <RatioedCounters tally={tally} />
       {/* Quiet: the like that ended this one ended it a long time ago, and a
           chip that throbs about it now would be theatre. */}
-      <Ticker rows={shown} profiles={profiles} quiet />
+      <RatioedTicker rows={shown} profiles={profiles} quiet />
     </div>
   );
 }
@@ -365,90 +357,5 @@ function StreamState({ on, paused, stream, onToggle, onRestart }) {
         </button>
       )}
     </span>
-  );
-}
-
-/** The counts, with the like given the weight the project gives it. */
-function Counters({ tally }) {
-  const cells = [
-    ['replies', tally.replies],
-    ['reposts', tally.reposts],
-    ['quotes', tally.quotes],
-    ['likes', tally.likes],
-    ['people', tally.people],
-  ];
-  return (
-    <dl className="ratioed-live-counters">
-      {cells.map(([label, value]) => (
-        <div key={label} className={label === 'likes' && value > 0 ? 'is-fatal' : undefined}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-      {tally.withdrawn > 0 && (
-        <div className="is-gone">
-          <dt>taken back</dt>
-          <dd>{tally.withdrawn}</dd>
-        </div>
-      )}
-    </dl>
-  );
-}
-
-/** Newest first, the way a feed is read. `quiet` mutes a replayed alarm. */
-function Ticker({ rows, profiles, quiet = false }) {
-  const { openWaypoints } = useWaypointsModal();
-  if (!rows.length) {
-    return (
-      <p className="ratioed-live-empty">
-        Nothing has touched it yet. That is the piece working.
-      </p>
-    );
-  }
-  return (
-    <ul className="ratioed-live-ticker">
-      {[...rows].reverse().map((r) => {
-        const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
-        const avatar = profiles[r.did]?.avatar;
-        const mine = r.did === ME_DID;
-        return (
-          <li
-            key={r.rkey}
-            className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}${
-              mine ? ' is-self' : ''
-            }`}
-          >
-            <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
-            {avatar ? (
-              <img className="ratioed-live-face" src={avatar} alt="" loading="lazy" width="22" height="22" />
-            ) : (
-              <span className="ratioed-live-face is-blank" aria-hidden="true" />
-            )}
-            <span className="ratioed-live-who">
-              @{handle}
-              {mine && <span className="ratioed-live-self"> the artist</span>}
-            </span>
-            <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />
-            {r.goneMs != null && (
-              <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
-            )}
-            {r.t && <span className="ratioed-live-text">{r.t}</span>}
-            {/* Read it where you read things. The picker is the same one every
-                at:// link on this site goes through. */}
-            {r.goneMs == null && rowUri(r) && (
-              <button
-                type="button"
-                className="ratioed-live-open"
-                onClick={() => openWaypoints(rowUri(r))}
-                title={`Open @${handle}’s ${r.k} in another client`}
-                aria-label={`Open this ${r.k} in another client`}
-              >
-                <ArrowUpRight size={13} aria-hidden="true" />
-              </button>
-            )}
-          </li>
-        );
-      })}
-    </ul>
   );
 }

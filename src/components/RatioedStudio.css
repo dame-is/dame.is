@@ -350,41 +350,13 @@
 
 .rs-feed-empty { margin: 0; }
 
-.rs-feed-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 22em;
-  overflow-y: auto;
-  font-size: var(--text-sm);
-}
-
-/* Flex rather than a grid, because a row can now carry an action pair and a
-   composer, and a fixed column count fought both. */
-.rs-feed-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-  flex-wrap: wrap;
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--rule-soft);
-}
-.rs-feed-when { font-family: var(--mono, monospace); color: var(--ink-muted); flex: none; width: 4.5em; }
-.rs-feed-who { overflow-wrap: anywhere; flex: 0 1 12em; }
-.rs-feed-mine { font-size: var(--text-xs); color: var(--ink-muted); }
-.rs-feed-row.mine { color: var(--ink-faint); }
-.rs-feed-text {
-  color: var(--ink-faint);
-  flex: 1 1 10em;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* The rows themselves are RatioedTicker's, styled by RatioedLive.css — the
+   same list the piece's own page draws, so the two cannot drift again. What is
+   left here is what the studio adds: the buttons at the end of a row and the
+   composer under it. The ticker's own scroller is 24em; the studio's panel is
+   inside a pane with a seal button above it, so it keeps a shorter one. */
+.rs-feed .ratioed-live-ticker { max-height: 22em; }
 .rs-feed-scan { font-variant-numeric: tabular-nums; }
-
-/* The like is the one that ends it, so it reads as the one that ends it. */
-.rs-feed-row.rs-k-like .rs-feed-kind { color: var(--ratioed-seal); font-weight: 600; }
 
 /* --- acting on a row ------------------------------------------------- */
 
@@ -438,23 +410,6 @@
 }
 .rs-reply-where { font-size: var(--text-xs); color: var(--ink-muted); }
 
-/* Taken back. The project's central fact, watched rather than inferred from a
-   gap in an index afterwards.
-   The row recedes; the marker saying WHY does not. The strikethrough already
-   carries "this is gone", and dimming the label along with it made the one
-   piece of new information the hardest thing in the row to read. */
-.rs-feed-row.gone .rs-feed-when,
-.rs-feed-row.gone .rs-feed-who,
-.rs-feed-row.gone .rk-chip,
-.rs-feed-row.gone .rs-feed-text { opacity: 0.5; }
-.rs-feed-row.gone .rs-feed-who { text-decoration: line-through; }
-.rs-feed-gone {
-  font-size: var(--text-xs);
-  color: var(--ratioed-seal);
-  font-variant-caps: small-caps;
-  font-weight: 600;
-}
-
 /* --- the template --------------------------------------------------- */
 
 .rs-template {
@@ -480,30 +435,11 @@
 /* Same reasoning: the feed row collapses on the PANE's width, not the
    viewport's — a 34rem pane needs this at 1600px just as much as at 900px. */
 @container wbpane (max-width: 34rem) {
-  /* The same two-line row the public deck's ticker uses at this width, and for
-     the same reasons — see the note in RatioedLive.css. The text is ordered
-     after the action buttons so it takes the second line and they don't; the
-     handle truncates rather than breaking mid-word, which is what was standing
-     rows two lines tall and knocking the chips out of column. */
-  .rs-feed-row { row-gap: 2px; }
-  .rs-feed-who {
-    flex: 1 1 6em;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow-wrap: normal;
-  }
-  .rs-feed-text { order: 1; flex: 1 0 100%; }
-  /* What they said, then what you can do about it. The three action buttons are
-     44px each on a touch screen and take a line of their own at this width, and
-     unordered they took it BETWEEN the handle and the reply text. */
-  .rs-feed-acts { order: 2; }
+  /* The rows are the ticker's and collapse by RatioedLive.css's own media
+     query. What is left is the studio's own two: the buttons take a line of
+     their own under what was said, rather than between the handle and it. */
+  .rs-feed .ratioed-live-acts { order: 2; }
   .rs-reply-box { order: 3; }
-  /* A line of its own, so the chips keep a single right edge down the feed.
-     Ordered alone it still fitted beside the chip and pushed that one row's
-     chip 60px left of the column; the basis is what breaks the line. */
-  .rs-feed-gone { order: 1; flex: 1 0 100%; }
 }
 
 /* A like cast and taken back before the seal. Not an alarm any more, but not

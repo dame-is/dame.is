@@ -434,6 +434,41 @@ export function normalizePiece(rkey, value) {
 }
 
 /**
+ * Where every other take sits on a live piece's run at the record.
+ *
+ * The bar under a running piece measures it against the longest one that has
+ * ever happened, which is the only unit this project has — but it is also the
+ * least representative piece in the series. Take 14 stood for 42 minutes; nine
+ * of the sixteen were over inside two. So the bar was one long empty run with a
+ * single mark at the end, and the thing actually happening while a piece is up
+ * — that it has now outlived take 3, and take 7, and take 12 — had no shape at
+ * all.
+ *
+ * These are that shape: one tick per finished piece at its own lifespan, and
+ * whether the live one has passed it yet. They cluster at the left, which is
+ * not a defect: the cluster IS the finding, and a piece crossing the last of
+ * them has visibly left the whole series behind.
+ *
+ * @param {Array} pieces      finished pieces
+ * @param {object} record     the longest of them, which the bar runs to
+ * @param {number} elapsedMs  how long the live piece has stood
+ */
+export function chaseTicks(pieces, record, elapsedMs = 0) {
+  const target = record?.lifespanMs || 0;
+  if (!target) return [];
+  return (pieces || [])
+    .filter((p) => p.lifespanMs > 0 && p.rkey !== record.rkey && p.lifespanMs < target)
+    .sort((a, b) => a.lifespanMs - b.lifespanMs)
+    .map((p) => ({
+      rkey: p.rkey,
+      take: p.take,
+      lifespanMs: p.lifespanMs,
+      at: p.lifespanMs / target,
+      passed: elapsedMs >= p.lifespanMs,
+    }));
+}
+
+/**
  * One log for a piece, from the two places its rows can live.
  *
  * The first eleven pieces were measured offline before records carried a log,

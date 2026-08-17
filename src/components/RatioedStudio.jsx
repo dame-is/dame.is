@@ -40,7 +40,6 @@ import {
   RefreshCw,
   ExternalLink,
   ArrowUpRight,
-  FileText,
   Radio,
   Wrench,
   Heart,
@@ -51,6 +50,7 @@ import {
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
 import RatioedRecord from './RatioedRecord.jsx';
+import RatioedTicker, { RatioedCounters } from './RatioedTicker.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import { COLLECTIONS, ME_DID, ME_HANDLE, RATIOED_PATH } from '../config.js';
@@ -80,6 +80,7 @@ import {
   witnessChanged,
   breakingWitness,
   withdrawnOnly,
+  tallyWitness,
   resolveBreaker,
 } from '../lib/ratioedLive.js';
 import {
@@ -165,7 +166,14 @@ const KIND_COLLECTION = {
   reply: POST,
 };
 
-/** The at:// URI of a witnessed row, which the stream gives us in parts. */
+/**
+ * The at:// URI of a witnessed row, which the stream gives us in parts.
+ *
+ * Wider than the ticker's own `rowUri`, deliberately: that one answers "can a
+ * reader open this?" and only a post can be opened, while this one has to
+ * address a LIKE and a REPOST as well, because the studio deletes and undoes
+ * them.
+ */
 const rowUri = (row) => (row?.did && row?.rkey ? `at://${row.did}/${KIND_COLLECTION[row.k]}/${row.rkey}` : '');
 
 /** The two kinds you can answer. A like and a repost carry no text to answer. */
@@ -1151,7 +1159,9 @@ export default function RatioedStudio({ agent, did }) {
 
   // The log is held earliest-first, the way it's recorded and replayed. It's
   // read newest-first, the way a feed is watched.
-  const newestFirst = useMemo(() => [...feed].reverse(), [feed]);
+  // The same counts the public deck shows, by the same rule: the artist's own
+  // records are in the log and in none of the figures.
+  const tally = useMemo(() => tallyWitness(feed, { selfDid: did }), [feed, did]);
 
   const justSealed = Boolean(live && sealed?.rkey === live.rkey);
   const aliveMs = live
@@ -1215,7 +1225,7 @@ export default function RatioedStudio({ agent, did }) {
 
           {/* How this one is doing, in the only unit the project has: the
               longest piece so far. */}
-          <RatioedRecord elapsedMs={aliveMs} record={longest} />
+          <RatioedRecord elapsedMs={aliveMs} record={longest} pieces={done} />
 
           {/* The alarm. A like is the end of the piece and the start of the one
               measurement this project exists to take, so it does not arrive as
@@ -1340,130 +1350,117 @@ export default function RatioedStudio({ agent, did }) {
               )}
             </header>
 
-            {feed.length === 0 ? (
-              <p className="admin-field-hint rs-feed-empty">
-                Nothing yet. Every like, repost, quote and reply on the network is arriving here and
-                being tested against this post — ~166&nbsp;KB/s, which is what buys sub-second
-                notice instead of a {WATCH_MS / 1000}s poll. It runs until you stop it: the cost is
-                above and the {WATCH_MS / 1000}s poll carries on underneath either way.
-              </p>
-            ) : (
-              <ul className="rs-feed-list">
-                {newestFirst.map((e) => {
-                  const mine = e.did === did;
-                  // A post that still exists can be opened anywhere. Acting on
-                  // one is narrower: not your own, not deleted, not after the
-                  // seal.
-                  const openable = ANSWERABLE.has(e.k) && e.goneMs == null && Boolean(e.did);
-                  const answerable = openable && !mine && !justSealed;
-                  const liked = Boolean(acted[e.rkey]?.likeUri);
-                  return (
-                    <li
-                      key={e.rkey}
-                      className={`rs-feed-row rs-k-${e.k}${e.goneMs != null ? ' gone' : ''}${
-                        mine ? ' mine' : ''
-                      }`}
+            {/* The counts the public deck shows, on the same rows it shows
+                them on: this feed and that one are the same list of the same
+                records, and until now they were two implementations that had
+                drifted apart on avatars, spacing and what a withdrawn row
+                looks like. What the studio adds is the three buttons and the
+                composer, which arrive as render props. */}
+            <RatioedCounters tally={tally} />
+            <RatioedTicker
+              rows={feed}
+              profiles={profiles}
+              empty={`Nothing yet. Every like, repost, quote and reply on the network is arriving here and being tested against this post — ~166 KB/s, which is what buys sub-second notice instead of a ${WATCH_MS / 1000}s poll.`}
+              actions={(e) => {
+                const mine = e.did === did;
+                // A post that still exists can be opened anywhere. Acting on
+                // one is narrower: not your own, not deleted, not after the
+                // seal.
+                const openable = ANSWERABLE.has(e.k) && e.goneMs == null && Boolean(e.did);
+                if (!openable) return null;
+                const answerable = !mine && !justSealed;
+                const liked = Boolean(acted[e.rkey]?.likeUri);
+                return (
+                  <>
+                    <button
+                      type="button"
+                      className="rs-act"
+                      onClick={() => openWaypoints(rowUri(e))}
+                      title="Open this post in another client"
+                      aria-label="Open this post in another client"
                     >
-                      <span className="rs-feed-when">+{fmtDuration(e.offMs)}</span>
-                      <span className="rs-feed-who">
-                        @{profiles[e.did]?.handle || e.h || e.did?.slice(0, 18) || 'unknown'}
-                        {mine && <span className="rs-feed-mine"> you</span>}
-                      </span>
-                      <RatioedChip kind={e.k} muted={e.goneMs != null} />
-                      {e.goneMs != null && <span className="rs-feed-gone">deleted it</span>}
-                      {e.t && <span className="rs-feed-text">{e.t.slice(0, 90)}</span>}
-                      {openable && (
-                        <span className="rs-feed-acts">
-                          <button
-                            type="button"
-                            className="rs-act"
-                            onClick={() => openWaypoints(rowUri(e))}
-                            title="Open this post in another client"
-                            aria-label="Open this post in another client"
-                          >
-                            <ArrowUpRight size={13} aria-hidden="true" />
-                          </button>
-                          {answerable && (
-                            <>
-                              {/* On the row, not the piece: this likes
-                                  somebody's reply, which is not a backlink of
-                                  the piece and is in none of its counts. */}
-                              <button
-                                type="button"
-                                className={`rs-act${liked ? ' on' : ''}`}
-                                onClick={() => likeRow(e)}
-                                disabled={Boolean(acting)}
-                                title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
-                                aria-label={liked ? 'Undo that like' : 'Like this reply'}
-                              >
-                                {liked ? (
-                                  <HeartOff size={13} aria-hidden="true" />
-                                ) : (
-                                  <Heart size={13} aria-hidden="true" />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
-                                onClick={() =>
-                                  setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
-                                }
-                                disabled={Boolean(acting)}
-                                title={
-                                  e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'
-                                }
-                                aria-label="Reply to this"
-                              >
-                                <MessageSquareReply size={13} aria-hidden="true" />
-                              </button>
-                            </>
+                      <ArrowUpRight size={13} aria-hidden="true" />
+                    </button>
+                    {answerable && (
+                      <>
+                        {/* On the row, not the piece: this likes somebody's
+                            reply, which is not a backlink of the piece and is
+                            in none of its counts. */}
+                        <button
+                          type="button"
+                          className={`rs-act${liked ? ' on' : ''}`}
+                          onClick={() => likeRow(e)}
+                          disabled={Boolean(acting)}
+                          title={liked ? 'Undo that like' : 'Like this reply — not the piece'}
+                          aria-label={liked ? 'Undo that like' : 'Like this reply'}
+                        >
+                          {liked ? (
+                            <HeartOff size={13} aria-hidden="true" />
+                          ) : (
+                            <Heart size={13} aria-hidden="true" />
                           )}
-                        </span>
-                      )}
-                      {replyTo?.rkey === e.rkey && (
-                        <div className="rs-reply-box">
-                          <textarea
-                            className="admin-input"
-                            rows={3}
-                            autoFocus
-                            placeholder={
-                              e.k === 'quote'
-                                ? 'Replying under their quote post…'
-                                : 'Replying in the piece’s own thread…'
-                            }
-                            value={replyTo.text}
-                            onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
-                          />
-                          <div className="rs-reply-acts">
-                            <button
-                              type="button"
-                              className="admin-gate-button"
-                              onClick={sendReply}
-                              disabled={Boolean(acting) || !replyTo.text.trim()}
-                            >
-                              <Send size={13} aria-hidden="true" />
-                              {acting === e.rkey ? 'Posting…' : 'Reply'}
-                            </button>
-                            <button
-                              type="button"
-                              className="admin-link-subtle"
-                              onClick={() => setReplyTo(null)}
-                            >
-                              cancel
-                            </button>
-                            <span className="rs-reply-where">
-                              {e.k === 'quote'
-                                ? 'their thread — this piece never sees it'
-                                : 'this piece’s thread, and your own records are excluded from every count'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                        </button>
+                        <button
+                          type="button"
+                          className={`rs-act${replyTo?.rkey === e.rkey ? ' on' : ''}`}
+                          onClick={() =>
+                            setReplyTo((r) => (r?.rkey === e.rkey ? null : { ...e, text: '' }))
+                          }
+                          disabled={Boolean(acting)}
+                          title={
+                            e.k === 'quote' ? 'Reply in their thread' : 'Reply in the piece’s thread'
+                          }
+                          aria-label="Reply to this"
+                        >
+                          <MessageSquareReply size={13} aria-hidden="true" />
+                        </button>
+                      </>
+                    )}
+                  </>
+                );
+              }}
+              below={(e) =>
+                replyTo?.rkey === e.rkey ? (
+                  <div className="rs-reply-box">
+                    <textarea
+                      className="admin-input"
+                      rows={3}
+                      autoFocus
+                      placeholder={
+                        e.k === 'quote'
+                          ? 'Replying under their quote post…'
+                          : 'Replying in the piece’s own thread…'
+                      }
+                      value={replyTo.text}
+                      onChange={(ev) => setReplyTo((r) => ({ ...r, text: ev.target.value }))}
+                    />
+                    <div className="rs-reply-acts">
+                      <button
+                        type="button"
+                        className="admin-gate-button"
+                        onClick={sendReply}
+                        disabled={Boolean(acting) || !replyTo.text.trim()}
+                      >
+                        <Send size={13} aria-hidden="true" />
+                        {acting === e.rkey ? 'Posting…' : 'Reply'}
+                      </button>
+                      <button
+                        type="button"
+                        className="admin-link-subtle"
+                        onClick={() => setReplyTo(null)}
+                      >
+                        cancel
+                      </button>
+                      <span className="rs-reply-where">
+                        {e.k === 'quote'
+                          ? 'their thread — this piece never sees it'
+                          : 'this piece’s thread, and your own records are excluded from every count'}
+                      </span>
+                    </div>
+                  </div>
+                ) : null
+              }
+            />
           </div>
 
           <p className="admin-field-hint">

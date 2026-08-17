@@ -289,6 +289,8 @@ export default function RatioedPiece() {
   }
 
   const take = pieceSlug(piece);
+  // Every piece that has ended, for the ticks along the record bar.
+  const finishedPieces = pieces.filter((p) => p.lifespanMs > 0);
   const atUri = `at://${ME_DID}/${COLLECTIONS.ratioedPiece}/${piece.rkey}`;
   const b = piece.breaker || {};
   const live = events?.filter((e) => e.pre && !e.self) || [];
@@ -350,7 +352,12 @@ export default function RatioedPiece() {
             <p className="ratioed-piece-lede">{fillCopy(copy.liveLede, { take })}</p>
           )}
 
-          <RatioedLive piece={piece} record={longestPiece(pieces)} copy={copy} />
+          <RatioedLive
+            piece={piece}
+            record={longestPiece(pieces)}
+            series={finishedPieces}
+            copy={copy}
+          />
 
           <p className="ratioed-piece-note">{copy.liveNote}</p>
 

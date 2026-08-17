@@ -23,6 +23,27 @@
   transition: width 1s linear;
 }
 
+/* One per finished take, at its own lifespan. Hairlines rather than dots: they
+   crowd together at the left of a long record — nine of the sixteen pieces were
+   over inside two minutes against take 14's forty-two — and a column of thin
+   rules reads as a scale, where a row of overlapping dots reads as a smudge. */
+.rr-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  margin-left: -0.5px;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+}
+/* Outlived. Drawn in the page ground so it cuts the filled bar rather than
+   colouring it — the mark is that the piece is now past this one. */
+.rr-tick.is-passed {
+  background: color-mix(in srgb, var(--page) 75%, transparent);
+}
+.rr-chase.is-beaten .rr-tick.is-passed {
+  background: color-mix(in srgb, var(--page) 60%, transparent);
+}
+
 .rr-say {
   margin: var(--space-2) 0 0;
   font-size: var(--text-sm);

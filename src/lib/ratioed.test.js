@@ -6,6 +6,7 @@ import {
   livingRoster,
   roleOf,
   hiddenReplies,
+  chaseTicks,
   composeEventLog,
   WEEKDAYS,
   normalizePiece,
@@ -638,5 +639,36 @@ describe('composeEventLog', () => {
     expect(composeEventLog(null, bundle)).toBe(bundle);
     expect(composeEventLog(record, null)).toBe(record);
     expect(composeEventLog(null, null)).toBeNull();
+  });
+});
+
+describe('chaseTicks', () => {
+  const record = { rkey: 'r14', take: 14, lifespanMs: 2_529_000 };
+  const pieces = [
+    { rkey: 'r01', take: 1, lifespanMs: 49_000 },
+    { rkey: 'r14', take: 14, lifespanMs: 2_529_000 },
+    { rkey: 'r16', take: 16, lifespanMs: 907_470 },
+    { rkey: 'r15', take: 15, lifespanMs: 77_099 },
+    { rkey: 'live', take: 17, lifespanMs: 0 }, // still up: no lifespan yet
+  ];
+
+  it('places one tick per finished piece, shortest first', () => {
+    const ticks = chaseTicks(pieces, record, 0);
+    expect(ticks.map((t) => t.take)).toEqual([1, 15, 16]);
+    expect(ticks[0].at).toBeCloseTo(49_000 / 2_529_000);
+  });
+
+  it('leaves out the record itself — the bar already ends there', () => {
+    expect(chaseTicks(pieces, record, 0).some((t) => t.rkey === 'r14')).toBe(false);
+  });
+
+  it('marks the ones the live piece has already outlived', () => {
+    const ticks = chaseTicks(pieces, record, 100_000);
+    expect(ticks.filter((t) => t.passed).map((t) => t.take)).toEqual([1, 15]);
+  });
+
+  it('is empty when nothing has finished yet', () => {
+    expect(chaseTicks([], record, 0)).toEqual([]);
+    expect(chaseTicks(pieces, null, 0)).toEqual([]);
   });
 });
