@@ -298,6 +298,41 @@ export function pieceReach(events) {
 }
 
 /**
+ * Everyone's audience, keyed the way the logs name them.
+ *
+ * There are two sources and they are deliberately complementary. A piece
+ * measured since the audience field existed records each participant's
+ * follower count as it reads it, at the seal — the authoritative figure, and
+ * the only one that is contemporary with the piece. The dated table
+ * (`backfill-ratioed-audience.mjs`) covers everybody else, and that script
+ * SKIPS any account whose log already carries one, precisely so the recorded
+ * figure is never overwritten by a later reading.
+ *
+ * Which is why anything reading only the table had a hole in it exactly the
+ * size of the recent pieces: take 17's sixty-eight participants are all in
+ * their own log and none of them are in the table, so the roster priced 125
+ * of 199 accounts and sorted the rest to the bottom as unknown. Pass logs that
+ * `applyAudience` has already been run over and both halves arrive together.
+ *
+ * Later takes win, so an account that turned up twice is priced at the most
+ * recent reading of it. Keyed by DID and by handle, because the harvest that
+ * covers the first eleven pieces predates recorded DIDs.
+ */
+export function audienceFromEvents(pieces, resolveEvents) {
+  const out = {};
+  const inOrder = [...(pieces || [])].sort((a, b) => (a.take || 0) - (b.take || 0));
+  for (const p of inOrder) {
+    for (const e of resolveEvents?.(p) || []) {
+      if (e.self || !hasAudience(e)) continue;
+      const entry = { fr: e.fr, ...(typeof e.fo === 'number' ? { fo: e.fo } : {}) };
+      if (e.did) out[e.did] = entry;
+      if (e.h && e.h !== '(unresolvable)') out[e.h] = entry;
+    }
+  }
+  return out;
+}
+
+/**
  * The same split across the whole project.
  *
  * `events` resolves a piece's log — its own recorded one, or the bundled

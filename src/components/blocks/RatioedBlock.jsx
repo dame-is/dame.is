@@ -21,7 +21,13 @@ import {
   fmtSeconds,
   fmtElapsed,
 } from '../../lib/ratioed.js';
-import { pieceReach, projectReach, applyAudience, fmtReach } from '../../lib/ratioedReach.js';
+import {
+  pieceReach,
+  projectReach,
+  applyAudience,
+  audienceFromEvents,
+  fmtReach,
+} from '../../lib/ratioedReach.js';
 import { projectStats } from '../../lib/ratioedStats.js';
 import { resolvePds } from '../../lib/atproto.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
@@ -92,7 +98,7 @@ const DEFAULT_CAPTIONS = {
   participants: ({ roster, audience }) =>
     `The ${roster.rows.length} accounts present while a piece was alive, ${roster.breakers} of them breakers.${
       audience?.measuredAt
-        ? ` Audience is their follower count as of ${audience.measuredAt.slice(0, 10)}; a dot means the account no longer resolves.`
+        ? ` Audience is their follower count, read at the seal on a piece whose log recorded one and otherwise as of ${audience.measuredAt.slice(0, 10)}; a dot means nothing could price the account at all.`
         : ''
     }`,
   reach: ({ reach }) => {
@@ -243,6 +249,13 @@ export default function RatioedBlock({ block, style }) {
   const scale = useMemo(() => ratioedScaleVars(skyDisplayHour), [skyDisplayHour]);
 
   const split = useMemo(() => splitParticipants(people), [people]);
+  // Read off the logs rather than out of the table: `eventLog` has already had
+  // the dated table joined onto it, so this is both sources at once — and the
+  // recorded figures are the half the table deliberately does not hold.
+  const audiences = useMemo(
+    () => (variant === 'participants' ? audienceFromEvents(pieces, (p) => eventLog?.[p.rkey]) : null),
+    [variant, pieces, eventLog],
+  );
   const roster = useMemo(() => livingRoster(pieces, people, eventLog), [pieces, people, eventLog]);
   // Project-wide reach, for the caption to quote. Null until both halves of the
   // join are in, which is what keeps the caption from stating a total drawn
@@ -274,7 +287,7 @@ export default function RatioedBlock({ block, style }) {
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} parent={parentSlug} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
-      {variant === 'participants' && <Participants rows={roster.rows} audience={audience} />}
+      {variant === 'participants' && <Participants rows={roster.rows} audiences={audiences} />}
       {/* Both halves or neither: without the audience table the early pieces
           have no follower counts to score, and a chart drawn from the two
           recent ones alone would read as the whole project. */}
@@ -642,22 +655,21 @@ const PEOPLE_COLUMNS = [
 // tail is one click away for anyone who wants to find themselves in it.
 const PEOPLE_PREVIEW = 20;
 
-function Participants({ rows: roster, audience }) {
+function Participants({ rows: roster, audiences }) {
   const [sort, setSort] = useState('ev');
   const [dir, setDir] = useState(-1);
   const [expanded, setExpanded] = useState(false);
 
   const rows = useMemo(() => {
     const key = sort;
-    // The audience each person brought, joined from the dated table rather than
-    // stored on the roster: it is a figure about the account as it is now, and
-    // the roster is a measurement of what people did years ago. Keeping them in
-    // separate places is what stops the two being read as one date. Somebody
-    // the table doesn't know sorts as -1, so unknown audiences fall to the
-    // bottom instead of tying with the accounts nobody follows.
-    const accounts = audience?.accounts || null;
+    // The audience each person brought, joined at render rather than stored on
+    // the roster: it is a figure about an account, and the roster is a
+    // measurement of what people did. Keeping them in separate places is what
+    // stops the two being read as one date. Somebody nothing can price sorts as
+    // -1, so unknown audiences fall to the bottom instead of tying with the
+    // accounts nobody follows.
     const withAudience = roster.map((p) => {
-      const found = accounts ? accounts[p.did] || accounts[p.h] : null;
+      const found = audiences ? audiences[p.did] || audiences[p.h] : null;
       return { ...p, fr: typeof found?.fr === 'number' ? found.fr : -1 };
     });
     return withAudience.sort((a, b) => {
@@ -666,7 +678,7 @@ function Participants({ rows: roster, audience }) {
       const cmp = typeof A === 'string' ? A.localeCompare(B) * -1 : A - B;
       return cmp * dir || b.ev - a.ev;
     });
-  }, [roster, sort, dir, audience]);
+  }, [roster, sort, dir, audiences]);
 
   // Every breaker stays in the preview whatever the sort says. Ranking is by
   // events, and the ones whose like was deleted have none — they'd sit at the
