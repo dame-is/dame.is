@@ -10,33 +10,43 @@
    would be — and these rows are short whenever a piece has no measurable
    reach or no log to read a silence out of. */
 
-/* Four columns, both tiers, so the second sits in the first's columns rather
-   than beside them. Auto-fit gave the dense tier five and the headline four,
-   and two grids on slightly different rhythms read as a rendering fault rather
-   than as a hierarchy. Four also divides the eight in the lower tier into two
-   full rows with no orphan. */
+/* Two columns on a phone, four above it — both tiers on the same count, so the
+   second sits in the first's columns rather than beside them. Auto-fit gave
+   the dense tier five and the headline four, and two grids on slightly
+   different rhythms read as a rendering fault rather than as a hierarchy. Four
+   also divides the eight in the lower tier into two full rows with no orphan.
+   Two is the floor: one figure per line turns a strip into a list, and these
+   are meant to be scanned rather than read. */
 .ratioed-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0 0 var(--space-6);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
 }
 
+/* Every cell draws its own left and top rule, and the ones on an outside edge
+   drop theirs: the first row takes its rule from the block, and the first
+   column takes its edge from the page, so the figures start on the same line
+   as the prose above them rather than indented by a gutter nothing else has.
+   
+   Which cells those are changes with the column count, and BOTH sets are
+   written out in full rather than one relying on the other. An :nth-child
+   selector outranks a plain one whatever a media query says, so a four-column
+   rule reading "no top border on the first four" survived into the two-column
+   layout — where cells three and four are the SECOND row — and the grid drew a
+   horizontal rule on every other row. */
 .ratioed-stats > div {
   padding: var(--space-4);
   border-left: 1px solid var(--rule);
   border-top: 1px solid var(--rule);
 }
-/* The first row takes its rule from the block; the first column takes its edge
-   from the page, so the figures start on the same line as the prose above
-   them rather than indented by a gutter nothing else has. */
-.ratioed-stats > div:nth-child(-n + 4) { border-top: 0; }
-.ratioed-stats > div:nth-child(4n + 1) {
+.ratioed-stats > div:nth-child(-n + 2) { border-top: 0; }
+.ratioed-stats > div:nth-child(odd) {
   border-left: 0;
   padding-left: 0;
 }
-.ratioed-stats > div:nth-child(4n) { padding-right: 0; }
+.ratioed-stats > div:nth-child(even) { padding-right: 0; }
 
 .ratioed-stats dt {
   font-size: var(--text-xs);
@@ -72,24 +82,21 @@
 .ratioed-stats:has(+ .ratioed-stats) { margin-bottom: 0; }
 .ratioed-stats + .ratioed-stats { border-top: 0; }
 
-/* Two columns is the floor: one figure per line turns a strip into a list, and
-   these are meant to be scanned rather than read. */
-@media (max-width: 44rem) {
-  .ratioed-stats,
-  .ratioed-stats.is-dense {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  /* The rules move with the columns — at four they were on every fourth cell,
-     and left where they were they would run down the middle of a figure. */
-  .ratioed-stats > div {
-    border-top: 1px solid var(--rule);
+/* Four columns. Each two-column rule is put back at the same specificity
+   before the four-column ones replace it — see the note above. */
+@media (min-width: 44rem) {
+  .ratioed-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ratioed-stats > div:nth-child(-n + 2) { border-top: 1px solid var(--rule); }
+  .ratioed-stats > div:nth-child(odd) {
     border-left: 1px solid var(--rule);
-    padding-inline: var(--space-4);
+    padding-left: var(--space-4);
   }
-  .ratioed-stats > div:nth-child(-n + 2) { border-top: 0; }
-  .ratioed-stats > div:nth-child(2n + 1) {
+  .ratioed-stats > div:nth-child(even) { padding-right: var(--space-4); }
+
+  .ratioed-stats > div:nth-child(-n + 4) { border-top: 0; }
+  .ratioed-stats > div:nth-child(4n + 1) {
     border-left: 0;
     padding-left: 0;
   }
-  .ratioed-stats > div:nth-child(2n) { padding-right: 0; }
+  .ratioed-stats > div:nth-child(4n) { padding-right: 0; }
 }
