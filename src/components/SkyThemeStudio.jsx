@@ -375,8 +375,8 @@ export default function SkyThemeStudio({ agent, did }) {
         {
           id: 'save',
           label: 'Save',
-          // The same glyph the shell puts on its own Save (AdminActionBar), so
-          // slot 3 does not change shape between a record and this studio.
+          // The same glyph the shell puts on its own Save, so the primary
+          // action does not change shape between a record and this studio.
           icon: 'Archive',
           onPress: onSave,
           busy: saving,

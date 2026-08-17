@@ -9,13 +9,13 @@
 // and on DESKTOP it pins to the top of that scrollport.
 //
 // **It renders nothing below 60rem.** The phone's status and its Save live in
-// `AdminActionBar`, which is a row of the fixed frame rather than a sticky box
-// inside a scrollport — see docs/admin-mobile-design.md §2.1. Being sticky is
-// what put this strip 64px above the bottom of the frame with live form fields
-// scrolling through the gap underneath it, and no amount of offset arithmetic
-// fixes a box that is clamped to its containing block. The BAR renders this
-// file's `StatusMessage` with this file's classes, so the dirty sentence is
-// defined exactly once.
+// the site's bottom bar, published there by AdminChromePanels.jsx — a fixed bar
+// outside the frame rather than a sticky box inside a scrollport. Being sticky
+// is what put this strip 64px above the bottom of the frame with live form
+// fields scrolling through the gap underneath it, and no amount of offset
+// arithmetic fixes a box that is clamped to its containing block. The CHROME
+// renders this file's `StatusMessage` with this file's classes, so the dirty
+// sentence is defined exactly once.
 //
 // **Save is a plain `<button type="button" onClick>` rendered outside
 // `.blocks-editor`, and must stay that way.** BlocksEditor's outside-press

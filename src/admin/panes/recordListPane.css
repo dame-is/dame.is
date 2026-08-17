@@ -1,6 +1,6 @@
 /* The record list column. Every selector here is `.wb-list*`, which is this
    file's alone — the shell owns `.wb`, `.wb-shell`, `.wb-rail`, `.wb-pane` and
-   `.wb-strip`, the bar owns `.wb-bar*` and `.wb-sheet*`, the detail pane owns
+   `.wb-strip`, the chrome owns `.wb-sheet*` and `.wb-panel*`, the detail pane owns
    `.wb-editor*`, and the sub-prefixes are disjoint so four owners can write
    `.wb-` rules without collision.
 

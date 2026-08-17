@@ -646,6 +646,13 @@ pager gate is `!done && records.length > 0` and the delete emptied `records`.
 
 ### New files
 
+> Two rows below have since been retired by the change described at §2.1.
+> `AdminActionBar.jsx` is deleted — the admin draws no bar of its own below
+> 60rem — and its derivation of the three slots lives on in
+> `src/admin/AdminChromePanels.jsx`, which publishes them into the site's bar
+> instead. `adminBar.css` is `adminChrome.css`: the bar rules are gone, the sheet
+> rules stayed, and the panels were added beside them.
+
 | file | why a new component rather than a reflow |
 |---|---|
 | `src/admin/AdminActionBar.jsx` | There is no bottom bar to reflow. `AdminStatusStrip` is a *record* control that is the first child of the detail pane by design (`AdminStatusStrip.jsx:8-12`, and desktop's top-sticky depends on it); the bar is a *frame* row that must exist on the dashboard and every studio too, and must hold navigation. It renders the strip's markup in its centre slot so the dirty sentence stays defined once. |

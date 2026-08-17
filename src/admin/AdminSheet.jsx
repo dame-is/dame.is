@@ -32,7 +32,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
-import './adminBar.css';
+import './adminChrome.css';
 
 /**
  * @param {object} props

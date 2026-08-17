@@ -1,21 +1,28 @@
-/* The phone admin's action bar and its sheets. Kept out of adminShell.css,
-   which is already long enough to hide a rule in, and because these two things
-   share one set of measurements: the sheet rests on the bar, so both read
-   `--wb-bar-h`, and both read `--wb-kb` when the software keyboard is up.
+/* Everything the admin expands upward out of the bottom of the screen: its own
+   sheets (the surface directory on a desk, a pane's own options) and its two
+   panels of the SITE's bottom bar (AdminChromePanels.jsx). Kept out of
+   adminShell.css, which is already long enough to hide a rule in, and because
+   all of it shares one set of measurements — where the bottom chrome begins and
+   where the top chrome ends.
+
+   This file used to lead with the phone admin's own three-slot action bar, and
+   that bar is gone: below 60rem the admin wears ChromeBar and publishes its
+   surface into it. The sheets stayed, because a sheet resting on a bar does not
+   care whose bar it is.
 
    THREE THINGS TO KNOW BEFORE EDITING THIS FILE.
 
-   1. Both custom properties are published on `:root[data-admin-shell]`, not on
-      `.wb`. The sheets portal to <body> — `.wb-pane-detail` declares
-      `container-type: inline-size`, which makes it a containing block for fixed
-      descendants, so a sheet rendered in the pane would be trapped in the pane —
-      and a portalled element cannot read a property scoped to `.wb`. The
-      attribute is on <html> only while the shell is mounted, so nothing here
-      exists on a public route.
+   1. Every custom property read here is published on `:root`, not on `.wb`. The
+      sheets portal to <body> — `.wb-pane-detail` declares `container-type:
+      inline-size`, which makes it a containing block for fixed descendants, so a
+      sheet rendered in the pane would be trapped in the pane — and a portalled
+      element cannot read a property scoped to `.wb`. The attributes that carry
+      them are on <html> only while the shell is mounted, so nothing here exists
+      on a public route.
 
-   2. Nothing in this file is `position: sticky`. The bar is a FLEX ROW OF THE
-      FIXED FRAME and the sheets are fixed boxes resting on it, so nothing here
-      is ever clamped to a containing block it did not choose.
+   2. Nothing in this file is `position: sticky`. These are fixed boxes resting
+      on the bottom chrome, so nothing here is ever clamped to a containing block
+      it did not choose.
 
       What everything DOES measure against is `--wb-ceiling` / `--wb-floor` from
       adminShell.css — the two edges the chrome leaves — and never `--chrome-h`
@@ -28,184 +35,6 @@
       palette, so a literal hex is wrong for 23 hours of the day. Destructive
       controls use `--danger`, which is the one token deliberately not derived
       from the sky's hue. */
-
-/* ------------------------------------------------------------------ */
-/* The bar                                                              */
-/* ------------------------------------------------------------------ */
-
-/* 56px, the same rhythm as the top bar, so the frame reads as one piece of
-   furniture with the pane inset between two rails of it. A 44px control then has
-   6px of clearance top and bottom. */
-.wb-bar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  height: var(--wb-bar-h);
-  /* The home indicator is the only thing under the bar on this route. */
-  padding: 0 var(--chrome-pad-base) env(safe-area-inset-bottom, 0px);
-  box-sizing: content-box;
-  background: var(--surface-raised);
-  border-top: 1px solid var(--rule);
-}
-
-.wb-bar-slot {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-/* Slot 1 shrinks to icon + caret before anything else does; slot 3 never
-   shrinks, because the primary action losing its label is not a degradation. */
-.wb-bar-slot-left {
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-/* `flex-basis: 0`, not `auto`: slot 2 then contributes nothing to the flex line's
-   basis, so slots 1 and 3 keep their natural width and the status takes exactly
-   what is left over — truncating itself rather than squeezing the label off the
-   back button and the ⋯ off the primary action. */
-.wb-bar-slot-status {
-  flex: 1 1 0;
-  justify-content: center;
-  /* A floor, not a width. With `min-width: 0` slot 2 got only what slots 1 and 3
-     left over, and on a surface with a long name that was nothing: measured on
-     the sky studio at 390, slot 1 took 170.5px for "Sky theme studio" and slot 2
-     was 33.1px wide, rendering "2/24 tuned" as "2/2…". 4.5rem is the width of
-     the shortest useful status ("20 loaded", "2/24 tuned") and forces the flex
-     line to overflow instead, at which point slot 1 — which is `flex: 0 1 auto`
-     over a label that already ellipses — gives the room up. That is the
-     degradation order §2.1 asks for: slot 3 never shrinks, slot 1 shrinks
-     toward icon + caret, slot 2 truncates and only disappears below 340px. Slot
-     1's label is also the one thing on the bar that is redundant — the pane's
-     own <h1> says the surface name two inches above it.
-
-     `:not(:empty)`, because a surface with no status must not charge slot 1 for
-     the space: the Front Desk registers none, and with an unconditional floor
-     its slot 1 read "Front…" beside 72px of nothing. */
-  /* The dirty sentence changes per keystroke. Fixed neighbours plus a truncating
-     centre is what stops the bar reflowing under the owner's thumb. */
-  overflow: hidden;
-}
-
-.wb-bar-slot-status:not(:empty) {
-  min-width: 4.5rem;
-}
-
-.wb-bar-slot-actions {
-  flex: 0 0 auto;
-  gap: var(--space-2);
-  margin-left: auto;
-}
-
-.wb-bar-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--wb-hit);
-  min-width: var(--wb-hit);
-  padding: 0 var(--space-2);
-  border: 1px solid transparent;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink-soft);
-  font-family: var(--serif);
-  font-size: var(--text-base);
-  line-height: var(--leading-tight);
-  text-align: left;
-  cursor: pointer;
-  justify-content: center;
-  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
-}
-
-.wb-bar-btn > svg {
-  flex: 0 0 auto;
-}
-
-.wb-bar-btn-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The primary action is the only filled control on the bar. One filled thing per
-   screen edge, so the thumb knows where to go without reading. */
-.wb-bar-btn[data-tone='primary'] {
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 20%, var(--page));
-  color: var(--accent);
-  font-variant: all-small-caps;
-  letter-spacing: 0.16em;
-  padding-inline: var(--space-3);
-}
-
-.wb-bar-btn[data-tone='danger'] {
-  color: var(--danger);
-}
-
-.wb-bar-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.wb-bar-btn:not(:disabled):hover,
-.wb-bar-btn:not(:disabled):focus-visible {
-  color: var(--accent);
-}
-
-/* The caret says "this opens upward", which is the sheet's whole affordance. */
-.wb-bar-caret {
-  flex: 0 0 auto;
-  color: var(--ink-faint);
-}
-
-.wb-bar-surface .wb-bar-btn-label,
-.wb-bar-back .wb-bar-btn-label {
-  max-width: 9rem;
-}
-
-/* Slot 2's own type. `.wb-strip-state` and its children come from adminShell.css
-   — the bar renders AdminStatusStrip's markup so the dirty sentence is written
-   once — and only the truncation is the bar's business. */
-.wb-bar .wb-strip-state {
-  min-width: 0;
-  font-size: var(--text-sm);
-  text-align: center;
-}
-
-.wb-bar[data-error] .wb-strip-dot {
-  background: var(--danger);
-}
-
-.wb-bar[data-error] .wb-strip-message {
-  color: var(--danger);
-}
-
-/* 340px is where a phone stops having room for three things. Slot 2 is the one
-   that goes: a count is recoverable by looking at the list, a Save button is
-   not. */
-@media (max-width: 21.25rem) {
-  .wb-bar-slot-status {
-    display: none;
-  }
-
-  /* The cap that used to sit here — 5.5rem, tighter than the 9rem above —
-     rendered "Front d…" and "Sky the…" at 320 while slot 2 beside it was
-     `display: none` and 141px of the row was empty: an ellipsis where a word
-     should be, bought with space nothing else wanted. With no cap the label is
-     `flex: 0 1 auto` over `min-width: 0` inside a slot that is the same, so it
-     takes what is there and ellipses only when the row genuinely runs out —
-     which is §3.5's "slot 1 shrinks toward icon + caret", expressed as a
-     consequence rather than as a fixed number. Both buttons carry an
-     `aria-label`, so a label that does have to clip costs no accessible name. */
-  .wb-bar-surface .wb-bar-btn-label,
-  .wb-bar-back .wb-bar-btn-label {
-    max-width: none;
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /* Sheets                                                               */
@@ -222,21 +51,18 @@
   background: transparent;
 }
 
-/* The animated clip box, resting on the bar — or on the keyboard once one is up.
-   Motion animates this box's height 0 ↔ auto and `overflow: hidden` makes the
-   panel unfurl upward out of the bar.
+/* The animated clip box, resting on the bottom chrome — or on the keyboard once
+   one is up. Motion animates this box's height 0 ↔ auto and `overflow: hidden`
+   makes the panel unfurl upward out of the bar.
 
-   `--wb-floor` is where the bottom chrome begins, published by adminShell.css
-   while the frame wears the SITE's bars: the bar is lifted onto the keyboard
-   there, so the two are summed rather than max()ed and the sheet rests on the
-   bar either way. The fallback is the admin's OWN bar, where max() is right for
-   the reason it always was — the keyboard COVERS that bar, so adding the two
-   would float the sheet a bar's height above the keyboard with the page showing
-   through the gap. */
+   `--wb-floor` is where that chrome begins, published by adminShell.css while
+   the frame is wearing the site's bars. The fallback is the frame that has no
+   bottom bar at all — the desk one, which takes the whole viewport — where the
+   only floor is the home indicator, or the keyboard if one is somehow up. */
 .wb-sheet-wrap {
   --wb-sheet-bottom: var(
     --wb-floor,
-    max(calc(var(--wb-bar-h) + env(safe-area-inset-bottom, 0px)), var(--wb-kb, 0px))
+    max(env(safe-area-inset-bottom, 0px), var(--wb-kb, 0px))
   );
   position: fixed;
   bottom: var(--wb-sheet-bottom);

@@ -77,17 +77,16 @@
    software keyboard covers rather than shrinks — an earlier comment here claimed
    the opposite, and this project's own useKeyboardInset.js documents the truth in
    its header. So AdminShell measures the overlap and publishes it as `--wb-kb` on
-   <html>, and the stacked block below lifts the frame's bottom edge by it: the
-   frame shrinks from the bottom, the action bar rides on the keyboard's top edge,
+   <html>, and `--wb-floor` below lifts the frame's bottom edge by it: the frame
+   shrinks from the bottom, the bottom chrome rides on the keyboard's top edge,
    and the pane — `flex: 1; overflow-y: auto` — simply gets shorter. No
    viewport-meta change, so index.html (shared with the public site) is untouched.
 
-   `--wb-bar-h` and `--wb-hit` are the two names this shell adds. They live on
-   :root rather than on `.wb` because the sheets portal to <body> and must rest on
-   the same edge the bar does; the attribute only exists while the shell is
-   mounted, so no public route ever sees them. */
+   `--wb-hit` is the 44px touch floor, and it lives on :root rather than on `.wb`
+   because the sheets portal to <body> and cannot read a property scoped to the
+   frame. The attribute only exists while the shell is mounted, so no public
+   route ever sees it. */
 :root[data-admin-shell] {
-  --wb-bar-h: 3.5rem;
   --wb-hit: 2.75rem;
 }
 

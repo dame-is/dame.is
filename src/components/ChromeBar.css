@@ -561,7 +561,7 @@
 /* Below the stacked breakpoint /admin stops drawing its own bars and wears this
    one; three controls then appear in the left cluster and nowhere else on the
    site. They exist for exactly as long as the admin has published a surface
-   through AdminChromeProvider — see ChromeBar.jsx, and src/admin/adminBar.css
+   through AdminChromeProvider — see ChromeBar.jsx, and src/admin/adminChrome.css
    for the panels two of them open. Nothing here is admin-specific in its
    geometry: they are `.chrome-nav` chips like every other button in the bar. */
 

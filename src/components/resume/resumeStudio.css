@@ -219,7 +219,7 @@
 
 /* The `#rs-version-sheet a.wb-sheet-row { text-decoration: none }` that used to
    sit here is gone: `.wb-sheet-row` carries the declaration itself now
-   (adminBar.css), so the two link rows in this menu read as rows of the sheet
+   (adminChrome.css), so the two link rows in this menu read as rows of the sheet
    rather than as links dropped into one — and so does the next sheet that gets
    a link row. */
 

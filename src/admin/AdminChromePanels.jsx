@@ -24,9 +24,12 @@
 // shared sheet is not merely usable, it is the only thing that lands on the
 // right edge.
 //
-// `useBarModel` is exported for AdminActionBar, so the bar and the panels derive
-// the same three slots, the same ⋯ menu and the same dirty sentence from one
-// piece of code.
+// `useBarModel` below is what the admin's own three-slot action bar used to be
+// built from. The bar is gone — this is what replaced it — but the derivation
+// stayed exactly as it was, because what a pane offers has not changed at all:
+// panes still publish through `registerBar`, every slot still has a shell
+// default, and the dirty sentence is still AdminStatusStrip's own component. All
+// that moved is where the three slots are drawn.
 
 import { useEffect, useMemo, useRef } from 'react';
 import BottomSheet from '../components/BottomSheet.jsx';
@@ -42,7 +45,7 @@ import AdminSurfaceSheet from './AdminSurfaceSheet.jsx';
 import { dirtySentence, StatusMessage } from './AdminStatusStrip.jsx';
 import { SurfaceIcon } from './AdminRail.jsx';
 import { useAdminShell } from './useAdminShell.jsx';
-import './adminBar.css';
+import './adminChrome.css';
 
 /**
  * Run a bar action, asking its confirm question first when it has one. Confirms
@@ -52,7 +55,7 @@ import './adminBar.css';
  * `run` is a plain function: the chrome must not have to know that an action can
  * refuse.
  */
-export function press(action, after) {
+function press(action, after) {
   if (!action || action.disabled || action.busy) return;
   if (action.confirm && !window.confirm(action.confirm)) return;
   after?.();
@@ -60,8 +63,8 @@ export function press(action, after) {
 }
 
 /**
- * The three slots, the ⋯ menu and whether a record is open — everything both the
- * bar and the panels draw from.
+ * The three slots, the ⋯ menu and whether a record is open — everything the
+ * chrome draws, in the vocabulary the panes already publish in.
  *
  * EVERY DERIVED VALUE IS MEMOIZED ON A STABLE INPUT, and that is a correctness
  * requirement rather than a performance note. The published payload is pushed
@@ -71,7 +74,7 @@ export function press(action, after) {
  * by the shell and `surface` is a frozen module object, so as long as nothing
  * here builds an object outside a memo, the loop cannot start.
  */
-export function useBarModel() {
+function useBarModel() {
   const { surface, column, go, actions, dirty, barSlots, rkey, isNew } = useAdminShell();
 
   const slots = barSlots || {};
@@ -140,15 +143,11 @@ export function useBarModel() {
 }
 
 /**
- * Slot 2's sentence, rendered from AdminStatusStrip's component with the strip's
- * classes so there is one dirty sentence in the codebase.
- *
- * `.wb-strip-message` wraps a pane's own status too, not just the dirty
- * sentence: it carries the ellipsis, and without it a string long enough to fill
- * the slot WRAPPED instead — measured on listening at 390, where "100 loaded ·
- * more to fetch" took two lines and pushed the bar's own controls apart.
+ * The status sentence, rendered from AdminStatusStrip's component with the
+ * strip's classes so there is one dirty sentence in the codebase — and one set
+ * of rules for painting it dirty or failed.
  */
-export function BarStatus({ model }) {
+function BarStatus({ model }) {
   const { showDefaultStatus, slots, dirty, actions } = model;
   if (showDefaultStatus) return <StatusMessage dirty={dirty} actions={actions} />;
   if (!slots.status) return null;

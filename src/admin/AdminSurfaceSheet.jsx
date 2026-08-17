@@ -202,7 +202,7 @@ export default function AdminSurfaceSheet({ open, onClose, id, asPanel = false }
   // no `foot` of its own: its `fill` panel IS the scrollport. `.wb-panel` turns
   // that panel back into a flex column with the scroll on the body, so the
   // escape hatch stays on screen however long the directory is — the same
-  // contract as AdminSheet's foot, expressed in adminBar.css.
+  // contract as AdminSheet's foot, expressed in adminChrome.css.
   if (asPanel) {
     return (
       <BottomSheet

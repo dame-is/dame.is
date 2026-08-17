@@ -5,8 +5,9 @@
 // nothing at all: the same twenty-one buttons laid out as a horizontal chip row
 // measured 3034px — 7.78 viewport widths of swiping, with the escape hatch that
 // "must never scroll out of reach" sitting at x=2832 — so the phone reaches its
-// surfaces through `AdminActionBar`'s sheet instead (docs/admin-mobile-design.md
-// §2.2). Everything the sheet needs to draw that directory is exported from
+// surfaces through `AdminSurfaceSheet` instead (docs/admin-mobile-design.md
+// §2.2), summoned from the site's bottom bar. Everything the sheet needs to draw
+// that directory is exported from
 // here, so there is one grouped, filtered, icon-mapped surface list in the
 // codebase rather than one per consumer.
 //
