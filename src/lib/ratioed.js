@@ -132,6 +132,57 @@ export function roleOf(person) {
   return { key: 'live', label: 'was there' };
 }
 
+/** Same order as `roleOf`, with the like ahead of everything: on one piece's
+ *  own page the like is the act the whole thing turns on. */
+const FACE_RANK = ['like', 'quote', 'repost', 'reply'];
+
+/**
+ * One entry per account for a single piece: who they are, the one act they are
+ * shown for, and when that act happened.
+ *
+ * The last of those is the whole point. A face carries a label and a time, and
+ * for a long while they described different acts — the label was the most
+ * consequential thing somebody did, the time was the first thing they did.
+ * Usually that only made a repost look earlier than it was. On take 17 it made
+ * the piece look broken: the breaker had been replying for two minutes before
+ * she liked it, so the face marked BROKE IT was stamped +39m58s, four other
+ * people appeared to act after it, and the seal landed 1m47s after a like the
+ * record says was answered in 1.6s.
+ *
+ * So the time is the labelled act's own time, and the order follows it. What a
+ * face says and when it says it happened are now the same event.
+ *
+ * Each side of the seal is resolved separately. Somebody who replied while it
+ * was alive and quoted it afterwards belongs in the living roster — being there
+ * is what that group records — and is shown for the reply, because the quote is
+ * not something they did while it was alive.
+ */
+export function foldFaces(events) {
+  const byKey = new Map();
+  for (const e of events || []) {
+    if (e.self) continue;
+    const key = e.did || `handle:${e.h}`;
+    let p = byKey.get(key);
+    if (!p) {
+      p = { key, did: e.did || null, handle: e.h, count: 0, pre: false, kinds: {}, alive: {}, after: {} };
+      byKey.set(key, p);
+    }
+    p.count += 1;
+    p.kinds[e.k] = (p.kinds[e.k] || 0) + 1;
+    if (e.pre) p.pre = true;
+    const side = e.pre ? p.alive : p.after;
+    // Earliest of each kind: two reposts are one face, shown at the first.
+    if (side[e.k] == null || e.off < side[e.k]) side[e.k] = e.off;
+  }
+  return Array.from(byKey.values())
+    .map(({ alive, after, ...p }) => {
+      const side = p.pre ? alive : after;
+      const kind = FACE_RANK.find((k) => side[k] != null) || null;
+      return { ...p, kind, off: kind ? side[kind] : 0 };
+    })
+    .sort((a, b) => a.off - b.off);
+}
+
 /**
  * Everyone who was there while a piece was still alive.
  *

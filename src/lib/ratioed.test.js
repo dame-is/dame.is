@@ -7,6 +7,7 @@ import {
   roleOf,
   hiddenReplies,
   chaseTicks,
+  foldFaces,
   composeEventLog,
   WEEKDAYS,
   normalizePiece,
@@ -670,5 +671,60 @@ describe('chaseTicks', () => {
   it('is empty when nothing has finished yet', () => {
     expect(chaseTicks([], record, 0)).toEqual([]);
     expect(chaseTicks(pieces, null, 0)).toEqual([]);
+  });
+});
+
+describe('foldFaces', () => {
+  // Take 17's shape: the breaker replied twice on her way to the like, and the
+  // like is what the face is for.
+  const events = [
+    { h: 'skye', did: 'did:a', k: 'reply', off: 2397.985, pre: 1 },
+    { h: 'wolscott', did: 'did:b', k: 'reply', off: 2399.101, pre: 1 },
+    { h: 'skye', did: 'did:a', k: 'reply', off: 2496.652, pre: 1 },
+    { h: 'skye', did: 'did:a', k: 'like', off: 2503.064, pre: 1 },
+    { h: 'dame', did: 'did:me', k: 'reply', off: 2531.871, pre: 0, self: 1 },
+    { h: 'later', did: 'did:c', k: 'repost', off: 2518.605, pre: 0 },
+  ];
+
+  it('times a face by the act it is labelled for, not by its first', () => {
+    const [wol, skye] = foldFaces(events).filter((p) => p.pre);
+    expect(skye.handle).toBe('skye');
+    expect(skye.kind).toBe('like');
+    // Not 2397.985, which is when she first replied.
+    expect(skye.off).toBeCloseTo(2503.064);
+    // ...so the person who replied a second after her first reply comes first.
+    expect(wol.handle).toBe('wolscott');
+  });
+
+  it('folds an account to one face and skips the artist', () => {
+    const people = foldFaces(events);
+    expect(people.map((p) => p.handle)).toEqual(['wolscott', 'skye', 'later']);
+    expect(people.find((p) => p.handle === 'skye').count).toBe(3);
+  });
+
+  it('resolves each side of the seal on its own', () => {
+    const [only] = foldFaces([
+      { h: 'x', did: 'did:x', k: 'reply', off: 10, pre: 1 },
+      { h: 'x', did: 'did:x', k: 'quote', off: 99, pre: 0 },
+    ]);
+    // Shown for being there while it was alive, which is the reply.
+    expect(only.pre).toBe(true);
+    expect(only.kind).toBe('reply');
+    expect(only.off).toBe(10);
+  });
+
+  it('shows a repeated act at its first', () => {
+    const [p] = foldFaces([
+      { h: 'y', did: 'did:y', k: 'repost', off: 40, pre: 1 },
+      { h: 'y', did: 'did:y', k: 'repost', off: 80, pre: 1 },
+    ]);
+    expect(p.off).toBe(40);
+    expect(p.count).toBe(2);
+  });
+
+  it('keys on the handle when the log has no DID', () => {
+    const [p] = foldFaces([{ h: 'z', k: 'reply', off: 3, pre: 1 }]);
+    expect(p.key).toBe('handle:z');
+    expect(p.did).toBe(null);
   });
 });

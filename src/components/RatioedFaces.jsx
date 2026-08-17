@@ -2,8 +2,8 @@
 //
 // The essay's participants table counts the roster across the whole project,
 // which is the right shape for a finding and the wrong one for a single piece:
-// nine people is a list, not a distribution. Faces, in the order they arrived,
-// with the breaker ringed.
+// nine people is a list, not a distribution. Faces in the order the piece met
+// them, with the breaker ringed and last.
 //
 // Two kinds of absence get drawn rather than dropped, because both are part of
 // what the project found. An account that has since deactivated resolves to no
@@ -13,51 +13,16 @@
 // the piece, so their frame is drawn from that reply and marked as such.
 
 import { useMemo } from 'react';
-import { fmtDuration, fmtElapsed } from '../lib/ratioed.js';
+import { fmtDuration, fmtElapsed, foldFaces } from '../lib/ratioed.js';
 import './RatioedFaces.css';
 
 const KIND_VERB = { like: 'liked', repost: 'reposted', quote: 'quoted', reply: 'replied' };
 
-/**
- * One row per account, not per record: somebody who replied four times is one
- * face. Their arrival is the first thing they did, and their label is the most
- * consequential — the same ordering the essay's roster uses, for the same
- * reason (ending a piece outranks carrying it, which outranks talking in it).
- */
-function foldByAccount(events) {
-  const byKey = new Map();
-  for (const e of events || []) {
-    if (e.self) continue;
-    const key = e.did || `handle:${e.h}`;
-    const found = byKey.get(key);
-    if (found) {
-      found.kinds[e.k] = (found.kinds[e.k] || 0) + 1;
-      found.count += 1;
-      if (e.off < found.off) found.off = e.off;
-      if (e.pre) found.pre = true;
-    } else {
-      byKey.set(key, {
-        key,
-        did: e.did || null,
-        handle: e.h,
-        off: e.off,
-        pre: Boolean(e.pre),
-        count: 1,
-        kinds: { [e.k]: 1 },
-      });
-    }
-  }
-  return Array.from(byKey.values()).sort((a, b) => a.off - b.off);
-}
-
-/** The one word a face wears: the most consequential thing they did here. */
+/** The one word a face wears: the act `foldFaces` picked it out for, which is
+ *  also the act the time beside it belongs to. */
 function labelFor(person) {
   if (person.broke) return 'broke it';
-  if (person.kinds.like) return KIND_VERB.like;
-  if (person.kinds.quote) return KIND_VERB.quote;
-  if (person.kinds.repost) return KIND_VERB.repost;
-  if (person.kinds.reply) return KIND_VERB.reply;
-  return 'was there';
+  return KIND_VERB[person.kind] || 'was there';
 }
 
 export default function RatioedFaces({ piece, events, profiles = {} }) {
@@ -65,37 +30,49 @@ export default function RatioedFaces({ piece, events, profiles = {} }) {
 
   const people = useMemo(() => {
     const breaker = piece?.breaker || {};
-    const folded = foldByAccount(events);
+    const folded = foldFaces(events);
     // Mark the breaker wherever they turn up. Matched on either identifier:
     // the log is keyed by DID, the announcement recorded a handle, and handles
     // get renamed between the two.
     const names = new Set([breaker.did, breaker.handle, breaker.currentHandle].filter(Boolean));
+    let broke = null;
     for (const p of folded) {
-      if (names.has(p.did) || names.has(p.handle)) p.broke = true;
+      if (names.has(p.did) || names.has(p.handle)) {
+        p.broke = true;
+        broke ||= p;
+      }
     }
-    // A breaker whose like was deleted left nothing to fold, so they aren't in
-    // the log at all. Add them from whatever named them: the reply that
-    // concluded the piece, the log the studio kept, or the artist by hand.
-    if (breaker.handle && breaker.handle !== 'unknown' && !folded.some((p) => p.broke)) {
-      // When the reaction time is known the moment they liked it is known too,
-      // so they take their place in the order of arrival like everybody else.
-      // Only a breaker nothing timed sits at the seal with no arrival at all.
-      const timed = typeof breaker.reactionMs === 'number';
+    // When the reaction time is known, so is the moment of the like: the seal,
+    // less the seconds it took the artist to answer it.
+    const timed = typeof breaker.reactionMs === 'number';
+    const likeAt = timed ? Math.max(0, lifeSec - breaker.reactionMs / 1000) : lifeSec;
+
+    if (broke && broke.kind !== 'like') {
+      // In the log, but not for the like — that one was deleted, and no index
+      // holds a deleted record. The face is still the breaker's, so it belongs
+      // at the like rather than at whatever they did on the way to it.
+      broke.off = likeAt;
+      broke.timed = timed;
+      broke.named = breaker.likeSurvives === false;
+    } else if (!broke && breaker.handle && breaker.handle !== 'unknown') {
+      // Not in the log at all — the deleted like was everything they left.
+      // Added from whatever named them: the reply that concluded the piece, the
+      // log the studio kept, or the artist by hand.
       folded.push({
         key: breaker.did || `handle:${breaker.handle}`,
         did: breaker.did || null,
         handle: breaker.currentHandle || breaker.handle,
-        off: timed ? Math.max(0, lifeSec - breaker.reactionMs / 1000) : lifeSec,
+        off: likeAt,
         pre: true,
         count: 0,
+        kind: null,
         kinds: {},
         broke: true,
         named: true,
         timed,
       });
-      folded.sort((a, b) => a.off - b.off);
     }
-    return folded;
+    return folded.sort((a, b) => a.off - b.off);
   }, [events, piece, lifeSec]);
 
   if (!people.length) {
