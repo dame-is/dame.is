@@ -5,10 +5,11 @@
    readings, and the eye stops having to do that work.
 
    Ruled with cell borders rather than the summary block's 1px-gap-over-a-
-   coloured-background trick. Same result, but a short last row leaves blank
-   space here instead of a solid rule-coloured block where the missing cells
-   would be — and these rows are short whenever a piece has no measurable
-   reach or no log to read a silence out of. */
+   coloured-background trick. Same result, but with no coloured slab where the
+   missing cells of a short row would be — and these rows are short whenever a
+   piece has no measurable reach or no log to read a silence out of. Those
+   cells are rendered all the same, empty (see RatioedStats.jsx): the rules
+   have to reach the edge, or the block reads as a table that failed to draw. */
 
 /* Two columns on a phone, four above it — both tiers on the same count, so the
    second sits in the first's columns rather than beside them. Auto-fit gave
@@ -47,6 +48,11 @@
   padding-left: 0;
 }
 .ratioed-stats > div:nth-child(even) { padding-right: 0; }
+
+/* The blanks that finish a short row (`.is-blank`) need no rules of their own:
+   they are cells, they take the borders above, and grid stretches them to the
+   height of the figures beside them — which is what keeps the vertical rules
+   running full-depth instead of stopping at a shorter empty box. */
 
 .ratioed-stats dt {
   font-size: var(--text-xs);

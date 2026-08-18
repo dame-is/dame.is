@@ -41,7 +41,7 @@ import {
   withdrawnOnly,
 } from '../lib/ratioedLive.js';
 import { fmtDuration } from '../lib/ratioed.js';
-import { DEFAULT_COPY, fillCopy } from '../lib/ratioedCopy.js';
+import { DEFAULT_COPY } from '../lib/ratioedCopy.js';
 import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
@@ -219,19 +219,6 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
       <RatioedCounters tally={tally} />
       <RatioedTicker rows={rows} profiles={profiles} />
 
-      <p className="ratioed-live-note">
-        {stream?.msgs > 0 && streamOn && (
-          <>
-            {stream.msgs.toLocaleString()} records read, {tally.total + tally.withdrawn} of them
-            about this post.{' '}
-          </>
-        )}
-        {streamOn
-          ? fillCopy(copy.deckStream, { budget: BUDGET_BYTES / 1024 / 1024 })
-          : copy.deckRecord}{' '}
-        This is a witness. The figures after the seal are read from a backlink index and will not
-        match.
-      </p>
     </div>
   );
 }
@@ -260,9 +247,16 @@ function StreamState({ on, paused, stream, onToggle, onRestart }) {
         : state === 'open'
           ? `${rate}${mb} MB read`
           : state;
+  // The paragraph that used to spell this out is gone from the page — it was
+  // four sentences of apparatus under a dashboard whose whole point is the one
+  // thing happening on it. What it said that a reader might actually want is
+  // kept here, on the chip that already shows the cost and offers the switch.
+  const explain = on
+    ? `Your browser is testing every record on the network against this post, about 166 KB/s. It pauses in a background tab and stops at ${BUDGET_BYTES / 1024 / 1024} MB.`
+    : 'Reading the piece’s own record, a few seconds behind.';
   return (
     <span className="ratioed-live-stream">
-      <span className={`ratioed-live-state is-${state}`}>
+      <span className={`ratioed-live-state is-${state}`} title={explain}>
         <Radio size={12} aria-hidden="true" />
         {label}
       </span>
