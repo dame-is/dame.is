@@ -490,7 +490,6 @@ export default function RatioedPiece() {
             copy={copy}
           />
 
-          <p className="ratioed-piece-note">{copy.liveNote}</p>
 
           <section className="ratioed-piece-section">
             <h2>Provenance</h2>

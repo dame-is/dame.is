@@ -341,12 +341,9 @@ export const LEXICONS = {
     typeFieldValue: COLLECTIONS.ratioedCopy,
     fields: [
       { key: 'liveLede', label: 'Live: opening', type: 'textarea', hint: '{take} becomes the take number.' },
-      { key: 'liveNote', label: 'Live: under the dashboard', type: 'textarea' },
       { key: 'deckAlive', label: 'Deck: nobody has liked it', type: 'textarea' },
       { key: 'deckLiked', label: 'Deck: it has been liked', type: 'textarea' },
       { key: 'deckWithdrawn', label: 'Deck: the like was taken back', type: 'textarea' },
-      { key: 'deckStream', label: 'Deck: reading the firehose', type: 'textarea', hint: '{budget} becomes the MB cap.' },
-      { key: 'deckRecord', label: 'Deck: reading the record', type: 'textarea' },
       { key: 'replay', label: 'Sealed: replay', type: 'textarea' },
       { key: 'witnessed', label: 'Sealed: the dashboard as it ran', type: 'textarea' },
       { key: 'roster', label: 'Sealed: who was there', type: 'textarea' },

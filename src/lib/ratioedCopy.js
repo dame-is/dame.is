@@ -30,14 +30,10 @@ import { COLLECTIONS, ME_DID } from '../config.js';
 export const DEFAULT_COPY = {
   liveLede:
     'Take {take} is up right now. The goal is zero likes: the first one ends it, and the seconds between that like and the artist closing replies are the measurement.',
-  liveNote: 'No need to reload. This page reads the piece’s record and changes when it is sealed.',
   deckAlive: 'Nobody has liked it. The goal is zero likes, so everything below is the piece succeeding.',
   deckLiked:
     'It has been liked, so it is over. The clock above runs until the artist closes replies by hand; where it stops is the measurement.',
   deckWithdrawn: 'Somebody liked it and took it back. Nothing stands against it now.',
-  deckStream:
-    'Your browser is testing every record on the network against this post, about 166 KB/s. It pauses in a background tab and stops at {budget} MB.',
-  deckRecord: 'Reading the piece’s own record, a few seconds behind.',
   replay: 'The rule is the threadgate. Everything past it landed on a finished post.',
   witnessed:
     'The list under it is what the studio watched arrive, so it is the only place a record somebody deleted still appears.',
@@ -57,12 +53,9 @@ export const DEFAULT_COPY = {
  */
 export const COPY_FIELDS = [
   { key: 'liveLede', label: 'Live piece: opening', hint: 'The first paragraph while a piece is up. {take} becomes the take number.' },
-  { key: 'liveNote', label: 'Live piece: under the dashboard', hint: 'What happens to this page when the piece ends.' },
   { key: 'deckAlive', label: 'Dashboard: nobody has liked it', hint: 'The state a piece spends almost all of its life in.' },
   { key: 'deckLiked', label: 'Dashboard: it has been liked', hint: 'The piece is over and the reaction time is running.' },
   { key: 'deckWithdrawn', label: 'Dashboard: the like was taken back', hint: 'Cast and deleted, so nothing is standing against it.' },
-  { key: 'deckStream', label: 'Dashboard: reading the firehose', hint: 'What the reader’s own browser is doing. {budget} becomes the MB cap.' },
-  { key: 'deckRecord', label: 'Dashboard: reading the record', hint: 'The cheap reader, which is the default on a phone.' },
   { key: 'replay', label: 'Sealed piece: replay', hint: 'Over the replay of a finished piece.' },
   {
     key: 'witnessed',
