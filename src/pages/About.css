@@ -42,9 +42,19 @@
 .about-tagline {
   font-family: var(--serif);
   font-size: var(--text-xl);
+  font-weight: 400;
   margin: 0 0 var(--space-3);
   font-style: italic;
   color: var(--ink);
+}
+
+/* With the Bluesky name and handle hidden, the tagline is promoted to the
+   page's <h1> so the page is never left without a heading. It keeps the
+   tagline's voice and only takes the name's size. */
+.about-tagline-heading {
+  font-size: var(--text-2xl);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .about-bio {
@@ -66,25 +76,141 @@
   font-size: var(--text-sm);
 }
 
-.about-readmore {
-  margin-top: var(--space-7);
+/* The identity card is a data block, not flowing prose. Without this the
+   global book-style `p + p` indent (typography.css) steps the tagline in
+   behind the handle, and the Bluesky bio in behind the tagline. */
+.about-meta p {
+  text-indent: 0;
 }
 
-.about-readmore > summary {
+/* ------------------------------------------------------------------ */
+/* Photo gallery                                                        */
+/* ------------------------------------------------------------------ */
+
+/* The portrait strip between the identity card and the long-form body.
+   `data-layout` is the author's pick from the admin's Photo layout dropdown,
+   and carries the same vocabulary as an inline image gallery inside a leaflet
+   body (LeafletDocument's GALLERY_LAYOUTS) so one word means one shape across
+   the site. Column counts hold at every width on purpose — see the note over
+   .leaflet-gallery in LeafletDocument.css. */
+.about-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-3);
+  margin: var(--space-6) 0;
+}
+
+.about-gallery[data-layout="one-up"],
+/* `standalone` opts an inline image OUT of gallery grouping; here, where the
+   photos are one declared set, the nearest honest reading is a single column. */
+.about-gallery[data-layout="standalone"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.about-gallery[data-layout="two-up"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.about-gallery[data-layout="three-up"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.about-gallery[data-layout="four-up"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Filmstrip: one row that scrolls sideways, each frame snapping into place. */
+.about-gallery[data-layout="filmstrip"] {
+  display: flex;
+  grid-template-columns: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: var(--space-1);
+  padding-bottom: var(--space-2);
+}
+
+.about-gallery[data-layout="filmstrip"] .about-photo {
+  flex: 0 0 min(40%, 18rem);
+  scroll-snap-align: start;
+}
+
+.about-photo {
+  margin: 0;
+  min-width: 0;
+}
+
+.about-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Every frame in a multi-column strip is cropped to one portrait shape, so
+     the row ends level and the captions share a baseline. About.jsx suppresses
+     the per-photo inline aspect-ratio for exactly these layouts; in a single
+     column it sets the photo's own ratio instead, and this is overridden. */
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--rule-soft);
+  background: var(--page-edge);
+  transition: border-color 120ms ease;
+}
+
+.about-photo-button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  border-radius: var(--radius-2);
+}
+
+.about-photo-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.about-photo-button:hover img,
+.about-photo-button:focus-visible img {
+  border-color: var(--accent-soft);
+}
+
+.about-gallery[data-layout="one-up"] .about-photo img,
+.about-gallery[data-layout="standalone"] .about-photo img {
+  aspect-ratio: auto;
+}
+
+.about-photo-caption {
+  margin-top: var(--space-2);
   font-family: var(--sans);
   font-size: var(--text-sm);
-  font-variant: all-small-caps;
-  letter-spacing: 0.18em;
   color: var(--ink-muted);
-  cursor: pointer;
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--rule);
 }
 
-.about-readmore[open] > summary {
-  color: var(--accent);
+@media (max-width: 34rem) {
+  /* Column counts are deliberately NOT collapsed — only the gap tightens, so
+     three or four across stays legible instead of losing most of each frame
+     to gutters. */
+  .about-gallery {
+    gap: var(--space-2);
+  }
+
+  .about-gallery[data-layout="filmstrip"] .about-photo {
+    flex-basis: min(72%, 15rem);
+  }
 }
 
+/* ------------------------------------------------------------------ */
+/* Long-form body                                                       */
+/* ------------------------------------------------------------------ */
+
+/* The bio used to sit behind a "Read more" <details>, which left the page all
+   but empty below the identity card — on a page whose whole subject is the
+   long version. It renders open now, so this is simply the gap under whatever
+   came before it. */
 .about-longform {
   margin-top: var(--space-6);
 }

@@ -29,6 +29,10 @@ import { COLLECTIONS, GUESTBOOK_NSID, BLOG_PUBLICATION } from '../config.js';
  *   - required        — must be present to submit
  *   - autoOnEdit      — datetime fields like `updatedAt` are auto-bumped on save
  *   - default         — initial value when creating a new record
+ *   - supersededBy    — key of the field that wins over this one when it has
+ *                       content, so the preview shows what the site will (used
+ *                       by the profile's legacy markdown body, which defers to
+ *                       its block body)
  *   - placeholder, maxLength, hint, suggestions
  *
  * Optional lexicon-level hooks:
@@ -161,16 +165,78 @@ export const LEXICONS = {
 
   [COLLECTIONS.profile]: {
     label: 'About',
-    summary: 'The extended profile — a single record with rkey "self" that backs /themself.',
+    summary:
+      'The extended profile — a single record with rkey "self" that backs /themself. Bluesky holds the short bio; this holds the long one, the photos, and how much of the Bluesky card to show above them.',
     rkeyMode: 'fixed',
     rkeyPlaceholder: 'self',
     rkeyDefault: 'self',
     typeFieldValue: COLLECTIONS.profile,
     fields: [
-      { key: 'tagline', label: 'Tagline', type: 'text' },
-      { key: 'bio', label: 'Bio (Markdown)', type: 'markdown' },
+      {
+        key: 'tagline', label: 'Tagline', type: 'text', maxLength: 280,
+        hint: 'One line under the name. Also the /themself link preview description — and the page heading when the Bluesky name is hidden below.',
+      },
+
+      // --- What of the Bluesky card shows ---------------------------------
+      // Three separate flags rather than one, because they hide three
+      // different things: the picture, the name you are known by, and a
+      // 256-character bio the long-form body usually outgrows first.
+      {
+        key: 'showAvatar', label: 'Show the Bluesky avatar', type: 'boolean', default: true,
+      },
+      {
+        key: 'showIdentity', label: 'Show the Bluesky display name and handle', type: 'boolean',
+        default: true,
+        hint: 'Off promotes the tagline to the page heading, so the page still has one.',
+      },
+      {
+        key: 'showBlueskyBio', label: 'Show the Bluesky bio', type: 'boolean', default: true,
+        hint: 'The short description from your Bluesky profile. Turn it off once the body below says it better.',
+      },
+
+      // --- The page itself -------------------------------------------------
+      {
+        key: 'photos', label: 'Photos', type: 'photos',
+        hint: 'Shown between the identity card and the body. Drop several at once; drag a new file onto a thumbnail to swap it.',
+      },
+      {
+        key: 'photoLayout', label: 'Photo layout', type: 'select', default: 'two-up',
+        // Kept in step with GALLERY_LAYOUTS in LeafletDocument.jsx by hand: this
+        // module is imported by the node-environment tests (see surfaces.js), so
+        // it must not pull in a JSX component to read the list.
+        options: [
+          { value: 'one-up', label: '1 across — a single tight column' },
+          { value: 'two-up', label: '2 across (default)' },
+          { value: 'three-up', label: '3 across' },
+          { value: 'four-up', label: '4 across — small on a phone' },
+          { value: 'filmstrip', label: 'Filmstrip — one row that scrolls sideways' },
+          { value: 'standalone', label: 'Separate — full-width, stacked' },
+        ],
+      },
+      {
+        key: 'content', label: 'Body', type: 'blocks',
+        hint: 'The long-form bio. Same editor as a blog post, so photos, headers and links can sit inline.',
+      },
+      {
+        key: 'body', label: 'Body (Markdown — legacy)', type: 'markdown',
+        // The preview tab honours this too, so it stacks one body, not two.
+        supersededBy: 'content',
+        hint: 'The original plain-markdown body. Only rendered when the block body above is empty; leave it blank once you have moved the text across.',
+      },
+      {
+        key: 'links', label: 'Links', type: 'labelledLinks',
+        hint: 'Labelled external links, shown under the identity card.',
+      },
       ...COMMON_TIMESTAMPS,
     ],
+    // This form used to write the markdown body to `bio` while the lexicon, the
+    // /themself page and the OG builder all read `body` — so anything typed here
+    // rendered nowhere. Fold a stranded `bio` into `body` on open and drop the
+    // key on save, so an affected record repairs itself the first time it is
+    // edited rather than needing a hand-written migration.
+    migrate: (value) =>
+      value?.bio && !value?.body ? { ...value, body: value.bio } : value,
+    stripLegacyKeys: ['bio'],
   },
 
   [COLLECTIONS.heroPhrase]: {
@@ -484,6 +550,34 @@ export function emptyLeafletContent() {
       },
     ],
   };
+}
+
+/**
+ * Does a `blocks` body carry anything an author actually typed?
+ *
+ * `emptyLeafletContent` above seeds a `blocks` field with ONE empty text block
+ * so the editor has something to render on mount, and that shell survives a
+ * save — so "the field is present" and "the body says something" are different
+ * questions, and every caller that treats a block body as optional has to ask
+ * the second one. /themself uses it to decide whether the block body wins over
+ * the legacy markdown one; the record editor's preview asks it for the same
+ * precedence, so the preview shows the one body the site will render.
+ *
+ * @param {object|null|undefined} content  A pub.leaflet.content value.
+ * @returns {boolean}
+ */
+export function hasLeafletContent(content) {
+  for (const page of content?.pages || []) {
+    for (const wrap of page?.blocks || []) {
+      const block = wrap?.block;
+      if (!block) continue;
+      // A text block is empty until it has text; every other block type is
+      // itself the content (an image with no alt is still an image).
+      if (block.$type !== 'pub.leaflet.blocks.text') return true;
+      if ((block.plaintext || '').trim()) return true;
+    }
+  }
+  return false;
 }
 
 function wrapBlock(block) {

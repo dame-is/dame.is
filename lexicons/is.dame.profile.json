@@ -5,27 +5,105 @@
     "main": {
       "type": "record",
       "key": "literal:self",
+      "description": "The extended (long-form) profile behind /themself. A singleton at at://{me}/is.dame.profile/self. The Bluesky app.bsky.actor.profile record holds the SHORT version — avatar, display name, 256-char description — and /themself renders that card above this record's long-form body. The `show*` flags decide how much of that Bluesky card appears, so the long-form can stand on its own once it says things better.",
       "record": {
         "type": "object",
-        "required": ["body", "updatedAt"],
+        "required": ["updatedAt"],
         "properties": {
-          "tagline":    { "type": "string", "maxLength": 280 },
-          "body":       { "type": "string", "maxLength": 50000 },
-          "bodyFormat": { "type": "string", "enum": ["markdown", "plaintext"], "default": "markdown" },
-          "links":      {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["label", "url"],
-              "properties": {
-                "label": { "type": "string" },
-                "url":   { "type": "string", "format": "uri" }
-              }
-            }
+          "tagline": {
+            "type": "string",
+            "maxLength": 280,
+            "description": "One line under the name. Doubles as the page heading when `showIdentity` is false, and as the /themself OG description (see og/pageContent.js)."
           },
-          "createdAt":  { "type": "string", "format": "datetime" },
-          "updatedAt":  { "type": "string", "format": "datetime" }
+          "photos": {
+            "type": "array",
+            "maxLength": 12,
+            "description": "Portrait gallery shown between the identity card and the long-form body. Laid out by `photoLayout`.",
+            "items": { "type": "ref", "ref": "#photo" }
+          },
+          "photoLayout": {
+            "type": "string",
+            "enum": ["one-up", "two-up", "three-up", "four-up", "filmstrip", "standalone"],
+            "default": "two-up",
+            "description": "How `photos` are laid out. Same vocabulary as the image-block galleries in a leaflet body (LeafletDocument's GALLERY_LAYOUTS), so a photo strip here and a photo strip mid-essay are the same shape. Column counts hold at every width."
+          },
+          "content": {
+            "type": "unknown",
+            "description": "The long-form body as pub.leaflet.content — the same block editor and renderer site.standard.document uses, so the bio can carry inline images, headers, lists, code and embedded Bluesky posts. Takes precedence over `body` when both are present."
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 50000,
+            "description": "Long-form body as plain markdown. The original shape, kept as a fallback: rendered only when `content` has no blocks."
+          },
+          "bodyFormat": {
+            "type": "string",
+            "enum": ["markdown", "plaintext"],
+            "default": "markdown",
+            "description": "How to render `body`. Ignored when `content` is present."
+          },
+          "links": {
+            "type": "array",
+            "description": "Labelled external links shown under the identity card.",
+            "items": { "type": "ref", "ref": "#link" }
+          },
+          "showAvatar": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show the Bluesky avatar. Absent reads as true."
+          },
+          "showIdentity": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show the Bluesky display name and handle. Absent reads as true. When false the tagline becomes the page heading, so the page is never left without one."
+          },
+          "showBlueskyBio": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show the Bluesky profile description (the short bio). Absent reads as true. Turn off once the long-form body says it better."
+          },
+          "createdAt": { "type": "string", "format": "datetime" },
+          "updatedAt": { "type": "string", "format": "datetime" }
         }
+      }
+    },
+    "photo": {
+      "type": "object",
+      "required": ["image"],
+      "properties": {
+        "image": {
+          "type": "blob",
+          "accept": ["image/*"],
+          "maxSize": 4000000
+        },
+        "alt": {
+          "type": "string",
+          "maxLength": 1000,
+          "description": "Description for screen readers."
+        },
+        "caption": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Visible caption under the photo."
+        },
+        "aspectRatio": { "type": "ref", "ref": "#aspectRatio" }
+      }
+    },
+    "aspectRatio": {
+      "type": "object",
+      "description": "Intrinsic pixel dimensions, sniffed at upload time so the layout can reserve the box before the file arrives.",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": ["label", "url"],
+      "properties": {
+        "label": { "type": "string", "maxLength": 120 },
+        "url": { "type": "string", "format": "uri" }
       }
     }
   }

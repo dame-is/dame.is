@@ -56,6 +56,8 @@ import {
   buildUnifiedFeed,
   backfillTimestamps,
   shouldWriteCombinedVerbFile,
+  annotateBlobUrl,
+  annotateLeafletBlobs,
 } from '../src/lib/feedBuilder.js';
 import { compareIsoDesc } from '../src/lib/time.js';
 import { selfThreadMembers } from '../src/lib/threadGrouping.js';
@@ -525,6 +527,11 @@ async function main() {
   if (extendedProfile?.value) {
     const v = extendedProfile.value;
     if (!v.updatedAt && v.createdAt) v.updatedAt = v.createdAt;
+    // Bake display URLs onto the profile's blobs — the portrait gallery and any
+    // images inside the block body — so /themself paints them on first frame
+    // rather than waiting for the live fetch to re-resolve the PDS.
+    for (const photo of v.photos || []) annotateBlobUrl(photo?.image, pds, ME_DID);
+    annotateLeafletBlobs(v.content, pds, ME_DID);
   }
   await writeJson('extendedProfile', extendedProfile || {});
 

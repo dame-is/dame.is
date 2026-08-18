@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import { COLLECTIONS, ME_DID } from '../config.js';
-import { lexiconFor, blankRecordFor } from '../lib/lexicons.js';
+import { lexiconFor, blankRecordFor, hasLeafletContent } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import {
   diffRecord,
@@ -22,6 +22,8 @@ import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
 import { fetchAllBlocks } from '../lib/arena.js';
 import BlocksEditor from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
+import PhotoGalleryField from './PhotoGalleryField.jsx';
+import LabelledLinksField from './LabelledLinksField.jsx';
 import LeafletDocument from './LeafletDocument.jsx';
 import { AdminEditorSkeleton } from './Skeleton.jsx';
 import {
@@ -70,6 +72,9 @@ function annotateRecordBlobs(record, lex, pds, did) {
   for (const f of lex?.fields || []) {
     if (f.type === 'image') annotateBlobUrl(record[f.key], pds, did);
     if (f.type === 'blocks') annotateLeafletBlobs(record[f.key], pds, did);
+    if (f.type === 'photos') {
+      for (const photo of record[f.key] || []) annotateBlobUrl(photo?.image, pds, did);
+    }
   }
 }
 
@@ -79,7 +84,9 @@ function annotateRecordBlobs(record, lex, pds, did) {
  * scrobble have no images and no reason to touch plc.directory.
  */
 function couldCarryBlobs(lex) {
-  return (lex?.fields || []).some((f) => f.type === 'image' || f.type === 'blocks');
+  return (lex?.fields || []).some(
+    (f) => f.type === 'image' || f.type === 'blocks' || f.type === 'photos',
+  );
 }
 
 /**
@@ -1036,6 +1043,12 @@ function RecordPreview({ lex, record }) {
 
   const bodies = fields
     .map((f) => {
+      // A field can name the field that wins over it (the profile's legacy
+      // markdown `body` defers to its block `content`). Without this the
+      // preview stacks both bodies while the site renders only one, which
+      // reads as "my old text came back" rather than as a migration in
+      // progress.
+      if (f.supersededBy && hasLeafletContent(v[f.supersededBy])) return null;
       if (f.type === 'blocks' && v[f.key]) {
         return <LeafletDocument key={f.key} doc={v[f.key]} />;
       }
@@ -1217,6 +1230,12 @@ function Field({ field, value, record, onChange, agent, did, collection, rkey, o
           onSetCover={onSetCover}
         />
       );
+      break;
+    case 'photos':
+      control = <PhotoGalleryField value={value} onChange={onChange} agent={agent} />;
+      break;
+    case 'labelledLinks':
+      control = <LabelledLinksField value={value} onChange={onChange} />;
       break;
     case 'image':
       control = (

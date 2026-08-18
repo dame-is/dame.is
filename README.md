@@ -19,6 +19,9 @@ Schema-only documentation lives under [`lexicons/`](lexicons/):
 - `is.dame.now` — short status updates ("dame.is hiking").
 - `is.dame.page` — page-content records keyed by literal page name.
 - `is.dame.profile` — extended long-form bio at `at://{me}/is.dame.profile/self`.
+  Carries a photo gallery, a block body (the same `pub.leaflet.content` editor
+  the blog uses, so images can sit inline), and flags choosing how much of the
+  Bluesky profile card `/themself` shows above it.
 - `is.dame.creating.work` — portfolio works (art, software, writing, music…).
 - `is.dame.resume` / `is.dame.resume.job` / `is.dame.resume.education` —
   a backlinked resume model: many resume versions curate shared job/education

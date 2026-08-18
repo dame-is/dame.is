@@ -1396,3 +1396,107 @@ select.admin-input {
     min-height: var(--wb-hit, 2.75rem);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Photo gallery field (is.dame.profile.photos)                         */
+/* ------------------------------------------------------------------ */
+
+/* Built on the same `rf-` list chrome as the resume editors — the row card,
+   the ▲/▼/✕ cluster — with a thumbnail column added. The styles live here
+   rather than in blocks.css so the field owns its own appearance: it is
+   reachable from any record form, not only one that already mounted the
+   block editor. */
+.pf-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.pf-thumb {
+  flex: 0 0 7.5rem;
+  width: 7.5rem;
+  height: 7.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--rule);
+  background: var(--page);
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+}
+
+.pf-thumb.has-image {
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--rule-soft);
+}
+
+.pf-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pf-thumb:hover {
+  border-color: var(--accent-soft);
+}
+
+.pf-thumb-empty {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  text-align: center;
+  padding: var(--space-2);
+}
+
+.pf-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pf-fields .admin-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The add target doubles as the drop target for a whole batch, so it stays
+   visible under the last row rather than hiding behind a small "+" button. */
+.pf-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 2px dashed var(--rule);
+  background: none;
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.pf-drop:hover,
+.pf-drop:focus-visible,
+.pf-drop.is-dragging {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+@media (max-width: 34rem) {
+  .pf-row {
+    flex-direction: column;
+  }
+
+  .pf-thumb {
+    flex: 0 0 auto;
+    width: 100%;
+    height: 10rem;
+  }
+}

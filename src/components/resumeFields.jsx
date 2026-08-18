@@ -10,6 +10,7 @@ import {
   collectHighlightUsage,
 } from '../lib/resumeHelpers.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
+import { move, replaceAt, removeAt, RowControls } from './listFields.jsx';
 
 const STANDARD_DOC = 'site.standard.document';
 
@@ -24,67 +25,6 @@ const STANDARD_DOC = 'site.standard.document';
  * The RecordEditor "Edit JSON" toggle still works as an escape hatch for any
  * shape these editors don't cover.
  */
-
-/* ------------------------------------------------------------------ */
-/* Shared helpers                                                       */
-/* ------------------------------------------------------------------ */
-
-function move(arr, from, to) {
-  if (to < 0 || to >= arr.length) return arr;
-  const next = arr.slice();
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item);
-  return next;
-}
-
-function replaceAt(arr, index, item) {
-  const next = arr.slice();
-  next[index] = item;
-  return next;
-}
-
-function removeAt(arr, index) {
-  const next = arr.slice();
-  next.splice(index, 1);
-  return next;
-}
-
-/** Small ▲ / ▼ / ✕ control cluster shared by every list row. */
-function RowControls({ index, length, onMove, onRemove, removeLabel = 'Remove' }) {
-  return (
-    <div className="rf-controls">
-      <button
-        type="button"
-        className="rf-icon-btn"
-        onClick={() => onMove(index, index - 1)}
-        disabled={index === 0}
-        aria-label="Move up"
-        title="Move up"
-      >
-        <ChevronUp size={15} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="rf-icon-btn"
-        onClick={() => onMove(index, index + 1)}
-        disabled={index === length - 1}
-        aria-label="Move down"
-        title="Move down"
-      >
-        <ChevronDown size={15} aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        className="rf-icon-btn rf-icon-btn-danger"
-        onClick={() => onRemove(index)}
-        aria-label={removeLabel}
-        title={removeLabel}
-      >
-        <X size={15} aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
 
 function parseTags(text) {
   return text

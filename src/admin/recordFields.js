@@ -126,6 +126,10 @@ export function latestInstant(value, uri, nsid) {
 const ROW_LABELS = {
   'is.dame.creating.ratioed.piece': (v) => (v?.take != null ? `Take ${v.take}` : null),
   'is.dame.arena.channel': (v) => v?.title || v?.arenaSlug || null,
+  // The profile's first string field is `tagline`, which is optional; without
+  // it `previewFor` walks on to `photoLayout` and labels the record "two-up".
+  // Returning null instead falls through to `recordTitle`'s rkey floor ("self").
+  'is.dame.profile': (v) => v?.tagline || null,
 };
 
 /**

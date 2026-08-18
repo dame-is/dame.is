@@ -388,16 +388,28 @@ export function buildRepo() {
     ),
   ]);
 
-  /* Profile (rkey "self") */
+  /* Profile (rkey "self").
+   *
+   * Field names follow `is.dame.profile` as the lexicon defines it. They did
+   * not before — this record carried `displayName`, `bio`, `pronouns` and
+   * `location`, none of which the lexicon or /themself has ever read — so the
+   * About surface fixtured as a form with every field blank. */
   put(COLLECTIONS.profile, [
     rec(
       COLLECTIONS.profile,
       {
         $type: COLLECTIONS.profile,
-        displayName: 'dame',
-        bio: 'Keeping a website like a garden. Moths, records, and small tools.',
-        pronouns: 'they/them',
-        location: 'North Carolina',
+        tagline: 'Keeping a website like a garden.',
+        showAvatar: true,
+        showIdentity: true,
+        showBlueskyBio: false,
+        photoLayout: 'three-up',
+        links: [
+          { label: 'are.na', url: 'https://are.na/dame' },
+          { label: 'anisota', url: 'https://anisota.net' },
+        ],
+        body: 'Moths, records, and small tools. The long version lives here; the short one is on Bluesky.',
+        bodyFormat: 'markdown',
         createdAt: ago(90000),
         updatedAt: ago(3000),
       },
