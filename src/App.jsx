@@ -16,10 +16,12 @@ import CuratingChannel from './pages/CuratingChannel.jsx';
 import Resume from './pages/Resume.jsx';
 import Sharing from './pages/Sharing.jsx';
 import Mothing from './pages/Mothing.jsx';
+import MothingNight from './pages/MothingNight.jsx';
 import Guestbook from './pages/Guestbook.jsx';
 import Record from './pages/Record.jsx';
 import NotFound from './pages/NotFound.jsx';
 import { VERB_REGISTRY } from './lib/verbRegistry.js';
+import { isNightSlug } from './lib/mothing.js';
 
 // Lazy: the ATProto OAuth + Agent bundle is heavy and only used by the owner.
 const Admin = lazy(() => import('./pages/Admin.jsx'));
@@ -51,12 +53,24 @@ import { AdminChromeProvider, useStackedViewport } from './hooks/useAdminChrome.
 import './components/Xray.css';
 
 /**
- * Verbs whose record page is handled by a bespoke page component (not the
- * generic `Record.jsx`). The shorthand `/posting/:rkey` etc. routes for
- * these verbs are declared explicitly below; everything else in the verb
- * registry gets registered automatically and falls through to Record.jsx.
+ * Verbs whose short `/{verb}/:rkey` route is declared by hand below rather
+ * than generated. Blogging and creating have their own page components;
+ * mothing keeps the generic `Record.jsx` but shares its path with the
+ * per-night galleries, so it needs the dispatcher in `MothingLeaf`.
  */
-const BESPOKE_VERB_ROUTES = new Set(['blogging', 'creating']);
+const BESPOKE_VERB_ROUTES = new Set(['blogging', 'creating', 'mothing']);
+
+/**
+ * `/mothing/:rkey` addresses two different things, and the shape of the
+ * segment decides which. A date (`2026-08-18`) names a NIGHT — one session at
+ * the light, drawn as a gallery. Anything else is an iNaturalist observation
+ * id, which the generic record page renders. An id is a bare integer, so the
+ * two forms can never collide and one route can serve both.
+ */
+function MothingLeaf() {
+  const { rkey } = useParams();
+  return isNightSlug(rkey) ? <MothingNight /> : <Record verb="mothing" />;
+}
 
 /**
  * Build `<Route>` entries for every verb / NSID in the registry. Each
@@ -204,6 +218,7 @@ export default function App() {
                   <Route path="/for-hire/:slug" element={<ForHireRedirect />} />
                   <Route path="/sharing" element={<Sharing />} />
                   <Route path="/mothing" element={<Mothing />} />
+                  <Route path="/mothing/:rkey" element={<MothingLeaf />} />
                   <Route path="/welcoming" element={<Guestbook />} />
                   {/* The guestbook presents as /welcoming ("dame is welcoming");
                       keep the old path working for any in-app navigation that

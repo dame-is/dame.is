@@ -42,7 +42,7 @@ import {
   getRecord,
   rkeyFromAtUri,
 } from '../src/lib/atproto.js';
-import { fetchMothData } from '../src/lib/inaturalist.js';
+import { fetchMothData, buildSessions } from '../src/lib/inaturalist.js';
 import { fetchGuestbookEntries } from '../src/lib/guestbook.js';
 import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
 import {
@@ -388,7 +388,14 @@ function sitemapUrl(path, lastmod) {
 }
 
 // Robust by design: any missing snapshot just contributes fewer <url>s.
-function buildSitemap({ blogRecords, creatingRecords, curatingChannels, ratioedPieces, builtAt }) {
+function buildSitemap({
+  blogRecords,
+  creatingRecords,
+  curatingChannels,
+  ratioedPieces,
+  mothNights,
+  builtAt,
+}) {
   const entries = [];
   const seen = new Set();
   const push = (path, lastmod) => {
@@ -427,6 +434,12 @@ function buildSitemap({ blogRecords, creatingRecords, curatingChannels, ratioedP
       r.value.measuredAt || r.value.sealedAt || null,
     );
   }
+
+  // Every mothing session has a page of its own, addressed by the night it
+  // was — the same address the index links each session header to. No lastmod:
+  // a night's date is when it happened, not when it last changed, and moths do
+  // get re-identified weeks after the light went out.
+  for (const date of mothNights || []) push(`/mothing/${date}`, null);
 
   for (const g of curatingChannels || []) {
     if (!g?.slug) continue;
@@ -815,6 +828,7 @@ async function main() {
           creatingRecords,
           curatingChannels: galleries,
           ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
+          mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
           builtAt,
         }),
       ),

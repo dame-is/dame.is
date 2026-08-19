@@ -6,6 +6,7 @@
 //
 // Usage (from the per-page meta injected by middleware.js):
 //   /api/og?page=/blogging          → looks up copy + NSID from og/pages.js
+//   /api/og?night=2026-08-18        → one mothing night, with its own moths on it
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
 //   /api/og                         → the home "index" card
@@ -16,13 +17,16 @@
 import { ImageResponse } from '@vercel/og';
 import { FONTS } from '../og/assets/fonts.js';
 import { ICONS } from '../og/assets/icons.js';
-import { easternHour, avatarKeys, secondsUntilNextHour, folio } from '../og/time.js';
+import { easternHour, easternDate, avatarKeys, secondsUntilNextHour, folio } from '../og/time.js';
 import { ogElement, themeFromSky, pieceMarks } from '../og/design.js';
 import { paletteForHour } from '../src/lib/skyTheme.js';
 import { ratioedScale } from '../src/lib/ratioedPalette.js';
 import { resolveSkyTuning } from '../og/skyTuning.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
-import { pieceRecord } from '../og/records.js';
+import { pieceRecord, nightSession } from '../og/records.js';
+import { photoUrl } from '../src/lib/inaturalist.js';
+import { nightSpan, photographed } from '../src/lib/mothing.js';
+import { MOTHING_OBSERVATION_NSID } from '../src/config.js';
 import { createRequire } from 'node:module';
 
 // The first eleven pieces were measured before records carried their own event
@@ -56,6 +60,62 @@ const FONT_SET = [
 // title/subtitle/label the site emits.
 const MAX_TEXT = 200;
 const clampText = (v) => String(v ?? '').slice(0, MAX_TEXT);
+
+// How many of a night's moths reach its card, and how long any one photo gets
+// to answer before the card goes without it.
+const NIGHT_PHOTOS = 5;
+const PHOTO_TIMEOUT_MS = 4000;
+
+/**
+ * One iNaturalist photo as a data: URI, or null.
+ *
+ * Satori will happily fetch a remote <img> itself, but then a single dead
+ * photo throws and takes the whole card down with it, and nothing bounds how
+ * long it waits. Pulling the bytes here means a photo that 404s or hangs is
+ * simply dropped and the card draws the ones that answered. `small` is a
+ * ~240px variant — a comfortable 2× for the 140px squares the card sets them
+ * in, and a fraction of the bytes of the full-size file.
+ */
+async function inlinePhoto(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) });
+    if (!res.ok) return null;
+    const type = res.headers.get('content-type') || '';
+    if (!/^image\//.test(type)) return null;
+    const bytes = Buffer.from(await res.arrayBuffer());
+    return `data:${type};base64,${bytes.toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Everything the night card draws, read back off the session itself so no
+ * free text ever reaches the renderer — the URL only ever carries a date.
+ */
+async function nightCardData(session) {
+  const shown = photographed(session).slice(0, NIGHT_PHOTOS);
+  const photos = await Promise.all(
+    shown.map(async (o) => {
+      const src = await inlinePhoto(photoUrl(o.photos[0], 'small'));
+      return src ? { src } : null;
+    }),
+  );
+  return {
+    // Not drawn. It's here so the handler can stamp the folio with the night's
+    // own day, and tell a night still in progress from a finished one when it
+    // sets the cache headers.
+    date: session.date,
+    // The work and which one of it, the way the piece card names a take. The
+    // date is the <title>'s job (see og/records.js) and the folio's.
+    title: `Mothing, session ${session.number}`,
+    moths: session.observationCount,
+    species: session.speciesCount,
+    span: nightSpan(session),
+    photos: photos.filter(Boolean),
+  };
+}
 
 export default async function handler(req, res) {
   try {
@@ -114,8 +174,23 @@ export default async function handler(req, res) {
         marks = pieceMarks(piece, RATIOED_EVENTS[rkey]);
       }
     }
+    // A mothing night gets its own card too — the moths that came to the
+    // light, which a title and a blurb can't carry either.
+    let night = null;
+    if (!piece && q.night) {
+      const found = await nightSession(clampText(q.night), origin);
+      if (found?.session) night = await nightCardData(found.session);
+      // Stamp the folio with the night's own day, exactly as a record card is
+      // stamped with the record's — the notebook page number is what dates
+      // this card now that its headline names the session instead.
+      if (night && !q.date) folioAt = new Date(`${night.date}T00:00:00Z`);
+    }
     if (piece) {
       // Fall through to the render with `piece` set; nothing else applies.
+    } else if (night) {
+      // Same: the night card reads everything off the session.
+      pathname = '/mothing';
+      nsid = MOTHING_OBSERVATION_NSID;
     } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
@@ -153,6 +228,7 @@ export default async function handler(req, res) {
       record,
       body,
       piece,
+      night,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.
@@ -178,7 +254,12 @@ export default async function handler(req, res) {
     // stamp now (see records.js: cardVersion) so the sealed card is a separate
     // resource anyway — this is the belt to that braces, for every crawler that
     // fetched the live URL before there was anything else to fetch.
-    const live = piece && !piece.sealedAt;
+    // A night still at the light can gain moths, exactly as a running piece can
+    // gain likes, so its card is only good briefly. Today's date OR yesterday's
+    // counts as in progress: a session opens at 8pm and runs past midnight, so
+    // for three hours of every night the live one is dated the day before.
+    const liveNight = Boolean(night) && night.date >= easternDate(new Date(now.getTime() - 86_400_000));
+    const live = (piece && !piece.sealedAt) || liveNight;
     const maxAge = live ? Math.min(60, secondsUntilNextHour()) : secondsUntilNextHour();
     res.setHeader('Content-Type', 'image/png');
     res.setHeader(

@@ -30,6 +30,19 @@ export function easternHour(now = new Date()) {
   return Number(h) % 24;
 }
 
+/**
+ * Today's date in Eastern time as 'YYYY-MM-DD', DST-aware. Same clock the
+ * hour above reads, so "which night is this" and "which sky is this" agree.
+ */
+export function easternDate(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
 /** The sky-avatar key ("6pm", "12am", …) for the current Eastern hour. */
 export function currentAvatarKey(now = new Date()) {
   return KEYS[easternHour(now)];

@@ -476,6 +476,85 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
   );
 }
 
+// ── RECORD: one mothing night ───────────────────────────────────────────────
+// A night at the light is a set of photographs, so the card is the
+// photographs: the first few of them ruled into the page as a strip — top and
+// bottom edges landing on coarse rules, so they sit ON the paper rather than
+// floating over it.
+//
+// The gutter keeps the day-of-life folio every other card carries, stamped
+// with the night's OWN day rather than the day the card was rendered (see
+// api/og.js) — so a notebook page number dates the night.
+function nightCard(t, { night, avatarUri, nsid, folio }) {
+  const CX = 320, bcBy = P - LE;
+  const colW = W - PAD - CX; // content column
+  const BOX = 2 * P; // a square exactly two coarse rules tall
+  const SLOTS = 5; // five of them span the column with even gaps
+  const GAP = (colW - SLOTS * BOX) / (SLOTS - 1);
+  const photos = (night.photos || []).slice(0, SLOTS);
+  const stripTop = 5 * P;
+
+  // One line, always: the date is short and the card has one thing to say.
+  const { size, lines } = fitHeadline(night.title || '', colW, 1, 72, 44);
+
+  // The three facts the page's own session header carries, set as marginalia
+  // columns rather than a sentence. Columns are unequal because a clock span
+  // is much wider than a count.
+  const FX = [CX, CX + 180, CX + 340];
+  const facts = [
+    ['moths', night.moths == null ? '' : String(night.moths)],
+    ['species', night.species ? String(night.species) : ''],
+    ['time', night.span || ''],
+  ];
+
+  return shell(t, [
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(
+      [
+        h('div', { style: { color: t.inkFaint } }, 'dame.is'),
+        h('div', { style: { color: t.inkFaint } }, '/'),
+        h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, 'mothing'),
+      ],
+      { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX },
+    ),
+    at(lines[0] || '', { size, by: 3 * P - 8, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
+
+    ...facts.flatMap(([label, value], i) =>
+      value
+        ? [
+            at(label, { size: 19, by: 4 * P - 8, left: FX[i], color: t.inkFaint, weight: 400, ls: '0.1em' }),
+            at(value, { size: 30, by: 4 * P + HP - 8, left: FX[i], color: t.ink, weight: 600 }),
+          ]
+        : [],
+    ),
+
+    ...photos.map((p, i) =>
+      h(
+        'div',
+        {
+          style: {
+            position: 'absolute',
+            left: CX + i * (BOX + GAP),
+            top: stripTop,
+            width: BOX,
+            height: BOX,
+            overflow: 'hidden',
+            border: `1px solid ${t.rule}`,
+          },
+        },
+        h('img', { src: p.src, width: BOX, height: BOX, style: { objectFit: 'cover' } }),
+      ),
+    ),
+
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    halfBands: [{ from: 4 * P, to: 4 * P + HP }],
+  });
+}
+
 // ── HOME: H4 (index of surfaces, cascade-fade, tighter half-pitch rows) ─────
 function homeCardH4(t, { avatarUri, folio, homeIndex, nsid }) {
   const bcBy = P - LE, top0 = 2 * P + HP, sz = 32;
@@ -528,6 +607,8 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {string}  o.folio      day-of-life string ('12,115')
  * @param {'light'|'dark'|object} [o.theme] palette key, or a resolved token map (e.g. themeFromSky)
  * @param {boolean} [o.record]   render the per-record card (title = o.label as a wrapped headline)
+ * @param {object}  [o.night]    render the mothing-night card
+ *                               ({title,moths,species,span,photos:[{src}]})
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
  * @param {Array}   [o.hero]      [{text,color}] for the home hero card
  */
@@ -541,6 +622,11 @@ export function ogElement(o = {}) {
   // so it has to be picked before the "no label means home" fallback.
   if (o.piece) {
     return ratioedCard(t, { piece: o.piece, marks: o.marks || [], scale: o.scale || {}, avatarUri });
+  }
+  // A night names itself in its headline rather than in a gerund label, so it
+  // has none either — same reason it is picked before the fallback.
+  if (o.night) {
+    return nightCard(t, { night: o.night, avatarUri, nsid: o.nsid || '', folio });
   }
 
   const isHome = pathname === '/' || !o.label;

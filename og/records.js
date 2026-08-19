@@ -24,11 +24,14 @@
 import {
   ME_DID,
   COLLECTIONS,
+  MOTHING_OBSERVATION_NSID,
   RATIOED_PATH,
   RATIOED_DOC_RKEY,
   RATIOED_PUBLICATION,
 } from '../src/config.js';
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/atproto.js';
+import { fetchMothObservations } from '../src/lib/inaturalist.js';
+import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
 import { TEAL_PLAY_NSIDS, playArtistLine, playTrackName } from '../src/lib/teal.js';
 import {
   workSlug,
@@ -40,6 +43,7 @@ import {
 
 const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
+const INAT_TIMEOUT_MS = 3000;
 
 // Sections whose leaf pages render a single AT-Protocol record.
 const RECORD_SECTIONS = new Set([
@@ -61,7 +65,7 @@ const SECTION_COLLECTIONS = {
   // teal.fm's production + alpha play lexicons; a shared /listening/{rkey}
   // link resolves against whichever one holds that play.
   listening: TEAL_PLAY_NSIDS,
-  mothing: ['is.dame.mothing.observation'],
+  mothing: [MOTHING_OBSERVATION_NSID],
 };
 
 /** Resolve after `ms`, whichever comes first, so a hung fetch never blocks. */
@@ -298,6 +302,72 @@ function shapeMeta(record, section, slug) {
   };
 }
 
+/* ── /mothing/:date — one night at the light ──────────────────────────────── */
+
+/**
+ * The night a `/mothing/<date>` path names — `{ session, newer, older }`, or
+ * null when no session fell on that date.
+ *
+ * A night is not a record. It's the grouping a night's worth of observations
+ * makes (`buildSessions`), so it is derived here from the same
+ * /data/mothing.json the page paints from — every observation, rebuilt on
+ * every deploy — rather than fetched.
+ *
+ * The night somebody actually shares a link to, though, is usually the one
+ * that just happened, which is newer than the last build. So a date past the
+ * snapshot's reach falls back to a small, time-boxed pull from iNaturalist.
+ */
+export async function nightSession(date, origin) {
+  if (!isNightSlug(date)) return null;
+  const snap = origin ? await fetchJson(`${origin}/data/mothing.json`, SNAPSHOT_TIMEOUT_MS) : null;
+  const observations = Array.isArray(snap?.observations) ? snap.observations : [];
+  const found = findNight(observations, date);
+  if (found) return found;
+  // Only ask iNaturalist when the snapshot could actually be short here, and
+  // never for a date in the future — without that second bound a stream of
+  // invented dates would turn crawler hits into outbound API requests.
+  if (!nightBeyondReach(observations, date)) return null;
+  if (date > new Date().toISOString().slice(0, 10)) return null;
+  const live = await withTimeout(fetchMothObservations({ max: 200 }), INAT_TIMEOUT_MS);
+  if (!Array.isArray(live)) return null;
+  // Merged into the snapshot rather than used on its own: a session's number
+  // is its ordinal among every night there has ever been, so a night built
+  // from the most recent 200 observations alone would call itself #6 of 6.
+  const byId = new Map(observations.map((o) => [o.id, o]));
+  for (const o of live) byId.set(o.id, o);
+  return findNight(Array.from(byId.values()), date);
+}
+
+/**
+ * Meta for a night page. Same shape `recordMeta` returns, so the middleware
+ * treats it identically — with `atUri` null, because a night has no record of
+ * its own to advertise: it is what a night's observation records add up to.
+ */
+async function nightMeta(date, origin) {
+  const found = await nightSession(date, origin);
+  if (!found) return null;
+  const { session } = found;
+  const { title, description } = nightCardCopy(session);
+  return {
+    title,
+    description,
+    textOnly: false,
+    section: 'mothing',
+    atUri: null,
+    cid: null,
+    nsid: MOTHING_OBSERVATION_NSID,
+    publication: null,
+    // The card stamps the session's number where other cards stamp the
+    // day-of-life folio, so it needs no date.
+    date: null,
+    canonicalPath: `/mothing/${session.date}`,
+    // A night gets a card of its own rather than the generic title-and-blurb
+    // one: what it has to show is the moths, and only the date reaches the
+    // renderer — everything drawn is read back from the night itself.
+    ogQuery: `night=${encodeURIComponent(session.date)}`,
+  };
+}
+
 /* ── /creating/:slug/:piece — one Ratioed piece ───────────────────────────── */
 
 /** `13`, `013` and the record key all name the same piece. */
@@ -460,6 +530,11 @@ export async function recordMeta(pathname, origin) {
 
   let slug = rawSlug;
   try { slug = decodeURIComponent(rawSlug); } catch {}
+
+  // /mothing serves two things on one path: a date names a NIGHT (a session,
+  // which is derived rather than stored), anything else an observation's
+  // iNaturalist id. Same split the router makes — see App.jsx's MothingLeaf.
+  if (section === 'mothing' && isNightSlug(slug)) return nightMeta(slug, origin);
 
   let record = null;
   try {

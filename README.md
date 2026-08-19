@@ -87,6 +87,20 @@ collapsed by rkey (production wins) — see [`src/lib/teal.js`](src/lib/teal.js)
 The page paints from the build-time `public/data/mothing.json` snapshot and
 refreshes live from the iNaturalist API in the browser.
 
+Observations are grouped into **sessions** — one night at the light, 8pm to 3am,
+keyed by the evening's date (an after-midnight sighting belongs to the night that
+began the evening before). Each session has a page of its own at
+`/mothing/{YYYY-MM-DD}`, which draws that night as a card gallery. A session is
+not a record: it is what a night's worth of observation records add up to, so
+both the page and the crawler-facing `<head>` derive it from the same snapshot
+(`findNight` in `src/lib/mothing.js`) rather than fetching anything of their own.
+
+`/mothing/{slug}` serves two things, told apart by the shape of the slug: a date
+is a night, and anything else is an iNaturalist observation id (`/mothing/392585028`
+→ the generic record page). A night's Open Graph card is drawn by
+`/api/og?night={date}` — the date, the counts, the hours, and the first five moths
+of the night inlined as photographs.
+
 The **home feed** goes further: every iNaturalist observation is mirrored onto
 the PDS and surfaced there — moths under the `mothing` verb, everything else
 (birds, plants, fungi, butterflies, other insects…) under `observing`. The mirror
