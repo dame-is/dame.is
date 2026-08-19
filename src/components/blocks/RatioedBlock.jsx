@@ -594,7 +594,19 @@ function SampleMark({ core, halo }) {
 /* Summary                                                              */
 /* ------------------------------------------------------------------ */
 
+// Where the tiles drop from three columns to two. Not the chart's NARROW_QUERY,
+// which asks a different question: this block is capped at the page's reading
+// measure, so its width stops changing well before the window does, and three
+// columns are worth keeping for every window the measure still fills. Below
+// this the measure is what's shrinking, and the third column goes with it.
+const TILES_QUERY = '(max-width: 40rem)';
+
 function Summary({ stats, people, shape, roster, hasAudience }) {
+  // The grid's own column count, live, so a rotate or a resize re-fills it. It
+  // has to be known here as well as in the stylesheet, because how many blank
+  // cells a short last row needs depends on how many columns there are and CSS
+  // cannot count children per row. Same query the CSS switches on.
+  const columns = useNarrow(TILES_QUERY) ? 2 : 3;
   // The roster the block loaded, not the bundled one — otherwise the headline
   // count ignores everybody who turned up for a piece added since the bundle.
   const { total } = people;
@@ -619,9 +631,14 @@ function Summary({ stats, people, shape, roster, hasAudience }) {
   // Everything here that needs the event log is dropped rather than zeroed
   // when there isn't one, which is why this row can be shorter than it looks.
   const texture = shape && [
+    // The legend is a note rather than the label: three words and two
+    // separators do not fit a letterspaced small-caps caption at this width,
+    // and what came back was a line ending on a dangling middot. It is also
+    // what the same figure is called on a piece's own page.
     [
       `${shape.mix.replies}·${shape.mix.reposts}·${shape.mix.quotes}`,
       null,
+      'the mix',
       'replies · reposts · quotes',
     ],
     [fmtDuration(shape.medianMs), null, 'the middle take'],
@@ -646,10 +663,16 @@ function Summary({ stats, people, shape, roster, hasAudience }) {
     // join reads as the whole project when it is two takes of it. These two
     // flipped from 655 across 126 accounts to 808 across 202 mid-read, and
     // stayed at the smaller number for good if the import failed.
+    //
+    // The handle is a note for the same reason, and more so: it is the one
+    // string here whose length nobody controls, and set as small caps on a
+    // 0.14em track it broke mid-word and left an orphan letter on a third
+    // line, which set the height of every tile in its row.
     hasAudience && shape.audience?.top && [
       fmtReach(shape.audience.top.followers),
       null,
-      `biggest amplifier · @${shape.audience.top.h}`,
+      'biggest amplifier',
+      `@${shape.audience.top.h}`,
     ],
     hasAudience && typeof shape.audience?.median === 'number' && [
       fmtReach(shape.audience.median),
@@ -658,16 +681,36 @@ function Summary({ stats, people, shape, roster, hasAudience }) {
     ],
   ];
 
-  const row = (group) =>
-    group.filter(Boolean).map(([v, suffix, label]) => (
-      <div className="ratioed-tile" key={label}>
-        <span className="ratioed-tile-v">
-          {v}
-          {suffix && <small>{suffix}</small>}
-        </span>
-        <span className="ratioed-tile-l">{label}</span>
-      </div>
-    ));
+  // Both rows are laid on the same column count, so the second sits in the
+  // first's columns rather than beside them — auto-fit gave the headline three
+  // and the texture four, and two grids on different rhythms read as a
+  // rendering fault rather than as a hierarchy.
+  //
+  // That leaves short last rows, which these tiles cannot simply leave empty:
+  // the rules between them are the container's own colour showing through a
+  // 1px gap, so a missing cell is a coloured slab rather than a hole. The
+  // blanks are tiles with nothing in them — they paint the page and carry the
+  // rules to the edge. Never a whole row of them: `blanks` is always fewer
+  // than `columns`, so every row has at least one figure in it.
+  const row = (group) => {
+    const shown = group.filter(Boolean);
+    const blanks = (columns - (shown.length % columns)) % columns;
+    return [
+      ...shown.map(([v, suffix, label, note]) => (
+        <div className="ratioed-tile" key={label}>
+          <span className="ratioed-tile-v">
+            {v}
+            {suffix && <small>{suffix}</small>}
+          </span>
+          <span className="ratioed-tile-l">{label}</span>
+          {note && <span className="ratioed-tile-n">{note}</span>}
+        </div>
+      )),
+      ...Array.from({ length: blanks }, (_, i) => (
+        <div className="ratioed-tile is-blank" key={`blank-${i}`} aria-hidden="true" />
+      )),
+    ];
+  };
 
   return (
     <div className="ratioed-summary">
