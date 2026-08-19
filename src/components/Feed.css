@@ -785,6 +785,134 @@ a.post-card-author-link:focus-visible {
   max-width: var(--measure);
 }
 
+/* A collapsed run of observations — one night at the light, or one walk.
+   The single-observation card is a thumb beside its names; a run has no one
+   specimen to lead with, so it stacks: the strip on top, then what it turned
+   up and how many. Overrides .moth-card's two-column grid. */
+.moth-batch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* One row of specimens, clipped rather than wrapped — the strip is a preview,
+   not a gallery, and a ragged second row would read as one. */
+.moth-batch-strip {
+  display: flex;
+  gap: var(--space-2);
+  overflow: hidden;
+}
+
+.moth-batch-thumb {
+  flex: 0 0 5.5rem;
+  display: block;
+}
+
+.moth-batch-thumb img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  background: var(--page);
+  transition: border-color 200ms ease;
+}
+
+.moth-batch-thumb:hover img {
+  border-color: var(--accent-soft);
+}
+
+.moth-batch-meta {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.moth-batch-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.moth-batch-toggle:hover,
+.moth-batch-toggle:focus-visible {
+  color: var(--accent);
+}
+
+/* The whole run, one hairline-ruled line each — the compact cousin of the
+   /mothing page's ledger rows. */
+.moth-batch-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.moth-batch-row + .moth-batch-row {
+  border-top: 1px solid color-mix(in srgb, var(--rule-soft) 55%, transparent);
+}
+
+.moth-batch-row-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.moth-batch-row-thumb {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--radius-2);
+  background: var(--page);
+}
+
+.moth-batch-row-names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.moth-batch-row-name {
+  font-family: var(--serif);
+  font-size: var(--text-sm);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+@media (hover: hover) {
+  .moth-batch-row-link:hover .moth-batch-row-name {
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+    text-underline-offset: 0.15em;
+  }
+}
+
+.moth-batch-row-sci {
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  line-height: 1.3;
+}
+
+.moth-batch-row-time {
+  flex: 0 0 auto;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
 .feed-empty {
   color: var(--ink-muted);
   font-style: italic;
@@ -1834,6 +1962,74 @@ a.ledger-verb:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* A collapsed run leads with several specimens where a single observation
+   leads with one. Clipped, never wrapped — the row has to stay one row. */
+.ledger-obs-strip {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0.3rem;
+  overflow: hidden;
+}
+
+/* However long the species run, the row stays a row: two lines, then an
+   ellipsis. Nothing is lost by it — the count beneath says how many there
+   were, which is what the clipped tail was going to say anyway. */
+.ledger-obs-batch .ledger-obs-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The count sits where a single row puts the scientific name, in the same
+   quiet register but upright — it's a tally, not a binomial. */
+.ledger-obs-count {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  line-height: 1.3;
+}
+
+/* Expanded: one sighting per sub-row, in the same two columns the expanded
+   track list uses. Centered rather than baseline-aligned, because each row
+   leads with a thumbnail. */
+.ledger-obs-child {
+  align-items: center;
+}
+
+.ledger-obs-child-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  text-decoration: none;
+  cursor: zoom-in;
+}
+
+.ledger-obs-child-open:where(a) {
+  cursor: pointer;
+}
+
+.ledger-obs-child .ledger-obs-thumb {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.ledger-obs-child .ledger-obs-name {
+  font-size: var(--text-sm);
+}
+
+@media (hover: hover) {
+  .ledger-obs-child-open:hover .ledger-obs-name {
+    color: var(--accent);
+  }
+}
+
 /* The observation body is taller than a text line; center the verb and
    time labels against the thumbnail instead of pinning them to the
    baseline of the first name line. */
@@ -2204,5 +2400,15 @@ a.ledger-time:focus-visible {
 
   .feed-ledger .day-header {
     font-size: var(--text-base);
+  }
+
+  /* Side by side, a collapsed run leaves the species line about twenty
+     characters — not even one moth's name. Stacking the strip above it gives
+     the names the whole content column AND fits every specimen, so the row
+     ends up saying more in about the same height. */
+  .ledger-obs-batch {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
   }
 }
