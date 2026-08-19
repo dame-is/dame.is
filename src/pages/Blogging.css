@@ -102,6 +102,32 @@
   width: 100%;
   max-width: var(--measure);
   margin: 0 auto;
+
+  /* --- room for a figure to outgrow the measure ---------------------
+
+     The reading column is sized for a sentence, and a table of thirteen
+     columns is not a sentence: capped at --measure the ledger showed half
+     its columns and hid the rest behind a sideways scroll, on a screen with
+     229px of empty margin on either side of it. So a figure is allowed to
+     hang symmetrically past the column into that margin — the prose keeps
+     its measure, the figure gets the page.
+
+     --doc-room is the widest a figure may get: `.main`'s own frame with its
+     gutters removed, so a widened figure lands on the same edge the rest of
+     the page is drawn to and never past it — and on any screen wider than
+     72rem it stops growing, because the frame does. --doc-overhang is what a
+     figure pulls back on each side to reach that width: half the difference,
+     clamped at 0 so on a screen where the column is already the widest thing
+     going, nothing moves at all.
+
+     `100vw` overstates the viewport by the width of a classic scrollbar,
+     which would put a figure that many pixels into the gutter; the gutter is
+     never narrower than --space-4, so it absorbs it. Above 72rem the term
+     drops out of the min() entirely and the arithmetic is exact. */
+  --doc-room: calc(
+    min(var(--main-max, 72rem), 100vw) - 2 * var(--main-gutter, 0px)
+  );
+  --doc-overhang: max(0px, calc((var(--doc-room) - 100%) / 2));
 }
 
 /* Cap the whole document page — the title AND the article together — at the

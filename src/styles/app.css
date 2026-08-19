@@ -54,9 +54,16 @@
 }
 
 .main {
+  /* The page frame as two tokens rather than two literals, because more than
+     `.main` needs them: a document figure that widens past the reading measure
+     has to know how much room is left either side of it, and the only honest
+     answer is this width minus these gutters. See --doc-room in Blogging.css.
+     Both inherit, so every descendant reads the same frame `.main` is drawn to. */
+  --main-max: 72rem;
+  --main-gutter: clamp(var(--space-5), 6vw, var(--space-9));
   flex: 1;
   width: 100%;
-  max-width: 72rem;
+  max-width: var(--main-max);
   margin: 0 auto;
   /* `--chrome-crumb-pin-h` is the height of the top breadcrumb strip when it's
      pinned open (individual/detail pages); it's an absolutely-positioned
@@ -64,7 +71,7 @@
      much extra top padding. 0 on feed/index pages, where the strip only rides
      over content on scroll. */
   padding: calc(var(--space-8) + var(--chrome-crumb-pin-h, 0px))
-    clamp(var(--space-5), 6vw, var(--space-9))
+    var(--main-gutter)
     var(--space-8);
 }
 
@@ -319,7 +326,8 @@
 
 @media (max-width: 700px) {
   .main {
-    padding: calc(var(--space-6) + var(--chrome-crumb-pin-h, 0px)) var(--space-4) var(--space-6);
+    --main-gutter: var(--space-4);
+    padding: calc(var(--space-6) + var(--chrome-crumb-pin-h, 0px)) var(--main-gutter) var(--space-6);
   }
   .page-title {
     font-size: var(--text-3xl);

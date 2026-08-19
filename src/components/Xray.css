@@ -298,6 +298,18 @@
     width: 18rem;
     margin: 0 0 0 var(--space-5);
   }
+
+  /* Two things want the same margin and only one can have it. A document's
+     figures widen out of the reading column into it (--doc-overhang, set in
+     Blogging.css), and at this width the gloss is out there too — an 18rem
+     panel starting exactly where the column ends, which is where a widened
+     ledger's right-hand columns now are. While inspect is armed the margin
+     belongs to the gloss, and the figures go back to the column they were
+     drawn for. */
+  :root[data-xray='on'] .blog-article,
+  :root[data-xray='on'] .creating-work-page {
+    --doc-overhang: 0px;
+  }
 }
 
 /* ----------------------------------------------------------------------

@@ -15,10 +15,51 @@
   --ratioed-seal: #8c3a2e;   /* red oxide — the like, the threadgate, death */
   --ratioed-lab: 156px;
   --ratioed-gut: 124px;
-  margin: var(--space-6) 0;
+  margin-block: var(--space-6);
+  /* How far this block hangs out of the reading column on each side. A chart
+     is not a sentence: the measure that makes a paragraph legible is what was
+     hiding half the ledger's columns behind a sideways scroll, and a timeline
+     of seventeen pieces gets its resolution from the width it is drawn across.
+     So a block widens symmetrically into the page's own margins, as far as the
+     frame the rest of the page is drawn to and no further.
+
+     --doc-overhang is derived in Blogging.css from that frame, and is 0
+     anywhere a document isn't — the admin's block preview, a phone — which
+     leaves every rule that reads it a no-op there. */
+  --fig-pull: var(--doc-overhang, 0px);
   font-variant-numeric: tabular-nums;
 }
 
+/* Except the hidden replies, which are not a chart. They are the replies
+   themselves, set as pull quotes, and a pull quote 60rem wide is one nobody
+   finishes — this block keeps the measure the rest of the essay reads at. */
+.ratioed.ratioed-hidden {
+  --fig-pull: 0px;
+}
+
+/* The chart widens; the <figure> around it does not. Two reasons, and both of
+   them bite if you widen the figure instead.
+
+   The caption is prose. It belongs on the same left edge as every paragraph in
+   the essay, not 230px out in the margin with the chart.
+
+   And --doc-overhang carries a percentage, which re-resolves against whatever
+   element spends it. Spent by a child of the figure it means "half of what the
+   READING COLUMN is short by", which is the answer. Spent by the figure itself
+   it would mean half of what the figure is short by — and the figure, once
+   widened, is short by nothing, so the whole thing would collapse to zero and
+   silently do nothing at all. */
+.ratioed > :not(figcaption) {
+  margin-inline: calc(-1 * var(--fig-pull));
+}
+
+/* A block that has nothing to draw yet is one sentence of prose, so it stays in
+   the prose column. (The same class nested INSIDE a chart — the lifelines'
+   "the event log could not be loaded" — is a note about the chart, and keeps
+   the chart's edge.) */
+.ratioed > .ratioed-note {
+  margin-inline: 0;
+}
 
 .ratioed-k-reply { color: var(--ratioed-reply); }
 .ratioed-k-repost { color: var(--ratioed-repost); }
@@ -369,6 +410,8 @@
 }
 .ratioed-react-v { text-align: right; color: var(--ink-soft); }
 .ratioed-react.inferred .ratioed-react-v { color: var(--ink-faint); }
+/* What a chart says when it has nothing to draw — loading, or a table that
+   never arrived. */
 .ratioed-note {
   font-size: 0.85rem;
   color: var(--ink-muted);
@@ -378,7 +421,14 @@
 
 /* --- ledger ------------------------------------------------------- */
 
-.ratioed-tablewrap { overflow-x: auto; }
+/* Scrolling, the fade at whichever edge is hiding something, and the keyboard
+   affordances all come from ScrollFrame, which this class rides on. What is
+   left here is the gap that keeps the scrollbar off the last row's rule — a
+   6px thumb drawn flush against a hairline reads as a second, thicker rule. */
+.ratioed-tablewrap {
+  padding-bottom: var(--space-1);
+}
+
 .ratioed-table {
   border-collapse: collapse;
   width: 100%;
@@ -493,13 +543,20 @@
 .ratioed-tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 1px;
-  background: var(--rule);
   border-block: 1px solid var(--rule);
+  /* Clips the hairlines the tiles cast outward (below), so the ones that would
+     land on the grid's own left edge and top edge never show. */
+  overflow: hidden;
 }
 .ratioed-tile {
   background: var(--page);
   padding: var(--space-4) var(--space-4) var(--space-3);
+  /* One hairline above each tile and one to its left. Cast by the tiles rather
+     than left as a 1px gap over a rule-coloured container, which is what this
+     was: that draws the separators out of cells, and the cells a short last row
+     leaves EMPTY have no tile to cover them, so they come out as blank swatches
+     of rule colour. One tile in a row of five used to leave four of them. */
+  box-shadow: -1px 0 0 var(--rule), 0 -1px 0 var(--rule);
 }
 .ratioed-tile-v {
   display: block;
@@ -532,7 +589,11 @@
    detail rather than as twelve equal facts. Its top border is the first row's
    bottom one. */
 .ratioed-tiles.is-texture {
-  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  /* 10rem rather than the 8.5rem it was: on a wide page 8.5 fits seven of
+     these across, and seven columns of 979px leaves ~7rem of text in each —
+     narrow enough to break "@steveklabnik.com" across two lines mid-word.
+     Below the widening this resolves to the same column count it always did. */
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   border-top: 0;
 }
 .ratioed-tiles.is-texture .ratioed-tile { padding: var(--space-3) var(--space-4); }

@@ -1,0 +1,117 @@
+/* The scrolling frame — see ScrollFrame.jsx, which is what sets `data-edge`.
+
+   The fade is the affordance: the column at the edge dissolves instead of
+   being cut, so a table that continues LOOKS like a table that continues
+   rather than one that ended. It is the reliable half — every platform paints
+   it, and it is there before anyone touches anything, which the scrollbar
+   below is not (macOS and every touch device draw an overlay scrollbar that
+   appears only once you are already scrolling). What the scrollbar rules do is
+   quieter: tone whatever bar the platform does draw down to a hairline in the
+   page's own palette, instead of a default slab across the ledger. */
+
+.scrollframe {
+  overflow-x: auto;
+  /* How wide the edge fade is (see below). */
+  --scrollframe-fade: var(--space-6);
+  /* Keeping the frame's own scroll from becoming the page's once the content
+     runs out. Reaching the last column should not then start pulling the
+     article sideways under it. */
+  overscroll-behavior-x: contain;
+  /* A hairline in the page's own rule colour. `thin` is the standard property
+     (Firefox, Chrome 121+, Safari 18.2+); the ::-webkit- rules below say the
+     same thing to everything older. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule) transparent;
+}
+
+.scrollframe::-webkit-scrollbar {
+  height: 6px;
+}
+.scrollframe::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollframe::-webkit-scrollbar-thumb {
+  background: var(--rule);
+}
+.scrollframe:hover::-webkit-scrollbar-thumb {
+  background: var(--ink-faint);
+}
+
+/* Focusable only while there is something to scroll (the component drops the
+   attribute otherwise), so the ring means "you can move this" every time it
+   appears. */
+.scrollframe:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The fade. Masked, not overlaid with a gradient in the page colour: these
+   pages carry a paper texture and a sky-derived background that shifts by the
+   hour, and any painted gradient would be a guess at both. A mask takes the
+   content out and lets whatever is actually behind it through, so it is
+   correct at every hour and in every theme without knowing any of them.
+
+   The mask does not scroll with the content — it is fixed to the frame — so
+   the fade stays on the frame's edge and the columns pass under it. */
+.scrollframe[data-edge='end'] {
+  mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - var(--scrollframe-fade)),
+    transparent 100%
+  );
+}
+.scrollframe[data-edge='start'] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--scrollframe-fade)
+  );
+}
+.scrollframe[data-edge='both'] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--scrollframe-fade),
+    #000 calc(100% - var(--scrollframe-fade)),
+    transparent 100%
+  );
+}
+
+/* Safari needed the prefix until 15.4, and an unprefixed-only rule there masks
+   nothing at all rather than degrading — the frame would just go back to a hard
+   edge, which is the bug. */
+@supports not (mask-image: linear-gradient(to right, #000, transparent)) {
+  .scrollframe[data-edge='end'] {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - var(--scrollframe-fade)),
+      transparent 100%
+    );
+  }
+  .scrollframe[data-edge='start'] {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--scrollframe-fade)
+    );
+  }
+  .scrollframe[data-edge='both'] {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--scrollframe-fade),
+      #000 calc(100% - var(--scrollframe-fade)),
+      transparent 100%
+    );
+  }
+}
+
+/* On paper there is no scrolling and nothing to indicate: a fade would just
+   print a table with its last column dissolving for no reason. */
+@media print {
+  .scrollframe {
+    overflow: visible;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+}

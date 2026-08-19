@@ -34,6 +34,7 @@ import { resolvePds } from '../../lib/atproto.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
 import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
 import { useTheme } from '../../hooks/useTheme.jsx';
+import ScrollFrame from '../ScrollFrame.jsx';
 import { ME_DID } from '../../config.js';
 import './RatioedBlock.css';
 
@@ -783,7 +784,7 @@ function Participants({ rows: roster, audiences }) {
 
   return (
     <div className="ratioed-participants">
-      <div className="ratioed-tablewrap">
+      <ScrollFrame className="ratioed-tablewrap" label="Participants table">
         <table className="ratioed-table">
           <thead>
             <tr>
@@ -847,7 +848,7 @@ function Participants({ rows: roster, audiences }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </ScrollFrame>
       {(hidden > 0 || expanded) && (
         <button
           type="button"
@@ -1314,7 +1315,7 @@ function Reach({ pieces, events, failed, parent }) {
 
 function Ledger({ pieces, deltas, parent }) {
   return (
-    <div className="ratioed-tablewrap">
+    <ScrollFrame className="ratioed-tablewrap" label="Ledger table">
       <table className="ratioed-table">
         <thead>
           <tr>
@@ -1370,6 +1371,6 @@ function Ledger({ pieces, deltas, parent }) {
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollFrame>
   );
 }
