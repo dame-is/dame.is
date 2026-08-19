@@ -60,6 +60,28 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
     setActive(Math.min(Math.max(0, index), Math.max(0, count - 1)));
   }, [open, index, count]);
 
+  /**
+   * Dismiss on a click anywhere in the panel except the photo itself.
+   *
+   * The lightbox panel is not a surface, it's a transparent stage: 1200px
+   * wide, the height of the viewport, with the photo centred in it. Modal
+   * only dismisses clicks that land on modal-root — which means the couple
+   * of hundred pixels either side of the photo LOOK like the blurred
+   * backdrop and behave like the panel, swallowing the click. Tapping to
+   * close then worked or didn't depending on how far out you happened to
+   * tap, which reads as "it takes two or three taps".
+   *
+   * The photo stays inert on purpose: a reader can rest their eyes on it,
+   * and a drag across it can't close the viewer out from under them.
+   */
+  const dismissOutsideImage = useCallback(
+    (e) => {
+      if (e.target.closest?.('.lightbox-frame')) return;
+      onClose?.();
+    },
+    [onClose],
+  );
+
   const prev = useCallback(() => {
     if (count < 2) return;
     setActive((i) => (i - 1 + count) % count);
@@ -123,7 +145,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       scrimLabel="Close image"
       focusTrapRef={controlsRef}
     >
-      <figure className="lightbox-figure">
+      <figure className="lightbox-figure" onClick={dismissOutsideImage}>
         <div className="lightbox-frame" style={frameStyle}>
           {/* In-flow sizer: the low-res thumb (already cached from the grid the
               lightbox was opened from) gives the frame real dimensions the
