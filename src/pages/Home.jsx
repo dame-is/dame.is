@@ -580,12 +580,13 @@ export default function Home() {
         (item.verb === 'mothing' ? 'Unidentified moth' : 'Unidentified organism');
       const sci = taxon.name;
       if (item.atUri) indexByUri.set(item.atUri, images.length);
+      // No source / reverse-search controls: those are the curated galleries'
+      // (see Lightbox.jsx). An observation's own record page links out to
+      // iNaturalist for anyone who wants the original.
       images.push({
         src: large,
         thumb: photoUrl(photo, 'medium'),
         alt: sci && sci !== name ? `${name} — ${sci}` : name,
-        sourceUrl: item.payload?.url || undefined,
-        searchUrl: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(large)}`,
       });
     }
     return { images, indexByUri };

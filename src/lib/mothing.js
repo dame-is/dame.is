@@ -42,11 +42,6 @@ export function formatObservedTime(hhmm) {
 /** The name a moth is shown under — its common name, else the binomial. */
 export const mothName = (obs) => obs?.taxon?.commonName || obs?.taxon?.name || 'Unidentified moth';
 
-/** Google Lens reverse-image search for a photo — handy for pinning an ID. */
-export function reverseSearchUrl(imageUrl) {
-  return `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
-}
-
 /** A night's own address. The session's date IS its slug. */
 export const nightPath = (date) => `/mothing/${date}`;
 
@@ -124,22 +119,23 @@ export const photographed = (session) =>
 /**
  * Lightbox entries for a run of observations, in the order they're drawn.
  * Shared so the index page and a night page open the same viewer with the
- * same captions and the same "source" controls.
+ * same captions.
+ *
+ * No `sourceUrl` / `searchUrl`: the viewer's source and reverse-image-search
+ * controls belong to the curated galleries, where a block's provenance is the
+ * point. Here the moth is the point, and the photograph is already ours.
  */
 export function mothLightboxImages(observations) {
   return (observations || [])
     .filter((o) => o.photos?.[0])
     .map((o) => {
       const photo = o.photos[0];
-      const large = photoUrl(photo, 'large');
       const name = mothName(o);
       const sci = o.taxon?.name;
       return {
-        src: large,
+        src: photoUrl(photo, 'large'),
         thumb: photoUrl(photo, 'medium'),
         alt: sci && sci !== name ? `${name} — ${sci}` : name,
-        sourceUrl: o.url,
-        searchUrl: large ? reverseSearchUrl(large) : undefined,
       };
     });
 }
