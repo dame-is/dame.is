@@ -337,7 +337,7 @@ export default function RatioedBlock({ block, style }) {
       aria-label={block?.alt || undefined}
     >
       {variant === 'summary' && (
-        <Summary stats={stats} people={split} shape={shape} roster={roster} hasAudience={Boolean(audience)} />
+        <Summary stats={stats} people={split} shape={shape} roster={roster} />
       )}
       {variant === 'lifelines' && (
         <Lifelines
@@ -595,7 +595,22 @@ function SampleMark({ core, halo }) {
 /* Summary                                                              */
 /* ------------------------------------------------------------------ */
 
-function Summary({ stats, people, shape, roster, hasAudience }) {
+// Where the tiles drop from four columns to two, and the width the CSS
+// switches on. Four is what each row holds, so on a window wide enough — the
+// block is ~780px across by here, having widened out of the reading column —
+// each row is one row. Below it a quarter of the block stops being tile enough
+// for a label that says what its figure is.
+//
+// Never three: with four figures to a row, three columns strand a single tile
+// on a row of its own with two empty cells beside it.
+const TWO_UP = '(max-width: 54rem)';
+
+function Summary({ stats, people, shape, roster }) {
+  // The grid's own column count, live, so a rotate or a resize re-fills it. It
+  // has to be known here as well as in the stylesheet, because how many blank
+  // cells a short last row needs depends on how many columns there are and CSS
+  // cannot count children per row.
+  const columns = useNarrow(TWO_UP) ? 2 : 4;
   // The roster the block loaded, not the bundled one — otherwise the headline
   // count ignores everybody who turned up for a piece added since the bundle.
   const { total } = people;
@@ -604,8 +619,6 @@ function Summary({ stats, people, shape, roster, hasAudience }) {
     [String(Math.round(stats.aliveMs / 60000)), 'min', 'total time alive'],
     [String(total), null, 'people involved'],
     [String(stats.nonLike), `:${stats.likes}`, 'ratio'],
-    [fmtSeconds(stats.meanReactionMs).replace('s', ''), 's', 'mean reaction to a like'],
-    [String(stats.deleted), `/${stats.count}`, 'breakers that unliked'],
   ];
 
   // Somebody who was there, alive, for more than one take.
@@ -620,55 +633,52 @@ function Summary({ stats, people, shape, roster, hasAudience }) {
   // Everything here that needs the event log is dropped rather than zeroed
   // when there isn't one, which is why this row can be shorter than it looks.
   const texture = shape && [
-    [
-      `${shape.mix.replies}·${shape.mix.reposts}·${shape.mix.quotes}`,
-      null,
-      'replies · reposts · quotes',
-    ],
-    [fmtDuration(shape.medianMs), null, 'the middle take'],
-    shape.pace && [
-      shape.pace >= 10 ? String(Math.round(shape.pace)) : shape.pace.toFixed(1),
-      '/min',
-      'pace while alive',
-    ],
+    // No count of replies, reposts and quotes here: combined they come to the
+    // ratio's own left-hand figure, and the same number twice on one grid is a
+    // reader stopping to work out why.
+    //
+    // The median, which is the average worth printing: one long take drags a
+    // mean far past anything that actually happened.
+    [fmtDuration(shape.medianMs), null, 'average duration'],
     shape.first && [`${fmtDuration(shape.first.off * 1000)}`, null, 'typical first touch'],
     shape.silence && [
       fmtDuration(shape.silence.ms),
       ` · #${String(shape.silence.take).padStart(2, '0')}`,
-      'longest silence anywhere',
+      'longest silence',
     ],
     // From the roster rather than from the logs: it is the thing that knows a
     // handle in an old log and a DID in a new one are one person. Counted off
     // the logs directly this read 20 of 204, under a tile saying 135 involved.
-    returned && [String(returned), `/${roster.rows.length}`, 'came back for another'],
-    // Held back until the audience table lands, for the reason the reach block
-    // states three hundred lines down: the recent pieces carry their own
-    // follower counts and the early ones do not, so a figure drawn before the
-    // join reads as the whole project when it is two takes of it. These two
-    // flipped from 655 across 126 accounts to 808 across 202 mid-read, and
-    // stayed at the smaller number for good if the import failed.
-    hasAudience && shape.audience?.top && [
-      fmtReach(shape.audience.top.followers),
-      null,
-      `biggest amplifier · @${shape.audience.top.h}`,
-    ],
-    hasAudience && typeof shape.audience?.median === 'number' && [
-      fmtReach(shape.audience.median),
-      null,
-      'median follower count',
-    ],
+    returned && [String(returned), `/${roster.rows.length}`, 'came back'],
   ];
 
-  const row = (group) =>
-    group.filter(Boolean).map(([v, suffix, label]) => (
-      <div className="ratioed-tile" key={label}>
-        <span className="ratioed-tile-v">
-          {v}
-          {suffix && <small>{suffix}</small>}
-        </span>
-        <span className="ratioed-tile-l">{label}</span>
-      </div>
-    ));
+  // Both rows are laid on the same column count, so the second sits in the
+  // first's columns rather than on a rhythm of its own.
+  //
+  // A fixed count leaves short last rows, and each tile draws the hairlines on
+  // its own top and left edge — so where a row runs out of figures the rules
+  // run out with it, and the block reads as a table that failed to draw rather
+  // than as one that ran out of things to say. The blanks are tiles with
+  // nothing in them: they carry the rules to the edge and nothing else. Never
+  // a whole row of them, since `blanks` is always fewer than `columns`.
+  const row = (group) => {
+    const shown = group.filter(Boolean);
+    const blanks = (columns - (shown.length % columns)) % columns;
+    return [
+      ...shown.map(([v, suffix, label]) => (
+        <div className="ratioed-tile" key={label}>
+          <span className="ratioed-tile-v">
+            {v}
+            {suffix && <small>{suffix}</small>}
+          </span>
+          <span className="ratioed-tile-l">{label}</span>
+        </div>
+      )),
+      ...Array.from({ length: blanks }, (_, i) => (
+        <div className="ratioed-tile is-blank" key={`blank-${i}`} aria-hidden="true" />
+      )),
+    ];
+  };
 
   return (
     <div className="ratioed-summary">

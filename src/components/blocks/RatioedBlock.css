@@ -540,9 +540,22 @@
 
 /* --- summary tiles ------------------------------------------------ */
 
+/* A counted number of columns rather than auto-fit, and the SAME count for
+   both rows, so the second sits in the first's columns rather than beside
+   them. Sized independently they came out three over four at the reading
+   measure: two grids on slightly different rhythms, one under the other, with
+   no vertical rule running through the pair.
+
+   Four, or two on a window narrow enough that a quarter of the block is no
+   longer tile enough for a label — never three, because each row holds four
+   figures and three columns strand a single tile on a row of its own with two
+   empty cells beside it.
+   RatioedBlock.jsx switches on the same width (TWO_UP); it has to know the
+   count too, because how many blank cells a short last row needs depends on it
+   and CSS cannot count children per row. */
 .ratioed-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-block: 1px solid var(--rule);
   /* Clips the hairlines the tiles cast outward (below), so the ones that would
      land on the grid's own left edge and top edge never show. */
@@ -558,6 +571,14 @@
      of rule colour. One tile in a row of five used to leave four of them. */
   box-shadow: -1px 0 0 var(--rule), 0 -1px 0 var(--rule);
 }
+/* The outer columns take their edge from the block, so the figures start on
+   the line the rules end on rather than a gutter in from it. Both column
+   counts are written out in full where the count changes: an :nth-child
+   selector outranks a plain one whatever a media query says, so the
+   four-column rules have to be put back before the two-column ones replace
+   them, or cell 5 keeps a first-column edge it no longer sits in. */
+.ratioed-tile:nth-child(4n + 1) { padding-left: 0; }
+.ratioed-tile:nth-child(4n) { padding-right: 0; }
 .ratioed-tile-v {
   display: block;
   font-family: var(--font-crimson, serif);
@@ -585,20 +606,29 @@
 }
 
 /* The second row: what a piece is LIKE, under what the project adds up to.
-   Smaller figures and narrower tiles, so the two rows read as headline and
-   detail rather than as twelve equal facts. Its top border is the first row's
-   bottom one. */
-.ratioed-tiles.is-texture {
-  /* 10rem rather than the 8.5rem it was: on a wide page 8.5 fits seven of
-     these across, and seven columns of 979px leaves ~7rem of text in each —
-     narrow enough to break "@steveklabnik.com" across two lines mid-word.
-     Below the widening this resolves to the same column count it always did. */
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  border-top: 0;
-}
-.ratioed-tiles.is-texture .ratioed-tile { padding: var(--space-3) var(--space-4); }
+   Smaller figures and tighter rows, so the two read as headline and detail
+   rather than as eight equal facts. Its top border is the first row's bottom
+   one.
+
+   Block padding only. The shorthand this used to be re-stated the horizontal
+   padding at a specificity the first-and-last-column rules above can't beat,
+   so the texture row alone kept its gutter and its figures sat a space to the
+   right of the headline's. */
+.ratioed-tiles.is-texture { border-top: 0; }
+.ratioed-tiles.is-texture .ratioed-tile { padding-block: var(--space-3); }
 .ratioed-tiles.is-texture .ratioed-tile-v { font-size: var(--text-xl); }
 .ratioed-tiles.is-texture .ratioed-tile-l { margin-top: var(--space-1); }
+
+/* Two columns from here down — see TWO_UP in RatioedBlock.jsx, which switches
+   on the same width. Two is the floor: one figure per line turns a strip into
+   a list, and these are meant to be scanned rather than read. */
+@media (max-width: 54rem) {
+  .ratioed-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ratioed-tile:nth-child(4n + 1) { padding-left: var(--space-4); }
+  .ratioed-tile:nth-child(4n) { padding-right: var(--space-4); }
+  .ratioed-tile:nth-child(odd) { padding-left: 0; }
+  .ratioed-tile:nth-child(even) { padding-right: 0; }
+}
 
 /* --- hidden replies ----------------------------------------------- */
 
