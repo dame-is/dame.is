@@ -33,12 +33,14 @@ function collectImages(pages) {
       const url = imageBlockUrl(block);
       if (!url) continue;
       const ar = block.aspectRatio;
+      // No reverse-image-search control — that belongs to the curated
+      // galleries, where a block arrived from somewhere else and finding
+      // where is the point. These are the author's own illustrations.
       out.push({
         src: url,
         alt: block.alt || '',
         width: ar?.width || undefined,
         height: ar?.height || undefined,
-        searchUrl: `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(url)}`,
       });
     }
   }

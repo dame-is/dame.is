@@ -227,8 +227,8 @@ describe('mothLightboxImages', () => {
     expect(images[0].alt).toBe('Zebra Conchylodes Moth — Noctua pronuba');
   });
 
-  it('carries the iNaturalist observation and a reverse image search', () => {
-    expect(images[0].sourceUrl).toBe('https://www.inaturalist.org/observations/3');
-    expect(images[0].searchUrl).toContain('lens.google.com');
+  it('carries no source or reverse-search controls — those are curating\'s', () => {
+    expect(images[0].sourceUrl).toBeUndefined();
+    expect(images[0].searchUrl).toBeUndefined();
   });
 });

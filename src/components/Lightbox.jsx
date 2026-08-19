@@ -21,8 +21,11 @@ import './Lightbox.css';
  *     file arrives — without them the image pops from a dot to full size.
  *   - `thumb`: a small already-cached variant painted behind the full image
  *     while it loads (grid thumbnails are ideal).
- *   - `sourceUrl` / `searchUrl`: render a caption row under the image with
- *     a link to the original source and/or a reverse-image search.
+ *   - `sourceUrl` / `searchUrl`: add "source" / "reverse image search" links
+ *     to the control bar. Only the curated galleries (/curating) pass these:
+ *     their blocks come from elsewhere and pointing at where is the point.
+ *     Everywhere else the picture is the site's own, so the viewer stays
+ *     bare — image, navigation, close.
  */
 export default function Lightbox({ open, onClose, images, index = 0 }) {
   const list = Array.isArray(images) ? images.filter((im) => im?.src) : [];
