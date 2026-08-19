@@ -490,21 +490,24 @@
 
 /* --- summary tiles ------------------------------------------------ */
 
-/* Three columns, two on a phone — and BOTH rows on the same count, so the
-   second sits in the first's columns rather than beside them. Auto-fit sized
-   them independently and gave the headline three and the texture four: two
-   grids on slightly different rhythms, one under the other, with no vertical
-   rule running through the pair.
+/* Two columns at every width — and BOTH rows on the same count, so the second
+   sits in the first's columns rather than beside them. Auto-fit sized them
+   independently and gave the headline three and the texture four: two grids on
+   slightly different rhythms, one under the other, with no vertical rule
+   running through the pair. Two rather than three because eight figures divide
+   into it exactly (see COLUMNS in RatioedBlock.jsx), and because a third of
+   this measure is not enough tile for a label that says what its figure is.
 
-   A fixed count leaves short last rows, which the row renderer fills with
-   empty tiles — the rules here are this element's own colour showing through a
-   1px gap, so a missing cell paints a slab rather than a hole. Those blanks
-   (`.is-blank`) need no rules of their own: they are tiles, they paint the
-   page, and grid stretches them to the height of the figures beside them,
-   which is what carries the vertical rules full-depth. See RatioedBlock.jsx. */
+   A short last row is still possible — half the second row's tiles need an
+   event log to exist at all — and the row renderer fills it with empty tiles:
+   the rules here are this element's own colour showing through a 1px gap, so a
+   missing cell paints a slab rather than a hole. Those blanks (`.is-blank`)
+   need no rules of their own: they are tiles, they paint the page, and grid
+   stretches them to the height of the figures beside them, which is what
+   carries the vertical rules full-depth. */
 .ratioed-tiles {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
   background: var(--rule);
   border-block: 1px solid var(--rule);
@@ -515,12 +518,9 @@
 }
 /* The outer columns take their edge from the page, so the figures start on the
    same line as the heading above them rather than indented by a gutter nothing
-   else on the page has. Both column counts are written out in full: an
-   :nth-child selector outranks a plain one whatever a media query says, so the
-   three-column rules have to be put back before the two-column ones replace
-   them, or cell 4 keeps a first-column edge it no longer sits in. */
-.ratioed-tile:nth-child(3n + 1) { padding-left: 0; }
-.ratioed-tile:nth-child(3n) { padding-right: 0; }
+   else on the page has. */
+.ratioed-tile:nth-child(odd) { padding-left: 0; }
+.ratioed-tile:nth-child(even) { padding-right: 0; }
 .ratioed-tile-v {
   display: block;
   font-family: var(--font-crimson, serif);
@@ -547,25 +547,10 @@
   margin-top: var(--space-2);
 }
 
-/* What the label can't carry: the legend a figure is read against, and the one
-   handle on this grid. Set as ordinary text rather than as more small caps —
-   an all-caps track at this size costs about a third of the line, which is the
-   difference between a handle on one line and a handle broken across three. */
-.ratioed-tile-n {
-  display: block;
-  font-family: var(--sans);
-  font-size: var(--text-xs);
-  line-height: 1.35;
-  color: var(--ink-faint);
-  margin-top: 0.15em;
-  /* Nobody controls how long a handle is; break it before it breaks the grid. */
-  overflow-wrap: anywhere;
-}
-
 /* The second row: what a piece is LIKE, under what the project adds up to.
    Smaller figures and tighter rows, so the two read as headline and detail
-   rather than as fourteen equal facts. Its top border is the first row's
-   bottom one.
+   rather than as eight equal facts. Its top border is the first row's bottom
+   one.
 
    Block padding only. The shorthand this used to be re-stated the horizontal
    padding at a specificity the first-and-last-column rules above can't beat,
@@ -575,18 +560,6 @@
 .ratioed-tiles.is-texture .ratioed-tile { padding-block: var(--space-3); }
 .ratioed-tiles.is-texture .ratioed-tile-v { font-size: var(--text-xl); }
 .ratioed-tiles.is-texture .ratioed-tile-l { margin-top: var(--space-1); }
-
-/* Two columns once the reading measure starts shrinking with the window — see
-   TILES_QUERY in RatioedBlock.jsx, which switches on the same width. Two is the
-   floor: one figure per line turns a strip into a list, and these are meant to
-   be scanned rather than read. */
-@media (max-width: 40rem) {
-  .ratioed-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .ratioed-tile:nth-child(3n + 1) { padding-left: var(--space-4); }
-  .ratioed-tile:nth-child(3n) { padding-right: var(--space-4); }
-  .ratioed-tile:nth-child(odd) { padding-left: 0; }
-  .ratioed-tile:nth-child(even) { padding-right: 0; }
-}
 
 /* --- hidden replies ----------------------------------------------- */
 

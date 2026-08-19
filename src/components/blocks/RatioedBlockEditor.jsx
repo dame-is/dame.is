@@ -1,5 +1,5 @@
 const VARIANTS = [
-  ['summary', 'Summary', 'The project in six figures — pieces, time alive, people, the ratio, your mean reaction, and how many breakers deleted the like.'],
+  ['summary', 'Summary', 'The project in four figures — pieces, time alive, people, the ratio — over a second row of what a take is like: how long the average one stood, first touch, longest silence, who came back.'],
   ['lifelines', 'Lifelines', 'Every backlink plotted against time, with the threadgate as a hard rule and a log-scaled afterlife.'],
   ['reaction', 'Reaction times', 'How long it took you to close each piece by hand, in order. Deleted likes show as an inferred window.'],
   ['ledger', 'Ledger', 'Engagement before and after the seal, per piece.'],
