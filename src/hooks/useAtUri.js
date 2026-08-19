@@ -6,6 +6,7 @@ import { ME_DID, COLLECTIONS } from '../config.js';
 import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS, siblingCollections } from '../lib/recordRoutes.js';
 import { TEAL_PLAY_NSIDS } from '../lib/teal.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
+import { isNightSlug } from '../lib/mothing.js';
 
 const STANDARD_DOC = 'site.standard.document';
 
@@ -156,6 +157,16 @@ function deriveFromRoute(pathname, override) {
       record: null,
       route: pathname,
     };
+  }
+
+  // `/mothing/:date` is a NIGHT, not a record. A session is what a night's
+  // worth of observations add up to — the site derives it, nothing on the PDS
+  // holds it — so there is no at:// URI to claim. Without this the generic
+  // loop below would read the date as an observation rkey and advertise a
+  // record that isn't there. App.jsx's router makes the same split.
+  const nightMatch = matchPath('/mothing/:slug', pathname);
+  if (nightMatch && isNightSlug(nightMatch.params.slug)) {
+    return { atUri: null, cid: null, lexicon: null, record: null, route: pathname };
   }
 
   // Generic single-record routes — /:verb-or-nsid/:rkey

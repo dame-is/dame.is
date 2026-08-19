@@ -257,3 +257,75 @@
   margin-top: var(--space-6);
   font-size: var(--text-xs);
 }
+
+/* A night of its own ------------------------------------------------------ */
+
+/* A session title is a way in — the night's own page, where its moths are a
+   gallery. Undecorated at rest (the link is the whole title, and an underline
+   at that size reads as emphasis), with the same hover affordance the blog
+   index gives its entries. */
+.mothing-night-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .mothing-night-link:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+}
+
+/* The way back up to every night. `.page` is a gapped flex column, so the
+   crumb cancels that gap to sit with the title it introduces (the same thing
+   a Ratioed piece's crumb does, for the same reason). */
+.mothing-night-crumb {
+  font-size: var(--text-sm);
+  margin: 0 0 calc(var(--space-3) - var(--space-5));
+}
+
+/* Either side of this night, by date — the pagination a single night wants,
+   since the index is a long scroll and the nights are what you leaf through. */
+.mothing-night-nav {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--rule-soft);
+}
+
+.mothing-night-nav a {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* Later night sits right whether or not there's an earlier one to its left. */
+.mothing-night-nav-next {
+  margin-left: auto;
+  text-align: right;
+}
+
+.mothing-night-nav-label {
+  letter-spacing: 0.16em;
+  font-size: var(--text-xs);
+  color: var(--accent);
+}
+
+.mothing-night-nav-date {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+}
+
+@media (hover: hover) {
+  .mothing-night-nav a:hover .mothing-night-nav-date {
+    text-decoration: underline;
+    text-decoration-color: var(--accent-soft);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
+  }
+}

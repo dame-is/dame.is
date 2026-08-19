@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import { MothTile, MothStat } from '../components/MothTile.jsx';
 import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
@@ -8,115 +10,39 @@ import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
+import {
+  formatNightDate,
+  formatObservedTime,
+  mothLightboxImages,
+  mothName,
+  nightPath,
+  nightSummaryParts,
+} from '../lib/mothing.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { ME_DID, INATURALIST_USER, MOTHING_OBSERVATION_NSID } from '../config.js';
 import '../components/Feed.css';
 import './Mothing.css';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// Format a plain 'YYYY-MM-DD' date without touching Date() (no timezone math,
-// so a date can never shift across a day boundary — and never implies where).
-function formatDate(d) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || ''));
-  if (!m) return '';
-  const [, y, mo, day] = m;
-  return `${MONTHS[Number(mo) - 1]} ${Number(day)}, ${y}`;
-}
-
-// Local 'HH:MM' → '8:47pm'. Wall-clock only; carries no location.
-function formatTime(hhmm) {
-  const m = /^(\d{2}):(\d{2})$/.exec(String(hhmm || ''));
-  if (!m) return '';
-  let h = Number(m[1]);
-  const min = m[2];
-  const ampm = h >= 12 ? 'pm' : 'am';
-  h = h % 12 || 12;
-  return `${h}:${min}${ampm}`;
-}
-
-function StatBlock({ value, label }) {
-  if (value == null) return null;
-  return (
-    <div className="mothing-stat">
-      <span className="mothing-stat-value">{value.toLocaleString()}</span>
-      <span className="mothing-stat-label small-caps">{label}</span>
-    </div>
-  );
-}
-
-/** Google Lens reverse-image search for a photo — handy for pinning an ID. */
-function reverseSearchUrl(imageUrl) {
-  return `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
-}
-
-const mothName = (obs) => obs.taxon?.commonName || obs.taxon?.name || 'Unidentified moth';
-
 /**
- * One observation as an image tile that opens the in-page lightbox (the
- * iNaturalist link moves into the lightbox's "source" control). Photoless
- * observations fall back to a static placeholder tile.
+ * A session's header, and the way through to the night's own page — the whole
+ * night as a gallery, with a card that previews what was at the light (see
+ * MothingNight.jsx). The title is the link because the title IS the night:
+ * its date is the address.
  */
-function MothTile({ obs, onOpen }) {
-  const photo = obs.photos?.[0];
-  const src = photo ? photoUrl(photo, 'medium') : null;
-  const title = mothName(obs);
-  const sci = obs.taxon?.name;
-  const showSci = sci && sci !== title;
-  const caption = (
-    <span className="mothing-tile-caption">
-      <span className="mothing-name">{title}</span>
-      {showSci && <span className="mothing-sci">{sci}</span>}
-    </span>
-  );
-  return (
-    <li className="mothing-cell">
-      {src ? (
-        <button
-          type="button"
-          className="mothing-tile"
-          onClick={() => onOpen(obs)}
-          aria-label={`View photo: ${title}`}
-        >
-          <img src={src} alt={title} loading="lazy" decoding="async" />
-          {caption}
-        </button>
-      ) : (
-        <div className="mothing-tile mothing-tile-empty">
-          <div className="mothing-placeholder" aria-hidden="true">&#x1F98B;</div>
-          {caption}
-        </div>
-      )}
-    </li>
-  );
-}
-
 function SessionHeader({ session }) {
-  const parts = [`${session.observationCount} moth${session.observationCount === 1 ? '' : 's'}`];
-  if (session.speciesCount) parts.push(`${session.speciesCount} species`);
-  if (session.firstTime) {
-    parts.push(
-      session.lastTime && session.lastTime !== session.firstTime
-        ? `${formatTime(session.firstTime)}–${formatTime(session.lastTime)}`
-        : formatTime(session.firstTime),
-    );
-  }
   return (
     <header className="mothing-session-head">
       <div className="mothing-session-headrow">
         <span className="small-caps mothing-session-num">Session #{session.number}</span>
-        <h2 className="mothing-session-title">Night of {formatDate(session.date)}</h2>
+        <h2 className="mothing-session-title">
+          <Link className="mothing-night-link" to={nightPath(session.date)}>
+            Night of {formatNightDate(session.date)}
+          </Link>
+        </h2>
       </div>
-      <span className="gutter mothing-session-stats">{parts.join(' · ')}</span>
+      <span className="gutter mothing-session-stats">{nightSummaryParts(session).join(' · ')}</span>
     </header>
   );
-}
-
-/** Compact per-session summary for the ledger day-header (count · species). */
-function sessionLedgerMeta(session) {
-  const parts = [`${session.observationCount} moth${session.observationCount === 1 ? '' : 's'}`];
-  if (session.speciesCount) parts.push(`${session.speciesCount} species`);
-  return parts.join(' · ');
 }
 
 /**
@@ -132,7 +58,9 @@ function MothLedgerRow({ obs, onOpen }) {
   const name = mothName(obs);
   const sci = obs.taxon?.name;
   const showSci = sci && sci !== name;
-  const time = obs.observedTime ? formatTime(obs.observedTime) : formatDate(obs.observedDate);
+  const time = obs.observedTime
+    ? formatObservedTime(obs.observedTime)
+    : formatNightDate(obs.observedDate);
   const inner = (
     <>
       {thumb ? (
@@ -232,23 +160,7 @@ export default function Mothing() {
     return map;
   }, [photoObs]);
   const openLightbox = (obs) => setLightbox(lightboxIndexById.get(obs.id) ?? -1);
-  const lightboxImages = useMemo(
-    () =>
-      photoObs.map((o) => {
-        const photo = o.photos[0];
-        const large = photoUrl(photo, 'large');
-        const name = mothName(o);
-        const sci = o.taxon?.name;
-        return {
-          src: large,
-          thumb: photoUrl(photo, 'medium'),
-          alt: sci && sci !== name ? `${name} — ${sci}` : name,
-          sourceUrl: o.url,
-          searchUrl: large ? reverseSearchUrl(large) : undefined,
-        };
-      }),
-    [photoObs],
-  );
+  const lightboxImages = useMemo(() => mothLightboxImages(photoObs), [photoObs]);
 
   return (
     <PageShell
@@ -259,9 +171,9 @@ export default function Mothing() {
     >
       {stats && (
         <section className="mothing-stats" aria-label="Mothing stats">
-          <StatBlock value={stats.sessionCount ?? sessions.length} label="sessions" />
-          <StatBlock value={stats.observationCount} label="observations" />
-          <StatBlock value={stats.speciesCount} label="species" />
+          <MothStat value={stats.sessionCount ?? sessions.length} label="sessions" />
+          <MothStat value={stats.observationCount} label="observations" />
+          <MothStat value={stats.speciesCount} label="species" />
         </section>
       )}
 
@@ -291,8 +203,14 @@ export default function Mothing() {
           {sessions.map((session) => (
             <section key={session.date} className="feed-day-group">
               <header className="day-section-header">
-                <h3 className="day-header">Night of {formatDate(session.date)}</h3>
-                <p className="day-header-meta">{sessionLedgerMeta(session)}</p>
+                <h3 className="day-header">
+                  <Link className="mothing-night-link" to={nightPath(session.date)}>
+                    Night of {formatNightDate(session.date)}
+                  </Link>
+                </h3>
+                <p className="day-header-meta">
+                  {nightSummaryParts(session, { span: false }).join(' · ')}
+                </p>
               </header>
               <ol className="mothing-ledger reveal-stagger">
                 {session.observations.map((obs) => (
