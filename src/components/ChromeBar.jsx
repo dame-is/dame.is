@@ -59,8 +59,11 @@ export default function ChromeBar() {
   // time chip is overriding the clock, the mark steps with it; and while
   // the admin SkyThemeStudio is previewing an hour, the mark follows
   // that too (via skyDisplayHour) so it matches the palette being tuned.
-  const { skyDisplayHour } = useTheme();
-  const targetAvatar = skyAvatarUrl(skyDisplayHour);
+  // `showSkyMark` is the owner's switch for the mark (is.dame.sky/self →
+  // `showMark`, flipped in the admin Sky theme studio). Off, the site name
+  // stands alone in the top chrome.
+  const { skyDisplayHour, showSkyMark } = useTheme();
+  const targetAvatar = showSkyMark ? skyAvatarUrl(skyDisplayHour) : null;
 
   // The mark never paints a half-loaded image: an incoming URL is fetched
   // and decoded off-screen, and only swapped in — on the SAME persistent

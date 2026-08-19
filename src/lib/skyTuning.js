@@ -126,6 +126,21 @@ export function effectiveSkyTuning(record) {
 }
 
 /**
+ * Whether the top chrome draws its hourly sky-avatar mark.
+ *
+ * Deliberately NOT part of effectiveSkyTuning: that function answers "does
+ * this record override the palette?" and returns null the moment `enabled`
+ * is off, whereas the mark is a chrome decision that stands on its own —
+ * hiding the square must not require turning the palette override on. A
+ * record that predates the field (or no record at all) means shown, so the
+ * site's own default is what an absent flag falls back to.
+ */
+export function skyMarkVisible(record) {
+  const v = recordValue(record);
+  return v?.showMark !== false;
+}
+
+/**
  * Build the studio's editable draft from a record: a full 0–23 map of cfgs.
  * With no record, seed the two shoulder hours with the contrast fix.
  */
@@ -140,7 +155,12 @@ export function recordToDraft(record) {
       if (Number.isInteger(h) && h >= 0 && h <= 23) byHour[h] = normalizeHourCfg(item, h);
     }
   }
-  return { enabled: Boolean(v?.enabled), byHour, createdAt: v?.createdAt || null };
+  return {
+    enabled: Boolean(v?.enabled),
+    showMark: skyMarkVisible(record),
+    byHour,
+    createdAt: v?.createdAt || null,
+  };
 }
 
 /** Compact a draft cfg down to only the fields that differ from an identity. */

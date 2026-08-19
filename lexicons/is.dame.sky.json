@@ -5,12 +5,13 @@
     "main": {
       "type": "record",
       "key": "literal:self",
-      "description": "Tuning for the hour-tracking 'sky' theme (src/lib/skyTheme.js). A singleton at at://{me}/is.dame.sky/self. When `enabled`, each entry in `hours` layers a parametric override onto that hour's built-in palette — warming the borders and faint/muted text toward the horizon color, deepening them for contrast, optionally replacing the background, and adding a soft glow to chosen elements. When `enabled` is false (or no record exists), the site uses its hardcoded hourly derivation unchanged. Only hours that carry an override need to be listed. Edited in the admin 'Sky theme studio'.",
+      "description": "Tuning for the hour-tracking 'sky' theme (src/lib/skyTheme.js). A singleton at at://{me}/is.dame.sky/self. When `enabled`, each entry in `hours` layers a parametric override onto that hour's built-in palette — warming the borders and faint/muted text toward the horizon color, deepening them for contrast, optionally replacing the background, and adding a soft glow to chosen elements. When `enabled` is false (or no record exists), the site uses its hardcoded hourly derivation unchanged. Only hours that carry an override need to be listed. `showMark` is separate from all of that: it decides whether the top chrome draws the hourly avatar square beside the site name. Edited in the admin 'Sky theme studio'.",
       "record": {
         "type": "object",
         "required": ["enabled", "createdAt"],
         "properties": {
           "enabled": { "type": "boolean", "description": "Whether this record drives the sky palette. False = use the built-in derivation." },
+          "showMark": { "type": "boolean", "description": "Whether the top chrome draws the hourly sky-avatar square beside the site name. Absent = shown. Independent of `enabled`: the mark can be hidden while the built-in palette stands." },
           "hours": {
             "type": "array",
             "maxLength": 24,

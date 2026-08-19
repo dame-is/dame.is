@@ -291,7 +291,7 @@ export const SURFACES = Object.freeze([
     group: 'site',
     kind: 'studio',
     icon: 'CloudSun',
-    blurb: 'Tune the hour-tracking palette, hour by hour.',
+    blurb: 'Tune the hour-tracking palette, and the chrome’s avatar mark.',
     // The palette grid and the 24-hour strip are inherently wide.
     fullWidth: true,
   }),
