@@ -175,7 +175,7 @@ const SWATCHES = [
 ];
 
 export default function SkyThemeStudio({ agent, did }) {
-  const { installSkyTuning, setSkyPreviewHour, skyHour } = useTheme();
+  const { installSkyTuning, setSkyPreviewHour, setSkyMarkPreview, skyHour } = useTheme();
   // `stacked` gates the tuning half (§6 of the mobile design): thirteen 2px-tall
   // range inputs and a 24-cell arc at 13px per hour are the desktop control at
   // phone width, and nobody colour-grades an hourly palette on a 390px screen.
@@ -192,6 +192,7 @@ export default function SkyThemeStudio({ agent, did }) {
   siteHourRef.current = skyHour;
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState(false);
+  const [showMark, setShowMark] = useState(true);
   const [byHour, setByHour] = useState(null);
   const [createdAt, setCreatedAt] = useState(null);
   const [hour, setHour] = useState(() => easternHour());
@@ -220,6 +221,7 @@ export default function SkyThemeStudio({ agent, did }) {
       if (cancelled) return;
       const draft = recordToDraft(record);
       setEnabled(draft.enabled);
+      setShowMark(draft.showMark);
       setByHour(draft.byHour);
       setCreatedAt(draft.createdAt);
       setLoading(false);
@@ -246,6 +248,19 @@ export default function SkyThemeStudio({ agent, did }) {
     return undefined;
   }, [loading, liveApply, hour, byHour, setSkyPreviewHour]);
 
+  // The mark toggle previews on the real chrome the moment it moves — the
+  // chrome bar is on screen above this pane, so the answer is one glance
+  // away and a description of it would be the slower control. Unlike the
+  // palette preview this ignores `liveApply`: that switch is about painting
+  // an unsaved PALETTE over the whole site, and one square appearing or
+  // disappearing is not a repaint to protect anyone from. The preview is
+  // dropped on unmount below, handing the chrome back to the saved record.
+  useEffect(() => {
+    if (loading) return undefined;
+    setSkyMarkPreview(showMark);
+    return undefined;
+  }, [loading, showMark, setSkyMarkPreview]);
+
   // Hand the palette back on the way out — the single most important effect in
   // this file. The studio is a pane inside a shell that does NOT remount on
   // navigation, so "leaving" is this cleanup and nothing else; skip it and the
@@ -261,8 +276,9 @@ export default function SkyThemeStudio({ agent, did }) {
     () => () => {
       applySkyTheme(siteHourRef.current);
       setSkyPreviewHour(null);
+      setSkyMarkPreview(null);
     },
-    [setSkyPreviewHour],
+    [setSkyPreviewHour, setSkyMarkPreview],
   );
 
   const cfg = byHour ? byHour[hour] : null;
@@ -330,6 +346,7 @@ export default function SkyThemeStudio({ agent, did }) {
       const record = {
         $type: SKY_NSID,
         enabled,
+        showMark,
         hours,
         createdAt: createdAt || now,
         updatedAt: now,
@@ -352,7 +369,7 @@ export default function SkyThemeStudio({ agent, did }) {
     } finally {
       setSaving(false);
     }
-  }, [agent, did, byHour, enabled, createdAt, liveApply, hour, installSkyTuning]);
+  }, [agent, did, byHour, enabled, showMark, createdAt, liveApply, hour, installSkyTuning]);
 
   // Below 60rem the frame's action bar is where a surface's primary action
   // lives, so Save goes there and the in-flow `.sky-actions` row is not drawn.
@@ -468,14 +485,31 @@ export default function SkyThemeStudio({ agent, did }) {
             </span>
           </label>
 
+          <label className="sky-enable">
+            <input type="checkbox" checked={showMark} onChange={(e) => setShowMark(e.target.checked)} />
+            <span>
+              <strong>Show the avatar mark in the top chrome</strong>
+              <span className="sky-enable-hint">
+                {showMark
+                  ? 'On — the hourly sky-avatar square sits beside “dame.is” at the top of every page.'
+                  : 'Off — the site name stands alone up there, and the glow’s “avatar” target has nothing left to light. Save to make it so for everyone.'}
+              </span>
+            </span>
+          </label>
+
           {/* ---- preview ---- */}
           <div className="sky-preview" style={previewStyle(tunedVars)}>
             <div className="sky-pv-chrome">
-              {avatarUrl ? (
-                <img className="sky-pv-avatar" src={avatarUrl} alt="" />
-              ) : (
-                <span className="sky-pv-avatar sky-pv-avatar-empty" />
-              )}
+              {/* The mini chrome answers to the mark toggle for the same reason
+                  it answers to the palette: it is a picture of the real top
+                  bar, and a square here that is not up there is a lie about
+                  the thing being tuned. */}
+              {showMark &&
+                (avatarUrl ? (
+                  <img className="sky-pv-avatar" src={avatarUrl} alt="" />
+                ) : (
+                  <span className="sky-pv-avatar sky-pv-avatar-empty" />
+                ))}
               <span className="sky-pv-id"><b>dame.is</b> <span className="sky-pv-note">trying to take a nap</span></span>
               <span className="sky-pv-ago">1h</span>
             </div>

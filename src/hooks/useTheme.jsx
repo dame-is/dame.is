@@ -6,7 +6,7 @@ import {
   skyHourKey,
   setSkyTuning,
 } from '../lib/skyTheme.js';
-import { effectiveSkyTuning } from '../lib/skyTuning.js';
+import { effectiveSkyTuning, skyMarkVisible } from '../lib/skyTuning.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -88,6 +88,15 @@ export function ThemeProvider({ children }) {
   const [skyPreviewHour, setSkyPreviewHour] = useState(null);
   const skyDisplayHour = skyPreviewHour ?? skyHour;
 
+  // Does the top chrome draw the hourly sky-avatar square beside the site
+  // name? Owned by the is.dame.sky/self record's `showMark` (default on, so
+  // the mark survives a record written before the field existed), and
+  // shadowed while the admin studio has the toggle under the cursor so the
+  // owner sees the real chrome answer, not a description of it.
+  const [markVisible, setMarkVisible] = useState(true);
+  const [markPreview, setMarkPreview] = useState(null);
+  const showSkyMark = markPreview ?? markVisible;
+
   // Bumped once the is.dame.sky tuning override resolves (snapshot then
   // live), so the apply effect below re-paints the palette with it. Kept
   // in a ref too, for advanceSkyHour's synchronous apply guard.
@@ -123,8 +132,12 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     let cancelled = false;
     const install = (record) => {
+      if (cancelled) return;
+      // The mark flag is read on its own, BEFORE the tuning early-return:
+      // a record with `enabled: false` still gets to hide the mark.
+      setMarkVisible(skyMarkVisible(record));
       const tuning = effectiveSkyTuning(record);
-      if (cancelled || !tuning) return;
+      if (!tuning) return;
       setSkyTuning(tuning);
       setTuningRev((n) => n + 1);
     };
@@ -200,6 +213,10 @@ export function ThemeProvider({ children }) {
   // clock hour, clobbering the selected-hour preview. Pass null to clear.
   const installSkyTuning = useCallback((record) => {
     setSkyTuning(record ? effectiveSkyTuning(record) : null);
+    // The mark is plain state rather than a global slot, so a save has to
+    // land here for the chrome to hold the new answer once the studio's
+    // preview is dropped. A null record clears back to the default.
+    setMarkVisible(record ? skyMarkVisible(record) : true);
   }, []);
 
   const value = useMemo(
@@ -207,6 +224,8 @@ export function ThemeProvider({ children }) {
       theme: THEME,
       skyHour,
       skyDisplayHour,
+      showSkyMark,
+      setSkyMarkPreview: setMarkPreview,
       skyHourKey: skyHourKey(skyHour),
       skyOverridden: skyOverride != null,
       advanceSkyHour,
@@ -214,7 +233,7 @@ export function ThemeProvider({ children }) {
       setSkyPreviewHour,
       installSkyTuning,
     }),
-    [skyHour, skyDisplayHour, skyOverride, advanceSkyHour, setSkyHour, setSkyPreviewHour, installSkyTuning],
+    [skyHour, skyDisplayHour, showSkyMark, skyOverride, advanceSkyHour, setSkyHour, setSkyPreviewHour, installSkyTuning],
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
