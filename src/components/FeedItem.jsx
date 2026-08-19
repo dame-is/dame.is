@@ -20,6 +20,7 @@ import AnisotaLabCard from './cards/AnisotaLabCard.jsx';
 import FlushCard from './cards/FlushCard.jsx';
 import VerbIcon from './VerbIcon.jsx';
 import FeedLedgerRow, { isListenBatch } from './FeedLedgerRow.jsx';
+import { batchHref, isObservationBatch } from '../lib/observationBatches.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
@@ -77,6 +78,12 @@ function postingReplyVerbLabel(reply) {
  * to the generic `/{nsid}/{rkey}` form that Record.jsx handles.
  */
 function hrefFor(item) {
+  // A collapsed night of moths points at the night itself rather than at
+  // whichever sighting happens to sit newest in it — the run has a page, and
+  // it's the one a reader wants. (True even for a run of live, not-yet-
+  // mirrored observations: the night is derived, so it resolves regardless.)
+  const batch = batchHref(item);
+  if (batch) return batch;
   // A live iNaturalist observation isn't mirrored to the PDS yet, so it has no
   // record page — its card links out to iNaturalist instead. Skip the row's
   // internal link so a stray tap can't land on a "record not found" page.
@@ -106,8 +113,8 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
   const navigate = useNavigate();
   const edit = useEditMode();
   const xray = useXray();
-  // Ledger-only: whether a collapsed listening session is showing its
-  // full track list (see handleRowClick / FeedLedgerRow).
+  // Ledger-only: whether a collapsed run — a listening session or a night of
+  // moths — is showing its full list (see handleRowClick / FeedLedgerRow).
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
   const cfg = verbConfig(item.verb);
   if (!cfg) return null;
@@ -163,6 +170,10 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
   // (each expanded track links to its own record page, and the verb cell
   // still links to the session's record).
   const ledgerListenBatch = ledger && isListenBatch(item);
+  // A collapsed run of observations does the same: the tap opens the run
+  // rather than following it, and each sighting inside gets its own tap.
+  const ledgerObsBatch = ledger && isObservationBatch(item);
+  const ledgerBatch = ledgerListenBatch || ledgerObsBatch;
   // A photographed observation opens the in-feed image lightbox on tap
   // (like the /mothing page) instead of navigating to its record page. The
   // verb cell keeps linking to the record, so both paths stay reachable.
@@ -170,6 +181,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
   const canLightbox =
     ledger &&
     isObservation &&
+    !ledgerObsBatch &&
     typeof onOpenLightbox === 'function' &&
     Boolean(item.payload?.photos?.[0]);
 
@@ -180,7 +192,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
   // (Cmd/Ctrl/middle-click — let the browser open it in a new tab via the
   // verb badge / timestamp links instead).
   function handleRowClick(e) {
-    if (!href && !ledgerListenBatch && !canLightbox) return;
+    if (!href && !ledgerBatch && !canLightbox) return;
     if (e.defaultPrevented) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -191,7 +203,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
       onOpenLightbox(item);
       return;
     }
-    if (ledgerListenBatch) {
+    if (ledgerBatch) {
       setLedgerExpanded((v) => !v);
       return;
     }
@@ -244,7 +256,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
     'feed-item',
     `feed-item-${item.verb}`,
     ledger ? 'feed-item-ledger' : '',
-    ledgerListenBatch ? 'feed-item-ledger-expandable' : '',
+    ledgerBatch ? 'feed-item-ledger-expandable' : '',
     canLightbox ? 'feed-item-ledger-lightbox' : '',
     item._thread ? 'feed-item-thread' : '',
     item._thread?.isFirst ? 'feed-item-thread-first' : '',
@@ -270,7 +282,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
       onClick={
         xrayActive
           ? handleXrayClick
-          : !selectable && !listeningEdit && (href || ledgerListenBatch || canLightbox)
+          : !selectable && !listeningEdit && (href || ledgerBatch || canLightbox)
             ? handleRowClick
             : undefined
       }
@@ -290,7 +302,8 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
           item={item}
           href={href}
           expanded={ledgerExpanded}
-          onToggle={ledgerListenBatch ? () => setLedgerExpanded((v) => !v) : null}
+          onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}
+          onOpenLightbox={onOpenLightbox}
         />
       )}
       {!ledger && showVerb && (() => {

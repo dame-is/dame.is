@@ -24,6 +24,9 @@ export const OAUTH_CALLBACK_PATH = '/oauth/callback';
 // never ingested — see src/lib/inaturalist.js.
 export const INATURALIST_USER = 'anisota';
 export const INATURALIST_API = 'https://api.inaturalist.org/v1';
+// Where the /mothing pages credit the data. The project, not the account:
+// the observations are the point, and the page is already the account's.
+export const INATURALIST_URL = 'https://www.inaturalist.org';
 export const LEPIDOPTERA_TAXON_ID = 47157; // moths + butterflies
 export const BUTTERFLY_TAXON_ID = 47224; // Papilionoidea, excluded
 export const MOTHING_NSID = 'is.dame.mothing';

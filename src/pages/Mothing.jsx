@@ -19,7 +19,7 @@ import {
   nightSummaryParts,
 } from '../lib/mothing.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
-import { ME_DID, INATURALIST_USER, MOTHING_OBSERVATION_NSID } from '../config.js';
+import { ME_DID, INATURALIST_USER, INATURALIST_URL, MOTHING_OBSERVATION_NSID } from '../config.js';
 import '../components/Feed.css';
 import './Mothing.css';
 
@@ -271,10 +271,10 @@ export default function Mothing() {
 
       <p className="mothing-source gutter">
         Mirrored from{' '}
-        <a href={stats?.profileUrl || `https://www.inaturalist.org/people/${INATURALIST_USER}`} target="_blank" rel="noopener noreferrer">
+        <a href={INATURALIST_URL} target="_blank" rel="noopener noreferrer">
           iNaturalist
         </a>
-        . A mothing session is one night at the light (8pm&ndash;3am). Location data is intentionally omitted.
+        .
       </p>
 
       <Lightbox

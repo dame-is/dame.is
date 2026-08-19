@@ -23,6 +23,7 @@ import {
 } from '../lib/feedCache.js';
 import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
+import { collapseObservations } from '../lib/observationBatches.js';
 import { resolvePds, getLatestCommit } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { createSubjectResolver } from '../lib/subjectResolver.js';
@@ -605,7 +606,14 @@ export default function Home() {
   // newest visible record's instant — it reports "latest record …" in place
   // of the record page's "written … · updated …" pair.
   usePublishLatestRecord(filtered[0]?.createdAt || null);
-  const collapsed = useMemo(() => collapseListens(visible), [visible]);
+  const collapsed = useMemo(() => {
+    const listens = collapseListens(visible);
+    // Edit mode wants every record individually selectable. A listening batch
+    // can stay collapsed — ListenRow owns its own per-song selection — but an
+    // observation batch has no selection UI of its own, so its runs stay
+    // expanded while the owner is picking things out.
+    return editActive ? listens : collapseObservations(listens);
+  }, [visible, editActive]);
   const threaded = useMemo(() => groupSelfReplyThreads(collapsed, ME_DID), [collapsed]);
   const groups = useMemo(() => groupByDay(threaded, threadAwareDateKey), [threaded]);
 

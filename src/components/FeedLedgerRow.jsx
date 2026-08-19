@@ -6,6 +6,11 @@ import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { photoUrl } from '../lib/inaturalist.js';
+import {
+  batchCountLabel,
+  batchNameLine,
+  isObservationBatch,
+} from '../lib/observationBatches.js';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
@@ -66,7 +71,19 @@ const CRAFT_KIND_FALLBACK = {
   'net.anisota.spell.custom': 'a spell',
 };
 
-export default function FeedLedgerRow({ item, href, expanded = false, onToggle = null }) {
+/** How many specimens a collapsed run shows before the count takes over. */
+const BATCH_THUMBS = 4;
+/** And how many species it names. Two, not the card's three: moth names run
+    long, and the ledger row's whole job is to be one row. */
+const BATCH_LEDGER_NAMES = 2;
+
+export default function FeedLedgerRow({
+  item,
+  href,
+  expanded = false,
+  onToggle = null,
+  onOpenLightbox = null,
+}) {
   const replyHint = item.verb === 'posting' ? getReplyHint(item.payload) : null;
   const threadContinuation = item.verb === 'posting' && item._thread?.continuesPrev;
   const label = threadContinuation
@@ -82,6 +99,9 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
   // iNaturalist observations render a specimen thumbnail beside stacked
   // common/scientific names (see ObservationLedgerBody), not a text summary.
   const isObservation = item.verb === 'mothing' || item.verb === 'observing';
+  // A run of them collapses to one row: a strip of specimens, the species it
+  // turned up, and a count that opens the lot (see collapseObservations).
+  const obsBatch = isObservationBatch(item);
   // Blog entries render title + a muted summary line beneath (BlogLedgerBody)
   // rather than the single-line title summary.
   const isBlog = item.verb === 'blogging';
@@ -117,7 +137,12 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
       )}
       <div className="ledger-body">
         {isRepost && <RepostQuote item={item} />}
-        {isObservation && <ObservationLedgerBody item={item} />}
+        {isObservation &&
+          (obsBatch ? (
+            <ObservationBatchLedgerBody item={item} expanded={expanded} onToggle={onToggle} />
+          ) : (
+            <ObservationLedgerBody item={item} />
+          ))}
         {isBlog && <BlogLedgerBody item={item} />}
         {craftThumb ? (
           <div className="ledger-craft">
@@ -139,6 +164,13 @@ export default function FeedLedgerRow({ item, href, expanded = false, onToggle =
           positioned over the row so it stays one line and column-aligned;
           revealed by the data-xray root attribute (see Xray.css). */}
       {item.atUri && <LedgerXrayLine atUri={item.atUri} cid={item.cid} />}
+      {expanded && obsBatch && item.observations.map((obs) => (
+        <ObservationChildRow
+          key={obs.atUri || obs.payload?.inatId}
+          item={obs}
+          onOpenLightbox={onOpenLightbox}
+        />
+      ))}
       {expanded && isListenBatch(item) && item.plays.map((play) => {
         const playTs = play?.createdAt || playedAtOf(play?.payload) || null;
         const playHref = recordPathFromAtUri(play?.atUri);
@@ -479,6 +511,103 @@ function ObservationLedgerBody({ item }) {
         </span>
         {showSci && <span className="ledger-obs-sci">{sci}</span>}
       </span>
+    </div>
+  );
+}
+
+/**
+ * A collapsed run of observations: up to four specimens in a strip, the
+ * species the run turned up, and the count — which doubles as the expand
+ * toggle, exactly as a listening session's song count does. FeedItem also
+ * toggles on taps anywhere else in the row.
+ */
+function ObservationBatchLedgerBody({ item, expanded, onToggle }) {
+  const shown = (item.observations || [])
+    .filter((o) => o.payload?.photos?.[0])
+    .slice(0, BATCH_THUMBS);
+  const names = batchNameLine(item, BATCH_LEDGER_NAMES);
+  const count = batchCountLabel(item);
+  return (
+    <div className="ledger-obs ledger-obs-batch">
+      <span className="ledger-obs-strip" aria-hidden="true">
+        {shown.length ? (
+          shown.map((o) => (
+            <img
+              key={o.atUri || o.payload.inatId}
+              className="ledger-obs-thumb"
+              src={photoUrl(o.payload.photos[0], 'square')}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              width={36}
+              height={36}
+            />
+          ))
+        ) : (
+          <span className="ledger-obs-thumb ledger-obs-thumb-empty" />
+        )}
+      </span>
+      <span className="ledger-obs-names">
+        <span className="ledger-obs-name">
+          {names || <Placeholder>unidentified</Placeholder>}
+        </span>
+        <span className="ledger-obs-count">
+          {onToggle ? (
+            <button
+              type="button"
+              className="ledger-count-toggle"
+              onClick={onToggle}
+              aria-expanded={expanded}
+              aria-label={`${expanded ? 'Hide' : 'Show'} all ${count}`}
+            >
+              {count}
+              <span className="ledger-count-caret" aria-hidden="true">
+                {expanded ? '\u2212' : '+'}
+              </span>
+            </button>
+          ) : (
+            count
+          )}
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * One sighting inside an expanded run — the same thumbnail-and-names body the
+ * uncollapsed row wears, in the compact sub-row the expanded track list uses,
+ * with its own wall-clock flush right. Tapping opens the feed's lightbox at
+ * that photo (what a single observation row does); a photoless one falls back
+ * to its record page.
+ */
+function ObservationChildRow({ item, onOpenLightbox }) {
+  const hasPhoto = Boolean(item.payload?.photos?.[0]);
+  const canLightbox = hasPhoto && typeof onOpenLightbox === 'function';
+  const href = !canLightbox && item.atUri && !item._live ? recordPathFromAtUri(item.atUri) : null;
+  const body = <ObservationLedgerBody item={item} />;
+  const time =
+    formatWallClockTime(item.payload?.observedTime) ||
+    (item.createdAt ? formatTime(item.createdAt) : '');
+  return (
+    <div className="ledger-track-row ledger-obs-child">
+      {canLightbox ? (
+        <button
+          type="button"
+          className="ledger-obs-child-open"
+          onClick={() => onOpenLightbox(item)}
+          aria-label={`View photo: ${item.payload?.taxon?.commonName || item.payload?.taxon?.name || 'observation'}`}
+        >
+          {body}
+        </button>
+      ) : href ? (
+        <Link className="ledger-obs-child-open" to={href}>
+          {body}
+        </Link>
+      ) : (
+        body
+      )}
+      <span className="ledger-time ledger-track-time">{time}</span>
     </div>
   );
 }
