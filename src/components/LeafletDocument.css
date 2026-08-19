@@ -232,7 +232,8 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
 }
 
 .leaflet-bsky-post-avatar {
-  border-radius: 50%;
+  border-radius: 0;
+  object-fit: cover;
   flex-shrink: 0;
 }
 

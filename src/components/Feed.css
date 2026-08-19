@@ -1188,7 +1188,8 @@ a.reference-card-profile:focus-visible {
 }
 
 .reference-card-subject-avatar {
-  border-radius: 50%;
+  border-radius: 0;
+  object-fit: cover;
   border: 1px solid var(--rule-soft);
   flex: 0 0 auto;
 }
