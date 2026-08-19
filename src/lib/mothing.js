@@ -94,16 +94,16 @@ export function nightBeyondReach(observations, date) {
   return !latest || date >= latest;
 }
 
-/** '11:43pm–1:47am', or a single time when a night holds only one, or ''. */
+/** '11:43pm – 1:47am', or a single time when a night holds only one, or ''. */
 export function nightSpan(session) {
   const first = formatObservedTime(session?.firstTime);
   if (!first) return '';
   const last = formatObservedTime(session?.lastTime);
-  return last && last !== first ? `${first}–${last}` : first;
+  return last && last !== first ? `${first} – ${last}` : first;
 }
 
 /**
- * ['35 moths', '31 species', '11:43pm–1:47am'] — the night in three parts.
+ * ['35 moths', '31 species', '11:43pm – 1:47am'] — the night in three parts.
  * Pass `{ span: false }` where the line has to stay short: the ledger's day
  * header sets its summary on one line beside the date, and on a phone the
  * hours are what push it to two.

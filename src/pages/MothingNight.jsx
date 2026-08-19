@@ -140,7 +140,7 @@ export default function MothingNight() {
         <MothStat value={`#${session.number}`} label="session" />
         <MothStat value={session.observationCount} label="moths" />
         <MothStat value={session.speciesCount} label="species" />
-        <MothStat value={span} label="at the light" />
+        <MothStat value={span} label="time" />
       </section>
 
       <ul className="mothing-grid reveal-stagger">

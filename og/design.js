@@ -148,28 +148,6 @@ function wrapText(text, size, maxWidth) {
   return lines;
 }
 
-/**
- * Join as many of `items` as fit on ONE line at `size`, separated by ' · ',
- * ending in an ellipsis when some are left out. Cutting between items rather
- * than mid-word is the point: where this is used the items are the names of
- * the moths pictured above it, and half a name identifies nothing.
- */
-function joinToWidth(items, size, maxWidth, sep = ' · ') {
-  const per = size * 0.49; // Crimson Pro's average advance, as in wrapText
-  let line = '';
-  for (let i = 0; i < items.length; i += 1) {
-    const next = line ? `${line}${sep}${items[i]}` : String(items[i]);
-    // Reserve room for the ' …' — unless this is the last one, which leaves
-    // nothing out and so needs none.
-    const reserve = i < items.length - 1 ? 2 : 0;
-    if ((next.length + reserve) * per > maxWidth) {
-      return line ? `${line} …` : wrapText(next, size, maxWidth)[0];
-    }
-    line = next;
-  }
-  return line;
-}
-
 // The big gerund shrinks for longer labels so it never runs past the column.
 function titleSize(label, base, maxChars) {
   const n = (label || '').length;
@@ -502,12 +480,12 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
 // A night at the light is a set of photographs, so the card is the
 // photographs: the first few of them ruled into the page as a strip — top and
 // bottom edges landing on coarse rules, so they sit ON the paper rather than
-// floating over it — with what was caught named underneath.
+// floating over it.
 //
-// The gutter carries the session's number where every other card carries the
-// day-of-life folio. Same joke the piece card makes: a notebook page number,
-// for a numbered night.
-function nightCard(t, { night, avatarUri, nsid }) {
+// The gutter keeps the day-of-life folio every other card carries, stamped
+// with the night's OWN day rather than the day the card was rendered (see
+// api/og.js) — so a notebook page number dates the night.
+function nightCard(t, { night, avatarUri, nsid, folio }) {
   const CX = 320, bcBy = P - LE;
   const colW = W - PAD - CX; // content column
   const BOX = 2 * P; // a square exactly two coarse rules tall
@@ -526,16 +504,12 @@ function nightCard(t, { night, avatarUri, nsid }) {
   const facts = [
     ['moths', night.moths == null ? '' : String(night.moths)],
     ['species', night.species ? String(night.species) : ''],
-    ['at the light', night.span || ''],
+    ['time', night.span || ''],
   ];
 
-  // What is actually pictured, in the strip's own order — a card that only
-  // counted them would say nothing about what came to the light.
-  const nameLine = joinToWidth(photos.map((p) => p.name).filter(Boolean), 21, colW);
-
   return shell(t, [
-    at('night', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
-    at(`#${night.number}`, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
     rowAt(
       [
@@ -574,11 +548,10 @@ function nightCard(t, { night, avatarUri, nsid }) {
       ),
     ),
 
-    nameLine && at(nameLine, { size: 21, by: 7 * P + HP - 8, left: CX, color: t.inkMuted, weight: 400 }),
     at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
   ], {
     verticals: [PAD, { x: CX, strong: true }, W - PAD],
-    halfBands: [{ from: 4 * P, to: 4 * P + HP }, { from: 7 * P, to: 7 * P + HP }],
+    halfBands: [{ from: 4 * P, to: 4 * P + HP }],
   });
 }
 
@@ -635,7 +608,7 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {'light'|'dark'|object} [o.theme] palette key, or a resolved token map (e.g. themeFromSky)
  * @param {boolean} [o.record]   render the per-record card (title = o.label as a wrapped headline)
  * @param {object}  [o.night]    render the mothing-night card
- *                               ({number,title,moths,species,span,photos:[{src,name}]})
+ *                               ({title,moths,species,span,photos:[{src}]})
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
  * @param {Array}   [o.hero]      [{text,color}] for the home hero card
  */
@@ -650,10 +623,10 @@ export function ogElement(o = {}) {
   if (o.piece) {
     return ratioedCard(t, { piece: o.piece, marks: o.marks || [], scale: o.scale || {}, avatarUri });
   }
-  // A night's headline is a date and its gutter is a session number, so it
-  // carries no label either — same reason it is picked before the fallback.
+  // A night names itself in its headline rather than in a gerund label, so it
+  // has none either — same reason it is picked before the fallback.
   if (o.night) {
-    return nightCard(t, { night: o.night, avatarUri, nsid: o.nsid || '' });
+    return nightCard(t, { night: o.night, avatarUri, nsid: o.nsid || '', folio });
   }
 
   const isHome = pathname === '/' || !o.label;

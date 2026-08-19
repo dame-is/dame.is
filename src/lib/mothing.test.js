@@ -140,7 +140,7 @@ describe('nightBeyondReach', () => {
 
 describe('nightSpan', () => {
   it('reads low to high across midnight', () => {
-    expect(nightSpan(findNight(OBSERVATIONS, '2026-08-18').session)).toBe('9:05pm–1:47am');
+    expect(nightSpan(findNight(OBSERVATIONS, '2026-08-18').session)).toBe('9:05pm – 1:47am');
   });
 
   it('collapses to one time when a night holds only one', () => {
@@ -157,7 +157,7 @@ describe('nightSummaryParts', () => {
     expect(nightSummaryParts(findNight(OBSERVATIONS, '2026-08-18').session)).toEqual([
       '3 moths',
       '3 species',
-      '9:05pm–1:47am',
+      '9:05pm – 1:47am',
     ]);
   });
 
@@ -183,7 +183,7 @@ describe('nightCardCopy', () => {
   });
 
   it('names what was at the light, not just how much of it', () => {
-    expect(copy.description).toContain('3 moths, 3 species, 9:05pm–1:47am');
+    expect(copy.description).toContain('3 moths, 3 species, 9:05pm – 1:47am');
     expect(copy.description).toContain('Zebra Conchylodes Moth');
   });
 

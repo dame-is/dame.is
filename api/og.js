@@ -25,7 +25,7 @@ import { resolveSkyTuning } from '../og/skyTuning.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
 import { pieceRecord, nightSession } from '../og/records.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
-import { formatNightDate, nightSpan, photographed, mothName } from '../src/lib/mothing.js';
+import { nightSpan, photographed } from '../src/lib/mothing.js';
 import { MOTHING_OBSERVATION_NSID } from '../src/config.js';
 import { createRequire } from 'node:module';
 
@@ -93,24 +93,23 @@ async function inlinePhoto(url) {
 /**
  * Everything the night card draws, read back off the session itself so no
  * free text ever reaches the renderer — the URL only ever carries a date.
- * Each photo keeps the name of the moth in it, so the caption line under the
- * strip can't drift out of step with the pictures when one fails to load.
  */
 async function nightCardData(session) {
   const shown = photographed(session).slice(0, NIGHT_PHOTOS);
   const photos = await Promise.all(
     shown.map(async (o) => {
       const src = await inlinePhoto(photoUrl(o.photos[0], 'small'));
-      return src ? { src, name: mothName(o) } : null;
+      return src ? { src } : null;
     }),
   );
   return {
-    // Not drawn — the card's headline is the formatted date. This is the raw
-    // one, so the handler can tell a night still in progress from a finished
-    // one when it sets the cache headers.
+    // Not drawn. It's here so the handler can stamp the folio with the night's
+    // own day, and tell a night still in progress from a finished one when it
+    // sets the cache headers.
     date: session.date,
-    number: session.number,
-    title: `Night of ${formatNightDate(session.date)}`,
+    // The work and which one of it, the way the piece card names a take. The
+    // date is the <title>'s job (see og/records.js) and the folio's.
+    title: `Mothing, session ${session.number}`,
     moths: session.observationCount,
     species: session.speciesCount,
     span: nightSpan(session),
@@ -181,6 +180,10 @@ export default async function handler(req, res) {
     if (!piece && q.night) {
       const found = await nightSession(clampText(q.night), origin);
       if (found?.session) night = await nightCardData(found.session);
+      // Stamp the folio with the night's own day, exactly as a record card is
+      // stamped with the record's — the notebook page number is what dates
+      // this card now that its headline names the session instead.
+      if (night && !q.date) folioAt = new Date(`${night.date}T00:00:00Z`);
     }
     if (piece) {
       // Fall through to the render with `piece` set; nothing else applies.
