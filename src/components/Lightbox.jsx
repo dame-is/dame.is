@@ -115,7 +115,21 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   // With intrinsic dimensions we can size the frame before the file
   // arrives: natural width, clamped by the panel width and by the
   // viewport-height budget (transferred through the aspect ratio).
-  // Without them the image sizes itself on load, as before.
+  //
+  // Without them the frame takes the SIZER's intrinsic box instead, and that
+  // is a real difference, not a shrug. Only the curated galleries carry
+  // dimensions (are.na hands them over with the block), so only they fill the
+  // viewport. Everything else — a moth, an observation, an illustration in a
+  // post — sizes to its thumb: iNaturalist's `medium` is 500×375, so a moth
+  // opens at 500 CSS px on a desktop of any width, scaled down to fit on a
+  // phone.
+  //
+  // Small, and deliberately so: 500 CSS px against the 1024px `large` this
+  // viewer loads is ~2× coverage on a retina screen, i.e. pixel-sharp. Filling
+  // a 2560px monitor would mean serving `original` — 2048px and 2.8MB a photo,
+  // times however many the arrow keys walk through — or the same 1024px file
+  // stretched to half density. Both were considered and neither was worth it.
+  // If you came here to "fix" the small photo, that's the trade you're making.
   const ratio = current.width > 0 && current.height > 0 ? current.width / current.height : null;
   const frameStyle = ratio
     ? {
