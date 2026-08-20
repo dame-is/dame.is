@@ -14,6 +14,15 @@ import { mothName } from '../lib/mothing.js';
 export function MothTile({ obs, onOpen }) {
   const photo = obs.photos?.[0];
   const src = photo ? photoUrl(photo, 'medium') : null;
+  // A tile is 192–356 CSS px and square-cropped, so what it consumes is the
+  // photo's SHORT edge: iNaturalist's `medium` (500×375 on a 4:3 frame) has
+  // 375px of it, which is under 1:1 on any retina display — a 356px tile on a
+  // 3× phone wants 1068. `large` carries 768 and covers both. Offered as a 2×
+  // candidate rather than swapped outright so a 1× screen still pays 212kB
+  // instead of 856kB. Same shape the curating grid uses for its are.na
+  // blocks. It also means opening the lightbox is a cache hit on retina: the
+  // viewer's full image IS this file (see mothLightboxImages).
+  const srcSet = photo ? `${src} 1x, ${photoUrl(photo, 'large')} 2x` : undefined;
   const title = mothName(obs);
   const sci = obs.taxon?.name;
   const showSci = sci && sci !== title;
@@ -32,7 +41,7 @@ export function MothTile({ obs, onOpen }) {
           onClick={() => onOpen(obs)}
           aria-label={`View photo: ${title}`}
         >
-          <img src={src} alt={title} loading="lazy" decoding="async" />
+          <img src={src} srcSet={srcSet} alt={title} loading="lazy" decoding="async" />
           {caption}
         </button>
       ) : (
