@@ -3,7 +3,8 @@
 // framing everywhere is "Dame is… {label}" — the same gerund voice the nav
 // and breadcrumbs use (see src/components/ActionDock.jsx).
 //
-// `label`   — the gerund shown big on the card (and after "Dame is…").
+// `label`   — the gerund shown big on the card (and after "Dame is…"). One
+//             page (/available) breaks the gerund voice on purpose — see there.
 // `title`   — the <title> / og:title text.
 // `desc`    — og:description + the card subtitle.
 // `nsid`    — the AT-Protocol lexicon this surface reads from, printed in the
@@ -40,8 +41,11 @@ export const PAGES = {
     desc: 'Who dame is — a longer look at the person behind the pixels, drawn live from the AT Protocol.',
     nsid: 'is.dame.profile',
   },
+  // The one card whose headline isn't the route's own word: /available is a
+  // résumé, and "for hire" says what the page is asking for where "available"
+  // only describes a state. The breadcrumb and <title> still read /available.
   '/available': {
-    label: 'available',
+    label: 'for hire',
     title: 'dame.is available',
     desc: "Dame's résumé and work history — design, strategy, and building on the open social web. Currently available for hire.",
     nsid: 'is.dame.resume',
