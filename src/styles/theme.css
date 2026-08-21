@@ -206,6 +206,32 @@
   color-scheme: dark;
 }
 
+/* Nesting scale — surfaces drawn on top of other surfaces.
+   ---------------------------------------------------------------------
+   A quoted post inside a quoted post inside an embedded post is three
+   surfaces deep, and every one of them was painted --page-edge, so the
+   stack read as one flat card with rules drawn through it.
+
+   One step per level, mixed from the page toward the ink. That direction is
+   what makes a single token work in every theme: --ink is near-black on the
+   light palette and near-white on the dark one, so the same formula darkens
+   a light page and lightens a dark one, and each level pulls further from
+   the page either way. The hue is the page's own in all three themes (the
+   sky palette derives its ink hue from the page's), so a stack stays
+   monochromatic while the whole palette drifts through the day.
+
+   Consumers compute `color-mix(in oklab, var(--ink) calc(N * var(--nest-step)),
+   var(--page))` for level N, in oklab so the steps are perceptually even
+   rather than bunching at one end. They also declare a --page-edge fallback
+   first, for anything that can't do color-mix.
+
+   Deliberately a step rather than a set of named levels: the mix has to
+   resolve against whatever --page and --ink are in scope, and the sky studio
+   re-themes a subtree by setting those on an element other than :root. */
+:root {
+  --nest-step: 4.5%;
+}
+
 /* Sky-theme glow / shine application. A tuning override (is.dame.sky) lights
    up accent elements per hour; each family maps to one glow group chosen in
    the studio. The tokens are `none` until an override turns them on, so these

@@ -589,7 +589,9 @@ function BskyPostBlock({ block, style }) {
       {text && (
         <p className="leaflet-bsky-post-text">{renderLeafletText(text, mapBskyFacetsToLeafletText(facets))}</p>
       )}
-      {post.embed && <PostEmbed embed={post.embed} did={author.did} />}
+      {/* The block itself is one level into the nesting scale, so the quotes
+          inside it start at two rather than repainting its own colour. */}
+      {post.embed && <PostEmbed embed={post.embed} did={author.did} nest={1} />}
     </article>
   );
 }
