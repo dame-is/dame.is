@@ -701,6 +701,23 @@
 /* Five columns rather than eight: the shared 44rem floor is there to stop the
    ledger's windows collapsing, and on this table it only added scroll. */
 .ratioed-participants .ratioed-table { min-width: 30rem; }
+/* The button and the way out of the table, on one line. */
+.ratioed-participants-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.ratioed-participants-board {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  text-decoration: none;
+  margin-top: var(--space-3);
+}
+.ratioed-participants-board:hover { color: var(--ink); }
 /* An act with no surviving record — the deleted breaking like. Dashed, like
    the inferred window on the lifelines, so "we know this happened but cannot
    measure it" looks the same wherever it appears. */

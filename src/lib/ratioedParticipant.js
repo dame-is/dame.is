@@ -190,3 +190,93 @@ export function participantDossier(person, { pieces, resolveEvents } = {}) {
     quickest: alive.length ? alive.reduce((a, b) => (b.off < a.off ? b : a)) : null,
   };
 }
+
+/**
+ * How many records somebody made while a piece was still standing.
+ *
+ * Read off the living window of the event logs, which `livingRoster` has
+ * already resolved onto the row. Null rather than zero when no log covers
+ * them: a person the logs can't answer for has an unknown count, and printing
+ * a zero would report them as somebody who turned up and did nothing.
+ */
+export function liveRecords(person) {
+  const kinds = person?.liveKinds;
+  if (kinds) return Object.values(kinds).reduce((sum, n) => sum + n, 0);
+  // A breaker named by an announcement rather than measured. Their like is the
+  // only record there is, and `ev` already counts it — as 0 when it was
+  // deleted, which is the point of it having been deleted.
+  if (person?.named) return person.ev || 0;
+  return null;
+}
+
+/** The middle value of a sorted list of numbers, or null for an empty one. */
+function median(values) {
+  if (!values.length) return null;
+  const mid = Math.floor(values.length / 2);
+  return values.length % 2 ? values[mid] : Math.round((values[mid - 1] + values[mid]) / 2);
+}
+
+/**
+ * The living roster as a ranking, with the figures a leaderboard needs.
+ *
+ * `audiences` is the DID/handle → follower map the reach layer builds; a person
+ * it can't price carries `fr: -1` rather than 0, so the unknown sort to the
+ * bottom instead of tying with the accounts nobody follows.
+ *
+ * Ranked by pieces, then by records, then by handle. Three keys rather than
+ * one because the first two tie constantly — a hundred and thirty of the people
+ * here were in exactly one piece — and a ranking that leaves ties to the array
+ * order reshuffles itself every time anything re-renders it.
+ */
+export function participantBoard(rows, { audiences, sort = 'live', dir = -1 } = {}) {
+  const priced = (rows || []).map((p) => {
+    const found = audiences ? audiences[p.did] || audiences[p.h] : null;
+    return {
+      ...p,
+      fr: typeof found?.fr === 'number' ? found.fr : -1,
+      records: liveRecords(p),
+    };
+  });
+  const rank = (a, b) => b.live - a.live || (b.records || 0) - (a.records || 0) || a.h.localeCompare(b.h);
+  const ranked = [...priced].sort(rank).map((p, i) => ({ ...p, rank: i + 1 }));
+
+  const key = sort;
+  const ordered =
+    key === 'live'
+      ? dir === -1
+        ? ranked
+        : [...ranked].reverse()
+      : [...ranked].sort((a, b) => {
+          const A = a[key];
+          const B = b[key];
+          const cmp = typeof A === 'string' ? A.localeCompare(B) : (A ?? -1) - (B ?? -1);
+          return cmp * dir || rank(a, b);
+        });
+
+  const audienceValues = ranked.filter((p) => p.fr >= 0).map((p) => p.fr).sort((a, b) => a - b);
+  const counted = ranked.filter((p) => p.records != null);
+
+  return {
+    rows: ordered,
+    ranked,
+    totals: {
+      people: ranked.length,
+      // Coming back is the finding the ranking exists to show: most people turn
+      // up once, and the ones who return are a different population.
+      returned: ranked.filter((p) => p.live > 1).length,
+      once: ranked.filter((p) => p.live === 1).length,
+      breakers: ranked.filter((p) => brokenTakes(p).length).length,
+      records: counted.reduce((sum, p) => sum + p.records, 0),
+      // Held back when any row's count is unknown, so a total is never quietly
+      // short by however many people no log covers.
+      recordsBlind: ranked.length - counted.length,
+      audience: audienceValues.reduce((sum, n) => sum + n, 0),
+      medianAudience: median(audienceValues),
+      unpriced: ranked.length - audienceValues.length,
+      mostPieces: ranked[0] || null,
+      biggestAudience: audienceValues.length
+        ? ranked.reduce((top, p) => (p.fr > (top?.fr ?? -1) ? p : top), null)
+        : null,
+    },
+  };
+}

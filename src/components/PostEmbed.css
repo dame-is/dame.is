@@ -62,10 +62,16 @@
   grid-row: span 2;
 }
 
+/* The frames behind pictures, video and link cards sit one level above the
+   surface they are on: `--nest` inherits from the quote around them, and is
+   absent when they are drawn straight onto a post. Without it a link card
+   inside a deep quote could come out lighter than the quote holding it, since
+   --page-edge is a fixed distance from the page and the quote is not. */
 .post-embed-image {
   display: block;
   border: 1px solid var(--rule-soft);
   background: var(--page-edge);
+  background: color-mix(in oklab, var(--ink) calc((var(--nest, 0) + 1) * var(--nest-step)), var(--page));
   overflow: hidden;
   line-height: 0;
   border-radius: var(--radius-2);
@@ -136,6 +142,7 @@
 .post-embed-video {
   border: 1px solid var(--rule-soft);
   background: var(--page-edge);
+  background: color-mix(in oklab, var(--ink) calc((var(--nest, 0) + 1) * var(--nest-step)), var(--page));
   border-radius: var(--radius-2);
   overflow: hidden;
   line-height: 0;
@@ -158,6 +165,7 @@
   gap: var(--space-3);
   border: 1px solid var(--rule-soft);
   background: var(--page-edge);
+  background: color-mix(in oklab, var(--ink) calc((var(--nest, 0) + 1) * var(--nest-step)), var(--page));
   padding: var(--space-3);
   text-decoration: none;
   color: inherit;
@@ -168,7 +176,10 @@
 .post-embed-link-card:hover,
 .post-embed-link-card:focus-visible {
   border-color: var(--accent-soft);
+  /* Back one level, to the surface it is drawn on — not to --page, which on a
+     nested card is a jump past every level underneath it. */
   background: var(--page);
+  background: color-mix(in oklab, var(--ink) calc(var(--nest, 0) * var(--nest-step)), var(--page));
 }
 
 .post-embed-link-card-thumb img {
@@ -225,7 +236,18 @@
   }
 }
 
-/* Quote (record) embed. A miniature card-within-a-card. */
+/* Quote (record) embed. A miniature card-within-a-card.
+
+   `--nest` is the level PostEmbed.jsx worked out for this one: how many
+   surfaces deep it is, counting the container it was handed. One tint per
+   level, mixed from the page toward the ink, which darkens on a light theme
+   and lightens on a dark one without needing to know which is showing. See
+   the nesting scale in styles/theme.css.
+
+   Every level used to be --page-edge, so a quote inside a quote inside an
+   embedded post was three cards in one colour and read as a single block with
+   rules drawn across it. The --page-edge line stays as the fallback for
+   anything without color-mix, which lands on exactly the old appearance. */
 .post-embed-quote {
   display: flex;
   flex-direction: column;
@@ -233,6 +255,7 @@
   border: 1px solid var(--rule);
   padding: var(--space-3);
   background: var(--page-edge);
+  background: color-mix(in oklab, var(--ink) calc(var(--nest, 1) * var(--nest-step)), var(--page));
   border-radius: var(--radius-2);
   text-decoration: none;
   color: inherit;

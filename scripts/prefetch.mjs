@@ -435,6 +435,18 @@ function buildSitemap({
     );
   }
 
+  // The roster, ranked. One page rather than the two hundred it lists: a
+  // participant's own page is about somebody who did not ask to be indexed,
+  // and the ranking is the address the site links them from.
+  if (ratioedPieces?.length) {
+    const last = ratioedPieces
+      .map((r) => r?.value?.measuredAt || r?.value?.sealedAt || null)
+      .filter(Boolean)
+      .sort()
+      .pop();
+    push(`/creating/${RATIOED_PATH}/participants`, last || null);
+  }
+
   // Every mothing session has a page of its own, addressed by the night it
   // was — the same address the index links each session header to. No lastmod:
   // a night's date is when it happened, not when it last changed, and moths do

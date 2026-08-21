@@ -206,13 +206,19 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   }
 }
 
-/* Embedded Bluesky post block (pub.leaflet.blocks.bskyPost). */
+/* Embedded Bluesky post block (pub.leaflet.blocks.bskyPost).
+
+   Level one of the nesting scale (see styles/theme.css). It was --page, the
+   same colour as the document it sits in, so a card with a rule around it was
+   the only thing saying a post had started — and the quotes inside it, which
+   are levels two and three, had nothing to be a step away from. */
 .leaflet-bsky-post {
   margin: var(--space-5) 0;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--rule);
   border-radius: var(--radius-3);
-  background: var(--page);
+  background: var(--page-edge);
+  background: color-mix(in oklab, var(--ink) var(--nest-step), var(--page));
   font-family: var(--sans);
   font-size: var(--text-sm);
   color: var(--ink);

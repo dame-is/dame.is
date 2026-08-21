@@ -20,13 +20,20 @@ import './PostEmbed.css';
  *
  * Pass the post's author `did` so we can build CDN URLs for raw embeds.
  */
-export default function PostEmbed({ embed, did, depth = 0 }) {
+/**
+ * `nest` is the nesting level of the surface this embed is drawn ON — 0 for
+ * anything sitting straight on the page, 1 inside a container that is already
+ * a tint deep (a document's embedded post block). Everything below adds its
+ * own depth to it, so a quote knows its absolute level without having to ask
+ * what it is inside of. See the nesting scale in styles/theme.css.
+ */
+export default function PostEmbed({ embed, did, depth = 0, nest = 0 }) {
   if (!embed) return null;
-  return renderEmbed(embed, did, depth);
+  return renderEmbed(embed, did, depth, nest);
 }
 
 /** Resolves an embed object to its rendered element. */
-function renderEmbed(embed, did, depth) {
+function renderEmbed(embed, did, depth, nest = 0) {
   const type = embed.$type;
   switch (type) {
     case 'app.bsky.embed.images#view':
@@ -75,12 +82,13 @@ function renderEmbed(embed, did, depth) {
         />
       );
     case 'app.bsky.embed.record#view':
-      return <QuoteRecord record={embed.record} depth={depth} />;
+      return <QuoteRecord record={embed.record} depth={depth} nest={nest} />;
     case 'app.bsky.embed.record':
       // Raw record embed only has uri/cid — render as a "see post" hint.
       return (
         <a
           className="post-embed-quote post-embed-quote-bare"
+          style={{ '--nest': nest + depth + 1 }}
           href={bskyAppUrlFromAtUri(embed.record?.uri)}
           target="_blank"
           rel="noreferrer noopener"
@@ -92,10 +100,10 @@ function renderEmbed(embed, did, depth) {
       return (
         <>
           {embed.media && (
-            <PostEmbed embed={embed.media} did={did} depth={depth} />
+            <PostEmbed embed={embed.media} did={did} depth={depth} nest={nest} />
           )}
           {embed.record?.record && (
-            <QuoteRecord record={embed.record.record} depth={depth} />
+            <QuoteRecord record={embed.record.record} depth={depth} nest={nest} />
           )}
         </>
       );
@@ -103,11 +111,12 @@ function renderEmbed(embed, did, depth) {
       return (
         <>
           {embed.media && (
-            <PostEmbed embed={embed.media} did={did} depth={depth} />
+            <PostEmbed embed={embed.media} did={did} depth={depth} nest={nest} />
           )}
           {embed.record?.record && (
             <a
               className="post-embed-quote post-embed-quote-bare"
+              style={{ '--nest': nest + depth + 1 }}
               href={bskyAppUrlFromAtUri(embed.record.record.uri)}
               target="_blank"
               rel="noreferrer noopener"
@@ -287,16 +296,33 @@ function ExternalCard({ external }) {
  * Caps recursion at depth 1 so a quote of a quote of a quote… doesn't
  * blow up the page.
  */
-function QuoteRecord({ record, depth = 0 }) {
+function QuoteRecord({ record, depth = 0, nest = 0 }) {
+  // Which surface this one is: the level of whatever it sits on, plus how
+  // many quotes deep it is inside that. The stylesheet turns it into a tint;
+  // everything drawn inside inherits it and can step from there.
+  const level = nest + depth + 1;
+  const tint = { '--nest': level };
   if (!record) return null;
   if (record.$type === 'app.bsky.embed.record#viewNotFound') {
-    return <div className="post-embed-quote post-embed-quote-missing">Quoted post not found</div>;
+    return (
+      <div className="post-embed-quote post-embed-quote-missing" style={tint}>
+        Quoted post not found
+      </div>
+    );
   }
   if (record.$type === 'app.bsky.embed.record#viewBlocked') {
-    return <div className="post-embed-quote post-embed-quote-missing">Quoted post is blocked</div>;
+    return (
+      <div className="post-embed-quote post-embed-quote-missing" style={tint}>
+        Quoted post is blocked
+      </div>
+    );
   }
   if (record.$type === 'app.bsky.embed.record#viewDetached') {
-    return <div className="post-embed-quote post-embed-quote-missing">Quoted post was detached</div>;
+    return (
+      <div className="post-embed-quote post-embed-quote-missing" style={tint}>
+        Quoted post was detached
+      </div>
+    );
   }
   if (record.$type !== 'app.bsky.embed.record#viewRecord' && !record.value) return null;
 
@@ -315,7 +341,7 @@ function QuoteRecord({ record, depth = 0 }) {
     : null;
 
   return (
-    <article className="post-embed-quote">
+    <article className="post-embed-quote" style={tint}>
       <header className="post-embed-quote-head">
         {author.avatar && (
           <img
@@ -353,7 +379,7 @@ function QuoteRecord({ record, depth = 0 }) {
         <p className="post-embed-quote-text">{renderPostText(text, facets)}</p>
       )}
       {nestedEmbed && depth < 1 && (
-        <PostEmbed embed={nestedEmbed} did={author.did} depth={depth + 1} />
+        <PostEmbed embed={nestedEmbed} did={author.did} depth={depth + 1} nest={nest} />
       )}
     </article>
   );

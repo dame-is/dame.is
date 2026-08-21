@@ -899,18 +899,25 @@ function Participants({ rows: roster, audiences, parent }) {
           </tbody>
         </table>
       </ScrollFrame>
-      {(hidden > 0 || expanded) && (
-        <button
-          type="button"
-          className="ratioed-more"
-          aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
-        >
-          {/* Not "top 20" in the label — sort by handle and the first twenty
-              are alphabetical, not the busiest. */}
-          {expanded ? `Show fewer` : `Show all ${rows.length} — ${hidden} more`}
-        </button>
-      )}
+      <div className="ratioed-participants-foot">
+        {(hidden > 0 || expanded) && (
+          <button
+            type="button"
+            className="ratioed-more"
+            aria-expanded={expanded}
+            onClick={() => setExpanded(!expanded)}
+          >
+            {/* Not "top 20" in the label — sort by handle and the first twenty
+                are alphabetical, not the busiest. */}
+            {expanded ? `Show fewer` : `Show all ${rows.length} — ${hidden} more`}
+          </button>
+        )}
+        {/* The same roster with room to be read: ranked, with the figures this
+            table has no column for and a page per person. */}
+        <Link className="ratioed-participants-board" to={`/creating/${parent || RATIOED_PATH}/participants`}>
+          The whole roster, ranked →
+        </Link>
+      </div>
     </div>
   );
 }

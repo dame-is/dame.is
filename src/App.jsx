@@ -12,6 +12,7 @@ import Creating from './pages/Creating.jsx';
 import CreatingWork from './pages/CreatingWork.jsx';
 import RatioedPiece from './pages/RatioedPiece.jsx';
 import RatioedParticipant from './pages/RatioedParticipant.jsx';
+import RatioedParticipants from './pages/RatioedParticipants.jsx';
 import Curating from './pages/Curating.jsx';
 import CuratingChannel from './pages/CuratingChannel.jsx';
 import Resume from './pages/Resume.jsx';
@@ -51,6 +52,7 @@ import { FeedFooterProvider } from './hooks/useFeedFooter.jsx';
 import { EditModeProvider } from './hooks/useEditMode.jsx';
 import { XrayProvider } from './hooks/useXray.jsx';
 import { AdminChromeProvider, useStackedViewport } from './hooks/useAdminChrome.jsx';
+import { RATIOED_PATH } from './config.js';
 import './components/Xray.css';
 
 /**
@@ -209,11 +211,14 @@ export default function App() {
                       rather than a literal, so the page answers under whichever
                       address the essay is reachable at (its path OR its record
                       key); the component itself checks the parent is Ratioed. */}
+                  {/* The roster as its own page: a ranking of everyone who was
+                      there while a piece was still standing. `participants` is
+                      a static segment, so it outranks `:piece` in the route
+                      ranking and a take numbered 01 can never be shadowed. */}
+                  <Route path="/creating/:slug/participants" element={<RatioedParticipants />} />
                   {/* One person, read along the other axis: every piece they
-                      were in, in order, either side of each seal. The static
-                      segment outranks `:piece` in the route ranking and is a
-                      segment longer besides, so a take can never be shadowed
-                      by it. */}
+                      were in, in order, either side of each seal. A segment
+                      longer than a piece's URL, so the two cannot collide. */}
                   <Route
                     path="/creating/:slug/participant/:handle"
                     element={<RatioedParticipant />}
@@ -235,6 +240,13 @@ export default function App() {
                       still targets it. Hard loads of /guestbook are 301'd to
                       /welcoming by vercel.json. */}
                   <Route path="/guestbook" element={<Navigate to="/welcoming" replace />} />
+                  {/* The roster is Ratioed's, and lives under Ratioed. This is
+                      the short address for it, the way /guestbook above is the
+                      short address for the page it redirects to. */}
+                  <Route
+                    path="/participants"
+                    element={<Navigate to={`/creating/${RATIOED_PATH}/participants`} replace />}
+                  />
                   {generatedRecordRoutes()}
                   <Route
                     path="/admin"
