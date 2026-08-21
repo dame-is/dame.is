@@ -879,7 +879,7 @@ function Participants({ rows: roster, audiences, parent }) {
                     {p.likeGone && (
                       <span
                         className="ratioed-k-like ratioed-gone"
-                        title="The like that ended the piece. Deleted afterwards, so it appears in no index — the reply concluding the piece is the only record that it happened."
+                        title="The like that ended the piece. Deleted afterwards, so it appears in no index; the reply concluding the piece is the only record that it happened."
                       >
                         ♥ deleted
                       </span>

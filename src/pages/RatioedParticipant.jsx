@@ -242,13 +242,15 @@ export default function RatioedParticipant() {
       key: 'role',
       label: 'role',
       value: role.label,
-      note: broke.length ? 'the like that ended it' : 'the furthest they carried one',
+      // Not "the furthest they carried one", which asks the reader to take a
+      // metaphor on trust. The order is a real rule and short enough to state.
+      note: broke.length ? 'the like that ended it' : 'quote outranks repost outranks reply',
     },
     typeof followers === 'number' && {
       key: 'audience',
       label: 'audience',
       value: fmtReach(followers),
-      note: profile ? 'followers, as of now' : 'followers, when the table was read',
+      note: profile ? 'followers, as of now' : 'followers, recorded rather than read live',
     },
   ];
 
@@ -297,6 +299,11 @@ export default function RatioedParticipant() {
       }, counting towards nothing`,
     },
   ];
+
+  // Named rather than described: the note below says how many breaking likes
+  // are gone, and a hardcoded figure would drift the moment another piece is
+  // sealed. Same count the essay's own log section makes its case with.
+  const deletedLikes = pieces.filter((p) => p.breaker?.likeSurvives === false).length;
 
   const log = takes
     .flatMap((t) => [...t.alive, ...t.after].map((a) => ({ ...a, piece: t.piece })))
@@ -391,9 +398,9 @@ export default function RatioedParticipant() {
         <section className="ratioed-piece-section">
           <h2>Every piece they were in</h2>
           <p className="ratioed-piece-note">
-            One row per take, in the order they happened. The window column is the whole
-            distinction: <em>alive</em> is a post that was still standing when they got there, and
-            everything else landed on one that had already been sealed for good.
+            One row per take, in the order they happened. <em>Alive</em> means the post was still
+            standing when they got there; every other row landed on one that had already been
+            sealed.
           </p>
           <div className="ratioed-piece-scroll">
             <table className="ratioed-piece-log ratioed-participant-takes">
@@ -505,9 +512,10 @@ export default function RatioedParticipant() {
           <p className="ratioed-piece-note">
             The pieces are the roster&rsquo;s, which counts by DID and still holds people whose
             records have since been deleted; the times and the acts are the event logs&rsquo;, one
-            per piece. Neither is re-read on load — a like deleted a year after the fact is gone
-            from every index, so recomputing any of this would quietly drop the evidence the
-            project rests on. The portrait above is the one live thing on the page.
+            per piece. Neither is re-read on load. {deletedLikes} of the project&rsquo;s{' '}
+            {pieces.length} breaking likes have been deleted by the people who cast them, and a
+            deleted record is in no index, so recomputing this would drop {deletedLikes === 1 ? 'it' : 'them'}.
+            The portrait above is the one live read on the page.
           </p>
           <p className="ratioed-piece-note">
             <Link to={`/creating/${slug}`}>All {roster.rows.length} participants →</Link>
@@ -552,7 +560,7 @@ function Mix({ acts, likeGone, later = 0 }) {
       {likeGone && (
         <span
           className="ratioed-piece-kind ratioed-k-like ratioed-gone"
-          title="The like that ended the piece. Deleted afterwards, so it appears in no index — the reply concluding the piece is the only record that it happened."
+          title="The like that ended the piece. Deleted afterwards, so it appears in no index; the reply concluding the piece is the only record that it happened."
         >
           like, deleted
         </span>
