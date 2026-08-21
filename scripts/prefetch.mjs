@@ -702,6 +702,11 @@ async function main() {
       blockCount: snap.blocks.length,
       cover: pickCoverThumb(snap.blocks, g.value.coverBlockId),
       order: g.value.order ?? 0,
+      // Carried, not applied: the blocks stay in are.na's position order in the
+      // snapshot and the page orders them at render (see CuratingChannel.jsx),
+      // so a random gallery isn't frozen into one shuffle per deploy.
+      blockOrder: g.value.blockOrder || undefined,
+      pinnedBlockIds: Array.isArray(g.value.pinnedBlockIds) ? g.value.pinnedBlockIds : undefined,
       // Channel-level change marker: lets the client skip re-paginating
       // contents when the channel hasn't changed since this snapshot.
       updatedAt: snap.meta?.updated_at || null,

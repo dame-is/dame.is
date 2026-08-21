@@ -6,6 +6,7 @@
 // toggle inside the editor lets you reach anything they don't model.
 
 import { COLLECTIONS, GUESTBOOK_NSID, BLOG_PUBLICATION } from '../config.js';
+import { BLOCK_ORDERS, DEFAULT_BLOCK_ORDER } from './arena.js';
 
 /**
  * Field types understood by the form renderer:
@@ -24,6 +25,10 @@ import { COLLECTIONS, GUESTBOOK_NSID, BLOG_PUBLICATION } from '../config.js';
  *                         website/code/list/bskyPost, with image uploads
  *   - publicationPicker:  dropdown of site.standard.publication records under
  *                         the signed-in user's DID; stores an at:// URI
+ *   - arenaCover:         thumbnail grid of an are.na channel; stores one block
+ *                         id (the gallery's cover)
+ *   - arenaPins:          the same grid, multi-select and numbered; stores the
+ *                         block ids to float to the top of the gallery
  *
  * Optional flags per field:
  *   - required        — must be present to submit
@@ -389,7 +394,16 @@ export const LEXICONS = {
       { key: 'description', label: 'Description override', type: 'textarea', hint: 'Blank = channel description from are.na.' },
       {
         key: 'coverBlockId', label: 'Cover image', type: 'arenaCover',
-        hint: 'Pick which image fronts this gallery on /curating. Blank = the first image in the channel.',
+        hint: 'Pick which image fronts this gallery on /curating. Blank = the first image in the channel, whatever the block order below.',
+      },
+      {
+        key: 'blockOrder', label: 'Block order', type: 'select', default: DEFAULT_BLOCK_ORDER,
+        options: BLOCK_ORDERS,
+        hint: 'How the blocks lay out on the gallery page. Newest/oldest go by when a block was added to the channel, not by where it sits on are.na.',
+      },
+      {
+        key: 'pinnedBlockIds', label: 'Pinned blocks', type: 'arenaPins',
+        hint: 'These lead the gallery in the order you pin them, whatever the block order is set to.',
       },
       { key: 'order', label: 'Order', type: 'number', default: 0, hint: 'Lower numbers sort first on /curating.' },
       { key: 'enabled', label: 'Enabled (shown on the site)', type: 'boolean', default: true },
