@@ -33,9 +33,10 @@ import { projectStats } from '../../lib/ratioedStats.js';
 import { resolvePds } from '../../lib/atproto.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
 import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
+import { participantPath } from '../../lib/ratioedParticipant.js';
 import { useTheme } from '../../hooks/useTheme.jsx';
 import ScrollFrame from '../ScrollFrame.jsx';
-import { ME_DID } from '../../config.js';
+import { ME_DID, RATIOED_PATH } from '../../config.js';
 import './RatioedBlock.css';
 
 const KINDS = ['reply', 'repost', 'quote', 'like'];
@@ -352,7 +353,9 @@ export default function RatioedBlock({ block, style }) {
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} parent={parentSlug} />}
       {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
-      {variant === 'participants' && <Participants rows={roster.rows} audiences={audiences} />}
+      {variant === 'participants' && (
+        <Participants rows={roster.rows} audiences={audiences} parent={parentSlug} />
+      )}
       {/* Both halves or neither: without the audience table the early pieces
           have no follower counts to score, and a chart drawn from the two
           recent ones alone would read as the whole project. */}
@@ -725,20 +728,32 @@ function Hidden({ pieces, events }) {
 /* Participants                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Every piece someone touched, each listed once, in order. */
-function pieceList(person) {
-  return [...new Set([...person.pre, ...person.post])]
-    .sort((a, b) => a - b)
+/** The takes somebody was there for, while the post was still standing. */
+function liveTakes(person) {
+  return [...new Set(person.pre || [])].sort((a, b) => a - b);
+}
+
+/** Those takes as a list, for the tooltip on the count. */
+function takeList(person) {
+  return liveTakes(person)
     .map((n) => String(n).padStart(2, '0'))
     .join(' ');
 }
 
+// Handle, then the count that ranks the list, then who they brought, then what
+// they did and what it made them.
+//
+// It used to lead with events, live and after — three counts of the same person
+// under headings a reader had to hold in their head to tell apart, and the one
+// that sorted the table counted acts on posts that were already over. Being
+// there is what this list is about, so the ranking is pieces: how many times
+// somebody turned up while something was still alive. The rest of it — which
+// takes, when, in what order — is on their own page now, a click through the
+// handle away.
 const PEOPLE_COLUMNS = [
   { key: 'h', label: 'Handle' },
+  { key: 'live', label: 'Pieces', num: true },
   { key: 'fr', label: 'Audience', num: true },
-  { key: 'ev', label: 'Events', num: true },
-  { key: 'live', label: 'Live', num: true },
-  { key: 'after', label: 'After', num: true },
 ];
 
 // How many people the table shows before the rest are folded away. The list is
@@ -746,8 +761,8 @@ const PEOPLE_COLUMNS = [
 // tail is one click away for anyone who wants to find themselves in it.
 const PEOPLE_PREVIEW = 20;
 
-function Participants({ rows: roster, audiences }) {
-  const [sort, setSort] = useState('ev');
+function Participants({ rows: roster, audiences, parent }) {
+  const [sort, setSort] = useState('live');
   const [dir, setDir] = useState(-1);
   const [expanded, setExpanded] = useState(false);
 
@@ -770,12 +785,15 @@ function Participants({ rows: roster, audiences }) {
       // a numeric one. It didn't, and the two cancelled only for the numbers —
       // so clicking Handle ran z→a under an arrow pointing up.
       const cmp = typeof A === 'string' ? A.localeCompare(B) : A - B;
-      return cmp * dir || b.ev - a.ev;
+      // Ties break on the ranking column and then on the handle, so the order
+      // is total: without the second step two people in the same number of
+      // pieces swapped places whenever anything else re-rendered the table.
+      return cmp * dir || b.live - a.live || a.h.localeCompare(b.h);
     });
   }, [roster, sort, dir, audiences]);
 
   // Every breaker stays in the preview whatever the sort says. Ranking is by
-  // events, and the ones whose like was deleted have none — they'd sit at the
+  // pieces, and somebody who broke one piece and did nothing else is at the
   // bottom of a list they're the whole subject of.
   const shown = useMemo(() => {
     if (expanded) return rows;
@@ -811,51 +829,73 @@ function Participants({ rows: roster, audiences }) {
                   </button>
                 </th>
               ))}
-              <th>Pieces</th>
               <th>Mix</th>
               <th>Role</th>
             </tr>
           </thead>
           <tbody>
-            {shown.map((p) => (
-              <tr key={p.did}>
-                <td>
-                  @{p.h}
-                  {p.dn && <span className="ratioed-people-dn">{p.dn}</span>}
-                </td>
-                {/* -1 is the marker for an account the audience table doesn't
-                    know — deactivated, renamed, or simply never resolved. Not
-                    a zero: nobody here is being reported as unfollowed. */}
-                <td className="num">{p.fr >= 0 ? fmtReach(p.fr) : '·'}</td>
-                <td className="num">{p.ev || '·'}</td>
-                <td className="num">{p.live || '·'}</td>
-                <td className="num">{p.after || '·'}</td>
-                <td>{pieceList(p)}</td>
-                <td>
-                  {KINDS.filter((k) => p.kinds[k]).map((k) => (
-                    <span className={`ratioed-k-${k}`} key={k}>
-                      {ABBR[k]}×{p.kinds[k]}{' '}
-                    </span>
-                  ))}
-                  {/* The one act that isn't in any of the counts, because the
-                      record of it was deleted. Named by the announcement. */}
-                  {p.likeGone && (
-                    <span
-                      className="ratioed-k-like ratioed-gone"
-                      title="The like that ended the piece. Deleted afterwards, so it appears in no index — the reply concluding the piece is the only record that it happened."
-                    >
-                      ♥ deleted
-                    </span>
-                  )}
-                </td>
-<td>{(() => {
-                  // No "after the fact" here any more — everyone in this list
-                  // was present while a piece was alive; the tag says how.
-                  const role = roleOf(p);
-                  return <span className={`ratioed-tag ${role.key}`}>{role.label}</span>;
-                })()}</td>
-              </tr>
-            ))}
+            {shown.map((p) => {
+              const path = participantPath(p, parent || RATIOED_PATH);
+              const takes = takeList(p);
+              // Whatever they did while a piece was still alive. The roster's
+              // own `kinds` spans both windows and is the fallback for a take
+              // no event log covers; everywhere the log reaches, this column
+              // counts only the acts that landed on a living post.
+              const kinds = p.liveKinds || p.kinds;
+              return (
+                <tr key={p.did}>
+                  <td>
+                    {/* Their own page: which takes, in what order, how fast,
+                        and everything they did after the seal — none of which
+                        fits in a row. An account nothing can name has no page
+                        to go to and stays plain text. */}
+                    {path ? (
+                      <Link className="ratioed-people-link" to={path}>
+                        @{p.h}
+                      </Link>
+                    ) : (
+                      <>@{p.h}</>
+                    )}
+                    {p.dn && <span className="ratioed-people-dn">{p.dn}</span>}
+                  </td>
+                  {/* Pieces they were there for while the post was still up.
+                      Never zero: being in none of them is what keeps somebody
+                      out of this list altogether. */}
+                  <td className="num" title={takes ? `takes ${takes}` : undefined}>
+                    {p.live || '·'}
+                  </td>
+                  {/* -1 is the marker for an account the audience table doesn't
+                      know — deactivated, renamed, or simply never resolved. Not
+                      a zero: nobody here is being reported as unfollowed. */}
+                  <td className="num">{p.fr >= 0 ? fmtReach(p.fr) : '·'}</td>
+                  <td>
+                    {KINDS.filter((k) => kinds[k]).map((k) => (
+                      <span className={`ratioed-k-${k}`} key={k}>
+                        {ABBR[k]}×{kinds[k]}{' '}
+                      </span>
+                    ))}
+                    {/* The one act that isn't in any of the counts, because the
+                        record of it was deleted. Named by the announcement. */}
+                    {p.likeGone && (
+                      <span
+                        className="ratioed-k-like ratioed-gone"
+                        title="The like that ended the piece. Deleted afterwards, so it appears in no index; the reply concluding the piece is the only record that it happened."
+                      >
+                        ♥ deleted
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {/* No "after the fact" here any more — everyone in this list
+                        was present while a piece was alive; the tag says how. */}
+                    {(() => {
+                      const role = roleOf(p);
+                      return <span className={`ratioed-tag ${role.key}`}>{role.label}</span>;
+                    })()}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </ScrollFrame>

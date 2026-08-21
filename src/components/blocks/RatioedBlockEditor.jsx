@@ -4,7 +4,7 @@ const VARIANTS = [
   ['reaction', 'Reaction times', 'How long it took you to close each piece by hand, in order. Deleted likes show as an inferred window.'],
   ['ledger', 'Ledger', 'Engagement before and after the seal, per piece.'],
   ['hidden', 'Replies nobody can see', 'The replies that landed after a seal — written to the network, hidden by the threadgate.'],
-  ['participants', 'Participants', 'Everyone who touched a piece, sortable, with who broke what.'],
+  ['participants', 'Participants', 'Everyone who was there while a piece was alive, ranked by how many pieces, with who broke what. Each handle links to their own page.'],
   ['when', 'When they happened', 'Every piece on a week grid by day and hour, each mark sized by how long it lived and how much it drew.'],
   ['reach', 'Reach', 'A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type.'],
 ];
@@ -20,7 +20,8 @@ const DEFAULTS = {
     'Mean and range of the reaction times still measurable, and what the hatched bars stand in for.',
   ledger: 'Engagement either side of the seal.',
   hidden: 'A threadgate hides replies at the appview; it does not stop the records being written.',
-  participants: 'Counted by DID, not handle — and which breakers left no trace at all.',
+  participants:
+    'Counted by DID, not handle. Pieces somebody was there for while the post was still standing; what landed after a seal is on their own page, not in this ranking.',
   when: 'Every piece by the clock it was made on, sized by how long it lived and how much it drew.',
   reach: 'A score measuring the potential reach a piece had based on the social graphs of all the participants, weighted by engagement type.',
 };

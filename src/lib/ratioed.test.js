@@ -266,9 +266,28 @@ describe('SEED_PEOPLE', () => {
 
 describe('livingRoster', () => {
   it('lists the measured living participants', () => {
+    // 78, not the 77 the roster's own `pre` lists. restedwicked.xyz broke take
+    // 4 and deleted the like, so their only surviving record is a reply to the
+    // finished post — `pre` is empty and they read as somebody who was never
+    // there. Their own roster row is worth more than the stand-in the breaker
+    // loop below used to build for them: it carries their display name, their
+    // DID, and the afterlife the stand-in knew nothing about.
     const { rows, measured } = livingRoster(SEED_PIECES);
-    expect(measured).toBe(77);
+    expect(measured).toBe(78);
     for (const p of rows.slice(0, measured)) expect(p.pre.length).toBeGreaterThan(0);
+  });
+
+  it('counts a piece somebody broke as a piece they were there for', () => {
+    // The count of pieces is what the participants table ranks by now, and a
+    // breaker whose like was deleted has no surviving record of the one act the
+    // piece turned on. Reading `pre` alone put them below everyone who replied
+    // once to a post that was already over.
+    const people = [
+      { did: 'did:plc:a', h: 'a.test', ev: 1, pre: [8], post: [], kinds: { reply: 1 }, broke: [7] },
+    ];
+    const pieces = [{ take: 7, breaker: { handle: 'a.test', likeSurvives: false } }];
+    const { rows } = livingRoster(pieces, people);
+    expect(rows[0]).toMatchObject({ live: 2, pre: [7, 8], likeGone: true });
   });
 
   it('recovers the breakers whose like was deleted from the announcement', () => {
@@ -276,21 +295,42 @@ describe('livingRoster', () => {
     // the only record that they were ever there, and leaving them out would
     // drop the people the project is actually about.
     const { rows, named, deleted } = livingRoster(SEEDED_PIECES);
-    expect(named).toBe(5);
-    // Six pieces lost their breaking like. Five of those breakers left nothing
-    // else and have to be named; the sixth, j4ck, replied to another piece
-    // while it was alive, so they were already in the roster — their deleted
-    // like is marked on the row they already had.
+    expect(named).toBe(4);
+    // Six pieces lost their breaking like. Four of those breakers left nothing
+    // at all and have to be named; j4ck replied to another piece while it was
+    // alive and restedwicked replied to their own after the seal, so both were
+    // already in the roster — their deleted likes are marked on the rows they
+    // already had.
     expect(deleted).toBe(6);
     expect(rows.find((p) => p.h === 'j4ck.xyz')).toMatchObject({ broke: 7, likeGone: true });
+    expect(rows.find((p) => p.h === 'restedwicked.xyz')).toMatchObject({
+      broke: 4,
+      live: 1,
+      likeGone: true,
+    });
     // `broke` reads through brokenTakes now, since one person can break two.
     const recovered = rows.filter((p) => p.named);
-    expect(recovered.flatMap((p) => brokenTakes(p)).sort((a, b) => a - b)).toEqual([2, 4, 5, 8, 10]);
+    expect(recovered.flatMap((p) => brokenTakes(p)).sort((a, b) => a - b)).toEqual([2, 5, 8, 10]);
     for (const p of recovered) {
+      // No records, one piece. `ev` counts what survives and a deleted like
+      // leaves nothing; ending a piece is still being there for it.
       expect(p.ev).toBe(0);
-      expect(p.live).toBe(0);
+      expect(p.live).toBe(1);
       expect(p.likeGone).toBe(true);
     }
+  });
+
+  it('keeps both takes of a breaker who broke two pieces', () => {
+    // ponder.ooo broke 15 and 16. The second announcement used to be skipped
+    // outright — the person was "already listed" — so the row said one piece
+    // and take 16's break was attributed to nobody.
+    const pieces = [
+      { take: 15, breaker: { handle: 'p.test', likeSurvives: true } },
+      { take: 16, breaker: { handle: 'p.test', likeSurvives: true } },
+    ];
+    const { rows, named } = livingRoster(pieces, []);
+    expect(named).toBe(1);
+    expect(rows[0]).toMatchObject({ h: 'p.test', live: 2, pre: [15, 16], broke: [15, 16], ev: 2 });
   });
 
   it('credits a named breaker whose like is still standing', () => {
@@ -358,6 +398,60 @@ describe('livingRoster', () => {
 
   it('handles no pieces at all', () => {
     expect(livingRoster(null, []).rows).toEqual([]);
+  });
+
+  it('reads the living window off a log that names people by DID', () => {
+    // The Mix column and the role both come from `liveKinds`. It used to be
+    // looked up by handle alone, and every log written since DIDs were
+    // recorded carries the DID — so anyone whose living acts were recorded
+    // rather than harvested got nothing, and fell back to counts spanning the
+    // afterlife.
+    const people = [
+      { did: 'did:plc:a', h: 'a.test', ev: 2, pre: [12], post: [12], kinds: { reply: 1, like: 1 } },
+    ];
+    const events = {
+      r12: [
+        { k: 'reply', did: 'did:plc:a', h: 'a.test', off: 4, pre: 1 },
+        { k: 'like', did: 'did:plc:a', h: 'a.test', off: 900, pre: 0 },
+      ],
+    };
+    const { rows } = livingRoster([{ take: 12, rkey: 'r12', breaker: {} }], people, events);
+    expect(rows[0].liveKinds).toEqual({ reply: 1 });
+  });
+
+  it('follows a did-less harvest row to the DID another log recorded', () => {
+    const people = [
+      { did: 'did:plc:a', h: 'a.test', ev: 2, pre: [1, 12], post: [], kinds: { reply: 2 } },
+    ];
+    const events = {
+      r1: [{ k: 'reply', h: 'a.test', off: 4, pre: 1 }],
+      r12: [{ k: 'repost', did: 'did:plc:a', h: 'a.test', off: 4, pre: 1 }],
+    };
+    const { rows } = livingRoster([], people, events);
+    expect(rows[0].liveKinds).toEqual({ reply: 1, repost: 1 });
+  });
+
+  it('reports an empty living window rather than falling back to the roster', () => {
+    // The log covers this person and holds nothing of theirs from before the
+    // seal. Falling back to the all-window counts would report their afterlife
+    // reply in a column that says it counts the living window.
+    const people = [
+      { did: 'did:plc:a', h: 'a.test', ev: 1, pre: [], post: [4], kinds: { reply: 1 }, broke: [4] },
+    ];
+    const events = { r4: [{ k: 'reply', did: 'did:plc:a', h: 'a.test', off: 900, pre: 0 }] };
+    const { rows } = livingRoster([{ take: 4, rkey: 'r4', breaker: {} }], people, events);
+    expect(rows[0].liveKinds).toEqual({});
+  });
+
+  it('credits neither of two accounts sharing one handle', () => {
+    // The placeholder for deactivated accounts covers more than one DID.
+    const people = [
+      { did: 'did:plc:a', h: '(unresolvable)', ev: 1, pre: [1], post: [], kinds: { reply: 1 } },
+      { did: 'did:plc:b', h: '(unresolvable)', ev: 1, pre: [1], post: [], kinds: { like: 1 } },
+    ];
+    const events = { r1: [{ k: 'reply', h: '(unresolvable)', off: 4, pre: 1 }] };
+    const { rows } = livingRoster([], people, events);
+    for (const row of rows) expect(row.liveKinds).toBe(null);
   });
 });
 
