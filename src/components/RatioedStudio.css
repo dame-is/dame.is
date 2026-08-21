@@ -389,13 +389,13 @@
 .rs-act:disabled { opacity: 0.4; cursor: default; }
 .rs-act.on { color: var(--ratioed-seal, #8c3a2e); border-color: var(--rule); }
 
-/* 26px is a mouse target. On a phone these three sit at the end of a feed row
-   that is already wrapping, so they land as their own strip at the row's end —
-   which is a fine place for them and a bad size, at 26px against the 44px floor
-   the rest of the admin holds (see the collected touch block in Admin.css). The
-   glyph inside stays 13px; only the box grows. Same `(pointer: coarse)` query
-   `.rs-actions` above already uses, so the studio has one touch rule and not
-   two disagreeing ones. */
+/* 26px is a mouse target. A coarse pointer that still has room for these — a
+   tablet, a touchscreen laptop, a phone held sideways past 34rem, everything
+   below that width having hidden them (see RatioedLive.css) — needs the 44px
+   floor the rest of the admin holds; see the collected touch block in
+   Admin.css. The glyph inside stays 13px, only the box grows. Same
+   `(pointer: coarse)` query `.rs-actions` above already uses, so the studio has
+   one touch rule and not two disagreeing ones. */
 @media (pointer: coarse) {
   .rs-act {
     width: var(--wb-hit, 2.75rem);
@@ -404,7 +404,10 @@
   .rs-feed .ratioed-live-acts { gap: 0; }
 }
 
-.rs-reply-box { flex: 1 0 100%; padding: var(--space-2) 0 var(--space-3); }
+/* Ordered last explicitly: the narrow row layout gives the row's parts orders
+   of their own so they fall to a second line, and a composer left at the
+   default 0 would open ABOVE the thing it is answering. */
+.rs-reply-box { order: 9; flex: 1 0 100%; padding: var(--space-2) 0 var(--space-3); }
 .rs-reply-box .admin-input { width: 100%; font-size: var(--text-sm); }
 .rs-reply-acts {
   display: flex;
@@ -441,10 +444,24 @@
    viewport's — a 34rem pane needs this at 1600px just as much as at 900px. */
 @container wbpane (max-width: 34rem) {
   /* The rows are the ticker's and collapse by RatioedLive.css's own media
-     query. What is left is the studio's own two: the buttons take a line of
-     their own under what was said, rather than between the handle and it. */
-  .rs-feed .ratioed-live-acts { order: 2; }
-  .rs-reply-box { order: 3; }
+     query. What is left here is the header over them: `margin-left: auto` on
+     the switch is a right edge to hang it on while there is room, and a line of
+     its own the moment there isn't — which at this width is always, so the
+     header stood three lines tall with one word on the last of them. */
+  .rs-feed-head { gap: var(--space-2) var(--space-3); }
+  .rs-feed-head .admin-link-subtle { margin-left: 0; }
+}
+
+/* The three buttons are hidden at this width — see the note in RatioedLive.css,
+   which draws the narrow row and hides the deck's one button in the same rule.
+   Repeated here rather than left to that rule because `.rs-feed
+   .ratioed-live-acts` above is the more specific selector and its
+   `display: inline-flex` beat it, which is a fight decided by which stylesheet
+   the bundler happened to emit second. Keyed to the VIEWPORT and not the pane,
+   because the layout it belongs to is: a narrow pane in a wide window has the
+   room for these, and the hand reaching for them there has a mouse in it. */
+@media (max-width: 34rem) {
+  .rs-feed .ratioed-live-acts { display: none; }
 }
 
 /* A like cast and taken back before the seal. Not an alarm any more, but not

@@ -291,40 +291,142 @@
   cursor: pointer;
 }
 
+/* --- the narrow layout ------------------------------------------------ */
+
+/* A phone is the likeliest place this deck is read: the piece is announced on
+   Bluesky and the link is followed from the app, which means a 390px window
+   whose bottom third is the browser's own furniture. Everything below is that
+   width's layout rather than the wide one squeezed — the wide one packs a row
+   into a single line and stacks the counters as a dashboard, and both of those
+   fall apart here in the same way, by spending vertical space on air.
+   Measured on a 390px viewport: the deck was 597px tall before this block and
+   is a little over half that after it, with nothing removed. */
 @media (max-width: 34rem) {
-  /* Two lines, in this order: who did what, then what they said.
-     `order` rather than markup, and it is doing the work here. The text is the
-     one item that takes a whole line of its own, and in source order it sits
-     BEFORE the open button — so the button was pushed onto a third line and
-     `margin-left: auto` parked it alone at the right, under a row it belonged
-     to. Ordered last, it wraps under a first line that ends where it should. */
-  .ratioed-live-row { flex-wrap: wrap; row-gap: 2px; }
-  .ratioed-live-text { order: 1; flex: 1 0 100%; }
-  /* Truncated, not broken. At 11em a handle like
-     @thelongesthandleyouhaveseen.ninja wrapped mid-word and stood the row two
-     lines tall before anything else had a chance to wrap, which pushed the chip
-     and the button out of line with every row above it. */
+  /* 16px of padding inside a 358px box is 9% of the width given to the border,
+     twice. The deck is already inside the page's own gutter. */
+  .ratioed-live { padding: var(--space-3); }
+
+  .ratioed-live-head { gap: var(--space-2) var(--space-3); }
+  /* The clock is the headline and keeps its size; what it is reading, and the
+     switch for it, take the line under it rather than competing for the first. */
+  .ratioed-live-stream { margin-left: 0; width: 100%; gap: var(--space-2) var(--space-3); }
+
+  .ratioed-live-alarm {
+    gap: var(--space-2) var(--space-3);
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    border-left-width: 4px;
+  }
+  .ratioed-live-alarm-race { margin-left: 0; align-items: flex-start; }
+
+  /* The counters, as a sentence of numbers rather than a dashboard.
+     `repeat(auto-fit, minmax(80px, 1fr))` fits three or four columns at this
+     width and there are five cells (six once something is taken back), so the
+     grid always ended in a half-empty row, and each cell spent a line on its
+     label above the figure it labels. That is 120px of a phone screen for
+     five single digits, directly above the feed those digits are counting.
+     Turned on their side — figure then label, wrapping — the same five read in
+     two short lines. Reversed rather than reordered in the markup because the
+     markup is a description list and the term has to precede the definition. */
+  .ratioed-live-counters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
+    margin: var(--space-3) 0;
+    padding: var(--space-2) 0;
+  }
+  .ratioed-live-counters > div {
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: baseline;
+    gap: 0.35em;
+  }
+  .ratioed-live-counters dt { margin-bottom: 0; }
+  .ratioed-live-counters dd { font-size: var(--text-base, 1rem); }
+
+  /* A row, in two lines. The first is who and what they did, between two
+     columns that hold across the whole feed — the kind on the left, the stamp
+     on the right. The second is what they said, and rows that said nothing do
+     not have one. */
+  .ratioed-live-row {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 var(--space-2);
+    padding-block: var(--space-2);
+  }
+
+  /* Nothing to operate. Every button a row carried — the deck's "open this
+     somewhere else", the studio's open/like/answer — is gone at this width, and
+     the row is a line in a log again rather than a control.
+     They were never worth their room here. Three touch targets at the admin's
+     44px floor are 132px of a 358px row, a third of the screen reserved on
+     every row for a thing tapped on almost none of them, and what they took was
+     taken from the two things a row is FOR: the handle, cut to @danny…, and
+     what that person said, cut to four words. The studio's three have a full
+     panel to be operated from a mouse; the deck's one opened a modal offering a
+     choice of clients, which on a phone is a menu in front of a feed that is
+     moving. Hidden rather than dropped from the markup, because both are the
+     right controls at a width that has room for them. */
+  .ratioed-live-open,
+  .ratioed-live-acts { display: none; }
+  /* The order of a narrow row, which is not the order of the markup:
+       1  the chip     what they did
+       2  the face     who
+       3  the handle   who, in words — grows into whatever is left
+       4  the stamp    when — pushed to the row's right edge by 3 growing
+       6  the markers  taken back, after the seal — a line each
+       7  the text     what they said — a line of its own  */
+  .ratioed-live-row .rk-chip { order: 1; }
+  .ratioed-live-face { order: 2; }
+  .ratioed-live-who { order: 3; }
+  .ratioed-live-when { order: 4; }
+  .ratioed-live-undone,
+  .ratioed-live-after { order: 6; }
+  .ratioed-live-text { order: 7; }
+
+  /* The chip leads, in a column. It is the one thing on a row the eye scans a
+     feed FOR — three replies and a repost is the shape of a piece going well —
+     and everywhere else in this layout it sat wherever the handle before it
+     left it, which on a phone is a different place on every row. Given the head
+     of the row and a fixed box it becomes a column of kinds, readable in one
+     pass down the left edge. Wide enough for `repost`, the longest of the four,
+     with the label centred so the four read as one column and not as four
+     boxes of different weights. */
+  .ratioed-live-row .rk-chip {
+    min-width: 5.4em;
+    justify-content: center;
+  }
+
+  /* The handle takes the rest of the first line, which is what closes the hole
+     that used to sit between it and the chip: at a fixed 11em the chip was
+     pinned to the middle of a 358px row with nothing in between. Truncated, not
+     broken — at any flexible width a handle like
+     @thelongesthandleyouhaveseen.ninja wrapped mid-word and stood the first line
+     two lines tall before anything else had a chance to wrap, which pushed
+     every row's stamp out of line with the row above it. */
   .ratioed-live-who {
-    flex: 1 1 6em;
+    flex: 1 1 4em;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow-wrap: normal;
   }
-  /* The withdrawal marker goes to the second line with the text. On the first
-     line it sat between the chip and the row's end and pushed that one row's
-     chip 40px left of every other. */
-  .ratioed-live-undone { order: 1; flex: 1 0 100%; }
-  /* Chips in a column, which needs the trailing slot to exist on every row: a
-     row with no post to open is 24px shorter than the rows above it, and a
-     column of chips that steps in and out by a button's width reads as a
-     mistake rather than as a row that has nothing to open. */
-  .ratioed-live-row:not(:has(.ratioed-live-open)) {
-    padding-inline-end: calc(24px + var(--space-2));
-  }
-  .ratioed-live-stream { margin-left: 0; width: 100%; }
-  .ratioed-live-alarm-race { margin-left: 0; align-items: flex-start; }
+  /* Which pins the stamp to the row's right edge — so the row reads between two
+     aligned columns, what happened on the left and when on the right, with the
+     person in between. Natural width rather than the wide layout's 4.5em
+     column, which was cut for "+42m09s" and holds "+42s" on nearly every row
+     the series has ever produced; right-aligned, the column is the digits
+     themselves rather than a box they sit at the start of. */
+  .ratioed-live-when { width: auto; flex: none; font-size: var(--text-xs); }
+
+  /* A line each, whatever the markup order. `flex-basis: 100%` rather than a
+     hope that the first line is full — with the handle growing to fill it, an
+     item that merely FITS shares the line instead of wrapping, and the text
+     ended up beside the chip at a width that truncated both. */
+  .ratioed-live-undone,
+  .ratioed-live-after,
+  .ratioed-live-text { flex: 1 0 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
