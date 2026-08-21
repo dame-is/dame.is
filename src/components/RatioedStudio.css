@@ -333,7 +333,6 @@
   color: var(--ink-muted);
   margin-bottom: var(--space-2);
 }
-.rs-feed-head .admin-link-subtle { margin-left: auto; }
 
 .rs-feed-state {
   display: inline-flex;
@@ -341,12 +340,11 @@
   gap: 4px;
 }
 .rs-feed-state.is-open { color: var(--ratioed-reply); }
+/* Between sockets. The stream reconnects itself on a backoff and there is
+   nothing to do about it from here, so this says which of the two it is and
+   nothing more. */
 .rs-feed-state.is-connecting,
-.rs-feed-state.is-closed,
-.rs-feed-state.is-off { color: var(--ink-faint); }
-/* Stopped itself at the budget. Not a failure — say it plainly rather than
-   quietly, since the panel is less prompt from here on. */
-.rs-feed-state.is-spent { color: var(--ratioed-quote); }
+.rs-feed-state.is-closed { color: var(--ink-faint); }
 
 .rs-feed-empty { margin: 0; }
 
@@ -438,18 +436,6 @@
   padding: var(--space-3);
   margin: 0;
   overflow-x: auto;
-}
-
-/* Same reasoning: the feed row collapses on the PANE's width, not the
-   viewport's — a 34rem pane needs this at 1600px just as much as at 900px. */
-@container wbpane (max-width: 34rem) {
-  /* The rows are the ticker's and collapse by RatioedLive.css's own media
-     query. What is left here is the header over them: `margin-left: auto` on
-     the switch is a right edge to hang it on while there is room, and a line of
-     its own the moment there isn't — which at this width is always, so the
-     header stood three lines tall with one word on the last of them. */
-  .rs-feed-head { gap: var(--space-2) var(--space-3); }
-  .rs-feed-head .admin-link-subtle { margin-left: 0; }
 }
 
 /* The three buttons are hidden at this width — see the note in RatioedLive.css,

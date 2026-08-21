@@ -243,10 +243,6 @@ export default function RatioedStudio({ agent, did }) {
   const savedWitness = useRef({ rows: null, at: 0, busy: false, stop: false });
   const [stream, setStream] = useState(null); // { state, bytes, seen, msgs, rate }
   const [profiles, setProfiles] = useState({});
-  const [streamOn, setStreamOn] = useState(true);
-  // Bumped to force a fresh socket (and a fresh byte budget) after one has
-  // stopped itself.
-  const [streamRun, setStreamRun] = useState(0);
 
   // Set when the PLC read misses its deadline and the series is therefore the
   // bundled snapshot rather than a live one. `resolvePds` is an un-timed fetch
@@ -461,14 +457,16 @@ export default function RatioedStudio({ agent, did }) {
   // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
   // like. The moment the piece is sealed there is nothing left to notice.
   useEffect(() => {
-    if (!live || sealedNow || !streamOn) return undefined;
+    if (!live || sealedNow) return undefined;
     setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
     const close = watchSubject(subjectOf(live), {
       // No budget here. A cap made sense while this was a curiosity; it does not
       // survive contact with a piece that stands for an hour, because the thing
       // the cap ends is the watch, and the watch is the measurement. The bytes
-      // are the artist's own, they are reported as they accrue, and the button
-      // beside them stops it whenever she wants. Nothing else should.
+      // are the artist's own and are reported as they accrue; the socket closes
+      // with the panel, and on the seal, which is when there is nothing left to
+      // notice. There is no switch, because there was never a moment during a
+      // piece when throwing it was the right thing to do.
       budgetBytes: null,
       onStatus: setStream,
       onEvent: (ev) => {
@@ -489,7 +487,7 @@ export default function RatioedStudio({ agent, did }) {
       },
     });
     return close;
-  }, [live, sealedNow, streamOn, streamRun, livePostedMs]);
+  }, [live, sealedNow, livePostedMs]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
   //
@@ -1515,45 +1513,28 @@ export default function RatioedStudio({ agent, did }) {
           )}
 
           <div className="rs-feed">
+            {/* Throughput, not just cost. A piece nobody has touched matches
+                nothing for minutes and a byte counter that only moved on a
+                match read as broken for exactly as long as it was working. The
+                rate is resampled about once a second inside the socket, on a
+                64-message mask — cheaper than the timestamp parse already
+                happening on every message.
+
+                Four words have come off this line. "As it happens" labelled a
+                feed that is visibly happening. "Live" said what the lit radio
+                beside it says. "N matched" is the number of rows directly under
+                it, counted twice. What is left is the two figures that are NOT
+                on screen anywhere else: what the socket is pulling, and how
+                much of the network it has been through to find those rows. */}
             <header className="rs-feed-head">
-              <span className="small-caps">as it happens</span>
-              {/* Throughput, not just cost. A piece nobody has touched matched
-                  nothing for minutes and the old byte counter only moved on a
-                  match, so the panel read as broken for exactly as long as it
-                  was working. The rate is resampled about once a second inside
-                  the socket, on a 64-message mask — cheaper than the timestamp
-                  parse already happening on every message. */}
-              <span className={`rs-feed-state is-${!streamOn ? 'off' : stream?.state || 'connecting'}`}>
+              <span className={`rs-feed-state is-${stream?.state || 'connecting'}`}>
                 <Radio size={12} aria-hidden="true" />
-                {!streamOn
-                  ? 'stream off · polling'
-                  : stream?.state === 'spent'
-                    ? `stopped at ${Math.round((stream.bytes || 0) / 1024 / 1024)} MB · polling`
-                    : stream?.state === 'open'
-                      ? `live · ${(stream.rate || 0).toLocaleString()} rec/s · ${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB`
-                      : stream?.state || 'connecting'}
+                {stream?.state === 'open'
+                  ? `${(stream.rate || 0).toLocaleString()} rec/s · ${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB`
+                  : stream?.state || 'connecting'}
               </span>
-              {streamOn && stream?.msgs > 0 && (
-                <span className="rs-feed-scan">
-                  {stream.msgs.toLocaleString()} scanned · {feed.length} matched
-                </span>
-              )}
-              {stream?.state === 'spent' ? (
-                <button
-                  type="button"
-                  className="admin-link-subtle"
-                  onClick={() => setStreamRun((n) => n + 1)}
-                >
-                  start it again
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className="admin-link-subtle"
-                  onClick={() => setStreamOn((v) => !v)}
-                >
-                  {streamOn ? 'stop the stream' : 'start the stream'}
-                </button>
+              {stream?.msgs > 0 && (
+                <span className="rs-feed-scan">{stream.msgs.toLocaleString()} scanned</span>
               )}
             </header>
 
