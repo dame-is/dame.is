@@ -32,6 +32,7 @@ import {
 import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/atproto.js';
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
+import { arenaText } from '../src/lib/arena.js';
 import { TEAL_PLAY_NSIDS, playArtistLine, playTrackName } from '../src/lib/teal.js';
 import {
   workSlug,
@@ -53,6 +54,7 @@ import { audienceIndex, fmtReach } from '../src/lib/ratioedReach.js';
 const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
 const INAT_TIMEOUT_MS = 3000;
+const ARENA_TIMEOUT_MS = 2500;
 
 // Sections whose leaf pages render a single AT-Protocol record.
 const RECORD_SECTIONS = new Set([
@@ -222,10 +224,23 @@ async function resolveWork(origin, slug) {
   return withTimeout(liveWorkBySlug(slug), PDS_TIMEOUT_MS);
 }
 
+/**
+ * One are.na channel's metadata, through our own same-origin `/api/arena`
+ * proxy — the way the gallery page reads it (src/lib/arena.js in the browser).
+ * Going through the proxy rather than api.are.na directly keeps the account
+ * token server-side and means the edge only ever talks to its own deployment.
+ * Null on anything at all going wrong; every caller has a fallback.
+ */
+async function arenaChannelMeta(origin, arenaSlug) {
+  if (!origin || !arenaSlug) return null;
+  const path = `/channels/${encodeURIComponent(String(arenaSlug))}`;
+  return fetchJson(`${origin}/api/arena?path=${encodeURIComponent(path)}`, ARENA_TIMEOUT_MS);
+}
+
 // /curating/:slug — slug is the channel rkey. The record itself only carries
-// `arenaSlug`/`enabled`; the human title + description come from are.na and are
-// baked into the `curating` snapshot at build time, so read them from there
-// (falling back to a live getRecord + a humanized slug).
+// `arenaSlug`/`enabled` plus OPTIONAL title/description overrides; the human
+// copy lives on are.na and is baked into the `curating` snapshot at build time,
+// so read it from there (falling back to a live getRecord + are.na itself).
 async function resolveChannel(origin, slug) {
   const atUri = `at://${ME_DID}/${COLLECTIONS.arenaChannel}/${slug}`;
   const snap = origin ? await fetchJson(`${origin}/data/curating.json`, SNAPSHOT_TIMEOUT_MS) : null;
@@ -241,10 +256,27 @@ async function resolveChannel(origin, slug) {
   }
   const rec = await withTimeout(liveByRkey(slug, [COLLECTIONS.arenaChannel]), PDS_TIMEOUT_MS);
   if (!rec) return null;
+  const v = rec.value || {};
+  // A gallery published (or renamed) since the last deploy is the only one that
+  // gets this far, and the record alone can't name it: `title`/`description` are
+  // overrides that are usually absent, so the card fell through to a humanized
+  // rkey — the slug with its apostrophes filed off and its tail cut, which is
+  // how "there are 'we didn't start the fires' by billy joel everywhere for
+  // those with eyes to see" cards as "There are we didn t start the fires".
+  // Ask are.na for the real copy, exactly as the page does (CuratingChannel.jsx).
+  // Disabled galleries are hidden from the site, so they resolve to nothing here
+  // too — otherwise the crawler got a card for a page the SPA renders as a 404.
+  if (v.enabled === false || !firstText(v.arenaSlug)) return null;
+  const needsMeta = !firstText(v.title) || !firstText(v.description);
+  const meta = needsMeta ? await arenaChannelMeta(origin, v.arenaSlug) : null;
   return {
     uri: rec.uri || atUri,
     cid: rec.cid || null,
-    value: { ...(rec.value || {}), title: firstText(rec.value?.title, humanizeSlug(slug)) },
+    value: {
+      ...v,
+      title: firstText(v.title, arenaText(meta?.title), humanizeSlug(slug)),
+      description: firstText(v.description, arenaText(meta?.description)),
+    },
   };
 }
 
