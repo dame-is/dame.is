@@ -26,7 +26,7 @@ import {
   pieceReach,
   projectReach,
   applyAudience,
-  audienceFromEvents,
+  audienceIndex,
   fmtReach,
 } from '../../lib/ratioedReach.js';
 import { projectStats } from '../../lib/ratioedStats.js';
@@ -310,8 +310,11 @@ export default function RatioedBlock({ block, style }) {
   // the dated table joined onto it, so this is both sources at once — and the
   // recorded figures are the half the table deliberately does not hold.
   const audiences = useMemo(
-    () => (variant === 'participants' ? audienceFromEvents(pieces, (p) => eventLog?.[p.rkey]) : null),
-    [variant, pieces, eventLog],
+    () =>
+      variant === 'participants'
+        ? audienceIndex(pieces, (p) => eventLog?.[p.rkey], audience)
+        : null,
+    [variant, pieces, eventLog, audience],
   );
   const roster = useMemo(() => livingRoster(pieces, people, eventLog), [pieces, people, eventLog]);
   // Project-wide reach, for the caption to quote. Null until both halves of the

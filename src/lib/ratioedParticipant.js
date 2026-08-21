@@ -274,6 +274,17 @@ export function participantBoard(rows, { audiences, sort = 'live', dir = -1 } = 
       medianAudience: median(audienceValues),
       unpriced: ranked.length - audienceValues.length,
       mostPieces: ranked[0] || null,
+      // The person who ended the most pieces, and only when that is more than
+      // one. Twenty people have ended exactly one, so "1, @somebody" would name
+      // an arbitrary member of a twenty-way tie and read as a distinction.
+      mostBroken: (() => {
+        let top = null;
+        for (const p of ranked) {
+          const n = brokenTakes(p).length;
+          if (n > 1 && n > brokenTakes(top || {}).length) top = p;
+        }
+        return top;
+      })(),
       biggestAudience: audienceValues.length
         ? ranked.reduce((top, p) => (p.fr > (top?.fr ?? -1) ? p : top), null)
         : null,

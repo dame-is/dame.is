@@ -63,11 +63,22 @@ async function fromBundle() {
 }
 
 /**
- * Every account in the recorded logs that has no audience of its own yet.
+ * Everyone the piece records name: accounts in a recorded log with no audience
+ * of their own yet, and every breaker.
  *
- * A piece measured since this feature landed already carries one, and that
- * figure is the authoritative one — it was read at measurement time, which this
- * table can never be. Only the gaps are collected.
+ * A piece measured since the audience field landed already carries a figure for
+ * the people in its log, and that one is authoritative — it was read at
+ * measurement time, which this table can never be. Only the gaps are collected.
+ *
+ * The breakers are a gap of a different kind, and the reason this function
+ * reads `breaker` at all. Most breaking likes were deleted by the people who
+ * cast them, and a deleted record is in no index: those breakers appear in no
+ * event log on either side, so an actor list built from logs alone could never
+ * contain them. They were absent from this table for exactly as long as it has
+ * existed, and the roster listed them with no audience at all — cyaneyed.lol
+ * broke take 5 and has five thousand followers nothing here had ever asked
+ * about. Named the way `livingRoster` names them: by DID where the
+ * announcement recorded one, by handle where it did not.
  */
 async function fromRecords() {
   const out = new Set();
@@ -91,6 +102,10 @@ async function fromRecords() {
       const key = e.did || e.h;
       if (key && key !== '(unresolvable)') out.add(key);
     }
+    const b = r?.value?.breaker;
+    if (!b?.handle || b.handle === 'unknown') continue;
+    const key = b.did || b.currentHandle || b.handle;
+    if (key !== '(unresolvable)') out.add(key);
   }
   return out;
 }
@@ -143,7 +158,8 @@ async function main() {
       'Follower and follow counts as of measuredAt, NOT as of the pieces these ' +
       'accounts touched. Joined onto event logs that predate the recorded ' +
       'audience field. Accounts that did not resolve are absent, which the ' +
-      'scorer reports as an unknown audience rather than an empty one.',
+      'scorer reports as an unknown audience rather than an empty one — those ' +
+      'are accounts that no longer answer, not accounts nobody follows.',
     accounts,
   };
 

@@ -212,6 +212,16 @@ describe('participantBoard', () => {
     });
     expect(totals.mostPieces.h).toBe('a.test');
     expect(totals.biggestAudience.h).toBe('c.test');
+    // Only b.test broke anything, and only one piece, so there is no top
+    // breaker to name.
+    expect(totals.mostBroken).toBe(null);
+  });
+
+  it('names a top breaker only when somebody has ended more than one', () => {
+    const two = row('p.test', 2, { like: 2 }, { broke: [15, 16] });
+    expect(participantBoard([...rows, two], { audiences }).totals.mostBroken.h).toBe('p.test');
+    // Twenty people ending one piece each is a twenty-way tie, not a ranking.
+    expect(participantBoard(rows, { audiences }).totals.mostBroken).toBe(null);
   });
 
   it('reports how many rows the record total could not see', () => {

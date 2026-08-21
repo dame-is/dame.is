@@ -38,7 +38,7 @@ import {
 } from '../lib/ratioed.js';
 import { participantPath, participantBoard } from '../lib/ratioedParticipant.js';
 import { medianOf } from '../lib/ratioedStats.js';
-import { applyAudience, audienceFromEvents, fmtReach } from '../lib/ratioedReach.js';
+import { applyAudience, audienceIndex, fmtReach } from '../lib/ratioedReach.js';
 import { resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -137,8 +137,8 @@ export default function RatioedParticipants() {
   }, [pieces, people, resolveEvents]);
 
   const audiences = useMemo(
-    () => audienceFromEvents(pieces, resolveEvents),
-    [pieces, resolveEvents],
+    () => audienceIndex(pieces, resolveEvents, audience),
+    [pieces, resolveEvents, audience],
   );
 
   const board = useMemo(
@@ -209,6 +209,10 @@ export default function RatioedParticipants() {
   const medianLife = medianOf(pieces.map((p) => p.lifespanMs).filter(Boolean));
   const most = totals.mostPieces;
   const biggest = totals.biggestAudience;
+  // Named apart from the per-row `broke` inside the board below, which is a
+  // different person's takes.
+  const topBreaker = totals.mostBroken;
+  const mostBroken = topBreaker ? brokenTakes(topBreaker).length : 0;
   const maxPieces = most?.live || 1;
 
   const headline = [
@@ -234,7 +238,11 @@ export default function RatioedParticipants() {
       key: 'audience',
       label: 'between them',
       value: fmtReach(totals.audience),
-      note: `followers, ${totals.unpriced} ${totals.unpriced === 1 ? 'account' : 'accounts'} unpriced`,
+      // Not "N accounts unpriced". The four it was counting are accounts that
+      // have since been deleted or deactivated, so there is nothing to read and
+      // nothing a reader can do about it; the total is a floor either way, and
+      // the rows themselves already show a dash rather than a zero.
+      note: 'followers, counted once each',
     },
   ];
 
@@ -249,9 +257,20 @@ export default function RatioedParticipants() {
     },
     most && {
       key: 'most',
-      label: 'most pieces',
+      // Not "most pieces". Beside a tile counting the people who ended one, a
+      // bare count of pieces under somebody's handle reads as pieces they
+      // ended; this is the opposite of that, and the ranking's own measure.
+      label: 'showed up most',
       value: most.live,
-      note: `@${most.h}`,
+      note: `@${most.h}, of ${pieces.length} takes`,
+    },
+    // The counterpart, when there is one to name: the twenty people who ended a
+    // piece each ended one, so this appears only for somebody who ended more.
+    topBreaker && {
+      key: 'broke',
+      label: 'ended the most',
+      value: mostBroken,
+      note: `@${topBreaker.h}`,
     },
     biggest && {
       key: 'biggest',
@@ -259,23 +278,11 @@ export default function RatioedParticipants() {
       value: fmtReach(biggest.fr),
       note: `@${biggest.h}`,
     },
-    typeof totals.medianAudience === 'number' && {
-      key: 'median',
-      label: 'median audience',
-      value: fmtReach(totals.medianAudience),
-      note: 'what the total above is made of',
-    },
     split.afterOnly > 0 && {
       key: 'late',
       label: 'too late',
       value: split.afterOnly,
       note: 'only ever touched a finished piece',
-    },
-    roster.deleted > 0 && {
-      key: 'gone',
-      label: 'no record left',
-      value: roster.deleted,
-      note: 'breakers whose like was deleted afterwards',
     },
   ];
 
@@ -414,7 +421,13 @@ export default function RatioedParticipants() {
           </p>
           <p className="ratioed-piece-note">
             Follower counts were read once and stored; they describe the accounts, not the moments
-            these pieces ran. An account nothing could resolve is a dot rather than a zero.
+            these pieces ran. {totals.unpriced > 0 && (
+              <>
+                {totals.unpriced} of the people here have deleted or deactivated since, so they
+                carry a dot rather than a zero: a follower count is not something that can be
+                inferred for an account that is gone.
+              </>
+            )}
           </p>
         </section>
       </article>
