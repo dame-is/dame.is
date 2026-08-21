@@ -46,7 +46,7 @@ import {
   findParticipant,
   participantDossier,
 } from '../lib/ratioedParticipant.js';
-import { applyAudience, audienceFromEvents, fmtReach } from '../lib/ratioedReach.js';
+import { applyAudience, audienceIndex, fmtReach } from '../lib/ratioedReach.js';
 import { resolvePds, resolveProfiles } from '../lib/atproto.js';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
@@ -162,8 +162,8 @@ export default function RatioedParticipant() {
   );
 
   const audiences = useMemo(
-    () => audienceFromEvents(pieces, resolveEvents),
-    [pieces, resolveEvents],
+    () => audienceIndex(pieces, resolveEvents, audience),
+    [pieces, resolveEvents, audience],
   );
 
   // Today's portrait, resolved live. By DID where there is one, and by handle

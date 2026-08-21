@@ -341,6 +341,27 @@ export function audienceFromEvents(pieces, resolveEvents) {
 }
 
 /**
+ * Every participant's audience, whether or not they left a record.
+ *
+ * `audienceFromEvents` reads figures off log rows, which is the right source
+ * and covers almost everyone: a figure recorded at measurement time beats a
+ * figure read later, so it wins here too. What it cannot cover is somebody with
+ * no rows at all — and the project produces those on purpose. A breaker whose
+ * like was deleted appears in no index on either side of the seal; the reply
+ * concluding the piece is the only record they were ever there. Reading the
+ * dated table directly underneath is what gives those people an audience
+ * instead of a dash.
+ *
+ * The rest stay unknown, and should: the two accounts behind the placeholder
+ * handle deactivated before the harvest and have not answered since, and a
+ * follower count is not something that can be inferred for an account that no
+ * longer exists.
+ */
+export function audienceIndex(pieces, resolveEvents, table) {
+  return { ...(table?.accounts || {}), ...audienceFromEvents(pieces, resolveEvents) };
+}
+
+/**
  * The same split across the whole project.
  *
  * `events` resolves a piece's log — its own recorded one, or the bundled
