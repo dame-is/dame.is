@@ -13,6 +13,18 @@
           "arenaSlug":   { "type": "string", "description": "Are.na channel slug, from are.na/<user>/<slug>." },
           "title":       { "type": "string", "description": "Optional title override; falls back to the channel title on are.na." },
           "description": { "type": "string", "description": "Optional description override; falls back to the channel description." },
+          "coverBlockId": { "type": "integer", "description": "Are.na block id fronting the gallery on /curating. Unset = the channel's first image, whatever blockOrder says." },
+          "blockOrder":  {
+            "type": "string",
+            "default": "curated",
+            "knownValues": ["curated", "newest", "oldest", "random"],
+            "description": "How the gallery page lays its blocks out. curated = are.na's own position order (the default); newest/oldest = when the block was connected to the channel; random = reshuffled every visit."
+          },
+          "pinnedBlockIds": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "Are.na block ids that lead the gallery, in this order, whatever blockOrder is set to. An id no longer in the channel places nothing."
+          },
           "order":       { "type": "integer", "default": 0, "description": "Sort order on the /curating index — lower sorts first." },
           "enabled":     { "type": "boolean", "default": true, "description": "When false, the gallery is hidden from the site." },
           "createdAt":   { "type": "string", "format": "datetime" },
