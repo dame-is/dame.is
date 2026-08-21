@@ -1,0 +1,57 @@
+/* One participant of Ratioed.
+   The page borrows RatioedPiece.css wholesale — same sections, same figure
+   grid, same log table — because it is the same kind of document read along
+   the other axis. What is here is only what a person needs and a piece
+   doesn't: the portrait band at the top, and the two marks that say what a
+   row of their history was. */
+
+.ratioed-participant-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-5);
+}
+/* The frame itself is RatioedFaces.css's, so the portrait on somebody's page
+   and the portrait in a piece's roster are the same object. Only the size
+   differs: here it is the subject of the page rather than one of thirteen. */
+.ratioed-participant-head .ratioed-face-frame {
+  width: 72px;
+  height: 72px;
+  flex: none;
+  margin-bottom: 0;
+}
+.ratioed-participant-name {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: 1.2;
+}
+.ratioed-participant-at {
+  font-family: var(--mono);
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+}
+.ratioed-participant-at:hover { color: var(--ink); border-bottom-color: currentColor; }
+
+/* The take column is a link per row, so it wants the width a two-digit take
+   and a marker need and no more. */
+.ratioed-participant-takes td:first-child { white-space: nowrap; }
+.ratioed-participant-broke {
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  font-size: 0.86em;
+  color: var(--ratioed-seal, var(--ink-muted));
+  margin-left: var(--space-2);
+}
+/* A take with nothing measurable in it. Present, and saying so. */
+.ratioed-participant-quiet { color: var(--ink-faint); }
+/* Kinds sit side by side in a cell here rather than one per row. */
+.ratioed-participant-takes .ratioed-piece-kind + .ratioed-piece-kind {
+  margin-left: var(--space-2);
+}
+
+/* The log's text sits in the same cell as the kind that carried it, so it
+   needs the space the piece page's own log gets from a column boundary. */
+.ratioed-participant .ratioed-piece-kind + .ratioed-piece-text { margin-left: var(--space-2); }

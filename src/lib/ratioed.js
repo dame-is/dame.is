@@ -16,7 +16,7 @@ import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from '
 import { ME_DID, COLLECTIONS, RATIOED_PATH } from '../config.js';
 import { listRecords, rkeyFromAtUri } from './atproto.js';
 import { witnessFromRecord } from './ratioedLive.js';
-import { identify, UNRESOLVED } from './ratioedIdentity.js';
+import { identify, identifyAcross, UNRESOLVED } from './ratioedIdentity.js';
 import { fetchSnapshot } from './snapshot.js';
 
 /** Link sources that count as engagement, mapped to our bucket names. */
@@ -85,32 +85,62 @@ export function splitParticipants(people = SEED_PEOPLE) {
  *
  * The roster's own `kinds` spans both windows, so it can't tell a repost that
  * spread a living piece from one that landed on a finished one — and which of
- * those someone did is exactly what their role is meant to say. The log carries
- * the pre/post flag per record, so it can.
+ * those someone did is exactly what their role, and the Mix column beside it,
+ * are meant to say. The log carries the pre/post flag per record, so it can.
  *
- * Matched by handle, since that's all an event carries. One handle in the
- * roster covers two DIDs — the placeholder for deactivated accounts — and there
- * is no way to say which of them an event belongs to, so both are left out
- * rather than credited with each other's actions.
+ * Matched through `identifyAcross`, not by handle alone. The harvest behind the
+ * first eleven pieces names people by handle and every log written since names
+ * them by DID, so a straight handle lookup found nothing for anyone whose only
+ * living appearances were recorded rather than harvested — and their Mix fell
+ * back to counts that include the afterlife.
+ *
+ * A handle two roster entries share — the placeholder for deactivated accounts
+ * — resolves to neither of them. There is no way to say which is which, and
+ * crediting one with the other's acts is worse than showing nothing.
+ *
+ * Returns a `person => kinds | null` lookup.
  */
-function livingKindsByHandle(events, people) {
-  const out = new Map();
-  if (!events) return out;
+function livingKinds(events, people) {
+  const shared = new Set();
   const seenOnce = new Set();
-  const ambiguous = new Set();
   for (const p of people || []) {
-    if (seenOnce.has(p.h)) ambiguous.add(p.h);
+    if (seenOnce.has(p.h)) shared.add(p.h);
     seenOnce.add(p.h);
   }
-  for (const list of Object.values(events)) {
-    for (const e of Array.isArray(list) ? list : []) {
-      if (!e.pre || e.self || !e.h || !e.k || ambiguous.has(e.h)) continue;
-      const kinds = out.get(e.h) || {};
+  if (!events) return () => null;
+  const logs = Object.values(events).map((l) => (Array.isArray(l) ? l : []));
+  const who = identifyAcross(logs);
+  const byKey = new Map();
+  // Everyone the logs hold at all, either side of the seal. Without it there is
+  // no telling "the logs don't cover this person" from "the logs cover them and
+  // they did nothing while anything was alive" — and the two want opposite
+  // answers. The first has to fall back to the roster's all-window counts; the
+  // second is the finding, and falling back there reports somebody's post-seal
+  // reply in a column that says it counts the living window.
+  const known = new Set();
+  for (const log of logs) {
+    for (const e of log) {
+      if (e.self || !e.k) continue;
+      const key = who(e);
+      if (!key) continue;
+      known.add(key);
+      if (!e.pre) continue;
+      const kinds = byKey.get(key) || {};
       kinds[e.k] = (kinds[e.k] || 0) + 1;
-      out.set(e.h, kinds);
+      byKey.set(key, kinds);
     }
   }
-  return out;
+  return function forPerson(person) {
+    const did = person?.did && !String(person.did).startsWith('handle:') ? person.did : null;
+    const h = person?.h && person.h !== UNRESOLVED && !shared.has(person.h) ? person.h : null;
+    for (const key of [did, h ? `h:${h}` : null]) {
+      if (!key) continue;
+      const found = byKey.get(key);
+      if (found) return found;
+      if (known.has(key)) return {};
+    }
+    return null;
+  };
 }
 
 /**
@@ -230,22 +260,35 @@ export function foldFaces(events) {
  * leave records is already in the measured set and isn't added twice.
  */
 export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
-  const liveKinds = livingKindsByHandle(events, people);
+  const liveKinds = livingKinds(events, people);
   // Pieces whose breaking like was deleted. Their breaker's most important act
   // is in none of the counts, so the row says so rather than reading as
   // somebody who turned up and did nothing.
   const likeDeleted = new Set(
     (pieces || []).filter((p) => p.breaker?.likeSurvives === false).map((p) => p.take),
   );
+  // Breaking a piece IS being there, whatever survives of it.
+  //
+  // `pre` is measured from surviving records, so a breaker whose like was
+  // deleted has no record of the one act the piece turned on, and their take is
+  // missing from it. That was invisible while the table ranked by events; it
+  // stopped being invisible the moment the count of pieces became the ranking,
+  // where j4ck.xyz read as one piece against a roster that names them for two,
+  // and ponder.ooo — who broke takes 15 and 16 — read as one.
+  const wasThere = (p) => [...new Set([...p.pre, ...brokenTakes(p)])].sort((a, b) => a - b);
   const measured = people
-    .filter((p) => p.pre.length > 0)
-    .map((p) => ({
-      ...p,
-      live: p.pre.length,
-      after: p.post.length,
-      liveKinds: liveKinds.get(p.h) || null,
-      likeGone: brokenTakes(p).some((t) => likeDeleted.has(t)),
-    }));
+    .filter((p) => p.pre.length > 0 || brokenTakes(p).length > 0)
+    .map((p) => {
+      const pre = wasThere(p);
+      return {
+        ...p,
+        pre,
+        live: pre.length,
+        after: p.post.length,
+        liveKinds: liveKinds(p) || null,
+        likeGone: brokenTakes(p).some((t) => likeDeleted.has(t)),
+      };
+    });
 
   // Match on either identifier: the roster is keyed by DID, but a breaker is
   // recorded by the handle the announcement used, and handles get renamed.
@@ -256,24 +299,49 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
   }
 
   const named = [];
+  // Every identifier a named breaker answers to, pointing at their one row. A
+  // person can break two pieces — ponder.ooo broke 15 and 16 — and the second
+  // announcement may name them differently from the first, so this is what
+  // keeps the two takes on one row instead of dropping the later one on the
+  // ground. It used to be `seen`, which only ever said "already listed".
+  const namedBy = new Map();
   for (const piece of pieces || []) {
     const b = piece.breaker;
     if (!b?.handle || b.handle === 'unknown') continue;
     if (seen.has(b.did) || seen.has(b.handle) || seen.has(b.currentHandle)) continue;
-    seen.add(b.did || b.handle);
+    const ids = [b.did, b.handle, b.currentHandle].filter(Boolean);
     // A surviving like is a real, countable act — this breaker is missing from
     // the roster for some other reason (a piece measured after the roster was
     // built, say), so credit them with the like we know is there. A deleted one
     // gets no counts at all: that's the point of it being deleted.
     const likeGone = b.likeSurvives === false;
-    named.push({
+    const already = ids.map((id) => namedBy.get(id)).find(Boolean);
+    if (already) {
+      if (!already.pre.includes(piece.take)) already.pre.push(piece.take);
+      if (!already.broke.includes(piece.take)) already.broke.push(piece.take);
+      already.pre.sort((x, y) => x - y);
+      already.broke.sort((x, y) => x - y);
+      already.live = already.pre.length;
+      if (!likeGone) {
+        already.ev += 1;
+        already.kinds.like = (already.kinds.like || 0) + 1;
+      }
+      already.likeGone = already.likeGone || likeGone;
+      for (const id of ids) namedBy.set(id, already);
+      continue;
+    }
+    const row = {
       // No DID when the announcement only gave a handle; the row still needs a
       // stable key, and prefixing keeps it from colliding with a real one.
       did: b.did || `handle:${b.handle}`,
       h: b.currentHandle || b.handle,
       dn: '',
       ev: likeGone ? 0 : 1,
-      live: likeGone ? 0 : 1,
+      // One piece either way. `ev` counts records and a deleted like leaves
+      // none; `live` counts pieces somebody was there for, and they ended this
+      // one. The two used to agree at zero, which put the person a piece is
+      // most about at the bottom of a list ranked by pieces.
+      live: 1,
       after: 0,
       pre: [piece.take],
       post: [],
@@ -281,7 +349,9 @@ export function livingRoster(pieces, people = SEED_PEOPLE, events = null) {
       broke: [piece.take],
       named: true,
       likeGone,
-    });
+    };
+    named.push(row);
+    for (const id of ids) namedBy.set(id, row);
   }
   const rows = [...measured, ...named];
   return {
