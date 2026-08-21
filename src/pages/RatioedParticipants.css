@@ -4,7 +4,11 @@
    is the board itself: a row that reads as a place in a list rather than as a
    line in a table. */
 
-.ratioed-board-page { --board-rank: 2.4rem; }
+/* Wide enough for the last place in a roster of a few hundred and no wider.
+   The number used to be right-aligned in a column sized for three digits, so
+   every row in the top nine opened with a finger of empty page before the
+   rank even started. */
+.ratioed-board-page { --board-rank: 1.7rem; }
 
 .ratioed-board-controls {
   display: flex;
@@ -61,7 +65,7 @@
 .ratioed-board-head,
 .ratioed-board-row {
   display: grid;
-  grid-template-columns: var(--board-rank) minmax(0, 1fr) 7rem 4rem 5.5rem auto;
+  grid-template-columns: var(--board-rank) minmax(0, 1fr) 7rem 5.5rem auto;
   align-items: center;
   gap: var(--space-3);
 }
@@ -103,7 +107,10 @@
   font-family: var(--mono);
   font-size: 0.7rem;
   color: var(--ink-faint);
-  text-align: right;
+  /* Left, against the edge. Places read down the first digit in a ranking —
+     the tens and hundreds arrive as the list gets longer, and holding a
+     column open for them from row one costs every row above them. */
+  text-align: left;
   font-variant-numeric: tabular-nums;
 }
 .ratioed-board-row[data-top] .ratioed-board-rank {
