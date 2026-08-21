@@ -57,9 +57,11 @@ const PAGE = 25;
 // pictures nobody has scrolled to. Rows beyond it wear the initial instead.
 const PORTRAIT_CAP = 100;
 
+// Two axes, matching the two figures a row carries. Records are still what
+// breaks a tie in the ranking and still the second figure on somebody's own
+// page; they are just not a column here, so there is nothing to sort by.
 const SORTS = [
   { key: 'live', label: 'pieces' },
-  { key: 'records', label: 'records' },
   { key: 'fr', label: 'audience' },
 ];
 
@@ -334,7 +336,6 @@ export default function RatioedParticipants() {
             <span />
             <span>who</span>
             <span>pieces</span>
-            <span className="num">records</span>
             <span className="num">audience</span>
             <span>role</span>
           </div>
@@ -369,9 +370,6 @@ export default function RatioedParticipants() {
                       handle on a narrow one, where six columns don't fit and
                       dropping two of them would be the alternative. */}
                   <span className="ratioed-board-figures">
-                    <span className="num" data-label="records">
-                      {p.records ?? '·'}
-                    </span>
                     {/* -1 is an account the audience table doesn't know:
                         deactivated, renamed, or never resolved. Not a zero. */}
                     <span className="num" data-label="followers">
