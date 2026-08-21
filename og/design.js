@@ -476,6 +476,201 @@ function ratioedCard(t, { piece, marks, scale, avatarUri }) {
   );
 }
 
+// ── RATIOED: one participant ────────────────────────────────────────────────
+// A person, read along the axis a piece page cannot: which of the takes were
+// theirs. The strip is the card's whole argument — twenty-one marks, the ones
+// they were there for solid, the ones they ended in the colour the charts give
+// a like. Somebody who turned up once and somebody who turned up six times are
+// two different pictures before a word is read.
+//
+// The gutter carries the count, where a piece card carries how long it stood.
+function participantStrip(t, { participant, scale, left, right, y }) {
+  const total = Math.max(participant.total || 1, 1);
+  const mine = new Set(participant.takes || []);
+  const broke = new Set(participant.broke || []);
+  const pitch = (right - left) / total;
+  const wide = Math.min(12, Math.max(5, Math.round(pitch * 0.34)));
+  const marks = [];
+  for (let i = 0; i < total; i += 1) {
+    const take = i + 1;
+    const here = mine.has(take);
+    const ended = broke.has(take);
+    const height = here ? 34 : 16;
+    marks.push(
+      h('div', {
+        style: {
+          position: 'absolute',
+          left: Math.round(left + i * pitch + (pitch - wide) / 2),
+          top: y - Math.round(height / 2),
+          width: wide,
+          height,
+          // The one they ended keeps the square the charts give a like; the
+          // takes they were merely in are the same mark at the same weight,
+          // because being there is the thing this card counts.
+          background: ended ? scale.like || t.accent : here ? t.inkSoft : t.rule,
+          opacity: here || ended ? 1 : 0.7,
+        },
+      }),
+    );
+  }
+  return marks;
+}
+
+function participantCard(t, { participant, scale, avatarUri }) {
+  const CX = 320, bcBy = P - LE;
+  const colW = W - PAD - CX;
+  const handle = `@${participant.handle}`;
+  // Shrink rather than truncate. The name is the one thing on this card that
+  // belongs to somebody else, and dame has had participants as long as
+  // @catblanketflower.yuwakisa.com.
+  const hSize = Math.max(26, Math.min(60, Math.floor(colW / (handle.length * 0.5))));
+  const takes = (participant.takes || []).map((n) => String(n).padStart(2, '0'));
+  const strip = takes.length
+    ? `${takes.slice(0, 12).join(' ')}${takes.length > 12 ? ' …' : ''}`
+    : '';
+
+  // Never a placeholder. An account nothing can price is one the roster could
+  // not resolve, and a dash in a big figure on a share card reads as a broken
+  // render rather than as a finding.
+  const facts = [
+    ['records', String(participant.acts || 0)],
+    participant.audience ? ['followers', participant.audience] : null,
+    participant.broke?.length
+      ? ['ended', participant.broke.map((n) => `#${String(n).padStart(2, '0')}`).join(' ')]
+      : takes[0]
+        ? ['first take', `#${takes[0]}`]
+        : null,
+  ].filter(Boolean);
+  const X = [CX, CX + 270, CX + 540];
+
+  return shell(
+    t,
+    [
+      at('pieces', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+      at(String(participant.live || 0), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+      at(`of ${participant.total}`, { size: 22, by: 4 * P + HP - 10, left: PAD, color: t.inkFaint, weight: 400 }),
+
+      avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+      rowAt(breadcrumbParts(t, ['creating', 'ratioed']), {
+        size: 28,
+        by: bcBy,
+        left: avatarUri ? CX + 46 + 18 : CX,
+      }),
+
+      // The project first, at the size every card gives its section, then whose
+      // card this is. A share card that named only the person would be a card
+      // about a stranger.
+      at('Ratioed', { size: 104, by: 3 * P - 10, left: CX, color: t.accent }),
+      at(handle, { size: hSize, by: 4 * P - 8, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
+      participant.name
+        ? at(participant.name, { size: 24, by: 4 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 })
+        : null,
+
+      ...participantStrip(t, { participant, scale, left: CX, right: W - PAD, y: 5 * P + HP }),
+      at('take 01', { size: 20, by: 6 * P - LE - 4, left: CX, color: t.inkFaint, weight: 400 }),
+      at(`take ${String(participant.total).padStart(2, '0')}`, {
+        size: 20,
+        by: 6 * P - LE - 4,
+        right: PAD,
+        color: t.inkFaint,
+        weight: 400,
+      }),
+
+      ...facts.flatMap(([label, value], i) => [
+        at(label, { size: 19, by: 6 * P + HP - 8, left: X[i], color: t.inkFaint, weight: 400, ls: '0.1em' }),
+        at(value, { size: 30, by: 7 * P - 8, left: X[i], color: t.ink, weight: 600 }),
+      ]),
+
+      strip
+        ? at(`takes ${strip}`, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted })
+        : null,
+      // Where a piece card puts the day it went up: the day this person first
+      // turned up to one, which is the only date a participant has.
+      participant.debut
+        ? at(longDate(participant.debut), { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted })
+        : null,
+    ],
+    { verticals: [PAD, { x: 320, strong: true }, W - PAD], halfBands: [{ from: 6 * P, to: 7 * P }] },
+  );
+}
+
+// ── RATIOED: the participants leaderboard ───────────────────────────────────
+// The roster ranked, which is what the page is. Five rows, because past that
+// the handles stop being readable at the size a card gets looked at, and a left
+// rail of the figures the ranking itself cannot show: how many came back, how
+// many ended a piece, how large an audience the whole thing happened in front
+// of.
+function boardCard(t, { board, scale, avatarUri }) {
+  const CX = 320, bcBy = P - LE;
+  const rows = board.top || [];
+  const max = Math.max(board.max || 1, 1);
+  const barL = CX + 470;
+  const barW = W - PAD - 90 - barL;
+
+  const rail = [
+    ['came back', String(board.returned)],
+    ['ended one', String(board.breakers)],
+    ['between them', board.audience],
+  ];
+
+  return shell(
+    t,
+    [
+      at('people', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+      at(String(board.people), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+      ...rail.flatMap(([label, value], i) => [
+        at(label, { size: 19, by: 4 * P + HP + i * (2 * HP) - 8, left: PAD, color: t.inkFaint, weight: 400, ls: '0.08em' }),
+        at(value, { size: 28, by: 5 * P + i * (2 * HP) - 8, left: PAD, color: t.inkSoft, weight: 600 }),
+      ]),
+
+      avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+      rowAt(breadcrumbParts(t, ['creating', 'ratioed']), {
+        size: 28,
+        by: bcBy,
+        left: avatarUri ? CX + 46 + 18 : CX,
+      }),
+
+      at('Participants', { size: 96, by: 3 * P - 10, left: CX, color: t.accent }),
+      at(`everyone who was there while a piece was still standing`, {
+        size: 26,
+        by: 4 * P - 8,
+        left: CX,
+        color: t.inkMuted,
+        weight: 400,
+      }),
+
+      ...rows.flatMap((r, i) => {
+        const by = 5 * P - 8 + i * HP;
+        const width = Math.max(6, Math.round((r.live / max) * barW));
+        const handle = `@${r.handle}`;
+        const size = Math.max(18, Math.min(28, Math.floor(410 / (handle.length * 0.5))));
+        return [
+          at(String(r.rank), { size: 20, by, left: CX, color: t.inkFaint, weight: 400 }),
+          at(handle, { size, by, left: CX + 42, color: t.ink, weight: 600 }),
+          h('div', {
+            style: {
+              position: 'absolute',
+              left: barL,
+              top: by - 13,
+              width,
+              height: 12,
+              // A breaker's bar takes the colour of the act the project is
+              // named for, so the two rankings are legible in one picture.
+              background: r.broke ? scale.like || t.accent : t.inkSoft,
+              opacity: r.broke ? 1 : 0.75,
+            },
+          }),
+          at(String(r.live), { size: 26, by, right: PAD, color: t.ink, weight: 600 }),
+        ];
+      }),
+
+      at(`of ${board.takes} takes`, { size: 22, by: 8 * P - LE, right: PAD, color: t.inkMuted }),
+      at('ranked by pieces they were there for', { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+    ],
+    { verticals: [PAD, { x: 320, strong: true }, W - PAD], halfBands: [{ from: 4 * P + HP, to: 7 * P }] },
+  );
+}
+
 // ── RECORD: one mothing night ───────────────────────────────────────────────
 // A night at the light is a set of photographs, so the card is the
 // photographs: the first few of them ruled into the page as a strip — top and
@@ -609,6 +804,8 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {boolean} [o.record]   render the per-record card (title = o.label as a wrapped headline)
  * @param {object}  [o.night]    render the mothing-night card
  *                               ({title,moths,species,span,photos:[{src}]})
+ * @param {object}  [o.participant] render one Ratioed participant's card
+ * @param {object}  [o.board]    render the Ratioed participants leaderboard
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
  * @param {Array}   [o.hero]      [{text,color}] for the home hero card
  */
@@ -627,6 +824,14 @@ export function ogElement(o = {}) {
   // has none either — same reason it is picked before the fallback.
   if (o.night) {
     return nightCard(t, { night: o.night, avatarUri, nsid: o.nsid || '', folio });
+  }
+  // Both Ratioed roster cards name their own subject too: a handle and a
+  // ranking are not gerunds, so neither carries a label to fall back on.
+  if (o.participant) {
+    return participantCard(t, { participant: o.participant, scale: o.scale || {}, avatarUri });
+  }
+  if (o.board) {
+    return boardCard(t, { board: o.board, scale: o.scale || {}, avatarUri });
   }
 
   const isHome = pathname === '/' || !o.label;

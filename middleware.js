@@ -13,7 +13,7 @@
 // cost, no risk of breaking client-side navigation.
 
 import { pageMeta, SITE, cleanPath, segsFor } from './og/pages.js';
-import { recordMeta, pieceMeta } from './og/records.js';
+import { recordMeta, pieceMeta, participantMeta, participantsMeta } from './og/records.js';
 import { pageContentMeta } from './og/pageContent.js';
 import { ME_DID, COLLECTIONS, BLOG_PUBLICATION, PORTFOLIO_PUBLICATION } from './src/config.js';
 
@@ -56,6 +56,7 @@ export const config = {
     '/creating',
     '/creating/:slug',
     '/creating/:slug/:piece',
+    '/creating/:slug/participant/:handle',
     '/curating',
     '/curating/:slug',
     '/listening',
@@ -168,17 +169,26 @@ export default async function middleware(request) {
     // path and its record key, and only one of them can be canonical.
     let canonicalPath = path;
     // Leaf routes: `/section/:id`, plus the one section whose leaves have
-    // leaves of their own (`/creating/ratioed/:piece`). Both resolve to a
-    // single record and get the same card / canonical / at:// treatment, so
-    // they share this branch and differ only in which resolver answers.
-    if (segs.length === 2 || segs.length === 3) {
+    // leaves of their own — a Ratioed piece, the roster, and one person in it.
+    // All of them resolve to a single subject and get the same card /
+    // canonical / at:// treatment, so they share this branch and differ only in
+    // which resolver answers.
+    //
+    // Two of the four are derived rather than stored: the roster and a
+    // participant are cuts through the piece records, so they carry no at://
+    // URI of their own and are marked noindex-free by simply resolving. The
+    // roster's path is three segments like a take's, and `participants` is not
+    // a take, so it is asked first.
+    if (segs.length >= 2 && segs.length <= 4) {
       const sectionSeg = segs[0];
       const sectionPath = `/${sectionSeg}`;
       const section = pageMeta(sectionPath);
       const rec =
-        segs.length === 3
-          ? await pieceMeta(path, url.origin)
-          : await recordMeta(path, url.origin);
+        segs.length === 4
+          ? await participantMeta(path, url.origin)
+          : segs.length === 3
+            ? (await participantsMeta(path, url.origin)) || (await pieceMeta(path, url.origin))
+            : await recordMeta(path, url.origin);
       if (rec) {
         // The record resolved: its own OG card + at:// URI for the head. Falls
         // back below only when it can't be resolved.

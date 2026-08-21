@@ -23,7 +23,7 @@ import { paletteForHour } from '../src/lib/skyTheme.js';
 import { ratioedScale } from '../src/lib/ratioedPalette.js';
 import { resolveSkyTuning } from '../og/skyTuning.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
-import { pieceRecord, nightSession } from '../og/records.js';
+import { pieceRecord, nightSession, participantCard, participantsCard } from '../og/records.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
 import { nightSpan, photographed } from '../src/lib/mothing.js';
 import { MOTHING_OBSERVATION_NSID } from '../src/config.js';
@@ -39,6 +39,17 @@ try {
   RATIOED_EVENTS = createRequire(import.meta.url)('../src/data/ratioedEvents.json');
 } catch {
   /* the eleven bundled logs are unavailable; newer pieces carry their own */
+}
+
+// The dated follower table, for the same reason and by the same route. Without
+// it a participant card loses its audience figure and keeps everything else —
+// the breakers whose like was deleted are in no event log at all, so the table
+// is the only place their audience is written down.
+let RATIOED_AUDIENCE = null;
+try {
+  RATIOED_AUDIENCE = createRequire(import.meta.url)('../src/data/ratioedAudience.json');
+} catch {
+  /* the dated table is unavailable; recorded figures still come off the logs */
 }
 
 // One family throughout: Crimson Pro (serif) — breadcrumb, title, description,
@@ -174,10 +185,22 @@ export default async function handler(req, res) {
         marks = pieceMarks(piece, RATIOED_EVENTS[rkey]);
       }
     }
+    // The roster cards. Neither takes free text: `participant` carries a
+    // handle, which has to match somebody in the roster before anything is
+    // drawn, and `board` carries nothing at all.
+    const bundles = { bundled: RATIOED_EVENTS, audience: RATIOED_AUDIENCE };
+    let participant = null;
+    let board = null;
+    if (!piece && q.participant) {
+      participant = await participantCard(clampText(q.participant), origin, bundles);
+    }
+    if (!piece && !participant && (q.board === '1' || q.board === 'true')) {
+      board = await participantsCard(origin, bundles);
+    }
     // A mothing night gets its own card too — the moths that came to the
     // light, which a title and a blurb can't carry either.
     let night = null;
-    if (!piece && q.night) {
+    if (!piece && !participant && !board && q.night) {
       const found = await nightSession(clampText(q.night), origin);
       if (found?.session) night = await nightCardData(found.session);
       // Stamp the folio with the night's own day, exactly as a record card is
@@ -185,8 +208,20 @@ export default async function handler(req, res) {
       // this card now that its headline names the session instead.
       if (night && !q.date) folioAt = new Date(`${night.date}T00:00:00Z`);
     }
-    if (piece) {
-      // Fall through to the render with `piece` set; nothing else applies.
+    // A handle nobody in the roster answers to, or a roster that could not be
+    // read: draw the work's own card rather than the site's home index, which
+    // is what a bare fall-through would give. The middleware marks that path
+    // noindex anyway; this is only about what a human sees if they open the
+    // image URL by hand.
+    if (!piece && !participant && !board && (q.participant || q.board)) {
+      const meta = pageMeta('/creating');
+      pathname = '/creating';
+      label = meta.label;
+      subtitle = meta.desc;
+      nsid = meta.nsid;
+    }
+    if (piece || participant || board) {
+      // Fall through to the render with one of them set; nothing else applies.
     } else if (night) {
       // Same: the night card reads everything off the session.
       pathname = '/mothing';
@@ -228,11 +263,13 @@ export default async function handler(req, res) {
       record,
       body,
       piece,
+      participant,
+      board,
       night,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.
-      scale: piece ? ratioedScale(hour) : null,
+      scale: piece || participant || board ? ratioedScale(hour) : null,
       segs: segsFor(pathname),
       avatarUri,
       folio: folio(folioAt),
