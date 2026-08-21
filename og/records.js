@@ -40,6 +40,15 @@ import {
   showOnBlog,
   isDraft,
 } from '../src/lib/publications.js';
+import {
+  brokenTakes,
+  takesPresent,
+  findParticipant,
+  participantDossier,
+  participantBoard,
+} from '../src/lib/ratioedParticipant.js';
+import { composeEventLog, livingKindsIndex } from '../src/lib/ratioedLog.js';
+import { audienceIndex, fmtReach } from '../src/lib/ratioedReach.js';
 
 const SNAPSHOT_TIMEOUT_MS = 2000;
 const PDS_TIMEOUT_MS = 2500;
@@ -548,4 +557,174 @@ export async function recordMeta(pathname, origin) {
     record = null;
   }
   return record ? shapeMeta(record, section, slug) : null;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Ratioed participants                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The roster and the pieces, as the participant pages read them.
+ *
+ * Both come from the build's snapshots, which is enough for a card: the roster
+ * is regenerated on every deploy and a piece published since then has nobody in
+ * it yet. Nothing here re-derives a measurement; the ranking, the living
+ * window and the audience join are the same functions the pages call, so a card
+ * and the page it links to cannot order the same five people differently.
+ *
+ * `bundled` is the harvest behind the first eleven pieces and `audience` the
+ * dated follower table, both handed in by the caller — they are files in
+ * src/data, and the serverless bundle reaches them by require rather than by
+ * import (see api/og.js).
+ */
+export async function ratioedRoster(origin, { bundled = {}, audience = null } = {}) {
+  const [pieceRecords, people] = await Promise.all([
+    fetchSnapshot(origin, 'ratioed'),
+    fetchSnapshot(origin, 'ratioedPeople'),
+  ]);
+  if (!Array.isArray(people) || !people.length) return null;
+
+  const pieces = (pieceRecords || [])
+    .map((r) => ({ rkey: rkeyFromAtUri(r?.uri) || '', ...(r?.value || {}) }))
+    .filter((p) => p.take && p.sealedAt);
+  // Composed, not chosen. The repair pass wrote afterlife rows onto the first
+  // eleven records, so a piece can have a recorded log AND have its whole alive
+  // window in the harvest — taking the record's alone read catblanketflower's
+  // twelve records as none, and reordered the board's ties along with it.
+  const logs = {};
+  for (const p of pieces) {
+    const log = composeEventLog(p.events, bundled[p.rkey]);
+    if (log?.length) logs[p.rkey] = log;
+  }
+  const resolveEvents = (p) => logs[p.rkey] || null;
+  const liveKinds = livingKindsIndex(logs, people);
+
+  // The same set livingRoster measures: anybody who was there while something
+  // was standing, with breaking a piece counting as being there.
+  const rows = people
+    .filter((p) => (p.pre || []).length > 0 || brokenTakes(p).length > 0)
+    .map((p) => {
+      const pre = takesPresent(p);
+      return { ...p, pre, live: pre.length, after: (p.post || []).length, liveKinds: liveKinds(p) || null };
+    });
+
+  const audiences = audienceIndex(pieces, resolveEvents, audience);
+  return { pieces, people, rows, resolveEvents, audiences };
+}
+
+/** How many rows the leaderboard card lists. Five is a podium; past that the
+ *  names stop being readable at the size a card gets looked at. */
+const BOARD_ROWS = 5;
+
+/** Everything the leaderboard card draws, read off the roster. */
+export async function participantsCard(origin, opts) {
+  const roster = await ratioedRoster(origin, opts);
+  if (!roster) return null;
+  const { totals, ranked } = participantBoard(roster.rows, { audiences: roster.audiences });
+  if (!totals.people) return null;
+  return {
+    people: totals.people,
+    returned: totals.returned,
+    breakers: totals.breakers,
+    // Formatted here rather than in the renderer, which is deliberately
+    // import-free: the card and the page it links to then round the same number
+    // the same way, because they call the same function.
+    audience: fmtReach(totals.audience),
+    takes: roster.pieces.length,
+    top: ranked.slice(0, BOARD_ROWS).map((p) => ({
+      rank: p.rank,
+      handle: p.h,
+      live: p.live,
+      broke: brokenTakes(p).length > 0,
+    })),
+    max: ranked[0]?.live || 1,
+  };
+}
+
+/** Everything one participant's card draws, or null if nobody answers to that
+ *  handle. Free text never reaches the renderer: the query carries a handle,
+ *  and a handle that is not in the roster is not a card. */
+export async function participantCard(handle, origin, opts) {
+  const roster = await ratioedRoster(origin, opts);
+  if (!roster) return null;
+  const person = findParticipant(roster.rows, handle);
+  if (!person) return null;
+  const d = participantDossier(person, { pieces: roster.pieces, resolveEvents: roster.resolveEvents });
+  const found = roster.audiences[person.did] || roster.audiences[person.h] || null;
+  return {
+    handle: person.h,
+    live: d.live,
+    takes: d.takes.filter((t) => t.wasAlive).map((t) => t.take),
+    acts: d.acts,
+    broke: d.broke,
+    total: roster.pieces.length,
+    audience: typeof found?.fr === 'number' ? fmtReach(found.fr) : null,
+    debut: d.debut?.piece?.postedAt || null,
+  };
+}
+
+/** The head meta for one participant's page. */
+export async function participantMeta(pathname, origin, opts) {
+  const segs = (pathname || '').split('/').filter(Boolean);
+  if (segs.length !== 4 || segs[0] !== 'creating' || segs[2] !== 'participant') return null;
+  const parent = segs[1];
+  if (parent !== RATIOED_PATH && parent !== RATIOED_DOC_RKEY) return null;
+
+  const card = await participantCard(segs[3], origin, opts);
+  if (!card) return null;
+  const ended = card.broke.length
+    ? ` They ended ${card.broke.map((t) => `#${String(t).padStart(2, '0')}`).join(' and ')}.`
+    : '';
+  // Only what the roster itself knows. The record count is a log figure, and
+  // this runs in the edge middleware, where the bundled harvest behind the
+  // first eleven pieces is not to hand — a description that quoted it would be
+  // short by however many of somebody's records were harvested rather than
+  // recorded. The card, which renders in the serverless function beside the
+  // bundle, shows it.
+  return {
+    title: `@${card.handle} in Ratioed`,
+    description:
+      `@${card.handle} was there for ${card.live} of the ${card.total} Ratioed pieces, while ` +
+      `${card.live === 1 ? 'it was' : 'they were'} still standing.${ended}`,
+    textOnly: false,
+    section: 'creating',
+    atUri: null,
+    cid: null,
+    nsid: COLLECTIONS.ratioedPiece,
+    publication: RATIOED_PUBLICATION,
+    date: card.debut,
+    canonicalPath: `/creating/${RATIOED_PATH}/participant/${encodeURIComponent(card.handle)}`,
+    ogQuery: `participant=${encodeURIComponent(card.handle)}`,
+  };
+}
+
+/** The head meta for the leaderboard. */
+export async function participantsMeta(pathname, origin, opts) {
+  const segs = (pathname || '').split('/').filter(Boolean);
+  if (segs.length !== 3 || segs[0] !== 'creating' || segs[2] !== 'participants') return null;
+  const parent = segs[1];
+  if (parent !== RATIOED_PATH && parent !== RATIOED_DOC_RKEY) return null;
+
+  const card = await participantsCard(origin, opts);
+  if (!card) return null;
+  return {
+    title: 'Ratioed participants',
+    // Roster facts only, for the reason participantMeta gives: this runs in the
+    // edge middleware, where neither the harvest nor the dated follower table
+    // is to hand, and a total quoted without them is short by a quarter of a
+    // million followers. The card renders beside both files and says it there.
+    description:
+      `${card.people} people have been in a Ratioed piece while it was still standing. ` +
+      `${card.returned} of them came back for another, and ${card.breakers} ended one.`,
+    textOnly: false,
+    section: 'creating',
+    atUri: null,
+    cid: null,
+    nsid: COLLECTIONS.ratioedPiece,
+    publication: RATIOED_PUBLICATION,
+    date: null,
+    canonicalPath: `/creating/${RATIOED_PATH}/participants`,
+    ogQuery: 'board=1',
+  };
 }

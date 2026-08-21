@@ -20,7 +20,42 @@
 
 import { RATIOED_PATH } from '../config.js';
 import { identifyAcross, UNRESOLVED } from './ratioedIdentity.js';
-import { brokenTakes } from './ratioed.js';
+
+/**
+ * Which pieces somebody broke, as a list.
+ *
+ * The roster used to hold one take here, assigned in a loop, so a person who
+ * broke two pieces kept whichever record was written last — ponder.ooo broke
+ * takes 15 and 16 and the roster said only 15. It is a list now, and this reads
+ * either shape: the bundled roster is a frozen file and still holds scalars.
+ *
+ * It lives here rather than in ratioed.js, which re-exports it, for a reason
+ * that is about builds rather than about tidiness: ratioed.js imports the
+ * bundled seed as JSON, and this module has to stay importable by the Open
+ * Graph renderer, which runs as a serverless function where a bare JSON import
+ * is not something to rely on. Everything in this file's import graph is plain
+ * JavaScript.
+ */
+export function brokenTakes(person) {
+  const b = person?.broke;
+  if (Array.isArray(b)) return b;
+  return b ? [b] : [];
+}
+
+/**
+ * Every take somebody was there for while the post was still standing.
+ *
+ * `pre` is measured from surviving records, and most breaking likes were
+ * deleted by the people who cast them, so a breaker's own take can be missing
+ * from it. Breaking a piece is being there, whatever survives of it, so the two
+ * are unioned. One rule, used by the roster the site renders and by the card
+ * that gets shared: they disagreed about j4ck.xyz for as long as there were
+ * two of them.
+ */
+export function takesPresent(person) {
+  return [...new Set([...(person?.pre || []), ...brokenTakes(person)])].sort((a, b) => a - b);
+}
+
 
 /** A person's own URL segment. The handle, which is what a reader has. */
 export function participantSlug(person) {

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
 import {
   participantSlug,
@@ -236,5 +239,44 @@ describe('participantBoard', () => {
     expect(totals).toMatchObject({ people: 0, audience: 0, medianAudience: null });
     expect(totals.mostPieces).toBe(null);
     expect(totals.biggestAudience).toBe(null);
+  });
+});
+
+describe('the import graph the OG renderer depends on', () => {
+  // The Open Graph cards for the roster and for one participant are drawn by a
+  // serverless function that ranks the same people this module ranks, using
+  // these same functions — which is the only reason a shared card and the page
+  // it links to cannot disagree about who is fourth.
+  //
+  // That function reaches the bundled JSON in src/data by require rather than
+  // by import, deliberately: a bare JSON import is not something to rely on in
+  // that runtime. So the modules it imports have to stay free of them. Nothing
+  // about editing ratioedParticipant.js would tell you that; this does.
+  const HERE = dirname(fileURLToPath(import.meta.url));
+
+  const graph = (entry) => {
+    const seen = new Set();
+    const walk = (file) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const src = readFileSync(file, 'utf8');
+      for (const m of src.matchAll(/from\s+'(\.[^']+)'/g)) {
+        walk(resolve(dirname(file), m[1]));
+      }
+    };
+    walk(resolve(HERE, entry));
+    return [...seen];
+  };
+
+  for (const entry of ['ratioedParticipant.js', 'ratioedLog.js', 'ratioedReach.js']) {
+    it(`${entry} imports no JSON, at any depth`, () => {
+      expect(graph(entry).filter((f) => f.endsWith('.json'))).toEqual([]);
+    });
+  }
+
+  it('proves the guard by catching one that does', () => {
+    // ratioed.js imports the bundled seed, which is why it is not on the list
+    // above and why composeEventLog was moved out of it.
+    expect(graph('ratioed.js').some((f) => f.endsWith('.json'))).toBe(true);
   });
 });
