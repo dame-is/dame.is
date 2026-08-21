@@ -529,17 +529,22 @@ function participantCard(t, { participant, scale, avatarUri }) {
     ? `${takes.slice(0, 12).join(' ')}${takes.length > 12 ? ' …' : ''}`
     : '';
 
-  // Never a placeholder. An account nothing can price is one the roster could
-  // not resolve, and a dash in a big figure on a share card reads as a broken
-  // render rather than as a finding.
+  // No follower count. It is a figure about an account rather than about what
+  // somebody did here, it is the one number on the card that was read on a
+  // different day from everything else, and on a card that names a person it is
+  // the line that reads as a ranking of them.
+  //
+  // Never a placeholder either: a dash in a big figure on a share card reads as
+  // a broken render rather than as a finding.
+  const broke = participant.broke || [];
+  // The first take is worth naming unless the "ended" fact beside it already
+  // does: ponder.ooo's first piece is take 15 and they ended takes 15 and 16,
+  // so the two columns read "#15" and "#15 #16" and one of them is furniture.
+  const firstNamed = broke.length > 0 && broke[0] === (participant.takes || [])[0];
   const facts = [
     ['records', String(participant.acts || 0)],
-    participant.audience ? ['followers', participant.audience] : null,
-    participant.broke?.length
-      ? ['ended', participant.broke.map((n) => `#${String(n).padStart(2, '0')}`).join(' ')]
-      : takes[0]
-        ? ['first take', `#${takes[0]}`]
-        : null,
+    takes[0] && !firstNamed ? ['first take', `#${takes[0]}`] : null,
+    broke.length ? ['ended', broke.map((n) => `#${String(n).padStart(2, '0')}`).join(' ')] : null,
   ].filter(Boolean);
   const X = [CX, CX + 270, CX + 540];
 
@@ -557,20 +562,31 @@ function participantCard(t, { participant, scale, avatarUri }) {
         left: avatarUri ? CX + 46 + 18 : CX,
       }),
 
-      // The project first, at the size every card gives its section, then whose
-      // card this is. A share card that named only the person would be a card
-      // about a stranger.
-      at('Ratioed', { size: 104, by: 3 * P - 10, left: CX, color: t.accent }),
+      // The project first, at the size every card gives its section, and what
+      // kind of page this is beside it at the size of a subtitle: a card that
+      // named only the person would be a card about a stranger, and one that
+      // said only "Ratioed" would look like a piece's. Set as a baseline row so
+      // the two sizes are measured rather than estimated.
+      rowAt(
+        [
+          h('div', { style: { color: t.accent, fontSize: 104, fontWeight: 600 } }, 'Ratioed'),
+          h('div', { style: { color: t.inkMuted, fontSize: 42, fontWeight: 400 } }, 'participant'),
+        ],
+        { size: 104, by: 3 * P - 10, left: CX, gap: 20 },
+      ),
       at(handle, { size: hSize, by: 4 * P - 8, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
       participant.name
         ? at(participant.name, { size: 24, by: 4 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 })
         : null,
 
-      ...participantStrip(t, { participant, scale, left: CX, right: W - PAD, y: 5 * P + HP }),
-      at('take 01', { size: 20, by: 6 * P - LE - 4, left: CX, color: t.inkFaint, weight: 400 }),
-      at(`take ${String(participant.total).padStart(2, '0')}`, {
+      // The axis flanks the marks rather than sitting under them. Underneath,
+      // at half a pitch, the numbers were inside the strip's own descender
+      // space and read as a caption on top of it.
+      ...participantStrip(t, { participant, scale, left: CX + 46, right: W - PAD - 46, y: 5 * P + HP }),
+      at('01', { size: 20, by: 5 * P + HP + 7, left: CX, color: t.inkFaint, weight: 400 }),
+      at(String(participant.total).padStart(2, '0'), {
         size: 20,
-        by: 6 * P - LE - 4,
+        by: 5 * P + HP + 7,
         right: PAD,
         color: t.inkFaint,
         weight: 400,
