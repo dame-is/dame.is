@@ -109,8 +109,13 @@ function at(text, { size, by, left = PAD, right, weight = 600, italic = false, c
 
 // A baseline-aligned flex row (mixed colors, e.g. the breadcrumb). Same size
 // throughout so all children share one baseline at `by`.
-function rowAt(children, { size, by, left = PAD, gap = 16 }) {
-  return h('div', { style: { position: 'absolute', left, top: by - R * size, height: size, display: 'flex', alignItems: 'baseline', gap, fontSize: size, lineHeight: 1, fontFamily: 'Crimson Pro' } }, ...children);
+//
+// `align: 'center'` is for the one row whose children are deliberately not the
+// same size: a word set beside a much bigger one shares its baseline and so
+// sits at the bottom of it, which reads as having fallen off. Centering the
+// boxes puts it against the middle of the big word instead.
+function rowAt(children, { size, by, left = PAD, gap = 16, align = 'baseline' }) {
+  return h('div', { style: { position: 'absolute', left, top: by - R * size, height: size, display: 'flex', alignItems: align, gap, fontSize: size, lineHeight: 1, fontFamily: 'Crimson Pro' } }, ...children);
 }
 
 // The sky-avatar as a graphic: vertically centered on the breadcrumb text so
@@ -523,7 +528,11 @@ function participantCard(t, { participant, scale, avatarUri }) {
   // Shrink rather than truncate. The name is the one thing on this card that
   // belongs to somebody else, and dame has had participants as long as
   // @catblanketflower.yuwakisa.com.
-  const hSize = Math.max(26, Math.min(60, Math.floor(colW / (handle.length * 0.5))));
+  //
+  // Smaller than a headline on purpose: the handle is the subject of the card
+  // but it is not its title, and at sixty it competed with the work's own name
+  // directly above it.
+  const hSize = Math.max(24, Math.min(46, Math.floor(colW / (handle.length * 0.5))));
   const takes = (participant.takes || []).map((n) => String(n).padStart(2, '0'));
   const strip = takes.length
     ? `${takes.slice(0, 12).join(' ')}${takes.length > 12 ? ' …' : ''}`
@@ -572,12 +581,12 @@ function participantCard(t, { participant, scale, avatarUri }) {
           h('div', { style: { color: t.accent, fontSize: 104, fontWeight: 600 } }, 'Ratioed'),
           h('div', { style: { color: t.inkMuted, fontSize: 42, fontWeight: 400 } }, 'participant'),
         ],
-        { size: 104, by: 3 * P - 10, left: CX, gap: 20 },
+        { size: 104, by: 3 * P - 10, left: CX, gap: 20, align: 'center' },
       ),
+      // The handle alone. A display name under it is a second name for the same
+      // person, chosen by them and changeable by them, and on a card whose
+      // whole subject is one account the handle is the one that identifies.
       at(handle, { size: hSize, by: 4 * P - 8, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
-      participant.name
-        ? at(participant.name, { size: 24, by: 4 * P + HP - 6, left: CX, color: t.inkMuted, weight: 400 })
-        : null,
 
       // The axis flanks the marks rather than sitting under them. Underneath,
       // at half a pitch, the numbers were inside the strip's own descender

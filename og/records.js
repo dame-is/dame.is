@@ -654,7 +654,6 @@ export async function participantCard(handle, origin, opts) {
   const found = roster.audiences[person.did] || roster.audiences[person.h] || null;
   return {
     handle: person.h,
-    name: person.dn || '',
     live: d.live,
     takes: d.takes.filter((t) => t.wasAlive).map((t) => t.take),
     acts: d.acts,
