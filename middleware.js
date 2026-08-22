@@ -170,20 +170,36 @@ async function fetchShell(origin) {
 }
 
 /**
+ * Build a response, dropping the body for HEAD.
+ *
+ * Every branch below computes its representation in full and hands it here,
+ * because RFC 9110 §9.3.2 says a HEAD response carries the same header fields
+ * a GET would — the point of HEAD is to learn what a GET would give you. What
+ * forced this into a helper is that returning a Response WITH a body to a HEAD
+ * request gets it rebuilt at the edge without its content-type, so
+ * `curl -sI -H 'Accept: text/markdown'` — the verification acceptmarkdown.com
+ * documents — reported no markdown at all while GET was serving it correctly.
+ * Passing null instead keeps the headers intact.
+ */
+function respond(request, body, init) {
+  return new Response(request.method === 'HEAD' ? null : body, init);
+}
+
+/**
  * 406, per RFC 9110 §15.5.7: the request accepted no representation this site
  * can produce. The body is JSON rather than an HTML error page, because the
  * only clients that reach here are the ones that sent a machine-written Accept
  * header, and they can't parse HTML — it names what IS servable so the caller
  * can retry without guessing.
  */
-function notAcceptableResponse(path) {
+function notAcceptableResponse(request, path) {
   const body = {
     error: 'not_acceptable',
     message: `No acceptable representation of ${path}. This site serves HTML and Markdown.`,
     available: SERVABLE_TYPES,
     resolution: 'Retry with Accept: text/markdown, Accept: text/html, or Accept: */*.',
   };
-  return new Response(JSON.stringify(body, null, 2) + '\n', {
+  return respond(request, JSON.stringify(body, null, 2) + '\n', {
     status: 406,
     headers: {
       'content-type': 'application/json; charset=utf-8',
@@ -202,7 +218,7 @@ function notAcceptableResponse(path) {
  * line tells a crawler the truth. The shell carries a fallback block of its own
  * so an agent reading the HTML gets the same pointers as the Markdown one.
  */
-async function notFoundResponse({ origin, path, want }) {
+async function notFoundResponse({ request, origin, path, want }) {
   const headers = {
     vary: VARY,
     // Don't let a 404 sit in a shared cache: the usual reason a path 404s here
@@ -213,7 +229,7 @@ async function notFoundResponse({ origin, path, want }) {
   };
 
   if (want === 'markdown') {
-    return new Response(notFoundMarkdown({ origin: ORIGIN, path }), {
+    return respond(request, notFoundMarkdown({ origin: ORIGIN, path }), {
       status: 404,
       headers: { ...headers, 'content-type': MARKDOWN_TYPE },
     });
@@ -238,7 +254,7 @@ async function notFoundResponse({ origin, path, want }) {
       desc: `No page exists at ${path} on ${SITE.domain}. The links below are the pages that do.`,
     }),
   );
-  return new Response(html, {
+  return respond(request, html, {
     status: 404,
     headers: { ...headers, 'content-type': 'text/html; charset=utf-8' },
   });
@@ -259,12 +275,13 @@ export default async function middleware(request) {
     // Which representation the caller asked for. `none` means it accepted
     // neither HTML nor Markdown, which is a 406 rather than a guess.
     const want = negotiate(request.headers.get('accept'));
-    if (want === 'none') return notAcceptableResponse(path);
+    if (want === 'none') return notAcceptableResponse(request, path);
 
     // A path whose SHAPE matches no route in the SPA. This is the soft-404 fix:
     // before it, the catch-all rewrite answered 200 with the app shell here, so
     // every path that could be typed appeared to exist.
-    if (!isKnownRoute(path)) return await notFoundResponse({ origin: url.origin, path, want });
+    if (!isKnownRoute(path))
+      return await notFoundResponse({ request, origin: url.origin, path, want });
 
     // Two title conventions:
     //   • top-level surfaces → the page's own "dame.is {label}" (from pages.js)
@@ -437,7 +454,8 @@ export default async function middleware(request) {
     // Markdown variant: the same facts, without the shell. Agents asking for
     // `text/markdown` get prose instead of an HTML document to parse past.
     if (want === 'markdown') {
-      return new Response(
+      return respond(
+        request,
         pageMarkdown({ origin: ORIGIN, path, heading, desc, body, atUri, date, canonical }),
         {
           status,
@@ -507,7 +525,7 @@ export default async function middleware(request) {
     // rendered site changes.
     html = injectSsrFallback(html, ssrFallbackHtml({ path, heading, desc, body, atUri, date }));
 
-    return new Response(html, {
+    return respond(request, html, {
       status,
       headers: {
         'content-type': 'text/html; charset=utf-8',
