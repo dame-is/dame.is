@@ -154,6 +154,49 @@ skips the prefetch (useful when a snapshot already exists).
 | `<head>` discoverability tags | [`src/components/AtUriHead.jsx`](src/components/AtUriHead.jsx) |
 | Atmosphere debug overlay | [`src/components/DebugPane.jsx`](src/components/DebugPane.jsx) |
 | Day-of-life math | [`src/lib/dayOfLife.js`](src/lib/dayOfLife.js) |
+| Edge middleware (404s, meta, negotiation) | [`middleware.js`](middleware.js) |
+
+## Machines reading the site
+
+The site renders on the client, so the HTML on the wire used to carry seven
+characters of text and every path — real or not — answered `200`. A crawler
+could learn nothing from a page and an agent could not tell a typo from a real
+address. [`middleware.js`](middleware.js) answers all of that at the edge,
+before the catch-all rewrite in `vercel.json` fires:
+
+- **Real 404s.** [`og/routes.js`](og/routes.js) mirrors the `<Route>` table in
+  [`src/App.jsx`](src/App.jsx); a path matching no route shape gets a genuine
+  `404`, as does a record route whose record does not resolve. The mirror is
+  not trusted to stay accurate — `og/routes.test.js` parses `App.jsx` and
+  `vercel.json` and fails if either drifts from it.
+- **Content without JavaScript.** [`og/ssrContent.js`](og/ssrContent.js) builds
+  a heading, the page's prose, the record behind it and the site's other
+  surfaces as real links, injected into `#root`. An inline script hides it
+  wherever JavaScript runs and `src/main.jsx` removes it before React mounts,
+  so nothing about the rendered site changes — but curl, an AI crawler and a
+  text browser all get a readable page.
+- **Markdown on request.** [`og/markdown.js`](og/markdown.js) serves
+  `text/markdown` to callers that ask for it
+  ([acceptmarkdown.com](https://acceptmarkdown.com); RFC 9110 §12.5.1 for the
+  q-value ranking, `406` for a request that accepts neither form). Everything
+  negotiated carries `Vary: Accept`.
+- **Identity.** [`og/jsonld.js`](og/jsonld.js) emits a schema.org `@graph` — a
+  `Person`, the `WebSite` they publish, and the page — plus a per-path
+  canonical URL. It is a Person, not an Organization: there is no company here
+  and no address that belongs in public.
+
+Two files are generated at build time by `scripts/prefetch.mjs`, from the same
+snapshots, so they cannot disagree about what exists:
+
+| File | Built by | For |
+|---|---|---|
+| `/sitemap.xml` | `buildSitemap` | crawlers |
+| `/feed.xml` | `buildAtomFeed` | Atom readers |
+| `/llms.txt` | [`og/llms.js`](og/llms.js) | agents — what the site is for, when to use it, when not to, and the unauthenticated atproto endpoint that serves the same data |
+
+There is no REST API to publish and none is planned: the AT Protocol repository
+behind the site is the read API, it needs no key, and `/llms.txt` names it with
+a working `curl`.
 
 ## Deploy hook setup
 

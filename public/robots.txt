@@ -6,3 +6,8 @@ Disallow: /oauth/callback
 Disallow: /api/
 
 Sitemap: https://dame.is/sitemap.xml
+
+# Guide for AI agents and LLM crawlers — what this site is, when to use it,
+# and how to read its records straight from the AT Protocol.
+# https://llmstxt.org
+Llms: https://dame.is/llms.txt

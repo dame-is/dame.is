@@ -57,7 +57,15 @@ const INAT_TIMEOUT_MS = 3000;
 const ARENA_TIMEOUT_MS = 2500;
 
 // Sections whose leaf pages render a single AT-Protocol record.
-const RECORD_SECTIONS = new Set([
+/**
+ * Sections whose `/section/:id` leaves address a RECORD this module can
+ * resolve. Exported because middleware.js has to make the same distinction
+ * before it decides that an unresolvable path is a 404: /posting/3abc names a
+ * record and 404s when there isn't one, while /available/v2 and
+ * /exploring/:repo/:collection are ordinary pages that own their own content
+ * and must never be judged against a record lookup.
+ */
+export const RECORD_SECTIONS = new Set([
   'blogging',
   'creating',
   'curating',
