@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
@@ -6,7 +6,7 @@ import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, toAtUri } from '../lib/atproto.js';
-import { fetchChannelMeta, fetchAllBlocks, arenaText } from '../lib/arena.js';
+import { fetchChannelMeta, fetchAllBlocks, arenaText, orderBlocks } from '../lib/arena.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Curating.css';
 
@@ -72,6 +72,11 @@ export default function CuratingChannel() {
           description: v.description || arenaText(meta?.description) || '',
           blockCount: blocks.length,
           updatedAt: meta?.updated_at || null,
+          // How the record wants the blocks laid out. Applied at render rather
+          // than baked in here, so a random gallery is random per visit and a
+          // change to the record takes hold without waiting for a rebuild.
+          blockOrder: v.blockOrder || undefined,
+          pinnedBlockIds: Array.isArray(v.pinnedBlockIds) ? v.pinnedBlockIds : undefined,
         },
         truncated,
         blocks,
@@ -93,6 +98,23 @@ export default function CuratingChannel() {
     },
     deps: [slug],
   });
+
+  // One seed for the visit. A gallery paints from the build snapshot and then
+  // again from are.na, and a re-render (opening the lightbox) paints a third
+  // time — an unseeded shuffle would deal the page anew each time, under the
+  // reader. Fresh per mount, so "random" still means a different gallery when
+  // you come back.
+  const [shuffleSeed] = useState(() => Math.floor(Math.random() * 2 ** 32));
+  const gallery = items?.notFound ? null : items?.gallery || null;
+  const blocks = useMemo(
+    () =>
+      orderBlocks(gallery ? items?.blocks : [], {
+        order: gallery?.blockOrder,
+        pinned: gallery?.pinnedBlockIds,
+        seed: shuffleSeed,
+      }),
+    [items, gallery, shuffleSeed],
+  );
 
   if (status === 'loading') {
     return (
@@ -121,7 +143,7 @@ export default function CuratingChannel() {
     );
   }
 
-  const { gallery, blocks, truncated, recordCid } = items;
+  const { truncated, recordCid } = items;
   // Only image/link blocks are lightbox-navigable; text tiles are not.
   const visualBlocks = blocks.filter((b) => b.type !== 'text');
 

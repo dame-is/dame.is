@@ -276,25 +276,31 @@ export function buildRepo() {
     }),
   );
 
-  /* Curating — is.dame.arena.channel */
+  /* Curating — is.dame.arena.channel.
+     The field names are the lexicon's, not near-misses: the editor renders from
+     the lexicon, so a fixture that says `slug`/`channel` opens every channel
+     with a blank "Are.na channel slug" — and the two pickers that key off it
+     (cover, pins) with nothing to show. `blockOrder` and `pinnedBlockIds` vary
+     across the six so the layout controls have something to be. */
   put(
     COLLECTIONS.arenaChannel,
     [
-      ['soft-architecture', 'Soft architecture', true],
-      ['field-notes', 'Field notes', true],
-      ['type-specimens', 'Type specimens', true],
-      ['moth-reference', 'Moth reference', true],
-      ['abandoned-uis', 'Abandoned UIs', false],
-      ['colour-studies', 'Colour studies', true],
-    ].map(([slug, title, enabled], i) =>
+      ['soft-architecture', 'Soft architecture', true, 'newest', [4821, 3390]],
+      ['field-notes', 'Field notes', true, undefined, undefined],
+      ['type-specimens', 'Type specimens', true, 'oldest', undefined],
+      ['moth-reference', 'Moth reference', true, 'random', [7714]],
+      ['abandoned-uis', 'Abandoned UIs', false, undefined, undefined],
+      ['colour-studies', 'Colour studies', true, 'curated', undefined],
+    ].map(([slug, title, enabled, blockOrder, pinnedBlockIds], i) =>
       rec(
         COLLECTIONS.arenaChannel,
         {
           $type: COLLECTIONS.arenaChannel,
-          slug,
+          arenaSlug: slug,
           title,
-          channel: slug,
           enabled,
+          ...(blockOrder ? { blockOrder } : {}),
+          ...(pinnedBlockIds ? { pinnedBlockIds } : {}),
           createdAt: ago(9000 + i * 2000),
           updatedAt: ago(700 + i * 2000),
         },

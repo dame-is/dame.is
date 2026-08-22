@@ -145,6 +145,100 @@ export function pickCoverThumb(blocks, coverBlockId) {
   return list.find((b) => b?.thumb)?.thumb || null;
 }
 
+/**
+ * How a gallery lays its blocks out, offered in the channel record's editor and
+ * read by the gallery page. `curated` is are.na's own position order — the only
+ * order the site had, and still the default, because it is the one the author
+ * arranged by hand over there.
+ *
+ * `newest`/`oldest` sort by when a block was CONNECTED to this channel, which is
+ * not the same question as position: reordering blocks on are.na moves their
+ * position and leaves their connection date alone.
+ */
+export const BLOCK_ORDERS = [
+  { value: 'curated', label: 'Curated — the order they sit in on are.na' },
+  { value: 'newest', label: 'Newest first — most recently added to the channel' },
+  { value: 'oldest', label: 'Oldest first — as they were added' },
+  { value: 'random', label: 'Random — reshuffled on every visit' },
+];
+
+export const DEFAULT_BLOCK_ORDER = 'curated';
+
+/** When a block joined this channel, in ms, or null if it doesn't say. */
+const connectedMs = (b) => {
+  const t = Date.parse(b?.connectedAt || '');
+  return Number.isNaN(t) ? null : t;
+};
+
+/**
+ * Fisher–Yates driven by a seeded PRNG (mulberry32), so one seed shuffles one
+ * way. The seed matters: a gallery paints from the build snapshot and then
+ * again from are.na, and an unseeded shuffle would deal the page twice.
+ */
+function shuffle(list, seed) {
+  let a = seed >>> 0;
+  const next = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(next() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** The unpinned remainder, in the order the channel asked for. */
+function sortRest(rest, order, seed) {
+  if (order === 'random') return shuffle(rest, seed);
+  if (order !== 'newest' && order !== 'oldest') return rest; // curated, and anything unrecognised
+  // A block with no connection date sorts after the dated ones rather than to
+  // one end of them, where a missing date would read as "added first" (or last).
+  // Sort is stable, so within each group the channel's own order survives.
+  const dated = [];
+  const undated = [];
+  for (const b of rest) (connectedMs(b) === null ? undated : dated).push(b);
+  const dir = order === 'newest' ? -1 : 1;
+  dated.sort((x, y) => dir * (connectedMs(x) - connectedMs(y)));
+  return [...dated, ...undated];
+}
+
+/**
+ * A gallery's blocks in the order its record asks for them.
+ *
+ * Pinned blocks lead, in the order they were pinned — a pin is "this one first",
+ * and it holds whichever way the rest is sorted, including random. A pin naming
+ * a block that has since left the channel simply places nothing; the record is
+ * not rewritten for it, so unpinning on are.na and re-adding still works.
+ *
+ * @param {Array} blocks           normalized blocks, in are.na position order
+ * @param {object} [opts]
+ * @param {string} [opts.order]    one of BLOCK_ORDERS
+ * @param {Array}  [opts.pinned]   are.na block ids, in pin order
+ * @param {number} [opts.seed]     shuffle seed; hold it steady across a visit
+ * @returns {Array} a new array; the input is never mutated
+ */
+export function orderBlocks(blocks, { order = DEFAULT_BLOCK_ORDER, pinned = [], seed = 0 } = {}) {
+  const list = (Array.isArray(blocks) ? blocks : []).filter(Boolean);
+  if (list.length < 2) return [...list];
+  const byId = new Map(list.map((b) => [String(b.id), b]));
+  const head = [];
+  const taken = new Set();
+  for (const id of Array.isArray(pinned) ? pinned : []) {
+    const key = String(id);
+    const block = byId.get(key);
+    if (block && !taken.has(key)) {
+      head.push(block);
+      taken.add(key);
+    }
+  }
+  const rest = taken.size ? list.filter((b) => !taken.has(String(b.id))) : list;
+  return [...head, ...sortRest(rest, order, seed)];
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**

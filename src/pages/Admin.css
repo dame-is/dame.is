@@ -424,6 +424,42 @@ a.admin-gate-button:hover:not(:disabled) {
   box-shadow: 0 0 0 2px var(--accent);
 }
 
+/* Pin picker (is.dame.arena.channel -> pinnedBlockIds). The same grid and the
+   same tile as the cover picker above — it is the same act of pointing at a
+   block — plus the two things a pin needs that a cover doesn't: a number saying
+   where it lands, and a tile for the text blocks a cover can't be. */
+.arena-pin-thumb {
+  position: relative;
+}
+
+.arena-pin-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: var(--space-1);
+  font-family: var(--serif);
+  font-size: var(--text-xs);
+  line-height: 1.25;
+  text-align: left;
+  color: var(--ink-soft);
+}
+
+.arena-pin-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 1.35rem;
+  padding: 0.1rem 0.25rem;
+  background: var(--accent);
+  color: var(--page);
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  text-align: center;
+}
+
 .admin-field-label {
   font-family: var(--sans);
   font-variant: all-small-caps;

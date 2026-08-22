@@ -1253,6 +1253,11 @@ function Field({ field, value, record, onChange, agent, did, collection, rkey, o
         <ArenaCoverField value={value} onChange={onChange} arenaSlug={record?.arenaSlug} />
       );
       break;
+    case 'arenaPins':
+      control = (
+        <ArenaPinsField value={value} onChange={onChange} arenaSlug={record?.arenaSlug} />
+      );
+      break;
     case 'publicationPicker':
       control = (
         <PublicationPickerField
@@ -1649,6 +1654,118 @@ function ArenaCoverField({ value, onChange, arenaSlug }) {
                   aria-pressed={selected}
                 >
                   <img src={b.thumb?.src} alt={b.alt || ''} loading="lazy" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pin picker for an are.na gallery (`is.dame.arena.channel` → pinnedBlockIds).
+ * The cover picker's grid, made multi-select: click a block to pin it, and the
+ * badge says where it lands. Pins hold whatever the block order is set to, so
+ * this is how a random gallery still opens on the one you want seen first.
+ *
+ * Unlike the cover, a pin doesn't need a picture — a text tile is a block like
+ * any other on the page — and it pulls the whole channel rather than the cover
+ * picker's two pages, because the block worth pinning is as often the newest
+ * one (the far end of are.na's position order) as the first.
+ */
+function ArenaPinsField({ value, onChange, arenaSlug }) {
+  const [blocks, setBlocks] = useState(null);
+  const [status, setStatus] = useState(null);
+
+  const pins = useMemo(() => (Array.isArray(value) ? value : []), [value]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const slug = (arenaSlug || '').trim();
+    if (!slug) {
+      setBlocks(null);
+      setStatus('Enter the are.na channel slug first, then reopen this record to pin blocks.');
+      return undefined;
+    }
+    setStatus('Loading blocks…');
+    setBlocks(null);
+    fetchAllBlocks(slug)
+      .then(({ blocks: bs, truncated }) => {
+        if (cancelled) return;
+        setBlocks(bs);
+        setStatus(
+          bs.length === 0
+            ? 'No blocks found in that channel.'
+            : truncated
+              ? `Showing the first ${bs.length} blocks — the same ones the gallery shows.`
+              : null,
+        );
+      })
+      .catch((err) => {
+        if (!cancelled) setStatus(`Could not load blocks: ${err?.message || err}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [arenaSlug]);
+
+  // A pin whose block is no longer in the channel is kept, not quietly dropped:
+  // it costs nothing on the page (see orderBlocks) and removing a block on
+  // are.na by accident shouldn't also forget that it was pinned.
+  const orphans = Array.isArray(blocks)
+    ? pins.filter((id) => !blocks.some((b) => String(b.id) === String(id))).length
+    : 0;
+
+  const toggle = (id) => {
+    const key = String(id);
+    const next = pins.some((p) => String(p) === key)
+      ? pins.filter((p) => String(p) !== key)
+      : [...pins, id];
+    onChange(next.length ? next : undefined);
+  };
+
+  return (
+    <div className="arena-cover-field">
+      <div className="arena-cover-actions">
+        <span className="admin-field-hint">
+          {pins.length === 0
+            ? 'Nothing pinned — the block order alone decides.'
+            : `${pins.length} pinned, in the order you clicked them.`}
+        </span>
+        {pins.length > 0 && (
+          <button type="button" className="admin-link-subtle" onClick={() => onChange(undefined)}>
+            Clear pins
+          </button>
+        )}
+      </div>
+      {status && <p className="admin-field-hint">{status}</p>}
+      {orphans > 0 && (
+        <p className="admin-field-hint">
+          {orphans} pinned {orphans === 1 ? 'block is' : 'blocks are'} no longer in this channel.
+          They are kept, and place nothing until they come back.
+        </p>
+      )}
+      {Array.isArray(blocks) && blocks.length > 0 && (
+        <ul className="arena-cover-grid">
+          {blocks.map((b) => {
+            const at = pins.findIndex((p) => String(p) === String(b.id));
+            return (
+              <li key={b.id}>
+                <button
+                  type="button"
+                  className={`arena-cover-thumb arena-pin-thumb${at >= 0 ? ' is-selected' : ''}`}
+                  onClick={() => toggle(b.id)}
+                  title={b.type === 'text' ? b.text : b.title || 'Untitled block'}
+                  aria-pressed={at >= 0}
+                >
+                  {b.thumb?.src ? (
+                    <img src={b.thumb.src} alt={b.alt || ''} loading="lazy" />
+                  ) : (
+                    <span className="arena-pin-text">{b.text || '—'}</span>
+                  )}
+                  {at >= 0 && <span className="arena-pin-badge">{at + 1}</span>}
                 </button>
               </li>
             );
