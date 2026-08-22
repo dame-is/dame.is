@@ -55,6 +55,7 @@ import { aturiUniversalUrl, getRecord, resolvePds, resolveProfiles } from '../li
 import { DEFAULT_COPY, loadCopy, fillCopy } from '../lib/ratioedCopy.js';
 import { pieceStats } from '../lib/ratioedStats.js';
 import RatioedStats from '../components/RatioedStats.jsx';
+import RatioedHandle from '../components/RatioedHandle.jsx';
 import { ratioedScaleVars } from '../lib/ratioedPalette.js';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { ME_DID, ME_HANDLE, RATIOED_DOC_RKEY, COLLECTIONS } from '../config.js';
@@ -558,7 +559,10 @@ export default function RatioedPiece() {
                 {piece.preSeal.participants === 1 ? 'person' : 'people'}
               </>
             )}{' '}
-            while it was alive, and was ended by <strong>@{b.currentHandle || b.handle}</strong>
+            while it was alive, and was ended by{' '}
+            <strong>
+              <RatioedHandle handle={b.currentHandle || b.handle} parent={slug} />
+            </strong>
             {/* Three endings, not two. A like that still stands is measured; a
                 like that was deleted after something had already timed it is
                 measured and gone, which is the case the record's
@@ -606,7 +610,7 @@ export default function RatioedPiece() {
               `playing` travelled between pieces. Arrive from take 13 (16.7s, so
               Real is selected) and take 14 opened ready to start a 42-minute
               replay. */}
-          <PieceReplay key={piece.rkey} piece={piece} events={logRows} profiles={profiles} />
+          <PieceReplay key={piece.rkey} piece={piece} events={logRows} profiles={profiles} parent={slug} />
         </section>
 
         <section className="ratioed-piece-section">
@@ -614,10 +618,14 @@ export default function RatioedPiece() {
           <p className="ratioed-piece-note">
             {copy.roster}
             {b.likeSurvives === false && (
-              <> @{b.currentHandle || b.handle} is here without a like to show for it.</>
+              <>
+                {' '}
+                <RatioedHandle handle={b.currentHandle || b.handle} parent={slug} /> is here without
+                a like to show for it.
+              </>
             )}
           </p>
-          <PieceFaces piece={piece} events={events} profiles={profiles} />
+          <PieceFaces piece={piece} events={events} profiles={profiles} parent={slug} />
         </section>
 
         <section className="ratioed-piece-section">
@@ -653,6 +661,7 @@ export default function RatioedPiece() {
             audienceAt={piece.audienceAt || audience?.measuredAt || ''}
             piece={piece}
             copy={copy}
+            parent={slug}
           />
         )}
 
@@ -673,7 +682,7 @@ export default function RatioedPiece() {
                   <span className="ratioed-piece-when">
                     +{fmtElapsed(e.off - piece.lifespanMs / 1000)}
                   </span>
-                  <span className="ratioed-piece-who">@{e.h}</span>
+                  <RatioedHandle className="ratioed-piece-who" handle={e.h} parent={slug} />
                   {e.t && <span className="ratioed-piece-text">{e.t}</span>}
                 </li>
               ))}
@@ -734,7 +743,7 @@ export default function RatioedPiece() {
                       </span>
                     </td>
                     <td className="ratioed-piece-who">
-                      @{e.h}
+                      <RatioedHandle handle={e.h} parent={slug} />
                       {e.self ? ' (the artist)' : ''}
                     </td>
                     <td>
@@ -916,7 +925,7 @@ const REACH_ROWS = 12;
  * with the audience they brought and what it was multiplied by, and the total
  * is the sum of that column.
  */
-function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
+function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY, parent }) {
   const fresh = audienceIsFresh(audienceAt, piece?.sealedAt || piece?.postedAt);
   const { alive, after } = reach;
 
@@ -955,7 +964,10 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
         {alive.raw > 0 && ' people'}
         {top && alive.raw > 0 && alive.topShare > 0.5 && (
           <>
-            , {Math.round(alive.topShare * 100)}% of it through <strong>@{top.handle}</strong>
+            , {Math.round(alive.topShare * 100)}% of it through{' '}
+            <strong>
+              <RatioedHandle handle={top.handle} parent={parent} />
+            </strong>
           </>
         )}
         . Since the seal it has reached{' '}
@@ -1031,7 +1043,9 @@ function ReachSection({ reach, audienceAt, piece, copy = DEFAULT_COPY }) {
             <tbody>
               {rows.map((p) => (
                 <tr key={`${p.window}-${p.key}`}>
-                  <td className="ratioed-piece-who">@{p.handle}</td>
+                  <td className="ratioed-piece-who">
+                    <RatioedHandle handle={p.handle} parent={parent} />
+                  </td>
                   <td>
                     <span className={`ratioed-piece-kind ratioed-k-${p.kind}`}>
                       {REACH_ACT[p.kind] || p.kind}

@@ -18,7 +18,7 @@
           "announcement": {
             "type": "string",
             "maxLength": 3000,
-            "description": "The concluding reply, with {handle} for the account whose like ended the piece. The phrase \"was to blame\" is load-bearing: it is what the site parses the breaker back out of, and for a piece whose like was later deleted that reply is the only evidence the like ever existed."
+            "description": "The whole concluding reply. Substituted when a piece is sealed: {handle} is the account whose like ended it, {take} the take number, {engagement} what it had drawn, {duration} how long it stood, {counts} the same list without the \"and\", {rank} the standing that earned when it earned one, {participant} the breaker's page on the site and {link} the piece's own. Links are stored the way a client stores them: the shortened form in the text and the whole URL in a facet beside it, which is what a 300-character post is counted against. A line of \"---\" on its own starts a second reply in the same thread, for a reply that outgrows one post. The phrase \"was to blame\" is load-bearing: it is what the site parses the breaker back out of, and for a piece whose like was later deleted that reply is the only evidence the like ever existed."
           },
           "updatedAt": {
             "type": "string",

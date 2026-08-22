@@ -22,6 +22,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { fmtDuration } from '../lib/ratioed.js';
 import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
+import RatioedHandle from './RatioedHandle.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
 import './RatioedLive.css';
 
@@ -69,6 +70,11 @@ export function RatioedCounters({ tally }) {
  * @param {boolean} [props.quiet]  mute a replayed alarm: a like that ended a
  *                                 piece a year ago should not throb about it
  * @param {string} [props.empty]   what to say when nothing has happened
+ * @param {string} [props.parent]  the Ratioed essay's own segment. Set on a
+ *                                 finished piece, where every account in the
+ *                                 list has a page; absent in the studio, where
+ *                                 the piece is still running and nobody is in
+ *                                 the roster yet.
  * @param {boolean} [props.openable]  draw the "open it elsewhere" button. Off
  *                                 in the replay, where only some rows carry a
  *                                 record key and a button on half of them
@@ -84,6 +90,7 @@ export default function RatioedTicker({
   openable = true,
   actions = null,
   below = null,
+  parent = null,
 }) {
   const { openWaypoints } = useWaypointsModal();
   if (!rows.length) return <p className="ratioed-live-empty">{empty}</p>;
@@ -108,7 +115,7 @@ export default function RatioedTicker({
               <span className="ratioed-live-face is-blank" aria-hidden="true" />
             )}
             <span className="ratioed-live-who">
-              @{handle}
+              {parent ? <RatioedHandle handle={handle} parent={parent} /> : `@${handle}`}
               {mine && <span className="ratioed-live-self"> the artist</span>}
             </span>
             <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />

@@ -93,7 +93,14 @@ import {
   nextTake,
   previousPiece,
   announcementDraft,
+  announcementParts,
   announcementProblems,
+  shortenPost,
+  announcementLengths,
+  graphemes,
+  ANNOUNCEMENT_TOKENS,
+  ANNOUNCEMENT_BREAK,
+  FEED_MAX as POST_MAX,
 } from '../lib/ratioedStudio.js';
 import { watchSubject } from '../lib/jetstream.js';
 import {
@@ -1284,20 +1291,56 @@ export default function RatioedStudio({ agent, did }) {
         ref = { uri: subjectUri(announce.piece.rkey), cid: post.cid };
       }
 
-      const rt = new RichText({ text: announce.text.trim() });
-      await rt.detectFacets(agent);
-      const posted = await agent.com.atproto.repo.createRecord({
-        repo: did,
-        collection: POST,
-        record: {
-          $type: POST,
-          text: rt.text,
-          ...(rt.facets?.length ? { facets: rt.facets } : {}),
-          reply: { root: ref, parent: ref },
-          langs: ['en'],
-          createdAt: new Date().toISOString(),
-        },
-      });
+      // One reply, or a thread of them. What a piece has to say about itself
+      // as it ends outgrew a single post once it started carrying links — see
+      // ANNOUNCEMENT_BREAK — so the template says where it breaks and each
+      // part is posted as a reply to the one before it. The root stays the
+      // piece throughout, which is what keeps the whole thing one thread.
+      //
+      // The first is the one that matters: it carries the blame sentence the
+      // site reads the breaker back out of, and it is the one the record is
+      // stamped from. A later part that fails leaves a posted announcement and
+      // a reported error rather than an unposted piece.
+      const parts = announcementParts(announce.text);
+      let posted = null;
+      let parent = ref;
+      for (const part of parts) {
+        // The draft carries whole URLs, because a link somebody cannot read the
+        // end of is one they cannot check. The post carries the short form and
+        // the whole URL in a facet beside it, which is how the client that
+        // composes these posts by hand does it and why its counter and ours now
+        // agree. See shortenPost.
+        const { text, links } = shortenPost(part);
+        const rt = new RichText({ text });
+        await rt.detectFacets(agent);
+        // Whatever the detector made of a shortened URL is wrong by
+        // construction — it is a plausible host and it points at itself — so
+        // our spans win over anything overlapping them. The mentions it found
+        // are the reason it runs at all.
+        const overlaps = (f) =>
+          links.some((l) => f.index.byteStart < l.end && l.start < f.index.byteEnd);
+        const facets = [
+          ...(rt.facets || []).filter((f) => !overlaps(f)),
+          ...links.map((l) => ({
+            index: { byteStart: l.start, byteEnd: l.end },
+            features: [{ $type: 'app.bsky.richtext.facet#link', uri: l.uri }],
+          })),
+        ].sort((a, b) => a.index.byteStart - b.index.byteStart);
+        const res = await agent.com.atproto.repo.createRecord({
+          repo: did,
+          collection: POST,
+          record: {
+            $type: POST,
+            text: rt.text,
+            ...(facets.length ? { facets } : {}),
+            reply: { root: ref, parent },
+            langs: ['en'],
+            createdAt: new Date().toISOString(),
+          },
+        });
+        posted ||= res;
+        if (res?.data?.uri && res?.data?.cid) parent = { uri: res.data.uri, cid: res.data.cid };
+      }
 
       // How long the piece stood finished before it was announced.
       //
@@ -1326,7 +1369,11 @@ export default function RatioedStudio({ agent, did }) {
 
       setAnnounce(null);
       setSealed(null);
-      setNote(`Take ${announce.piece.take} is finished.`);
+      setNote(
+        `Take ${announce.piece.take} is finished.${
+          parts.length > 1 ? ` The reply went out as ${parts.length} posts.` : ''
+        }`,
+      );
       await refresh();
     } catch (err) {
       setError(err?.message || String(err));
@@ -1789,10 +1836,25 @@ export default function RatioedStudio({ agent, did }) {
           </p>
           <textarea
             className="admin-input rs-draft"
-            rows={8}
+            rows={10}
             value={announce.text}
             onChange={(e) => setAnnounce((a) => ({ ...a, text: e.target.value }))}
           />
+          {/* This one is the real thing rather than a worst case, and it is the
+              last moment before a post is made: a reply over the limit is
+              rejected by the PDS, and finding that out here costs an edit
+              rather than a failed seal. */}
+          <p className="rs-count">
+            {announcementParts(announce.text).map((part, i, all) => {
+              const n = graphemes(shortenPost(part).text);
+              return (
+                <span key={i} className={n > POST_MAX ? 'is-over' : undefined}>
+                  {all.length > 1 ? `reply ${i + 1}: ` : ''}
+                  {n}/{POST_MAX}
+                </span>
+              );
+            })}
+          </p>
           <div className="rs-actions">
             <button
               type="button"
@@ -1870,20 +1932,37 @@ export default function RatioedStudio({ agent, did }) {
                   than in the code: on a piece whose like was deleted, this
                   sentence is the only evidence the like ever existed. */}
               <label className="admin-field-label" htmlFor="rs-announce-tpl">
-                The concluding reply’s first line
+                The concluding reply
               </label>
               <p className="admin-field-hint">
-                {'{handle}'} becomes whoever ended the piece. The figures and the ranking are
-                added under it when a piece is sealed.
+                The whole of it, figures included. A line of{' '}
+                <code>{ANNOUNCEMENT_BREAK}</code> on its own starts a second reply in the same
+                thread, which is how it carries more than a post holds.
               </p>
+              <ul className="rs-tokens">
+                {ANNOUNCEMENT_TOKENS.map(([token, what]) => (
+                  <li key={token}>
+                    <code>{token}</code> {what}
+                  </li>
+                ))}
+              </ul>
               <textarea
                 id="rs-announce-tpl"
                 className="admin-input rs-draft"
-                rows={3}
+                rows={10}
                 spellCheck={false}
                 value={annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT}
                 onChange={(e) => setAnnDraft(e.target.value)}
               />
+              {/* What it comes to for the longest handle the project has drawn,
+                  which is the case it fails on and the case nobody writing it
+                  has in mind. */}
+              <p className="admin-field-hint">
+                {announcementLengths(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT)
+                  .map((n, i, all) => `${all.length > 1 ? `reply ${i + 1}: ` : ''}${n}/${POST_MAX}`)
+                  .join(' · ')}{' '}
+                at its longest
+              </p>
               {announcementProblems(annDraft ?? announceTpl ?? DEFAULT_ANNOUNCEMENT).map((p) => (
                 <p className="admin-error-inline" key={p}>{p}</p>
               ))}

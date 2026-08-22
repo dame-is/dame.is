@@ -1,0 +1,16 @@
+/* A handle that leads somewhere.
+   Quiet on purpose: a piece's log can be forty rows and its roster a dozen
+   faces, and underlining every account in the project's own accent would turn
+   a page of evidence into a page of links. The rule under it is the same one
+   the participants table uses. */
+
+.ratioed-handle {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+}
+.ratioed-handle:hover,
+.ratioed-handle:focus-visible {
+  color: var(--ink);
+  border-bottom-color: currentColor;
+}

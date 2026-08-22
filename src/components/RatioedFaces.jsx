@@ -13,7 +13,9 @@
 // the piece, so their frame is drawn from that reply and marked as such.
 
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { fmtDuration, fmtElapsed, foldFaces } from '../lib/ratioed.js';
+import { participantHref } from '../lib/ratioedParticipant.js';
 import './RatioedFaces.css';
 
 const KIND_VERB = { like: 'liked', repost: 'reposted', quote: 'quoted', reply: 'replied' };
@@ -25,7 +27,7 @@ function labelFor(person) {
   return KIND_VERB[person.kind] || 'was there';
 }
 
-export default function RatioedFaces({ piece, events, profiles = {} }) {
+export default function RatioedFaces({ piece, events, profiles = {}, parent }) {
   const lifeSec = (piece?.lifespanMs || 0) / 1000;
 
   const people = useMemo(() => {
@@ -90,6 +92,7 @@ export default function RatioedFaces({ piece, events, profiles = {} }) {
           people={live}
           profiles={profiles}
           lifeSec={lifeSec}
+          parent={parent}
         />
       )}
       {after.length > 0 && (
@@ -98,6 +101,7 @@ export default function RatioedFaces({ piece, events, profiles = {} }) {
           people={after}
           profiles={profiles}
           lifeSec={lifeSec}
+          parent={parent}
           muted
         />
       )}
@@ -105,7 +109,7 @@ export default function RatioedFaces({ piece, events, profiles = {} }) {
   );
 }
 
-function Group({ title, people, profiles, lifeSec, muted }) {
+function Group({ title, people, profiles, lifeSec, muted, parent }) {
   return (
     <div className={`ratioed-faces-group${muted ? ' muted' : ''}`}>
       <h3 className="small-caps">{title}</h3>
@@ -119,6 +123,7 @@ function Group({ title, people, profiles, lifeSec, muted }) {
                deleted and who was named rather than measured. */
             profile={profiles[p.did] || profiles[p.handle]}
             lifeSec={lifeSec}
+            parent={parent}
           />
         ))}
       </ul>
@@ -126,7 +131,7 @@ function Group({ title, people, profiles, lifeSec, muted }) {
   );
 }
 
-function Face({ person, profile, lifeSec }) {
+function Face({ person, profile, lifeSec, parent }) {
   const handle = profile?.handle || person.handle;
   // The harvest's own label for an account that no longer answers. Kept rather
   // than prettified — it says exactly what is and isn't known.
@@ -156,19 +161,19 @@ function Face({ person, profile, lifeSec }) {
     </>
   );
 
+  // Their own page rather than their Bluesky profile. Both are one click from
+  // a face, and only one of them answers the question a roster raises — what
+  // else were they in — which is a question about this project and not about
+  // the account. The page itself links out to Bluesky.
+  const href = participantHref(handle, parent);
   return (
     <li className={`ratioed-face${person.broke ? ' broke' : ''}`} title={`@${handle} · ${when}`}>
-      {gone || !handle ? (
+      {gone || !href ? (
         <span className="ratioed-face-link">{body}</span>
       ) : (
-        <a
-          className="ratioed-face-link"
-          href={`https://bsky.app/profile/${handle}`}
-          target="_blank"
-          rel="noreferrer noopener"
-        >
+        <Link className="ratioed-face-link" to={href}>
           {body}
-        </a>
+        </Link>
       )}
       {person.named && <span className="ratioed-face-note">like deleted</span>}
     </li>

@@ -18,7 +18,7 @@
 // and a take the roster names with no log behind it renders as a take with
 // nothing to say rather than disappearing.
 
-import { RATIOED_PATH } from '../config.js';
+import { ME_HANDLE, RATIOED_PATH } from '../config.js';
 import { identifyAcross, UNRESOLVED } from './ratioedIdentity.js';
 
 /**
@@ -66,6 +66,24 @@ export function participantSlug(person) {
 export function participantPath(person, parent = RATIOED_PATH) {
   const slug = participantSlug(person);
   return slug ? `/creating/${parent}/participant/${encodeURIComponent(slug)}` : null;
+}
+
+/**
+ * Where a bare handle's page lives, or null when it has no page to go to.
+ *
+ * Three accounts never do, and each for its own reason. The artist is in every
+ * log and in no roster — the counts exclude their records by construction, so
+ * a page about them would be empty. The placeholder handle covers more than one
+ * deactivated account, so it identifies nobody. And a row with no handle at all
+ * is a record whose author could not be named.
+ *
+ * For everyone else the answer is yes without asking the roster: the roster is
+ * derived from these same logs, so a handle that appears in one is in it.
+ */
+export function participantHref(handle, parent = RATIOED_PATH) {
+  const h = String(handle || '').trim().replace(/^@/, '');
+  if (!h || h === UNRESOLVED || h === ME_HANDLE) return null;
+  return `/creating/${parent || RATIOED_PATH}/participant/${encodeURIComponent(h)}`;
 }
 
 /**
