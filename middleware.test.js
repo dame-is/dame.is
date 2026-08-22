@@ -255,6 +255,36 @@ describe('the HTML a crawler receives', () => {
   });
 });
 
+describe('HEAD', () => {
+  const head = (path, accept) =>
+    middleware(new Request(`https://dame.is${path}`, { method: 'HEAD', headers: { accept } }));
+
+  it('answers with the headers a GET would, and no body', async () => {
+    // RFC 9110 §9.3.2. Learning what a GET would return is the whole point of
+    // HEAD, and `curl -sI -H 'Accept: text/markdown'` is the check
+    // acceptmarkdown.com documents — so the content-type has to survive it.
+    for (const [path, accept] of [
+      ['/', HTML_ACCEPT],
+      ['/', 'text/markdown'],
+      ['/blogging', 'text/markdown'],
+      ['/nope', HTML_ACCEPT],
+      ['/nope', 'text/markdown'],
+      ['/', 'application/pdf'],
+    ]) {
+      const [h, g] = [await head(path, accept), await get(path, { accept })];
+      expect(h.status, `${path} (${accept})`).toBe(g.status);
+      for (const key of ['content-type', 'vary', 'cache-control', 'x-robots-tag']) {
+        expect(h.headers.get(key), `${key} on HEAD ${path} (${accept})`).toBe(g.headers.get(key));
+      }
+      expect(await h.text()).toBe('');
+    }
+  });
+
+  it('still falls through for the paths a GET falls through on', async () => {
+    for (const p of ['/robots.txt', '/about']) expect(await head(p, HTML_ACCEPT)).toBeUndefined();
+  });
+});
+
 describe('failure handling', () => {
   it('falls through rather than erroring when the shell cannot be read', async () => {
     vi.stubGlobal(
