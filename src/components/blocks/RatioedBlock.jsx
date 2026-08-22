@@ -36,6 +36,7 @@ import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
 import { participantPath } from '../../lib/ratioedParticipant.js';
 import { useTheme } from '../../hooks/useTheme.jsx';
 import ScrollFrame from '../ScrollFrame.jsx';
+import RatioedHandle from '../RatioedHandle.jsx';
 import { ME_DID, RATIOED_PATH } from '../../config.js';
 import './RatioedBlock.css';
 
@@ -355,7 +356,7 @@ export default function RatioedBlock({ block, style }) {
       )}
       {variant === 'reaction' && <Reaction pieces={pieces} />}
       {variant === 'ledger' && <Ledger pieces={pieces} deltas={deltas} parent={parentSlug} />}
-      {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} />}
+      {variant === 'hidden' && <Hidden pieces={pieces} events={eventLog} parent={parentSlug} />}
       {variant === 'participants' && (
         <Participants rows={roster.rows} audiences={audiences} parent={parentSlug} />
       )}
@@ -698,7 +699,7 @@ function Summary({ stats, people, shape, roster }) {
 /* Hidden replies                                                       */
 /* ------------------------------------------------------------------ */
 
-function Hidden({ pieces, events }) {
+function Hidden({ pieces, events, parent }) {
   const rows = useMemo(() => hiddenReplies(events, pieces), [events, pieces]);
   if (!events) return <p className="ratioed-note">Loading the event log…</p>;
   if (!rows.length) return <p className="ratioed-note">No replies landed after a seal.</p>;
@@ -717,7 +718,7 @@ function Hidden({ pieces, events }) {
                   whether a reply was nested, and only the bundled harvest
                   recorded it — so a row with no flag is a row nothing can
                   answer for, not a reply to the piece itself. */}
-              @{r.h}
+              <RatioedHandle handle={r.h} parent={parent || RATIOED_PATH} />
               {r.n != null && <> · {r.n ? 'nested reply' : 'reply to the sealed post'}</>}
             </div>
           </div>

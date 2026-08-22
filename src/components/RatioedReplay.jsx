@@ -61,7 +61,7 @@ function tailSec(frac, maxSec) {
  * afterlife. Positions and the playhead share the scale, so "has this arrived
  * yet" is one comparison rather than two cases.
  */
-export default function RatioedReplay({ piece, events, profiles = {} }) {
+export default function RatioedReplay({ piece, events, profiles = {}, parent }) {
   const lifeSec = Math.max((piece?.lifespanMs || 0) / 1000, 0.001);
   const [realTime, setRealTime] = useState((piece?.lifespanMs || 0) <= REAL_TIME_DEFAULT_MS);
   const [progress, setProgress] = useState(2); // fully played, so a still page shows everything
@@ -285,6 +285,7 @@ export default function RatioedReplay({ piece, events, profiles = {} }) {
         profiles={profiles}
         openable={false}
         quiet
+        parent={parent}
         empty="Nothing yet. Nobody has touched it."
       />
     </div>

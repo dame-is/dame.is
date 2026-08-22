@@ -106,6 +106,38 @@
   line-height: 1.6;
 }
 
+/* What the template's placeholders become. A list rather than a sentence
+   because it is a reference read while writing, not prose read once. */
+.rs-tokens {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+.rs-tokens code {
+  color: var(--ink-muted);
+  font-size: 0.95em;
+}
+
+/* How long each reply runs, against what a post holds. Quiet until one of them
+   is over, which is the only moment it has anything to say. */
+.rs-count {
+  display: flex;
+  gap: var(--space-3);
+  margin: var(--space-1) 0 0;
+  font-family: var(--mono, monospace);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+.rs-count .is-over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 /* --- a piece is up ------------------------------------------------- */
 
 .rs-live {
