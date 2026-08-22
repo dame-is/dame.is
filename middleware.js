@@ -170,16 +170,24 @@ async function fetchShell(origin) {
 }
 
 /**
- * Build a response, dropping the body for HEAD.
+ * Build a response, dropping the body for HEAD — which a HEAD response must
+ * not carry, and which the branches below would otherwise have attached.
  *
- * Every branch below computes its representation in full and hands it here,
- * because RFC 9110 §9.3.2 says a HEAD response carries the same header fields
- * a GET would — the point of HEAD is to learn what a GET would give you. What
- * forced this into a helper is that returning a Response WITH a body to a HEAD
- * request gets it rebuilt at the edge without its content-type, so
- * `curl -sI -H 'Accept: text/markdown'` — the verification acceptmarkdown.com
- * documents — reported no markdown at all while GET was serving it correctly.
- * Passing null instead keeps the headers intact.
+ * KNOWN GAP, and this helper does not close it: Vercel strips `content-type`
+ * from an edge-middleware response to a HEAD request. Status, `vary`,
+ * `cache-control` and `x-robots-tag` all survive; the content type does not,
+ * with or without a body — so `curl -sI -H 'Accept: text/markdown' …`, the
+ * header check acceptmarkdown.com documents, shows no markdown type on a URL
+ * where GET correctly returns `text/markdown; charset=utf-8`. Static files and
+ * /api functions are served by other handlers and keep theirs; only middleware
+ * responses lose it, so nothing here can put it back. Routing pages through a
+ * serverless function instead would fix the header and cost every page an edge
+ * response for a serverless one — the wrong trade for a header on HEAD.
+ *
+ * What remains true is that a GET is correct, which is what agents actually
+ * fetch. This still returns null for HEAD because RFC 9110 §9.3.2 asks a HEAD
+ * response to mirror what a GET would send, and if the platform stops
+ * rewriting these responses the headers are already right.
  */
 function respond(request, body, init) {
   return new Response(request.method === 'HEAD' ? null : body, init);

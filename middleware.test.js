@@ -260,9 +260,10 @@ describe('HEAD', () => {
     middleware(new Request(`https://dame.is${path}`, { method: 'HEAD', headers: { accept } }));
 
   it('answers with the headers a GET would, and no body', async () => {
-    // RFC 9110 §9.3.2. Learning what a GET would return is the whole point of
-    // HEAD, and `curl -sI -H 'Accept: text/markdown'` is the check
-    // acceptmarkdown.com documents — so the content-type has to survive it.
+    // RFC 9110 §9.3.2: a HEAD response mirrors what a GET would send. This is
+    // what middleware returns; note that Vercel then strips `content-type`
+    // from it in production and nothing here can prevent that (see respond()
+    // in middleware.js), so this pins our own output, not the wire.
     for (const [path, accept] of [
       ['/', HTML_ACCEPT],
       ['/', 'text/markdown'],
