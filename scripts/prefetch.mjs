@@ -35,6 +35,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ME_DID, COLLECTIONS, APPVIEW, INATURALIST_USER, RATIOED_PATH } from '../src/config.js';
+// The agent-facing site guide, built from the same snapshots as sitemap.xml.
+import { buildLlmsTxt } from '../og/llms.js';
 import {
   resolvePds,
   getProfile,
@@ -854,6 +856,22 @@ async function main() {
   await safe(
     'feed',
     () => writePublicFile('feed.xml', buildAtomFeed({ blogRecords, builtAt })),
+    null,
+  );
+  await safe(
+    'llms',
+    () =>
+      writePublicFile(
+        'llms.txt',
+        buildLlmsTxt({
+          pds,
+          blogRecords,
+          creatingRecords,
+          curatingChannels: galleries,
+          ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
+          mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
+        }),
+      ),
     null,
   );
 

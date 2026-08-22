@@ -66,6 +66,13 @@ document.documentElement.setAttribute(
   FONT_SWITCHER_ENABLED && VALID_FONTS.includes(storedFont) ? storedFont : 'serif',
 );
 
+// middleware.js server-renders a plain-HTML summary of the page inside #root
+// for readers that never run this bundle (AI crawlers, agents, text browsers —
+// see og/ssrContent.js). An inline script in the shell has already hidden it,
+// so nobody has seen it; remove it before mounting so React starts from an
+// empty container rather than relying on createRoot to clear one for us.
+document.getElementById('ssr-fallback')?.remove();
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
