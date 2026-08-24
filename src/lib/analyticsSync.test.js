@@ -104,6 +104,25 @@ describe('sweepPosts', () => {
     expect(res.complete).toBe(true);
   });
 
+  it('hands each page its resume-after cursor, so a kill at any moment is resumable', async () => {
+    const pages = [
+      [feedItem('at://me/app.bsky.feed.post/a', NOW - 1 * DAY)],
+      [feedItem('at://me/app.bsky.feed.post/b', NOW - 2 * DAY)],
+    ];
+    vi.stubGlobal('fetch', fakeAuthorFeed(pages));
+    const checkpoints = [];
+    await sweepPosts({
+      did: 'did:plc:me',
+      onPage: (rows, { cursor }) => checkpoints.push([rows[0].rkey, cursor]),
+    });
+    // Page one checkpoints the cursor that FOLLOWS it (its own rows are
+    // already persisted); the final page has nothing to resume to.
+    expect(checkpoints).toEqual([
+      ['a', '1'],
+      ['b', null],
+    ]);
+  });
+
   it('hands back the cursor when a page fails, so a build resumes instead of restarting', async () => {
     let calls = 0;
     vi.stubGlobal(

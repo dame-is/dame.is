@@ -13,9 +13,10 @@
 // Guards:
 //   - Production only. Dev hot-reloads itself and ships no version.json.
 //   - Never interrupts work in progress — defers while the owner is in edit
-//     mode, has a quick-edit sheet open, or is focused in a text field —
-//     then applies the update on the next safe moment (a navigation, edit
-//     mode closing, or the next poll).
+//     mode, has a quick-edit sheet open, is focused in a text field, or a
+//     long-running job holds the tab (lib/reloadHold.js — e.g. the analytics
+//     archive build's multi-minute sweep) — then applies the update on the
+//     next safe moment (a navigation, edit mode closing, or the next poll).
 //   - Reloads at most once per distinct deployed id, so a misconfigured
 //     build (baked id vs. version.json disagreeing) can never loop.
 
@@ -23,6 +24,7 @@ import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useEditMode } from './useEditMode.jsx';
 import { BUILD_ID } from '../lib/appVersion.js';
+import { isReloadHeld } from '../lib/reloadHold.js';
 
 // How often to ask the server whether a newer build has shipped. Cheap:
 // version.json is a few bytes, usually answered with a 304, and only polled
@@ -91,6 +93,7 @@ export default function useAutoUpdate() {
   isSafeRef.current = () => {
     if (editMode.active) return false; // owner is bulk-editing the feed
     if (editMode.editSheet) return false; // a quick-edit sheet is open
+    if (isReloadHeld()) return false; // a long-running job holds the tab (e.g. the analytics archive build)
     const el = typeof document !== 'undefined' ? document.activeElement : null;
     if (el) {
       const tag = el.tagName;

@@ -186,7 +186,11 @@ export async function sweepPosts({
       if (!knownUris?.has(row.uri)) sawNew = true;
     }
     fetched += rows.length;
-    if (rows.length) await onPage?.(rows);
+    // The cursor handed to onPage resumes AFTER this page — the page itself
+    // is in `rows`, so a caller that persists both can survive being killed
+    // at any moment (a tab close, the deploy auto-reload) and continue from
+    // here instead of page one. Null on the final page.
+    if (rows.length) await onPage?.(rows, { cursor: res?.cursor || null });
     onProgress?.({ fetched });
 
     const done =
