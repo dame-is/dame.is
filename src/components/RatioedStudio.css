@@ -102,6 +102,27 @@
   }
 }
 
+/* The wake-lock checkbox (the box itself is drawn by the `.wb` checkbox rule).
+   `fit-content` keeps the click target on the words, not the whole row — a
+   full-width invisible toggle under the seal button is an accident waiting for
+   a thumb. */
+.rs-awake {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: fit-content;
+  margin-top: var(--space-3);
+  font-family: var(--sans);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .rs-awake {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+}
+
 /* The degraded-read notice: a sentence and one action, boxed so it reads as a
    note ABOUT the series rather than as the first line of it. Its own rule
    rather than `.rs-actions`, which would put a 40px floor on the sentence and
