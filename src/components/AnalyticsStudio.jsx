@@ -754,10 +754,12 @@ function EngagementTab({ archive, period, kind, nowMs }) {
     const inWindow = dated.filter((p) => p.atMs >= t0 && p.atMs <= nowMs);
     const value = (p) => engagementOf(p, kind);
     const total = inWindow.reduce((sum, p) => sum + value(p), 0);
+    const series = bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (p) => p.atMs, pickValue: value });
     return {
       unit,
       units,
-      series: bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (p) => p.atMs, pickValue: value }),
+      series,
+      trend: movingAverage(series, 7),
       total,
       perPost: inWindow.length ? total / inWindow.length : 0,
       top: topPosts(inWindow, { kind, t0, t1: nowMs, limit: 10 }),
@@ -796,15 +798,16 @@ function EngagementTab({ archive, period, kind, nowMs }) {
         </div>
         <SeriesChart
           series={model.series}
+          trend={model.trend}
           mode="bars"
           unit={model.unit}
           zeroBase
           ariaLabel={`${head} on posts made each ${model.unit}, over ${period.label}`}
         />
-        <ChartTable series={model.series} unit={model.unit} valueHead={head} />
+        <ChartTable series={model.series} trend={model.trend} unit={model.unit} valueHead={head} />
         <p className="an-card-caption">
           Counted against the day each post was made, with counts as of the last archive sync — a
-          bar is “how much {kindLabel === 'all' ? 'engagement' : kindLabel} that {model.unit}’s posts have earned”, not when it arrived.
+          bar is “how {kindLabel === 'all' ? 'much engagement' : `many ${kindLabel}`} that {model.unit}’s posts have earned”, not when it arrived.
         </p>
       </div>
 
@@ -1264,13 +1267,18 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
               </g>
             ))}
 
+            {/* Square-cornered on purpose: the whole site draws at radius 0,
+                and a chart is not the place the system softens. */}
             {mode === 'bars' &&
               series.map((p, i) =>
                 p.v > 0 ? (
-                  <path
+                  <rect
                     key={p.t}
                     className={`an-chart-bar${hover === i ? ' is-hover' : ''}`}
-                    d={barPath(x(i) - barW / 2, y(p.v), barW, baseY - y(p.v))}
+                    x={(x(i) - barW / 2).toFixed(1)}
+                    y={y(p.v).toFixed(1)}
+                    width={barW.toFixed(1)}
+                    height={(baseY - y(p.v)).toFixed(1)}
                   />
                 ) : null,
               )}
@@ -1320,21 +1328,6 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
       </div>
     </div>
   );
-}
-
-/** Column with a 4px-rounded data end and a square baseline. */
-function barPath(x, y, w, h) {
-  const r = Math.min(4, w / 2, h);
-  const right = x + w;
-  return [
-    `M${x.toFixed(1)},${(y + h).toFixed(1)}`,
-    `L${x.toFixed(1)},${(y + r).toFixed(1)}`,
-    `Q${x.toFixed(1)},${y.toFixed(1)} ${(x + r).toFixed(1)},${y.toFixed(1)}`,
-    `L${(right - r).toFixed(1)},${y.toFixed(1)}`,
-    `Q${right.toFixed(1)},${y.toFixed(1)} ${right.toFixed(1)},${(y + r).toFixed(1)}`,
-    `L${right.toFixed(1)},${(y + h).toFixed(1)}`,
-    'Z',
-  ].join(' ');
 }
 
 /**
