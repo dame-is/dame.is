@@ -398,6 +398,22 @@ export const SURFACES = Object.freeze([
     // between them jumped the content column by 645px.
     fullWidth: true,
   }),
+  surface({
+    key: 'analytics',
+    urlByView: true,
+    label: 'Analytics',
+    // No NSID of its own: it READS the whole account — the author feed, the
+    // follower graph, notifications, and (for the atmosphere scan) every
+    // collection on the repo — but owns no records. Like `legacy-blogs`, that
+    // makes it a tool, not a collection, and `countable` false by formula.
+    nsid: null,
+    group: 'studios',
+    kind: 'studio',
+    icon: 'ChartSpline',
+    blurb: 'Follower growth, posting trends, engagement and the repo’s pulse.',
+    // Chart grids and the two-column People lists want the full measure.
+    fullWidth: true,
+  }),
 
   /* --- Legacy ------------------------------------------------------------- */
   surface({

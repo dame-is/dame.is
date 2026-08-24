@@ -60,6 +60,7 @@ describe('the surface registry', () => {
       'resume-tailor',
       'ratioed',
       'ratioed-studio',
+      'analytics',
       'legacy-blogs',
     ]) {
       const s = surfaceByKey(key);

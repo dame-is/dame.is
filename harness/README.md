@@ -13,9 +13,11 @@ real admin components, real stylesheets — with exactly one module swapped out:
 | `src/hooks/useAtprotoSession.jsx`    | `harness/fakeSession.jsx` |
 
 The fake presents a signed-in owner session whose `agent` is an in-memory
-stand-in for the PDS, covering the six `com.atproto.repo.*` methods the app
-actually calls. Writes mutate the fixture repo, so saving, deleting and bulk
-actions all behave — for the lifetime of the page.
+stand-in for the PDS, covering the `com.atproto.repo.*` methods the app
+actually calls plus read-only stand-ins for the Analytics studio's sweeps
+(synthesized followers and notifications; its post sweep walks the real
+public AppView even here). Writes mutate the fixture repo, so saving,
+deleting and bulk actions all behave — for the lifetime of the page.
 
 ## Running it
 
