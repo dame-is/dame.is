@@ -14,7 +14,10 @@
 // next time. No caller ever sees an IDB error; they see an empty archive.
 
 const DB_NAME = 'dame-analytics';
-const DB_VERSION = 1;
+// v2 added `atmosphere` — the whole-repo activity rows the CAR sync writes.
+// The upgrade path is the STORES loop in onupgradeneeded: any store missing
+// from an older database is created, nothing existing is touched.
+const DB_VERSION = 2;
 
 /** store name → keyPath. One object store per archive, plus sync metadata. */
 const STORES = {
@@ -22,6 +25,7 @@ const STORES = {
   followers: 'did', // { did, handle, displayName, avatar, followedAt }
   inbound: 'uri', // engagement events aimed at the owner
   outbound: 'uri', // the owner's like/repost events (replies/quotes derive from posts)
+  atmosphere: 'uri', // { uri, collection, at } — every record on the repo, dated
   actors: 'did', // resolved profile cards for the People lists
   meta: 'key', // { key, ...facts } — sync stamps, coverage marks
 };

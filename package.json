@@ -20,6 +20,9 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@atcute/car": "^6.0.2",
+    "@atcute/cbor": "^2.3.6",
+    "@atcute/cid": "^2.4.2",
     "@atproto/api": "^0.19.17",
     "@atproto/oauth-client-browser": "^0.3.42",
     "@aturi.to/waypoints": "^0.1.1",

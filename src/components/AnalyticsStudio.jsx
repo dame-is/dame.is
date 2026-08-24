@@ -32,7 +32,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ME_HANDLE } from '../config.js';
-import { getProfile } from '../lib/atproto.js';
+import { getProfile, resolvePds } from '../lib/atproto.js';
 import {
   ANALYTICS_PERIODS,
   ENGAGEMENT_KINDS,
@@ -40,6 +40,7 @@ import {
   bucketLabel,
   bucketSeries,
   comparePeriods,
+  compactPostFromRecord,
   cumulativeSeries,
   defaultUnitFor,
   engagementOf,
@@ -48,15 +49,16 @@ import {
   movingAverage,
   oldestEventMs,
   outboundFromPosts,
+  outboundFromRecord,
   topActors,
   topPosts,
   unitChoicesFor,
 } from '../lib/analytics.js';
 import { openAnalyticsStore } from '../lib/analyticsStore.js';
+import { atmosphereRowFromEntry, fetchRepoCar, readRepoCar } from '../lib/carRepo.js';
 import { holdReload } from '../lib/reloadHold.js';
 import {
   hydrateActors,
-  sweepAtmosphere,
   sweepFollowers,
   sweepInbound,
   sweepOutbound,
@@ -75,9 +77,6 @@ const REHYDRATE_DAYS = 30;
 
 /** How far back the event sweeps ever dig. Matches the longest dated period. */
 const EVENT_DEPTH_DAYS = 365;
-
-/** The atmosphere scan's widest window — it pages live, so it stays bounded. */
-const ATMOSPHERE_MAX_DAYS = 90;
 
 const TABS = [
   { key: 'followers', label: 'Followers' },
@@ -190,6 +189,7 @@ function useAnalyticsArchive(agent, did) {
     followers: [],
     inbound: [],
     outbound: [],
+    atmosphere: [],
     meta: {},
     rev: 0,
   });
@@ -202,17 +202,20 @@ function useAnalyticsArchive(agent, did) {
   const attemptedActorsRef = useRef(new Set());
 
   async function reload(store) {
-    const [posts, followers, inbound, outbound, actorRows, pm, fm, im, om] = await Promise.all([
-      store.all('posts'),
-      store.all('followers'),
-      store.all('inbound'),
-      store.all('outbound'),
-      store.all('actors'),
-      store.getMeta('posts'),
-      store.getMeta('followers'),
-      store.getMeta('inbound'),
-      store.getMeta('outbound'),
-    ]);
+    const [posts, followers, inbound, outbound, atmosphere, actorRows, pm, fm, im, om, rm] =
+      await Promise.all([
+        store.all('posts'),
+        store.all('followers'),
+        store.all('inbound'),
+        store.all('outbound'),
+        store.all('atmosphere'),
+        store.all('actors'),
+        store.getMeta('posts'),
+        store.getMeta('followers'),
+        store.getMeta('inbound'),
+        store.getMeta('outbound'),
+        store.getMeta('repo'),
+      ]);
     setActors(new Map(actorRows.map((a) => [a.did, a])));
     setData((prev) => ({
       loaded: true,
@@ -221,7 +224,8 @@ function useAnalyticsArchive(agent, did) {
       followers,
       inbound,
       outbound,
-      meta: { posts: pm, followers: fm, inbound: im, outbound: om },
+      atmosphere,
+      meta: { posts: pm, followers: fm, inbound: im, outbound: om, repo: rm },
       rev: prev.rev + 1,
     }));
     return { posts, meta: { posts: pm, inbound: im, outbound: om } };
@@ -254,7 +258,7 @@ function useAnalyticsArchive(agent, did) {
     setSyncError(null);
     const startedAt = Date.now();
     const errors = [];
-    const progress = (phase, est = null) => setSync({ phase, fetched: 0, est });
+    const progress = (phase, est = null, unit = null) => setSync({ phase, fetched: 0, est, unit });
     const tick = (p) => setSync((s) => (s ? { ...s, fetched: p.fetched } : s));
     // A deploy landing mid-sweep must not reload the tab out from under a
     // 250-page build; the auto-updater applies it on a poll after release.
@@ -287,6 +291,83 @@ function useAnalyticsArchive(agent, did) {
       }
       if (ac.signal.aborted) return;
 
+      /* The repo CAR — every record in every collection, one download.
+         Feeds the atmosphere rows and the COMPLETE outbound like/repost
+         history; on a first build its post records also seed the charts
+         long before the engagement hydration lands. `since=rev` keeps
+         later syncs to a small diff. */
+      let carEntries = null;
+      const repoMeta = data.meta.repo;
+      try {
+        progress('repo', null, 'MB');
+        const pds = await resolvePds(did);
+        const mb = (p) =>
+          setSync((s) =>
+            s
+              ? {
+                  ...s,
+                  fetched: Math.round(p.bytes / 1048576),
+                  est: p.total ? Math.round(p.total / 1048576) : s.est,
+                }
+              : s,
+          );
+        const pull = async (since) => {
+          const bytes = await fetchRepoCar(pds, did, { since, signal: ac.signal, onProgress: mb });
+          progress('repo-read');
+          return readRepoCar(bytes);
+        };
+        let since = mode !== 'full' && repoMeta?.rev ? repoMeta.rev : null;
+        let parsed;
+        try {
+          parsed = await pull(since);
+        } catch (err) {
+          // A diff 400s when the PDS no longer holds that rev; the honest
+          // recovery is a full pull, not a failed phase.
+          if (!since || ac.signal.aborted) throw err;
+          since = null;
+          parsed = await pull(null);
+        }
+        if (ac.signal.aborted) return;
+
+        const atmoRows = [];
+        const outRows = [];
+        for (const entry of parsed.entries) {
+          const row = atmosphereRowFromEntry(entry);
+          if (row) atmoRows.push(row);
+          const kind =
+            entry.collection === 'app.bsky.feed.like'
+              ? 'like'
+              : entry.collection === 'app.bsky.feed.repost'
+                ? 'repost'
+                : null;
+          if (kind) {
+            const ev = outboundFromRecord(kind, { uri: entry.uri, value: entry.record });
+            if (ev) outRows.push(ev);
+          }
+        }
+        if (since == null) {
+          // Full pull: replace, so deleted records actually leave. The rev
+          // is nulled first — a death mid-write must make the NEXT sync
+          // pull full again, never diff across a half-written store.
+          await store.clear('atmosphere');
+          await store.clear('outbound');
+          await store.setMeta('repo', { syncedAt: startedAt, rev: null });
+        }
+        for (let i = 0; i < atmoRows.length; i += 5000) {
+          await store.putAll('atmosphere', atmoRows.slice(i, i + 5000));
+        }
+        await store.putAll('outbound', outRows);
+        await store.setMeta('repo', { syncedAt: startedAt, rev: parsed.rev });
+        // The CAR is now the complete outbound record: mark coverage as
+        // total so the fallback sweep, if it ever runs again, knows it.
+        await store.setMeta('outbound', { syncedAt: startedAt, coverageMs: 0, truncated: false });
+        carEntries = parsed.entries;
+      } catch (err) {
+        if (ac.signal.aborted) return;
+        errors.push(`repo: ${err?.message || String(err)}`);
+      }
+      if (ac.signal.aborted) return;
+
       /* Posts */
       const postsMeta = data.meta.posts;
       const full = mode === 'full' || !postsMeta;
@@ -303,6 +384,23 @@ function useAnalyticsArchive(agent, did) {
         // the tab dies — cancel, crash, the deploy auto-reload — the archive
         // reads as incomplete and resumable, never as "never started".
         await store.setMeta('posts', { syncedAt: startedAt, complete: false, cursor: null });
+        if (carEntries) {
+          // Seed the freshly-cleared archive with the repo's own post
+          // records — counts all zero, because only the AppView knows them —
+          // and paint the charts NOW. The sweep below overwrites every one
+          // of these rows with counted rows in this same sync, so the zeros
+          // are a first-build transient, never a lasting understatement.
+          const seed = [];
+          for (const entry of carEntries) {
+            if (entry.collection !== 'app.bsky.feed.post') continue;
+            const row = compactPostFromRecord(entry.uri, entry.record);
+            if (row) seed.push(row);
+          }
+          if (seed.length) {
+            await store.putAll('posts', seed);
+            await reload(store);
+          }
+        }
       }
       progress('posts', est);
       const building = full || resume;
@@ -360,24 +458,29 @@ function useAnalyticsArchive(agent, did) {
       }
       if (ac.signal.aborted) return;
 
-      progress('outbound');
-      const om = data.meta.outbound;
-      const outb = await sweepOutbound(agent, did, {
-        cutoffMs,
-        knownUris: new Set(data.outbound.map((e) => e.uri)),
-        coveredToMs: om?.coverageMs ?? null,
-        signal: ac.signal,
-        onPage: (rows) => store.putAll('outbound', rows),
-        onProgress: tick,
-      });
-      if (outb.error) errors.push(`outbound: ${outb.error}`);
-      else if (!outb.aborted) {
-        const coverage = Math.min(om?.coverageMs ?? Infinity, outb.complete ? cutoffMs : (outb.reachedMs ?? Infinity));
-        await store.setMeta('outbound', {
-          syncedAt: startedAt,
-          coverageMs: Number.isFinite(coverage) ? coverage : null,
-          truncated: outb.truncated,
+      /* Outbound — only as the fallback when the repo pull failed. A
+         successful CAR already wrote the complete like/repost history, and
+         a 240-page sweep after it would re-fetch a strict subset. */
+      if (!carEntries) {
+        progress('outbound');
+        const om = data.meta.outbound;
+        const outb = await sweepOutbound(agent, did, {
+          cutoffMs,
+          knownUris: new Set(data.outbound.map((e) => e.uri)),
+          coveredToMs: om?.coverageMs ?? null,
+          signal: ac.signal,
+          onPage: (rows) => store.putAll('outbound', rows),
+          onProgress: tick,
         });
+        if (outb.error) errors.push(`outbound: ${outb.error}`);
+        else if (!outb.aborted) {
+          const coverage = Math.min(om?.coverageMs ?? Infinity, outb.complete ? cutoffMs : (outb.reachedMs ?? Infinity));
+          await store.setMeta('outbound', {
+            syncedAt: startedAt,
+            coverageMs: Number.isFinite(coverage) ? coverage : null,
+            truncated: outb.truncated,
+          });
+        }
       }
     } finally {
       releaseHold();
@@ -445,6 +548,8 @@ function useAnalyticsArchive(agent, did) {
 
 const PHASE_LABEL = {
   followers: 'Sweeping followers',
+  repo: 'Downloading the repo',
+  'repo-read': 'Reading the repo archive',
   posts: 'Archiving posts',
   inbound: 'Reading notifications',
   outbound: 'Reading likes & reposts',
@@ -455,11 +560,13 @@ function SyncStrip({ archive }) {
 
   if (sync) {
     const pct = sync.est ? Math.min(100, Math.round((sync.fetched / sync.est) * 100)) : null;
+    const u = sync.unit ? ` ${sync.unit}` : '';
     return (
       <div className="an-strip" role="status">
         <span className="an-strip-label">
-          {PHASE_LABEL[sync.phase] || 'Syncing'}… {sync.fetched.toLocaleString('en-US')}
-          {sync.est ? ` of ~${sync.est.toLocaleString('en-US')}` : ''}
+          {PHASE_LABEL[sync.phase] || 'Syncing'}…
+          {(sync.fetched > 0 || sync.est) &&
+            ` ${sync.fetched.toLocaleString('en-US')}${u}${sync.est ? ` of ~${sync.est.toLocaleString('en-US')}${u}` : ''}`}
         </span>
         <span className="an-strip-track" aria-hidden="true">
           <span className="an-strip-fill" style={{ width: pct != null ? `${pct}%` : '30%' }} data-indeterminate={pct == null ? '' : undefined} />
@@ -511,11 +618,13 @@ function FirstRun({ archive }) {
       <Users className="an-hero-glyph" size={22} aria-hidden="true" />
       <h2 className="an-hero-title">Build the archive</h2>
       <p className="an-hero-body">
-        Analytics are derived client-side from your own data: every post with its engagement counts
-        (via the public AppView), every current follower with the date their follow record was
-        minted, and your recent notifications, likes and reposts. The first build pages the whole
-        author feed — a couple of hundred requests, a minute or two — and lands in this browser’s
-        IndexedDB. After that, syncs only top up what’s new.
+        Analytics are derived client-side from your own data: the repo’s own archive (one download
+        that yields every record in every collection, all-time), every current follower with the
+        date their follow record was minted, your recent notifications — and every post’s
+        engagement counts via the public AppView, which is the long part: a couple of hundred
+        requests, a minute or two, with the charts painting from the repo archive while it runs.
+        Everything lands in this browser’s IndexedDB; after the first build, syncs only top up
+        what’s new.
         {!archive.persistent &&
           ' This browser is blocking IndexedDB, so the archive will only last the session.'}
       </p>
@@ -934,8 +1043,8 @@ function PeopleTab({ archive, did, period, kind, nowMs }) {
       </div>
       <p className="an-note">
         Inbound counts come from notifications (likes, reposts, replies, quotes, mentions aimed at
-        you); outbound counts from your own like and repost records plus the replies and quotes in
-        the post archive.
+        you); outbound counts from the repo archive&rsquo;s complete like and repost history plus
+        the replies and quotes in the post archive.
       </p>
     </section>
   );
@@ -985,76 +1094,53 @@ function ActorList({ rows, cardFor, empty }) {
 /* ================================================================== */
 
 function AtmosphereTab({ archive, period, nowMs }) {
-  const { agent, did } = archive;
-  const [scan, setScan] = useState(null); // {running, progress} | {collections, cutoffMs, clamped, scannedAt}
-  const abortRef = useRef(null);
-  useEffect(() => () => abortRef.current?.abort(), []);
-
-  const wantDays = Math.min(period.days ?? ATMOSPHERE_MAX_DAYS, ATMOSPHERE_MAX_DAYS);
-  const clamped = (period.days ?? Infinity) > ATMOSPHERE_MAX_DAYS;
-
-  async function runScan() {
-    if (scan?.running || !agent) return;
-    const ac = new AbortController();
-    abortRef.current = ac;
-    const cutoffMs = Date.now() - wantDays * DAY_MS;
-    setScan({ running: true, progress: { scanned: 0, total: 0 } });
-    const releaseHold = holdReload('analytics-atmosphere-scan');
-    try {
-      const res = await sweepAtmosphere(agent, did, {
-        cutoffMs,
-        signal: ac.signal,
-        onProgress: (p) => setScan((s) => (s?.running ? { ...s, progress: p } : s)),
-      });
-      setScan({ collections: res.collections, error: res.error, cutoffMs, days: wantDays, scannedAt: Date.now() });
-    } finally {
-      releaseHold();
-      abortRef.current = null;
-    }
-  }
+  const { atmosphere, meta, sync } = archive;
+  const [unitPick, setUnitPick] = useState(null);
 
   const model = useMemo(() => {
-    if (!scan?.collections) return null;
-    const t0 = scan.cutoffMs;
-    const unit = defaultUnitFor(scan.days);
-    const all = scan.collections.flatMap((c) => c.times);
-    const ranked = [...scan.collections].filter((c) => c.count > 0 || c.truncated).sort((a, b) => b.count - a.count);
+    if (!atmosphere.length) return null;
+    let oldest = Infinity;
+    for (const r of atmosphere) if (r.at < oldest) oldest = r.at;
+    const t0 = period.days ? nowMs - period.days * DAY_MS : oldest;
+    const spanDays = Math.max(1, Math.round((nowMs - t0) / DAY_MS));
+    const units = unitChoicesFor(period.days ?? spanDays);
+    const unit = unitPick && units.includes(unitPick) ? unitPick : defaultUnitFor(period.days ?? spanDays);
+    const inWindow = atmosphere.filter((r) => r.at >= t0 && r.at <= nowMs);
+    const byCollection = new Map();
+    for (const r of inWindow) byCollection.set(r.collection, (byCollection.get(r.collection) || 0) + 1);
+    const ranked = [...byCollection.entries()]
+      .map(([collection, count]) => ({ collection, count }))
+      .sort((a, b) => b.count - a.count || (a.collection < b.collection ? -1 : 1));
+    const series = bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (r) => r.at });
     return {
       unit,
-      total: all.length,
-      anyTruncated: scan.collections.some((c) => c.truncated),
-      series: bucketSeries(all, { unit, t0, t1: nowMs, pickTime: (t) => t }),
-      ranked,
-      collections: scan.collections.length,
+      units,
+      series,
+      trend: movingAverage(series, 7),
+      total: inWindow.length,
+      collections: ranked.length,
+      ranked: ranked.slice(0, 24),
+      rankedMore: Math.max(0, ranked.length - 24),
+      spanDays,
     };
-  }, [scan, nowMs]);
-
-  if (scan?.running) {
-    const { scanned, total, collection } = scan.progress;
-    return (
-      <section className="an-panel" aria-label="Atmosphere">
-        <p className="an-empty" role="status">
-          Scanning the repo… {scanned}/{total || '?'} collections{collection ? ` — ${collection}` : ''}
-        </p>
-        <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={() => abortRef.current?.abort()}>
-          Cancel
-        </button>
-      </section>
-    );
-  }
+  }, [atmosphere, period, unitPick, nowMs]);
 
   if (!model) {
+    // No repo archive yet — either it is being pulled right now, or the
+    // last pull failed and the sync error in the strip says why.
     return (
       <section className="an-panel an-hero" aria-label="Atmosphere">
         <h2 className="an-hero-title">The whole repo, not just Bluesky</h2>
         <p className="an-hero-body">
-          Scan every collection on the PDS — statuses, plays, observations, guestbook, the lot — and
-          chart records written over the last {wantDays} days. The scan pages each collection live,
-          so it runs on demand rather than on every visit.
+          One sync downloads the repo&rsquo;s own archive — every record in every collection, back
+          to the very first — and charts what got written when.
+          {sync ? ' Syncing now…' : ' Run a sync to build it.'}
         </p>
-        <button type="button" className="admin-gate-button" onClick={runScan}>
-          Scan the repo
-        </button>
+        {!sync && (
+          <button type="button" className="admin-gate-button" onClick={() => archive.runSync('incremental')}>
+            Sync now
+          </button>
+        )}
       </section>
     );
   }
@@ -1062,26 +1148,37 @@ function AtmosphereTab({ archive, period, nowMs }) {
   return (
     <section className="an-panel" aria-label="Atmosphere">
       <div className="an-tiles">
-        <StatTile label={`Records in ${scan.days}d`} value={model.total} approx={model.anyTruncated} />
+        <StatTile label={`Records in ${period.label.toLowerCase()}`} value={model.total} />
         <StatTile label="Collections" value={model.collections} exact />
-        <StatTile label="Per day" value={Math.round(model.total / scan.days)} />
+        <StatTile
+          label="Per day"
+          value={
+            model.total / model.spanDays < 10
+              ? Math.round((model.total / model.spanDays) * 10) / 10
+              : Math.round(model.total / model.spanDays)
+          }
+          exact
+        />
       </div>
 
       <div className="an-card">
         <div className="an-card-head">
           <h3 className="an-card-title">Records written per {unitNoun(model.unit)}</h3>
-          <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={runScan}>
-            Re-scan
-          </button>
+          <ModeToggle
+            value={model.unit}
+            onChange={setUnitPick}
+            options={model.units.map((u) => ({ key: u, label: unitLabel(u) }))}
+          />
         </div>
         <SeriesChart
           series={model.series}
+          trend={model.trend}
           mode="bars"
           unit={model.unit}
           zeroBase
-          ariaLabel={`Records written to the repo per ${model.unit} over the last ${scan.days} days`}
+          ariaLabel={`Records written to the repo per ${model.unit} over ${period.label}`}
         />
-        <ChartTable series={model.series} unit={model.unit} valueHead="Records" />
+        <ChartTable series={model.series} trend={model.trend} unit={model.unit} valueHead="Records" />
       </div>
 
       <div className="an-card">
@@ -1098,22 +1195,21 @@ function AtmosphereTab({ archive, period, nowMs }) {
                 <span className="an-actor-track" aria-hidden="true">
                   <span className="an-actor-fill" style={{ width: `${(c.count / max) * 100}%` }} />
                 </span>
-                <span className="an-actor-count">
-                  {c.count.toLocaleString('en-US')}
-                  {c.truncated ? '+' : ''}
-                </span>
+                <span className="an-actor-count">{c.count.toLocaleString('en-US')}</span>
               </li>
             );
           })}
         </ol>
-        {(clamped || model.anyTruncated) && (
-          <p className="an-card-caption">
-            {clamped && `The scan pages live, so it is windowed to the last ${ATMOSPHERE_MAX_DAYS} days even on longer periods. `}
-            {model.anyTruncated && 'A “+” marks a collection whose scan hit its page cap — the count is a floor.'}
-          </p>
+        {model.rankedMore > 0 && (
+          <p className="an-card-caption">…and {model.rankedMore} more collections with fewer records in this window.</p>
         )}
       </div>
-      <p className="an-note">Scanned {relativeTime(scan.scannedAt)} through your PDS. {scan.error && `Ended early: ${scan.error}`}</p>
+      <p className="an-note">
+        From the repo archive — every record in every collection, exact and all-time, dated by
+        record key (falling back to the record&rsquo;s own createdAt; the rare record with neither
+        is left out). Pulled from your PDS {relativeTime(meta.repo?.syncedAt)}; syncs top it up
+        from the repo&rsquo;s revision log.
+      </p>
     </section>
   );
 }
