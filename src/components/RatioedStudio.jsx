@@ -1510,21 +1510,23 @@ export default function RatioedStudio({ agent, did }) {
             )}
           </p>
 
-          <div className="rs-actions">
-            {/* One seal button at a time: when the alarm is up it owns that
-                click, and two identical buttons a foot apart is how you hesitate
-                over which one is real. */}
-            {!justSealed && !seenLike && (
+          {/* One seal button at a time: when the alarm is up it owns that
+              click, and two identical buttons a foot apart is how you hesitate
+              over which one is real. */}
+          {!justSealed && !seenLike && (
+            <div className="rs-actions">
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal this piece'}
               </button>
-            )}
-            {/* A seal that landed and a measurement that did not. Without this
-                the only way back is a reload, which re-offers "Seal this piece"
-                and writes a second threadgate over the first — moving the one
-                timestamp the lifespan is measured from. */}
-            {justSealed && error && (
+            </div>
+          )}
+          {/* A seal that landed and a measurement that did not. Without this
+              the only way back is a reload, which re-offers "Seal this piece"
+              and writes a second threadgate over the first — moving the one
+              timestamp the lifespan is measured from. */}
+          {justSealed && error && (
+            <div className="rs-actions">
               <button
                 type="button"
                 className="rs-seal"
@@ -1537,17 +1539,19 @@ export default function RatioedStudio({ agent, did }) {
                 <RefreshCw size={15} aria-hidden="true" />
                 {busy === 'measure' ? 'Measuring…' : 'Measure this piece'}
               </button>
-            )}
+            </div>
+          )}
+          <div className="rs-live-links">
             <a
-              className="admin-gate-button"
+              className="admin-link-subtle"
               href={`https://bsky.app/profile/${ME_HANDLE}/post/${live.rkey}`}
               target="_blank"
               rel="noreferrer noopener"
             >
-              <ExternalLink size={14} aria-hidden="true" />
+              <ExternalLink size={13} aria-hidden="true" />
               the post
             </a>
-            <Link className="admin-gate-button" to={piecePath(live)}>
+            <Link className="admin-link-subtle" to={piecePath(live)}>
               its page
             </Link>
           </div>
@@ -1595,7 +1599,7 @@ export default function RatioedStudio({ agent, did }) {
             <RatioedTicker
               rows={feed}
               profiles={profiles}
-              empty={`Nothing yet. Every like, repost, quote and reply on the network is arriving here and being tested against this post — ~166 KB/s, which is what buys sub-second notice instead of a ${WATCH_MS / 1000}s poll.`}
+              empty="Nothing yet."
               actions={(e) => {
                 const mine = e.did === did;
                 // A post that still exists can be opened anywhere. Acting on
@@ -1697,21 +1701,6 @@ export default function RatioedStudio({ agent, did }) {
               }
             />
           </div>
-
-          <p className="admin-field-hint">
-            The stream is the fast reader; the AppView is polled every {WATCH_MS / 1000}s underneath
-            it as a backstop, because a socket can drop and a missed like costs the piece. The
-            measurement afterwards uses the backlink index, which is slower and more complete.
-          </p>
-          <p className="admin-field-hint">
-            This log is written onto the piece&rsquo;s record as it happens, so{' '}
-            <Link to={piecePath(live)}>its own page</Link> shows the same thing to anyone watching,
-            and so a like somebody casts and takes back leaves an account of itself — the index
-            afterwards can only report what still exists.{' '}
-            {savedWitness.current.rows?.length
-              ? `${savedWitness.current.rows.length} recorded.`
-              : 'Nothing recorded yet.'}
-          </p>
         </section>
       ) : announce ? null : (
         <section className="rs-compose">

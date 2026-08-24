@@ -28,7 +28,7 @@
 }
 
 /* ONE ROW, ONE BASELINE, TWO GROUPS.
-   Every action row in this studio mixes a filled `.admin-gate-button` (or
+   Most action rows in this studio mix a filled `.admin-gate-button` (or
    `.rs-seal`) with one or two `.admin-link-subtle` text buttons, and the three
    disagreed on all three counts: the primary was 40–42px tall and the
    secondaries 22–29px, so the row's bottom edge was ragged by 9px; the gap was
@@ -69,6 +69,35 @@
 }
 @media (pointer: coarse) {
   .rs-actions > * {
+    min-height: var(--wb-hit, 2.75rem);
+  }
+}
+
+/* The live piece keeps one button. Its two exits — the post on the network,
+   the piece's own page — hang under it as plain links, so nothing on the
+   panel competes with the seal for the reflex click. Underlined for the same
+   reason `.rs-actions` underlines: without it these are prose on a touch
+   screen. */
+.rs-live-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+}
+.rs-live-links .admin-link-subtle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  text-decoration-color: var(--rule);
+}
+.rs-live-links .admin-link-subtle:hover {
+  text-decoration-color: currentColor;
+}
+@media (pointer: coarse) {
+  .rs-live-links .admin-link-subtle {
     min-height: var(--wb-hit, 2.75rem);
   }
 }
