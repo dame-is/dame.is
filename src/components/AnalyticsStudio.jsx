@@ -53,6 +53,7 @@ import {
   unitChoicesFor,
 } from '../lib/analytics.js';
 import { openAnalyticsStore } from '../lib/analyticsStore.js';
+import { holdReload } from '../lib/reloadHold.js';
 import {
   hydrateActors,
   sweepAtmosphere,
@@ -255,6 +256,9 @@ function useAnalyticsArchive(agent, did) {
     const errors = [];
     const progress = (phase, est = null) => setSync({ phase, fetched: 0, est });
     const tick = (p) => setSync((s) => (s ? { ...s, fetched: p.fetched } : s));
+    // A deploy landing mid-sweep must not reload the tab out from under a
+    // 250-page build; the auto-updater applies it on a poll after release.
+    const releaseHold = holdReload('analytics-sync');
 
     try {
       /* Followers — always the full set; only a full set can see unfollows. */
@@ -272,7 +276,11 @@ function useAnalyticsArchive(agent, did) {
       /* Posts */
       const postsMeta = data.meta.posts;
       const full = mode === 'full' || !postsMeta;
-      const resume = mode === 'resume' && postsMeta && !postsMeta.complete && postsMeta.cursor;
+      // Resume finishes any incomplete build. With a checkpointed cursor it
+      // continues from that page; without one (the build died before its
+      // first checkpoint) it walks from page one again but WITHOUT clearing,
+      // so every page is an upsert and nothing already banked is lost.
+      const resume = !full && mode === 'resume' && !postsMeta.complete;
       let est = data.posts.length || null;
       if (full || resume) {
         const prof = await getProfile(did).catch(() => null);
@@ -280,21 +288,33 @@ function useAnalyticsArchive(agent, did) {
       }
       if (full) {
         await store.clear('posts');
+        // Mark the build as underway BEFORE page one. From here on, however
+        // the tab dies — cancel, crash, the deploy auto-reload — the archive
+        // reads as incomplete and resumable, never as "never started".
+        await store.setMeta('posts', { syncedAt: startedAt, complete: false, cursor: null });
       }
       progress('posts', est);
-      const known = full || resume ? null : new Set(data.posts.map((p) => p.uri));
+      const building = full || resume;
+      const known = building ? null : new Set(data.posts.map((p) => p.uri));
       const ps = await sweepPosts({
         did,
         knownUris: known,
-        rehydrateSinceMs: full || resume ? -Infinity : startedAt - REHYDRATE_DAYS * DAY_MS,
-        resumeCursor: resume ? postsMeta.cursor : null,
+        rehydrateSinceMs: building ? -Infinity : startedAt - REHYDRATE_DAYS * DAY_MS,
+        resumeCursor: resume ? postsMeta.cursor || null : null,
         signal: ac.signal,
-        onPage: (rows) => store.putAll('posts', rows),
+        // Persist the page, THEN checkpoint the cursor that resumes after
+        // it — in that order, so a kill between the two writes only costs
+        // one page re-fetched, never a page skipped.
+        onPage: async (rows, { cursor } = {}) => {
+          await store.putAll('posts', rows);
+          if (building && cursor) {
+            await store.setMeta('posts', { syncedAt: startedAt, complete: false, cursor });
+          }
+        },
         onProgress: tick,
       });
       if (ps.error) errors.push(`posts: ${ps.error}`);
-      if (full || resume) {
-        // Checkpoint the cursor so an interrupted build resumes, not restarts.
+      if (building) {
         await store.setMeta('posts', {
           syncedAt: startedAt,
           complete: ps.complete,
@@ -349,6 +369,7 @@ function useAnalyticsArchive(agent, did) {
         });
       }
     } finally {
+      releaseHold();
       abortRef.current = null;
       // One reload, one render of new charts — the sweeps persisted as they
       // went, so even an aborted sync surfaces everything it banked.
@@ -359,14 +380,21 @@ function useAnalyticsArchive(agent, did) {
     }
   }
 
-  /* Kick a quiet incremental sync when the archive has gone stale. */
+  /* Pick incomplete builds back up, and top up a stale archive, quietly. */
   useEffect(() => {
     if (!data.loaded || !agent || autoRanRef.current) return;
     const pm = data.meta.posts;
     if (!pm) return; // first run is a button, never a surprise sweep
     autoRanRef.current = true;
+    // An interrupted build resumes IMMEDIATELY, staleness be damned — the
+    // interruption may have been the deploy auto-reload seconds ago, and an
+    // incomplete archive is not a state worth being fresh in.
+    if (!pm.complete) {
+      runSync('resume');
+      return;
+    }
     if (Date.now() - (pm.syncedAt || 0) < AUTO_SYNC_AFTER_MS) return;
-    runSync(pm.complete ? 'incremental' : 'resume');
+    runSync('incremental');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.loaded]);
 
@@ -444,7 +472,7 @@ function SyncStrip({ archive }) {
       </span>
       {syncError && <span className="an-strip-error">{syncError}</span>}
       <span className="an-strip-actions">
-        {!pm.complete && pm.cursor && (
+        {!pm.complete && (
           <button type="button" className="admin-gate-button admin-gate-button-tight" onClick={() => archive.runSync('resume')}>
             Resume build
           </button>
@@ -925,13 +953,18 @@ function AtmosphereTab({ archive, period, nowMs }) {
     abortRef.current = ac;
     const cutoffMs = Date.now() - wantDays * DAY_MS;
     setScan({ running: true, progress: { scanned: 0, total: 0 } });
-    const res = await sweepAtmosphere(agent, did, {
-      cutoffMs,
-      signal: ac.signal,
-      onProgress: (p) => setScan((s) => (s?.running ? { ...s, progress: p } : s)),
-    });
-    abortRef.current = null;
-    setScan({ collections: res.collections, error: res.error, cutoffMs, days: wantDays, scannedAt: Date.now() });
+    const releaseHold = holdReload('analytics-atmosphere-scan');
+    try {
+      const res = await sweepAtmosphere(agent, did, {
+        cutoffMs,
+        signal: ac.signal,
+        onProgress: (p) => setScan((s) => (s?.running ? { ...s, progress: p } : s)),
+      });
+      setScan({ collections: res.collections, error: res.error, cutoffMs, days: wantDays, scannedAt: Date.now() });
+    } finally {
+      releaseHold();
+      abortRef.current = null;
+    }
   }
 
   const model = useMemo(() => {
