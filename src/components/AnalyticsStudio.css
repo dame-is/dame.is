@@ -250,6 +250,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* A qualifying footnote under a tile's label — e.g. the Followers tile
+   naming Bluesky's own (higher) profile counter so the two numbers can
+   disagree in the open. The full why lives in the panel's an-note. */
+.an-tile-sub {
+  font-family: var(--mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
 .an-tile-delta.is-up {
   color: var(--accent);
 }
