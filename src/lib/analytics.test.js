@@ -16,6 +16,7 @@ import {
   bucketStartMs,
   comparePeriods,
   compactPostFromFeedItem,
+  compactPostFromRecord,
   cumulativeSeries,
   defaultUnitFor,
   didFromAtUri,
@@ -239,6 +240,30 @@ describe('compactPostFromFeedItem', () => {
       post: { ...base.post, record: { ...base.post.record, text: 'y'.repeat(500) } },
     });
     expect(row.text).toHaveLength(200);
+  });
+});
+
+describe('compactPostFromRecord', () => {
+  it('shapes a raw repo record like a feed row, with counts honestly at zero', () => {
+    const row = compactPostFromRecord('at://did:plc:me/app.bsky.feed.post/3abc', {
+      text: 'from the car',
+      createdAt: '2026-06-10T12:00:00.000Z',
+      reply: { parent: { uri: 'at://did:plc:parent/app.bsky.feed.post/1' } },
+      embed: { $type: 'app.bsky.embed.record', record: { uri: 'at://did:plc:quoted/app.bsky.feed.post/2' } },
+    });
+    expect(row).toMatchObject({
+      rkey: '3abc',
+      text: 'from the car',
+      replyTo: 'did:plc:parent',
+      quoteOf: 'did:plc:quoted',
+      likes: 0,
+      reposts: 0,
+      replies: 0,
+      quotes: 0,
+    });
+    // The same refusals as the feed shaper: no date, no row.
+    expect(compactPostFromRecord('at://did:plc:me/app.bsky.feed.post/3abc', { text: 'x' })).toBeNull();
+    expect(compactPostFromRecord(null, { createdAt: '2026-06-10T12:00:00.000Z' })).toBeNull();
   });
 });
 

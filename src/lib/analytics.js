@@ -263,22 +263,13 @@ export function didFromAtUri(uri) {
 }
 
 /**
- * One getAuthorFeed item → one archive row, or null for the items that are
- * not the owner's own posts. A repost arrives as somebody else's post wearing
- * a `reason` — real activity, but its text, counts and author are not the
- * owner's, so it must never enter the post archive.
- *
- * The row keeps only what the studio reads: when it was made, a snippet to
- * recognize it by, the four engagement counts, and — for the outbound
- * People list — WHO a reply or quote was aimed at. A post can be both (a
- * reply that quotes someone); both targets are kept.
+ * The facts a raw post RECORD carries, shared by both archive shapers: when
+ * it was made, a snippet, and — for the outbound People list — WHO a reply
+ * or quote was aimed at. A post can be both (a reply that quotes someone);
+ * both targets are kept. Returns null when the record cannot be dated.
  */
-export function compactPostFromFeedItem(item) {
-  const post = item?.post;
-  if (!post?.uri || item?.reason) return null;
-  const record = post.record || {};
-
-  const at = record.createdAt || null;
+function postFacts(record) {
+  const at = record?.createdAt || null;
   if (!at || !Number.isFinite(Date.parse(at))) return null;
 
   // Quotes live in the embed, in one of two shapes: a bare record embed, or
@@ -297,17 +288,56 @@ export function compactPostFromFeedItem(item) {
       (embed.media?.$type === 'app.bsky.embed.images' || embed.media?.$type === 'app.bsky.embed.video'));
 
   return {
-    uri: post.uri,
-    rkey: post.uri.split('/').pop(),
     at,
     text: typeof record.text === 'string' ? record.text.slice(0, 200) : '',
+    replyTo: didFromAtUri(record.reply?.parent?.uri),
+    quoteOf: didFromAtUri(quotedUri),
+    hasMedia: Boolean(media),
+  };
+}
+
+/**
+ * One getAuthorFeed item → one archive row, or null for the items that are
+ * not the owner's own posts. A repost arrives as somebody else's post wearing
+ * a `reason` — real activity, but its text, counts and author are not the
+ * owner's, so it must never enter the post archive.
+ */
+export function compactPostFromFeedItem(item) {
+  const post = item?.post;
+  if (!post?.uri || item?.reason) return null;
+  const facts = postFacts(post.record || {});
+  if (!facts) return null;
+  return {
+    uri: post.uri,
+    rkey: post.uri.split('/').pop(),
+    ...facts,
     likes: post.likeCount || 0,
     reposts: post.repostCount || 0,
     replies: post.replyCount || 0,
     quotes: post.quoteCount || 0,
-    replyTo: didFromAtUri(record.reply?.parent?.uri),
-    quoteOf: didFromAtUri(quotedUri),
-    hasMedia: Boolean(media),
+  };
+}
+
+/**
+ * One raw post record (from the repo CAR) → the same archive row shape, with
+ * every engagement count at ZERO — the repo does not know them; only the
+ * AppView does. These rows exist to paint the posting history instantly on a
+ * first build, and the getAuthorFeed hydration overwrites every one of them
+ * with counted rows in the same sync. They must never overwrite a hydrated
+ * row — the caller enforces that by seeding only URIs the archive lacks.
+ */
+export function compactPostFromRecord(uri, record) {
+  if (!uri) return null;
+  const facts = postFacts(record || {});
+  if (!facts) return null;
+  return {
+    uri,
+    rkey: uri.split('/').pop(),
+    ...facts,
+    likes: 0,
+    reposts: 0,
+    replies: 0,
+    quotes: 0,
   };
 }
 
