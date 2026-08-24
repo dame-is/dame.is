@@ -189,6 +189,11 @@ const rowUri = (row) => (row?.did && row?.rkey ? `at://${row.did}/${KIND_COLLECT
 /** The two kinds you can answer. A like and a repost carry no text to answer. */
 const ANSWERABLE = new Set(['reply', 'quote']);
 
+// Whether this browser can hold the display on (the Screen Wake Lock API).
+// Checked once at module load: the API arrives with the platform, not
+// mid-session, and the checkbox only renders where it can do the thing.
+const CAN_WAKE = typeof navigator !== 'undefined' && 'wakeLock' in navigator;
+
 export default function RatioedStudio({ agent, did }) {
   const [pieces, setPieces] = useState(null);
   const [error, setError] = useState(null);
@@ -437,6 +442,43 @@ export default function RatioedStudio({ agent, did }) {
     setReplyTo(null);
     savedWitness.current = { rows: null, at: 0, busy: false, stop: false };
   }, [liveKey]);
+
+  // Keeping the vigil on a phone. An untouched screen dims and locks on the
+  // OS's own schedule, and a dark screen is a watch that has stopped without
+  // saying so — this panel exists so a person sees the like the second it
+  // lands. While the box is checked and a piece is up, hold a screen wake
+  // lock. The OS drops the lock every time the tab leaves the screen, so the
+  // visibility listener takes it back on return; if the platform refuses while
+  // the tab is right there on screen (battery saver, mostly), the box unchecks
+  // itself rather than claim a vigil it isn't keeping.
+  const [keepAwake, setKeepAwake] = useState(false);
+  useEffect(() => {
+    if (!keepAwake || !liveKey || !CAN_WAKE) return undefined;
+    let on = true;
+    let lock = null;
+    const grab = async () => {
+      try {
+        const held = await navigator.wakeLock.request('screen');
+        if (!on) {
+          held.release().catch(() => {});
+          return;
+        }
+        lock = held;
+      } catch {
+        if (on && document.visibilityState === 'visible') setKeepAwake(false);
+      }
+    };
+    const onVis = () => {
+      if (document.visibilityState === 'visible') grab();
+    };
+    grab();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      on = false;
+      document.removeEventListener('visibilitychange', onVis);
+      lock?.release().catch(() => {});
+    };
+  }, [keepAwake, liveKey]);
 
   // What the record already holds, folded in. This is what makes the studio
   // survivable: a tab closed and reopened mid-piece, or a second one on another
@@ -1555,6 +1597,17 @@ export default function RatioedStudio({ agent, did }) {
               its page
             </Link>
           </div>
+
+          {CAN_WAKE && (
+            <label className="rs-awake">
+              <input
+                type="checkbox"
+                checked={keepAwake}
+                onChange={(e) => setKeepAwake(e.target.checked)}
+              />
+              keep the screen awake
+            </label>
+          )}
 
           {justSealed && (
             <p className="admin-field-hint">
