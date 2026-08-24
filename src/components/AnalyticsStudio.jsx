@@ -261,13 +261,27 @@ function useAnalyticsArchive(agent, did) {
     const releaseHold = holdReload('analytics-sync');
 
     try {
+      /* One public profile read up front: Bluesky's own follower/post
+         counters, kept as the yardstick the sweeps are measured against.
+         The follower counter in particular still counts deactivated,
+         suspended and deleted accounts, so it sits ABOVE what getFollowers
+         can list — recording it at sync time is what lets the Followers tab
+         explain that gap with real numbers instead of leaving the owner to
+         wonder why two parts of their own site disagree. */
+      const prof = await getProfile(did).catch(() => null);
+
       /* Followers — always the full set; only a full set can see unfollows. */
-      progress('followers', data.meta.followers?.count ?? null);
+      progress('followers', prof?.followersCount ?? data.meta.followers?.count ?? null);
       const fw = await sweepFollowers(agent, did, { signal: ac.signal, onProgress: tick });
       if (fw.complete) {
         await store.clear('followers');
         await store.putAll('followers', fw.followers);
-        await store.setMeta('followers', { syncedAt: startedAt, count: fw.followers.length, complete: true });
+        await store.setMeta('followers', {
+          syncedAt: startedAt,
+          count: fw.followers.length,
+          complete: true,
+          profileCount: typeof prof?.followersCount === 'number' ? prof.followersCount : null,
+        });
       } else if (fw.error) {
         errors.push(`followers: ${fw.error}`);
       }
@@ -282,10 +296,7 @@ function useAnalyticsArchive(agent, did) {
       // so every page is an upsert and nothing already banked is lost.
       const resume = !full && mode === 'resume' && !postsMeta.complete;
       let est = data.posts.length || null;
-      if (full || resume) {
-        const prof = await getProfile(did).catch(() => null);
-        if (prof?.postsCount) est = prof.postsCount;
-      }
+      if ((full || resume) && prof?.postsCount) est = prof.postsCount;
       if (full) {
         await store.clear('posts');
         // Mark the build as underway BEFORE page one. From here on, however
@@ -465,7 +476,8 @@ function SyncStrip({ archive }) {
   return (
     <div className="an-strip">
       <span className="an-strip-label">
-        {posts.length.toLocaleString('en-US')} posts · {followers.length.toLocaleString('en-US')} followers
+        {posts.length.toLocaleString('en-US')} {posts.length === 1 ? 'post' : 'posts'} ·{' '}
+        {followers.length.toLocaleString('en-US')} {followers.length === 1 ? 'follower' : 'followers'}
         {pm.syncedAt ? ` · synced ${relativeTime(pm.syncedAt)}` : ''}
         {!pm.complete && ' · archive incomplete'}
         {!persistent && ' · this browser holds the archive for this session only'}
@@ -554,11 +566,26 @@ function FollowersTab({ archive, period, nowMs }) {
     return <p className="an-empty">No follower sweep yet — run a sync to gather the current follower list.</p>;
   }
 
+  // Bluesky's own counter at sweep time. It sits above the swept total
+  // because it still counts deactivated, suspended and deleted accounts —
+  // and it is the number shown everywhere else, so the disagreement needs
+  // naming or it reads as a bug.
+  const profileCount = archive.meta.followers?.profileCount ?? null;
+  const counterGap = profileCount != null ? profileCount - model.total : null;
+
   const cumulative = mode === 'cumulative';
   return (
     <section className="an-panel" aria-label="Follower growth">
       <div className="an-tiles">
-        <StatTile label="Followers" value={model.total} />
+        <StatTile
+          label="Followers"
+          value={model.total}
+          sub={
+            counterGap != null && counterGap !== 0
+              ? `${profileCount.toLocaleString('en-US')} on the profile`
+              : null
+          }
+        />
         <StatTile
           label={`New in ${period.label.toLowerCase()}`}
           value={model.gained}
@@ -599,8 +626,24 @@ function FollowersTab({ archive, period, nowMs }) {
       </div>
 
       <p className="an-note">
-        Dated by each current follower’s follow record, so the curve is the present follower list
-        laid out in time — accounts that unfollowed or were deleted are invisible to it.
+        Counted by walking the follower list itself, so the total here is followers whose accounts
+        exist right now.
+        {counterGap != null && counterGap > 0 && (
+          <>
+            {' '}Bluesky’s profile counter says {profileCount.toLocaleString('en-US')} — it keeps
+            counting deactivated, suspended and deleted accounts, so the{' '}
+            {counterGap.toLocaleString('en-US')}-account gap is followers who can’t currently be
+            listed.
+          </>
+        )}
+        {counterGap != null && counterGap < 0 && (
+          <>
+            {' '}Bluesky’s profile counter says {profileCount.toLocaleString('en-US')}; it is a
+            cached tally and drifts.
+          </>
+        )}{' '}
+        The curve dates each follower by their follow record — accounts that unfollowed are
+        invisible to it.
         {model.undated > 0 && ` ${model.undated.toLocaleString('en-US')} followers carry no readable follow date and sit outside the chart.`}
       </p>
     </section>
@@ -1076,7 +1119,7 @@ function AtmosphereTab({ archive, period, nowMs }) {
 /* Shared pieces — tiles, toggles, the chart                            */
 /* ================================================================== */
 
-function StatTile({ label, value, unit = null, delta = undefined, deltaTitle = null, exact = false, approx = false }) {
+function StatTile({ label, value, unit = null, delta = undefined, deltaTitle = null, sub = null, exact = false, approx = false }) {
   const shown = exact ? Number(value).toLocaleString('en-US') : fmtCompact(value);
   // A delta renders whenever a comparison exists (deltaTitle names it); a null
   // delta inside one is the "new" case — something over nothing has no honest
@@ -1090,6 +1133,7 @@ function StatTile({ label, value, unit = null, delta = undefined, deltaTitle = n
         {unit && <span className="an-tile-inline-unit">{unit}</span>}
       </span>
       <span className="an-tile-label">{label}</span>
+      {sub && <span className="an-tile-sub">{sub}</span>}
       {hasDelta && (
         <span
           className={`an-tile-delta${delta != null && delta > 0 ? ' is-up' : delta != null && delta < 0 ? ' is-down' : ''}`}
