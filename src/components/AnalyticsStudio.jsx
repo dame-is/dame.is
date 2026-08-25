@@ -721,6 +721,11 @@ function FollowersTab({ archive, period, nowMs }) {
           mode={cumulative ? 'line' : 'bars'}
           unit={model.unit}
           zeroBase={!cumulative}
+          // The dashed reach up to Bluesky's own counter — the simulated
+          // altitude of the deactivated, suspended and deleted followers the
+          // swept curve cannot see. Only meaningful upward, and only on the
+          // cumulative form; a per-bucket bar has no "now" to reach from.
+          ghost={cumulative && counterGap != null && counterGap > 0 ? { v: profileCount } : null}
           ariaLabel={
             cumulative
               ? `Cumulative followers over ${period.label}`
@@ -742,7 +747,8 @@ function FollowersTab({ archive, period, nowMs }) {
             {' '}Bluesky’s profile counter says {profileCount.toLocaleString('en-US')} — it keeps
             counting deactivated, suspended and deleted accounts, so the{' '}
             {counterGap.toLocaleString('en-US')}-account gap is followers who can’t currently be
-            listed.
+            listed. The dashed reach on the cumulative chart marks that counter: a simulation of
+            those unlistable accounts, not measured growth.
           </>
         )}
         {counterGap != null && counterGap < 0 && (
@@ -1274,16 +1280,25 @@ function unitNoun(unit) {
 
 const CHART_H = 190;
 const PAD = { l: 8, r: 12, t: 18, b: 20 };
+/** Horizontal room reserved for a ghost segment's reach past the last bucket. */
+const GHOST_GUTTER = 52;
 
 /**
  * The one chart. `mode: 'bars'` draws columns from a zero baseline with a 2px
- * surface gap and rounded data-ends; `mode: 'line'` draws a 2px line over a
- * 10%-opacity wash (the cumulative view). `trend` overlays a moving average
- * with a direct end label. Hover is a nearest-X crosshair with one readout —
- * the same interaction on both forms — and the values are all reachable
- * without it through the ChartTable twin rendered alongside.
+ * surface gap; `mode: 'line'` draws a 2px line over a 10%-opacity wash (the
+ * cumulative view). `trend` overlays a moving average with a direct end
+ * label. Hover is a nearest-X crosshair with one readout — the same
+ * interaction on both forms — and the values are all reachable without it
+ * through the ChartTable twin rendered alongside.
+ *
+ * `ghost` (line mode only) draws a dashed reach from the line's end up to a
+ * reference value the line itself cannot arrive at — the followers chart
+ * uses it for Bluesky's profile counter, which still includes deactivated
+ * and suspended accounts the swept curve cannot see. Dashed and in faint
+ * ink on purpose: it is a simulation, not a measurement, and it must never
+ * dress like the data. `{ v, label }`.
  */
-function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBase = true, ariaLabel }) {
+function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBase = true, ghost = null, ariaLabel }) {
   const plotRef = useRef(null);
   const [w, setW] = useState(0);
   const [hover, setHover] = useState(null);
@@ -1307,15 +1322,23 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
   const H = CHART_H;
   const ready = w > 0;
   const n = series.length;
+  const showGhost = Boolean(ghost) && mode === 'line' && n > 0;
+  // The ghost reaches PAST the last bucket, so the real series cedes it a
+  // fixed gutter on the right rather than being silently rescaled under it.
+  const gutter = showGhost ? GHOST_GUTTER : 0;
   const values = series.map((p) => p.v);
-  const dataMax = Math.max(...values, trend ? Math.max(...trend.map((p) => p.v)) : 0);
+  const dataMax = Math.max(
+    ...values,
+    trend ? Math.max(...trend.map((p) => p.v)) : 0,
+    showGhost ? ghost.v : 0,
+  );
   const dataMin = Math.min(...values);
   // Bars grow from zero, always. A line (the cumulative view) may sit on a
   // nearby floor instead — a follower count living between 5,500 and 5,935
   // pinned to a zero axis is a flat wire that says nothing.
   const { min: yMin, max: yMax } = niceScale(zeroBase ? 0 : Math.max(0, dataMin), Math.max(dataMax, zeroBase ? 1 : dataMax));
   const ySpan = Math.max(1e-9, yMax - yMin);
-  const plotW = Math.max(1, w - PAD.l - PAD.r);
+  const plotW = Math.max(1, w - PAD.l - PAD.r - gutter);
   const slot = plotW / n;
   const x = (i) => PAD.l + slot * (i + 0.5);
   const y = (v) => H - PAD.b - ((v - yMin) / ySpan) * (H - PAD.t - PAD.b);
@@ -1350,7 +1373,7 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
             height={H}
             viewBox={`0 0 ${w} ${H}`}
             role="img"
-            aria-label={`${ariaLabel || 'Series'}: ${n} ${unit} buckets, peak ${Math.round(dataMax).toLocaleString('en-US')}`}
+            aria-label={`${ariaLabel || 'Series'}: ${n} ${unit} buckets, peak ${Math.round(dataMax).toLocaleString('en-US')}${showGhost ? `; dashed reference reaching ${Math.round(ghost.v).toLocaleString('en-US')}` : ''}`}
             onPointerMove={onMove}
             onPointerLeave={() => setHover(null)}
           >
@@ -1387,6 +1410,27 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
               </>
             )}
 
+            {showGhost &&
+              (() => {
+                const gx1 = w - PAD.r - 4;
+                const gy1 = y(ghost.v);
+                // The label rides above the open dot, or below it when the
+                // dot is already brushing the top of the plot.
+                const labelY = gy1 - 8 < 12 ? gy1 + 16 : gy1 - 8;
+                return (
+                  <g>
+                    <path
+                      className="an-chart-ghost"
+                      d={`M${x(n - 1).toFixed(1)},${y(series[n - 1].v).toFixed(1)} L${gx1.toFixed(1)},${gy1.toFixed(1)}`}
+                    />
+                    <circle className="an-chart-ghost-dot" cx={gx1} cy={gy1} r="3.4" />
+                    <text className="an-chart-ghost-label" x={gx1} y={labelY} textAnchor="end">
+                      {ghost.label || fmtCompact(ghost.v)}
+                    </text>
+                  </g>
+                );
+              })()}
+
             {trendPath && (
               <>
                 <path className="an-chart-trend" d={trendPath} />
@@ -1420,6 +1464,9 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
       </div>
       <div className="an-chart-xaxis" aria-hidden="true">
         <span>{bucketLabel(series[0].t, unit)}</span>
+        {/* A midpoint stop, once there are enough buckets that three labels
+            read as an axis rather than a crowd. */}
+        {n >= 5 && <span>{bucketLabel(series[Math.floor((n - 1) / 2)].t, unit)}</span>}
         <span>{bucketLabel(series[n - 1].t, unit)}</span>
       </div>
     </div>
