@@ -73,53 +73,48 @@
   }
 }
 
-/* The live piece keeps one button. Its two exits — the post on the network,
-   the piece's own page — hang under it as plain links, so nothing on the
-   panel competes with the seal for the reflex click. Underlined for the same
-   reason `.rs-actions` underlines: without it these are prose on a touch
-   screen. */
-.rs-live-links {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-4);
-  margin-top: var(--space-3);
+/* Beside the seal, not under it: the post, the page and the wake lock are one
+   glyph each in a bordered square, so the live piece's whole verb row is one
+   line and the seal keeps the only words. The squares sit flush — shared
+   hairlines, like the feed rows' own act cluster — because three touch-sized
+   boxes with gaps between them plus the seal is wider than a phone; flush,
+   the trio wraps as one unit on the screens where it still must. Height comes
+   from the row's stretch + min-height, and the width matches it so a square
+   stays square. The wake toggle wears its state as the admin checkbox does —
+   accent fill — because a phone has no hover to ask what a grey coffee cup
+   means. */
+.rs-live-acts {
+  display: inline-flex;
+  align-items: stretch;
 }
-.rs-live-links .admin-link-subtle {
+.rs-live-act {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  text-decoration: underline;
-  text-underline-offset: 0.25em;
-  text-decoration-color: var(--rule);
-}
-.rs-live-links .admin-link-subtle:hover {
-  text-decoration-color: currentColor;
-}
-@media (pointer: coarse) {
-  .rs-live-links .admin-link-subtle {
-    min-height: var(--wb-hit, 2.75rem);
-  }
-}
-
-/* The wake-lock checkbox (the box itself is drawn by the `.wb` checkbox rule).
-   `fit-content` keeps the click target on the words, not the whole row — a
-   full-width invisible toggle under the seal button is an accident waiting for
-   a thumb. */
-.rs-awake {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: fit-content;
-  margin-top: var(--space-3);
-  font-family: var(--sans);
-  font-size: var(--text-sm);
+  justify-content: center;
+  width: 2.5rem;
+  border: 1px solid var(--rule);
+  background: none;
   color: var(--ink-soft);
   cursor: pointer;
+  position: relative;
+}
+.rs-live-act + .rs-live-act {
+  margin-left: -1px;
+}
+.rs-live-act:hover {
+  color: var(--ink);
+  border-color: var(--ink-muted);
+  z-index: 1;
+}
+.rs-live-act.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--page);
+  z-index: 1;
 }
 @media (pointer: coarse) {
-  .rs-awake {
-    min-height: var(--wb-hit, 2.75rem);
+  .rs-live-act {
+    width: var(--wb-hit, 2.75rem);
   }
 }
 
@@ -229,13 +224,13 @@
 .rs-live.liked .rs-live-state { color: var(--ratioed-seal); }
 
 /* The seal button takes `.admin-gate-button`'s voice — 14px sans, all-small-caps,
-   0.18em — rather than the 15.2px sentence-case serif it had. It sits between
-   two of them in the live-piece row, and one button in three speaking
-   differently reads as three different kinds of control rather than one row of
-   them. What it keeps is its own weight: a wider pad and, once the piece has
-   been liked, the seal's own red oxide. */
+   0.18em — rather than the 15.2px sentence-case serif it had, so the studio's
+   filled buttons all speak alike. Its weight is the dark fill and, once the
+   piece has been liked, the seal's own red oxide. The pad came down when the
+   live row went one-line: the width it gave up is what pays for the icon
+   squares beside it on a phone. */
 .rs-seal {
-  padding: var(--space-2) var(--space-5);
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--ink);
   background: var(--ink);
   color: var(--page);

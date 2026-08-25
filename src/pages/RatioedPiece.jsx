@@ -512,6 +512,13 @@ export default function RatioedPiece() {
             </dl>
           </section>
 
+          {/* The two doors out: the essay that explains the project, and the
+              leaderboard that holds everyone. */}
+          <nav className="ratioed-piece-go" aria-label="Ratioed">
+            <Link to={`/creating/${slug}`}>Learn more</Link>
+            <Link to={`/creating/${slug}/participants`}>View leaderboard</Link>
+          </nav>
+
           <PieceNav pieces={pieces} take={piece.take} parent={slug} />
         </article>
       </PageShell>
@@ -798,6 +805,13 @@ export default function RatioedPiece() {
             </dd>
           </dl>
         </section>
+
+        {/* The two doors out: the essay that explains the project, and the
+            leaderboard that holds everyone. */}
+        <nav className="ratioed-piece-go" aria-label="Ratioed">
+          <Link to={`/creating/${slug}`}>Learn more</Link>
+          <Link to={`/creating/${slug}/participants`}>View leaderboard</Link>
+        </nav>
 
         <PieceNav pieces={pieces} take={piece.take} parent={slug} />
       </article>
