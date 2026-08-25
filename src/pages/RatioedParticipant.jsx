@@ -300,11 +300,6 @@ export default function RatioedParticipant() {
     },
   ];
 
-  // Named rather than described: the note below says how many breaking likes
-  // are gone, and a hardcoded figure would drift the moment another piece is
-  // sealed. Same count the essay's own log section makes its case with.
-  const deletedLikes = pieces.filter((p) => p.breaker?.likeSurvives === false).length;
-
   const log = takes
     .flatMap((t) => [...t.alive, ...t.after].map((a) => ({ ...a, piece: t.piece })))
     .sort((a, b) => a.take - b.take || a.off - b.off);
@@ -507,20 +502,12 @@ export default function RatioedParticipant() {
           </section>
         )}
 
-        <section className="ratioed-piece-section">
-          <h2>How this was counted</h2>
-          <p className="ratioed-piece-note">
-            The pieces are the roster&rsquo;s, which counts by DID and still holds people whose
-            records have since been deleted; the times and the acts are the event logs&rsquo;, one
-            per piece. Neither is re-read on load. {deletedLikes} of the project&rsquo;s{' '}
-            {pieces.length} breaking likes have been deleted by the people who cast them, and a
-            deleted record is in no index, so recomputing this would drop {deletedLikes === 1 ? 'it' : 'them'}.
-            The portrait above is the one live read on the page.
-          </p>
-          <p className="ratioed-piece-note">
-            <Link to={`/creating/${slug}`}>All {roster.rows.length} participants →</Link>
-          </p>
-        </section>
+        {/* The two doors out: the essay that explains the project, and the
+            leaderboard that holds everyone. */}
+        <nav className="ratioed-piece-go" aria-label="Ratioed">
+          <Link to={`/creating/${slug}`}>Learn more</Link>
+          <Link to={`/creating/${slug}/participants`}>View leaderboard</Link>
+        </nav>
 
         <ParticipantNav rows={roster.rows} person={person} parent={slug} />
       </article>

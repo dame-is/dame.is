@@ -210,6 +210,37 @@
 .ratioed-piece-kv dt { color: var(--ink-muted); }
 .ratioed-piece-kv dd { margin: 0; overflow-wrap: anywhere; }
 
+/* --- the two doors --------------------------------------------------- */
+
+/* Every leaf of Ratioed — a take, a person — ends with the same two ways back
+   to the pages that hold the whole thing: the essay and the leaderboard. The
+   leaderboard's own button voice (`.ratioed-board-more`), a size up, because
+   these are the way off the page rather than a table's footnote. Hover stays
+   behind `(hover: hover)` for the reason typography.css keeps it there: a
+   repaint under the finger eats the first tap on iOS. */
+.ratioed-piece-go {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+.ratioed-piece-go a {
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--sans);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  font-size: var(--text-sm);
+  border: 1px solid var(--rule);
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .ratioed-piece-go a:hover {
+    color: var(--ink);
+    border-color: var(--ink-muted);
+  }
+}
+
 /* --- prev / next ---------------------------------------------------- */
 
 .ratioed-piece-nav {
