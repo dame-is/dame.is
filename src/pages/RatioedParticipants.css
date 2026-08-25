@@ -161,11 +161,16 @@ a.ratioed-board-who:hover .ratioed-board-handle { color: var(--ink); text-decora
   align-items: center;
   gap: var(--space-2);
 }
+/* The inline width is the distribution, but it is a basis, not a floor: at
+   `flex: none` the 100% bar kept its full length and pushed its own count out
+   of the cell, into the audience column — "8" against "816 followers" read as
+   one number. Allowed to shrink, a full-length bar cedes exactly the count's
+   width and nothing else changes. */
 .ratioed-board-bar i {
   display: block;
   height: 0.5rem;
   min-width: 2px;
-  flex: none;
+  flex: 0 1 auto;
   background: var(--ink-faint);
 }
 .ratioed-board-row[data-top] .ratioed-board-bar i { background: var(--ink-muted); }
@@ -173,6 +178,7 @@ a.ratioed-board-who:hover .ratioed-board-handle { color: var(--ink); text-decora
   font-weight: 400;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
+  flex: none;
 }
 
 .ratioed-board-more {

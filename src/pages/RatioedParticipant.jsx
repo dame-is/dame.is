@@ -300,10 +300,6 @@ export default function RatioedParticipant() {
     },
   ];
 
-  const log = takes
-    .flatMap((t) => [...t.alive, ...t.after].map((a) => ({ ...a, piece: t.piece })))
-    .sort((a, b) => a.take - b.take || a.off - b.off);
-
   return (
     <PageShell
       title={`@${handle}`}
@@ -424,8 +420,7 @@ export default function RatioedParticipant() {
                           both together put an after-seal like in a row labelled
                           alive, which is the one confusion this whole page is
                           arranged to prevent; what they did on the other side
-                          is counted at the end of the cell and listed in full
-                          in the log below. */}
+                          is counted at the end of the cell. */}
                       <Mix
                         acts={t.wasAlive ? t.alive : t.after}
                         likeGone={t.likeGone}
@@ -446,61 +441,6 @@ export default function RatioedParticipant() {
             </p>
           )}
         </section>
-
-        {log.length > 0 && (
-          <section className="ratioed-piece-section">
-            <details className="ratioed-piece-witness">
-              <summary>
-                <span>Their log</span>
-                <span className="ratioed-piece-witness-count">
-                  {log.length} record{log.length === 1 ? '' : 's'}
-                </span>
-              </summary>
-              <p className="ratioed-piece-note">
-                Every record of theirs that points at a piece, by the second it arrived. Times are
-                measured from the moment the post went up; a record after the seal is timed from
-                the seal instead, because that is the number that says how late it was.
-              </p>
-              <div className="ratioed-piece-scroll">
-                <table className="ratioed-piece-log">
-                  <thead>
-                    <tr>
-                      <th scope="col">take</th>
-                      <th scope="col">at</th>
-                      <th scope="col">what</th>
-                      <th scope="col">window</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {log.map((a, i) => (
-                      <tr key={`${a.take}-${a.k}-${a.off}-${i}`}>
-                        <td>
-                          {a.piece ? (
-                            <Link to={piecePath(a.piece, slug)}>{pieceSlug(a.piece)}</Link>
-                          ) : (
-                            String(a.take).padStart(2, '0')
-                          )}
-                        </td>
-                        <td className="ratioed-piece-when">
-                          {a.pre
-                            ? `+${fmtDuration(a.off * 1000)}`
-                            : `+${fmtElapsed(a.off - (a.piece?.lifespanMs || 0) / 1000)}`}
-                        </td>
-                        <td>
-                          <span className={`ratioed-piece-kind ratioed-k-${a.k}`}>
-                            {KIND_LABEL[a.k] || a.k}
-                          </span>
-                          {a.t && <span className="ratioed-piece-text">{a.t}</span>}
-                        </td>
-                        <td>{a.pre ? 'alive' : 'after the seal'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </details>
-          </section>
-        )}
 
         {/* The two doors out: the essay that explains the project, and the
             leaderboard that holds everyone. */}
