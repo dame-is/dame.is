@@ -1280,8 +1280,14 @@ function unitNoun(unit) {
 
 const CHART_H = 190;
 const PAD = { l: 8, r: 12, t: 18, b: 20 };
-/** Horizontal room reserved for a ghost segment's reach past the last bucket. */
-const GHOST_GUTTER = 52;
+/**
+ * Horizontal room for the ghost's reach past the last bucket. Narrow on
+ * purpose: the reach must read as a step UP at the edge of now, not as a
+ * projection ambling into future time — the time axis itself stops under the
+ * real curve's end (the x-axis row is padded by this same amount), so the
+ * ghost visibly stands past the end of time rather than extending it.
+ */
+const GHOST_GUTTER = 28;
 
 /**
  * The one chart. `mode: 'bars'` draws columns from a zero baseline with a 2px
@@ -1412,6 +1418,8 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
 
             {showGhost &&
               (() => {
+                const gx0 = x(n - 1);
+                const gy0 = y(series[n - 1].v);
                 const gx1 = w - PAD.r - 4;
                 const gy1 = y(ghost.v);
                 // The label rides above the open dot, or below it when the
@@ -1419,9 +1427,17 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
                 const labelY = gy1 - 8 < 12 ? gy1 + 16 : gy1 - 8;
                 return (
                   <g>
+                    {/* The same wash the measured curve carries, continued
+                        under the dashed cap — the reach completes the shape
+                        instead of floating over blank ground; the dashed
+                        edge and open dot are what keep saying "simulated". */}
+                    <path
+                      className="an-chart-area"
+                      d={`M${gx0.toFixed(1)},${baseY} L${gx0.toFixed(1)},${gy0.toFixed(1)} L${gx1.toFixed(1)},${gy1.toFixed(1)} L${gx1.toFixed(1)},${baseY} Z`}
+                    />
                     <path
                       className="an-chart-ghost"
-                      d={`M${x(n - 1).toFixed(1)},${y(series[n - 1].v).toFixed(1)} L${gx1.toFixed(1)},${gy1.toFixed(1)}`}
+                      d={`M${gx0.toFixed(1)},${gy0.toFixed(1)} L${gx1.toFixed(1)},${gy1.toFixed(1)}`}
                     />
                     <circle className="an-chart-ghost-dot" cx={gx1} cy={gy1} r="3.4" />
                     <text className="an-chart-ghost-label" x={gx1} y={labelY} textAnchor="end">
@@ -1462,7 +1478,10 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
           </div>
         )}
       </div>
-      <div className="an-chart-xaxis" aria-hidden="true">
+      {/* Padded by the ghost's gutter so the last date sits under the real
+          curve's end — the axis stops where measured time stops, and the
+          ghost visibly stands past it. */}
+      <div className="an-chart-xaxis" aria-hidden="true" style={gutter ? { paddingRight: gutter } : undefined}>
         <span>{bucketLabel(series[0].t, unit)}</span>
         {/* A midpoint stop, once there are enough buckets that three labels
             read as an axis rather than a crowd. */}
