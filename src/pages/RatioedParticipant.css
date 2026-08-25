@@ -51,7 +51,3 @@
 .ratioed-participant-takes .ratioed-piece-kind + .ratioed-piece-kind {
   margin-left: var(--space-2);
 }
-
-/* The log's text sits in the same cell as the kind that carried it, so it
-   needs the space the piece page's own log gets from a column boundary. */
-.ratioed-participant .ratioed-piece-kind + .ratioed-piece-text { margin-left: var(--space-2); }
