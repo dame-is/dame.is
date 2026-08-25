@@ -174,22 +174,25 @@ export default function RatioedParticipants() {
   const asked = useRef(new Set());
   useEffect(() => {
     const room = PORTRAIT_CAP - asked.current.size;
-    if (room <= 0) return undefined;
+    if (room <= 0) return;
     const missing = visible
       .map((p) => p.did)
       .filter((did) => did && !did.startsWith('handle:') && !asked.current.has(did))
       .slice(0, room);
-    if (!missing.length) return undefined;
+    if (!missing.length) return;
     for (const did of missing) asked.current.add(did);
-    let alive = true;
+    // No cancellation, deliberately. `visible` changes identity several times
+    // in the first moments of the page — the snapshot, the fresh read, the
+    // event and audience JSONs each re-render the list — and an answer
+    // cancelled by the pass that asked for it never comes back: its DIDs are
+    // already in `asked`, so those rows wore the initial forever. That was
+    // every avatar on the board. A late answer is safe to apply — the merge
+    // is idempotent, and applying after unmount is a no-op.
     resolveProfiles(missing)
       .then((found) => {
-        if (alive && Object.keys(found).length) setProfiles((prev) => ({ ...prev, ...found }));
+        if (Object.keys(found).length) setProfiles((prev) => ({ ...prev, ...found }));
       })
       .catch(() => {});
-    return () => {
-      alive = false;
-    };
   }, [visible]);
 
   if (!isRatioedParent(slug, { rkey: RATIOED_DOC_RKEY })) {
@@ -410,26 +413,6 @@ export default function RatioedParticipants() {
           )}
         </section>
 
-        <section className="ratioed-piece-section">
-          <h2>How this was counted</h2>
-          <p className="ratioed-piece-note">
-            Pieces are counted by DID, not handle: two deactivated accounts resolve to the same
-            placeholder, and collapsing them would undercount. A piece somebody broke counts as a
-            piece they were there for, whether or not the like survived. Records are the ones that
-            landed while a post was still standing, so anything that arrived after a seal is on
-            that person&rsquo;s own page rather than in this ranking.
-          </p>
-          <p className="ratioed-piece-note">
-            Follower counts were read once and stored; they describe the accounts, not the moments
-            these pieces ran. {totals.unpriced > 0 && (
-              <>
-                {totals.unpriced} of the people here have deleted or deactivated since, so they
-                carry a dot rather than a zero: a follower count is not something that can be
-                inferred for an account that is gone.
-              </>
-            )}
-          </p>
-        </section>
       </article>
     </PageShell>
   );
