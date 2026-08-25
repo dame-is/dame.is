@@ -571,6 +571,14 @@
    report. Only the hairline joins in: no fill, so a record with unsaved work
    stays distinct from the panel being open, which is `.is-open`'s accent fill
    below. */
+/* The admin directory's lazy body, mid-fetch. One quiet line in the sheet. */
+.chrome-admin-directory-loading {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
 .chrome-nav.chrome-admin-state[data-dirty] {
   border-color: var(--accent-soft);
   color: var(--accent);

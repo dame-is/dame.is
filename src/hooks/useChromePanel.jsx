@@ -24,8 +24,11 @@ const ChromePanelContext = createContext(null);
 // "details" affordance rather than living as a sub-view of the nav dock.
 // `admin-nav` and `admin-actions` are the two the admin adds below the stacked
 // breakpoint: the surface directory, and the state + secondary actions for the
-// open surface. They coordinate with the rest for free — one panel at a time,
-// and opening either folds the nav dock away.
+// open surface. `admin-directory` is the owner's admin directory on every
+// OTHER route — same button, but its links-only panel is rendered by
+// AdminDirectorySheet since no admin shell exists to draw the full one. They
+// coordinate with the rest for free — one panel at a time, and opening any
+// folds the nav dock away.
 export const CHROME_PANELS = [
   'search',
   'filter',
@@ -35,6 +38,7 @@ export const CHROME_PANELS = [
   'sky',
   'admin-nav',
   'admin-actions',
+  'admin-directory',
 ];
 
 export function ChromePanelProvider({ children }) {

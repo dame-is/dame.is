@@ -30,6 +30,10 @@ import LayoutToggle from './LayoutToggle.jsx';
 import PaperToggle from './PaperToggle.jsx';
 import { PAPER_ENABLED } from '../hooks/usePaper.jsx';
 import SearchSheet from './SearchSheet.jsx';
+import AdminDirectorySheet, {
+  ADMIN_DIRECTORY_PANEL,
+  ADMIN_DIRECTORY_PANEL_ID,
+} from './AdminDirectorySheet.jsx';
 import InfoSheet from './InfoSheet.jsx';
 import GuestbookSheet from './GuestbookSheet.jsx';
 import DebugSheet from './DebugSheet.jsx';
@@ -514,16 +518,20 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // the bottom bar's buttons are therefore withheld there — see their call sites.
   const inAdmin = location.pathname === '/admin';
   // …and below the stacked breakpoint, where the admin stops drawing furniture
-  // of its own, this bar grows three of ITS controls instead. Everything drawn
-  // from them is a plain string or a plain function published upward through
-  // AdminChromeProvider: no admin module is imported here, and none may be —
-  // the admin transitively pulls in @atproto/api, which App.jsx keeps out of the
-  // eager bundle with a `lazy()` for every visitor who is not the owner. The
-  // panels these two buttons open are rendered by the admin itself
-  // (AdminChromePanels.jsx), for the same reason.
+  // of its own, this bar grows admin controls instead: the state/actions pair
+  // in the left cluster here, plus the owner's standing admin button by the
+  // compass. Everything drawn from them is a plain string or a plain function
+  // published upward through AdminChromeProvider: no admin module is imported
+  // here, and none may be — the admin transitively pulls in @atproto/api,
+  // which App.jsx keeps out of the eager bundle with a `lazy()` for every
+  // visitor who is not the owner. The panels the admin pair opens are rendered
+  // by the admin itself (AdminChromePanels.jsx), for the same reason; the
+  // standing button's off-admin panel is AdminDirectorySheet, whose body is
+  // its own lazy chunk under the same rule.
   const { surface: adminSurface, actions: adminActions, state: adminState } = useAdminChrome();
   const adminNavOpen = panel === ADMIN_NAV_PANEL;
   const adminActionsOpen = panel === ADMIN_ACTIONS_PANEL;
+  const adminDirectoryOpen = panel === ADMIN_DIRECTORY_PANEL;
   const adminPrimary = adminActions?.primary || null;
   // The state button is the way to everything the bar has no room for — the full
   // sentence, the way out of a record or a selection, and the ⋯ menu — so it is
@@ -721,8 +729,8 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                   </button>
                 )}
                 {/* Withheld on /admin, and this one is about ROOM rather than
-                    about sense. The bar carries three admin controls there, and
-                    at 320 the row runs 65px past the compass — which is to say
+                    about sense. The bar carries the admin's controls there, and
+                    at 320 the row would run past the compass — which is to say
                     the menu button falls off the screen. This is the primer for
                     a visitor arriving at the site ("what is this place"), the
                     one control in the cluster whose audience is definitionally
@@ -740,26 +748,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
                     <Info className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
                   </button>
                 )}
-                {/* The admin's three, in the order the thumb reads them: where
-                    am I, what is happening, what do I do. The glyph is fixed
-                    rather than the surface's own — a surface names its icon as a
-                    lucide STRING, and resolving a name here would mean importing
-                    the whole icon set into the eager bundle. The surface's NAME
-                    carries that job instead, in the accessible name and the
-                    title, where it is not competing for 28px of a 390px row. */}
-                {adminSurface && (
-                  <button
-                    type="button"
-                    className={`chrome-nav chrome-admin-nav ${adminNavOpen ? 'is-open' : ''}`}
-                    onClick={() => togglePanel(ADMIN_NAV_PANEL)}
-                    aria-expanded={adminNavOpen}
-                    aria-controls={ADMIN_NAV_PANEL_ID}
-                    aria-label={`${adminSurface.label} — change admin surface`}
-                    title={`${adminSurface.label} — change surface`}
-                  >
-                    <LayoutGrid className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
-                  </button>
-                )}
+                {/* The admin's surface-level pair: what is happening, what do
+                    I do. (The third — where am I / go anywhere — moved to the
+                    right cluster as the owner's standing admin button, beside
+                    the compass; see below.) */}
                 {showAdminState && (
                   <button
                     type="button"
@@ -989,6 +981,31 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             </motion.button>
           )}
         </AnimatePresence>
+        {/* The owner's standing way into the admin, from anywhere: a fixed
+            seat directly left of the compass, drawn only for the signed-in
+            owner. On the stacked admin it opens the shell's own Surfaces
+            panel (counts, recents, the escape hatch); on every other route it
+            opens the lazy links-only directory (AdminDirectorySheet), because
+            no admin shell exists there to draw the full one. One glyph, one
+            seat, two panels — whichever one the ground under it can serve.
+            (On the desk-width admin this bar isn't rendered at all; the rail
+            is that frame's directory.) */}
+        {isOwner && (
+          <motion.button
+            layout={layoutProp}
+            type="button"
+            className={`chrome-nav chrome-admin-nav ${adminNavOpen || adminDirectoryOpen ? 'is-open' : ''}`}
+            onClick={() => togglePanel(adminSurface ? ADMIN_NAV_PANEL : ADMIN_DIRECTORY_PANEL)}
+            aria-expanded={adminNavOpen || adminDirectoryOpen}
+            aria-controls={adminSurface ? ADMIN_NAV_PANEL_ID : ADMIN_DIRECTORY_PANEL_ID}
+            aria-label={
+              adminSurface ? `${adminSurface.label} — change admin surface` : 'Admin — open the surface directory'
+            }
+            title={adminSurface ? `${adminSurface.label} — change surface` : 'Admin'}
+          >
+            <LayoutGrid className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+          </motion.button>
+        )}
         <motion.button
           layout={layoutProp}
           type="button"
@@ -1030,6 +1047,9 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
       <GuestbookSheet />
       <DebugSheet />
       <SkyHourSheet />
+      {/* Owner-gated on the same test as its trigger, so a visitor's page
+          renders neither the button nor the (lazy) panel machinery. */}
+      {isOwner && <AdminDirectorySheet />}
     </motion.div>
   );
 }
