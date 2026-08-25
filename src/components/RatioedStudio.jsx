@@ -46,6 +46,8 @@ import {
   HeartOff,
   MessageSquareReply,
   UserPen,
+  FileText,
+  Coffee,
 } from 'lucide-react';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedClock from './RatioedClock.jsx';
@@ -1552,23 +1554,21 @@ export default function RatioedStudio({ agent, did }) {
             )}
           </p>
 
-          {/* One seal button at a time: when the alarm is up it owns that
-              click, and two identical buttons a foot apart is how you hesitate
-              over which one is real. */}
-          {!justSealed && !seenLike && (
-            <div className="rs-actions">
+          <div className="rs-actions">
+            {/* One seal button at a time: when the alarm is up it owns that
+                click, and two identical buttons a foot apart is how you hesitate
+                over which one is real. */}
+            {!justSealed && !seenLike && (
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal this piece'}
               </button>
-            </div>
-          )}
-          {/* A seal that landed and a measurement that did not. Without this
-              the only way back is a reload, which re-offers "Seal this piece"
-              and writes a second threadgate over the first — moving the one
-              timestamp the lifespan is measured from. */}
-          {justSealed && error && (
-            <div className="rs-actions">
+            )}
+            {/* A seal that landed and a measurement that did not. Without this
+                the only way back is a reload, which re-offers "Seal this piece"
+                and writes a second threadgate over the first — moving the one
+                timestamp the lifespan is measured from. */}
+            {justSealed && error && (
               <button
                 type="button"
                 className="rs-seal"
@@ -1581,33 +1581,47 @@ export default function RatioedStudio({ agent, did }) {
                 <RefreshCw size={15} aria-hidden="true" />
                 {busy === 'measure' ? 'Measuring…' : 'Measure this piece'}
               </button>
+            )}
+            {/* The rest of the row is one glyph each — the words live in the
+                title and the label — and the three squares sit flush as one
+                segment so the whole row still fits a phone beside the seal. */}
+            <div className="rs-live-acts">
+              <a
+                className="rs-live-act"
+                href={`https://bsky.app/profile/${ME_HANDLE}/post/${live.rkey}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                title="Open the post on Bluesky"
+                aria-label="Open the post on Bluesky"
+              >
+                <ExternalLink size={15} aria-hidden="true" />
+              </a>
+              <Link
+                className="rs-live-act"
+                to={piecePath(live)}
+                title="The piece’s own page"
+                aria-label="The piece’s own page"
+              >
+                <FileText size={15} aria-hidden="true" />
+              </Link>
+              {CAN_WAKE && (
+                <button
+                  type="button"
+                  className={`rs-live-act${keepAwake ? ' on' : ''}`}
+                  onClick={() => setKeepAwake((v) => !v)}
+                  aria-pressed={keepAwake}
+                  title={
+                    keepAwake
+                      ? 'The screen is being held awake — tap to let it sleep'
+                      : 'Keep the screen awake'
+                  }
+                  aria-label="Keep the screen awake"
+                >
+                  <Coffee size={15} aria-hidden="true" />
+                </button>
+              )}
             </div>
-          )}
-          <div className="rs-live-links">
-            <a
-              className="admin-link-subtle"
-              href={`https://bsky.app/profile/${ME_HANDLE}/post/${live.rkey}`}
-              target="_blank"
-              rel="noreferrer noopener"
-            >
-              <ExternalLink size={13} aria-hidden="true" />
-              the post
-            </a>
-            <Link className="admin-link-subtle" to={piecePath(live)}>
-              its page
-            </Link>
           </div>
-
-          {CAN_WAKE && (
-            <label className="rs-awake">
-              <input
-                type="checkbox"
-                checked={keepAwake}
-                onChange={(e) => setKeepAwake(e.target.checked)}
-              />
-              keep the screen awake
-            </label>
-          )}
 
           {justSealed && (
             <p className="admin-field-hint">
