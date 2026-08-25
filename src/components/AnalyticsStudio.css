@@ -391,6 +391,32 @@
   fill: var(--tan);
 }
 
+/* The dashed reach to a reference the line cannot arrive at (the profile
+   counter on the followers chart). Faint ink and dashes, never the accent:
+   it is a simulation and must not dress like the data. The open dot — page
+   fill, faint ring — is the same statement at the endpoint. */
+.an-chart-ghost {
+  fill: none;
+  stroke: var(--ink-faint);
+  stroke-width: 1.6;
+  stroke-dasharray: 4 4;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.an-chart-ghost-dot {
+  fill: var(--page);
+  stroke: var(--ink-faint);
+  stroke-width: 1.6;
+}
+
+.an-chart-ghost-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  fill: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .an-chart-cross {
   stroke: var(--ink-faint);
   stroke-width: 1;
