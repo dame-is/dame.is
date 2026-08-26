@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { inkblotRamp, hexToRgb, recolorInkblot } from './anisotaLab.js';
+import {
+  inkblotRamp,
+  hexToRgb,
+  recolorInkblot,
+  redactionSpans,
+  redactionMaskStyle,
+  PUNCT_BASE,
+} from './anisotaLab.js';
 
 describe('hexToRgb', () => {
   it('parses #rrggbb', () => {
@@ -75,5 +82,69 @@ describe('recolorInkblot', () => {
     const data = buf([40, 60, 80, 255], [40, 60, 80, 90], [40, 60, 80, 12]);
     recolorInkblot(data, DENSE, FAINT);
     expect([data[3], data[7], data[11]]).toEqual([255, 90, 12]);
+  });
+});
+
+describe('redactionSpans', () => {
+  // "this is exactly the kind" — black out words 1 and 2 ("is exactly").
+  const TEXT = 'this is exactly the kind';
+
+  it('flags exactly the redacted tokens and leaves the rest alone', () => {
+    const spans = redactionSpans(TEXT, [1, 2]);
+    expect(spans.map((s) => s.text).join('')).toBe(TEXT);
+    expect(spans.filter((s) => s.redacted).map((s) => s.text)).toEqual(['is', 'exactly']);
+  });
+
+  it('accepts a Set as readily as an array', () => {
+    const spans = redactionSpans(TEXT, new Set([0]));
+    expect(spans.filter((s) => s.redacted).map((s) => s.text)).toEqual(['this']);
+  });
+
+  it('leaves two words split by a space as two separate bars', () => {
+    // The whitespace between them isn't redactable, so neither bar joins —
+    // the erasure reads as struck words, not one long block.
+    const spans = redactionSpans(TEXT, [1, 2]).filter((s) => s.redacted);
+    expect(spans.map((s) => [s.joinedLeft, s.joinedRight])).toEqual([
+      [false, false],
+      [false, false],
+    ]);
+  });
+
+  it('joins a word to the punctuation stuck to it when both are struck', () => {
+    // "hi, there" — tokens: hi | , | (space) | there. Black out "hi" + the
+    // comma, and the two bars must overlap into one stroke.
+    const spans = redactionSpans('hi, there', [0, PUNCT_BASE]).filter((s) => s.redacted);
+    expect(spans.map((s) => s.text)).toEqual(['hi', ',']);
+    expect(spans[0].joinedRight).toBe(true);
+    expect(spans[1].joinedLeft).toBe(true);
+  });
+
+  it('carries a mask style on struck tokens only', () => {
+    const spans = redactionSpans(TEXT, [1]);
+    const struck = spans.find((s) => s.redacted);
+    expect(struck.style).toHaveProperty('--redact-clip');
+    expect(spans.find((s) => !s.redacted).style).toBeUndefined();
+  });
+
+  it('is empty for empty text', () => {
+    expect(redactionSpans('', [0, 1])).toEqual([]);
+  });
+});
+
+describe('redactionMaskStyle', () => {
+  it('is stable for a given index, so a bar never jitters between paints', () => {
+    expect(redactionMaskStyle(7)).toEqual(redactionMaskStyle(7));
+  });
+
+  it('tilts a free-standing bar and lies a joined run flat', () => {
+    expect(redactionMaskStyle(7)['--redact-rot']).not.toBe('0.00deg');
+    expect(redactionMaskStyle(7, true, false)['--redact-rot']).toBe('0.00deg');
+  });
+
+  it('overshoots the joined side of the clip and keeps the free side inside', () => {
+    const joined = redactionMaskStyle(7, false, true)['--redact-clip'];
+    expect(joined).toContain('112%');
+    expect(redactionMaskStyle(7, true, false)['--redact-clip']).toContain('-12%');
+    expect(redactionMaskStyle(7)['--redact-clip']).not.toContain('112%');
   });
 });

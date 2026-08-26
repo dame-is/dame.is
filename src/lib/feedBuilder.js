@@ -652,7 +652,11 @@ export async function buildUnifiedFeed({
               ? fetched.filter((r) => r?.value?.draft !== true)
               : fetched;
 
-          if (c.kind === 'reference') {
+          // Any collection that declares a subject gets it resolved — every
+          // reference collection does, and so does the odd content record
+          // that only reads against the thing it backlinks (an Anisota
+          // redaction is an erasure OF a post; see verbRegistry).
+          if (c.subject) {
             await safe(
               `hydrateSubjects:${c.nsid}`,
               () => resolver.hydrateSubjects(records, c),
