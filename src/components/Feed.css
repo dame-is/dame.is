@@ -1671,14 +1671,25 @@ a.reference-card-profile:focus-visible {
   font-style: italic;
 }
 
-/* Erasure poem — the source post's original text with redacted words blacked
-   out by an ink bar, the surviving found poem beneath. */
-.lab-redaction {
-  margin: 0;
-  font-family: var(--serif);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+/* Erasure poem — the post it was drawn from, quoted in the same frame a repost
+   gets (it deliberately reuses .post-embed-quote*, so the two read as the same
+   object), with the redacted words struck by carved marker bars and the found
+   poem beneath. The bar geometry comes from redactionMaskStyle in
+   src/lib/anisotaLab.js — a mark sits at the same angle here as on anisota.net. */
+.lab-redaction-wrap {
   max-width: var(--measure);
+  min-width: 0;
+}
+
+/* A quote nested in a post owns the gap above it; here the lab card's own
+   flex gap does. */
+.lab-redaction-source {
+  margin-top: 0;
+}
+
+/* Erasures run longer than a quoted line and are read word by word, so open
+   the leading up from the quote frame's default. */
+.lab-redaction-source .lab-redaction {
   line-height: 1.85;
 }
 
@@ -1690,12 +1701,26 @@ a.reference-card-profile:focus-visible {
 .lab-redaction-word.is-redacted::after {
   content: '';
   position: absolute;
-  top: 0.06em;
-  bottom: 0.06em;
+  top: 0.04em;
+  bottom: 0.04em;
   left: -0.04em;
   right: -0.04em;
   background: var(--ink);
+  transform: rotate(var(--redact-rot, 0deg));
+  transform-origin: center;
+  clip-path: var(--redact-clip, none);
   pointer-events: none;
+}
+
+/* A token blacked out against a redacted neighbour (a word and the punctuation
+   stuck to it) overshoots on the touching side so the two bars run together as
+   one stroke instead of showing a seam. */
+.lab-redaction-word.is-redacted.redact-join-right::after {
+  right: -0.32em;
+}
+
+.lab-redaction-word.is-redacted.redact-join-left::after {
+  left: -0.32em;
 }
 
 .lab-redaction-found {
@@ -2364,6 +2389,27 @@ a.ledger-time:focus-visible {
    nested card from ballooning the row — the record page has the rest. */
 .ledger-repost > .post-embed-quote > .post-embed-quote {
   display: flex;
+}
+
+/* Erasure poems render as the quoted post they blacked out (FeedLedgerRow),
+   which — like a repost — IS the row's content, so its text stays unclamped:
+   the marker bars have to land on the whole post, not a two-line teaser. Its
+   media stays dropped by the rules above; the piece is about the words. */
+.ledger-redaction .post-embed-quote-text {
+  display: block;
+  overflow: visible;
+}
+
+/* Hold the whole piece to the quote box's own width (see .ledger-embed
+   .post-embed-quote above) so the found poem centres under the post it came
+   out of rather than under the wider ledger column. */
+.ledger-redaction .lab-redaction-wrap {
+  max-width: 26rem;
+}
+
+.ledger-redaction .lab-redaction-found {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
 }
 
 /* Text-less posts: the embed is the row's only content. Baseline row

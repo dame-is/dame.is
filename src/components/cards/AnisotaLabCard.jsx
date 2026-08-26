@@ -6,7 +6,7 @@
  * ported in src/lib/anisotaLab.js):
  *
  *   net.anisota.lab.poetry     — Word Magnets poem, re-laid from tiles + board
- *   net.anisota.lab.redaction  — erasure poem, original text with words blacked out
+ *   net.anisota.lab.redaction  — erasure poem, drawn as the post it blacked out
  *   net.anisota.lab.sigil      — a sigil, its standalone SVG (sandboxed <img>)
  *   net.anisota.lab.carving    — a relief print (PNG data-URL)
  *   net.anisota.lab.inkblot    — a symmetric inkblot (PNG data-URL)
@@ -21,12 +21,11 @@ import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
 import { nsidFromAtUri } from '../../lib/verbRegistry.js';
 import {
   computePoemLayout,
-  tokenizePost,
-  isRedactable,
   sigilSvgDataUrl,
   anisotaWorkUrl,
 } from '../../lib/anisotaLab.js';
 import InkblotFigure from './InkblotFigure.jsx';
+import RedactedPost from './RedactedPost.jsx';
 
 /** Short, lowercase label for each Lab collection — shown in small caps. */
 const KIND_LABEL = {
@@ -40,7 +39,7 @@ const KIND_LABEL = {
   'net.anisota.spell.custom': 'spell',
 };
 
-export default function AnisotaLabCard({ payload, atUri, variant = 'feed' }) {
+export default function AnisotaLabCard({ payload, atUri, subject = null, variant = 'feed' }) {
   const v = payload || {};
   const nsid = nsidFromAtUri(atUri);
   const kind = KIND_LABEL[nsid] || 'lab piece';
@@ -60,7 +59,7 @@ export default function AnisotaLabCard({ payload, atUri, variant = 'feed' }) {
         <span className="small-caps lab-card-kind">{kind}</span>
         {title && <h3 className="lab-card-title">{title}</h3>}
       </header>
-      <LabBody nsid={nsid} value={v} />
+      <LabBody nsid={nsid} value={v} subject={subject} />
       {anisotaUrl && (
         <a
           className="lab-card-source small-caps"
@@ -75,13 +74,13 @@ export default function AnisotaLabCard({ payload, atUri, variant = 'feed' }) {
   );
 }
 
-function LabBody({ nsid, value: v }) {
+function LabBody({ nsid, value: v, subject }) {
   switch (nsid) {
     case 'net.anisota.lab.poetry':
       return <PoemBody value={v} />;
 
     case 'net.anisota.lab.redaction':
-      return <RedactionBody value={v} />;
+      return <RedactedPost value={v} subject={subject} />;
 
     case 'net.anisota.spell.custom':
       return v.description ? (
@@ -166,36 +165,6 @@ function PoemBody({ value: v }) {
           {tile.word}
         </span>
       ))}
-    </div>
-  );
-}
-
-/**
- * An erasure poem: the source post's original text with the redacted words
- * blacked out, and the surviving found poem beneath. Falls back to the
- * surviving `text` alone when no `original` snapshot was saved.
- */
-function RedactionBody({ value: v }) {
-  const original = typeof v.original === 'string' ? v.original : '';
-  const redacted = Array.isArray(v.redacted) ? new Set(v.redacted) : new Set();
-  if (!original) {
-    return v.text ? <p className="lab-card-text">{v.text}</p> : null;
-  }
-  const tokens = tokenizePost(original);
-  return (
-    <div className="lab-redaction-wrap">
-      <p className="lab-redaction" aria-label={v.text ? `Erasure poem: ${v.text}` : 'An erasure poem'}>
-        {tokens.map((t, i) =>
-          isRedactable(t) && redacted.has(t.index) ? (
-            <span key={i} className="lab-redaction-word is-redacted" aria-hidden="true">
-              {t.text}
-            </span>
-          ) : (
-            <span key={i}>{t.text}</span>
-          ),
-        )}
-      </p>
-      {v.text && <p className="lab-redaction-found">{v.text}</p>}
     </div>
   );
 }

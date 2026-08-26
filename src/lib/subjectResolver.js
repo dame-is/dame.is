@@ -130,7 +130,8 @@ export function createSubjectResolver({ appview = APPVIEW, concurrency = CONCURR
    * couldn't be resolved get `_subject = { missing: true, ref: <subjectRef> }`.
    *
    * @param {object[]} records  PDS listRecords output (each `{ uri, cid, value }`).
-   * @param {object} collection registry collection config (provides `subject` tag).
+   * @param {object} collection registry collection config (provides the
+   *   `subject` tag and, optionally, the `subjectField` holding the backlink).
    */
   async function hydrateSubjects(records, collection) {
     if (!records?.length) return;
@@ -187,10 +188,14 @@ export function createSubjectResolver({ appview = APPVIEW, concurrency = CONCURR
  *   - bsky like / repost / vote: `subject = { uri, cid }`
  *   - bsky follow / grain follow / tangled follow: `subject = <did string>`
  *   - grain favorite, tangled star: `subject = { uri, cid }` (most likely)
+ *
+ * The field is `subject` unless the collection names another one
+ * (`subjectField` in the registry — an Anisota redaction backlinks the post it
+ * erased as `source`).
  */
-function extractSubjectRef(record /*, _collection */) {
+function extractSubjectRef(record, collection) {
   const v = record?.value || {};
-  const subject = v.subject;
+  const subject = v[collection?.subjectField || 'subject'];
   if (!subject) return null;
   if (typeof subject === 'string') {
     if (subject.startsWith('did:')) return { did: subject };

@@ -3,7 +3,8 @@
 // Anisota app so a poem, erasure, or sigil re-lays here exactly as it does on
 // anisota.net:
 //   - computePoemLayout  ← anisota src/utils/poemLayout.js
-//   - tokenizePost        ← anisota src/utils/redaction.js
+//   - tokenizePost /
+//     redactionMaskStyle  ← anisota src/utils/redaction.js
 //   - sigilSvgDataUrl     ← anisota src/components/sigil/sigilGeometry.js
 // Keeping the numbers identical is the whole point — see the comments there.
 
@@ -157,6 +158,82 @@ export function tokenizePost(text) {
   }
   if (last < src.length) pushMarks(last, src.length);
   return tokens;
+}
+
+// A stable little pseudo-random in [0,1) from a token index + salt, so each
+// marker bar keeps its own slight angle and rough edge across re-renders
+// rather than jittering on every paint. Ported verbatim from Anisota — the
+// same index has to draw the same mark on both sites.
+export function rand01(index, salt) {
+  let h = (((index + 1) * 2654435761) ^ (salt * 40503)) >>> 0;
+  h ^= h >>> 15;
+  h = Math.imul(h, 2246822519);
+  h ^= h >>> 13;
+  return (h >>> 0) / 4294967296;
+}
+
+/**
+ * The look of one blacked-out token: a slim marker bar tilted only a hair, its
+ * six-point outline lightly jittered so the sides sit subtly at odds — carved
+ * and hand-pulled rather than cleanly printed.
+ *
+ * When a token butts up against a redacted neighbour (a word and the
+ * punctuation stuck to it, both blacked out), the touching side goes flat and
+ * overshoots past the edge so the two bars overlap into one continuous line,
+ * and the whole run lies flat (no tilt) so the seam disappears.
+ *
+ * Returns the CSS custom properties the ::after bar reads (see
+ * `.lab-redaction-word` in Feed.css).
+ */
+export function redactionMaskStyle(index, joinedLeft = false, joinedRight = false) {
+  const joined = joinedLeft || joinedRight;
+  const rot = joined ? '0.00' : (rand01(index, 1) * 1.2 - 0.6).toFixed(2); // ~±0.6°
+  const j = (base, amt, salt) => (base + (rand01(index, salt) * 2 - 1) * amt).toFixed(1);
+
+  // Free sides keep an uneven carved edge; joined sides go flat (0/100) and
+  // overshoot beyond the box so they meet the neighbouring bar.
+  const lx = joinedLeft ? '-12' : j(1.5, 1.4, 2);
+  const rx = joinedRight ? '112' : j(98.5, 1.4, 6);
+  const tlY = joinedLeft ? '0' : j(7, 3, 3);
+  const blY = joinedLeft ? '100' : j(93, 3, 13);
+  const trY = joinedRight ? '0' : j(7, 3, 7);
+  const brY = joinedRight ? '100' : j(93, 3, 9);
+  const tmY = j(3.5, 1.5, 5);
+  const bmY = j(96.5, 1.5, 11);
+
+  const clip =
+    `polygon(${lx}% ${tlY}%, 50% ${tmY}%, ${rx}% ${trY}%, ` +
+    `${rx}% ${brY}%, 50% ${bmY}%, ${lx}% ${blY}%)`;
+  return { '--redact-rot': `${rot}deg`, '--redact-clip': clip };
+}
+
+/**
+ * A piece's source text broken into the spans a renderer paints: every token
+ * in reading order, each flagged for whether it is blacked out and — when it
+ * is — carrying the mask style for its bar plus which sides join the bar
+ * beside it. One helper so the feed card, the ledger row and the record page
+ * all draw the same erasure.
+ *
+ * `redacted` is the record's index array (or a Set of it).
+ */
+export function redactionSpans(original, redacted) {
+  const set = redacted instanceof Set ? redacted : new Set(redacted || []);
+  const tokens = tokenizePost(original);
+  const isOn = (t) => isRedactable(t) && set.has(t.index);
+  return tokens.map((t, i) => {
+    if (!isOn(t)) return { text: t.text, redacted: false };
+    // Only an immediately adjacent token joins: two words with a space
+    // between them stay two bars, a word and its clinging comma become one.
+    const joinedLeft = isOn(tokens[i - 1]);
+    const joinedRight = isOn(tokens[i + 1]);
+    return {
+      text: t.text,
+      redacted: true,
+      joinedLeft,
+      joinedRight,
+      style: redactionMaskStyle(t.index, joinedLeft, joinedRight),
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */

@@ -16,6 +16,7 @@ import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../l
 import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
 import { flushBody, isWordlessFlush } from '../lib/flushText.js';
 import InkblotFigure from './cards/InkblotFigure.jsx';
+import RedactedPost from './cards/RedactedPost.jsx';
 import PostEmbed from './PostEmbed.jsx';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { ME_DID, ME_HANDLE } from '../config.js';
@@ -107,10 +108,17 @@ export default function FeedLedgerRow({
   const isBlog = item.verb === 'blogging';
   // Anisota Lab sigils + inkblots preview as a small themed thumbnail beside
   // their title (the way observations show a specimen thumb); other crafting
-  // verbs — poems, erasures, spells — keep the plain title summary alone.
+  // verbs — poems, spells — keep the plain title summary alone.
   const craftThumb = item.verb === 'crafting' ? craftingThumb(item) : null;
+  // An erasure poem is a reading of a post, so — like a repost — the post it
+  // was drawn from IS the row: quoted, with its blacked-out words struck.
+  const isRedaction =
+    item.verb === 'crafting' &&
+    nsidFromAtUri(item.atUri) === 'net.anisota.lab.redaction';
   const summary =
-    isRepost || isObservation || isBlog ? null : summarize(item, { expanded, onToggle });
+    isRepost || isObservation || isBlog || isRedaction
+      ? null
+      : summarize(item, { expanded, onToggle });
   const embed = isRepost ? null : ledgerEmbed(item);
   // Observations show their stored local wall-clock time-of-day directly, never
   // localized — the record's timestamp is that wall-clock pinned to `Z`, so
@@ -137,6 +145,11 @@ export default function FeedLedgerRow({
       )}
       <div className="ledger-body">
         {isRepost && <RepostQuote item={item} />}
+        {isRedaction && (
+          <div className="ledger-embed ledger-redaction">
+            <RedactedPost value={item.payload} subject={item.subject} />
+          </div>
+        )}
         {isObservation &&
           (obsBatch ? (
             <ObservationBatchLedgerBody item={item} expanded={expanded} onToggle={onToggle} />
@@ -331,9 +344,10 @@ function summarize(item, listenControls) {
       );
     }
     case 'crafting':
-      // Anisota Lab piece — lead with its title, else a poem/erasure's text,
-      // else a spell's description; falls back to the kind (a sigil, an
-      // inkblot, …) so a nameless piece still reads as what it is.
+      // Anisota Lab piece — lead with its title, else a poem's text, else a
+      // spell's description; falls back to the kind (a sigil, an inkblot, …)
+      // so a nameless piece still reads as what it is. Erasure poems never
+      // reach here — they render as the quoted post they blacked out.
       return plain(
         payload.name || payload.text || payload.description,
         CRAFT_KIND_FALLBACK[nsidFromAtUri(item.atUri)] || 'a lab piece',

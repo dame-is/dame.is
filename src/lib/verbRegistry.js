@@ -19,9 +19,15 @@
 //                          resolves the subject into a `subject` field.
 //            'appviewFeed' — fetched via the Bluesky AppView feed instead of
 //                          listRecords; only used for `app.bsky.feed.post`.
-//   subject: For reference records, a tag describing what kind of subject we
-//            expect ('bsky.post' | 'bsky.profile' | 'bsky.list' | 'atproto'
-//            for "any at:// URI, look up via PLC + getRecord").
+//   subject: A tag describing what kind of subject we expect ('bsky.post' |
+//            'bsky.profile' | 'bsky.list' | 'atproto' for "any at:// URI, look
+//            up via PLC + getRecord"). Usual on reference records, whose whole
+//            content IS the subject; a content record declares it too when it
+//            backlinks something it has to be read against (a redaction is an
+//            erasure OF a post, so it hydrates the post it blacked out).
+//   subjectField: Which field on the record holds that backlink. Defaults to
+//            `subject`; a lexicon that names it otherwise (redaction's
+//            `source`) says so here.
 //   max:     Per-collection cap for prefetch's listRecords pagination.
 //   maxAgeDays: Optional cutoff. Records older than this are dropped before
 //            being written into the unified feed (per-verb snapshots keep
@@ -29,7 +35,8 @@
 //
 // Per-verb shape:
 //   verb:        The gerund the rest of the codebase uses to identify it.
-//   collections: One or more `{ nsid, source, kind, subject?, max, maxAgeDays? }`.
+//   collections: One or more
+//                `{ nsid, source, kind, subject?, subjectField?, max, maxAgeDays? }`.
 //   icon:        lucide-react icon name (resolved in VerbIcon.jsx).
 //   renderer:    Component name used by FeedItem.jsx; null falls through to the
 //                generic fallback. Renderers themselves live in src/components/.
@@ -290,7 +297,17 @@ export const VERB_REGISTRY = [
       { nsid: 'net.anisota.spell.custom', source: 'anisota', kind: 'content', max: 100 },
       { nsid: 'net.anisota.lab.carving', source: 'anisota', kind: 'content', max: 100 },
       { nsid: 'net.anisota.lab.inkblot', source: 'anisota', kind: 'content', max: 100 },
-      { nsid: 'net.anisota.lab.redaction', source: 'anisota', kind: 'content', max: 100 },
+      // An erasure poem is a reading of somebody else's post, so it carries a
+      // `source` at-uri back to that post. Hydrating it gets the card the
+      // author + timestamp it needs to show the piece as the post it erased.
+      {
+        nsid: 'net.anisota.lab.redaction',
+        source: 'anisota',
+        kind: 'content',
+        subject: 'bsky.post',
+        subjectField: 'source',
+        max: 100,
+      },
       { nsid: 'net.anisota.lab.synth', source: 'anisota', kind: 'content', max: 100 },
       { nsid: 'net.anisota.lab.petri', source: 'anisota', kind: 'content', max: 100 },
     ],
