@@ -8,8 +8,10 @@ import RelativeTimeText from '../RelativeTimeText.jsx';
 /**
  * An erasure poem (`net.anisota.lab.redaction`) as the thing it actually is:
  * somebody's post, shown in the same quoted-post frame a repost gets, with the
- * blacked-out words struck by carved marker bars — then the found poem the
- * surviving words make.
+ * blacked-out words struck by carved marker bars. The words left standing are
+ * the found poem — they read straight off the post, so the record's assembled
+ * `text` is never printed a second time underneath (it does carry the piece's
+ * accessible label, since the struck words are hidden from a reader).
  *
  * The frame's author line comes from the source post itself. The home feed
  * hydrates it while it builds (the redaction collection declares its `source`
@@ -52,52 +54,49 @@ export default function RedactedPost({ value, subject }) {
   const label = v.text ? `Erasure poem: ${v.text}` : 'An erasure poem';
 
   return (
-    <div className="lab-redaction-wrap">
-      <article className="post-embed-quote lab-redaction-source">
-        <header className="post-embed-quote-head">
-          {author?.avatar && (
-            <img
-              className="post-embed-quote-avatar"
-              src={author.avatar}
-              alt=""
-              width={20}
-              height={20}
-              loading="lazy"
-            />
+    <article className="post-embed-quote lab-redaction-source">
+      <header className="post-embed-quote-head">
+        {author?.avatar && (
+          <img
+            className="post-embed-quote-avatar"
+            src={author.avatar}
+            alt=""
+            width={20}
+            height={20}
+            loading="lazy"
+          />
+        )}
+        <span className="post-embed-quote-author">
+          {author?.displayName && (
+            <span className="post-embed-quote-name">{author.displayName}</span>
           )}
-          <span className="post-embed-quote-author">
-            {author?.displayName && (
-              <span className="post-embed-quote-name">{author.displayName}</span>
-            )}
-            {handle && <span className="post-embed-quote-handle">@{handle}</span>}
+          {handle && <span className="post-embed-quote-handle">@{handle}</span>}
+        </span>
+        {ts && (
+          <span className="post-embed-quote-time gutter">
+            <SourceLink href={href}>
+              <RelativeTimeText value={ts} />
+            </SourceLink>
           </span>
-          {ts && (
-            <span className="post-embed-quote-time gutter">
-              <SourceLink href={href}>
-                <RelativeTimeText value={ts} />
-              </SourceLink>
+        )}
+      </header>
+      <p className="post-embed-quote-text lab-redaction" aria-label={label}>
+        {spans.map((span, i) =>
+          span.redacted ? (
+            <span
+              key={i}
+              className={`lab-redaction-word is-redacted${span.joinedLeft ? ' redact-join-left' : ''}${span.joinedRight ? ' redact-join-right' : ''}`}
+              style={span.style}
+              aria-hidden="true"
+            >
+              {span.text}
             </span>
-          )}
-        </header>
-        <p className="post-embed-quote-text lab-redaction" aria-label={label}>
-          {spans.map((span, i) =>
-            span.redacted ? (
-              <span
-                key={i}
-                className={`lab-redaction-word is-redacted${span.joinedLeft ? ' redact-join-left' : ''}${span.joinedRight ? ' redact-join-right' : ''}`}
-                style={span.style}
-                aria-hidden="true"
-              >
-                {span.text}
-              </span>
-            ) : (
-              <span key={i}>{span.text}</span>
-            ),
-          )}
-        </p>
-      </article>
-      {v.text && <p className="lab-redaction-found">{v.text}</p>}
-    </div>
+          ) : (
+            <span key={i}>{span.text}</span>
+          ),
+        )}
+      </p>
+    </article>
   );
 }
 

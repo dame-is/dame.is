@@ -1673,16 +1673,12 @@ a.reference-card-profile:focus-visible {
 
 /* Erasure poem — the post it was drawn from, quoted in the same frame a repost
    gets (it deliberately reuses .post-embed-quote*, so the two read as the same
-   object), with the redacted words struck by carved marker bars and the found
-   poem beneath. The bar geometry comes from redactionMaskStyle in
-   src/lib/anisotaLab.js — a mark sits at the same angle here as on anisota.net. */
-.lab-redaction-wrap {
-  max-width: var(--measure);
-  min-width: 0;
-}
+   object), with the redacted words struck by carved marker bars. The bar
+   geometry comes from redactionMaskStyle in src/lib/anisotaLab.js — a mark
+   sits at the same angle here as on anisota.net.
 
-/* A quote nested in a post owns the gap above it; here the lab card's own
-   flex gap does. */
+   A quote nested in a post owns the gap above it; here the lab card's own flex
+   gap does, so drop it. */
 .lab-redaction-source {
   margin-top: 0;
 }
@@ -1723,13 +1719,6 @@ a.reference-card-profile:focus-visible {
   left: -0.32em;
 }
 
-.lab-redaction-found {
-  margin: var(--space-3) 0 0;
-  font-style: italic;
-  color: var(--ink-soft);
-  text-align: center;
-  white-space: pre-wrap;
-}
 
 /* "view on anisota" link on the single-record page. */
 .lab-card-source {
@@ -2398,18 +2387,6 @@ a.ledger-time:focus-visible {
 .ledger-redaction .post-embed-quote-text {
   display: block;
   overflow: visible;
-}
-
-/* Hold the whole piece to the quote box's own width (see .ledger-embed
-   .post-embed-quote above) so the found poem centres under the post it came
-   out of rather than under the wider ledger column. */
-.ledger-redaction .lab-redaction-wrap {
-  max-width: 26rem;
-}
-
-.ledger-redaction .lab-redaction-found {
-  margin-top: var(--space-2);
-  font-size: var(--text-sm);
 }
 
 /* Text-less posts: the embed is the row's only content. Baseline row
