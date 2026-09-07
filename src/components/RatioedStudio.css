@@ -479,10 +479,29 @@
   .rs-feed .ratioed-live-acts { gap: 0; }
 }
 
-/* Ordered last explicitly: the narrow row layout gives the row's parts orders
-   of their own so they fall to a second line, and a composer left at the
-   default 0 would open ABOVE the thing it is answering. */
-.rs-reply-box { order: 9; flex: 1 0 100%; padding: var(--space-2) 0 var(--space-3); }
+/* A row with the composer open has to be allowed to wrap. `.ratioed-live-row`
+   is `display: flex` with the default `nowrap` in the wide layout — the narrow
+   one is a grid and wraps by being one — so a composer at `flex: 1 0 100%`
+   took the whole line and, refusing to shrink, squeezed everything sharing it
+   down to min-content: measured at 900px, the handle beside an open composer
+   was a 13px column of stacked letters spelling @ver.ooo downwards. Scoped to
+   the rows that actually carry one, because the wide row is `nowrap` on
+   purpose: it is one line, and the ellipsis on the text is what ends it.
+
+   Below: `flex` for the wide row, `grid-column` for the narrow one. Each is
+   inert in the other's layout, so both can simply be stated. Full width either
+   way — the composer is not a cell of the row it hangs under. The `order` is
+   left over from when the narrow row built its second line out of `order`,
+   where a composer at the default 0 came FIRST, above the row it answers; that
+   row is a grid now and the composer is last in the markup regardless, so it
+   is belt and braces rather than load-bearing. */
+.ratioed-live-row:has(.rs-reply-box) { flex-wrap: wrap; }
+.rs-reply-box {
+  order: 9;
+  flex: 1 0 100%;
+  grid-column: 1 / -1;
+  padding: var(--space-2) 0 var(--space-3);
+}
 .rs-reply-box .admin-input { width: 100%; font-size: var(--text-sm); }
 .rs-reply-acts {
   display: flex;
