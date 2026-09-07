@@ -1,45 +1,58 @@
-/* Engagement chips.
+/* Engagement chips — see RatioedChip.jsx.
 
-   Every colour here is currentColor, set once per kind from the sky-derived
-   chart scale — so a chip needs no per-kind background rule and cannot drift
-   from the marks on the charts beside it. The fallbacks are the same four the
-   charts fall back to when the scale hasn't been computed. */
+   Every colour here is currentColor, set once per kind, so a chip needs no
+   per-kind background rule and cannot drift from the mark beside it. The one
+   colour left is the seal: the three ordinary kinds are the page's own faint
+   ink, and the like is the hour's complement, which the charts and the replay
+   draw it in too. The fallback is the same one those fall back to when the
+   sky-derived scale hasn't been computed. */
 
 .rk-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  /* Never squeezed. A chip is a four-to-six letter label and every row it sits
-     in is a flex row that runs out of width on a phone; left shrinkable it was
-     the item that gave way, so "REPOST" set narrower than "REPLY" two rows
-     above it and the column of chips stopped being a column. */
+  justify-content: center;
+  gap: 5px;
+  /* Never squeezed. Every row a chip sits in is a flex row that runs out of
+     width on a phone; left shrinkable it was the item that gave way, and a
+     column of marks stopped being a column. */
   flex: none;
+  line-height: 1;
+}
+
+/* A feed row: the mark on its own, in a fixed box, so the four read as one
+   column down the left of the feed rather than four labels of four widths. */
+.rk-sm {
+  width: 1.5em;
+  height: 1.5em;
+}
+
+/* The alarm: the mark and the word, in a box the size of the news it carries. */
+.rk-lg {
+  padding: 0.4em 0.9em 0.34em;
   border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
   background: color-mix(in srgb, currentColor 11%, transparent);
+  font-size: var(--text-base, 1rem);
+  font-weight: 600;
   font-variant-caps: small-caps;
   letter-spacing: 0.03em;
-  line-height: 1;
   white-space: nowrap;
 }
 
-.rk-sm {
-  padding: 0.28em 0.6em 0.22em;
-  font-size: var(--text-xs);
-}
-.rk-lg {
-  padding: 0.4em 0.9em 0.34em;
-  font-size: var(--text-base, 1rem);
-  font-weight: 600;
-}
+.rk-reply,
+.rk-repost,
+.rk-quote { color: var(--ink-faint); }
 
-.rk-reply { color: var(--ratioed-reply, #5e7a47); }
-.rk-repost { color: var(--ratioed-repost, #4a6a86); }
-.rk-quote { color: var(--ratioed-quote, #8a6f24); }
+/* The one that ends it. */
+.rk-like { color: var(--ratioed-seal, #8c3a2e); }
 
-/* The one that ends it. Heavier border, more fill, and a ring that breathes —
-   the complement of the hour, against a trio that is all that hour's own hue. */
-.rk-like {
-  color: var(--ratioed-seal, #8c3a2e);
+/* And in the row, a ring that breathes: the panel this appears in is one
+   somebody is watching in order to act within seconds, and an alarm you have
+   to read is not an alarm. */
+.rk-sm.rk-like { animation: rk-throb 1.15s ease-in-out infinite; }
+
+/* At alarm size it is already a band across the top of a panel, so the weight
+   goes into the box rather than into motion around it. */
+.rk-lg.rk-like {
   border-width: 1.5px;
   border-color: color-mix(in srgb, currentColor 75%, transparent);
   background: color-mix(in srgb, currentColor 20%, transparent);
@@ -52,17 +65,20 @@
 
 @keyframes rk-throb {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent); }
-  70% { box-shadow: 0 0 0 7px color-mix(in srgb, currentColor 0%, transparent); }
+  70% { box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent); }
 }
 
 /* Withdrawn, or replayed long after the fact. Same colour, no alarm. */
 .rk-chip.is-muted {
   animation: none;
   box-shadow: none;
+}
+.rk-lg.is-muted {
   background: color-mix(in srgb, currentColor 8%, transparent);
   border-color: color-mix(in srgb, currentColor 32%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rk-like { animation: none; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 30%, transparent); }
+  .rk-chip { animation: none; }
+  .rk-lg.rk-like { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 30%, transparent); }
 }

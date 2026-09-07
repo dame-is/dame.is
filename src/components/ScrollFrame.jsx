@@ -10,24 +10,30 @@ function edgeName(start, end) {
 }
 
 /**
- * A horizontally scrolling frame that admits what it is hiding.
+ * A scrolling frame that admits what it is hiding.
  *
- * A plain `overflow-x: auto` div cuts its content off at a hard edge, which
- * reads as "the table ends here" rather than "the table continues" — the
- * ledger's last visible column looked like its last column. This tracks which
- * side has content off-screen and lets the stylesheet fade that edge out, so
- * the hidden column is visibly dissolving rather than guillotined, and the fade
- * appears only on the side there is actually something to reach.
+ * A plain `overflow: auto` div cuts its content off at a hard edge, which reads
+ * as "the table ends here" rather than "the table continues" — the ledger's
+ * last visible column looked like its last column, and the live feed's clipped
+ * bottom row looked like a rendering fault. This tracks which side has content
+ * off-screen and lets the stylesheet fade that edge out, so what is hidden is
+ * visibly dissolving rather than guillotined, and the fade appears only on the
+ * side there is actually something to reach.
  *
  * It is also the accessibility fix a scroll container needs: a region you can
  * only reach by scrolling has to be reachable from the keyboard, and named when
  * it is. Both are conditional — a frame with nothing hidden is not a landmark
  * and should not be a tab stop.
  *
+ * @param {'x'|'y'} [axis] which way it scrolls. `x` for the tables this was
+ *   written for; `y` for a list with a capped height, where "start" and "end"
+ *   are the top and bottom edges. The frame sets its own overflow either way,
+ *   so the caller supplies only the height that does the capping.
  * @param {string} [className] extra classes on the frame itself
  * @param {string} [label] what the frame holds, for the screen-reader name
  */
 export default function ScrollFrame({
+  axis = 'x',
   className = '',
   label,
   children,
@@ -35,25 +41,30 @@ export default function ScrollFrame({
 }) {
   const ref = useRef(null);
   const [edges, setEdges] = useState({ start: false, end: false });
+  const vertical = axis === 'y';
 
   const measure = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    const max = el.scrollWidth - el.clientWidth;
+    const pos = vertical ? el.scrollTop : el.scrollLeft;
+    const max = vertical
+      ? el.scrollHeight - el.clientHeight
+      : el.scrollWidth - el.clientWidth;
     // A pixel of slack at both ends: a table sized in `ch` inside a container
     // sized in `vw` lands on fractional widths, and scrollWidth rounds up — so
     // a frame with nothing to scroll still reports a sub-pixel of overflow, and
     // one scrolled to the end never quite reaches `max`. Without the slack both
     // ends of every table wore a permanent fade.
-    const next = { start: el.scrollLeft > 1, end: el.scrollLeft < max - 1 };
+    const next = { start: pos > 1, end: pos < max - 1 };
     setEdges((prev) =>
       prev.start === next.start && prev.end === next.end ? prev : next,
     );
-  }, []);
+  }, [vertical]);
 
   // After every render, because what these frames hold is re-rendered with
   // fewer or more columns than it had — a sort, an expand, the live deltas
-  // landing a `+n` in every right-hand cell.
+  // landing a `+n` in every right-hand cell — and, on the vertical ones, a row
+  // per arrival while somebody is watching.
   useEffect(measure);
 
   useEffect(() => {
@@ -82,6 +93,7 @@ export default function ScrollFrame({
     <div
       ref={ref}
       className={className ? `scrollframe ${className}` : 'scrollframe'}
+      data-axis={axis}
       data-edge={edgeName(edges.start, edges.end)}
       tabIndex={scrollable ? 0 : undefined}
       role={scrollable ? 'region' : undefined}

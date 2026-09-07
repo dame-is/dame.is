@@ -1,22 +1,20 @@
-/* The scrolling frame — see ScrollFrame.jsx, which is what sets `data-edge`.
+/* The scrolling frame — see ScrollFrame.jsx, which is what sets `data-axis`
+   and `data-edge`.
 
-   The fade is the affordance: the column at the edge dissolves instead of
+   The fade is the affordance: whatever sits at the edge dissolves instead of
    being cut, so a table that continues LOOKS like a table that continues
-   rather than one that ended. It is the reliable half — every platform paints
-   it, and it is there before anyone touches anything, which the scrollbar
-   below is not (macOS and every touch device draw an overlay scrollbar that
-   appears only once you are already scrolling). What the scrollbar rules do is
-   quieter: tone whatever bar the platform does draw down to a hairline in the
-   page's own palette, instead of a default slab across the ledger. */
+   rather than one that ended, and a feed with more rows below looks like one
+   rather than like a half-drawn row. It is the reliable half — every platform
+   paints it, and it is there before anyone touches anything, which the
+   scrollbar below is not (macOS and every touch device draw an overlay
+   scrollbar that appears only once you are already scrolling). What the
+   scrollbar rules do is quieter: tone whatever bar the platform does draw down
+   to a hairline in the page's own palette, instead of a default slab across
+   the ledger. */
 
 .scrollframe {
-  overflow-x: auto;
   /* How wide the edge fade is (see below). */
   --scrollframe-fade: var(--space-6);
-  /* Keeping the frame's own scroll from becoming the page's once the content
-     runs out. Reaching the last column should not then start pulling the
-     article sideways under it. */
-  overscroll-behavior-x: contain;
   /* A hairline in the page's own rule colour. `thin` is the standard property
      (Firefox, Chrome 121+, Safari 18.2+); the ::-webkit- rules below say the
      same thing to everything older. */
@@ -24,7 +22,21 @@
   scrollbar-color: var(--rule) transparent;
 }
 
+/* Keeping the frame's own scroll from becoming the page's once the content
+   runs out. Reaching the last column should not then start pulling the article
+   sideways under it, and reaching the end of a feed should not carry straight
+   on into the page behind it. */
+.scrollframe[data-axis='x'] {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.scrollframe[data-axis='y'] {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
 .scrollframe::-webkit-scrollbar {
+  width: 6px;
   height: 6px;
 }
 .scrollframe::-webkit-scrollbar-track {
@@ -52,24 +64,50 @@
    correct at every hour and in every theme without knowing any of them.
 
    The mask does not scroll with the content — it is fixed to the frame — so
-   the fade stays on the frame's edge and the columns pass under it. */
-.scrollframe[data-edge='end'] {
+   the fade stays on the frame's edge and the content passes under it. Note
+   that it takes the frame's own border and background with it, which is why a
+   frame that wants a visible edge draws it on the element around this one. */
+.scrollframe[data-axis='x'][data-edge='end'] {
   mask-image: linear-gradient(
     to right,
     #000 calc(100% - var(--scrollframe-fade)),
     transparent 100%
   );
 }
-.scrollframe[data-edge='start'] {
+.scrollframe[data-axis='x'][data-edge='start'] {
   mask-image: linear-gradient(
     to right,
     transparent 0,
     #000 var(--scrollframe-fade)
   );
 }
-.scrollframe[data-edge='both'] {
+.scrollframe[data-axis='x'][data-edge='both'] {
   mask-image: linear-gradient(
     to right,
+    transparent 0,
+    #000 var(--scrollframe-fade),
+    #000 calc(100% - var(--scrollframe-fade)),
+    transparent 100%
+  );
+}
+
+.scrollframe[data-axis='y'][data-edge='end'] {
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - var(--scrollframe-fade)),
+    transparent 100%
+  );
+}
+.scrollframe[data-axis='y'][data-edge='start'] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--scrollframe-fade)
+  );
+}
+.scrollframe[data-axis='y'][data-edge='both'] {
+  mask-image: linear-gradient(
+    to bottom,
     transparent 0,
     #000 var(--scrollframe-fade),
     #000 calc(100% - var(--scrollframe-fade)),
@@ -81,23 +119,46 @@
    nothing at all rather than degrading — the frame would just go back to a hard
    edge, which is the bug. */
 @supports not (mask-image: linear-gradient(to right, #000, transparent)) {
-  .scrollframe[data-edge='end'] {
+  .scrollframe[data-axis='x'][data-edge='end'] {
     -webkit-mask-image: linear-gradient(
       to right,
       #000 calc(100% - var(--scrollframe-fade)),
       transparent 100%
     );
   }
-  .scrollframe[data-edge='start'] {
+  .scrollframe[data-axis='x'][data-edge='start'] {
     -webkit-mask-image: linear-gradient(
       to right,
       transparent 0,
       #000 var(--scrollframe-fade)
     );
   }
-  .scrollframe[data-edge='both'] {
+  .scrollframe[data-axis='x'][data-edge='both'] {
     -webkit-mask-image: linear-gradient(
       to right,
+      transparent 0,
+      #000 var(--scrollframe-fade),
+      #000 calc(100% - var(--scrollframe-fade)),
+      transparent 100%
+    );
+  }
+  .scrollframe[data-axis='y'][data-edge='end'] {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - var(--scrollframe-fade)),
+      transparent 100%
+    );
+  }
+  .scrollframe[data-axis='y'][data-edge='start'] {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--scrollframe-fade)
+    );
+  }
+  .scrollframe[data-axis='y'][data-edge='both'] {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
       transparent 0,
       #000 var(--scrollframe-fade),
       #000 calc(100% - var(--scrollframe-fade)),
@@ -107,9 +168,15 @@
 }
 
 /* On paper there is no scrolling and nothing to indicate: a fade would just
-   print a table with its last column dissolving for no reason. */
+   print a table with its last column dissolving for no reason.
+
+   Matched on both attributes, which every frame carries, so this outranks the
+   rules above rather than tying with a bare class and losing to them. Written
+   as `.scrollframe` it lost: a printed table kept its mask and its last column
+   still dissolved on the page, because `[data-edge]` had a specificity this
+   didn't. */
 @media print {
-  .scrollframe {
+  .scrollframe[data-axis][data-edge] {
     overflow: visible;
     mask-image: none;
     -webkit-mask-image: none;

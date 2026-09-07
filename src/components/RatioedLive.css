@@ -163,12 +163,31 @@
 
 /* --- the ticker ------------------------------------------------------ */
 
+/* The feed is a window onto a list that is usually longer than it, and until
+   it said so the last row simply stopped halfway down with nothing under it —
+   which reads as a row that failed to draw rather than as a row continuing
+   past an edge. Two things say it now. This element draws the floor: a rule at
+   full strength, where the rules between rows are soft, so it reads as the
+   bottom of the window rather than as one more separator. The frame inside it
+   fades whichever end still has rows behind it, and the fade cannot live out
+   here — a mask takes its own element's border with it, which is the whole
+   reason the floor is a separate box. */
+.ratioed-live-feed {
+  border-bottom: 1px solid var(--rule);
+}
+
+/* What actually scrolls — see ScrollFrame.jsx. A shorter fade than the ledger
+   tables use: a row is around 2.4em tall, and at the tables' 2rem the whole of
+   the last one dissolved instead of the bottom half of it. */
+.ratioed-live-scroll {
+  max-height: 24em;
+  --scrollframe-fade: var(--space-5);
+}
+
 .ratioed-live-ticker {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 24em;
-  overflow-y: auto;
   font-size: var(--text-sm);
 }
 /* Flex rather than a grid: a row carries five to seven things depending on
@@ -388,16 +407,13 @@
      feed FOR — three replies and a repost is the shape of a piece going well —
      and everywhere else in this layout it sat wherever the handle before it
      left it, which on a phone is a different place on every row. Given the head
-     of the row and a fixed box it becomes a column of kinds, readable in one
-     pass down the left edge. Wide enough for `repost`, the longest of the four,
-     with the label centred so the four read as one column and not as four
-     boxes of different weights. */
-  .ratioed-live-row .rk-chip {
-    min-width: 5.4em;
-    justify-content: center;
-  }
+     of the row it becomes a column of kinds, readable in one pass down the left
+     edge. The fixed box it needs for that is now its own (see RatioedChip.css)
+     and 1.5em rather than the 5.4em the widest of the four words wanted: about
+     four ems of a 358px row handed back to the handle and the text, which are
+     what a row is for.
 
-  /* The handle takes the rest of the first line, which is what closes the hole
+     The handle takes the rest of the first line, which is what closes the hole
      that used to sit between it and the chip: at a fixed 11em the chip was
      pinned to the middle of a 358px row with nothing in between. Truncated, not
      broken — at any flexible width a handle like

@@ -430,7 +430,7 @@
    left here is what the studio adds: the buttons at the end of a row and the
    composer under it. The ticker's own scroller is 24em; the studio's panel is
    inside a pane with a seal button above it, so it keeps a shorter one. */
-.rs-feed .ratioed-live-ticker { max-height: 22em; }
+.rs-feed .ratioed-live-scroll { max-height: 22em; }
 .rs-feed-scan { font-variant-numeric: tabular-nums; }
 
 /* --- acting on a row ------------------------------------------------- */

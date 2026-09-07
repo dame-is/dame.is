@@ -193,7 +193,7 @@
 /* The transcript. Capped so a piece with eighty records doesn't push the rest
    of the page below the fold, and scrolled from the top — the newest arrival
    is the one the playhead just delivered. */
-.ratioed-replay .ratioed-live-ticker { max-height: 26em; }
+.ratioed-replay .ratioed-live-scroll { max-height: 26em; }
 
 /* A reader who has asked for less motion still gets the whole track — every
    mark is drawn, it just doesn't grow when the playhead reaches it. */

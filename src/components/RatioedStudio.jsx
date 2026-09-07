@@ -1526,7 +1526,7 @@ export default function RatioedStudio({ agent, did }) {
               )}
               <button type="button" className="rs-alarm-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={16} aria-hidden="true" />
-                {busy === 'seal' ? 'Sealing…' : 'Seal it'}
+                {busy === 'seal' ? 'Sealing…' : 'Seal'}
               </button>
             </div>
           )}
@@ -1561,7 +1561,7 @@ export default function RatioedStudio({ agent, did }) {
             {!justSealed && !seenLike && (
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
                 <Lock size={15} aria-hidden="true" />
-                {busy === 'seal' ? 'Sealing…' : 'Seal this piece'}
+                {busy === 'seal' ? 'Sealing…' : 'Seal'}
               </button>
             )}
             {/* A seal that landed and a measurement that did not. Without this

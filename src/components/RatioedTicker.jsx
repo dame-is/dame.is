@@ -24,6 +24,7 @@ import { ME_DID } from '../config.js';
 import RatioedChip from './RatioedChip.jsx';
 import RatioedHandle from './RatioedHandle.jsx';
 import { useWaypointsModal } from '../hooks/useWaypointsModal.jsx';
+import ScrollFrame from './ScrollFrame.jsx';
 import './RatioedLive.css';
 
 // A witnessed row names a DID and a record key; this is the at:// URI they
@@ -81,6 +82,8 @@ export function RatioedCounters({ tally }) {
  *                                 reads as a fault rather than as an offer
  * @param {(row) => JSX} [props.actions]  drawn at the end of a row
  * @param {(row) => JSX} [props.below]    drawn under a row, full width
+ * @param {string} [props.label]   what the scroller is, for a reader who
+ *                                 reaches it from the keyboard
  */
 export default function RatioedTicker({
   rows,
@@ -91,66 +94,77 @@ export default function RatioedTicker({
   actions = null,
   below = null,
   parent = null,
+  label = 'What has touched this piece',
 }) {
   const { openWaypoints } = useWaypointsModal();
   if (!rows.length) return <p className="ratioed-live-empty">{empty}</p>;
+  // Three elements for one list, and each does one thing. The frame scrolls and
+  // fades whichever end still has rows behind it (see ScrollFrame.jsx); the
+  // list is the list. The wrapper exists because a masked element's own border
+  // fades out with everything else in it, and the feed wants a floor that does
+  // not — a rule at the bottom, so a row cut in half is visibly a row passing
+  // under an edge rather than a row that failed to draw.
   return (
-    <ul className="ratioed-live-ticker">
-      {[...rows].reverse().map((r) => {
-        const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
-        const avatar = profiles[r.did]?.avatar;
-        const mine = r.did === ME_DID;
-        const extra = actions?.(r);
-        return (
-          <li
-            key={r.rkey}
-            className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}${
-              mine ? ' is-self' : ''
-            }`}
-          >
-            <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
-            {avatar ? (
-              <img className="ratioed-live-face" src={avatar} alt="" loading="lazy" width="22" height="22" />
-            ) : (
-              <span className="ratioed-live-face is-blank" aria-hidden="true" />
-            )}
-            <span className="ratioed-live-who">
-              {parent ? <RatioedHandle handle={handle} parent={parent} /> : `@${handle}`}
-              {mine && <span className="ratioed-live-self"> the artist</span>}
-            </span>
-            <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />
-            {/* A row from the afterlife. It reads as "+45m12s" beside a piece
-                that stood 41m45s, which is decodable and not obvious; this is
-                the sentence that makes it obvious. */}
-            {r.after && <span className="ratioed-live-after">after the seal</span>}
-            {r.goneMs != null && (
-              <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
-            )}
-            {r.t && <span className="ratioed-live-text">{r.t}</span>}
-            {/* The studio's buttons, or the reader's one button. Both sit in
-                the same slot at the end of the row, so the two feeds keep a
-                single right edge. */}
-            {extra ? (
-              <span className="ratioed-live-acts">{extra}</span>
-            ) : (
-              openable &&
-              r.goneMs == null &&
-              rowUri(r) && (
-                <button
-                  type="button"
-                  className="ratioed-live-open"
-                  onClick={() => openWaypoints(rowUri(r))}
-                  title={`Open @${handle}’s ${r.k} in another client`}
-                  aria-label={`Open this ${r.k} in another client`}
-                >
-                  <ArrowUpRight size={13} aria-hidden="true" />
-                </button>
-              )
-            )}
-            {below?.(r)}
-          </li>
-        );
-      })}
-    </ul>
+    <div className="ratioed-live-feed">
+      <ScrollFrame axis="y" className="ratioed-live-scroll" label={label}>
+        <ul className="ratioed-live-ticker">
+          {[...rows].reverse().map((r) => {
+            const handle = profiles[r.did]?.handle || r.h || r.did?.slice(0, 18) || 'somebody';
+            const avatar = profiles[r.did]?.avatar;
+            const mine = r.did === ME_DID;
+            const extra = actions?.(r);
+            return (
+              <li
+                key={r.rkey}
+                className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}${
+                  mine ? ' is-self' : ''
+                }`}
+              >
+                <span className="ratioed-live-when">+{fmtDuration(r.offMs)}</span>
+                {avatar ? (
+                  <img className="ratioed-live-face" src={avatar} alt="" loading="lazy" width="22" height="22" />
+                ) : (
+                  <span className="ratioed-live-face is-blank" aria-hidden="true" />
+                )}
+                <span className="ratioed-live-who">
+                  {parent ? <RatioedHandle handle={handle} parent={parent} /> : `@${handle}`}
+                  {mine && <span className="ratioed-live-self"> the artist</span>}
+                </span>
+                <RatioedChip kind={r.k} muted={quiet || r.goneMs != null} />
+                {/* A row from the afterlife. It reads as "+45m12s" beside a piece
+                    that stood 41m45s, which is decodable and not obvious; this is
+                    the sentence that makes it obvious. */}
+                {r.after && <span className="ratioed-live-after">after the seal</span>}
+                {r.goneMs != null && (
+                  <span className="ratioed-live-undone">deleted it at +{fmtDuration(r.goneMs)}</span>
+                )}
+                {r.t && <span className="ratioed-live-text">{r.t}</span>}
+                {/* The studio's buttons, or the reader's one button. Both sit in
+                    the same slot at the end of the row, so the two feeds keep a
+                    single right edge. */}
+                {extra ? (
+                  <span className="ratioed-live-acts">{extra}</span>
+                ) : (
+                  openable &&
+                  r.goneMs == null &&
+                  rowUri(r) && (
+                    <button
+                      type="button"
+                      className="ratioed-live-open"
+                      onClick={() => openWaypoints(rowUri(r))}
+                      title={`Open @${handle}’s ${r.k} in another client`}
+                      aria-label={`Open this ${r.k} in another client`}
+                    >
+                      <ArrowUpRight size={13} aria-hidden="true" />
+                    </button>
+                  )
+                )}
+                {below?.(r)}
+              </li>
+            );
+          })}
+        </ul>
+      </ScrollFrame>
+    </div>
   );
 }
