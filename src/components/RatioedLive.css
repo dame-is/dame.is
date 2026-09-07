@@ -219,17 +219,126 @@
 /* The artist's own records are in the log and in none of the counts. */
 .ratioed-live-row.is-self { color: var(--ink-faint); }
 .ratioed-live-self { font-size: var(--text-xs); color: var(--ink-muted); }
+/* What they said, whole. It was one line under an ellipsis, which on a phone
+   was four words of a reply and on any screen was a log of half-sentences.
+   `pre-wrap` because a post's own line breaks are part of what it says, and
+   `anywhere` because a URL pasted bare is one word as long as the row. */
 .ratioed-live-text {
   color: var(--ink-faint);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Where the row opens, the words are the control that opens it — see
+   RatioedTicker.jsx. Stripped back to the text it already was: a button here
+   should read as a line in a log that happens to answer, not as a button. */
+.ratioed-live-text.is-toggle {
+  font: inherit;
+  background: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.ratioed-live-text.is-toggle:hover { color: var(--ink-muted); }
+.ratioed-live-text.is-toggle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The one mark that says the words can be pressed. Inline, after the last of
+   them, so it costs a row no height — the alternative was a line of its own on
+   every reply in the feed, which is a phone screen spent on punctuation. */
+.ratioed-live-caret {
+  display: inline-block;
+  margin-left: 4px;
+  vertical-align: -2px;
+  color: var(--ink-faint);
+  transition: transform 0.15s ease;
+}
+.ratioed-live-row.is-open .ratioed-live-caret { transform: rotate(180deg); }
+
+/* --- what the post is carrying --------------------------------------- */
+
+/* The mark, not the embed: two thumbnails, a domain, "@somebody" — enough to
+   know whether to open the row, drawn at a size that lets the feed stay a feed.
+   The embed itself is in the panel, which is what opening it is for. */
+.ratioed-live-marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin-top: 5px;
+  /* The button around this is `pre-wrap`, and inherited whitespace in a flex
+     row lands as a stray gap before the first thumbnail. */
+  white-space: normal;
+}
+.ratioed-live-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+/* Square, like every other picture of a person or a thing on this project —
+   the roster's faces, the feed's own avatars. */
+.ratioed-live-mark img {
+  width: 26px;
+  height: 26px;
+  object-fit: cover;
+  border: 1px solid var(--rule-soft);
+}
+.ratioed-live-mark-say {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* --- the opened row --------------------------------------------------- */
+
+/* What the mark was standing in for, and the controls for acting on it. The
+   row is `nowrap` in this layout — it is one line, and that is the point of it
+   — so a row with a panel under it is the exception that gets to wrap. */
+.ratioed-live-row.is-open { flex-wrap: wrap; }
+.ratioed-live-panel {
+  flex: 1 0 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  /* An image embed will take whatever it is given, and what it is given here
+     is a panel inside a feed inside a deck. Capped so an opened row is a look
+     at a post rather than the end of the list. */
+  max-width: 32rem;
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--rule-soft);
+}
+.ratioed-live-panel > * { max-width: 100%; }
+.ratioed-live-panel-acts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* The row's control slot, at its right edge. Whatever fills it — the studio's
+   three buttons, the deck's one — is the same shape in the same place, which is
+   how the two feeds keep a single right edge. */
+.ratioed-live-acts {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
 /* Open this record somewhere else. Quiet until reached for: the ticker is
    something you watch, not something you operate. */
 .ratioed-live-open {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -242,6 +351,24 @@
   cursor: pointer;
 }
 .ratioed-live-open:hover { color: var(--ink); border-color: var(--rule); }
+/* The same button, twice the size and with its name on, once it is in the
+   panel: there is room for words there, and on a phone the panel is the ONLY
+   place this button exists — the row's own controls are hidden below 34rem. */
+.ratioed-live-open-say { display: none; }
+.ratioed-live-panel-acts .ratioed-live-open {
+  width: auto;
+  height: auto;
+  padding: 0.4em 0.7em;
+  gap: 6px;
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  border-color: var(--rule);
+}
+.ratioed-live-panel-acts .ratioed-live-open-say { display: inline; }
+@media (pointer: coarse) {
+  .ratioed-live-panel-acts .ratioed-live-open { min-height: var(--wb-hit, 2.75rem); }
+}
 
 /* Cast and taken back. The row recedes; the marker saying WHY does not —
    that deletion is the one thing here no index can be asked about later. */
@@ -394,9 +521,13 @@
      panel to be operated from a mouse; the deck's one opened a modal offering a
      choice of clients, which on a phone is a menu in front of a feed that is
      moving. Hidden rather than dropped from the markup, because both are the
-     right controls at a width that has room for them. */
-  .ratioed-live-open,
-  .ratioed-live-acts { display: none; }
+     right controls at a width that has room for them.
+
+     Hidden by where they are rather than by what they are: the same button
+     class turns up again inside an opened row's panel, which at this width is
+     the only place it exists at all. */
+  .ratioed-live-row > .ratioed-live-open,
+  .ratioed-live-row > .ratioed-live-acts { display: none; }
 
   /* The first line, in the order the eye wants rather than the markup's:
        1  the chip     what they did
@@ -443,8 +574,18 @@
   .ratioed-live-after,
   .ratioed-live-undone,
   .ratioed-live-text { grid-column: 3 / -1; }
+
+  /* And the panel with them, under the words that opened it. The rule down its
+     left goes: the column IS the rule at this width, and 14px of border and
+     padding is 14px an image embed 271px wide can ill afford. */
+  .ratioed-live-panel {
+    grid-column: 3 / -1;
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ratioed-live-pulse { animation: none; }
+  .ratioed-live-caret { transition: none; }
 }

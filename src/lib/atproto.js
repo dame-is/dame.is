@@ -245,7 +245,10 @@ export async function getLikes(uri, { appview = APPVIEW, limit = 25 } = {}) {
  * Exists for the CID, which is the one thing you cannot construct: liking or
  * replying to a post needs a strong ref, and a stream event carries a record
  * key and no hash. Also hands back the handle and the text, which is why a
- * caller with a bare DID gets a readable row out of the same round trip.
+ * caller with a bare DID gets a readable row out of the same round trip — and
+ * the embed, which is the one thing a stream event cannot be made to yield at
+ * all: the live feed learns that somebody replied with a picture only by
+ * asking here (see components/RatioedTicker.jsx).
  *
  * A post written seconds ago may not be in the AppView yet — the stream is
  * faster than the index it beats, which is the entire point of the stream — so
@@ -265,8 +268,13 @@ export async function getPosts(uris, { appview = APPVIEW } = {}) {
     if (!p?.uri || !p?.cid) continue;
     out[p.uri] = {
       cid: p.cid,
+      did: p.author?.did || '',
       handle: p.author?.handle || '',
       text: typeof p.record?.text === 'string' ? p.record.text : '',
+      // The resolved `#view` form, with CDN URLs on it — `null` rather than
+      // undefined so a hydrated post with no embed is distinguishable from one
+      // that has not been asked about yet.
+      embed: p.embed || null,
     };
   }
   return out;

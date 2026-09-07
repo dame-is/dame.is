@@ -438,17 +438,13 @@
 /* Liking or answering somebody without leaving the panel that is watching for
    the like that ends the piece. Deliberately quiet until you reach for them:
    the one control on this screen that should catch the eye is the seal. */
-/* `.ratioed-live-acts` is what RatioedTicker actually emits — the slot the
-   studio's three buttons arrive in. This rule was written against `.rs-feed-acts`
-   back when the studio had its own row markup, and stayed pointed at a class no
-   JSX renders when the two feeds were merged: the buttons lost their right-edge
-   alignment and their 2px gap, visibly so on a row with no text. */
-.rs-feed .ratioed-live-acts {
-  margin-left: auto;
-  display: inline-flex;
-  gap: 2px;
-  flex: none;
-}
+/* `.ratioed-live-acts` is what RatioedTicker emits — the slot the studio's
+   three buttons arrive in. The rule that put them at the row's right edge with
+   a 2px gap lives on the slot itself now, in RatioedLive.css, because the deck
+   fills the same slot with its own one button and wanted the same right edge.
+   (It was written against `.rs-feed-acts` back when the studio had its own row
+   markup, and stayed pointed at a class no JSX renders once the two feeds were
+   merged — the buttons lost both, visibly so on a row with no text.) */
 .rs-act {
   display: inline-flex;
   align-items: center;
@@ -464,13 +460,17 @@
 .rs-act:disabled { opacity: 0.4; cursor: default; }
 .rs-act.on { color: var(--ratioed-seal, #8c3a2e); border-color: var(--rule); }
 
-/* 26px is a mouse target. A coarse pointer that still has room for these — a
-   tablet, a touchscreen laptop, a phone held sideways past 34rem, everything
-   below that width having hidden them (see RatioedLive.css) — needs the 44px
-   floor the rest of the admin holds; see the collected touch block in
-   Admin.css. The glyph inside stays 13px, only the box grows. Same
-   `(pointer: coarse)` query `.rs-actions` above already uses, so the studio has
-   one touch rule and not two disagreeing ones. */
+/* 26px is a mouse target. A coarse pointer needs the 44px floor the rest of
+   the admin holds; see the collected touch block in Admin.css. The glyph inside
+   stays 13px, only the box grows. Same `(pointer: coarse)` query `.rs-actions`
+   above already uses, so the studio has one touch rule and not two disagreeing
+   ones.
+
+   This now catches them in both of the places a row's controls can be. Below
+   34rem the end of a row still hides them — they were costing a third of its
+   width — but opening a row moves them into its panel, which is how the studio
+   is operable from a phone at all: tap what somebody wrote, and like it or
+   answer it from there (see RatioedTicker.jsx). */
 @media (pointer: coarse) {
   .rs-act {
     width: var(--wb-hit, 2.75rem);
@@ -534,17 +534,14 @@
   overflow-x: auto;
 }
 
-/* The three buttons are hidden at this width — see the note in RatioedLive.css,
-   which draws the narrow row and hides the deck's one button in the same rule.
-   Repeated here rather than left to that rule because `.rs-feed
-   .ratioed-live-acts` above is the more specific selector and its
-   `display: inline-flex` beat it, which is a fight decided by which stylesheet
-   the bundler happened to emit second. Keyed to the VIEWPORT and not the pane,
-   because the layout it belongs to is: a narrow pane in a wide window has the
-   room for these, and the hand reaching for them there has a mouse in it. */
-@media (max-width: 34rem) {
-  .rs-feed .ratioed-live-acts { display: none; }
-}
+/* The three buttons are hidden at the row's end below 34rem, and appear inside
+   an opened row's panel instead — both in RatioedLive.css, which draws the
+   narrow row. This used to be repeated here, because `.rs-feed
+   .ratioed-live-acts` above was the more specific selector and its
+   `display: inline-flex` beat the hide, a fight decided by which stylesheet the
+   bundler happened to emit second. That selector is gone: the slot's own rule
+   lives with the row now, so there is one rule about it and nothing to lose to.
+*/
 
 /* A like cast and taken back before the seal. Not an alarm any more, but not
    nothing either — the panel stays marked so it can't be mistaken for a piece
