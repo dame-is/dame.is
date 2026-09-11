@@ -675,7 +675,7 @@ function FirstRun({ archive }) {
 /* ================================================================== */
 
 function FollowersTab({ archive, period, nowMs }) {
-  const { followers } = archive;
+  const { followers, blocks } = archive;
   const [mode, setMode] = useState('cumulative');
 
   const model = useMemo(() => {
@@ -691,6 +691,16 @@ function FollowersTab({ archive, period, nowMs }) {
     const inWindow = dated.filter((f) => f.atMs >= t0 && f.atMs <= nowMs);
     const counts = bucketSeries(inWindow, { unit, t0, t1: nowMs, pickTime: (f) => f.atMs });
     const baseline = dated.filter((f) => f.atMs < t0).length;
+    const datedBlocks = blocks
+      .map((block) => ({ ...block, atMs: Date.parse(block.blockedAt || '') }))
+      .filter((block) => Number.isFinite(block.atMs));
+    const blockCounts = bucketSeries(datedBlocks, {
+      unit,
+      t0,
+      t1: nowMs,
+      pickTime: (block) => block.atMs,
+    });
+    const blockBaseline = datedBlocks.filter((block) => block.atMs < t0).length;
     const compare = comparePeriods(dated, { days: period.days || spanDays, now: nowMs, pickTime: (f) => f.atMs });
     return {
       total: followers.length,
@@ -699,12 +709,13 @@ function FollowersTab({ archive, period, nowMs }) {
       units,
       counts,
       cumulative: cumulativeSeries(counts, baseline),
+      blockCumulative: cumulativeSeries(blockCounts, blockBaseline),
       gained: inWindow.length,
       perDay: inWindow.length / spanDays,
       compare,
       spanDays,
     };
-  }, [followers, period, mode, nowMs]);
+  }, [followers, blocks, period, mode, nowMs]);
 
   if (!followers.length) {
     return <p className="an-empty">No follower sweep yet — run a sync to gather the current follower list.</p>;
@@ -717,7 +728,8 @@ function FollowersTab({ archive, period, nowMs }) {
   const profileCount = archive.meta.followers?.profileCount ?? null;
   const counterGap = profileCount != null ? profileCount - model.total : null;
 
-  const cumulative = mode === 'cumulative';
+  const together = mode === 'together';
+  const cumulative = mode === 'cumulative' || together;
   return (
     <section className="an-panel" aria-label="Follower growth">
       <div className="an-tiles">
@@ -747,12 +759,15 @@ function FollowersTab({ archive, period, nowMs }) {
             onChange={setMode}
             options={[
               { key: 'cumulative', label: 'Cumulative' },
+              { key: 'together', label: 'Together' },
               ...model.units.map((u) => ({ key: u, label: unitLabel(u) })),
             ]}
           />
         </div>
         <SeriesChart
           series={cumulative ? model.cumulative : model.counts}
+          seriesLabel={together ? 'Followers' : null}
+          secondary={together ? { series: model.blockCumulative, label: 'Blocks' } : null}
           mode={cumulative ? 'line' : 'bars'}
           unit={model.unit}
           zeroBase={!cumulative}
@@ -760,17 +775,21 @@ function FollowersTab({ archive, period, nowMs }) {
           // altitude of the deactivated, suspended and deleted followers the
           // swept curve cannot see. Only meaningful upward, and only on the
           // cumulative form; a per-bucket bar has no "now" to reach from.
-          ghost={cumulative && counterGap != null && counterGap > 0 ? { v: profileCount } : null}
+          ghost={!together && cumulative && counterGap != null && counterGap > 0 ? { v: profileCount } : null}
           ariaLabel={
-            cumulative
+            together
+              ? `Cumulative followers and current blocks over ${period.label}`
+              : cumulative
               ? `Cumulative followers over ${period.label}`
               : `New followers per ${model.unit} over ${period.label}`
           }
         />
         <ChartTable
           series={cumulative ? model.cumulative : model.counts}
+          secondary={together ? model.blockCumulative : null}
           unit={model.unit}
           valueHead={cumulative ? 'Followers' : 'New followers'}
+          secondaryHead={together ? 'Blocks' : null}
         />
       </div>
 
@@ -805,7 +824,7 @@ function FollowersTab({ archive, period, nowMs }) {
 /* ================================================================== */
 
 function BlocksTab({ archive, period, nowMs }) {
-  const { blocks } = archive;
+  const { blocks, followers } = archive;
   const [mode, setMode] = useState('cumulative');
 
   const model = useMemo(() => {
@@ -826,13 +845,25 @@ function BlocksTab({ archive, period, nowMs }) {
       pickTime: (block) => block.atMs,
     });
     const baseline = dated.filter((block) => block.atMs < t0).length;
+    const datedFollowers = followers
+      .map((follower) => ({ ...follower, atMs: Date.parse(follower.followedAt || '') }))
+      .filter((follower) => Number.isFinite(follower.atMs));
+    const followerCounts = bucketSeries(datedFollowers, {
+      unit,
+      t0,
+      t1: nowMs,
+      pickTime: (follower) => follower.atMs,
+    });
+    const followerBaseline = datedFollowers.filter((follower) => follower.atMs < t0).length;
     return {
       total: blocks.length,
       undated,
       unit,
       units,
       counts,
+      trend: movingAverage(counts, 7),
       cumulative: cumulativeSeries(counts, baseline),
+      followerCumulative: cumulativeSeries(followerCounts, followerBaseline),
       received: inWindow.length,
       perDay: inWindow.length / spanDays,
       compare: comparePeriods(dated, {
@@ -841,13 +872,14 @@ function BlocksTab({ archive, period, nowMs }) {
         pickTime: (block) => block.atMs,
       }),
     };
-  }, [blocks, period, mode, nowMs]);
+  }, [blocks, followers, period, mode, nowMs]);
 
   if (!archive.meta.blocks) {
     return <p className="an-empty">No block backlink sweep yet — run a sync to build this timeline.</p>;
   }
 
-  const cumulative = mode === 'cumulative';
+  const together = mode === 'together';
+  const cumulative = mode === 'cumulative' || together;
   return (
     <section className="an-panel" aria-label="Blocks received">
       <div className="an-tiles">
@@ -877,25 +909,34 @@ function BlocksTab({ archive, period, nowMs }) {
             onChange={setMode}
             options={[
               { key: 'cumulative', label: 'Cumulative' },
+              { key: 'together', label: 'Together' },
               ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit) })),
             ]}
           />
         </div>
         <SeriesChart
-          series={cumulative ? model.cumulative : model.counts}
+          series={together ? model.followerCumulative : cumulative ? model.cumulative : model.counts}
+          seriesLabel={together ? 'Followers' : null}
+          secondary={together ? { series: model.cumulative, label: 'Blocks' } : null}
+          trend={!cumulative ? model.trend : null}
           mode={cumulative ? 'line' : 'bars'}
           unit={model.unit}
           zeroBase={!cumulative}
           ariaLabel={
-            cumulative
+            together
+              ? `Cumulative followers and current blocks over ${period.label}`
+              : cumulative
               ? `Cumulative current blocks over ${period.label}`
               : `New blocks per ${model.unit} over ${period.label}`
           }
         />
         <ChartTable
-          series={cumulative ? model.cumulative : model.counts}
+          series={together ? model.followerCumulative : cumulative ? model.cumulative : model.counts}
+          secondary={together ? model.cumulative : null}
+          trend={!cumulative ? model.trend : null}
           unit={model.unit}
-          valueHead={cumulative ? 'Current blocks' : 'New blocks'}
+          valueHead={together ? 'Followers' : cumulative ? 'Current blocks' : 'New blocks'}
+          secondaryHead={together ? 'Blocks' : null}
         />
       </div>
 
@@ -1439,7 +1480,8 @@ const GHOST_GUTTER = 28;
  * The one chart. `mode: 'bars'` draws columns from a zero baseline with a 2px
  * surface gap; `mode: 'line'` draws a 2px line over a 10%-opacity wash (the
  * cumulative view). `trend` overlays a moving average with a direct end
- * label. Hover is a nearest-X crosshair with one readout — the same
+ * label. `secondary` overlays a second line for same-bucket comparisons.
+ * Hover is a nearest-X crosshair with one readout — the same
  * interaction on both forms — and the values are all reachable without it
  * through the ChartTable twin rendered alongside.
  *
@@ -1450,7 +1492,17 @@ const GHOST_GUTTER = 28;
  * ink on purpose: it is a simulation, not a measurement, and it must never
  * dress like the data. `{ v, label }`.
  */
-function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBase = true, ghost = null, ariaLabel }) {
+function SeriesChart({
+  series,
+  seriesLabel = null,
+  secondary = null,
+  trend = null,
+  mode = 'bars',
+  unit = 'day',
+  zeroBase = true,
+  ghost = null,
+  ariaLabel,
+}) {
   const plotRef = useRef(null);
   const [w, setW] = useState(0);
   const [hover, setHover] = useState(null);
@@ -1474,17 +1526,20 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
   const H = CHART_H;
   const ready = w > 0;
   const n = series.length;
+  const secondarySeries = mode === 'line' && secondary?.series?.length === n ? secondary.series : null;
   const showGhost = Boolean(ghost) && mode === 'line' && n > 0;
   // The ghost reaches PAST the last bucket, so the real series cedes it a
   // fixed gutter on the right rather than being silently rescaled under it.
   const gutter = showGhost ? GHOST_GUTTER : 0;
   const values = series.map((p) => p.v);
+  const secondaryValues = secondarySeries ? secondarySeries.map((p) => p.v) : [];
   const dataMax = Math.max(
     ...values,
+    ...secondaryValues,
     trend ? Math.max(...trend.map((p) => p.v)) : 0,
     showGhost ? ghost.v : 0,
   );
-  const dataMin = Math.min(...values);
+  const dataMin = Math.min(...values, ...secondaryValues);
   // Bars grow from zero, always. A line (the cumulative view) may sit on a
   // nearby floor instead — a follower count living between 5,500 and 5,935
   // pinned to a zero axis is a flat wire that says nothing.
@@ -1509,14 +1564,24 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
   }
 
   const hp = hover != null && series[hover] ? { ...series[hover], i: hover } : null;
+  const secondaryHp = hover != null && secondarySeries?.[hover] ? secondarySeries[hover] : null;
   const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const area = `M${x(0).toFixed(1)},${baseY} ${series.map((p, i) => `L${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')} L${x(n - 1).toFixed(1)},${baseY} Z`;
+  const secondaryLine = secondarySeries
+    ? secondarySeries.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
+    : null;
   const trendPath = trend
     ? trend.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
     : null;
 
   return (
     <div className="an-chart">
+      {secondarySeries && (
+        <div className="an-chart-legend" aria-hidden="true">
+          <span><i className="an-chart-legend-primary" />{seriesLabel || 'Primary'}</span>
+          <span><i className="an-chart-legend-secondary" />{secondary.label || 'Secondary'}</span>
+        </div>
+      )}
       <div className="an-chart-plot" ref={plotRef} style={{ height: H }}>
         {ready && (
           <svg
@@ -1556,9 +1621,15 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
 
             {mode === 'line' && (
               <>
-                <path className="an-chart-area" d={area} />
+                {!secondarySeries && <path className="an-chart-area" d={area} />}
                 <path className="an-chart-line" d={line} />
                 <circle className="an-chart-dot" cx={x(n - 1)} cy={y(series[n - 1].v)} r="3.4" />
+                {secondaryLine && (
+                  <>
+                    <path className="an-chart-line-secondary" d={secondaryLine} />
+                    <circle className="an-chart-dot-secondary" cx={x(n - 1)} cy={y(secondarySeries[n - 1].v)} r="3.4" />
+                  </>
+                )}
               </>
             )}
 
@@ -1606,6 +1677,7 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
               <g>
                 <line className="an-chart-cross" x1={x(hp.i)} x2={x(hp.i)} y1={PAD.t - 6} y2={baseY} />
                 {mode === 'line' && <circle className="an-chart-marker" cx={x(hp.i)} cy={y(hp.v)} r="4" />}
+                {secondaryHp && <circle className="an-chart-marker-secondary" cx={x(hp.i)} cy={y(secondaryHp.v)} r="4" />}
               </g>
             )}
           </svg>
@@ -1616,7 +1688,12 @@ function SeriesChart({ series, trend = null, mode = 'bars', unit = 'day', zeroBa
             className="an-chart-tip"
             style={{ left: clamp(x(hp.i), 40, w - 40), top: Math.max(PAD.t, y(hp.v)) }}
           >
-            <strong>{Math.round(hp.v).toLocaleString('en-US')}</strong>
+            <strong>{seriesLabel && `${seriesLabel} `}{Math.round(hp.v).toLocaleString('en-US')}</strong>
+            {secondaryHp && (
+              <strong className="an-chart-tip-secondary">
+                {secondary.label} {Math.round(secondaryHp.v).toLocaleString('en-US')}
+              </strong>
+            )}
             <span className="an-chart-tip-when">{bucketLabel(hp.t, unit)}</span>
             {trend && trend[hp.i] && (
               <span className="an-chart-tip-trend">trend {Math.round(trend[hp.i].v).toLocaleString('en-US')}</span>
@@ -1673,7 +1750,7 @@ function clamp(v, lo, hi) {
 }
 
 /** Every chart's plain twin — the same buckets as a real table. */
-function ChartTable({ series, trend = null, unit, valueHead }) {
+function ChartTable({ series, secondary = null, trend = null, unit, valueHead, secondaryHead = null }) {
   if (!series || series.length === 0) return null;
   return (
     <details className="an-tableview">
@@ -1684,6 +1761,7 @@ function ChartTable({ series, trend = null, unit, valueHead }) {
             <tr>
               <th scope="col">{unit === 'month' ? 'Month' : unit === 'week' ? 'Week' : 'Day'}</th>
               <th scope="col">{valueHead}</th>
+              {secondary && <th scope="col">{secondaryHead || 'Compared series'}</th>}
               {trend && <th scope="col">Trend</th>}
             </tr>
           </thead>
@@ -1692,6 +1770,7 @@ function ChartTable({ series, trend = null, unit, valueHead }) {
               <tr key={p.t}>
                 <th scope="row">{bucketLabel(p.t, unit)}</th>
                 <td>{Math.round(p.v).toLocaleString('en-US')}</td>
+                {secondary && <td>{Math.round(secondary[i]?.v ?? 0).toLocaleString('en-US')}</td>}
                 {trend && <td>{Math.round(trend[i]?.v ?? 0).toLocaleString('en-US')}</td>}
               </tr>
             ))}
