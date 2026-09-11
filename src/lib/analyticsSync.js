@@ -201,8 +201,14 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
 
   const listSubscriptions = await mapConcurrent(
     Array.from(lists.values()),
-    6,
-    async (list) => ({ ...list, subscriptions: await backlinkSweep(list.listUri, LIST_BLOCK_SOURCE) }),
+    1,
+    async (list) => {
+      // Most list memberships are ordinary curation lists with no block
+      // subscribers, but each still requires one Constellation lookup to find
+      // out. Keep that large fan-out below the public instance's rate limit.
+      await pause(250, signal);
+      return { ...list, subscriptions: await backlinkSweep(list.listUri, LIST_BLOCK_SOURCE) };
+    },
   );
 
   for (const { listUri, memberAt, subscriptions } of listSubscriptions) {
@@ -300,6 +306,25 @@ async function mapConcurrent(items, concurrency, mapper) {
     Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
   );
   return out;
+}
+
+function pause(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const done = () => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      done();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /* ------------------------------------------------------------------ */

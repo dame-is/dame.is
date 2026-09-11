@@ -4,15 +4,61 @@
 // wrapping every call site in try/catch.
 
 const CONSTELLATION_BASE = 'https://constellation.microcosm.blue';
+const RETRY_DELAYS_MS = [1000, 2500, 5000, 10_000];
 
 async function fetchJsonOrNull(url, init) {
-  try {
-    const res = await fetch(url, init);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (init?.signal?.aborted) return null;
+    try {
+      const res = await fetch(url, {
+        ...init,
+        headers: { Accept: 'application/json', ...init?.headers },
+      });
+      if (res.ok) return await res.json();
+
+      // The public Constellation instance is intentionally best-effort and
+      // rate-limited. Slow down when it asks rather than translating a 429
+      // into "backlinks unavailable" and throwing away an otherwise healthy
+      // analytics sweep.
+      const retryable = res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504;
+      if (!retryable || attempt === RETRY_DELAYS_MS.length) return null;
+      await wait(retryDelayMs(res, attempt), init?.signal);
+    } catch {
+      if (init?.signal?.aborted || attempt === RETRY_DELAYS_MS.length) return null;
+      await wait(RETRY_DELAYS_MS[attempt], init?.signal);
+    }
   }
+  return null;
+}
+
+function retryDelayMs(response, attempt) {
+  const raw = response.headers?.get?.('retry-after');
+  if (raw) {
+    const seconds = Number(raw);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+    const dateMs = Date.parse(raw);
+    if (Number.isFinite(dateMs)) return Math.max(0, dateMs - Date.now());
+  }
+  return RETRY_DELAYS_MS[attempt];
+}
+
+function wait(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const done = () => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      done();
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**

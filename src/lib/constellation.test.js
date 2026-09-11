@@ -1,5 +1,34 @@
-import { describe, it, expect } from 'vitest';
-import { backlinkRows, flattenSources } from './constellation.js';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { backlinkRows, flattenSources, getBacklinks } from './constellation.js';
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+describe('getBacklinks', () => {
+  it('backs off and retries when the public instance rate-limits a request', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        headers: { get: () => '2' },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ records: [{ did: 'did:plc:a' }] }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = getBacklinks('did:plc:me', 'app.bsky.graph.block:subject');
+    await vi.advanceTimersByTimeAsync(2000);
+
+    expect(await request).toEqual({ records: [{ did: 'did:plc:a' }] });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('backlinkRows', () => {
   it('reads the XRPC route, which calls them `records`', () => {

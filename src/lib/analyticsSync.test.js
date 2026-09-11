@@ -296,7 +296,7 @@ describe('sweepBlocks', () => {
   });
 
   it('does not present a partial backlink sweep as complete', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503 })));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 400 })));
     const res = await sweepBlocks('did:plc:me');
     expect(res.complete).toBe(false);
     expect(res.error).toMatch(/unavailable/i);
