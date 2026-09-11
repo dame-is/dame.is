@@ -903,7 +903,7 @@ function BlocksTab({ archive, period, nowMs }) {
 
       <div className="an-card">
         <div className="an-card-head">
-          <h3 className="an-card-title">Blocks received</h3>
+          <h3 className="an-card-title">{together ? 'Followers & blocks' : 'Blocks received'}</h3>
           <ModeToggle
             value={mode}
             onChange={setMode}
