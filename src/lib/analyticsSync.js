@@ -265,7 +265,10 @@ async function getPublicRecord(repo, collection, rkey, signal) {
     () => fetch(`${APPVIEW}/xrpc/com.atproto.repo.getRecord?${params}`, { signal }),
     signal,
   );
-  if (response.status === 404) return null;
+  // com.atproto.repo.getRecord reports a deleted/missing record as HTTP 400
+  // RecordNotFound rather than 404. Constellation can retain that backlink
+  // briefly, and one stale row must not discard every healthy moderation list.
+  if (response.status === 400 || response.status === 404) return null;
   if (!response.ok) throw new Error(`HTTP ${response.status} while reading moderation-list membership`);
   const body = await response.json();
   return body?.value || null;

@@ -226,6 +226,7 @@ describe('sweepBlocks', () => {
 
   it('follows moderation-list membership to the people blocking that list', async () => {
     const memberTid = tidFor(NOW - 4 * DAY);
+    const staleTid = tidFor(NOW - 5 * DAY);
     const subscribedTid = tidFor(NOW - 2 * DAY);
     const listUri = 'at://did:plc:curator/app.bsky.graph.list/mods';
 
@@ -235,6 +236,9 @@ describe('sweepBlocks', () => {
         const parsed = new URL(url);
         if (parsed.pathname.endsWith('/com.atproto.repo.getRecord')) {
           expect(parsed.searchParams.get('repo')).toBe('did:plc:curator');
+          if (parsed.searchParams.get('rkey') === staleTid) {
+            return { ok: false, status: 400 };
+          }
           expect(parsed.searchParams.get('rkey')).toBe(memberTid);
           return { ok: true, status: 200, json: async () => ({ value: { list: listUri } }) };
         }
@@ -253,6 +257,10 @@ describe('sweepBlocks', () => {
                 did: 'did:plc:curator',
                 collection: 'app.bsky.graph.listitem',
                 rkey: memberTid,
+              }, {
+                did: 'did:plc:curator',
+                collection: 'app.bsky.graph.listitem',
+                rkey: staleTid,
               }],
             }),
           };
