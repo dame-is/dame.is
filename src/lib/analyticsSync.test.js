@@ -188,7 +188,9 @@ describe('sweepBlocks', () => {
         expect(parsed.searchParams.get('subject')).toBe('did:plc:me');
         const source = parsed.searchParams.get('source');
         if (source === 'app.bsky.graph.listitem:subject') {
-          return { ok: true, json: async () => ({ records: [], cursor: null }) };
+          expect(parsed.pathname).toMatch(/getManyToMany$/);
+          expect(parsed.searchParams.get('pathToOther')).toBe('list');
+          return { ok: true, json: async () => ({ items: [], cursor: null }) };
         }
         expect(source).toBe('app.bsky.graph.block:subject');
         const cursor = parsed.searchParams.get('cursor');
@@ -227,8 +229,11 @@ describe('sweepBlocks', () => {
   it('follows moderation-list membership to the people blocking that list', async () => {
     const memberTid = tidFor(NOW - 4 * DAY);
     const staleTid = tidFor(NOW - 5 * DAY);
+    const curationTid = tidFor(NOW - 6 * DAY);
     const subscribedTid = tidFor(NOW - 2 * DAY);
     const listUri = 'at://did:plc:curator/app.bsky.graph.list/mods';
+    const staleListUri = 'at://did:plc:curator/app.bsky.graph.list/stale';
+    const curationListUri = 'at://did:plc:curator/app.bsky.graph.list/curation';
 
     vi.stubGlobal(
       'fetch',
@@ -236,11 +241,16 @@ describe('sweepBlocks', () => {
         const parsed = new URL(url);
         if (parsed.pathname.endsWith('/com.atproto.repo.getRecord')) {
           expect(parsed.searchParams.get('repo')).toBe('did:plc:curator');
-          if (parsed.searchParams.get('rkey') === staleTid) {
+          expect(parsed.searchParams.get('collection')).toBe('app.bsky.graph.list');
+          const rkey = parsed.searchParams.get('rkey');
+          if (rkey === 'stale') {
             return { ok: false, status: 400 };
           }
-          expect(parsed.searchParams.get('rkey')).toBe(memberTid);
-          return { ok: true, status: 200, json: async () => ({ value: { list: listUri } }) };
+          const purpose =
+            rkey === 'mods'
+              ? 'app.bsky.graph.defs#modlist'
+              : 'app.bsky.graph.defs#curatelist';
+          return { ok: true, status: 200, json: async () => ({ value: { purpose } }) };
         }
 
         const subject = parsed.searchParams.get('subject');
@@ -250,17 +260,32 @@ describe('sweepBlocks', () => {
         }
         if (source === 'app.bsky.graph.listitem:subject') {
           expect(subject).toBe('did:plc:me');
+          expect(parsed.pathname).toMatch(/getManyToMany$/);
+          expect(parsed.searchParams.get('pathToOther')).toBe('list');
           return {
             ok: true,
             json: async () => ({
-              records: [{
-                did: 'did:plc:curator',
-                collection: 'app.bsky.graph.listitem',
-                rkey: memberTid,
+              items: [{
+                linkRecord: {
+                  did: 'did:plc:curator',
+                  collection: 'app.bsky.graph.listitem',
+                  rkey: memberTid,
+                },
+                otherSubject: listUri,
               }, {
-                did: 'did:plc:curator',
-                collection: 'app.bsky.graph.listitem',
-                rkey: staleTid,
+                linkRecord: {
+                  did: 'did:plc:curator',
+                  collection: 'app.bsky.graph.listitem',
+                  rkey: staleTid,
+                },
+                otherSubject: staleListUri,
+              }, {
+                linkRecord: {
+                  did: 'did:plc:curator',
+                  collection: 'app.bsky.graph.listitem',
+                  rkey: curationTid,
+                },
+                otherSubject: curationListUri,
               }],
             }),
           };

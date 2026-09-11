@@ -41,7 +41,7 @@
 import { APPVIEW } from '../config.js';
 import { rkeyFromAtUri, tidToTimestamp, resolveProfiles } from './atproto.js';
 import { compactPostFromFeedItem, inboundFromNotification, outboundFromRecord } from './analytics.js';
-import { backlinkRows, getBacklinks } from './constellation.js';
+import { backlinkRows, getBacklinks, getManyToMany } from './constellation.js';
 
 /** Page size everywhere — the API maximum for all four endpoints. */
 const PAGE = 100;
@@ -162,50 +162,46 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
   }
   onProgress?.({ fetched: blocks.length });
 
-  const memberships = await backlinkSweep(did, LIST_MEMBER_SOURCE);
+  const memberships = await manyToManySweep(did, LIST_MEMBER_SOURCE, 'list');
   if (memberships.aborted) return result({ aborted: true });
   if (memberships.error) return result({ error: memberships.error });
   if (memberships.truncated) return result({ truncated: true });
 
-  // Multiple membership records can point into the same list. Keep the
-  // earliest current membership date for that list and sweep its subscribers
-  // once.
+  // getManyToMany returns each list URI beside its list-item record, replacing
+  // hundreds of individual list-item hydration requests.
   const lists = new Map();
-  let hydratedMemberships;
-  try {
-    hydratedMemberships = await mapConcurrent(
-      memberships.rows.filter((row) => row?.did && row?.rkey),
-      8,
-      async (row) => ({
-        row,
-        record: await getPublicRecord(
-          row.did,
-          row.collection || 'app.bsky.graph.listitem',
-          row.rkey,
-          signal,
-        ),
-      }),
-    );
-  } catch (err) {
-    if (aborted(signal)) return result({ aborted: true });
-    return result({ error: err?.message || String(err) });
-  }
-
-  for (const { row, record } of hydratedMemberships) {
-    const listUri = record?.list;
-    if (!listUri) continue;
+  for (const item of memberships.items) {
+    const row = item?.linkRecord;
+    const listUri = item?.otherSubject;
+    if (!row?.rkey || !listUri) continue;
     const memberAt = tidToTimestamp(row.rkey);
     const existing = lists.get(listUri);
     if (!existing || earlier(memberAt, existing.memberAt)) lists.set(listUri, { listUri, memberAt });
   }
 
+  // Only moderation lists can create list blocks. Read each unique list record
+  // through the public AppView first, keeping ordinary curation lists away
+  // from the rate-limited Constellation list-block endpoint.
+  let hydratedLists;
+  try {
+    hydratedLists = await mapConcurrent(Array.from(lists.values()), 8, async (list) => {
+      const parts = atUriParts(list.listUri);
+      if (!parts) return null;
+      const record = await getPublicRecord(parts.did, parts.collection, parts.rkey, signal);
+      return record?.purpose === 'app.bsky.graph.defs#modlist' ? list : null;
+    });
+  } catch (err) {
+    if (aborted(signal)) return result({ aborted: true });
+    return result({ error: err?.message || String(err) });
+  }
+  const moderationLists = hydratedLists.filter(Boolean);
+
   const listSubscriptions = await mapConcurrent(
-    Array.from(lists.values()),
+    moderationLists,
     1,
     async (list) => {
-      // Most list memberships are ordinary curation lists with no block
-      // subscribers, but each still requires one Constellation lookup to find
-      // out. Keep that large fan-out below the public instance's rate limit.
+      // Keep the remaining moderation-list fan-out below the public
+      // Constellation instance's rate limit.
       await pause(250, signal);
       return { ...list, subscriptions: await backlinkSweep(list.listUri, LIST_BLOCK_SOURCE) };
     },
@@ -263,6 +259,28 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
     }
     return { rows, truncated: true };
   }
+
+  async function manyToManySweep(subject, source, pathToOther) {
+    const items = [];
+    let cursor;
+    for (let pageNumber = 0; pageNumber < CAPS.blocks; pageNumber++) {
+      if (aborted(signal)) return { items, aborted: true };
+      const page = await getManyToMany(subject, source, pathToOther, {
+        limit: PAGE,
+        cursor,
+        signal,
+      });
+      if (aborted(signal)) return { items, aborted: true };
+      if (!page) return { items, error: 'Constellation list membership join unavailable' };
+      const batch = page.items || [];
+      items.push(...batch);
+      const next = page.cursor || null;
+      if (!next || batch.length === 0) return { items, complete: true };
+      if (next === cursor) return { items, error: 'Constellation returned a repeated cursor' };
+      cursor = next;
+    }
+    return { items, truncated: true };
+  }
 }
 
 async function getPublicRecord(repo, collection, rkey, signal) {
@@ -275,7 +293,7 @@ async function getPublicRecord(repo, collection, rkey, signal) {
   // RecordNotFound rather than 404. Constellation can retain that backlink
   // briefly, and one stale row must not discard every healthy moderation list.
   if (response.status === 400 || response.status === 404) return null;
-  if (!response.ok) throw new Error(`HTTP ${response.status} while reading moderation-list membership`);
+  if (!response.ok) throw new Error(`HTTP ${response.status} while reading moderation-list record`);
   const body = await response.json();
   return body?.value || null;
 }
@@ -291,6 +309,12 @@ function earlier(a, b) {
   const aMs = Date.parse(a || '');
   const bMs = Date.parse(b || '');
   return Number.isFinite(aMs) && (!Number.isFinite(bMs) || aMs < bMs);
+}
+
+function atUriParts(uri) {
+  const match = String(uri || '').match(/^at:\/\/([^/]+)\/([^/]+)\/([^/?#]+)/);
+  if (!match) return null;
+  return { did: match[1], collection: match[2], rkey: match[3] };
 }
 
 async function mapConcurrent(items, concurrency, mapper) {

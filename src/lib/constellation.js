@@ -108,6 +108,32 @@ export async function getBacklinks(target, source, { limit = 25, cursor, signal 
 }
 
 /**
+ * Records that link both to `subject` through `source` and to a second target
+ * through `pathToOther`. For list memberships this returns the list URI beside
+ * the list-item record, avoiding one repository hydration per membership.
+ *
+ * Shape:
+ *   { items: [{ linkRecord: { did, collection, rkey }, otherSubject }], cursor }
+ */
+export async function getManyToMany(
+  subject,
+  source,
+  pathToOther,
+  { limit = 100, cursor, signal } = {},
+) {
+  if (!subject || !source || !pathToOther) return null;
+  const params = new URLSearchParams({
+    subject,
+    source,
+    pathToOther,
+    limit: String(limit),
+  });
+  if (cursor) params.set('cursor', cursor);
+  const url = `${CONSTELLATION_BASE}/xrpc/blue.microcosm.links.getManyToMany?${params}`;
+  return fetchJsonOrNull(url, signal ? { signal } : undefined);
+}
+
+/**
  * The `{ did, collection, rkey }` rows out of a `getBacklinks` response.
  *
  * `blue.microcosm.links.getBacklinks` names them `records`; the older `/links`

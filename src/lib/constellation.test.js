@@ -1,5 +1,5 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { backlinkRows, flattenSources, getBacklinks } from './constellation.js';
+import { backlinkRows, flattenSources, getBacklinks, getManyToMany } from './constellation.js';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -27,6 +27,33 @@ describe('getBacklinks', () => {
 
     expect(await request).toEqual({ records: [{ did: 'did:plc:a' }] });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('getManyToMany', () => {
+  it('asks Constellation to return the list URI beside each membership', async () => {
+    const fetchMock = vi.fn(async (url) => {
+      const parsed = new URL(url);
+      expect(parsed.pathname).toMatch(/blue\.microcosm\.links\.getManyToMany$/);
+      expect(parsed.searchParams.get('subject')).toBe('did:plc:me');
+      expect(parsed.searchParams.get('source')).toBe('app.bsky.graph.listitem:subject');
+      expect(parsed.searchParams.get('pathToOther')).toBe('list');
+      expect(parsed.searchParams.get('limit')).toBe('100');
+      return {
+        ok: true,
+        json: async () => ({
+          items: [{ linkRecord: { rkey: '3l' }, otherSubject: 'at://did/list/key' }],
+        }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const page = await getManyToMany(
+      'did:plc:me',
+      'app.bsky.graph.listitem:subject',
+      'list',
+    );
+    expect(page.items[0].otherSubject).toBe('at://did/list/key');
   });
 });
 
