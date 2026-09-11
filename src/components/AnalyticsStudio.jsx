@@ -59,6 +59,7 @@ import { atmosphereRowFromEntry, fetchRepoCar, readRepoCar } from '../lib/carRep
 import { holdReload } from '../lib/reloadHold.js';
 import {
   hydrateActors,
+  sweepBlocks,
   sweepFollowers,
   sweepInbound,
   sweepOutbound,
@@ -80,6 +81,7 @@ const EVENT_DEPTH_DAYS = 365;
 
 const TABS = [
   { key: 'followers', label: 'Followers' },
+  { key: 'blocks', label: 'Blocks' },
   { key: 'posts', label: 'Posts' },
   { key: 'engagement', label: 'Engagement' },
   { key: 'people', label: 'People' },
@@ -163,6 +165,7 @@ export default function AnalyticsStudio({ agent, did }) {
           </div>
 
           {tab === 'followers' && <FollowersTab archive={archive} period={period} nowMs={nowMs} />}
+          {tab === 'blocks' && <BlocksTab archive={archive} period={period} nowMs={nowMs} />}
           {tab === 'posts' && <PostsTab archive={archive} period={period} nowMs={nowMs} />}
           {tab === 'engagement' && (
             <EngagementTab archive={archive} period={period} kind={kind === 'mention' ? 'all' : kind} nowMs={nowMs} />
@@ -187,6 +190,7 @@ function useAnalyticsArchive(agent, did) {
     persistent: true,
     posts: [],
     followers: [],
+    blocks: [],
     inbound: [],
     outbound: [],
     atmosphere: [],
@@ -202,16 +206,18 @@ function useAnalyticsArchive(agent, did) {
   const attemptedActorsRef = useRef(new Set());
 
   async function reload(store) {
-    const [posts, followers, inbound, outbound, atmosphere, actorRows, pm, fm, im, om, rm] =
+    const [posts, followers, blocks, inbound, outbound, atmosphere, actorRows, pm, fm, bm, im, om, rm] =
       await Promise.all([
         store.all('posts'),
         store.all('followers'),
+        store.all('blocks'),
         store.all('inbound'),
         store.all('outbound'),
         store.all('atmosphere'),
         store.all('actors'),
         store.getMeta('posts'),
         store.getMeta('followers'),
+        store.getMeta('blocks'),
         store.getMeta('inbound'),
         store.getMeta('outbound'),
         store.getMeta('repo'),
@@ -222,13 +228,14 @@ function useAnalyticsArchive(agent, did) {
       persistent: store.persistent,
       posts,
       followers,
+      blocks,
       inbound,
       outbound,
       atmosphere,
-      meta: { posts: pm, followers: fm, inbound: im, outbound: om, repo: rm },
+      meta: { posts: pm, followers: fm, blocks: bm, inbound: im, outbound: om, repo: rm },
       rev: prev.rev + 1,
     }));
-    return { posts, meta: { posts: pm, inbound: im, outbound: om } };
+    return { posts, meta: { posts: pm, blocks: bm, inbound: im, outbound: om } };
   }
 
   useEffect(() => {
@@ -288,6 +295,25 @@ function useAnalyticsArchive(agent, did) {
         });
       } else if (fw.error) {
         errors.push(`followers: ${fw.error}`);
+      }
+      if (ac.signal.aborted) return;
+
+      /* Blocks received — Constellation enumerates block records in other
+         repos that point at this DID. Their rkeys are TIDs, giving the same
+         reconstructed timeline the follower graph uses. Replace only after
+         a complete sweep so a failed request cannot erase good data. */
+      progress('blocks');
+      const bw = await sweepBlocks(did, { signal: ac.signal, onProgress: tick });
+      if (bw.complete) {
+        await store.clear('blocks');
+        await store.putAll('blocks', bw.blocks);
+        await store.setMeta('blocks', {
+          syncedAt: startedAt,
+          count: bw.blocks.length,
+          complete: true,
+        });
+      } else if (bw.error) {
+        errors.push(`blocks: ${bw.error}`);
       }
       if (ac.signal.aborted) return;
 
@@ -548,6 +574,7 @@ function useAnalyticsArchive(agent, did) {
 
 const PHASE_LABEL = {
   followers: 'Sweeping followers',
+  blocks: 'Reading block backlinks',
   repo: 'Downloading the repo',
   'repo-read': 'Reading the repo archive',
   posts: 'Archiving posts',
@@ -556,7 +583,7 @@ const PHASE_LABEL = {
 };
 
 function SyncStrip({ archive }) {
-  const { sync, syncError, meta, posts, followers, persistent, runSync, cancelSync } = archive;
+  const { sync, syncError, meta, posts, followers, blocks, persistent, runSync, cancelSync } = archive;
 
   if (sync) {
     const pct = sync.est ? Math.min(100, Math.round((sync.fetched / sync.est) * 100)) : null;
@@ -584,7 +611,8 @@ function SyncStrip({ archive }) {
     <div className="an-strip">
       <span className="an-strip-label">
         {posts.length.toLocaleString('en-US')} {posts.length === 1 ? 'post' : 'posts'} ·{' '}
-        {followers.length.toLocaleString('en-US')} {followers.length === 1 ? 'follower' : 'followers'}
+        {followers.length.toLocaleString('en-US')} {followers.length === 1 ? 'follower' : 'followers'} ·{' '}
+        {blocks.length.toLocaleString('en-US')} {blocks.length === 1 ? 'block' : 'blocks'}
         {pm.syncedAt ? ` · synced ${relativeTime(pm.syncedAt)}` : ''}
         {!pm.complete && ' · archive incomplete'}
         {!persistent && ' · this browser holds the archive for this session only'}
@@ -620,9 +648,10 @@ function FirstRun({ archive }) {
       <p className="an-hero-body">
         Analytics are derived client-side from your own data: the repo’s own archive (one download
         that yields every record in every collection, all-time), every current follower with the
-        date their follow record was minted, your recent notifications — and every post’s
-        engagement counts via the public AppView, which is the long part: a couple of hundred
-        requests, a minute or two, with the charts painting from the repo archive while it runs.
+        date their follow record was minted, every current block backlink dated from its TID, your
+        recent notifications — and every post’s engagement counts via the public AppView, which is
+        the long part: a couple of hundred requests, a minute or two, with the charts painting from
+        the repo archive while it runs.
         Everything lands in this browser’s IndexedDB; after the first build, syncs only top up
         what’s new.
         {!archive.persistent &&
@@ -760,6 +789,117 @@ function FollowersTab({ archive, period, nowMs }) {
         The curve dates each follower by their follow record — accounts that unfollowed are
         invisible to it.
         {model.undated > 0 && ` ${model.undated.toLocaleString('en-US')} followers carry no readable follow date and sit outside the chart.`}
+      </p>
+    </section>
+  );
+}
+
+/* ================================================================== */
+/* Blocks                                                               */
+/* ================================================================== */
+
+function BlocksTab({ archive, period, nowMs }) {
+  const { blocks } = archive;
+  const [mode, setMode] = useState('cumulative');
+
+  const model = useMemo(() => {
+    const dated = blocks
+      .map((block) => ({ ...block, atMs: Date.parse(block.blockedAt || '') }))
+      .filter((block) => Number.isFinite(block.atMs));
+    const undated = blocks.length - dated.length;
+    const oldest = dated.length ? Math.min(...dated.map((block) => block.atMs)) : nowMs;
+    const t0 = period.days ? nowMs - period.days * DAY_MS : oldest;
+    const spanDays = Math.max(1, Math.round((nowMs - t0) / DAY_MS));
+    const units = unitChoicesFor(period.days ? period.days : spanDays);
+    const unit = mode !== 'cumulative' && units.includes(mode) ? mode : defaultUnitFor(period.days ?? spanDays);
+    const inWindow = dated.filter((block) => block.atMs >= t0 && block.atMs <= nowMs);
+    const counts = bucketSeries(inWindow, {
+      unit,
+      t0,
+      t1: nowMs,
+      pickTime: (block) => block.atMs,
+    });
+    const baseline = dated.filter((block) => block.atMs < t0).length;
+    return {
+      total: blocks.length,
+      undated,
+      unit,
+      units,
+      counts,
+      cumulative: cumulativeSeries(counts, baseline),
+      received: inWindow.length,
+      perDay: inWindow.length / spanDays,
+      compare: comparePeriods(dated, {
+        days: period.days || spanDays,
+        now: nowMs,
+        pickTime: (block) => block.atMs,
+      }),
+    };
+  }, [blocks, period, mode, nowMs]);
+
+  if (!archive.meta.blocks) {
+    return <p className="an-empty">No block backlink sweep yet — run a sync to build this timeline.</p>;
+  }
+
+  const cumulative = mode === 'cumulative';
+  return (
+    <section className="an-panel" aria-label="Blocks received">
+      <div className="an-tiles">
+        <StatTile label="Current blocks" value={model.total} />
+        <StatTile
+          label={`New in ${period.label.toLowerCase()}`}
+          value={model.received}
+          delta={period.days ? model.compare.pct : null}
+          deltaTitle={
+            period.days
+              ? `vs previous ${period.label.toLowerCase()}: ${model.compare.previous.toLocaleString('en-US')}`
+              : null
+          }
+        />
+        <StatTile
+          label="Per day"
+          value={model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay)}
+          exact
+        />
+      </div>
+
+      <div className="an-card">
+        <div className="an-card-head">
+          <h3 className="an-card-title">Blocks received</h3>
+          <ModeToggle
+            value={mode}
+            onChange={setMode}
+            options={[
+              { key: 'cumulative', label: 'Cumulative' },
+              ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit) })),
+            ]}
+          />
+        </div>
+        <SeriesChart
+          series={cumulative ? model.cumulative : model.counts}
+          mode={cumulative ? 'line' : 'bars'}
+          unit={model.unit}
+          zeroBase={!cumulative}
+          ariaLabel={
+            cumulative
+              ? `Cumulative current blocks over ${period.label}`
+              : `New blocks per ${model.unit} over ${period.label}`
+          }
+        />
+        <ChartTable
+          series={cumulative ? model.cumulative : model.counts}
+          unit={model.unit}
+          valueHead={cumulative ? 'Current blocks' : 'New blocks'}
+        />
+      </div>
+
+      <p className="an-note">
+        Reconstructed from current <code>app.bsky.graph.block</code> backlinks indexed by
+        Constellation, dated by each block record&rsquo;s TID. Accounts that later remove their
+        block disappear on the next sync, so this is a timeline of blocks that still exist, not a
+        permanent record of every block ever created.
+        {model.undated > 0 &&
+          ` ${model.undated.toLocaleString('en-US')} blocks carry no readable TID and sit outside the chart.`}
       </p>
     </section>
   );

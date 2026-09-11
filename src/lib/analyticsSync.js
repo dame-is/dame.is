@@ -41,6 +41,7 @@
 import { APPVIEW } from '../config.js';
 import { rkeyFromAtUri, tidToTimestamp, resolveProfiles } from './atproto.js';
 import { compactPostFromFeedItem, inboundFromNotification, outboundFromRecord } from './analytics.js';
+import { backlinkRows, getBacklinks } from './constellation.js';
 
 /** Page size everywhere — the API maximum for all four endpoints. */
 const PAGE = 100;
@@ -51,7 +52,7 @@ const PAGE = 100;
  * this account's measured size; hitting one sets `truncated` rather than
  * lying by omission.
  */
-const CAPS = { followers: 200, posts: 500, inbound: 80, outboundPerKind: 120 };
+const CAPS = { followers: 200, blocks: 200, posts: 500, inbound: 80, outboundPerKind: 120 };
 
 /** One polite second ask, then the truth. Mirrors resolveProfiles' retry. */
 async function withRetry(fn, signal) {
@@ -115,6 +116,72 @@ export async function sweepFollowers(agent, did, { onProgress, signal } = {}) {
     }
   }
   return { followers, complete, aborted: false, error };
+}
+
+/* ------------------------------------------------------------------ */
+/* Blocks                                                               */
+/* ------------------------------------------------------------------ */
+
+const BLOCK_SOURCE = 'app.bsky.graph.block:subject';
+
+/**
+ * Sweep every current block record pointing at the owner through
+ * Constellation. Like follower records, block records use TID rkeys, so their
+ * keys provide an honest creation time without hydrating thousands of repos.
+ *
+ * Constellation indexes the current backlink set, not deleted records:
+ * unblocked accounts disappear on the next complete sweep.
+ *
+ * @returns {Promise<{blocks:Array, complete:boolean, truncated:boolean,
+ *                    aborted:boolean, error:string|null}>}
+ */
+export async function sweepBlocks(did, { onProgress, signal } = {}) {
+  const blocks = [];
+  const seen = new Set();
+  let cursor;
+
+  for (let pageNumber = 0; pageNumber < CAPS.blocks; pageNumber++) {
+    if (aborted(signal)) return result({ aborted: true });
+    const page = await getBacklinks(did, BLOCK_SOURCE, {
+      limit: PAGE,
+      cursor,
+      signal,
+    });
+    if (aborted(signal)) return result({ aborted: true });
+    if (!page) return result({ error: 'Constellation backlinks unavailable' });
+
+    for (const row of backlinkRows(page)) {
+      if (!row?.did || !row?.rkey) continue;
+      const uri = `at://${row.did}/${row.collection || 'app.bsky.graph.block'}/${row.rkey}`;
+      if (seen.has(uri)) continue;
+      seen.add(uri);
+      blocks.push({
+        uri,
+        did: row.did,
+        blockedAt: tidToTimestamp(row.rkey),
+      });
+    }
+    onProgress?.({ fetched: blocks.length });
+
+    const next = page.cursor || null;
+    if (!next || backlinkRows(page).length === 0) return result({ complete: true });
+    // A repeated cursor would otherwise spend the whole cap re-reading one
+    // page and call that a merely truncated history.
+    if (next === cursor) return result({ error: 'Constellation returned a repeated cursor' });
+    cursor = next;
+  }
+  return result({ truncated: true });
+
+  function result(flags = {}) {
+    return {
+      blocks,
+      complete: false,
+      truncated: false,
+      aborted: false,
+      error: null,
+      ...flags,
+    };
+  }
 }
 
 /* ------------------------------------------------------------------ */

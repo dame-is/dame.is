@@ -5,9 +5,9 @@
 
 const CONSTELLATION_BASE = 'https://constellation.microcosm.blue';
 
-async function fetchJsonOrNull(url) {
+async function fetchJsonOrNull(url, init) {
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, init);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -49,7 +49,7 @@ export async function getBacklinkCount(target, source) {
  * `linking_records` on the older `/links` one — read them with
  * `backlinkRows()` rather than picking a field and hoping.
  */
-export async function getBacklinks(target, source, { limit = 25, cursor } = {}) {
+export async function getBacklinks(target, source, { limit = 25, cursor, signal } = {}) {
   if (!target || !source) return null;
   const params = new URLSearchParams({
     subject: target,
@@ -58,7 +58,7 @@ export async function getBacklinks(target, source, { limit = 25, cursor } = {}) 
   });
   if (cursor) params.set('cursor', cursor);
   const url = `${CONSTELLATION_BASE}/xrpc/blue.microcosm.links.getBacklinks?${params}`;
-  return fetchJsonOrNull(url);
+  return fetchJsonOrNull(url, signal ? { signal } : undefined);
 }
 
 /**

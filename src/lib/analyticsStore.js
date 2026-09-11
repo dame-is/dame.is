@@ -15,14 +15,16 @@
 
 const DB_NAME = 'dame-analytics';
 // v2 added `atmosphere` — the whole-repo activity rows the CAR sync writes.
+// v3 added `blocks` — current block backlinks dated from their TID rkeys.
 // The upgrade path is the STORES loop in onupgradeneeded: any store missing
 // from an older database is created, nothing existing is touched.
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 /** store name → keyPath. One object store per archive, plus sync metadata. */
 const STORES = {
   posts: 'uri', // compact post rows (analytics.js compactPostFromFeedItem)
   followers: 'did', // { did, handle, displayName, avatar, followedAt }
+  blocks: 'uri', // { uri, did, blockedAt } — current Constellation block backlinks
   inbound: 'uri', // engagement events aimed at the owner
   outbound: 'uri', // the owner's like/repost events (replies/quotes derive from posts)
   atmosphere: 'uri', // { uri, collection, at } — every record on the repo, dated
