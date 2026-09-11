@@ -186,7 +186,11 @@ describe('sweepBlocks', () => {
       vi.fn(async (url) => {
         const parsed = new URL(url);
         expect(parsed.searchParams.get('subject')).toBe('did:plc:me');
-        expect(parsed.searchParams.get('source')).toBe('app.bsky.graph.block:subject');
+        const source = parsed.searchParams.get('source');
+        if (source === 'app.bsky.graph.listitem:subject') {
+          return { ok: true, json: async () => ({ records: [], cursor: null }) };
+        }
+        expect(source).toBe('app.bsky.graph.block:subject');
         const cursor = parsed.searchParams.get('cursor');
         return {
           ok: true,
@@ -213,9 +217,73 @@ describe('sweepBlocks', () => {
     expect(res.blocks[0]).toMatchObject({
       uri: `at://did:plc:blocker/app.bsky.graph.block/${blockTid}`,
       did: 'did:plc:blocker',
+      source: 'direct',
     });
     expect(Date.parse(res.blocks[0].blockedAt)).toBe(
       Date.parse(tidToTimestamp(blockTid)),
+    );
+  });
+
+  it('follows moderation-list membership to the people blocking that list', async () => {
+    const memberTid = tidFor(NOW - 4 * DAY);
+    const subscribedTid = tidFor(NOW - 2 * DAY);
+    const listUri = 'at://did:plc:curator/app.bsky.graph.list/mods';
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const parsed = new URL(url);
+        if (parsed.pathname.endsWith('/com.atproto.repo.getRecord')) {
+          expect(parsed.searchParams.get('repo')).toBe('did:plc:curator');
+          expect(parsed.searchParams.get('rkey')).toBe(memberTid);
+          return { ok: true, status: 200, json: async () => ({ value: { list: listUri } }) };
+        }
+
+        const subject = parsed.searchParams.get('subject');
+        const source = parsed.searchParams.get('source');
+        if (source === 'app.bsky.graph.block:subject') {
+          return { ok: true, json: async () => ({ records: [] }) };
+        }
+        if (source === 'app.bsky.graph.listitem:subject') {
+          expect(subject).toBe('did:plc:me');
+          return {
+            ok: true,
+            json: async () => ({
+              records: [{
+                did: 'did:plc:curator',
+                collection: 'app.bsky.graph.listitem',
+                rkey: memberTid,
+              }],
+            }),
+          };
+        }
+        expect(subject).toBe(listUri);
+        expect(source).toBe('app.bsky.graph.listblock:subject');
+        return {
+          ok: true,
+          json: async () => ({
+            records: [{
+              did: 'did:plc:subscriber',
+              collection: 'app.bsky.graph.listblock',
+              rkey: subscribedTid,
+            }],
+          }),
+        };
+      }),
+    );
+
+    const res = await sweepBlocks('did:plc:me');
+    expect(res).toMatchObject({ complete: true, error: null });
+    expect(res.blocks).toHaveLength(1);
+    expect(res.blocks[0]).toMatchObject({
+      did: 'did:plc:subscriber',
+      source: 'list',
+      listUri,
+    });
+    // Membership predates the subscription, so the subscription creates the
+    // effective block.
+    expect(Date.parse(res.blocks[0].blockedAt)).toBe(
+      Date.parse(tidToTimestamp(subscribedTid)),
     );
   });
 

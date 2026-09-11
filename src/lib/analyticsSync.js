@@ -123,14 +123,19 @@ export async function sweepFollowers(agent, did, { onProgress, signal } = {}) {
 /* ------------------------------------------------------------------ */
 
 const BLOCK_SOURCE = 'app.bsky.graph.block:subject';
+const LIST_MEMBER_SOURCE = 'app.bsky.graph.listitem:subject';
+const LIST_BLOCK_SOURCE = 'app.bsky.graph.listblock:subject';
 
 /**
- * Sweep every current block record pointing at the owner through
- * Constellation. Like follower records, block records use TID rkeys, so their
- * keys provide an honest creation time without hydrating thousands of repos.
+ * Sweep every current direct block and every moderation-list block path
+ * pointing at the owner through Constellation. List membership records first
+ * reveal the moderation list URI; backlinks to that URI then reveal everyone
+ * subscribed to block the list.
  *
- * Constellation indexes the current backlink set, not deleted records:
- * unblocked accounts disappear on the next complete sweep.
+ * The effective date of a list block is the later of the membership and list
+ * subscription records: the block cannot exist until both do. Constellation
+ * indexes current backlinks, not deleted records, so removed blocks,
+ * subscriptions and memberships disappear on the next complete sweep.
  *
  * @returns {Promise<{blocks:Array, complete:boolean, truncated:boolean,
  *                    aborted:boolean, error:string|null}>}
@@ -138,39 +143,91 @@ const BLOCK_SOURCE = 'app.bsky.graph.block:subject';
 export async function sweepBlocks(did, { onProgress, signal } = {}) {
   const blocks = [];
   const seen = new Set();
-  let cursor;
+  const direct = await backlinkSweep(did, BLOCK_SOURCE);
+  if (direct.aborted) return result({ aborted: true });
+  if (direct.error) return result({ error: direct.error });
+  if (direct.truncated) return result({ truncated: true });
 
-  for (let pageNumber = 0; pageNumber < CAPS.blocks; pageNumber++) {
-    if (aborted(signal)) return result({ aborted: true });
-    const page = await getBacklinks(did, BLOCK_SOURCE, {
-      limit: PAGE,
-      cursor,
-      signal,
+  for (const row of direct.rows) {
+    if (!row?.did || !row?.rkey) continue;
+    const uri = `at://${row.did}/${row.collection || 'app.bsky.graph.block'}/${row.rkey}`;
+    if (seen.has(uri)) continue;
+    seen.add(uri);
+    blocks.push({
+      uri,
+      did: row.did,
+      source: 'direct',
+      blockedAt: tidToTimestamp(row.rkey),
     });
-    if (aborted(signal)) return result({ aborted: true });
-    if (!page) return result({ error: 'Constellation backlinks unavailable' });
+  }
+  onProgress?.({ fetched: blocks.length });
 
-    for (const row of backlinkRows(page)) {
+  const memberships = await backlinkSweep(did, LIST_MEMBER_SOURCE);
+  if (memberships.aborted) return result({ aborted: true });
+  if (memberships.error) return result({ error: memberships.error });
+  if (memberships.truncated) return result({ truncated: true });
+
+  // Multiple membership records can point into the same list. Keep the
+  // earliest current membership date for that list and sweep its subscribers
+  // once.
+  const lists = new Map();
+  let hydratedMemberships;
+  try {
+    hydratedMemberships = await mapConcurrent(
+      memberships.rows.filter((row) => row?.did && row?.rkey),
+      8,
+      async (row) => ({
+        row,
+        record: await getPublicRecord(
+          row.did,
+          row.collection || 'app.bsky.graph.listitem',
+          row.rkey,
+          signal,
+        ),
+      }),
+    );
+  } catch (err) {
+    if (aborted(signal)) return result({ aborted: true });
+    return result({ error: err?.message || String(err) });
+  }
+
+  for (const { row, record } of hydratedMemberships) {
+    const listUri = record?.list;
+    if (!listUri) continue;
+    const memberAt = tidToTimestamp(row.rkey);
+    const existing = lists.get(listUri);
+    if (!existing || earlier(memberAt, existing.memberAt)) lists.set(listUri, { listUri, memberAt });
+  }
+
+  const listSubscriptions = await mapConcurrent(
+    Array.from(lists.values()),
+    6,
+    async (list) => ({ ...list, subscriptions: await backlinkSweep(list.listUri, LIST_BLOCK_SOURCE) }),
+  );
+
+  for (const { listUri, memberAt, subscriptions } of listSubscriptions) {
+    if (subscriptions.aborted) return result({ aborted: true });
+    if (subscriptions.error) return result({ error: subscriptions.error });
+    if (subscriptions.truncated) return result({ truncated: true });
+
+    for (const row of subscriptions.rows) {
       if (!row?.did || !row?.rkey) continue;
-      const uri = `at://${row.did}/${row.collection || 'app.bsky.graph.block'}/${row.rkey}`;
+      const recordUri = `at://${row.did}/${row.collection || 'app.bsky.graph.listblock'}/${row.rkey}`;
+      const uri = `list:${listUri}:${recordUri}`;
       if (seen.has(uri)) continue;
       seen.add(uri);
       blocks.push({
         uri,
         did: row.did,
-        blockedAt: tidToTimestamp(row.rkey),
+        source: 'list',
+        listUri,
+        blockedAt: effectiveBlockDate(memberAt, tidToTimestamp(row.rkey)),
       });
     }
     onProgress?.({ fetched: blocks.length });
-
-    const next = page.cursor || null;
-    if (!next || backlinkRows(page).length === 0) return result({ complete: true });
-    // A repeated cursor would otherwise spend the whole cap re-reading one
-    // page and call that a merely truncated history.
-    if (next === cursor) return result({ error: 'Constellation returned a repeated cursor' });
-    cursor = next;
   }
-  return result({ truncated: true });
+
+  return result({ complete: true });
 
   function result(flags = {}) {
     return {
@@ -182,6 +239,64 @@ export async function sweepBlocks(did, { onProgress, signal } = {}) {
       ...flags,
     };
   }
+
+  async function backlinkSweep(target, source) {
+    const rows = [];
+    let cursor;
+    for (let pageNumber = 0; pageNumber < CAPS.blocks; pageNumber++) {
+      if (aborted(signal)) return { rows, aborted: true };
+      const page = await getBacklinks(target, source, { limit: PAGE, cursor, signal });
+      if (aborted(signal)) return { rows, aborted: true };
+      if (!page) return { rows, error: 'Constellation backlinks unavailable' };
+      const batch = backlinkRows(page);
+      rows.push(...batch);
+      const next = page.cursor || null;
+      if (!next || batch.length === 0) return { rows, complete: true };
+      if (next === cursor) return { rows, error: 'Constellation returned a repeated cursor' };
+      cursor = next;
+    }
+    return { rows, truncated: true };
+  }
+}
+
+async function getPublicRecord(repo, collection, rkey, signal) {
+  const params = new URLSearchParams({ repo, collection, rkey });
+  const response = await withRetry(
+    () => fetch(`${APPVIEW}/xrpc/com.atproto.repo.getRecord?${params}`, { signal }),
+    signal,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`HTTP ${response.status} while reading moderation-list membership`);
+  const body = await response.json();
+  return body?.value || null;
+}
+
+function effectiveBlockDate(memberAt, subscribedAt) {
+  const memberMs = Date.parse(memberAt || '');
+  const subscribedMs = Date.parse(subscribedAt || '');
+  if (!Number.isFinite(memberMs) || !Number.isFinite(subscribedMs)) return null;
+  return new Date(Math.max(memberMs, subscribedMs)).toISOString();
+}
+
+function earlier(a, b) {
+  const aMs = Date.parse(a || '');
+  const bMs = Date.parse(b || '');
+  return Number.isFinite(aMs) && (!Number.isFinite(bMs) || aMs < bMs);
+}
+
+async function mapConcurrent(items, concurrency, mapper) {
+  const out = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const index = next++;
+      out[index] = await mapper(items[index], index);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+  return out;
 }
 
 /* ------------------------------------------------------------------ */

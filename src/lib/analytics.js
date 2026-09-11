@@ -158,6 +158,57 @@ export function cumulativeSeries(series, baseline = 0) {
 }
 
 /**
+ * Collapse direct block records and moderation-list subscriptions into current
+ * blocking people. A person may appear once directly and once for every list
+ * containing the owner; the reach total must still count that person once.
+ *
+ * The person's chart date is the earliest readable date of any current block
+ * path. `source` records which path first reached them, allowing a stacked
+ * cumulative chart whose two layers still add up to the unique reach.
+ */
+export function blockReach(blocks) {
+  const byDid = new Map();
+  const directDids = new Set();
+  const listDids = new Set();
+
+  for (const block of blocks || []) {
+    if (!block?.did) continue;
+    const source = block.source === 'list' ? 'list' : 'direct';
+    if (source === 'direct') directDids.add(block.did);
+    else listDids.add(block.did);
+
+    let person = byDid.get(block.did);
+    if (!person) {
+      person = { did: block.did, direct: false, list: false, candidates: [] };
+      byDid.set(block.did, person);
+    }
+    person[source] = true;
+    const atMs = Date.parse(block.blockedAt || '');
+    if (Number.isFinite(atMs)) person.candidates.push({ atMs, source });
+  }
+
+  const people = Array.from(byDid.values()).map((person) => {
+    person.candidates.sort((a, b) => a.atMs - b.atMs || (a.source === 'direct' ? -1 : 1));
+    const first = person.candidates[0] || null;
+    return {
+      did: person.did,
+      direct: person.direct,
+      list: person.list,
+      source: first?.source || (person.direct ? 'direct' : 'list'),
+      blockedAt: first ? new Date(first.atMs).toISOString() : null,
+    };
+  });
+
+  return {
+    people,
+    directCount: directDids.size,
+    listCount: listDids.size,
+    listOnlyCount: people.filter((person) => person.list && !person.direct).length,
+    overlapCount: people.filter((person) => person.list && person.direct).length,
+  };
+}
+
+/**
  * Centered moving average — the trend line over a bumpy bar series. The
  * window shrinks symmetrically at the edges rather than padding with zeros,
  * so the line begins and ends on real data instead of diving toward an

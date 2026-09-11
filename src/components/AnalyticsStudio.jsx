@@ -37,6 +37,7 @@ import {
   ANALYTICS_PERIODS,
   ENGAGEMENT_KINDS,
   EVENT_KINDS,
+  blockReach,
   bucketLabel,
   bucketSeries,
   comparePeriods,
@@ -305,11 +306,14 @@ function useAnalyticsArchive(agent, did) {
       progress('blocks');
       const bw = await sweepBlocks(did, { signal: ac.signal, onProgress: tick });
       if (bw.complete) {
+        const reach = blockReach(bw.blocks);
         await store.clear('blocks');
         await store.putAll('blocks', bw.blocks);
         await store.setMeta('blocks', {
           syncedAt: startedAt,
-          count: bw.blocks.length,
+          count: reach.people.length,
+          pathCount: bw.blocks.length,
+          version: 2,
           complete: true,
         });
       } else if (bw.error) {
@@ -533,9 +537,9 @@ function useAnalyticsArchive(agent, did) {
       runSync('resume');
       return;
     }
-    // Existing archives predate the blocks store. Populate the new timeline
-    // on their first visit even when the post archive itself is still fresh.
-    if (!data.meta.blocks) {
+    // Existing archives may predate either the blocks store or moderation-list
+    // reach. Populate the current shape even when posts are still fresh.
+    if (data.meta.blocks?.version !== 2) {
       runSync('incremental');
       return;
     }
@@ -580,7 +584,7 @@ function useAnalyticsArchive(agent, did) {
 
 const PHASE_LABEL = {
   followers: 'Sweeping followers',
-  blocks: 'Reading block backlinks',
+  blocks: 'Reading direct and list blocks',
   repo: 'Downloading the repo',
   'repo-read': 'Reading the repo archive',
   posts: 'Archiving posts',
@@ -590,6 +594,7 @@ const PHASE_LABEL = {
 
 function SyncStrip({ archive }) {
   const { sync, syncError, meta, posts, followers, blocks, persistent, runSync, cancelSync } = archive;
+  const currentBlockReach = blockReach(blocks).people.length;
 
   if (sync) {
     const pct = sync.est ? Math.min(100, Math.round((sync.fetched / sync.est) * 100)) : null;
@@ -618,7 +623,7 @@ function SyncStrip({ archive }) {
       <span className="an-strip-label">
         {posts.length.toLocaleString('en-US')} {posts.length === 1 ? 'post' : 'posts'} ·{' '}
         {followers.length.toLocaleString('en-US')} {followers.length === 1 ? 'follower' : 'followers'} ·{' '}
-        {blocks.length.toLocaleString('en-US')} {blocks.length === 1 ? 'block' : 'blocks'}
+        {currentBlockReach.toLocaleString('en-US')} block {currentBlockReach === 1 ? 'person' : 'people'}
         {pm.syncedAt ? ` · synced ${relativeTime(pm.syncedAt)}` : ''}
         {!pm.complete && ' · archive incomplete'}
         {!persistent && ' · this browser holds the archive for this session only'}
@@ -654,7 +659,7 @@ function FirstRun({ archive }) {
       <p className="an-hero-body">
         Analytics are derived client-side from your own data: the repo’s own archive (one download
         that yields every record in every collection, all-time), every current follower with the
-        date their follow record was minted, every current block backlink dated from its TID, your
+        date their follow record was minted, every current direct or moderation-list block path, your
         recent notifications — and every post’s engagement counts via the public AppView, which is
         the long part: a couple of hundred requests, a minute or two, with the charts painting from
         the repo archive while it runs.
@@ -828,15 +833,16 @@ function BlocksTab({ archive, period, nowMs }) {
   const [mode, setMode] = useState('cumulative');
 
   const model = useMemo(() => {
-    const dated = blocks
-      .map((block) => ({ ...block, atMs: Date.parse(block.blockedAt || '') }))
-      .filter((block) => Number.isFinite(block.atMs));
-    const undated = blocks.length - dated.length;
+    const reach = blockReach(blocks);
+    const dated = reach.people
+      .map((person) => ({ ...person, atMs: Date.parse(person.blockedAt || '') }))
+      .filter((person) => Number.isFinite(person.atMs));
+    const undated = reach.people.length - dated.length;
     const oldest = dated.length ? Math.min(...dated.map((block) => block.atMs)) : nowMs;
     const t0 = period.days ? nowMs - period.days * DAY_MS : oldest;
     const spanDays = Math.max(1, Math.round((nowMs - t0) / DAY_MS));
     const units = unitChoicesFor(period.days ? period.days : spanDays);
-    const unit = mode !== 'cumulative' && units.includes(mode) ? mode : defaultUnitFor(period.days ?? spanDays);
+    const unit = units.includes(mode) ? mode : defaultUnitFor(period.days ?? spanDays);
     const inWindow = dated.filter((block) => block.atMs >= t0 && block.atMs <= nowMs);
     const counts = bucketSeries(inWindow, {
       unit,
@@ -845,6 +851,20 @@ function BlocksTab({ archive, period, nowMs }) {
       pickTime: (block) => block.atMs,
     });
     const baseline = dated.filter((block) => block.atMs < t0).length;
+    const direct = dated.filter((person) => person.source === 'direct');
+    const viaLists = dated.filter((person) => person.source === 'list');
+    const directCounts = bucketSeries(direct, {
+      unit,
+      t0,
+      t1: nowMs,
+      pickTime: (person) => person.atMs,
+    });
+    const listCounts = bucketSeries(viaLists, {
+      unit,
+      t0,
+      t1: nowMs,
+      pickTime: (person) => person.atMs,
+    });
     const datedFollowers = followers
       .map((follower) => ({ ...follower, atMs: Date.parse(follower.followedAt || '') }))
       .filter((follower) => Number.isFinite(follower.atMs));
@@ -856,13 +876,24 @@ function BlocksTab({ archive, period, nowMs }) {
     });
     const followerBaseline = datedFollowers.filter((follower) => follower.atMs < t0).length;
     return {
-      total: blocks.length,
+      total: reach.people.length,
+      directTotal: reach.directCount,
+      listTotal: reach.listCount,
+      overlap: reach.overlapCount,
       undated,
       unit,
       units,
       counts,
       trend: movingAverage(counts, 7),
       cumulative: cumulativeSeries(counts, baseline),
+      directCumulative: cumulativeSeries(
+        directCounts,
+        direct.filter((person) => person.atMs < t0).length,
+      ),
+      listCumulative: cumulativeSeries(
+        listCounts,
+        viaLists.filter((person) => person.atMs < t0).length,
+      ),
       followerCumulative: cumulativeSeries(followerCounts, followerBaseline),
       received: inWindow.length,
       perDay: inWindow.length / spanDays,
@@ -879,11 +910,26 @@ function BlocksTab({ archive, period, nowMs }) {
   }
 
   const together = mode === 'together';
-  const cumulative = mode === 'cumulative' || together;
+  const stacked = mode === 'stacked';
+  const cumulative = mode === 'cumulative' || together || stacked;
+  const chartSeries = together
+    ? model.followerCumulative
+    : stacked
+      ? model.directCumulative
+      : cumulative
+        ? model.cumulative
+        : model.counts;
+  const secondary = together
+    ? { series: model.cumulative, label: 'Block reach' }
+    : stacked
+      ? { series: model.listCumulative, label: 'Moderation lists' }
+      : null;
   return (
     <section className="an-panel" aria-label="Blocks received">
       <div className="an-tiles">
-        <StatTile label="Current blocks" value={model.total} />
+        <StatTile label="Current block reach" value={model.total} />
+        <StatTile label="Direct blocks" value={model.directTotal} />
+        <StatTile label="Via moderation lists" value={model.listTotal} />
         <StatTile
           label={`New in ${period.label.toLowerCase()}`}
           value={model.received}
@@ -894,59 +940,65 @@ function BlocksTab({ archive, period, nowMs }) {
               : null
           }
         />
-        <StatTile
-          label="Per day"
-          value={model.perDay < 10 ? Math.round(model.perDay * 10) / 10 : Math.round(model.perDay)}
-          exact
-        />
       </div>
 
       <div className="an-card">
         <div className="an-card-head">
-          <h3 className="an-card-title">{together ? 'Followers & blocks' : 'Blocks received'}</h3>
+          <h3 className="an-card-title">
+            {together ? 'Followers & block reach' : stacked ? 'Block reach by path' : 'Blocks received'}
+          </h3>
           <ModeToggle
             value={mode}
             onChange={setMode}
             options={[
               { key: 'cumulative', label: 'Cumulative' },
+              { key: 'stacked', label: 'Stacked' },
               { key: 'together', label: 'Together' },
               ...model.units.map((unit) => ({ key: unit, label: unitLabel(unit) })),
             ]}
           />
         </div>
         <SeriesChart
-          series={together ? model.followerCumulative : cumulative ? model.cumulative : model.counts}
-          seriesLabel={together ? 'Followers' : null}
-          secondary={together ? { series: model.cumulative, label: 'Blocks' } : null}
+          series={chartSeries}
+          seriesLabel={together ? 'Followers' : stacked ? 'Direct' : null}
+          secondary={secondary}
+          stacked={stacked}
           trend={!cumulative ? model.trend : null}
           mode={cumulative ? 'line' : 'bars'}
           unit={model.unit}
           zeroBase={!cumulative}
           ariaLabel={
             together
-              ? `Cumulative followers and current blocks over ${period.label}`
+              ? `Cumulative followers and current block reach over ${period.label}`
+              : stacked
+              ? `Stacked direct and moderation-list block reach over ${period.label}`
               : cumulative
-              ? `Cumulative current blocks over ${period.label}`
+              ? `Cumulative current block reach over ${period.label}`
               : `New blocks per ${model.unit} over ${period.label}`
           }
         />
         <ChartTable
-          series={together ? model.followerCumulative : cumulative ? model.cumulative : model.counts}
-          secondary={together ? model.cumulative : null}
+          series={chartSeries}
+          secondary={secondary?.series || null}
           trend={!cumulative ? model.trend : null}
           unit={model.unit}
-          valueHead={together ? 'Followers' : cumulative ? 'Current blocks' : 'New blocks'}
-          secondaryHead={together ? 'Blocks' : null}
+          valueHead={together ? 'Followers' : stacked ? 'Direct' : cumulative ? 'Block reach' : 'New blocks'}
+          secondaryHead={together ? 'Block reach' : stacked ? 'Moderation lists' : null}
         />
       </div>
 
       <p className="an-note">
-        Reconstructed from current <code>app.bsky.graph.block</code> backlinks indexed by
-        Constellation, dated by each block record&rsquo;s TID. Accounts that later remove their
-        block disappear on the next sync, so this is a timeline of blocks that still exist, not a
-        permanent record of every block ever created.
+        Reconstructed from current <code>app.bsky.graph.block</code> records and moderation lists
+        that currently contain this account. List reach follows each list&rsquo;s current{' '}
+        <code>app.bsky.graph.listblock</code> subscribers. A list block begins at the later of the
+        membership and subscription TIDs. People reached through several lists or through both a
+        list and a direct block count once in the total
+        {model.overlap > 0 &&
+          `; ${model.overlap.toLocaleString('en-US')} also have a direct block`}.
+        {' '}Removed blocks, memberships and subscriptions disappear on the next sync, so this is
+        a reconstruction of blocks that still exist, not a permanent event history.
         {model.undated > 0 &&
-          ` ${model.undated.toLocaleString('en-US')} blocks carry no readable TID and sit outside the chart.`}
+          ` ${model.undated.toLocaleString('en-US')} people have no complete readable date and sit outside the chart.`}
       </p>
     </section>
   );
@@ -1481,6 +1533,8 @@ const GHOST_GUTTER = 28;
  * surface gap; `mode: 'line'` draws a 2px line over a 10%-opacity wash (the
  * cumulative view). `trend` overlays a moving average with a direct end
  * label. `secondary` overlays a second line for same-bucket comparisons.
+ * With `stacked`, that second series is treated as an additive layer rather
+ * than another absolute line.
  * Hover is a nearest-X crosshair with one readout — the same
  * interaction on both forms — and the values are all reachable without it
  * through the ChartTable twin rendered alongside.
@@ -1496,6 +1550,7 @@ function SeriesChart({
   series,
   seriesLabel = null,
   secondary = null,
+  stacked = false,
   trend = null,
   mode = 'bars',
   unit = 'day',
@@ -1527,12 +1582,16 @@ function SeriesChart({
   const ready = w > 0;
   const n = series.length;
   const secondarySeries = mode === 'line' && secondary?.series?.length === n ? secondary.series : null;
+  const secondaryPlotSeries =
+    stacked && secondarySeries
+      ? secondarySeries.map((point, index) => ({ ...point, v: point.v + series[index].v }))
+      : secondarySeries;
   const showGhost = Boolean(ghost) && mode === 'line' && n > 0;
   // The ghost reaches PAST the last bucket, so the real series cedes it a
   // fixed gutter on the right rather than being silently rescaled under it.
   const gutter = showGhost ? GHOST_GUTTER : 0;
   const values = series.map((p) => p.v);
-  const secondaryValues = secondarySeries ? secondarySeries.map((p) => p.v) : [];
+  const secondaryValues = secondaryPlotSeries ? secondaryPlotSeries.map((p) => p.v) : [];
   const dataMax = Math.max(
     ...values,
     ...secondaryValues,
@@ -1565,11 +1624,23 @@ function SeriesChart({
 
   const hp = hover != null && series[hover] ? { ...series[hover], i: hover } : null;
   const secondaryHp = hover != null && secondarySeries?.[hover] ? secondarySeries[hover] : null;
+  const secondaryPlotHp =
+    hover != null && secondaryPlotSeries?.[hover] ? secondaryPlotSeries[hover] : null;
   const line = series.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ');
   const area = `M${x(0).toFixed(1)},${baseY} ${series.map((p, i) => `L${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')} L${x(n - 1).toFixed(1)},${baseY} Z`;
-  const secondaryLine = secondarySeries
-    ? secondarySeries.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
+  const secondaryLine = secondaryPlotSeries
+    ? secondaryPlotSeries.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
     : null;
+  const stackedArea =
+    stacked && secondaryPlotSeries
+      ? `${secondaryPlotSeries
+          .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`)
+          .join(' ')} ${series
+          .map((p, i) => ({ p, i }))
+          .reverse()
+          .map(({ p, i }) => `L${x(i).toFixed(1)},${y(p.v).toFixed(1)}`)
+          .join(' ')} Z`
+      : null;
   const trendPath = trend
     ? trend.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')
     : null;
@@ -1621,13 +1692,14 @@ function SeriesChart({
 
             {mode === 'line' && (
               <>
-                {!secondarySeries && <path className="an-chart-area" d={area} />}
+                {(!secondarySeries || stacked) && <path className="an-chart-area" d={area} />}
+                {stackedArea && <path className="an-chart-area-secondary" d={stackedArea} />}
                 <path className="an-chart-line" d={line} />
                 <circle className="an-chart-dot" cx={x(n - 1)} cy={y(series[n - 1].v)} r="3.4" />
                 {secondaryLine && (
                   <>
                     <path className="an-chart-line-secondary" d={secondaryLine} />
-                    <circle className="an-chart-dot-secondary" cx={x(n - 1)} cy={y(secondarySeries[n - 1].v)} r="3.4" />
+                    <circle className="an-chart-dot-secondary" cx={x(n - 1)} cy={y(secondaryPlotSeries[n - 1].v)} r="3.4" />
                   </>
                 )}
               </>
@@ -1677,7 +1749,7 @@ function SeriesChart({
               <g>
                 <line className="an-chart-cross" x1={x(hp.i)} x2={x(hp.i)} y1={PAD.t - 6} y2={baseY} />
                 {mode === 'line' && <circle className="an-chart-marker" cx={x(hp.i)} cy={y(hp.v)} r="4" />}
-                {secondaryHp && <circle className="an-chart-marker-secondary" cx={x(hp.i)} cy={y(secondaryHp.v)} r="4" />}
+                {secondaryPlotHp && <circle className="an-chart-marker-secondary" cx={x(hp.i)} cy={y(secondaryPlotHp.v)} r="4" />}
               </g>
             )}
           </svg>
@@ -1692,6 +1764,11 @@ function SeriesChart({
             {secondaryHp && (
               <strong className="an-chart-tip-secondary">
                 {secondary.label} {Math.round(secondaryHp.v).toLocaleString('en-US')}
+              </strong>
+            )}
+            {stacked && secondaryPlotHp && (
+              <strong>
+                Total {Math.round(secondaryPlotHp.v).toLocaleString('en-US')}
               </strong>
             )}
             <span className="an-chart-tip-when">{bucketLabel(hp.t, unit)}</span>

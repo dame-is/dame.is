@@ -390,6 +390,12 @@
   stroke: none;
 }
 
+.an-chart-area-secondary {
+  fill: var(--tan);
+  fill-opacity: 0.22;
+  stroke: none;
+}
+
 .an-chart-line {
   fill: none;
   stroke: var(--accent);

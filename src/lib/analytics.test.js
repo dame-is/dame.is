@@ -14,6 +14,7 @@ import {
   EVENT_KINDS,
   bucketSeries,
   bucketStartMs,
+  blockReach,
   comparePeriods,
   compactPostFromFeedItem,
   compactPostFromRecord,
@@ -129,6 +130,38 @@ describe('growth math', () => {
     const cmp = comparePeriods([{ at: at(19) }], { days: 7, now: at(20) });
     expect(cmp.pct).toBeNull();
     expect(fmtDelta(cmp.pct)).toBe('new');
+  });
+});
+
+describe('block reach', () => {
+  it('deduplicates people across direct blocks and moderation lists', () => {
+    const reach = blockReach([
+      { uri: 'direct-a', did: 'did:a', source: 'direct', blockedAt: new Date(at(12)).toISOString() },
+      { uri: 'list-a-1', did: 'did:a', source: 'list', blockedAt: new Date(at(10)).toISOString() },
+      { uri: 'list-a-2', did: 'did:a', source: 'list', blockedAt: new Date(at(11)).toISOString() },
+      { uri: 'list-b', did: 'did:b', source: 'list', blockedAt: new Date(at(13)).toISOString() },
+    ]);
+
+    expect(reach).toMatchObject({
+      directCount: 1,
+      listCount: 2,
+      listOnlyCount: 1,
+      overlapCount: 1,
+    });
+    expect(reach.people).toHaveLength(2);
+    expect(reach.people.find((person) => person.did === 'did:a')).toMatchObject({
+      source: 'list',
+      direct: true,
+      list: true,
+      blockedAt: new Date(at(10)).toISOString(),
+    });
+  });
+
+  it('treats archived rows without a source as direct blocks', () => {
+    expect(blockReach([{ uri: 'old', did: 'did:old' }])).toMatchObject({
+      directCount: 1,
+      listCount: 0,
+    });
   });
 });
 

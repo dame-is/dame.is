@@ -24,7 +24,7 @@ const DB_VERSION = 3;
 const STORES = {
   posts: 'uri', // compact post rows (analytics.js compactPostFromFeedItem)
   followers: 'did', // { did, handle, displayName, avatar, followedAt }
-  blocks: 'uri', // { uri, did, blockedAt } — current Constellation block backlinks
+  blocks: 'uri', // { uri, did, blockedAt, source } — direct and moderation-list block paths
   inbound: 'uri', // engagement events aimed at the owner
   outbound: 'uri', // the owner's like/repost events (replies/quotes derive from posts)
   atmosphere: 'uri', // { uri, collection, at } — every record on the repo, dated
