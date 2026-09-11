@@ -533,6 +533,12 @@ function useAnalyticsArchive(agent, did) {
       runSync('resume');
       return;
     }
+    // Existing archives predate the blocks store. Populate the new timeline
+    // on their first visit even when the post archive itself is still fresh.
+    if (!data.meta.blocks) {
+      runSync('incremental');
+      return;
+    }
     if (Date.now() - (pm.syncedAt || 0) < AUTO_SYNC_AFTER_MS) return;
     runSync('incremental');
     // eslint-disable-next-line react-hooks/exhaustive-deps
