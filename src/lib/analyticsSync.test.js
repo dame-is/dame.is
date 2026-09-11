@@ -5,7 +5,7 @@
 // stopping logic with fake agents and a fake AppView.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { sweepFollowers, sweepInbound, sweepOutbound, sweepPosts } from './analyticsSync.js';
+import { sweepBlocks, sweepFollowers, sweepInbound, sweepOutbound, sweepPosts } from './analyticsSync.js';
 import { tidToTimestamp } from './atproto.js';
 
 /** Mint a real TID for a timestamp — the same encoding tidToTimestamp reads. */
@@ -174,6 +174,56 @@ describe('sweepFollowers', () => {
     expect(Date.parse(res.followers[0].followedAt)).toBe(Date.parse(tidToTimestamp(tidFor(followedMs))));
     // No follow record visible → no invented date, but still a counted follower.
     expect(res.followers[1].followedAt).toBeNull();
+  });
+});
+
+describe('sweepBlocks', () => {
+  it('pages Constellation backlinks and dates block records from their TIDs', async () => {
+    const blockedMs = NOW - 4 * DAY;
+    const blockTid = tidFor(blockedMs);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url) => {
+        const parsed = new URL(url);
+        expect(parsed.searchParams.get('subject')).toBe('did:plc:me');
+        expect(parsed.searchParams.get('source')).toBe('app.bsky.graph.block:subject');
+        const cursor = parsed.searchParams.get('cursor');
+        return {
+          ok: true,
+          json: async () =>
+            cursor
+              ? { records: [], cursor: null }
+              : {
+                  records: [
+                    {
+                      did: 'did:plc:blocker',
+                      collection: 'app.bsky.graph.block',
+                      rkey: blockTid,
+                    },
+                  ],
+                  cursor: 'next',
+                },
+        };
+      }),
+    );
+
+    const res = await sweepBlocks('did:plc:me');
+    expect(res).toMatchObject({ complete: true, truncated: false, error: null });
+    expect(res.blocks).toHaveLength(1);
+    expect(res.blocks[0]).toMatchObject({
+      uri: `at://did:plc:blocker/app.bsky.graph.block/${blockTid}`,
+      did: 'did:plc:blocker',
+    });
+    expect(Date.parse(res.blocks[0].blockedAt)).toBe(
+      Date.parse(tidToTimestamp(blockTid)),
+    );
+  });
+
+  it('does not present a partial backlink sweep as complete', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503 })));
+    const res = await sweepBlocks('did:plc:me');
+    expect(res.complete).toBe(false);
+    expect(res.error).toMatch(/unavailable/i);
   });
 });
 
