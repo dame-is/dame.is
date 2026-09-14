@@ -250,9 +250,10 @@ export const SURFACES = Object.freeze([
     key: 'listening',
     urlByView: true,
     label: 'Listening',
-    // Two live namespaces: the modern `fm.teal.alpha.feed.play` and the older
-    // `fm.teal.feed.play`. The studio resolves the NSID per row, which is exactly
-    // why it stays bespoke rather than becoming a generic record list.
+    // Two namespaces, production first: `fm.teal.feed.play` is where the
+    // scrobbler writes now, `fm.teal.alpha.feed.play` is the frozen archive it
+    // replaced in August 2026. The studio resolves the NSID per row, which is
+    // exactly why it stays bespoke rather than becoming a generic record list.
     nsid: COLLECTIONS.listen,
     nsids: [COLLECTIONS.listen, 'fm.teal.alpha.feed.play'],
     group: 'content',

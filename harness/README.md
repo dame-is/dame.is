@@ -51,6 +51,14 @@ filters and counts all have something real to work on: 28 documents (3 drafts,
 guestbook signatures, 7 hero phrases, 2 publications, 3 resume versions with
 jobs and education, 8 ratioed pieces, and the nav and sky singletons.
 
+The plays span teal.fm's August 2026 namespace move rather than sitting in one
+lexicon: 186 records under production `fm.teal.feed.play`, 60 under the frozen
+`fm.teal.alpha.feed.play`, six of them dual-written under the same rkey on both
+sides. That is 246 records collapsing to 240 distinct plays, and it is the only
+way the listening surfaces' real work gets exercised — per-NSID cursors, the
+rkey dedupe, and the field accessors that branch on which spelling
+(`artists` / `artistNames`, `originUri` / `originUrl`) a record uses.
+
 ## What it is not
 
 Not a test suite and not a mock of the protocol — it is a viewing window. It
