@@ -1,0 +1,70 @@
+/* The lifer mark.
+
+   Built like the site's own chips (see .feed-chip in FeedFilters.css): square
+   — every --radius-* is 0 — a hairline border, and nothing behind it. The
+   transparent fill is deliberate on both counts. A tinted wash would have to
+   be paid for in contrast, dropping accent-on-page from ~5.2:1 to ~4.2:1 and
+   under AA at this size; and on a good year nearly half the sightings in the
+   archive are somebody's first, so a filled badge would become the texture of
+   the /mothing grid rather than a note on it.
+
+   It sits beside "Research grade" on a feed card, which is the same accent
+   small-caps without the box. That is the intended difference in emphasis:
+   one describes how firmly the moth is identified, the other is the reason to
+   look at it. */
+.first-sighting {
+  display: inline-flex;
+  align-items: baseline;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0.1em 0.45em;
+  border: 1px solid var(--accent-soft);
+  background: none;
+  color: var(--accent);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  line-height: 1.4;
+  /* The box reads as one thing, so keep the label on one line inside it — a
+     wrapped chip looks like two. */
+  white-space: nowrap;
+}
+
+/* `.small-caps` sets a colour of its own (typography.css), and which of two
+   single-class rules wins comes down to stylesheet order — which a
+   component-scoped import doesn't get to decide. Say it again at a
+   specificity that does. */
+.first-sighting.small-caps {
+  color: var(--accent);
+}
+
+/* Dense rows (the ledgers, a tile caption, a sighting inside an expanded run)
+   carry the same words at a smaller step, so the mark never out-weighs the
+   moth's own name on a row two lines tall. */
+.first-sighting-sm {
+  padding: 0 0.4em;
+  font-size: calc(var(--text-xs) * 0.92);
+  letter-spacing: 0.1em;
+}
+
+/* A ledger row is one line by contract — thumbnail, names, time. The mark
+   rides at the end of the name line rather than taking a line of its own. */
+.ledger-obs-name .first-sighting,
+.mothing-ledger-name .first-sighting,
+.moth-batch-row-name .first-sighting {
+  margin-left: 0.5em;
+  /* The names are serif and the mark is not; nudge it onto the same optical
+     line rather than the shared text baseline. */
+  vertical-align: 0.05em;
+}
+
+/* In a tile caption the mark is its own line under the binomial, where the
+   caption is already a stack and has the room. */
+.mothing-tile-caption .first-sighting {
+  margin-top: 0.25rem;
+}
+
+/* A collapsed run's tally sits beside its count of sightings — "35 moths ·
+   4 first sightings" — on the line under the species it turned up. */
+.ledger-obs-count .first-sighting {
+  margin-left: 0.6em;
+}

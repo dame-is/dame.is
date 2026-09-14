@@ -30,6 +30,8 @@ import { verbConfig, primaryNsid } from '../lib/verbRegistry.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
 import { playArtistLine, playTrackName } from '../lib/teal.js';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
+import { useFirstSightings } from '../hooks/useFirstSightings.js';
+import { isFirstSighting } from '../lib/firstSightings.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from '../components/PostEmbed.jsx';
 import Lightbox from '../components/Lightbox.jsx';
@@ -364,7 +366,7 @@ function RecordBody({ verb, item, collection }) {
       return <CreatingCard {...item} />;
     case 'mothing':
     case 'observing':
-      return <ObservationCard {...item} />;
+      return <ObservationRecordBody item={item} />;
     case 'crafting':
       return <AnisotaLabCard {...item} variant="record" />;
     case 'flushing':
@@ -372,6 +374,21 @@ function RecordBody({ verb, item, collection }) {
     default:
       return <GenericRecordBody verb={verb} item={item} collection={collection} />;
   }
+}
+
+/**
+ * One iNaturalist observation on its own page.
+ *
+ * The card can't tell whether this was a lifer — that is a question about
+ * every other sighting, and a record page holds exactly one — so the build's
+ * index answers it (see writeFirstSightings in scripts/prefetch.mjs). A
+ * sighting logged since the last build reads as an ordinary one here until the
+ * next; /mothing, which pulls the whole archive on every visit, is always
+ * current.
+ */
+function ObservationRecordBody({ item }) {
+  const { ids } = useFirstSightings();
+  return <ObservationCard {...item} _firstSighting={isFirstSighting(item, ids)} />;
 }
 
 /**

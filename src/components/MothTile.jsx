@@ -3,6 +3,7 @@
 // (/mothing/2026-08-18), which draws the same observations at the same size —
 // so they live here rather than being written twice and drifting apart.
 
+import FirstSightingChip from './FirstSightingChip.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
 import { mothName } from '../lib/mothing.js';
 
@@ -10,8 +11,12 @@ import { mothName } from '../lib/mothing.js';
  * One observation as an image tile that opens the in-page lightbox (the
  * iNaturalist link moves into the lightbox's "source" control). Photoless
  * observations fall back to a static placeholder tile.
+ *
+ * `first` marks a lifer. The caller decides it, not the tile: whether a
+ * species has been seen before is a question about the whole archive, and a
+ * tile holds one sighting (see lib/firstSightings.js).
  */
-export function MothTile({ obs, onOpen }) {
+export function MothTile({ obs, onOpen, first = false }) {
   const photo = obs.photos?.[0];
   const src = photo ? photoUrl(photo, 'medium') : null;
   // A tile is 192–356 CSS px and square-cropped, so what it consumes is the
@@ -30,8 +35,12 @@ export function MothTile({ obs, onOpen }) {
     <span className="mothing-tile-caption">
       <span className="mothing-name">{title}</span>
       {showSci && <span className="mothing-sci">{sci}</span>}
+      {first && <FirstSightingChip size="small" />}
     </span>
   );
+  // The tile's own aria-label REPLACES its contents for a screen reader, so
+  // the mark has to be said here or it isn't said at all.
+  const label = `View photo: ${title}${first ? ', first sighting' : ''}`;
   return (
     <li className="mothing-cell">
       {src ? (
@@ -39,7 +48,7 @@ export function MothTile({ obs, onOpen }) {
           type="button"
           className="mothing-tile"
           onClick={() => onOpen(obs)}
-          aria-label={`View photo: ${title}`}
+          aria-label={label}
         >
           <img src={src} srcSet={srcSet} alt={title} loading="lazy" decoding="async" />
           {caption}

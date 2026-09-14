@@ -11,6 +11,8 @@ import {
   batchNameLine,
   isObservationBatch,
 } from '../lib/observationBatches.js';
+import { firstSightingCount } from '../lib/firstSightings.js';
+import FirstSightingChip from './FirstSightingChip.jsx';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
 import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import { sigilSvgDataUrl } from '../lib/anisotaLab.js';
@@ -522,6 +524,7 @@ function ObservationLedgerBody({ item }) {
       <span className="ledger-obs-names">
         <span className="ledger-obs-name">
           {name || <Placeholder>{fallback}</Placeholder>}
+          {item._firstSighting && <FirstSightingChip size="small" />}
         </span>
         {showSci && <span className="ledger-obs-sci">{sci}</span>}
       </span>
@@ -541,6 +544,10 @@ function ObservationBatchLedgerBody({ item, expanded, onToggle }) {
     .slice(0, BATCH_THUMBS);
   const names = batchNameLine(item, BATCH_LEDGER_NAMES);
   const count = batchCountLabel(item);
+  // The run's tally of new species, beside its tally of sightings — the row
+  // stands in for a whole night, so a first inside it has nowhere else to show
+  // until the run is opened.
+  const firsts = firstSightingCount(item);
   return (
     <div className="ledger-obs ledger-obs-batch">
       <span className="ledger-obs-strip" aria-hidden="true">
@@ -582,6 +589,7 @@ function ObservationBatchLedgerBody({ item, expanded, onToggle }) {
           ) : (
             count
           )}
+          {firsts > 0 && <FirstSightingChip count={firsts} size="small" />}
         </span>
       </span>
     </div>

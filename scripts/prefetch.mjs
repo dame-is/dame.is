@@ -34,7 +34,14 @@ import { writeFile, readFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ME_DID, COLLECTIONS, APPVIEW, INATURALIST_USER, RATIOED_PATH } from '../src/config.js';
+import {
+  ME_DID,
+  COLLECTIONS,
+  APPVIEW,
+  INATURALIST_USER,
+  OBSERVING_OBSERVATION_NSID,
+  RATIOED_PATH,
+} from '../src/config.js';
 // The agent-facing site guide, built from the same snapshots as sitemap.xml.
 import { buildLlmsTxt } from '../og/llms.js';
 import {
@@ -45,6 +52,7 @@ import {
   rkeyFromAtUri,
 } from '../src/lib/atproto.js';
 import { fetchMothData, buildSessions } from '../src/lib/inaturalist.js';
+import { firstSightingIds, observedTaxonIds } from '../src/lib/firstSightings.js';
 import { fetchGuestbookEntries } from '../src/lib/guestbook.js';
 import { VERB_REGISTRY } from '../src/lib/verbRegistry.js';
 import {
@@ -58,6 +66,7 @@ import {
   buildUnifiedFeed,
   backfillTimestamps,
   shouldWriteCombinedVerbFile,
+  snapshotNameFor,
   annotateBlobUrl,
   annotateLeafletBlobs,
 } from '../src/lib/feedBuilder.js';
@@ -92,6 +101,10 @@ function snapshotCount(data) {
   if (Array.isArray(data)) return data.length;
   if (Array.isArray(data?.records)) return data.records.length;
   if (Array.isArray(data?.entries)) return data.entries.length;
+  // The first-sighting index. Counted so the empty-guard below covers it too:
+  // a build that can't vouch for the archive writes no ids, and shipping that
+  // over a good index would un-mark every lifer on the site for six hours.
+  if (Array.isArray(data?.ids)) return data.ids.length;
   return null;
 }
 
@@ -332,6 +345,95 @@ async function writeRatioedSeed(records) {
   if (rows.length === prior.length && JSON.stringify(rows) === JSON.stringify(prior)) return;
   await writeFile(path, JSON.stringify(rows, null, 2) + '\n', 'utf-8');
   log(`ratioed seed: ${rows.length} pieces (was ${prior.length})`);
+}
+
+/** The registry cap on a collection — how many records a full pull can hold. */
+function collectionCap(nsid) {
+  for (const verb of VERB_REGISTRY) {
+    for (const c of verb.collections || []) {
+      if (c.nsid === nsid) return c.max || 200;
+    }
+  }
+  return 0;
+}
+
+/**
+ * The first-sighting index: which observations were the first record of their
+ * species, derived once here from the COMPLETE archive.
+ *
+ * It exists because none of the surfaces that draw a sighting can answer the
+ * question on their own — the home feed holds 100 records per collection, a
+ * record page exactly one, and "has this ever been seen before?" is a question
+ * about all of them. (/mothing is the exception: it pulls every moth anyway,
+ * so it re-derives rather than reading this. See src/pages/Mothing.jsx.)
+ *
+ * Two lists, ~6 kB together:
+ *   ids   — the sightings that were a first, as iNaturalist ids.
+ *   taxa  — every taxon known at build time, coarse IDs included. This is what
+ *           lets the browser mark a lifer logged SINCE the build, which is
+ *           when one most wants marking: a sighting filed under a taxon that
+ *           is absent from this list has demonstrably never been seen before,
+ *           however short the browser's own window is.
+ *
+ * A slice we cannot vouch for contributes NOTHING rather than a guess. The
+ * first of a species is by definition its oldest sighting and a truncated pull
+ * loses the oldest end first, so a partial archive doesn't under-report — it
+ * hands the mark to the wrong sighting, which is worse than no mark at all.
+ */
+async function writeFirstSightings(mothing, written) {
+  // Moths come from the iNaturalist pull rather than the mirrored records: it
+  // is the same archive one step earlier, and it isn't subject to the PDS
+  // collection cap. Its companion `sync.count` is iNaturalist's own total for
+  // the scope, read BEFORE the pull started — the one number here that isn't
+  // derived from the pull it's checking.
+  const moths = Array.isArray(mothing?.observations) ? mothing.observations : [];
+  const mothTotal = mothing?.sync?.count ?? null;
+
+  // Everything alive that isn't a moth has no iNaturalist pull of its own at
+  // build time, so it comes from the mirrored records — complete as long as
+  // the collection hasn't outgrown its registry cap.
+  const observingName = snapshotNameFor('observing', 'inaturalist', OBSERVING_OBSERVATION_NSID);
+  const observing = Array.isArray(written[observingName]) ? written[observingName] : [];
+  const observingCap = collectionCap(OBSERVING_OBSERVATION_NSID);
+
+  const sources = [
+    {
+      verb: 'mothing',
+      observations: moths,
+      complete: moths.length > 0 && (mothTotal == null || moths.length >= mothTotal),
+      why: mothTotal == null ? 'no signature to check against' : `${moths.length} of ${mothTotal} pulled`,
+    },
+    {
+      verb: 'observing',
+      observations: observing,
+      complete: observing.length > 0 && observing.length < observingCap,
+      why: `${observing.length} records against a cap of ${observingCap}`,
+    },
+  ];
+
+  const ids = [];
+  const taxa = [];
+  const meta = {};
+  for (const source of sources) {
+    meta[source.verb] = { count: source.observations.length, complete: source.complete };
+    if (!source.complete) {
+      warn(`firstSightings: ${source.verb} archive incomplete (${source.why}) — leaving its firsts unmarked`);
+      continue;
+    }
+    ids.push(...firstSightingIds(source.observations));
+    taxa.push(...observedTaxonIds(source.observations));
+  }
+
+  await writeJson(
+    'firstSightings',
+    {
+      builtAt: new Date().toISOString(),
+      sources: meta,
+      ids: ids.sort((a, b) => a - b),
+      taxa: taxa.sort((a, b) => a - b),
+    },
+    { guardEmpty: true },
+  );
 }
 
 /** DID → display name, 25 at a time (the appview's limit). */
@@ -824,6 +926,8 @@ async function main() {
   // only the count shrinks (from full per-collection caps to ~150).
   const homeFeed = unified.slice(0, HOME_SNAPSHOT_MAX);
   await writeJson('unifiedFeed', homeFeed, { guardEmpty: true });
+
+  await writeFirstSightings(mothing, written);
 
   // --- Discoverability: sitemap.xml + Atom feed -----------------------------
   // Generated from the snapshots already in hand. Blog posts live in the

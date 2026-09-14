@@ -186,6 +186,13 @@ export const VERB_REGISTRY = [
     // scripts/mirror-inaturalist.mjs, which splits each observation by
     // taxonomy; like mothing, each record links out to its iNat observation.
     pastTense: 'observed',
+    // The cap has a second job here. Unlike moths — which the prefetch pulls
+    // from iNaturalist in full for /mothing — these records ARE the whole
+    // non-moth archive as the build sees it, and the first-sighting index is
+    // derived from them (see writeFirstSightings in scripts/prefetch.mjs). Once
+    // the collection outgrows this number the build can no longer tell a
+    // species' first sighting from its oldest surviving one, so it stops
+    // marking them and says so in the build log. Raise the cap then.
     collections: [
       { nsid: 'is.dame.observing.observation', source: 'inaturalist', kind: 'content', max: 500 },
     ],

@@ -6,6 +6,7 @@ import { MothTile, MothStat } from '../components/MothTile.jsx';
 import { MothingSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchMothData, fetchMothSignature } from '../lib/inaturalist.js';
+import { firstSightingIds } from '../lib/firstSightings.js';
 import {
   findNight,
   formatNightDate,
@@ -35,6 +36,8 @@ import './Mothing.css';
 // which keeps useLiveFeed at `loading` while the live pull is still out.
 const NO_SESSION = { session: null };
 
+const NO_FIRSTS = new Set();
+
 export default function MothingNight() {
   const { rkey: date } = useParams();
 
@@ -63,7 +66,10 @@ export default function MothingNight() {
       const observations = Array.isArray(data?.observations) ? data.observations : null;
       if (!observations) return null;
       const found = findNight(observations, date);
-      if (found) return found;
+      // Which of this night's moths were lifers has to be decided against
+      // every OTHER night as well, so it's settled here, where the whole pull
+      // is in hand, rather than inside the night.
+      if (found) return { ...found, firstIds: firstSightingIds(observations) };
       // A miss means one of two things, and they want opposite treatment. If
       // the date is past what this copy can answer for, the copy is simply
       // behind — hold at `loading` (null does that) so a night logged since
@@ -76,6 +82,7 @@ export default function MothingNight() {
 
   const night = items || null;
   const session = night?.session || null;
+  const firstIds = night?.firstIds || NO_FIRSTS;
 
   const lightboxImages = useMemo(
     () => mothLightboxImages(session?.observations || []),
@@ -145,7 +152,12 @@ export default function MothingNight() {
 
       <ul className="mothing-grid reveal-stagger">
         {session.observations.map((obs) => (
-          <MothTile key={obs.id} obs={obs} onOpen={(o) => setLightbox(indexById.get(o.id) ?? -1)} />
+          <MothTile
+            key={obs.id}
+            obs={obs}
+            onOpen={(o) => setLightbox(indexById.get(o.id) ?? -1)}
+            first={firstIds.has(obs.id)}
+          />
         ))}
       </ul>
 

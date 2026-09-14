@@ -16,10 +16,12 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import FirstSightingChip from '../FirstSightingChip.jsx';
 import { renderPlainTextWithTruncatedUrls } from '../../lib/feedUrlFormat.jsx';
 import { photoUrl } from '../../lib/inaturalist.js';
 import { formatWallClockTime } from '../../lib/time.js';
 import { formatNightDate, nightPath } from '../../lib/mothing.js';
+import { firstSightingCount } from '../../lib/firstSightings.js';
 import {
   batchCountLabel,
   batchNameLine,
@@ -34,7 +36,7 @@ const fallbackName = (verb) =>
 
 export default function ObservationCard(props) {
   if (isObservationBatch(props)) return <ObservationBatchCard {...props} />;
-  const { payload, atUri, verb } = props;
+  const { payload, atUri, verb, _firstSighting: firstSighting } = props;
   const obs = payload || {};
   const photos = Array.isArray(obs.photos) ? obs.photos : [];
   const first = photos[0];
@@ -67,6 +69,10 @@ export default function ObservationCard(props) {
           )}
         </h3>
         {showSci && <span className="moth-card-sci">{sci}</span>}
+        {/* The two notes a sighting can carry, in the order they matter: that
+            this species had never been recorded here before, then how firmly
+            it's identified. */}
+        {firstSighting && <FirstSightingChip />}
         {obs.qualityGrade === 'research' && (
           <span className="small-caps moth-card-grade">Research grade</span>
         )}
@@ -88,6 +94,9 @@ function ObservationBatchCard(item) {
   const { verb, observations, nightDate } = item;
   const shown = observations.filter((o) => o.payload?.photos?.[0]).slice(0, BATCH_THUMBS);
   const names = batchNameLine(item);
+  // A run speaks for every sighting under it, so the mark has to be a tally:
+  // the night this row stands for might have turned up four new species.
+  const firsts = firstSightingCount(item);
 
   return (
     <article className="moth-card moth-batch feed-card">
@@ -115,6 +124,7 @@ function ObservationBatchCard(item) {
 
       <div className="moth-card-body">
         <h3 className="moth-card-title">{names || fallbackName(verb)}</h3>
+        {firsts > 0 && <FirstSightingChip count={firsts} />}
         <p className="moth-batch-meta gutter">
           <button
             type="button"
@@ -163,7 +173,10 @@ function BatchRow({ item, verb }) {
         <span className="moth-batch-row-thumb moth-batch-row-thumb-empty" aria-hidden="true" />
       )}
       <span className="moth-batch-row-names">
-        <span className="moth-batch-row-name">{name}</span>
+        <span className="moth-batch-row-name">
+          {name}
+          {item._firstSighting && <FirstSightingChip size="small" />}
+        </span>
         {showSci && <span className="moth-batch-row-sci">{sci}</span>}
       </span>
       <span className="moth-batch-row-time gutter">

@@ -31,7 +31,7 @@ import { nightPath } from './mothing.js';
 export const OBSERVATION_BATCH_GAP_MS = 60 * 60 * 1000; // 1 hour
 
 /** The two verbs iNaturalist feeds: moths, and everything else alive. */
-const OBSERVATION_VERBS = new Set(['mothing', 'observing']);
+export const OBSERVATION_VERBS = new Set(['mothing', 'observing']);
 
 /** How many species a collapsed row names before it says "+ N more". */
 export const BATCH_NAME_MAX = 3;

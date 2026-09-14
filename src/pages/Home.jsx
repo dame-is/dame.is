@@ -24,6 +24,7 @@ import {
 import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
 import { collapseObservations } from '../lib/observationBatches.js';
+import { markFirstSightings, mergeFirstSightings } from '../lib/firstSightings.js';
 import { resolvePds, getLatestCommit } from '../lib/atproto.js';
 import { buildUnifiedFeed } from '../lib/feedBuilder.js';
 import { createSubjectResolver } from '../lib/subjectResolver.js';
@@ -34,11 +35,15 @@ import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll.js';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
+import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { ME_DID } from '../config.js';
 import '../components/Feed.css';
 
 const FEED_CACHE_KEY = 'unifiedFeed';
 const CACHE_TTL_MS = 30_000;
+// Stable stand-in for "nothing loaded yet", so the memos derived from the feed
+// don't re-run on every render while it's still null.
+const EMPTY_FEED = [];
 // First-paint cap per collection — matches AT Proto's per-request
 // listRecords ceiling, so each collection lands in a single round trip
 // with no extra pagination. Background polls keep the same cap; deeper
@@ -482,7 +487,23 @@ export default function Home() {
   }, [newUris]);
 
   const loading = feed === null;
-  const safeFeed = feed || [];
+  const rawFeed = feed || EMPTY_FEED;
+  // Which of these sightings were a lifer — the first record of their species.
+  // The feed can't work that out on its own: it holds 100 records per
+  // collection, and "has this ever been seen before?" is a question about the
+  // whole archive. The index answers it for everything that existed at the
+  // last build; merging it against what's actually loaded catches anything
+  // logged since, which is when a first most wants saying. See
+  // lib/firstSightings.js.
+  const firstSightingIndex = useFirstSightings();
+  const firstIds = useMemo(
+    () => mergeFirstSightings(firstSightingIndex, rawFeed),
+    [firstSightingIndex, rawFeed],
+  );
+  // Settled here, once, rather than in each of the components that draw a
+  // sighting — by the time a row reaches one it may have been collapsed into
+  // a run, and the run has to be able to count the firsts underneath it.
+  const safeFeed = useMemo(() => markFirstSightings(rawFeed, firstIds), [rawFeed, firstIds]);
   // Show the "checking for recent activity" notice while we don't yet have
   // live-confirmed data for the active verbs — i.e. the very first load
   // (nothing rendered yet) or while a refresh is in flight for verbs the

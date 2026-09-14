@@ -101,6 +101,11 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* Fill the grid cell rather than the caption. Captions are uneven — a long
+     common name wraps, a lifer carries its mark — and without this the tiles
+     in a row end at different heights, which reads as a misaligned grid rather
+     than as a caption that ran on. */
+  height: 100%;
   padding: 0;
   text-align: left;
   font: inherit;

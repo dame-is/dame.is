@@ -9,7 +9,9 @@ import { usePageContent } from '../hooks/usePageContent.js';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
+import FirstSightingChip from '../components/FirstSightingChip.jsx';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
+import { firstSightingIds } from '../lib/firstSightings.js';
 import {
   formatNightDate,
   formatObservedTime,
@@ -22,6 +24,8 @@ import { fetchSnapshot } from '../lib/snapshot.js';
 import { ME_DID, INATURALIST_USER, INATURALIST_URL, MOTHING_OBSERVATION_NSID } from '../config.js';
 import '../components/Feed.css';
 import './Mothing.css';
+
+const EMPTY_OBSERVATIONS = [];
 
 /**
  * A session's header, and the way through to the night's own page — the whole
@@ -51,7 +55,7 @@ function SessionHeader({ session }) {
  * with a photo opens the in-page lightbox (the same one the tile grid uses);
  * a photoless observation is a static row with a placeholder thumb.
  */
-function MothLedgerRow({ obs, onOpen }) {
+function MothLedgerRow({ obs, onOpen, first = false }) {
   const xray = useXray();
   const photo = obs.photos?.[0];
   const thumb = photo ? photoUrl(photo, 'square') : null;
@@ -71,7 +75,10 @@ function MothLedgerRow({ obs, onOpen }) {
         </span>
       )}
       <span className="mothing-ledger-names">
-        <span className="mothing-ledger-name">{name}</span>
+        <span className="mothing-ledger-name">
+          {name}
+          {first && <FirstSightingChip size="small" />}
+        </span>
         {showSci && <span className="mothing-ledger-sci">{sci}</span>}
       </span>
       <span className="mothing-ledger-time">{time}</span>
@@ -93,7 +100,9 @@ function MothLedgerRow({ obs, onOpen }) {
           type="button"
           className="mothing-ledger-row"
           onClick={() => onOpen(obs)}
-          aria-label={`View photo: ${name}`}
+          // The label replaces the row's contents for a screen reader, so the
+          // mark has to be said here or it isn't said at all.
+          aria-label={`View photo: ${name}${first ? ', first sighting' : ''}`}
         >
           {inner}
         </button>
@@ -142,9 +151,17 @@ export default function Mothing() {
 
   const loading = status === 'loading';
   const stats = items?.stats || null;
-  const observations = items?.observations || [];
+  // Held stable across renders, not rebuilt as a fresh `|| []` each time: two
+  // whole-archive passes hang off it below, and neither wants re-running
+  // because nothing has loaded yet.
+  const observations = useMemo(() => items?.observations || EMPTY_OBSERVATIONS, [items]);
 
   const { sessions, orphans } = useMemo(() => buildSessions(observations), [observations]);
+
+  // Lifers. This page pulls every moth observation there is, so it derives the
+  // set itself rather than reading the build's index — which means it is right
+  // about a sighting logged an hour ago, not right as of the last deploy.
+  const firstIds = useMemo(() => firstSightingIds(observations), [observations]);
 
   // Lightbox over every photographed observation, in the same order the tiles
   // render (sessions first, then orphans), so prev/next walks the whole page.
@@ -214,7 +231,12 @@ export default function Mothing() {
               </header>
               <ol className="mothing-ledger reveal-stagger">
                 {session.observations.map((obs) => (
-                  <MothLedgerRow key={obs.id} obs={obs} onOpen={openLightbox} />
+                  <MothLedgerRow
+                    key={obs.id}
+                    obs={obs}
+                    onOpen={openLightbox}
+                    first={firstIds.has(obs.id)}
+                  />
                 ))}
               </ol>
             </section>
@@ -229,7 +251,12 @@ export default function Mothing() {
               </header>
               <ol className="mothing-ledger reveal-stagger">
                 {orphans.map((obs) => (
-                  <MothLedgerRow key={obs.id} obs={obs} onOpen={openLightbox} />
+                  <MothLedgerRow
+                    key={obs.id}
+                    obs={obs}
+                    onOpen={openLightbox}
+                    first={firstIds.has(obs.id)}
+                  />
                 ))}
               </ol>
             </section>
@@ -242,7 +269,12 @@ export default function Mothing() {
               <SessionHeader session={session} />
               <ul className="mothing-grid reveal-stagger">
                 {session.observations.map((obs) => (
-                  <MothTile key={obs.id} obs={obs} onOpen={openLightbox} />
+                  <MothTile
+                    key={obs.id}
+                    obs={obs}
+                    onOpen={openLightbox}
+                    first={firstIds.has(obs.id)}
+                  />
                 ))}
               </ul>
             </section>
@@ -261,7 +293,12 @@ export default function Mothing() {
               </header>
               <ul className="mothing-grid reveal-stagger">
                 {orphans.map((obs) => (
-                  <MothTile key={obs.id} obs={obs} onOpen={openLightbox} />
+                  <MothTile
+                    key={obs.id}
+                    obs={obs}
+                    onOpen={openLightbox}
+                    first={firstIds.has(obs.id)}
+                  />
                 ))}
               </ul>
             </section>
