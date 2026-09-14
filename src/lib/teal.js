@@ -16,14 +16,36 @@
 // verb's collection order in the registry; production is listed first there,
 // and that ordering IS the priority.
 //
-// The record shapes are near-identical across the move. Two fields were renamed
-// on the way to production — `originUrl` → `originUri` (which the site reads,
-// under both spellings) and `musicServiceBaseDomain` → `musicServiceUri` (which
-// it doesn't surface at all) — and `artistNames`, a plain string[], survives as
-// a deprecated alternative to `artists` (objects carrying `artistName` +
-// `artistMbId`). The accessors below are the only place any of that is spelled
-// out; everything else on the site asks them for a track name, an artist line,
-// or an origin URL.
+// The record shapes are close but not identical, and this comment is checked
+// against the schema teal.fm publishes at
+// at://did:plc:iwhuynr6mm6xxuh25o4do2tx/com.atproto.lexicon.schema/fm.teal.feed.play
+// (resolved via the `_lexicon` DNS authority). Last verified 2026-09-14.
+//
+// Renamed on the way to production:
+//   `originUrl` → `originUri`. The site reads both spellings.
+//   `musicServiceBaseDomain` → `musicServiceUri`. Not just a rename: alpha
+//     wrote a bare host ("music.apple.com"), production writes a full URI
+//     ("https://music.apple.com"). The site doesn't surface either, so nothing
+//     reads it — but anything that starts to has to handle both value shapes,
+//     not only both keys.
+//
+// Deprecated in favour of `artists` (objects carrying `artistName` +
+// `artistMbId`), though both lexicons still allow them: `artistNames`, a plain
+// string[], and `artistMbIds`. Every production record sampled off the network
+// uses `artists`; `artistNames` is a fallback for old records, not a live path.
+//
+// Added in production, with no alpha equivalent — none of it surfaced today:
+//   `trackMbId` — the track's MusicBrainz ID, distinct from `recordingMbId`,
+//     which both lexicons have. Scrobblers do emit it (multi-scrobbler does).
+//   `trackDiscriminant` / `releaseDiscriminant` — "Radio Edit", "2023
+//     Remaster", and so on, meant to separate variants of a track or release
+//     that would otherwise group together. Specified but not yet seen in the
+//     wild. Worth knowing about if the listening stats ever want to tell a
+//     remaster apart from the original, since they group on displayed text.
+//
+// The accessors below are the only place any of that is spelled out;
+// everything else on the site asks them for a track name, an artist line, or
+// an origin URL.
 
 import { getRecord, listRecords, rkeyFromAtUri } from './atproto.js';
 import { verbConfig } from './verbRegistry.js';

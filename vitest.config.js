@@ -15,9 +15,22 @@ import { defineConfig } from 'vitest/config';
 // actually wired together, so unit-testing the pieces without it would leave
 // the composition — statuses, headers, what a crawler ends up holding —
 // unchecked.
+//
+// harness/ is in for one narrow reason. Its fixtures are pure in exactly the
+// way this config cares about (seeded PRNG, fixed clock, no I/O), and they are
+// the only description of what a record LOOKS like that nothing else checks —
+// so they drift. The listening fixture sat on teal.fm's dead `alpha` lexicon
+// for weeks after the scrobbler stopped writing it, which meant every harness
+// run exercised field spellings no live record had. Tests here are about that:
+// fixtures still resembling the PDS, not the admin UI's behaviour.
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['src/**/*.test.js', 'og/**/*.test.js', 'middleware.test.js'],
+    include: [
+      'src/**/*.test.js',
+      'og/**/*.test.js',
+      'harness/**/*.test.js',
+      'middleware.test.js',
+    ],
   },
 });

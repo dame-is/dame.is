@@ -128,15 +128,65 @@ const POSTS = [
   'the admin is the part of a site nobody sees and everybody feels',
 ];
 
+/**
+ * The eight songs every play fixture cycles through.
+ *
+ * The identifiers are invented, but they are the right SHAPE — `mbid:<uuid>`
+ * URIs, twelve-character ISRCs, numeric Apple ids — because the code that reads
+ * them parses rather than prints. `albumArt.js` pulls the song id out of the
+ * `?i=` param and takes it only if it is all digits, and keys its cache off an
+ * uppercased ISRC. A fixture that said "isrc-1" would walk a path no real
+ * record walks.
+ */
 const TRACKS = [
-  ['Grouper', 'Made of Air', 'Dragging a Dead Deer Up a Hill'],
-  ['Duster', 'Constellations', 'Stratosphere'],
-  ['Low', 'Words', 'I Could Live in Hope'],
-  ['Slowdive', 'Alison', 'Souvlaki'],
-  ['Bark Psychosis', 'Big Shot', 'Hex'],
-  ['Talk Talk', 'New Grass', 'Laughing Stock'],
-  ['Codeine', 'Pickup Song', 'The White Birch'],
-  ['Bedhead', 'Bedside Table', 'Transaction de Novo'],
+  {
+    artist: 'Grouper', track: 'Made of Air', release: 'Dragging a Dead Deer Up a Hill',
+    artistMbId: 'mbid:9d1d3b4a-7c51-4f0e-8a62-3f7c1de55b90',
+    trackMbId: 'mbid:1c7f20ea-45b8-4d93-a016-58e2bd4c7fa3',
+    isrc: 'USZZZ0812001', albumId: '268412901', songId: '268412907',
+  },
+  {
+    artist: 'Duster', track: 'Constellations', release: 'Stratosphere',
+    artistMbId: 'mbid:2f6a08c3-51ba-4d77-9b0e-c4a2e6f31d85',
+    trackMbId: 'mbid:7ae91d36-0b52-4c87-95da-e3f608b1247c',
+    isrc: 'USZZZ9812002', albumId: '271003418', songId: '271003422',
+  },
+  {
+    artist: 'Low', track: 'Words', release: 'I Could Live in Hope',
+    artistMbId: 'mbid:b7e4c209-3a68-4e15-8d3f-9c05a7b21e44',
+    trackMbId: 'mbid:33c80f5d-6e19-4ba2-871c-04d9a5e6238b',
+    isrc: 'USZZZ9411003', albumId: '158772630', songId: '158772634',
+  },
+  {
+    artist: 'Slowdive', track: 'Alison', release: 'Souvlaki',
+    artistMbId: 'mbid:6c33f81e-9d24-4a70-b5e8-1f9a2c47d063',
+    trackMbId: 'mbid:a90b7e42-c58d-4136-b2ef-71d0463c98a5',
+    isrc: 'GBZZZ9312004', albumId: '724489301', songId: '724489305',
+  },
+  {
+    artist: 'Bark Psychosis', track: 'Big Shot', release: 'Hex',
+    artistMbId: 'mbid:0a5e7d16-84bc-4392-a7f1-6b28e9c04f57',
+    trackMbId: 'mbid:5d2c68b1-93f4-40ae-8c67-b1e5730da29f',
+    isrc: 'GBZZZ9402005', albumId: '318905227', songId: '318905231',
+  },
+  {
+    artist: 'Talk Talk', track: 'New Grass', release: 'Laughing Stock',
+    artistMbId: 'mbid:e812b64f-2c09-4d8a-93b7-5a0fd1e78c26',
+    trackMbId: 'mbid:c46e0197-2ab3-4f58-9d10-6825eb7c3401',
+    isrc: 'GBZZZ9109006', albumId: '425617840', songId: '425617849',
+  },
+  {
+    artist: 'Codeine', track: 'Pickup Song', release: 'The White Birch',
+    artistMbId: 'mbid:4fb0a923-6e57-41cd-82a4-7d3c8be15092',
+    trackMbId: 'mbid:8b15da70-e6c2-4d39-af84-2079c3be6154',
+    isrc: 'USZZZ9405007', albumId: '193344062', songId: '193344068',
+  },
+  {
+    artist: 'Bedhead', track: 'Bedside Table', release: 'Transaction de Novo',
+    artistMbId: 'mbid:d370c5e8-1a4f-48b6-9e02-c85b7a3f2916',
+    trackMbId: 'mbid:2e9047fc-b381-45d6-90a7-c6f218e5347d',
+    isrc: 'USZZZ9803008', albumId: '206718553', songId: '206718557',
+  },
 ];
 
 const SIGNERS = [
@@ -259,21 +309,99 @@ export function buildRepo() {
     ),
   );
 
-  /* Listening — fm.teal.alpha.feed.play. The big one: paging + bulk delete. */
+  /* Listening — teal.fm plays. The big one: paging + bulk delete.
+
+     Spread across BOTH play lexicons, because the archive on the real PDS is:
+     teal.fm left `fm.teal.alpha.*` for production `fm.teal.*` in August 2026,
+     and the listening surfaces are built to read the two as one. A fixture in
+     a single namespace can't reach any of that —
+
+       - the studio keeps one cursor PER NSID and only stops offering "Load
+         more" once both are exhausted;
+       - `dedupePlaysByRkey` is a no-op until an rkey turns up twice;
+       - `playArtistNames` and `playOriginUrl` branch on which spelling a record
+         uses, and a fixture that only ever writes one spelling only ever
+         exercises one branch.
+
+     This used to be 240 alpha records carrying `artistNames` and no origin URL
+     at all — the one shape no scrobbler has written since 11 August. So: the
+     newest 180 are production, the oldest 54 are the frozen alpha archive, and
+     6 sit in the cutover window written to both lexicons under the same rkey.
+     240 distinct plays, 246 records.
+
+     Two of every eight production plays carry no `originUri` — that is not
+     sloppiness, it is what multi-scrobbler on Spotify actually writes, and it
+     is the only way the "we have no link to the exact track" path in
+     `musicLinks.js` gets walked. Where an origin IS present it is an Apple
+     Music URL with a `?i=` song id, so the direct-link and album-art paths get
+     walked too. */
+  const PLAY_COUNT = 240;
+  const ALPHA_FROM = 180; // first index that predates the move
+  const OVERLAP = 6; // dual-written across the cutover, same rkey either side
+
+  const plays = Array.from({ length: PLAY_COUNT }, (_, i) => {
+    const song = TRACKS[i % TRACKS.length];
+    return {
+      ...song,
+      rkey: tid(),
+      duration: 180 + ((i * 37) % 240),
+      playedTime: ago(134 + i * 41),
+      originUri: `https://music.apple.com/us/album/${slugify(song.release)}/${song.albumId}?i=${song.songId}`,
+      // The scrobbler that reports no origin. Also the one that sends trackMbId.
+      originless: i % 8 === 3 || i % 8 === 6,
+    };
+  });
+
+  put(
+    'fm.teal.feed.play',
+    plays.slice(0, ALPHA_FROM + OVERLAP).map((p) =>
+      rec(
+        'fm.teal.feed.play',
+        {
+          $type: 'fm.teal.feed.play',
+          trackName: p.track,
+          artists: [{ artistName: p.artist, artistMbId: p.artistMbId }],
+          releaseName: p.release,
+          duration: p.duration,
+          isrc: p.isrc,
+          playedTime: p.playedTime,
+          ...(p.originless
+            ? { trackMbId: p.trackMbId }
+            : { originUri: p.originUri, musicServiceUri: 'https://music.apple.com' }),
+          submissionClientAgent: p.originless
+            ? 'multi-scrobbler/0.17.2'
+            : 'piper/v0.0.14',
+        },
+        p.rkey,
+      ),
+    ),
+  );
+
   put(
     'fm.teal.alpha.feed.play',
-    Array.from({ length: 240 }, (_, i) => {
-      const [artist, track, release] = TRACKS[i % TRACKS.length];
-      return rec('fm.teal.alpha.feed.play', {
-        $type: 'fm.teal.alpha.feed.play',
-        trackName: track,
-        artistNames: [artist],
-        releaseName: release,
-        duration: 180 + ((i * 37) % 240),
-        playedTime: ago(134 + i * 41),
-        submissionClientAgent: 'rocksky/1.0',
-      });
-    }),
+    plays.slice(ALPHA_FROM).map((p) =>
+      rec(
+        'fm.teal.alpha.feed.play',
+        {
+          $type: 'fm.teal.alpha.feed.play',
+          trackName: p.track,
+          // The pre-move archive is a genuine mix: the deprecated `artistNames`
+          // string[] on the oldest records, `artists` objects on the newer ones.
+          ...(p.duration % 2
+            ? { artistNames: [p.artist] }
+            : { artists: [{ artistName: p.artist, artistMbId: p.artistMbId }] }),
+          releaseName: p.release,
+          duration: p.duration,
+          isrc: p.isrc,
+          playedTime: p.playedTime,
+          // Alpha spellings: `originUrl`, and a bare host rather than a URI.
+          originUrl: p.originUri,
+          musicServiceBaseDomain: 'music.apple.com',
+          submissionClientAgent: 'rocksky/1.0',
+        },
+        p.rkey,
+      ),
+    ),
   );
 
   /* Curating — is.dame.arena.channel.
