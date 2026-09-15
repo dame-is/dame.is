@@ -33,7 +33,20 @@ import { resolvePds, getRecord, listRecords, rkeyFromAtUri } from '../src/lib/at
 import { fetchMothObservations } from '../src/lib/inaturalist.js';
 import { findNight, isNightSlug, nightBeyondReach, nightCardCopy } from '../src/lib/mothing.js';
 import { arenaText } from '../src/lib/arena.js';
-import { TEAL_PLAY_NSIDS, playArtistLine, playTrackName } from '../src/lib/teal.js';
+import {
+  TEAL_PLAY_NSIDS,
+  listTealPlays,
+  playArtistLine,
+  playTrackName,
+} from '../src/lib/teal.js';
+import {
+  ALBUMS_SEGMENT,
+  albumCardCopy,
+  albumsFromSnapshot,
+  buildAlbums,
+  findAlbum,
+  isAlbumPath,
+} from '../src/lib/albums.js';
 import {
   workSlug,
   canonicalWorkPath,
@@ -171,10 +184,13 @@ CARD_EXTRACTORS['site.standard.document'] = docCard;
 CARD_EXTRACTORS['pub.leaflet.document'] = docCard;
 CARD_EXTRACTORS['is.dame.creating.work'] = docCard;
 
-// A play cards the same either side of teal.fm's namespace move.
+// A play cards the same either side of teal.fm's namespace move. The release
+// rides in the description because a track's album is the second thing anybody
+// wants to know about it — and because the card draws its cover, which the
+// description is the text half of.
 const playCard = (v) => ({
   title: playTrackName(v),
-  description: playArtistLine(v),
+  description: [playArtistLine(v), firstText(v.releaseName)].filter(Boolean).join(' · '),
   textOnly: false,
 });
 for (const nsid of TEAL_PLAY_NSIDS) CARD_EXTRACTORS[nsid] = playCard;
@@ -190,10 +206,15 @@ function extractCard(collection, value, ctx) {
     : { title: text, description: '', textOnly: Boolean(text) };
 }
 
+// The album/record split under /listening lives with the derivation it belongs
+// to (src/lib/albums.js), because the router needs it too; re-exported here so
+// middleware.js gets it alongside everything else it asks this module for.
+export { ALBUMS_SEGMENT, isAlbumPath };
+
 /** True if `pathname` looks like a slug-addressed record route we can resolve. */
 export function isRecordRoute(pathname) {
   const segs = (pathname || '').split('/').filter(Boolean);
-  return segs.length === 2 && RECORD_SECTIONS.has(segs[0]);
+  return segs.length === 2 && RECORD_SECTIONS.has(segs[0]) && !isAlbumPath(pathname);
 }
 
 // ── resolvers: snapshot-first, then a time-boxed live PDS fallback ───────────
@@ -337,6 +358,13 @@ function shapeMeta(record, section, slug) {
   // When the record was made — drives the OG card's day-of-life folio so it
   // reflects the record's day, not the day the card is rendered.
   const date = v.publishedAt || v.createdAt || v.playedTime || v.playedAt || null;
+  // A play gets a card of its own: a song is its cover before it is any of its
+  // text, and a title-and-blurb card throws that away. Only the record key
+  // reaches the renderer, which reads the track, the artist, the album and the
+  // artwork back off the record itself.
+  const rkey = rkeyFromAtUri(atUri);
+  const ogQuery =
+    TEAL_PLAY_NSIDS.includes(collection) && rkey ? `play=${encodeURIComponent(rkey)}` : null;
   return {
     title: cleanTitle,
     description: firstText(description),
@@ -348,6 +376,7 @@ function shapeMeta(record, section, slug) {
     publication,
     date,
     canonicalPath: canonicalPathFor(section, record, slug),
+    ...(ogQuery ? { ogQuery } : {}),
   };
 }
 
@@ -414,6 +443,117 @@ async function nightMeta(date, origin) {
     // one: what it has to show is the moths, and only the date reaches the
     // renderer — everything drawn is read back from the night itself.
     ogQuery: `night=${encodeURIComponent(session.date)}`,
+  };
+}
+
+/* ── /listening — plays, and the albums they add up to ────────────────────── */
+
+/**
+ * One play by rkey, snapshot first and the PDS after.
+ *
+ * `/data/listening.json` is the merged archive across both teal.fm lexicons, so
+ * a play in it needs no namespace guess; a play scrobbled since the last build
+ * isn't in it, and `liveByRkey` tries the two collections in registry order
+ * (production first) exactly as a `/listening/{rkey}` page load does.
+ *
+ * Exported because the card renderer wants the same record the crawler meta
+ * resolved — it draws a cover from the play's own identifiers, which only the
+ * record carries.
+ */
+export async function playRecord(rkey, origin) {
+  const want = String(rkey ?? '').trim();
+  if (!want) return null;
+  const snap = await fetchSnapshot(origin, 'listening');
+  const found = Array.isArray(snap) ? snap.find((r) => endsWithRkey(r?.uri, want) && r.value) : null;
+  if (found) return found;
+  return withTimeout(liveByRkey(want, SECTION_COLLECTIONS.listening), PDS_TIMEOUT_MS);
+}
+
+/**
+ * How deep the live fallback pull goes, per lexicon, when an album isn't in the
+ * snapshot. Small on purpose: the snapshot is built from a thousand plays a
+ * lexicon (scripts/prefetch.mjs) and is the answer in almost every case, so
+ * this only has to cover an album first played since the last build — which is
+ * necessarily recent.
+ */
+const ALBUM_LIVE_MAX = 200;
+
+/**
+ * The album a `/listening/albums/{slug}` path names, or null.
+ *
+ * An album is not a record: it is what a run of plays adds up to (see
+ * src/lib/albums.js), so it is derived here from the build's own albums
+ * snapshot rather than fetched. A slug the snapshot doesn't answer to falls
+ * back to a small, time-boxed live pull — the same shape `nightSession` uses,
+ * and for the same reason: the thing somebody just shared a link to is usually
+ * newer than the last build.
+ */
+export async function albumBySlug(slug, origin) {
+  const want = String(slug ?? '').trim();
+  if (!want) return null;
+  const snap = origin ? await fetchJson(`${origin}/data/albums.json`, SNAPSHOT_TIMEOUT_MS) : null;
+  const found = findAlbum(albumsFromSnapshot(snap), want);
+  if (found) return found;
+  const pds = await withTimeout(resolvePds(ME_DID), PDS_TIMEOUT_MS);
+  if (!pds) return null;
+  const plays = await withTimeout(
+    listTealPlays(pds, { repo: ME_DID, max: ALBUM_LIVE_MAX }),
+    PDS_TIMEOUT_MS,
+  );
+  if (!Array.isArray(plays) || !plays.length) return null;
+  return findAlbum(buildAlbums(plays), want);
+}
+
+/**
+ * Meta for one album's page. Same shape `recordMeta` returns, so the middleware
+ * treats it identically — with `atUri` null, because an album has no record of
+ * its own to advertise. The nearest thing is the plays, and they are already
+ * named by the NSID chip.
+ */
+export async function albumMeta(pathname, origin) {
+  const segs = (pathname || '').split('/').filter(Boolean);
+  if (segs.length !== 3 || segs[0] !== 'listening' || segs[1] !== 'albums') return null;
+  let slug = segs[2];
+  try { slug = decodeURIComponent(slug); } catch {}
+
+  const album = await albumBySlug(slug, origin);
+  if (!album) return null;
+  const { title, description } = albumCardCopy(album);
+  return {
+    title,
+    description,
+    textOnly: false,
+    section: 'listening',
+    atUri: null,
+    cid: null,
+    nsid: TEAL_PLAY_NSIDS[0],
+    publication: null,
+    // The card stamps the day the album was last played where other cards stamp
+    // the day their record was made — for an album that IS the last time it
+    // changed, since nothing else on the page moves.
+    date: album.lastPlayed || null,
+    canonicalPath: `/listening/albums/${encodeURIComponent(album.slug)}`,
+    // An album gets a card of its own rather than the generic title-and-blurb
+    // one: what it has to show is the cover. Only the slug reaches the renderer,
+    // which reads everything else back off the index.
+    ogQuery: `album=${encodeURIComponent(album.slug)}`,
+  };
+}
+
+/**
+ * The albums index, for the /listening/albums card — the first few covers and
+ * the totals under them. Null when the snapshot can't be read, which sends the
+ * card back to the plain page layout rather than drawing an empty shelf.
+ */
+export async function albumsIndex(origin, { max = 0 } = {}) {
+  const snap = origin ? await fetchJson(`${origin}/data/albums.json`, SNAPSHOT_TIMEOUT_MS) : null;
+  const albums = albumsFromSnapshot(snap);
+  if (!albums.length) return null;
+  return {
+    albums: max > 0 ? albums.slice(0, max) : albums,
+    total: albums.length,
+    plays: albums.reduce((n, a) => n + (a.plays || 0), 0),
+    artists: new Set(albums.flatMap((a) => (a.artists || []).map((s) => s.toLowerCase()))).size,
   };
 }
 
@@ -590,6 +730,11 @@ export async function recordMeta(pathname, origin) {
     if (section === 'blogging') record = await resolveBlog(origin, slug);
     else if (section === 'creating') record = await resolveWork(origin, slug);
     else if (section === 'curating') record = await resolveChannel(origin, slug);
+    // A play resolves through the same function the card renderer calls, so the
+    // two can't disagree about which record a `/listening/{rkey}` link names —
+    // and so a play already in the build's merged archive costs no PDS round
+    // trip at the edge.
+    else if (section === 'listening') record = await playRecord(slug, origin);
     else if (SECTION_COLLECTIONS[section]) {
       record = await withTimeout(liveByRkey(slug, SECTION_COLLECTIONS[section]), PDS_TIMEOUT_MS);
     }

@@ -7,6 +7,7 @@ import { VERB_TO_COLLECTION, RECORD_ROUTE_SEGMENTS, siblingCollections } from '.
 import { TEAL_PLAY_NSIDS } from '../lib/teal.js';
 import { showOnCreating, workSlug } from '../lib/publications.js';
 import { isNightSlug } from '../lib/mothing.js';
+import { isAlbumPath } from '../lib/albums.js';
 
 const STANDARD_DOC = 'site.standard.document';
 
@@ -166,6 +167,15 @@ function deriveFromRoute(pathname, override) {
   // record that isn't there. App.jsx's router makes the same split.
   const nightMatch = matchPath('/mothing/:slug', pathname);
   if (nightMatch && isNightSlug(nightMatch.params.slug)) {
+    return { atUri: null, cid: null, lexicon: null, record: null, route: pathname };
+  }
+
+  // `/listening/albums` is the shelf and `/listening/albums/:slug` one album,
+  // and an album is what a run of plays adds up to rather than a record anyone
+  // holds — so, like a night, neither has an at:// URI to claim. Without this
+  // the generic loop below would read `albums` as a play's record key and
+  // advertise `fm.teal.feed.play/albums`, which does not exist.
+  if (isAlbumPath(pathname)) {
     return { atUri: null, cid: null, lexicon: null, record: null, route: pathname };
   }
 

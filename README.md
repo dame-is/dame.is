@@ -80,6 +80,40 @@ Plus teal.fm for the now-playing signal: `fm.teal.feed.play` for plays and
 `fm.teal.alpha.*` lexicons in August 2026, so both namespaces are read and
 collapsed by rkey (production wins) — see [`src/lib/teal.js`](src/lib/teal.js).
 
+## Listening / albums
+
+`/listening` is the play feed. `/listening/albums` is the same history read the
+other way: every record that has come round here, ranked by how often, each with
+a page of its own at `/listening/albums/{slug}`.
+
+An album is **not a record**. teal.fm scrobbles tracks, so an album here is what
+a run of plays adds up to — the same relationship a mothing night has to its
+observations. [`src/lib/albums.js`](src/lib/albums.js) is the whole derivation,
+and it runs in three places so they cannot disagree: in the browser over the
+live play history, in `scripts/prefetch.mjs` (which writes
+`public/data/albums.json` from a deeper pull than the feed's own cap, since an
+album is an archive rather than a feed), and at the edge, where the middleware
+resolves one for the crawler `<head>`.
+
+The address an album answers to is derived too — `albumSlug(title, artist)`
+gives `raven-by-kelela` — so nothing has to be stored for a link to keep
+working. It is lossy, so a slug resolves by comparing computed slugs across the
+index rather than by trusting uniqueness; the most-played album wins a fold.
+
+`/listening/albums` is the one literal segment under `/listening` that is not a
+play's record key (a teal rkey is a TID, and nothing stops one spelling a word),
+so `isAlbumPath` in [`og/records.js`](og/records.js) is checked before either
+the router or the middleware asks for a record.
+
+Open Graph: a play's card is drawn by `/api/og?play={rkey}` — the cover, the
+track, the artist, and the album named rather than implied. `/api/og?album={slug}`
+is one album's, and `/api/og?albums=1` draws the index as a shelf of covers.
+Artwork has no home in the play record, so it is resolved through Apple's
+catalogue from one of the album's plays (ISRC → Apple song id → track + artist;
+[`src/lib/musicIds.js`](src/lib/musicIds.js) is the ladder, shared by the
+browser, the `/api/albumart` proxy, and the card renderer) and inlined as bytes,
+so one dead cover can't take a card down with it.
+
 ## Mothing / iNaturalist
 
 `/mothing` reads moth observations for the iNaturalist user configured in
@@ -154,6 +188,7 @@ skips the prefetch (useful when a snapshot already exists).
 | `<head>` discoverability tags | [`src/components/AtUriHead.jsx`](src/components/AtUriHead.jsx) |
 | Atmosphere debug overlay | [`src/components/DebugPane.jsx`](src/components/DebugPane.jsx) |
 | Day-of-life math | [`src/lib/dayOfLife.js`](src/lib/dayOfLife.js) |
+| Albums, derived from plays | [`src/lib/albums.js`](src/lib/albums.js) |
 | Edge middleware (404s, meta, negotiation) | [`middleware.js`](middleware.js) |
 
 ## Machines reading the site

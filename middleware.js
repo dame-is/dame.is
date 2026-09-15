@@ -27,6 +27,8 @@
 import { pageMeta, PAGES, SITE, cleanPath, segsFor } from './og/pages.js';
 import {
   recordMeta,
+  albumMeta,
+  isAlbumPath,
   pieceMeta,
   participantMeta,
   participantsMeta,
@@ -344,14 +346,23 @@ export default async function middleware(request) {
     // than restated so the two can't drift. Ratioed's deeper leaves all live
     // under /creating, which is in it.
     const sectionSeg = segs[0];
+    // /listening/albums is a page and /listening/albums/:slug an album, and an
+    // album is derived rather than stored — so neither is a record route, even
+    // though both sit under a section whose leaves normally are. The album page
+    // still wants the record branch's treatment (its own card, its own title,
+    // a 404 when nothing answers to the slug), so it joins it by the side door.
+    const onAlbums = isAlbumPath(path);
+    const isOneAlbum = onAlbums && segs.length === 3;
     const isRecordRoute =
-      (segs.length === 2 && RECORD_SECTIONS.has(sectionSeg)) ||
+      (segs.length === 2 && RECORD_SECTIONS.has(sectionSeg) && !onAlbums) ||
+      isOneAlbum ||
       (segs.length >= 3 && segs.length <= 4 && sectionSeg === 'creating');
     if (isRecordRoute) {
       const sectionPath = `/${sectionSeg}`;
       const section = pageMeta(sectionPath);
-      const rec =
-        segs.length === 4
+      const rec = isOneAlbum
+        ? await albumMeta(path, url.origin)
+        : segs.length === 4
           ? await participantMeta(path, url.origin)
           : segs.length === 3
             ? (await participantsMeta(path, url.origin)) || (await pieceMeta(path, url.origin))
@@ -444,6 +455,11 @@ export default async function middleware(request) {
       // Hand the resolved copy to the card generator so it renders the same
       // description without re-fetching (mirrors the record-card path above).
       if (pageContent?.desc) ogParams.set('subtitle', pageContent.desc);
+      // The albums index draws its own covers rather than the section layout —
+      // a shelf is what the page is, the way a night's card is its moths. The
+      // `page` above rides along as the fallback: a renderer that can't read the
+      // index draws the ordinary card instead of an empty shelf.
+      if (onAlbums) ogParams.set('albums', '1');
       ogImage = `${ORIGIN}/api/og?${ogParams.toString()}`;
       atUri = topLevelAtUri(path);
       // Publication home pages advertise their publication for the embed.

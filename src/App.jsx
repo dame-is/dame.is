@@ -6,6 +6,8 @@ import About from './pages/About.jsx';
 import Posting from './pages/Posting.jsx';
 import Logging from './pages/Logging.jsx';
 import Listening from './pages/Listening.jsx';
+import ListeningAlbums from './pages/ListeningAlbums.jsx';
+import ListeningAlbum from './pages/ListeningAlbum.jsx';
 import Blogging from './pages/Blogging.jsx';
 import BlogPost from './pages/BlogPost.jsx';
 import Creating from './pages/Creating.jsx';
@@ -201,6 +203,13 @@ export default function App() {
                   <Route path="/posting" element={<Posting />} />
                   <Route path="/logging" element={<Logging />} />
                   <Route path="/listening" element={<Listening />} />
+                  {/* Albums are derived from the plays rather than scrobbled,
+                      so they live under /listening instead of at a verb of
+                      their own. `albums` is a static segment and so outranks
+                      the generated `/listening/:rkey` — a play whose record key
+                      spelled the word could never shadow the shelf. */}
+                  <Route path="/listening/albums" element={<ListeningAlbums />} />
+                  <Route path="/listening/albums/:slug" element={<ListeningAlbum />} />
                   <Route path="/blogging" element={<Blogging />} />
                   <Route path="/blogging/:slug" element={<BlogPost />} />
                   <Route path="/creating" element={<Creating />} />

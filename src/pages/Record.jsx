@@ -29,6 +29,7 @@ import {
 import { verbConfig, primaryNsid } from '../lib/verbRegistry.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
 import { playArtistLine, playTrackName } from '../lib/teal.js';
+import { albumIdentity, albumPath } from '../lib/albums.js';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { useFirstSightings } from '../hooks/useFirstSightings.js';
 import { isFirstSighting } from '../lib/firstSightings.js';
@@ -474,6 +475,11 @@ function AlbumArt({ payload }) {
   if (result.status !== 'hit') return null;
   const { art } = result;
   const release = payload?.releaseName || art.album || '';
+  // Only the play's OWN release name addresses an album page: the index groups
+  // on what the scrobble said, so a name Apple supplied instead (`art.album`)
+  // would compute a slug nothing in the play history answers to. Captioned
+  // either way, linked only when it's the record's.
+  const ownRelease = albumIdentity(payload);
   const alt = release
     ? `Album art for ${release}`
     : art.track
@@ -496,7 +502,13 @@ function AlbumArt({ payload }) {
           height="600"
         />
       </button>
-      {release && <figcaption className="listen-album-art-caption">{release}</figcaption>}
+      {release && (
+        <figcaption className="listen-album-art-caption">
+          {/* The record this song is off has a page of its own: every other
+              play of it, and the rest of its tracks. */}
+          {ownRelease ? <Link to={albumPath(ownRelease)}>{release}</Link> : release}
+        </figcaption>
+      )}
       <Lightbox
         open={lightboxOpen}
         onClose={() => setLightboxOpen(false)}

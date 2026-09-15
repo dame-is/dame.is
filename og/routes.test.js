@@ -87,6 +87,12 @@ describe('matchRoute', () => {
     expect(matchRoute('/creating/ratioed/participant/dame.is')).toBe(
       '/creating/:slug/participant/:handle',
     );
+    // Same, one level up: /listening/albums and /listening/:rkey are both two
+    // segments, and a teal rkey is a TID — nothing stops one spelling the word,
+    // so the shelf has to outrank it rather than merely usually beat it.
+    expect(matchRoute('/listening/albums')).toBe('/listening/albums');
+    expect(matchRoute('/listening/3msrio2ctbc2x')).toBe('/listening/:rkey');
+    expect(matchRoute('/listening/albums/raven-by-kelela')).toBe('/listening/albums/:slug');
   });
 
   it('matches the generated record routes', () => {

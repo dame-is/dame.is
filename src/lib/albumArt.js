@@ -1,13 +1,9 @@
-// Album art lookup for teal.fm play records.
+// Album art lookup for teal.fm play records — the browser half.
 //
-// We have three identifiers to play with on every play, in order of how
-// reliably they resolve to the right cover:
-//
-//   1. ISRC (recording identifier). Universal across services; works
-//      regardless of where the play was scrobbled from.
-//   2. Apple Music song id (the `?i=…` query param on the origin URL when the
-//      play came from Apple). Exact match when present.
-//   3. trackName + first artistName. Last-resort fuzzy text search.
+// The identifiers a play carries (ISRC, Apple song id, track + artist) and the
+// order to try them in live in src/lib/musicIds.js, because the same ladder is
+// climbed server-side by the /api/albumart proxy and by the OG card renderer.
+// This module is what a component calls: cache, de-duplicate, ask the proxy.
 //
 // The lookup goes through our own `/api/albumart` serverless proxy rather
 // than hitting iTunes from the browser directly: Apple's API sends no CORS
@@ -21,7 +17,7 @@
 // every re-render or page navigation. Hits are kept for 30 days, misses for
 // 1 day so a freshly released track can recover once its art is indexed.
 
-import { playArtistNames, playOriginUrl, playTrackName } from './teal.js';
+import { artCacheKey, artLookupFor, upscaleArtwork } from './musicIds.js';
 
 const ALBUM_ART_ENDPOINT = '/api/albumart';
 // v2: v1 read/wrote the cache on mismatched fields (stored `artworkUrl100`,
@@ -76,53 +72,6 @@ function cacheSet(key, entry) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Identifier extraction                                               */
-/* ------------------------------------------------------------------ */
-
-/**
- * Extract Apple Music's numeric song id from an origin URL like
- *   https://music.apple.com/us/album/hellfire/1613170781?i=1613171030
- * Apple's lookup API takes that song id directly.
- */
-function appleSongIdFrom(payload) {
-  const origin = playOriginUrl(payload);
-  if (!origin) return null;
-  try {
-    const u = new URL(origin);
-    if (!/(^|\.)music\.apple\.com$/.test(u.hostname)) return null;
-    const i = u.searchParams.get('i');
-    return i && /^\d+$/.test(i) ? i : null;
-  } catch {
-    return null;
-  }
-}
-
-function firstArtist(payload) {
-  return playArtistNames(payload)[0] || '';
-}
-
-function trackTitle(payload) {
-  return playTrackName(payload);
-}
-
-/**
- * Stable cache key for a payload. Prefers strong identifiers; falls back
- * to a normalized text key so search-based lookups also benefit from the
- * cache.
- */
-function cacheKeyFor(payload) {
-  const isrc = payload?.isrc;
-  if (isrc) return `isrc:${String(isrc).toUpperCase()}`;
-  const songId = appleSongIdFrom(payload);
-  if (songId) return `apple:${songId}`;
-  const track = trackTitle(payload).toLowerCase();
-  const artist = firstArtist(payload).toLowerCase();
-  if (track && artist) return `text:${track}|${artist}`;
-  if (track) return `text:${track}`;
-  return null;
-}
-
-/* ------------------------------------------------------------------ */
 /* iTunes API                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -138,28 +87,11 @@ async function fetchJson(url) {
  * server-side. Returns a row with `artworkUrl100`, or null on a miss.
  */
 async function resolveResult(payload) {
-  const params = new URLSearchParams();
-  if (payload?.isrc) params.set('isrc', String(payload.isrc));
-  const songId = appleSongIdFrom(payload);
-  if (songId) params.set('appleId', songId);
-  const track = trackTitle(payload);
-  if (track) params.set('track', track);
-  const artist = firstArtist(payload);
-  if (artist) params.set('artist', artist);
+  const params = new URLSearchParams(artLookupFor(payload));
   if (![...params.keys()].length) return null;
 
   const data = await fetchJson(`${ALBUM_ART_ENDPOINT}?${params}`);
   return data?.found && data.artworkUrl100 ? data : null;
-}
-
-/**
- * Replace the `100x100bb.jpg` (or whatever sized) suffix on Apple's
- * artwork URL with the requested size. Apple serves any size the URL
- * asks for. Falls back to the original URL if the pattern doesn't match.
- */
-function upscaleArtwork(url, size) {
-  if (!url) return null;
-  return url.replace(/\/\d+x\d+bb(-\d+)?\.(jpg|png|jpeg)$/i, `/${size}x${size}bb.jpg`);
 }
 
 /* ------------------------------------------------------------------ */
@@ -174,7 +106,7 @@ function upscaleArtwork(url, size) {
  * Pass `{ size }` to control the artwork resolution (default 600).
  */
 export async function albumArtFor(payload, { size = 600 } = {}) {
-  const key = cacheKeyFor(payload);
+  const key = artCacheKey(payload);
   if (!key) return null;
 
   const cached = cacheGet(key);
