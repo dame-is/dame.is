@@ -1528,10 +1528,6 @@ export default function RatioedStudio({ agent, did }) {
                   </span>
                 </span>
               )}
-              <button type="button" className="rs-alarm-seal" onClick={seal} disabled={!!busy}>
-                <Lock size={16} aria-hidden="true" />
-                {busy === 'seal' ? 'Sealing…' : 'Seal'}
-              </button>
             </div>
           )}
 
@@ -1576,12 +1572,18 @@ export default function RatioedStudio({ agent, did }) {
           <RatioedCounters tally={tally} />
 
           <div className="rs-actions">
-            {/* One seal button at a time: when the alarm is up it owns that
-                click, and two identical buttons a foot apart is how you hesitate
-                over which one is real. */}
-            {!justSealed && !seenLike && (
+            {/* ONE SEAL BUTTON, AND IT NEVER MOVES. The alarm used to carry a
+                second one inside its own box, on the argument that the thing you
+                look at and the thing you press should not be a foot apart; the
+                cost was that the button you had been looking at for forty
+                minutes vanished at the exact moment it was needed and a
+                differently-sized one appeared somewhere else. It stays here and
+                changes instead — bigger, and in the seal's own red (see
+                `.rs-live.liked .rs-seal`) — so the thumb that has been resting
+                over it is already over it. */}
+            {!justSealed && (
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
-                <Lock size={15} aria-hidden="true" />
+                <Lock size={alarming ? 17 : 15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal'}
               </button>
             )}
@@ -1642,6 +1644,37 @@ export default function RatioedStudio({ agent, did }) {
                 </button>
               )}
             </div>
+
+            {/* THE SOCKET, at the end of the row rather than on a line of its
+                own above the feed. One reading, and it is the one that moves:
+                a piece nobody has touched matches nothing for minutes, so the
+                rate is the only thing here that can tell a working socket from
+                a quiet one. It is resampled about once a second inside the
+                socket, on a 64-message mask, cheaper than the timestamp parse
+                already happening on every message. The two figures that used to
+                sit beside it were session totals — "N MB" and "N scanned" only
+                ever grew, and nothing anybody does during a vigil turns on
+                either — so they are on this one's `title` now rather than out
+                of the build, because what the watch costs in data is worth
+                being able to ask for. Earlier passes took the words the same
+                way: "As it happens" labelled a feed that is visibly happening,
+                "Live" said what the lit radio says, and "N matched" counted the
+                rows directly under it. */}
+            <span
+              className={`rs-stream is-${stream?.state || 'connecting'}`}
+              title={
+                stream?.state === 'open'
+                  ? `${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB pulled, ${(
+                      stream.msgs || 0
+                    ).toLocaleString()} records scanned`
+                  : undefined
+              }
+            >
+              <Radio size={12} aria-hidden="true" />
+              {stream?.state === 'open'
+                ? `${(stream.rate || 0).toLocaleString()} rec/s`
+                : stream?.state || 'connecting'}
+            </span>
           </div>
 
           {justSealed && (
@@ -1652,37 +1685,6 @@ export default function RatioedStudio({ agent, did }) {
           )}
 
           <div className="rs-feed">
-            {/* One reading, and it is the one that moves. A piece nobody has
-                touched matches nothing for minutes, so the rate is the only
-                thing on this line that can tell a working socket from a quiet
-                one — it is resampled about once a second inside the socket, on
-                a 64-message mask, cheaper than the timestamp parse already
-                happening on every message. The two figures beside it were
-                session totals: "N MB" and "N scanned" only ever grew, and
-                nothing anybody does during a vigil turns on either. They moved
-                to the rate's `title` rather than out of the build, because what
-                the watch costs in data is worth being able to ask for. Earlier
-                passes took the words the same way — "As it happens" labelled a
-                feed that is visibly happening, "Live" said what the lit radio
-                says, and "N matched" counted the rows directly under it. */}
-            <header className="rs-feed-head">
-              <span
-                className={`rs-feed-state is-${stream?.state || 'connecting'}`}
-                title={
-                  stream?.state === 'open'
-                    ? `${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB pulled, ${(
-                        stream.msgs || 0
-                      ).toLocaleString()} records scanned`
-                    : undefined
-                }
-              >
-                <Radio size={12} aria-hidden="true" />
-                {stream?.state === 'open'
-                  ? `${(stream.rate || 0).toLocaleString()} rec/s`
-                  : stream?.state || 'connecting'}
-              </span>
-            </header>
-
             {/* The rows the public deck shows, on the same markup it shows them
                 on: this feed and that one are the same list of the same
                 records, and they were once two implementations that had drifted
