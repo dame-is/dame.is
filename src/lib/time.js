@@ -169,6 +169,24 @@ export function formatDateShort(date) {
   return `${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
 }
 
+/* The months as a printed date abbreviates them: anything longer than four
+ * letters cut to three, except September, which is conventionally "Sept" and
+ * not "Sep". Deliberately not the mechanical three-letter cut `formatDateShort`
+ * makes — that one serves a column with no room to negotiate over a character. */
+const MONTHS_ABBREV = MONTHS.map((m, i) => (i === 8 ? 'Sept' : m.length > 4 ? m.slice(0, 3) : m));
+
+/**
+ * Middle-length date, e.g. "Sept 15, 2026", "June 27, 2025" — for a band that
+ * has room for a date but not for "September 15, 2026", the longest form a
+ * calendar can hand it. Same UTC parts as the other two, so all three name the
+ * same day.
+ */
+export function formatDateAbbrev(date) {
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${MONTHS_ABBREV[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+}
+
 export function formatTime(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';

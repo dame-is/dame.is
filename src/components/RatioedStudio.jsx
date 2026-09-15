@@ -1450,6 +1450,10 @@ export default function RatioedStudio({ agent, did }) {
   // Null when only the AppView poll has seen it: that answers WHO but not the
   // instant, and a stopwatch counting from a guess is worse than no stopwatch.
   const likeAtMs = streamLike && live ? Date.parse(live.postedAt) + streamLike.offMs : null;
+  // A like has landed and nothing has been sealed yet: the panel is an alarm.
+  // Named once because three things below key off exactly this state — the
+  // panel's own colour, the alarm box, and the state line it speaks for.
+  const alarming = seenLike && !justSealed;
 
   return (
     // `.rs-root` earns its place twice over. It is where the three --ratioed-*
@@ -1488,7 +1492,7 @@ export default function RatioedStudio({ agent, did }) {
       ) : live ? (
         <section
           style={scale}
-          className={`rs-live${justSealed ? '' : seenLike ? ' liked' : withdrawn ? ' withdrawn' : ''}`}
+          className={`rs-live${alarming ? ' liked' : !justSealed && withdrawn ? ' withdrawn' : ''}`}
         >
           <header className="rs-live-head">
             <span className="rs-live-take">take {pieceSlug(live)}</span>
@@ -1504,7 +1508,7 @@ export default function RatioedStudio({ agent, did }) {
               one more row in a feed — it takes the top of the panel, in the
               complement of the hour every other mark here is drawn in, with the
               button that ends it inside the same box. */}
-          {seenLike && !justSealed && (
+          {alarming && (
             <div className="rs-alarm" role="alert">
               <RatioedChip kind="like" size="lg" />
               <span className="rs-alarm-who">
@@ -1524,43 +1528,62 @@ export default function RatioedStudio({ agent, did }) {
                   </span>
                 </span>
               )}
-              <button type="button" className="rs-alarm-seal" onClick={seal} disabled={!!busy}>
-                <Lock size={16} aria-hidden="true" />
-                {busy === 'seal' ? 'Sealing…' : 'Seal'}
-              </button>
             </div>
           )}
 
-          <p className="rs-live-state">
-            {justSealed && error ? (
-              <>
-                Sealed at {new Date(sealed.sealedAt).toLocaleTimeString()}, and the measurement
-                failed. The seal is on the record; nothing else is. Measure it again — the index is
-                the part that was unreachable, and it is the only part still missing.
-              </>
-            ) : justSealed ? (
-              <>Sealed. Reading its records&hellip;</>
-            ) : withdrawn ? (
-              <>
-                Somebody liked it and <strong>un-liked it</strong>. Nothing is standing against it
-                now — seal it or let it run.
-              </>
-            ) : firstLike ? (
-              <>
-                <strong>@{firstLike.actor?.handle || 'somebody'}</strong> liked it. Seal it.
-              </>
-            ) : (
-              'Nobody has liked it yet.'
-            )}
-          </p>
+          {/* The panel speaks in words only where words are the answer: it has
+              been sealed, or somebody liked it and took it back. The other two
+              states have something better to speak with. The alarm is its own
+              box — it already names who liked it and holds the button, so a line
+              repeating that was furniture, and worse than furniture: `seenLike`
+              is true the moment the STREAM sees a like, while this line's own
+              reading came from the AppView poll a beat behind it, so for those
+              seconds the panel shouted a like over the words "Nobody has liked
+              it yet." And the ordinary state — nothing has happened — is now
+              said by the counts below, which say it as `0 likes` and say four
+              more things in the same line. */}
+          {(justSealed || withdrawn) && !alarming && (
+            <p className="rs-live-state">
+              {justSealed && error ? (
+                <>
+                  Sealed at {new Date(sealed.sealedAt).toLocaleTimeString()}, and the measurement
+                  failed. The seal is on the record; nothing else is. Measure it again — the index is
+                  the part that was unreachable, and it is the only part still missing.
+                </>
+              ) : justSealed ? (
+                <>Sealed. Reading its records&hellip;</>
+              ) : (
+                <>
+                  Somebody liked it and <strong>un-liked it</strong>. Nothing is standing against it
+                  now — seal it or let it run.
+                </>
+              )}
+            </p>
+          )}
+
+          {/* The counts, in the panel rather than in the feed. They are about
+              the PIECE — what it has drawn, and from how many people — which is
+              what everything above this line is about; under the feed's own
+              header they sat in among the socket's readings instead, a bordered
+              band of their own, with the sentence they make redundant a hundred
+              pixels above them. In the ordinary state they ARE the sentence.
+              Same component and same figures the public deck and the replay
+              draw. */}
+          <RatioedCounters tally={tally} />
 
           <div className="rs-actions">
-            {/* One seal button at a time: when the alarm is up it owns that
-                click, and two identical buttons a foot apart is how you hesitate
-                over which one is real. */}
-            {!justSealed && !seenLike && (
+            {/* ONE SEAL BUTTON, AND IT NEVER MOVES. The alarm used to carry a
+                second one inside its own box, on the argument that the thing you
+                look at and the thing you press should not be a foot apart; the
+                cost was that the button you had been looking at for forty
+                minutes vanished at the exact moment it was needed and a
+                differently-sized one appeared somewhere else. It stays here and
+                changes instead — bigger, and in the seal's own red (see
+                `.rs-live.liked .rs-seal`) — so the thumb that has been resting
+                over it is already over it. */}
+            {!justSealed && (
               <button type="button" className="rs-seal" onClick={seal} disabled={!!busy}>
-                <Lock size={15} aria-hidden="true" />
+                <Lock size={alarming ? 17 : 15} aria-hidden="true" />
                 {busy === 'seal' ? 'Sealing…' : 'Seal'}
               </button>
             )}
@@ -1621,6 +1644,37 @@ export default function RatioedStudio({ agent, did }) {
                 </button>
               )}
             </div>
+
+            {/* THE SOCKET, at the end of the row rather than on a line of its
+                own above the feed. One reading, and it is the one that moves:
+                a piece nobody has touched matches nothing for minutes, so the
+                rate is the only thing here that can tell a working socket from
+                a quiet one. It is resampled about once a second inside the
+                socket, on a 64-message mask, cheaper than the timestamp parse
+                already happening on every message. The two figures that used to
+                sit beside it were session totals — "N MB" and "N scanned" only
+                ever grew, and nothing anybody does during a vigil turns on
+                either — so they are on this one's `title` now rather than out
+                of the build, because what the watch costs in data is worth
+                being able to ask for. Earlier passes took the words the same
+                way: "As it happens" labelled a feed that is visibly happening,
+                "Live" said what the lit radio says, and "N matched" counted the
+                rows directly under it. */}
+            <span
+              className={`rs-stream is-${stream?.state || 'connecting'}`}
+              title={
+                stream?.state === 'open'
+                  ? `${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB pulled, ${(
+                      stream.msgs || 0
+                    ).toLocaleString()} records scanned`
+                  : undefined
+              }
+            >
+              <Radio size={12} aria-hidden="true" />
+              {stream?.state === 'open'
+                ? `${(stream.rate || 0).toLocaleString()} rec/s`
+                : stream?.state || 'connecting'}
+            </span>
           </div>
 
           {justSealed && (
@@ -1631,38 +1685,12 @@ export default function RatioedStudio({ agent, did }) {
           )}
 
           <div className="rs-feed">
-            {/* Throughput, not just cost. A piece nobody has touched matches
-                nothing for minutes and a byte counter that only moved on a
-                match read as broken for exactly as long as it was working. The
-                rate is resampled about once a second inside the socket, on a
-                64-message mask — cheaper than the timestamp parse already
-                happening on every message.
-
-                Four words have come off this line. "As it happens" labelled a
-                feed that is visibly happening. "Live" said what the lit radio
-                beside it says. "N matched" is the number of rows directly under
-                it, counted twice. What is left is the two figures that are NOT
-                on screen anywhere else: what the socket is pulling, and how
-                much of the network it has been through to find those rows. */}
-            <header className="rs-feed-head">
-              <span className={`rs-feed-state is-${stream?.state || 'connecting'}`}>
-                <Radio size={12} aria-hidden="true" />
-                {stream?.state === 'open'
-                  ? `${(stream.rate || 0).toLocaleString()} rec/s · ${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB`
-                  : stream?.state || 'connecting'}
-              </span>
-              {stream?.msgs > 0 && (
-                <span className="rs-feed-scan">{stream.msgs.toLocaleString()} scanned</span>
-              )}
-            </header>
-
-            {/* The counts the public deck shows, on the same rows it shows
-                them on: this feed and that one are the same list of the same
-                records, and until now they were two implementations that had
-                drifted apart on avatars, spacing and what a withdrawn row
-                looks like. What the studio adds is the three buttons and the
-                composer, which arrive as render props. */}
-            <RatioedCounters tally={tally} />
+            {/* The rows the public deck shows, on the same markup it shows them
+                on: this feed and that one are the same list of the same
+                records, and they were once two implementations that had drifted
+                apart on avatars, spacing and what a withdrawn row looks like.
+                What the studio adds is the three buttons and the composer,
+                which arrive as render props. */}
             <RatioedTicker
               rows={feed}
               profiles={profiles}
