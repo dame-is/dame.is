@@ -188,6 +188,25 @@ npm run dev               # Vite dev server on http://localhost:5173
 `npm run build` runs the prefetch script, then `vite build`. `npm run build:offline`
 skips the prefetch (useful when a snapshot already exists).
 
+### The `sharp` override
+
+`package.json` pins `sharp` to `^0.35.4` through `overrides`, and that pin is
+load-bearing rather than tidy-minded. `@vercel/og` declares `sharp` as an
+_optional_ dependency and **prefers it over its WASM fallback**: given both, it
+rasterizes every Open Graph card with libvips rather than resvg. At `0.11.1` it
+asks for `^0.34.5`, which no top-level range can lift, so without the override a
+second, older copy lands under `node_modules/@vercel/og/` and that is the one
+`/api/og` runs — carrying libvips and libheif CVEs into a function that decodes
+remote images (album covers, moth photographs).
+
+Which rasterizer a deployment actually used is readable off the card: libvips
+writes a `pHYs` chunk and splits the pixel data into 8 KB `IDAT` chunks, resvg
+writes one `IDAT` and no `pHYs`.
+
+Dropping the override doesn't break anything visibly, which is exactly why it is
+written down here. Removing `sharp` from `devDependencies` would not help either
+— the copy that mattered was `@vercel/og`'s own.
+
 ## Architecture
 
 | Concept | Lives in |
