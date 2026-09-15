@@ -257,6 +257,19 @@
   color: #fff;
 }
 
+/* The counts, in the panel now rather than under the feed's own header (see
+   RatioedStudio.jsx). Two things follow from the move. The band's top rule is
+   the divider between what the piece is DOING — the clock, the chase — and what
+   it has DRAWN, so it stays; the bottom one drew a line directly above the seal
+   row's own top margin and said nothing the gap did not, so it goes. And the
+   figures are the panel's voice in the ordinary state, where there is no
+   sentence above them, so they keep the room to be read. */
+.rs-live > .ratioed-live-counters {
+  margin-block: var(--space-4) 0;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
 /* --- the alarm ------------------------------------------------------- */
 
 /* A like has landed and the reaction time is running. Everything else in this
@@ -387,13 +400,12 @@
    of this would fire on a pane that is narrow beside a wide window.
 
    WHAT THIS BLOCK IS FOR. Everything above the feed is instrumentation — the
-   clock, the chase, the state, the seal, the socket, the counts — and on a
-   phone it stood a third of a screen tall before the feed, the one part of this
-   panel that is the piece actually happening, got a row. Nothing below removes
-   a figure or a control: what comes out is the air between them, a second copy
-   of a rule, and a line break that was never needed. Measured in the harness,
-   panel top to the first feed row: 370px → 283 at 320 wide, 347 → 259 at 360,
-   326 → 259 at 390. */
+   clock, the chase, the counts, the seal, the socket — and on a phone it stood
+   a third of a screen tall before the feed, the one part of this panel that is
+   the piece actually happening, got a row. Nothing below removes a figure or a
+   control: what comes out is the air between them, a second copy of a rule, and
+   a line break that was never needed. Measured in the harness, panel top to the
+   first feed row: 370px → 250 at 320 wide, 347 → 227 at 360, 326 → 227 at 390. */
 @container wbpane (max-width: 34rem) {
   .rs-series-list li { flex-direction: column; gap: 0; }
   /* 24px of inset on each side of a 358px pane is 13% of the panel spent on
@@ -414,26 +426,28 @@
   .rs-live .rr-chase { margin-top: var(--space-2); }
   .rs-live .rr-say { margin-top: var(--space-1); font-size: var(--text-xs); }
 
-  /* The panel's sentence, at the size of a sentence rather than a headline.
-     --text-lg is inherited from the wide layout, where it is the loudest thing
-     on a panel with room to be loud; here it competes with the clock above it
-     for a screen that has one thing to say. The alarm is what shouts, and the
-     alarm has its own box, its own colour and 2px of border to shout with. */
+  /* The panel's sentence — sealed, or liked and un-liked — at the size of a
+     sentence rather than a headline. Both of them are two or three lines at
+     this width, and --text-lg sets a paragraph competing with the clock above
+     it on a screen that has one thing to say. Nothing is lost by the drop: the
+     state that has to shout is the alarm, and the alarm shouts in its own box,
+     in its own colour, behind 2px of border. */
   .rs-live-state { font-size: var(--text-base); margin-top: var(--space-2); }
   .rs-live .rs-actions { margin-top: var(--space-3); }
 
-  /* One rule between the panel and the feed, not three. `.rs-feed` draws the
-     divider; the counters' own top border drew a second one 30px under it with
-     the socket's line boxed between them, and the two margins facing each other
-     across that line added a third gap for nothing. The counters keep their
-     bottom border, which is the feed's ceiling. */
+  /* The counts, tight to the rule above them: at this width they are one
+     wrapped line of figures rather than the wide layout's dashboard, and the
+     band's padding was cut for the dashboard. */
+  .rs-live > .ratioed-live-counters {
+    margin-block: var(--space-2) 0;
+    padding-block: var(--space-2) 0;
+  }
+
+  /* One rule between the panel and the feed, and one line under it. The feed
+     holds the socket's reading and the rows; everything about the piece itself
+     is above the rule now. */
   .rs-feed { margin-top: var(--space-3); padding-top: var(--space-2); }
   .rs-feed-head { margin-bottom: var(--space-1); }
-  .rs-feed .ratioed-live-counters {
-    margin-block: 0 var(--space-2);
-    padding-top: 0;
-    border-top: 0;
-  }
 }
 
 /* --- the live feed -------------------------------------------------- */
@@ -461,6 +475,10 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  /* The rate is resampled about once a second, so it is a figure being read
+     while it moves: tabular digits keep the word after it from stepping left
+     and right as the number changes width. */
+  font-variant-numeric: tabular-nums;
 }
 .rs-feed-state.is-open { color: var(--ratioed-reply); }
 /* Between sockets. The stream reconnects itself on a backoff and there is
@@ -477,7 +495,6 @@
    composer under it. The ticker's own scroller is 24em; the studio's panel is
    inside a pane with a seal button above it, so it keeps a shorter one. */
 .rs-feed .ratioed-live-scroll { max-height: 22em; }
-.rs-feed-scan { font-variant-numeric: tabular-nums; }
 
 /* --- acting on a row ------------------------------------------------- */
 

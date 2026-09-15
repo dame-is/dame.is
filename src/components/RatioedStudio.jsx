@@ -1535,15 +1535,18 @@ export default function RatioedStudio({ agent, did }) {
             </div>
           )}
 
-          {/* The panel's one sentence, and the alarm speaks for it while there
-              is one: the box above already names who liked it and holds the
-              button, so a line repeating that is furniture on the one screen
-              where a phone has none to spare — and it was worse than furniture.
-              `seenLike` is true the moment the STREAM sees a like; this line's
-              own `firstLike` came from the AppView poll a beat behind it, so in
-              the seconds between the two the panel shouted a like over the words
-              "Nobody has liked it yet." */}
-          {!alarming && (
+          {/* The panel speaks in words only where words are the answer: it has
+              been sealed, or somebody liked it and took it back. The other two
+              states have something better to speak with. The alarm is its own
+              box — it already names who liked it and holds the button, so a line
+              repeating that was furniture, and worse than furniture: `seenLike`
+              is true the moment the STREAM sees a like, while this line's own
+              reading came from the AppView poll a beat behind it, so for those
+              seconds the panel shouted a like over the words "Nobody has liked
+              it yet." And the ordinary state — nothing has happened — is now
+              said by the counts below, which say it as `0 likes` and say four
+              more things in the same line. */}
+          {(justSealed || withdrawn) && !alarming && (
             <p className="rs-live-state">
               {justSealed && error ? (
                 <>
@@ -1553,16 +1556,24 @@ export default function RatioedStudio({ agent, did }) {
                 </>
               ) : justSealed ? (
                 <>Sealed. Reading its records&hellip;</>
-              ) : withdrawn ? (
+              ) : (
                 <>
                   Somebody liked it and <strong>un-liked it</strong>. Nothing is standing against it
                   now — seal it or let it run.
                 </>
-              ) : (
-                'Nobody has liked it yet.'
               )}
             </p>
           )}
+
+          {/* The counts, in the panel rather than in the feed. They are about
+              the PIECE — what it has drawn, and from how many people — which is
+              what everything above this line is about; under the feed's own
+              header they sat in among the socket's readings instead, a bordered
+              band of their own, with the sentence they make redundant a hundred
+              pixels above them. In the ordinary state they ARE the sentence.
+              Same component and same figures the public deck and the replay
+              draw. */}
+          <RatioedCounters tally={tally} />
 
           <div className="rs-actions">
             {/* One seal button at a time: when the alarm is up it owns that
@@ -1641,38 +1652,43 @@ export default function RatioedStudio({ agent, did }) {
           )}
 
           <div className="rs-feed">
-            {/* Throughput, not just cost. A piece nobody has touched matches
-                nothing for minutes and a byte counter that only moved on a
-                match read as broken for exactly as long as it was working. The
-                rate is resampled about once a second inside the socket, on a
-                64-message mask — cheaper than the timestamp parse already
-                happening on every message.
-
-                Four words have come off this line. "As it happens" labelled a
-                feed that is visibly happening. "Live" said what the lit radio
-                beside it says. "N matched" is the number of rows directly under
-                it, counted twice. What is left is the two figures that are NOT
-                on screen anywhere else: what the socket is pulling, and how
-                much of the network it has been through to find those rows. */}
+            {/* One reading, and it is the one that moves. A piece nobody has
+                touched matches nothing for minutes, so the rate is the only
+                thing on this line that can tell a working socket from a quiet
+                one — it is resampled about once a second inside the socket, on
+                a 64-message mask, cheaper than the timestamp parse already
+                happening on every message. The two figures beside it were
+                session totals: "N MB" and "N scanned" only ever grew, and
+                nothing anybody does during a vigil turns on either. They moved
+                to the rate's `title` rather than out of the build, because what
+                the watch costs in data is worth being able to ask for. Earlier
+                passes took the words the same way — "As it happens" labelled a
+                feed that is visibly happening, "Live" said what the lit radio
+                says, and "N matched" counted the rows directly under it. */}
             <header className="rs-feed-head">
-              <span className={`rs-feed-state is-${stream?.state || 'connecting'}`}>
+              <span
+                className={`rs-feed-state is-${stream?.state || 'connecting'}`}
+                title={
+                  stream?.state === 'open'
+                    ? `${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB pulled, ${(
+                        stream.msgs || 0
+                      ).toLocaleString()} records scanned`
+                    : undefined
+                }
+              >
                 <Radio size={12} aria-hidden="true" />
                 {stream?.state === 'open'
-                  ? `${(stream.rate || 0).toLocaleString()} rec/s · ${((stream.bytes || 0) / 1024 / 1024).toFixed(1)} MB`
+                  ? `${(stream.rate || 0).toLocaleString()} rec/s`
                   : stream?.state || 'connecting'}
               </span>
-              {stream?.msgs > 0 && (
-                <span className="rs-feed-scan">{stream.msgs.toLocaleString()} scanned</span>
-              )}
             </header>
 
-            {/* The counts the public deck shows, on the same rows it shows
-                them on: this feed and that one are the same list of the same
-                records, and until now they were two implementations that had
-                drifted apart on avatars, spacing and what a withdrawn row
-                looks like. What the studio adds is the three buttons and the
-                composer, which arrive as render props. */}
-            <RatioedCounters tally={tally} />
+            {/* The rows the public deck shows, on the same markup it shows them
+                on: this feed and that one are the same list of the same
+                records, and they were once two implementations that had drifted
+                apart on avatars, spacing and what a withdrawn row looks like.
+                What the studio adds is the three buttons and the composer,
+                which arrive as render props. */}
             <RatioedTicker
               rows={feed}
               profiles={profiles}
