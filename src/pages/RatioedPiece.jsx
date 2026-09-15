@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
-import { formatDateFull } from '../lib/time.js';
+import { formatDateAbbrev } from '../lib/time.js';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import {
   SEED_PIECES,
@@ -898,8 +898,20 @@ function provenanceColumns(piece) {
   // minutes, which is both useless and, on a page whose entire subject is a
   // duration, actively misleading — the one elapsed time a piece has is how
   // long it stood.
+  // The month is abbreviated where every other document band on the site spells
+  // it out, and the difference is the third column. A blog post's band carries a
+  // date, an elapsed time and maybe a tag, all of them short; a piece's carries a
+  // date, a duration and a record key, and the key is thirteen characters that
+  // cannot be shortened. "September 15, 2026" left the three columns touching
+  // their dividers on a phone. "Sept 15, 2026" is the same day with room around
+  // it, and it is still a date read at a glance rather than the ISO form below.
   const columns = [
-    { key: 'date', label: 'Posted', long: formatDateFull(piece.postedAt), short: day(piece.postedAt) },
+    {
+      key: 'date',
+      label: 'Posted',
+      long: formatDateAbbrev(piece.postedAt),
+      short: day(piece.postedAt),
+    },
     piece.sealedAt
       ? {
           key: 'stood',

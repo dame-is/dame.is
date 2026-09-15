@@ -7,6 +7,7 @@ import {
   formatDayLabel,
   formatDayShortLabel,
   formatDateLong,
+  formatDateAbbrev,
   formatDateFull,
   formatDateShort,
   formatWallClockTime,
@@ -149,6 +150,23 @@ describe('formatDateLong / formatDateFull (UTC-based)', () => {
     expect(formatDateShort('2025-03-07T12:00:00Z')).toBe('Mar 7, 2025');
     expect(formatDateShort('2025-06-27T12:00:00Z')).toBe('Jun 27, 2025');
     expect(formatDateShort('bad')).toBe('');
+  });
+
+  it('formatDateAbbrev cuts only the months longer than four letters', () => {
+    expect(formatDateAbbrev('2026-09-15T12:00:00Z')).toBe('Sept 15, 2026');
+    expect(formatDateAbbrev('2025-06-27T12:00:00Z')).toBe('June 27, 2025');
+    expect(formatDateAbbrev('2025-07-04T12:00:00Z')).toBe('July 4, 2025');
+    expect(formatDateAbbrev('2025-03-07T12:00:00Z')).toBe('Mar 7, 2025');
+    expect(formatDateAbbrev('2025-05-01T12:00:00Z')).toBe('May 1, 2025');
+    expect(formatDateAbbrev('2025-12-27T12:00:00Z')).toBe('Dec 27, 2025');
+    expect(formatDateAbbrev('bad')).toBe('');
+  });
+
+  it('all three name the same day, whatever they spell the month', () => {
+    const iso = '2026-09-15T23:30:00Z';
+    for (const f of [formatDateFull, formatDateAbbrev, formatDateShort]) {
+      expect(f(iso)).toMatch(/ 15, 2026$/);
+    }
   });
 });
 

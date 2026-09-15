@@ -195,6 +195,11 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  /* Wrapping is the backstop the narrow layout used to hardcode: two words and
+     a stopwatch fit one line at 320px with room to spare, and if a take number
+     or a lifespan ever outgrows that, the clock drops to its own line by
+     itself rather than by a breakpoint deciding in advance that it must. */
+  flex-wrap: wrap;
   gap: var(--space-4);
   border-bottom: 1px solid var(--rule-soft);
   padding-bottom: var(--space-2);
@@ -221,7 +226,9 @@
   border-color: var(--ratioed-seal);
   border-width: 2px;
 }
-.rs-live.liked .rs-live-state { color: var(--ratioed-seal); }
+/* No `.rs-live.liked .rs-live-state` rule any more: that state is exactly when
+   the alarm box is up, and the alarm speaks for the panel — see the state line
+   in RatioedStudio.jsx, which is not rendered underneath it. */
 
 /* The seal button takes `.admin-gate-button`'s voice — 14px sans, all-small-caps,
    0.18em — rather than the 15.2px sentence-case serif it had, so the studio's
@@ -376,11 +383,18 @@
 .rs-series-meta { color: var(--ink-muted); overflow-wrap: anywhere; }
 
 /* Pane width, not viewport width: the workbench detail pane is its own `wbpane`
-   container and can be under 34rem at any screen size. As a viewport query the
-   take number and the clock stayed on one line long after the line had run out
-   of room. */
+   container and can be under 34rem at any screen size. As a viewport query none
+   of this would fire on a pane that is narrow beside a wide window.
+
+   WHAT THIS BLOCK IS FOR. Everything above the feed is instrumentation — the
+   clock, the chase, the state, the seal, the socket, the counts — and on a
+   phone it stood a third of a screen tall before the feed, the one part of this
+   panel that is the piece actually happening, got a row. Nothing below removes
+   a figure or a control: what comes out is the air between them, a second copy
+   of a rule, and a line break that was never needed. Measured in the harness,
+   panel top to the first feed row: 370px → 283 at 320 wide, 347 → 259 at 360,
+   326 → 259 at 390. */
 @container wbpane (max-width: 34rem) {
-  .rs-live-head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
   .rs-series-list li { flex-direction: column; gap: 0; }
   /* 24px of inset on each side of a 358px pane is 13% of the panel spent on
      margin, and the feed row inside it is the widest thing in the studio — the
@@ -388,6 +402,38 @@
      still says where the panel is at 12px. */
   .rs-live,
   .rs-announce { padding: var(--space-3); }
+
+  /* The chase, tightened to what it draws: a 6px bar and the sentence reading
+     it. That sentence is the longest run of prose in the instrument — "38m23s
+     from take 14's record of 42m09s. Past 8 of 16.", and longer again once a
+     take runs past the hour — and at --text-sm it wraps to two lines on a 320
+     or 360px screen, and on a 390px one as soon as either figure is hours.
+     Measured at 360px: 42px against 18px. --text-xs holds it to one line for
+     every sentence the series has produced, and it is the size the panel's
+     other reading, the socket's own rate, is already set in. */
+  .rs-live .rr-chase { margin-top: var(--space-2); }
+  .rs-live .rr-say { margin-top: var(--space-1); font-size: var(--text-xs); }
+
+  /* The panel's sentence, at the size of a sentence rather than a headline.
+     --text-lg is inherited from the wide layout, where it is the loudest thing
+     on a panel with room to be loud; here it competes with the clock above it
+     for a screen that has one thing to say. The alarm is what shouts, and the
+     alarm has its own box, its own colour and 2px of border to shout with. */
+  .rs-live-state { font-size: var(--text-base); margin-top: var(--space-2); }
+  .rs-live .rs-actions { margin-top: var(--space-3); }
+
+  /* One rule between the panel and the feed, not three. `.rs-feed` draws the
+     divider; the counters' own top border drew a second one 30px under it with
+     the socket's line boxed between them, and the two margins facing each other
+     across that line added a third gap for nothing. The counters keep their
+     bottom border, which is the feed's ceiling. */
+  .rs-feed { margin-top: var(--space-3); padding-top: var(--space-2); }
+  .rs-feed-head { margin-bottom: var(--space-1); }
+  .rs-feed .ratioed-live-counters {
+    margin-block: 0 var(--space-2);
+    padding-top: 0;
+    border-top: 0;
+  }
 }
 
 /* --- the live feed -------------------------------------------------- */

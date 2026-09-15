@@ -1450,6 +1450,10 @@ export default function RatioedStudio({ agent, did }) {
   // Null when only the AppView poll has seen it: that answers WHO but not the
   // instant, and a stopwatch counting from a guess is worse than no stopwatch.
   const likeAtMs = streamLike && live ? Date.parse(live.postedAt) + streamLike.offMs : null;
+  // A like has landed and nothing has been sealed yet: the panel is an alarm.
+  // Named once because three things below key off exactly this state — the
+  // panel's own colour, the alarm box, and the state line it speaks for.
+  const alarming = seenLike && !justSealed;
 
   return (
     // `.rs-root` earns its place twice over. It is where the three --ratioed-*
@@ -1488,7 +1492,7 @@ export default function RatioedStudio({ agent, did }) {
       ) : live ? (
         <section
           style={scale}
-          className={`rs-live${justSealed ? '' : seenLike ? ' liked' : withdrawn ? ' withdrawn' : ''}`}
+          className={`rs-live${alarming ? ' liked' : !justSealed && withdrawn ? ' withdrawn' : ''}`}
         >
           <header className="rs-live-head">
             <span className="rs-live-take">take {pieceSlug(live)}</span>
@@ -1504,7 +1508,7 @@ export default function RatioedStudio({ agent, did }) {
               one more row in a feed — it takes the top of the panel, in the
               complement of the hour every other mark here is drawn in, with the
               button that ends it inside the same box. */}
-          {seenLike && !justSealed && (
+          {alarming && (
             <div className="rs-alarm" role="alert">
               <RatioedChip kind="like" size="lg" />
               <span className="rs-alarm-who">
@@ -1531,28 +1535,34 @@ export default function RatioedStudio({ agent, did }) {
             </div>
           )}
 
-          <p className="rs-live-state">
-            {justSealed && error ? (
-              <>
-                Sealed at {new Date(sealed.sealedAt).toLocaleTimeString()}, and the measurement
-                failed. The seal is on the record; nothing else is. Measure it again — the index is
-                the part that was unreachable, and it is the only part still missing.
-              </>
-            ) : justSealed ? (
-              <>Sealed. Reading its records&hellip;</>
-            ) : withdrawn ? (
-              <>
-                Somebody liked it and <strong>un-liked it</strong>. Nothing is standing against it
-                now — seal it or let it run.
-              </>
-            ) : firstLike ? (
-              <>
-                <strong>@{firstLike.actor?.handle || 'somebody'}</strong> liked it. Seal it.
-              </>
-            ) : (
-              'Nobody has liked it yet.'
-            )}
-          </p>
+          {/* The panel's one sentence, and the alarm speaks for it while there
+              is one: the box above already names who liked it and holds the
+              button, so a line repeating that is furniture on the one screen
+              where a phone has none to spare — and it was worse than furniture.
+              `seenLike` is true the moment the STREAM sees a like; this line's
+              own `firstLike` came from the AppView poll a beat behind it, so in
+              the seconds between the two the panel shouted a like over the words
+              "Nobody has liked it yet." */}
+          {!alarming && (
+            <p className="rs-live-state">
+              {justSealed && error ? (
+                <>
+                  Sealed at {new Date(sealed.sealedAt).toLocaleTimeString()}, and the measurement
+                  failed. The seal is on the record; nothing else is. Measure it again — the index is
+                  the part that was unreachable, and it is the only part still missing.
+                </>
+              ) : justSealed ? (
+                <>Sealed. Reading its records&hellip;</>
+              ) : withdrawn ? (
+                <>
+                  Somebody liked it and <strong>un-liked it</strong>. Nothing is standing against it
+                  now — seal it or let it run.
+                </>
+              ) : (
+                'Nobody has liked it yet.'
+              )}
+            </p>
+          )}
 
           <div className="rs-actions">
             {/* One seal button at a time: when the alarm is up it owns that
