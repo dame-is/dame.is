@@ -207,7 +207,28 @@ Dropping the override doesn't break anything visibly, which is exactly why it is
 written down here. Removing `sharp` from `devDependencies` would not help either
 — the copy that mattered was `@vercel/og`'s own.
 
-## Architecture
+### Dependency maintenance needs npm 11+
+
+`npm update` and `npm audit fix` crash on this dependency set under npm 10:
+
+```
+npm error Cannot read properties of null (reading 'edgesOut')
+```
+
+It is an upstream bug — a null node while arborist recurses a peer-dependency
+chain (`#loadPeerSet` in `build-ideal-tree.js`), nothing this repo can correct —
+and it is why a batch of advisories once sat unfixed: the command that was
+supposed to fix them was the thing failing. npm 11 and 12 resolve the same tree
+without complaint, so reach for one when a lockfile needs rewriting:
+
+```sh
+npx -y npm@12 update
+```
+
+Nothing is pinned to enforce that, deliberately. `npm ci` — the only npm command
+CI and Vercel run — works fine on npm 10, so a `packageManager` field would
+change how production installs in order to fix a command production never runs.
+
 
 | Concept | Lives in |
 |---|---|
