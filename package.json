@@ -35,7 +35,10 @@
     "obscenity": "^0.4.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.27.0"
+    "react-router-dom": "^6.30.6"
+  },
+  "overrides": {
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -45,8 +48,8 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.7.0",
     "prettier": "^3.9.5",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "vite": "^6.4.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
