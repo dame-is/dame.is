@@ -8,48 +8,10 @@
 // CDN-cached (`s-maxage`) — the first viewer of a track warms the cache for
 // everyone else, which also keeps us clear of iTunes' per-IP rate limit.
 //
-// Identifier ladder, most reliable first (mirrors the client's old logic):
-//   1. ISRC        — recording id, universal across services.
-//   2. Apple song id — exact match when the play came from Apple Music.
-//   3. track + artist — last-resort fuzzy text search.
+// The identifier ladder itself lives in api/_lib/itunes.js, shared with the OG
+// card renderer, which resolves covers with no browser to proxy for.
 
-const ITUNES_LOOKUP = 'https://itunes.apple.com/lookup';
-const ITUNES_SEARCH = 'https://itunes.apple.com/search';
-
-async function fetchJson(url) {
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
-  if (!res.ok) throw new Error(`iTunes ${res.status}`);
-  return res.json();
-}
-
-async function resolve({ isrc, appleId, track, artist }) {
-  if (isrc) {
-    const data = await fetchJson(
-      `${ITUNES_LOOKUP}?isrc=${encodeURIComponent(isrc)}&entity=song&limit=1`,
-    );
-    const hit = (data?.results || []).find((r) => r?.artworkUrl100);
-    if (hit) return hit;
-  }
-
-  if (appleId) {
-    const data = await fetchJson(
-      `${ITUNES_LOOKUP}?id=${encodeURIComponent(appleId)}&entity=song&limit=1`,
-    );
-    const hit = (data?.results || []).find((r) => r?.artworkUrl100);
-    if (hit) return hit;
-  }
-
-  if (track) {
-    const term = [track, artist].filter(Boolean).join(' ');
-    const data = await fetchJson(
-      `${ITUNES_SEARCH}?term=${encodeURIComponent(term)}&entity=song&limit=1`,
-    );
-    const hit = (data?.results || []).find((r) => r?.artworkUrl100);
-    if (hit) return hit;
-  }
-
-  return null;
-}
+import { artworkRow, lookupArtwork } from './_lib/itunes.js';
 
 export default async function handler(req, res) {
   const q = req.query || {};
@@ -63,10 +25,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const hit = await resolve({ isrc, appleId, track, artist });
+    const row = artworkRow(await lookupArtwork({ isrc, appleId, track, artist }));
     // Cache hits hard and misses briefly: a freshly released track can gain
     // art later, so we don't want to pin an empty result for long.
-    if (!hit?.artworkUrl100) {
+    if (!row) {
       res.setHeader('cache-control', 'public, s-maxage=86400, max-age=3600');
       return res.status(200).json({ found: false });
     }
@@ -74,13 +36,7 @@ export default async function handler(req, res) {
       'cache-control',
       'public, s-maxage=2592000, max-age=86400, stale-while-revalidate=86400',
     );
-    return res.status(200).json({
-      found: true,
-      artworkUrl100: hit.artworkUrl100,
-      track: hit.trackName || null,
-      artist: hit.artistName || null,
-      album: hit.collectionName || null,
-    });
+    return res.status(200).json({ found: true, ...row });
   } catch (err) {
     // Don't let the client cache a transient upstream failure.
     res.setHeader('cache-control', 'no-store');

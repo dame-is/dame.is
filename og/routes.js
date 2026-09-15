@@ -33,6 +33,11 @@ export const STATIC_ROUTE_PATTERNS = [
   '/posting',
   '/logging',
   '/listening',
+  // Albums are derived from the plays, not stored, so these sit under
+  // /listening rather than at a verb of their own. `albums` is a literal
+  // segment and so outranks the generated `/listening/:rkey` — see matchRoute.
+  '/listening/albums',
+  '/listening/albums/:slug',
   '/blogging',
   '/blogging/:slug',
   '/creating',

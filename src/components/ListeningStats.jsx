@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
+import { albumIdentity, albumPath } from '../lib/albums.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import './ListeningStats.css';
@@ -63,7 +64,15 @@ export default function ListeningStats({ items }) {
           <div className="listen-stats-cols">
             <RankList title="Top tracks" rows={stats.topTracks} kind="track" />
             <RankList title="Top artists" rows={stats.topArtists} kind="artist" />
-            <RankList title="Top albums" rows={stats.topAlbums} kind="album" />
+            <RankList
+              title="Top albums"
+              rows={stats.topAlbums}
+              kind="album"
+              // This column is a window onto the whole shelf, which is a page of
+              // its own and covers every album ever played rather than the
+              // window's top five.
+              more={{ to: '/listening/albums', label: 'all albums' }}
+            />
           </div>
         </>
       )}
@@ -125,10 +134,17 @@ function useCountUp(target, ms = 650) {
 /* Ranked lists                                                        */
 /* ------------------------------------------------------------------ */
 
-function RankList({ title, rows, kind }) {
+function RankList({ title, rows, kind, more = null }) {
   return (
     <div className="listen-rank">
-      <h3 className="listen-rank-title">{title}</h3>
+      <h3 className="listen-rank-title">
+        {title}
+        {more && (
+          <Link className="listen-rank-more" to={more.to}>
+            {more.label}
+          </Link>
+        )}
+      </h3>
       {rows.length === 0 ? (
         <p className="listen-rank-empty">—</p>
       ) : (
@@ -157,10 +173,12 @@ function RankList({ title, rows, kind }) {
 
 function RankLabel({ row, kind }) {
   const inner = <span className="listen-rank-primary">{row.primary}</span>;
-  if (kind === 'track' && row.href) {
+  // A track and an album each have a page; an artist doesn't, so their name
+  // still just runs the feed's own search for it.
+  if ((kind === 'track' || kind === 'album') && row.href) {
     return <Link to={row.href}>{inner}</Link>;
   }
-  if ((kind === 'artist' || kind === 'album') && row.query) {
+  if (row.query) {
     return <Link to={`/listening?q=${encodeURIComponent(row.query)}`}>{inner}</Link>;
   }
   return inner;
@@ -226,14 +244,17 @@ function computeStats(items, days) {
     }
 
     // Album / release — title + primary artist (same-named albums by
-    // different artists stay distinct).
-    if (p.releaseName) {
-      const alKey = `${lower(p.releaseName)}|${lower(firstArtistName(p))}`;
-      bump(albums, alKey, () => ({
-        primary: p.releaseName,
-        secondary: firstArtistName(p),
+    // different artists stay distinct). The key is `albumIdentity`'s, so a row
+    // here and the album's own page under /listening/albums group the same
+    // plays and the link between them can't point at a different record.
+    const album = albumIdentity(p);
+    if (album) {
+      bump(albums, album.key, () => ({
+        primary: album.title,
+        secondary: album.artist,
         sample: p,
-        query: p.releaseName,
+        href: albumPath(album),
+        query: album.title,
       }));
     }
   }

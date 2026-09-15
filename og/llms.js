@@ -38,6 +38,7 @@ export const LLMS_SURFACES = [
   '/posting',
   '/logging',
   '/listening',
+  '/listening/albums',
   '/mothing',
   '/sharing',
   '/welcoming',
@@ -58,6 +59,7 @@ export function buildLlmsTxt({
   curatingChannels,
   ratioedPieces,
   mothNights,
+  albums,
 }) {
   const out = [
     '# dame.is',
@@ -208,6 +210,15 @@ export function buildLlmsTxt({
   }
 
   out.push('', '## Optional', '');
+  if (albums?.length) {
+    out.push(
+      llmsLink(
+        'Albums',
+        '/listening/albums',
+        `Every album in the play history — ${albums.length} of them — each with a page of its own, all listed in sitemap.xml. An album is derived from the plays, not stored as a record.`,
+      ),
+    );
+  }
   if (mothNights?.length) {
     out.push(
       llmsLink(

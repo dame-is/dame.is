@@ -7,6 +7,9 @@
 // Usage (from the per-page meta injected by middleware.js):
 //   /api/og?page=/blogging          → looks up copy + NSID from og/pages.js
 //   /api/og?night=2026-08-18        → one mothing night, with its own moths on it
+//   /api/og?play=3msrio…            → one teal.fm play, with its album cover on it
+//   /api/og?album=raven-by-kelela   → one album, likewise
+//   /api/og?albums=1                → the albums index, as a shelf of covers
 //   /api/og?title=Foo&subtitle=Bar  → ad-hoc copy
 //   /api/og?theme=dark              → dark (green-black) variant
 //   /api/og                         → the home "index" card
@@ -23,9 +26,21 @@ import { paletteForHour } from '../src/lib/skyTheme.js';
 import { ratioedScale } from '../src/lib/ratioedPalette.js';
 import { resolveSkyTuning } from '../og/skyTuning.js';
 import { pageMeta, segsFor, cleanPath, HOME_INDEX, DEFAULT } from '../og/pages.js';
-import { pieceRecord, nightSession, participantCard, participantsCard } from '../og/records.js';
+import {
+  pieceRecord,
+  nightSession,
+  participantCard,
+  participantsCard,
+  playRecord,
+  albumBySlug,
+  albumsIndex,
+} from '../og/records.js';
+import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
 import { nightSpan, photographed } from '../src/lib/mothing.js';
+import { formatListenTime, monthYear } from '../src/lib/albums.js';
+import { artLookupFor, upscaleArtwork } from '../src/lib/musicIds.js';
+import { playArtistLine, playTrackName, playedAtOf } from '../src/lib/teal.js';
 import { MOTHING_OBSERVATION_NSID } from '../src/config.js';
 import { createRequire } from 'node:module';
 
@@ -72,22 +87,30 @@ const FONT_SET = [
 const MAX_TEXT = 200;
 const clampText = (v) => String(v ?? '').slice(0, MAX_TEXT);
 
-// How many of a night's moths reach its card, and how long any one photo gets
+// How many of a night's moths reach its card, and how long any one image gets
 // to answer before the card goes without it.
 const NIGHT_PHOTOS = 5;
 const PHOTO_TIMEOUT_MS = 4000;
 
+// Album art, at the resolutions the cards actually set it in. The renderer
+// rasterises at exactly 1200×630, so anything much past the drawn size is bytes
+// nobody sees: a play/album card gives a cover 280px and the shelf gives each
+// of five 140px. Apple serves whatever size the URL asks for.
+const COVER_SIZE = 400;
+const SHELF_COVER_SIZE = 200;
+// How many covers reach the albums index card. Five spans the column; past that
+// they stop being recognisable at the size a card gets looked at.
+const SHELF_COVERS = 5;
+
 /**
- * One iNaturalist photo as a data: URI, or null.
+ * One remote image as a data: URI, or null.
  *
  * Satori will happily fetch a remote <img> itself, but then a single dead
- * photo throws and takes the whole card down with it, and nothing bounds how
- * long it waits. Pulling the bytes here means a photo that 404s or hangs is
- * simply dropped and the card draws the ones that answered. `small` is a
- * ~240px variant — a comfortable 2× for the 140px squares the card sets them
- * in, and a fraction of the bytes of the full-size file.
+ * image throws and takes the whole card down with it, and nothing bounds how
+ * long it waits. Pulling the bytes here means one that 404s or hangs is simply
+ * dropped and the card draws whatever answered.
  */
-async function inlinePhoto(url) {
+async function inlineImage(url) {
   if (!url) return null;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) });
@@ -102,6 +125,26 @@ async function inlinePhoto(url) {
 }
 
 /**
+ * The cover for a play, inlined, or null.
+ *
+ * An album has no artwork of its own anywhere in the play record — the ladder
+ * needs a recording (an ISRC, an Apple song id, or a track and an artist to
+ * search on), which is why an album's cover is resolved from one of its plays.
+ * Every step is allowed to come up empty: a card with no cover is a card, and a
+ * card that failed to render is nothing.
+ */
+async function inlineCover(payload, size = COVER_SIZE) {
+  const lookup = artLookupFor(payload);
+  if (!Object.keys(lookup).length) return null;
+  try {
+    const hit = await lookupArtwork(lookup);
+    return inlineImage(upscaleArtwork(hit?.artworkUrl100, size));
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Everything the night card draws, read back off the session itself so no
  * free text ever reaches the renderer — the URL only ever carries a date.
  */
@@ -109,7 +152,9 @@ async function nightCardData(session) {
   const shown = photographed(session).slice(0, NIGHT_PHOTOS);
   const photos = await Promise.all(
     shown.map(async (o) => {
-      const src = await inlinePhoto(photoUrl(o.photos[0], 'small'));
+      // `small` is a ~240px variant — a comfortable 2× for the 140px squares
+      // the card sets them in, and a fraction of the full-size file's bytes.
+      const src = await inlineImage(photoUrl(o.photos[0], 'small'));
       return src ? { src } : null;
     }),
   );
@@ -125,6 +170,61 @@ async function nightCardData(session) {
     species: session.speciesCount,
     span: nightSpan(session),
     photos: photos.filter(Boolean),
+  };
+}
+
+/**
+ * Everything one play's card draws, read back off the record so no free text
+ * ever reaches the renderer — the URL only ever carries a record key.
+ */
+async function playCardData(record) {
+  const v = record?.value;
+  if (!v) return null;
+  const track = playTrackName(v);
+  if (!track) return null;
+  return {
+    track,
+    artist: playArtistLine(v),
+    album: String(v.releaseName || '').trim(),
+    cover: await inlineCover(v),
+    // Neither of these is drawn by the card itself. `date` stamps the folio
+    // with the day the song was played; `nsid` is the lexicon chip in the
+    // margin, read off the record rather than assumed, so a play still held in
+    // teal.fm's alpha namespace is labelled as one.
+    date: playedAtOf(v) || v.createdAt || null,
+    nsid: String(record.uri || '').match(/^at:\/\/[^/]+\/([^/]+)\//)?.[1] || null,
+  };
+}
+
+/** Everything one album's card draws, off the album index. */
+async function albumCardData(album) {
+  if (!album?.title) return null;
+  return {
+    title: album.title,
+    artist: album.artist || '',
+    plays: album.plays || 0,
+    tracks: album.tracks || 0,
+    listened: formatListenTime(album.seconds),
+    since: monthYear(album.firstPlayed),
+    cover: await inlineCover(album.sample),
+  };
+}
+
+/** Everything the albums index card draws: the totals, and the first few
+ *  covers off the shelf. A cover that won't resolve is simply left out. */
+async function shelfCardData(index) {
+  if (!index?.total) return null;
+  const covers = await Promise.all(
+    index.albums
+      .slice(0, SHELF_COVERS)
+      .map((album) => inlineCover(album.sample, SHELF_COVER_SIZE)),
+  );
+  return {
+    total: index.total,
+    artists: index.artists,
+    plays: index.plays,
+    listened: formatListenTime(index.albums.reduce((n, a) => n + (a.seconds || 0), 0)),
+    covers: covers.filter(Boolean),
   };
 }
 
@@ -208,6 +308,26 @@ export default async function handler(req, res) {
       // this card now that its headline names the session instead.
       if (night && !q.date) folioAt = new Date(`${night.date}T00:00:00Z`);
     }
+    // The listening cards. None of the three takes free text either: `play`
+    // carries a record key, `album` a slug that has to match something in the
+    // index before anything is drawn, and `albums` carries nothing at all.
+    let play = null;
+    let album = null;
+    let shelf = null;
+    const takenAlready = piece || participant || board || night;
+    if (!takenAlready && q.play) {
+      play = await playCardData(await playRecord(clampText(q.play), origin));
+      if (play?.date && !q.date) {
+        const d = new Date(play.date);
+        if (!Number.isNaN(d.getTime())) folioAt = d;
+      }
+    }
+    if (!takenAlready && !play && q.album) {
+      album = await albumCardData(await albumBySlug(clampText(q.album), origin));
+    }
+    if (!takenAlready && !play && !album && (q.albums === '1' || q.albums === 'true')) {
+      shelf = await shelfCardData(await albumsIndex(origin));
+    }
     // A handle nobody in the roster answers to, or a roster that could not be
     // read: draw the work's own card rather than the site's home index, which
     // is what a bare fall-through would give. The middleware marks that path
@@ -220,12 +340,30 @@ export default async function handler(req, res) {
       subtitle = meta.desc;
       nsid = meta.nsid;
     }
+    // A record key no play answers to, or an album the index doesn't hold:
+    // the listening surface's own card, for the same reason. (`albums=1` needs
+    // no clause — the middleware sends `page=/listening/albums` alongside it,
+    // so an unreadable index falls through to that page's ordinary card.)
+    if (!takenAlready && !play && !album && (q.play || q.album)) {
+      const meta = pageMeta('/listening');
+      pathname = '/listening';
+      label = meta.label;
+      subtitle = meta.desc;
+      nsid = meta.nsid;
+    }
     if (piece || participant || board) {
       // Fall through to the render with one of them set; nothing else applies.
     } else if (night) {
       // Same: the night card reads everything off the session.
       pathname = '/mothing';
       nsid = MOTHING_OBSERVATION_NSID;
+    } else if (play || album || shelf) {
+      // Same again: the listening cards read everything off the record, or off
+      // the album index. A play names the lexicon it was actually written to,
+      // which is not always the production one — teal.fm's alpha archive is
+      // still addressable and the margin should say so when it's what's drawn.
+      pathname = play ? '/listening' : '/listening/albums';
+      nsid = play?.nsid || pageMeta(pathname).nsid;
     } else if (q.page) {
       pathname = cleanPath(clampText(q.page));
       const meta = pageMeta(pathname);
@@ -266,6 +404,9 @@ export default async function handler(req, res) {
       participant,
       board,
       night,
+      play,
+      album,
+      shelf,
       marks,
       // The same categorical scale the charts derive for this hour, so a card
       // and the page it links to agree about which colour a like is.

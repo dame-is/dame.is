@@ -74,6 +74,14 @@ export const PAGES = {
     desc: 'A live scrobble of what dame is playing, streamed from the AT Protocol.',
     nsid: 'fm.teal.feed.play',
   },
+  // An album is not a record anywhere — teal.fm scrobbles tracks — so this
+  // surface is what the plays add up to, and its NSID chip names them.
+  '/listening/albums': {
+    label: 'albums',
+    title: 'dame.is listening — albums',
+    desc: 'Every album dame has played, ranked by how often — derived from the scrobbles rather than stored as records of their own.',
+    nsid: 'fm.teal.feed.play',
+  },
   '/posting': {
     label: 'posting',
     title: 'dame.is posting',

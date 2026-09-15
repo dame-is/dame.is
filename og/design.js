@@ -126,6 +126,24 @@ function avatarMark(t, avatarUri, { textBaseline, size = 28, left = PAD, box = 4
   return h('img', { src: avatarUri, width: box, height: box, style: { position: 'absolute', left, top: capCenter - box / 2, border: `1px solid ${t.rule}` } });
 }
 
+// dame.is / {gerund} / {leaf} — the breadcrumb a RECORD card wears, where the
+// section term echoes the site's own .gerund treatment (accent italic) and
+// anything past it is the leaf's own name in plain ink. Distinct from
+// breadcrumbParts below, which is the page-card form: there the last segment is
+// the subject, here the gerund is.
+function recordCrumb(t, gerund, leaf) {
+  const parts = [
+    h('div', { style: { color: t.inkFaint } }, 'dame.is'),
+    h('div', { style: { color: t.inkFaint } }, '/'),
+    h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, gerund),
+  ];
+  if (leaf) {
+    parts.push(h('div', { style: { color: t.inkFaint } }, '/'));
+    parts.push(h('div', { style: { color: t.inkSoft, fontWeight: 600 } }, leaf));
+  }
+  return parts;
+}
+
 // dame.is / seg / seg — spaced breadcrumb, last segment emphasized.
 function breadcrumbParts(t, segs) {
   const parts = [h('div', { style: { color: t.inkFaint } }, 'dame.is')];
@@ -224,13 +242,7 @@ function subCardS4(t, { segs, label, subtitle, nsid, avatarUri, folio }) {
 function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio, body }) {
   const DIV = 320, CX = DIV, bcBy = P - LE;
   const colW = W - PAD - CX; // content column width
-  // Breadcrumb "dame.is / {section}" with the section term echoing .gerund.
-  const section = segs[segs.length - 1] || '';
-  const crumb = [
-    h('div', { style: { color: t.inkFaint } }, 'dame.is'),
-    h('div', { style: { color: t.inkFaint } }, '/'),
-    h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, section),
-  ];
+  const crumb = recordCrumb(t, segs[segs.length - 1] || '');
 
   let content;
   let bandTo;
@@ -731,14 +743,7 @@ function nightCard(t, { night, avatarUri, nsid, folio }) {
     at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
     at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
     avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
-    rowAt(
-      [
-        h('div', { style: { color: t.inkFaint } }, 'dame.is'),
-        h('div', { style: { color: t.inkFaint } }, '/'),
-        h('div', { style: { color: t.accent, fontStyle: 'italic', fontWeight: 600 } }, 'mothing'),
-      ],
-      { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX },
-    ),
+    rowAt(recordCrumb(t, 'mothing'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
     at(lines[0] || '', { size, by: 3 * P - 8, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
 
     ...facts.flatMap(([label, value], i) =>
@@ -766,6 +771,215 @@ function nightCard(t, { night, avatarUri, nsid, folio }) {
         },
         h('img', { src: p.src, width: BOX, height: BOX, style: { objectFit: 'cover' } }),
       ),
+    ),
+
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    halfBands: [{ from: 4 * P, to: 4 * P + HP }],
+  });
+}
+
+// ── LISTENING: a play, an album, the shelf they sit on ──────────────────────
+// A song is its cover before it is any of its text. The generic record card
+// set a track title in serif and an artist under it and threw the one image
+// away that makes a share preview recognisable at a glance, so the three cards
+// below all draw the artwork and let the type sit beside it.
+//
+// The cover is ruled into the page exactly as a night's photographs are: a
+// square whose top and bottom edges land on coarse rules, so it sits ON the
+// paper rather than floating over it.
+
+/** Square artwork, edges on the grid. `src` is a data: URI (api/og.js inlines
+ *  the bytes so one dead cover can't take the whole card down with it). */
+function coverPlate(t, src, { left, top, size }) {
+  return h(
+    'div',
+    {
+      style: {
+        position: 'absolute',
+        left,
+        top,
+        width: size,
+        height: size,
+        overflow: 'hidden',
+        border: `1px solid ${t.rule}`,
+      },
+    },
+    h('img', { src, width: size, height: size, style: { objectFit: 'cover' } }),
+  );
+}
+
+/** One line of text, cut with an ellipsis rather than wrapped. For the lines a
+ *  card gives exactly one rule to: an artist credit, an album name. */
+function fitLine(text, size, maxWidth) {
+  const lines = wrapText(text || '', size, maxWidth);
+  if (lines.length <= 1) return lines[0] || '';
+  return `${lines[0]}…`;
+}
+
+/** A label above a value, both on rules — the marginalia column shape the
+ *  piece and night cards use, minus their bespoke spacing. */
+function factColumn(t, label, value, { left, by, size = 30 }) {
+  if (!value) return [];
+  return [
+    at(label, { size: 19, by, left, color: t.inkFaint, weight: 400, ls: '0.1em' }),
+    at(value, { size, by: by + HP, left, color: t.ink, weight: 600 }),
+  ];
+}
+
+// A geometry the three listening cards share: the gutter and its divider, and
+// a cover square on the right whose edges land on rules (2P → 6P).
+const LISTEN_CX = 320;
+const COVER = 4 * P;
+const COVER_X = W - PAD - COVER;
+
+// ── RECORD: one play ────────────────────────────────────────────────────────
+// The cover, the track, who made it, and which record it is off — which is the
+// question a bare track title always leaves open.
+function playCard(t, { play, avatarUri, nsid, folio }) {
+  const CX = LISTEN_CX, bcBy = P - LE;
+  // Without artwork the type simply takes the whole page rather than leaving a
+  // hole where the square was.
+  const colW = (play.cover ? COVER_X - 40 : W - PAD) - CX;
+  const { size, lines } = fitHeadline(play.track || '', colW, 2, 62, 38);
+  const artistBy = (3 + lines.length) * P - 8;
+  // With a cover, the album names itself on the rules the cover's bottom edge
+  // lands on, so the two read as one block. Without one there is no edge to
+  // answer to, and leaving it stranded at the foot of an empty card reads as a
+  // gap — so it follows the artist instead. Either way it lands on a rule.
+  const albumBy = play.cover ? 6 * P + HP - 8 : artistBy + P + HP;
+
+  return shell(t, [
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, 'listening'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+
+    ...lines.map((l, i) =>
+      at(l, { size, by: 3 * P - 8 + i * P, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
+    ),
+    play.artist
+      ? at(fitLine(play.artist, 30, colW), {
+          size: 30,
+          by: artistBy,
+          left: CX,
+          color: t.inkSoft,
+          weight: 400,
+        })
+      : null,
+
+    // The album, named rather than implied — the one thing a bare track title
+    // always leaves open, and the text half of the cover beside it.
+    ...factColumn(t, 'album', fitLine(play.album || '', 32, colW), {
+      left: CX,
+      by: albumBy,
+      size: 32,
+    }),
+
+    play.cover ? coverPlate(t, play.cover, { left: COVER_X, top: 2 * P, size: COVER }) : null,
+
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    halfBands: [{ from: albumBy + 8 - HP, to: albumBy + 8 + HP }],
+  });
+}
+
+// ── RECORD: one album ───────────────────────────────────────────────────────
+// An album is not a record anywhere — teal.fm scrobbles tracks — so what this
+// card has to carry is the arithmetic: how many times the thing has been
+// played, across how many of its tracks, for how long, since when.
+function albumCard(t, { album, avatarUri, nsid }) {
+  const CX = LISTEN_CX, bcBy = P - LE;
+  const colW = (album.cover ? COVER_X - 40 : W - PAD) - CX;
+  const { size, lines } = fitHeadline(album.title || '', colW, 2, 62, 38);
+
+  return shell(t, [
+    // The gutter carries the play count where a record card carries the
+    // day-of-life folio: it is the album's one number, and the folio would only
+    // date the last time a song off it came round again.
+    at('plays', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(String(album.plays || 0), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    album.tracks
+      ? at(`of ${album.tracks} track${album.tracks === 1 ? '' : 's'}`, {
+          size: 22,
+          by: 4 * P + HP - 10,
+          left: PAD,
+          color: t.inkFaint,
+          weight: 400,
+        })
+      : null,
+
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, 'listening', 'albums'), {
+      size: 28,
+      by: bcBy,
+      left: avatarUri ? CX + 46 + 18 : CX,
+    }),
+
+    ...lines.map((l, i) =>
+      at(l, { size, by: 3 * P - 8 + i * P, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
+    ),
+    album.artist
+      ? at(fitLine(album.artist, 30, colW), {
+          size: 30,
+          by: (3 + lines.length) * P - 8,
+          left: CX,
+          color: t.inkSoft,
+          weight: 400,
+        })
+      : null,
+
+    ...factColumn(t, 'listening', album.listened, { left: CX, by: 6 * P + HP - 8 }),
+    ...factColumn(t, 'since', album.since, { left: CX + 200, by: 6 * P + HP - 8 }),
+
+    album.cover ? coverPlate(t, album.cover, { left: COVER_X, top: 2 * P, size: COVER }) : null,
+
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    halfBands: [{ from: 6 * P, to: 7 * P }],
+  });
+}
+
+// ── INDEX: the albums shelf ─────────────────────────────────────────────────
+// What the index has to show is the covers, so it shows them — the same
+// argument the night card makes about photographs, and the same strip.
+function albumsCard(t, { shelf, avatarUri, nsid }) {
+  const CX = LISTEN_CX, bcBy = P - LE;
+  const colW = W - PAD - CX;
+  const BOX = 2 * P;
+  const SLOTS = 5;
+  const GAP = (colW - SLOTS * BOX) / (SLOTS - 1);
+  const covers = (shelf.covers || []).slice(0, SLOTS);
+  const { size, lines } = fitHeadline('Every album played', colW, 1, 72, 44);
+
+  const FX = [CX, CX + 200, CX + 400];
+  const facts = [
+    ['artists', shelf.artists ? String(shelf.artists) : ''],
+    ['plays', shelf.plays ? shelf.plays.toLocaleString('en-US') : ''],
+    ['listening', shelf.listened || ''],
+  ];
+
+  return shell(t, [
+    at('albums', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(String(shelf.total || 0), { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, 'listening', 'albums'), {
+      size: 28,
+      by: bcBy,
+      left: avatarUri ? CX + 46 + 18 : CX,
+    }),
+    at(lines[0] || '', { size, by: 3 * P - 8, left: CX, weight: 600, color: t.ink, ls: '-0.01em' }),
+
+    ...facts.flatMap(([label, value], i) =>
+      factColumn(t, label, value, { left: FX[i], by: 4 * P - 8 }),
+    ),
+
+    ...covers.map((src, i) =>
+      coverPlate(t, src, { left: CX + i * (BOX + GAP), top: 5 * P, size: BOX }),
     ),
 
     at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
@@ -829,6 +1043,12 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {boolean} [o.record]   render the per-record card (title = o.label as a wrapped headline)
  * @param {object}  [o.night]    render the mothing-night card
  *                               ({title,moths,species,span,photos:[{src}]})
+ * @param {object}  [o.play]     render one teal.fm play's card
+ *                               ({track,artist,album,cover})
+ * @param {object}  [o.album]    render one album's card
+ *                               ({title,artist,plays,tracks,listened,since,cover})
+ * @param {object}  [o.shelf]    render the albums index card
+ *                               ({total,artists,plays,listened,covers:[src]})
  * @param {object}  [o.participant] render one Ratioed participant's card
  * @param {object}  [o.board]    render the Ratioed participants leaderboard
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
@@ -849,6 +1069,18 @@ export function ogElement(o = {}) {
   // has none either — same reason it is picked before the fallback.
   if (o.night) {
     return nightCard(t, { night: o.night, avatarUri, nsid: o.nsid || '', folio });
+  }
+  // The listening cards name their own subject too — a song title, an album, a
+  // shelf — so like the night they carry no gerund label to fall back on and
+  // have to be picked before "no label means home".
+  if (o.play) {
+    return playCard(t, { play: o.play, avatarUri, nsid: o.nsid || '', folio });
+  }
+  if (o.album) {
+    return albumCard(t, { album: o.album, avatarUri, nsid: o.nsid || '' });
+  }
+  if (o.shelf) {
+    return albumsCard(t, { shelf: o.shelf, avatarUri, nsid: o.nsid || '' });
   }
   // Both Ratioed roster cards name their own subject too: a handle and a
   // ranking are not gerunds, so neither carries a label to fall back on.

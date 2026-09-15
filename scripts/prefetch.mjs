@@ -51,6 +51,8 @@ import {
   getRecord,
   rkeyFromAtUri,
 } from '../src/lib/atproto.js';
+import { albumPath, buildAlbums, SNAPSHOT_TRACK_CAP } from '../src/lib/albums.js';
+import { listTealPlays } from '../src/lib/teal.js';
 import { fetchMothData, buildSessions } from '../src/lib/inaturalist.js';
 import { firstSightingIds, observedTaxonIds } from '../src/lib/firstSightings.js';
 import { fetchGuestbookEntries } from '../src/lib/guestbook.js';
@@ -89,6 +91,13 @@ const SITE_ORIGIN = 'https://dame.is';
 // ballooned unifiedFeed.json to ~6 MB).
 const HOME_SNAPSHOT_MAX = 150;
 
+// How deep the albums pull goes, per play lexicon. Albums are the one listening
+// surface that reads as an archive rather than a feed — a record played twice
+// two years apart is still one album with two plays — so this is deliberately
+// far past the registry's 100-per-lexicon feed cap. Ten listRecords pages every
+// six hours, against a snapshot the edge needs to resolve album pages at all.
+const ALBUM_PLAY_MAX = 1000;
+
 const log = (...args) => console.log('[prefetch]', ...args);
 const warn = (...args) => console.warn('[prefetch]', ...args);
 
@@ -105,6 +114,10 @@ function snapshotCount(data) {
   // a build that can't vouch for the archive writes no ids, and shipping that
   // over a good index would un-mark every lifer on the site for six hours.
   if (Array.isArray(data?.ids)) return data.ids.length;
+  // The albums index, for the same reason: it is derived from a deep play pull,
+  // and a pull that comes back empty must not blank a good index — every album
+  // page would 404 at the edge until the next build put it back.
+  if (Array.isArray(data?.albums)) return data.albums.length;
   return null;
 }
 
@@ -465,6 +478,7 @@ const SITEMAP_SURFACES = [
   '/posting',
   '/logging',
   '/listening',
+  '/listening/albums',
   '/mothing',
   '/sharing',
   '/welcoming',
@@ -498,6 +512,7 @@ function buildSitemap({
   curatingChannels,
   ratioedPieces,
   mothNights,
+  albums,
   builtAt,
 }) {
   const entries = [];
@@ -556,6 +571,14 @@ function buildSitemap({
   // a night's date is when it happened, not when it last changed, and moths do
   // get re-identified weeks after the light went out.
   for (const date of mothNights || []) push(`/mothing/${date}`, null);
+
+  // Every album played has a page, addressed by the slug it derives for itself.
+  // `lastmod` is the last time it was played, which is genuinely when the page
+  // last changed: nothing else on it moves.
+  for (const album of albums || []) {
+    const path = albumPath(album);
+    if (path) push(path, album.lastPlayed || null);
+  }
 
   for (const g of curatingChannels || []) {
     if (!g?.slug) continue;
@@ -929,6 +952,31 @@ async function main() {
 
   await writeFirstSightings(mothing, written);
 
+  // --- Albums ---------------------------------------------------------------
+  // An album is derived, not stored (see src/lib/albums.js), so it has to be
+  // derived from ENOUGH plays. The registry caps a listening snapshot at 100
+  // records per lexicon — right for a feed, far short of an archive, and an
+  // album whose plays all fall outside that window would have a page the site
+  // renders and the edge 404s. So the albums index gets its own deeper pull.
+  const albumPull = await safe(
+    'albums',
+    async () => {
+      const plays = await listTealPlays(pds, { repo: ME_DID, max: ALBUM_PLAY_MAX });
+      return { plays: plays.length, albums: buildAlbums(plays, { maxTracks: SNAPSHOT_TRACK_CAP }) };
+    },
+    null,
+  );
+  // What landed on disk, not what was fetched: the empty-guard can decide to
+  // keep the previous index, and the sitemap below has to list the albums the
+  // site will actually answer to.
+  const albumsWritten = albumPull
+    ? await writeJson(
+        'albums',
+        { builtAt: new Date().toISOString(), plays: albumPull.plays, albums: albumPull.albums },
+        { guardEmpty: true },
+      )
+    : null;
+
   // --- Discoverability: sitemap.xml + Atom feed -----------------------------
   // Generated from the snapshots already in hand. Blog posts live in the
   // `blogs` snapshot (site.standard.document); creative works are the legacy
@@ -952,6 +1000,7 @@ async function main() {
           curatingChannels: galleries,
           ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
           mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
+          albums: albumsWritten?.albums || [],
           builtAt,
         }),
       ),
@@ -974,6 +1023,7 @@ async function main() {
           curatingChannels: galleries,
           ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
           mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
+          albums: albumsWritten?.albums || [],
         }),
       ),
     null,
