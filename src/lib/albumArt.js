@@ -23,7 +23,11 @@ const ALBUM_ART_ENDPOINT = '/api/albumart';
 // v2: v1 read/wrote the cache on mismatched fields (stored `artworkUrl100`,
 // checked `url`), so every hit was read back as a miss and covers vanished
 // on reload. Bumping the key discards those poisoned entries.
-const CACHE_KEY = 'dame:albumArtCache:v2';
+// v3: entries gained `albumId`, which the album page builds its "open in Apple
+// Music" link from. A v2 entry has none, and a hit is held for thirty days —
+// so without the bump the link would be missing for a month on any device that
+// had already looked the record up.
+const CACHE_KEY = 'dame:albumArtCache:v3';
 const HIT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -100,7 +104,7 @@ async function resolveResult(payload) {
 
 /**
  * Resolve album art for a play payload. Returns
- *   { url, thumbUrl, track, artist, album, source: 'itunes' }
+ *   { url, thumbUrl, track, artist, album, albumId, source: 'itunes' }
  * on a hit, or `null` on a miss. Cached aggressively in localStorage.
  *
  * Pass `{ size }` to control the artwork resolution (default 600).
@@ -133,6 +137,7 @@ export async function albumArtFor(payload, { size = 600 } = {}) {
         track: hit.track || null,
         artist: hit.artist || null,
         album: hit.album || null,
+        albumId: hit.albumId || null,
         source: 'itunes',
       };
       cacheSet(key, entry);

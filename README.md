@@ -100,6 +100,17 @@ gives `raven-by-kelela` — so nothing has to be stored for a link to keep
 working. It is lossy, so a slug resolves by comparing computed slugs across the
 index rather than by trusting uniqueness; the most-played album wins a fold.
 
+An album page also links out to where you can actually play the record
+([`albumLinksFor`](src/lib/musicLinks.js), the album-shaped cousin of the
+per-play `musicLinksFor`). Apple gets a real link whenever the release is known
+— from the id the artwork lookup returns, or failing that from the album URL
+hiding inside one of its plays, since an Apple track URL is
+`…/album/{slug}/{albumId}?i={songId}` and dropping the query is the record.
+Spotify is always a search: its track URLs say nothing about the release they
+are off, and there is no unauthenticated way to ask. The `kind` on each link
+(`direct` vs `search`) is what the label is written from, so a guess never
+presents itself as a certainty.
+
 `/listening/albums` is the one literal segment under `/listening` that is not a
 play's record key (a teal rkey is a TID, and nothing stops one spelling a word),
 so `isAlbumPath` in [`og/records.js`](og/records.js) is checked before either

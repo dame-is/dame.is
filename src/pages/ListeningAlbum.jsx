@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import AlbumCover from '../components/AlbumCover.jsx';
+import MusicServiceLinks from '../components/MusicServiceLinks.jsx';
 import { CreatingWorkSkeleton } from '../components/Skeleton.jsx';
+import { useAlbumArt } from '../hooks/useAlbumArt.js';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import {
   albumsFromSnapshot,
@@ -11,6 +13,7 @@ import {
   formatListenTime,
 } from '../lib/albums.js';
 import { resolvePds } from '../lib/atproto.js';
+import { albumLinksFor } from '../lib/musicLinks.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { listTealPlays } from '../lib/teal.js';
 import { formatDateLong, relativeDayShort } from '../lib/time.js';
@@ -54,6 +57,17 @@ export default function ListeningAlbum() {
 
   const album = items?.album || null;
   const tracks = useMemo(() => album?.trackList || [], [album]);
+
+  // Resolved here rather than left to <AlbumCover> below, because the answer is
+  // two things: the artwork, and Apple's id for the release — which is what
+  // turns "search Apple Music for this" into a link straight to the record.
+  // Both hooks ask `albumArtFor` for the same key, which de-duplicates the
+  // request and caches it, so this costs one lookup between them.
+  const art = useAlbumArt(album?.sample, { size: 600 });
+  const links = useMemo(
+    () => (album ? albumLinksFor(album, { albumId: art.art?.albumId }) : []),
+    [album, art.art],
+  );
 
   const backToAlbums = (
     <p className="album-crumb">
@@ -110,13 +124,20 @@ export default function ListeningAlbum() {
           className="album-detail-cover"
         />
 
-        <dl className="album-facts">
-          <Fact label="plays" value={album.plays.toLocaleString()} />
-          <Fact label="tracks played" value={album.tracks.toLocaleString()} />
-          {listened && <Fact label="listening" value={listened} />}
-          {album.firstPlayed && <Fact label="first" value={formatDateLong(album.firstPlayed)} />}
-          {album.lastPlayed && <Fact label="last" value={relativeDayShort(album.lastPlayed)} />}
-        </dl>
+        <div className="album-detail-side">
+          <dl className="album-facts">
+            <Fact label="plays" value={album.plays.toLocaleString()} />
+            <Fact label="tracks played" value={album.tracks.toLocaleString()} />
+            {listened && <Fact label="listening" value={listened} />}
+            {album.firstPlayed && <Fact label="first" value={formatDateLong(album.firstPlayed)} />}
+            {album.lastPlayed && <Fact label="last" value={relativeDayShort(album.lastPlayed)} />}
+          </dl>
+
+          {/* Where to actually put it on. The Apple link is the record itself
+              once its id has resolved; until then — and for Spotify, which has
+              no unauthenticated way to be asked — it's an honest search. */}
+          <MusicServiceLinks links={links} label={`Play ${album.title} elsewhere`} />
+        </div>
       </div>
 
       {tracks.length > 0 && (

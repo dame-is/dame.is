@@ -64,7 +64,7 @@ export async function lookupArtwork({ isrc, appleId, track, artist }, { timeoutM
   return null;
 }
 
-/** `{ artworkUrl100, track, artist, album }` — the shape /api/albumart serves. */
+/** `{ artworkUrl100, track, artist, album, albumId }` — what /api/albumart serves. */
 export function artworkRow(hit) {
   if (!hit?.artworkUrl100) return null;
   return {
@@ -72,5 +72,10 @@ export function artworkRow(hit) {
     track: hit.trackName || null,
     artist: hit.artistName || null,
     album: hit.collectionName || null,
+    // Apple's id for the RELEASE the matched recording sits on — what a link to
+    // the album is built from. `collectionViewUrl` is NOT that link: on a song
+    // result it comes back identical to `trackViewUrl`, still carrying the `?i=`
+    // that names the song rather than the record it's off.
+    albumId: hit.collectionId ? String(hit.collectionId) : null,
   };
 }

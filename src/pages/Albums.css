@@ -225,12 +225,28 @@
   flex: 0 0 auto;
 }
 
+/* Beside the cover: what the record is here, then where to go and play it. */
+.album-detail-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .album-facts {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   margin: 0;
   min-width: 0;
+}
+
+/* The service row is shared with the play record page (Feed.css), which sets
+   its own top margin for sitting under a track. Here the column's gap already
+   spaces it. */
+.album-detail-side .listen-services {
+  margin-top: 0;
 }
 
 .album-fact {

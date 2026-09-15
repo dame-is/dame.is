@@ -26,6 +26,11 @@ const LOOKAHEAD = '500px';
 export default function AlbumCover({ payload, alt = '', size = 300, className = '' }) {
   const ref = useRef(null);
   const [near, setNear] = useState(false);
+  // An artwork URL that resolved but won't load (Apple moved the file, the
+  // network dropped it) would otherwise leave a browser's broken-image glyph
+  // sitting in the square. On a shelf of two hundred covers that reads as the
+  // page being broken rather than one record being unillustrated.
+  const [broken, setBroken] = useState(null);
 
   useEffect(() => {
     if (near) return undefined;
@@ -51,7 +56,8 @@ export default function AlbumCover({ payload, alt = '', size = 300, className = 
   }, [near]);
 
   const state = useAlbumArt(near ? payload : null, { size });
-  const url = state.status === 'hit' ? state.art?.url : null;
+  const resolved = state.status === 'hit' ? state.art?.url : null;
+  const url = resolved && resolved !== broken ? resolved : null;
 
   return (
     <span
@@ -60,7 +66,17 @@ export default function AlbumCover({ payload, alt = '', size = 300, className = 
         .filter(Boolean)
         .join(' ')}
     >
-      {url && <img src={url} alt={alt} loading="lazy" decoding="async" width={size} height={size} />}
+      {url && (
+        <img
+          src={url}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          width={size}
+          height={size}
+          onError={() => setBroken(url)}
+        />
+      )}
     </span>
   );
 }

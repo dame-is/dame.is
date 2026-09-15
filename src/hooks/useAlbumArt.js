@@ -6,7 +6,7 @@ import { playArtistNames, playOriginUrl, playTrackName } from '../lib/teal.js';
  * Resolve album art for a play payload. Returns one of:
  *   { status: 'idle' }    — no usable identifiers on the payload yet
  *   { status: 'loading' } — fetch in flight
- *   { status: 'hit', art } — { url, thumbUrl, track, artist, album, source }
+ *   { status: 'hit', art } — { url, thumbUrl, track, artist, album, albumId, source }
  *   { status: 'miss' }    — Apple has no record for this track
  *
  * The underlying lookup is cached in localStorage by `albumArtFor`, so

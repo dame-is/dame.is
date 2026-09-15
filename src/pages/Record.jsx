@@ -36,6 +36,7 @@ import { isFirstSighting } from '../lib/firstSightings.js';
 import { renderPostText } from '../lib/postRichText.jsx';
 import PostEmbed from '../components/PostEmbed.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import MusicServiceLinks from '../components/MusicServiceLinks.jsx';
 import './Blogging.css';
 import './Record.css';
 import '../components/Feed.css';
@@ -519,18 +520,11 @@ function AlbumArt({ payload }) {
 }
 
 function ListenServiceLinks({ payload }) {
-  const links = musicLinksFor(payload);
-  if (!links.length) return null;
   return (
-    <ul className="listen-services">
-      {links.map((l) => (
-        <li key={l.service} className={`listen-service listen-service-${l.service}`}>
-          <a href={l.url} target="_blank" rel="noreferrer noopener">
-            {l.kind === 'direct' ? `Open in ${l.label}` : `Search on ${l.label}`}
-          </a>
-        </li>
-      ))}
-    </ul>
+    <MusicServiceLinks
+      links={musicLinksFor(payload)}
+      label={`Listen to ${playTrackName(payload) || 'this song'} elsewhere`}
+    />
   );
 }
 
