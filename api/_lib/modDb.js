@@ -137,6 +137,7 @@ export async function count(table, opts = {}) {
   for (const [col, val] of Object.entries(opts.is || {})) {
     q.set(col, `is.${val}`);
   }
+  if (opts.not_null) q.set(opts.not_null, 'not.is.null');
   const res = await fetch(`${url}/rest/v1/${table}?${q}`, {
     method: 'HEAD',
     headers: {

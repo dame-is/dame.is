@@ -47,6 +47,15 @@ const MAX_AGE_DAYS = 7;
  */
 const BUDGET_MS = 25_000;
 
+/**
+ * Transient read failures to tolerate before a member is written off.
+ *
+ * A permanent failure (a 400 from a deactivated or taken-down account) needs no
+ * attempts at all. This is only for the case that looks transient every time:
+ * without a ceiling, one unreachable host holds a snapshot open indefinitely.
+ */
+const MAX_ATTEMPTS = 3;
+
 async function currentSnapshot() {
   const rows = await select('circle', {
     select: 'taken_at',
@@ -123,13 +132,16 @@ export default async function handler(req, res) {
     }
 
     const pendingRows = await select('circle', {
-      select: 'did',
+      select: 'did,attempts',
       eq: { taken_at: takenAt },
       is: { follows_indexed_at: 'null' },
       limit: 500,
     });
 
     if (pendingRows.length) {
+      const attemptsByDid = new Map(
+        pendingRows.map((r) => [r.did, r.attempts ?? 0]),
+      );
       const result = await indexCircleFollows({
         pending: pendingRows.map((r) => r.did),
         budgetMs: BUDGET_MS,
@@ -149,21 +161,66 @@ export default async function handler(req, res) {
             { follows_indexed_at: new Date().toISOString() },
           ),
       });
+
+      // A member that cannot be read contributes nothing and must not hold the
+      // snapshot open. Permanent failures are closed out immediately; transient
+      // ones get MAX_ATTEMPTS before being treated the same way, so one flaky
+      // host cannot block a build forever either.
+      for (const { member, permanent } of result.unreadable) {
+        const attempts = (attemptsByDid.get(member) ?? 0) + 1;
+        if (permanent || attempts >= MAX_ATTEMPTS) {
+          await update(
+            'circle',
+            { eq: { taken_at: takenAt, did: member } },
+            {
+              follows_indexed_at: new Date().toISOString(),
+              attempts,
+              unreadable: permanent
+                ? 'account inactive or removed'
+                : `unreadable after ${attempts} attempts`,
+            },
+          );
+        } else {
+          await update(
+            'circle',
+            { eq: { taken_at: takenAt, did: member } },
+            { attempts },
+          );
+        }
+      }
+
+      // Report what the DATABASE says is left, not what the in-memory queue
+      // drained to. Those diverge exactly when a member is consumed but not
+      // completed, which is the case that matters — the UI once read "0 left to
+      // read" while five members were still pending and the build could not end.
+      const stillPending = await count('circle', {
+        eq: { taken_at: takenAt },
+        is: { follows_indexed_at: 'null' },
+      });
       return res.status(200).json({
-        state: 'collecting',
+        state: stillPending > 0 ? 'collecting' : 'finalising',
         snapshot: takenAt,
         started,
         ...result,
+        remaining: stillPending,
+        unreadable: result.unreadable.length,
       });
     }
 
     // Everything read. finalise_snapshot refuses to run on partial data, so a
     // success here means the vouch table is a complete count of this snapshot.
     const written = await rpc('finalise_snapshot', { snapshot: takenAt });
+    const gaps = await count('circle', {
+      eq: { taken_at: takenAt },
+      not_null: 'unreadable',
+    });
     return res.status(200).json({
       state: 'finalised',
       snapshot: takenAt,
       vouches: written,
+      // Surfaced rather than buried: these members contributed no edges, so
+      // every vouch count is a slight undercount, and that is worth knowing.
+      unreadableMembers: gaps,
     });
   } catch (err) {
     return res.status(500).json({ error: String(err?.message || err) });

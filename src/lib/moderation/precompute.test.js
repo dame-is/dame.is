@@ -27,6 +27,7 @@ describe('followsOf', () => {
       dids: ['did:plc:a', 'did:plc:b'],
       complete: true,
       aborted: false,
+      permanent: false,
     });
   });
 
@@ -59,6 +60,51 @@ describe('followsOf', () => {
     const out = await followsOf('did:plc:m', { fetchImpl });
     expect(out.complete).toBe(false);
     expect(out.aborted).toBe(false);
+  });
+});
+
+describe('permanently unreadable members', () => {
+  // The first real snapshot livelocked here. Five of the 233 accounts dame
+  // follows are deactivated or taken down; getFollows answers 400 for them and
+  // always will. finalise_snapshot correctly refuses to aggregate while any
+  // member is unindexed, so 228 of 233 done meant nothing would ever finish.
+  const status = (code) =>
+    vi.fn(async () => ({ ok: false, status: code, json: async () => ({}) }));
+
+  it('marks a 400 as permanent, so the caller can stop asking', async () => {
+    const out = await followsOf('did:plc:gone', { fetchImpl: status(400) });
+    expect(out.permanent).toBe(true);
+    expect(out.dids).toEqual([]);
+  });
+
+  it('does not mark a rate limit as permanent', async () => {
+    // Slower than it looks: a retryable status burns the full backoff ladder
+    // (500 + 1000 + 1500ms) before giving up, which is the point — the caller
+    // should come back for this one. A permanent 400 returns on the first
+    // response with no backoff at all, which is why that test is instant.
+    const out = await followsOf('did:plc:busy', { fetchImpl: status(429) });
+    expect(out.permanent).toBe(false);
+  }, 10_000);
+
+  it('reports the failure and its permanence up to the caller', async () => {
+    const out = await indexCircleFollows({
+      pending: ['did:plc:gone', 'did:plc:busy'],
+      fetchImpl: vi.fn(async (url) => ({
+        ok: false,
+        status: url.includes('gone') ? 400 : 503,
+        json: async () => ({}),
+      })),
+      writeEdges: async () => {},
+      markDone: async () => {},
+    });
+    expect(out.indexed).toBe(0);
+    expect(out.unreadable).toHaveLength(2);
+    expect(
+      out.unreadable.find((u) => u.member === 'did:plc:gone').permanent,
+    ).toBe(true);
+    expect(
+      out.unreadable.find((u) => u.member === 'did:plc:busy').permanent,
+    ).toBe(false);
   });
 });
 
