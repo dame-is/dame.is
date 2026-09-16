@@ -14,6 +14,7 @@ export const LXM = {
   preflight: 'is.dame.mod.preflight',
   precompute: 'is.dame.mod.precompute',
   audit: 'is.dame.mod.audit',
+  remove: 'is.dame.mod.remove',
   migrate: 'is.dame.mod.migrate',
 };
 
@@ -169,16 +170,24 @@ export function auditDecide(agent, decisions, { signal } = {}) {
   });
 }
 
+/** at://<did>/... — the repo segment is who owns the record. */
+function ownerOf(uri) {
+  const match = String(uri || '').match(/^at:\/\/(did:[^/]+)\//);
+  return match ? match[1] : null;
+}
+
 /**
- * Actually remove accounts from a list.
+ * Remove accounts from a list, whoever owns it.
  *
- * Runs in the BROWSER, signed by dame's own OAuth session against dame's own
- * repo. The server never removes anyone: the credential that changes who is
- * blocked is the same one that owns the list, which keeps the authority and the
- * write in one place and means no service-role key can alter the graph.
+ * Routes on ownership rather than assuming, because the answer changes the
+ * moment the migration succeeds. A list in dame's repo can only be written by
+ * dame's own session, so those deletes happen here in the browser. A list on
+ * the moderator account cannot be written from here at all — the browser holds
+ * no credential for it — so those go to the server, which does.
  *
- * Deletes are batched through applyWrites — one HTTP call per 50, and a delete
- * is 1 point against the write budget where a create is 3.
+ * The previous version hardcoded the browser's own DID as the repo. Against a
+ * moderator-owned list that listed dame's records, matched none of them, and
+ * reported success having removed nothing.
  */
 export async function removeFromList(
   agent,
@@ -186,24 +195,39 @@ export async function removeFromList(
   dids,
   { onProgress } = {},
 ) {
-  const wanted = new Set(dids);
-  if (!wanted.size) return { removed: 0 };
+  const wanted = [...new Set(dids)];
+  if (!wanted.length) return { removed: 0, found: 0, asked: 0 };
+
+  const me = agent.session?.did ?? agent.did;
+  const owner = ownerOf(listUri);
+  if (!owner) throw new Error('listUri is not an at:// URI');
+
+  if (owner !== me) {
+    // Not ours to write. The server holds the moderator credential; it will
+    // refuse in turn if the list is not the moderator's either, so a typo in
+    // the list URI surfaces as an error rather than as a silent no-op.
+    return call(agent, '/api/mod-remove', {
+      lxm: LXM.remove,
+      body: { listUri, dids: wanted },
+    });
+  }
 
   // Map subject -> rkey by reading the listitems back. The audit stores DIDs,
   // not record keys, because a listitem can be recreated and the rkey would go
   // stale in the table while the membership did not.
+  const want = new Set(wanted);
   const rkeys = [];
   let cursor;
   for (let page = 0; page < 200; page += 1) {
     const res = await agent.com.atproto.repo.listRecords({
-      repo: agent.session?.did ?? agent.did,
+      repo: me,
       collection: 'app.bsky.graph.listitem',
       limit: 100,
       cursor,
     });
     for (const rec of res.data.records || []) {
       if (rec.value?.list !== listUri) continue;
-      if (!wanted.has(rec.value?.subject)) continue;
+      if (!want.has(rec.value?.subject)) continue;
       rkeys.push(rec.uri.split('/').pop());
     }
     cursor = res.data.cursor;
@@ -214,7 +238,7 @@ export async function removeFromList(
   for (let i = 0; i < rkeys.length; i += 50) {
     const slice = rkeys.slice(i, i + 50);
     await agent.com.atproto.repo.applyWrites({
-      repo: agent.session?.did ?? agent.did,
+      repo: me,
       writes: slice.map((rkey) => ({
         $type: 'com.atproto.repo.applyWrites#delete',
         collection: 'app.bsky.graph.listitem',
@@ -224,7 +248,7 @@ export async function removeFromList(
     removed += slice.length;
     onProgress?.({ removed, total: rkeys.length });
   }
-  return { removed, found: rkeys.length, asked: wanted.size };
+  return { removed, found: rkeys.length, asked: wanted.length };
 }
 
 /* -------------------------------------------------------------- migration */

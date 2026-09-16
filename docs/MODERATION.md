@@ -91,6 +91,7 @@ not for gating. A single score would imply precision this data does not support.
 | `api/mod-audit.js`                    | Scores an existing list; records keep/remove            |
 | `api/mod-migrate.js`                  | Carries the list to the moderator account (10-min cron) |
 | `api/mod-agent.js`                    | DM loop (10-min cron)                                   |
+| `api/mod-remove.js`                   | Removes from a list the moderator account owns          |
 | `src/components/ModerationStudio.jsx` | `/admin?view=moderation`                                |
 
 ### Why Constellation, not the AppView
@@ -105,11 +106,27 @@ Sources are also **discovered**, not declared — a counts call returns every
 `(collection, path)` pointing at the record, so engagement from lexicons outside
 `app.bsky` is found the same way a like is.
 
-### Why removals happen in the browser
+### Which credential removes someone
 
-The server scores; the browser removes. Deletes go through your own OAuth
-session against your own repo, so the credential that changes who is blocked is
-the one that owns the list. No service-role key can alter the graph.
+Removals route on who owns the list, because the answer changes when the
+migration succeeds.
+
+- **A list in your own repo** can only be written by your own session, so those
+  deletes run in the browser. The server does not hold your personal
+  credentials and should not.
+- **A list on the moderator account** cannot be written from the browser at all,
+  so those go to `api/mod-remove.js`, which uses `MOD_APP_PASSWORD`.
+
+The boundary is narrower than "the server must not write to the graph", which
+was never true anyway: `mod-migrate.js` adds thousands of accounts to a list
+with that same credential. Withholding the safer capability while granting the
+more dangerous one bought nothing, and removal is the direction that undoes
+harm. What holds is that **the server never holds your personal account's
+credentials** — the moderator account is a bot and automating it is the point of
+it existing.
+
+A removal request naming a list you own is refused by the server with
+`useBrowser: true` rather than quietly failing.
 
 ## Setup
 
