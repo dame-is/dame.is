@@ -156,6 +156,21 @@ every `mod` table has RLS on with zero policies and anon revoked.
 
 Copy the `service_role` key while you are there.
 
+Then run [`docs/sql/mod-grants.sql`](sql/mod-grants.sql) in the SQL editor.
+**Exposing the schema is not enough on its own.** Exposure controls which
+schemas PostgREST will serve; it says nothing about who may read them, and
+Supabase's default privileges only cover `public`, so a hand-created schema
+starts with `service_role` holding no `USAGE` and no table privileges at all.
+Without the grants every endpoint fails with `permission denied for schema mod`,
+which points at the schema rather than at the grant that was never made.
+
+**Leave every `mod.*` table unticked** under _Exposed tables_. Those toggles
+manage the Data API roles (`anon`, `authenticated`), and those two should have
+neither a grant nor a row-level policy — two independent reasons they see
+nothing. The grants file re-asserts that after granting, and sets it as the
+default for tables added later, so it holds whether or not _Automatically
+expose new tables_ is on.
+
 ### 3. Environment
 
 ```
