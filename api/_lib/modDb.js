@@ -76,6 +76,75 @@ export function select(table, opts = {}) {
 }
 
 /**
+ * Read EVERY row, not the first page of them.
+ *
+ * PostgREST caps a select at the project's `Max rows` setting, which is 1,000
+ * here. A plain `select('vouch', ...)` therefore answers with 1,000 of 73,215
+ * rows, status 200, no error and no warning — the worst shape a bug can take in
+ * this system. Every account missing from that page scores zero vouches, lands
+ * in UNKNOWN, and is waved through by the gate whose entire job is to catch it.
+ * The tool reports "95% UNKNOWN, nothing to review", which is also what a
+ * correct run against a stranger sweep looks like, so nothing about the output
+ * says anything is wrong.
+ *
+ * Paging is therefore not an optimisation. It is the only correct way to read a
+ * table that can outgrow one page, and `mod.vouch` outgrew it by 73x.
+ *
+ * `order` is REQUIRED, not optional. Postgres promises nothing about row order
+ * without an ORDER BY, so paging an unordered read may hand back the same row
+ * twice and never hand back another — a truncation bug wearing a different hat.
+ *
+ * @param {string} table
+ * @param {object} opts  as `select`, minus `limit`, plus a required `order`
+ */
+export async function selectAll(table, opts = {}) {
+  const { order, pageSize = 1000, maxPages = 500, ...rest } = opts;
+  if (!order) {
+    throw new Error(`selectAll(${table}) needs an order — see the note above`);
+  }
+
+  const { url, key } = config();
+  const out = [];
+  for (let page = 0; page < maxPages; page += 1) {
+    const q = new URLSearchParams();
+    q.set('select', rest.select || '*');
+    for (const [col, val] of Object.entries(rest.eq || {})) {
+      q.set(col, `eq.${val}`);
+    }
+    for (const [col, val] of Object.entries(rest.is || {})) {
+      q.set(col, `is.${val}`);
+    }
+    q.set('order', order);
+
+    const from = page * pageSize;
+    const res = await fetch(`${url}/rest/v1/${table}?${q}`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Accept-Profile': SCHEMA,
+        'Range-Unit': 'items',
+        Range: `${from}-${from + pageSize - 1}`,
+      },
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new Error(
+        `mod db GET ${table} page ${page} failed: ${res.status} ${detail.slice(0, 400)}`,
+      );
+    }
+    const text = await res.text();
+    const rows = text ? JSON.parse(text) : [];
+    out.push(...rows);
+    // A short page is the last page. Asking for one more to see an empty array
+    // would double the round trips on every exact multiple of pageSize.
+    if (rows.length < pageSize) return out;
+  }
+  throw new Error(
+    `mod db GET ${table} hit the ${maxPages}-page ceiling — refusing to return a silently partial read`,
+  );
+}
+
+/**
  * Insert rows, updating on primary-key conflict.
  *
  * Chunked because PostgREST holds the whole body in memory and a snapshot's

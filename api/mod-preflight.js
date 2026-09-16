@@ -17,13 +17,9 @@
 import { ME_DID } from '../src/config.js';
 import { resolveTarget, TargetError } from '../src/lib/moderation/target.js';
 import { harvestPost } from '../src/lib/moderation/harvest.js';
-import {
-  createScorer,
-  summarise,
-  DEFAULT_THRESHOLDS,
-} from '../src/lib/moderation/score.js';
-import { referenceFrom } from '../src/lib/moderation/precompute.js';
-import { select, upsert } from './_lib/modDb.js';
+import { createScorer, summarise } from '../src/lib/moderation/score.js';
+import { upsert } from './_lib/modDb.js';
+import { loadReference } from './_lib/reference.js';
 import { authorize } from './_lib/serviceAuth.js';
 
 export const config = { maxDuration: 60 };
@@ -36,45 +32,6 @@ export const config = { maxDuration: 60 };
  * settings endpoint, which is the whole value of `lxm` for a private service.
  */
 const LXM = 'is.dame.mod.preflight';
-
-/**
- * Load the newest finalised snapshot.
- *
- * Throws rather than scoring against nothing. A preflight with an empty vouch
- * table would put every single account in UNKNOWN and wave the whole batch
- * through — the exact failure this system exists to prevent, wearing the
- * costume of a successful run.
- */
-async function loadReference() {
-  const latest = await select('vouch', {
-    select: 'taken_at',
-    order: 'taken_at.desc',
-    limit: 1,
-  });
-  const takenAt = latest?.[0]?.taken_at;
-  if (!takenAt) {
-    throw new Error(
-      'no finalised snapshot — run /api/mod-precompute before scoring anything',
-    );
-  }
-
-  const [vouchRows, circleRows, protectedRows, settings] = await Promise.all([
-    select('vouch', { select: 'did,vouches', eq: { taken_at: takenAt } }),
-    select('circle', { select: 'did', eq: { taken_at: takenAt } }),
-    select('protected', { select: 'did,reason' }),
-    select('settings', { select: 'thresholds', eq: { id: 1 } }),
-  ]);
-
-  return {
-    takenAt,
-    ref: referenceFrom({
-      vouchRows,
-      circleDids: circleRows.map((r) => r.did),
-      protectedRows,
-    }),
-    thresholds: settings?.[0]?.thresholds || DEFAULT_THRESHOLDS,
-  };
-}
 
 async function persist(target, harvest, summary, thresholds) {
   const [row] = await upsertReturning('harvest', {
