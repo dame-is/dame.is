@@ -60,21 +60,27 @@ async function getJson(url, fetchImpl, signal, tries = 3) {
  */
 export async function followsOf(
   did,
-  { fetchImpl = fetch, signal, appview = APPVIEW } = {},
+  { fetchImpl = fetch, signal, appview = APPVIEW, deadline = Infinity } = {},
 ) {
   const out = [];
   let cursor;
   for (let page = 0; page < MAX_PAGES; page += 1) {
+    // Checked per PAGE, not per member. A member following 1,500 accounts is
+    // fifteen sequential requests with retries behind each one, so a budget
+    // enforced only between members can overrun by tens of seconds — which is
+    // how a 45s budget produced a 60s function timeout.
+    if (Date.now() >= deadline)
+      return { dids: out, complete: false, aborted: true };
     const url =
       `${appview}/xrpc/app.bsky.graph.getFollows?actor=${encodeURIComponent(did)}&limit=${PAGE}` +
       (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
     const body = await getJson(url, fetchImpl, signal);
-    if (!body) return { dids: out, complete: false };
+    if (!body) return { dids: out, complete: false, aborted: false };
     for (const f of body.follows || []) if (f?.did) out.push(f.did);
     cursor = body.cursor;
-    if (!cursor) return { dids: out, complete: true };
+    if (!cursor) return { dids: out, complete: true, aborted: false };
   }
-  return { dids: out, complete: false };
+  return { dids: out, complete: false, aborted: false };
 }
 
 /**
@@ -138,15 +144,30 @@ export async function indexCircleFollows({
   let edges = 0;
   let stopped = false;
 
+  const deadline = started + budgetMs;
+
   async function worker() {
     while (!stopped) {
-      if (Date.now() - started > budgetMs) {
+      if (Date.now() >= deadline) {
         stopped = true;
         return;
       }
       const member = queue.shift();
       if (!member) return;
-      const { dids, complete } = await followsOf(member, { fetchImpl, signal });
+      const { dids, complete, aborted } = await followsOf(member, {
+        fetchImpl,
+        signal,
+        deadline,
+      });
+      if (aborted) {
+        // Ran out of budget mid-member. Write nothing and mark nothing: a
+        // partial follow list recorded as complete would understate this
+        // member's vouches for the life of the snapshot, and understating a
+        // vouch is the mistake that sends someone to review who did not need
+        // it. Leaving the row pending costs one retry.
+        stopped = true;
+        return;
+      }
       if (!complete && dids.length === 0) {
         // Could not read them at all this run. Leave unmarked so the next
         // firing retries rather than recording a zero as if it were an answer.
