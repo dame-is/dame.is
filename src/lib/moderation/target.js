@@ -38,7 +38,7 @@ export class TargetError extends Error {}
  * link, and the caller pasted it deliberately, so silence would be the wrong
  * answer.
  */
-async function resolveHandle(handle, { fetchImpl = fetch } = {}) {
+export async function resolveHandle(handle, { fetchImpl = fetch } = {}) {
   const url = `${APPVIEW}/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`;
   let res;
   try {
@@ -124,4 +124,21 @@ export function extractTargets(text) {
     found.push(cleaned);
   }
   return found;
+}
+
+/**
+ * An actor reference (handle or DID) as a DID.
+ *
+ * Scoring is keyed by DID throughout — `score()` looks profiles up by the exact
+ * string it was handed, so a handle passed straight in comes back as an
+ * unresolved account rather than an error. Anything taking user input resolves
+ * here first.
+ */
+export async function resolveActor(actor, opts = {}) {
+  const raw = String(actor ?? '')
+    .trim()
+    .replace(/^@/, '');
+  if (!raw) throw new TargetError('nothing to resolve');
+  if (DID.test(raw)) return raw;
+  return resolveHandle(raw, opts);
 }

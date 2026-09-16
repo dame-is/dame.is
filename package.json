@@ -29,6 +29,7 @@
     "@aturi.to/waypoints": "^0.1.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/og": "^0.11.1",
+    "ai": "^7.0.103",
     "highlight.js": "^11.11.1",
     "lucide-react": "^1.14.0",
     "marked": "^14.1.3",
