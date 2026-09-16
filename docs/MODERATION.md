@@ -172,13 +172,26 @@ secret breaks the crons rather than opening the endpoints.
 
 ### 4. Build the reference data
 
+**From the portal.** Open `/admin?view=moderation` and click **Check / build
+reference data**. It loops until the snapshot is complete — two or three
+batches, under a minute — and the footer reports `ready` when it is done.
+
+No `CRON_SECRET` needed, which matters because Vercel does not show that value
+back to you once it is set. The browser holds an OAuth session and mints its own
+short-lived token; the secret exists for Vercel's own cron invocations.
+
+The hourly cron would get there by itself, but watch the first build rather than
+assuming it.
+
+If you would rather drive it from a terminal, `vercel env pull .env.local` will
+write the decrypted values into a local file, and then:
+
 ```bash
 curl -sS -X POST https://dame.is/api/mod-precompute \
   -H "Authorization: Bearer $CRON_SECRET" | jq
 ```
 
-Repeat until `{"state":"finalised"}`. Two or three calls; the hourly cron would
-get there alone but watch the first one. Verify:
+Repeat until `{"state":"finalised"}`. Verify either way:
 
 ```sql
 select taken_at, count(*) from mod.vouch group by taken_at;

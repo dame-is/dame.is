@@ -77,6 +77,7 @@ function PreflightPanel({ agent }) {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
+  const [building, setBuilding] = useState(false);
 
   const run = useCallback(
     async (event) => {
@@ -98,12 +99,32 @@ function PreflightPanel({ agent }) {
     [agent, link, busy],
   );
 
+  /**
+   * Check the reference data, and finish building it if it is unfinished.
+   *
+   * The endpoint is resumable rather than long-running: each call spends a time
+   * budget and returns what is left. A single click used to do one batch and
+   * report a half-built snapshot, which reads exactly like a finished one to
+   * anyone not counting. So this loops until the answer stops changing.
+   *
+   * It also means the first build needs no CRON_SECRET. The browser holds an
+   * OAuth session and mints its own token; the secret is for Vercel's crons,
+   * and Vercel does not show it back to you once it is set.
+   */
   const checkSnapshot = useCallback(async () => {
     setError(null);
+    setBuilding(true);
     try {
-      setSnapshot(await precomputeStatus(agent));
+      let last = null;
+      for (let i = 0; i < 40; i += 1) {
+        last = await precomputeStatus(agent);
+        setSnapshot(last);
+        if (last.state !== 'collecting') break;
+      }
     } catch (err) {
       setError(String(err?.message || err));
+    } finally {
+      setBuilding(false);
     }
   }, [agent]);
 
@@ -198,15 +219,22 @@ function PreflightPanel({ agent }) {
       )}
 
       <footer className="mod-foot">
-        <button className="mod-ghost" type="button" onClick={checkSnapshot}>
-          Check reference data
+        <button
+          className="mod-ghost"
+          type="button"
+          disabled={building}
+          onClick={checkSnapshot}
+        >
+          {building ? 'Building…' : 'Check / build reference data'}
         </button>
         {snapshot && (
           <span className="mod-snapshot">
-            {snapshot.state}
+            {snapshot.state === 'idle' && 'ready'}
+            {snapshot.state === 'finalised' && 'ready (just built)'}
+            {snapshot.state === 'collecting' &&
+              `building · ${num(snapshot.remaining ?? 0)} accounts left to read`}
             {snapshot.snapshot && ` · ${snapshot.snapshot.slice(0, 10)}`}
             {snapshot.vouches != null && ` · ${num(snapshot.vouches)} scored`}
-            {snapshot.remaining ? ` · ${snapshot.remaining} left to read` : ''}
           </span>
         )}
       </footer>
