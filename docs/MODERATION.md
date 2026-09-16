@@ -140,6 +140,13 @@ nothing.
 From the moderator account, **follow `dame.is`** — chat defaults restrict
 incoming DMs to accounts you follow.
 
+`MOD_IDENTIFIER` accepts a handle or a DID. Use the **DID**: a handle is rented,
+so renaming the account would break authentication from inside a cron nobody is
+watching, and a DID can be verified against the session that comes back —
+`botAgent` refuses one that does not match, which catches an identifier and an
+app password belonging to two different accounts before anything is written to
+the wrong repo.
+
 ### 2. Expose the schema
 
 Supabase → atpota.to → Settings → API → Data API → **Exposed schemas** → add
@@ -154,7 +161,7 @@ Copy the `service_role` key while you are there.
 ```
 SUPABASE_URL=https://zdzjtziydmwkxbzlkwxv.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=...
-MOD_IDENTIFIER=<moderator handle>
+MOD_IDENTIFIER=did:plc:...   # handle works too; the DID is better
 MOD_APP_PASSWORD=...
 AI_GATEWAY_API_KEY=...
 MOD_AGENT_MODEL=anthropic/claude-opus-5   # optional
