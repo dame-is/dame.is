@@ -21,7 +21,19 @@ import { select, upsert } from './modDb.js';
 const SERVICE = 'https://bsky.social';
 
 /** DMs are served by the chat service, not the PDS or the AppView. */
-const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
+export const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
+
+/**
+ * The chat-service view of an agent that is already logged in.
+ *
+ * The droplet consumer needs BOTH views at once from ONE session: the plain
+ * agent to post a public reply, and this one to read and send DMs. Logging in
+ * twice to get them would spend two createSession calls against a 300/day cap
+ * for no reason, and `withProxy` is just a wrapper around the same session.
+ */
+export function chatView(agent) {
+  return agent.withProxy('bsky_chat', CHAT_SERVICE_DID);
+}
 
 /**
  * Credentials for the moderator account.
@@ -128,7 +140,7 @@ export async function botAgent({ chat = false } = {}) {
   assertExpectedAccount(identifier, agent.session);
 
   if (!chat) return { agent, via };
-  return { agent: agent.withProxy('bsky_chat', CHAT_SERVICE_DID), via };
+  return { agent: chatView(agent), via };
 }
 
 /**

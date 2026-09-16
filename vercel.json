@@ -9,7 +9,6 @@
     { "path": "/api/mirror-mothing", "schedule": "50 5,11,17,23 * * *" },
     { "path": "/api/mirror-arena", "schedule": "20 6 * * *" },
     { "path": "/api/mod-precompute", "schedule": "40 * * * *" },
-    { "path": "/api/mod-agent", "schedule": "*/10 * * * *" },
     { "path": "/api/mod-migrate", "schedule": "*/10 * * * *" }
   ],
   "rewrites": [

@@ -19,3 +19,6 @@ public/llms.txt
 * 2.md
 * 2.html
 * 2.mjs
+
+# Editor swap files (nano leaves ..file.swp next to the file being edited).
+*.swp

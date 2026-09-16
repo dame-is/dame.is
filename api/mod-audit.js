@@ -27,12 +27,9 @@
 
 import { ME_DID } from '../src/config.js';
 import { resolvePds } from '../src/lib/atproto.js';
-import {
-  createScorer,
-  DEFAULT_THRESHOLDS,
-} from '../src/lib/moderation/score.js';
-import { referenceFrom } from '../src/lib/moderation/precompute.js';
+import { createScorer } from '../src/lib/moderation/score.js';
 import { select, upsert, update } from './_lib/modDb.js';
+import { loadReference } from './_lib/reference.js';
 import { authorize } from './_lib/serviceAuth.js';
 
 export const config = { maxDuration: 60 };
@@ -42,33 +39,6 @@ const BUDGET_MS = 40_000;
 
 /** listRecords pages of 100; this many per invocation. */
 const PAGES_PER_RUN = 15;
-
-async function loadReference() {
-  const latest = await select('vouch', {
-    select: 'taken_at',
-    order: 'taken_at.desc',
-    limit: 1,
-  });
-  const takenAt = latest?.[0]?.taken_at;
-  if (!takenAt) {
-    throw new Error('no finalised snapshot — run /api/mod-precompute first');
-  }
-  const [vouchRows, circleRows, protectedRows, settings] = await Promise.all([
-    select('vouch', { select: 'did,vouches', eq: { taken_at: takenAt } }),
-    select('circle', { select: 'did', eq: { taken_at: takenAt } }),
-    select('protected', { select: 'did,reason' }),
-    select('settings', { select: 'thresholds', eq: { id: 1 } }),
-  ]);
-  return {
-    takenAt,
-    ref: referenceFrom({
-      vouchRows,
-      circleDids: circleRows.map((r) => r.did),
-      protectedRows,
-    }),
-    thresholds: settings?.[0]?.thresholds || DEFAULT_THRESHOLDS,
-  };
-}
 
 async function currentAudit() {
   const rows = await select('audit', {
