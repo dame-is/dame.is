@@ -43,10 +43,23 @@ export async function readCursor() {
   return rows?.[0]?.cursor ?? null;
 }
 
+/**
+ * Store the resume point, but only when it has actually moved.
+ *
+ * The droplet polls every 2s, so writing unconditionally is 43,200 updates a
+ * day to a single row for the sake of the handful that change anything. The
+ * write still happens BEFORE any reply is sent, which is the property that
+ * matters: it is what makes a crashed turn a dropped message rather than a
+ * replayed one.
+ */
+let lastWritten = null;
+
 export async function writeCursor(cursor) {
+  if (cursor === lastWritten) return;
   await upsert('dm_cursor', [
     { id: 1, cursor, updated_at: new Date().toISOString() },
   ]);
+  lastWritten = cursor;
 }
 
 /**
