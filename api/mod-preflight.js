@@ -24,8 +24,18 @@ import {
 } from '../src/lib/moderation/score.js';
 import { referenceFrom } from '../src/lib/moderation/precompute.js';
 import { select, upsert } from './_lib/modDb.js';
+import { authorize } from './_lib/serviceAuth.js';
 
 export const config = { maxDuration: 60 };
+
+/**
+ * The lexicon method a browser token must be scoped to.
+ *
+ * Not a real lexicon — nothing publishes it and nothing validates against it.
+ * It exists so a token minted for the preflight cannot be replayed against the
+ * settings endpoint, which is the whole value of `lxm` for a private service.
+ */
+const LXM = 'is.dame.mod.preflight';
 
 /**
  * Load the newest finalised snapshot.
@@ -126,13 +136,7 @@ async function upsertReturning(table, row) {
 }
 
 export default async function handler(req, res) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers?.authorization || '';
-    if (auth !== `Bearer ${secret}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-  }
+  if (!(await authorize(req, res, { lxm: LXM }))) return;
 
   const link = req.body?.link || req.query?.link;
   if (!link)

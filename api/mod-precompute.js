@@ -23,8 +23,12 @@ import {
   indexCircleFollows,
 } from '../src/lib/moderation/precompute.js';
 import { select, upsert, update, rpc, count, del } from './_lib/modDb.js';
+import { authorize } from './_lib/serviceAuth.js';
 
 export const config = { maxDuration: 60 };
+
+/** See the note on LXM in mod-preflight.js. */
+const LXM = 'is.dame.mod.precompute';
 
 /** Rebuild the snapshot when the newest complete one is older than this. */
 const MAX_AGE_DAYS = 7;
@@ -74,13 +78,7 @@ async function startSnapshot(pds) {
 }
 
 export default async function handler(req, res) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers?.authorization || '';
-    if (auth !== `Bearer ${secret}`) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-  }
+  if (!(await authorize(req, res, { lxm: LXM }))) return;
 
   try {
     const restart = req.query?.restart === '1' || req.query?.restart === 'true';

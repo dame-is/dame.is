@@ -30,6 +30,11 @@ export default defineConfig({
       'src/**/*.test.js',
       'og/**/*.test.js',
       'harness/**/*.test.js',
+      // The serverless functions were untested because none of them held logic
+      // worth testing — they were thin wrappers over libraries that had their
+      // own suites. api/_lib/serviceAuth.js is the exception: it decides who
+      // gets to read the moderation log, so its failure modes are the point.
+      'api/**/*.test.js',
       'middleware.test.js',
     ],
   },
