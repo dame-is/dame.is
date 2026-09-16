@@ -33,8 +33,19 @@ const LXM = 'is.dame.mod.precompute';
 /** Rebuild the snapshot when the newest complete one is older than this. */
 const MAX_AGE_DAYS = 7;
 
-/** Leave headroom under maxDuration so the response still gets written. */
-const BUDGET_MS = 45_000;
+/**
+ * Wall-clock budget per firing.
+ *
+ * Well under the 60s maxDuration, and deliberately so. The budget bounds when
+ * work STOPS BEING STARTED; the writes that follow, plus any request already in
+ * flight, land after it. At 45s that overran and Vercel returned
+ * FUNCTION_INVOCATION_TIMEOUT, which loses the response but not the progress —
+ * indexed members are already committed and pending ones retry.
+ *
+ * The deadline is now also enforced inside each member's paging, so the tail is
+ * one request rather than one whole follow list.
+ */
+const BUDGET_MS = 25_000;
 
 async function currentSnapshot() {
   const rows = await select('circle', {
