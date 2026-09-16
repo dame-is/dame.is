@@ -1,3 +1,31 @@
+-- BEFORE THE GRANTS: the schema has to be exposed, and the dashboard toggle
+-- did not take. Exposing `mod` under Settings -> API -> Exposed schemas showed
+-- as saved and as "7 of 9 schemas exposed" in the UI, while the value PostgREST
+-- actually reads still listed six. The symptom is a 406 with PGRST106:
+--
+--   Invalid schema: mod
+--   Only the following schemas are exposed: public, graphql_public, ...
+--
+-- Check what is really configured, rather than what the dashboard claims:
+--
+--   select unnest(s.setconfig) from pg_db_role_setting s
+--   join pg_roles r on r.oid = s.setrole where r.rolname = 'authenticator';
+--
+-- If `mod` is missing from pgrst.db_schemas, set it here. Append to the list
+-- that is already there; overwriting it with a shorter one takes the other
+-- apps' schemas offline. The two NOTIFYs make PostgREST reload without waiting
+-- for a restart.
+--
+--   alter role authenticator set pgrst.db_schemas =
+--     'public, graphql_public, trackerapp, credblue, typesapp, turtleme, mod';
+--   notify pgrst, 'reload config';
+--   notify pgrst, 'reload schema';
+--
+-- Exposure and grants are independent. Exposure decides which schemas
+-- PostgREST will serve; the grants below decide who may read them. Both were
+-- missing, and each produces a different error, so fixing one leaves the other
+-- looking like a fresh problem.
+
 -- Grants for the `mod` schema on the atpota.to project.
 --
 -- Kept here because this is the step that is invisible until it fails, and the
