@@ -12,13 +12,11 @@ added everyone to a modlist. That works, and it is blind: it knows the graph
 around one post at one moment and nothing about how those accounts relate to
 you.
 
-In September 2026 a sweep added 8,473 accounts in a day. Among them:
-
-| Account               | Followed by    | Followers | Posts/day |
-| --------------------- | -------------- | --------- | --------- |
-| `katie.bzky.team`     | 24 of your 234 | 57,916    | 219       |
-| `jazzpomegranate.com` | 10             | 32,933    | 86        |
-| `josie.zone`          | 8              | 40,775    | 107       |
+In September 2026 a sweep added 8,473 accounts in a day. The worst collateral
+case was an account followed by 24 of your 234, with tens of thousands of
+followers, posting hundreds of times a day. Two more were followed by 8 and 10
+of your circle respectively, both with five-figure audiences. None of them were
+looked at, because a batch of 8,473 is not a list anyone reads.
 
 275 accounts in that batch were followed by at least one person you follow. The
 gate exists so that list gets named before the action, not discovered after.

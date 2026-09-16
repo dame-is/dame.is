@@ -18,10 +18,12 @@ describe('assignBand', () => {
     expect(band).toBe('PROTECTED');
   });
 
-  it('puts the katie case in CONNECTED', () => {
-    // 24 vouches, 57,916 followers — swept into a bulk block by the old tool.
-    // This is the specific failure the gate exists to stop, so it gets a test.
-    expect(assignBand({ vouches: 24, followers: 57916 })).toBe('CONNECTED');
+  it('catches the failure this gate was built for', () => {
+    // Modelled on a real account the old tool swept into a bulk block: deep in
+    // the circle, large audience, never looked at because the batch was 8,473
+    // accounts long. Figures rounded — this is a regression test, not a record
+    // of who it happened to.
+    expect(assignBand({ vouches: 24, followers: 50000 })).toBe('CONNECTED');
   });
 
   it('promotes a single vouch to CONNECTED only when reach is real', () => {
