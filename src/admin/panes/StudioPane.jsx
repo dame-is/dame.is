@@ -42,6 +42,7 @@ import NavMenuPanel from '../../components/NavMenuPanel.jsx';
 import PagesOverview from '../../components/PagesOverview.jsx';
 import PublicationsManager from '../../components/PublicationsManager.jsx';
 import RatioedPanel from '../../components/RatioedPanel.jsx';
+import ModerationStudio from '../../components/ModerationStudio.jsx';
 import RatioedStudio from '../../components/RatioedStudio.jsx';
 import SkyThemeStudio from '../../components/SkyThemeStudio.jsx';
 import ResumeStudio from '../../components/resume/ResumeStudio.jsx';
@@ -62,6 +63,7 @@ const STUDIOS = {
   'ratioed-studio': RatioedStudio,
   ratioed: RatioedPanel,
   analytics: AnalyticsStudio,
+  moderation: ModerationStudio,
   'legacy-blogs': LegacyBlogMigration,
 };
 
@@ -96,13 +98,22 @@ const NEEDS_PANE_META = new Set(['publications']);
  * @param {string|null} props.rkey   The `r` param — legal on a `?view=` surface.
  * @param {boolean} props.isNew      `mode === 'new'`.
  */
-export default function StudioPane({ surface, agent, did, rkey = null, isNew = false }) {
+export default function StudioPane({
+  surface,
+  agent,
+  did,
+  rkey = null,
+  isNew = false,
+}) {
   const isResume = NEEDS_BUNDLE.has(surface.key);
   // Unconditional call — hooks cannot be conditional, and the hook's own
   // `if (!agent || !did) return undefined` guard makes this a ZERO-REQUEST no-op
   // on every other surface. Without that guard, mounting any studio would fire
   // four fully-paginated listRecords sweeps.
-  const bundle = useResumeBundle(isResume ? agent : null, isResume ? did : null);
+  const bundle = useResumeBundle(
+    isResume ? agent : null,
+    isResume ? did : null,
+  );
 
   const Studio = STUDIOS[surface.key] || null;
 
@@ -140,7 +151,9 @@ export default function StudioPane({ surface, agent, did, rkey = null, isNew = f
     <div className="wb-studio">
       <div className="wb-pane-head">
         <h1 className="wb-pane-title">{title}</h1>
-        {surface.nsid && <code className="admin-collection-nsid">{surface.nsid}</code>}
+        {surface.nsid && (
+          <code className="admin-collection-nsid">{surface.nsid}</code>
+        )}
       </div>
       {blurb && <p className="wb-pane-blurb">{blurb}</p>}
       {Studio ? (
@@ -150,7 +163,8 @@ export default function StudioPane({ surface, agent, did, rkey = null, isNew = f
         createElement(Studio, { key: surface.key, ...props })
       ) : (
         <p className="placeholder-card">
-          No studio is registered for <code className="admin-collection-nsid">{surface.key}</code>.
+          No studio is registered for{' '}
+          <code className="admin-collection-nsid">{surface.key}</code>.
         </p>
       )}
     </div>
