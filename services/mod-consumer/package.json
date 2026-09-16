@@ -1,0 +1,19 @@
+{
+  "name": "mod-consumer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Near-instant trigger for the moderation analyst: a filtered Jetstream subscription for public mentions and a 2s chat.bsky.convo.getLog poll for DMs, both calling the same answering code as api/mod-agent.js. Runs on the DigitalOcean droplet alongside the anisota, tracker and turtle consumers.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dry-run": "DRY_RUN=true LOG_LEVEL=debug node src/index.js",
+    "dev": "LOG_LEVEL=debug node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "comments": {
+    "dependencies": "There are none, on purpose. The answering code, the AI SDK and @atproto/api resolve from the repo root's node_modules because this service lives inside the repo and imports those modules directly — which is what keeps it from drifting from the serverless path. WebSocket is built into Node 22, so `ws` is unnecessary, and systemd's EnvironmentFile reads .env, so `dotenv` is too. Install at the REPO ROOT, not here: npm ci --omit=dev"
+  }
+}

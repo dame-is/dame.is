@@ -1,0 +1,48 @@
+[Unit]
+Description=Moderation analyst consumer (Jetstream mentions + DM poll)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+
+# The service lives INSIDE the dame.is checkout on purpose. It imports
+# src/lib/moderation/*.js and api/_lib/*.js directly, which is what stops the
+# droplet and the serverless fallback from answering differently. Those modules
+# resolve `ai`, `zod` and `@atproto/api` from the repo root's node_modules, so
+# the install that matters is `npm ci --omit=dev` at /root/dame.is, not here.
+WorkingDirectory=/root/dame.is/services/mod-consumer
+
+# Node 22, not /usr/bin/node. This box ships Node 18, which is past end of life
+# and below the floor the AI SDK declares. /opt/node22 was added for this service
+# alone so the three running consumers keep the runtime they were tested on.
+ExecStart=/opt/node22/bin/node /root/dame.is/services/mod-consumer/src/index.js
+
+Restart=always
+RestartSec=10
+
+# Copy .env.template -> .env here and fill it in before enabling.
+EnvironmentFile=/root/dame.is/services/mod-consumer/.env
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mod-consumer
+Environment=NODE_ENV=production
+Environment=LOG_LEVEL=info
+
+# Bigger than the other three consumers here, and it has to be. They stream
+# records into Supabase and never hold more than a batch; this one holds a ~73k
+# row vouch snapshot plus an LLM tool loop. Measured RSS sits well under this
+# when the reference is released; the headroom is for the moments it is not.
+Environment=NODE_OPTIONS=--max-old-space-size=320
+MemoryMax=420M
+MemoryHigh=360M
+CPUQuota=80%
+
+# Long enough to finish an answer in flight rather than leaving half a reply
+# thread posted. The shutdown path waits up to 45s for the current job.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

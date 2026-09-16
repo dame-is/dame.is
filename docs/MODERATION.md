@@ -81,16 +81,20 @@ not for gating. A single score would imply precision this data does not support.
 | `src/lib/moderation/harvest.js`       | Everyone who touched a post, by engagement kind         |
 | `src/lib/moderation/score.js`         | Trust, distance, bands, summary                         |
 | `src/lib/moderation/precompute.js`    | Circle + vouch set construction                         |
-| `src/lib/moderation/agent.js`         | The DM analyst: prompt, read-only tools, chunking       |
+| `src/lib/moderation/agent.js`         | The analyst: prompts, read-only tools, chunking         |
+| `src/lib/moderation/trigger.js`       | Does this firehose event mean "look at this"?           |
 | `src/lib/moderation/client.js`        | Browser calls, service-auth minting, list removal       |
 | `api/_lib/modDb.js`                   | PostgREST client for the `mod` schema (server only)     |
+| `api/_lib/reference.js`               | The scoring snapshot, loaded once and shared            |
+| `api/_lib/dmLoop.js`                  | One DM intake pass, shared by droplet and fallback      |
 | `api/_lib/serviceAuth.js`             | Verifies browser tokens against your DID document       |
 | `api/_lib/botAgent.js`                | Moderator session, resumed rather than re-established   |
 | `api/mod-precompute.js`               | Builds the vouch set (hourly cron, resumable)           |
 | `api/mod-preflight.js`                | Scores a post's engagement graph                        |
 | `api/mod-audit.js`                    | Scores an existing list; records keep/remove            |
 | `api/mod-migrate.js`                  | Carries the list to the moderator account (10-min cron) |
-| `api/mod-agent.js`                    | DM loop (10-min cron)                                   |
+| `api/mod-agent.js`                    | DM loop, on demand — the fallback, no longer scheduled  |
+| `services/mod-consumer/`              | The droplet: Jetstream mentions + a 2s DM poll          |
 | `api/mod-remove.js`                   | Removes from a list the moderator account owns          |
 | `src/components/ModerationStudio.jsx` | `/admin?view=moderation`                                |
 
@@ -167,6 +171,19 @@ join pg_roles r on r.oid = s.setrole where r.rolname = 'authenticator';
 
 `mod` must appear in `pgrst.db_schemas`. If it does not, set it from SQL — the
 fix is at the top of [`docs/sql/mod-grants.sql`](sql/mod-grants.sql).
+
+**Max rows caps every read, silently.** Supabase → Settings → API → Max rows is
+1,000 on this project, and PostgREST applies it to any select without a limit —
+status 200, no warning, 1,000 of 73,215 vouch rows. Scoring against that page
+puts 72,215 accounts at zero vouches, which reads as UNKNOWN, which is the band
+that gets waved through: about 12,700 of them score CONNECTED when the table is
+read in full. The tool reports "95% UNKNOWN, nothing to review", which is also
+what a correct run against a stranger sweep looks like.
+
+The fix is in code, not in that setting: `selectAll` in `api/_lib/modDb.js` pages
+with `Range` headers and refuses to read a table that can outgrow one page any
+other way. Raising the dashboard value would fix this one symptom for every app
+on the project and leave the next table to grow into the same trap.
 
 Then run [`docs/sql/mod-grants.sql`](sql/mod-grants.sql) in the SQL editor.
 **Exposing the schema is not enough on its own.** Exposure controls which
@@ -262,12 +279,34 @@ story you tell.
 
 ### The analyst
 
-DM the moderator account a post link. Reply within ten minutes, or force it:
+Two ways in, both answered in seconds by the droplet consumer
+(`services/mod-consumer/`, which has its own README):
+
+- **DM the moderator account** a post link. A 2s `chat.bsky.convo.getLog` poll
+  picks it up; the answer comes back in the same conversation.
+- **Mention the bot in a post**, or reply to or quote one of its posts. The
+  subject is the link you pasted, or failing that the post you are replying to
+  or quoting. **The answer is a public reply in that thread.**
+
+That second one is public, and worth being deliberate about: the reply is
+readable by the accounts being described and by everyone else in the thread. The
+public prompt asks for counts by band rather than rosters of handles and says to
+move a roster to a DM — a prompt, not a guarantee. Replies carry no mention
+facets, so nobody named in one is notified. `PUBLIC_REPLIES=false` on the droplet
+turns the whole public path off and leaves the DM loop alone.
+
+**The Vercel cron is retired.** `api/mod-agent.js` still exists and runs the same
+pass over the same cursor, as the escape hatch for when the droplet is down:
 
 ```bash
 curl -sS -X POST https://dame.is/api/mod-agent \
   -H "Authorization: Bearer $CRON_SECRET" | jq
 ```
+
+There is no lease on `mod.dm_cursor`, so running that **while the consumer is up**
+can answer a message twice — both sides can read the same cursor during the
+5-20s model call. Stop the service first. That is the whole reason it is not
+scheduled any more.
 
 `{"answered":0,"scanned":N}` means the message was seen but not from your DID,
 or the DM-access toggle is off.
@@ -278,8 +317,9 @@ is per conversation and comes from Bluesky itself, so there is no state to keep
 and two threads cannot bleed into each other. Replies longer than a DM are sent
 as several messages and folded back into one turn when read.
 
-What it is not is live. The cron fires every ten minutes, so a reply takes up to
-that long; it is correspondence, not chat.
+It is live now, which it was not: the ten-minute cron made it correspondence.
+The floor is the model call — 5-20s for a harvest, a score and a reply — so the
+transport is no longer what you are waiting for.
 
 **The analyst decides nothing.** Bands are computed before it sees them and no
 model output can move an account between them. That is what keeps the decision
