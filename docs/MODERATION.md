@@ -156,6 +156,18 @@ every `mod` table has RLS on with zero policies and anon revoked.
 
 Copy the `service_role` key while you are there.
 
+**Verify the toggle actually took.** It has silently not taken at least once:
+the dialog reported `7 of 9 schemas exposed` while the value PostgREST reads
+still listed six, and every call came back `PGRST106 — Invalid schema: mod`.
+
+```sql
+select unnest(s.setconfig) from pg_db_role_setting s
+join pg_roles r on r.oid = s.setrole where r.rolname = 'authenticator';
+```
+
+`mod` must appear in `pgrst.db_schemas`. If it does not, set it from SQL — the
+fix is at the top of [`docs/sql/mod-grants.sql`](sql/mod-grants.sql).
+
 Then run [`docs/sql/mod-grants.sql`](sql/mod-grants.sql) in the SQL editor.
 **Exposing the schema is not enough on its own.** Exposure controls which
 schemas PostgREST will serve; it says nothing about who may read them, and
