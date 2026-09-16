@@ -119,7 +119,9 @@ function PreflightPanel({ agent }) {
       for (let i = 0; i < 40; i += 1) {
         last = await precomputeStatus(agent);
         setSnapshot(last);
-        if (last.state !== 'collecting') break;
+        // `finalising` means every member is read and only the aggregation is
+        // left, so it keeps looping; `idle` and `finalised` are terminal.
+        if (last.state !== 'collecting' && last.state !== 'finalising') break;
       }
     } catch (err) {
       setError(String(err?.message || err));
@@ -231,10 +233,14 @@ function PreflightPanel({ agent }) {
           <span className="mod-snapshot">
             {snapshot.state === 'idle' && 'ready'}
             {snapshot.state === 'finalised' && 'ready (just built)'}
+            {snapshot.state === 'finalising' && 'aggregating…'}
             {snapshot.state === 'collecting' &&
               `building · ${num(snapshot.remaining ?? 0)} accounts left to read`}
             {snapshot.snapshot && ` · ${snapshot.snapshot.slice(0, 10)}`}
             {snapshot.vouches != null && ` · ${num(snapshot.vouches)} scored`}
+            {snapshot.unreadableMembers
+              ? ` · ${num(snapshot.unreadableMembers)} unreadable`
+              : ''}
           </span>
         )}
       </footer>

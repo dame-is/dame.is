@@ -33,6 +33,17 @@ const MAX_PAGES = 15;
 /** How many follow lists to fetch at once. */
 const CONCURRENCY = 8;
 
+/**
+ * Fetch JSON, distinguishing a failure that will never succeed from one that
+ * might.
+ *
+ * The distinction is load-bearing. An account you follow that has been
+ * deactivated or taken down answers 400 from getFollows and always will;
+ * retrying it forever is how a snapshot livelocks with everything else done.
+ * A 429 or a 5xx is worth coming back for.
+ *
+ * @returns {{ body: object|null, permanent: boolean }}
+ */
 async function getJson(url, fetchImpl, signal, tries = 3) {
   for (let i = 0; i < tries; i += 1) {
     try {
@@ -40,14 +51,16 @@ async function getJson(url, fetchImpl, signal, tries = 3) {
         headers: { Accept: 'application/json' },
         signal,
       });
-      if (res.ok) return await res.json();
-      if (![429, 502, 503, 504].includes(res.status)) return null;
+      if (res.ok) return { body: await res.json(), permanent: false };
+      if (![429, 502, 503, 504].includes(res.status)) {
+        return { body: null, permanent: true };
+      }
     } catch (err) {
       if (err?.name === 'AbortError') throw err;
     }
     await new Promise((r) => setTimeout(r, 500 * (i + 1)));
   }
-  return null;
+  return { body: null, permanent: false };
 }
 
 /**
@@ -70,17 +83,18 @@ export async function followsOf(
     // enforced only between members can overrun by tens of seconds — which is
     // how a 45s budget produced a 60s function timeout.
     if (Date.now() >= deadline)
-      return { dids: out, complete: false, aborted: true };
+      return { dids: out, complete: false, aborted: true, permanent: false };
     const url =
       `${appview}/xrpc/app.bsky.graph.getFollows?actor=${encodeURIComponent(did)}&limit=${PAGE}` +
       (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
-    const body = await getJson(url, fetchImpl, signal);
-    if (!body) return { dids: out, complete: false, aborted: false };
+    const { body, permanent } = await getJson(url, fetchImpl, signal);
+    if (!body) return { dids: out, complete: false, aborted: false, permanent };
     for (const f of body.follows || []) if (f?.did) out.push(f.did);
     cursor = body.cursor;
-    if (!cursor) return { dids: out, complete: true, aborted: false };
+    if (!cursor)
+      return { dids: out, complete: true, aborted: false, permanent: false };
   }
-  return { dids: out, complete: false, aborted: false };
+  return { dids: out, complete: false, aborted: false, permanent: false };
 }
 
 /**
@@ -103,7 +117,7 @@ export async function readCircle({
       `${pds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}` +
       `&collection=app.bsky.graph.follow&limit=100` +
       (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
-    const body = await getJson(url, fetchImpl, signal);
+    const { body } = await getJson(url, fetchImpl, signal);
     if (!body) break;
     for (const r of body.records || []) {
       if (r?.value?.subject) out.push(r.value.subject);
@@ -126,7 +140,7 @@ export async function readCircle({
  * @param {(edges: Array<{member: string, target: string}>) => Promise<void>} opts.writeEdges
  * @param {(member: string) => Promise<void>} opts.markDone
  * @param {number} [opts.budgetMs]          wall-clock budget for this run
- * @returns {Promise<{indexed: number, remaining: number, edges: number, partial: string[]}>}
+ * @returns {Promise<{indexed: number, remaining: number, edges: number, partial: string[], unreadable: Array<{member: string, permanent: boolean}>}>}
  */
 export async function indexCircleFollows({
   pending,
@@ -140,6 +154,7 @@ export async function indexCircleFollows({
   const started = Date.now();
   const queue = [...pending];
   const partial = [];
+  const unreadable = [];
   let indexed = 0;
   let edges = 0;
   let stopped = false;
@@ -154,7 +169,7 @@ export async function indexCircleFollows({
       }
       const member = queue.shift();
       if (!member) return;
-      const { dids, complete, aborted } = await followsOf(member, {
+      const { dids, complete, aborted, permanent } = await followsOf(member, {
         fetchImpl,
         signal,
         deadline,
@@ -169,8 +184,11 @@ export async function indexCircleFollows({
         return;
       }
       if (!complete && dids.length === 0) {
-        // Could not read them at all this run. Leave unmarked so the next
-        // firing retries rather than recording a zero as if it were an answer.
+        // Could not read them at all. A permanent failure is reported so the
+        // caller can stop asking: an account that is deactivated or taken down
+        // answers 400 forever, and leaving it pending blocks the snapshot for
+        // good. A transient one is simply left for the next firing.
+        unreadable.push({ member, permanent });
         continue;
       }
       if (!complete) partial.push(member);
@@ -187,7 +205,7 @@ export async function indexCircleFollows({
     Array.from({ length: Math.min(CONCURRENCY, queue.length || 1) }, worker),
   );
 
-  return { indexed, remaining: queue.length, edges, partial };
+  return { indexed, remaining: queue.length, edges, partial, unreadable };
 }
 
 /**
@@ -216,7 +234,7 @@ export async function readCurationMembers({
         `${pds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}` +
         `&collection=${collection}&limit=100` +
         (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
-      const body = await getJson(url, fetchImpl, signal);
+      const { body } = await getJson(url, fetchImpl, signal);
       if (!body) break;
       out.push(...(body.records || []));
       cursor = body.cursor;
