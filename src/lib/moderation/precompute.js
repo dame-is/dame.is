@@ -292,3 +292,40 @@ export function referenceFrom({
     alreadyListed: new Set(listedDids),
   };
 }
+
+/**
+ * What a precompute run should do next.
+ *
+ * Extracted and made pure because the inline version of this decision produced
+ * three separate bugs: a budget that let workers overrun the function timeout,
+ * a progress count that reported the in-memory queue instead of the database,
+ * and an `idle` branch that fired on a snapshot which had been collected but
+ * never aggregated — answering "ready · 0 scored", which is a finished-looking
+ * reply for a snapshot nothing can be scored against.
+ *
+ * The rule that ties it together: COLLECTED IS NOT FINALISED. A snapshot with
+ * every member read and no vouch rows is halfway, and halfway must never look
+ * done.
+ *
+ * @param {object} state
+ * @param {number} state.pending   circle members with no follow list yet
+ * @param {number} state.vouches   vouch rows for this snapshot (0 = not aggregated)
+ * @param {number} state.ageDays   age of the snapshot
+ * @param {number} [state.maxAgeDays]
+ * @param {boolean} [state.exists] is there a snapshot at all
+ * @param {boolean} [state.restart] forced rebuild
+ * @returns {'start'|'collect'|'finalise'|'idle'}
+ */
+export function nextAction({
+  pending,
+  vouches,
+  ageDays,
+  maxAgeDays = 7,
+  exists = true,
+  restart = false,
+}) {
+  if (restart || !exists) return 'start';
+  if (pending > 0) return 'collect';
+  if (vouches === 0) return 'finalise';
+  return ageDays >= maxAgeDays ? 'start' : 'idle';
+}

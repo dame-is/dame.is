@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { followsOf, indexCircleFollows, referenceFrom } from './precompute.js';
+import {
+  followsOf,
+  indexCircleFollows,
+  referenceFrom,
+  nextAction,
+} from './precompute.js';
 
 /** A getFollows stub: `pages` responses, each optionally taking time. */
 function fakeFetch(pages, { msPerPage = 0 } = {}) {
@@ -180,5 +185,39 @@ describe('referenceFrom', () => {
     });
     expect(ref.neighbourhood.has('did:plc:a')).toBe(true);
     expect(ref.circle.has('did:plc:c')).toBe(true);
+  });
+});
+
+describe('nextAction', () => {
+  const at = (o) => nextAction({ pending: 0, vouches: 1, ageDays: 0, ...o });
+
+  it('collects while any member is unread', () => {
+    expect(at({ pending: 5, vouches: 0 })).toBe('collect');
+    expect(at({ pending: 1, vouches: 73215 })).toBe('collect');
+  });
+
+  it('finalises a snapshot that is collected but not aggregated', () => {
+    // The bug: this state answered `idle` with "0 scored", which reads as
+    // finished. Every member was read, no vouch rows existed, and nothing
+    // would ever write them.
+    expect(at({ pending: 0, vouches: 0 })).toBe('finalise');
+  });
+
+  it('is idle only once aggregated AND fresh', () => {
+    expect(at({ pending: 0, vouches: 73215, ageDays: 1 })).toBe('idle');
+  });
+
+  it('rebuilds when a finalised snapshot ages out', () => {
+    expect(at({ pending: 0, vouches: 73215, ageDays: 8 })).toBe('start');
+  });
+
+  it('does not rebuild an unaggregated snapshot just because it is old', () => {
+    // Finishing the one in hand beats throwing away 173,649 staged edges.
+    expect(at({ pending: 0, vouches: 0, ageDays: 30 })).toBe('finalise');
+  });
+
+  it('starts when asked, or when there is nothing yet', () => {
+    expect(at({ restart: true, vouches: 73215 })).toBe('start');
+    expect(at({ exists: false })).toBe('start');
   });
 });

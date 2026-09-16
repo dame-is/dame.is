@@ -113,8 +113,17 @@ export default async function handler(req, res) {
         is: { follows_indexed_at: 'null' },
       });
       const ageDays = (Date.now() - Date.parse(takenAt)) / 86_400_000;
-      if (pending === 0 && ageDays < MAX_AGE_DAYS) {
-        const vouches = await count('vouch', { eq: { taken_at: takenAt } });
+      const vouches = await count('vouch', { eq: { taken_at: takenAt } });
+
+      // A snapshot is only idle when it has been AGGREGATED, not merely
+      // collected. Checking `pending === 0` alone left a hole between the two:
+      // every member read, no vouch rows written, and the endpoint answering
+      // "ready · 0 scored" — a finished-looking answer for a snapshot that
+      // nothing could be scored against. Falling through re-enters the
+      // finalise branch below, which is idempotent.
+      const finalised = vouches > 0;
+
+      if (pending === 0 && finalised && ageDays < MAX_AGE_DAYS) {
         return res.status(200).json({
           state: 'idle',
           snapshot: takenAt,
@@ -122,7 +131,7 @@ export default async function handler(req, res) {
           ageDays: Number(ageDays.toFixed(2)),
         });
       }
-      if (pending === 0) {
+      if (pending === 0 && finalised) {
         started = await startSnapshot(pds);
         takenAt = started.takenAt;
       }
