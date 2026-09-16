@@ -11,6 +11,16 @@ const OTHER = 'did:plc:someoneelse';
 let sessionRow = null;
 let loginAs = BOT;
 
+let resolvedPds = 'https://pds.example.com';
+let pdsThrows = false;
+
+vi.mock('../../src/lib/atproto.js', () => ({
+  resolvePds: vi.fn(async () => {
+    if (pdsThrows) throw new Error('plc unreachable');
+    return resolvedPds;
+  }),
+}));
+
 vi.mock('./modDb.js', () => ({
   select: vi.fn(async () => (sessionRow ? [{ session: sessionRow }] : [])),
   upsert: vi.fn(async () => null),
@@ -35,6 +45,9 @@ vi.mock('@atproto/api', () => ({
     withProxy() {
       return this;
     }
+    get service() {
+      return this.opts?.service;
+    }
   },
 }));
 
@@ -43,6 +56,8 @@ const { botAgent } = await import('./botAgent.js');
 beforeEach(() => {
   sessionRow = null;
   loginAs = BOT;
+  resolvedPds = 'https://pds.example.com';
+  pdsThrows = false;
   process.env.MOD_IDENTIFIER = BOT;
   process.env.MOD_APP_PASSWORD = 'pw';
 });
@@ -50,6 +65,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.MOD_IDENTIFIER;
   delete process.env.MOD_APP_PASSWORD;
+  delete process.env.MOD_SERVICE;
 });
 
 describe('botAgent', () => {
@@ -96,6 +112,34 @@ describe('botAgent', () => {
     loginAs = OTHER;
     const { agent } = await botAgent();
     expect(agent.session.did).toBe(OTHER);
+  });
+
+  it('authenticates at the PDS that actually holds the account', async () => {
+    // atproto has no central login. The moderator account is self-hosted on
+    // pds.atpota.to, and createSession against bsky.social for an account it
+    // has never heard of answers "Invalid identifier or password" — which
+    // reads as a bad app password and sends you to rotate a working one.
+    const { agent } = await botAgent();
+    expect(agent.opts.service).toBe('https://pds.example.com');
+  });
+
+  it('falls back to bsky.social when the directory cannot be reached', async () => {
+    pdsThrows = true;
+    const { agent } = await botAgent();
+    expect(agent.opts.service).toBe('https://bsky.social');
+  });
+
+  it('lets MOD_SERVICE override the lookup', async () => {
+    process.env.MOD_SERVICE = 'https://pds.local/';
+    const { agent } = await botAgent();
+    expect(agent.opts.service).toBe('https://pds.local');
+  });
+
+  it('cannot resolve a PDS from a handle, and says so by falling back', async () => {
+    process.env.MOD_IDENTIFIER = 'bot.example.com';
+    loginAs = OTHER;
+    const { agent } = await botAgent();
+    expect(agent.opts.service).toBe('https://bsky.social');
   });
 
   it('errors clearly when nothing is configured', async () => {

@@ -16,9 +16,19 @@
 // replaces: whoever holds it is the moderator account.
 
 import { AtpAgent } from '@atproto/api';
+import { resolvePds } from '../../src/lib/atproto.js';
 import { select, upsert } from './modDb.js';
 
-const SERVICE = 'https://bsky.social';
+/**
+ * Where to authenticate, when we cannot work it out from the identifier.
+ *
+ * Only correct for an account Bluesky hosts. The moderator account is not one:
+ * it lives on pds.atpota.to, and createSession against bsky.social for an
+ * account bsky.social has never heard of answers "Invalid identifier or
+ * password" — which reads as a typo in the app password and sends you to
+ * rotate a credential that was never wrong.
+ */
+const FALLBACK_SERVICE = 'https://bsky.social';
 
 /** DMs are served by the chat service, not the PDS or the AppView. */
 export const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
@@ -95,6 +105,31 @@ async function writeSession(session) {
 }
 
 /**
+ * The PDS that actually holds this account.
+ *
+ * atproto has no central login: credentials are only valid at the server that
+ * hosts the repo, and a DID document says which one that is. Hardcoding
+ * bsky.social works right up until the account is self-hosted, and then fails
+ * with a message about the password.
+ *
+ * MOD_SERVICE overrides, for a PDS whose DID document is unreachable or for
+ * pointing a test at a local one. A handle cannot be resolved this way without
+ * a round trip we do not need — one more reason the identifier should be a DID.
+ */
+async function serviceFor(identifier) {
+  if (process.env.MOD_SERVICE)
+    return process.env.MOD_SERVICE.replace(/\/$/, '');
+  if (!identifier.startsWith('did:')) return FALLBACK_SERVICE;
+  try {
+    return await resolvePds(identifier);
+  } catch {
+    // An unreachable directory should not take the bot offline when the
+    // fallback might still be the right answer.
+    return FALLBACK_SERVICE;
+  }
+}
+
+/**
  * An authenticated agent for the moderator account.
  *
  * @param {object} [opts]
@@ -103,6 +138,7 @@ async function writeSession(session) {
  */
 export async function botAgent({ chat = false } = {}) {
   const { identifier, password } = credentials();
+  const service = await serviceFor(identifier);
 
   // persistSession fires on refresh AND on login, so every path that produces a
   // usable session writes it back without the callers having to remember.
@@ -110,7 +146,7 @@ export async function botAgent({ chat = false } = {}) {
   // still a session that works for this run, and throwing would turn a storage
   // hiccup into an outage.
   const agent = new AtpAgent({
-    service: SERVICE,
+    service,
     persistSession: (event, session) => {
       if (!session) return;
       if (event === 'create' || event === 'update') {
