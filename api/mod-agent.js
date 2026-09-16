@@ -29,6 +29,7 @@ import { referenceFrom } from '../src/lib/moderation/precompute.js';
 import {
   answer,
   chunkForDm,
+  historyFrom,
   DEFAULT_MODEL,
 } from '../src/lib/moderation/agent.js';
 import { select, upsert } from './_lib/modDb.js';
@@ -147,10 +148,31 @@ export default async function handler(req, res) {
 
     const answered = [];
     for (const entry of inbound.slice(-MAX_TURNS)) {
+      // Read the conversation back so a follow-up means something. Bluesky
+      // stores it already, so this needs no state of our own — and it is per
+      // convo, so two threads do not bleed into each other.
+      let history = [];
+      try {
+        const page = await agent.chat.bsky.convo.getMessages({
+          convoId: entry.convoId,
+          limit: 40,
+        });
+        history = historyFrom(page.data.messages, {
+          selfDid: ME_DID,
+          botDid: agent.session?.did,
+          beforeId: entry.message.id,
+        });
+      } catch {
+        // A conversation we cannot read is still a question we can answer, just
+        // without context. Better a reply that misses the reference than silence.
+        history = [];
+      }
+
       const reply = await answer({
         generate: generateText,
         message: entry.message.text,
         io,
+        history,
         model,
       });
 

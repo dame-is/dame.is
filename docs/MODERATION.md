@@ -245,6 +245,15 @@ curl -sS -X POST https://dame.is/api/mod-agent \
 `{"answered":0,"scanned":N}` means the message was seen but not from your DID,
 or the DM-access toggle is off.
 
+It reads the conversation back before answering, so follow-ups work: "what
+about the third one", "why is that one connected", "show me the rest". History
+is per conversation and comes from Bluesky itself, so there is no state to keep
+and two threads cannot bleed into each other. Replies longer than a DM are sent
+as several messages and folded back into one turn when read.
+
+What it is not is live. The cron fires every ten minutes, so a reply takes up to
+that long; it is correspondence, not chat.
+
 **The analyst decides nothing.** Bands are computed before it sees them and no
 model output can move an account between them. That is what keeps the decision
 log replayable — an LLM verdict in it would be unreproducible by the time anyone
