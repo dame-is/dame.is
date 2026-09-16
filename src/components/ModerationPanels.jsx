@@ -1,10 +1,14 @@
 // The two jobs that change the list: the remediation queue and the migration.
 //
 // Kept apart from the preflight panel because they are a different kind of
-// thing. Preflight looks; these two act, and the acting is deliberately
-// awkward in one specific way — removals happen in the browser, signed by
-// dame's own session, so the credential that changes who is blocked is the one
-// that owns the list. No server key can alter the graph.
+// thing: preflight looks, these two act.
+//
+// Removals route on who owns the list. A list in dame's repo is deleted from
+// here, signed by dame's own session; a list on the moderator account goes to
+// the server, which holds that account's credential. `removeFromList` picks,
+// so neither panel has to know which configuration it is in — and neither can
+// repeat the bug where the browser asked the wrong repo, matched nothing, and
+// reported success.
 
 import { useCallback, useEffect, useState } from 'react';
 import {
