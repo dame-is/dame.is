@@ -243,3 +243,74 @@ export function chunkForDm(text, limit = 950) {
   if (buf) out.push(buf);
   return out.length ? out : [''];
 }
+
+/**
+ * Turn a conversation's messages into turns the model can read.
+ *
+ * Bluesky already stores the conversation, so there is nothing to persist: the
+ * history for a follow-up is a page of getMessages. That matters for the thing
+ * this interface is actually for — "what about the third one", "why is that one
+ * connected", "show me the rest" — none of which mean anything to a model that
+ * sees each message alone.
+ *
+ * Three details the shape forces:
+ *
+ * - Ordering is computed here rather than assumed. The lexicon does not promise
+ *   a direction and the chat service returns newest-first, so a caller trusting
+ *   the array order gets the conversation backwards, which reads as a model
+ *   that has lost its mind rather than as a bug.
+ * - Consecutive same-role messages are merged. A reply longer than 1000
+ *   graphemes was SENT as several messages but was one answer, and replaying it
+ *   as several turns teaches the model to fragment its own replies.
+ * - Anyone who is neither the owner nor the bot is dropped. A 1-1 convo cannot
+ *   contain a third party today, but history is the one place untrusted text
+ *   could arrive wearing the assistant's role, and that is worth one filter.
+ *
+ * @param {Array} messages   from chat.bsky.convo.getMessages
+ * @param {object} opts
+ * @param {string} opts.selfDid  the account the bot answers (the owner)
+ * @param {string} opts.botDid   the moderator account
+ * @param {string} [opts.beforeId] stop before this message id, exclusive
+ * @param {number} [opts.maxTurns] how many turns to keep, newest kept
+ */
+export function historyFrom(
+  messages,
+  { selfDid, botDid, beforeId = null, maxTurns = 12 } = {},
+) {
+  const usable = (messages || [])
+    .filter(
+      (m) =>
+        m &&
+        typeof m.text === 'string' &&
+        m.sentAt &&
+        (m.sender?.did === selfDid || m.sender?.did === botDid),
+    )
+    .sort((a, b) => Date.parse(a.sentAt) - Date.parse(b.sentAt));
+
+  const cut = beforeId
+    ? usable.slice(
+        0,
+        usable.findIndex((m) => m.id === beforeId) === -1
+          ? usable.length
+          : usable.findIndex((m) => m.id === beforeId),
+      )
+    : usable;
+
+  const turns = [];
+  for (const m of cut) {
+    const role = m.sender.did === botDid ? 'assistant' : 'user';
+    const last = turns[turns.length - 1];
+    if (last && last.role === role) {
+      last.content += `\n\n${m.text}`;
+    } else {
+      turns.push({ role, content: m.text });
+    }
+  }
+
+  // Keep the newest turns and never open on an assistant turn: a history whose
+  // first entry is a reply to something the model cannot see is worse context
+  // than none.
+  const kept = turns.slice(-maxTurns);
+  while (kept.length && kept[0].role === 'assistant') kept.shift();
+  return kept;
+}
