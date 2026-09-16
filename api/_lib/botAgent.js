@@ -23,6 +23,17 @@ const SERVICE = 'https://bsky.social';
 /** DMs are served by the chat service, not the PDS or the AppView. */
 const CHAT_SERVICE_DID = 'did:web:api.bsky.chat';
 
+/**
+ * Credentials for the moderator account.
+ *
+ * `identifier` may be a handle or a DID — the createSession lexicon types it as
+ * a plain string described as "Handle or other identifier supported by the
+ * server", and Bluesky's accepts all three of handle, DID and email.
+ *
+ * A DID is the better thing to store. A handle is rented: rename the moderator
+ * account and a stored handle stops authenticating, with the failure landing in
+ * a cron nobody is watching. A DID is permanent.
+ */
 function credentials() {
   const identifier = process.env.MOD_IDENTIFIER || process.env.BSKY_IDENTIFIER;
   const password =
@@ -31,6 +42,24 @@ function credentials() {
     throw new Error('MOD_IDENTIFIER and MOD_APP_PASSWORD must be configured');
   }
   return { identifier, password };
+}
+
+/**
+ * Refuse a session that is not the account we were configured for.
+ *
+ * Only checkable when the identifier is a DID, which is the other reason to
+ * prefer one. The failure it catches is mundane and expensive: a DID and an app
+ * password from two different accounts. Login succeeds — the password is valid,
+ * just for someone else — and every write afterwards lands in the wrong repo.
+ * mod-migrate would cheerfully create eight thousand listitems there.
+ */
+function assertExpectedAccount(identifier, session) {
+  if (!identifier.startsWith('did:')) return;
+  if (session?.did === identifier) return;
+  throw new Error(
+    `MOD_IDENTIFIER is ${identifier} but the app password authenticated as ${session?.did} — ` +
+      'the identifier and the password belong to different accounts',
+  );
 }
 
 async function readSession() {
@@ -95,6 +124,8 @@ export async function botAgent({ chat = false } = {}) {
   if (via === 'login') {
     await agent.login({ identifier, password });
   }
+
+  assertExpectedAccount(identifier, agent.session);
 
   if (!chat) return { agent, via };
   return { agent: agent.withProxy('bsky_chat', CHAT_SERVICE_DID), via };
