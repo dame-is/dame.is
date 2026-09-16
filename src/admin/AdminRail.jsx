@@ -47,6 +47,7 @@ import {
   RefreshCw,
   Scissors,
   Shapes,
+  ShieldAlert,
   Sparkles,
   User,
 } from 'lucide-react';
@@ -90,6 +91,7 @@ export const SURFACE_ICONS = {
   RefreshCw,
   Scissors,
   Shapes,
+  ShieldAlert,
   Sparkles,
   User,
 };
@@ -128,7 +130,9 @@ export function isNsidShape(value) {
   if (!s || s.length > 317) return false;
   const segments = s.split('.');
   if (segments.length < 3) return false;
-  return segments.every((seg) => /^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(seg));
+  return segments.every((seg) =>
+    /^[a-zA-Z](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(seg),
+  );
 }
 
 /** The refusal, worded once — it is shown by the rail and by the sheet. */
@@ -149,7 +153,12 @@ export const NSID_REFUSAL = 'That is not an NSID — try app.bsky.graph.follow';
  * @param {boolean} [props.autoFocus]
  * @param {string} [props.className]
  */
-export function NsidForm({ onOpen, onCancel, autoFocus = false, className = '' }) {
+export function NsidForm({
+  onOpen,
+  onCancel,
+  autoFocus = false,
+  className = '',
+}) {
   const [value, setValue] = useState('');
   const [error, setError] = useState(null);
 
@@ -191,7 +200,10 @@ export function NsidForm({ onOpen, onCancel, autoFocus = false, className = '' }
             if (error) setError(null);
           }}
         />
-        <button type="submit" className="admin-gate-button admin-gate-button-tight">
+        <button
+          type="submit"
+          className="admin-gate-button admin-gate-button-tight"
+        >
           Go
         </button>
         {onCancel && (
@@ -241,7 +253,8 @@ export function useSurfaceList() {
       note: group.note,
       items: surfaces.filter(
         (surf) =>
-          surf.group === group.key && (!surf.requiresRkey || surf.key === current.key),
+          surf.group === group.key &&
+          (!surf.requiresRkey || surf.key === current.key),
       ),
     })).filter((group) => group.items.length > 0);
     return { home: DASHBOARD_SURFACE, groups };
@@ -265,7 +278,13 @@ function RailButton({ surface, active, absent, onGo, buttonRef }) {
       aria-label={surface.label}
       aria-current={active ? 'page' : undefined}
       onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+        if (
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.button !== 0
+        )
+          return;
         event.preventDefault();
         onGo(surface);
       }}
@@ -278,7 +297,14 @@ function RailButton({ surface, active, absent, onGo, buttonRef }) {
 
 /** Narrow icon rail of surfaces. Reads everything from useAdminShell(). No props. */
 export default function AdminRail() {
-  const { agent, did, surface: current, go, dataRev, stacked } = useAdminShell();
+  const {
+    agent,
+    did,
+    surface: current,
+    go,
+    dataRev,
+    stacked,
+  } = useAdminShell();
   // Counts are shared: useAdminData de-duplicates in-flight requests by NSID, so
   // the rail asking the same question as the Front Desk costs nothing extra.
   // Here they answer exactly one question — is this collection empty? — which
@@ -291,7 +317,8 @@ export default function AdminRail() {
   // `?c=is.dame.now&r=abc` to `?view=sky` with `go({ view: 'sky' })` would leave
   // a stale `c` and `r` that reappear the moment `view` is dropped. One history
   // entry per click, and nothing stale left behind.
-  const goHome = () => go({ view: null, c: null, r: null, mode: null, for: null });
+  const goHome = () =>
+    go({ view: null, c: null, r: null, mode: null, for: null });
   const goSurface = (surf) =>
     surf.urlByView
       ? go({ view: surf.key, c: null, r: null, mode: null, for: null })
@@ -349,7 +376,13 @@ export default function AdminRail() {
             aria-current={homeActive ? 'page' : undefined}
             ref={homeActive ? activeRef : undefined}
             onClick={(event) => {
-              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+              if (
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.button !== 0
+              )
+                return;
               event.preventDefault();
               goHome();
             }}

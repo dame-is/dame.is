@@ -1,0 +1,264 @@
+/* The moderation gate pane.
+ *
+ * Band colour is the only decorative decision here and it carries meaning:
+ * PROTECTED and CONNECTED read as warm and loud because they are the rows that
+ * should stop you, UNKNOWN reads as flat because it is the row you are meant to
+ * skim past. Everything else borrows the site's own tokens so the pane looks
+ * like the rest of the admin rather than like a dashboard bolted on.
+ *
+ * --radius-* is 0 site-wide; the tiles are square on purpose, not unstyled.
+ */
+
+.mod-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: var(--main-max, 72ch);
+}
+
+/* --- input ------------------------------------------------------------- */
+
+.mod-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.mod-label {
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.mod-form-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.mod-input {
+  flex: 1 1 24ch;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--surface-deep, var(--page));
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-1, 0);
+}
+
+.mod-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mod-go {
+  padding: 0.55rem 1.1rem;
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.85rem;
+  color: var(--page);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-1, 0);
+  cursor: pointer;
+}
+
+.mod-go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* --- messages ---------------------------------------------------------- */
+
+.mod-error,
+.mod-warn {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+  border-left: 3px solid var(--danger);
+  background: var(--danger-wash, transparent);
+  color: var(--ink);
+}
+
+.mod-warn {
+  border-left-color: var(--accent);
+}
+
+.mod-summary-line {
+  margin: 0;
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* --- band tiles -------------------------------------------------------- */
+
+.mod-bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mod-band-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 7rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-top-width: 3px;
+  background: var(--surface-raised);
+}
+
+.mod-band-n {
+  font-family: var(--mono-scale, var(--mono-ui, monospace));
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.mod-band-label {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.mod-band-pct {
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.7rem;
+  color: var(--ink-faint);
+}
+
+/* Severity ramp. Protected and connected are the ones that should stop you. */
+.mod-band-tile--protected {
+  border-top-color: var(--accent);
+}
+.mod-band-tile--connected {
+  border-top-color: var(--danger);
+}
+.mod-band-tile--peripheral {
+  border-top-color: var(--highlight, var(--accent-soft));
+}
+.mod-band-tile--notable {
+  border-top-color: var(--ink-muted);
+}
+.mod-band-tile--unknown {
+  border-top-color: var(--rule);
+}
+
+/* --- verdict + rows ---------------------------------------------------- */
+
+.mod-verdict {
+  margin: 0;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mod-row {
+  padding: 0.5rem 0.65rem;
+  border-left: 3px solid var(--rule);
+  background: var(--surface-raised);
+}
+
+.mod-row--protected {
+  border-left-color: var(--accent);
+}
+.mod-row--connected {
+  border-left-color: var(--danger);
+}
+.mod-row--peripheral {
+  border-left-color: var(--highlight, var(--accent-soft));
+}
+.mod-row--notable {
+  border-left-color: var(--ink-muted);
+}
+
+.mod-row-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mod-row-handle {
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.88rem;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule);
+}
+
+.mod-row-handle:hover {
+  border-bottom-color: var(--accent);
+}
+
+.mod-band,
+.mod-tag {
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.mod-band--protected {
+  color: var(--accent);
+}
+.mod-band--connected {
+  color: var(--danger);
+}
+
+.mod-row-why {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.mod-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+}
+
+/* --- footer ------------------------------------------------------------ */
+
+.mod-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.mod-ghost {
+  padding: 0.35rem 0.7rem;
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-1, 0);
+  cursor: pointer;
+}
+
+.mod-snapshot {
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}

@@ -28,7 +28,12 @@
 // containing dots — `app.bsky.feed.post` — as a static file request, so an NSID
 // can never be a path segment here.
 
-import { COLLECTIONS, PORTFOLIO_PUBLICATION, GUESTBOOK_NSID, GUESTBOOK_ENTRY_NSID } from '../config.js';
+import {
+  COLLECTIONS,
+  PORTFOLIO_PUBLICATION,
+  GUESTBOOK_NSID,
+  GUESTBOOK_ENTRY_NSID,
+} from '../config.js';
 import { LEXICONS, lexiconFor, knownCollections } from '../lib/lexicons.js';
 import { pageSlugForCollection } from '../lib/pageRegistry.js';
 
@@ -161,7 +166,12 @@ function surface(entry) {
     // consumer that forgot to would silently show the wrong panel. `creating`
     // overrides it because its records are site.standard.document, whose default
     // slug is `blogging`.
-    pageSlug: entry.pageSlug !== undefined ? entry.pageSlug : nsid ? pageSlugForCollection(nsid) : null,
+    pageSlug:
+      entry.pageSlug !== undefined
+        ? entry.pageSlug
+        : nsid
+          ? pageSlugForCollection(nsid)
+          : null,
     fullWidth: entry.fullWidth === true,
     requiresRkey: entry.requiresRkey === true,
   });
@@ -416,6 +426,25 @@ export const SURFACES = Object.freeze([
     fullWidth: true,
   }),
 
+  surface({
+    key: 'moderation',
+    urlByView: true,
+    label: 'Moderation',
+    // No NSID. It reads the engagement graph around a post and the `mod` schema
+    // on Supabase, and owns no records of its own — the block list it guards
+    // lives on the moderator account, not here. Tool, not collection, so
+    // `countable` is false by the same formula as analytics.
+    nsid: null,
+    group: 'studios',
+    kind: 'studio',
+    icon: 'ShieldAlert',
+    blurb:
+      'Who touched a post, scored against your own graph, before you act on any of them.',
+    // The review list is one row per account with a sentence of reasoning; a
+    // narrow column turns every row into three lines.
+    fullWidth: true,
+  }),
+
   /* --- Legacy ------------------------------------------------------------- */
   surface({
     key: 'legacy-blogs',
@@ -479,7 +508,8 @@ let allCache = null;
 
 /** @returns {AdminSurface[]} SURFACES plus one derived entry per legacy lexicon. */
 export function allSurfaces() {
-  if (!allCache) allCache = Object.freeze([...SURFACES, ...derivedLegacySurfaces()]);
+  if (!allCache)
+    allCache = Object.freeze([...SURFACES, ...derivedLegacySurfaces()]);
   return allCache;
 }
 
@@ -520,7 +550,9 @@ export function resolveSurface({ view = null, collection = null } = {}) {
     if (byView && byView.urlByView) return byView;
   }
   if (collection) {
-    const byNsid = allSurfaces().find((s) => !s.urlByView && s.nsid === collection);
+    const byNsid = allSurfaces().find(
+      (s) => !s.urlByView && s.nsid === collection,
+    );
     if (byNsid) return byNsid;
     return syntheticSurface(collection);
   }
@@ -580,7 +612,8 @@ function syntheticSurface(nsid) {
  */
 export function rowHrefFor(surf, rkey) {
   const key = encodeURIComponent(rkey);
-  if (surf?.urlByView && surf.kind === 'records-list') return `/admin?view=${surf.key}&r=${key}`;
+  if (surf?.urlByView && surf.kind === 'records-list')
+    return `/admin?view=${surf.key}&r=${key}`;
   const nsid = surf?.nsid;
   if (!nsid) return '/admin';
   return `/admin?c=${encodeURIComponent(nsid)}&r=${key}`;
