@@ -12,6 +12,7 @@
 // decides what is allowed through.
 
 import { useCallback, useState } from 'react';
+import { AuditPanel, MigratePanel } from './ModerationPanels.jsx';
 import {
   preflight,
   precomputeStatus,
@@ -70,7 +71,7 @@ function ReviewRow({ row }) {
   );
 }
 
-export default function ModerationStudio({ agent }) {
+function PreflightPanel({ agent }) {
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -209,6 +210,62 @@ export default function ModerationStudio({ agent }) {
           </span>
         )}
       </footer>
+    </div>
+  );
+}
+
+/**
+ * The list the audit and migration panels operate on.
+ *
+ * Editable rather than hardcoded: the whole point of the migration is that the
+ * list moves, so a constant here would be wrong the moment it succeeded.
+ */
+const DEFAULT_LIST =
+  'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.graph.list/3ll5hna42x52o';
+
+const TABS = [
+  { key: 'preflight', label: 'Preflight', hint: 'Score a post before acting' },
+  { key: 'audit', label: 'Audit', hint: 'Re-score an existing list' },
+  { key: 'migrate', label: 'Migrate', hint: 'Carry the list to the bot' },
+];
+
+export default function ModerationStudio({ agent }) {
+  const [tab, setTab] = useState('preflight');
+  const [listUri, setListUri] = useState(DEFAULT_LIST);
+
+  return (
+    <div className="mod-shell">
+      <nav className="mod-tabs">
+        {TABS.map(({ key, label, hint }) => (
+          <button
+            key={key}
+            type="button"
+            title={hint}
+            className={tab === key ? 'is-on' : ''}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {tab !== 'preflight' && (
+        <div className="mod-form-row">
+          <input
+            className="mod-input"
+            type="text"
+            value={listUri}
+            onChange={(e) => setListUri(e.target.value)}
+            spellCheck="false"
+            autoComplete="off"
+            aria-label="List at:// URI"
+          />
+        </div>
+      )}
+
+      {tab === 'preflight' && <PreflightPanel agent={agent} />}
+      {tab === 'audit' && <AuditPanel agent={agent} listUri={listUri} />}
+      {tab === 'migrate' && <MigratePanel agent={agent} listUri={listUri} />}
     </div>
   );
 }

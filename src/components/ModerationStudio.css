@@ -262,3 +262,75 @@
   font-size: 0.75rem;
   color: var(--ink-faint);
 }
+
+/* --- tabs and the two acting panels ------------------------------------ */
+
+.mod-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.mod-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.mod-tabs button {
+  padding: 0.45rem 0.9rem;
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  cursor: pointer;
+}
+
+.mod-tabs button.is-on {
+  color: var(--ink);
+  background: var(--surface-raised);
+  border-color: var(--rule);
+}
+
+/* keep/remove toggle on a review row */
+.mod-choice {
+  display: inline-flex;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.mod-choice button {
+  padding: 0.15rem 0.5rem;
+  font-family: var(--mono-ui, monospace);
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+  cursor: pointer;
+}
+
+.mod-choice button.is-on {
+  color: var(--page);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.mod-bandpick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--rule);
+  background: var(--surface-raised);
+}
+
+.mod-bandpick label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}

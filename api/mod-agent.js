@@ -19,7 +19,6 @@
 // The cursor advances even for skipped events, so a message the bot refuses to
 // answer cannot wedge the loop into replaying it forever.
 
-import { AtpAgent } from '@atproto/api';
 import { generateText } from 'ai';
 
 import { ME_DID } from '../src/config.js';
@@ -33,29 +32,14 @@ import {
   DEFAULT_MODEL,
 } from '../src/lib/moderation/agent.js';
 import { select, upsert } from './_lib/modDb.js';
+import { botAgent } from './_lib/botAgent.js';
 import { authorize } from './_lib/serviceAuth.js';
 
 export const config = { maxDuration: 60 };
 
 const LXM = 'is.dame.mod.agent';
-const CHAT_PROXY = 'did:web:api.bsky.chat#bsky_chat';
-
 /** How many messages one firing will answer. */
 const MAX_TURNS = 5;
-
-async function chatAgent() {
-  const identifier = process.env.MOD_IDENTIFIER || process.env.BSKY_IDENTIFIER;
-  const password =
-    process.env.MOD_APP_PASSWORD || process.env.BSKY_APP_PASSWORD;
-  if (!identifier || !password) {
-    throw new Error('MOD_IDENTIFIER and MOD_APP_PASSWORD must be configured');
-  }
-  const agent = new AtpAgent({ service: 'https://bsky.social' });
-  await agent.login({ identifier, password });
-  // DMs live behind the chat service, not the AppView. Without the proxy header
-  // every chat.* call 404s against the PDS.
-  return agent.withProxy('bsky_chat', CHAT_PROXY.split('#')[0]);
-}
 
 /** Load the newest finalised snapshot into scorer-shaped lookups. */
 async function loadReference() {
@@ -136,7 +120,7 @@ export default async function handler(req, res) {
   if (!(await authorize(req, res, { lxm: LXM }))) return;
 
   try {
-    const agent = await chatAgent();
+    const { agent, via } = await botAgent({ chat: true });
     const cursor = await readCursor();
     const log = await agent.chat.bsky.convo.getLog(cursor ? { cursor } : {});
 
@@ -154,7 +138,7 @@ export default async function handler(req, res) {
     if (!inbound.length) {
       return res
         .status(200)
-        .json({ answered: 0, scanned: log.data.logs?.length ?? 0 });
+        .json({ answered: 0, scanned: log.data.logs?.length ?? 0, via });
     }
 
     const { ref, takenAt } = await loadReference();
@@ -194,7 +178,9 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(200).json({ answered: answered.length, turns: answered });
+    return res
+      .status(200)
+      .json({ answered: answered.length, turns: answered, via });
   } catch (err) {
     return res.status(500).json({ error: String(err?.message || err) });
   }
