@@ -540,15 +540,15 @@ Every successful read is cached in `mod.settings`, so an unreachable PDS falls
 back to the last known good config instead of silently dropping to defaults
 mid-conversation.
 
-| Field        | Is                                                             |
-| ------------ | -------------------------------------------------------------- |
-| `style`      | Replaces the voice block — how it writes                       |
-| `guidance`   | **Appended after** the rules as standing instructions          |
-| `openers`    | First lines it may use, one per line, picked at random         |
-| `report`     | The account report template                                    |
-| `postReport` | The post scan template                                         |
-| `model`      | `provider/model`; an unparseable value is dropped, not carried |
-| `limits`     | `maxTurns`, `maxSteps`, `historyHours`, `reviewRows`           |
+| Field        | Is                                                                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `style`      | Replaces the voice block — how it writes                                                                                                                                                          |
+| `guidance`   | **Appended after** the rules as standing instructions                                                                                                                                             |
+| `openers`    | First lines it may use, one per line, picked at random                                                                                                                                            |
+| `report`     | The account report template                                                                                                                                                                       |
+| `postReport` | The post scan template                                                                                                                                                                            |
+| `model`      | `provider/model`. Overrides `MOD_AGENT_MODEL`, which overrides the built-in default. An unparseable value is dropped rather than carried: falling back is recoverable, a 400 on every turn is not |
+| `limits`     | `maxTurns`, `maxSteps`, `historyHours`, `reviewRows`                                                                                                                                              |
 
 Voice fields cap at 2,000 characters, templates at 4,000. Templates fill
 `{placeholders}` from a fixed variable set; an unknown one survives verbatim
