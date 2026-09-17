@@ -148,7 +148,7 @@ describe('answer', () => {
     expect(out.text).toBe('3 need a look.');
     expect(out.steps).toBe(2);
     expect(generate.mock.calls[0][0].stopWhen).toBeDefined();
-    expect(generate.mock.calls[0][0].messages[0]).toMatchObject({
+    expect(generate.mock.calls[0][0].instructions).toMatchObject({
       role: 'system',
       content: SYSTEM_PROMPT,
     });
@@ -163,8 +163,7 @@ describe('answer', () => {
       history: [{ role: 'user', content: 'first' }],
     });
     const { messages } = generate.mock.calls[0][0];
-    expect(messages[0].role).toBe('system');
-    expect(messages.slice(1).map((m) => m.content)).toEqual([
+    expect(messages.map((m) => m.content)).toEqual([
       'first',
       'and the second one?',
     ]);
@@ -336,7 +335,7 @@ describe('the public system prompt', () => {
   it('is selected by the surface passed to answer', async () => {
     const generate = vi.fn().mockResolvedValue({ text: 'ok', steps: [] });
     await answer({ generate, message: 'x', io: {}, surface: 'post' });
-    expect(generate.mock.calls[0][0].messages[0].content).toBe(
+    expect(generate.mock.calls[0][0].instructions.content).toBe(
       systemPromptFor('post'),
     );
   });

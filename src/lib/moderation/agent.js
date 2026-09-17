@@ -253,11 +253,18 @@ export async function answer({
   guidance,
   reviewRows = 40,
 }) {
-  // The system prompt goes in `messages` rather than `system` so it can carry a
-  // cache marker. It is identical on every turn and on every step of every turn,
-  // which is exactly what a prompt cache is for: the floor is resent each step,
-  // so the saving multiplies by the length of the loop.
-  const systemMessage = {
+  // `instructions` rather than `system`, and a MESSAGE OBJECT rather than a
+  // string, because that is the only shape that carries a cache marker. ai@7
+  // types it as `string | SystemModelMessage | SystemModelMessage[]` and rejects
+  // a system role inside `messages` outright:
+  //
+  //   Invalid prompt: System messages are not allowed in the prompt or messages
+  //   fields. Use the instructions option instead.
+  //
+  // Which is what it did in production for two hours, because every test here
+  // injects a fake `generate` and so validated this shape against itself. See
+  // the real-SDK test in agent.test.js.
+  const instructions = {
     role: 'system',
     content: systemPromptFor(surface, { voice, guidance }),
     ...cacheHint(model),
@@ -265,12 +272,13 @@ export async function answer({
 
   const result = await generate({
     model,
+    instructions,
     // The gate's own tools cannot be shadowed by anything merged in: a remote
     // server that published a `preflight_post` would otherwise replace the one
     // piece of this system whose output has to stay reproducible.
     tools: { ...extraTools, ...buildTools(io, { reviewRows }) },
     stopWhen: stepCountIs(maxSteps),
-    messages: [systemMessage, ...history, { role: 'user', content: message }],
+    messages: [...history, { role: 'user', content: message }],
   });
 
   return {
