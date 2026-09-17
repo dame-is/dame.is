@@ -233,7 +233,7 @@ export async function applyPlan(agent, plan, bands) {
           ok: true,
           added,
           remaining: pending.length - added,
-          message: `Added ${added}. Hit the write rate limit — send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again in an hour for the remaining ${pending.length - added}.`,
+          message: `Added ${added}. Hit the write rate limit. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again in an hour for the remaining ${pending.length - added}.`,
         };
       }
     }
@@ -257,7 +257,7 @@ export async function applyPlan(agent, plan, bands) {
     message:
       `Added ${added} to the list${failed ? `, ${failed} failed` : ''}.` +
       (remaining
-        ? ` ${remaining} left — send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again to continue.`
+        ? ` ${remaining} left. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again to continue.`
         : ''),
   };
 }
@@ -270,7 +270,7 @@ export async function cancelPlan(plan) {
     {
       approved_at: new Date().toISOString(),
       approved_bands: [],
-      note: `${plan.note || ''} — cancelled`,
+      note: `${plan.note || ''} (cancelled)`,
     },
   );
 }

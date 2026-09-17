@@ -36,18 +36,17 @@ beforeEach(() => {
 
 describe('readFromPds', () => {
   it('reads the record', async () => {
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValue(
-        ok({
-          style: 'Terse.',
-          guidance: 'Always give posting frequency.',
-          updatedAt: '2026-09-17T00:00:00Z',
-        }),
-      );
+    const fetchImpl = vi.fn().mockResolvedValue(
+      ok({
+        style: 'Terse.',
+        guidance: 'Always give posting frequency.',
+        updatedAt: '2026-09-17T00:00:00Z',
+      }),
+    );
     await expect(readFromPds({ fetchImpl })).resolves.toEqual({
       style: 'Terse.',
       guidance: 'Always give posting frequency.',
+      openers: '',
       source: 'pds',
       updated_at: '2026-09-17T00:00:00Z',
     });

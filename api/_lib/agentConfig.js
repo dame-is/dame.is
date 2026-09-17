@@ -56,6 +56,7 @@ export async function readFromPds({ did = ME_DID, fetchImpl = fetch } = {}) {
   return {
     style: clip(value.style),
     guidance: clip(value.guidance),
+    openers: clip(value.openers),
     source: 'pds',
     updated_at: value.updatedAt || null,
   };
@@ -67,10 +68,12 @@ async function readCache() {
   if (!v) return null;
   const style = clip(v.style);
   const guidance = clip(v.guidance);
-  if (!style && !guidance) return null;
+  const openers = clip(v.openers);
+  if (!style && !guidance && !openers) return null;
   return {
     style,
     guidance,
+    openers,
     source: v.source === 'pds' ? 'cache' : v.source || 'cache',
     updated_at: v.updated_at || null,
   };
@@ -101,10 +104,9 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
     const fromPds = await readFromPds({ did });
     // Cache even an empty record: "dame cleared it" is a state worth persisting,
     // or the next PDS outage restores a voice she deliberately removed.
-    await writeCache(
-      fromPds && (fromPds.style || fromPds.guidance) ? fromPds : null,
-    ).catch(() => {});
-    if (fromPds && (fromPds.style || fromPds.guidance)) return fromPds;
+    const has = (c) => c && (c.style || c.guidance || c.openers);
+    await writeCache(has(fromPds) ? fromPds : null).catch(() => {});
+    if (has(fromPds)) return fromPds;
     return null;
   } catch {
     try {
@@ -116,11 +118,12 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
 }
 
 /** The shape the browser should putRecord, so one definition drives both. */
-export function recordFrom({ style, guidance }) {
+export function recordFrom({ style, guidance, openers }) {
   return {
     $type: CONFIG_NSID,
     style: clip(style),
     guidance: clip(guidance),
+    openers: clip(openers),
     updatedAt: new Date().toISOString(),
   };
 }

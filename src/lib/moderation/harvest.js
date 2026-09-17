@@ -146,7 +146,7 @@ export async function harvestPost(uri, opts = {}) {
   const flat = flattenSources(raw);
   if (!flat) {
     throw new Error(
-      'Constellation did not answer — the backlink index is the only complete source for this, so there is no degraded mode worth running',
+      'Constellation did not answer. The backlink index is the only complete source for this, so there is no degraded mode worth running',
     );
   }
 

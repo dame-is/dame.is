@@ -90,7 +90,7 @@ export async function resolveTarget(input, opts = {}) {
   }
 
   throw new TargetError(
-    'not a post link or at:// URI — paste a post URL from any Bluesky client, or the at:// URI itself',
+    'not a post link or at:// URI. Paste a post URL from any Bluesky client, or the at:// URI itself',
   );
 }
 

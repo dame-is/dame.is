@@ -159,7 +159,7 @@ export function parseCommand(text, { embedUri = null } = {}) {
 /** What the bot says when a verb arrived with no usable target. */
 export function needsTargetReply(action) {
   const verb = action === 'list_add' ? 'block' : 'unblock';
-  return `Name the account and I'll do it — "${verb} @handle" or a profile link. I won't work out who you meant from context; that is the one thing standing between a stranger's post and your block list.`;
+  return `Name the account and I will do it. "${verb} @handle", or a profile link. I do not work out who you meant from context; that is the one thing standing between a stranger's post and your block list.`;
 }
 
 /**

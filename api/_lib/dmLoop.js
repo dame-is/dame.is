@@ -30,11 +30,12 @@ import {
   historyFrom,
   DEFAULT_MODEL,
 } from '../../src/lib/moderation/agent.js';
+import { parseCommand, parseChoice } from '../../src/lib/moderation/command.js';
 import {
-  parseCommand,
-  parseChoice,
-  needsTargetReply,
-} from '../../src/lib/moderation/command.js';
+  ackFor,
+  nudge,
+  parseOpeners,
+} from '../../src/lib/moderation/phrases.js';
 import { select, upsert } from './modDb.js';
 import { applyCommand } from './listWrite.js';
 import {
@@ -109,7 +110,7 @@ function renderChoices(options) {
 /** A plan's band counts, as something readable in a chat bubble. */
 function renderPlan(plan) {
   const lines = [
-    `Plan ${plan.code} — ${plan.total} ${plan.kind} of ${plan.uri}`,
+    `Plan ${plan.code}: ${plan.total} ${plan.kind} of ${plan.uri}`,
     '',
   ];
   for (const [band, n] of Object.entries(plan.byBand)) {
@@ -147,11 +148,11 @@ function renderPlan(plan) {
 
 /** The named accounts in a plan, and what dame can do about them. */
 function renderReview(plan, review) {
-  const lines = [`Plan ${plan.code} — ${review.total} need a look:`, ''];
+  const lines = [`Plan ${plan.code}: ${review.total} need a look:`, ''];
   for (const r of review.rows) {
     const reach =
       r.followers != null ? `, ${r.followers.toLocaleString()} followers` : '';
-    lines.push(`  @${r.handle} — ${r.band}, ${r.vouches ?? 0} vouches${reach}`);
+    lines.push(`  @${r.handle}: ${r.band}, ${r.vouches ?? 0} vouches${reach}`);
   }
   if (review.total > review.shown) {
     lines.push('', `(${review.total - review.shown} more)`);
@@ -187,16 +188,12 @@ export async function runCommand(cmd, writeAgent) {
 
   if (cmd.needsTarget) {
     if (cmd.action === 'plan') {
-      return say(
-        'Attach the post or paste its link, and I will harvest and score it.',
-      );
+      return say(nudge('post'));
     }
     if (['approve', 'cancel', 'review'].includes(cmd.action)) {
-      return say(
-        'Which plan? Send the code from the plan message, e.g. "approve 3f9a2c1b UNKNOWN".',
-      );
+      return say(nudge('plan'));
     }
-    return say(needsTargetReply(cmd.action));
+    return say(nudge('actor'));
   }
   if (!writeAgent) return say('Commands are not wired up on this path.');
 
@@ -217,7 +214,7 @@ export async function runCommand(cmd, writeAgent) {
     if (cmd.action === 'review') {
       const review = await reviewPlan(plan, { bands: cmd.bands });
       if (!review.total)
-        return say('Nothing in this plan needs a look — it is all UNKNOWN.');
+        return say('Nothing in this plan needs a look. It is all UNKNOWN.');
       return renderReview(plan, review);
     }
 
@@ -228,7 +225,7 @@ export async function runCommand(cmd, writeAgent) {
     }
     if (!cmd.bands.length) {
       return say(
-        `Name the bands, e.g. "approve ${cmd.code} UNKNOWN" — or name the accounts. PROTECTED is never carried.`,
+        `Name the bands, like "approve ${cmd.code} UNKNOWN", or name the accounts. PROTECTED is never carried.`,
       );
     }
     const out = await applyPlan(writeAgent, plan, cmd.bands);
@@ -239,30 +236,6 @@ export async function runCommand(cmd, writeAgent) {
     raw: cmd.raw,
   });
   return say(out.message);
-}
-
-/**
- * What to say the moment a message is picked up, before the work starts.
- *
- * A harvest and a model call are five to twenty seconds of nothing, which reads
- * as the bot being broken rather than busy. The ack says what it is doing, not
- * just that it heard — "Acknowledged" alone would be a second message that adds
- * no information.
- */
-export function ackFor(cmd) {
-  if (!cmd) return 'Acknowledged — thinking.';
-  switch (cmd.action) {
-    case 'plan':
-      return 'Acknowledged — harvesting and scoring that post.';
-    case 'approve':
-      return 'Acknowledged — writing to the list.';
-    case 'review':
-      return 'Acknowledged — pulling the accounts that need a look.';
-    case 'cancel':
-      return 'Acknowledged.';
-    default:
-      return 'Acknowledged — checking the list.';
-  }
 }
 
 /** How many messages one pass will answer. */
@@ -372,6 +345,7 @@ export async function runDmPass({
   // message instead of whenever a cache happened to expire — it is one request
   // against a model call that takes five to twenty seconds.
   const [io, config] = await Promise.all([getIo(), loadAgentConfig()]);
+  const openers = parseOpeners(config?.openers);
 
   const turns = [];
   for (const entry of inbound.slice(-MAX_TURNS)) {
@@ -408,7 +382,7 @@ export async function runDmPass({
     // twenty seconds of silence, which reads as broken rather than busy.
     // Swallowed on failure: an ack that did not send is not a reason to lose the
     // answer behind it.
-    await send(ackFor(cmd)).catch(() => {});
+    await send(ackFor(cmd, { openers })).catch(() => {});
 
     if (cmd) {
       let reply;

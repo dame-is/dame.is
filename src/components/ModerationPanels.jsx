@@ -366,6 +366,7 @@ export function MigratePanel({ agent, listUri }) {
 export function VoicePanel({ agent }) {
   const [style, setStyle] = useState('');
   const [guidance, setGuidance] = useState('');
+  const [openers, setOpeners] = useState('');
   const [fallback, setFallback] = useState('');
   const [config, setConfig] = useState(null);
   const [maxChars, setMaxChars] = useState(2000);
@@ -382,6 +383,7 @@ export function VoicePanel({ agent }) {
         setConfig(r.config || null);
         setStyle(r.config?.style || '');
         setGuidance(r.config?.guidance || '');
+        setOpeners(r.config?.openers || '');
         if (r.maxChars) setMaxChars(r.maxChars);
       })
       .catch((e) => live && setError(e.message));
@@ -395,7 +397,7 @@ export function VoicePanel({ agent }) {
     setError(null);
     setSaved(false);
     try {
-      const r = await setAgentConfig(agent, { style, guidance });
+      const r = await setAgentConfig(agent, { style, guidance, openers });
       setConfig(r.config || null);
       setSaved(true);
     } catch (e) {
@@ -403,9 +405,12 @@ export function VoicePanel({ agent }) {
     } finally {
       setBusy(false);
     }
-  }, [agent, style, guidance]);
+  }, [agent, style, guidance, openers]);
 
-  const over = style.length > maxChars || guidance.length > maxChars;
+  const over =
+    style.length > maxChars ||
+    guidance.length > maxChars ||
+    openers.length > maxChars;
 
   return (
     <div className="mod-studio">
@@ -454,8 +459,27 @@ export function VoicePanel({ agent }) {
       />
 
       <p className="mod-summary-line">
-        {style.length.toLocaleString()} + {guidance.length.toLocaleString()} of{' '}
-        {maxChars.toLocaleString()} each{over && ' — too long'}
+        Openers, one per line. These are what the non-model replies greet with:
+        the acknowledgement, the nudges. What follows the opener is a statement
+        of what is happening and is not editable, because a receipt that can be
+        edited is a receipt that can lie.
+      </p>
+      <textarea
+        className="mod-input"
+        rows={5}
+        value={openers}
+        placeholder={'Acknowledged.\nOn it.\nOn it, boss.\nGot it.'}
+        onChange={(e) => {
+          setOpeners(e.target.value);
+          setSaved(false);
+        }}
+        aria-label="Reply openers"
+      />
+
+      <p className="mod-summary-line">
+        {style.length.toLocaleString()} + {guidance.length.toLocaleString()} +{' '}
+        {openers.length.toLocaleString()} of {maxChars.toLocaleString()} each
+        {over && ' — too long'}
       </p>
 
       <div className="mod-form-row">

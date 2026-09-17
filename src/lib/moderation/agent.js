@@ -104,7 +104,7 @@ THIS REPLY IS PUBLIC. Anyone can read it, including the accounts you are describ
  * default so an empty settings row, an unreachable database or a local test
  * still produces a sane register rather than whatever the model does unprompted.
  */
-export const DEFAULT_VOICE = `VOICE. Short. Concrete numbers. No preamble, no restating the question.`;
+export const DEFAULT_VOICE = `VOICE. Short. Concrete numbers. No preamble, no restating the question. No em dashes.`;
 
 /** The DM prompt in its default voice — what the tests pin. */
 export const SYSTEM_PROMPT = `${PROMPT_BODY}\n\n${SURFACE.dm}\n\n${DEFAULT_VOICE}`;
@@ -451,7 +451,7 @@ export function chunkForPost(text, { limit = 290, maxPosts = 4 } = {}) {
   kept[maxPosts - 1] = trimToFit(
     kept[maxPosts - 1],
     limit,
-    ' … (cut — ask in a DM)',
+    ' ... (cut, ask in a DM)',
   );
   return kept;
 }

@@ -95,7 +95,7 @@ export async function applyCommand(
       ok: false,
       did,
       message:
-        `${actor} is PROTECTED (${reason}) — you follow them, or they are on one of your curation lists. ` +
+        `${actor} is PROTECTED (${reason}). You follow them, or they are on one of your curation lists. ` +
         'No automated path acts on those, including this one. Do it in your client if you mean it.',
     };
   }

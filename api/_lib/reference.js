@@ -49,7 +49,7 @@ export async function loadReference() {
   const takenAt = latest?.[0]?.taken_at;
   if (!takenAt) {
     throw new Error(
-      'no finalised snapshot — run /api/mod-precompute before scoring anything',
+      'no finalised snapshot. Run /api/mod-precompute before scoring anything',
     );
   }
 

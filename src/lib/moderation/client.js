@@ -305,7 +305,7 @@ export function getAgentConfig(agent, { signal } = {}) {
  */
 export async function setAgentConfig(
   agent,
-  { style, guidance },
+  { style, guidance, openers },
   { signal } = {},
 ) {
   const repo = agent.session?.did ?? agent.did;
@@ -317,6 +317,7 @@ export async function setAgentConfig(
       $type: CONFIG_NSID,
       style: String(style || '').trim(),
       guidance: String(guidance || '').trim(),
+      openers: String(openers || '').trim(),
       updatedAt: new Date().toISOString(),
     },
   });

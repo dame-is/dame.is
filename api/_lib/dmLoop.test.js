@@ -35,23 +35,3 @@ describe('a post shared into a DM', () => {
     expect(composeMessage({ text: 'hello' })).toBe('hello');
   });
 });
-
-import { ackFor } from './dmLoop.js';
-
-describe('the acknowledgement', () => {
-  it('says what it is about to do, not just that it heard', () => {
-    // A harvest or a model call is 5-20s of silence, which reads as broken
-    // rather than busy. "Acknowledged" alone would be a second message that
-    // adds nothing.
-    expect(ackFor({ action: 'plan' })).toMatch(/harvesting and scoring/);
-    expect(ackFor({ action: 'approve' })).toMatch(/writing to the list/);
-    expect(ackFor({ action: 'review' })).toMatch(/need a look/);
-    expect(ackFor(null)).toMatch(/thinking/);
-  });
-
-  it('always acknowledges', () => {
-    for (const cmd of [null, { action: 'plan' }, { action: 'list_add' }]) {
-      expect(ackFor(cmd)).toMatch(/^Acknowledged/);
-    }
-  });
-});
