@@ -35,3 +35,47 @@ describe('a post shared into a DM', () => {
     expect(composeMessage({ text: 'hello' })).toBe('hello');
   });
 });
+
+describe('composeMessage with facets', () => {
+  it('hands the model the full link, not the truncated text', () => {
+    const out = composeMessage({
+      text: 'can you add this user to the block list bsky.app/profile/free...',
+      facets: [
+        {
+          features: [
+            {
+              $type: 'app.bsky.richtext.facet#link',
+              uri: 'https://bsky.app/profile/freeuse.toys',
+            },
+          ],
+        },
+      ],
+    });
+    expect(out).toContain('https://bsky.app/profile/freeuse.toys');
+  });
+
+  it('does not repeat a link that was already written out in full', () => {
+    const url = 'https://bsky.app/profile/a.bsky.social';
+    const out = composeMessage({
+      text: `check ${url}`,
+      facets: [
+        { features: [{ $type: 'app.bsky.richtext.facet#link', uri: url }] },
+      ],
+    });
+    expect(out).toBe(`check ${url}`);
+  });
+
+  it('surfaces mentioned accounts as DIDs', () => {
+    const out = composeMessage({
+      text: '@someone',
+      facets: [
+        {
+          features: [
+            { $type: 'app.bsky.richtext.facet#mention', did: 'did:plc:abc' },
+          ],
+        },
+      ],
+    });
+    expect(out).toContain('did:plc:abc');
+  });
+});

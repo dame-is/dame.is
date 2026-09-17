@@ -3,6 +3,9 @@ import {
   parseCommand,
   parseActor,
   parseChoice,
+  facetLinks,
+  facetMentions,
+  offersFrom,
   needsTargetReply,
 } from './command.js';
 
@@ -209,5 +212,132 @@ describe('reviewing and approving by name', () => {
     const out = parseCommand('approve 3f9a2c1b UNKNOWN @a.bsky.social');
     expect(out.bands).toEqual(['UNKNOWN']);
     expect(out.actors).toEqual(['a.bsky.social']);
+  });
+});
+
+describe('truncated links', () => {
+  // A client truncates the visible text of a pasted URL and keeps the whole
+  // thing in a facet. Reading the text finds "bsky.app/profile/free..." which
+  // cannot be resolved, and the analyst says so at length about a message that
+  // contained a perfectly good link.
+  const link = (uri) => ({
+    index: { byteStart: 0, byteEnd: 24 },
+    features: [{ $type: 'app.bsky.richtext.facet#link', uri }],
+  });
+  const mention = (did) => ({
+    index: { byteStart: 0, byteEnd: 10 },
+    features: [{ $type: 'app.bsky.richtext.facet#mention', did }],
+  });
+
+  it('pulls the full url out of the facet', () => {
+    const msg = {
+      text: 'bsky.app/profile/free...',
+      facets: [link('https://bsky.app/profile/freeuse.toys')],
+    };
+    expect(facetLinks(msg)).toEqual(['https://bsky.app/profile/freeuse.toys']);
+  });
+
+  it('resolves an actor a truncated text could not', () => {
+    const out = parseCommand('block bsky.app/profile/free...', {
+      links: ['https://bsky.app/profile/freeuse.toys'],
+    });
+    expect(out.actor).toBe('freeuse.toys');
+    expect(out.needsTarget).toBe(false);
+  });
+
+  it('takes a DID straight from a mention facet', () => {
+    const out = parseCommand('block @freeuse...', {
+      mentions: ['did:plc:2t622budf364qkodu3skkp5d'],
+    });
+    expect(out.actor).toBe('did:plc:2t622budf364qkodu3skkp5d');
+  });
+
+  it('refuses when the facets name two different accounts', () => {
+    // Two candidates is the same ambiguity as two typed handles.
+    const out = parseCommand('block them', {
+      mentions: ['did:plc:aaa', 'did:plc:bbb'],
+    });
+    expect(out.actor).toBe(null);
+    expect(out.needsTarget).toBe(true);
+  });
+
+  it('prefers what dame actually typed over a facet', () => {
+    const out = parseCommand('block @typed.example', {
+      mentions: ['did:plc:somethingelse'],
+    });
+    expect(out.actor).toBe('typed.example');
+  });
+
+  it('finds a post link in a facet for a bulk plan', () => {
+    const post = 'https://bsky.app/profile/a.bsky.social/post/3abc';
+    const out = parseCommand('add likers bsky.app/profile/a.bsk...', {
+      links: [post],
+    });
+    expect(out.target).toBe(post);
+  });
+
+  it('ignores facets that are neither links nor mentions', () => {
+    expect(
+      facetLinks({ facets: [{ features: [{ $type: 'other' }] }] }),
+    ).toEqual([]);
+    expect(facetMentions({})).toEqual([]);
+  });
+});
+
+describe('offersFrom', () => {
+  // The analyst quotes its suggestions in backticks. Lifting them into a menu
+  // means dame answers "2" instead of retyping one.
+  const reply = [
+    'Band: CONNECTED. 4 of your circle follow them.',
+    '',
+    'Command:',
+    '',
+    '`list add @freeuse.toys`',
+    '',
+    'Or `block @freeuse.toys` if you want a block instead.',
+    'Reverses are `list remove @freeuse.toys` and `unblock @freeuse.toys`.',
+  ].join('\n');
+
+  it('lifts the quoted commands out', () => {
+    const out = offersFrom(reply);
+    expect(out.length).toBeGreaterThan(0);
+    expect(out[0].command).toBe('list add @freeuse.toys');
+  });
+
+  it('collapses block and list add, which are the same operation here', () => {
+    // Offering both as though they differed is the model misunderstanding its
+    // own system, and a menu should not repeat it.
+    const out = offersFrom(reply);
+    const adds = out.filter((o) => o.label.startsWith('Add '));
+    expect(adds).toHaveLength(1);
+  });
+
+  it('labels from the parse, not from the prose', () => {
+    // What dame reads has to be what runs. A label copied from model text could
+    // say one thing and execute another.
+    const out = offersFrom('try `block @someone.example`');
+    expect(out[0].label).toBe('Add @someone.example to the list');
+  });
+
+  it('drops anything the parser will not accept', () => {
+    expect(offersFrom('run `rm -rf /` or `sudo make me a sandwich`')).toEqual(
+      [],
+    );
+    expect(offersFrom('`block them`')).toEqual([]);
+    expect(offersFrom('no backticks here, block @a.example')).toEqual([]);
+  });
+
+  it('caps the menu', () => {
+    const many = Array.from(
+      { length: 9 },
+      (_, i) => `\`block @a${i}.example\``,
+    ).join(' ');
+    expect(offersFrom(many)).toHaveLength(4);
+  });
+
+  it('handles a reply with nothing quoted', () => {
+    expect(offersFrom('Just prose, no commands.')).toEqual([]);
+    expect(offersFrom('')).toEqual([]);
+    expect(offersFrom(null)).toEqual([]);
   });
 });

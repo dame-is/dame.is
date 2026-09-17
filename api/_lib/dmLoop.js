@@ -30,7 +30,13 @@ import {
   historyFrom,
   DEFAULT_MODEL,
 } from '../../src/lib/moderation/agent.js';
-import { parseCommand, parseChoice } from '../../src/lib/moderation/command.js';
+import {
+  parseCommand,
+  parseChoice,
+  facetLinks,
+  facetMentions,
+  offersFrom,
+} from '../../src/lib/moderation/command.js';
 import {
   ackFor,
   nudge,
@@ -69,9 +75,24 @@ export function sharedPostUri(message) {
  */
 export function composeMessage(message) {
   const text = message?.text || '';
+  const extra = [];
+
   const uri = sharedPostUri(message);
-  if (!uri) return text;
-  return `${text}\n\n[The post dame shared: ${uri}]`;
+  if (uri) extra.push(`The post dame shared: ${uri}`);
+
+  // A client truncates the visible text of a pasted link and keeps the whole
+  // URI in the facet, so the analyst was reading "bsky.app/profile/free..."
+  // and correctly reporting that it could not resolve it. These come from
+  // dame's own message, so they are derived fact, not untrusted input.
+  const links = facetLinks(message).filter((l) => !text.includes(l));
+  if (links.length)
+    extra.push(`Full links in that message: ${links.join(' ')}`);
+
+  const mentions = facetMentions(message);
+  if (mentions.length) extra.push(`Accounts mentioned: ${mentions.join(' ')}`);
+
+  if (!extra.length) return text;
+  return `${text}\n\n[${extra.join('. ')}]`;
 }
 
 /**
@@ -373,7 +394,11 @@ export async function runDmPass({
     };
 
     const embedUri = sharedPostUri(entry.message);
-    let cmd = parseCommand(entry.message.text, { embedUri });
+    let cmd = parseCommand(entry.message.text, {
+      embedUri,
+      links: facetLinks(entry.message),
+      mentions: facetMentions(entry.message),
+    });
 
     // A bare "2" resolves against the options the LAST DETERMINISTIC REPLY
     // offered, and only those. The analyst's prose never stores options, so a
@@ -450,9 +475,15 @@ export async function runDmPass({
       reviewRows: limits.reviewRows,
     });
 
-    const text = reply.text || 'No answer produced.';
+    let text = reply.text || 'No answer produced.';
+    // The analyst quotes commands in backticks. Lift them into a menu so dame
+    // can answer "2" instead of retyping one. Parsed, not copied: see
+    // offersFrom for what that does and does not guarantee.
+    const offers = offersFrom(text);
+    if (offers.length) text += `\n\n${renderChoices(offers)}`;
     const chunks = chunkForDm(text);
     await send(text);
+    await offerChoices(entry.convoId, offers);
 
     // The reply is already sent and the cursor already advanced, so a failure
     // to record the spend must not throw away the rest of the pass.

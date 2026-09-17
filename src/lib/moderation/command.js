@@ -69,6 +69,42 @@ const VERBS = [
   { match: /^unblock\b/i, action: 'list_remove' },
 ];
 
+const LINK_FEATURE = 'app.bsky.richtext.facet#link';
+const MENTION_FEATURE = 'app.bsky.richtext.facet#mention';
+
+/**
+ * The full URLs behind a message's links.
+ *
+ * A pasted URL is TRUNCATED in the text a client stores: "bsky.app/profile/
+ * free..." is what the record says, and the whole thing lives only in the
+ * facet. Reading the text finds a mangled link, which looks exactly like dame
+ * pasting a broken one, and the analyst says so at length.
+ *
+ * Trusted input: these are facets on dame's own message, not on anything read
+ * from the network.
+ */
+export function facetLinks(message) {
+  const out = [];
+  for (const facet of message?.facets || []) {
+    for (const feature of facet?.features || []) {
+      if (feature?.$type === LINK_FEATURE && feature.uri) out.push(feature.uri);
+    }
+  }
+  return out;
+}
+
+/** The DIDs behind a message's @mentions, which survive truncation entirely. */
+export function facetMentions(message) {
+  const out = [];
+  for (const facet of message?.facets || []) {
+    for (const feature of facet?.features || []) {
+      if (feature?.$type === MENTION_FEATURE && feature.did)
+        out.push(feature.did);
+    }
+  }
+  return out;
+}
+
 /** A handle, DID, or profile URL — as written by dame, not as inferred. */
 export function parseActor(token) {
   const raw = String(token ?? '').trim();
@@ -95,7 +131,10 @@ export function parseActor(token) {
  *   `needsTarget` means dame used a verb but named nobody, which is asked back
  *   rather than guessed. "block them" is precisely the case that must not work.
  */
-export function parseCommand(text, { embedUri = null } = {}) {
+export function parseCommand(
+  text,
+  { embedUri = null, links = [], mentions = [] } = {},
+) {
   const raw = String(text ?? '').trim();
   if (!raw) return null;
 
@@ -110,7 +149,11 @@ export function parseCommand(text, { embedUri = null } = {}) {
   // pasted, or the post she shared. Never from anything the analyst read.
   if (verb.action === 'plan') {
     const kind = matched[1].toLowerCase();
-    const target = extractTargets(raw)[0] || embedUri || null;
+    const target =
+      extractTargets(raw)[0] ||
+      links.find((l) => extractTargets(l).length) ||
+      embedUri ||
+      null;
     return { action: 'plan', kind, target, needsTarget: !target, raw };
   }
 
@@ -146,7 +189,18 @@ export function parseCommand(text, { embedUri = null } = {}) {
   // ambiguous, and the safe reading of an ambiguous instruction to block
   // someone is to refuse it.
   const tokens = rest.split(/\s+/).filter(Boolean);
-  const actor = tokens.length === 1 ? parseActor(tokens[0]) : null;
+  let actor = tokens.length === 1 ? parseActor(tokens[0]) : null;
+
+  // The token came out of the DISPLAY text, so a pasted profile link arrives
+  // truncated and unresolvable. The facets carry the real thing. Only used when
+  // the message names exactly one account: two candidates is the same ambiguity
+  // as two typed handles, and is refused for the same reason.
+  if (!actor) {
+    const fromFacets = [
+      ...new Set([...mentions, ...links.map(parseActor).filter(Boolean)]),
+    ];
+    if (fromFacets.length === 1) actor = fromFacets[0];
+  }
 
   return {
     action: verb.action,
@@ -181,4 +235,64 @@ export function parseChoice(text) {
   if (/^[1-9][0-9]?$/.test(raw)) return Number(raw);
   if (/^[a-z]$/.test(raw)) return raw.charCodeAt(0) - 96;
   return null;
+}
+
+/** A label from the PARSED command, so what dame reads is what will run. */
+export function labelFor(cmd) {
+  const who = cmd.actor ? `@${String(cmd.actor).replace(/^@/, '')}` : '';
+  switch (cmd.action) {
+    case 'list_add':
+      return `Add ${who} to the list`;
+    case 'list_remove':
+      return `Remove ${who} from the list`;
+    case 'plan':
+      return `Scan the ${cmd.kind} of that post`;
+    case 'review':
+      return `Show the accounts in ${cmd.code} that need a look`;
+    case 'approve':
+      return cmd.actors?.length
+        ? `Approve ${cmd.actors.map((a) => `@${a}`).join(', ')} in ${cmd.code}`
+        : `Approve ${cmd.bands.join(', ')} in ${cmd.code}`;
+    case 'cancel':
+      return `Cancel ${cmd.code}`;
+    default:
+      return cmd.raw;
+  }
+}
+
+/**
+ * Turn the commands the analyst quoted into a menu.
+ *
+ * The analyst writes its suggestions in backticks already. This lifts them out,
+ * PARSES EACH ONE, and keeps only what the parser accepts with a target it can
+ * name. So the menu is built from commands this codebase recognises rather than
+ * from arbitrary model text, and the label is generated from the parse rather
+ * than copied from the prose: what dame reads is what will run.
+ *
+ * Be clear about what this does and does not buy. A menu behind a plan is safe
+ * because the options came from deterministic code. A menu behind PROSE is only
+ * as safe as dame reading the label, because a captured turn could suggest
+ * blocking the wrong account and dame could press 1 without looking. What it
+ * does guarantee is that the label names the account, and that pressing 1 runs
+ * exactly the command shown, not something else the model wrote.
+ *
+ * `block @x` and `list add @x` are the same operation here, so they collapse to
+ * one option rather than being offered twice as though they differed.
+ */
+export function offersFrom(text, { max = 4 } = {}) {
+  const spans = [...String(text || '').matchAll(/`([^`\n]{2,120})`/g)].map(
+    (m) => m[1].trim(),
+  );
+  const seen = new Set();
+  const out = [];
+  for (const span of spans) {
+    const cmd = parseCommand(span);
+    if (!cmd || cmd.needsTarget) continue;
+    const key = `${cmd.action}:${cmd.actor ?? cmd.target ?? cmd.code ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ label: labelFor(cmd), command: span });
+    if (out.length >= max) break;
+  }
+  return out;
 }
