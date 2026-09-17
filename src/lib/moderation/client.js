@@ -17,6 +17,7 @@ export const LXM = {
   remove: 'is.dame.mod.remove',
   migrate: 'is.dame.mod.migrate',
   config: 'is.dame.mod.config',
+  hub: 'is.dame.mod.hub',
 };
 
 /**
@@ -512,4 +513,33 @@ export async function retireList(
     });
   }
   return { removed, remaining, done: !remaining };
+}
+
+/* ------------------------------------------------------------------- the hub */
+
+/** Snapshot freshness, list, bot session, spend, recent audits. */
+export function hubOverview(agent, { signal } = {}) {
+  return call(agent, '/api/mod-hub', {
+    lxm: LXM.hub,
+    body: { action: 'overview' },
+    signal,
+  });
+}
+
+/** Why is this account on the list? Every decision ever recorded for them. */
+export function whyListed(agent, actor, { signal } = {}) {
+  return call(agent, '/api/mod-hub', {
+    lxm: LXM.hub,
+    body: { action: 'why', actor },
+    signal,
+  });
+}
+
+/** One page of the list, as profile cards. */
+export function listMembers(agent, { listUri, cursor, signal } = {}) {
+  return call(agent, '/api/mod-hub', {
+    lxm: LXM.hub,
+    body: { action: 'list', listUri, cursor },
+    signal,
+  });
 }

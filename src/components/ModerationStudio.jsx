@@ -14,8 +14,9 @@
 import { useCallback, useState } from 'react';
 import {
   AuditPanel,
-  MigratePanel,
-  RetirePanel,
+  OverviewPanel,
+  WhyPanel,
+  ListPanel,
   VoicePanel,
 } from './ModerationPanels.jsx';
 import {
@@ -260,7 +261,7 @@ function PreflightPanel({ agent }) {
  * list moves, so a constant here would be wrong the moment it succeeded.
  */
 const DEFAULT_LIST =
-  'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.graph.list/3ll5hna42x52o';
+  'at://did:plc:louxcf2mpmyrsbmf2axmchat/app.bsky.graph.list/3mvog3lqj5c2k';
 
 const TABS = [
   { key: 'preflight', label: 'Preflight', hint: 'Score a post before acting' },
@@ -275,7 +276,7 @@ const TABS = [
 ];
 
 export default function ModerationStudio({ agent }) {
-  const [tab, setTab] = useState('preflight');
+  const [tab, setTab] = useState('overview');
   const [listUri, setListUri] = useState(DEFAULT_LIST);
 
   return (
@@ -294,7 +295,7 @@ export default function ModerationStudio({ agent }) {
         ))}
       </nav>
 
-      {tab !== 'preflight' && tab !== 'voice' && (
+      {tab === 'audit' && (
         <div className="mod-form-row">
           <input
             className="mod-input"
@@ -308,10 +309,11 @@ export default function ModerationStudio({ agent }) {
         </div>
       )}
 
+      {tab === 'overview' && <OverviewPanel agent={agent} />}
+      {tab === 'why' && <WhyPanel agent={agent} />}
+      {tab === 'list' && <ListPanel agent={agent} />}
       {tab === 'preflight' && <PreflightPanel agent={agent} />}
       {tab === 'audit' && <AuditPanel agent={agent} listUri={listUri} />}
-      {tab === 'migrate' && <MigratePanel agent={agent} listUri={listUri} />}
-      {tab === 'retire' && <RetirePanel agent={agent} listUri={listUri} />}
       {tab === 'voice' && <VoicePanel agent={agent} />}
     </div>
   );

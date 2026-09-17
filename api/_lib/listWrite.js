@@ -62,7 +62,7 @@ export async function applyCommand(
   agent,
   action,
   actor,
-  { raw = '', band = null } = {},
+  { raw = '', band = null, lookUp = null } = {},
 ) {
   const uri = listUri();
   const bot = agent.session?.did;
@@ -87,6 +87,19 @@ export async function applyCommand(
       ok: false,
       message: `I could not resolve ${actor} to an account.`,
     };
+  }
+
+  // Score it before writing, so the log records what the gate saw rather than
+  // UNSCORED. The whole claim of this system is that a decision is replayable,
+  // and a row that says only "dame typed this" cannot be replayed against
+  // anything. Best effort: a scoring failure must not stop dame acting.
+  let scored = band;
+  if (!scored && lookUp) {
+    try {
+      scored = (await lookUp(actor))?.band ?? null;
+    } catch {
+      scored = null;
+    }
   }
 
   const reason = await protectedReason(did);
@@ -115,7 +128,7 @@ export async function applyCommand(
         createdAt: new Date().toISOString(),
       },
     });
-    await log(did, 'list_add', raw, band);
+    await log(did, 'list_add', raw, scored);
     return { ok: true, did, message: `Added ${actor} to the list.` };
   }
 
@@ -128,7 +141,7 @@ export async function applyCommand(
     collection: 'app.bsky.graph.listitem',
     rkey: found,
   });
-  await log(did, 'list_remove', raw, band);
+  await log(did, 'list_remove', raw, scored);
   return { ok: true, did, message: `Removed ${actor} from the list.` };
 }
 

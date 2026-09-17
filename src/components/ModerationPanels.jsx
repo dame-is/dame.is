@@ -16,13 +16,11 @@ import {
   auditReview,
   auditDecide,
   removeFromList,
-  migrateStart,
-  migrateStatus,
-  migrateRun,
+  hubOverview,
+  whyListed,
+  listMembers,
   getAgentConfig,
   setAgentConfig,
-  retireStatus,
-  retireList,
   CONFIG_NSID,
   BAND_META,
 } from '../lib/moderation/client.js';
@@ -235,118 +233,6 @@ export function AuditPanel({ agent, listUri }) {
           clean or the reference data is stale.
         </p>
       )}
-    </div>
-  );
-}
-
-/**
- * The migration.
- *
- * Carries only the bands you choose, so leaving the CONNECTED accounts behind
- * IS the remediation — they are fixed by never being copied rather than by a
- * second cleanup nobody gets to.
- */
-export function MigratePanel({ agent, listUri }) {
-  const [state, setState] = useState(null);
-  const [bands, setBands] = useState(['UNKNOWN']);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  const refresh = useCallback(async () => {
-    try {
-      setState(await migrateStatus(agent));
-    } catch (err) {
-      setError(String(err?.message || err));
-    }
-  }, [agent]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  const wrap = (fn) => async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-      await refresh();
-    } catch (err) {
-      setError(String(err?.message || err));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const m = state?.migration;
-
-  return (
-    <div className="mod-studio">
-      {error && <p className="mod-error">{error}</p>}
-      <p className="mod-verdict">
-        {m
-          ? `${num(m.carried)} carried${m.failed ? `, ${num(m.failed)} failed` : ''}${m.finished_at ? ' · complete' : ' · running'}`
-          : 'Not started.'}
-      </p>
-      {m?.target_list && (
-        <p className="mod-summary-line">Target: {m.target_list}</p>
-      )}
-
-      <fieldset className="mod-bandpick">
-        <legend className="mod-label">Carry these bands</legend>
-        {BAND_META.map(({ key, label, hint }) => (
-          <label key={key} title={hint}>
-            <input
-              type="checkbox"
-              checked={bands.includes(key)}
-              disabled={Boolean(m) && !m.finished_at}
-              onChange={(e) =>
-                setBands((b) =>
-                  e.target.checked ? [...b, key] : b.filter((x) => x !== key),
-                )
-              }
-            />
-            {label}
-          </label>
-        ))}
-      </fieldset>
-      <p className="mod-row-why">
-        Anything not ticked stays behind. Leaving {ACTIONABLE.join(', ')}{' '}
-        unticked is how the accounts a sweep should never have caught get fixed:
-        they are simply not copied.
-      </p>
-
-      <div className="mod-form-row">
-        <button
-          className="mod-go"
-          type="button"
-          disabled={busy || (m && !m.finished_at)}
-          onClick={wrap(() =>
-            migrateStart(agent, { sourceList: listUri, carryBands: bands }),
-          )}
-        >
-          Start migration
-        </button>
-        <button
-          className="mod-ghost"
-          type="button"
-          disabled={busy || !m || Boolean(m.finished_at)}
-          onClick={wrap(() => migrateRun(agent))}
-        >
-          Run a batch now
-        </button>
-        <button
-          className="mod-ghost"
-          type="button"
-          onClick={wrap(async () => {})}
-        >
-          Refresh
-        </button>
-      </div>
-      <p className="mod-row-why">
-        A batch is 250 accounts. The cron carries one every ten minutes, so a
-        full list takes about six hours; the buttons are for watching it start
-        rather than for driving it to the end.
-      </p>
     </div>
   );
 }
@@ -622,175 +508,247 @@ export function VoicePanel({ agent }) {
 }
 
 /**
- * Retiring the old list, once something else holds the blocks.
+ * Is any of this healthy, and what has it cost.
  *
- * The guard is the whole panel. Deleting a block list that nothing has replaced
- * is how a block list quietly stops blocking, and the failure is invisible:
- * nothing errors, the accounts simply come back. So the button stays disabled
- * until the server has compared SUBJECTS between the two lists, not counts. A
- * matching total with a different membership would pass a count and lose people.
+ * Until now the only way to know whether the snapshot was stale, the bot's
+ * session alive or the spend reasonable was to go and ask the database. A
+ * system that decides who gets blocked should be able to say how it is doing.
  */
-export function RetirePanel({ agent, listUri }) {
-  const [target, setTarget] = useState('');
-  const [status, setStatus] = useState(null);
-  const [progress, setProgress] = useState(null);
-  const [busy, setBusy] = useState(false);
+export function OverviewPanel({ agent }) {
+  const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [acknowledged, setAcknowledged] = useState(false);
 
   useEffect(() => {
     let live = true;
-    migrateStatus(agent)
-      .then((r) => live && setTarget(r.migration?.target_list || ''))
-      .catch(() => {});
+    hubOverview(agent)
+      .then((r) => live && setData(r))
+      .catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
   }, [agent]);
 
-  const check = useCallback(async () => {
+  if (error) return <p className="mod-error">{error}</p>;
+  if (!data) return <p className="mod-summary-line">Reading…</p>;
+
+  const stale = data.snapshot.ageHours != null && data.snapshot.ageHours > 48;
+
+  return (
+    <div className="mod-studio">
+      <p className="mod-verdict">
+        {num(data.snapshot.scored)} accounts scored against{' '}
+        {num(data.snapshot.protected)} protected, from a snapshot{' '}
+        {data.snapshot.ageHours}h old.
+      </p>
+      {stale && (
+        <p className="mod-warn">
+          That snapshot is over two days old. Bands are computed from it, so
+          anyone whose connections changed since is being scored on the old
+          graph.
+        </p>
+      )}
+      <p className="mod-summary-line">List: {data.list}</p>
+      <p className="mod-summary-line">
+        Bot: {data.bot?.handle ?? 'no session'}
+        {data.bot?.refreshed_at &&
+          `, session refreshed ${new Date(data.bot.refreshed_at).toLocaleString()}`}
+      </p>
+      <p className="mod-summary-line">
+        {num(data.plans)} plans, {num(data.decisions)} decisions recorded.
+      </p>
+      <p className="mod-summary-line">
+        {num(data.calls)} model calls, {num(data.tokens.input)} in /{' '}
+        {num(data.tokens.output)} out.
+      </p>
+
+      <p className="mod-summary-line">Recent audits</p>
+      <ul className="mod-list">
+        {data.audits.map((a) => (
+          <li key={a.id}>
+            <span className="mod-row-handle">
+              {new Date(a.started_at).toLocaleString()}
+            </span>{' '}
+            — {num(a.scored)} of {num(a.total)}
+            {!a.total && ' (scored nothing; the list was empty or gone)'}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Why is this account on the list?
+ *
+ * The question the whole system exists to answer. `approved_via` is the part
+ * that matters: "you were in a category dame approved" and "dame read your
+ * profile and decided" are different answers, and the record could not tell
+ * them apart until recently.
+ */
+export function WhyPanel({ agent }) {
+  const [actor, setActor] = useState('');
+  const [data, setData] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const look = useCallback(async () => {
     setBusy(true);
     setError(null);
+    setData(null);
     try {
-      setStatus(
-        await retireStatus(agent, {
-          sourceList: listUri,
-          targetList: target,
-          onProgress: (p) =>
-            setProgress({ scanning: `${p.phase}: ${p.scanned}` }),
-        }),
-      );
-      setProgress(null);
+      setData(await whyListed(agent, actor));
     } catch (e) {
       setError(e.message);
     } finally {
       setBusy(false);
     }
-  }, [agent, listUri, target]);
-
-  const run = useCallback(async () => {
-    setBusy(true);
-    setError(null);
-    setProgress(null);
-    try {
-      const out = await retireList(agent, {
-        sourceList: listUri,
-        sourceBlockUri: status?.sourceBlockUri,
-        onProgress: setProgress,
-      });
-      setProgress(out);
-      await check();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }, [agent, listUri, status, check]);
-
-  const blocked = status && !status.subscribedToTarget;
-  const gap = status?.missing?.length || 0;
-  const ready = status && !blocked && (!gap || acknowledged);
+  }, [agent, actor]);
 
   return (
     <div className="mod-studio">
       {error && <p className="mod-error">{error}</p>}
       <p className="mod-verdict">
-        Delete the old list from your own repo, once the new one is holding the
-        blocks. Runs in your browser, signed by your session.
+        Everything recorded about one account: how it was banded, which plan
+        carried it, and whether that was a band approval or a personal decision.
       </p>
-
       <div className="mod-form-row">
         <input
           className="mod-input"
           type="text"
-          value={target}
-          placeholder="at:// the list that replaces it"
+          value={actor}
+          placeholder="handle or did"
           spellCheck="false"
-          onChange={(e) => setTarget(e.target.value)}
-          aria-label="Replacement list URI"
+          autoComplete="off"
+          onChange={(e) => setActor(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && actor && look()}
+          aria-label="Account"
+        />
+        <button
+          type="button"
+          className="mod-go"
+          disabled={busy || !actor}
+          onClick={look}
+        >
+          {busy ? 'Looking…' : 'Look up'}
+        </button>
+      </div>
+
+      {data && (
+        <>
+          <p className="mod-summary-line">{data.did}</p>
+          {data.protected && (
+            <p className="mod-warn">
+              PROTECTED ({data.protected.reason}). No automated path may act on
+              them.
+            </p>
+          )}
+          {!data.decisions.length && !data.audits.length && (
+            <p className="mod-empty">
+              Nothing recorded. This account has never been through the gate.
+            </p>
+          )}
+          {data.decisions.map((d) => {
+            const plan = data.plans.find((p) => p.id === d.plan_id);
+            return (
+              <div key={`${d.plan_id}-${d.did}`} className="mod-row-why">
+                <strong>{d.band}</strong>
+                {d.vouches != null && ` · ${d.vouches} vouches`}
+                {d.trust != null && ` · trust ${d.trust}`}
+                {d.action && ` · ${d.action}`}
+                {d.approved_via && ` · via ${d.approved_via}`}
+                {d.acted_at && ` · ${new Date(d.acted_at).toLocaleString()}`}
+                {plan?.note && <div>“{plan.note}”</div>}
+                {plan?.approved_bands?.length > 0 && (
+                  <div>Bands approved: {plan.approved_bands.join(', ')}</div>
+                )}
+              </div>
+            );
+          })}
+          {data.audits.map((a) => (
+            <div key={a.audit_id} className="mod-row-why">
+              Audit · {a.band}
+              {a.vouches != null && ` · ${a.vouches} vouches`}
+              {a.decision ? ` · you chose ${a.decision}` : ' · not reviewed'}
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** A window onto the list itself, which there has never been one of. */
+export function ListPanel({ agent }) {
+  const [page, setPage] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('');
+
+  const load = useCallback(
+    async (cursor) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const r = await listMembers(agent, { cursor });
+        setPage(r);
+        setRows((prev) => (cursor ? [...prev, ...r.items] : r.items));
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [agent],
+  );
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const shown = filter
+    ? rows.filter((r) =>
+        `${r.handle} ${r.displayName ?? ''}`
+          .toLowerCase()
+          .includes(filter.toLowerCase()),
+      )
+    : rows;
+
+  return (
+    <div className="mod-studio">
+      {error && <p className="mod-error">{error}</p>}
+      <p className="mod-verdict">
+        {page?.list?.name ?? 'The list'} — {num(rows.length)} loaded
+        {page?.cursor ? ', more available' : ''}
+      </p>
+      <div className="mod-form-row">
+        <input
+          className="mod-input"
+          type="text"
+          value={filter}
+          placeholder="filter what is loaded"
+          onChange={(e) => setFilter(e.target.value)}
+          aria-label="Filter"
         />
         <button
           type="button"
           className="mod-ghost"
-          disabled={busy || !target}
-          onClick={check}
+          disabled={busy || !page?.cursor}
+          onClick={() => load(page.cursor)}
         >
-          Check coverage
+          {busy ? 'Loading…' : 'Load more'}
         </button>
       </div>
-
-      {status && (
-        <>
-          <p className="mod-summary-line">
-            Old list: {num(status.source.records)} items for{' '}
-            {num(status.source.accounts)} accounts
-            {status.source.duplicates > 0 &&
-              ` (${num(status.source.duplicates)} duplicates)`}
-          </p>
-          <p className="mod-summary-line">
-            New list: {num(status.target.accounts)} accounts
-          </p>
-
-          {blocked && (
-            <p className="mod-warn">
-              You are not subscribed to the new list. Deleting the old one now
-              would unblock everyone on it. Subscribe first.
-            </p>
-          )}
-
-          {gap > 0 && (
-            <>
-              <p className="mod-warn">
-                {num(gap)} accounts are on the old list and not on the new one.
-                Deleting drops their block.
-              </p>
-              <label className="mod-choice">
-                <input
-                  type="checkbox"
-                  checked={acknowledged}
-                  onChange={(e) => setAcknowledged(e.target.checked)}
-                />
-                I know, delete anyway
-              </label>
-            </>
-          )}
-
-          {!gap && !blocked && (
-            <p className="mod-summary-line">
-              Every account on the old list is on the new one. Safe to delete.
-            </p>
-          )}
-
-          <p className="mod-summary-line">
-            {num(status.points)} deletes. One point each against 5,000/hour, and
-            one repo event each against the relay&apos;s 2,600/hour for your
-            whole PDS, so this takes a few sittings.
-          </p>
-
-          <div className="mod-form-row">
-            <button
-              type="button"
-              className="mod-go"
-              disabled={busy || !ready}
-              onClick={run}
-            >
-              {busy ? 'Deleting…' : `Delete up to 2,000`}
-            </button>
-          </div>
-        </>
-      )}
-
-      {progress && (
-        <p className="mod-summary-line">
-          {progress.scanning
-            ? `Scanning ${progress.scanning}`
-            : `${num(progress.removed)} removed`}
-          {progress.remaining ? `, ${num(progress.remaining)} left` : ''}
-          {progress.rateLimited &&
-            ' — hit the rate limit, try again in an hour'}
-          {progress.done && ' — list deleted'}
-        </p>
-      )}
+      <ul className="mod-list">
+        {shown.map((r) => (
+          <li key={r.did}>
+            <span className="mod-row-handle">@{r.handle}</span>
+            {r.displayName ? ` — ${r.displayName}` : ''}
+            {r.followers != null ? ` · ${num(r.followers)} followers` : ''}
+          </li>
+        ))}
+      </ul>
+      {!shown.length && !busy && <p className="mod-empty">Nothing matches.</p>}
     </div>
   );
 }

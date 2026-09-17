@@ -196,7 +196,7 @@ function renderReview(plan, review) {
  * Every branch is deterministic. Nothing here consults the model, and the only
  * inputs are dame's literal text and what Constellation and score.js returned.
  */
-export async function runCommand(cmd, writeAgent, { template } = {}) {
+export async function runCommand(cmd, writeAgent, { template, lookUp } = {}) {
   const say = (text, options = null) => ({ text, options });
 
   if (cmd.needsTarget) {
@@ -253,6 +253,7 @@ export async function runCommand(cmd, writeAgent, { template } = {}) {
 
   const out = await applyCommand(writeAgent, cmd.action, cmd.actor, {
     raw: cmd.raw,
+    lookUp,
   });
   return say(out.message);
 }
@@ -499,6 +500,7 @@ export async function runDmPass({
       try {
         reply = await runCommand(cmd, writeAgent, {
           template: config?.postReport,
+          lookUp: async (a) => (await getIo()).lookUp(a),
         });
       } catch (err) {
         reply = {
