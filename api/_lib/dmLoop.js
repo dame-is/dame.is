@@ -36,6 +36,7 @@ import {
 } from '../../src/lib/moderation/command.js';
 import { select, upsert } from './modDb.js';
 import { applyCommand } from './listWrite.js';
+import { proposePlan, findPlan, applyPlan, cancelPlan } from './bulkPlan.js';
 import { loadAgentConfig } from './agentConfig.js';
 
 /**
@@ -62,6 +63,74 @@ export function composeMessage(message) {
   const uri = sharedPostUri(message);
   if (!uri) return text;
   return `${text}\n\n[The post dame shared: ${uri}]`;
+}
+
+/** A plan's band counts, as something readable in a chat bubble. */
+function renderPlan(plan) {
+  const lines = [
+    `Plan ${plan.code} — ${plan.total} ${plan.kind} of ${plan.uri}`,
+    '',
+  ];
+  for (const [band, n] of Object.entries(plan.byBand)) {
+    if (!n) continue;
+    lines.push(
+      `  ${band.padEnd(11)}${String(n).padStart(5)}` +
+        (band === 'PROTECTED' ? '   never carried' : ''),
+    );
+  }
+  if (plan.truncated) {
+    lines.push('', 'The harvest hit a page cap, so the tail is incomplete.');
+  }
+  lines.push(
+    '',
+    `approve ${plan.code} UNKNOWN`,
+    `approve ${plan.code} UNKNOWN,NOTABLE`,
+    `cancel ${plan.code}`,
+  );
+  return lines.join('\n');
+}
+
+/**
+ * Run one typed command and return what to say back.
+ *
+ * Every branch is deterministic. Nothing here consults the model, and the only
+ * inputs are dame's literal text and what Constellation and score.js returned.
+ */
+export async function runCommand(cmd, writeAgent) {
+  if (cmd.needsTarget) {
+    if (cmd.action === 'plan') {
+      return 'Attach the post or paste its link, and I will harvest and score it.';
+    }
+    if (cmd.action === 'approve' || cmd.action === 'cancel') {
+      return 'Which plan? Send the code from the plan message, e.g. "approve 3f9a2c1b UNKNOWN".';
+    }
+    return needsTargetReply(cmd.action);
+  }
+  if (!writeAgent) return 'Commands are not wired up on this path.';
+
+  if (cmd.action === 'plan') {
+    const plan = await proposePlan({ link: cmd.target, kind: cmd.kind });
+    return renderPlan(plan);
+  }
+
+  if (cmd.action === 'approve' || cmd.action === 'cancel') {
+    const plan = await findPlan(cmd.code);
+    if (!plan) return `No plan with code ${cmd.code}.`;
+    if (cmd.action === 'cancel') {
+      await cancelPlan(plan);
+      return `Cancelled ${cmd.code}. Nothing was added.`;
+    }
+    if (!cmd.bands.length) {
+      return `Name the bands to carry, e.g. "approve ${cmd.code} UNKNOWN". PROTECTED is never carried.`;
+    }
+    const out = await applyPlan(writeAgent, plan, cmd.bands);
+    return out.message;
+  }
+
+  const out = await applyCommand(writeAgent, cmd.action, cmd.actor, {
+    raw: cmd.raw,
+  });
+  return out.message;
 }
 
 /** How many messages one pass will answer. */
@@ -179,18 +248,15 @@ export async function runDmPass({
     // commands from me" true in the presence of tools that read strangers'
     // posts: there is no path from the tool loop to a write, so a captured turn
     // has nothing to capture. See src/lib/moderation/command.js.
-    const cmd = parseCommand(entry.message.text);
+    const cmd = parseCommand(entry.message.text, {
+      embedUri: sharedPostUri(entry.message),
+    });
     if (cmd) {
       let text;
-      if (cmd.needsTarget) {
-        text = needsTargetReply(cmd.action);
-      } else if (!writeAgent) {
-        text = 'Commands are not wired up on this path.';
-      } else {
-        const out = await applyCommand(writeAgent, cmd.action, cmd.actor, {
-          raw: cmd.raw,
-        });
-        text = out.message;
+      try {
+        text = await runCommand(cmd, writeAgent);
+      } catch (err) {
+        text = `That failed: ${String(err?.message || err).slice(0, 300)}`;
       }
       for (const chunk of chunkForDm(text)) {
         await chat.chat.bsky.convo.sendMessage({

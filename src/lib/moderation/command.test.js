@@ -90,3 +90,77 @@ describe('needsTargetReply', () => {
     expect(needsTargetReply('list_add')).toMatch(/block list/);
   });
 });
+
+describe('bulk plans', () => {
+  const POST = 'https://bsky.app/profile/a.bsky.social/post/3abc';
+  const EMBED = 'at://did:plc:abc/app.bsky.feed.post/3abc';
+
+  it('recognises each engagement kind', () => {
+    for (const kind of [
+      'likers',
+      'reposters',
+      'repliers',
+      'quoters',
+      'everyone',
+    ]) {
+      const out = parseCommand(`add ${kind} ${POST}`);
+      expect(out).toMatchObject({ action: 'plan', kind, target: POST });
+    }
+  });
+
+  it('accepts the "list add likers" and "add the likers" phrasings', () => {
+    expect(parseCommand(`list add likers ${POST}`).action).toBe('plan');
+    expect(parseCommand(`add the likers ${POST}`).kind).toBe('likers');
+  });
+
+  it('is not confused with adding an account called "likers"', () => {
+    // Bulk patterns are matched first, or "list add likers" would be read as
+    // adding a handle.
+    expect(parseCommand(`list add likers ${POST}`).action).not.toBe('list_add');
+    expect(parseCommand('list add @a.bsky.social').action).toBe('list_add');
+  });
+
+  it('takes the post from a shared embed when the text has no link', () => {
+    // Sharing from the app puts no link in the text.
+    const out = parseCommand('add likers', { embedUri: EMBED });
+    expect(out.target).toBe(EMBED);
+    expect(out.needsTarget).toBe(false);
+  });
+
+  it('asks for a post rather than guessing one', () => {
+    expect(parseCommand('add likers').needsTarget).toBe(true);
+  });
+
+  it('parses an approval with bands, in any case or separator', () => {
+    const out = parseCommand('approve 3f9a2c1b unknown, notable');
+    expect(out).toMatchObject({ action: 'approve', code: '3f9a2c1b' });
+    expect(out.bands).toEqual(['UNKNOWN', 'NOTABLE']);
+  });
+
+  it('strips PROTECTED from an approval, whatever is typed', () => {
+    // The veto is not a default an approval can talk its way past.
+    const out = parseCommand('approve 3f9a2c1b UNKNOWN,PROTECTED');
+    expect(out.bands).toEqual(['UNKNOWN']);
+  });
+
+  it('ignores band names that are not bands', () => {
+    expect(parseCommand('approve 3f9a2c1b everyone,ALL').bands).toEqual([]);
+  });
+
+  it('needs a plan code', () => {
+    expect(parseCommand('approve').needsTarget).toBe(true);
+    expect(parseCommand('approve UNKNOWN').code).toBe(null);
+  });
+
+  it('parses a cancellation', () => {
+    expect(parseCommand('cancel 3f9a2c1b')).toMatchObject({
+      action: 'cancel',
+      code: '3f9a2c1b',
+    });
+  });
+
+  it('still lets a question through to the analyst', () => {
+    expect(parseCommand('should I add the likers of this post?')).toBe(null);
+    expect(parseCommand('who approved that')).toBe(null);
+  });
+});

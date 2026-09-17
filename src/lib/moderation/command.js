@@ -24,6 +24,24 @@
 // That also means a prompt-injected turn cannot reach a write, because the
 // write is not reachable from the tool loop in the first place.
 
+import { extractTargets } from './target.js';
+import { BANDS } from './score.js';
+
+/**
+ * Engagement kinds, as harvest.js labels them.
+ *
+ * `everyone` is null rather than the full list: the filter is skipped entirely,
+ * so a lexicon outside app.bsky that harvest discovered is included too. An
+ * enumeration here would silently exclude whatever shipped this morning.
+ */
+export const KINDS = {
+  likers: ['like'],
+  reposters: ['repost'],
+  repliers: ['reply', 'threadReply'],
+  quoters: ['quote'],
+  everyone: null,
+};
+
 const HANDLE = /^@?([a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/i;
 const DID = /^did:[a-z]+:[a-zA-Z0-9._%-]+$/;
 const PROFILE = /\/profile\/([^/?#\s]+)/;
@@ -35,6 +53,15 @@ const PROFILE = /\/profile\/([^/?#\s]+)/;
  * moment ago, and the list should read like something someone chose.
  */
 const VERBS = [
+  // Bulk first: "list add likers" must not be read as adding an account called
+  // "likers". Longest and most specific patterns win.
+  {
+    match:
+      /^(?:list\s+)?add\s+(?:the\s+)?(likers|reposters|repliers|quoters|everyone)\b/i,
+    action: 'plan',
+  },
+  { match: /^approve\b/i, action: 'approve' },
+  { match: /^cancel\b/i, action: 'cancel' },
   { match: /^list\s+add\b/i, action: 'list_add' },
   { match: /^list\s+remove\b/i, action: 'list_remove' },
   { match: /^block\b/i, action: 'list_add' },
@@ -67,14 +94,42 @@ export function parseActor(token) {
  *   `needsTarget` means dame used a verb but named nobody, which is asked back
  *   rather than guessed. "block them" is precisely the case that must not work.
  */
-export function parseCommand(text) {
+export function parseCommand(text, { embedUri = null } = {}) {
   const raw = String(text ?? '').trim();
   if (!raw) return null;
 
   const verb = VERBS.find((v) => v.match.test(raw));
   if (!verb) return null;
 
+  const matched = raw.match(verb.match);
   const rest = raw.replace(verb.match, '').trim();
+
+  // --- bulk: propose, then approve -----------------------------------------
+  // A plan names a POST, and the post comes from dame's own message: a link she
+  // pasted, or the post she shared. Never from anything the analyst read.
+  if (verb.action === 'plan') {
+    const kind = matched[1].toLowerCase();
+    const target = extractTargets(raw)[0] || embedUri || null;
+    return { action: 'plan', kind, target, needsTarget: !target, raw };
+  }
+
+  if (verb.action === 'approve' || verb.action === 'cancel') {
+    const tokens = rest.split(/[\s,]+/).filter(Boolean);
+    const code = (tokens.shift() || '').toLowerCase();
+    const bands = tokens
+      .map((t) => t.toUpperCase())
+      .filter((t) => BANDS.includes(t));
+    return {
+      action: verb.action,
+      code: /^[0-9a-f]{4,36}$/.test(code) ? code : null,
+      // PROTECTED is never carried, whatever is typed. The veto is not a
+      // default that an approval can talk its way past.
+      bands: bands.filter((b) => b !== 'PROTECTED'),
+      needsTarget: !/^[0-9a-f]{4,36}$/.test(code),
+      raw,
+    };
+  }
+
   // Only the FIRST token after the verb. A command naming two accounts is
   // ambiguous, and the safe reading of an ambiguous instruction to block
   // someone is to refuse it.

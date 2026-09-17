@@ -526,3 +526,14 @@ describe('standing guidance', () => {
     expect(systemPromptFor('dm', { guidance: '   ' })).toBe(SYSTEM_PROMPT);
   });
 });
+
+describe('the prompt knows dame can act', () => {
+  it('carries the command vocabulary instead of redirecting her elsewhere', () => {
+    // It told dame that acting "has to happen in your client", which stopped
+    // being true when typed commands landed.
+    expect(SYSTEM_PROMPT).toMatch(/block @handle/);
+    expect(SYSTEM_PROMPT).toMatch(/add likers/);
+    expect(SYSTEM_PROMPT).toMatch(/approve <code> UNKNOWN/);
+    expect(SYSTEM_PROMPT).toMatch(/PROTECTED is never carried/);
+  });
+});
