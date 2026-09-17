@@ -272,6 +272,7 @@ let dmTimer = null;
 async function pollDms() {
   const res = await runDmPass({
     chat,
+    writeAgent: agent,
     // Lazy on purpose. A poll that finds nothing is almost every poll, and
     // loading the snapshot on each one would both waste the read and keep the
     // idle timer below from ever firing — so the memory this is all arranged

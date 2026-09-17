@@ -30,7 +30,12 @@ import {
   historyFrom,
   DEFAULT_MODEL,
 } from '../../src/lib/moderation/agent.js';
+import {
+  parseCommand,
+  needsTargetReply,
+} from '../../src/lib/moderation/command.js';
 import { select, upsert } from './modDb.js';
+import { applyCommand } from './listWrite.js';
 import { loadVoice } from './voice.js';
 
 /** How many messages one pass will answer. */
@@ -89,6 +94,9 @@ export async function seekToTail(chat, { log = () => {} } = {}) {
  *
  * @param {object} opts
  * @param {object} opts.chat      an agent proxied to the chat service
+ * @param {object} [opts.writeAgent] the UNPROXIED agent, for list commands.
+ *   Repo writes must not go through the chat proxy, and without this commands
+ *   are simply unavailable rather than silently misrouted.
  * @param {Function} opts.getIo   async () => tool backends, from makeIo().
  *   A FACTORY, not an object: building it loads a ~73k row snapshot, and a poll
  *   that finds nothing — which is almost every poll — must not pay for that. On
@@ -101,6 +109,7 @@ export async function seekToTail(chat, { log = () => {} } = {}) {
  */
 export async function runDmPass({
   chat,
+  writeAgent,
   getIo,
   model = process.env.MOD_AGENT_MODEL || DEFAULT_MODEL,
   botDid,
@@ -139,6 +148,38 @@ export async function runDmPass({
 
   const turns = [];
   for (const entry of inbound.slice(-MAX_TURNS)) {
+    // COMMANDS NEVER REACH THE MODEL. Matched on dame's literal text, executed
+    // directly, replied to with a receipt. This is what makes "only acts on
+    // commands from me" true in the presence of tools that read strangers'
+    // posts: there is no path from the tool loop to a write, so a captured turn
+    // has nothing to capture. See src/lib/moderation/command.js.
+    const cmd = parseCommand(entry.message.text);
+    if (cmd) {
+      let text;
+      if (cmd.needsTarget) {
+        text = needsTargetReply(cmd.action);
+      } else if (!writeAgent) {
+        text = 'Commands are not wired up on this path.';
+      } else {
+        const out = await applyCommand(writeAgent, cmd.action, cmd.actor, {
+          raw: cmd.raw,
+        });
+        text = out.message;
+      }
+      for (const chunk of chunkForDm(text)) {
+        await chat.chat.bsky.convo.sendMessage({
+          convoId: entry.convoId,
+          message: { text: chunk },
+        });
+      }
+      log('Ran a command', {
+        action: cmd.action,
+        actor: cmd.actor ?? '(none)',
+      });
+      turns.push({ convoId: entry.convoId, command: cmd.action });
+      continue;
+    }
+
     // Read the conversation back so a follow-up means something. Bluesky stores
     // it already, so this needs no state of our own — and it is per convo, so
     // two threads do not bleed into each other.

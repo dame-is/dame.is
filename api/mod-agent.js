@@ -15,7 +15,7 @@
 
 import { loadReference, makeIo } from './_lib/reference.js';
 import { runDmPass } from './_lib/dmLoop.js';
-import { botAgent } from './_lib/botAgent.js';
+import { botAgent, chatView } from './_lib/botAgent.js';
 import { authorize } from './_lib/serviceAuth.js';
 
 export const config = { maxDuration: 60 };
@@ -26,10 +26,14 @@ export default async function handler(req, res) {
   if (!(await authorize(req, res, { lxm: LXM }))) return;
 
   try {
-    const { agent, via } = await botAgent({ chat: true });
+    // Both views from ONE session: the chat proxy to read and send DMs, the
+    // plain agent to write listitems. Repo writes through the chat proxy would
+    // be routed to the chat service.
+    const { agent, via } = await botAgent();
 
     const result = await runDmPass({
-      chat: agent,
+      chat: chatView(agent),
+      writeAgent: agent,
       // Lazy: a firing with nothing to answer never loads the snapshot, which
       // is most firings and most of the 60s budget.
       getIo: async () => makeIo(await loadReference()),
