@@ -38,7 +38,7 @@ import {
   BANDS,
 } from '../../src/lib/moderation/score.js';
 import { KINDS } from '../../src/lib/moderation/command.js';
-import { selectAll, upsert, update } from './modDb.js';
+import { select, selectAll, upsert, update } from './modDb.js';
 import { loadReference } from './reference.js';
 import { listUri } from './listWrite.js';
 
@@ -132,6 +132,9 @@ export async function proposePlan({ link, kind }) {
     // Per-kind counts, so a scan can say "15 likes, 1 repost" rather than only
     // a participant total.
     engagements: summary.totals?.engagements || {},
+    // Said before the approval rather than discovered during it. The relay
+    // ceiling was nearly hit twice in one day with no warning anywhere.
+    cost: estimateWrites(chosen.length - (byBand.PROTECTED || 0)),
     truncated: summary.truncated,
     protectedCount: byBand.PROTECTED || 0,
   };
@@ -422,4 +425,177 @@ export async function applyPlanToActors(agent, plan, actors) {
     parts.push(`Not in this plan: ${unknown.join(', ')}.`);
   }
   return { ok: true, added, message: parts.join(' ') };
+}
+
+/**
+ * Cost of a set of writes, in the units that actually bind.
+ *
+ * Two ceilings apply and the tighter one is usually not the one people quote.
+ * A create is 3 points against 5,000/hour per account, but it is ALSO one repo
+ * event against the relay's 2,600/hour for the whole PDS, shared with every
+ * other account on it. Deletes are 1 point and still one event.
+ */
+export function estimateWrites(n, { kind = 'create' } = {}) {
+  if (!n) return 'nothing to write';
+  const points = n * (kind === 'create' ? 3 : 1);
+  const byPoints = points / 5000;
+  const byEvents = n / 2600;
+  const hours = Math.max(byPoints, byEvents);
+  const mins = Math.round(hours * 60);
+  const time =
+    mins < 2
+      ? 'under a minute'
+      : mins < 90
+        ? `about ${mins} minutes`
+        : `about ${hours.toFixed(1)} hours`;
+  return `${n.toLocaleString()} writes, ${points.toLocaleString()} points, ${time}`;
+}
+
+/** The most recent plan that actually put someone on the list. */
+export async function lastActedPlan() {
+  const acted = await selectAll('decision', {
+    select: 'plan_id,acted_at,action,undone_at',
+    order: 'plan_id.asc',
+  });
+  const live = acted.filter(
+    (d) => d.acted_at && d.action === 'list_add' && !d.undone_at,
+  );
+  if (!live.length) return null;
+  live.sort((a, b) => Date.parse(b.acted_at) - Date.parse(a.acted_at));
+  return findPlan(shortCode(live[0].plan_id));
+}
+
+/**
+ * Take a plan's additions back off the list.
+ *
+ * The decision rows STAY, stamped undone rather than deleted. A log that erases
+ * what it undid cannot answer "was I ever on this list", which is a question
+ * somebody may reasonably ask after the fact -- and an append-only record that
+ * quietly rewrites itself is not a record.
+ *
+ * The listitem rkey is not stored anywhere, so the repo is scanned once and
+ * matched by subject. Deletes are 1 point rather than 3, so the cap can be
+ * higher than an approval's, but it is still capped and still resumable.
+ */
+export async function undoPlan(
+  agent,
+  plan,
+  { max = 1000, reason = 'undo' } = {},
+) {
+  const uri = listUri();
+  const bot = agent.session?.did;
+  if (!uri.startsWith(`at://${bot}/`)) {
+    return { ok: false, message: 'That list is not owned by this account.' };
+  }
+
+  const rows = await selectAll('decision', {
+    select: 'did,band,acted_at,action,undone_at',
+    eq: { plan_id: plan.id },
+    order: 'did.asc',
+  });
+  const live = rows.filter(
+    (r) => r.acted_at && r.action === 'list_add' && !r.undone_at,
+  );
+  if (!live.length) {
+    return {
+      ok: true,
+      removed: 0,
+      message: 'Nothing from that plan is still on the list.',
+    };
+  }
+
+  const wanted = new Map(live.map((r) => [r.did, r]));
+  const rkeys = [];
+  let cursor;
+  for (let page = 0; page < 400; page += 1) {
+    const res = await agent.com.atproto.repo.listRecords({
+      repo: bot,
+      collection: 'app.bsky.graph.listitem',
+      limit: 100,
+      cursor,
+    });
+    for (const rec of res.data.records || []) {
+      if (rec.value?.list !== uri) continue;
+      if (!wanted.has(rec.value?.subject)) continue;
+      rkeys.push({ rkey: rec.uri.split('/').pop(), did: rec.value.subject });
+    }
+    cursor = res.data.cursor;
+    if (!cursor || !(res.data.records || []).length) break;
+  }
+
+  const slice = rkeys.slice(0, max);
+  let removed = 0;
+  for (let i = 0; i < slice.length; i += BATCH) {
+    const batch = slice.slice(i, i + BATCH);
+    try {
+      await agent.com.atproto.repo.applyWrites({
+        repo: bot,
+        writes: batch.map((r) => ({
+          $type: 'com.atproto.repo.applyWrites#delete',
+          collection: 'app.bsky.graph.listitem',
+          rkey: r.rkey,
+        })),
+      });
+      const now = new Date().toISOString();
+      await upsert(
+        'decision',
+        batch.map((r) => ({
+          plan_id: plan.id,
+          did: r.did,
+          band: wanted.get(r.did).band,
+          action: 'list_add',
+          acted_at: wanted.get(r.did).acted_at,
+          undone_at: now,
+          undo_reason: reason,
+        })),
+      );
+      removed += batch.length;
+    } catch (err) {
+      const message = String(err?.message || err);
+      if (/rate ?limit/i.test(message)) break;
+      throw err;
+    }
+  }
+
+  const remaining = live.length - removed;
+  return {
+    ok: true,
+    removed,
+    remaining,
+    message:
+      `Took ${removed} back off the list.` +
+      (remaining
+        ? ` ${remaining} left, send "undo ${shortCode(plan.id)}" again.`
+        : ''),
+  };
+}
+
+/** What has been done lately, or to one account. */
+export async function historyFor(did = null, { limit = 8 } = {}) {
+  const rows = await selectAll('decision', {
+    select: 'plan_id,did,band,action,acted_at,approved_via,undone_at',
+    ...(did ? { eq: { did } } : {}),
+    order: 'plan_id.asc',
+  });
+  const acted = rows.filter((r) => r.acted_at);
+  acted.sort((a, b) => Date.parse(b.acted_at) - Date.parse(a.acted_at));
+
+  const out = [];
+  const seenPlans = new Map();
+  for (const row of acted) {
+    if (!seenPlans.has(row.plan_id)) {
+      const plan = await select('plan', {
+        select: 'id,note,approved_bands,created_at',
+        eq: { id: row.plan_id },
+      });
+      seenPlans.set(row.plan_id, plan?.[0] ?? null);
+    }
+    out.push({
+      ...row,
+      plan: seenPlans.get(row.plan_id),
+      code: shortCode(row.plan_id),
+    });
+    if (out.length >= limit) break;
+  }
+  return { total: acted.length, rows: out };
 }

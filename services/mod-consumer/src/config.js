@@ -81,6 +81,18 @@ export const config = {
   /** How long the tool list is reused before it is fetched again. */
   atmosphereTtlMs: num(process.env.ATMOSPHERE_TTL_MS, 6 * 60 * 60_000),
 
+  /**
+   * How often to re-score the list and report what moved.
+   *
+   * Weekly by default. The argument the whole gate rests on -- that a sweep
+   * knows one moment and nothing about how those accounts relate to dame --
+   * does not stop being true after the sweep, and nothing was re-checking.
+   * 0 turns it off.
+   */
+  driftEveryHours: num(process.env.DRIFT_EVERY_HOURS, 168),
+  /** How often to ask whether a drift run is due. */
+  driftCheckMs: num(process.env.DRIFT_CHECK_MS, 60 * 60_000),
+
   statsIntervalMs: num(process.env.STATS_INTERVAL_MS, 30 * 60_000),
 };
 

@@ -46,6 +46,7 @@ import { logger } from './logger.js';
 import { loadState, setCursor, hasAnswered, markAnswered } from './state.js';
 import { connectJetstream } from './jetstream.js';
 import { replyInThread } from './publicReply.js';
+import { maybeRunDrift, ownerConvo } from './drift.js';
 
 const model = process.env.MOD_AGENT_MODEL || DEFAULT_MODEL;
 
@@ -303,6 +304,28 @@ function scheduleDmPoll() {
   if (dmTimer.unref) dmTimer.unref();
 }
 
+// --- the weekly re-score -----------------------------------------------------
+let driftTimer = null;
+
+function scheduleDrift() {
+  if (!config.driftEveryHours) {
+    logger.info('Drift audits are off');
+    return;
+  }
+  const tick = () => {
+    // Queued like everything else, so a re-score of 8,500 accounts cannot run
+    // alongside a model call on a 512 MB box.
+    if (pending > 0 || shuttingDown) return;
+    enqueue('drift', async () => {
+      const convoId = await ownerConvo(chat);
+      const body = await maybeRunDrift(agent, chat, convoId);
+      if (body) logger.info('Sent a drift brief');
+    });
+  };
+  driftTimer = setInterval(tick, config.driftCheckMs);
+  if (driftTimer.unref) driftTimer.unref();
+}
+
 // --- stats -------------------------------------------------------------------
 function logStats() {
   logger.info('stats', {
@@ -359,6 +382,7 @@ async function start() {
   }
 
   scheduleDmPoll();
+  scheduleDrift();
   stream = connectJetstream({ onEvent });
 
   if (config.statsIntervalMs > 0) {
@@ -375,6 +399,7 @@ async function start() {
     atmosphere: config.atmosphere ? Object.keys(atmoTools).length : 'off',
     dmPollMs: config.dmPollMs,
     publicReplies: config.publicReplies,
+    driftEveryHours: config.driftEveryHours,
     dryRun: config.dryRun,
     model,
     logLevel: logger.level,
@@ -386,6 +411,7 @@ async function shutdown(signal) {
   shuttingDown = true;
   logger.info('Shutting down', { signal });
   if (dmTimer) clearInterval(dmTimer);
+  if (driftTimer) clearInterval(driftTimer);
   if (statsTimer) clearInterval(statsTimer);
   stream?.close();
   // Let an in-flight answer finish rather than killing it mid-thread and

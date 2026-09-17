@@ -200,3 +200,23 @@ describe('the post scan', () => {
     }
   });
 });
+
+describe('estimateWrites', () => {
+  it('quotes the ceiling that actually binds', async () => {
+    // A create is 3 points against 5,000/hour, but ALSO one repo event against
+    // the relay's 2,600/hour for the whole PDS. For big batches the relay is
+    // the tighter one and it is not the number people quote.
+    const { estimateWrites } = await import('../../../api/_lib/bulkPlan.js');
+    expect(estimateWrites(0)).toBe('nothing to write');
+    expect(estimateWrites(10)).toContain('30 points');
+    expect(estimateWrites(10)).toContain('under a minute');
+    const big = estimateWrites(8000);
+    expect(big).toContain('24,000 points');
+    expect(big).toMatch(/hours/);
+  });
+
+  it('costs a delete at one point, not three', async () => {
+    const { estimateWrites } = await import('../../../api/_lib/bulkPlan.js');
+    expect(estimateWrites(100, { kind: 'delete' })).toContain('100 points');
+  });
+});

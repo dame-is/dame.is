@@ -42,10 +42,26 @@ export const ACK_CLAUSE = {
     'Fetching the ones worth reading.',
   ],
   cancel: ['Standing down.', 'Nothing will be written.'],
+  undo: ['Taking those back off the list.', 'Undoing that.'],
+  history: ['Pulling the record.'],
   list_add: ['Checking the list.', 'Looking them up.'],
   list_remove: ['Checking the list.', 'Looking them up.'],
   think: ['Thinking.', 'Having a look.', 'Reading up.'],
 };
+
+/**
+ * Which commands are worth announcing.
+ *
+ * An ack exists to fill five to twenty seconds of silence. A lookup is rendered
+ * now and arrives instantly, so announcing it means two messages for one answer
+ * -- the ack was right when everything went through a model and is noise for
+ * the things that no longer do.
+ */
+export const SLOW = new Set(['plan', 'approve', 'undo', 'review', 'think']);
+
+export function worthAcking(cmd) {
+  return SLOW.has(cmd?.action ?? 'think');
+}
 
 /** Pick one. `rng` is injectable so tests are not flaky. */
 export function pick(list, rng = Math.random) {

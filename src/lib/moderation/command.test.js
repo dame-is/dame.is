@@ -372,3 +372,41 @@ describe('parsePostScan', () => {
     expect(parsePostScan('')).toBe(null);
   });
 });
+
+describe('undo and history', () => {
+  it('parses undo by code and undo last', () => {
+    // "undo last" is the common case: the thing that just happened.
+    expect(parseCommand('undo 3f9a2c1b')).toMatchObject({
+      action: 'undo',
+      code: '3f9a2c1b',
+      last: false,
+    });
+    expect(parseCommand('undo last')).toMatchObject({
+      action: 'undo',
+      last: true,
+      needsTarget: false,
+    });
+  });
+
+  it('asks which plan rather than guessing', () => {
+    expect(parseCommand('undo').needsTarget).toBe(true);
+    expect(parseCommand('undo that thing').needsTarget).toBe(true);
+  });
+
+  it('parses history with and without an account', () => {
+    expect(parseCommand('history')).toMatchObject({
+      action: 'history',
+      actor: null,
+      needsTarget: false,
+    });
+    expect(parseCommand('history @a.bsky.social')).toMatchObject({
+      action: 'history',
+      actor: 'a.bsky.social',
+    });
+  });
+
+  it('does not swallow prose that mentions undoing', () => {
+    expect(parseCommand('can I undo that?')).toBe(null);
+    expect(parseCommand('what is the history here')).toBe(null);
+  });
+});

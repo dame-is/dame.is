@@ -109,3 +109,23 @@ describe('pick', () => {
     expect(pick([null, 'ok'], always(0.99))).toBe('ok');
   });
 });
+
+describe('worthAcking', () => {
+  it('announces work that takes time', async () => {
+    const { worthAcking } = await import('./phrases.js');
+    for (const action of ['plan', 'approve', 'undo', 'review']) {
+      expect(worthAcking({ action })).toBe(true);
+    }
+    expect(worthAcking(null)).toBe(true); // a model call
+  });
+
+  it('stays quiet for replies that arrive instantly', async () => {
+    // A rendered reply needs no announcement. Acking it means two messages for
+    // one answer, which is what it did for a while after lookups stopped
+    // calling a model.
+    const { worthAcking } = await import('./phrases.js');
+    for (const action of ['list_add', 'list_remove', 'cancel', 'history']) {
+      expect(worthAcking({ action })).toBe(false);
+    }
+  });
+});

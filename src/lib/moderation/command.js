@@ -62,6 +62,8 @@ const VERBS = [
   },
   { match: /^approve\b/i, action: 'approve' },
   { match: /^review\b/i, action: 'review' },
+  { match: /^undo\b/i, action: 'undo' },
+  { match: /^history\b/i, action: 'history' },
   { match: /^cancel\b/i, action: 'cancel' },
   { match: /^list\s+add\b/i, action: 'list_add' },
   { match: /^list\s+remove\b/i, action: 'list_remove' },
@@ -155,6 +157,21 @@ export function parseCommand(
       embedUri ||
       null;
     return { action: 'plan', kind, target, needsTarget: !target, raw };
+  }
+
+  // `history` names an account or nothing at all, so it never needs a code.
+  if (verb.action === 'history') {
+    const tokens = rest.split(/\s+/).filter(Boolean);
+    const actor = tokens.length === 1 ? parseActor(tokens[0]) : null;
+    return { action: 'history', actor, needsTarget: false, raw };
+  }
+
+  // `undo last` is the common case: the thing that just happened.
+  if (verb.action === 'undo') {
+    const token = rest.split(/\s+/).filter(Boolean)[0] || '';
+    const last = /^last$/i.test(token);
+    const code = /^[0-9a-f]{4,36}$/.test(token) ? token.toLowerCase() : null;
+    return { action: 'undo', code, last, needsTarget: !last && !code, raw };
   }
 
   if (

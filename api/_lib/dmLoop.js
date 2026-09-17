@@ -24,6 +24,7 @@
 import { generateText } from 'ai';
 
 import { ME_DID } from '../../src/config.js';
+import { resolveActor } from '../../src/lib/moderation/target.js';
 import {
   answer,
   chunkForDm,
@@ -49,6 +50,7 @@ import {
   ackFor,
   nudge,
   parseOpeners,
+  worthAcking,
 } from '../../src/lib/moderation/phrases.js';
 import { select, upsert } from './modDb.js';
 import { applyCommand } from './listWrite.js';
@@ -59,6 +61,11 @@ import {
   applyPlanToActors,
   reviewPlan,
   cancelPlan,
+  undoPlan,
+  lastActedPlan,
+  historyFor,
+  estimateWrites,
+  shortCode,
 } from './bulkPlan.js';
 import { loadAgentConfig, LIMITS } from './agentConfig.js';
 
@@ -203,6 +210,43 @@ export async function runCommand(cmd, writeAgent, { template, lookUp } = {}) {
     if (cmd.action === 'plan') {
       return say(nudge('post'));
     }
+    if (cmd.action === 'history') {
+      const did = cmd.actor
+        ? await resolveActor(cmd.actor).catch(() => null)
+        : null;
+      if (cmd.actor && !did) return say(`I could not resolve ${cmd.actor}.`);
+      const h = await historyFor(did);
+      if (!h.rows.length) {
+        return say(
+          cmd.actor ? 'Nothing recorded for them.' : 'Nothing done yet.',
+        );
+      }
+      const lines = h.rows.map((r) => {
+        const when = new Date(r.acted_at).toLocaleString();
+        const note = r.plan?.note ? ` — "${r.plan.note}"` : '';
+        const undone = r.undone_at ? ' (undone)' : '';
+        return `${when} · ${r.band} · ${r.approved_via ?? '?'} · ${r.code}${undone}${note}`;
+      });
+      return say(
+        `${h.total} actions on record, most recent first:\n\n${lines.join('\n')}`,
+      );
+    }
+
+    if (cmd.action === 'undo') {
+      const plan = cmd.last ? await lastActedPlan() : await findPlan(cmd.code);
+      if (!plan) {
+        return say(
+          cmd.last ? 'Nothing to undo.' : `No plan with code ${cmd.code}.`,
+        );
+      }
+      const out = await undoPlan(writeAgent, plan, {
+        reason: cmd.raw,
+      });
+      return say(out.message, [
+        { label: 'Show me what changed', command: `history` },
+      ]);
+    }
+
     if (['approve', 'cancel', 'review'].includes(cmd.action)) {
       return say(nudge('plan'));
     }
@@ -219,6 +263,43 @@ export async function runCommand(cmd, writeAgent, { template, lookUp } = {}) {
       options: actions,
       lastPost: plan.uri,
     };
+  }
+
+  if (cmd.action === 'history') {
+    const did = cmd.actor
+      ? await resolveActor(cmd.actor).catch(() => null)
+      : null;
+    if (cmd.actor && !did) return say(`I could not resolve ${cmd.actor}.`);
+    const h = await historyFor(did);
+    if (!h.rows.length) {
+      return say(
+        cmd.actor ? 'Nothing recorded for them.' : 'Nothing done yet.',
+      );
+    }
+    const lines = h.rows.map((r) => {
+      const when = new Date(r.acted_at).toLocaleString();
+      const note = r.plan?.note ? ` — "${r.plan.note}"` : '';
+      const undone = r.undone_at ? ' (undone)' : '';
+      return `${when} · ${r.band} · ${r.approved_via ?? '?'} · ${r.code}${undone}${note}`;
+    });
+    return say(
+      `${h.total} actions on record, most recent first:\n\n${lines.join('\n')}`,
+    );
+  }
+
+  if (cmd.action === 'undo') {
+    const plan = cmd.last ? await lastActedPlan() : await findPlan(cmd.code);
+    if (!plan) {
+      return say(
+        cmd.last ? 'Nothing to undo.' : `No plan with code ${cmd.code}.`,
+      );
+    }
+    const out = await undoPlan(writeAgent, plan, {
+      reason: cmd.raw,
+    });
+    return say(out.message, [
+      { label: 'Show me what changed', command: `history` },
+    ]);
   }
 
   if (['approve', 'cancel', 'review'].includes(cmd.action)) {
@@ -248,7 +329,20 @@ export async function runCommand(cmd, writeAgent, { template, lookUp } = {}) {
       );
     }
     const out = await applyPlan(writeAgent, plan, cmd.bands);
-    return say(out.message);
+    // Offer the way back with the receipt, while the code is still in front of
+    // her. An undo you have to go and look up is one you will not use.
+    return say(
+      out.message,
+      out.added
+        ? [
+            {
+              label: `Undo those ${out.added}`,
+              command: `undo ${shortCode(plan.id)}`,
+            },
+            { label: 'Show me the record', command: 'history' },
+          ]
+        : null,
+    );
   }
 
   const out = await applyCommand(writeAgent, cmd.action, cmd.actor, {
@@ -463,7 +557,6 @@ export async function runDmPass({
         mentions: facetMentions(entry.message),
       });
       if (actor) {
-        await send(ackFor({ action: 'list_add' }, { openers })).catch(() => {});
         try {
           const io = await getIo();
           const account = await io.lookUp(actor);
@@ -493,7 +586,11 @@ export async function runDmPass({
     // twenty seconds of silence, which reads as broken rather than busy.
     // Swallowed on failure: an ack that did not send is not a reason to lose the
     // answer behind it.
-    await send(ackFor(cmd, { openers })).catch(() => {});
+    // Only announce work that takes time. A rendered reply arrives instantly,
+    // and announcing it means two messages for one answer.
+    if (worthAcking(cmd)) {
+      await send(ackFor(cmd, { openers })).catch(() => {});
+    }
 
     if (cmd) {
       let reply;

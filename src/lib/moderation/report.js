@@ -135,6 +135,7 @@ export const DEFAULT_PLAN_TEMPLATE = [
   '',
   'Need a look: {needsLook}',
   'Plan: {code}',
+  'If you add all: {cost}',
 ].join('\n');
 
 /** Every variable a post-scan template may use. */
@@ -156,6 +157,7 @@ export function planVariablesFor(plan) {
     engagements: engagements || '—',
     needsLook: needsLook || 'none',
     truncated: plan.truncated ? 'yes, the harvest hit a page cap' : 'no',
+    cost: plan.cost || '',
     ...byBand,
   };
 }
