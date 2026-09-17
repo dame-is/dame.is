@@ -12,7 +12,12 @@
 // decides what is allowed through.
 
 import { useCallback, useState } from 'react';
-import { AuditPanel, MigratePanel, VoicePanel } from './ModerationPanels.jsx';
+import {
+  AuditPanel,
+  MigratePanel,
+  RetirePanel,
+  VoicePanel,
+} from './ModerationPanels.jsx';
 import {
   preflight,
   precomputeStatus,
@@ -261,6 +266,11 @@ const TABS = [
   { key: 'preflight', label: 'Preflight', hint: 'Score a post before acting' },
   { key: 'audit', label: 'Audit', hint: 'Re-score an existing list' },
   { key: 'migrate', label: 'Migrate', hint: 'Carry the list to the bot' },
+  {
+    key: 'retire',
+    label: 'Retire',
+    hint: 'Delete the old list from your repo',
+  },
   { key: 'voice', label: 'Voice', hint: 'How the analyst writes' },
 ];
 
@@ -301,6 +311,7 @@ export default function ModerationStudio({ agent }) {
       {tab === 'preflight' && <PreflightPanel agent={agent} />}
       {tab === 'audit' && <AuditPanel agent={agent} listUri={listUri} />}
       {tab === 'migrate' && <MigratePanel agent={agent} listUri={listUri} />}
+      {tab === 'retire' && <RetirePanel agent={agent} listUri={listUri} />}
       {tab === 'voice' && <VoicePanel agent={agent} />}
     </div>
   );

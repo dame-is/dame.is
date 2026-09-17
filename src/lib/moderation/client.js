@@ -17,6 +17,7 @@ export const LXM = {
   remove: 'is.dame.mod.remove',
   migrate: 'is.dame.mod.migrate',
   config: 'is.dame.mod.config',
+  retire: 'is.dame.mod.retire',
 };
 
 /**
@@ -328,4 +329,106 @@ export async function setAgentConfig(
     body: { refresh: true },
     signal,
   });
+}
+
+/* --------------------------------------------------- retiring the old list */
+
+/** Is the old list safe to delete? Reads both repos server-side. */
+export function retireStatus(agent, { sourceList, targetList, signal } = {}) {
+  return call(agent, '/api/mod-retire', {
+    lxm: LXM.retire,
+    body: { sourceList, targetList },
+    signal,
+  });
+}
+
+/**
+ * Delete a list from dame's own repo, once something else is holding the blocks.
+ *
+ * In the browser because the list is in dame's repo and the server holds only
+ * the bot's credential. Capped per run and resumable: 8,695 deletes is 8,695
+ * repo events against a relay ceiling of 2,600 an hour for the whole PDS, so
+ * this is several sittings by design rather than one tab left open for three
+ * hours.
+ *
+ * ORDER MATTERS. The subscription goes first: staying subscribed to a list
+ * while emptying it means watching your own block list drain. Everyone stays
+ * blocked throughout because the caller has already checked that the target
+ * list covers them.
+ */
+export async function retireList(
+  agent,
+  { sourceList, sourceBlockUri, max = 2000, onProgress } = {},
+) {
+  const repo = agent.session?.did ?? agent.did;
+  if (ownerOf(sourceList) !== repo) {
+    throw new Error('that list is not in your repo');
+  }
+
+  let removed = 0;
+
+  if (sourceBlockUri) {
+    await agent.com.atproto.repo.deleteRecord({
+      repo,
+      collection: 'app.bsky.graph.listblock',
+      rkey: sourceBlockUri.split('/').pop(),
+    });
+  }
+
+  // Re-read each run rather than trusting a count from before the last batch.
+  const rkeys = [];
+  let cursor;
+  for (let page = 0; page < 400; page += 1) {
+    const res = await agent.com.atproto.repo.listRecords({
+      repo,
+      collection: 'app.bsky.graph.listitem',
+      limit: 100,
+      cursor,
+    });
+    for (const rec of res.data.records || []) {
+      if (rec.value?.list === sourceList) rkeys.push(rec.uri.split('/').pop());
+    }
+    cursor = res.data.cursor;
+    if (!cursor || !(res.data.records || []).length) break;
+  }
+
+  const slice = rkeys.slice(0, max);
+  for (let i = 0; i < slice.length; i += 50) {
+    const batch = slice.slice(i, i + 50);
+    try {
+      await agent.com.atproto.repo.applyWrites({
+        repo,
+        writes: batch.map((rkey) => ({
+          $type: 'com.atproto.repo.applyWrites#delete',
+          collection: 'app.bsky.graph.listitem',
+          rkey,
+        })),
+      });
+      removed += batch.length;
+      onProgress?.({ removed, total: rkeys.length });
+    } catch (err) {
+      const message = String(err?.message || err);
+      if (/rate ?limit/i.test(message)) {
+        return {
+          removed,
+          remaining: rkeys.length - removed,
+          rateLimited: true,
+        };
+      }
+      throw err;
+    }
+  }
+
+  const remaining = rkeys.length - removed;
+  // The list record goes last. A list record with orphaned items under it is a
+  // tidier failure than items pointing at a list that no longer exists, which
+  // is the exact mess the migration left in the bot's repo.
+  if (!remaining) {
+    await agent.com.atproto.repo.deleteRecord({
+      repo,
+      collection: 'app.bsky.graph.list',
+      rkey: sourceList.split('/').pop(),
+    });
+  }
+  return { removed, remaining, done: !remaining };
 }

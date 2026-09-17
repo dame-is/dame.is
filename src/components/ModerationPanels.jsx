@@ -21,6 +21,8 @@ import {
   migrateRun,
   getAgentConfig,
   setAgentConfig,
+  retireStatus,
+  retireList,
   CONFIG_NSID,
   BAND_META,
 } from '../lib/moderation/client.js';
@@ -564,6 +566,172 @@ export function VoicePanel({ agent }) {
         <summary>The default voice, for reference</summary>
         <pre className="mod-row-why">{fallback}</pre>
       </details>
+    </div>
+  );
+}
+
+/**
+ * Retiring the old list, once something else holds the blocks.
+ *
+ * The guard is the whole panel. Deleting a block list that nothing has replaced
+ * is how a block list quietly stops blocking, and the failure is invisible:
+ * nothing errors, the accounts simply come back. So the button stays disabled
+ * until the server has compared SUBJECTS between the two lists, not counts. A
+ * matching total with a different membership would pass a count and lose people.
+ */
+export function RetirePanel({ agent, listUri }) {
+  const [target, setTarget] = useState('');
+  const [status, setStatus] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    migrateStatus(agent)
+      .then((r) => live && setTarget(r.migration?.target_list || ''))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [agent]);
+
+  const check = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setStatus(
+        await retireStatus(agent, { sourceList: listUri, targetList: target }),
+      );
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }, [agent, listUri, target]);
+
+  const run = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    setProgress(null);
+    try {
+      const out = await retireList(agent, {
+        sourceList: listUri,
+        sourceBlockUri: status?.sourceBlockUri,
+        onProgress: setProgress,
+      });
+      setProgress(out);
+      await check();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }, [agent, listUri, status, check]);
+
+  const blocked = status && !status.subscribedToTarget;
+  const gap = status?.missing?.length || 0;
+  const ready = status && !blocked && (!gap || acknowledged);
+
+  return (
+    <div className="mod-studio">
+      {error && <p className="mod-error">{error}</p>}
+      <p className="mod-verdict">
+        Delete the old list from your own repo, once the new one is holding the
+        blocks. Runs in your browser, signed by your session.
+      </p>
+
+      <div className="mod-form-row">
+        <input
+          className="mod-input"
+          type="text"
+          value={target}
+          placeholder="at:// the list that replaces it"
+          spellCheck="false"
+          onChange={(e) => setTarget(e.target.value)}
+          aria-label="Replacement list URI"
+        />
+        <button
+          type="button"
+          className="mod-ghost"
+          disabled={busy || !target}
+          onClick={check}
+        >
+          Check coverage
+        </button>
+      </div>
+
+      {status && (
+        <>
+          <p className="mod-summary-line">
+            Old list: {num(status.source.records)} items for{' '}
+            {num(status.source.accounts)} accounts
+            {status.source.duplicates > 0 &&
+              ` (${num(status.source.duplicates)} duplicates)`}
+          </p>
+          <p className="mod-summary-line">
+            New list: {num(status.target.accounts)} accounts
+          </p>
+
+          {blocked && (
+            <p className="mod-warn">
+              You are not subscribed to the new list. Deleting the old one now
+              would unblock everyone on it. Subscribe first.
+            </p>
+          )}
+
+          {gap > 0 && (
+            <>
+              <p className="mod-warn">
+                {num(gap)} accounts are on the old list and not on the new one.
+                Deleting drops their block.
+              </p>
+              <label className="mod-choice">
+                <input
+                  type="checkbox"
+                  checked={acknowledged}
+                  onChange={(e) => setAcknowledged(e.target.checked)}
+                />
+                I know, delete anyway
+              </label>
+            </>
+          )}
+
+          {!gap && !blocked && (
+            <p className="mod-summary-line">
+              Every account on the old list is on the new one. Safe to delete.
+            </p>
+          )}
+
+          <p className="mod-summary-line">
+            {num(status.points)} deletes. One point each against 5,000/hour, and
+            one repo event each against the relay&apos;s 2,600/hour for your
+            whole PDS, so this takes a few sittings.
+          </p>
+
+          <div className="mod-form-row">
+            <button
+              type="button"
+              className="mod-go"
+              disabled={busy || !ready}
+              onClick={run}
+            >
+              {busy ? 'Deleting…' : `Delete up to 2,000`}
+            </button>
+          </div>
+        </>
+      )}
+
+      {progress && (
+        <p className="mod-summary-line">
+          {num(progress.removed)} removed
+          {progress.remaining ? `, ${num(progress.remaining)} left` : ''}
+          {progress.rateLimited &&
+            ' — hit the rate limit, try again in an hour'}
+          {progress.done && ' — list deleted'}
+        </p>
+      )}
     </div>
   );
 }
