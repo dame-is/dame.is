@@ -7,17 +7,21 @@
 // already the cautionary tale for leaving a decision like this inline.
 //
 // TWO INDEPENDENT AUTHOR CHECKS, on purpose. The consumer subscribes to
-// Jetstream with `dids=[owner]`, so in normal operation only dame's own posts
-// ever arrive — but that filter is a bandwidth decision made by the transport,
-// and a dropped query parameter, a proxy that rewrites the URL, or someone
-// widening the subscription to debug something would silently turn "only dame
-// is answered" off. So the author is checked again here, where it is a rule
-// rather than an optimisation.
+// Jetstream with `dids=[everyone answered]`, so in normal operation no other
+// author's posts ever arrive — but that filter is a bandwidth decision made by
+// the transport, and a dropped query parameter, a proxy that rewrites the URL,
+// or someone widening the subscription to debug something would silently turn
+// the rule off. So the author is checked again here, where it is a rule rather
+// than an optimisation.
 //
-// Note what is NOT a trigger: anyone else mentioning the bot. The bot is
-// mentionable by the whole network, and the analyst reads its input as
+// Note what is NOT a trigger: anyone NOT on the roster mentioning the bot. The
+// bot is mentionable by the whole network, and the analyst reads its input as
 // instructions, so a stranger's mention is discarded without a reply — not even
 // an error, which would itself be a reply.
+//
+// The roster is a predicate rather than a DID so this file never has to know
+// how the tiers are spelled. See senders.js, which is the only place that
+// decides who is on it.
 
 import { looksLikeTarget } from './target.js';
 
@@ -85,8 +89,11 @@ export function mentions(record, did) {
  *
  * @param {object} event  a Jetstream commit envelope
  * @param {object} opts
- * @param {string} opts.ownerDid  the only account whose posts are answered
+ * @param {string} opts.ownerDid  the account that owns the list
  * @param {string} opts.botDid    the moderator account
+ * @param {(did: string) => boolean} [opts.answers]  is this author answered?
+ *   Defaults to the owner alone, so a caller that has not been taught about
+ *   the roster stays as narrow as this was before the roster existed.
  * @returns {{
  *   trigger: boolean,
  *   reason: string,
@@ -99,7 +106,10 @@ export function mentions(record, did) {
  *   isFollowUp?: boolean,
  * }}
  */
-export function classify(event, { ownerDid, botDid }) {
+export function classify(
+  event,
+  { ownerDid, botDid, answers = (did) => did === ownerDid },
+) {
   if (event?.kind !== 'commit')
     return { trigger: false, reason: 'not-a-commit' };
 
@@ -112,8 +122,8 @@ export function classify(event, { ownerDid, botDid }) {
   if (commit.operation !== 'create') {
     return { trigger: false, reason: 'not-a-create' };
   }
-  if (event.did !== ownerDid) {
-    return { trigger: false, reason: 'not-the-owner' };
+  if (!answers(event.did)) {
+    return { trigger: false, reason: 'not-on-the-roster' };
   }
 
   const record = commit.record || {};
@@ -156,6 +166,9 @@ export function classify(event, { ownerDid, botDid }) {
     reason: 'addressed',
     uri,
     cid: commit.cid,
+    // Who asked. Not always the owner now that a roster exists, and the thread
+    // history needs it to tell the asker's posts from the bot's.
+    author: event.did,
     text: record.text,
     target,
     targetSource,

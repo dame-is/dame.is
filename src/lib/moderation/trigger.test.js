@@ -60,7 +60,7 @@ describe('who gets answered', () => {
       ids,
     );
     expect(out.trigger).toBe(false);
-    expect(out.reason).toBe('not-the-owner');
+    expect(out.reason).toBe('not-on-the-roster');
   });
 
   it('ignores dame posting without addressing the bot', () => {

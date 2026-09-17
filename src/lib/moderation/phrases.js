@@ -47,6 +47,11 @@ export const ACK_CLAUSE = {
   list_add: ['Checking the list.', 'Looking them up.'],
   list_remove: ['Checking the list.', 'Looking them up.'],
   think: ['Thinking.', 'Having a look.', 'Reading up.'],
+  read: [
+    'Reading their recent posts.',
+    'Going through what they have been posting.',
+    'Having a proper read of their feed.',
+  ],
 };
 
 /**
@@ -57,7 +62,16 @@ export const ACK_CLAUSE = {
  * -- the ack was right when everything went through a model and is noise for
  * the things that no longer do.
  */
-export const SLOW = new Set(['plan', 'approve', 'undo', 'review', 'think']);
+export const SLOW = new Set([
+  'plan',
+  'approve',
+  'undo',
+  'review',
+  'think',
+  // A read pulls a feed and then calls the model, so it is the slowest thing
+  // here by some distance.
+  'read',
+]);
 
 export function worthAcking(cmd) {
   return SLOW.has(cmd?.action ?? 'think');
@@ -117,6 +131,10 @@ export const NUDGE = {
   plan: [
     'Which plan? Send the code from the plan message, like "approve 3f9a2c1b UNKNOWN".',
     'I need the plan code. It is in the message with the band counts.',
+  ],
+  read: [
+    'Name the account and I will read their recent posts. "read @handle", or a profile link.',
+    'Who should I read? Give me the handle or a profile link.',
   ],
 };
 

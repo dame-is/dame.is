@@ -118,12 +118,22 @@ export function actionsFor(account) {
     label: `Remove ${at} from the list`,
     command: `list remove ${at}`,
   });
+  // The way to LEARN something before acting. The band answers "who would
+  // notice if I blocked them" and says nothing at all about conduct, which is
+  // the question a person is usually actually asking. Offering the read beside
+  // the act is what keeps the band from being read as a verdict by default.
+  out.push({
+    label: `Read ${at}'s recent posts first`,
+    command: `read ${at}`,
+  });
   return out;
 }
 
 /** What a post scan looks like unless dame changes it. */
 export const DEFAULT_PLAN_TEMPLATE = [
-  'Post: {uri}',
+  'Post by @{author} ({authorBand})',
+  '{uri}',
+  '',
   'Participants: {participants}',
   'Engagements: {engagements}',
   '',
@@ -153,6 +163,10 @@ export function planVariablesFor(plan) {
     uri: plan.uri,
     code: plan.code,
     kind: plan.kind,
+    author: plan.author?.handle || plan.author?.did || 'unknown',
+    authorBand: plan.author?.band || 'UNSCORED',
+    authorVouches: plan.author?.vouches ?? 0,
+    authorFollowers: plan.author?.followers ?? null,
     participants: plan.total,
     engagements: engagements || '—',
     needsLook: needsLook || 'none',
@@ -183,6 +197,27 @@ export function renderPlanReport(
 export function planActions(plan) {
   const byBand = plan.byBand || {};
   const out = [];
+
+  // THE AUTHOR LEADS. A post with no likes and no replies scored every band at
+  // zero and offered only "Do nothing", which is a true report about the graph
+  // around the post and a useless one about the post: the account in front of
+  // dame is the one who WROTE it. PROTECTED gets no add option here for the
+  // same reason it gets none in actionsFor.
+  const author = plan.author;
+  const at = author ? `@${author.handle || author.did}` : null;
+  if (at && !author.protectedReason) {
+    out.push({
+      label: `Add the author ${at} to the list`,
+      command: `list add ${at}`,
+    });
+  }
+  if (at) {
+    out.push({
+      label: `Read ${at}'s recent posts first`,
+      command: `read ${at}`,
+    });
+  }
+
   if (byBand.UNKNOWN) {
     out.push({
       label: `Add the ${byBand.UNKNOWN} UNKNOWN accounts`,

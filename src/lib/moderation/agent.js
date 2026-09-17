@@ -104,6 +104,44 @@ THIS REPLY IS PUBLIC. Anyone can read it, including the accounts you are describ
  * default so an empty settings row, an unreachable database or a local test
  * still produces a sane register rather than whatever the model does unprompted.
  */
+/**
+ * The canned question behind `read @handle`.
+ *
+ * A FIXED QUESTION, not dame's free text, because this is the one path where a
+ * model is asked for an opinion about a person rather than an explanation of a
+ * number. Fixing the wording is what stops the answer drifting with how the
+ * question happened to be phrased that day, and it is what lets the framing
+ * below be guaranteed rather than hoped for.
+ *
+ * THE FRAMING IS THE POINT. The band measures social proximity: who would
+ * notice if dame blocked them. It says nothing about conduct, which is usually
+ * what someone actually wants to know, and the gap between those two is where
+ * a tool like this gets misused. So the reply is asked to be a reading of
+ * posts, to say how far back it looked, to say what it did NOT find, and to
+ * stay out of the band entirely. "Nothing in the last 50 posts" is a real
+ * answer and is not the same sentence as "they are fine".
+ *
+ * Nothing it produces is written down. No decision row, no score, no cached
+ * verdict — the decision log stays replayable precisely because a model's
+ * reading of somebody's posting is not in it.
+ */
+export function readRequest(actor) {
+  const at = `@${String(actor).replace(/^@/, '')}`;
+  return [
+    `Read ${at}'s recent posts and tell me how they behave. This is for a decision about whether to add them to a moderation list, so be useful and be honest about your confidence.`,
+    '',
+    'Cover, in this order:',
+    '- What they post about, in a sentence.',
+    '- How they talk to people who disagree with them.',
+    '- Whether there is a pattern of pile-ons, harassment, slurs, or arguing in bad faith, or whether you simply do not see one.',
+    '- Anything aimed at dame or people dame follows.',
+    '',
+    'Say how many posts you looked at and how far back that goes. Quote at most one short line as evidence. Be specific about what you did NOT find: "nothing like that in the last 50 posts" is a useful answer and is not the same as "they are fine".',
+    '',
+    'This is your reading of their posts. It is not a score, it does not change their band, and you should say so if it reads as more certain than it is. If the feed is too thin to say anything, say that instead of reaching.',
+  ].join('\n');
+}
+
 export const DEFAULT_VOICE = `VOICE. Short. Concrete numbers. No preamble, no restating the question. No em dashes.`;
 
 /** The DM prompt in its default voice — what the tests pin. */

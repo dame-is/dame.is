@@ -24,16 +24,20 @@
 import { generateText } from 'ai';
 
 import { ME_DID } from '../../src/config.js';
+import { rosterFromEnv } from '../../src/lib/moderation/senders.js';
 import { resolveActor } from '../../src/lib/moderation/target.js';
 import {
   answer,
   chunkForDm,
   historyFrom,
+  readRequest,
   DEFAULT_MODEL,
 } from '../../src/lib/moderation/agent.js';
 import {
   parseCommand,
   parseChoice,
+  isWrite,
+  readOnlyReply,
   facetLinks,
   facetMentions,
   offersFrom,
@@ -202,8 +206,19 @@ function renderReview(plan, review) {
  * Every branch is deterministic. Nothing here consults the model, and the only
  * inputs are dame's literal text and what Constellation and score.js returned.
  */
-export async function runCommand(cmd, writeAgent, { template, lookUp } = {}) {
+export async function runCommand(
+  cmd,
+  writeAgent,
+  { template, lookUp, canWrite = true } = {},
+) {
   const say = (text, options = null) => ({ text, options });
+
+  // The gate, before any branch that could reach a repo. Checked here rather
+  // than only where the options are built, because a command can arrive as
+  // typed text and never pass through a menu at all.
+  if (!canWrite && isWrite(cmd)) {
+    return say(readOnlyReply(cmd));
+  }
 
   // A verb arrived with nobody and nothing to act on. Every branch here asks
   // rather than guesses, which is the rule the whole command surface turns on.
@@ -406,6 +421,7 @@ export async function runDmPass({
   getIo,
   model = process.env.MOD_AGENT_MODEL || DEFAULT_MODEL,
   botDid,
+  roster = rosterFromEnv(process.env, ME_DID),
   generate = generateText,
   extraTools = {},
   log = () => {},
@@ -422,7 +438,7 @@ export async function runDmPass({
   const inbound = entries.filter(
     (entry) =>
       entry.$type === 'chat.bsky.convo.defs#logCreateMessage' &&
-      entry.message?.sender?.did === ME_DID &&
+      roster.answers(entry.message?.sender?.did) &&
       typeof entry.message?.text === 'string',
   );
 
@@ -464,6 +480,19 @@ export async function runDmPass({
         });
       }
     };
+
+    // What this sender may do, decided once per message. The roster is the
+    // only thing consulted; nothing downstream re-derives it from the text.
+    const canWrite = roster.writes(entry.message?.sender?.did);
+
+    // A button that exists to be rejected is worse than no button. Same rule
+    // actionsFor already follows for PROTECTED, and the filter re-parses each
+    // command rather than matching on the label, so the menu and the gate in
+    // runCommand cannot disagree about what counts as a write.
+    const offerable = (options) =>
+      canWrite
+        ? options
+        : (options || []).filter((o) => !isWrite(parseCommand(o.command)));
 
     const embedUri = sharedPostUri(entry.message);
     const msgLinks = facetLinks(entry.message);
@@ -510,9 +539,13 @@ export async function runDmPass({
         await send(ackFor({ action: 'plan' }, { openers })).catch(() => {});
         try {
           const plan = await proposePlan({ link: post, kind: 'everyone' });
-          const actions = planActions(plan);
+          const actions = offerable(planActions(plan));
           const body = renderPlanReport(plan, { template: config?.postReport });
-          await send(`${body}\n\nACTIONS:\n${renderChoices(actions)}`);
+          await send(
+            actions.length
+              ? `${body}\n\nACTIONS:\n${renderChoices(actions)}`
+              : body,
+          );
           await offerChoices(entry.convoId, actions, plan.uri);
           log('Scanned a post', { uri: plan.uri, code: plan.code });
           turns.push({ convoId: entry.convoId, scan: plan.code });
@@ -540,9 +573,13 @@ export async function runDmPass({
           const io = await getIo();
           const account = await io.lookUp(actor);
           if (account) {
-            const actions = actionsFor(account);
+            const actions = offerable(actionsFor(account));
             const body = renderReport(account, { template: config?.report });
-            await send(`${body}\n\nACTIONS:\n${renderChoices(actions)}`);
+            await send(
+              actions.length
+                ? `${body}\n\nACTIONS:\n${renderChoices(actions)}`
+                : body,
+            );
             await offerChoices(entry.convoId, actions);
             log('Rendered a lookup', { actor, band: account.band });
             turns.push({ convoId: entry.convoId, lookup: actor });
@@ -561,6 +598,15 @@ export async function runDmPass({
       }
     }
 
+    // `read @handle` is a CANNED QUESTION FOR THE ANALYST rather than a branch
+    // of its own. Everything it needs already exists on that path -- the model,
+    // the atmosphere tools, the untrusted fencing, the chunking, the usage row
+    // -- and a second copy of all of it would be a second place for the
+    // fencing to be forgotten. See readRequest in agent.js for why the wording
+    // is fixed rather than taken from what dame typed.
+    const reading =
+      cmd?.action === 'read' && !cmd.needsTarget ? cmd.actor : null;
+
     // Say something before the work starts. A harvest or a model call is five to
     // twenty seconds of silence, which reads as broken rather than busy.
     // Swallowed on failure: an ack that did not send is not a reason to lose the
@@ -571,12 +617,19 @@ export async function runDmPass({
       await send(ackFor(cmd, { openers })).catch(() => {});
     }
 
-    if (cmd) {
+    if (cmd?.action === 'read' && cmd.needsTarget) {
+      await send(nudge('read'));
+      turns.push({ convoId: entry.convoId, command: 'read' });
+      continue;
+    }
+
+    if (cmd && !reading) {
       let reply;
       try {
         reply = await runCommand(cmd, writeAgent, {
           template: config?.postReport,
           lookUp: async (a) => (await getIo()).lookUp(a),
+          canWrite,
         });
       } catch (err) {
         reply = {
@@ -584,12 +637,13 @@ export async function runDmPass({
           options: null,
         };
       }
+      const options = offerable(reply.options);
       await send(reply.text);
-      await offerChoices(entry.convoId, reply.options, reply.lastPost);
+      await offerChoices(entry.convoId, options, reply.lastPost);
       log('Ran a command', {
         action: cmd.action,
         actor: cmd.actor ?? cmd.target ?? cmd.code ?? '(none)',
-        options: reply.options?.length ?? 0,
+        options: options?.length ?? 0,
       });
       turns.push({ convoId: entry.convoId, command: cmd.action });
       continue;
@@ -605,7 +659,10 @@ export async function runDmPass({
         limit: 40,
       });
       history = historyFrom(page.data.messages, {
-        selfDid: ME_DID,
+        // The ASKER. With a roster this is not always dame, and labelling a
+        // guest's own messages as somebody else's turns their follow-up into a
+        // conversation the model thinks it was watching rather than having.
+        selfDid: entry.message?.sender?.did ?? ME_DID,
         botDid,
         beforeId: entry.message.id,
         maxTurns: limits.maxTurns,
@@ -619,7 +676,7 @@ export async function runDmPass({
 
     const reply = await answer({
       generate,
-      message: composeMessage(entry.message),
+      message: reading ? readRequest(reading) : composeMessage(entry.message),
       io,
       history,
       model: activeModel,
@@ -635,7 +692,19 @@ export async function runDmPass({
     // The analyst quotes commands in backticks. Lift them into a menu so dame
     // can answer "2" instead of retyping one. Parsed, not copied: see
     // offersFrom for what that does and does not guarantee.
-    const offers = offersFrom(text);
+    let offers = offerable(offersFrom(text));
+    // After a read, the useful next step is the decision it was for. Built from
+    // the scored account rather than lifted from the model's prose, and with
+    // the read itself dropped -- offering to read them again having just done
+    // it is the kind of menu that teaches you to stop reading menus.
+    if (reading) {
+      const account = await io.lookUp(reading).catch(() => null);
+      if (account) {
+        offers = offerable(actionsFor(account)).filter(
+          (o) => parseCommand(o.command)?.action !== 'read',
+        );
+      }
+    }
     if (offers.length) text += `\n\n${renderChoices(offers)}`;
     const chunks = chunkForDm(text);
     await send(text);

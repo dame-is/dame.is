@@ -64,6 +64,10 @@ const VERBS = [
   { match: /^review\b/i, action: 'review' },
   { match: /^undo\b/i, action: 'undo' },
   { match: /^history\b/i, action: 'history' },
+  // Reads posts and reports. Not a write, so a read-only account keeps it --
+  // and it is the one verb here that produces a MODEL's opinion rather than a
+  // graph fact, which is why it is named for reading rather than for judging.
+  { match: /^read\b/i, action: 'read' },
   { match: /^cancel\b/i, action: 'cancel' },
   { match: /^list\s+add\b/i, action: 'list_add' },
   { match: /^list\s+remove\b/i, action: 'list_remove' },
@@ -243,8 +247,56 @@ export function parseCommand(
   };
 }
 
+/**
+ * The verbs that change something dame owns.
+ *
+ * `list_add`, `list_remove`, `approve` and `undo` write listitems; `cancel`
+ * stamps a plan as declined. Everything else -- a lookup, a post scan, `plan`,
+ * `review`, `history` -- only reads and reports, so a read-only account on the
+ * roster keeps all of it.
+ *
+ * `plan` is deliberately NOT here even though it writes rows to mod.plan and
+ * mod.decision. Nobody is added to the list by a plan, an unapproved one is a
+ * record of what was nearly done, and refusing it while a bare shared post
+ * scans anyway -- which is the same call -- would be a distinction the person
+ * typing cannot see.
+ */
+export const WRITE_ACTIONS = new Set([
+  'list_add',
+  'list_remove',
+  'approve',
+  'undo',
+  'cancel',
+]);
+
+/** Would running this change the list? */
+export function isWrite(cmd) {
+  return WRITE_ACTIONS.has(cmd?.action);
+}
+
+/**
+ * What a read-only account is told when it types one of those.
+ *
+ * Says what they CAN do rather than only what they cannot. A refusal that
+ * leaves someone guessing which half of the surface still works is a refusal
+ * they have to come back from.
+ */
+export function readOnlyReply(cmd) {
+  const verb = String(cmd?.raw ?? '')
+    .trim()
+    .split(/\s+/)[0];
+  return (
+    `"${verb}" changes the list, and this account is read-only here. ` +
+    'Everything that reads still works: paste a handle or a post, or send ' +
+    '"review <code>" or "history".'
+  );
+}
+
 /** What the bot says when a verb arrived with no usable target. */
 export function needsTargetReply(action) {
+  if (action === 'read') {
+    return 'Name the account and I will read their recent posts. "read @handle", or a profile link.';
+  }
   const verb = action === 'list_add' ? 'block' : 'unblock';
   return `Name the account and I will do it. "${verb} @handle", or a profile link. I do not work out who you meant from context; that is the one thing standing between a stranger's post and your block list.`;
 }
@@ -288,6 +340,8 @@ export function labelFor(cmd) {
         : `Approve ${cmd.bands.join(', ')} in ${cmd.code}`;
     case 'cancel':
       return `Cancel ${cmd.code}`;
+    case 'read':
+      return `Read ${who}'s recent posts`;
     default:
       return cmd.raw;
   }

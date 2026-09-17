@@ -1,12 +1,17 @@
 // One filtered Jetstream subscription, reconnecting on its own.
 //
-// FILTERED TO THE OWNER'S DID. Jetstream filters by `wantedCollections` and
+// FILTERED TO THE ROSTER. Jetstream filters by `wantedCollections` and
 // `wantedDids` only, and `wantedDids` matches the record's AUTHOR, not its
 // subject. That is usually the awkward half of the API; here it is exactly
-// right, because the only posts this consumer may act on are dame's own. The
-// alternative — taking the whole post firehose at ~62 events/s and ~3.3 GB/day
-// to match subjects in process — would move 3 GB a day to find a handful of
-// posts we could have asked for by name.
+// right, because the only posts this consumer may act on are the ones written
+// by accounts on the roster. The alternative — taking the whole post firehose
+// at ~62 events/s and ~3.3 GB/day to match subjects in process — would move
+// 3 GB a day to find a handful of posts we could have asked for by name.
+//
+// EVERY ANSWERED DID MUST BE HERE or that account's mentions never arrive at
+// all: the transport drops them before `classify` is ever asked. An allowlist
+// that widens the rule without widening the subscription looks exactly like an
+// allowlist that does not work, with nothing in the log to say why.
 //
 // It does mean the socket is idle almost all the time, which is why config
 // carries a forced reconnect interval: with no traffic, a dead connection and a
@@ -23,7 +28,11 @@ import { getCursor } from './state.js';
 function buildUrl() {
   const params = new URLSearchParams();
   params.append('wantedCollections', 'app.bsky.feed.post');
-  params.append('wantedDids', config.ownerDid);
+  // One parameter per DID, which is how Jetstream expects a repeated filter.
+  // Keep an eye on the length here if the roster ever grows: jetstream1.us-east
+  // sits behind a Cloudflare edge that 414s a long URL, which is why the
+  // default host is us-west.
+  for (const did of config.roster.all) params.append('wantedDids', did);
   const cursor = getCursor();
   if (cursor) params.append('cursor', cursor);
   return `wss://${config.jetstreamHost}/subscribe?${params}`;
@@ -50,7 +59,7 @@ export function connectJetstream({ onEvent }) {
     const url = buildUrl();
     logger.info('Connecting to Jetstream', {
       host: config.jetstreamHost,
-      did: config.ownerDid,
+      dids: config.roster.all.join(','),
       resumingFrom: getCursor() ?? '(live tail)',
     });
     ws = new WebSocket(url);

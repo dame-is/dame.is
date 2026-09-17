@@ -75,8 +75,17 @@ export async function proposePlan({ link, kind }) {
   const { ref, takenAt } = await loadReference();
   const scorer = createScorer(ref);
 
-  const scores = await scorer.score(harvest.participants.map((p) => p.did));
+  // THE AUTHOR IS SCORED WITH THE PARTICIPANTS, in the same call. A post with
+  // no likes and no replies used to come back with every band at zero and "Do
+  // nothing" as the only option -- a report about the graph AROUND a post,
+  // offering nothing about the person who wrote it, who is the one actually in
+  // front of dame. summarise() maps over the harvest, so an extra entry in the
+  // score map cannot leak into the plan's rows.
+  const scores = await scorer.score([
+    ...new Set([...harvest.participants.map((p) => p.did), target.did]),
+  ]);
   const summary = summarise(harvest, scores, { excludeSelf: ME_DID });
+  const author = scores.get(target.did) ?? null;
 
   // The kind filter runs AFTER scoring so the stored plan records the band of
   // everyone on the post, not only the slice being asked about. Re-reading an
@@ -126,6 +135,7 @@ export async function proposePlan({ link, kind }) {
     code: shortCode(planId),
     planId,
     uri: target.uri,
+    author,
     kind,
     total: chosen.length,
     byBand,

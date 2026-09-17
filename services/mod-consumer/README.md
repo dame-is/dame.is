@@ -34,13 +34,18 @@ picking a baseline to diff against it **skips audits that scored nothing**: an
 empty audit shadowing a real one is how a stale review queue survives a week
 looking healthy.
 
-### Why the Jetstream subscription is filtered to one DID
+### Why the Jetstream subscription is filtered to the roster
 
 Jetstream filters by `wantedCollections` and `wantedDids` only, and `wantedDids`
 matches the record's **author**, not its subject. Usually that is the awkward
 half of the API. Here it is exactly right: the only posts this consumer may act
-on are dame's own, so the filter that cannot express "posts about the bot" can
-express the rule that actually matters.
+on are written by accounts on the roster, so the filter that cannot express
+"posts about the bot" can express the rule that actually matters.
+
+**Every answered DID has to be in that subscription** or its mentions never
+arrive at all — the transport drops them before `classify()` is ever asked, and
+an allowlist that widens the rule without widening the subscription looks
+exactly like one that does not work.
 
 The alternative was the whole post firehose — ~62 events/s, ~3.3 GB/day measured
 — matched in process. That is three gigabytes a day to find a handful of posts
@@ -49,7 +54,7 @@ we can ask for by name.
 The author is checked **again** in `classify()`, because the subscription filter
 is a bandwidth decision made by the transport and the author check is a rule. A
 dropped query parameter or a widened subscription during debugging would
-otherwise turn "only dame is answered" off with nothing to notice it.
+otherwise turn the rule off with nothing to notice it.
 
 ### Why DMs can never come over Jetstream
 
@@ -77,9 +82,12 @@ memory.
 
 ## What it will and will not do
 
-- **Only dame is answered.** Checked at the transport and again in
+- **Only the roster is answered.** Checked at the transport and again in
   `classify()`. A stranger mentioning the bot gets nothing back — not even an
-  error, which would itself be a reply.
+  error, which would itself be a reply. The roster is dame plus whatever
+  `MOD_ALLOWED_DIDS` names, and it is read-only unless a DID is also in
+  `MOD_WRITER_DIDS` — see [senders.js](../../src/lib/moderation/senders.js),
+  which is the only place that decides.
 - **The analyst decides nothing.** Bands come from the graph in `score.js`. No
   model output moves an account between them, which is what keeps the decision
   log replayable.

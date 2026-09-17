@@ -5,12 +5,30 @@
 // systemd will read for you is a dependency for nothing.
 
 import { ME_DID } from '../../../src/config.js';
+import {
+  rosterFromEnv,
+  parseDids,
+} from '../../../src/lib/moderation/senders.js';
 
 const num = (v, d) => (v == null || v === '' ? d : Number(v));
 
 export const config = {
-  /** The only account whose posts and DMs are answered. */
+  /** The account that owns the list. Always answered, always may write. */
   ownerDid: process.env.MOD_OWNER_DID || ME_DID,
+
+  /**
+   * Who else is answered, and who may change the list.
+   *
+   * MOD_ALLOWED_DIDS is read-only: the analyst, lookups, post scans, `review`
+   * and `history`. MOD_WRITER_DIDS is the upgrade path and is empty by design,
+   * because being able to talk to the bot and being able to add someone to a
+   * live block list are different powers with very different costs.
+   *
+   * Both surfaces consult this one object, which they did not used to: the
+   * public path checked MOD_OWNER_DID and the DM path checked the hardcoded
+   * ME_DID, so setting the env var moved one boundary and left the other.
+   */
+  roster: rosterFromEnv(process.env, ME_DID),
 
   /**
    * Jetstream. One host is enough here in a way it is not for the other
@@ -120,5 +138,29 @@ export function assertConfig() {
   }
   if (!config.ownerDid?.startsWith('did:')) {
     throw new Error('MOD_OWNER_DID must be a DID');
+  }
+  // A DID that fails to parse is DROPPED by parseDids rather than carried, so
+  // a typo in an allowlist would otherwise be silent -- and the failure mode of
+  // a silently ignored allowlist is an account that is simply never answered,
+  // with nothing in the log to distinguish it from one that was never added.
+  for (const [name, raw] of [
+    ['MOD_ALLOWED_DIDS', process.env.MOD_ALLOWED_DIDS],
+    ['MOD_WRITER_DIDS', process.env.MOD_WRITER_DIDS],
+  ]) {
+    const given = String(raw ?? '')
+      .split(/[\s,]+/)
+      .filter(Boolean);
+    const kept = parseDids(raw);
+    if (given.length !== kept.length) {
+      const bad = given.filter((g) => !kept.includes(g));
+      throw new Error(
+        `${name} has ${bad.length} entry that is not a DID: ${bad.join(', ')}`,
+      );
+    }
+  }
+  if (config.roster.all.includes(process.env.MOD_IDENTIFIER)) {
+    throw new Error(
+      'the moderator account is on its own roster, so it would answer itself',
+    );
   }
 }

@@ -229,7 +229,13 @@ MOD_APP_PASSWORD=...
 AI_GATEWAY_API_KEY=...
 MOD_LIST_URI=at://did:plc:.../app.bsky.graph.list/...   # the MIGRATED list
 MOD_AGENT_MODEL=anthropic/claude-opus-5                 # optional
+MOD_ALLOWED_DIDS=did:plc:...,did:plc:...                # optional, read-only
+MOD_WRITER_DIDS=                                        # optional, may write
 ```
+
+`MOD_ALLOWED_DIDS` and `MOD_WRITER_DIDS` take DIDs only. A handle is rejected at
+boot rather than ignored: handles are rented, so an allowlist written in them is
+one that can change hands without the list changing.
 
 `MOD_LIST_URI` must name a list the **moderator account owns**. The bot can only
 write to its own repo, so pointing this at the old list in your own repo makes
@@ -337,6 +343,52 @@ move a roster to a DM — a prompt, not a guarantee. Replies carry no mention
 facets, so nobody named in one is notified. `PUBLIC_REPLIES=false` on the droplet
 turns the whole public path off and leaves the DM loop alone.
 
+### Who it answers
+
+By default, one account: yours. Two environment variables widen that, and the
+tiers exist because "can talk to the bot" and "can add someone to a block list"
+are different powers with very different costs.
+
+| Tier          | Set by             | May                                                          |
+| ------------- | ------------------ | ------------------------------------------------------------ |
+| Owner         | `MOD_OWNER_DID`    | Everything                                                   |
+| Writer        | `MOD_WRITER_DIDS`  | Everything. The upgrade path, **empty by default**           |
+| Allowed       | `MOD_ALLOWED_DIDS` | Everything that does not change the list                     |
+| Everyone else | —                  | Nothing. No reply, not even an error, which would be a reply |
+
+Read-only accounts keep the whole reading surface: the analyst, lookups, post
+scans, `read`, `review` and `history`. `block`, `list add/remove`, `approve`,
+`undo` and `cancel` are refused with a message saying what still works, and the
+write options are **left out of their menus entirely** rather than offered and
+rejected.
+
+Both surfaces consult one module, [`senders.js`](../src/lib/moderation/senders.js),
+which they did not used to: the public path checked `MOD_OWNER_DID` while the DM
+path checked a hardcoded constant, so setting the variable moved one boundary
+and left the other where it was. `loadReference` existing in three copies is the
+cautionary tale this repo has already paid for, and a security boundary is a
+worse thing to keep three copies of.
+
+Two things a read-only tier does **not** limit, worth being deliberate about:
+
+- **It limits what they can change, not what they can see.** Reports print
+  bands, vouch counts and follower numbers for third parties. That is your
+  private read of your own social graph, and adding someone to the roster hands
+  it to them.
+- **The public path is public.** A guest mentioning the bot gets a reply in that
+  thread, readable by everyone in it. `PUBLIC_REPLIES=false` turns that off for
+  everyone including you.
+
+Adding a DID to the roster also adds it to the Jetstream subscription. Without
+that its public mentions never arrive at all — the transport drops them before
+the rule is ever consulted.
+
+DMs need one more thing: the bot has to be able to _receive_ them. Chat defaults
+restrict incoming DMs to accounts the bot follows, so either follow the guest
+from the moderator account or write the `chat.bsky.actor.declaration` record
+described in Setup. Reachability and the sender check are different things, and
+only the second one is a boundary.
+
 ### What is answered without a model call
 
 A DM is matched in this order, and the first four never reach the model:
@@ -377,6 +429,7 @@ act immediately: the code is already in hand.
 | `cancel <code>`                           | Records the decision **not** to act                                                                                                          |
 | `undo` · `undo last` · `undo <code>`      | Takes a plan's additions back off the list                                                                                                   |
 | `history` · `history @handle`             | What was done, most recent first                                                                                                             |
+| `read @handle`                            | Reads their recent posts and describes how they behave. **The one command that asks a model for an opinion** — see below                     |
 
 `<code>` is the eight characters a scan hands back. **You almost never type
 one.** Bare `undo` means the last thing that touched the list, and every code a
@@ -436,6 +489,51 @@ undid cannot answer _"was I ever on this list"_, and an append-only record that
 quietly rewrites itself is not a record. Undo is offered on the approval receipt
 itself, while the code is still in front of you — an undo you have to go and look
 up is one you will not use.
+
+### Reading an account
+
+`read @handle` is the one place a model is asked for a judgement about a person
+rather than an explanation of a number, and it exists because the band does not
+answer the question people usually have.
+
+The band measures **social proximity** — who would notice if you blocked them.
+It says nothing about conduct. Someone close to you can be awful and a stranger
+can be harmless, which is stated at the top of this document and is easy to
+forget when the only number on screen is a band. `read` fills that gap
+explicitly rather than letting the band be misread as a verdict by default.
+
+It pulls the account's recent posts through the `atmosphere` tools and comes
+back with what they post about, how they talk to people who disagree with them,
+whether there is a pattern of pile-ons or bad-faith argument, how far back it
+looked, and **what it did not find**. "Nothing like that in the last 50 posts"
+is a real answer and is not the same sentence as "they are fine".
+
+The question is **fixed** (`readRequest` in `agent.js`), not taken from what you
+typed, so the answer does not drift with the phrasing of the day and the framing
+above is guaranteed rather than hoped for.
+
+Nothing it produces is written down. No decision row, no score, no cached
+verdict. The decision log stays replayable precisely because a model's reading
+of somebody's posting is not in it, and **it cannot move an account between
+bands** any more than any other model output can.
+
+It costs a model call and five to twenty seconds, so it acks first. Afterwards
+the menu offers the decision it was for.
+
+### Immediate action, then a way to look closer
+
+Every report ends in two kinds of option: something you can do now, and
+something that tells you more first.
+
+A post scan leads with **the author** — add them, or read them — before any of
+the engagement-based bulk options. That was a real gap: a post with no likes and
+no replies scored every band at zero and offered only "Do nothing", which is a
+true report about the graph around the post and a useless one about the account
+that actually wrote it. An account report offers add, remove, and `read` beside
+each other for the same reason.
+
+PROTECTED authors get no add option, here as everywhere. Reading them is still
+offered, because reading changes nothing.
 
 ### What a command can never do
 

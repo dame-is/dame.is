@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
+  isWrite,
+  readOnlyReply,
   parseCommand,
   parseActor,
   parseChoice,
@@ -428,5 +430,68 @@ describe('undo and history', () => {
   it('does not swallow prose that mentions undoing', () => {
     expect(parseCommand('can I undo that?')).toBe(null);
     expect(parseCommand('what is the history here')).toBe(null);
+  });
+});
+
+describe('read: the one verb that asks a model for an opinion', () => {
+  it('parses an account the same way block does', () => {
+    expect(parseCommand('read @a.bsky.social')).toMatchObject({
+      action: 'read',
+      actor: 'a.bsky.social',
+      needsTarget: false,
+    });
+    expect(
+      parseCommand('read https://bsky.app/profile/a.bsky.social'),
+    ).toMatchObject({ action: 'read', actor: 'a.bsky.social' });
+  });
+
+  it('will not work out who to read from context', () => {
+    // Same rule as block. The analyst reads strangers' posts mid-turn, so a
+    // pronoun resolved against one is a target named by that post.
+    expect(parseCommand('read them').needsTarget).toBe(true);
+  });
+
+  it('is not a write, so a read-only account keeps it', () => {
+    expect(isWrite(parseCommand('read @a.bsky.social'))).toBe(false);
+  });
+});
+
+describe('which verbs change something', () => {
+  const writes = [
+    'block @a.bsky.social',
+    'unblock @a.bsky.social',
+    'list add @a.bsky.social',
+    'list remove @a.bsky.social',
+    'approve 3f9a2c1b UNKNOWN',
+    'undo last',
+    'cancel 3f9a2c1b',
+  ];
+  const reads = [
+    'review 3f9a2c1b',
+    'history',
+    'history @a.bsky.social',
+    'read @a.bsky.social',
+    'add likers https://bsky.app/profile/a.bsky.social/post/3xyz',
+  ];
+
+  it.each(writes)('%s writes', (text) => {
+    expect(isWrite(parseCommand(text))).toBe(true);
+  });
+
+  it.each(reads)('%s does not', (text) => {
+    expect(isWrite(parseCommand(text))).toBe(false);
+  });
+
+  it('says what still works when it refuses one', () => {
+    // A refusal that leaves someone guessing which half of the surface is
+    // still available is a refusal they have to come back from.
+    const out = readOnlyReply(parseCommand('block @a.bsky.social'));
+    expect(out).toContain('read-only');
+    expect(out).toMatch(/review|history/);
+  });
+
+  it('treats a non-command as not a write', () => {
+    expect(isWrite(null)).toBe(false);
+    expect(isWrite(parseCommand('what is the weather'))).toBe(false);
   });
 });

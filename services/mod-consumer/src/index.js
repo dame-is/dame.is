@@ -165,7 +165,10 @@ function enqueue(label, job) {
 function composeMessage(t) {
   if (!t.target || t.targetSource === 'link') return t.text;
   const verb = t.targetSource === 'quote' ? 'quoting' : 'replying to';
-  return `${t.text}\n\n[The post dame is ${verb}: ${t.target}]`;
+  // "they", not "dame". The asker is whoever is on the roster, and naming the
+  // wrong person in the one line the model is told to trust is a cheap way to
+  // get a confidently wrong answer about whose post this is.
+  return `${t.text}\n\n[The post they are ${verb}: ${t.target}]`;
 }
 
 async function readThreadHistory(t) {
@@ -177,7 +180,10 @@ async function readThreadHistory(t) {
       parentHeight: 20,
     });
     return threadHistoryFrom(ancestorsOf(res.data.thread), {
-      selfDid: config.ownerDid,
+      // The ASKER, not the owner. With a roster these differ, and labelling a
+      // guest's own posts as somebody else's turns their follow-up into a
+      // conversation the model thinks it was watching rather than having.
+      selfDid: t.author ?? config.ownerDid,
       botDid,
     });
   } catch (err) {
@@ -238,7 +244,11 @@ function onEvent(event) {
   stats.events += 1;
   if (event.time_us) setCursor(event.time_us);
 
-  const t = classify(event, { ownerDid: config.ownerDid, botDid });
+  const t = classify(event, {
+    ownerDid: config.ownerDid,
+    botDid,
+    answers: config.roster.answers,
+  });
   if (!t.trigger) {
     logger.trace('Not a trigger', { reason: t.reason });
     return;
@@ -396,6 +406,8 @@ async function start() {
 
   logger.info('Consumer started', {
     owner: config.ownerDid,
+    answering: config.roster.all.length,
+    writers: config.roster.allWriters.length,
     atmosphere: config.atmosphere ? Object.keys(atmoTools).length : 'off',
     dmPollMs: config.dmPollMs,
     publicReplies: config.publicReplies,

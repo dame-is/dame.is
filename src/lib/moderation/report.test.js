@@ -5,6 +5,7 @@ import {
   relationshipOf,
   listsOf,
   actionsFor,
+  planActions,
   DEFAULT_REPORT_TEMPLATE,
 } from './report.js';
 
@@ -111,19 +112,68 @@ describe('listsOf', () => {
 });
 
 describe('actionsFor', () => {
-  it('offers add and remove', () => {
+  it('offers add, remove, and a way to look before acting', () => {
     const out = actionsFor(account);
     expect(out.map((o) => o.command)).toEqual([
       'list add @freeuse.toys',
       'list remove @freeuse.toys',
+      'read @freeuse.toys',
     ]);
   });
 
   it('offers no add for a PROTECTED account', () => {
     // The write would refuse it, and a button that exists to be rejected is
-    // worse than no button.
+    // worse than no button. Reading them is still fine: it changes nothing.
     const out = actionsFor({ ...account, protectedReason: 'list:Noticing' });
-    expect(out.map((o) => o.command)).toEqual(['list remove @freeuse.toys']);
+    expect(out.map((o) => o.command)).toEqual([
+      'list remove @freeuse.toys',
+      'read @freeuse.toys',
+    ]);
+  });
+});
+
+describe('planActions', () => {
+  const plan = {
+    code: 'afe16c3f',
+    total: 0,
+    byBand: {},
+    author: { did: 'did:plc:xyz', handle: 'amilia.zip', band: 'UNKNOWN' },
+  };
+
+  it('offers the author when a post has no engagement at all', () => {
+    // The reported case: 0 participants, every band 0, and the only option was
+    // "Do nothing" -- a true report about the graph around the post and a
+    // useless one about the account that wrote it.
+    const out = planActions(plan);
+    expect(out.map((o) => o.command)).toEqual([
+      'list add @amilia.zip',
+      'read @amilia.zip',
+      'cancel afe16c3f',
+    ]);
+  });
+
+  it('will not offer to add a PROTECTED author', () => {
+    const out = planActions({
+      ...plan,
+      author: { ...plan.author, band: 'PROTECTED', protectedReason: 'follows' },
+    });
+    expect(out.map((o) => o.command)).not.toContain('list add @amilia.zip');
+    expect(out.map((o) => o.command)).toContain('read @amilia.zip');
+  });
+
+  it('still leads with the author when there is engagement to approve', () => {
+    const out = planActions({
+      ...plan,
+      total: 48,
+      byBand: { UNKNOWN: 43, CONNECTED: 5 },
+    });
+    expect(out[0].command).toBe('list add @amilia.zip');
+    expect(out.map((o) => o.command)).toContain('approve afe16c3f UNKNOWN');
+  });
+
+  it('says nothing about an author it could not score', () => {
+    const out = planActions({ ...plan, author: null });
+    expect(out.map((o) => o.command)).toEqual(['cancel afe16c3f']);
   });
 });
 
