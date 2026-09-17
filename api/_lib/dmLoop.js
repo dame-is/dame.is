@@ -209,7 +209,7 @@ function renderReview(plan, review) {
 export async function runCommand(
   cmd,
   writeAgent,
-  { template, lookUp, canWrite = true } = {},
+  { template, reportTemplate, lookUp, canWrite = true } = {},
 ) {
   const say = (text, options = null) => ({ text, options });
 
@@ -336,6 +336,46 @@ export async function runCommand(
             { label: 'Show me the record', command: 'history' },
           ]
         : null,
+    );
+  }
+
+  // Wording this could not read as "whoever wrote the attached post". Name the
+  // author, show what the gate knows about them, and let dame say. Not a
+  // refusal and not a guess: the account is right there in the message, so the
+  // useful move is to put it in front of her rather than to argue about
+  // phrasing.
+  if (cmd.fromPost && cmd.confirm) {
+    const found = lookUp ? await lookUp(cmd.actor).catch(() => null) : null;
+    if (!found) {
+      return say('I could not resolve the author of that post.');
+    }
+    const handle = `@${found.handle || found.did}`;
+    const choices = [
+      ...(cmd.action === 'list_add' && !found.protectedReason
+        ? [
+            {
+              label: `Add ${handle} to the list`,
+              command: `list add ${handle}`,
+            },
+          ]
+        : []),
+      ...(cmd.action === 'list_remove'
+        ? [
+            {
+              label: `Remove ${handle} from the list`,
+              command: `list remove ${handle}`,
+            },
+          ]
+        : []),
+      {
+        label: `Read ${handle}'s recent posts first`,
+        command: `read ${handle}`,
+      },
+    ];
+    const body = renderReport(found, { template: reportTemplate });
+    return say(
+      `That post is by ${handle}, but "${cmd.raw}" might mean someone else, so I have not acted.\n\n${body}\n\nACTIONS:\n${renderChoices(choices)}`,
+      choices,
     );
   }
 
@@ -658,6 +698,7 @@ export async function runDmPass({
       try {
         reply = await runCommand(cmd, writeAgent, {
           template: config?.postReport,
+          reportTemplate: config?.report,
           lookUp: async (a) => (await getIo()).lookUp(a),
           canWrite,
         });

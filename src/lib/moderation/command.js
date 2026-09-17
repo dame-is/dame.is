@@ -255,22 +255,28 @@ export function parseCommand(
   // the handle; no model anywhere near it. It is exactly the rule `add likers`
   // already follows -- the post comes from dame's own message, never from
   // anything the analyst read.
-  // Only when the message says nothing else. "block" and "block this" resolve
-  // to the attached post's author; "block the guy in the replies" does not,
-  // because the words rule out the one reading this can actually verify. That
-  // keeps the guarantee that matters -- no target is ever INFERRED from
-  // meaning -- while letting an attached record name its own author.
+  // THREE OUTCOMES, NOT TWO. The first version of this refused anything whose
+  // words it did not recognise, which meant "block em" and "block this guy"
+  // both got a lecture about naming the account -- with the account attached to
+  // the message. A whitelist of acceptable phrasings is wrong about ordinary
+  // speech forever, and each word it is missing fails the same way.
+  //
+  // So unrecognised wording OFFERS instead of refusing. "block" or "block them"
+  // acts; "block whoever is in the replies" comes back naming the author and
+  // asking. Nothing is ever acted on from a guess, and the worst case for a
+  // phrasing nobody anticipated is one extra tap rather than a dead end.
   let fromPost = false;
+  let confirm = false;
   if (!actor && embedUri) {
-    const leftovers = rest
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((t) => t.toLowerCase().replace(/[^a-z]/g, ''))
-      .filter((w) => w && !FILLER.has(w));
-    const did = leftovers.length ? null : authorOf(embedUri);
+    const did = authorOf(embedUri);
     if (did) {
       actor = did;
       fromPost = true;
+      confirm = rest
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((t) => t.toLowerCase().replace(/[^a-z]/g, ''))
+        .some((w) => w && !POINTER.has(w));
     }
   }
 
@@ -281,6 +287,9 @@ export function parseCommand(
     // inference without showing it is how you find out later that the post on
     // screen was a quote of somebody else's.
     fromPost,
+    // The words did not clearly point at the attached post's author, so show
+    // who that is and let dame say.
+    confirm,
     needsTarget: !actor,
     raw,
   };
@@ -422,6 +431,50 @@ export function offersFrom(text, { max = 4 } = {}) {
   }
   return out;
 }
+
+/**
+ * Words that clearly mean "whoever wrote the thing I just attached".
+ *
+ * Not a safety boundary -- a word missing from here costs a confirmation, not a
+ * wrong block, which is why it can afford to be a plain list. Swearing is in
+ * because people swear when they are blocking somebody, and leaving it out
+ * would have made "block this asshole" the one phrasing that needed a second
+ * message.
+ */
+const POINTER = new Set([
+  'them',
+  'em',
+  'they',
+  'him',
+  'her',
+  'it',
+  'this',
+  'that',
+  'these',
+  'those',
+  'the',
+  'a',
+  'an',
+  'one',
+  'guy',
+  'gal',
+  'dude',
+  'person',
+  'poster',
+  'author',
+  'op',
+  'account',
+  'user',
+  'profile',
+  'asshole',
+  'idiot',
+  'creep',
+  'troll',
+  'please',
+  'now',
+  'too',
+  'also',
+]);
 
 /** Words that can surround a handle without turning it into a question. */
 const FILLER = new Set([

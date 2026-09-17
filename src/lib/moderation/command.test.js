@@ -514,15 +514,32 @@ describe('an attached post names its author', () => {
     }
   });
 
-  it('refuses a target named in words instead of pointed at', () => {
-    // This is what "block them" was always really about: a target worked out
-    // from MEANING. With a post attached there is a record to read the author
-    // out of; with words there is only an interpretation.
+  it('acts on ordinary ways of saying "whoever wrote this"', () => {
+    // The first version of this was a whitelist and refused anything it did
+    // not recognise, so "block em" got a lecture about naming the account --
+    // with the account attached to the message.
     for (const text of [
-      'block the guy in the replies',
-      'block whoever started this',
+      'block em',
+      'block this guy',
+      'block this asshole',
+      'block them please',
     ]) {
-      expect(parseCommand(text, { embedUri }).needsTarget, text).toBe(true);
+      const cmd = parseCommand(text, { embedUri });
+      expect(cmd.needsTarget, text).toBe(false);
+      expect(cmd.confirm, text).toBe(false);
+    }
+  });
+
+  it('asks rather than acting when the words might mean someone else', () => {
+    // Not a refusal and not a guess. The account is right there in the
+    // message, so the useful move is to name it and let dame say.
+    for (const text of [
+      'block whoever is in the replies',
+      'block the person they are quoting',
+    ]) {
+      const cmd = parseCommand(text, { embedUri });
+      expect(cmd.needsTarget, text).toBe(false);
+      expect(cmd.confirm, text).toBe(true);
     }
   });
 

@@ -563,9 +563,18 @@ gets a nudge, and a command naming two accounts is refused as well.
 that post's author, and says who that turned out to be. The provenance is the
 same as typing the handle: dame put the record in this message and the author is
 read out of the URI by a regex, with no model anywhere near it. It is the rule
-`add likers` already followed. It only applies when the message says nothing
-else — `block`, `block this`, `block them` — because words that rule out the one
-reading this can verify should refuse rather than guess.
+`add likers` already followed. There are three outcomes, not two. `block`, `block em`,
+`block this asshole` act. Wording that might mean somebody else —
+`block whoever is in the replies` — comes back **naming the author and asking**,
+rather than acting on a guess or arguing about phrasing. A typed handle always
+wins over the attachment.
+
+The first version of that was a whitelist of acceptable wordings and refused
+everything else, which meant `block em` got a lecture about naming the account
+with the account attached to the message. A whitelist is wrong about ordinary
+speech forever and each word it is missing fails the same way, so the unknown
+case became a confirmation instead of a refusal: nothing is acted on from a
+guess, and the worst case for a phrasing nobody anticipated is one extra tap.
 
 That gap was live for a while and invisible: pasting a post's **link** already
 blocked the author, because a post URL contains `/profile/<handle>/`. Sharing
