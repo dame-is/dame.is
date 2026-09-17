@@ -22,3 +22,8 @@ public/llms.txt
 
 # Editor swap files (nano leaves ..file.swp next to the file being edited).
 *.swp
+
+# Runtime state for services/mod-consumer — a resume point and an answered set,
+# written next to the code because that is the service working directory.
+services/mod-consumer/mod-consumer-cursor.txt
+services/mod-consumer/mod-consumer-answered.json

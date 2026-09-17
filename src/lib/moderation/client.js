@@ -16,6 +16,7 @@ export const LXM = {
   audit: 'is.dame.mod.audit',
   remove: 'is.dame.mod.remove',
   migrate: 'is.dame.mod.migrate',
+  voice: 'is.dame.mod.voice',
 };
 
 /**
@@ -277,6 +278,22 @@ export function migrateRun(agent, { signal } = {}) {
   return call(agent, '/api/mod-migrate', {
     lxm: LXM.migrate,
     body: {},
+    signal,
+  });
+}
+
+/* ------------------------------------------------------------------- voice */
+
+/** The analyst's current voice, plus the built-in default it falls back to. */
+export function getVoice(agent, { signal } = {}) {
+  return call(agent, '/api/mod-voice', { lxm: LXM.voice, signal });
+}
+
+/** Store a voice. An empty string clears it back to the default. */
+export function setVoice(agent, style, { signal } = {}) {
+  return call(agent, '/api/mod-voice', {
+    lxm: LXM.voice,
+    body: { style },
     signal,
   });
 }

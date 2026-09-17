@@ -19,6 +19,8 @@ import {
   migrateStart,
   migrateStatus,
   migrateRun,
+  getVoice,
+  setVoice,
   BAND_META,
 } from '../lib/moderation/client.js';
 
@@ -342,6 +344,120 @@ export function MigratePanel({ agent, listUri }) {
         full list takes about six hours; the buttons are for watching it start
         rather than for driving it to the end.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The analyst's voice, edited here rather than deployed.
+ *
+ * Taste only, and the panel says so, because the line matters: the character
+ * budgets and the public/private rules are structural and live in
+ * src/lib/moderation/agent.js. A textarea that could edit "300 characters" into
+ * something else is a textarea that can produce messages Bluesky rejects, and
+ * one that could edit "this reply is public" would be worse than that.
+ */
+export function VoicePanel({ agent }) {
+  const [style, setStyle] = useState('');
+  const [fallback, setFallback] = useState('');
+  const [stored, setStored] = useState(null);
+  const [maxChars, setMaxChars] = useState(2000);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    getVoice(agent)
+      .then((r) => {
+        if (!live) return;
+        setFallback(r.default || '');
+        setStored(r.voice || null);
+        setStyle(r.voice?.style || '');
+        if (r.maxChars) setMaxChars(r.maxChars);
+      })
+      .catch((e) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [agent]);
+
+  const save = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const r = await setVoice(agent, style);
+      setStored(r.voice || null);
+      setSaved(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }, [agent, style]);
+
+  const over = style.length > maxChars;
+
+  return (
+    <div className="mod-studio">
+      {error && <p className="mod-error">{error}</p>}
+      <p className="mod-verdict">
+        How the analyst writes. Taste only — the length limits and the
+        public/private rules are structural and are not editable here.
+      </p>
+      <p className="mod-summary-line">
+        {stored
+          ? `Custom voice, saved ${new Date(stored.updated_at).toLocaleString()}`
+          : 'Using the built-in default'}
+      </p>
+
+      <textarea
+        className="mod-input"
+        rows={8}
+        value={style}
+        placeholder={fallback}
+        spellCheck="true"
+        onChange={(e) => {
+          setStyle(e.target.value);
+          setSaved(false);
+        }}
+        aria-label="Analyst voice"
+      />
+      <p className="mod-summary-line">
+        {style.length.toLocaleString()} / {maxChars.toLocaleString()} characters
+        {over && ' — too long'}
+      </p>
+
+      <div className="mod-form-row">
+        <button
+          type="button"
+          className="mod-go"
+          disabled={busy || over}
+          onClick={save}
+        >
+          {busy ? 'Saving…' : 'Save voice'}
+        </button>
+        <button
+          type="button"
+          className="mod-ghost"
+          disabled={busy || !style}
+          onClick={() => {
+            setStyle('');
+            setSaved(false);
+          }}
+        >
+          Clear to default
+        </button>
+        {saved && (
+          <span className="mod-choice">Saved — next message uses it</span>
+        )}
+      </div>
+
+      <details>
+        <summary>The default, for reference</summary>
+        <pre className="mod-row-why">{fallback}</pre>
+      </details>
     </div>
   );
 }

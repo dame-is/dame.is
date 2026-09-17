@@ -31,7 +31,12 @@ import {
   threadHistoryFrom,
   DEFAULT_MODEL,
 } from '../../../src/lib/moderation/agent.js';
+import {
+  createAtmosphereClient,
+  loadAtmosphereTools,
+} from '../../../src/lib/moderation/mcp.js';
 import { loadReference, makeIo } from '../../../api/_lib/reference.js';
+import { loadVoice } from '../../../api/_lib/voice.js';
 import { runDmPass } from '../../../api/_lib/dmLoop.js';
 import { botAgent, chatView } from '../../../api/_lib/botAgent.js';
 import { upsert } from '../../../api/_lib/modDb.js';
@@ -99,6 +104,30 @@ async function reference() {
   return cached;
 }
 
+// --- the Atmosphere toolset, refreshed on a long TTL -------------------------
+// Unlike the reference this is small — 38 schemas, no rows — so it is held
+// rather than released, and refetched only in case aturi.to publishes something
+// new. A failure here is not fatal: the gate's own tools answer every scoring
+// question on their own.
+let atmoTools = {};
+let atmoLoadedAt = 0;
+
+async function atmosphereTools() {
+  if (!config.atmosphere) return {};
+  if (
+    Object.keys(atmoTools).length &&
+    Date.now() - atmoLoadedAt < config.atmosphereTtlMs
+  ) {
+    return atmoTools;
+  }
+  atmoTools = await loadAtmosphereTools({
+    client: createAtmosphereClient({ url: config.atmosphereUrl }),
+    log: (msg, fields) => logger.info(msg, fields),
+  });
+  atmoLoadedAt = Date.now();
+  return atmoTools;
+}
+
 // --- one job at a time -------------------------------------------------------
 let chain = Promise.resolve();
 let pending = 0;
@@ -160,7 +189,11 @@ async function readThreadHistory(t) {
 
 async function answerPublicly(t) {
   const { io } = await reference();
-  const history = await readThreadHistory(t);
+  const [history, extraTools, voice] = await Promise.all([
+    readThreadHistory(t),
+    atmosphereTools(),
+    loadVoice(),
+  ]);
 
   const reply = await answer({
     generate: generateText,
@@ -169,6 +202,8 @@ async function answerPublicly(t) {
     history,
     model,
     surface: 'post',
+    extraTools,
+    voice: voice?.style,
   });
 
   const text = reply.text || 'No answer produced.';
@@ -242,6 +277,7 @@ async function pollDms() {
     // idle timer below from ever firing — so the memory this is all arranged
     // to release would never be released.
     getIo: async () => (await reference()).io,
+    extraTools: await atmosphereTools(),
     model,
     botDid,
     log: (msg, fields) => logger.info(msg, fields),
@@ -324,8 +360,13 @@ async function start() {
     if (statsTimer.unref) statsTimer.unref();
   }
 
+  // Warm the tool list at boot so the first question does not pay for it, and
+  // so a misconfigured URL shows up now rather than mid-answer.
+  await atmosphereTools();
+
   logger.info('Consumer started', {
     owner: config.ownerDid,
+    atmosphere: config.atmosphere ? Object.keys(atmoTools).length : 'off',
     dmPollMs: config.dmPollMs,
     publicReplies: config.publicReplies,
     dryRun: config.dryRun,

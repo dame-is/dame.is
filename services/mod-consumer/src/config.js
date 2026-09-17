@@ -70,6 +70,17 @@ export const config = {
   publicReplies:
     String(process.env.PUBLIC_REPLIES || 'true').toLowerCase() === 'true',
 
+  /**
+   * The Atmosphere MCP server, which gives the analyst the rest of the network:
+   * author feeds, threads, post search, identity history, the atproto docs.
+   * Off leaves it with the gate's three tools, which still answer every scoring
+   * question — just not "what have they been posting about".
+   */
+  atmosphere: String(process.env.ATMOSPHERE || 'true').toLowerCase() === 'true',
+  atmosphereUrl: process.env.ATMOSPHERE_URL || 'https://aturi.to/api/mcp',
+  /** How long the tool list is reused before it is fetched again. */
+  atmosphereTtlMs: num(process.env.ATMOSPHERE_TTL_MS, 6 * 60 * 60_000),
+
   statsIntervalMs: num(process.env.STATS_INTERVAL_MS, 30 * 60_000),
 };
 
