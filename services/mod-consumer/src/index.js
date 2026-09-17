@@ -297,6 +297,14 @@ async function pollDms() {
     extraTools: await atmosphereTools(),
     model,
     botDid,
+    // PASSED, not left to the default. runDmPass can build a roster from the
+    // environment on its own, and it would build an identical one here -- but
+    // then this process would hold two rosters constructed independently, and
+    // the next change to how config builds one would move the public boundary
+    // while the DM boundary quietly kept the old answer. That is the drift
+    // senders.js exists to prevent, and it is not prevented by a module if the
+    // callers each make their own.
+    roster: config.roster,
     log: (msg, fields) => logger.info(msg, fields),
   });
   if (res.answered) stats.dmAnswers += res.answered;
