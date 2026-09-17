@@ -38,6 +38,32 @@ import { select, upsert } from './modDb.js';
 import { applyCommand } from './listWrite.js';
 import { loadAgentConfig } from './agentConfig.js';
 
+/**
+ * The post attached to a message, if it was SHARED rather than pasted.
+ *
+ * Sharing a post to a DM from the Bluesky app does not put a link in the text.
+ * The text is whatever was typed alongside it and the post travels in
+ * `embed.record.uri`, so scanning the message for a URL finds nothing and the
+ * analyst answers "no link in your message" about a message with a post
+ * visibly attached to it. Which is true of the text and useless to the reader.
+ */
+export function sharedPostUri(message) {
+  const uri = message?.embed?.record?.uri;
+  return typeof uri === 'string' && uri.startsWith('at://') ? uri : null;
+}
+
+/**
+ * What the model is asked: what dame typed, plus the shared post if there is
+ * one. The added line is derived by us from the record rather than copied from
+ * anyone's writing, so it is not untrusted input.
+ */
+export function composeMessage(message) {
+  const text = message?.text || '';
+  const uri = sharedPostUri(message);
+  if (!uri) return text;
+  return `${text}\n\n[The post dame shared: ${uri}]`;
+}
+
 /** How many messages one pass will answer. */
 export const MAX_TURNS = 5;
 
@@ -202,7 +228,7 @@ export async function runDmPass({
 
     const reply = await answer({
       generate,
-      message: entry.message.text,
+      message: composeMessage(entry.message),
       io,
       history,
       model,
