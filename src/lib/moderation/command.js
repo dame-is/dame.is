@@ -372,3 +372,46 @@ export function parseLookup(text, { links = [], mentions = [] } = {}) {
 
   return named[0];
 }
+
+/**
+ * Is this message just putting a post in front of the bot?
+ *
+ * Same narrow rule as parseLookup, for the same reason. Sharing a post should
+ * scan it -- a scan is a form and costs no model call -- but "what is the
+ * sentiment of the replies to this" carries its own verb and belongs to the
+ * analyst.
+ *
+ * @returns {string|null} the post reference, or null
+ */
+export function parsePostScan(text, { embedUri = null, links = [] } = {}) {
+  const raw = String(text ?? '').trim();
+  const TRUNCATED = /(\.\.\.|…)|bsky\.app|\/profile\//;
+
+  const target =
+    extractTargets(raw)[0] ||
+    links.find((l) => extractTargets(l).length) ||
+    embedUri ||
+    null;
+  if (!target) return null;
+
+  const leftovers = raw
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((t) => !extractTargets(t).length && !TRUNCATED.test(t))
+    .map((t) => t.toLowerCase().replace(/[^a-z]/g, ''))
+    .filter((w) => w && !FILLER.has(w) && !SCAN_FILLER.has(w));
+
+  return leftovers.length ? null : target;
+}
+
+/** Words that can sit beside a pasted post without making it a question. */
+const SCAN_FILLER = new Set([
+  'post',
+  'this',
+  'that',
+  'here',
+  'scan',
+  'preflight',
+  'thoughts',
+  'one',
+]);

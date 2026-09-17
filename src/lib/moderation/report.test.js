@@ -135,3 +135,68 @@ describe('the default template', () => {
     expect(rendered).not.toMatch(/\{\w+\}/);
   });
 });
+
+describe('the post scan', () => {
+  const plan = {
+    code: '3f9a2c1b',
+    uri: 'at://did:plc:abc/app.bsky.feed.post/3xyz',
+    kind: 'everyone',
+    total: 15,
+    byBand: {
+      PROTECTED: 0,
+      CONNECTED: 0,
+      PERIPHERAL: 2,
+      NOTABLE: 0,
+      UNKNOWN: 13,
+    },
+    engagements: { like: 15, repost: 1 },
+    truncated: false,
+  };
+
+  it('renders the same form every time', async () => {
+    const { renderPlanReport } = await import('./report.js');
+    const out = renderPlanReport(plan);
+    expect(out).toContain('Participants: 15');
+    expect(out).toContain('15 like, 1 repost');
+    expect(out).toContain('UNKNOWN: 13');
+    expect(out).toContain('PERIPHERAL: 2');
+    expect(out).toContain('Need a look: 2 PERIPHERAL');
+    expect(out).toContain('Plan: 3f9a2c1b');
+    expect(renderPlanReport(plan)).toBe(out);
+  });
+
+  it('offers only bands that have somebody in them', async () => {
+    // An approval carrying zero accounts is a button that does nothing, and a
+    // menu of those teaches you to stop reading the menu.
+    const { planActions } = await import('./report.js');
+    const out = planActions(plan);
+    expect(out.map((o) => o.label)).toEqual([
+      'Add the 13 UNKNOWN accounts',
+      'Show me the 2 that need a look',
+      'Add all 15, every band',
+      'Do nothing',
+    ]);
+    expect(out[0].command).toBe('approve 3f9a2c1b UNKNOWN');
+  });
+
+  it('drops the review option when everything is UNKNOWN', async () => {
+    const { planActions } = await import('./report.js');
+    const flat = { ...plan, byBand: { UNKNOWN: 4 }, total: 4 };
+    expect(planActions(flat).map((o) => o.label)).toEqual([
+      'Add the 4 UNKNOWN accounts',
+      'Do nothing',
+    ]);
+  });
+
+  it('never offers to carry PROTECTED', async () => {
+    const { planActions } = await import('./report.js');
+    const withProtected = {
+      ...plan,
+      byBand: { PROTECTED: 3, UNKNOWN: 5, CONNECTED: 2 },
+      total: 10,
+    };
+    for (const o of planActions(withProtected)) {
+      expect(o.command).not.toContain('PROTECTED');
+    }
+  });
+});

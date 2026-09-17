@@ -129,6 +129,9 @@ export async function proposePlan({ link, kind }) {
     kind,
     total: chosen.length,
     byBand,
+    // Per-kind counts, so a scan can say "15 likes, 1 repost" rather than only
+    // a participant total.
+    engagements: summary.totals?.engagements || {},
     truncated: summary.truncated,
     protectedCount: byBand.PROTECTED || 0,
   };

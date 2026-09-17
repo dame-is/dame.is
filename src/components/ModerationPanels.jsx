@@ -372,6 +372,8 @@ export function VoicePanel({ agent }) {
   const [model, setModel] = useState('');
   const [report, setReport] = useState('');
   const [reportDefault, setReportDefault] = useState('');
+  const [postReport, setPostReport] = useState('');
+  const [postDefault, setPostDefault] = useState('');
   const [limits, setLimits] = useState({});
   const [fallback, setFallback] = useState('');
   const [config, setConfig] = useState(null);
@@ -394,6 +396,8 @@ export function VoicePanel({ agent }) {
         setModel(r.config?.model || '');
         setReport(r.config?.report || '');
         setReportDefault(r.default?.report || '');
+        setPostReport(r.config?.postReport || '');
+        setPostDefault(r.default?.postReport || '');
         setLimits(r.config?.limits || {});
         if (r.limitSpec) setSpec(r.limitSpec);
         if (r.maxChars) setMaxChars(r.maxChars);
@@ -414,6 +418,7 @@ export function VoicePanel({ agent }) {
         guidance,
         openers,
         report,
+        postReport,
         model,
         limits,
       });
@@ -424,7 +429,7 @@ export function VoicePanel({ agent }) {
     } finally {
       setBusy(false);
     }
-  }, [agent, style, guidance, openers, report, model, limits]);
+  }, [agent, style, guidance, openers, report, postReport, model, limits]);
 
   const over =
     style.length > maxChars ||
@@ -520,6 +525,26 @@ export function VoicePanel({ agent }) {
           setSaved(false);
         }}
         aria-label="Account report template"
+      />
+
+      <p className="mod-summary-line">
+        Post scan. Also rendered with no model call. Variables:{' '}
+        <code>
+          {'{uri} {code} {participants} {engagements} {needsLook} {truncated} '}
+          {'{PROTECTED} {CONNECTED} {PERIPHERAL} {NOTABLE} {UNKNOWN}'}
+        </code>
+      </p>
+      <textarea
+        className="mod-input"
+        rows={10}
+        value={postReport}
+        placeholder={postDefault}
+        spellCheck="false"
+        onChange={(e) => {
+          setPostReport(e.target.value);
+          setSaved(false);
+        }}
+        aria-label="Post scan template"
       />
 
       <p className="mod-summary-line">

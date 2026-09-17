@@ -120,3 +120,88 @@ export function actionsFor(account) {
   });
   return out;
 }
+
+/** What a post scan looks like unless dame changes it. */
+export const DEFAULT_PLAN_TEMPLATE = [
+  'Post: {uri}',
+  'Participants: {participants}',
+  'Engagements: {engagements}',
+  '',
+  'PROTECTED: {PROTECTED}',
+  'CONNECTED: {CONNECTED}',
+  'PERIPHERAL: {PERIPHERAL}',
+  'NOTABLE: {NOTABLE}',
+  'UNKNOWN: {UNKNOWN}',
+  '',
+  'Need a look: {needsLook}',
+  'Plan: {code}',
+].join('\n');
+
+/** Every variable a post-scan template may use. */
+export function planVariablesFor(plan) {
+  const byBand = plan.byBand || {};
+  const needsLook = Object.entries(byBand)
+    .filter(([b, n]) => b !== 'UNKNOWN' && n)
+    .map(([b, n]) => `${n} ${b}`)
+    .join(', ');
+  const engagements = Object.entries(plan.engagements || {})
+    .filter(([, n]) => n)
+    .map(([k, n]) => `${n} ${k}`)
+    .join(', ');
+  return {
+    uri: plan.uri,
+    code: plan.code,
+    kind: plan.kind,
+    participants: plan.total,
+    engagements: engagements || '—',
+    needsLook: needsLook || 'none',
+    truncated: plan.truncated ? 'yes, the harvest hit a page cap' : 'no',
+    ...byBand,
+  };
+}
+
+/** Fill the post-scan template. Unknown placeholders survive, as above. */
+export function renderPlanReport(
+  plan,
+  { template = DEFAULT_PLAN_TEMPLATE } = {},
+) {
+  const vars = planVariablesFor(plan);
+  return String(template).replace(/\{(\w+)\}/g, (whole, key) =>
+    key in vars ? sanitiseField(vars[key], { max: 120 }) : whole,
+  );
+}
+
+/**
+ * What dame can do about a scanned post.
+ *
+ * Bands with nothing in them get no option: an approval that would carry zero
+ * accounts is a button that does nothing, and a menu of those teaches you to
+ * stop reading the menu.
+ */
+export function planActions(plan) {
+  const byBand = plan.byBand || {};
+  const out = [];
+  if (byBand.UNKNOWN) {
+    out.push({
+      label: `Add the ${byBand.UNKNOWN} UNKNOWN accounts`,
+      command: `approve ${plan.code} UNKNOWN`,
+    });
+  }
+  const named = Object.entries(byBand)
+    .filter(([b, n]) => b !== 'UNKNOWN' && b !== 'PROTECTED' && n)
+    .reduce((t, [, n]) => t + n, 0);
+  if (named) {
+    out.push({
+      label: `Show me the ${named} that need a look`,
+      command: `review ${plan.code}`,
+    });
+    out.push({
+      label: `Add all ${plan.total - (byBand.PROTECTED || 0)}, every band`,
+      command: `approve ${plan.code} ${Object.keys(byBand)
+        .filter((b) => b !== 'PROTECTED' && byBand[b])
+        .join(',')}`,
+    });
+  }
+  out.push({ label: 'Do nothing', command: `cancel ${plan.code}` });
+  return out;
+}

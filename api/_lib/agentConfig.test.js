@@ -48,6 +48,7 @@ describe('readFromPds', () => {
       guidance: 'Always give posting frequency.',
       openers: '',
       report: '',
+      postReport: '',
       model: '',
       limits: null,
       source: 'pds',

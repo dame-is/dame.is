@@ -6,6 +6,7 @@ import {
   facetLinks,
   facetMentions,
   offersFrom,
+  parsePostScan,
   needsTargetReply,
 } from './command.js';
 
@@ -339,5 +340,35 @@ describe('offersFrom', () => {
     expect(offersFrom('Just prose, no commands.')).toEqual([]);
     expect(offersFrom('')).toEqual([]);
     expect(offersFrom(null)).toEqual([]);
+  });
+});
+
+describe('parsePostScan', () => {
+  const POST = 'https://bsky.app/profile/a.bsky.social/post/3abc';
+  const AT = 'at://did:plc:abc/app.bsky.feed.post/3abc';
+
+  it('treats a bare post as a scan', () => {
+    expect(parsePostScan(POST)).toBe(POST);
+    expect(parsePostScan('this post', { embedUri: AT })).toBe(AT);
+    expect(parsePostScan('', { embedUri: AT })).toBe(AT);
+  });
+
+  it('takes the full link from a facet when the text is truncated', () => {
+    expect(parsePostScan('bsky.app/profile/a.bsk...', { links: [POST] })).toBe(
+      POST,
+    );
+  });
+
+  it('leaves a real question to the analyst', () => {
+    // A scan is a form. Anything carrying its own verb is not one.
+    expect(
+      parsePostScan(`what is the sentiment of the replies to ${POST}`),
+    ).toBe(null);
+    expect(parsePostScan(`should I act on ${POST}`)).toBe(null);
+  });
+
+  it('is not a scan without a post', () => {
+    expect(parsePostScan('hello')).toBe(null);
+    expect(parsePostScan('')).toBe(null);
   });
 });

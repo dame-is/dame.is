@@ -37,8 +37,14 @@ import {
   facetMentions,
   offersFrom,
   parseLookup,
+  parsePostScan,
 } from '../../src/lib/moderation/command.js';
-import { renderReport, actionsFor } from '../../src/lib/moderation/report.js';
+import {
+  renderReport,
+  actionsFor,
+  renderPlanReport,
+  planActions,
+} from '../../src/lib/moderation/report.js';
 import {
   ackFor,
   nudge,
@@ -106,11 +112,34 @@ export function composeMessage(message) {
  */
 const CHOICE_TTL_MS = 30 * 60_000;
 
-async function offerChoices(convoId, options) {
-  if (!options?.length) return;
-  await upsert('dm_choice', [
-    { convo_id: convoId, options, created_at: new Date().toISOString() },
-  ]).catch(() => {});
+async function offerChoices(convoId, options, lastPost) {
+  if (!options?.length && !lastPost) return;
+  const row = { convo_id: convoId, created_at: new Date().toISOString() };
+  if (options?.length) row.options = options;
+  if (lastPost) {
+    row.last_post = lastPost;
+    row.last_post_at = new Date().toISOString();
+  }
+  await upsert('dm_choice', [row]).catch(() => {});
+}
+
+/**
+ * The post dame last put in front of the bot here.
+ *
+ * "add likers" with no link should not mean "send me that post again". She
+ * already sent it, and asking twice is the interface forgetting what it was
+ * just told. Only ever written from her own message, so the target of a bulk
+ * action still comes from her rather than from anything the analyst read.
+ */
+async function lastPost(convoId) {
+  const rows = await select('dm_choice', {
+    select: 'last_post,last_post_at',
+    eq: { convo_id: convoId },
+  }).catch(() => []);
+  const row = rows?.[0];
+  if (!row?.last_post) return null;
+  if (Date.now() - Date.parse(row.last_post_at) > CHOICE_TTL_MS) return null;
+  return row.last_post;
 }
 
 /** The command behind a numbered reply, if it is still live. */
@@ -128,45 +157,6 @@ async function takeChoice(convoId, n) {
 /** Render options as the numbered menu dame picks from. */
 function renderChoices(options) {
   return options.map((o, i) => `${i + 1}. ${o.label}`).join('\n');
-}
-
-/** A plan's band counts, as something readable in a chat bubble. */
-function renderPlan(plan) {
-  const lines = [
-    `Plan ${plan.code}: ${plan.total} ${plan.kind} of ${plan.uri}`,
-    '',
-  ];
-  for (const [band, n] of Object.entries(plan.byBand)) {
-    if (!n) continue;
-    lines.push(
-      `  ${band.padEnd(11)}${String(n).padStart(5)}` +
-        (band === 'PROTECTED' ? '   never carried' : ''),
-    );
-  }
-  if (plan.truncated) {
-    lines.push('', 'The harvest hit a page cap, so the tail is incomplete.');
-  }
-  const named = Object.entries(plan.byBand)
-    .filter(([b, n]) => b !== 'UNKNOWN' && b !== 'PROTECTED' && n)
-    .reduce((t, [, n]) => t + n, 0);
-
-  const options = [];
-  if (plan.byBand.UNKNOWN) {
-    options.push({
-      label: `Add the ${plan.byBand.UNKNOWN} UNKNOWN accounts`,
-      command: `approve ${plan.code} UNKNOWN`,
-    });
-  }
-  if (named) {
-    options.push({
-      label: `Show me the ${named} that need a look`,
-      command: `review ${plan.code}`,
-    });
-  }
-  options.push({ label: 'Do nothing', command: `cancel ${plan.code}` });
-
-  lines.push('', renderChoices(options));
-  return { text: lines.join('\n'), options };
 }
 
 /** The named accounts in a plan, and what dame can do about them. */
@@ -206,7 +196,7 @@ function renderReview(plan, review) {
  * Every branch is deterministic. Nothing here consults the model, and the only
  * inputs are dame's literal text and what Constellation and score.js returned.
  */
-export async function runCommand(cmd, writeAgent) {
+export async function runCommand(cmd, writeAgent, { template } = {}) {
   const say = (text, options = null) => ({ text, options });
 
   if (cmd.needsTarget) {
@@ -222,7 +212,13 @@ export async function runCommand(cmd, writeAgent) {
 
   if (cmd.action === 'plan') {
     const plan = await proposePlan({ link: cmd.target, kind: cmd.kind });
-    return renderPlan(plan);
+    const actions = planActions(plan);
+    const head = cmd.remembered ? 'Using the post you sent earlier.\n\n' : '';
+    return {
+      text: `${head}${renderPlanReport(plan, { template })}\n\nACTIONS:\n${renderChoices(actions)}`,
+      options: actions,
+      lastPost: plan.uri,
+    };
   }
 
   if (['approve', 'cancel', 'review'].includes(cmd.action)) {
@@ -396,11 +392,25 @@ export async function runDmPass({
     };
 
     const embedUri = sharedPostUri(entry.message);
+    const msgLinks = facetLinks(entry.message);
     let cmd = parseCommand(entry.message.text, {
       embedUri,
-      links: facetLinks(entry.message),
+      links: msgLinks,
       mentions: facetMentions(entry.message),
     });
+
+    // "add likers" with no post attached means the one she just sent.
+    if (cmd?.action === 'plan' && cmd.needsTarget) {
+      const remembered = await lastPost(entry.convoId);
+      if (remembered) {
+        cmd = {
+          ...cmd,
+          target: remembered,
+          needsTarget: false,
+          remembered: true,
+        };
+      }
+    }
 
     // A bare "2" resolves against the options the LAST DETERMINISTIC REPLY
     // offered, and only those. The analyst's prose never stores options, so a
@@ -411,6 +421,35 @@ export async function runDmPass({
       if (choice) {
         const chosen = await takeChoice(entry.convoId, choice);
         if (chosen) cmd = parseCommand(chosen, { embedUri });
+      }
+    }
+
+    // A shared post is a form too. Scanning it stores a plan, so the code is
+    // already in hand when she picks an option: no re-sending the post to act
+    // on it.
+    if (!cmd) {
+      const post = parsePostScan(entry.message.text, {
+        embedUri,
+        links: msgLinks,
+      });
+      if (post) {
+        await send(ackFor({ action: 'plan' }, { openers })).catch(() => {});
+        try {
+          const plan = await proposePlan({ link: post, kind: 'everyone' });
+          const actions = planActions(plan);
+          const body = renderPlanReport(plan, { template: config?.postReport });
+          await send(`${body}\n\nACTIONS:\n${renderChoices(actions)}`);
+          await offerChoices(entry.convoId, actions, plan.uri);
+          log('Scanned a post', { uri: plan.uri, code: plan.code });
+          turns.push({ convoId: entry.convoId, scan: plan.code });
+          continue;
+        } catch (err) {
+          await send(
+            `That scan failed: ${String(err?.message || err).slice(0, 200)}`,
+          );
+          turns.push({ convoId: entry.convoId, scan: 'failed' });
+          continue;
+        }
       }
     }
 
@@ -458,7 +497,9 @@ export async function runDmPass({
     if (cmd) {
       let reply;
       try {
-        reply = await runCommand(cmd, writeAgent);
+        reply = await runCommand(cmd, writeAgent, {
+          template: config?.postReport,
+        });
       } catch (err) {
         reply = {
           text: `That failed: ${String(err?.message || err).slice(0, 300)}`,
@@ -466,7 +507,7 @@ export async function runDmPass({
         };
       }
       await send(reply.text);
-      await offerChoices(entry.convoId, reply.options);
+      await offerChoices(entry.convoId, reply.options, reply.lastPost);
       log('Ran a command', {
         action: cmd.action,
         actor: cmd.actor ?? cmd.target ?? cmd.code ?? '(none)',

@@ -91,6 +91,7 @@ export async function readFromPds({ did = ME_DID, fetchImpl = fetch } = {}) {
     guidance: clip(value.guidance),
     openers: clip(value.openers),
     report: clip(value.report, 4000),
+    postReport: clip(value.postReport, 4000),
     // An unusable model string is dropped rather than carried: falling back to
     // the configured default is recoverable, and a 400 on every turn is not.
     model: MODEL_SHAPE.test(model) ? model : '',
@@ -108,8 +109,17 @@ async function readCache() {
   const guidance = clip(v.guidance);
   const openers = clip(v.openers);
   const report = clip(v.report, 4000);
+  const postReport = clip(v.postReport, 4000);
   const model = String(v.model || '').trim();
-  if (!style && !guidance && !openers && !report && !model && !v.limits) {
+  if (
+    !style &&
+    !guidance &&
+    !openers &&
+    !report &&
+    !postReport &&
+    !model &&
+    !v.limits
+  ) {
     return null;
   }
   return {
@@ -117,6 +127,7 @@ async function readCache() {
     guidance,
     openers,
     report,
+    postReport,
     model: MODEL_SHAPE.test(model) ? model : '',
     limits: v.limits ? clampLimits(v.limits) : null,
     source: v.source === 'pds' ? 'cache' : v.source || 'cache',
@@ -151,7 +162,13 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
     // or the next PDS outage restores a voice she deliberately removed.
     const has = (c) =>
       c &&
-      (c.style || c.guidance || c.openers || c.report || c.model || c.limits);
+      (c.style ||
+        c.guidance ||
+        c.openers ||
+        c.report ||
+        c.postReport ||
+        c.model ||
+        c.limits);
     await writeCache(has(fromPds) ? fromPds : null).catch(() => {});
     if (has(fromPds)) return fromPds;
     return null;
@@ -170,6 +187,7 @@ export function recordFrom({
   guidance,
   openers,
   report,
+  postReport,
   model,
   limits,
 }) {
@@ -179,6 +197,7 @@ export function recordFrom({
     guidance: clip(guidance),
     openers: clip(openers),
     report: clip(report, 4000),
+    postReport: clip(postReport, 4000),
     model: MODEL_SHAPE.test(String(model || '').trim())
       ? String(model).trim()
       : '',
