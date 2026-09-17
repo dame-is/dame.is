@@ -71,6 +71,9 @@ const VERBS = [
   { match: /^unblock\b/i, action: 'list_remove' },
 ];
 
+/** Ways of saying "the one you just did" that need no code. */
+const UNDO_LAST = new Set(['last', 'it', 'that', 'this', 'them', 'those']);
+
 const LINK_FEATURE = 'app.bsky.richtext.facet#link';
 const MENTION_FEATURE = 'app.bsky.richtext.facet#mention';
 
@@ -166,11 +169,24 @@ export function parseCommand(
     return { action: 'history', actor, needsTarget: false, raw };
   }
 
-  // `undo last` is the common case: the thing that just happened.
+  // UNDO DEFAULTS TO THE LAST THING. Bare `undo` used to parse as "a code I
+  // could not read" and answer `No plan with code null.`, which is a sentence
+  // about an internal variable rather than an answer. The common case is the
+  // thing that just happened, so that is what the bare verb means.
+  //
+  // Defaulting is safe HERE and nowhere else in this file. Every other verb
+  // adds someone to a block list, so guessing a target is the failure that
+  // matters; undo only ever REMOVES people from it, so the worst a wrong guess
+  // does is un-block accounts that dame can add again. The safe direction to be
+  // wrong in is the one that acts on fewer people.
+  //
+  // A token that was clearly MEANT as a code is not defaulted, though. Undoing
+  // the most recent plan because a code was mistyped would act on a batch dame
+  // did not name, which is the one thing defaulting must not buy.
   if (verb.action === 'undo') {
     const token = rest.split(/\s+/).filter(Boolean)[0] || '';
-    const last = /^last$/i.test(token);
     const code = /^[0-9a-f]{4,36}$/.test(token) ? token.toLowerCase() : null;
+    const last = !code && (!token || UNDO_LAST.has(token.toLowerCase()));
     return { action: 'undo', code, last, needsTarget: !last && !code, raw };
   }
 

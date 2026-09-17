@@ -65,10 +65,20 @@ export function clampLimits(raw) {
   return out;
 }
 
-const clip = (v) =>
+/**
+ * Trim and cap a field.
+ *
+ * The cap is a PARAMETER because the report templates want a longer one than
+ * the voice fields do, and this took `(v)` while two call sites passed a second
+ * argument -- so `clip(value.report, 4000)` silently capped at 2,000 and read
+ * as though it did not. Harmless today (the defaults are ~230 characters) and
+ * exactly the kind of thing that surfaces as "my template keeps getting cut
+ * off" months later.
+ */
+const clip = (v, max = MAX_FIELD_CHARS) =>
   String(v ?? '')
     .trim()
-    .slice(0, MAX_FIELD_CHARS);
+    .slice(0, max);
 
 /** The record as dame published it, or null if there isn't one. */
 export async function readFromPds({ did = ME_DID, fetchImpl = fetch } = {}) {

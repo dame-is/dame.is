@@ -388,9 +388,29 @@ describe('undo and history', () => {
     });
   });
 
-  it('asks which plan rather than guessing', () => {
-    expect(parseCommand('undo').needsTarget).toBe(true);
-    expect(parseCommand('undo that thing').needsTarget).toBe(true);
+  it('defaults a bare undo to the last plan', () => {
+    // This answered `No plan with code null.` -- a sentence about an internal
+    // variable. Undo is the one verb that may default, because it only ever
+    // takes people OFF the list; guessing wrong un-blocks someone rather than
+    // blocking them.
+    for (const text of ['undo', 'undo it', 'undo that', 'undo those']) {
+      expect(parseCommand(text), text).toMatchObject({
+        action: 'undo',
+        last: true,
+        needsTarget: false,
+      });
+    }
+  });
+
+  it('will not default a mistyped code to the last plan', () => {
+    // The whole value of defaulting is that the common case needs no code. It
+    // would be spent immediately if a typo'd code also meant "the last one":
+    // that acts on a batch dame did not name, which is the failure the plan
+    // codes exist to prevent.
+    const cmd = parseCommand('undo 3f9az');
+    expect(cmd.needsTarget).toBe(true);
+    expect(cmd.last).toBe(false);
+    expect(cmd.code).toBe(null);
   });
 
   it('parses history with and without an account', () => {

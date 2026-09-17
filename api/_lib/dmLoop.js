@@ -64,7 +64,6 @@ import {
   undoPlan,
   lastActedPlan,
   historyFor,
-  estimateWrites,
   shortCode,
 } from './bulkPlan.js';
 import { loadAgentConfig, LIMITS } from './agentConfig.js';
@@ -206,47 +205,27 @@ function renderReview(plan, review) {
 export async function runCommand(cmd, writeAgent, { template, lookUp } = {}) {
   const say = (text, options = null) => ({ text, options });
 
+  // A verb arrived with nobody and nothing to act on. Every branch here asks
+  // rather than guesses, which is the rule the whole command surface turns on.
+  //
+  // `history` and `undo` never land here any more -- one takes an optional
+  // account, the other defaults to the last plan -- except when undo was handed
+  // a token that was MEANT as a code and is not one. That case gets an answer
+  // naming the token, not a fallback that acts on a batch dame did not name.
   if (cmd.needsTarget) {
     if (cmd.action === 'plan') {
       return say(nudge('post'));
     }
-    if (cmd.action === 'history') {
-      const did = cmd.actor
-        ? await resolveActor(cmd.actor).catch(() => null)
-        : null;
-      if (cmd.actor && !did) return say(`I could not resolve ${cmd.actor}.`);
-      const h = await historyFor(did);
-      if (!h.rows.length) {
-        return say(
-          cmd.actor ? 'Nothing recorded for them.' : 'Nothing done yet.',
-        );
-      }
-      const lines = h.rows.map((r) => {
-        const when = new Date(r.acted_at).toLocaleString();
-        const note = r.plan?.note ? ` — "${r.plan.note}"` : '';
-        const undone = r.undone_at ? ' (undone)' : '';
-        return `${when} · ${r.band} · ${r.approved_via ?? '?'} · ${r.code}${undone}${note}`;
-      });
+    if (cmd.action === 'undo') {
+      const token = cmd.raw.replace(/^undo\s*/i, '').trim();
       return say(
-        `${h.total} actions on record, most recent first:\n\n${lines.join('\n')}`,
+        `I do not recognise "${token}" as a plan code. Send "undo last" for the most recent one, or "history" to see the codes.`,
+        [
+          { label: 'Undo the last thing I did', command: 'undo last' },
+          { label: 'Show me the record', command: 'history' },
+        ],
       );
     }
-
-    if (cmd.action === 'undo') {
-      const plan = cmd.last ? await lastActedPlan() : await findPlan(cmd.code);
-      if (!plan) {
-        return say(
-          cmd.last ? 'Nothing to undo.' : `No plan with code ${cmd.code}.`,
-        );
-      }
-      const out = await undoPlan(writeAgent, plan, {
-        reason: cmd.raw,
-      });
-      return say(out.message, [
-        { label: 'Show me what changed', command: `history` },
-      ]);
-    }
-
     if (['approve', 'cancel', 'review'].includes(cmd.action)) {
       return say(nudge('plan'));
     }
@@ -278,7 +257,7 @@ export async function runCommand(cmd, writeAgent, { template, lookUp } = {}) {
     }
     const lines = h.rows.map((r) => {
       const when = new Date(r.acted_at).toLocaleString();
-      const note = r.plan?.note ? ` — "${r.plan.note}"` : '';
+      const note = r.plan?.note ? `, "${r.plan.note}"` : '';
       const undone = r.undone_at ? ' (undone)' : '';
       return `${when} · ${r.band} · ${r.approved_via ?? '?'} · ${r.code}${undone}${note}`;
     });

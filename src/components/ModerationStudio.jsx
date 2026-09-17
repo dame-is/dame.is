@@ -263,15 +263,22 @@ function PreflightPanel({ agent }) {
 const DEFAULT_LIST =
   'at://did:plc:louxcf2mpmyrsbmf2axmchat/app.bsky.graph.list/3mvog3lqj5c2k';
 
+/**
+ * The tab bar, which has to agree with the switch at the bottom of this file.
+ *
+ * It did not. Migrate and Retire kept their buttons after their panels were
+ * deleted, so both rendered a blank page, and Overview -- the DEFAULT tab --
+ * had no button at all, alongside Why and List. Three panels shipped
+ * unreachable and two dead buttons shipped in front of them, because a tab bar
+ * built from one list and rendered from another is two sources of truth that
+ * only look like one.
+ */
 const TABS = [
+  { key: 'overview', label: 'Overview', hint: 'What the system did lately' },
   { key: 'preflight', label: 'Preflight', hint: 'Score a post before acting' },
   { key: 'audit', label: 'Audit', hint: 'Re-score an existing list' },
-  { key: 'migrate', label: 'Migrate', hint: 'Carry the list to the bot' },
-  {
-    key: 'retire',
-    label: 'Retire',
-    hint: 'Delete the old list from your repo',
-  },
+  { key: 'why', label: 'Why', hint: 'Why is this account on the list?' },
+  { key: 'list', label: 'List', hint: 'Who is on the list right now' },
   { key: 'voice', label: 'Voice', hint: 'How the analyst writes' },
 ];
 

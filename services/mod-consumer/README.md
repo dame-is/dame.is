@@ -7,12 +7,32 @@ consumers. It is a **trigger**, not a second implementation: every answer comes
 out of `src/lib/moderation/agent.js`, and the DM pass is the same module
 `api/mod-agent.js` runs.
 
-## The two loops
+## The three loops
 
-| Loop   | Source                            | Latency    | Answers in        |
-| ------ | --------------------------------- | ---------- | ----------------- |
-| Public | Jetstream, `app.bsky.feed.post`   | sub-second | the public thread |
-| DM     | `chat.bsky.convo.getLog`, 2s poll | ~2s        | the DM convo      |
+| Loop   | Source                            | Latency    | Answers in              |
+| ------ | --------------------------------- | ---------- | ----------------------- |
+| Public | Jetstream, `app.bsky.feed.post`   | sub-second | the public thread       |
+| DM     | `chat.bsky.convo.getLog`, 2s poll | ~2s        | the DM convo            |
+| Drift  | a timer, `DRIFT_EVERY_HOURS`      | weekly     | a DM, if anything moved |
+
+All three go through one work queue, so a drift run scoring 8,500 accounts
+cannot arrive in the middle of answering a DM.
+
+### Why drift runs here and not on a cron
+
+Re-scoring the whole list is ~600 AppView requests. A serverless time budget is
+what turned the precompute into a resumable state machine with three bugs in it,
+and this is a long-lived process with the reference data already in hand.
+
+It DMs only what changed, and `renderBrief` returns `null` when nothing did — so
+most weeks it says nothing at all. A brief restating 8,543 unchanged rows is one
+that stops being read, which is the same failure as a batch nobody reviews.
+
+Results are written as an ordinary `mod.audit` row, so a drift run and the
+portal's Audit tab share one record rather than keeping parallel histories. When
+picking a baseline to diff against it **skips audits that scored nothing**: an
+empty audit shadowing a real one is how a stale review queue survives a week
+looking healthy.
 
 ### Why the Jetstream subscription is filtered to one DID
 
