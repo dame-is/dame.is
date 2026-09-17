@@ -21,7 +21,7 @@
 //   { }                 run one batch
 //   { action: 'status' }
 
-import { select, upsert, update } from './_lib/modDb.js';
+import { select, selectAll, upsert, update } from './_lib/modDb.js';
 import { botAgent } from './_lib/botAgent.js';
 import { authorize } from './_lib/serviceAuth.js';
 
@@ -138,13 +138,21 @@ export default async function handler(req, res) {
     // yet. The left join is done client-side because PostgREST cannot express
     // "not exists in another table" without a view, and at these sizes one
     // extra read is cheaper than a migration for a view.
+    //
+    // PAGED, NOT LIMITED. These said `limit: 20000` and got 1,000, because
+    // PostgREST caps at the project's Max rows and ignores a larger limit
+    // without saying so. The effect was worse than a short read: once the first
+    // 1,000 candidates had been carried, every later run saw the same 1,000,
+    // found them all done, and marked the migration FINISHED having carried
+    // nothing — with 7,051 accounts still on the old list. A migration that
+    // reports success is not something anyone re-checks.
     const [candidates, already] = await Promise.all([
-      select('audit_item', {
+      selectAll('audit_item', {
         select: 'did,band',
         eq: { audit_id: row.audit_id },
-        limit: 20000,
+        order: 'did.asc',
       }),
-      select('migration_item', { select: 'did', limit: 20000 }),
+      selectAll('migration_item', { select: 'did', order: 'did.asc' }),
     ]);
     const done = new Set(already.map((r) => r.did));
     const carry = row.carry_bands || ['UNKNOWN'];

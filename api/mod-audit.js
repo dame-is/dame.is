@@ -28,7 +28,7 @@
 import { ME_DID } from '../src/config.js';
 import { resolvePds } from '../src/lib/atproto.js';
 import { createScorer } from '../src/lib/moderation/score.js';
-import { select, upsert, update } from './_lib/modDb.js';
+import { select, selectAll, upsert, update } from './_lib/modDb.js';
 import { loadReference } from './_lib/reference.js';
 import { authorize } from './_lib/serviceAuth.js';
 
@@ -82,11 +82,17 @@ export default async function handler(req, res) {
       // Everything that is not UNKNOWN and has not been decided. Sorted by
       // trust so the accounts most embedded in dame's world are read first —
       // if attention runs out halfway down, it ran out in the right place.
-      const items = await select('audit_item', {
+      // Paged rather than capped at 1,000. The filter below runs in JS, so a
+      // capped read drops review items silently whenever enough UNKNOWN rows
+      // outrank a non-UNKNOWN one — and NOTABLE tops out at trust 36 against
+      // UNKNOWN's 34, so that margin is four points wide, not comfortable.
+      const items = await selectAll('audit_item', {
         select: '*',
         eq: { audit_id: audit.id },
-        order: 'trust.desc',
-        limit: 1000,
+        // did breaks the tie. Paging an order with duplicates can hand back
+        // the same row twice and never hand back another, which would be the
+        // truncation bug again wearing the costume of a sort.
+        order: 'trust.desc,did.asc',
       });
       return res.status(200).json({
         audit,
