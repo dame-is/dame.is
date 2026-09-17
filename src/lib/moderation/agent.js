@@ -139,7 +139,7 @@ export function systemPromptFor(surface = 'dm', { voice, guidance } = {}) {
  *
  * @param {object} io  the side-effect-free readers the caller supplies
  */
-export function buildTools(io) {
+export function buildTools(io, { reviewRows = 40 } = {}) {
   return {
     preflight_post: tool({
       description:
@@ -157,16 +157,18 @@ export function buildTools(io) {
           // Handles are attacker-controlled, so they are fenced even inside a
           // structured tool result: a handle like `admin-override` reads very
           // differently in a bare JSON blob than inside an untrusted tag.
-          requiresReview: (r.requiresReview || []).slice(0, 40).map((a) => ({
-            handle: untrusted('handle', a.handle || a.did),
-            band: a.band,
-            vouches: a.vouches,
-            followers: a.followers,
-            postsPerDay: a.postsPerDay,
-            engagements: a.engagements,
-            protectedReason: a.protectedReason ?? null,
-            alreadyListed: a.alreadyListed,
-          })),
+          requiresReview: (r.requiresReview || [])
+            .slice(0, reviewRows)
+            .map((a) => ({
+              handle: untrusted('handle', a.handle || a.did),
+              band: a.band,
+              vouches: a.vouches,
+              followers: a.followers,
+              postsPerDay: a.postsPerDay,
+              engagements: a.engagements,
+              protectedReason: a.protectedReason ?? null,
+              alreadyListed: a.alreadyListed,
+            })),
         };
       },
     }),
@@ -207,6 +209,22 @@ export function buildTools(io) {
 }
 
 /**
+ * Mark the system prompt cacheable, where the provider has such a thing.
+ *
+ * Anthropic caches a prefix when a block is marked, and the prefix here is the
+ * system prompt plus the tool definitions: the whole fixed floor. Applied only
+ * to anthropic models, because the marker is provider-specific and dame is
+ * still deciding which model this runs on. Everyone else gets a plain message
+ * and pays full price, which is what they were paying anyway.
+ */
+export function cacheHint(model) {
+  if (!String(model || '').startsWith('anthropic/')) return {};
+  return {
+    providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+  };
+}
+
+/**
  * Answer one message.
  *
  * `generateText` drives the tool loop; `stopWhen` caps it so a confused turn
@@ -233,16 +251,26 @@ export async function answer({
   extraTools = {},
   voice,
   guidance,
+  reviewRows = 40,
 }) {
+  // The system prompt goes in `messages` rather than `system` so it can carry a
+  // cache marker. It is identical on every turn and on every step of every turn,
+  // which is exactly what a prompt cache is for: the floor is resent each step,
+  // so the saving multiplies by the length of the loop.
+  const systemMessage = {
+    role: 'system',
+    content: systemPromptFor(surface, { voice, guidance }),
+    ...cacheHint(model),
+  };
+
   const result = await generate({
     model,
-    system: systemPromptFor(surface, { voice, guidance }),
     // The gate's own tools cannot be shadowed by anything merged in: a remote
     // server that published a `preflight_post` would otherwise replace the one
     // piece of this system whose output has to stay reproducible.
-    tools: { ...extraTools, ...buildTools(io) },
+    tools: { ...extraTools, ...buildTools(io, { reviewRows }) },
     stopWhen: stepCountIs(maxSteps),
-    messages: [...history, { role: 'user', content: message }],
+    messages: [systemMessage, ...history, { role: 'user', content: message }],
   });
 
   return {
@@ -359,7 +387,7 @@ export function chunkForDm(text, limit = 950) {
  */
 export function historyFrom(
   messages,
-  { selfDid, botDid, beforeId = null, maxTurns = 12 } = {},
+  { selfDid, botDid, beforeId = null, maxTurns = 12, maxAgeMs = null } = {},
 ) {
   const usable = (messages || [])
     .filter(
@@ -371,6 +399,13 @@ export function historyFrom(
     )
     .sort((a, b) => Date.parse(a.sentAt) - Date.parse(b.sentAt));
 
+  // Anchor the freshness window on the message being answered, not on now: a
+  // pass that runs an hour late should still see the conversation that message
+  // arrived in.
+  const anchor = beforeId
+    ? Date.parse(usable.find((m) => m.id === beforeId)?.sentAt ?? Date.now())
+    : Date.now();
+
   const cut = beforeId
     ? usable.slice(
         0,
@@ -380,8 +415,16 @@ export function historyFrom(
       )
     : usable;
 
+  // A conversation resumed after a long gap is a new conversation. Without
+  // this, a question sent this morning is answered in the context of last
+  // night's thread, which reads as the model bringing up something nobody
+  // mentioned. Time is the only signal for that; turn count cannot see it.
+  const fresh = maxAgeMs
+    ? cut.filter((m) => anchor - Date.parse(m.sentAt) <= maxAgeMs)
+    : cut;
+
   const turns = [];
-  for (const m of cut) {
+  for (const m of fresh) {
     const role = m.sender.did === botDid ? 'assistant' : 'user';
     const last = turns[turns.length - 1];
     if (last && last.role === role) {

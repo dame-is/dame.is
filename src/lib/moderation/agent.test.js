@@ -8,6 +8,7 @@ import {
   threadHistoryFrom,
   ancestorsOf,
   systemPromptFor,
+  cacheHint,
   SYSTEM_PROMPT,
 } from './agent.js';
 
@@ -147,7 +148,10 @@ describe('answer', () => {
     expect(out.text).toBe('3 need a look.');
     expect(out.steps).toBe(2);
     expect(generate.mock.calls[0][0].stopWhen).toBeDefined();
-    expect(generate.mock.calls[0][0].system).toBe(SYSTEM_PROMPT);
+    expect(generate.mock.calls[0][0].messages[0]).toMatchObject({
+      role: 'system',
+      content: SYSTEM_PROMPT,
+    });
   });
 
   it('passes prior turns ahead of the new message', async () => {
@@ -159,7 +163,8 @@ describe('answer', () => {
       history: [{ role: 'user', content: 'first' }],
     });
     const { messages } = generate.mock.calls[0][0];
-    expect(messages.map((m) => m.content)).toEqual([
+    expect(messages[0].role).toBe('system');
+    expect(messages.slice(1).map((m) => m.content)).toEqual([
       'first',
       'and the second one?',
     ]);
@@ -331,7 +336,9 @@ describe('the public system prompt', () => {
   it('is selected by the surface passed to answer', async () => {
     const generate = vi.fn().mockResolvedValue({ text: 'ok', steps: [] });
     await answer({ generate, message: 'x', io: {}, surface: 'post' });
-    expect(generate.mock.calls[0][0].system).toBe(systemPromptFor('post'));
+    expect(generate.mock.calls[0][0].messages[0].content).toBe(
+      systemPromptFor('post'),
+    );
   });
 });
 
@@ -535,5 +542,87 @@ describe('the prompt knows dame can act', () => {
     expect(SYSTEM_PROMPT).toMatch(/add likers/);
     expect(SYSTEM_PROMPT).toMatch(/approve <code> UNKNOWN/);
     expect(SYSTEM_PROMPT).toMatch(/PROTECTED is never carried/);
+  });
+});
+
+describe('the freshness window', () => {
+  const ME = 'did:plc:me';
+  const BOT = 'did:plc:bot';
+  const at = (h) =>
+    new Date(Date.parse('2026-09-17T12:00:00Z') - h * 3600_000).toISOString();
+  const msg = (id, did, text, sentAt) => ({
+    id,
+    text,
+    sentAt,
+    sender: { did },
+  });
+
+  const convo = [
+    msg('1', ME, 'five hours ago', at(5)),
+    msg('2', BOT, 'answered then', at(5)),
+    msg('3', ME, 'the new one', at(0)),
+  ];
+
+  it('drops a conversation that went cold', () => {
+    // A question sent this morning answered in the context of last night reads
+    // as the model bringing up something nobody mentioned. Turn count cannot
+    // see that; only time can.
+    const out = historyFrom(convo, {
+      selfDid: ME,
+      botDid: BOT,
+      beforeId: '3',
+      maxAgeMs: 4 * 3600_000,
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('keeps it when the gap is short enough', () => {
+    const out = historyFrom(convo, {
+      selfDid: ME,
+      botDid: BOT,
+      beforeId: '3',
+      maxAgeMs: 6 * 3600_000,
+    });
+    expect(out.map((t) => t.content)).toEqual([
+      'five hours ago',
+      'answered then',
+    ]);
+  });
+
+  it('anchors on the message being answered, not on now', () => {
+    // A pass that runs an hour late should still see the conversation the
+    // message arrived in.
+    const late = [
+      msg('1', ME, 'context', at(9)),
+      msg('2', BOT, 'reply', at(9)),
+      msg('3', ME, 'question', at(8)),
+    ];
+    const out = historyFrom(late, {
+      selfDid: ME,
+      botDid: BOT,
+      beforeId: '3',
+      maxAgeMs: 4 * 3600_000,
+    });
+    expect(out.map((t) => t.content)).toEqual(['context', 'reply']);
+  });
+
+  it('keeps everything when no window is set', () => {
+    const out = historyFrom(convo, { selfDid: ME, botDid: BOT, beforeId: '3' });
+    expect(out).toHaveLength(2);
+  });
+});
+
+describe('cacheHint', () => {
+  it('marks the prefix cacheable on anthropic models', () => {
+    // The system prompt and the tool definitions are resent on every step, so
+    // the saving multiplies by the length of the loop.
+    expect(cacheHint('anthropic/claude-opus-5')).toEqual({
+      providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
+    });
+  });
+
+  it('says nothing for a provider that has no such thing', () => {
+    expect(cacheHint('deepseek/deepseek-v4.1-flash')).toEqual({});
+    expect(cacheHint(undefined)).toEqual({});
   });
 });

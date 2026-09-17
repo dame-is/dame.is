@@ -24,7 +24,8 @@
 // adding them to a modlist. The two namespaces keep their own vocabularies, and
 // conflating them is how you would end up allowing the wrong one.
 
-import { jsonSchema, dynamicTool } from 'ai';
+import { jsonSchema, dynamicTool, tool } from 'ai';
+import { z } from 'zod';
 import { untrusted } from './agent.js';
 
 export const ATMOSPHERE_URL = 'https://aturi.to/api/mcp';
@@ -112,19 +113,38 @@ export function flatten(result) {
 }
 
 /**
- * Turn the server's tool list into tools `generateText` can call.
+ * A one-line summary for the catalogue.
  *
- * `dynamicTool` + `jsonSchema` because the shapes are only known at runtime —
- * hand-writing 38 zod schemas would be a copy that goes stale the first time
- * aturi.to changes a parameter.
+ * These descriptions are written as prose ("You have an account and want...")
+ * and run to 435 characters. The catalogue only needs to be enough to pick from,
+ * so it takes the first clause and stops.
+ */
+function summarise(description) {
+  const first = String(description || '')
+    .split(/[.\n]/)[0]
+    .replace(/^You (have|want|need|already have)\s*/i, '')
+    .trim();
+  return first.length > 64 ? `${first.slice(0, 61)}...` : first;
+}
+
+/**
+ * ONE tool instead of thirty-eight.
  *
- * @param {Array} listed         from tools/list
- * @param {object} opts
- * @param {Function} opts.call   (name, args) => Promise<result>
- * @param {Function} [opts.log]
+ * Measured: exposing all 38 as separate tools cost 7,346 tokens of definitions,
+ * resent on every step of the loop. Real usage went from ~1,900 input tokens a
+ * turn to ~15,800 the day it landed. The tools are worth having; paying for all
+ * of their schemas on every step of every turn, including the turns that never
+ * touch the network, is not.
+ *
+ * So the model gets a dispatcher carrying a catalogue of names, and fetches a
+ * schema only for the tool it actually wants. An unfamiliar tool costs one extra
+ * step; a familiar one costs none. Every tool stays reachable.
+ *
+ * `describe` is also the error path: a call with bad arguments comes back with
+ * the schema rather than just a complaint, so the retry has what it needs.
  */
 export function bridgeTools(listed, { call, log = () => {} }) {
-  const tools = {};
+  const allowed = new Map();
   const skipped = [];
 
   for (const t of listed || []) {
@@ -133,32 +153,67 @@ export function bridgeTools(listed, { call, log = () => {} }) {
       skipped.push(t.name);
       continue;
     }
-    tools[t.name] = dynamicTool({
-      description: t.description || `Atmosphere tool ${t.name}`,
-      inputSchema: jsonSchema(
-        t.inputSchema || { type: 'object', properties: {} },
-      ),
-      execute: async (args) => {
+    allowed.set(t.name, t);
+  }
+  if (skipped.length) {
+    log('Atmosphere tools withheld, not a read verb', { skipped });
+  }
+  if (!allowed.size) return {};
+
+  const catalogue = [...allowed.values()]
+    .map((t) => `${t.name}: ${summarise(t.description)}`)
+    .join('\n');
+
+  const describe = (t) => ({
+    tool: t.name,
+    description: t.description,
+    inputSchema: t.inputSchema ?? { type: 'object', properties: {} },
+  });
+
+  return {
+    atmosphere: tool({
+      description:
+        'Read the atproto network: profiles, author feeds, threads, post search, ' +
+        'identity history, lexicon activity, the atproto docs. Read-only. ' +
+        "Pass `tool` plus `args`. If you are unsure of a tool's arguments, call " +
+        'it with `describe: true` first to get its schema.\n\nAvailable:\n' +
+        catalogue,
+      inputSchema: z.object({
+        tool: z.string().describe('one of the names listed in the description'),
+        args: z
+          .record(z.string(), z.any())
+          .optional()
+          .describe('arguments for that tool'),
+        describe: z
+          .boolean()
+          .optional()
+          .describe('true to return the schema instead of calling it'),
+      }),
+      execute: async ({ tool: name, args, describe: wantSchema }) => {
+        const t = allowed.get(name);
+        if (!t) {
+          return `No atmosphere tool called ${name}. Names are listed in this tool's description.`;
+        }
+        if (wantSchema) return describe(t);
         try {
-          const result = await call(t.name, args);
+          const result = await call(name, args || {});
           // Fenced WHOLE. The structural half (counts, URIs, timestamps) is
           // harmless to read as data, and splitting it from the prose half so
           // one could be trusted would mean deciding which fields are safe on
           // a schema this file does not own.
-          return untrusted(`atmosphere:${t.name}`, flatten(result));
+          return untrusted(`atmosphere:${name}`, flatten(result));
         } catch (err) {
-          // A failed lookup is an answer the analyst can report, not a reason
-          // to lose the turn. aturi.to being down should cost a sentence.
-          return `The ${t.name} lookup failed: ${err.message}`;
+          // Hand back the schema with the failure: a bad-arguments error that
+          // does not say what the arguments are costs another round trip to
+          // find out.
+          return {
+            error: `The ${name} lookup failed: ${err.message}`,
+            ...describe(t),
+          };
         }
       },
-    });
-  }
-
-  if (skipped.length) {
-    log('Atmosphere tools withheld — not a read verb', { skipped });
-  }
-  return tools;
+    }),
+  };
 }
 
 /**

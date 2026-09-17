@@ -17,6 +17,7 @@ import {
   CONFIG_NSID,
   CONFIG_RKEY,
   MAX_FIELD_CHARS,
+  LIMITS,
 } from './_lib/agentConfig.js';
 import { authorize } from './_lib/serviceAuth.js';
 
@@ -32,6 +33,7 @@ export default async function handler(req, res) {
       nsid: CONFIG_NSID,
       rkey: CONFIG_RKEY,
       maxChars: MAX_FIELD_CHARS,
+      limitSpec: LIMITS,
     });
   } catch (err) {
     return res.status(500).json({ error: String(err?.message || err) });

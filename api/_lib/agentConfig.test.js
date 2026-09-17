@@ -47,6 +47,8 @@ describe('readFromPds', () => {
       style: 'Terse.',
       guidance: 'Always give posting frequency.',
       openers: '',
+      model: '',
+      limits: null,
       source: 'pds',
       updated_at: '2026-09-17T00:00:00Z',
     });
@@ -113,5 +115,43 @@ describe('recordFrom', () => {
     expect(r.$type).toBe('is.dame.mod.config');
     expect(r.style).toBe('Terse.');
     expect(r.updatedAt).toMatch(/^\d{4}-/);
+  });
+});
+
+describe('clampLimits', () => {
+  it('holds a runaway value to the range', async () => {
+    // Unlike voice, these have a bill attached: a typo in maxSteps is a runaway
+    // loop, not an awkward sentence.
+    const { clampLimits, LIMITS } = await import('./agentConfig.js');
+    const out = clampLimits({
+      maxSteps: 400,
+      maxTurns: -5,
+      historyHours: 99999,
+    });
+    expect(out.maxSteps).toBe(LIMITS.maxSteps.max);
+    expect(out.maxTurns).toBe(LIMITS.maxTurns.min);
+    expect(out.historyHours).toBe(LIMITS.historyHours.max);
+  });
+
+  it('falls back to the default for anything missing or unparseable', async () => {
+    const { clampLimits, LIMITS } = await import('./agentConfig.js');
+    const out = clampLimits({ maxSteps: 'lots' });
+    expect(out.maxSteps).toBe(LIMITS.maxSteps.def);
+    expect(out.reviewRows).toBe(LIMITS.reviewRows.def);
+  });
+
+  it('allows zero history hours, which turns the window off', async () => {
+    const { clampLimits } = await import('./agentConfig.js');
+    expect(clampLimits({ historyHours: 0 }).historyHours).toBe(0);
+  });
+});
+
+describe('the model field', () => {
+  it('drops a malformed model rather than breaking every turn', async () => {
+    const { recordFrom } = await import('./agentConfig.js');
+    expect(recordFrom({ model: 'not a model' }).model).toBe('');
+    expect(recordFrom({ model: 'anthropic/claude-opus-5' }).model).toBe(
+      'anthropic/claude-opus-5',
+    );
   });
 });

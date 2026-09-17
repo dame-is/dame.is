@@ -46,7 +46,7 @@ import {
   reviewPlan,
   cancelPlan,
 } from './bulkPlan.js';
-import { loadAgentConfig } from './agentConfig.js';
+import { loadAgentConfig, LIMITS } from './agentConfig.js';
 
 /**
  * The post attached to a message, if it was SHARED rather than pasted.
@@ -346,6 +346,15 @@ export async function runDmPass({
   // against a model call that takes five to twenty seconds.
   const [io, config] = await Promise.all([getIo(), loadAgentConfig()]);
   const openers = parseOpeners(config?.openers);
+  // The record can move these within a range someone chose; it cannot set
+  // maxSteps to 400. See LIMITS in agentConfig.js.
+  const limits = config?.limits || {
+    maxTurns: LIMITS.maxTurns.def,
+    maxSteps: LIMITS.maxSteps.def,
+    historyHours: LIMITS.historyHours.def,
+    reviewRows: LIMITS.reviewRows.def,
+  };
+  const activeModel = config?.model || model;
 
   const turns = [];
   for (const entry of inbound.slice(-MAX_TURNS)) {
@@ -418,6 +427,8 @@ export async function runDmPass({
         selfDid: ME_DID,
         botDid,
         beforeId: entry.message.id,
+        maxTurns: limits.maxTurns,
+        maxAgeMs: limits.historyHours ? limits.historyHours * 3600_000 : null,
       });
     } catch {
       // A conversation we cannot read is still a question we can answer, just
@@ -430,11 +441,13 @@ export async function runDmPass({
       message: composeMessage(entry.message),
       io,
       history,
-      model,
+      model: activeModel,
       surface: 'dm',
       extraTools,
       voice: config?.style,
       guidance: config?.guidance,
+      maxSteps: limits.maxSteps,
+      reviewRows: limits.reviewRows,
     });
 
     const text = reply.text || 'No answer produced.';
@@ -446,7 +459,7 @@ export async function runDmPass({
     await upsert('llm_usage', [
       {
         kind: 'dm',
-        model,
+        model: activeModel,
         input_tokens: reply.usage?.inputTokens ?? null,
         output_tokens: reply.usage?.outputTokens ?? null,
       },

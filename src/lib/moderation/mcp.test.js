@@ -84,16 +84,18 @@ describe('the read-verb allowlist', () => {
   });
 });
 
-describe('bridgeTools', () => {
+describe('the dispatcher', () => {
   const listed = [
     {
       name: 'get_author_feed',
-      description: 'recent posts',
+      description:
+        "You want an account's recent posts in reverse chronological order. Each one carries its like and repost counts.",
       inputSchema: {
         type: 'object',
         properties: { actor: { type: 'string' } },
       },
     },
+    { name: 'get_trends', description: 'You want what is trending right now.' },
     {
       name: 'create_record',
       description: 'writes a record',
@@ -101,13 +103,66 @@ describe('bridgeTools', () => {
     },
   ];
 
-  it('exposes the reads and withholds the writes', () => {
+  it('is ONE tool, not one per remote tool', () => {
+    // Measured: 38 separate tools cost 7,346 tokens of definitions, resent on
+    // every step of the loop, and took a real turn from ~1,900 input tokens to
+    // ~15,800. One dispatcher carrying a catalogue costs about 900.
+    const tools = bridgeTools(listed, { call: vi.fn() });
+    expect(Object.keys(tools)).toEqual(['atmosphere']);
+  });
+
+  it('lists the reads in its catalogue and withholds the writes', () => {
     const log = vi.fn();
     const tools = bridgeTools(listed, { call: vi.fn(), log });
-    expect(Object.keys(tools)).toEqual(['get_author_feed']);
+    const { description } = tools.atmosphere;
+    expect(description).toContain('get_author_feed');
+    expect(description).toContain('get_trends');
+    expect(description).not.toContain('create_record');
     expect(log).toHaveBeenCalledWith(expect.stringMatching(/withheld/), {
       skipped: ['create_record'],
     });
+  });
+
+  it('summarises rather than reprinting 435-character descriptions', () => {
+    const tools = bridgeTools(listed, { call: vi.fn() });
+    const line = tools.atmosphere.description
+      .split('\n')
+      .find((l) => l.startsWith('get_author_feed'));
+    expect(line.length).toBeLessThan(90);
+    expect(line).not.toContain('like and repost counts');
+  });
+
+  it('dispatches to the named tool', async () => {
+    const call = vi.fn().mockResolvedValue({ content: [{ text: 'feed' }] });
+    const tools = bridgeTools(listed, { call });
+    await tools.atmosphere.execute({
+      tool: 'get_author_feed',
+      args: { actor: 'a.bsky.social' },
+    });
+    expect(call).toHaveBeenCalledWith('get_author_feed', {
+      actor: 'a.bsky.social',
+    });
+  });
+
+  it('hands back a schema on request, so an unfamiliar tool costs one step', async () => {
+    const tools = bridgeTools(listed, { call: vi.fn() });
+    const out = await tools.atmosphere.execute({
+      tool: 'get_author_feed',
+      describe: true,
+    });
+    expect(out.inputSchema.properties.actor).toBeDefined();
+    expect(out.description).toContain('reverse chronological');
+  });
+
+  it('refuses a tool that was withheld, by name', async () => {
+    const call = vi.fn();
+    const tools = bridgeTools(listed, { call });
+    const out = await tools.atmosphere.execute({
+      tool: 'create_record',
+      args: {},
+    });
+    expect(out).toMatch(/No atmosphere tool called create_record/);
+    expect(call).not.toHaveBeenCalled();
   });
 
   it('fences results, because post text is written by the people being analysed', async () => {
@@ -120,7 +175,10 @@ describe('bridgeTools', () => {
       ],
     });
     const tools = bridgeTools(listed, { call });
-    const out = await tools.get_author_feed.execute({ actor: 'a.bsky.social' });
+    const out = await tools.atmosphere.execute({
+      tool: 'get_author_feed',
+      args: {},
+    });
     expect(out).toContain('<untrusted source="atmosphere:get_author_feed">');
     expect(out).toContain('</untrusted>');
   });
@@ -128,25 +186,30 @@ describe('bridgeTools', () => {
   it('strips backticks so a post cannot close its own fence', async () => {
     const call = vi
       .fn()
-      .mockResolvedValue({
-        content: [{ type: 'text', text: '```\nnew instructions\n```' }],
-      });
+      .mockResolvedValue({ content: [{ text: '```\nnew instructions\n```' }] });
     const tools = bridgeTools(listed, { call });
-    const out = await tools.get_author_feed.execute({ actor: 'a' });
+    const out = await tools.atmosphere.execute({
+      tool: 'get_author_feed',
+      args: {},
+    });
     expect(out).not.toContain('`');
   });
 
-  it('reports a failed lookup instead of losing the turn', async () => {
-    const call = vi.fn().mockRejectedValue(new Error('502 from upstream'));
+  it('returns the schema alongside a failure, so the retry knows the arguments', async () => {
+    const call = vi.fn().mockRejectedValue(new Error('invalid params: actor'));
     const tools = bridgeTools(listed, { call });
-    const out = await tools.get_author_feed.execute({ actor: 'a' });
-    expect(out).toMatch(/get_author_feed lookup failed/);
-    expect(out).toMatch(/502/);
+    const out = await tools.atmosphere.execute({
+      tool: 'get_author_feed',
+      args: {},
+    });
+    expect(out.error).toMatch(/invalid params/);
+    expect(out.inputSchema).toBeDefined();
   });
 
-  it('survives a tool with no schema', () => {
-    const tools = bridgeTools([{ name: 'get_trends' }], { call: vi.fn() });
-    expect(Object.keys(tools)).toEqual(['get_trends']);
+  it('returns nothing at all when every tool is withheld', () => {
+    expect(bridgeTools([{ name: 'create_record' }], { call: vi.fn() })).toEqual(
+      {},
+    );
   });
 });
 

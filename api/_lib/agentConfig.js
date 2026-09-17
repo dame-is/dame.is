@@ -33,6 +33,38 @@ export const CONFIG_RKEY = 'self';
 /** Long enough to be a voice, short enough not to be a second system prompt. */
 export const MAX_FIELD_CHARS = 2000;
 
+/**
+ * The numeric knobs, and the range each is allowed.
+ *
+ * CLAMPED, not merely defaulted. Unlike voice, these have a bill attached: a
+ * typo in maxSteps is a runaway loop, not an awkward sentence. The record can
+ * move them within a range someone chose; it cannot set maxSteps to 400.
+ */
+export const LIMITS = {
+  /** Conversation turns kept as history. */
+  maxTurns: { min: 1, max: 40, def: 12 },
+  /** Tool-loop steps. Every step resends the system prompt and the tools. */
+  maxSteps: { min: 1, max: 20, def: 12 },
+  /** How old a DM can be and still count as this conversation. 0 disables. */
+  historyHours: { min: 0, max: 168, def: 4 },
+  /** Accounts named in a preflight result. */
+  reviewRows: { min: 1, max: 40, def: 40 },
+};
+
+/** provider/model, loosely. A malformed value would break every turn. */
+const MODEL_SHAPE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9._-]*$/i;
+
+export function clampLimits(raw) {
+  const out = {};
+  for (const [key, spec] of Object.entries(LIMITS)) {
+    const v = Number(raw?.[key]);
+    out[key] = Number.isFinite(v)
+      ? Math.min(spec.max, Math.max(spec.min, Math.round(v)))
+      : spec.def;
+  }
+  return out;
+}
+
 const clip = (v) =>
   String(v ?? '')
     .trim()
@@ -53,10 +85,15 @@ export async function readFromPds({ did = ME_DID, fetchImpl = fetch } = {}) {
   const body = await res.json();
   const value = body?.value;
   if (!value) return null;
+  const model = String(value.model || '').trim();
   return {
     style: clip(value.style),
     guidance: clip(value.guidance),
     openers: clip(value.openers),
+    // An unusable model string is dropped rather than carried: falling back to
+    // the configured default is recoverable, and a 400 on every turn is not.
+    model: MODEL_SHAPE.test(model) ? model : '',
+    limits: value.limits ? clampLimits(value.limits) : null,
     source: 'pds',
     updated_at: value.updatedAt || null,
   };
@@ -69,11 +106,14 @@ async function readCache() {
   const style = clip(v.style);
   const guidance = clip(v.guidance);
   const openers = clip(v.openers);
-  if (!style && !guidance && !openers) return null;
+  const model = String(v.model || '').trim();
+  if (!style && !guidance && !openers && !model && !v.limits) return null;
   return {
     style,
     guidance,
     openers,
+    model: MODEL_SHAPE.test(model) ? model : '',
+    limits: v.limits ? clampLimits(v.limits) : null,
     source: v.source === 'pds' ? 'cache' : v.source || 'cache',
     updated_at: v.updated_at || null,
   };
@@ -104,7 +144,8 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
     const fromPds = await readFromPds({ did });
     // Cache even an empty record: "dame cleared it" is a state worth persisting,
     // or the next PDS outage restores a voice she deliberately removed.
-    const has = (c) => c && (c.style || c.guidance || c.openers);
+    const has = (c) =>
+      c && (c.style || c.guidance || c.openers || c.model || c.limits);
     await writeCache(has(fromPds) ? fromPds : null).catch(() => {});
     if (has(fromPds)) return fromPds;
     return null;
@@ -118,12 +159,16 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
 }
 
 /** The shape the browser should putRecord, so one definition drives both. */
-export function recordFrom({ style, guidance, openers }) {
+export function recordFrom({ style, guidance, openers, model, limits }) {
   return {
     $type: CONFIG_NSID,
     style: clip(style),
     guidance: clip(guidance),
     openers: clip(openers),
+    model: MODEL_SHAPE.test(String(model || '').trim())
+      ? String(model).trim()
+      : '',
+    limits: clampLimits(limits),
     updatedAt: new Date().toISOString(),
   };
 }

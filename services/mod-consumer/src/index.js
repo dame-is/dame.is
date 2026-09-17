@@ -195,16 +195,20 @@ async function answerPublicly(t) {
     loadAgentConfig(),
   ]);
 
+  const activeModel = config?.model || model;
+  const limits = config?.limits || {};
   const reply = await answer({
     generate: generateText,
     message: composeMessage(t),
     io,
     history,
-    model,
+    model: activeModel,
     surface: 'post',
     extraTools,
     voice: config?.style,
     guidance: config?.guidance,
+    maxSteps: limits.maxSteps,
+    reviewRows: limits.reviewRows,
   });
 
   const text = reply.text || 'No answer produced.';
@@ -214,7 +218,7 @@ async function answerPublicly(t) {
   await upsert('llm_usage', [
     {
       kind: 'post',
-      model,
+      model: activeModel,
       input_tokens: reply.usage?.inputTokens ?? null,
       output_tokens: reply.usage?.outputTokens ?? null,
     },

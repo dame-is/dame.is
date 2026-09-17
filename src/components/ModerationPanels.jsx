@@ -367,9 +367,12 @@ export function VoicePanel({ agent }) {
   const [style, setStyle] = useState('');
   const [guidance, setGuidance] = useState('');
   const [openers, setOpeners] = useState('');
+  const [model, setModel] = useState('');
+  const [limits, setLimits] = useState({});
   const [fallback, setFallback] = useState('');
   const [config, setConfig] = useState(null);
   const [maxChars, setMaxChars] = useState(2000);
+  const [spec, setSpec] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(false);
@@ -384,6 +387,9 @@ export function VoicePanel({ agent }) {
         setStyle(r.config?.style || '');
         setGuidance(r.config?.guidance || '');
         setOpeners(r.config?.openers || '');
+        setModel(r.config?.model || '');
+        setLimits(r.config?.limits || {});
+        if (r.limitSpec) setSpec(r.limitSpec);
         if (r.maxChars) setMaxChars(r.maxChars);
       })
       .catch((e) => live && setError(e.message));
@@ -397,7 +403,13 @@ export function VoicePanel({ agent }) {
     setError(null);
     setSaved(false);
     try {
-      const r = await setAgentConfig(agent, { style, guidance, openers });
+      const r = await setAgentConfig(agent, {
+        style,
+        guidance,
+        openers,
+        model,
+        limits,
+      });
       setConfig(r.config || null);
       setSaved(true);
     } catch (e) {
@@ -405,7 +417,7 @@ export function VoicePanel({ agent }) {
     } finally {
       setBusy(false);
     }
-  }, [agent, style, guidance, openers]);
+  }, [agent, style, guidance, openers, model, limits]);
 
   const over =
     style.length > maxChars ||
@@ -481,6 +493,46 @@ export function VoicePanel({ agent }) {
         {openers.length.toLocaleString()} of {maxChars.toLocaleString()} each
         {over && ' — too long'}
       </p>
+
+      <p className="mod-summary-line">
+        Model. Leave blank to use whatever the droplet is configured with.
+      </p>
+      <input
+        className="mod-input"
+        type="text"
+        value={model}
+        placeholder="anthropic/claude-opus-5"
+        spellCheck="false"
+        autoComplete="off"
+        onChange={(e) => {
+          setModel(e.target.value);
+          setSaved(false);
+        }}
+        aria-label="Model"
+      />
+
+      <p className="mod-summary-line">
+        Budgets. Clamped to a range on read, because these have a bill attached:
+        every tool-loop step resends the prompt and the tools.
+      </p>
+      <div className="mod-form-row">
+        {Object.entries(spec).map(([key, range]) => (
+          <label key={key} className="mod-choice">
+            {key}
+            <input
+              className="mod-input"
+              type="number"
+              min={range.min}
+              max={range.max}
+              value={limits[key] ?? range.def}
+              onChange={(e) => {
+                setLimits({ ...limits, [key]: Number(e.target.value) });
+                setSaved(false);
+              }}
+            />
+          </label>
+        ))}
+      </div>
 
       <div className="mod-form-row">
         <button
