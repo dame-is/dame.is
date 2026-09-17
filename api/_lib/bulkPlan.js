@@ -28,7 +28,8 @@
 
 import crypto from 'node:crypto';
 
-import { ME_DID } from '../../src/config.js';
+import { APPVIEW, ME_DID } from '../../src/config.js';
+import { resolveActor } from '../../src/lib/moderation/target.js';
 import { resolveTarget } from '../../src/lib/moderation/target.js';
 import { harvestPost } from '../../src/lib/moderation/harvest.js';
 import {
@@ -218,6 +219,7 @@ export async function applyPlan(agent, plan, bands) {
           band: r.band,
           action: 'list_add',
           acted_at: now,
+          approved_via: 'band',
         })),
       );
       added += batch.length;
@@ -274,3 +276,147 @@ export async function cancelPlan(plan) {
 }
 
 export { shortCode };
+
+/** Handles for a page of DIDs, 25 at a time, best effort. */
+async function handlesFor(dids) {
+  const out = new Map();
+  for (let i = 0; i < dids.length; i += 25) {
+    const q = dids
+      .slice(i, i + 25)
+      .map((d) => `actors=${encodeURIComponent(d)}`)
+      .join('&');
+    try {
+      const res = await fetch(
+        `${APPVIEW}/xrpc/app.bsky.actor.getProfiles?${q}`,
+      );
+      if (!res.ok) continue;
+      const body = await res.json();
+      for (const p of body?.profiles || []) {
+        out.set(p.did, {
+          handle: p.handle,
+          followers: p.followersCount ?? null,
+        });
+      }
+    } catch {
+      // A profile we cannot fetch still has a DID and a band, which is the part
+      // that matters. Reviewing with a DID instead of a handle is ugly, not wrong.
+    }
+  }
+  return out;
+}
+
+/**
+ * The accounts in a plan that are worth a person's attention.
+ *
+ * Defaults to everything that is not UNKNOWN, sorted by trust, because that is
+ * the review queue the whole system is built around: the accounts most embedded
+ * in dame's world read first, so if attention runs out it runs out in the right
+ * place.
+ *
+ * DM ONLY. This prints handles and follower counts; the public reply path must
+ * never reach it.
+ */
+export async function reviewPlan(plan, { bands = null, limit = 15 } = {}) {
+  const rows = await selectAll('decision', {
+    select: 'did,band,trust,vouches,acted_at',
+    eq: { plan_id: plan.id },
+    order: 'did.asc',
+  });
+  const wanted = bands?.length
+    ? rows.filter((r) => bands.includes(r.band))
+    : rows.filter((r) => r.band !== 'UNKNOWN');
+  const sorted = wanted.sort((a, b) => (b.trust ?? 0) - (a.trust ?? 0));
+  const page = sorted.slice(0, limit);
+  const profiles = await handlesFor(page.map((r) => r.did));
+  return {
+    total: sorted.length,
+    shown: page.length,
+    rows: page.map((r) => ({
+      ...r,
+      handle: profiles.get(r.did)?.handle || r.did,
+      followers: profiles.get(r.did)?.followers ?? null,
+    })),
+  };
+}
+
+/**
+ * Act on named accounts inside a plan — the personal path.
+ *
+ * Recorded as approved_via 'individual' rather than 'band'. Both write the same
+ * listitem; only one of them means dame looked at the account. The log has to be
+ * able to say which, because that is the difference between "you were in a
+ * category I approved" and "I read your profile and decided".
+ */
+export async function applyPlanToActors(agent, plan, actors) {
+  const uri = listUri();
+  const bot = agent.session?.did;
+  if (!uri.startsWith(`at://${bot}/`)) {
+    return { ok: false, message: 'That list is not owned by this account.' };
+  }
+
+  const rows = await selectAll('decision', {
+    select: 'did,band,acted_at',
+    eq: { plan_id: plan.id },
+    order: 'did.asc',
+  });
+  const byDid = new Map(rows.map((r) => [r.did, r]));
+
+  const resolved = [];
+  const unknown = [];
+  for (const a of actors) {
+    let did;
+    try {
+      did = await resolveActor(a);
+    } catch {
+      unknown.push(a);
+      continue;
+    }
+    const row = byDid.get(did);
+    if (!row) unknown.push(a);
+    else resolved.push({ ...row, actor: a });
+  }
+
+  // The veto again, at the write. Approving someone by name does not outrank it.
+  const vetoed = resolved.filter((r) => r.band === 'PROTECTED');
+  const todo = resolved.filter((r) => r.band !== 'PROTECTED' && !r.acted_at);
+
+  let added = 0;
+  for (let i = 0; i < todo.length; i += BATCH) {
+    const batch = todo.slice(i, i + BATCH);
+    await agent.com.atproto.repo.applyWrites({
+      repo: bot,
+      writes: batch.map((r) => ({
+        $type: 'com.atproto.repo.applyWrites#create',
+        collection: 'app.bsky.graph.listitem',
+        value: {
+          $type: 'app.bsky.graph.listitem',
+          subject: r.did,
+          list: uri,
+          createdAt: new Date().toISOString(),
+        },
+      })),
+    });
+    const now = new Date().toISOString();
+    await upsert(
+      'decision',
+      batch.map((r) => ({
+        plan_id: plan.id,
+        did: r.did,
+        band: r.band,
+        action: 'list_add',
+        acted_at: now,
+        approved_via: 'individual',
+      })),
+    );
+    added += batch.length;
+  }
+
+  const parts = [`Added ${added} by name.`];
+  if (vetoed.length) {
+    parts.push(`${vetoed.length} refused: PROTECTED.`);
+  }
+  if (unknown.length) {
+    parts.push(`Not in this plan: ${unknown.join(', ')}.`);
+  }
+  return { ok: true, added, message: parts.join(' ') };
+}

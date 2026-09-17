@@ -184,6 +184,7 @@ async function log(did, action, raw, band) {
         band: band || 'UNSCORED',
         action,
         acted_at: new Date().toISOString(),
+        approved_via: 'command',
       },
     ]);
   } catch {

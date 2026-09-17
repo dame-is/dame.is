@@ -61,6 +61,7 @@ const VERBS = [
     action: 'plan',
   },
   { match: /^approve\b/i, action: 'approve' },
+  { match: /^review\b/i, action: 'review' },
   { match: /^cancel\b/i, action: 'cancel' },
   { match: /^list\s+add\b/i, action: 'list_add' },
   { match: /^list\s+remove\b/i, action: 'list_remove' },
@@ -113,19 +114,30 @@ export function parseCommand(text, { embedUri = null } = {}) {
     return { action: 'plan', kind, target, needsTarget: !target, raw };
   }
 
-  if (verb.action === 'approve' || verb.action === 'cancel') {
+  if (
+    verb.action === 'approve' ||
+    verb.action === 'cancel' ||
+    verb.action === 'review'
+  ) {
     const tokens = rest.split(/[\s,]+/).filter(Boolean);
     const code = (tokens.shift() || '').toLowerCase();
+    const valid = /^[0-9a-f]{4,36}$/.test(code);
     const bands = tokens
       .map((t) => t.toUpperCase())
       .filter((t) => BANDS.includes(t));
+    // Approving named accounts is the personal path: dame read these and
+    // decided. It is recorded differently from a band approval, because "you
+    // were in a category I approved" and "I looked at your account" are
+    // different answers to "why am I on your list".
+    const actors = tokens.map(parseActor).filter(Boolean);
     return {
       action: verb.action,
-      code: /^[0-9a-f]{4,36}$/.test(code) ? code : null,
+      code: valid ? code : null,
       // PROTECTED is never carried, whatever is typed. The veto is not a
       // default that an approval can talk its way past.
       bands: bands.filter((b) => b !== 'PROTECTED'),
-      needsTarget: !/^[0-9a-f]{4,36}$/.test(code),
+      actors,
+      needsTarget: !valid,
       raw,
     };
   }
@@ -148,4 +160,25 @@ export function parseCommand(text, { embedUri = null } = {}) {
 export function needsTargetReply(action) {
   const verb = action === 'list_add' ? 'block' : 'unblock';
   return `Name the account and I'll do it — "${verb} @handle" or a profile link. I won't work out who you meant from context; that is the one thing standing between a stranger's post and your block list.`;
+}
+
+/**
+ * A reply that is just a choice: "2", "b", "option 3".
+ *
+ * Numbered options only ever come from deterministic replies — a plan, a review
+ * — so resolving one runs a command this file wrote. A number offered by the
+ * analyst's prose is not stored and does not resolve, because "2" would then
+ * execute whatever a model decided while reading a stranger's posts.
+ *
+ * @returns {number|null} a 1-based index
+ */
+export function parseChoice(text) {
+  const raw = String(text ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^(option|choice)\s+/, '')
+    .replace(/[.)\]]+$/, '');
+  if (/^[1-9][0-9]?$/.test(raw)) return Number(raw);
+  if (/^[a-z]$/.test(raw)) return raw.charCodeAt(0) - 96;
+  return null;
 }

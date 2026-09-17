@@ -32,11 +32,19 @@ import {
 } from '../../src/lib/moderation/agent.js';
 import {
   parseCommand,
+  parseChoice,
   needsTargetReply,
 } from '../../src/lib/moderation/command.js';
 import { select, upsert } from './modDb.js';
 import { applyCommand } from './listWrite.js';
-import { proposePlan, findPlan, applyPlan, cancelPlan } from './bulkPlan.js';
+import {
+  proposePlan,
+  findPlan,
+  applyPlan,
+  applyPlanToActors,
+  reviewPlan,
+  cancelPlan,
+} from './bulkPlan.js';
 import { loadAgentConfig } from './agentConfig.js';
 
 /**
@@ -65,6 +73,39 @@ export function composeMessage(message) {
   return `${text}\n\n[The post dame shared: ${uri}]`;
 }
 
+/**
+ * How long a numbered option stays live.
+ *
+ * Expired rather than deleted: a stale "1" falls through to the analyst as a
+ * question instead of firing a command dame typed a number for an hour ago and
+ * has since forgotten.
+ */
+const CHOICE_TTL_MS = 30 * 60_000;
+
+async function offerChoices(convoId, options) {
+  if (!options?.length) return;
+  await upsert('dm_choice', [
+    { convo_id: convoId, options, created_at: new Date().toISOString() },
+  ]).catch(() => {});
+}
+
+/** The command behind a numbered reply, if it is still live. */
+async function takeChoice(convoId, n) {
+  const rows = await select('dm_choice', {
+    select: 'options,created_at',
+    eq: { convo_id: convoId },
+  }).catch(() => []);
+  const row = rows?.[0];
+  if (!row) return null;
+  if (Date.now() - Date.parse(row.created_at) > CHOICE_TTL_MS) return null;
+  return row.options?.[n - 1]?.command ?? null;
+}
+
+/** Render options as the numbered menu dame picks from. */
+function renderChoices(options) {
+  return options.map((o, i) => `${i + 1}. ${o.label}`).join('\n');
+}
+
 /** A plan's band counts, as something readable in a chat bubble. */
 function renderPlan(plan) {
   const lines = [
@@ -81,13 +122,58 @@ function renderPlan(plan) {
   if (plan.truncated) {
     lines.push('', 'The harvest hit a page cap, so the tail is incomplete.');
   }
+  const named = Object.entries(plan.byBand)
+    .filter(([b, n]) => b !== 'UNKNOWN' && b !== 'PROTECTED' && n)
+    .reduce((t, [, n]) => t + n, 0);
+
+  const options = [];
+  if (plan.byBand.UNKNOWN) {
+    options.push({
+      label: `Add the ${plan.byBand.UNKNOWN} UNKNOWN accounts`,
+      command: `approve ${plan.code} UNKNOWN`,
+    });
+  }
+  if (named) {
+    options.push({
+      label: `Show me the ${named} that need a look`,
+      command: `review ${plan.code}`,
+    });
+  }
+  options.push({ label: 'Do nothing', command: `cancel ${plan.code}` });
+
+  lines.push('', renderChoices(options));
+  return { text: lines.join('\n'), options };
+}
+
+/** The named accounts in a plan, and what dame can do about them. */
+function renderReview(plan, review) {
+  const lines = [`Plan ${plan.code} — ${review.total} need a look:`, ''];
+  for (const r of review.rows) {
+    const reach =
+      r.followers != null ? `, ${r.followers.toLocaleString()} followers` : '';
+    lines.push(`  @${r.handle} — ${r.band}, ${r.vouches ?? 0} vouches${reach}`);
+  }
+  if (review.total > review.shown) {
+    lines.push('', `(${review.total - review.shown} more)`);
+  }
+  const bands = [...new Set(review.rows.map((r) => r.band))].filter(
+    (b) => b !== 'PROTECTED',
+  );
+  const options = [];
+  if (bands.length) {
+    options.push({
+      label: `Add all ${review.total} of these`,
+      command: `approve ${plan.code} ${bands.join(',')}`,
+    });
+  }
+  options.push({ label: 'Do nothing', command: `cancel ${plan.code}` });
   lines.push(
     '',
-    `approve ${plan.code} UNKNOWN`,
-    `approve ${plan.code} UNKNOWN,NOTABLE`,
-    `cancel ${plan.code}`,
+    renderChoices(options),
+    '',
+    `Or name them: approve ${plan.code} @handle @handle`,
   );
-  return lines.join('\n');
+  return { text: lines.join('\n'), options };
 }
 
 /**
@@ -97,40 +183,86 @@ function renderPlan(plan) {
  * inputs are dame's literal text and what Constellation and score.js returned.
  */
 export async function runCommand(cmd, writeAgent) {
+  const say = (text, options = null) => ({ text, options });
+
   if (cmd.needsTarget) {
     if (cmd.action === 'plan') {
-      return 'Attach the post or paste its link, and I will harvest and score it.';
+      return say(
+        'Attach the post or paste its link, and I will harvest and score it.',
+      );
     }
-    if (cmd.action === 'approve' || cmd.action === 'cancel') {
-      return 'Which plan? Send the code from the plan message, e.g. "approve 3f9a2c1b UNKNOWN".';
+    if (['approve', 'cancel', 'review'].includes(cmd.action)) {
+      return say(
+        'Which plan? Send the code from the plan message, e.g. "approve 3f9a2c1b UNKNOWN".',
+      );
     }
-    return needsTargetReply(cmd.action);
+    return say(needsTargetReply(cmd.action));
   }
-  if (!writeAgent) return 'Commands are not wired up on this path.';
+  if (!writeAgent) return say('Commands are not wired up on this path.');
 
   if (cmd.action === 'plan') {
     const plan = await proposePlan({ link: cmd.target, kind: cmd.kind });
     return renderPlan(plan);
   }
 
-  if (cmd.action === 'approve' || cmd.action === 'cancel') {
+  if (['approve', 'cancel', 'review'].includes(cmd.action)) {
     const plan = await findPlan(cmd.code);
-    if (!plan) return `No plan with code ${cmd.code}.`;
+    if (!plan) return say(`No plan with code ${cmd.code}.`);
+
     if (cmd.action === 'cancel') {
       await cancelPlan(plan);
-      return `Cancelled ${cmd.code}. Nothing was added.`;
+      return say(`Cancelled ${cmd.code}. Nothing was added.`);
+    }
+
+    if (cmd.action === 'review') {
+      const review = await reviewPlan(plan, { bands: cmd.bands });
+      if (!review.total)
+        return say('Nothing in this plan needs a look — it is all UNKNOWN.');
+      return renderReview(plan, review);
+    }
+
+    // The personal path: named accounts dame read and decided on.
+    if (cmd.actors?.length) {
+      const out = await applyPlanToActors(writeAgent, plan, cmd.actors);
+      return say(out.message);
     }
     if (!cmd.bands.length) {
-      return `Name the bands to carry, e.g. "approve ${cmd.code} UNKNOWN". PROTECTED is never carried.`;
+      return say(
+        `Name the bands, e.g. "approve ${cmd.code} UNKNOWN" — or name the accounts. PROTECTED is never carried.`,
+      );
     }
     const out = await applyPlan(writeAgent, plan, cmd.bands);
-    return out.message;
+    return say(out.message);
   }
 
   const out = await applyCommand(writeAgent, cmd.action, cmd.actor, {
     raw: cmd.raw,
   });
-  return out.message;
+  return say(out.message);
+}
+
+/**
+ * What to say the moment a message is picked up, before the work starts.
+ *
+ * A harvest and a model call are five to twenty seconds of nothing, which reads
+ * as the bot being broken rather than busy. The ack says what it is doing, not
+ * just that it heard — "Acknowledged" alone would be a second message that adds
+ * no information.
+ */
+export function ackFor(cmd) {
+  if (!cmd) return 'Acknowledged — thinking.';
+  switch (cmd.action) {
+    case 'plan':
+      return 'Acknowledged — harvesting and scoring that post.';
+    case 'approve':
+      return 'Acknowledged — writing to the list.';
+    case 'review':
+      return 'Acknowledged — pulling the accounts that need a look.';
+    case 'cancel':
+      return 'Acknowledged.';
+    default:
+      return 'Acknowledged — checking the list.';
+  }
 }
 
 /** How many messages one pass will answer. */
@@ -248,25 +380,52 @@ export async function runDmPass({
     // commands from me" true in the presence of tools that read strangers'
     // posts: there is no path from the tool loop to a write, so a captured turn
     // has nothing to capture. See src/lib/moderation/command.js.
-    const cmd = parseCommand(entry.message.text, {
-      embedUri: sharedPostUri(entry.message),
-    });
-    if (cmd) {
-      let text;
-      try {
-        text = await runCommand(cmd, writeAgent);
-      } catch (err) {
-        text = `That failed: ${String(err?.message || err).slice(0, 300)}`;
-      }
+    const send = async (text) => {
       for (const chunk of chunkForDm(text)) {
         await chat.chat.bsky.convo.sendMessage({
           convoId: entry.convoId,
           message: { text: chunk },
         });
       }
+    };
+
+    const embedUri = sharedPostUri(entry.message);
+    let cmd = parseCommand(entry.message.text, { embedUri });
+
+    // A bare "2" resolves against the options the LAST DETERMINISTIC REPLY
+    // offered, and only those. The analyst's prose never stores options, so a
+    // number can never execute something a model composed while reading a
+    // stranger's posts — the menu is as parsed as the commands behind it.
+    if (!cmd) {
+      const choice = parseChoice(entry.message.text);
+      if (choice) {
+        const chosen = await takeChoice(entry.convoId, choice);
+        if (chosen) cmd = parseCommand(chosen, { embedUri });
+      }
+    }
+
+    // Say something before the work starts. A harvest or a model call is five to
+    // twenty seconds of silence, which reads as broken rather than busy.
+    // Swallowed on failure: an ack that did not send is not a reason to lose the
+    // answer behind it.
+    await send(ackFor(cmd)).catch(() => {});
+
+    if (cmd) {
+      let reply;
+      try {
+        reply = await runCommand(cmd, writeAgent);
+      } catch (err) {
+        reply = {
+          text: `That failed: ${String(err?.message || err).slice(0, 300)}`,
+          options: null,
+        };
+      }
+      await send(reply.text);
+      await offerChoices(entry.convoId, reply.options);
       log('Ran a command', {
         action: cmd.action,
-        actor: cmd.actor ?? '(none)',
+        actor: cmd.actor ?? cmd.target ?? cmd.code ?? '(none)',
+        options: reply.options?.length ?? 0,
       });
       turns.push({ convoId: entry.convoId, command: cmd.action });
       continue;
@@ -306,12 +465,7 @@ export async function runDmPass({
 
     const text = reply.text || 'No answer produced.';
     const chunks = chunkForDm(text);
-    for (const chunk of chunks) {
-      await chat.chat.bsky.convo.sendMessage({
-        convoId: entry.convoId,
-        message: { text: chunk },
-      });
-    }
+    await send(text);
 
     // The reply is already sent and the cursor already advanced, so a failure
     // to record the spend must not throw away the rest of the pass.

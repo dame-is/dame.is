@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { parseCommand, parseActor, needsTargetReply } from './command.js';
+import {
+  parseCommand,
+  parseActor,
+  parseChoice,
+  needsTargetReply,
+} from './command.js';
 
 describe('parseActor', () => {
   it('takes a handle, with or without the @', () => {
@@ -162,5 +167,47 @@ describe('bulk plans', () => {
   it('still lets a question through to the analyst', () => {
     expect(parseCommand('should I add the likers of this post?')).toBe(null);
     expect(parseCommand('who approved that')).toBe(null);
+  });
+});
+
+describe('parseChoice', () => {
+  it('reads a number, a letter, or "option N"', () => {
+    expect(parseChoice('1')).toBe(1);
+    expect(parseChoice('3.')).toBe(3);
+    expect(parseChoice('2)')).toBe(2);
+    expect(parseChoice(' option 2 ')).toBe(2);
+    expect(parseChoice('a')).toBe(1);
+    expect(parseChoice('B')).toBe(2);
+  });
+
+  it('is not a choice when it is a sentence', () => {
+    // A message that merely contains a number is a question for the analyst.
+    expect(parseChoice('what about the 3rd one')).toBe(null);
+    expect(parseChoice('1 of them looks off')).toBe(null);
+    expect(parseChoice('')).toBe(null);
+    expect(parseChoice('yes')).toBe(null);
+  });
+});
+
+describe('reviewing and approving by name', () => {
+  it('parses a review', () => {
+    expect(parseCommand('review 3f9a2c1b')).toMatchObject({
+      action: 'review',
+      code: '3f9a2c1b',
+    });
+  });
+
+  it('parses an approval naming accounts', () => {
+    // The personal path: dame read these and decided, which is a different
+    // answer to "why am I on your list" than approving a band.
+    const out = parseCommand('approve 3f9a2c1b @a.bsky.social @b.bsky.social');
+    expect(out.actors).toEqual(['a.bsky.social', 'b.bsky.social']);
+    expect(out.bands).toEqual([]);
+  });
+
+  it('keeps bands and actors apart in one command', () => {
+    const out = parseCommand('approve 3f9a2c1b UNKNOWN @a.bsky.social');
+    expect(out.bands).toEqual(['UNKNOWN']);
+    expect(out.actors).toEqual(['a.bsky.social']);
   });
 });
