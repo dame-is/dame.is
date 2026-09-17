@@ -12,6 +12,7 @@
 //         so the cached fallback matches what was just published.
 
 import { DEFAULT_VOICE } from '../src/lib/moderation/agent.js';
+import { DEFAULT_REPORT_TEMPLATE } from '../src/lib/moderation/report.js';
 import {
   loadAgentConfig,
   CONFIG_NSID,
@@ -29,7 +30,7 @@ export default async function handler(req, res) {
     const config = await loadAgentConfig();
     return res.status(200).json({
       config,
-      default: { style: DEFAULT_VOICE },
+      default: { style: DEFAULT_VOICE, report: DEFAULT_REPORT_TEMPLATE },
       nsid: CONFIG_NSID,
       rkey: CONFIG_RKEY,
       maxChars: MAX_FIELD_CHARS,

@@ -36,7 +36,9 @@ import {
   facetLinks,
   facetMentions,
   offersFrom,
+  parseLookup,
 } from '../../src/lib/moderation/command.js';
+import { renderReport, actionsFor } from '../../src/lib/moderation/report.js';
 import {
   ackFor,
   nudge,
@@ -409,6 +411,41 @@ export async function runDmPass({
       if (choice) {
         const chosen = await takeChoice(entry.convoId, choice);
         if (chosen) cmd = parseCommand(chosen, { embedUri });
+      }
+    }
+
+    // A lookup is a form, not a question. Rendered from what score.js already
+    // computed, with no model call: instant, free, and the same shape every
+    // time, which is what a report is for.
+    if (!cmd) {
+      const actor = parseLookup(entry.message.text, {
+        links: facetLinks(entry.message),
+        mentions: facetMentions(entry.message),
+      });
+      if (actor) {
+        await send(ackFor({ action: 'list_add' }, { openers })).catch(() => {});
+        try {
+          const io = await getIo();
+          const account = await io.lookUp(actor);
+          if (account) {
+            const actions = actionsFor(account);
+            const body = renderReport(account, { template: config?.report });
+            await send(`${body}\n\nACTIONS:\n${renderChoices(actions)}`);
+            await offerChoices(entry.convoId, actions);
+            log('Rendered a lookup', { actor, band: account.band });
+            turns.push({ convoId: entry.convoId, lookup: actor });
+            continue;
+          }
+          await send(`I could not resolve ${actor}.`);
+          turns.push({ convoId: entry.convoId, lookup: actor });
+          continue;
+        } catch (err) {
+          await send(
+            `That lookup failed: ${String(err?.message || err).slice(0, 200)}`,
+          );
+          turns.push({ convoId: entry.convoId, lookup: actor });
+          continue;
+        }
       }
     }
 

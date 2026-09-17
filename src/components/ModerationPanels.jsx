@@ -370,6 +370,8 @@ export function VoicePanel({ agent }) {
   const [guidance, setGuidance] = useState('');
   const [openers, setOpeners] = useState('');
   const [model, setModel] = useState('');
+  const [report, setReport] = useState('');
+  const [reportDefault, setReportDefault] = useState('');
   const [limits, setLimits] = useState({});
   const [fallback, setFallback] = useState('');
   const [config, setConfig] = useState(null);
@@ -390,6 +392,8 @@ export function VoicePanel({ agent }) {
         setGuidance(r.config?.guidance || '');
         setOpeners(r.config?.openers || '');
         setModel(r.config?.model || '');
+        setReport(r.config?.report || '');
+        setReportDefault(r.default?.report || '');
         setLimits(r.config?.limits || {});
         if (r.limitSpec) setSpec(r.limitSpec);
         if (r.maxChars) setMaxChars(r.maxChars);
@@ -409,6 +413,7 @@ export function VoicePanel({ agent }) {
         style,
         guidance,
         openers,
+        report,
         model,
         limits,
       });
@@ -419,7 +424,7 @@ export function VoicePanel({ agent }) {
     } finally {
       setBusy(false);
     }
-  }, [agent, style, guidance, openers, model, limits]);
+  }, [agent, style, guidance, openers, report, model, limits]);
 
   const over =
     style.length > maxChars ||
@@ -495,6 +500,27 @@ export function VoicePanel({ agent }) {
         {openers.length.toLocaleString()} of {maxChars.toLocaleString()} each
         {over && ' — too long'}
       </p>
+
+      <p className="mod-summary-line">
+        Account report. Rendered from this template with no model call, so a
+        lookup is instant and the same shape every time. Variables:{' '}
+        <code>
+          {'{displayName} {handle} {band} {distance} {relationship} {vouches} '}
+          {'{followers} {ageDays} {postsPerDay} {lists} {trust} {posts}'}
+        </code>
+      </p>
+      <textarea
+        className="mod-input"
+        rows={10}
+        value={report}
+        placeholder={reportDefault}
+        spellCheck="false"
+        onChange={(e) => {
+          setReport(e.target.value);
+          setSaved(false);
+        }}
+        aria-label="Account report template"
+      />
 
       <p className="mod-summary-line">
         Model. Leave blank to use whatever the droplet is configured with.

@@ -47,6 +47,7 @@ describe('readFromPds', () => {
       style: 'Terse.',
       guidance: 'Always give posting frequency.',
       openers: '',
+      report: '',
       model: '',
       limits: null,
       source: 'pds',

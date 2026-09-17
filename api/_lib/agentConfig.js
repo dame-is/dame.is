@@ -90,6 +90,7 @@ export async function readFromPds({ did = ME_DID, fetchImpl = fetch } = {}) {
     style: clip(value.style),
     guidance: clip(value.guidance),
     openers: clip(value.openers),
+    report: clip(value.report, 4000),
     // An unusable model string is dropped rather than carried: falling back to
     // the configured default is recoverable, and a 400 on every turn is not.
     model: MODEL_SHAPE.test(model) ? model : '',
@@ -106,12 +107,16 @@ async function readCache() {
   const style = clip(v.style);
   const guidance = clip(v.guidance);
   const openers = clip(v.openers);
+  const report = clip(v.report, 4000);
   const model = String(v.model || '').trim();
-  if (!style && !guidance && !openers && !model && !v.limits) return null;
+  if (!style && !guidance && !openers && !report && !model && !v.limits) {
+    return null;
+  }
   return {
     style,
     guidance,
     openers,
+    report,
     model: MODEL_SHAPE.test(model) ? model : '',
     limits: v.limits ? clampLimits(v.limits) : null,
     source: v.source === 'pds' ? 'cache' : v.source || 'cache',
@@ -145,7 +150,8 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
     // Cache even an empty record: "dame cleared it" is a state worth persisting,
     // or the next PDS outage restores a voice she deliberately removed.
     const has = (c) =>
-      c && (c.style || c.guidance || c.openers || c.model || c.limits);
+      c &&
+      (c.style || c.guidance || c.openers || c.report || c.model || c.limits);
     await writeCache(has(fromPds) ? fromPds : null).catch(() => {});
     if (has(fromPds)) return fromPds;
     return null;
@@ -159,12 +165,20 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
 }
 
 /** The shape the browser should putRecord, so one definition drives both. */
-export function recordFrom({ style, guidance, openers, model, limits }) {
+export function recordFrom({
+  style,
+  guidance,
+  openers,
+  report,
+  model,
+  limits,
+}) {
   return {
     $type: CONFIG_NSID,
     style: clip(style),
     guidance: clip(guidance),
     openers: clip(openers),
+    report: clip(report, 4000),
     model: MODEL_SHAPE.test(String(model || '').trim())
       ? String(model).trim()
       : '',

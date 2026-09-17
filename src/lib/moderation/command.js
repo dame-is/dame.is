@@ -296,3 +296,79 @@ export function offersFrom(text, { max = 4 } = {}) {
   }
   return out;
 }
+
+/** Words that can surround a handle without turning it into a question. */
+const FILLER = new Set([
+  'is',
+  'this',
+  'the',
+  'a',
+  'an',
+  'user',
+  'username',
+  'account',
+  'handle',
+  'them',
+  'they',
+  'it',
+  'profile',
+  'who',
+  'look',
+  'lookup',
+  'score',
+  'check',
+  'up',
+  'at',
+  'about',
+  'please',
+  'info',
+  'on',
+]);
+
+/**
+ * Is this message just naming an account?
+ *
+ * A lookup is a form, not a question, and answering it from a template costs no
+ * model call. But the trigger has to be narrow or it eats real questions: "what
+ * has @x been posting about" must reach the analyst, and "@x" must not.
+ *
+ * So: exactly one account named, and every other word is filler. Anything
+ * carrying its own verb falls through to the analyst, which is the safe
+ * direction to be wrong in -- a question answered as a report is a worse failure
+ * than a report answered as a question.
+ *
+ * @returns {string|null} the actor, or null if this is not a lookup
+ */
+export function parseLookup(text, { links = [], mentions = [] } = {}) {
+  const raw = String(text ?? '').trim();
+  if (!raw) return null;
+
+  // A pasted link renders truncated, so the token is neither an actor nor a
+  // word. Recognising the wreckage lets the facets supply what it was, instead
+  // of refusing a lookup over the client's display choice.
+  const TRUNCATED = /(\.\.\.|…)|bsky\.app|\/profile\//;
+
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const actors = [];
+  const rest = [];
+  for (const token of tokens) {
+    const actor = parseActor(token.replace(/[),.?!:]+$/, ''));
+    if (actor) actors.push(actor);
+    else if (TRUNCATED.test(token)) continue;
+    else rest.push(token.toLowerCase().replace(/[^a-z]/g, ''));
+  }
+
+  const fromFacets = [
+    ...new Set([...mentions, ...links.map(parseActor).filter(Boolean)]),
+  ];
+  const named = actors.length ? [...new Set(actors)] : fromFacets;
+  if (named.length !== 1) return null;
+
+  // Every remaining word has to be filler. A truncated handle leaves a token
+  // that is not filler and not an actor, which correctly refuses rather than
+  // reporting on whatever the facets happened to contain.
+  const leftovers = rest.filter((w) => w && !FILLER.has(w));
+  if (leftovers.length) return null;
+
+  return named[0];
+}

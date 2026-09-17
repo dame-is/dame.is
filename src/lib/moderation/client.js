@@ -305,7 +305,7 @@ export function getAgentConfig(agent, { signal } = {}) {
  */
 export async function setAgentConfig(
   agent,
-  { style, guidance, openers, model, limits },
+  { style, guidance, openers, report, model, limits },
   { signal } = {},
 ) {
   const repo = agent.session?.did ?? agent.did;
@@ -318,6 +318,7 @@ export async function setAgentConfig(
       style: String(style || '').trim(),
       guidance: String(guidance || '').trim(),
       openers: String(openers || '').trim(),
+      report: String(report || '').trim(),
       model: String(model || '').trim(),
       limits: limits || {},
       updatedAt: new Date().toISOString(),
