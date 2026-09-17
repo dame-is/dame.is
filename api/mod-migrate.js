@@ -152,9 +152,18 @@ export default async function handler(req, res) {
         eq: { audit_id: row.audit_id },
         order: 'did.asc',
       }),
-      selectAll('migration_item', { select: 'did', order: 'did.asc' }),
+      selectAll('migration_item', {
+        select: 'did,carried_at',
+        order: 'did.asc',
+      }),
     ]);
-    const done = new Set(already.map((r) => r.did));
+    // DONE MEANS WRITTEN, not claimed. The claim below is deliberately made
+    // before the network write so a crash leaves a row that looks unfinished --
+    // but treating every row as done made that claim permanent, so a crashed or
+    // reset account was skipped forever and the migration reported success
+    // without it. Three lines of comment promising a retry that the next line
+    // prevented.
+    const done = new Set(already.filter((r) => r.carried_at).map((r) => r.did));
     const carry = row.carry_bands || ['UNKNOWN'];
     const todo = candidates
       .filter((c) => carry.includes(c.band) && !done.has(c.did))
