@@ -602,8 +602,14 @@ export function RetirePanel({ agent, listUri }) {
     setError(null);
     try {
       setStatus(
-        await retireStatus(agent, { sourceList: listUri, targetList: target }),
+        await retireStatus(agent, {
+          sourceList: listUri,
+          targetList: target,
+          onProgress: (p) =>
+            setProgress({ scanning: `${p.phase}: ${p.scanned}` }),
+        }),
       );
+      setProgress(null);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -725,7 +731,9 @@ export function RetirePanel({ agent, listUri }) {
 
       {progress && (
         <p className="mod-summary-line">
-          {num(progress.removed)} removed
+          {progress.scanning
+            ? `Scanning ${progress.scanning}`
+            : `${num(progress.removed)} removed`}
           {progress.remaining ? `, ${num(progress.remaining)} left` : ''}
           {progress.rateLimited &&
             ' — hit the rate limit, try again in an hour'}

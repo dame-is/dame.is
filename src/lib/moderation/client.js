@@ -17,7 +17,6 @@ export const LXM = {
   remove: 'is.dame.mod.remove',
   migrate: 'is.dame.mod.migrate',
   config: 'is.dame.mod.config',
-  retire: 'is.dame.mod.retire',
 };
 
 /**
@@ -333,13 +332,93 @@ export async function setAgentConfig(
 
 /* --------------------------------------------------- retiring the old list */
 
-/** Is the old list safe to delete? Reads both repos server-side. */
-export function retireStatus(agent, { sourceList, targetList, signal } = {}) {
-  return call(agent, '/api/mod-retire', {
-    lxm: LXM.retire,
-    body: { sourceList, targetList },
-    signal,
+/**
+ * Every subject on a list, read from the repo that owns it.
+ *
+ * Both repos live on the same PDS and listRecords needs no auth for a repo you
+ * do not own, so one session reads both.
+ */
+async function membersOf(agent, listUri, onProgress) {
+  const did = ownerOf(listUri);
+  if (!did) throw new Error(`not an at:// uri: ${listUri}`);
+  const subjects = new Set();
+  const rkeys = [];
+  let cursor;
+  for (let page = 0; page < 400; page += 1) {
+    const res = await agent.com.atproto.repo.listRecords({
+      repo: did,
+      collection: 'app.bsky.graph.listitem',
+      limit: 100,
+      cursor,
+    });
+    for (const rec of res.data.records || []) {
+      if (rec.value?.list !== listUri) continue;
+      subjects.add(rec.value.subject);
+      rkeys.push(rec.uri.split('/').pop());
+    }
+    onProgress?.({ scanned: rkeys.length });
+    cursor = res.data.cursor;
+    if (!cursor || !(res.data.records || []).length) break;
+  }
+  return { subjects, rkeys };
+}
+
+/**
+ * Is the old list safe to delete?
+ *
+ * IN THE BROWSER, not on the server. This walks both repos, which for these
+ * lists is about 173 sequential requests, and the first version put that inside
+ * a Vercel function where it returned FUNCTION_INVOCATION_TIMEOUT. A tab has no
+ * such ceiling, and the deleting already happens here anyway.
+ *
+ * Compares SUBJECTS, not counts. A matching total with a different membership
+ * would pass a count and lose people.
+ */
+export async function retireStatus(
+  agent,
+  { sourceList, targetList, onProgress } = {},
+) {
+  const me = agent.session?.did ?? agent.did;
+  if (ownerOf(sourceList) !== me) {
+    throw new Error(
+      'that list is not in your repo, so there is nothing to retire',
+    );
+  }
+
+  const source = await membersOf(agent, sourceList, (p) =>
+    onProgress?.({ phase: 'old list', ...p }),
+  );
+  const target = await membersOf(agent, targetList, (p) =>
+    onProgress?.({ phase: 'new list', ...p }),
+  );
+
+  const blocks = await agent.com.atproto.repo.listRecords({
+    repo: me,
+    collection: 'app.bsky.graph.listblock',
+    limit: 100,
   });
+  const subs = (blocks.data.records || []).map((r) => ({
+    uri: r.uri,
+    subject: r.value.subject,
+  }));
+
+  return {
+    source: {
+      uri: sourceList,
+      records: source.rkeys.length,
+      accounts: source.subjects.size,
+      // A list can hold the same account twice. They all have to go, and the
+      // gap between the two numbers is how many extra deletes that is.
+      duplicates: source.rkeys.length - source.subjects.size,
+    },
+    target: { uri: targetList, accounts: target.subjects.size },
+    missing: [...source.subjects].filter((d) => !target.subjects.has(d)),
+    subscribedToTarget: subs.some((b) => b.subject === targetList),
+    sourceBlockUri: subs.find((b) => b.subject === sourceList)?.uri ?? null,
+    // Deletes are 1 point each against 5,000/hour, and each is also a repo
+    // event against the relay's 2,600/hour for the whole PDS.
+    points: source.rkeys.length + 1,
+  };
 }
 
 /**
