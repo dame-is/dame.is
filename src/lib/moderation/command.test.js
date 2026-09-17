@@ -495,3 +495,59 @@ describe('which verbs change something', () => {
     expect(isWrite(parseCommand('what is the weather'))).toBe(false);
   });
 });
+
+describe('an attached post names its author', () => {
+  const embedUri = 'at://did:plc:author/app.bsky.feed.post/3xyz';
+
+  it('acts on the author when the message says nothing else', () => {
+    // The reported case: sharing a post from the app and captioning it "block"
+    // was answered with "name the account and I will do it", while PASTING the
+    // same post's link blocked the author immediately -- a post URL contains
+    // /profile/<handle>/. One intent, two answers, decided by which affordance
+    // the client offered.
+    for (const text of ['block', 'block this', 'block them', 'list add']) {
+      expect(parseCommand(text, { embedUri }), text).toMatchObject({
+        actor: 'did:plc:author',
+        fromPost: true,
+        needsTarget: false,
+      });
+    }
+  });
+
+  it('refuses a target named in words instead of pointed at', () => {
+    // This is what "block them" was always really about: a target worked out
+    // from MEANING. With a post attached there is a record to read the author
+    // out of; with words there is only an interpretation.
+    for (const text of [
+      'block the guy in the replies',
+      'block whoever started this',
+    ]) {
+      expect(parseCommand(text, { embedUri }).needsTarget, text).toBe(true);
+    }
+  });
+
+  it('still refuses when nothing is attached', () => {
+    expect(parseCommand('block').needsTarget).toBe(true);
+    expect(parseCommand('block them').needsTarget).toBe(true);
+  });
+
+  it('prefers a handle dame actually typed over the attached post', () => {
+    const cmd = parseCommand('block @someone.bsky.social', { embedUri });
+    expect(cmd.actor).toBe('someone.bsky.social');
+    expect(cmd.fromPost).toBe(false);
+  });
+
+  it('carries the author into read as well', () => {
+    expect(parseCommand('read', { embedUri })).toMatchObject({
+      action: 'read',
+      actor: 'did:plc:author',
+      fromPost: true,
+    });
+  });
+
+  it('ignores an embed that is not a post record', () => {
+    expect(
+      parseCommand('block', { embedUri: 'https://example.com' }),
+    ).toMatchObject({ needsTarget: true });
+  });
+});

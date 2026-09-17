@@ -339,11 +339,36 @@ export async function runCommand(
     );
   }
 
-  const out = await applyCommand(writeAgent, cmd.action, cmd.actor, {
+  // An actor that came out of an attached post is a DID, and "Added
+  // did:plc:2lp64i... to the list" is a receipt nobody can check. Resolve it to
+  // a handle and SAY where it came from: acting on an inference without showing
+  // it is how you find out later that the post on screen was a quote of
+  // somebody else's.
+  let actor = cmd.actor;
+  let preface = '';
+  if (cmd.fromPost) {
+    const account = lookUp ? await lookUp(actor).catch(() => null) : null;
+    if (account?.handle) actor = account.handle;
+    preface = `That post is by @${String(actor).replace(/^@/, '')}.\n\n`;
+  }
+
+  const out = await applyCommand(writeAgent, cmd.action, actor, {
     raw: cmd.raw,
     lookUp,
   });
-  return say(out.message);
+
+  // The way back, and the way to look closer, offered with the receipt while it
+  // is still in front of her. A single block is a plan of one, so "undo last"
+  // undoes exactly this and nothing else.
+  const at = `@${String(actor).replace(/^@/, '')}`;
+  const after =
+    out.ok && cmd.action === 'list_add'
+      ? [
+          { label: 'Undo that', command: 'undo last' },
+          { label: `Read ${at}'s recent posts`, command: `read ${at}` },
+        ]
+      : null;
+  return say(preface + out.message, after);
 }
 
 /** How many messages one pass will answer. */
@@ -604,8 +629,13 @@ export async function runDmPass({
     // -- and a second copy of all of it would be a second place for the
     // fencing to be forgotten. See readRequest in agent.js for why the wording
     // is fixed rather than taken from what dame typed.
-    const reading =
-      cmd?.action === 'read' && !cmd.needsTarget ? cmd.actor : null;
+    let reading = cmd?.action === 'read' && !cmd.needsTarget ? cmd.actor : null;
+    // Resolved from an attached post, so it is a DID. The read prompt names the
+    // account back to dame, and a DID in that sentence is unreadable.
+    if (reading && cmd.fromPost) {
+      const account = await (await getIo()).lookUp(reading).catch(() => null);
+      if (account?.handle) reading = account.handle;
+    }
 
     // Say something before the work starts. A harvest or a model call is five to
     // twenty seconds of silence, which reads as broken rather than busy.

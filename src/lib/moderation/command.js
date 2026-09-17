@@ -25,6 +25,7 @@
 // write is not reachable from the tool loop in the first place.
 
 import { extractTargets } from './target.js';
+import { authorOf } from './trigger.js';
 import { BANDS } from './score.js';
 
 /**
@@ -239,9 +240,47 @@ export function parseCommand(
     if (fromFacets.length === 1) actor = fromFacets[0];
   }
 
+  // AN ATTACHED POST NAMES ITS AUTHOR. Sharing a post from the Bluesky app and
+  // captioning it "block" was answered with "name the account and I will do
+  // it", while PASTING that same post's link blocked the author immediately --
+  // because a post URL contains /profile/<handle>/ and parseActor above reads
+  // it. One intent, two behaviours, and the difference was only ever which
+  // affordance the client offered.
+  //
+  // This is NOT the thing `block them` is refused for, and the distinction is
+  // the whole of why the refusal is worth keeping. A pronoun gets resolved
+  // against something the analyst read mid-turn, so the target is chosen by a
+  // stranger's post. An attached record was put there by dame, in this message,
+  // and the author is read out of the URI by a regex. Same provenance as typing
+  // the handle; no model anywhere near it. It is exactly the rule `add likers`
+  // already follows -- the post comes from dame's own message, never from
+  // anything the analyst read.
+  // Only when the message says nothing else. "block" and "block this" resolve
+  // to the attached post's author; "block the guy in the replies" does not,
+  // because the words rule out the one reading this can actually verify. That
+  // keeps the guarantee that matters -- no target is ever INFERRED from
+  // meaning -- while letting an attached record name its own author.
+  let fromPost = false;
+  if (!actor && embedUri) {
+    const leftovers = rest
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((t) => t.toLowerCase().replace(/[^a-z]/g, ''))
+      .filter((w) => w && !FILLER.has(w));
+    const did = leftovers.length ? null : authorOf(embedUri);
+    if (did) {
+      actor = did;
+      fromPost = true;
+    }
+  }
+
   return {
     action: verb.action,
     actor,
+    // Say so, so the reply can name who that turned out to be. Acting on an
+    // inference without showing it is how you find out later that the post on
+    // screen was a quote of somebody else's.
+    fromPost,
     needsTarget: !actor,
     raw,
   };

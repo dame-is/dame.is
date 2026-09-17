@@ -556,8 +556,21 @@ that is one where the command is your literal text and **the target is named by
 you** — no inference, no pronouns, nothing resolved against something read
 mid-turn.
 
-So `block them` is refused on purpose, and a command naming two accounts is
-refused as well. Because no write is reachable from the tool loop at all, a
+So a target named in words alone is refused — `block the guy in the replies`
+gets a nudge, and a command naming two accounts is refused as well.
+
+**An attached post is not that.** `block` with a post shared into the DM acts on
+that post's author, and says who that turned out to be. The provenance is the
+same as typing the handle: dame put the record in this message and the author is
+read out of the URI by a regex, with no model anywhere near it. It is the rule
+`add likers` already followed. It only applies when the message says nothing
+else — `block`, `block this`, `block them` — because words that rule out the one
+reading this can verify should refuse rather than guess.
+
+That gap was live for a while and invisible: pasting a post's **link** already
+blocked the author, because a post URL contains `/profile/<handle>/`. Sharing
+the same post from the app asked for a handle instead. One intent, two answers,
+decided by which affordance the client happened to offer. Because no write is reachable from the tool loop at all, a
 fully prompt-injected turn has nothing to capture. `PROTECTED` is enforced at the
 write as well as in the scorer — the audit found three protected accounts already
 on the list, which is the argument for checking where the record is created
