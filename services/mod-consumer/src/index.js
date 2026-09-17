@@ -36,7 +36,7 @@ import {
   loadAtmosphereTools,
 } from '../../../src/lib/moderation/mcp.js';
 import { loadReference, makeIo } from '../../../api/_lib/reference.js';
-import { loadVoice } from '../../../api/_lib/voice.js';
+import { loadAgentConfig } from '../../../api/_lib/agentConfig.js';
 import { runDmPass } from '../../../api/_lib/dmLoop.js';
 import { botAgent, chatView } from '../../../api/_lib/botAgent.js';
 import { upsert } from '../../../api/_lib/modDb.js';
@@ -189,10 +189,10 @@ async function readThreadHistory(t) {
 
 async function answerPublicly(t) {
   const { io } = await reference();
-  const [history, extraTools, voice] = await Promise.all([
+  const [history, extraTools, config] = await Promise.all([
     readThreadHistory(t),
     atmosphereTools(),
-    loadVoice(),
+    loadAgentConfig(),
   ]);
 
   const reply = await answer({
@@ -203,7 +203,8 @@ async function answerPublicly(t) {
     model,
     surface: 'post',
     extraTools,
-    voice: voice?.style,
+    voice: config?.style,
+    guidance: config?.guidance,
   });
 
   const text = reply.text || 'No answer produced.';

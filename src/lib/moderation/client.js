@@ -16,7 +16,7 @@ export const LXM = {
   audit: 'is.dame.mod.audit',
   remove: 'is.dame.mod.remove',
   migrate: 'is.dame.mod.migrate',
-  voice: 'is.dame.mod.voice',
+  config: 'is.dame.mod.config',
 };
 
 /**
@@ -282,18 +282,47 @@ export function migrateRun(agent, { signal } = {}) {
   });
 }
 
-/* ------------------------------------------------------------------- voice */
+/* ------------------------------------------------------ the analyst's config */
 
-/** The analyst's current voice, plus the built-in default it falls back to. */
-export function getVoice(agent, { signal } = {}) {
-  return call(agent, '/api/mod-voice', { lxm: LXM.voice, signal });
+export const CONFIG_NSID = 'is.dame.mod.config';
+export const CONFIG_RKEY = 'self';
+
+/** The effective config: the record, or the cached copy, or the default. */
+export function getAgentConfig(agent, { signal } = {}) {
+  return call(agent, '/api/mod-config', { lxm: LXM.config, signal });
 }
 
-/** Store a voice. An empty string clears it back to the default. */
-export function setVoice(agent, style, { signal } = {}) {
-  return call(agent, '/api/mod-voice', {
-    lxm: LXM.voice,
-    body: { style },
+/**
+ * Publish the config as a record in DAME'S OWN REPO.
+ *
+ * Written here rather than on the server on purpose. The server holds the bot's
+ * credential, and the one thing the bot must not be able to do is rewrite the
+ * instructions it runs under — so the write is signed by dame's session and the
+ * server only ever reads. Same split as list removals.
+ *
+ * The server is then asked to re-read, so its cached fallback matches what was
+ * just published instead of going stale until the next answer.
+ */
+export async function setAgentConfig(
+  agent,
+  { style, guidance },
+  { signal } = {},
+) {
+  const repo = agent.session?.did ?? agent.did;
+  await agent.com.atproto.repo.putRecord({
+    repo,
+    collection: CONFIG_NSID,
+    rkey: CONFIG_RKEY,
+    record: {
+      $type: CONFIG_NSID,
+      style: String(style || '').trim(),
+      guidance: String(guidance || '').trim(),
+      updatedAt: new Date().toISOString(),
+    },
+  });
+  return call(agent, '/api/mod-config', {
+    lxm: LXM.config,
+    body: { refresh: true },
     signal,
   });
 }

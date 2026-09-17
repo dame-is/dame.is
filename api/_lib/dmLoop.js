@@ -36,7 +36,7 @@ import {
 } from '../../src/lib/moderation/command.js';
 import { select, upsert } from './modDb.js';
 import { applyCommand } from './listWrite.js';
-import { loadVoice } from './voice.js';
+import { loadAgentConfig } from './agentConfig.js';
 
 /** How many messages one pass will answer. */
 export const MAX_TURNS = 5;
@@ -140,11 +140,11 @@ export async function runDmPass({
   if (!inbound.length)
     return { answered: 0, scanned: entries.length, turns: [] };
 
-  // Only now is any of this worth loading. The voice is read per pass rather
-  // than cached, so an edit in the portal is felt on the next message instead
-  // of whenever a cache happened to expire — it is one row against a model call
-  // that takes five to twenty seconds.
-  const [io, voice] = await Promise.all([getIo(), loadVoice()]);
+  // Only now is any of this worth loading. The config is read per pass rather
+  // than cached in process, so publishing a new record is felt on the next
+  // message instead of whenever a cache happened to expire — it is one request
+  // against a model call that takes five to twenty seconds.
+  const [io, config] = await Promise.all([getIo(), loadAgentConfig()]);
 
   const turns = [];
   for (const entry of inbound.slice(-MAX_TURNS)) {
@@ -208,7 +208,8 @@ export async function runDmPass({
       model,
       surface: 'dm',
       extraTools,
-      voice: voice?.style,
+      voice: config?.style,
+      guidance: config?.guidance,
     });
 
     const text = reply.text || 'No answer produced.';

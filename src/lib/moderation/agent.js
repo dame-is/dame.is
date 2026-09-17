@@ -102,11 +102,23 @@ export const SYSTEM_PROMPT = `${PROMPT_BODY}\n\n${SURFACE.dm}\n\n${DEFAULT_VOICE
 /**
  * @param {'dm'|'post'} surface
  * @param {object} [opts]
- * @param {string} [opts.voice] replaces DEFAULT_VOICE; blank or missing keeps it
+ * @param {string} [opts.voice]    replaces DEFAULT_VOICE; blank or missing keeps it
+ * @param {string} [opts.guidance] dame's standing instructions, APPENDED
+ *
+ * Guidance is appended rather than merged, and it lands after the rules rather
+ * than before them. It can add a preference — always mention posting frequency,
+ * lead with the band — and it cannot delete the paragraph about what the score
+ * is not, or the untrusted-input handling, because those are earlier in the same
+ * string and still there. Steering, not replacing: a config record that could
+ * quietly drop the measured basis of the whole system would be a config record
+ * that breaks it without anything failing.
  */
-export function systemPromptFor(surface = 'dm', { voice } = {}) {
+export function systemPromptFor(surface = 'dm', { voice, guidance } = {}) {
   const tone = String(voice || '').trim() || DEFAULT_VOICE;
-  return `${PROMPT_BODY}\n\n${SURFACE[surface] ?? SURFACE.dm}\n\n${tone}`;
+  const extra = String(guidance || '').trim();
+  const blocks = [PROMPT_BODY, SURFACE[surface] ?? SURFACE.dm, tone];
+  if (extra) blocks.push(`STANDING INSTRUCTIONS FROM DAME.\n${extra}`);
+  return blocks.join('\n\n');
 }
 
 /**
@@ -210,10 +222,11 @@ export async function answer({
   surface = 'dm',
   extraTools = {},
   voice,
+  guidance,
 }) {
   const result = await generate({
     model,
-    system: systemPromptFor(surface, { voice }),
+    system: systemPromptFor(surface, { voice, guidance }),
     // The gate's own tools cannot be shadowed by anything merged in: a remote
     // server that published a `preflight_post` would otherwise replace the one
     // piece of this system whose output has to stay reproducible.

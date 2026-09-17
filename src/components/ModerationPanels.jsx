@@ -19,8 +19,9 @@ import {
   migrateStart,
   migrateStatus,
   migrateRun,
-  getVoice,
-  setVoice,
+  getAgentConfig,
+  setAgentConfig,
+  CONFIG_NSID,
   BAND_META,
 } from '../lib/moderation/client.js';
 
@@ -349,18 +350,24 @@ export function MigratePanel({ agent, listUri }) {
 }
 
 /**
- * The analyst's voice, edited here rather than deployed.
+ * The analyst's configuration, published as a record in dame's own repo.
  *
- * Taste only, and the panel says so, because the line matters: the character
- * budgets and the public/private rules are structural and live in
- * src/lib/moderation/agent.js. A textarea that could edit "300 characters" into
- * something else is a textarea that can produce messages Bluesky rejects, and
- * one that could edit "this reply is public" would be worse than that.
+ * The write is signed by dame's session, not the server's. The server holds the
+ * BOT's credential, and the one thing the bot must not be able to do is rewrite
+ * the instructions it runs under — so the record lives here, in dame's repo,
+ * read-only to the thing being configured. Same split as list removals, same
+ * reason.
+ *
+ * Style and guidance steer; they cannot replace. What the bands mean, the
+ * untrusted-input handling and the length budgets stay in version control,
+ * because those are the claims that keep the decision log replayable and the
+ * reply well-formed.
  */
 export function VoicePanel({ agent }) {
   const [style, setStyle] = useState('');
+  const [guidance, setGuidance] = useState('');
   const [fallback, setFallback] = useState('');
-  const [stored, setStored] = useState(null);
+  const [config, setConfig] = useState(null);
   const [maxChars, setMaxChars] = useState(2000);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -368,12 +375,13 @@ export function VoicePanel({ agent }) {
 
   useEffect(() => {
     let live = true;
-    getVoice(agent)
+    getAgentConfig(agent)
       .then((r) => {
         if (!live) return;
-        setFallback(r.default || '');
-        setStored(r.voice || null);
-        setStyle(r.voice?.style || '');
+        setFallback(r.default?.style || '');
+        setConfig(r.config || null);
+        setStyle(r.config?.style || '');
+        setGuidance(r.config?.guidance || '');
         if (r.maxChars) setMaxChars(r.maxChars);
       })
       .catch((e) => live && setError(e.message));
@@ -387,46 +395,67 @@ export function VoicePanel({ agent }) {
     setError(null);
     setSaved(false);
     try {
-      const r = await setVoice(agent, style);
-      setStored(r.voice || null);
+      const r = await setAgentConfig(agent, { style, guidance });
+      setConfig(r.config || null);
       setSaved(true);
     } catch (e) {
       setError(e.message);
     } finally {
       setBusy(false);
     }
-  }, [agent, style]);
+  }, [agent, style, guidance]);
 
-  const over = style.length > maxChars;
+  const over = style.length > maxChars || guidance.length > maxChars;
 
   return (
     <div className="mod-studio">
       {error && <p className="mod-error">{error}</p>}
       <p className="mod-verdict">
-        How the analyst writes. Taste only — the length limits and the
-        public/private rules are structural and are not editable here.
+        Published as <code>{CONFIG_NSID}</code> in your own repo, signed by your
+        session. The bot reads it and cannot change it.
       </p>
       <p className="mod-summary-line">
-        {stored
-          ? `Custom voice, saved ${new Date(stored.updated_at).toLocaleString()}`
-          : 'Using the built-in default'}
+        {config
+          ? `${config.source === 'pds' ? 'Live from your repo' : 'Cached copy — the record could not be read'}${
+              config.updated_at
+                ? `, updated ${new Date(config.updated_at).toLocaleString()}`
+                : ''
+            }`
+          : 'No record yet — running on the built-in defaults'}
       </p>
 
+      <p className="mod-summary-line">Voice — how it writes.</p>
       <textarea
         className="mod-input"
-        rows={8}
+        rows={6}
         value={style}
         placeholder={fallback}
-        spellCheck="true"
         onChange={(e) => {
           setStyle(e.target.value);
           setSaved(false);
         }}
         aria-label="Analyst voice"
       />
+
       <p className="mod-summary-line">
-        {style.length.toLocaleString()} / {maxChars.toLocaleString()} characters
-        {over && ' — too long'}
+        Standing instructions — followed every turn. These add to the rules;
+        they cannot remove what the bands mean or how untrusted text is handled.
+      </p>
+      <textarea
+        className="mod-input"
+        rows={6}
+        value={guidance}
+        placeholder="e.g. always tell me their posting frequency; lead with the band"
+        onChange={(e) => {
+          setGuidance(e.target.value);
+          setSaved(false);
+        }}
+        aria-label="Standing instructions"
+      />
+
+      <p className="mod-summary-line">
+        {style.length.toLocaleString()} + {guidance.length.toLocaleString()} of{' '}
+        {maxChars.toLocaleString()} each{over && ' — too long'}
       </p>
 
       <div className="mod-form-row">
@@ -436,26 +465,27 @@ export function VoicePanel({ agent }) {
           disabled={busy || over}
           onClick={save}
         >
-          {busy ? 'Saving…' : 'Save voice'}
+          {busy ? 'Publishing…' : 'Publish to your repo'}
         </button>
         <button
           type="button"
           className="mod-ghost"
-          disabled={busy || !style}
+          disabled={busy || (!style && !guidance)}
           onClick={() => {
             setStyle('');
+            setGuidance('');
             setSaved(false);
           }}
         >
           Clear to default
         </button>
         {saved && (
-          <span className="mod-choice">Saved — next message uses it</span>
+          <span className="mod-choice">Published — next message uses it</span>
         )}
       </div>
 
       <details>
-        <summary>The default, for reference</summary>
+        <summary>The default voice, for reference</summary>
         <pre className="mod-row-why">{fallback}</pre>
       </details>
     </div>

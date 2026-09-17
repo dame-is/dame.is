@@ -86,6 +86,9 @@ not for gating. A single score would imply precision this data does not support.
 | `src/lib/moderation/client.js`        | Browser calls, service-auth minting, list removal       |
 | `api/_lib/modDb.js`                   | PostgREST client for the `mod` schema (server only)     |
 | `api/_lib/reference.js`               | The scoring snapshot, loaded once and shared            |
+| `api/_lib/agentConfig.js`             | The analyst's voice and standing instructions           |
+| `src/lib/moderation/mcp.js`           | The Atmosphere MCP, as read-only tools                  |
+| `src/lib/moderation/command.js`       | Typed commands, parsed — never reaching the model       |
 | `api/_lib/dmLoop.js`                  | One DM intake pass, shared by droplet and fallback      |
 | `api/_lib/serviceAuth.js`             | Verifies browser tokens against your DID document       |
 | `api/_lib/botAgent.js`                | Moderator session, resumed rather than re-established   |
@@ -333,6 +336,54 @@ are cheap insurance against two duller things: injection strings already exist
 in the wild aimed at scrapers and other people's bots, and one will land here by
 accident eventually; and privacy is a state that ends, with no warning and no
 time to retrofit.
+
+### Steering it
+
+The analyst's register and standing instructions live in a record in **dame's own
+repo**, `is.dame.mod.config` at rkey `self`, edited from the Voice tab and signed
+by dame's browser session.
+
+In dame's repo rather than the bot's, on purpose. The bot's app password lives on
+a droplet; if it leaks, the attacker gets the bot and must not also get the
+ability to rewrite the instructions the bot runs under. Keeping the record on the
+other side of that credential makes the configuration read-only to the thing
+being configured — which the bot's own repo could not do however the write was
+guarded. Every successful read is cached in `mod.settings`, so an unreachable PDS
+falls back to the last known good config instead of silently dropping to defaults
+mid-conversation.
+
+Two fields, and the line between them and the rest is deliberate:
+
+- `style` replaces the voice block — how it writes.
+- `guidance` is **appended after** the rules as standing instructions: "always
+  give posting frequency", "lead with the band".
+
+Neither can remove what the bands mean, how `<untrusted>` text is handled, or the
+character budgets. Those stay in version control because they are the claims that
+keep the decision log replayable and the reply well-formed: a record that could
+edit "300 characters" produces messages the server rejects, and one that could
+edit what `CONNECTED` means breaks "here is exactly what it saw".
+
+### Acting on it
+
+Commands are **parsed, not interpreted**, and never reach the model:
+
+```
+block @handle      unblock @handle      list add @handle      list remove @handle
+```
+
+The sender check answers "who started this turn". It does not cover what the
+analyst reads _during_ one — and it now reads author feeds through the Atmosphere
+tools. So "block them" is refused rather than resolved: a pronoun resolved
+against a stranger's post is a command from that post, not from dame. A command
+naming two accounts is refused as well; the safe reading of an ambiguous
+instruction to block someone is not to.
+
+Because there is no write reachable from the tool loop, a fully prompt-injected
+turn still has nothing to capture. `PROTECTED` is enforced at the write as well as
+in the scorer — the audit found three protected accounts already on the list,
+which is the argument for checking where the record is created rather than
+trusting everything upstream.
 
 ## Known limits
 
