@@ -28,6 +28,7 @@
 // second and weaker axis with its evidence attached.
 
 import { APPVIEW } from '../../src/config.js';
+import { harvestPost } from '../../src/lib/moderation/harvest.js';
 import { untrusted } from '../../src/lib/moderation/agent.js';
 import { LABELS } from '../../src/lib/moderation/command.js';
 import { selectAll, upsert } from './modDb.js';
@@ -59,6 +60,50 @@ export function evidenceUriFor(row) {
   const rec = (row?.records || []).find((r) => KINDS.has(r.kind));
   if (!rec?.rkey) return null;
   return `at://${row.did}/${rec.collection || 'app.bsky.feed.post'}/${rec.rkey}`;
+}
+
+/** The post a plan was built from. */
+function planUri(plan) {
+  return (
+    plan?.totals?.uri ||
+    /from (at:\/\/\S+)/.exec(String(plan?.note ?? ''))?.[1] ||
+    null
+  );
+}
+
+/**
+ * Fill in evidence for a plan made before there was anywhere to put it.
+ *
+ * Re-harvests, which is the expensive thing evidence_uri exists to avoid -- but
+ * paying it once beats telling someone to send the post again, which is the
+ * complaint that produced half of this file.
+ */
+async function backfillEvidence(plan, rows) {
+  const uri = planUri(plan);
+  if (!uri) return 0;
+  let harvest;
+  try {
+    harvest = await harvestPost(uri);
+  } catch {
+    return 0;
+  }
+  const byDid = new Map(harvest.participants.map((p) => [p.did, p]));
+  const writes = [];
+  for (const r of rows) {
+    const evidence = evidenceUriFor(byDid.get(r.did));
+    if (evidence) {
+      writes.push({
+        plan_id: plan.id,
+        did: r.did,
+        band: r.band,
+        evidence_uri: evidence,
+      });
+    }
+  }
+  for (let i = 0; i < writes.length; i += 200) {
+    await upsert('decision', writes.slice(i, i + 200));
+  }
+  return writes.length;
 }
 
 /** Post text by URI, best effort, 25 at a time. */
@@ -149,6 +194,21 @@ export async function runTriage(plan, { generate, model, perRun = PER_RUN }) {
     eq: { plan_id: plan.id },
     order: 'did.asc',
   });
+
+  // A plan from before this column existed carries no evidence at all. Go and
+  // get it rather than refusing, then re-read.
+  if (rows.length && !rows.some((r) => r.evidence_uri)) {
+    const filled = await backfillEvidence(plan, rows);
+    if (filled) {
+      const fresh = await selectAll('decision', {
+        select: 'did,band,evidence_uri,triage',
+        eq: { plan_id: plan.id },
+        order: 'did.asc',
+      });
+      rows.length = 0;
+      rows.push(...fresh);
+    }
+  }
 
   const withText = rows.filter((r) => r.evidence_uri);
   const pending = withText.filter((r) => !r.triage).slice(0, perRun);

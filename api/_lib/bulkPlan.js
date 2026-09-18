@@ -105,6 +105,9 @@ export async function proposePlan({ link, kind }) {
       approved_bands: null,
       totals: {
         ...summary.totals,
+        // The post itself, so a later triage does not have to read it back out
+        // of a prose note.
+        uri: target.uri,
         kind,
         selected: chosen.length,
         byBand,
