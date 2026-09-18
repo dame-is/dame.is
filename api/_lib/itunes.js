@@ -32,7 +32,10 @@ async function fetchJson(url, timeoutMs = ITUNES_TIMEOUT_MS) {
  * Throws on an upstream failure so the caller can tell a miss (Apple has no
  * such track) from a wobble (don't cache that).
  */
-export async function lookupArtwork({ isrc, appleId, track, artist }, { timeoutMs } = {}) {
+export async function lookupArtwork(
+  { isrc, appleId, track, artist },
+  { timeoutMs } = {},
+) {
   if (isrc) {
     const data = await fetchJson(
       `${ITUNES_LOOKUP}?isrc=${encodeURIComponent(isrc)}&entity=song&limit=1`,

@@ -43,6 +43,35 @@ export const KINDS = {
   everyone: null,
 };
 
+/**
+ * How a content triage reads a post. Three, deliberately: a five-point scale of
+ * toxicity invites a precision nobody has, and the only line that carries
+ * weight is between attacking a person and attacking an argument.
+ *
+ * NOT BANDS. A band comes from the follow graph and is reproducible against a
+ * snapshot; these come from a model reading text and are reproducible by nobody.
+ * They are kept apart everywhere -- different column, different approval, a
+ * different `approved_via` in the log.
+ */
+export const LABELS = ['hostile', 'arguing', 'neutral'];
+
+/** Words that mean one of those, as a person would actually type them. */
+const LABEL_WORDS = new Map([
+  ['hostile', 'hostile'],
+  ['toxic', 'hostile'],
+  ['toxics', 'hostile'],
+  ['abusive', 'hostile'],
+  ['nasty', 'hostile'],
+  ['arguing', 'arguing'],
+  ['argumentative', 'arguing'],
+  ['neutral', 'neutral'],
+]);
+
+/** The label a word means, or null. */
+export function parseLabel(token) {
+  return LABEL_WORDS.get(String(token ?? '').toLowerCase()) ?? null;
+}
+
 const HANDLE = /^@?([a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/i;
 const DID = /^did:[a-z]+:[a-zA-Z0-9._%-]+$/;
 const PROFILE = /\/profile\/([^/?#\s]+)/;
@@ -69,6 +98,10 @@ const VERBS = [
   // and it is the one verb here that produces a MODEL's opinion rather than a
   // graph fact, which is why it is named for reading rather than for judging.
   { match: /^read\b/i, action: 'read' },
+  // Reads what a plan's accounts actually wrote and buckets them by tone. The
+  // one bulk path whose oracle is a model rather than the graph, which is why
+  // it labels and never acts.
+  { match: /^triage\b/i, action: 'triage' },
   { match: /^cancel\b/i, action: 'cancel' },
   { match: /^list\s+add\b/i, action: 'list_add' },
   { match: /^list\s+remove\b/i, action: 'list_remove' },
@@ -198,7 +231,8 @@ export function parseCommand(
   if (
     verb.action === 'approve' ||
     verb.action === 'cancel' ||
-    verb.action === 'review'
+    verb.action === 'review' ||
+    verb.action === 'triage'
   ) {
     const tokens = rest.split(/[\s,]+/).filter(Boolean);
     const code = (tokens.shift() || '').toLowerCase();
@@ -206,6 +240,10 @@ export function parseCommand(
     const bands = tokens
       .map((t) => t.toUpperCase())
       .filter((t) => BANDS.includes(t));
+    // "approve <code> toxic" is a different kind of approval from
+    // "approve <code> UNKNOWN" and is carried separately all the way down, so
+    // the log can say which of the two put someone on the list.
+    const labels = [...new Set(tokens.map(parseLabel).filter(Boolean))];
     // Approving named accounts is the personal path: dame read these and
     // decided. It is recorded differently from a band approval, because "you
     // were in a category I approved" and "I looked at your account" are
@@ -217,6 +255,7 @@ export function parseCommand(
       // PROTECTED is never carried, whatever is typed. The veto is not a
       // default that an approval can talk its way past.
       bands: bands.filter((b) => b !== 'PROTECTED'),
+      labels,
       actors,
       needsTarget: !valid,
       raw,
@@ -316,6 +355,8 @@ export const WRITE_ACTIONS = new Set([
   'undo',
   'cancel',
 ]);
+// `triage` is NOT here. It reads posts and writes labels; it puts nobody on the
+// list, and approving what it found is a separate command.
 
 /** Would running this change the list? */
 export function isWrite(cmd) {

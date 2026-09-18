@@ -16,7 +16,8 @@ function isPrivateV4(ip) {
   const parts = ip.split('.');
   if (parts.length !== 4) return true; // malformed → fail closed
   const [a, b] = parts.map((p) => Number(p));
-  if (![a, b].every((n) => Number.isInteger(n) && n >= 0 && n <= 255)) return true;
+  if (![a, b].every((n) => Number.isInteger(n) && n >= 0 && n <= 255))
+    return true;
   if (a === 0) return true; // 0.0.0.0/8 "this network"
   if (a === 10) return true; // 10/8 private
   if (a === 127) return true; // 127/8 loopback
@@ -100,7 +101,9 @@ export async function assertPublicHttpUrl(rawUrl) {
   }
   for (const { address } of addresses) {
     if (isPrivateIp(address)) {
-      throw new Error('Refusing to fetch a private, loopback, or link-local address.');
+      throw new Error(
+        'Refusing to fetch a private, loopback, or link-local address.',
+      );
     }
   }
   return parsed;

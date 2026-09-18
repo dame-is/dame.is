@@ -164,6 +164,7 @@ export function planVariablesFor(plan) {
     code: plan.code,
     kind: plan.kind,
     author: plan.author?.handle || plan.author?.did || 'unknown',
+    withText: plan.withText ?? 0,
     authorBand: plan.author?.band || 'UNSCORED',
     authorVouches: plan.author?.vouches ?? 0,
     authorFollowers: plan.author?.followers ?? null,
@@ -215,6 +216,17 @@ export function planActions(plan) {
     out.push({
       label: `Read ${at}'s recent posts first`,
       command: `read ${at}`,
+    });
+  }
+
+  // Sorting by band tells you who would notice. On a post with hundreds of
+  // quotes that is 639 UNKNOWN and no way to tell the person who wrote an
+  // insult from the person arguing about a policy -- so when there are words to
+  // read, offer to read them BEFORE offering to add everyone.
+  if (plan.withText) {
+    out.push({
+      label: `Sort the ${plan.withText} who wrote something by tone`,
+      command: `triage ${plan.code}`,
     });
   }
 

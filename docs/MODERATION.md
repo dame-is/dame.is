@@ -411,9 +411,12 @@ Reports are filled from a template, so they are instant, free, and the same
 shape every time — which is what a report is for. Both templates are editable in
 the Voice tab.
 
-**The post you last sent is remembered**, per conversation. `add likers` with
-nothing attached uses it, so scanning a post and then acting on it does not mean
-sending the post twice. A scan also stores its plan, which is why its menu can
+**The post you last sent is remembered**, per conversation, whichever route
+answered it. `add likers` with nothing attached uses it, so scanning a post and
+then acting on it does not mean sending the post twice. That was once written
+only by the scan path, so attaching a post and asking about it _in words_ — the
+turn that goes to the analyst — recorded nothing, and `add quoters` a message
+later asked for a post that was two messages up the screen. A scan also stores its plan, which is why its menu can
 act immediately: the code is already in hand.
 
 ### Commands
@@ -429,7 +432,10 @@ act immediately: the code is already in hand.
 | `cancel <code>`                           | Records the decision **not** to act                                                                                                          |
 | `undo` · `undo last` · `undo <code>`      | Takes a plan's additions back off the list                                                                                                   |
 | `history` · `history @handle`             | What was done, most recent first                                                                                                             |
-| `read @handle`                            | Reads their recent posts and describes how they behave. **The one command that asks a model for an opinion** — see below                     |
+| `read @handle`                            | Reads their recent posts and describes how they behave. **Asks a model for an opinion** — see below                                          |
+| `triage <code>`                           | Reads what a plan's accounts actually wrote and buckets them by tone. Labels only; adds nobody                                               |
+| `review <code> hostile`                   | Those accounts **with their own words**                                                                                                      |
+| `approve <code> hostile`                  | Adds only that bucket. Recorded as `triage:hostile`, never as a band                                                                         |
 
 `<code>` is the eight characters a scan hands back. **You almost never type
 one.** Bare `undo` means the last thing that touched the list, and every code a
@@ -534,6 +540,55 @@ each other for the same reason.
 
 PROTECTED authors get no add option, here as everywhere. Reading them is still
 offered, because reading changes nothing.
+
+### Sorting by what people wrote
+
+A band answers _who would notice if I blocked them_. On a post with 839 quote
+posts that gives you 639 UNKNOWN and no way to tell the person who wrote
+`Cunt.` from the person arguing about a moderation policy. Those are the same
+band and they are not the same decision.
+
+`triage <code>` reads what each account actually wrote on that post — its quote
+or its reply — and buckets it:
+
+| Label     | Is                                                                         |
+| --------- | -------------------------------------------------------------------------- |
+| `hostile` | Aimed at a person: insults, slurs, dehumanising language, calls to pile on |
+| `arguing` | Disagrees with the claim or the decision, including bluntly or angrily     |
+| `neutral` | Neither: commentary, jokes, questions, agreement                           |
+| no words  | Likes and reposts carry nothing to read, reported separately               |
+
+Three labels, deliberately. A five-point toxicity scale invites a precision
+nobody has, and the only line carrying weight is between attacking a person and
+attacking an argument. Heat is not the test: _"this policy is cowardly and
+indefensible"_ is `arguing`; _"you are a worthless piece of shit"_ is `hostile`.
+Ties go to the less severe label, because somebody gets added to a block list
+off the back of this and the two mistakes do not cost the same.
+
+**This is the September sweep's shape with a different oracle**, and that is
+worth saying plainly. Bulk-adding everyone a graph walk returned is what this
+system exists to prevent; bulk-adding everyone a model disliked is the same move
+with a more persuasive oracle. What makes it defensible is not the model being
+good at this:
+
+- the subset is always **smaller and better justified** than "everyone who
+  engaged", which is the alternative actually on the menu;
+- the words that produced each label are stored beside it, so _"why am I on your
+  list"_ is answered with **your own sentence** rather than "a computer said so";
+- `review <code> hostile` prints those words before anything is approved;
+- approving is a separate, human, per-label step, and PROTECTED is still vetoed
+  at the write.
+
+**A label is not a band, anywhere.** Bands come from the follow graph and are
+reproducible — re-run `score.js` against the snapshot and you get the same
+answer, which is what keeps the decision log meaningful years later. A model
+verdict is reproducible by nobody, including us. So it lives in its own column,
+is approved by its own command, and is recorded as `approved_via: triage:hostile`
+rather than as a band. Nothing a triage produces can move an account between
+bands.
+
+It is resumable like an approval: 300 accounts per message, sending it again
+continues.
 
 ### What a command can never do
 

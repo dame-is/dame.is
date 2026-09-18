@@ -33,7 +33,11 @@ vi.mock('@atproto/api', () => ({
       this.session = null;
     }
     async login() {
-      this.session = { did: loginAs, handle: 'bot.example.com', refreshJwt: 'r' };
+      this.session = {
+        did: loginAs,
+        handle: 'bot.example.com',
+        refreshJwt: 'r',
+      };
       this.opts?.persistSession?.('create', this.session);
       return { data: this.session };
     }
@@ -91,18 +95,14 @@ describe('botAgent', () => {
 
   it('refuses when the password authenticates as a different account', async () => {
     loginAs = OTHER;
-    await expect(botAgent()).rejects.toThrow(
-      /belong to different accounts/,
-    );
+    await expect(botAgent()).rejects.toThrow(/belong to different accounts/);
   });
 
   it('refuses a resumed session for a different account too', async () => {
     // A stored session written under an earlier misconfiguration would
     // otherwise sail past the check that only runs on fresh logins.
     sessionRow = { did: OTHER, refreshJwt: 'r' };
-    await expect(botAgent()).rejects.toThrow(
-      /belong to different accounts/,
-    );
+    await expect(botAgent()).rejects.toThrow(/belong to different accounts/);
   });
 
   it('accepts a handle identifier, and cannot check it', async () => {

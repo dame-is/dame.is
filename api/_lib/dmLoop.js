@@ -25,7 +25,10 @@ import { generateText } from 'ai';
 
 import { ME_DID } from '../../src/config.js';
 import { rosterFromEnv } from '../../src/lib/moderation/senders.js';
-import { resolveActor } from '../../src/lib/moderation/target.js';
+import {
+  resolveActor,
+  extractTargets,
+} from '../../src/lib/moderation/target.js';
 import {
   answer,
   chunkForDm,
@@ -58,11 +61,13 @@ import {
 } from '../../src/lib/moderation/phrases.js';
 import { select, upsert } from './modDb.js';
 import { applyCommand } from './listWrite.js';
+import { runTriage, reviewTriage } from './triage.js';
 import {
   proposePlan,
   findPlan,
   applyPlan,
   applyPlanToActors,
+  applyPlanToTriage,
   reviewPlan,
   cancelPlan,
   undoPlan,
@@ -152,6 +157,33 @@ async function lastPost(convoId) {
   return row.last_post;
 }
 
+/**
+ * Record the post dame just put in front of the bot.
+ *
+ * REMEMBERED ON SIGHT, not only when a scan happens to run. The only writer
+ * used to be the post-scan path, so attaching a post and asking about it IN
+ * WORDS -- "there are a lot of quote posts on this that are toxic" -- sent the
+ * turn to the analyst and recorded nothing. "add quoters" one message later was
+ * then answered with "send me the post", about a post two messages up the
+ * screen. The interface forgetting what it was just told is the whole thing
+ * last_post exists to prevent, and it was only doing it on the path that needed
+ * it least.
+ *
+ * Still only ever written from dame's own message, so the target of a bulk
+ * action comes from her rather than from anything the analyst read.
+ */
+async function rememberPost(convoId, uri) {
+  if (!uri) return;
+  await upsert('dm_choice', [
+    {
+      convo_id: convoId,
+      created_at: new Date().toISOString(),
+      last_post: uri,
+      last_post_at: new Date().toISOString(),
+    },
+  ]).catch(() => {});
+}
+
 /** The command behind a numbered reply, if it is still live. */
 async function takeChoice(convoId, n) {
   const rows = await select('dm_choice', {
@@ -209,7 +241,7 @@ function renderReview(plan, review) {
 export async function runCommand(
   cmd,
   writeAgent,
-  { template, reportTemplate, lookUp, canWrite = true } = {},
+  { template, reportTemplate, lookUp, canWrite = true, generate, model } = {},
 ) {
   const say = (text, options = null) => ({ text, options });
 
@@ -296,13 +328,78 @@ export async function runCommand(
     ]);
   }
 
-  if (['approve', 'cancel', 'review'].includes(cmd.action)) {
+  if (['approve', 'cancel', 'review', 'triage'].includes(cmd.action)) {
     const plan = await findPlan(cmd.code);
     if (!plan) return say(`No plan with code ${cmd.code}.`);
+
+    // Read what they wrote and bucket it. Labels only -- nobody is added here,
+    // and approving a bucket is a separate command on purpose.
+    if (cmd.action === 'triage') {
+      const out = await runTriage(plan, { generate, model });
+      const { counts } = out;
+      const lines = [
+        `Read ${out.total - out.noText - out.remaining} of the ${out.total} accounts on ${cmd.code}.`,
+        '',
+        `Hostile: ${counts.hostile}  (aimed at a person)`,
+        `Arguing: ${counts.arguing}  (aimed at the argument)`,
+        `Neutral: ${counts.neutral}`,
+        `No words: ${out.noText}  (likes and reposts carry nothing to read)`,
+      ];
+      if (out.remaining) {
+        lines.push(
+          '',
+          `${out.remaining} left. Send "triage ${cmd.code}" again.`,
+        );
+      }
+      lines.push(
+        '',
+        'This is a model reading posts, not a band. Their own words are kept next to each label, so read before you approve.',
+      );
+      const choices = [];
+      if (counts.hostile) {
+        choices.push({
+          label: `Show me the ${counts.hostile} hostile ones and what they said`,
+          command: `review ${cmd.code} hostile`,
+        });
+        choices.push({
+          label: `Add the ${counts.hostile} hostile ones`,
+          command: `approve ${cmd.code} hostile`,
+        });
+      }
+      choices.push({ label: 'Do nothing', command: `cancel ${cmd.code}` });
+      return say(
+        `${lines.join('\n')}\n\nACTIONS:\n${renderChoices(choices)}`,
+        choices,
+      );
+    }
 
     if (cmd.action === 'cancel') {
       await cancelPlan(plan);
       return say(`Cancelled ${cmd.code}. Nothing was added.`);
+    }
+
+    // A label review prints the WORDS, which is the whole point: a label
+    // nobody can check is just a model's opinion with a number attached.
+    if (cmd.action === 'review' && cmd.labels?.length) {
+      const label = cmd.labels[0];
+      const out = await reviewTriage(plan, label);
+      if (!out.total)
+        return say(`Nothing in ${cmd.code} was read as ${label}.`);
+      const lines = out.rows.map(
+        (r) =>
+          `${r.band} - "${String(r.triage_quote).replace(/\s+/g, ' ').slice(0, 160)}"`,
+      );
+      const choices = [
+        {
+          label: `Add all ${out.total} of these`,
+          command: `approve ${cmd.code} ${label}`,
+        },
+        { label: 'Do nothing', command: `cancel ${cmd.code}` },
+      ];
+      return say(
+        `${out.total} read as ${label}. First ${out.rows.length}:\n\n${lines.join('\n\n')}\n\nACTIONS:\n${renderChoices(choices)}`,
+        choices,
+      );
     }
 
     if (cmd.action === 'review') {
@@ -317,6 +414,19 @@ export async function runCommand(
       const out = await applyPlanToActors(writeAgent, plan, cmd.actors);
       return say(out.message);
     }
+    if (cmd.labels?.length) {
+      const out = await applyPlanToTriage(writeAgent, plan, cmd.labels[0]);
+      return say(
+        out.message,
+        out.added
+          ? [
+              { label: `Undo those ${out.added}`, command: `undo ${cmd.code}` },
+              { label: 'Show me the record', command: 'history' },
+            ]
+          : null,
+      );
+    }
+
     if (!cmd.bands.length) {
       return say(
         `Name the bands, like "approve ${cmd.code} UNKNOWN", or name the accounts. PROTECTED is never carried.`,
@@ -561,6 +671,16 @@ export async function runDmPass({
 
     const embedUri = sharedPostUri(entry.message);
     const msgLinks = facetLinks(entry.message);
+
+    // Before any routing decision, because every route should leave the post
+    // remembered and only one of them used to.
+    await rememberPost(
+      entry.convoId,
+      embedUri ||
+        msgLinks.find((l) => extractTargets(l).length) ||
+        extractTargets(entry.message.text || '')[0] ||
+        null,
+    );
     let cmd = parseCommand(entry.message.text, {
       embedUri,
       links: msgLinks,
@@ -701,6 +821,8 @@ export async function runDmPass({
           reportTemplate: config?.report,
           lookUp: async (a) => (await getIo()).lookUp(a),
           canWrite,
+          generate,
+          model: activeModel,
         });
       } catch (err) {
         reply = {

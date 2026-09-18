@@ -41,6 +41,7 @@ import { KINDS } from '../../src/lib/moderation/command.js';
 import { select, selectAll, upsert, update } from './modDb.js';
 import { loadReference } from './reference.js';
 import { listUri } from './listWrite.js';
+import { evidenceUriFor } from './triage.js';
 
 /**
  * How many listitems one `approve` will create.
@@ -128,6 +129,9 @@ export async function proposePlan({ link, kind }) {
       distance: r.distance ?? null,
       vouches: r.vouches ?? null,
       action: null,
+      // Where this account's words live, recorded now so a later triage does
+      // not have to re-walk 60 pages of Constellation to find them again.
+      evidence_uri: evidenceUriFor(r),
     })),
   );
 
@@ -136,6 +140,9 @@ export async function proposePlan({ link, kind }) {
     planId,
     uri: target.uri,
     author,
+    // How many wrote something. Likes and reposts carry no words, so this is
+    // the ceiling on what a content triage could ever say anything about.
+    withText: chosen.filter((r) => evidenceUriFor(r)).length,
     kind,
     total: chosen.length,
     byBand,
@@ -207,11 +214,58 @@ export async function applyPlan(agent, plan, bands) {
   }
 
   const slice = pending.slice(0, PER_APPROVAL);
+  const { added, failed, rateLimited } = await writeRows(agent, plan, slice, {
+    uri,
+    bot,
+    via: 'band',
+  });
+  if (rateLimited) {
+    return {
+      ok: true,
+      added,
+      remaining: pending.length - added,
+      message: `Added ${added}. Hit the write rate limit. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again in an hour for the remaining ${pending.length - added}.`,
+    };
+  }
+
+  await update(
+    'plan',
+    { eq: { id: plan.id } },
+    {
+      approved_at: plan.approved_at || new Date().toISOString(),
+      approved_bands: wanted,
+    },
+  );
+
+  const remaining = pending.length - added;
+  return {
+    ok: true,
+    added,
+    failed,
+    remaining,
+    message:
+      `Added ${added} to the list${failed ? `, ${failed} failed` : ''}.` +
+      (remaining
+        ? ` ${remaining} left. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again to continue.`
+        : ''),
+  };
+}
+
+/**
+ * Create the listitems for a set of already-chosen rows.
+ *
+ * Shared by band approvals and label approvals so there is one place that knows
+ * how a listitem gets made and how it gets logged. `via` is the whole reason
+ * both exist: "you were in a category I approved", "I read your profile and
+ * decided" and "a model read what you wrote and I approved that reading" are
+ * three different answers to why someone is on the list, and the log has to be
+ * able to tell them apart.
+ */
+async function writeRows(agent, plan, rows, { uri, bot, via }) {
   let added = 0;
   let failed = 0;
-
-  for (let i = 0; i < slice.length; i += BATCH) {
-    const batch = slice.slice(i, i + BATCH);
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH);
     try {
       await agent.com.atproto.repo.applyWrites({
         repo: bot,
@@ -235,7 +289,7 @@ export async function applyPlan(agent, plan, bands) {
           band: r.band,
           action: 'list_add',
           acted_at: now,
-          approved_via: 'band',
+          approved_via: via,
         })),
       );
       added += batch.length;
@@ -244,26 +298,44 @@ export async function applyPlan(agent, plan, bands) {
       const message = String(err?.message || err);
       // A rate limit means stop, not retry. The remaining budget is gone and
       // approving again in an hour is the correct backoff.
-      if (/rate ?limit/i.test(message)) {
-        return {
-          ok: true,
-          added,
-          remaining: pending.length - added,
-          message: `Added ${added}. Hit the write rate limit. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again in an hour for the remaining ${pending.length - added}.`,
-        };
-      }
+      if (/rate ?limit/i.test(message))
+        return { added, failed, rateLimited: true };
     }
   }
+  return { added, failed, rateLimited: false };
+}
 
-  await update(
-    'plan',
-    { eq: { id: plan.id } },
-    {
-      approved_at: plan.approved_at || new Date().toISOString(),
-      approved_bands: wanted,
-    },
-  );
+/**
+ * Add the accounts a content triage gave this label.
+ *
+ * Recorded as `approved_via: triage:<label>`, never as a band. A band is
+ * reproducible from the snapshot; this is a model reading that nobody can
+ * reproduce, so the log says which one it was.
+ */
+export async function applyPlanToTriage(agent, plan, label) {
+  const uri = listUri();
+  const bot = agent.session?.did;
+  if (!uri.startsWith(`at://${bot}/`)) {
+    return { ok: false, message: 'That list is not owned by this account.' };
+  }
 
+  const rows = await selectAll('decision', {
+    select: 'did,band,triage,acted_at',
+    eq: { plan_id: plan.id, triage: label },
+    order: 'did.asc',
+  });
+  // The veto, at the write, as everywhere else.
+  const pending = rows.filter((r) => r.band !== 'PROTECTED' && !r.acted_at);
+  if (!pending.length) {
+    return { ok: true, added: 0, message: `Nothing left to add for ${label}.` };
+  }
+
+  const slice = pending.slice(0, PER_APPROVAL);
+  const { added, failed } = await writeRows(agent, plan, slice, {
+    uri,
+    bot,
+    via: `triage:${label}`,
+  });
   const remaining = pending.length - added;
   return {
     ok: true,
@@ -271,9 +343,9 @@ export async function applyPlan(agent, plan, bands) {
     failed,
     remaining,
     message:
-      `Added ${added} to the list${failed ? `, ${failed} failed` : ''}.` +
+      `Added ${added} that a model read as ${label}.` +
       (remaining
-        ? ` ${remaining} left. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again to continue.`
+        ? ` ${remaining} left, send "approve ${shortCode(plan.id)} ${label}" again.`
         : ''),
   };
 }

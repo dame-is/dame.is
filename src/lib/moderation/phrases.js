@@ -47,6 +47,11 @@ export const ACK_CLAUSE = {
   list_add: ['Checking the list.', 'Looking them up.'],
   list_remove: ['Checking the list.', 'Looking them up.'],
   think: ['Thinking.', 'Having a look.', 'Reading up.'],
+  triage: [
+    'Reading what they all wrote and sorting it.',
+    'Going through the quotes and bucketing them by tone.',
+    'Reading the replies and sorting them.',
+  ],
   read: [
     'Reading their recent posts.',
     'Going through what they have been posting.',
@@ -69,8 +74,10 @@ export const SLOW = new Set([
   'review',
   'think',
   // A read pulls a feed and then calls the model, so it is the slowest thing
-  // here by some distance.
+  // here by some distance -- except a triage, which does that for hundreds of
+  // accounts at once.
   'read',
+  'triage',
 ]);
 
 export function worthAcking(cmd) {
