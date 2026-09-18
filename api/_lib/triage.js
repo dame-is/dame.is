@@ -51,16 +51,25 @@ const POSTS_PER_CALL = 25;
  */
 const PER_CALL = 20;
 
-/** How many of those run at once. */
-const CONCURRENCY = 6;
+/**
+ * How many of those run at once.
+ *
+ * Measured: one call and twelve concurrent calls take about the same wall time
+ * (4.7s vs 5.4s on the same input), so the gateway is not the constraint and a
+ * wave costs roughly what its slowest member costs. Sized so PER_RUN is ONE
+ * wave -- two waves of six turned a 90-second job into a three-minute one for
+ * no reason, and on a shared queue that is three minutes of not answering
+ * anyone else.
+ */
+const CONCURRENCY = 12;
 
 /**
  * Texts per invocation. Sending it again continues, like an approval.
  *
- * At 20 per call and 6 at a time this is two waves, so a triage is about a
- * minute rather than the six it used to be. That matters beyond patience: jobs
- * are serialised through one queue on the droplet, so a long triage is a long
- * silence on every other DM.
+ * At 20 per call and 12 at a time this is a single wave, so a triage costs about
+ * what one model call costs rather than what twelve cost in a row. That matters
+ * beyond patience: jobs are serialised through one queue on the droplet, so a
+ * long triage is a long silence on every other DM.
  */
 export const PER_RUN = 240;
 
