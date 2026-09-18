@@ -132,29 +132,36 @@ async function backfillEvidence(plan, rows) {
   return writes.length;
 }
 
-/** Post text by URI, best effort, 25 at a time. */
+/**
+ * Post text by URI, 25 at a time.
+ *
+ * Reports which URIs were actually ASKED about successfully, separately from
+ * which came back with text. The difference matters: a post the AppView answered
+ * about and did not return is deleted or hidden and will never arrive, while one
+ * whose whole request failed might be there next time. Conflating the two either
+ * retries a deleted post forever or gives up on a live one over a 500.
+ */
 async function textsFor(uris) {
-  const out = new Map();
+  const texts = new Map();
+  const asked = new Set();
   for (let i = 0; i < uris.length; i += POSTS_PER_CALL) {
-    const q = uris
-      .slice(i, i + POSTS_PER_CALL)
-      .map((u) => `uris=${encodeURIComponent(u)}`)
-      .join('&');
+    const slice = uris.slice(i, i + POSTS_PER_CALL);
+    const q = slice.map((u) => `uris=${encodeURIComponent(u)}`).join('&');
     try {
       const res = await fetch(`${APPVIEW}/xrpc/app.bsky.feed.getPosts?${q}`);
       if (!res.ok) continue;
       const body = await res.json();
+      for (const u of slice) asked.add(u);
       for (const post of body?.posts || []) {
         const text = String(post?.record?.text ?? '').trim();
-        if (text) out.set(post.uri, text);
+        if (text) texts.set(post.uri, text);
       }
     } catch {
-      // A post we cannot read is one we do not label. Deleted, blocked, or the
-      // AppView having a moment -- all of which are better left unlabelled than
-      // guessed at.
+      // The request failed rather than the post being missing, so these stay
+      // pending and get another go.
     }
   }
-  return out;
+  return { texts, asked };
 }
 
 const PROMPT = `You are sorting short posts by TONE for a moderation review. Each numbered item is one post somebody wrote about a thread.
@@ -256,10 +263,36 @@ export async function runTriage(
     };
   }
 
-  const texts = await textsFor(pending.map((r) => r.evidence_uri));
+  const { texts, asked } = await textsFor(pending.map((r) => r.evidence_uri));
   const items = pending
     .map((r) => ({ ...r, text: texts.get(r.evidence_uri) }))
     .filter((r) => r.text);
+
+  // POSTS THAT ARE GONE GET MARKED, NOT RETRIED. The AppView answered about
+  // these and did not return them -- deleted, or hidden from us -- so no future
+  // run will ever see them either. Left pending they would sit in `remaining`
+  // forever, so every reply would say "54 left, send it again" and every run
+  // would label none of them. `gone` is a fact about the record, not a reading
+  // of anybody, which is why it is set here and never by the model.
+  const missing = pending.filter(
+    (r) => asked.has(r.evidence_uri) && !texts.has(r.evidence_uri),
+  );
+  if (missing.length) {
+    const stamp = new Date().toISOString();
+    for (let i = 0; i < missing.length; i += 200) {
+      await upsert(
+        'decision',
+        missing.slice(i, i + 200).map((r) => ({
+          plan_id: plan.id,
+          did: r.did,
+          band: r.band,
+          triage: 'gone',
+          triage_at: stamp,
+        })),
+      );
+    }
+    log('Triage skipped deleted posts', { gone: missing.length });
+  }
 
   const now = new Date().toISOString();
   const batches = [];
@@ -326,6 +359,7 @@ export async function runTriage(
     labelled,
     remaining: after.filter((r) => r.evidence_uri && !r.triage).length,
     noText,
+    gone: after.filter((r) => r.triage === 'gone').length,
     counts: countLabels(after),
     total: after.length,
   };

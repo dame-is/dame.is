@@ -352,6 +352,7 @@ export async function runCommand(
         `Arguing: ${counts.arguing}  (aimed at the argument)`,
         `Neutral: ${counts.neutral}`,
         `No words: ${out.noText}  (likes and reposts carry nothing to read)`,
+        ...(out.gone ? [`Deleted: ${out.gone}  (the post is gone)`] : []),
       ];
       if (out.remaining) {
         lines.push(
