@@ -590,8 +590,8 @@ export function OverviewPanel({ agent }) {
  * profile and decided" are different answers, and the record could not tell
  * them apart until recently.
  */
-export function WhyPanel({ agent }) {
-  const [actor, setActor] = useState('');
+export function WhyPanel({ agent, deep = {} }) {
+  const [actor, setActor] = useState(deep.actor || '');
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -608,6 +608,15 @@ export function WhyPanel({ agent }) {
       setBusy(false);
     }
   }, [agent, actor]);
+
+  // Arrived from a link that named the account: look it up rather than leaving
+  // the handle sitting in a box waiting to be clicked. A link that needs a
+  // second click is a suggestion, not a destination.
+  useEffect(() => {
+    if (deep.actor) look();
+    // Runs once: deep is read at mount and look is stable for that actor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="mod-studio">
@@ -774,14 +783,16 @@ export function ListPanel({ agent }) {
  * Ticking accounts and adding them records `individual`, not a band or a label,
  * because on this screen that is what actually happened -- somebody read them.
  */
-export function PlansPanel({ agent }) {
+export function PlansPanel({ agent, deep = {} }) {
   const [list, setList] = useState(null);
-  const [code, setCode] = useState(null);
+  // A link from a DM names the plan and the filter it was talking about, so
+  // arriving here lands on that view rather than on a list of every batch.
+  const [code, setCode] = useState(deep.code || null);
   const [data, setData] = useState(null);
   const [picked, setPicked] = useState(() => new Set());
-  const [label, setLabel] = useState('');
-  const [band, setBand] = useState('');
-  const [state, setState] = useState('pending');
+  const [label, setLabel] = useState(deep.label || '');
+  const [band, setBand] = useState(deep.band || '');
+  const [state, setState] = useState(deep.state || 'pending');
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(null);
   const [error, setError] = useState(null);
@@ -794,6 +805,26 @@ export function PlansPanel({ agent }) {
     return () => {
       live = false;
     };
+  }, [agent]);
+
+  // Arrived on a plan already: fetch it without waiting to be clicked.
+  useEffect(() => {
+    if (!deep.code) return;
+    let live = true;
+    planDetail(agent, {
+      code: deep.code,
+      label: deep.label,
+      band: deep.band,
+      state: deep.state || 'pending',
+      offset: 0,
+    })
+      .then((r) => live && setData(r))
+      .catch((e) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+    // deep is read once at mount and never changes; agent is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
   const load = useCallback(

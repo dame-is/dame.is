@@ -26,6 +26,12 @@ import { generateText } from 'ai';
 import { ME_DID } from '../../src/config.js';
 import { rosterFromEnv } from '../../src/lib/moderation/senders.js';
 import {
+  adminUrl,
+  planLink,
+  whyLink,
+  ownLinkFacets,
+} from '../../src/lib/moderation/links.js';
+import {
   resolveActor,
   extractTargets,
 } from '../../src/lib/moderation/target.js';
@@ -317,7 +323,8 @@ export async function runCommand(
       return `${when} · ${r.band} · ${r.approved_via ?? '?'} · ${r.code}${undone}${note}`;
     });
     return say(
-      `${h.total} actions on record, most recent first:\n\n${lines.join('\n')}`,
+      `${h.total} actions on record, most recent first:\n\n${lines.join('\n')}` +
+        `\n\nBrowse them: ${adminUrl({ tab: 'plans' })}`,
     );
   }
 
@@ -370,6 +377,8 @@ export async function runCommand(
       lines.push(
         '',
         'This is a model reading posts, not a band. Their own words are kept next to each label, so read before you approve.',
+        '',
+        `Read all ${left.hostile || counts.hostile} with their words: ${planLink(cmd.code, { label: 'hostile', state: 'pending' })}`,
       );
       const choices = [];
       if (left.hostile) {
@@ -426,7 +435,8 @@ export async function runCommand(
       const head =
         `${out.pending} read as ${label} and not yet on the list` +
         (out.added ? `, ${out.added} already added` : '') +
-        `. Here are ${out.rows.length}, most connected first, as a spot check:`;
+        `. Here are ${out.rows.length}, most connected first, as a spot check.` +
+        `\n\nAll of them, with filters: ${planLink(cmd.code, { label, state: 'pending' })}`;
       const choices = [
         {
           label: `Add all ${out.pending}`,
@@ -455,7 +465,9 @@ export async function runCommand(
     if (cmd.labels?.length) {
       const out = await applyPlanToTriage(writeAgent, plan, cmd.labels[0]);
       return say(
-        out.message,
+        out.added
+          ? `${out.message}\n\nSee exactly who: ${planLink(cmd.code, { state: 'added' })}`
+          : out.message,
         out.added
           ? [
               { label: `Undo those ${out.added}`, command: `undo ${cmd.code}` },
@@ -474,7 +486,9 @@ export async function runCommand(
     // Offer the way back with the receipt, while the code is still in front of
     // her. An undo you have to go and look up is one you will not use.
     return say(
-      out.message,
+      out.added
+        ? `${out.message}\n\nSee exactly who: ${planLink(shortCode(plan.id), { state: 'added' })}`
+        : out.message,
       out.added
         ? [
             {
@@ -687,9 +701,14 @@ export async function runDmPass({
     // has nothing to capture. See src/lib/moderation/command.js.
     const send = async (text) => {
       for (const chunk of chunkForDm(text)) {
+        // Facets only for links this codebase built. chunkForDm splits on
+        // whitespace before it ever splits a word, and these are ~70
+        // characters against a 950 limit, so one never straddles a chunk --
+        // which matters, because a facet range is computed per chunk.
+        const facets = ownLinkFacets(chunk);
         await chat.chat.bsky.convo.sendMessage({
           convoId: entry.convoId,
-          message: { text: chunk },
+          message: facets.length ? { text: chunk, facets } : { text: chunk },
         });
       }
     };
@@ -798,10 +817,14 @@ export async function runDmPass({
           if (account) {
             const actions = offerable(actionsFor(account));
             const body = renderReport(account, { template: config?.report });
+            // One line, at the end, for the case a report cannot serve: every
+            // decision ever recorded about them, which is a page and not a
+            // paragraph.
+            const deeper = `\n\nFull record: ${whyLink(account.handle || account.did)}`;
             await send(
               actions.length
-                ? `${body}\n\nACTIONS:\n${renderChoices(actions)}`
-                : body,
+                ? `${body}${deeper}\n\nACTIONS:\n${renderChoices(actions)}`
+                : `${body}${deeper}`,
             );
             await offerChoices(entry.convoId, actions);
             log('Rendered a lookup', { actor, band: account.band });

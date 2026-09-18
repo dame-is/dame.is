@@ -304,6 +304,13 @@ Filter by label, by band, or by whether an account is already on the list, tick
 the ones you actually read, and add those. Ticking records `individual` rather
 than a band or a label, because on that screen that is what happened.
 
+**The DM links straight in.** A triage reply ends with a link to that plan
+already filtered to what it was talking about; an approval receipt links to
+exactly who it added; a lookup links to that account's full record. Those links
+are the only ones the bot renders as tappable — a general linkifier would
+eventually hand-render a stranger's URL as a link inside a moderation report
+about them, so the facet matcher only matches URLs this codebase built.
+
 **Why** is the one that earns the rest. The system's whole claim is that a
 decision is replayable — _here is exactly what it saw_ — and until that tab
 existed the record was real but unreadable, living in a table with no interface.

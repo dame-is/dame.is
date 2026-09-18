@@ -27,9 +27,7 @@ const tabKeys = () => {
 };
 
 const renderedKeys = () => [
-  ...new Set(
-    [...SOURCE.matchAll(/tab === '([a-z]+)'/g)].map((m) => m[1]),
-  ),
+  ...new Set([...SOURCE.matchAll(/tab === '([a-z]+)'/g)].map((m) => m[1])),
 ];
 
 describe('the moderation hub tab bar', () => {
@@ -38,7 +36,17 @@ describe('the moderation hub tab bar', () => {
   });
 
   it('opens on a tab that exists', () => {
-    const initial = /useState\('([a-z]+)'\)/.exec(SOURCE)?.[1];
-    expect(tabKeys()).toContain(initial);
+    // The default is a named constant so this can check it without matching on
+    // the shape of a useState call -- which it used to do, and which broke the
+    // moment the initial tab started being computed from the URL.
+    const fallback = /const DEFAULT_TAB = '([a-z]+)'/.exec(SOURCE)?.[1];
+    expect(fallback).toBeTruthy();
+    expect(tabKeys()).toContain(fallback);
+  });
+
+  it('only honours a tab from the URL if that tab exists', () => {
+    // A stale link should land somewhere real rather than on a blank panel
+    // with nothing selected in the nav.
+    expect(SOURCE).toMatch(/TABS\.some\(.*deep\.tab/);
   });
 });

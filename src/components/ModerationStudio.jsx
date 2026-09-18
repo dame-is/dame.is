@@ -288,8 +288,37 @@ const TABS = [
   { key: 'voice', label: 'Voice', hint: 'How the analyst writes' },
 ];
 
+/**
+ * What the URL asked for, read once at mount.
+ *
+ * A DM says "read all 231 with their words" and hands over a link; landing on
+ * the Overview tab instead would make that link a suggestion rather than a
+ * destination. Read from `window.location` rather than the router so this stays
+ * a leaf component with no hook-order stake in the admin shell -- see the HOOKS
+ * RULE in pages/Admin.jsx, which is load-bearing.
+ */
+function fromUrl() {
+  if (typeof window === 'undefined') return {};
+  const q = new URLSearchParams(window.location.search);
+  const out = {};
+  for (const k of ['tab', 'code', 'label', 'band', 'state', 'actor']) {
+    const v = q.get(k);
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
+/** Where the hub opens when the URL does not say. Must be a key in TABS. */
+const DEFAULT_TAB = 'overview';
+
 export default function ModerationStudio({ agent }) {
-  const [tab, setTab] = useState('overview');
+  const [deep] = useState(fromUrl);
+  // A tab named by the URL only wins if it exists. A stale link should land
+  // somewhere real rather than on a blank panel with nothing selected, which is
+  // exactly what the tab bar used to do on its own.
+  const [tab, setTab] = useState(() =>
+    TABS.some((t) => t.key === deep.tab) ? deep.tab : DEFAULT_TAB,
+  );
   const [listUri, setListUri] = useState(DEFAULT_LIST);
 
   return (
@@ -323,8 +352,8 @@ export default function ModerationStudio({ agent }) {
       )}
 
       {tab === 'overview' && <OverviewPanel agent={agent} />}
-      {tab === 'plans' && <PlansPanel agent={agent} />}
-      {tab === 'why' && <WhyPanel agent={agent} />}
+      {tab === 'plans' && <PlansPanel agent={agent} deep={deep} />}
+      {tab === 'why' && <WhyPanel agent={agent} deep={deep} />}
       {tab === 'list' && <ListPanel agent={agent} />}
       {tab === 'preflight' && <PreflightPanel agent={agent} />}
       {tab === 'audit' && <AuditPanel agent={agent} listUri={listUri} />}
