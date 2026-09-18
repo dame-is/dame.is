@@ -254,12 +254,19 @@ export async function runTriage(
   const noText = rows.length - withText.length;
 
   if (!pending.length) {
+    const all = await selectAll('decision', {
+      select: 'did,triage,evidence_uri,acted_at,undone_at',
+      eq: { plan_id: plan.id },
+      order: 'did.asc',
+    });
     return {
       labelled: 0,
       remaining: 0,
       noText,
-      counts: countLabels(rows),
-      total: rows.length,
+      gone: all.filter((r) => r.triage === 'gone').length,
+      counts: countLabels(all),
+      pending: countLabels(all.filter((r) => !r.acted_at || r.undone_at)),
+      total: all.length,
     };
   }
 
@@ -351,7 +358,7 @@ export async function runTriage(
   }
 
   const after = await selectAll('decision', {
-    select: 'did,triage,evidence_uri',
+    select: 'did,triage,evidence_uri,acted_at,undone_at',
     eq: { plan_id: plan.id },
     order: 'did.asc',
   });
@@ -361,6 +368,10 @@ export async function runTriage(
     noText,
     gone: after.filter((r) => r.triage === 'gone').length,
     counts: countLabels(after),
+    // What is left to DO, as opposed to what was found. A menu offering to add
+    // 231 accounts when 182 of them are already on the list is offering a
+    // number that describes nothing anyone can act on.
+    pending: countLabels(after.filter((r) => !r.acted_at || r.undone_at)),
     total: after.length,
   };
 }
@@ -374,9 +385,31 @@ function countLabels(rows) {
 /** The accounts carrying a label, with the words that earned it. */
 export async function reviewTriage(plan, label, { limit = 10 } = {}) {
   const rows = await selectAll('decision', {
-    select: 'did,band,triage,triage_quote,acted_at',
+    select: 'did,band,trust,triage,triage_quote,acted_at,undone_at',
     eq: { plan_id: plan.id, triage: label },
     order: 'did.asc',
   });
-  return { total: rows.length, rows: rows.slice(0, limit) };
+
+  // ALREADY ON THE LIST MEANS ALREADY DECIDED. Without this the review showed
+  // the same ten quotes after they had been added -- re-asking a question that
+  // was answered, and making a menu that said "add all of these" about accounts
+  // that were already added. `did.asc` made it the SAME ten every time, which
+  // is what turned a stale filter into an obviously broken one.
+  const done = rows.filter((r) => r.acted_at && !r.undone_at);
+  const pending = rows.filter((r) => !r.acted_at || r.undone_at);
+
+  // Most connected first, the order used everywhere else a human reads a queue:
+  // if attention runs out halfway down, it ran out in the right place. 231
+  // quotes do not get read in a DM and pretending otherwise would be the lie
+  // this menu is here to avoid -- so what follows is a spot check on the
+  // labelling, and the accounts whose misreading would cost most come first.
+  const sorted = pending.sort((a, b) => (b.trust ?? 0) - (a.trust ?? 0));
+
+  return {
+    label,
+    total: rows.length,
+    pending: sorted.length,
+    added: done.length,
+    rows: sorted.slice(0, limit),
+  };
 }

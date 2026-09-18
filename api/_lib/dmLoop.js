@@ -345,12 +345,19 @@ export async function runCommand(
     if (cmd.action === 'triage') {
       const out = await runTriage(plan, { generate, model, log });
       const { counts } = out;
+      const left = out.pending || counts;
+      // "231 hostile" and "49 you have not acted on" are different numbers and
+      // the second is the one a button can be about.
+      const seen = (k) =>
+        left[k] === counts[k]
+          ? `${counts[k]}`
+          : `${counts[k]} (${left[k]} new)`;
       const lines = [
         `Read ${out.total - out.noText - out.remaining} of the ${out.total} accounts on ${cmd.code}.`,
         '',
-        `Hostile: ${counts.hostile}  (aimed at a person)`,
-        `Arguing: ${counts.arguing}  (aimed at the argument)`,
-        `Neutral: ${counts.neutral}`,
+        `Hostile: ${seen('hostile')}  (aimed at a person)`,
+        `Arguing: ${seen('arguing')}  (aimed at the argument)`,
+        `Neutral: ${seen('neutral')}`,
         `No words: ${out.noText}  (likes and reposts carry nothing to read)`,
         ...(out.gone ? [`Deleted: ${out.gone}  (the post is gone)`] : []),
       ];
@@ -365,14 +372,20 @@ export async function runCommand(
         'This is a model reading posts, not a band. Their own words are kept next to each label, so read before you approve.',
       );
       const choices = [];
-      if (counts.hostile) {
+      if (left.hostile) {
         choices.push({
-          label: `Show me the ${counts.hostile} hostile ones and what they said`,
+          label: `Show me some of the ${left.hostile} hostile ones and what they said`,
           command: `review ${cmd.code} hostile`,
         });
         choices.push({
-          label: `Add the ${counts.hostile} hostile ones`,
+          label: `Add the ${left.hostile} hostile ones`,
           command: `approve ${cmd.code} hostile`,
+        });
+      }
+      if (out.remaining) {
+        choices.push({
+          label: `Keep reading the other ${out.remaining}`,
+          command: `triage ${cmd.code}`,
         });
       }
       choices.push({ label: 'Do nothing', command: `cancel ${cmd.code}` });
@@ -394,19 +407,35 @@ export async function runCommand(
       const out = await reviewTriage(plan, label);
       if (!out.total)
         return say(`Nothing in ${cmd.code} was read as ${label}.`);
+      if (!out.pending) {
+        return say(
+          `All ${out.added} read as ${label} are already on the list.`,
+          [
+            { label: 'Take them back off', command: `undo ${cmd.code}` },
+            { label: 'Show me the record', command: 'history' },
+          ],
+        );
+      }
       const lines = out.rows.map(
         (r) =>
           `${r.band} - "${String(r.triage_quote).replace(/\s+/g, ' ').slice(0, 160)}"`,
       );
+      // Said plainly, because 231 quotes do not get read in a DM and a menu
+      // that implies they were is the lie this whole system is against. What
+      // this is, is a spot check on the LABELLING before a bulk action.
+      const head =
+        `${out.pending} read as ${label} and not yet on the list` +
+        (out.added ? `, ${out.added} already added` : '') +
+        `. Here are ${out.rows.length}, most connected first, as a spot check:`;
       const choices = [
         {
-          label: `Add all ${out.total} of these`,
+          label: `Add all ${out.pending}`,
           command: `approve ${cmd.code} ${label}`,
         },
         { label: 'Do nothing', command: `cancel ${cmd.code}` },
       ];
       return say(
-        `${out.total} read as ${label}. First ${out.rows.length}:\n\n${lines.join('\n\n')}\n\nACTIONS:\n${renderChoices(choices)}`,
+        `${head}\n\n${lines.join('\n\n')}\n\nACTIONS:\n${renderChoices(choices)}`,
         choices,
       );
     }
