@@ -536,6 +536,15 @@ export function whyListed(agent, actor, { signal } = {}) {
   });
 }
 
+/** Every list the moderator account owns. */
+export function hubLists(agent, { signal } = {}) {
+  return call(agent, '/api/mod-hub', {
+    lxm: LXM.hub,
+    body: { action: 'lists' },
+    signal,
+  });
+}
+
 /** One page of the list, as profile cards. */
 export function listMembers(agent, { listUri, cursor, signal } = {}) {
   return call(agent, '/api/mod-hub', {

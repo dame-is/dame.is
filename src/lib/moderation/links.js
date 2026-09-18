@@ -46,6 +46,20 @@ export function listLink() {
   return adminUrl({ tab: 'list' });
 }
 
+/**
+ * The bsky.app URL for an at:// post URI.
+ *
+ * A plan's source is stored as an at:// URI because that is what identifies a
+ * record, and it is unreadable as an answer to "what was this batch about".
+ * Returns null rather than a broken link for anything that is not a post.
+ */
+export function postWebUrl(atUri) {
+  const m = /^at:\/\/(did:[^/]+)\/app\.bsky\.feed\.post\/([^/?#]+)$/.exec(
+    String(atUri ?? ''),
+  );
+  return m ? `https://bsky.app/profile/${m[1]}/post/${m[2]}` : null;
+}
+
 /** Matches only links this module builds. */
 const OWN_LINK = /https:\/\/dame\.is\/admin\?[^\s)\]]+/g;
 

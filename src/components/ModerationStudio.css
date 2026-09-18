@@ -357,3 +357,50 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* --- narrow screens ----------------------------------------------------- */
+/*
+ * This panel had no responsive rules at all, and three things pushed the whole
+ * PAGE sideways on a phone rather than just themselves: seven tabs in a
+ * no-wrap flex row, three filter selects each asking for 24ch of a ~40ch
+ * viewport, and at:// URIs and DIDs, which are single unbreakable "words" as
+ * far as the browser is concerned.
+ *
+ * Horizontal page scroll is the worst of the available failures here: it moves
+ * content you were reading out from under you, and nothing on this screen is
+ * wide by nature -- it is a list of short rows.
+ */
+
+/* Tabs wrap rather than scrolling off. Seven short labels fit two lines on any
+   phone, and a strip you have to discover by swiping hides half the panel. */
+.mod-tabs {
+  flex-wrap: wrap;
+}
+
+/* A flex item's default min-width is its content, so a long DID refuses to
+   shrink and takes the layout with it. */
+.mod-shell,
+.mod-studio,
+.mod-form-row > * {
+  min-width: 0;
+}
+
+/* at:// URIs, DIDs and handles have no spaces to break at. */
+.mod-summary-line,
+.mod-verdict,
+.mod-row-head,
+.mod-row-handle {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 40rem) {
+  /* Filters stack instead of fighting over one line. */
+  .mod-form-row > .mod-input,
+  .mod-form-row > select.mod-input {
+    flex: 1 1 100%;
+  }
+
+  .mod-tabs button {
+    padding: 0.4rem 0.6rem;
+  }
+}

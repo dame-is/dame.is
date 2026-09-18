@@ -16,11 +16,20 @@
 import { resolveActor } from '../../src/lib/moderation/target.js';
 import { select, upsert } from './modDb.js';
 
-/** Which list a command acts on. */
+/**
+ * Which list a command acts on.
+ *
+ * THE FALLBACK IS THE MIGRATED LIST, not the one this started as. It pointed at
+ * dame's own repo long after that list was deleted in the retire step, so
+ * anywhere MOD_LIST_URI is unset -- Vercel, as it turned out -- every read asked
+ * the AppView for a record that no longer exists and got a 400 with nothing to
+ * say why. A hardcoded default that outlives the thing it names is worse than
+ * no default: it fails as a bug rather than as a missing setting.
+ */
 export function listUri() {
   return (
     process.env.MOD_LIST_URI ||
-    'at://did:plc:gq4fo3u6tqzzdkjlwzpb23tj/app.bsky.graph.list/3ll5hna42x52o'
+    'at://did:plc:louxcf2mpmyrsbmf2axmchat/app.bsky.graph.list/3mvog3lqj5c2k'
   );
 }
 

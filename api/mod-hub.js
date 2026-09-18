@@ -15,6 +15,7 @@
 
 import { APPVIEW } from '../src/config.js';
 import { resolveActor } from '../src/lib/moderation/target.js';
+import { resolvePds } from '../src/lib/atproto.js';
 import { select, selectAll, count } from './_lib/modDb.js';
 import { listUri } from './_lib/listWrite.js';
 import { authorize } from './_lib/serviceAuth.js';
@@ -147,6 +148,53 @@ async function listPage(uri, cursor) {
   };
 }
 
+/**
+ * Every list the moderator account owns.
+ *
+ * The List tab used to assume one list and ask for it by a hardcoded URI, which
+ * is a guess that was already wrong. The account can own several -- a block
+ * list, a curation list, whatever gets made next -- and which one you want to
+ * look at is a question with an answer the repo already holds.
+ *
+ * Read from the REPO rather than from the AppView: listRecords returns what the
+ * account actually has, including a list the AppView has not indexed yet, and
+ * it needs no auth.
+ */
+async function lists() {
+  const bot = process.env.MOD_IDENTIFIER;
+  const active = listUri();
+  const owner = /^at:\/\/(did:[^/]+)\//.exec(active)?.[1];
+  const repo = bot?.startsWith('did:') ? bot : owner;
+  if (!repo) return { lists: [] };
+
+  const pds = await resolvePds(repo);
+  const out = [];
+  let cursor;
+  for (let page = 0; page < 10; page += 1) {
+    const url =
+      `${pds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(repo)}` +
+      `&collection=app.bsky.graph.list&limit=100` +
+      (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
+    const body = await fetch(url, { headers: { Accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (!body) break;
+    for (const rec of body.records || []) {
+      out.push({
+        uri: rec.uri,
+        name: rec.value?.name ?? '(unnamed)',
+        purpose: rec.value?.purpose ?? null,
+        description: rec.value?.description ?? null,
+        createdAt: rec.value?.createdAt ?? null,
+        active: rec.uri === active,
+      });
+    }
+    cursor = body.cursor;
+    if (!cursor) break;
+  }
+  return { repo, active, lists: out };
+}
+
 export default async function handler(req, res) {
   if (!(await authorize(req, res, { lxm: LXM }))) return;
   const action = req.body?.action || req.query?.action || 'overview';
@@ -156,6 +204,9 @@ export default async function handler(req, res) {
       const actor = req.body?.actor || req.query?.actor;
       if (!actor) return res.status(400).json({ error: 'pass actor' });
       return res.status(200).json(await why(actor));
+    }
+    if (action === 'lists') {
+      return res.status(200).json(await lists());
     }
     if (action === 'list') {
       const uri = req.body?.listUri || listUri();

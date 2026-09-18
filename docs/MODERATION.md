@@ -285,15 +285,15 @@ members.
 `/admin?view=moderation`. Six tabs, every one of them signed by your own OAuth
 session in the browser — the server holds the bot's credential, never yours.
 
-| Tab           | Does                                                                                                                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Overview**  | Snapshot age, list size, protected set, plans and decisions to date, token spend, bot session, last five audits     |
-| **Preflight** | Paste a post link, read the bands. Runs dry, so browsing does not litter the decision log                           |
-| **Audit**     | Re-score an existing list and work the review queue                                                                 |
-| **Plans**     | Every batch ever proposed, and inside one: every account, its band, its label, and **the words it was labelled on** |
-| **Why**       | One account: its band, the inputs under it, and every decision recorded about it                                    |
-| **List**      | Who is on the list right now, a page at a time, filterable                                                          |
-| **Voice**     | The config record: register, standing guidance, report templates, model, limits                                     |
+| Tab           | Does                                                                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**  | Snapshot age, list size, protected set, plans and decisions to date, token spend, bot session, last five audits               |
+| **Preflight** | Paste a post link, read the bands. Runs dry, so browsing does not litter the decision log                                     |
+| **Audit**     | Re-score an existing list and work the review queue                                                                           |
+| **Plans**     | The audit log: every batch, the post it came from, how each account was added, and inside one, the words each was labelled on |
+| **Why**       | One account: its band, the inputs under it, and every decision recorded about it                                              |
+| **List**      | Every list the account owns; open one to page through who is on it                                                            |
+| **Voice**     | The config record: register, standing guidance, report templates, model, limits                                               |
 
 **Plans** is where a triage becomes reviewable. A DM can honestly show ten
 quotes as a spot check before a bulk action and it cannot show 231, because

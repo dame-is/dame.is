@@ -19,6 +19,7 @@ import {
   hubOverview,
   whyListed,
   listMembers,
+  hubLists,
   getAgentConfig,
   setAgentConfig,
   CONFIG_NSID,
@@ -692,19 +693,47 @@ export function WhyPanel({ agent, deep = {} }) {
 }
 
 /** A window onto the list itself, which there has never been one of. */
+/**
+ * Which list, then who is on it.
+ *
+ * This asked for ONE list by a URI the server guessed, and the guess had been
+ * wrong since the migration -- it named a record in dame's own repo that the
+ * retire step deleted, so every load asked the AppView for something that no
+ * longer existed and got a 400 with nothing in it to say why. The account can
+ * own several lists and which one you want is a question the repo can answer,
+ * so it answers it rather than assuming.
+ */
 export function ListPanel({ agent }) {
+  const [lists, setLists] = useState(null);
+  const [chosen, setChosen] = useState(null);
   const [page, setPage] = useState(null);
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('');
 
+  useEffect(() => {
+    let live = true;
+    hubLists(agent)
+      .then((r) => {
+        if (!live) return;
+        setLists(r.lists || []);
+        // One list is not a choice, so do not make it one.
+        if (r.lists?.length === 1) setChosen(r.lists[0]);
+        else setChosen(r.lists?.find((l) => l.active) ?? null);
+      })
+      .catch((e) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [agent]);
+
   const load = useCallback(
-    async (cursor) => {
+    async (uri, cursor) => {
       setBusy(true);
       setError(null);
       try {
-        const r = await listMembers(agent, { cursor });
+        const r = await listMembers(agent, { listUri: uri, cursor });
         setPage(r);
         setRows((prev) => (cursor ? [...prev, ...r.items] : r.items));
       } catch (e) {
@@ -717,8 +746,11 @@ export function ListPanel({ agent }) {
   );
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (chosen?.uri) {
+      setRows([]);
+      load(chosen.uri);
+    }
+  }, [chosen, load]);
 
   const shown = filter
     ? rows.filter((r) =>
@@ -728,13 +760,59 @@ export function ListPanel({ agent }) {
       )
     : rows;
 
+  if (!chosen) {
+    return (
+      <div className="mod-studio">
+        {error && <p className="mod-error">{error}</p>}
+        <p className="mod-verdict">
+          Lists this account owns. Open one to see who is on it.
+        </p>
+        {!lists && <p className="mod-empty">Loading…</p>}
+        {lists?.length === 0 && (
+          <p className="mod-empty">This account owns no lists.</p>
+        )}
+        <ul className="mod-list">
+          {(lists || []).map((l) => (
+            <li key={l.uri}>
+              <div className="mod-row-head">
+                <button
+                  type="button"
+                  className="mod-row-handle mod-linkish"
+                  onClick={() => setChosen(l)}
+                >
+                  {l.name}
+                </button>
+                <span>
+                  {(l.purpose || '').split('#').pop() || 'list'}
+                  {l.active ? ' · the one commands write to' : ''}
+                </span>
+              </div>
+              {l.description && <p className="mod-row-why">{l.description}</p>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   return (
     <div className="mod-studio">
       {error && <p className="mod-error">{error}</p>}
-      <p className="mod-verdict">
-        {page?.list?.name ?? 'The list'} — {num(rows.length)} loaded
-        {page?.cursor ? ', more available' : ''}
-      </p>
+      <div className="mod-form-row">
+        {(lists?.length ?? 0) > 1 && (
+          <button
+            type="button"
+            className="mod-ghost"
+            onClick={() => setChosen(null)}
+          >
+            ← All lists
+          </button>
+        )}
+        <span className="mod-summary-line">
+          {chosen.name} — {num(rows.length)} loaded
+          {page?.cursor ? ', more available' : ''}
+        </span>
+      </div>
       <div className="mod-form-row">
         <input
           className="mod-input"
@@ -748,7 +826,7 @@ export function ListPanel({ agent }) {
           type="button"
           className="mod-ghost"
           disabled={busy || !page?.cursor}
-          onClick={() => load(page.cursor)}
+          onClick={() => load(chosen.uri, page.cursor)}
         >
           {busy ? 'Loading…' : 'Load more'}
         </button>
@@ -767,22 +845,6 @@ export function ListPanel({ agent }) {
   );
 }
 
-/**
- * One plan, in depth.
- *
- * THE DM'S COUNTERPART, not its replacement. A chat bubble can show ten quotes
- * as a spot check before a bulk action and it cannot show 231, because nobody
- * reads 231 of anything in a DM -- and a menu implying otherwise is the failure
- * this whole system was built against. So the DM stays where you act quickly and
- * this is where you look properly. Same rows, same table.
- *
- * Trust descending throughout, as in the audit queue and the DM review: the
- * accounts most embedded in dame's world first, so attention running out halfway
- * down runs out in the right place.
- *
- * Ticking accounts and adding them records `individual`, not a band or a label,
- * because on this screen that is what actually happened -- somebody read them.
- */
 export function PlansPanel({ agent, deep = {} }) {
   const [list, setList] = useState(null);
   // A link from a DM names the plan and the filter it was talking about, so
@@ -950,6 +1012,16 @@ export function PlansPanel({ agent, deep = {} }) {
 
       {data && (
         <>
+          {/* What this batch was about. The at:// URI identifies the record and
+              answers nothing a person asked. */}
+          {data.webUrl && (
+            <p className="mod-summary-line">
+              From{' '}
+              <a href={data.webUrl} target="_blank" rel="noreferrer">
+                the post this batch came from
+              </a>
+            </p>
+          )}
           <p className="mod-verdict">
             {data.counts.total} accounts, {data.counts.added} on the list now,{' '}
             {data.counts.labelled} read by a model. {data.byLabel.hostile}{' '}

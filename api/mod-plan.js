@@ -25,6 +25,7 @@
 //   { action: 'undo', code }                   take the plan's additions back off
 
 import { APPVIEW } from '../src/config.js';
+import { postWebUrl } from '../src/lib/moderation/links.js';
 import {
   shortCode,
   undoPlan,
@@ -72,6 +73,17 @@ async function profilesFor(dids) {
   return out;
 }
 
+/**
+ * The post a plan came from, for plans written before totals carried it.
+ *
+ * The note has always read "bulk <kind> from <uri>", so the information was
+ * there; it was just in prose. Reading it back is less bad than showing an
+ * audit log that cannot say what half its entries were about.
+ */
+function sourceFromNote(note) {
+  return /from (at:\/\/\S+)/.exec(String(note ?? ''))?.[1] ?? null;
+}
+
 /** Recent plans with enough shape to choose one. */
 export async function plans() {
   const rows = await select('plan', {
@@ -83,7 +95,7 @@ export async function plans() {
   // whole thing is a few pages, and 25 round trips to count rows is not.
   const ids = new Set(rows.map((r) => r.id));
   const all = await selectAll('decision', {
-    select: 'plan_id,triage,acted_at,undone_at',
+    select: 'plan_id,triage,acted_at,undone_at,approved_via',
     order: 'plan_id.asc',
   });
   const byPlan = new Map();
@@ -97,9 +109,18 @@ export async function plans() {
       arguing: 0,
       neutral: 0,
       labelled: 0,
+      via: {},
     };
     agg.accounts += 1;
-    if (d.acted_at && !d.undone_at) agg.added += 1;
+    if (d.acted_at && !d.undone_at) {
+      agg.added += 1;
+      // HOW each account got there, not just how many. "you were in a band I
+      // approved", "I read your profile", and "a model read what you wrote"
+      // are three different answers to why somebody is on this list, and an
+      // audit log that cannot tell them apart is not much of one.
+      const via = d.approved_via || 'unknown';
+      agg.via[via] = (agg.via[via] || 0) + 1;
+    }
     if (d.undone_at) agg.undone += 1;
     if (d.triage && d.triage in agg) {
       agg[d.triage] += 1;
@@ -116,6 +137,8 @@ export async function plans() {
       approvedBands: p.approved_bands,
       note: p.note,
       uri: p.totals?.uri ?? null,
+      // The at:// URI answers "which record"; this answers "what was it".
+      webUrl: postWebUrl(p.totals?.uri ?? sourceFromNote(p.note)),
       kind: p.totals?.kind ?? null,
       ...(byPlan.get(p.id) || { accounts: 0, added: 0, undone: 0 }),
     })),
@@ -169,7 +192,8 @@ export async function detail(body) {
   return {
     code: shortCode(plan.id),
     note: plan.note,
-    uri: plan.totals?.uri ?? null,
+    uri: plan.totals?.uri ?? sourceFromNote(plan.note),
+    webUrl: postWebUrl(plan.totals?.uri ?? sourceFromNote(plan.note)),
     createdAt: plan.created_at,
     counts,
     byLabel,

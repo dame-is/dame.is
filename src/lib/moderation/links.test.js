@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { adminUrl, planLink, whyLink, ownLinkFacets } from './links.js';
+import {
+  adminUrl,
+  planLink,
+  whyLink,
+  ownLinkFacets,
+  postWebUrl,
+} from './links.js';
 
 describe('admin links', () => {
   it('always names the moderation view', () => {
@@ -65,5 +71,22 @@ describe('link facets', () => {
     expect(ownLinkFacets('Added 3 to the list.')).toEqual([]);
     expect(ownLinkFacets('')).toEqual([]);
     expect(ownLinkFacets(null)).toEqual([]);
+  });
+});
+
+describe('the web URL for a post', () => {
+  it('turns an at:// post URI into something a person can open', () => {
+    expect(postWebUrl('at://did:plc:abc/app.bsky.feed.post/3xyz')).toBe(
+      'https://bsky.app/profile/did:plc:abc/post/3xyz',
+    );
+  });
+
+  it('refuses anything that is not a post', () => {
+    // A broken link in an audit log is worse than no link: it looks like the
+    // record is gone when the truth is we built the URL wrong.
+    expect(postWebUrl('at://did:plc:abc/app.bsky.graph.list/3xyz')).toBe(null);
+    expect(postWebUrl('https://bsky.app/profile/x/post/y')).toBe(null);
+    expect(postWebUrl('')).toBe(null);
+    expect(postWebUrl(null)).toBe(null);
   });
 });
