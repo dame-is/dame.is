@@ -23,7 +23,12 @@ import {
   setAgentConfig,
   CONFIG_NSID,
   BAND_META,
+  planList,
+  planDetail,
+  planAdd,
+  planUndo,
 } from '../lib/moderation/client.js';
+import { BANDS } from '../lib/moderation/score.js';
 
 const num = (n) => (typeof n === 'number' ? n.toLocaleString() : '—');
 const ACTIONABLE = BAND_META.filter((b) => b.key !== 'UNKNOWN').map(
@@ -749,6 +754,303 @@ export function ListPanel({ agent }) {
         ))}
       </ul>
       {!shown.length && !busy && <p className="mod-empty">Nothing matches.</p>}
+    </div>
+  );
+}
+
+/**
+ * One plan, in depth.
+ *
+ * THE DM'S COUNTERPART, not its replacement. A chat bubble can show ten quotes
+ * as a spot check before a bulk action and it cannot show 231, because nobody
+ * reads 231 of anything in a DM -- and a menu implying otherwise is the failure
+ * this whole system was built against. So the DM stays where you act quickly and
+ * this is where you look properly. Same rows, same table.
+ *
+ * Trust descending throughout, as in the audit queue and the DM review: the
+ * accounts most embedded in dame's world first, so attention running out halfway
+ * down runs out in the right place.
+ *
+ * Ticking accounts and adding them records `individual`, not a band or a label,
+ * because on this screen that is what actually happened -- somebody read them.
+ */
+export function PlansPanel({ agent }) {
+  const [list, setList] = useState(null);
+  const [code, setCode] = useState(null);
+  const [data, setData] = useState(null);
+  const [picked, setPicked] = useState(() => new Set());
+  const [label, setLabel] = useState('');
+  const [band, setBand] = useState('');
+  const [state, setState] = useState('pending');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    planList(agent)
+      .then((r) => live && setList(r.plans))
+      .catch((e) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [agent]);
+
+  const load = useCallback(
+    async (next = {}) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const r = await planDetail(agent, {
+          code: next.code ?? code,
+          label: next.label ?? label,
+          band: next.band ?? band,
+          state: next.state ?? state,
+          offset: next.offset ?? 0,
+        });
+        setData(r);
+        setPicked(new Set());
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [agent, code, label, band, state],
+  );
+
+  const open = (c) => {
+    setCode(c);
+    setData(null);
+    load({ code: c, offset: 0 });
+  };
+
+  const toggle = (did) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(did)) next.delete(did);
+      else next.add(did);
+      return next;
+    });
+
+  const addPicked = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await planAdd(agent, { code, dids: [...picked] });
+      setNote(r.message || `Added ${r.added}.`);
+      await load({ offset: data?.offset ?? 0 });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const undoAll = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const r = await planUndo(agent, { code });
+      setNote(r.message || 'Undone.');
+      await load({ offset: 0 });
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!code) {
+    return (
+      <div className="mod-studio">
+        {error && <p className="mod-error">{error}</p>}
+        <p className="mod-verdict">
+          Every batch this system has proposed, and what became of it. Open one
+          to read each account beside the words it was labelled on.
+        </p>
+        {!list && <p className="mod-empty">Loading…</p>}
+        {list?.length === 0 && <p className="mod-empty">No plans yet.</p>}
+        <ul className="mod-list">
+          {(list || []).map((p) => (
+            <li key={p.code}>
+              <div className="mod-row-head">
+                <button
+                  type="button"
+                  className="mod-row-handle mod-linkish"
+                  onClick={() => open(p.code)}
+                >
+                  {p.code}
+                </button>
+                <span>
+                  {p.accounts} accounts
+                  {p.added ? `, ${p.added} on the list` : ''}
+                  {p.undone ? `, ${p.undone} undone` : ''}
+                </span>
+              </div>
+              <p className="mod-row-why">
+                {p.note || 'no note'}
+                {p.labelled
+                  ? ` — read: ${p.hostile} hostile, ${p.arguing} arguing, ${p.neutral} neutral`
+                  : ''}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mod-studio">
+      {error && <p className="mod-error">{error}</p>}
+      {note && <p className="mod-summary-line">{note}</p>}
+
+      <div className="mod-form-row">
+        <button
+          type="button"
+          className="mod-ghost"
+          onClick={() => setCode(null)}
+        >
+          ← All plans
+        </button>
+        <span className="mod-summary-line">{code}</span>
+      </div>
+
+      {data && (
+        <>
+          <p className="mod-verdict">
+            {data.counts.total} accounts, {data.counts.added} on the list now,{' '}
+            {data.counts.labelled} read by a model. {data.byLabel.hostile}{' '}
+            hostile, {data.byLabel.arguing} arguing, {data.byLabel.neutral}{' '}
+            neutral
+            {data.byLabel.gone ? `, ${data.byLabel.gone} deleted` : ''}.
+          </p>
+          <p className="mod-row-why">
+            A label is a model reading somebody&apos;s post. It is not a band,
+            it cannot change one, and the sentence it was read from is printed
+            beside it so you can disagree with it.
+          </p>
+
+          <div className="mod-form-row">
+            <select
+              className="mod-input"
+              value={state}
+              onChange={(e) => {
+                setState(e.target.value);
+                load({ state: e.target.value, offset: 0 });
+              }}
+              aria-label="Status"
+            >
+              <option value="pending">Not on the list</option>
+              <option value="added">Already added</option>
+              <option value="all">Everyone</option>
+            </select>
+            <select
+              className="mod-input"
+              value={label}
+              onChange={(e) => {
+                setLabel(e.target.value);
+                load({ label: e.target.value, offset: 0 });
+              }}
+              aria-label="Label"
+            >
+              <option value="">Any label</option>
+              <option value="hostile">Hostile</option>
+              <option value="arguing">Arguing</option>
+              <option value="neutral">Neutral</option>
+            </select>
+            <select
+              className="mod-input"
+              value={band}
+              onChange={(e) => {
+                setBand(e.target.value);
+                load({ band: e.target.value, offset: 0 });
+              }}
+              aria-label="Band"
+            >
+              <option value="">Any band</option>
+              {BANDS.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mod-form-row">
+            <span className="mod-summary-line">
+              {data.matched} match, showing {data.rows.length} from{' '}
+              {data.offset + 1}. Most connected first.
+            </span>
+            <button
+              type="button"
+              className="mod-go"
+              disabled={busy || !picked.size}
+              onClick={addPicked}
+            >
+              {busy ? 'Working…' : `Add ${picked.size} ticked`}
+            </button>
+            <button
+              type="button"
+              className="mod-ghost"
+              disabled={busy || !data.counts.added}
+              onClick={undoAll}
+            >
+              Undo all {data.counts.added}
+            </button>
+          </div>
+
+          <ul className="mod-list">
+            {data.rows.map((r) => (
+              <li key={r.did}>
+                <div className="mod-row-head">
+                  <label className="mod-row-handle">
+                    <input
+                      type="checkbox"
+                      checked={picked.has(r.did)}
+                      disabled={r.added || r.band === 'PROTECTED'}
+                      onChange={() => toggle(r.did)}
+                    />{' '}
+                    @{r.handle || r.did}
+                  </label>
+                  <span>
+                    {r.band}
+                    {r.trust != null ? ` · trust ${r.trust}` : ''}
+                    {r.vouches ? ` · ${r.vouches} vouches` : ''}
+                    {r.triage ? ` · ${r.triage}` : ''}
+                    {r.added ? ` · on the list (${r.approvedVia || '?'})` : ''}
+                  </span>
+                </div>
+                {r.quote && (
+                  <p className="mod-row-why">&ldquo;{r.quote}&rdquo;</p>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="mod-form-row">
+            <button
+              type="button"
+              className="mod-ghost"
+              disabled={busy || !data.offset}
+              onClick={() =>
+                load({ offset: Math.max(0, data.offset - data.pageSize) })
+              }
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              className="mod-ghost"
+              disabled={busy || data.offset + data.pageSize >= data.matched}
+              onClick={() => load({ offset: data.offset + data.pageSize })}
+            >
+              More →
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

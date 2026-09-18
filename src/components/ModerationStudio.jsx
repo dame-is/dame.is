@@ -17,6 +17,7 @@ import {
   OverviewPanel,
   WhyPanel,
   ListPanel,
+  PlansPanel,
   VoicePanel,
 } from './ModerationPanels.jsx';
 import {
@@ -277,6 +278,11 @@ const TABS = [
   { key: 'overview', label: 'Overview', hint: 'What the system did lately' },
   { key: 'preflight', label: 'Preflight', hint: 'Score a post before acting' },
   { key: 'audit', label: 'Audit', hint: 'Re-score an existing list' },
+  {
+    key: 'plans',
+    label: 'Plans',
+    hint: 'Every batch, and what each account wrote',
+  },
   { key: 'why', label: 'Why', hint: 'Why is this account on the list?' },
   { key: 'list', label: 'List', hint: 'Who is on the list right now' },
   { key: 'voice', label: 'Voice', hint: 'How the analyst writes' },
@@ -317,6 +323,7 @@ export default function ModerationStudio({ agent }) {
       )}
 
       {tab === 'overview' && <OverviewPanel agent={agent} />}
+      {tab === 'plans' && <PlansPanel agent={agent} />}
       {tab === 'why' && <WhyPanel agent={agent} />}
       {tab === 'list' && <ListPanel agent={agent} />}
       {tab === 'preflight' && <PreflightPanel agent={agent} />}

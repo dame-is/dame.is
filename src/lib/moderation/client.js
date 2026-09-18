@@ -18,6 +18,7 @@ export const LXM = {
   migrate: 'is.dame.mod.migrate',
   config: 'is.dame.mod.config',
   hub: 'is.dame.mod.hub',
+  plan: 'is.dame.mod.plan',
 };
 
 /**
@@ -540,6 +541,53 @@ export function listMembers(agent, { listUri, cursor, signal } = {}) {
   return call(agent, '/api/mod-hub', {
     lxm: LXM.hub,
     body: { action: 'list', listUri, cursor },
+    signal,
+  });
+}
+
+/* ----------------------------------------------------------------- the plans */
+
+/** Recent plans, newest first, with what each one carried. */
+export function planList(agent, { signal } = {}) {
+  return call(agent, '/api/mod-plan', {
+    lxm: LXM.plan,
+    body: { action: 'plans' },
+    signal,
+  });
+}
+
+/**
+ * One plan, filtered and paged.
+ *
+ * This is the surface a DM cannot be. Ten quotes as a spot check is the most a
+ * chat bubble can honestly offer before a bulk action; reading all 231 with the
+ * words beside them is a screen's job.
+ */
+export function planDetail(
+  agent,
+  { code, label, band, state, offset, signal } = {},
+) {
+  return call(agent, '/api/mod-plan', {
+    lxm: LXM.plan,
+    body: { action: 'detail', code, label, band, state, offset },
+    signal,
+  });
+}
+
+/** Add the accounts that were ticked. Recorded as individual, not as a band. */
+export function planAdd(agent, { code, dids, signal } = {}) {
+  return call(agent, '/api/mod-plan', {
+    lxm: LXM.plan,
+    body: { action: 'add', code, dids },
+    signal,
+  });
+}
+
+/** Take a plan's additions back off the list. */
+export function planUndo(agent, { code, signal } = {}) {
+  return call(agent, '/api/mod-plan', {
+    lxm: LXM.plan,
+    body: { action: 'undo', code },
     signal,
   });
 }

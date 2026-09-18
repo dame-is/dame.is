@@ -285,14 +285,24 @@ members.
 `/admin?view=moderation`. Six tabs, every one of them signed by your own OAuth
 session in the browser — the server holds the bot's credential, never yours.
 
-| Tab           | Does                                                                                                            |
-| ------------- | --------------------------------------------------------------------------------------------------------------- |
-| **Overview**  | Snapshot age, list size, protected set, plans and decisions to date, token spend, bot session, last five audits |
-| **Preflight** | Paste a post link, read the bands. Runs dry, so browsing does not litter the decision log                       |
-| **Audit**     | Re-score an existing list and work the review queue                                                             |
-| **Why**       | One account: its band, the inputs under it, and every decision recorded about it                                |
-| **List**      | Who is on the list right now, a page at a time, filterable                                                      |
-| **Voice**     | The config record: register, standing guidance, report templates, model, limits                                 |
+| Tab           | Does                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Overview**  | Snapshot age, list size, protected set, plans and decisions to date, token spend, bot session, last five audits     |
+| **Preflight** | Paste a post link, read the bands. Runs dry, so browsing does not litter the decision log                           |
+| **Audit**     | Re-score an existing list and work the review queue                                                                 |
+| **Plans**     | Every batch ever proposed, and inside one: every account, its band, its label, and **the words it was labelled on** |
+| **Why**       | One account: its band, the inputs under it, and every decision recorded about it                                    |
+| **List**      | Who is on the list right now, a page at a time, filterable                                                          |
+| **Voice**     | The config record: register, standing guidance, report templates, model, limits                                     |
+
+**Plans** is where a triage becomes reviewable. A DM can honestly show ten
+quotes as a spot check before a bulk action and it cannot show 231, because
+nobody reads 231 of anything in a chat bubble — a menu implying otherwise is the
+failure this whole system is against. So the DM is where you act quickly and
+this is where you look properly; both read the same rows from the same table.
+Filter by label, by band, or by whether an account is already on the list, tick
+the ones you actually read, and add those. Ticking records `individual` rather
+than a band or a label, because on that screen that is what happened.
 
 **Why** is the one that earns the rest. The system's whole claim is that a
 decision is replayable — _here is exactly what it saw_ — and until that tab

@@ -334,3 +334,26 @@
   font-size: 0.82rem;
   color: var(--ink-soft);
 }
+
+/* A button that has to read as a link: opening a plan is navigation, not an
+   action, and a <button> is the honest element for something that changes what
+   this panel shows without changing anything on the network. */
+.mod-linkish {
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0;
+  cursor: pointer;
+}
+
+.mod-linkish:hover {
+  border-bottom-color: var(--accent);
+}
+
+/* The quote a label was read from, printed next to it so the label can be
+   disagreed with. Wrapped rather than truncated: a sentence cut in half is
+   exactly the sentence you cannot judge. */
+.mod-row-why {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
