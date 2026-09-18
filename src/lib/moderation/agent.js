@@ -29,6 +29,17 @@ import { z } from 'zod';
 export const DEFAULT_MODEL = 'anthropic/claude-opus-5';
 
 /**
+ * How long any one model call may take before it is abandoned.
+ *
+ * Generous, because a tool loop legitimately takes tens of seconds. The number
+ * is not tuned for the slowest good call; it is there so a call that will NEVER
+ * return is eventually noticed. Failing loudly after two minutes beats hanging
+ * forever with the process looking healthy.
+ */
+export const MODEL_TIMEOUT_MS =
+  Number(process.env.MOD_MODEL_TIMEOUT_MS) || 120_000;
+
+/**
  * Wrap text written by someone else so the model can tell content from
  * instruction. Backticks are stripped so a bio cannot close the fence and write
  * outside it.
@@ -311,6 +322,13 @@ export async function answer({
   const result = await generate({
     model,
     instructions,
+    // EVERY MODEL CALL GETS A DEADLINE. Without one, a gateway request that
+    // never returns wedges the whole consumer: jobs are serialised through one
+    // queue and the DM poll skips itself while anything is in flight, so a
+    // single hung socket stops DMs, public replies and the drift run
+    // indefinitely -- silently, with the process healthy and idle and nothing
+    // in the log. That happened, and it cost an answer nobody ever got.
+    abortSignal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
     // The gate's own tools cannot be shadowed by anything merged in: a remote
     // server that published a `preflight_post` would otherwise replace the one
     // piece of this system whose output has to stay reproducible.

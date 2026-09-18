@@ -29,7 +29,7 @@
 
 import { APPVIEW } from '../../src/config.js';
 import { harvestPost } from '../../src/lib/moderation/harvest.js';
-import { untrusted } from '../../src/lib/moderation/agent.js';
+import { untrusted, MODEL_TIMEOUT_MS } from '../../src/lib/moderation/agent.js';
 import { LABELS } from '../../src/lib/moderation/command.js';
 import { selectAll, upsert } from './modDb.js';
 
@@ -41,11 +41,28 @@ import { selectAll, upsert } from './modDb.js';
 /** getPosts takes 25 at a time. */
 const POSTS_PER_CALL = 25;
 
-/** Texts per model call. Quotes are short; this keeps a call small and bounded. */
-const PER_CALL = 60;
+/**
+ * Texts per model call.
+ *
+ * Was 60, which took ~70 seconds and came back with 42 of them labelled -- the
+ * model loses the thread of a long numbered list, and every unlabelled row is
+ * one that has to be paid for again next run. 20 is both faster to return and
+ * more reliable per item.
+ */
+const PER_CALL = 20;
 
-/** Texts per invocation. Sending it again continues, like an approval. */
-export const PER_RUN = 300;
+/** How many of those run at once. */
+const CONCURRENCY = 6;
+
+/**
+ * Texts per invocation. Sending it again continues, like an approval.
+ *
+ * At 20 per call and 6 at a time this is two waves, so a triage is about a
+ * minute rather than the six it used to be. That matters beyond patience: jobs
+ * are serialised through one queue on the droplet, so a long triage is a long
+ * silence on every other DM.
+ */
+export const PER_RUN = 240;
 
 const KINDS = new Set(['quote', 'reply', 'threadReply']);
 
@@ -178,6 +195,9 @@ async function labelBatch(items, { generate, model }) {
     model,
     instructions: { role: 'system', content: PROMPT },
     messages: [{ role: 'user', content: body }],
+    // See MODEL_TIMEOUT_MS. A hung gateway request here stopped the entire
+    // consumer for as long as nobody noticed.
+    abortSignal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
   });
   return parseLabels(result?.text ?? '', items.length);
 }
@@ -188,7 +208,10 @@ async function labelBatch(items, { generate, model }) {
  * Resumable and idempotent in the same shape as an approval: rows already
  * carrying a label are skipped, so sending it again continues.
  */
-export async function runTriage(plan, { generate, model, perRun = PER_RUN }) {
+export async function runTriage(
+  plan,
+  { generate, model, perRun = PER_RUN, log = () => {} },
+) {
   const rows = await selectAll('decision', {
     select: 'did,band,evidence_uri,triage',
     eq: { plan_id: plan.id },
@@ -230,35 +253,59 @@ export async function runTriage(plan, { generate, model, perRun = PER_RUN }) {
     .filter((r) => r.text);
 
   const now = new Date().toISOString();
-  let labelled = 0;
+  const batches = [];
   for (let i = 0; i < items.length; i += PER_CALL) {
-    const batch = items.slice(i, i + PER_CALL);
-    let labels;
-    try {
-      labels = await labelBatch(batch, { generate, model });
-    } catch {
-      // A failed call is a page not labelled, not a page mislabelled. The rows
-      // stay pending and the next invocation picks them up.
-      continue;
+    batches.push(items.slice(i, i + PER_CALL));
+  }
+
+  let labelled = 0;
+  let failed = 0;
+  // In waves rather than one after another. These calls are almost entirely
+  // waiting, so running them in sequence spent six minutes doing a minute of
+  // work -- and on a droplet where every job shares one queue, that was six
+  // minutes of not answering anyone else.
+  for (let w = 0; w < batches.length; w += CONCURRENCY) {
+    const wave = batches.slice(w, w + CONCURRENCY);
+    const results = await Promise.all(
+      wave.map((batch) =>
+        labelBatch(batch, { generate, model })
+          .then((labels) => ({ batch, labels }))
+          // A failed call is a page not labelled, not a page mislabelled. The
+          // rows stay pending and the next invocation picks them up. Counted
+          // rather than swallowed: three silent failures out of five looked
+          // exactly like the model disagreeing with us about how many posts
+          // there were.
+          .catch((err) => {
+            failed += batch.length;
+            log('Triage batch failed', { err: String(err?.message || err) });
+            return null;
+          }),
+      ),
+    );
+
+    const writes = [];
+    for (const r of results) {
+      if (!r) continue;
+      r.batch.forEach((row, n) => {
+        if (!r.labels[n]) return;
+        writes.push({
+          plan_id: plan.id,
+          did: row.did,
+          band: row.band,
+          triage: r.labels[n],
+          // The words, kept. This is the column that makes the label answerable
+          // later; without it the log says only that a model disliked someone.
+          triage_quote: row.text.slice(0, 500),
+          triage_at: now,
+          triage_model: String(model),
+        });
+      });
     }
-    const writes = batch
-      .map((r, n) => ({ row: r, label: labels[n] }))
-      .filter((x) => x.label)
-      .map(({ row, label }) => ({
-        plan_id: plan.id,
-        did: row.did,
-        band: row.band,
-        triage: label,
-        // The words, kept. This is the column that makes the label answerable
-        // later; without it the log says only that a model disliked someone.
-        triage_quote: row.text.slice(0, 500),
-        triage_at: now,
-        triage_model: String(model),
-      }));
     if (writes.length) {
       await upsert('decision', writes);
       labelled += writes.length;
     }
+    log('Triage wave done', { labelled, failed, of: items.length });
   }
 
   const after = await selectAll('decision', {

@@ -335,7 +335,7 @@ export async function runCommand(
     // Read what they wrote and bucket it. Labels only -- nobody is added here,
     // and approving a bucket is a separate command on purpose.
     if (cmd.action === 'triage') {
-      const out = await runTriage(plan, { generate, model });
+      const out = await runTriage(plan, { generate, model, log });
       const { counts } = out;
       const lines = [
         `Read ${out.total - out.noText - out.remaining} of the ${out.total} accounts on ${cmd.code}.`,
@@ -823,6 +823,7 @@ export async function runDmPass({
           canWrite,
           generate,
           model: activeModel,
+          log,
         });
       } catch (err) {
         reply = {
