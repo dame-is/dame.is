@@ -241,7 +241,15 @@ function renderReview(plan, review) {
 export async function runCommand(
   cmd,
   writeAgent,
-  { template, reportTemplate, lookUp, canWrite = true, generate, model } = {},
+  {
+    template,
+    reportTemplate,
+    lookUp,
+    canWrite = true,
+    generate,
+    model,
+    log = () => {},
+  } = {},
 ) {
   const say = (text, options = null) => ({ text, options });
 
