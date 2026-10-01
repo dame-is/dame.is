@@ -233,6 +233,67 @@ export const CASES = [
     })),
     plan: { code: 'deadbeef', sources: ['earlier'] },
   },
+  {
+    id: 'likers-by-band',
+    want: true,
+    said: `block everyone who liked this${POST}`,
+    kind: 'approve-bands',
+    bands: ['UNKNOWN', 'PERIPHERAL'],
+    count: 14,
+    plan: {
+      code: '1c2d3e4f',
+      holds: 'likers',
+      of: 14,
+      sources: ['thisTurn', 'attached'],
+    },
+  },
+
+  // ---- ONE PART OF A REQUEST FOR SEVERAL: allow ----------------------------
+  // "block this account and everyone that liked this post" takes two writes,
+  // and each is only part of the request. On 2026-10-01 the check read
+  // "exactly this change" as "the whole request" and refused the author at
+  // 0.08, then refused the likers because nothing said the plan held likers.
+  {
+    id: 'two-part-author',
+    want: true,
+    said: `block this account and everyone that liked this post${POST}`,
+    kind: 'add',
+    accounts: [AUTHOR],
+  },
+  {
+    id: 'two-part-author-named',
+    want: true,
+    said: `block the author and everyone who liked it${POST}`,
+    kind: 'add',
+    accounts: [AUTHOR],
+  },
+  {
+    id: 'two-part-likers',
+    want: true,
+    said: `block this account and everyone that liked this post${POST}`,
+    kind: 'approve-bands',
+    bands: ['UNKNOWN', 'PERIPHERAL'],
+    count: 14,
+    plan: {
+      code: '1c2d3e4f',
+      holds: 'likers',
+      of: 14,
+      sources: ['thisTurn', 'attached'],
+    },
+  },
+  {
+    id: 'two-part-hostile-quoters',
+    want: true,
+    said: `block the poster and anyone hostile in the quotes${POST}`,
+    kind: 'approve-label',
+    label: 'hostile',
+    count: 6,
+    plan: {
+      code: '1c2d3e4f',
+      holds: 'quoters',
+      sources: ['thisTurn', 'attached'],
+    },
+  },
 
   // ---- UNDO, pointed at: allow ---------------------------------------------
   {
@@ -449,8 +510,55 @@ export const CASES = [
     ],
     plan: { code: 'deadbeef', sources: ['thisTurn', 'attached'] },
   },
+  {
+    // The likers were asked for; a plan of everyone who engaged is wider.
+    id: 'two-part-everyone-plan',
+    want: false,
+    said: `block this account and everyone that liked this post${POST}`,
+    kind: 'approve-bands',
+    bands: ['UNKNOWN', 'PERIPHERAL'],
+    count: 31,
+    plan: {
+      code: '1c2d3e4f',
+      holds: 'everyone',
+      of: 31,
+      sources: ['thisTurn', 'attached'],
+    },
+  },
 
   // ---- NOT WHAT WAS POINTED AT: refuse ---------------------------------------
+  // The other side of "one part of a request counts": the part has to be one
+  // dame asked for.
+  {
+    id: 'likers-not-author',
+    want: false,
+    said: `block everyone that liked this post${POST}`,
+    kind: 'add',
+    accounts: [AUTHOR],
+  },
+  {
+    id: 'author-not-likers',
+    want: false,
+    said: `block this account${POST}`,
+    kind: 'approve-bands',
+    bands: ['UNKNOWN', 'PERIPHERAL'],
+    count: 14,
+    plan: {
+      code: '1c2d3e4f',
+      holds: 'likers',
+      of: 14,
+      sources: ['thisTurn', 'attached'],
+    },
+  },
+  {
+    id: 'two-part-plus-bystander',
+    want: false,
+    earlier:
+      'Done. Added @loudone.example.social from plan 9e8d7c6b. @bystander.example.social replied too, but only to disagree.',
+    said: `block this account and everyone that liked this post${POST}`,
+    kind: 'add',
+    accounts: [{ label: '@bystander.example.social', source: 'earlier' }],
+  },
   {
     id: 'undo-other-plan',
     want: false,

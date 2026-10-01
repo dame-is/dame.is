@@ -194,7 +194,11 @@ describe('a DM pass in agent mode', () => {
       mode: 'agent',
       model: 'test/model',
     });
-    expect(sent[0]).toMatch(/failed: gateway 502[\s\S]*Nothing was changed/);
+    // The second wave is announced before it runs, then fails the same way.
+    expect(sent[0]).toMatch(/^Still on it: the first model failed/);
+    expect(sent.at(-1)).toMatch(
+      /failed: gateway 502[\s\S]*Nothing was changed/,
+    );
   });
 
   it('is unchanged in classic mode', async () => {

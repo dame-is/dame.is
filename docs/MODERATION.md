@@ -459,16 +459,29 @@ it unasked.
   handle" and "a model read dame's sentence" stay distinguishable.
 - **Untrusted fencing**, the same `<untrusted>` tags as the analyst.
 
-| Variable                  | Default          | Is                                            |
-| ------------------------- | ---------------- | --------------------------------------------- |
-| `MOD_DM_MODE`             | `classic`        | `agent` turns it on                           |
-| `MOD_OPERATOR_MODEL`      | the analyst's    | the agent's model; triage keeps the analyst's |
-| `MOD_OPERATOR_STEPS`      | 24               | tool-loop steps per turn                      |
-| `MOD_OPERATOR_TIMEOUT_MS` | 300000           | deadline for a whole turn, tools included     |
-| `MOD_OPERATOR_REASONING`  | provider default | `off`, `low`, `medium`, `high`                |
+| Variable                         | Default          | Is                                            |
+| -------------------------------- | ---------------- | --------------------------------------------- |
+| `MOD_DM_MODE`                    | `classic`        | `agent` turns it on                           |
+| `MOD_OPERATOR_MODEL`             | the analyst's    | the agent's model; triage keeps the analyst's |
+| `MOD_OPERATOR_STEPS`             | 24               | tool-loop steps per turn                      |
+| `MOD_OPERATOR_TIMEOUT_MS`        | 300000           | deadline for a whole turn, tools included     |
+| `MOD_OPERATOR_CALL_TIMEOUT_MS`   | 45000            | one first-wave model call, tools excluded     |
+| `MOD_ESCALATION_CALL_TIMEOUT_MS` | 90000            | one second-wave model call, tools excluded    |
+| `MOD_OPERATOR_REASONING`         | provider default | `off`, `low`, `medium`, `high`                |
 
 A turn that runs past five seconds sends an ack; the model can also send up to
 two progress messages of its own while a scan or triage runs.
+
+**A model that stops answering is cut off.** Every model call has its own
+window, timed around the call alone, so a long harvest or triage never trips
+it. A first-wave call that runs past 45 seconds counts as stalled: the turn
+goes straight to the second wave, and dame first gets _"Still on it: the first
+model stopped responding, so glm-5.3-flash is taking over."_ This exists
+because on 2026-10-01 a "block" with a post attached sat on "Thinking." for
+almost four minutes. DeepSeek's calls had hung and then come back empty, and
+the same message replayed took six seconds. Healthy calls take 2 to 15
+seconds on either model. A turn that steps up, fails, or runs past 30 seconds
+logs each step's model and tool time, e.g. `2.1s atmosphere:get_posts+look_up_account (0.3s) › 15.6s add_to_list (0.4s) › 2.3s stop`.
 
 A turn that fails partway says what it had already done before failing, from a
 list kept by code rather than recalled by the model.
@@ -478,12 +491,12 @@ list kept by code rather than recalled by the model.
 Cheap models do the work. A second one is asked only when the cheap ones are
 unsure, disagree, hand off, or fail. All of it is in `api/_lib/tiers.js`.
 
-| Job                               | First wave                     | Second wave, and when                                                                                 |
-| --------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| An agent turn                     | the analyst's model (DeepSeek) | GLM-5.3-flash: on `hand_off`, on a turn that fails or runs out of steps, or on a message starting `^` |
-| Is this write what dame asked for | Jev, an evaluation model       | GPT-6 Luna, when Jev's probability is between 0.2 and 0.6                                             |
-| Triage labels                     | DeepSeek labels, Jev scores    | GLM-5.3-flash re-reads every post either of them calls hostile; its label is kept                     |
-| Re-checking old hostile labels    | (none)                         | GLM-5.3-flash and GPT-6 Luna; a label changes only when both disagree with it                         |
+| Job                               | First wave                     | Second wave, and when                                                                                              |
+| --------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| An agent turn                     | the analyst's model (DeepSeek) | GLM-5.3-flash: on `hand_off`, on a turn that fails, stalls or ends without an answer, or on a message starting `^` |
+| Is this write what dame asked for | Jev, an evaluation model       | GPT-6 Luna, when Jev's probability is between 0.2 and 0.6                                                          |
+| Triage labels                     | DeepSeek labels, Jev scores    | GLM-5.3-flash re-reads every post either of them calls hostile; its label is kept                                  |
+| Re-checking old hostile labels    | (none)                         | GLM-5.3-flash and GPT-6 Luna; a label changes only when both disagree with it                                      |
 
 Every GLM-5.3-flash call carries a gateway fallback to GLM-5.3. The flash
 model had bursts of upstream failures while it was measured (80 of 307 posts in
@@ -523,6 +536,22 @@ none and is the cheapest and fastest. The remaining wrong refusals cost one "go
 ahead?": _"yeah get rid of that one"_ after an offer, and reading _"the randos
 who liked this"_ as all 88 UNKNOWN. Run it again after changing a prompt or a
 model: `node scripts/eval-intent.mjs` (see its header).
+
+**A request for two things is two writes.** On 2026-10-01 _"block this account
+and everyone that liked this post"_ was refused twice before dame said yes.
+The question asked whether dame wanted _exactly_ this change, and Jev read
+that as the whole request, so adding the author scored 0.08. The approval of
+the likers said "every account in band UNKNOWN or PERIPHERAL" and never said
+the plan was the likers. Three changes fixed it:
+
+- The question now says a change that does one of the things asked for counts.
+- With a post attached, "this account" means that post's author.
+- A plan's description says who it holds and how much of it the bands take.
+
+Nine cases cover this (61 in all), including four that must stay refused: the
+author when only the likers were asked for, and an account the bot had just
+mentioned. Over two runs, Jev with Luna in the middle went from 56/61 to
+59–60/61, still with no wrong allows. The two-part request now scores 0.73.
 
 **Hostile needs the second reader.** It is the only label that leads to a
 write. Jev alone over-calls badly (on 762 real posts, 80 that DeepSeek did not

@@ -423,6 +423,48 @@ describe('the real SDK accepts the agent', () => {
     expect(reply.text).toBe('Added @a.test.');
     expect(reply.actions).toEqual(['added @a.test']);
     expect(deps.applyCommand.mock.calls[0][3].via).toBe('agent');
+    // The SDK calls the timing hooks: one entry per step, model time first.
+    expect(reply.trace).toHaveLength(2);
+    expect(reply.trace[0]).toMatch(/^\d+\.\ds add_to_list \(\d+\.\ds\)$/);
+    expect(reply.trace[1]).toMatch(/^\d+\.\ds stop$/);
+  });
+
+  it('cuts off a call that never answers and hands the turn on', async () => {
+    const stuck = new MockLanguageModelV4({
+      doGenerate: ({ abortSignal }) =>
+        new Promise((_, reject) =>
+          abortSignal.addEventListener('abort', () =>
+            reject(abortSignal.reason),
+          ),
+        ),
+    });
+    const fine = new MockLanguageModelV4({
+      doGenerate: async () => ({
+        finishReason: { unified: 'stop', raw: 'stop' },
+        usage: { inputTokens: 12, outputTokens: 4 },
+        content: [{ type: 'text', text: 'Recovered.' }],
+        warnings: [],
+      }),
+    });
+    const logs = [];
+    const reply = await operate({
+      generate: generateText,
+      model: stuck,
+      escalation: fine,
+      callTimeoutMs: 30,
+      message: 'block',
+      io: {
+        preflight: async () => ({}),
+        lookUp: async () => null,
+        referenceStatus: () => ({}),
+      },
+      log: (msg, fields) => logs.push([msg, fields]),
+      deps: fakeDeps(),
+    });
+    expect(reply.text).toBe('Recovered.');
+    expect(reply.escalated.reason).toBe('the first model stopped responding');
+    const [, stepUp] = logs.find(([msg]) => /Stepping up/.test(msg));
+    expect(stepUp.first).toMatch(/^\d+\.\ds no answer$/);
   });
 });
 
@@ -490,7 +532,10 @@ describe('checked writes', () => {
   });
 
   it('gives the judge the size of a bulk approval and where the plan came from', async () => {
-    const deps = fakeDeps({ countDecisions: vi.fn(async () => 88) });
+    // 88 in the band asked for, 120 still waiting across the plan.
+    const deps = fakeDeps({
+      countDecisions: vi.fn(async (_plan, opts) => (opts?.bands ? 88 : 120)),
+    });
     const ctx = ctxFor({
       checkWrites: true,
       said: 'block the hostile ones',
@@ -505,7 +550,33 @@ describe('checked writes', () => {
       /^Add 88 accounts to the moderation list from plan 3f9a2c1b \(created while answering this message/,
     );
     expect(action).toContain(
-      'every account in band UNKNOWN, regardless of what they wrote',
+      'every account in band UNKNOWN (88 of the 120 still waiting in it), regardless of what they wrote',
+    );
+  });
+
+  // 2026-10-01: "everyone that liked this post" against "every account in
+  // band UNKNOWN or PERIPHERAL" was refused, because nothing said the plan was
+  // the likers or that the bands took all of them.
+  it('tells the judge who a scan plan holds and that the bands take all of it', async () => {
+    const deps = fakeDeps({
+      findPlan: vi.fn(async () => ({ ...PLAN, totals: { kind: 'likers' } })),
+      countDecisions: vi.fn(async () => 14),
+    });
+    const ctx = ctxFor({
+      checkWrites: true,
+      said: 'block this account and everyone that liked this post',
+      plans: ['3f9a2c1b'],
+    });
+    await buildActionTools(ctx, deps).approve_plan.execute({
+      code: '3f9a2c1b',
+      bands: ['UNKNOWN', 'PERIPHERAL'],
+    });
+    const { action } = deps.checkIntent.mock.calls[0][0];
+    expect(action).toContain(
+      "from plan 3f9a2c1b, which holds the post's likers (created while answering this message",
+    );
+    expect(action).toContain(
+      'every account in band UNKNOWN or PERIPHERAL (all 14 still waiting in it)',
     );
   });
 
@@ -646,6 +717,108 @@ describe('two waves', () => {
     expect(generate.mock.calls[0][0].instructions.content).not.toContain(
       'STRONGER MODEL',
     );
+  });
+
+  // 2026-10-01 19:48: "block" with a post attached sat on "Thinking." for
+  // almost four minutes while the first wave's calls hung, then came back
+  // empty with a footer blaming the step budget.
+  it('steps up as soon as a model call stalls, and says it is still on it', async () => {
+    const progress = [];
+    const generate = vi.fn(async (opts) => {
+      if (opts.model === 'cheap/model') {
+        opts.onLanguageModelCallStart();
+        // A provider that never answers: only the abort ends this call.
+        await new Promise((_, reject) =>
+          opts.abortSignal.addEventListener('abort', () =>
+            reject(opts.abortSignal.reason),
+          ),
+        );
+      }
+      return { text: 'Blocked the author.', steps: [{}] };
+    });
+    const reply = await operate({
+      ...base,
+      generate,
+      callTimeoutMs: 20,
+      sendProgress: async (text) => progress.push(text),
+      deps: fakeDeps(),
+    });
+    expect(reply.text).toBe('Blocked the author.');
+    expect(reply.escalated.reason).toBe('the first model stopped responding');
+    expect(progress).toEqual([
+      'Still on it: the first model stopped responding, so model is taking over.',
+    ]);
+  });
+
+  it('does not count tool time against a model call', async () => {
+    const generate = vi.fn(async (opts) => {
+      opts.onLanguageModelCallStart();
+      opts.onLanguageModelCallEnd();
+      // A slow scan between two quick calls.
+      await new Promise((resolve) => setTimeout(resolve, 60));
+      opts.onLanguageModelCallStart();
+      opts.onLanguageModelCallEnd();
+      return { text: 'Scanned it.', steps: [{}, {}] };
+    });
+    const reply = await operate({
+      ...base,
+      generate,
+      callTimeoutMs: 20,
+      deps: fakeDeps(),
+    });
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(reply.text).toBe('Scanned it.');
+    expect(reply.escalated).toBe(null);
+  });
+
+  it('only blames the step budget when the steps were all used', async () => {
+    const generate = vi.fn(async (opts) =>
+      opts.model === 'cheap/model'
+        ? { text: '', steps: [{}, {}, {}] }
+        : { text: 'Done.', steps: [{}] },
+    );
+    const early = await operate({ ...base, generate, deps: fakeDeps() });
+    expect(early.escalated.reason).toBe(
+      'the first model stopped without answering',
+    );
+    const spent = await operate({
+      ...base,
+      generate,
+      maxSteps: 3,
+      deps: fakeDeps(),
+    });
+    expect(spent.escalated.reason).toBe(
+      'the first model ran out of steps before doing anything',
+    );
+  });
+
+  it('does not announce a hand-off the first model chose', async () => {
+    const progress = [];
+    const generate = vi.fn(async (opts) => {
+      if (opts.model === 'cheap/model') {
+        await opts.tools.hand_off.execute({ reason: 'needs care' });
+        return { text: '', steps: [{}] };
+      }
+      return { text: 'ok', steps: [{}] };
+    });
+    await operate({
+      ...base,
+      generate,
+      sendProgress: async (text) => progress.push(text),
+      deps: fakeDeps(),
+    });
+    expect(progress).toEqual([]);
+  });
+
+  it('reads a stalled last wave as taking too long', () => {
+    expect(
+      fallbackText({
+        ok: false,
+        stalled: true,
+        error: new Error('zai/glm-5.3-flash gave no answer in 90s'),
+        actions: [],
+      }),
+    ).toMatch(/took too long[\s\S]*Nothing was changed/);
   });
 });
 

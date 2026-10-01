@@ -18,13 +18,15 @@
 //   /opt/node22/bin/node scripts/eval-intent.mjs --strong anthropic/claude-sonnet-5.5,openai/gpt-6-luna
 //
 // Cost is read from the gateway's public price list, so it stays honest when
-// prices move. A full run is about 48 judge calls plus 48 per candidate.
+// prices move. A full run is one judge call per case, plus one per case for
+// each candidate.
 
 import { experimental_evaluate, generateText, gateway } from 'ai';
 
 import { CASES } from './evals/intent-cases.js';
 import {
   intentState,
+  INTENT_QUESTION,
   SECOND_OPINION_PROMPT,
   JUDGE_MODEL,
 } from '../api/_lib/tiers.js';
@@ -57,6 +59,7 @@ function stateOf(c) {
     accounts: (c.accounts || []).map(accountPhrase),
     plan: c.plan ? planPhrase(c.plan) : undefined,
     count: c.count,
+    of: c.plan?.of,
     bands: c.bands,
     label: c.label,
   });
@@ -115,13 +118,7 @@ const ps = await pool(states, 8, async (state) => {
     const r = await experimental_evaluate({
       model: judge,
       state,
-      questions: {
-        asked: {
-          type: 'boolean',
-          instructions:
-            "Did dame ask for, or clearly agree to, exactly this change, on exactly these accounts or this plan? False if the change is wider than what dame asked for, targets an account or plan dame did not point at, or goes against what dame said. A request for a category ('the hostile ones', 'everyone in the quotes') covers the accounts in that category.",
-        },
-      },
+      questions: INTENT_QUESTION,
     });
     judgeIn += r.usage.inputTokens || 0;
     return r.answers.asked.probability;

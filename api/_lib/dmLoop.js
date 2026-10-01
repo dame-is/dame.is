@@ -735,6 +735,7 @@ async function answerAsAgent({
   log,
 }) {
   const sender = entry.message?.sender?.did;
+  const began = Date.now();
   let spoke = null;
   const timer = setTimeout(() => {
     spoke = send(ackFor({ action: 'think' }, { openers })).catch(() => {});
@@ -823,11 +824,18 @@ async function answerAsAgent({
     }));
   if (usageRows.length) await upsert('llm_usage', usageRows).catch(() => {});
 
+  const tookMs = Date.now() - began;
   log(reply.ok ? 'Answered as the agent' : 'Agent turn failed', {
     convoId: entry.convoId,
     steps: reply.steps,
+    secs: Math.round(tookMs / 1000),
     ...(reply.escalated
       ? { steppedUp: `${reply.escalated.model}: ${reply.escalated.reason}` }
+      : {}),
+    // Step by step, only when there is something to explain. The first
+    // wave's own steps are on the "Stepping up" line.
+    ...(tookMs > 30_000 || !reply.ok || reply.escalated
+      ? { trace: reply.trace?.join(' › ') || 'no steps' }
       : {}),
     checks: reply.checks?.length
       ? reply.checks

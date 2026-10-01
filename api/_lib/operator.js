@@ -83,6 +83,7 @@ import {
   checkIntent,
   ESCALATION_MODEL,
   escalationEnabled,
+  shortModel,
   withFallback,
 } from './tiers.js';
 import { select } from './modDb.js';
@@ -111,6 +112,36 @@ export const OPERATOR_TIMEOUT_MS = num(
   process.env.MOD_OPERATOR_TIMEOUT_MS,
   300_000,
 );
+
+/**
+ * How long ONE model call may take before the model counts as stalled.
+ *
+ * Timed around the model call alone: armed when a call starts, disarmed when
+ * it returns, so a long harvest or triage (tool time) never trips it. On
+ * 2026-10-01 a "block" with a post attached spent 2m48s on about four DeepSeek
+ * calls and came back empty. Replayed, the same message took 5.8 seconds. A
+ * healthy first-wave call takes 2 to 15 seconds. The second wave reasons
+ * longer over a bigger context, and nothing comes after it, so it waits
+ * longer. 0 turns the watchdog off.
+ */
+export const OPERATOR_CALL_TIMEOUT_MS = num(
+  process.env.MOD_OPERATOR_CALL_TIMEOUT_MS,
+  45_000,
+);
+export const ESCALATION_CALL_TIMEOUT_MS = num(
+  process.env.MOD_ESCALATION_CALL_TIMEOUT_MS,
+  90_000,
+);
+
+/** A model call that did not come back inside its window. */
+class ModelStall extends Error {
+  constructor(model, ms) {
+    super(`${model} gave no answer in ${Math.round(ms / 1000)}s`);
+    // Deliberately not matched by timedOut(): a stall is the model's fault
+    // and worth a second wave, unlike the turn's own deadline.
+    this.name = 'ModelStall';
+  }
+}
 
 /** off | low | medium | high. Unset leaves it to the provider. */
 export const OPERATOR_REASONING = (() => {
@@ -346,8 +377,27 @@ function stamp(iso) {
     : null;
 }
 
+/**
+ * Who a scan plan holds, by its kind (KINDS in command.js). Without this the
+ * check read "every account in band UNKNOWN or PERIPHERAL" against "everyone
+ * that liked this post" and could not tell they were the same 14 people.
+ */
+const PLAN_HOLDS = {
+  likers: "the post's likers",
+  reposters: "the post's reposters",
+  quoters: 'the accounts quoting the post',
+  repliers: 'the accounts replying to the post',
+  everyone: 'everyone who liked, reposted, quoted or replied to the post',
+};
+
 /** One plan, as the intent check reads it. */
-export function planPhrase({ code, sources = [], createdAt, approvedAt }) {
+export function planPhrase({
+  code,
+  holds = null,
+  sources = [],
+  createdAt,
+  approvedAt,
+}) {
   const bits = (sources.length ? sources : ['none']).map(
     (k) => PLAN_SOURCE[k] ?? PLAN_SOURCE.none,
   );
@@ -355,7 +405,8 @@ export function planPhrase({ code, sources = [], createdAt, approvedAt }) {
     bits.push(`approved ${stamp(approvedAt)}`);
   else if (createdAt && stamp(createdAt))
     bits.push(`created ${stamp(createdAt)}`);
-  return `plan ${code} (${bits.join('; ')})`;
+  const what = PLAN_HOLDS[holds];
+  return `plan ${code}${what ? `, which holds ${what}` : ''} (${bits.join('; ')})`;
 }
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -366,8 +417,16 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
  */
 export function actionText(
   kind,
-  { accounts = [], plan, count, bands, label } = {},
+  { accounts = [], plan, count, of, bands, label } = {},
 ) {
+  // How much of the plan a band approval takes, when known: bands are the
+  // code's way of saying "all of them", and the check has to be able to see it.
+  const share =
+    of == null
+      ? ''
+      : count === of
+        ? ` (all ${of} still waiting in it)`
+        : ` (${count} of the ${of} still waiting in it)`;
   switch (kind) {
     case 'add':
       return `Add ${plural(accounts.length, 'account', 'accounts')} to the moderation list: ${accounts.join(', ')}.`;
@@ -376,7 +435,7 @@ export function actionText(
     case 'approve-label':
       return `Add ${plural(count, 'account', 'accounts')} to the moderation list from ${plan}: every account on it that a triage labelled ${label}.`;
     case 'approve-bands':
-      return `Add ${plural(count, 'account', 'accounts')} to the moderation list from ${plan}: every account in band ${bands.join(' or ')}, regardless of what they wrote.`;
+      return `Add ${plural(count, 'account', 'accounts')} to the moderation list from ${plan}: every account in band ${bands.join(' or ')}${share}, regardless of what they wrote.`;
     case 'approve-names':
       return `Add ${plural(accounts.length, 'account', 'accounts')} to the moderation list from ${plan}: ${accounts.join(', ')}.`;
     case 'undo':
@@ -493,6 +552,7 @@ export function buildActionTools(ctx, deps = DEPS) {
     else if (mentioned(ctx.convoText, [code])) sources.push('conversation');
     return planPhrase({
       code,
+      holds: plan.totals?.kind ?? null,
       sources,
       createdAt: plan.created_at,
       approvedAt: plan.approved_at,
@@ -863,6 +923,7 @@ export function buildActionTools(ctx, deps = DEPS) {
               label,
               bands,
               count: await deps.countDecisions(plan, { bands, label }),
+              of: label ? undefined : await deps.countDecisions(plan),
             });
         const stopped = await gate(
           action,
@@ -969,6 +1030,25 @@ const timedOut = (err) =>
     String(err?.name || '') + String(err?.message || err || ''),
   );
 
+const seconds = (ms) => `${(ms / 1000).toFixed(1)}s`;
+
+/**
+ * One step of a turn, short enough for a log line: the model's time, what it
+ * called, the tools' time, or how it finished. The journal had nothing like
+ * this when a turn stalled for three minutes, and the replay could not show
+ * which part was slow.
+ */
+function stepNote(step, modelMs, toolMs) {
+  const calls = (step.toolCalls || []).map((c) =>
+    c.toolName === 'atmosphere'
+      ? `atmosphere:${c.input?.tool ?? '?'}`
+      : c.toolName,
+  );
+  if (calls.length)
+    return `${seconds(modelMs)} ${calls.join('+')} (${seconds(toolMs)})`;
+  return `${seconds(modelMs)} ${step.finishReason ?? 'done'}${step.text ? '' : ', empty'}`;
+}
+
 /**
  * One model, one pass over the message. `operate` decides how many of these a
  * message gets and on which model.
@@ -990,6 +1070,7 @@ async function runTurn({
   reviewRows,
   maxSteps,
   timeoutMs,
+  callTimeoutMs = 0,
   reasoning,
   sendProgress,
   log,
@@ -1000,6 +1081,28 @@ async function runTurn({
   prior = [],
   priorPlans = [],
 }) {
+  // The per-call watchdog (see OPERATOR_CALL_TIMEOUT_MS). Model time is
+  // measured from these hooks too, so the trace can say which part was slow.
+  const stall = new AbortController();
+  let watchdog = null;
+  let callAt = 0;
+  let modelMs = 0;
+  const trace = [];
+  const callStarted = () => {
+    callAt = Date.now();
+    clearTimeout(watchdog);
+    if (callTimeoutMs > 0) {
+      watchdog = setTimeout(
+        () => stall.abort(new ModelStall(model, callTimeoutMs)),
+        callTimeoutMs,
+      );
+    }
+  };
+  const callEnded = () => {
+    clearTimeout(watchdog);
+    modelMs = Date.now() - callAt;
+  };
+
   const ctx = {
     writeAgent,
     canWrite,
@@ -1043,6 +1146,7 @@ async function runTurn({
     checks: ctx.checks,
     usages: ctx.usages,
     handoff: ctx.handoff,
+    trace,
     ...extra,
   });
 
@@ -1062,7 +1166,14 @@ async function runTurn({
         }),
         ...cacheHint(model),
       },
-      abortSignal: AbortSignal.timeout(timeoutMs),
+      abortSignal: AbortSignal.any([
+        AbortSignal.timeout(timeoutMs),
+        stall.signal,
+      ]),
+      onLanguageModelCallStart: callStarted,
+      onLanguageModelCallEnd: callEnded,
+      onStepEnd: (step) =>
+        trace.push(stepNote(step, modelMs, Date.now() - callAt - modelMs)),
       tools,
       stopWhen: [stepCountIs(maxSteps), hasToolCall('hand_off')],
       messages: [...history, { role: 'user', content: message }],
@@ -1072,19 +1183,29 @@ async function runTurn({
     return done({
       ok: true,
       text: (result.text || '').trim(),
-      steps: result.steps?.length ?? 0,
+      steps: result.steps?.length ?? trace.length,
       usage: result.usage ?? null,
       pulses: pulseCallsIn(result.steps),
     });
   } catch (error) {
+    // However the SDK wrapped the abort, the watchdog knows whether it fired.
+    const stalled = stall.signal.aborted;
+    trace.push(
+      stalled
+        ? `${seconds(Date.now() - callAt)} no answer`
+        : `failed: ${String(error?.message || error).slice(0, 80)}`,
+    );
     return done({
       ok: false,
       text: '',
-      error,
-      steps: 0,
+      error: stalled ? stall.signal.reason : error,
+      stalled,
+      steps: trace.length - 1,
       usage: null,
       pulses: [],
     });
+  } finally {
+    clearTimeout(watchdog);
   }
 }
 
@@ -1120,6 +1241,8 @@ export async function operate({
   reviewRows = 40,
   maxSteps = OPERATOR_STEPS,
   timeoutMs = OPERATOR_TIMEOUT_MS,
+  callTimeoutMs = OPERATOR_CALL_TIMEOUT_MS,
+  escalationCallTimeoutMs = ESCALATION_CALL_TIMEOUT_MS,
   reasoning = OPERATOR_REASONING,
   sendProgress = null,
   log = () => {},
@@ -1144,6 +1267,7 @@ export async function operate({
     reviewRows,
     maxSteps,
     timeoutMs,
+    callTimeoutMs,
     reasoning,
     sendProgress,
     log,
@@ -1168,6 +1292,7 @@ export async function operate({
     const turn = await runTurn({
       ...base,
       model: escalation,
+      callTimeoutMs: escalationCallTimeoutMs,
       stage: 'second',
       reason,
     });
@@ -1187,22 +1312,48 @@ export async function operate({
 
   let reason = null;
   if (first.handoff) reason = first.handoff;
-  else if (!first.ok && !first.actions.length && !timedOut(first.error)) {
+  else if (first.stalled) {
+    // Stepped up even after writes, as for running out of steps: the second
+    // wave is told what was done, and its own writes are checked again.
+    reason = 'the first model stopped responding';
+  } else if (!first.ok && !first.actions.length && !timedOut(first.error)) {
     reason = 'the first model failed before doing anything';
   } else if (first.ok && !first.text) {
-    // Out of steps with nothing to say. If it acted, the second wave is told
-    // exactly what, and every write it makes is checked again on its own.
-    reason = first.actions.length
-      ? 'the first model ran out of steps partway through'
-      : 'the first model ran out of steps before doing anything';
+    // Nothing to say. That is only "out of steps" if it used them all. The
+    // footer used to say so regardless, about a turn that stopped after
+    // three. If it acted, the second wave is told exactly what, and every
+    // write it makes is checked again on its own.
+    const outOfSteps = first.steps >= maxSteps;
+    if (first.actions.length) {
+      reason = outOfSteps
+        ? 'the first model ran out of steps partway through'
+        : 'the first model stopped partway through without answering';
+    } else {
+      reason = outOfSteps
+        ? 'the first model ran out of steps before doing anything'
+        : 'the first model stopped without answering';
+    }
   }
   if (!reason || !canStepUp)
     return { ...first, usages: firstUsages, escalated: null };
 
-  log('Stepping up to the second wave', { model: escalation, reason });
+  log('Stepping up to the second wave', {
+    model: escalation,
+    reason,
+    first: first.trace.join(' › ') || 'no steps',
+  });
+  // Said before the second wave starts: by now dame has been waiting, and in
+  // the DM a stalled model and a dead bot look the same. A hand-off was the
+  // first model's own choice and needs no announcement.
+  if (sendProgress && !first.handoff) {
+    await sendProgress(
+      `Still on it: ${reason}, so ${shortModel(escalation)} is taking over.`,
+    ).catch(() => {});
+  }
   const second = await runTurn({
     ...base,
     model: escalation,
+    callTimeoutMs: escalationCallTimeoutMs,
     stage: 'second',
     reason,
     prior: first.actions,
@@ -1239,7 +1390,7 @@ export function fallbackText(reply) {
     : '\n\nNothing was changed.';
   if (!reply.ok) {
     const why = String(reply.error?.message || reply.error || 'unknown error');
-    const timedOut = /abort|timeout/i.test(why);
+    const timedOut = reply.stalled || /abort|timeout/i.test(why);
     return (
       (timedOut
         ? 'That took too long and I stopped.'
