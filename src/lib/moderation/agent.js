@@ -314,6 +314,7 @@ export function buildTools(io, { reviewRows = 40 } = {}) {
               engagements: a.engagements,
               protectedReason: a.protectedReason ?? null,
               alreadyListed: a.alreadyListed,
+              blocksYou: a.blocksYou ?? null,
             })),
         };
       },
@@ -321,7 +322,7 @@ export function buildTools(io, { reviewRows = 40 } = {}) {
 
     look_up_account: tool({
       description:
-        "Score one account against dame's graph: band, vouch count, distance, reach, tenure.",
+        "Score one account against dame's graph: band, vouch count, distance, reach, tenure, whether they are already on the moderation list, and whether they already block dame.",
       inputSchema: z.object({
         actor: z.string().describe('handle or DID'),
       }),
@@ -341,6 +342,7 @@ export function buildTools(io, { reviewRows = 40 } = {}) {
           mutual: a.mutual,
           protectedReason: a.protectedReason ?? null,
           alreadyListed: a.alreadyListed,
+          blocksYou: a.blocksYou ?? null,
         };
       },
     }),

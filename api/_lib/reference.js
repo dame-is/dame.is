@@ -30,6 +30,8 @@ import {
 import { referenceFrom } from '../../src/lib/moderation/precompute.js';
 import { pulse } from '../../src/lib/moderation/pulse.js';
 import { select, selectAll } from './modDb.js';
+import { listUri } from './listWrite.js';
+import { graphFacts, listedView, blockersView } from './graphFacts.js';
 
 /**
  * The newest finalised snapshot, as scorer-shaped lookups.
@@ -54,6 +56,7 @@ export async function loadReference() {
     );
   }
 
+  const list = listUri();
   const [vouchRows, circleRows, protectedRows, settings] = await Promise.all([
     // Paged, ordered by the primary key so pages cannot overlap or skip.
     selectAll('vouch', {
@@ -70,6 +73,10 @@ export async function loadReference() {
     // worth paging now rather than at 1,001.
     selectAll('protected', { select: 'did,reason', order: 'did.asc' }),
     select('settings', { select: 'thresholds', eq: { id: 1 } }),
+    // Who is already on the list and who already blocks dame, loaded beside
+    // the vouches rather than after them. Held for half an hour; see
+    // graphFacts.js. A failure leaves both unknown rather than empty-and-wrong.
+    graphFacts({ list }).catch(() => null),
   ]);
 
   const thresholds = settings?.[0]?.thresholds || DEFAULT_THRESHOLDS;
@@ -81,6 +88,8 @@ export async function loadReference() {
         vouchRows,
         circleDids: circleRows.map((r) => r.did),
         protectedRows,
+        listed: listedView(list),
+        blockers: blockersView(),
       }),
       thresholds,
     },
@@ -114,6 +123,8 @@ export function makeIo({ ref, takenAt, pulseBudgetMs = 25_000 }) {
         autoEligible: summary.autoEligible.length,
       };
     },
+    /** Score many accounts at once. For a watch, which meets them in batches. */
+    score: (dids) => scorer.score(dids),
     async lookUp(actor) {
       // Resolve first: score() keys its result by the exact string it is handed,
       // so a handle would come back as an unresolved account rather than as the

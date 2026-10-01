@@ -65,13 +65,15 @@ export const profileUrl = (actor) =>
 /** Split an approved_via into what it was based on and whether the agent did it. */
 function readVia(via) {
   const agent = via === 'agent' || via.startsWith('agent:');
-  return { agent, basis: via.replace(/^agent:?/, '') };
+  // A watched post adds on its own when dame asked it to: "watch:triage:hostile".
+  const watch = via.startsWith('watch:');
+  return { agent, watch, basis: via.replace(/^(agent|watch):?/, '') };
 }
 
 /** How an account was put on the list, as a sentence. */
 export function viaText(via) {
   if (!via) return 'carried over in the September migration';
-  const { agent, basis } = readVia(via);
+  const { agent, watch, basis } = readVia(via);
   const what = basis.startsWith('triage:')
     ? `read as ${basis.slice(7)} by triage`
     : basis === 'band'
@@ -83,13 +85,14 @@ export function viaText(via) {
           : basis === 'portal'
             ? 'restored from this hub'
             : basis;
+  if (watch) return `${what}, while watching a post`;
   return agent ? `${what}, done by the agent` : what;
 }
 
 /** How an account was put on the list, as a short tag. */
 export function viaTag(via) {
   if (!via) return null;
-  const { agent, basis } = readVia(via);
+  const { agent, watch, basis } = readVia(via);
   const text = basis.startsWith('triage:')
     ? basis.slice(7)
     : basis === 'individual'
@@ -98,7 +101,7 @@ export function viaTag(via) {
         ? 'direct'
         : basis;
   return {
-    text: agent ? `${text} · agent` : text,
+    text: watch ? `${text} · watch` : agent ? `${text} · agent` : text,
     tone: basis === 'triage:hostile' ? 'danger' : 'plain',
   };
 }

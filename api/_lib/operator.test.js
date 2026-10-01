@@ -499,8 +499,8 @@ describe('checked writes', () => {
     expect(deps.checkIntent.mock.calls[0][0]).not.toHaveProperty('reason');
   });
 
-  it('does not write when the check says no, and says how to do it directly', async () => {
-    const deps = fakeDeps({
+  const refusing = () =>
+    fakeDeps({
       checkIntent: vi.fn(async () => ({
         allow: false,
         p: 0.05,
@@ -509,14 +509,65 @@ describe('checked writes', () => {
         usage: [],
       })),
     });
-    const ctx = ctxFor({ checkWrites: true, said: 'what is going on here' });
+
+  it('does not write when the check says no, and does not offer a stranger for a thumbs-up', async () => {
+    const deps = refusing();
+    const ctx = ctxFor({
+      checkWrites: true,
+      said: 'what is going on here',
+      pending: [],
+    });
     const out = await buildActionTools(ctx, deps).add_to_list.execute({
       accounts: ['@a.test'],
     });
     expect(out.notDone).toBe(true);
-    expect(out.result).toContain('!block @handle');
+    expect(out.waitingOnDame).toBeUndefined();
+    expect(out.result).toMatch(/not something dame pointed at/);
+    expect(ctx.pending).toEqual([]);
     expect(deps.applyCommand).not.toHaveBeenCalled();
     expect(ctx.actions).toEqual([]);
+  });
+
+  it('puts a refused write on something dame pointed at to dame as a question', async () => {
+    const deps = refusing();
+    const ctx = ctxFor({
+      checkWrites: true,
+      said: 'hmm, @a.test again',
+      pending: [],
+    });
+    const out = await buildActionTools(ctx, deps).add_to_list.execute({
+      accounts: ['@a.test'],
+    });
+    expect(out.waitingOnDame).toBe(true);
+    expect(deps.applyCommand).not.toHaveBeenCalled();
+    // What a thumbs-up runs: the classic command, exactly, and a line written
+    // by code that says what it is.
+    expect(ctx.pending).toEqual([
+      { commands: ['list add @a.test'], describe: 'add @a.test to the list' },
+    ]);
+  });
+
+  it('asks first when told to, without consulting the check or writing', async () => {
+    const deps = fakeDeps({ countDecisions: vi.fn(async () => 14) });
+    const ctx = ctxFor({
+      checkWrites: true,
+      said: 'block the likers on 3f9a2c1b?',
+      pending: [],
+    });
+    const out = await buildActionTools(ctx, deps).approve_plan.execute({
+      code: '3f9a2c1b',
+      bands: ['UNKNOWN', 'PERIPHERAL'],
+      ask_first: true,
+    });
+    expect(out.waitingOnDame).toBe(true);
+    expect(deps.checkIntent).not.toHaveBeenCalled();
+    expect(deps.applyPlan).not.toHaveBeenCalled();
+    expect(ctx.pending).toEqual([
+      {
+        commands: ['approve 3f9a2c1b UNKNOWN,PERIPHERAL'],
+        describe: 'add 14 from plan 3f9a2c1b (UNKNOWN, PERIPHERAL)',
+      },
+    ]);
   });
 
   it('refuses when the check itself throws', async () => {
@@ -654,6 +705,7 @@ describe('two waves', () => {
     expect(reply.escalated).toEqual({
       model: 'strong/model',
       reason: 'unsure who dame means',
+      kind: 'handoff',
     });
     expect(generate.mock.calls[1][0].instructions.content).toContain(
       'YOU ARE THE SECOND WAVE',

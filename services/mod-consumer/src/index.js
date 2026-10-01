@@ -52,6 +52,7 @@ import { loadState, setCursor, hasAnswered, markAnswered } from './state.js';
 import { connectJetstream } from './jetstream.js';
 import { replyInThread } from './publicReply.js';
 import { maybeRunDrift, ownerConvo } from './drift.js';
+import { tickWatches, tickAlerts } from './watching.js';
 
 const model = process.env.MOD_AGENT_MODEL || DEFAULT_MODEL;
 
@@ -289,6 +290,8 @@ function onEvent(event) {
 
 // --- the DM path -------------------------------------------------------------
 let dmTimer = null;
+/** When dame last sent something. The slow loops wait for a quiet minute. */
+let lastDmAt = 0;
 
 async function pollDms() {
   const res = await runDmPass({
@@ -312,9 +315,15 @@ async function pollDms() {
     roster: config.roster,
     mode: config.dmMode,
     operatorModel: config.operatorModel,
+    // Bursts of quiet blocks are summarised once they go quiet, which only a
+    // process that keeps polling can wait for.
+    persistent: true,
     log: (msg, fields) => logger.info(msg, fields),
   });
-  if (res.answered) stats.dmAnswers += res.answered;
+  if (res.answered) {
+    stats.dmAnswers += res.answered;
+    lastDmAt = Date.now();
+  }
 }
 
 function scheduleDmPoll() {
@@ -349,6 +358,44 @@ function scheduleDrift() {
   };
   driftTimer = setInterval(tick, config.driftCheckMs);
   if (driftTimer.unref) driftTimer.unref();
+}
+
+// --- watched posts, and dame's own posts taking off ---------------------------
+let watchTimer = null;
+let alertTimer = null;
+const QUIET_FOR_MS = 60_000;
+
+function scheduleWatching() {
+  const quiet = () =>
+    pending === 0 && !shuttingDown && Date.now() - lastDmAt >= QUIET_FOR_MS;
+  if (config.watchEveryMs > 0) {
+    watchTimer = setInterval(() => {
+      if (!quiet()) return;
+      enqueue('watch', () =>
+        tickWatches({
+          chat,
+          agent,
+          reference,
+          model,
+          log: (msg, fields) => logger.info(msg, fields),
+        }),
+      );
+    }, config.watchEveryMs);
+    if (watchTimer.unref) watchTimer.unref();
+  }
+  if (config.alertEveryMs > 0) {
+    alertTimer = setInterval(() => {
+      if (!quiet()) return;
+      enqueue('alerts', () =>
+        tickAlerts({
+          chat,
+          convoFor: () => ownerConvo(chat),
+          log: (msg, fields) => logger.info(msg, fields),
+        }),
+      );
+    }, config.alertEveryMs);
+    if (alertTimer.unref) alertTimer.unref();
+  }
 }
 
 // --- stats -------------------------------------------------------------------
@@ -408,6 +455,7 @@ async function start() {
 
   scheduleDmPoll();
   scheduleDrift();
+  scheduleWatching();
   stream = connectJetstream({ onEvent });
 
   if (config.statsIntervalMs > 0) {
@@ -438,6 +486,8 @@ async function start() {
     judge: JUDGE_MODEL,
     check: CHECK_MODEL,
     escalation: ESCALATION_MODEL,
+    watchEveryMs: config.watchEveryMs,
+    alertEveryMs: config.alertEveryMs,
     logLevel: logger.level,
   });
 }
@@ -448,6 +498,8 @@ async function shutdown(signal) {
   logger.info('Shutting down', { signal });
   if (dmTimer) clearInterval(dmTimer);
   if (driftTimer) clearInterval(driftTimer);
+  if (watchTimer) clearInterval(watchTimer);
+  if (alertTimer) clearInterval(alertTimer);
   if (statsTimer) clearInterval(statsTimer);
   stream?.close();
   // Let an in-flight answer finish rather than killing it mid-thread and

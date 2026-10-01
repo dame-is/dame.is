@@ -280,6 +280,10 @@ export function referenceFrom({
   circleDids = [],
   protectedRows = [],
   listedDids = [],
+  // Set-likes the caller keeps current (graphFacts.js), used as they are
+  // rather than copied, so the bot's own writes show up without a reload.
+  listed = null,
+  blockers = null,
 } = {}) {
   return {
     vouches: new Map(vouchRows.map((r) => [r.did, r.vouches])),
@@ -289,7 +293,10 @@ export function referenceFrom({
     // vouch table already enumerates exactly that set, so distance 2 comes free
     // rather than needing its own crawl.
     neighbourhood: new Set(vouchRows.map((r) => r.did)),
-    alreadyListed: new Set(listedDids),
+    alreadyListed: listed ?? new Set(listedDids),
+    // Accounts that already block dame. Read from Constellation; a block is a
+    // public record in the blocker's own repo.
+    blockers: blockers ?? new Set(),
   };
 }
 

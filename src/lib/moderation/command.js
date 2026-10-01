@@ -373,9 +373,19 @@ export function parseCommand(
     // were in a category I approved" and "I looked at your account" are
     // different answers to "why am I on your list".
     const actors = tokens.map(parseActor).filter(Boolean);
+    // "approve <code> likers": only the accounts that engaged that way, out of
+    // a scan of everyone. Read from each row's recorded engagement.
+    const kinds = [
+      ...new Set(
+        tokens
+          .map((t) => t.toLowerCase())
+          .filter((t) => t !== 'everyone' && Object.hasOwn(KINDS, t)),
+      ),
+    ];
     return {
       action: verb.action,
       code: valid ? code : null,
+      kinds,
       // PROTECTED is never carried, whatever is typed. The veto is not a
       // default that an approval can talk its way past.
       bands: bands.filter((b) => b !== 'PROTECTED'),
@@ -1013,3 +1023,219 @@ const SCAN_FILLER = new Set([
   'thoughts',
   'one',
 ]);
+
+// --- the quick lane -----------------------------------------------------------
+
+/** Words that can ride along with "block" without changing what it means. */
+const QUICK_FILLER = new Set([
+  ...POINTER,
+  'pls',
+  'plz',
+  'asap',
+  'thanks',
+  'thx',
+  'ty',
+  'jerk',
+  'bot',
+  'spam',
+  'spammer',
+]);
+
+const QUICK_VERBS = new Map([
+  ['block', 'list_add'],
+  ['unblock', 'list_remove'],
+]);
+
+const TRUNCATED_LINK = /(\.\.\.|…)|bsky\.app|\/profile\//;
+
+/**
+ * "block" with one target and nothing else to it: the quick lane.
+ *
+ * Most of what dame sends is this -- a shared post and the word "block", often
+ * twenty in an evening -- and it never needed a model. One verb (block or
+ * unblock), exactly one account (a typed handle, a pasted profile or post link,
+ * or the author of the attached post), and every other word filler. Anything
+ * more -- two accounts, "and everyone who liked it", a reason with its own
+ * verb -- returns null and goes to the agent, which is the safe direction to be
+ * wrong in.
+ *
+ * A typed account AND an attached post is ambiguous (block the poster, or
+ * someone in their replies?) and is the agent's to sort out.
+ *
+ * @returns {null | { action: 'list_add'|'list_remove', actor: string, fromPost: boolean, raw: string }}
+ */
+export function parseQuick(
+  text,
+  { embedUri = null, links = [], mentions = [] } = {},
+) {
+  const raw = String(text ?? '').trim();
+  if (!raw) return null;
+  let action = null;
+  const typed = [];
+  for (const token of raw.split(/\s+/).filter(Boolean)) {
+    const word = token.toLowerCase().replace(/[^a-z]/g, '');
+    if (!action && QUICK_VERBS.has(word)) {
+      action = QUICK_VERBS.get(word);
+      continue;
+    }
+    const actor = parseActor(token.replace(/[),.?!:;]+$/, ''));
+    if (actor) {
+      typed.push(actor);
+      continue;
+    }
+    if (TRUNCATED_LINK.test(token)) continue;
+    if (word && !QUICK_FILLER.has(word)) return null;
+  }
+  if (!action) return null;
+
+  const fromFacets = [
+    ...new Set([...mentions, ...links.map(parseActor).filter(Boolean)]),
+  ];
+  const named = [...new Set(typed.length ? typed : fromFacets)];
+  if (named.length > 1) return null;
+  if (named.length === 1) {
+    if (embedUri) return null;
+    return { action, actor: named[0], fromPost: false, raw };
+  }
+  const author = embedUri ? authorOf(embedUri) : null;
+  return author ? { action, actor: author, fromPost: true, raw } : null;
+}
+
+/** "yes", "go ahead", 👍: a reply to a question the bot just asked. */
+const YES =
+  /^(y|ya|yes|yep|yeah|yup|ok|okay|k|sure|confirm|confirmed|do it|go|go ahead|go for it|please|please do|yes please|yes do it|do both|both|all of them|add them|block them|👍|✅|👌)[\s.!]*$/iu;
+/** "no", "leave it", 👎. */
+const NO =
+  /^(n|no|nope|nah|cancel|stop|don'?t|do not|never ?mind|nvm|leave it|skip|skip it|no thanks|👎|❌)[\s.!]*$/iu;
+
+export const isYes = (text) => YES.test(String(text ?? '').trim());
+export const isNo = (text) => NO.test(String(text ?? '').trim());
+
+/**
+ * The words a post card answers to, as typed: "likers", "author and likers",
+ * "unknowns, hostile". Every word has to be one of `keys` or a joiner, or this
+ * is not an answer to the card and the agent gets it.
+ *
+ * @returns {string[]|null} the keys, in the order typed
+ */
+export function parseCardWords(text, keys) {
+  const raw = String(text ?? '')
+    .trim()
+    .toLowerCase();
+  if (!raw) return null;
+  const SYNONYM = {
+    op: 'author',
+    poster: 'author',
+    likes: 'likers',
+    liked: 'likers',
+    unknown: 'unknowns',
+    randos: 'unknowns',
+    all: 'everyone',
+    everybody: 'everyone',
+    toxic: 'hostile',
+    nasty: 'hostile',
+  };
+  const JOIN = new Set(['and', 'the', 'too', 'also', 'plus', 'please', 'both']);
+  const picked = [];
+  for (const token of raw.split(/[\s,+&]+/).filter(Boolean)) {
+    const word = token.replace(/[^a-z]/g, '');
+    if (!word || JOIN.has(word)) continue;
+    const key = SYNONYM[word] || word;
+    if (!keys.includes(key)) return null;
+    if (!picked.includes(key)) picked.push(key);
+  }
+  return picked.length ? picked : null;
+}
+
+/**
+ * remember / forget / what do you remember. Only ever from dame's literal
+ * words: a note in memory is an instruction the agent reads every turn, so the
+ * model never writes one, however a post it read was worded.
+ *
+ * @returns {null | { action: 'remember', text: string }
+ *                 | { action: 'forget', index: number|null, text: string|null }
+ *                 | { action: 'recall' }}
+ */
+export function parseMemoryCommand(text) {
+  const raw = String(text ?? '').trim();
+  if (
+    /^(what do you remember|what have i (told|asked) you to remember|what'?s in your memory|memory|memories|notes)[\s?!.]*$/i.test(
+      raw,
+    )
+  ) {
+    return { action: 'recall' };
+  }
+  const remember = raw.match(/^remember\b[\s:,-]*(?:that\s+)?([\s\S]+)$/i);
+  // "remember when we blocked them?" is a question for the agent, not a note.
+  if (remember && remember[1].trim().length >= 3 && !/\?\s*$/.test(raw)) {
+    return { action: 'remember', text: remember[1].trim().slice(0, 500) };
+  }
+  const forget = raw.match(/^forget\b[\s:,-]*(?:that\s+|about\s+)?([\s\S]*)$/i);
+  if (forget) {
+    const rest = forget[1].trim().replace(/^#/, '');
+    if (/^\d{1,3}$/.test(rest)) {
+      return { action: 'forget', index: Number(rest), text: null };
+    }
+    if (rest.length >= 3) return { action: 'forget', index: null, text: rest };
+  }
+  return null;
+}
+
+/**
+ * watch this / stop watching / what are you watching.
+ *
+ * "watch this", "watch this for 12h", "watch this for 2 days and block the
+ * hostile ones", "keep an eye on this". The post comes from the message, as
+ * every bulk target does. `auto` only when the words say to block, never by
+ * default: a watch that adds people on its own has to have been asked to.
+ *
+ * @returns {null | { action: 'watch', target: string|null, hours: number, auto: boolean }
+ *                 | { action: 'unwatch', target: string|null }
+ *                 | { action: 'watches' }}
+ */
+export function parseWatchCommand(text, { embedUri = null, links = [] } = {}) {
+  const raw = String(text ?? '').trim();
+  const lower = raw.toLowerCase();
+  if (
+    /^(what are you watching|what('?s| is) being watched|watches|watching)[\s?!.]*$/.test(
+      lower,
+    )
+  ) {
+    return { action: 'watches' };
+  }
+  const target =
+    extractTargets(raw)[0] ||
+    links.find((l) => extractTargets(l).length) ||
+    embedUri ||
+    null;
+  if (/^(stop watching|unwatch|stop watch|done watching)\b/.test(lower)) {
+    return { action: 'unwatch', target };
+  }
+  // "watch this", "watch https://...", "keep an eye on it" -- but not "watch
+  // out, this one is nasty", which is a warning with a post attached.
+  if (
+    !/^(?:watch|monitor|keep (?:an eye on|watching))(?:\s+(?:this|that|it|the|my|bsky\.app|https?:\/\/|at:\/\/)|\s*[.!]*$)/.test(
+      lower,
+    )
+  ) {
+    return null;
+  }
+  let hours = 24;
+  const span = lower.match(
+    /\bfor\s+(?:the\s+next\s+)?(\d{1,3})\s*(h|hr|hrs|hours?|d|days?)\b/,
+  );
+  if (span) {
+    const n = Number(span[1]);
+    hours = /^d/.test(span[2]) ? n * 24 : n;
+  } else if (/\bfor\s+(?:a|one)\s+day\b/.test(lower)) {
+    hours = 24;
+  } else if (/\b(tonight|overnight)\b/.test(lower)) {
+    hours = 12;
+  }
+  hours = Math.min(168, Math.max(1, hours));
+  const auto =
+    /\b(block|add)\b[^.?!]*\b(hostile|toxic|nasty|abusive|them|anyone|those)\b/.test(
+      lower,
+    ) || /\bauto(matically)?\b/.test(lower);
+  return { action: 'watch', target, hours, auto };
+}

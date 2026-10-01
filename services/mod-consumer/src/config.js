@@ -124,6 +124,22 @@ export const config = {
   driftCheckMs: num(process.env.DRIFT_CHECK_MS, 60 * 60_000),
 
   /**
+   * How often watched posts are read again ("watch this"). Each read waits for
+   * the DMs to have been quiet for a minute, so a burst of blocks never sits
+   * behind a harvest. 0 turns watching off.
+   */
+  watchEveryMs: num(process.env.MOD_WATCH_EVERY_MS, 5 * 60_000),
+  /**
+   * How often dame's own recent posts are checked for a sudden run of quotes
+   * and replies, which gets a DM offering to watch it. MOD_ALERTS=off stops it;
+   * MOD_ALERT_THRESHOLD (default 15 in an hour) sets what counts.
+   */
+  alertEveryMs:
+    String(process.env.MOD_ALERTS || 'on').toLowerCase() === 'off'
+      ? 0
+      : num(process.env.MOD_ALERT_EVERY_MS, 10 * 60_000),
+
+  /**
    * How long a network digest may spend reading author feeds.
    *
    * Longer than the serverless default because this box has no function

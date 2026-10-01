@@ -198,6 +198,7 @@ function Voice({ agent }) {
           postReport: c.postReport || '',
           model: c.model || '',
           limits: c.limits || {},
+          barePost: c.barePost === 'author' ? 'author' : 'card',
         });
       })
       .catch((e) => live && setError(e));
@@ -280,6 +281,21 @@ function Voice({ agent }) {
         4,
         'Acknowledged.\nOn it.',
       )}
+      <label className="mh-field">
+        <span className="mh-field-label">A post sent with no words</span>
+        <span className="mh-small mh-muted">
+          The card shows who engaged and answers to author, likers, unknowns,
+          everyone or hostile.
+        </span>
+        <select
+          className="mh-input"
+          value={form.barePost || 'card'}
+          onChange={set('barePost')}
+        >
+          <option value="card">Show me the card</option>
+          <option value="author">Block whoever wrote it</option>
+        </select>
+      </label>
       <details className="mh-details">
         <summary>Report templates, model and budgets</summary>
         {field(

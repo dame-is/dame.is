@@ -51,6 +51,13 @@ export const LIMITS = {
   reviewRows: { min: 1, max: 40, def: 40 },
 };
 
+/**
+ * What a post sent with no words means: the card (counts, and words to answer
+ * with) or a block of whoever wrote it, through the quick lane.
+ */
+export const BARE_POST = ['card', 'author'];
+const barePostOf = (v) => (BARE_POST.includes(v) ? v : 'card');
+
 /** provider/model, loosely. A malformed value would break every turn. */
 const MODEL_SHAPE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9._-]*$/i;
 
@@ -106,6 +113,7 @@ export async function readFromPds({ did = ME_DID, fetchImpl = fetch } = {}) {
     // the configured default is recoverable, and a 400 on every turn is not.
     model: MODEL_SHAPE.test(model) ? model : '',
     limits: value.limits ? clampLimits(value.limits) : null,
+    barePost: barePostOf(value.barePost),
     source: 'pds',
     updated_at: value.updatedAt || null,
   };
@@ -128,7 +136,8 @@ async function readCache() {
     !report &&
     !postReport &&
     !model &&
-    !v.limits
+    !v.limits &&
+    barePostOf(v.barePost) === 'card'
   ) {
     return null;
   }
@@ -140,6 +149,7 @@ async function readCache() {
     postReport,
     model: MODEL_SHAPE.test(model) ? model : '',
     limits: v.limits ? clampLimits(v.limits) : null,
+    barePost: barePostOf(v.barePost),
     source: v.source === 'pds' ? 'cache' : v.source || 'cache',
     updated_at: v.updated_at || null,
   };
@@ -178,7 +188,8 @@ export async function loadAgentConfig({ did = ME_DID } = {}) {
         c.report ||
         c.postReport ||
         c.model ||
-        c.limits);
+        c.limits ||
+        c.barePost === 'author');
     await writeCache(has(fromPds) ? fromPds : null).catch(() => {});
     if (has(fromPds)) return fromPds;
     return null;
@@ -200,6 +211,7 @@ export function recordFrom({
   postReport,
   model,
   limits,
+  barePost,
 }) {
   return {
     $type: CONFIG_NSID,
@@ -212,6 +224,7 @@ export function recordFrom({
       ? String(model).trim()
       : '',
     limits: clampLimits(limits),
+    barePost: barePostOf(barePost),
     updatedAt: new Date().toISOString(),
   };
 }

@@ -94,6 +94,14 @@ describe('how an account got on the list', () => {
       'read as hostile by triage, done by the agent',
     );
     expect(viaText('portal')).toMatch(/restored/);
+    // A watched post that was asked to add the hostile ones on its own.
+    expect(viaText('watch:triage:hostile')).toBe(
+      'read as hostile by triage, while watching a post',
+    );
+    expect(viaTag('watch:triage:hostile')).toEqual({
+      text: 'hostile · watch',
+      tone: 'danger',
+    });
   });
 
   it('tags a hostile reading as the one that matters', () => {

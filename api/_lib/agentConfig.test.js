@@ -51,6 +51,8 @@ describe('readFromPds', () => {
       postReport: '',
       model: '',
       limits: null,
+      // Unset means the card, which is what a post with no words got before.
+      barePost: 'card',
       source: 'pds',
       updated_at: '2026-09-17T00:00:00Z',
     });

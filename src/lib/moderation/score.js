@@ -172,6 +172,7 @@ export function createScorer(
     protectedSet = new Map(),
     neighbourhood = new Set(),
     alreadyListed = new Set(),
+    blockers = new Set(),
     thresholds = DEFAULT_THRESHOLDS,
   } = ref;
 
@@ -281,6 +282,9 @@ export function createScorer(
             inNeighbourhood: neighbourhood.has(did),
           }),
           alreadyListed: alreadyListed.has(did),
+          // They have blocked dame, so they cannot reply to or quote dame while
+          // it stands. The list still matters to everyone subscribed to it.
+          blocksYou: blockers.has(did),
           ...features,
         });
       }
@@ -319,6 +323,10 @@ export function summarise(harvest, scores, { excludeSelf = null } = {}) {
       participants: rows.length,
       byBand,
       reviewReach: requiresReview.reduce((n, r) => n + (r.followers || 0), 0),
+      // What the graph already says: nothing to add for the first, and the
+      // second already cannot reach dame.
+      alreadyListed: rows.filter((r) => r.alreadyListed).length,
+      blocksYou: rows.filter((r) => r.blocksYou).length,
     },
     rows,
     requiresReview,

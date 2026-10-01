@@ -42,6 +42,7 @@ import { select, selectAll, upsert, update } from './modDb.js';
 import { loadReference } from './reference.js';
 import { listUri } from './listWrite.js';
 import { evidenceUriFor } from './triage.js';
+import { graphFacts, isListed, noteListed } from './graphFacts.js';
 
 /**
  * How many listitems one `approve` will create.
@@ -76,6 +77,41 @@ function matchesKind(row, kind) {
 }
 
 /**
+ * Did this stored decision row engage in any of these ways?
+ *
+ * Rows from before `engaged` was recorded have none, and for those the plan's
+ * own kind is the only evidence: every row of a likers scan liked the post.
+ */
+export function engagedAs(row, kinds, plan) {
+  if (!kinds?.length) return true;
+  if (Array.isArray(row.engaged)) {
+    return kinds.some((kind) =>
+      (KINDS[kind] || []).some((k) => row.engaged.includes(k)),
+    );
+  }
+  return kinds.includes(plan?.totals?.kind);
+}
+
+/**
+ * Split rows into those to write and those already on the list.
+ *
+ * Bulk approvals never checked, so an account in two plans got two listitems:
+ * mudfire4 was added at 19:53 and again at 19:58 on 2026-10-01, and the repo
+ * held about 10,000 listitems for about 8,900 accounts. Read from the held copy
+ * (graphFacts.js), which this process's own writes keep current. If the list
+ * cannot be read, everything is written: a duplicate is the cheaper mistake
+ * than a block that silently did not happen.
+ */
+async function splitListed(uri, rows) {
+  const facts = await graphFacts({ list: uri }).catch(() => null);
+  if (!facts?.listed) return { fresh: rows, listed: [] };
+  const fresh = [];
+  const listed = [];
+  for (const r of rows) (isListed(uri, r.did) ? listed : fresh).push(r);
+  return { fresh, listed };
+}
+
+/**
  * Harvest a post, score everyone on it, and store an unapproved plan.
  *
  * @returns {Promise<{code, uri, kind, total, byBand, truncated, protectedCount}>}
@@ -106,6 +142,21 @@ export async function proposePlan({ link, kind }) {
   const planId = crypto.randomUUID();
   const byBand = Object.fromEntries(BANDS.map((b) => [b, 0]));
   for (const r of chosen) byBand[r.band] = (byBand[r.band] || 0) + 1;
+  const alreadyListed = chosen.filter((r) => r.alreadyListed).length;
+  const blocksYou = chosen.filter((r) => r.blocksYou).length;
+  // Who an approval could still add: not PROTECTED, not on the list already.
+  // A post whose engagers are mostly listed should not offer "add everyone"
+  // for the one account that is left.
+  const freshRows = chosen.filter(
+    (r) => !r.alreadyListed && r.band !== 'PROTECTED',
+  );
+  const fresh = {
+    total: freshRows.length,
+    byBand: Object.fromEntries(
+      BANDS.map((b) => [b, freshRows.filter((r) => r.band === b).length]),
+    ),
+    likers: freshRows.filter((r) => (r.engagements || {}).like > 0).length,
+  };
 
   await upsert('plan', [
     {
@@ -121,6 +172,8 @@ export async function proposePlan({ link, kind }) {
         kind,
         selected: chosen.length,
         byBand,
+        alreadyListed,
+        blocksYou,
         snapshot: takenAt,
         truncated: summary.truncated,
       },
@@ -145,6 +198,11 @@ export async function proposePlan({ link, kind }) {
       // Where this account's words live, recorded now so a later triage does
       // not have to re-walk 60 pages of Constellation to find them again.
       evidence_uri: evidenceUriFor(r),
+      // How they engaged, so "the likers" of a whole-post scan can be approved
+      // without harvesting the post again.
+      engaged: Object.keys(r.engagements || {}),
+      already_listed: Boolean(r.alreadyListed),
+      blocks_me: Boolean(r.blocksYou),
     })),
   );
 
@@ -167,6 +225,9 @@ export async function proposePlan({ link, kind }) {
     cost: estimateWrites(chosen.length - (byBand.PROTECTED || 0)),
     truncated: summary.truncated,
     protectedCount: byBand.PROTECTED || 0,
+    alreadyListed,
+    blocksYou,
+    fresh,
   };
 }
 
@@ -188,7 +249,12 @@ export async function findPlan(code) {
  * running `approve` again continues rather than duplicating. Stops at
  * PER_APPROVAL and says how many are left.
  */
-export async function applyPlan(agent, plan, bands, { by = null } = {}) {
+export async function applyPlan(
+  agent,
+  plan,
+  bands,
+  { by = null, kinds = null } = {},
+) {
   const uri = listUri();
   const bot = agent.session?.did;
   if (!uri.startsWith(`at://${bot}/`)) {
@@ -212,11 +278,17 @@ export async function applyPlan(agent, plan, bands, { by = null } = {}) {
   }
 
   const rows = await selectAll('decision', {
-    select: 'did,band,acted_at',
+    select: 'did,band,acted_at,engaged,already_listed',
     eq: { plan_id: plan.id },
     order: 'did.asc',
   });
-  const pending = rows.filter((r) => wanted.includes(r.band) && !r.acted_at);
+  const pending = rows.filter(
+    (r) =>
+      wanted.includes(r.band) &&
+      !r.acted_at &&
+      !r.already_listed &&
+      engagedAs(r, kinds, plan),
+  );
   if (!pending.length) {
     return {
       ok: true,
@@ -226,18 +298,21 @@ export async function applyPlan(agent, plan, bands, { by = null } = {}) {
     };
   }
 
+  const again = `approve ${shortCode(plan.id)} ${[...wanted, ...(kinds || [])].join(',')}`;
   const slice = pending.slice(0, PER_APPROVAL);
-  const { added, failed, rateLimited } = await writeRows(agent, plan, slice, {
-    uri,
-    bot,
-    via: viaFor('band', by),
-  });
+  const { added, failed, rateLimited, already } = await writeRows(
+    agent,
+    plan,
+    slice,
+    { uri, bot, via: viaFor('band', by) },
+  );
   if (rateLimited) {
     return {
       ok: true,
       added,
-      remaining: pending.length - added,
-      message: `Added ${added}. Hit the write rate limit. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again in an hour for the remaining ${pending.length - added}.`,
+      already,
+      remaining: pending.length - added - already,
+      message: `Added ${added}. Hit the write rate limit. Send "${again}" again in an hour for the remaining ${pending.length - added - already}.`,
     };
   }
 
@@ -250,18 +325,26 @@ export async function applyPlan(agent, plan, bands, { by = null } = {}) {
     },
   );
 
-  const remaining = pending.length - added;
+  const remaining = pending.length - added - already - failed;
   return {
     ok: true,
     added,
     failed,
+    already,
     remaining,
     message:
       `Added ${added} to the list${failed ? `, ${failed} failed` : ''}.` +
+      alreadyNote(already) +
       (remaining
-        ? ` ${remaining} left. Send "approve ${shortCode(plan.id)} ${wanted.join(',')}" again to continue.`
+        ? ` ${remaining} left. Send "${again}" again to continue.`
         : ''),
   };
+}
+
+/** " 3 were already on it." when some were, nothing when none were. */
+function alreadyNote(n) {
+  if (!n) return '';
+  return n === 1 ? ' 1 was already on it.' : ` ${n} were already on it.`;
 }
 
 /**
@@ -277,10 +360,23 @@ export async function applyPlan(agent, plan, bands, { by = null } = {}) {
 async function writeRows(agent, plan, rows, { uri, bot, via }) {
   let added = 0;
   let failed = 0;
+  const { fresh, listed } = await splitListed(uri, rows);
+  if (listed.length) {
+    await upsert(
+      'decision',
+      listed.map((r) => ({
+        plan_id: plan.id,
+        did: r.did,
+        band: r.band,
+        already_listed: true,
+      })),
+    ).catch(() => {});
+  }
+  rows = fresh;
   for (let i = 0; i < rows.length; i += BATCH) {
     const batch = rows.slice(i, i + BATCH);
     try {
-      await agent.com.atproto.repo.applyWrites({
+      const res = await agent.com.atproto.repo.applyWrites({
         repo: bot,
         writes: batch.map((r) => ({
           $type: 'com.atproto.repo.applyWrites#create',
@@ -293,6 +389,16 @@ async function writeRows(agent, plan, rows, { uri, bot, via }) {
           },
         })),
       });
+      const created = res?.data?.results || [];
+      batch.forEach((r, n) =>
+        noteListed(
+          uri,
+          r.did,
+          String(created[n]?.uri || '')
+            .split('/')
+            .pop(),
+        ),
+      );
       const now = new Date().toISOString();
       await upsert(
         'decision',
@@ -312,10 +418,10 @@ async function writeRows(agent, plan, rows, { uri, bot, via }) {
       // A rate limit means stop, not retry. The remaining budget is gone and
       // approving again in an hour is the correct backoff.
       if (/rate ?limit/i.test(message))
-        return { added, failed, rateLimited: true };
+        return { added, failed, rateLimited: true, already: listed.length };
     }
   }
-  return { added, failed, rateLimited: false };
+  return { added, failed, rateLimited: false, already: listed.length };
 }
 
 /**
@@ -329,7 +435,7 @@ export async function applyPlanToTriage(
   agent,
   plan,
   label,
-  { by = null } = {},
+  { by = null, skipBands = [] } = {},
 ) {
   const uri = listUri();
   const bot = agent.session?.did;
@@ -338,30 +444,40 @@ export async function applyPlanToTriage(
   }
 
   const rows = await selectAll('decision', {
-    select: 'did,band,triage,acted_at',
+    select: 'did,band,triage,acted_at,already_listed',
     eq: { plan_id: plan.id, triage: label },
     order: 'did.asc',
   });
   // The veto, at the write, as everywhere else.
-  const pending = rows.filter((r) => r.band !== 'PROTECTED' && !r.acted_at);
+  // skipBands is how a watch holds CONNECTED and NOTABLE back for a 👍 even
+  // when it was asked to add the hostile ones on its own.
+  const pending = rows.filter(
+    (r) =>
+      r.band !== 'PROTECTED' &&
+      !skipBands.includes(r.band) &&
+      !r.acted_at &&
+      !r.already_listed,
+  );
   if (!pending.length) {
     return { ok: true, added: 0, message: `Nothing left to add for ${label}.` };
   }
 
   const slice = pending.slice(0, PER_APPROVAL);
-  const { added, failed } = await writeRows(agent, plan, slice, {
+  const { added, failed, already } = await writeRows(agent, plan, slice, {
     uri,
     bot,
     via: viaFor(`triage:${label}`, by),
   });
-  const remaining = pending.length - added;
+  const remaining = pending.length - added - already - failed;
   return {
     ok: true,
     added,
     failed,
+    already,
     remaining,
     message:
       `Added ${added} that a model read as ${label}.` +
+      alreadyNote(already) +
       (remaining
         ? ` ${remaining} left, send "approve ${shortCode(plan.id)} ${label}" again.`
         : ''),
@@ -376,10 +492,10 @@ export async function applyPlanToTriage(
  */
 export async function countDecisions(
   plan,
-  { bands = null, label = null, state = 'pending' } = {},
+  { bands = null, label = null, state = 'pending', kinds = null } = {},
 ) {
   const rows = await selectAll('decision', {
-    select: 'did,band,triage,action,acted_at,undone_at',
+    select: 'did,band,triage,action,acted_at,undone_at,engaged,already_listed',
     eq: { plan_id: plan.id },
     order: 'did.asc',
   });
@@ -388,10 +504,10 @@ export async function countDecisions(
     if (state === 'live') {
       return r.acted_at && r.action === 'list_add' && !r.undone_at;
     }
-    if (r.acted_at || r.band === 'PROTECTED') return false;
+    if (r.acted_at || r.band === 'PROTECTED' || r.already_listed) return false;
     if (bands?.length && !bands.includes(r.band)) return false;
     if (label && r.triage !== label) return false;
-    return true;
+    return engagedAs(r, kinds, plan);
   }).length;
 }
 
@@ -505,7 +621,7 @@ export async function applyPlanToActors(
   }
 
   const rows = await selectAll('decision', {
-    select: 'did,band,acted_at',
+    select: 'did,band,acted_at,already_listed',
     eq: { plan_id: plan.id },
     order: 'did.asc',
   });
@@ -528,12 +644,26 @@ export async function applyPlanToActors(
 
   // The veto again, at the write. Approving someone by name does not outrank it.
   const vetoed = resolved.filter((r) => r.band === 'PROTECTED');
-  const todo = resolved.filter((r) => r.band !== 'PROTECTED' && !r.acted_at);
+  const { fresh: todo, listed } = await splitListed(
+    uri,
+    resolved.filter((r) => r.band !== 'PROTECTED' && !r.acted_at),
+  );
+  if (listed.length) {
+    await upsert(
+      'decision',
+      listed.map((r) => ({
+        plan_id: plan.id,
+        did: r.did,
+        band: r.band,
+        already_listed: true,
+      })),
+    ).catch(() => {});
+  }
 
   let added = 0;
   for (let i = 0; i < todo.length; i += BATCH) {
     const batch = todo.slice(i, i + BATCH);
-    await agent.com.atproto.repo.applyWrites({
+    const res = await agent.com.atproto.repo.applyWrites({
       repo: bot,
       writes: batch.map((r) => ({
         $type: 'com.atproto.repo.applyWrites#create',
@@ -546,6 +676,16 @@ export async function applyPlanToActors(
         },
       })),
     });
+    const created = res?.data?.results || [];
+    batch.forEach((r, n) =>
+      noteListed(
+        uri,
+        r.did,
+        String(created[n]?.uri || '')
+          .split('/')
+          .pop(),
+      ),
+    );
     const now = new Date().toISOString();
     await upsert(
       'decision',
@@ -561,14 +701,19 @@ export async function applyPlanToActors(
     added += batch.length;
   }
 
-  const parts = [`Added ${added} by name.`];
+  const parts = [`Added ${added} by name.${alreadyNote(listed.length)}`];
   if (vetoed.length) {
     parts.push(`${vetoed.length} refused: PROTECTED.`);
   }
   if (unknown.length) {
     parts.push(`Not in this plan: ${unknown.join(', ')}.`);
   }
-  return { ok: true, added, message: parts.join(' ') };
+  return {
+    ok: true,
+    added,
+    already: listed.length,
+    message: parts.join(' '),
+  };
 }
 
 /**
@@ -742,4 +887,79 @@ export async function historyFor(did = null, { limit = 8 } = {}) {
     if (out.length >= limit) break;
   }
   return { total: acted.length, rows: out };
+}
+
+/**
+ * What happened to the list in the last `hours`: adds, removals and undos,
+ * grouped by plan, newest first. For "what did you do today?".
+ *
+ * Read from the decision log, so it covers every path that writes -- typed
+ * commands, the agent, approvals, watches -- and says which one it was.
+ */
+export async function activitySince(hours = 24, { now = Date.now() } = {}) {
+  const since = new Date(now - hours * 3_600_000).toISOString();
+  const [acted, undone] = await Promise.all([
+    selectAll('decision', {
+      select: 'plan_id,did,action,acted_at,approved_via',
+      where: { acted_at: `gte.${since}` },
+      order: 'acted_at.desc',
+    }),
+    selectAll('decision', {
+      select: 'plan_id,did,undone_at',
+      where: { undone_at: `gte.${since}` },
+      order: 'undone_at.desc',
+    }),
+  ]);
+  const byPlan = new Map();
+  const entry = (id) => {
+    if (!byPlan.has(id)) {
+      byPlan.set(id, {
+        code: shortCode(id),
+        added: 0,
+        removed: 0,
+        undone: 0,
+        via: new Set(),
+        at: null,
+      });
+    }
+    return byPlan.get(id);
+  };
+  for (const r of acted) {
+    const e = entry(r.plan_id);
+    if (r.action === 'list_remove') e.removed += 1;
+    else e.added += 1;
+    if (r.approved_via) e.via.add(r.approved_via);
+    if (!e.at || r.acted_at > e.at) e.at = r.acted_at;
+  }
+  for (const r of undone) {
+    const e = entry(r.plan_id);
+    e.undone += 1;
+    if (!e.at || r.undone_at > e.at) e.at = r.undone_at;
+  }
+  const ids = [...byPlan.keys()];
+  const notes = new Map();
+  for (let i = 0; i < ids.length; i += 50) {
+    const rows = await select('plan', {
+      select: 'id,note',
+      where: { id: `in.(${ids.slice(i, i + 50).join(',')})` },
+    }).catch(() => []);
+    for (const p of rows || []) notes.set(p.id, p.note);
+  }
+  const plans = ids
+    .map((id) => ({
+      ...byPlan.get(id),
+      via: [...byPlan.get(id).via],
+      note: notes.get(id) ?? null,
+    }))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  return {
+    since,
+    hours,
+    totals: {
+      added: plans.reduce((n, p) => n + p.added, 0),
+      removed: plans.reduce((n, p) => n + p.removed, 0),
+      undone: plans.reduce((n, p) => n + p.undone, 0),
+    },
+    plans: plans.slice(0, 40),
+  };
 }

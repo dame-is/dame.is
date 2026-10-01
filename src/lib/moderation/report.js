@@ -46,6 +46,9 @@ export function sanitiseField(value, { max = 64 } = {}) {
 
 /** How this account stands to dame, in words rather than three booleans. */
 export function relationshipOf(a) {
+  // First, because it settles the rest: someone who blocks you follows nobody
+  // you can see, and cannot reply to you or quote you while the block stands.
+  if (a.blocksYou) return 'They block you';
   if (a.mutual) return 'Mutual';
   if (a.youFollow) return 'You follow them';
   if (a.followsYou) return 'They follow you';

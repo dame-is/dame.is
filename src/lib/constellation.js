@@ -95,7 +95,7 @@ export async function getBacklinkCount(target, source) {
  * `linking_records` on the older `/links` one — read them with
  * `backlinkRows()` rather than picking a field and hoping.
  */
-export async function getBacklinks(target, source, { limit = 25, cursor, signal } = {}) {
+export async function getBacklinks(target, source, { limit = 25, cursor, dids, signal } = {}) {
   if (!target || !source) return null;
   const params = new URLSearchParams({
     subject: target,
@@ -103,6 +103,9 @@ export async function getBacklinks(target, source, { limit = 25, cursor, signal 
     limit: String(limit),
   });
   if (cursor) params.set('cursor', cursor);
+  // Only links made by these accounts: "which of these fifty block dame" in one
+  // request, rather than paging through everyone who does.
+  for (const did of dids || []) params.append('did', did);
   const url = `${CONSTELLATION_BASE}/xrpc/blue.microcosm.links.getBacklinks?${params}`;
   return fetchJsonOrNull(url, signal ? { signal } : undefined);
 }

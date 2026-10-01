@@ -344,7 +344,7 @@ export function getAgentConfig(agent, { signal } = {}) {
  */
 export async function setAgentConfig(
   agent,
-  { style, guidance, openers, report, postReport, model, limits },
+  { style, guidance, openers, report, postReport, model, limits, barePost },
   { signal } = {},
 ) {
   const repo = agent.session?.did ?? agent.did;
@@ -361,6 +361,7 @@ export async function setAgentConfig(
       postReport: String(postReport || '').trim(),
       model: String(model || '').trim(),
       limits: limits || {},
+      barePost: barePost === 'author' ? 'author' : 'card',
       updatedAt: new Date().toISOString(),
     },
   });

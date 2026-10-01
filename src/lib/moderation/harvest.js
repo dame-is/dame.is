@@ -126,6 +126,9 @@ async function drainSource(uri, source, { signal, maxPages = MAX_PAGES } = {}) {
  * @param {object} [opts]
  * @param {AbortSignal} [opts.signal]
  * @param {number} [opts.maxPages] per-source page cap
+ * @param {string[]} [opts.only] engagement kinds to page (e.g. quote, reply,
+ *   threadReply); the rest are still counted in `sources` but not drained. A
+ *   watch reads the words, and the likes on a busy post are most of its pages.
  * @param {(s: {done: number, total: number, source: string}) => void} [opts.onProgress]
  * @returns {Promise<{
  *   uri: string,
@@ -141,7 +144,7 @@ async function drainSource(uri, source, { signal, maxPages = MAX_PAGES } = {}) {
  * }>}
  */
 export async function harvestPost(uri, opts = {}) {
-  const { signal, maxPages, onProgress } = opts;
+  const { signal, maxPages, onProgress, only = null } = opts;
   const raw = await getBacklinkSources(uri);
   const flat = flattenSources(raw);
   if (!flat) {
@@ -152,7 +155,9 @@ export async function harvestPost(uri, opts = {}) {
 
   // Sources with nothing in them still get reported (a zero is informative:
   // "nobody quoted this" is an answer) but are not paged.
-  const live = flat.filter((s) => s.count > 0);
+  const live = flat.filter(
+    (s) => s.count > 0 && (!only || only.includes(engagementKind(s))),
+  );
   const sources = [];
   const byDid = new Map();
   let records = 0;

@@ -15,6 +15,7 @@
 
 import { resolveActor } from '../../src/lib/moderation/target.js';
 import { select, upsert } from './modDb.js';
+import { rkeysForWrite, noteListed, noteUnlisted } from './graphFacts.js';
 
 /**
  * Which list a command acts on.
@@ -69,7 +70,11 @@ async function protectedReason(did) {
  *   verb; 'agent' is agent mode acting on what she wrote in words. Both are her
  *   say-so, and the log still has to tell them apart: one is her literal
  *   target and the other is a model's reading of her sentence.
- * @returns {Promise<{ ok: boolean, message: string, did?: string }>}
+ * @returns {Promise<{ ok: boolean, message: string, did?: string,
+ *   changed?: boolean, already?: boolean, vetoed?: string, account?: object }>}
+ *   `changed` is whether the list moved; `already` is "was already on / not
+ *   on"; `vetoed` is the PROTECTED reason; `account` is the scored account, so
+ *   a receipt can say who that was without scoring them a second time.
  */
 export async function applyCommand(
   agent,
@@ -106,20 +111,26 @@ export async function applyCommand(
   // UNSCORED. The whole claim of this system is that a decision is replayable,
   // and a row that says only "dame typed this" cannot be replayed against
   // anything. Best effort: a scoring failure must not stop dame acting.
-  let scored = band;
-  if (!scored && lookUp) {
-    try {
-      scored = (await lookUp(actor))?.band ?? null;
-    } catch {
-      scored = null;
-    }
-  }
+  //
+  // IN PARALLEL with the veto and the membership check. A block used to do them
+  // one after another, and the membership check alone walked every listitem in
+  // the repo -- 102 pages, 2.7 seconds -- on every block. It is one
+  // Constellation request now; see rkeysForWrite in graphFacts.js.
+  const [account, reason, rkeys] = await Promise.all([
+    !band && lookUp
+      ? Promise.resolve(lookUp(actor)).catch(() => null)
+      : Promise.resolve(null),
+    protectedReason(did),
+    rkeysForWrite(uri, did),
+  ]);
+  const scored = band || account?.band || null;
 
-  const reason = await protectedReason(did);
   if (reason && action === 'list_add') {
     return {
       ok: false,
       did,
+      vetoed: reason,
+      account,
       message:
         `${actor} is PROTECTED (${reason}). You follow them, or they are on one of your curation lists. ` +
         'No automated path acts on those, including this one. Do it in your client if you mean it.',
@@ -127,11 +138,17 @@ export async function applyCommand(
   }
 
   if (action === 'list_add') {
-    const existing = await findItem(agent, uri, did);
-    if (existing) {
-      return { ok: true, did, message: `${actor} was already on the list.` };
+    if (rkeys?.length) {
+      return {
+        ok: true,
+        did,
+        already: true,
+        changed: false,
+        account,
+        message: `${actor} was already on the list.`,
+      };
     }
-    await agent.com.atproto.repo.createRecord({
+    const created = await agent.com.atproto.repo.createRecord({
       repo: bot,
       collection: 'app.bsky.graph.listitem',
       record: {
@@ -141,42 +158,66 @@ export async function applyCommand(
         createdAt: new Date().toISOString(),
       },
     });
+    noteListed(
+      uri,
+      did,
+      String(created?.data?.uri || '')
+        .split('/')
+        .pop(),
+    );
     await log(did, 'list_add', raw, scored, via);
-    return { ok: true, did, message: `Added ${actor} to the list.` };
+    return {
+      ok: true,
+      did,
+      changed: true,
+      account,
+      message: `Added ${actor} to the list.`,
+    };
   }
 
-  const found = await findItem(agent, uri, did);
-  if (!found) {
-    return { ok: true, did, message: `${actor} was not on the list.` };
+  if (rkeys === null) {
+    return {
+      ok: false,
+      did,
+      account,
+      message: `I could not check whether ${actor} is on the list, so I changed nothing.`,
+    };
   }
-  await agent.com.atproto.repo.deleteRecord({
-    repo: bot,
-    collection: 'app.bsky.graph.listitem',
-    rkey: found,
-  });
-  await log(did, 'list_remove', raw, scored, via);
-  return { ok: true, did, message: `Removed ${actor} from the list.` };
-}
-
-/** The listitem rkey for this subject on this list, or null. */
-async function findItem(agent, uri, did) {
-  let cursor;
-  for (let page = 0; page < 200; page += 1) {
-    const res = await agent.com.atproto.repo.listRecords({
-      repo: agent.session.did,
-      collection: 'app.bsky.graph.listitem',
-      limit: 100,
-      cursor,
-    });
-    for (const rec of res.data.records || []) {
-      if (rec.value?.list === uri && rec.value?.subject === did) {
-        return rec.uri.split('/').pop();
+  if (!rkeys.length) {
+    return {
+      ok: true,
+      did,
+      already: true,
+      changed: false,
+      account,
+      message: `${actor} was not on the list.`,
+    };
+  }
+  // EVERY copy. An account two plans both added has two listitems, and
+  // deleting only the first left them on the list while this said "Removed".
+  for (const rkey of rkeys) {
+    try {
+      await agent.com.atproto.repo.deleteRecord({
+        repo: bot,
+        collection: 'app.bsky.graph.listitem',
+        rkey,
+      });
+    } catch (err) {
+      // Constellation can lag a deletion. Already gone is the outcome asked for.
+      if (!/not ?found|could not locate/i.test(String(err?.message || err))) {
+        throw err;
       }
     }
-    cursor = res.data.cursor;
-    if (!cursor) break;
   }
-  return null;
+  noteUnlisted(uri, did);
+  await log(did, 'list_remove', raw, scored, via);
+  return {
+    ok: true,
+    did,
+    changed: true,
+    account,
+    message: `Removed ${actor} from the list.`,
+  };
 }
 
 /**

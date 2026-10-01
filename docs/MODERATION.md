@@ -97,6 +97,10 @@ not for gating. A single score would imply precision this data does not support.
 | `api/_lib/tiers.js`                | Which model does what, and when a stronger one steps in   |
 | `scripts/eval-intent.mjs`          | Measures the write check against `scripts/evals/`         |
 | `api/_lib/listWrite.js`            | The single-account write, where the PROTECTED veto lands  |
+| `api/_lib/graphFacts.js`           | Already on the list? Already blocks dame? Held and fresh  |
+| `api/_lib/chatUx.js`               | Reactions, the burst summary, 👍 questions, the post card |
+| `api/_lib/memory.js`               | "remember:" notes, from dame's own words only             |
+| `api/_lib/watch.js`                | Watched posts, their digests, alerts on dame's own posts  |
 | `api/_lib/bulkPlan.js`             | Propose, approve, review, undo, history — for batches     |
 | `api/_lib/serviceAuth.js`          | Verifies browser tokens against your DID document         |
 | `api/_lib/botAgent.js`             | Moderator session, resumed rather than re-established     |
@@ -406,6 +410,87 @@ public prompt asks for counts by band rather than rosters of handles and says to
 move a roster to a DM — a prompt, not a guarantee. Replies carry no mention
 facets, so nobody named in one is notified. `PUBLIC_REPLIES=false` on the droplet
 turns the whole public path off and leaves the DM loop alone.
+
+### In a DM, day to day
+
+Built on 2026-10-01 from how the bot was actually used. 120 requests since
+Sept 16: about 50 were "block" plus a shared post, often twenty in an evening;
+bare posts were answered with a numbered menu; and in agent mode, "yes" was a
+second model turn. Agent mode only; classic mode and `!` commands are as
+before, apart from the reactions.
+
+- **Reactions instead of acks.** 👀 goes on your message when it is picked up.
+  It becomes ✅ when something changed and ❌ when it failed, or is just
+  removed for an answer. There is no "Thinking." message. A text ack only
+  appears if the reaction could not be added.
+- **The quick lane.** "block" or "unblock" with exactly one target (a shared
+  post's author, a pasted link, a typed handle) and only filler words around it
+  never reaches a model. The membership check is one Constellation request
+  instead of walking every listitem in the repo (102 pages, 2.7 s), so a block
+  takes a second or so. A plain block gets a ✅ and nothing else. After a minute
+  with no more blocks, one message sums up the burst: who, who was already on
+  the list, who already blocks you, and how to take one back. A block is said
+  out loud only when it matters: PROTECTED, a CONNECTED or NOTABLE account,
+  an unblock of someone not on the list, or a failure. Anything with more to
+  it ("and everyone who liked it", two accounts, a handle plus a post) goes to
+  the agent. `api/_lib/chatUx.js`, `parseQuick` in `command.js`.
+- **Questions a 👍 answers.** When the agent wants your OK, or a write fails
+  its check, the exact change is stored as classic commands, with a line
+  written by code: _👍 or "yes" to: add @x to the list_. "yes", or a 👍 on
+  that message, runs exactly those commands through the classic path, with no
+  model; "no" or 👎 drops them. Anything else you say lets the question lapse,
+  so a later "yes" cannot run something the conversation has moved past.
+  Questions expire after 30 minutes. A change aimed at someone the agent found
+  by itself is never put to you this way. A stranger's post that talked the
+  model into "block @x" must not get as far as a one-tap yes.
+- **The post card.** A post sent with no words gets counts instead of a menu:
+  who wrote it, who engaged and how, by band, how many are already on the
+  list and how many already block you. You answer with words: `author`,
+  `likers`, `unknowns`, `everyone`, `hostile` (reads the replies and quotes and
+  adds the hostile ones), or several at once. A word is only offered if it
+  would add someone new. Settings in the hub can make a bare post mean "block
+  whoever wrote it" instead (`barePost` in the config record).
+- **What the graph already says.** Lookups, scans, cards and the agent now
+  report `alreadyListed` and `blocksYou`. Before this, `alreadyListed` was
+  always false: `loadReference` never loaded the list, so the agent said "was
+  not on the list before" about everyone. Blocks come from Constellation (4,166
+  accounts block @dame.is), and the list from the repo, held for 30 minutes and
+  kept current by the bot's own writes. See `api/_lib/graphFacts.js`. Bulk
+  approvals now skip anyone already on the list. The repo held 358 accounts
+  listed twice or more, from overlapping plans. "unblock" now deletes every
+  copy; it used to delete one and say "Removed".
+- **Watching a post.** "watch this" (with a post, or about the last one sent)
+  reads its new quotes and replies every 5 minutes for 24 hours, or "for 12h",
+  "for 2 days". New accounts join one plan and go through the same two-wave
+  triage. By default nothing is added: the hourly digest says what was found,
+  and 👍 adds the hostile ones. "watch this and block the hostile ones" adds
+  them as they come, holds anyone CONNECTED or NOTABLE for your 👍, and says
+  who in the digest. "stop watching" and "what are you watching" do what they
+  say. Separately, when one of your own posts gets 15 or more new quotes and
+  replies within an hour, the bot offers to watch it. Checks wait until the
+  DMs have been quiet for a minute, so they never hold up a block.
+  `api/_lib/watch.js`, `services/mod-consumer/src/watching.js`.
+- **Remembering.** "remember: never block people who only liked" keeps your
+  words, and the agent reads them every turn alongside the standing
+  instructions. "what do you remember" lists them, and "forget 2" drops one.
+  The model cannot write a note itself, only your literal message can. The
+  config record stays read-only to the bot. Notes live in `mod.memory`.
+- **"What did you do today?"** The agent's `recent_activity` tool reads the
+  decision log: adds, removals and undos grouped by plan with codes, and what
+  is being watched.
+- **Shorter replies.** The prompt asks for one line first, at most five names
+  (then a count and the plan link), and no DIDs. The "(glm-5.3-flash answered
+  this…)" footer now only appears when the second model stepped in because
+  something went wrong.
+
+| Variable              | Default | Is                                               |
+| --------------------- | ------- | ------------------------------------------------ |
+| `MOD_WATCH_EVERY_MS`  | 300000  | how often watched posts are read; 0 turns it off |
+| `MOD_ALERTS`          | on      | `off` stops the alerts on your own posts         |
+| `MOD_ALERT_THRESHOLD` | 15      | new quotes and replies in an hour that count     |
+| `MOD_ALERT_EVERY_MS`  | 600000  | how often your recent posts are checked          |
+
+Schema: `docs/sql/mod-chat-ux.sql` (applied as `mod_chat_ux`).
 
 ### Agent mode
 

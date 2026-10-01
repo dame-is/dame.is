@@ -24,9 +24,9 @@
 // the day Constellation lags or is down.
 
 import { APPVIEW } from '../../src/config.js';
-import { getManyToMany } from '../../src/lib/constellation.js';
 import { select, selectAll, upsert, del } from './modDb.js';
 import { listUri } from './listWrite.js';
+import { listitemRkeys } from './graphFacts.js';
 
 /**
  * A plan's short code. The same one-liner bulkPlan.js exports, written out
@@ -78,46 +78,10 @@ export async function latestAudit(list = listUri()) {
 /**
  * The listitem record keys for one account on one list, from Constellation.
  * Null when Constellation could not answer, which is different from "none".
- *
- * FILTERED TO THIS LIST, not read from the first page of everything. The first
- * version asked for all of an account's list memberships and looked for ours
- * in the first hundred, and a well-known account is on hundreds of lists. The
- * five most connected accounts in the queue came back "not on the list" while
- * the bot's repo held all five -- exactly the accounts the queue exists for.
- * Asking for links to this one list returns one row, or none.
+ * Lives in graphFacts.js now, beside the other readers of the list; exported
+ * from here too because the hub has always imported it from here.
  */
-export async function listitemRkeys(list, did, { maxPages = 5 } = {}) {
-  const owner = ownerOf(list);
-  const rkeys = [];
-  let cursor;
-  for (let page = 0; page < maxPages; page += 1) {
-    const res = await getManyToMany(
-      did,
-      'app.bsky.graph.listitem:subject',
-      'list',
-      {
-        limit: 100,
-        otherSubject: list,
-        cursor,
-      },
-    );
-    if (!res) return null;
-    for (const i of res.items || []) {
-      if (
-        i?.linkRecord?.did === owner &&
-        i?.linkRecord?.collection === 'app.bsky.graph.listitem' &&
-        i?.otherSubject === list
-      ) {
-        rkeys.push(i.linkRecord.rkey);
-      }
-    }
-    cursor = res.cursor;
-    if (!cursor) return rkeys;
-  }
-  // Still more pages: whatever is true, it is not "none". The caller treats
-  // null as unknown and falls back to reading the repo.
-  return rkeys.length ? rkeys : null;
-}
+export { listitemRkeys };
 
 /** The slow way: page the owner's repo. Only when Constellation cannot say. */
 async function scanRkeys(agent, list, did) {
