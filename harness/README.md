@@ -67,3 +67,15 @@ semantics. If a bug only reproduces against a real PDS, this will not show it.
 
 Nothing here ships. `npm run build` uses the root `index.html` and never reads
 this directory; `vite.harness.config.js` is dev-only.
+
+## Moderation endpoints
+
+The moderation hub (`/admin?view=moderation`) calls `/api/mod-*`, which in
+production are Vercel functions reading the `mod` schema with a moderator
+credential. The harness answers them from `harness/modFixtures.js` instead:
+invented accounts under `example.social` with generated avatars, a review queue,
+plans with labelled rows, an overview with spend. Deciding a queue card or
+removing someone mutates the fixtures for the life of the dev server, so Keep,
+Remove and Undo can be clicked through. The fake session's `getServiceAuth`
+returns an unsigned token of the right shape; nothing checks it here.
+

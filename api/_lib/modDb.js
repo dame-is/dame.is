@@ -60,7 +60,18 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-/** `select(table, { eq: {...}, is: {...}, select, order, limit })` */
+/**
+ * PostgREST filters beyond eq/is, written the way PostgREST spells them:
+ * `{ band: 'neq.UNKNOWN', did: 'in.(did:plc:a,did:plc:b)' }`. An array value
+ * applies several filters to one column (`['not.is.null', 'lt.2026-01-01']`).
+ */
+function addWhere(q, where = {}) {
+  for (const [col, val] of Object.entries(where)) {
+    for (const v of Array.isArray(val) ? val : [val]) q.append(col, v);
+  }
+}
+
+/** `select(table, { eq: {...}, is: {...}, where: {...}, select, order, limit, offset })` */
 export function select(table, opts = {}) {
   const q = new URLSearchParams();
   q.set('select', opts.select || '*');
@@ -70,6 +81,8 @@ export function select(table, opts = {}) {
   for (const [col, val] of Object.entries(opts.is || {})) {
     q.set(col, `is.${val}`);
   }
+  addWhere(q, opts.where);
+  if (opts.offset) q.set('offset', String(opts.offset));
   if (opts.order) q.set('order', opts.order);
   if (opts.limit) q.set('limit', String(opts.limit));
   return request(`${table}?${q}`);
@@ -114,6 +127,7 @@ export async function selectAll(table, opts = {}) {
     for (const [col, val] of Object.entries(rest.is || {})) {
       q.set(col, `is.${val}`);
     }
+    addWhere(q, rest.where);
     q.set('order', order);
 
     const from = page * pageSize;

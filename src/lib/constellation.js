@@ -119,7 +119,7 @@ export async function getManyToMany(
   subject,
   source,
   pathToOther,
-  { limit = 100, cursor, signal } = {},
+  { limit = 100, cursor, otherSubject, signal } = {},
 ) {
   if (!subject || !source || !pathToOther) return null;
   const params = new URLSearchParams({
@@ -128,6 +128,9 @@ export async function getManyToMany(
     pathToOther,
     limit: String(limit),
   });
+  // Only links whose other end is this one subject: "is this account on THIS
+  // list", answered without paging past every other list they are on.
+  if (otherSubject) params.set('otherSubject', otherSubject);
   if (cursor) params.set('cursor', cursor);
   const url = `${CONSTELLATION_BASE}/xrpc/blue.microcosm.links.getManyToMany?${params}`;
   return fetchJsonOrNull(url, signal ? { signal } : undefined);

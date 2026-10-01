@@ -75,41 +75,43 @@ not for gating. A single score would imply precision this data does not support.
 
 ## Pieces
 
-| File                                  | Does                                                      |
-| ------------------------------------- | --------------------------------------------------------- |
-| `src/lib/moderation/target.js`        | Post link (any client) or `at://` URI → resolved target   |
-| `src/lib/moderation/harvest.js`       | Everyone who touched a post, by engagement kind           |
-| `src/lib/moderation/score.js`         | Trust, distance, bands, summary                           |
-| `src/lib/moderation/precompute.js`    | Circle + vouch set construction                           |
-| `src/lib/moderation/agent.js`         | The analyst: prompts, read-only tools, chunking           |
-| `src/lib/moderation/command.js`       | Typed commands, parsed — never reaching the model         |
-| `src/lib/moderation/report.js`        | Account and post reports, filled from a template          |
-| `src/lib/moderation/phrases.js`       | Openers, acks, nudges — the register it speaks in         |
-| `src/lib/moderation/mcp.js`           | The Atmosphere MCP, as one read-only dispatcher           |
-| `src/lib/moderation/pulse.js`         | What a slice of the network is saying, over a window      |
-| `src/lib/moderation/trigger.js`       | Does this firehose event mean "look at this"?             |
-| `src/lib/moderation/client.js`        | Browser calls, service-auth minting, list removal         |
-| `api/_lib/modDb.js`                   | PostgREST client for the `mod` schema (server only)       |
-| `api/_lib/reference.js`               | The scoring snapshot, loaded once and shared              |
-| `api/_lib/agentConfig.js`             | Voice, templates, model and limits, read from the PDS     |
-| `api/_lib/dmLoop.js`                  | One DM intake pass, shared by droplet and fallback        |
-| `api/_lib/operator.js`                | Agent mode: one model with the read and write tools       |
-| `api/_lib/tiers.js`                   | Which model does what, and when a stronger one steps in   |
-| `scripts/eval-intent.mjs`             | Measures the write check against `scripts/evals/`         |
-| `api/_lib/listWrite.js`               | The single-account write, where the PROTECTED veto lands  |
-| `api/_lib/bulkPlan.js`                | Propose, approve, review, undo, history — for batches     |
-| `api/_lib/serviceAuth.js`             | Verifies browser tokens against your DID document         |
-| `api/_lib/botAgent.js`                | Moderator session, resumed rather than re-established     |
-| `api/mod-precompute.js`               | Builds the vouch set (hourly cron, resumable)             |
-| `api/mod-preflight.js`                | Scores a post's engagement graph                          |
-| `api/mod-audit.js`                    | Scores an existing list; records keep/remove              |
-| `api/mod-hub.js`                      | Overview, why-is-this-account-listed, list browsing       |
-| `api/mod-config.js`                   | Resolves the effective config; refreshes the cache        |
-| `api/mod-remove.js`                   | Removes from a list the moderator account owns            |
-| `api/mod-migrate.js`                  | Carried the list to the bot. Done; the cron now no-ops    |
-| `api/mod-agent.js`                    | The DM pass on demand — the fallback, no longer scheduled |
-| `services/mod-consumer/`              | The droplet: Jetstream, a 2s DM poll, a weekly drift run  |
-| `src/components/ModerationStudio.jsx` | `/admin?view=moderation`                                  |
+| File                               | Does                                                      |
+| ---------------------------------- | --------------------------------------------------------- |
+| `src/lib/moderation/target.js`     | Post link (any client) or `at://` URI → resolved target   |
+| `src/lib/moderation/harvest.js`    | Everyone who touched a post, by engagement kind           |
+| `src/lib/moderation/score.js`      | Trust, distance, bands, summary                           |
+| `src/lib/moderation/precompute.js` | Circle + vouch set construction                           |
+| `src/lib/moderation/agent.js`      | The analyst: prompts, read-only tools, chunking           |
+| `src/lib/moderation/command.js`    | Typed commands, parsed — never reaching the model         |
+| `src/lib/moderation/report.js`     | Account and post reports, filled from a template          |
+| `src/lib/moderation/phrases.js`    | Openers, acks, nudges — the register it speaks in         |
+| `src/lib/moderation/mcp.js`        | The Atmosphere MCP, as one read-only dispatcher           |
+| `src/lib/moderation/pulse.js`      | What a slice of the network is saying, over a window      |
+| `src/lib/moderation/trigger.js`    | Does this firehose event mean "look at this"?             |
+| `src/lib/moderation/client.js`     | Browser calls, service-auth minting, list removal         |
+| `api/_lib/modDb.js`                | PostgREST client for the `mod` schema (server only)       |
+| `api/_lib/reference.js`            | The scoring snapshot, loaded once and shared              |
+| `api/_lib/agentConfig.js`          | Voice, templates, model and limits, read from the PDS     |
+| `api/_lib/dmLoop.js`               | One DM intake pass, shared by droplet and fallback        |
+| `api/_lib/operator.js`             | Agent mode: one model with the read and write tools       |
+| `api/_lib/tiers.js`                | Which model does what, and when a stronger one steps in   |
+| `scripts/eval-intent.mjs`          | Measures the write check against `scripts/evals/`         |
+| `api/_lib/listWrite.js`            | The single-account write, where the PROTECTED veto lands  |
+| `api/_lib/bulkPlan.js`             | Propose, approve, review, undo, history — for batches     |
+| `api/_lib/serviceAuth.js`          | Verifies browser tokens against your DID document         |
+| `api/_lib/botAgent.js`             | Moderator session, resumed rather than re-established     |
+| `api/mod-precompute.js`            | Builds the vouch set (hourly cron, resumable)             |
+| `api/mod-preflight.js`             | Scores a post's engagement graph                          |
+| `api/mod-audit.js`                 | Scores an existing list; records keep/remove              |
+| `api/mod-hub.js`                   | Overview, why-is-this-account-listed, list browsing       |
+| `api/mod-config.js`                | Resolves the effective config; refreshes the cache        |
+| `api/mod-remove.js`                | Removes from a list the moderator account owns            |
+| `api/mod-migrate.js`               | Carried the list to the bot. Done; the cron now no-ops    |
+| `api/mod-agent.js`                 | The DM pass on demand — the fallback, no longer scheduled |
+| `services/mod-consumer/`           | The droplet: Jetstream, a 2s DM poll, a weekly drift run  |
+| `src/components/moderation/`       | `/admin?view=moderation`: queue, list, activity, check    |
+| `api/_lib/queue.js`                | The review queue: what is open, and keep/remove/restore   |
+| `api/mod-queue.js`                 | The queue, for the portal                                 |
 
 Three of those are the security boundary and are worth reading before changing
 anything: `command.js` (why a command never reaches the model), `listWrite.js`
@@ -286,50 +288,91 @@ members.
 
 ## The hub
 
-`/admin?view=moderation`. Six tabs, every one of them signed by your own OAuth
-session in the browser — the server holds the bot's credential, never yours.
+`/admin?view=moderation`, rebuilt on 2026-10-01 (`src/components/moderation/`).
+Every call is signed by your own OAuth session in the browser; the server holds
+the bot's credential, never yours.
 
-| Tab           | Does                                                                                                                          |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Overview**  | Snapshot age, list size, protected set, plans and decisions to date, token spend, bot session, last five audits               |
-| **Preflight** | Paste a post link, read the bands. Runs dry, so browsing does not litter the decision log                                     |
-| **Audit**     | Re-score an existing list and work the review queue                                                                           |
-| **Plans**     | The audit log: every batch, the post it came from, how each account was added, and inside one, the words each was labelled on |
-| **Why**       | One account: its band, the inputs under it, and every decision recorded about it                                              |
-| **List**      | Every list the account owns; open one to page through who is on it                                                            |
-| **Voice**     | The config record: register, standing guidance, report templates, model, limits                                               |
+| Tab          | Does                                                                                                                                   |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Queue**    | Everyone on the list who needs a decision, most urgent first, one card each with Keep and Remove. Opens here                           |
+| **Blocked**  | Who is on the list: avatar, name, handle, band, how they were added. Newest first, searchable by handle. Tap anyone for their record   |
+| **Activity** | Every batch the system proposed, newest first; inside one, every account beside the words it was labelled on, with ticking to add      |
+| **Check**    | Score a post's engagers (dry: no plan is left behind), or open any account                                                             |
+| **Settings** | Snapshot age with Rebuild, last list re-score with Re-score, the bot's session, spend by model in dollars, and the voice config record |
 
-**Plans** is where a triage becomes reviewable. A DM can honestly show ten
-quotes as a spot check before a bulk action and it cannot show 231, because
-nobody reads 231 of anything in a chat bubble — a menu implying otherwise is the
-failure this whole system is against. So the DM is where you act quickly and
-this is where you look properly; both read the same rows from the same table.
-Filter by label, by band, or by whether an account is already on the list, tick
-the ones you actually read, and add those. Ticking records `individual` rather
-than a band or a label, because on that screen that is what happened.
+Above the tabs, four numbers: how many to review, how many on the list, spend
+this week, snapshot age. The review count goes down as you decide. Any account,
+from any tab, opens one sheet (a bottom sheet on a phone, a drawer on a desktop)
+with its profile, whether it is on the list, its band, every decision recorded
+about it, and the way off the list.
 
-**The DM links straight in.** A triage reply ends with a link to that plan
-already filtered to what it was talking about; an approval receipt links to
-exactly who it added; a lookup links to that account's full record. Those links
-are the only ones the bot renders as tappable — a general linkifier would
-eventually hand-render a stranger's URL as a link inside a moderation report
-about them, so the facet matcher only matches URLs this codebase built.
+**The DM still links straight in.** The bot's links use the old tab names
+(`?tab=plans&code=…&label=hostile`, `?tab=why&actor=…`, `?tab=list`), which are
+mapped rather than broken (`src/components/moderation/routes.js`, pinned by a
+test). Those links are still the only ones the bot renders as tappable; a
+general linkifier would eventually hand-render a stranger's URL inside a
+moderation report about them.
 
-**Why** is the one that earns the rest. The system's whole claim is that a
-decision is replayable — _here is exactly what it saw_ — and until that tab
-existed the record was real but unreadable, living in a table with no interface.
-A guarantee nobody can exercise is a belief.
+### The queue
 
-### Audit and remediation
+Two sources, one question, _should this account still be blocked_
+(`api/_lib/queue.js`):
 
-**Audit** tab. Point it at a list and hit _Score list_; it loops until complete.
-The queue is everyone who no longer scores `UNKNOWN`, sorted by trust so the
-most embedded accounts are read first — if attention runs out halfway down, it
-ran out in the right place.
+- **The weekly re-score.** Anyone on the list who is no longer a stranger:
+  PROTECTED (should never be on it), CONNECTED, PERIPHERAL, NOTABLE.
+- **Disputed labels.** Accounts added because triage read them as hostile, whose
+  post both second readers now read as something else (see Two waves).
 
-Mark keep or remove, hit Apply. Decisions are recorded server-side; the removals
-execute in your browser via `applyWrites`, or through `api/mod-remove.js` when
-the list belongs to the moderator account.
+Order is PROTECTED, CONNECTED, disputed, PERIPHERAL, NOTABLE, then trust.
+Filter by reason. **Keep** and **Remove** act at once, with Undo in the toast; on
+a desktop, ↑ ↓ move between cards, K keeps, R removes, Enter opens the sheet.
+Remove takes the account off the list with the bot's credential and stamps the
+decision rows that added them as undone, so "was I ever on this list" stays
+answerable. Restore (Undo) re-adds through `applyCommand`, so the PROTECTED veto
+applies to it like any other add.
+
+**Decisions live in `mod.review`, one row per account** (`docs/sql/mod-review.sql`).
+They used to live on `audit_item` rows, which belong to one weekly run, so every
+re-score put back every account already decided on: 565 accounts were waiting on
+2026-10-01 and none had ever been decided. A **keep** now holds until the
+account's band gets more severe than it was when kept. A **remove** holds until a
+re-score newer than it, which will not see the account at all if the removal
+stuck.
+
+**Removal is one lookup.** Finding a listitem's record key used to mean paging
+the bot's whole repo, about 93 requests for 9,000 members, per removal.
+Constellation's `getManyToMany` filtered with `otherSubject` (this list) answers
+in one request under 100ms. The filter matters: the first version read an
+account's list memberships unfiltered and looked for ours in the first hundred,
+and a well-known account is on hundreds of lists, so the five most connected
+accounts in the queue came back "not on the list" while the bot's repo held all
+five. The repo scan is kept as the fallback for when Constellation cannot
+answer, and "could not tell" is never read as "not on the list".
+
+### What changed in loading
+
+- **Tokens are reused.** Every call used to mint a fresh service-auth token
+  first, a round trip to the PDS in front of every request. One token per method
+  is now reused until 15 seconds before it expires (`client.js`).
+- **Views keep what they last saw.** A small cache (`ui.jsx`) shows the last
+  answer immediately and refreshes behind it, so switching tabs no longer blanks
+  the screen. Skeletons where nothing has loaded yet; errors say what failed and
+  offer Try again.
+- **The audit reads the list's owner.** `api/mod-audit.js` paged _your_ repo for
+  listitems long after the list moved to the bot, so every re-score started from
+  the portal scored nothing and replaced the queue with an empty one (three times
+  on 2026-09-29). Only the droplet's weekly run, which reads with the bot's
+  session, was scoring the list.
+- **The overview prices spend** from the gateway's public price list, by model,
+  and reports the list's size from the AppView rather than a URI.
+
+### Working on the hub
+
+`npm run harness` serves the real admin with a fake session, and the
+`/api/mod-*` endpoints from fixtures (`harness/modFixtures.js`): invented
+accounts with generated avatars, a queue, plans, an overview. Decisions mutate
+the fixtures for the life of the dev server, so Keep, Remove and Undo can be
+clicked through and screenshotted with no database and no moderator credential.
 
 ### Migration: done
 

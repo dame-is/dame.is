@@ -439,7 +439,7 @@ export const SURFACES = Object.freeze([
     kind: 'studio',
     icon: 'ShieldAlert',
     blurb:
-      'Who touched a post, scored against your own graph, before you act on any of them.',
+      'Who is on the block list, why they are there, and who needs a second look.',
     // The review list is one row per account with a sentence of reasoning; a
     // narrow column turns every row into three lines.
     fullWidth: true,

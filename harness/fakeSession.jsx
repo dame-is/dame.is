@@ -156,6 +156,21 @@ function makeAgent(repo, bump) {
     },
     com: {
       atproto: {
+        // The moderation hub signs every call to /api/mod-* with a service-auth
+        // token minted here. The harness serves those endpoints from fixtures
+        // and never checks the signature, so the token only needs the shape:
+        // three segments and an `exp` the client can read to cache it.
+        server: {
+          async getServiceAuth({ lxm }) {
+            await sleep(latency);
+            const b64 = (o) =>
+              btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+            const exp = Math.floor(Date.now() / 1000) + 60;
+            return {
+              data: { token: `${b64({ alg: 'none' })}.${b64({ iss: ME_DID, aud: ME_DID, lxm, exp })}.harness` },
+            };
+          },
+        },
         repo: {
           async describeRepo({ repo: did }) {
             await sleep(latency);

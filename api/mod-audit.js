@@ -140,7 +140,13 @@ export default async function handler(req, res) {
 
     const { ref, thresholds, takenAt } = await loadReference();
     const scorer = createScorer({ ...ref, thresholds });
-    const pds = await resolvePds(ME_DID);
+    // THE LIST'S OWNER, not dame. This read dame's own repo for listitems long
+    // after the list moved to the moderator account, so every audit started
+    // from the portal found no members, scored nothing, and replaced the review
+    // queue with an empty one. The weekly drift run on the droplet was right all
+    // along because it reads with the bot's session.
+    const repo = /^at:\/\/(did:[^/]+)\//.exec(audit.list_uri)?.[1] || ME_DID;
+    const pds = await resolvePds(repo);
 
     const started = Date.now();
     let cursor = audit.cursor || undefined;
@@ -150,7 +156,7 @@ export default async function handler(req, res) {
 
     while (pages < PAGES_PER_RUN && Date.now() - started < BUDGET_MS) {
       const url =
-        `${pds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(ME_DID)}` +
+        `${pds}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(repo)}` +
         `&collection=app.bsky.graph.listitem&limit=100` +
         (cursor ? `&cursor=${encodeURIComponent(cursor)}` : '');
       const page = await fetch(url, {

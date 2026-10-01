@@ -14,6 +14,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'node:url';
+import { handleMod } from './harness/modFixtures.js';
 
 const REAL_SESSION = fileURLToPath(new URL('./src/hooks/useAtprotoSession.jsx', import.meta.url));
 const FAKE_SESSION = fileURLToPath(new URL('./harness/fakeSession.jsx', import.meta.url));
@@ -80,8 +81,44 @@ function serveHarnessShell() {
   };
 }
 
+/**
+ * Answer the moderation hub's /api/mod-* calls from fixtures.
+ *
+ * In production those are Vercel functions that verify a service-auth token
+ * and read the `mod` schema; here they are one in-memory module, so the hub
+ * can be opened, clicked through and screenshotted with no database and no
+ * moderator credential. Latency is simulated so loading states are visible.
+ */
+function serveModerationFixtures() {
+  return {
+    name: 'harness-moderation-api',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url || '').split('?')[0];
+        if (!path.startsWith('/api/mod-')) return next();
+        let raw = '';
+        req.on('data', (c) => (raw += c));
+        req.on('end', () => {
+          let body = {};
+          try {
+            body = raw ? JSON.parse(raw) : {};
+          } catch {
+            body = {};
+          }
+          const out = handleMod(path, body);
+          setTimeout(() => {
+            res.statusCode = out?.error ? 404 : 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(out));
+          }, 180);
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [swapSessionModule(), serveHarnessShell(), react()],
+  plugins: [swapSessionModule(), serveHarnessShell(), serveModerationFixtures(), react()],
   publicDir: false,
   server: {
     port: 5174,

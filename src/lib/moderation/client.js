@@ -1,9 +1,15 @@
 // Browser side of the moderation endpoints.
 //
 // The admin panel holds an atproto OAuth session, so it can ask the PDS for a
-// token signed by dame's own key and present that instead of a password. Every
-// call mints a fresh one: they live about a minute, they are scoped to a single
-// method, and there is nothing worth caching or worth stealing.
+// token signed by dame's own key and present that instead of a password. Tokens
+// live about a minute and are scoped to a single method.
+//
+// They are REUSED until shortly before they expire. Minting one per call put a
+// round trip to the PDS in front of every request, which is most of why the hub
+// felt slow: opening the queue was a mint, then the call, then another mint for
+// the overview beside it. One token per method per minute is the same exposure
+// as before (the server already accepts any unexpired token for its method) at
+// a fraction of the waiting.
 //
 // See api/_lib/serviceAuth.js for the verifying half.
 
@@ -19,6 +25,7 @@ export const LXM = {
   config: 'is.dame.mod.config',
   hub: 'is.dame.mod.hub',
   plan: 'is.dame.mod.plan',
+  queue: 'is.dame.mod.queue',
 };
 
 /**
@@ -29,14 +36,44 @@ export const LXM = {
  * keeps the lifetime short on its own; the endpoint refuses anything longer
  * than ten minutes regardless.
  */
+const tokens = new Map();
+
+/** The `exp` claim of a JWT, in milliseconds, or 0 if it cannot be read. */
+export function tokenExpiry(token) {
+  try {
+    const part = String(token).split('.')[1];
+    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+    const exp = Number(JSON.parse(json).exp);
+    return Number.isFinite(exp) ? exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Seconds of life a cached token must still have to be handed out. */
+const TOKEN_MARGIN_MS = 15_000;
+
 async function mint(agent, lxm) {
-  const res = await agent.com.atproto.server.getServiceAuth({
-    aud: ME_DID,
-    lxm,
-  });
-  const token = res?.data?.token;
-  if (!token) throw new Error('the PDS did not return a service auth token');
-  return token;
+  const key = `${agent?.session?.did ?? agent?.did ?? ''}|${lxm}`;
+  const hit = tokens.get(key);
+  if (hit?.token && hit.exp - Date.now() > TOKEN_MARGIN_MS) return hit.token;
+  // Two panels asking at once share one mint rather than racing two.
+  if (hit?.pending) return hit.pending;
+  const pending = agent.com.atproto.server
+    .getServiceAuth({ aud: ME_DID, lxm })
+    .then((res) => {
+      const token = res?.data?.token;
+      if (!token)
+        throw new Error('the PDS did not return a service auth token');
+      tokens.set(key, { token, exp: tokenExpiry(token) });
+      return token;
+    })
+    .catch((err) => {
+      tokens.delete(key);
+      throw err;
+    });
+  tokens.set(key, { pending });
+  return pending;
 }
 
 async function call(agent, path, { lxm, body, signal } = {}) {
@@ -597,6 +634,65 @@ export function planUndo(agent, { code, signal } = {}) {
   return call(agent, '/api/mod-plan', {
     lxm: LXM.plan,
     body: { action: 'undo', code },
+    signal,
+  });
+}
+
+/* ------------------------------------------------------------- the queue */
+
+/**
+ * One page of the review queue: everyone on the list who needs a look, with
+ * profiles. `reason` filters to one of PROTECTED, CONNECTED, disputed,
+ * PERIPHERAL, NOTABLE.
+ */
+export function queuePage(
+  agent,
+  { reason = 'all', offset = 0, limit = 20, signal } = {},
+) {
+  return call(agent, '/api/mod-queue', {
+    lxm: LXM.queue,
+    body: { action: 'page', reason, offset, limit },
+    signal,
+  });
+}
+
+/** keep | remove | restore (undo a removal) | reopen (undo a keep). */
+export function queueDecide(
+  agent,
+  { did, decision, reason, band, signal } = {},
+) {
+  return call(agent, '/api/mod-queue', {
+    lxm: LXM.queue,
+    body: { action: 'decide', did, decision, reason, band },
+    signal,
+  });
+}
+
+/* ------------------------------------------------------- who is on the list */
+
+/** A page of the list, newest first, each with its band and how it got there. */
+export function listPage(agent, { cursor, signal } = {}) {
+  return call(agent, '/api/mod-hub', {
+    lxm: LXM.hub,
+    body: { action: 'members', cursor },
+    signal,
+  });
+}
+
+/** Find accounts on the list by handle. */
+export function searchList(agent, q, { signal } = {}) {
+  return call(agent, '/api/mod-hub', {
+    lxm: LXM.hub,
+    body: { action: 'search', q },
+    signal,
+  });
+}
+
+/** One account: profile, membership, band, and every decision about them. */
+export function accountDetail(agent, actor, { signal } = {}) {
+  return call(agent, '/api/mod-hub', {
+    lxm: LXM.hub,
+    body: { action: 'account', actor },
     signal,
   });
 }
