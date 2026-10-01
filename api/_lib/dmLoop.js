@@ -16,6 +16,12 @@
 //     through the gate with dame's approval, so a fully prompt-injected turn
 //     costs a wrong paragraph.
 //
+// AGENT MODE (MOD_DM_MODE=agent) relaxes rule 2 on purpose: the model gets the
+// write tools and is talked to in sentences rather than commands. Rule 1 does
+// not move -- the roster still decides who is answered and who may write -- and
+// the classic path below is still here, reached by a leading "!" or by
+// answering a menu a classic reply just offered. See api/_lib/operator.js.
+//
 // AT MOST ONCE, on purpose. The cursor advances before any reply is sent, so a
 // message that crashes the turn is dropped rather than replayed. The other
 // choice — advance after — turns one poisoned message into an infinite loop of
@@ -40,6 +46,8 @@ import {
   chunkForDm,
   historyFrom,
   readRequest,
+  pulseRequest,
+  threadRequest,
   DEFAULT_MODEL,
 } from '../../src/lib/moderation/agent.js';
 import {
@@ -50,12 +58,18 @@ import {
   facetLinks,
   facetMentions,
   offersFrom,
+  followUpsFor,
+  citationsIn,
+  renderCitations,
+  labelFor,
+  pulseFromArgs,
   parseLookup,
   parsePostScan,
 } from '../../src/lib/moderation/command.js';
 import {
   renderReport,
   actionsFor,
+  helpText,
   renderPlanReport,
   planActions,
 } from '../../src/lib/moderation/report.js';
@@ -82,6 +96,62 @@ import {
   shortCode,
 } from './bulkPlan.js';
 import { loadAgentConfig, LIMITS } from './agentConfig.js';
+import { operate, fallbackText } from './operator.js';
+import { shortModel } from './tiers.js';
+
+/**
+ * Which surface answers by default. Anything but "agent" is classic, so an
+ * unset or misspelt value keeps the behaviour that was there before.
+ */
+export function normaliseMode(value) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase() === 'agent'
+    ? 'agent'
+    : 'classic';
+}
+
+/**
+ * "!block @x" in agent mode runs the classic path for that one message.
+ *
+ * Only a "!" followed by something that could start a command, so "!!!" or a
+ * lone "!" reads as a feeling rather than as a request for the parser.
+ */
+const CLASSIC_PREFIX = /^\s*!(?=\s*[\p{L}\p{N}@])/u;
+
+/**
+ * "^ what's going on in these replies" sends that one message straight to the
+ * stronger model. The cheap model never sees it.
+ */
+const STEP_UP_PREFIX = /^\s*\^\s*/;
+
+/**
+ * Where one message goes.
+ *
+ *   classic  the deterministic path, then the read-only analyst
+ *   choice   a bare number: classic if the last reply offered a live menu,
+ *            the agent otherwise
+ *   agent    the agent, with write tools for a writer; `escalate` when the
+ *            message asked for the stronger model
+ *
+ * Pure, so the routing rule is testable without a chat service.
+ */
+export function routeFor(text, { mode = 'classic' } = {}) {
+  const t = String(text ?? '');
+  if (mode !== 'agent') return { route: 'classic', text: t };
+  if (CLASSIC_PREFIX.test(t)) {
+    return { route: 'classic', text: t.replace(/^\s*!\s*/, '') };
+  }
+  if (STEP_UP_PREFIX.test(t) && t.replace(STEP_UP_PREFIX, '').trim()) {
+    return {
+      route: 'agent',
+      escalate: true,
+      text: t.replace(STEP_UP_PREFIX, ''),
+    };
+  }
+  if (parseChoice(t)) return { route: 'choice', text: t };
+  return { route: 'agent', text: t };
+}
 
 /**
  * The post attached to a message, if it was SHARED rather than pasted.
@@ -142,6 +212,17 @@ async function offerChoices(convoId, options, lastPost) {
     row.last_post_at = new Date().toISOString();
   }
   await upsert('dm_choice', [row]).catch(() => {});
+}
+
+/**
+ * Forget the menu. An agent reply offers none, and a "2" sent after it must
+ * reach the agent rather than an option a classic reply offered ten minutes
+ * earlier.
+ */
+async function clearChoices(convoId) {
+  await upsert('dm_choice', [
+    { convo_id: convoId, options: [], created_at: new Date().toISOString() },
+  ]).catch(() => {});
 }
 
 /**
@@ -292,6 +373,16 @@ export async function runCommand(
     }
     return say(nudge('actor'));
   }
+  // Before the writeAgent guard: asking what the thing does needs no session,
+  // and a read-only sender is shown the read-only half.
+  if (cmd.action === 'help') {
+    // Derived, not written out, for the same reason every other option is: a
+    // hand-typed label is one that can quietly stop describing its command.
+    return say(helpText({ canWrite }), [
+      { label: labelFor(parseCommand('pulse')), command: 'pulse' },
+    ]);
+  }
+
   if (!writeAgent) return say('Commands are not wired up on this path.');
 
   if (cmd.action === 'plan') {
@@ -367,6 +458,11 @@ export async function runCommand(
         `Neutral: ${seen('neutral')}`,
         `No words: ${out.noText}  (likes and reposts carry nothing to read)`,
         ...(out.gone ? [`Deleted: ${out.gone}  (the post is gone)`] : []),
+        ...(out.secondWave
+          ? [
+              `Second reader (${shortModel(out.secondWave.model)}): re-read ${out.secondWave.read} flagged as possibly hostile, changed ${out.secondWave.overturned}.`,
+            ]
+          : []),
       ];
       if (out.remaining) {
         lines.push(
@@ -573,6 +669,185 @@ export async function runCommand(
   return say(preface + out.message, after);
 }
 
+/**
+ * The conversation so far, as model turns. Bluesky stores it already, so this
+ * needs no state of our own, and it is per convo so two threads do not bleed
+ * into each other.
+ */
+async function readHistory(chat, entry, { botDid, limits }) {
+  try {
+    const page = await chat.chat.bsky.convo.getMessages({
+      convoId: entry.convoId,
+      limit: 40,
+    });
+    return historyFrom(page.data.messages, {
+      // The ASKER. With a roster this is not always dame, and labelling a
+      // guest's own messages as somebody else's turns their follow-up into a
+      // conversation the model thinks it was watching rather than having.
+      selfDid: entry.message?.sender?.did ?? ME_DID,
+      botDid,
+      beforeId: entry.message.id,
+      maxTurns: limits.maxTurns,
+      maxAgeMs: limits.historyHours ? limits.historyHours * 3600_000 : null,
+    });
+  } catch {
+    // A conversation we cannot read is still a question we can answer, just
+    // without context. Better a reply that misses the reference than silence.
+    return [];
+  }
+}
+
+/** Markdown emphasis and headings, removed. */
+export function plainText(text) {
+  return String(text ?? '')
+    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    .replace(/__([^_\n]+)__/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '');
+}
+
+/** How long an agent turn runs before it says it is working on it. */
+const AGENT_ACK_AFTER_MS = 5000;
+
+/**
+ * One message, answered by the agent.
+ *
+ * The ack is on a timer rather than up front: most questions come back in a
+ * few seconds and announcing those is two messages for one answer, while a
+ * scan-and-triage is a minute of silence that reads as broken.
+ */
+async function answerAsAgent({
+  entry,
+  chat,
+  send,
+  getIo,
+  extraTools,
+  config,
+  limits,
+  model,
+  triageModel,
+  writeAgent,
+  canWrite,
+  botDid,
+  roster,
+  generate,
+  openers,
+  escalate = false,
+  log,
+}) {
+  const sender = entry.message?.sender?.did;
+  let spoke = null;
+  const timer = setTimeout(() => {
+    spoke = send(ackFor({ action: 'think' }, { openers })).catch(() => {});
+  }, AGENT_ACK_AFTER_MS);
+  if (timer.unref) timer.unref();
+
+  const [io, history, remembered] = await Promise.all([
+    getIo(),
+    readHistory(chat, entry, { botDid, limits }),
+    lastPost(entry.convoId),
+  ]);
+
+  // History is read as text, so a post shared three messages ago is gone from
+  // it. Name the last one here, as derived fact from dame's own messages, so
+  // "add the quoters too" has something to point at.
+  let message = composeMessage(entry.message);
+  if (remembered && !message.includes(remembered)) {
+    message += `\n\n[The post last sent in this conversation: ${remembered}]`;
+  }
+
+  const reply = await operate({
+    generate,
+    message,
+    io,
+    history,
+    model,
+    triageModel,
+    extraTools,
+    canWrite,
+    writeAgent,
+    asker:
+      sender === roster.owner
+        ? 'dame, who owns the list'
+        : `${sender}, a ${canWrite ? 'guest who may change the list' : 'read-only guest'}`,
+    voice: config?.style,
+    guidance: config?.guidance,
+    raw: entry.message.text,
+    reviewRows: limits.reviewRows,
+    escalate,
+    sendProgress: async (text) => {
+      clearTimeout(timer);
+      await spoke;
+      spoke = send(text).catch(() => {});
+      await spoke;
+    },
+    log,
+  });
+  clearTimeout(timer);
+  await spoke;
+
+  // A DM renders no markdown, and some models write it anyway: "**Main
+  // theme:**" arrives with its asterisks. Emphasis and headings only; anything
+  // else a model writes is left as written.
+  let text = plainText(reply.text) || fallbackText(reply);
+  // Said when the stronger model answered, so the cost and the voice change
+  // are never a mystery.
+  if (reply.escalated) {
+    text += `\n\n(${shortModel(reply.escalated.model)} answered this: ${reply.escalated.reason})`;
+  }
+  const allow = [...reply.links];
+  // A digest's markers become links here, exactly as on the classic path, so
+  // a post the model invented resolves to nothing. No follow-up menu: this
+  // mode does not offer numbered options.
+  const ranPulse = reply.pulses?.[reply.pulses.length - 1] ?? null;
+  if (ranPulse && reply.text) {
+    const resolved = citationsIn(text, ranPulse.sample ?? []);
+    text = resolved.text;
+    allow.push(...resolved.cited.map((c) => c.url));
+    if (resolved.cited.length) {
+      text += `\n\n${renderCitations(resolved.cited)}`;
+    }
+  }
+
+  await send(text, { allow });
+  await clearChoices(entry.convoId);
+
+  // One row per model and kind: the first wave, the second, the judge. A
+  // single "dm-agent" row would put Sonnet's tokens and Jev's under one name.
+  const usageRows = (reply.usages || [])
+    .filter((u) => u.inputTokens || u.outputTokens)
+    .map((u) => ({
+      kind: u.kind,
+      model: u.model,
+      input_tokens: u.inputTokens ?? null,
+      output_tokens: u.outputTokens ?? null,
+    }));
+  if (usageRows.length) await upsert('llm_usage', usageRows).catch(() => {});
+
+  log(reply.ok ? 'Answered as the agent' : 'Agent turn failed', {
+    convoId: entry.convoId,
+    steps: reply.steps,
+    ...(reply.escalated
+      ? { steppedUp: `${reply.escalated.model}: ${reply.escalated.reason}` }
+      : {}),
+    checks: reply.checks?.length
+      ? reply.checks
+          .map(
+            (c) =>
+              `${c.allow ? 'ok' : 'stopped'}@${c.p == null ? '-' : c.p.toFixed(2)}`,
+          )
+          .join(' ')
+      : 'none',
+    actions: reply.actions.length ? reply.actions.join('; ') : 'none',
+    ...(reply.ok ? {} : { err: String(reply.error?.message || reply.error) }),
+  });
+  return {
+    convoId: entry.convoId,
+    agent: true,
+    steps: reply.steps,
+    actions: reply.actions.length,
+  };
+}
+
 /** How many messages one pass will answer. */
 export const MAX_TURNS = 5;
 
@@ -651,6 +926,8 @@ export async function runDmPass({
   roster = rosterFromEnv(process.env, ME_DID),
   generate = generateText,
   extraTools = {},
+  mode = normaliseMode(process.env.MOD_DM_MODE),
+  operatorModel = process.env.MOD_OPERATOR_MODEL || null,
   log = () => {},
 }) {
   const cursor = await readCursor();
@@ -693,19 +970,28 @@ export async function runDmPass({
   const activeModel = config?.model || model;
 
   const turns = [];
-  for (const entry of inbound.slice(-MAX_TURNS)) {
+  for (const arrived of inbound.slice(-MAX_TURNS)) {
+    // "!" is stripped before anything parses the text, so "!block @x" is
+    // exactly "block @x" to the classic path. Facets are read for their URIs
+    // and DIDs only, never their byte ranges, so the shift does not matter.
+    const routed = routeFor(arrived.message.text, { mode });
+    const entry =
+      routed.text === arrived.message.text
+        ? arrived
+        : { ...arrived, message: { ...arrived.message, text: routed.text } };
+
     // COMMANDS NEVER REACH THE MODEL. Matched on dame's literal text, executed
     // directly, replied to with a receipt. This is what makes "only acts on
     // commands from me" true in the presence of tools that read strangers'
     // posts: there is no path from the tool loop to a write, so a captured turn
     // has nothing to capture. See src/lib/moderation/command.js.
-    const send = async (text) => {
+    const send = async (text, { allow = [] } = {}) => {
       for (const chunk of chunkForDm(text)) {
         // Facets only for links this codebase built. chunkForDm splits on
         // whitespace before it ever splits a word, and these are ~70
         // characters against a 950 limit, so one never straddles a chunk --
         // which matters, because a facet range is computed per chunk.
-        const facets = ownLinkFacets(chunk);
+        const facets = ownLinkFacets(chunk, { allow });
         await chat.chat.bsky.convo.sendMessage({
           convoId: entry.convoId,
           message: facets.length ? { text: chunk, facets } : { text: chunk },
@@ -738,6 +1024,41 @@ export async function runDmPass({
         extractTargets(entry.message.text || '')[0] ||
         null,
     );
+
+    // Agent mode. A bare number stays classic only while the menu it answers
+    // is live; after an agent reply there is none, so it reaches the agent.
+    const toAgent =
+      routed.route === 'agent' ||
+      (routed.route === 'choice' &&
+        !(await takeChoice(entry.convoId, parseChoice(entry.message.text))));
+    if (toAgent) {
+      turns.push(
+        await answerAsAgent({
+          entry,
+          chat,
+          send,
+          getIo,
+          extraTools,
+          config,
+          limits,
+          model: operatorModel || activeModel,
+          // Labels come from the analyst's model in both modes, so "hostile"
+          // means the same thing whichever one asked, and a pricier agent
+          // model does not multiply the cost of reading 240 posts.
+          triageModel: activeModel,
+          writeAgent,
+          canWrite,
+          botDid,
+          roster,
+          generate,
+          openers,
+          escalate: Boolean(routed.escalate),
+          log,
+        }),
+      );
+      continue;
+    }
+
     let cmd = parseCommand(entry.message.text, {
       embedUri,
       links: msgLinks,
@@ -851,6 +1172,19 @@ export async function runDmPass({
     // fencing to be forgotten. See readRequest in agent.js for why the wording
     // is fixed rather than taken from what dame typed.
     let reading = cmd?.action === 'read' && !cmd.needsTarget ? cmd.actor : null;
+    // Same shape as `read`: a canned question for the analyst rather than a
+    // branch of its own. The digest is the model's job -- reading six hundred
+    // posts and saying what they amount to is the whole task -- and a second
+    // copy of the tool loop would be a second place for the fencing to be
+    // forgotten. See pulseRequest in agent.js for why the wording is fixed.
+    const pulsing = cmd?.action === 'pulse' ? cmd : null;
+    // The third canned question. A digest says a thing was discussed; this is
+    // how dame asks what was actually said, without leaving the conversation
+    // and without the answer having to be a scoring decision about anybody.
+    const threading =
+      cmd?.action === 'thread' && !cmd.needsTarget
+        ? cmd.url || cmd.target
+        : null;
     // Resolved from an attached post, so it is a DID. The read prompt names the
     // account back to dame, and a DID in that sentence is unreadable.
     if (reading && cmd.fromPost) {
@@ -874,7 +1208,13 @@ export async function runDmPass({
       continue;
     }
 
-    if (cmd && !reading) {
+    if (cmd?.action === 'thread' && cmd.needsTarget) {
+      await send(nudge('thread'));
+      turns.push({ convoId: entry.convoId, command: 'thread' });
+      continue;
+    }
+
+    if (cmd && !reading && !pulsing && !threading) {
       let reply;
       try {
         reply = await runCommand(cmd, writeAgent, {
@@ -904,34 +1244,18 @@ export async function runDmPass({
       continue;
     }
 
-    // Read the conversation back so a follow-up means something. Bluesky stores
-    // it already, so this needs no state of our own — and it is per convo, so
-    // two threads do not bleed into each other.
-    let history = [];
-    try {
-      const page = await chat.chat.bsky.convo.getMessages({
-        convoId: entry.convoId,
-        limit: 40,
-      });
-      history = historyFrom(page.data.messages, {
-        // The ASKER. With a roster this is not always dame, and labelling a
-        // guest's own messages as somebody else's turns their follow-up into a
-        // conversation the model thinks it was watching rather than having.
-        selfDid: entry.message?.sender?.did ?? ME_DID,
-        botDid,
-        beforeId: entry.message.id,
-        maxTurns: limits.maxTurns,
-        maxAgeMs: limits.historyHours ? limits.historyHours * 3600_000 : null,
-      });
-    } catch {
-      // A conversation we cannot read is still a question we can answer, just
-      // without context. Better a reply that misses the reference than silence.
-      history = [];
-    }
+    // Read the conversation back so a follow-up means something.
+    const history = await readHistory(chat, entry, { botDid, limits });
 
     const reply = await answer({
       generate,
-      message: reading ? readRequest(reading) : composeMessage(entry.message),
+      message: reading
+        ? readRequest(reading)
+        : pulsing
+          ? pulseRequest(pulsing)
+          : threading
+            ? threadRequest(threading)
+            : composeMessage(entry.message),
       io,
       history,
       model: activeModel,
@@ -960,9 +1284,44 @@ export async function runDmPass({
         );
       }
     }
+
+    // A DIGEST'S FOLLOW-UPS ARE COMPOSED BY CODE, not lifted from the prose.
+    // offersFrom is only as safe as dame reading the label; this menu is a
+    // function of the arguments the digest actually ran with, so pressing 2
+    // runs a read this codebase wrote. Same standing as the menu behind a plan.
+    //
+    // Built from the TOOL CALL and not from what dame typed, because when she
+    // asks in words the model picks the window -- and a menu offering to widen
+    // to three days under an answer that already covered three days is a menu
+    // that has not been reading along.
+    const ranPulse = reply.pulses?.[reply.pulses.length - 1] ?? null;
+    // URLs this message is allowed to render as tappable. Empty for every
+    // reply that is not a digest, which is every reply that has not just been
+    // handed a table of posts it built itself.
+    let allow = [];
+    if (pulsing || ranPulse) {
+      const from = pulsing ?? pulseFromArgs(ranPulse.args);
+      // Markers first: the link list and the menu are both built out of what
+      // survived resolution, so a post the analyst invented reaches neither.
+      const resolved = citationsIn(text, ranPulse?.sample ?? []);
+      text = resolved.text;
+      allow = resolved.cited.map((c) => c.url);
+      if (resolved.cited.length) {
+        text += `\n\n${renderCitations(resolved.cited)}`;
+      }
+      offers = offerable(
+        followUpsFor(from, {
+          terms: ranPulse?.focusTerms ?? [],
+          posts: resolved.cited,
+        }),
+      );
+    }
     if (offers.length) text += `\n\n${renderChoices(offers)}`;
+    // Counted before sending so the log reports what actually went out. A
+    // digest with a link list and a six-option menu is a longer reply than the
+    // model wrote, and the number worth having is the one dame received.
     const chunks = chunkForDm(text);
-    await send(text);
+    await send(text, { allow });
     await offerChoices(entry.convoId, offers);
 
     // The reply is already sent and the cursor already advanced, so a failure

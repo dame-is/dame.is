@@ -86,12 +86,16 @@ not for gating. A single score would imply precision this data does not support.
 | `src/lib/moderation/report.js`        | Account and post reports, filled from a template          |
 | `src/lib/moderation/phrases.js`       | Openers, acks, nudges — the register it speaks in         |
 | `src/lib/moderation/mcp.js`           | The Atmosphere MCP, as one read-only dispatcher           |
+| `src/lib/moderation/pulse.js`         | What a slice of the network is saying, over a window      |
 | `src/lib/moderation/trigger.js`       | Does this firehose event mean "look at this"?             |
 | `src/lib/moderation/client.js`        | Browser calls, service-auth minting, list removal         |
 | `api/_lib/modDb.js`                   | PostgREST client for the `mod` schema (server only)       |
 | `api/_lib/reference.js`               | The scoring snapshot, loaded once and shared              |
 | `api/_lib/agentConfig.js`             | Voice, templates, model and limits, read from the PDS     |
 | `api/_lib/dmLoop.js`                  | One DM intake pass, shared by droplet and fallback        |
+| `api/_lib/operator.js`                | Agent mode: one model with the read and write tools       |
+| `api/_lib/tiers.js`                   | Which model does what, and when a stronger one steps in   |
+| `scripts/eval-intent.mjs`             | Measures the write check against `scripts/evals/`         |
 | `api/_lib/listWrite.js`               | The single-account write, where the PROTECTED veto lands  |
 | `api/_lib/bulkPlan.js`                | Propose, approve, review, undo, history — for batches     |
 | `api/_lib/serviceAuth.js`             | Verifies browser tokens against your DID document         |
@@ -360,6 +364,171 @@ move a roster to a DM — a prompt, not a guarantee. Replies carry no mention
 facets, so nobody named in one is notified. `PUBLIC_REPLIES=false` on the droplet
 turns the whole public path off and leaves the DM loop alone.
 
+### Agent mode
+
+`MOD_DM_MODE=agent` on the droplet swaps the DM surface for one model that holds
+the write tools and is talked to in sentences:
+
+```
+block whoever wrote this, it's spam            (post attached)
+what's going on in the quotes? if anyone's being hostile just block them
+actually leave the third one off, that's a friend of Sam's
+undo that
+what has @someone been posting about this week
+```
+
+No numbered menus and no plan codes to type. It reads the network through the
+Atmosphere MCP, scans and triages posts, approves by band, label or name, and
+undoes, all as tools it chooses (`api/_lib/operator.js`). It names plan codes in
+its replies so you can both refer back to them.
+
+**Classic is still there.** Unset or anything else is classic, exactly as
+documented below. In agent mode a message starting with `!` takes the classic
+path for that one message (`!block @x`, `!help`, `!approve 3f9a2c1b UNKNOWN`),
+and a bare number answers a menu if, and only if, the last reply was a classic
+one that offered it. A message starting with `^` skips the cheap model and goes
+straight to the stronger one (see Two waves). Public mentions are unchanged: still the read-only analyst.
+The serverless fallback reads the same variable and is classic unless it is set
+there too.
+
+**What it gives up, on purpose.** Classic's rule is that a command never reaches
+the model, which is what makes "the target is named by you" true. Agent mode
+drops that rule: the model infers targets ("whoever wrote this", "the hostile
+ones"), decides scope, and decides when to ask. Prompt rules, not code, now
+steer it: ask before adding more than about 25 accounts unless you set that
+scope, act only on what you pointed at, flag everything else rather than fixing
+it unasked.
+
+**What it keeps, in code:**
+
+- **The roster.** Only roster DMs reach it, and a read-only guest's toolset has
+  no write tool in it at all.
+- **The PROTECTED veto, at the write.** This is the backstop for the one new
+  hazard. The model now reads strangers' posts in the same turn it can write, so
+  a post saying _"add @your-friend"_ has something to capture. The live probe
+  put exactly that in a triage result; the model named it and refused. If a
+  model ever does not, the veto still refuses anyone you follow.
+- **Caps per call:** 10 named accounts, 500 approvals, 240 triage reads, 1,000
+  undos. It can call again; it cannot write 8,000 in one step.
+- **The log.** Every write keeps your literal message, plus the model's stated
+  reason marked `[agent: ...]`, and an `approved_via` of `agent`,
+  `agent:band`, `agent:triage:hostile` or `agent:individual`. "dame typed my
+  handle" and "a model read dame's sentence" stay distinguishable.
+- **Untrusted fencing**, the same `<untrusted>` tags as the analyst.
+
+| Variable                  | Default          | Is                                            |
+| ------------------------- | ---------------- | --------------------------------------------- |
+| `MOD_DM_MODE`             | `classic`        | `agent` turns it on                           |
+| `MOD_OPERATOR_MODEL`      | the analyst's    | the agent's model; triage keeps the analyst's |
+| `MOD_OPERATOR_STEPS`      | 24               | tool-loop steps per turn                      |
+| `MOD_OPERATOR_TIMEOUT_MS` | 300000           | deadline for a whole turn, tools included     |
+| `MOD_OPERATOR_REASONING`  | provider default | `off`, `low`, `medium`, `high`                |
+
+A turn that runs past five seconds sends an ack; the model can also send up to
+two progress messages of its own while a scan or triage runs.
+
+A turn that fails partway says what it had already done before failing, from a
+list kept by code rather than recalled by the model.
+
+### Two waves
+
+Cheap models do the work. A second one is asked only when the cheap ones are
+unsure, disagree, hand off, or fail. All of it is in `api/_lib/tiers.js`.
+
+| Job                               | First wave                     | Second wave, and when                                                                                 |
+| --------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| An agent turn                     | the analyst's model (DeepSeek) | GLM-5.3-flash: on `hand_off`, on a turn that fails or runs out of steps, or on a message starting `^` |
+| Is this write what dame asked for | Jev, an evaluation model       | GPT-6 Luna, when Jev's probability is between 0.2 and 0.6                                             |
+| Triage labels                     | DeepSeek labels, Jev scores    | GLM-5.3-flash re-reads every post either of them calls hostile; its label is kept                     |
+| Re-checking old hostile labels    | (none)                         | GLM-5.3-flash and GPT-6 Luna; a label changes only when both disagree with it                         |
+
+Every GLM-5.3-flash call carries a gateway fallback to GLM-5.3. The flash
+model had bursts of upstream failures while it was measured (80 of 307 posts in
+one run, none in the next). The fallback costs more and is only paid for when
+the first choice is down.
+
+**Every write is checked.** Before `add_to_list`, `remove_from_list`,
+`approve_plan` or `undo` runs, Jev is asked one typed question: did dame ask
+for exactly this? It reads dame's message, the bot's previous message, and the
+change **described by code**, including where each target came from: _"the
+author of the post dame attached"_, _"in this plan, triage labelled hostile"_,
+_"not mentioned anywhere in this conversation"_. It never reads the strangers'
+posts the agent read, and it never reads the agent's own reason, so a turn that
+talked itself into something cannot talk the check into it too. Below 0.2 the
+write is refused, at 0.6 or above it runs, and between them Luna decides. A
+refused write comes back to the agent as "not done", and the agent asks dame;
+the refusal also names the `!` command that would do it directly. If nothing
+can run the check, the write is refused.
+
+Measured on 52 cases in `scripts/evals/intent-cases.js` (synthetic, written in
+the register real requests use; the repo is public, the DMs are not):
+
+| Check                   | Right | Wrong allows | Wrong refusals | Cost per check |
+| ----------------------- | ----- | ------------ | -------------- | -------------- |
+| Jev alone               | 49    | 0            | 3              | ~$0.00002      |
+| Jev, Luna in the middle | 50–51 | 0            | 1–2            | ~$0.00003      |
+| GPT-6 Luna alone        | 50–52 | 0            | 0–2            | ~$0.00006      |
+| GLM-5.3-flash alone     | 51    | 0            | 1              | ~$0.0001       |
+| GLM-5.3 alone           | 50    | 1            | 1              | ~$0.0007       |
+| Sonnet 5.5 alone (48)   | 46–47 | 1–2          | 0–1            | ~$0.0017       |
+
+A wrong allow is a write dame did not ask for, and the larger models made the
+ones measured: Sonnet approved adding the accounts labelled "arguing" when dame
+had asked for the hostile ones, and GLM-5.3 approved adding an account the agent
+had picked out of a thread itself. Luna is the second opinion because it made
+none and is the cheapest and fastest. The remaining wrong refusals cost one "go
+ahead?": _"yeah get rid of that one"_ after an offer, and reading _"the randos
+who liked this"_ as all 88 UNKNOWN. Run it again after changing a prompt or a
+model: `node scripts/eval-intent.mjs` (see its header).
+
+**Hostile needs the second reader.** It is the only label that leads to a
+write. Jev alone over-calls badly (on 762 real posts, 80 that DeepSeek did not
+flag, of which a stronger reader agreed with 12), so Jev never labels anything;
+it only nominates posts for a second look. Which second reader was decided on
+60 contested posts from the September pile-on, labelled by hand against the
+triage prompt (13 hostile):
+
+| Reader                      | Right   | Wrongly hostile | Missed hostile | Cost, 307 posts |
+| --------------------------- | ------- | --------------- | -------------- | --------------- |
+| DeepSeek flash (first wave) | 29/60   | 31              | 0              | (first wave)    |
+| GPT-6 Luna                  | 36/60   | 22              | 2              | $0.009          |
+| GPT-6 Sol                   | 35/60   | 24              | 1              | $0.13           |
+| DeepSeek v4-pro             | 34/60   | 24              | 2              | $0.08           |
+| Sonnet 5.5                  | 50/60   | 5               | 5              | $0.07           |
+| GLM-5.3                     | 48/55\* | 5               | 2              | $0.22           |
+| GLM-5.3-flash               | 37/42\* | 4               | 1              | $0.016          |
+
+\* Fewer than 60 answered: those are the upstream failures the fallback is for.
+The sample is drawn mostly from posts where the models disagree, so these are
+not population rates; they say which readers share the rubric's line between
+attacking a person and attacking an argument. Sonnet was dropped on cost.
+GLM-5.3 read the rubric as well and cost the most once its reasoning tokens were
+counted. With reasoning turned down to "low", GLM-5.3-flash got 47/60 and
+GLM-5.3 45/60, so neither runs with reasoning reduced. `triage_model` names the
+model whose label each row carries.
+
+**Old labels were re-read once,** on 2026-10-01, before the switch from Sonnet.
+The 231 accounts added as hostile from plan `6fa2491d` went to Sonnet and Luna:
+142 confirmed, 34 read as not hostile by both (24 arguing, 10 neutral), 55
+split and kept. **Nobody was added or removed.** The 34 are the review queue,
+at Plans → `6fa2491d` filtered to label `arguing` or `neutral` with state
+`added`; `approved_via` still says `triage:hostile`. `triage_plan` with
+`recheck: true` does the same for any other plan, with today's readers.
+
+| Variable                  | Default             | Is                                              |
+| ------------------------- | ------------------- | ----------------------------------------------- |
+| `MOD_JUDGE_MODEL`         | `typesafe-ai/jev`   | the evaluation model; `off` disables checks     |
+| `MOD_CHECK_MODEL`         | `openai/gpt-6-luna` | second opinion on an uncertain write check      |
+| `MOD_INTENT_ALLOW`        | 0.6                 | run at or above                                 |
+| `MOD_INTENT_REFUSE`       | 0.2                 | refuse below                                    |
+| `MOD_ESCALATION_MODEL`    | `zai/glm-5.3-flash` | agent step-up and triage second reader          |
+| `MOD_ESCALATION_FALLBACK` | `zai/glm-5.3`       | tried by the gateway when the second wave fails |
+
+Every model call is recorded in `mod.llm_usage` under its own `kind` and
+`model`: `dm-agent`, `dm-agent-escalated`, `judge`, `judge-escalated`,
+`triage`, `triage-judge`, `triage-escalated`, `triage-recheck`. A reply the
+second wave wrote says so in its last line.
+
 ### Who it answers
 
 By default, one account: yours. Two environment variables widen that, and the
@@ -466,6 +635,124 @@ other one **adds** someone to a block list, so guessing is the failure that
 matters; undo only ever removes people, so the worst a wrong guess does is
 un-block accounts you can add again. The safe direction to be wrong in is the
 one that acts on fewer people.
+
+### `help`, and `pulse`
+
+Two verbs that read and change nothing, so a read-only sender keeps both.
+
+`help` prints what the bot can do. It existed nowhere for the first several
+months, which meant the capabilities were discoverable only by having built
+them. It is **deterministic** rather than a question for the analyst: a model
+asked what it can do answers confidently and is wrong, because it reads the same
+prompt whether or not a tool is wired up behind it. Writes are **left out** for a
+read-only sender rather than listed and refused, the same rule the menus follow.
+
+It is also the one verb **anchored to the whole message**. Every other verb takes
+an argument, so a trailing `\b` is how it finds one; this takes none, and a
+prefix match would swallow _"help me understand why they are connected"_ and
+answer a real question with a menu.
+
+`pulse` reads a slice of the network. Like `read @handle`, it is a **canned
+question for the analyst** rather than a branch of its own — the digest is the
+model's job, and a second copy of the tool loop would be a second place for the
+fencing to be forgotten.
+
+```
+pulse                          your circle, last 24h
+pulse 3d                       the same over three days (also 72, 168, "2 days")
+pulse amplified                only what they reposted, and who passed it on
+pulse said                     only what they wrote themselves
+pulse more                     a deeper sample for the model to read
+pulse about atproto            only posts containing that
+pulse <feed or list link>      any custom feed or list
+```
+
+Every part is optional, matched literally, and order does not matter. Asking in
+words works too and reaches the same tool — `pulse` exists so the **follow-ups**
+to a digest can be real commands.
+
+### Citing a post, and `thread`
+
+A digest names things; the next question is always _which post, and what did it
+actually say_. Both halves are answered without the analyst ever writing a URL.
+
+Every post in the sample the model reads carries a **marker**:
+
+```
+[7] @chadtmiller.com · 6h · 172L 25R 14C · amplified by 3 of the slice (…)
+  messing around with a grain camera prototype. native atproto support.
+```
+
+The analyst writes `chadtmiller's grain camera [7]`, and `citationsIn` decides
+what `[7]` means by **indexing the table the tool returned**. Same family as
+`offersFrom`: lift what the model wrote, validate it against something this
+codebase produced, keep only what survives. So the analyst chooses which post it
+is pointing at and **cannot point at a post the digest never saw**. A marker with
+nothing behind it is stripped from the text rather than left dangling.
+
+That property is what lets the link be rendered **tappable**. This account
+otherwise never facets a URL it did not construct — a general linkifier would
+eventually hand-render a stranger's link as tappable inside a report about them.
+The allowlist is not a second pattern but the **exact set of URLs** built from
+the URIs that digest returned, computed per message. A marker costs the analyst
+three characters of its 1000-grapheme budget; the link is added afterwards, by
+code, and the permalink names the handle rather than the DID because a link in a
+DM is read by a person.
+
+`thread <post link>` is the other half — the canned question that reads a
+conversation. It asks what is being argued about and explicitly **does not grade
+anyone in it**: a thread reader that scored participants would be a second
+scoring system with no snapshot behind it.
+
+### Follow-ups to a digest
+
+A digest ends in a numbered menu, and unlike the analyst's other replies that
+menu is **composed by code**:
+
+```
+[1] https://bsky.app/profile/jamellebouie.net/post/3mvyd6e37nc25
+[2] https://bsky.app/profile/jamellebouie.net/post/3mvyfbmvso22d
+[3] https://bsky.app/profile/segyges.bsky.social/post/3mvwhrlelnc2o
+
+1. Read the thread on @jamellebouie.net's post [1]
+2. Read the thread on @jamellebouie.net's post [2]
+3. Read the thread on @segyges.bsky.social's post [3]
+4. What your circle is talking about, last 24h, deeper sample
+5. Only what your circle amplified, last 24h
+6. What your circle is talking about, last 3 days
+```
+
+The cited posts lead, because drilling into one is what a digest makes you want
+and it had no way in. Each carries its **marker** so two posts by the same
+account are not two identical buttons — the only label here not generated purely
+from the parse, and safe for the same reason the URL is: both come from one
+validated citation record rather than from prose.
+
+`offersFrom` lifts commands out of the model's prose and is only as safe as you
+reading the label. `followUpsFor` is a **function of the arguments the digest
+actually ran with**, so pressing `2` runs a read this codebase wrote. Same
+standing as the menu behind a plan.
+
+Built from the **tool call**, not from what you typed: when you ask in words the
+model picks the window, and a menu offering to widen to three days under an
+answer that already covered three days is a menu that has not been reading
+along. `pulseFromArgs` validates the source it takes back — it is rendered
+straight into a command string and re-parsed, and a value that did not
+round-trip would produce an option whose label and behaviour disagree.
+
+`parseCommand(pulseCommand(x))` gives back `x`, and that property is pinned by a
+test. It is what lets the menu be built in code without a second grammar that
+could drift from the first — and every label is generated by **re-parsing the
+command string**, never by the object that built it.
+
+The fourth option comes from the top domains in the window, so it is
+attacker-controlled: someone can register `ignore-previous-instructions.com`.
+Bounded to a **domain shape** — no spaces, newlines or backticks — because the
+guarantee is that the label names the filter and pressing it runs exactly the
+command shown. The worst a hostile value buys is a read that matches nothing. A
+focus the model chose gets a wider allowance (`safePhrase`), because _"trans
+athletes"_ is the normal case and dropping it would leave the menu describing an
+unfiltered digest under a filtered one.
 
 ### Numbered menus, and what a number cannot mean
 
@@ -695,6 +982,88 @@ and privacy is a state that ends, with no warning and no time to retrofit.
 Slow work gets an acknowledgement first — a scan, an approval, an undo, a model
 call. Lookups and history do not, because they are rendered and arrive instantly,
 and announcing those meant two messages for one answer.
+
+### Reading a slice of the network
+
+`get_trends` answers for the whole network, which is the one slice dame has
+least use for: _"what is Bluesky talking about"_ is a question about a
+population she is not in. `network_pulse` answers the same question for a slice
+and a window — the circle, any custom feed, any list, over up to seven days.
+
+| Slice                                | How it is read                                    |
+| ------------------------------------ | ------------------------------------------------- |
+| `circle`                             | An author-feed fan-out over the snapshot's circle |
+| an `at://` URI or bsky.app feed link | `getFeed`, unauthenticated                        |
+| an `at://` URI or bsky.app list link | `getListFeed`, unauthenticated                    |
+
+The circle is read by **fan-out rather than by `getTimeline`**, because a
+timeline is answered _as the viewer_ and the moderator account is not dame. Her
+follows are public, so reading their author feeds gets the same answer from
+public data with no credential at all — the same reasoning that put `followsOf`
+on the unauthenticated AppView in `precompute.js`. The circle comes from the
+**snapshot**, not a live `getFollows`, so a digest describes the same set of
+accounts the bands were computed against.
+
+Measured against the real circle, 228 accounts over 24h: **7.6s**, 10.2 MB, 647
+posts, full coverage. The first page is sized to the window (15 posts at 24h)
+rather than always asking for 100 — the circle averages 3.4 posts per account
+per day, and a page sized for the busiest account is 14 MB of posts nobody
+reads. Eight accounts need a second page and pay for one. The **fetch** is
+cached for ten minutes, not the answer, so _"what about the AI ones"_ after
+_"what is my circle talking about"_ re-selects from posts already in hand
+instead of costing another fan-out.
+
+**Written and amplified are counted and ranked apart.** This is the whole
+difference between a digest of a follow graph and trending with extra steps, and
+the first live run got it wrong in both of the available ways:
+
+- The same post reached the fan-out once per member who reposted it. It was
+  counted several times and took several of the three sample slots its author
+  was allowed, so the digest measured reposting rather than conversation. Copies
+  now collapse by URI into one post carrying **the list of who amplified it** —
+  the duplicate is signal, not noise.
+- Ranking both groups together by engagement put four reposts of
+  thirteen-thousand-like posts at the top. That is a correct ranking of the
+  wrong thing: a like count is a fact about Bluesky. Amplified posts are now
+  ranked by **how many of the slice passed each one on**, which is the local
+  signal. Six members reposting something modest says more about the circle than
+  one member reposting something huge.
+
+The sample is also capped at three posts per account, because engagement order
+alone hands the whole of it to the two loudest accounts and produces a confident
+answer about 228 people built from the output of three.
+
+The tool reports how many accounts it read, how many were unreadable, how many
+posts matched and how many it left out, and the prompt requires those to be
+carried into the answer. A digest built from 140 of 228 accounts is a different
+claim from one built from all of them, and _"your circle was quiet"_ and _"I
+only managed to read 140 of them"_ must not become the same sentence.
+
+#### There is no For You slice
+
+The For You feed is a real feed generator (`did:web:foryou.club`) and it
+personalises off the **requester's DID** in a service JWT. The bot is not dame,
+so it can only ever fetch its own. Unauthenticated `getFeed` against it answers
+`200` with a generic feed, which is the dangerous outcome rather than the
+convenient one: a plausible answer to a question nobody asked.
+
+Approximating it from her circle, from trending, or from the unauthenticated
+feed and calling it hers would be exactly the claim the rest of this system
+exists to refuse, so there is no `foryou` slice and the prompt forbids
+substituting one. Three honest ways to add it later, none of them free:
+
+1. **The browser pushes a snapshot.** The hub already mints service auth from
+   dame's OAuth session (`client.js`); minting one for `aud: did:web:foryou.club`
+   and posting the resulting URIs to the server keeps the credential boundary
+   intact. The DM path would only see as far back as the last time she opened
+   `/admin`.
+2. **Give the droplet a dame credential.** Fresh and on demand, and it breaks
+   the invariant this document states plainly — an app password is
+   full-repo-write.
+3. **Ask spacecowboy17 for API access.** The playground already simulates any
+   public account, so no credential of dame's is involved. It is
+   Turnstile-gated, which is the author saying not to automate it; the answer
+   there is to ask, not to script the captcha.
 
 ### The fallback
 

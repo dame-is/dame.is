@@ -32,6 +32,14 @@ import { harvestPost } from '../../src/lib/moderation/harvest.js';
 import { untrusted, MODEL_TIMEOUT_MS } from '../../src/lib/moderation/agent.js';
 import { LABELS } from '../../src/lib/moderation/command.js';
 import { selectAll, upsert } from './modDb.js';
+import {
+  CHECK_MODEL,
+  ESCALATION_MODEL,
+  JUDGE_MODEL,
+  escalationEnabled,
+  hostileProbabilities,
+  withFallback,
+} from './tiers.js';
 
 // LABELS lives in command.js, not here. The parser needs it and command.js is
 // under src/, which ships to the browser -- so it must never import anything
@@ -203,7 +211,7 @@ export function parseLabels(text, count) {
  * A row the model did not answer for stays null and is simply left unlabelled,
  * so a malformed reply loses a page of work rather than mislabelling it.
  */
-async function labelBatch(items, { generate, model }) {
+async function labelBatch(items, { generate, model, usage = [] }) {
   const body = items
     .map((it, i) => `${i + 1}. ${untrusted(`post-${i + 1}`, it.text)}`)
     .join('\n');
@@ -214,8 +222,82 @@ async function labelBatch(items, { generate, model }) {
     // See MODEL_TIMEOUT_MS. A hung gateway request here stopped the entire
     // consumer for as long as nobody noticed.
     abortSignal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+    ...withFallback(model),
+  });
+  usage.push({
+    model: String(model),
+    inputTokens: result?.usage?.inputTokens ?? 0,
+    outputTokens: result?.usage?.outputTokens ?? 0,
   });
   return parseLabels(result?.text ?? '', items.length);
+}
+
+/**
+ * Second-wave calls at once. Fewer than the first wave's twelve: the second
+ * reader is a smaller provider pool, and a burst of twelve is how one run lost
+ * 80 of 307 posts to upstream failures. A triage of 240 sends about 100 posts
+ * here, so this is two or three rounds either way.
+ */
+const SECOND_CONCURRENCY = 4;
+
+/**
+ * A post goes to the second wave at or above this P(hostile) from the judge,
+ * whatever the first-wave reader said. Measured on 762 real rows: the judge
+ * finds hostile posts the first reader missed, and over-calls many more, so its
+ * opinion is a reason to look again and never the label itself.
+ */
+export const HOSTILE_CANDIDATE = 0.5;
+
+/**
+ * The stronger model reads a set of posts. Same prompt, same parser, same
+ * batches as the first wave; only the model differs, so a label means the same
+ * thing whichever wave produced it.
+ *
+ * @returns {Promise<{ labels: Map<object, string|null>, failed: number }>}
+ */
+async function secondWave(items, { generate, model, usage, log }) {
+  const labels = new Map();
+  let failed = 0;
+  const batches = [];
+  for (let i = 0; i < items.length; i += PER_CALL) {
+    batches.push(items.slice(i, i + PER_CALL));
+  }
+  for (let w = 0; w < batches.length; w += SECOND_CONCURRENCY) {
+    await Promise.all(
+      batches.slice(w, w + SECOND_CONCURRENCY).map((batch) =>
+        labelBatch(batch, { generate, model, usage })
+          .then((out) => batch.forEach((row, n) => labels.set(row, out[n])))
+          .catch((err) => {
+            failed += batch.length;
+            log('Second-wave triage batch failed', {
+              err: String(err?.message || err),
+            });
+          }),
+      ),
+    );
+  }
+  return { labels, failed };
+}
+
+/** One llm_usage row per model and kind, so the spend can be split later. */
+async function recordUsage(rows) {
+  const byKey = new Map();
+  for (const r of rows) {
+    const key = `${r.kind}|${r.model}`;
+    const t = byKey.get(key) || {
+      kind: r.kind,
+      model: r.model,
+      input_tokens: 0,
+      output_tokens: 0,
+    };
+    t.input_tokens += r.inputTokens || 0;
+    t.output_tokens += r.outputTokens || 0;
+    byKey.set(key, t);
+  }
+  const out = [...byKey.values()].filter(
+    (t) => t.input_tokens || t.output_tokens,
+  );
+  if (out.length) await upsert('llm_usage', out).catch(() => {});
 }
 
 /**
@@ -226,8 +308,28 @@ async function labelBatch(items, { generate, model }) {
  */
 export async function runTriage(
   plan,
-  { generate, model, perRun = PER_RUN, log = () => {} },
+  {
+    generate,
+    model,
+    perRun = PER_RUN,
+    log = () => {},
+    escalation = ESCALATION_MODEL,
+    judge = JUDGE_MODEL,
+    evaluate,
+  },
 ) {
+  // TWO WAVES when a stronger model is configured. The first-wave model labels
+  // everything; the judge scores every post for hostility alongside it; any
+  // post either of them calls hostile is read again by the second wave, whose
+  // label is the one kept. "hostile" is the only label that leads to a write,
+  // so it is the only one that has to get past the stronger reader.
+  const twoWaves = escalationEnabled(escalation);
+  const firstUsage = [];
+  const judgeUsage = [];
+  const secondUsage = [];
+  let escalated = 0;
+  let overturned = 0;
+  let secondFailed = 0;
   const rows = await selectAll('decision', {
     select: 'did,band,evidence_uri,triage',
     eq: { plan_id: plan.id },
@@ -315,9 +417,17 @@ export async function runTriage(
   // minutes of not answering anyone else.
   for (let w = 0; w < batches.length; w += CONCURRENCY) {
     const wave = batches.slice(w, w + CONCURRENCY);
+    const waveItems = wave.flat();
+    // The judge reads the same posts at the same time, so it adds no wall time.
+    const scoring = twoWaves
+      ? hostileProbabilities(
+          waveItems.map((row) => row.text),
+          { judge, usage: judgeUsage, ...(evaluate ? { evaluate } : {}) },
+        )
+      : Promise.resolve([]);
     const results = await Promise.all(
       wave.map((batch) =>
-        labelBatch(batch, { generate, model })
+        labelBatch(batch, { generate, model, usage: firstUsage })
           .then((labels) => ({ batch, labels }))
           // A failed call is a page not labelled, not a page mislabelled. The
           // rows stay pending and the next invocation picks them up. Counted
@@ -332,22 +442,53 @@ export async function runTriage(
       ),
     );
 
-    const writes = [];
+    const first = new Map();
     for (const r of results) {
       if (!r) continue;
-      r.batch.forEach((row, n) => {
-        if (!r.labels[n]) return;
-        writes.push({
-          plan_id: plan.id,
-          did: row.did,
-          band: row.band,
-          triage: r.labels[n],
-          // The words, kept. This is the column that makes the label answerable
-          // later; without it the log says only that a model disliked someone.
-          triage_quote: row.text.slice(0, 500),
-          triage_at: now,
-          triage_model: String(model),
-        });
+      r.batch.forEach((row, n) => first.set(row, r.labels[n] || null));
+    }
+    const pHostile = await scoring;
+
+    const candidates = twoWaves
+      ? waveItems.filter(
+          (row, k) =>
+            first.get(row) === 'hostile' ||
+            (pHostile[k] ?? 0) >= HOSTILE_CANDIDATE,
+        )
+      : [];
+    const second = candidates.length
+      ? await secondWave(candidates, {
+          generate,
+          model: escalation,
+          usage: secondUsage,
+          log,
+        })
+      : { labels: new Map(), failed: 0 };
+    escalated += candidates.length;
+    secondFailed += second.failed;
+    const toSecond = new Set(candidates);
+
+    const writes = [];
+    for (const row of waveItems) {
+      // A post the second wave was meant to read and could not stays pending.
+      // Its first-wave label is exactly the one that was not trusted alone.
+      const label = toSecond.has(row) ? second.labels.get(row) : first.get(row);
+      if (!label) continue;
+      if (toSecond.has(row) && first.get(row) && first.get(row) !== label) {
+        overturned += 1;
+      }
+      writes.push({
+        plan_id: plan.id,
+        did: row.did,
+        band: row.band,
+        triage: label,
+        // The words, kept. This is the column that makes the label answerable
+        // later; without it the log says only that a model disliked someone.
+        triage_quote: row.text.slice(0, 500),
+        triage_at: now,
+        // Whichever model's label this is. A second-wave label names the
+        // second-wave model, so "who decided this" is answerable per row.
+        triage_model: String(toSecond.has(row) ? escalation : model),
       });
     }
     if (writes.length) {
@@ -357,6 +498,12 @@ export async function runTriage(
     log('Triage wave done', { labelled, failed, of: items.length });
   }
 
+  await recordUsage([
+    ...firstUsage.map((u) => ({ ...u, kind: 'triage' })),
+    ...judgeUsage.map((u) => ({ ...u, kind: 'triage-judge' })),
+    ...secondUsage.map((u) => ({ ...u, kind: 'triage-escalated' })),
+  ]);
+
   const after = await selectAll('decision', {
     select: 'did,triage,evidence_uri,acted_at,undone_at',
     eq: { plan_id: plan.id },
@@ -364,6 +511,16 @@ export async function runTriage(
   });
   return {
     labelled,
+    ...(twoWaves
+      ? {
+          secondWave: {
+            model: escalation,
+            read: escalated - secondFailed,
+            overturned,
+            failed: secondFailed,
+          },
+        }
+      : {}),
     remaining: after.filter((r) => r.evidence_uri && !r.triage).length,
     noText,
     gone: after.filter((r) => r.triage === 'gone').length,
@@ -373,6 +530,119 @@ export async function runTriage(
     // number that describes nothing anyone can act on.
     pending: countLabels(after.filter((r) => !r.acted_at || r.undone_at)),
     total: after.length,
+  };
+}
+
+/**
+ * Have two second-wave readers re-read labels a plan already has.
+ *
+ * For plans triaged before there was a second wave. A label only CHANGES when
+ * both readers disagree with it: these are accounts already on the list, and
+ * what this produces is a review queue, so it should hold the cases two
+ * readers from different labs agree on rather than every place one strict
+ * reader differs. Measured on the 229 accounts added as hostile before this
+ * existed: Sonnet 5.5 disputed 83, GPT-6 Luna 37, both 35.
+ *
+ * Nothing is added or removed. An account on the list stays on it whatever
+ * the new label says, and `approved_via` still records the label it was added
+ * on, so a dispute shows up in the hub as, for example, label "arguing" with
+ * state "added". Rows already re-read by these readers are skipped, so running
+ * it again continues rather than paying twice.
+ *
+ * @returns {Promise<{ readers, checked, confirmed, disputed, split, failed, remaining }>}
+ */
+export async function recheckTriage(
+  plan,
+  {
+    label = 'hostile',
+    generate,
+    readers = [ESCALATION_MODEL, CHECK_MODEL],
+    perRun = PER_RUN,
+    log = () => {},
+  },
+) {
+  const panel = [...new Set(readers.filter((r) => escalationEnabled(r)))];
+  const empty = {
+    readers: panel,
+    checked: 0,
+    confirmed: 0,
+    disputed: {},
+    split: 0,
+    failed: 0,
+    remaining: 0,
+  };
+  if (!panel.length) return empty;
+  // The mark a re-read row carries, so it is not read again.
+  const mark = panel.join('+');
+
+  const rows = await selectAll('decision', {
+    select: 'did,band,triage,triage_quote,triage_model',
+    eq: { plan_id: plan.id, triage: label },
+    order: 'did.asc',
+  });
+  const unread = rows.filter(
+    (r) => r.triage_quote && !String(r.triage_model || '').startsWith(mark),
+  );
+  const items = unread
+    .slice(0, perRun)
+    .map((r) => ({ ...r, text: r.triage_quote }));
+  if (!items.length) return { ...empty, remaining: 0 };
+
+  const usage = [];
+  const reads = await Promise.all(
+    panel.map((model) => secondWave(items, { generate, model, usage, log })),
+  );
+
+  const now = new Date().toISOString();
+  const writes = [];
+  const disputed = {};
+  let confirmed = 0;
+  let split = 0;
+  let failed = 0;
+  for (const row of items) {
+    const said = reads.map((r) => r.labels.get(row) || null);
+    // A reader that did not answer leaves the row for next time: half a panel
+    // is not the agreement this exists to require.
+    if (said.some((l) => !l)) {
+      failed += 1;
+      continue;
+    }
+    let next = label;
+    let model = mark;
+    if (said.every((l) => l === label)) {
+      confirmed += 1;
+    } else if (said.every((l) => l !== label)) {
+      // Both say it is not hostile. The first reader's label is kept; which of
+      // "arguing" and "neutral" matters far less than "not hostile".
+      next = said[0];
+      disputed[next] = (disputed[next] || 0) + 1;
+    } else {
+      // A split keeps the label it had, and says so.
+      split += 1;
+      model = `${mark} split ${panel.map((m, i) => `${m.split('/').pop()}=${said[i]}`).join(' ')}`;
+    }
+    writes.push({
+      plan_id: plan.id,
+      did: row.did,
+      band: row.band,
+      triage: next,
+      triage_at: now,
+      triage_model: model,
+    });
+  }
+  for (let i = 0; i < writes.length; i += 200) {
+    await upsert('decision', writes.slice(i, i + 200));
+  }
+  await recordUsage(usage.map((u) => ({ ...u, kind: 'triage-recheck' })));
+
+  return {
+    readers: panel,
+    checked: writes.length,
+    confirmed,
+    disputed,
+    split,
+    failed,
+    remaining: unread.length - writes.length,
   };
 }
 

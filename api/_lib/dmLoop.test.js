@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { sharedPostUri, composeMessage } from './dmLoop.js';
+import {
+  sharedPostUri,
+  composeMessage,
+  runCommand,
+  routeFor,
+  normaliseMode,
+  plainText,
+} from './dmLoop.js';
 
 describe('a post shared into a DM', () => {
   // Sharing from the Bluesky app puts no link in the text: the post travels in
@@ -77,5 +84,110 @@ describe('composeMessage with facets', () => {
       ],
     });
     expect(out).toContain('did:plc:abc');
+  });
+});
+
+describe('help', () => {
+  const cmd = { action: 'help', needsTarget: false, raw: 'help' };
+
+  it('answers with no session at all', async () => {
+    // It returns before the writeAgent guard on purpose: asking what the thing
+    // does is the one question that should work when nothing else does.
+    const out = await runCommand(cmd, null, { canWrite: true });
+    expect(out.text).toContain('WHAT THE NETWORK IS SAYING');
+    expect(out.text).toContain('pulse');
+  });
+
+  it('offers the digest as a pressable first move', async () => {
+    const out = await runCommand(cmd, null, { canWrite: true });
+    expect(out.options).toHaveLength(1);
+    expect(out.options[0].command).toBe('pulse');
+    // Derived from the parse, like every other option in this system.
+    expect(out.options[0].label).toMatch(/your circle/i);
+  });
+
+  it('shows a read-only sender only what they can actually run', async () => {
+    const out = await runCommand(cmd, null, { canWrite: false });
+    expect(out.text).not.toContain('block @handle');
+    expect(out.text).not.toContain('approve ');
+    expect(out.text).toContain('pulse');
+  });
+});
+
+describe('agent mode routing', () => {
+  it('is classic unless asked for by name', () => {
+    expect(normaliseMode(undefined)).toBe('classic');
+    expect(normaliseMode('')).toBe('classic');
+    expect(normaliseMode('agnet')).toBe('classic');
+    expect(normaliseMode(' Agent ')).toBe('agent');
+  });
+
+  it('changes nothing in classic mode, "!" included', () => {
+    expect(routeFor('block @a.test')).toEqual({
+      route: 'classic',
+      text: 'block @a.test',
+    });
+    expect(routeFor('!block @a.test')).toEqual({
+      route: 'classic',
+      text: '!block @a.test',
+    });
+  });
+
+  it('sends words to the agent', () => {
+    expect(
+      routeFor('block the nasty ones in the quotes', { mode: 'agent' }).route,
+    ).toBe('agent');
+    // A typed command is words too, in this mode. "!" is how to insist.
+    expect(routeFor('block @a.test', { mode: 'agent' }).route).toBe('agent');
+  });
+
+  it('takes "!" as the classic path for one message', () => {
+    expect(routeFor('!block @a.test', { mode: 'agent' })).toEqual({
+      route: 'classic',
+      text: 'block @a.test',
+    });
+    expect(routeFor('  ! help', { mode: 'agent' })).toEqual({
+      route: 'classic',
+      text: 'help',
+    });
+  });
+
+  it('reads "!!!" as a feeling, not a prefix', () => {
+    expect(routeFor('!!! these people', { mode: 'agent' }).route).toBe('agent');
+    expect(routeFor('!', { mode: 'agent' }).route).toBe('agent');
+  });
+
+  it('holds a bare number for the menu check', () => {
+    expect(routeFor('2', { mode: 'agent' }).route).toBe('choice');
+  });
+});
+
+describe('agent replies in a DM', () => {
+  it('drops markdown emphasis and headings, which a DM shows raw', () => {
+    expect(plainText('## Vibe\n- **Main theme:** mockery')).toBe(
+      'Vibe\n- Main theme: mockery',
+    );
+  });
+
+  it('leaves everything else alone', () => {
+    expect(plainText('2 * 3 = 6, and a_b stays')).toBe(
+      '2 * 3 = 6, and a_b stays',
+    );
+  });
+
+  it('sends "^" to the stronger model, and a lone "^" to the ordinary one', () => {
+    expect(routeFor('^ what is the vibe here', { mode: 'agent' })).toEqual({
+      route: 'agent',
+      escalate: true,
+      text: 'what is the vibe here',
+    });
+    expect(routeFor('^', { mode: 'agent' })).toEqual({
+      route: 'agent',
+      text: '^',
+    });
+    expect(routeFor('^ what is the vibe here')).toEqual({
+      route: 'classic',
+      text: '^ what is the vibe here',
+    });
   });
 });

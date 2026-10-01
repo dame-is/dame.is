@@ -65,13 +65,17 @@ async function protectedReason(did) {
  * @param {object} [opts]
  * @param {string} [opts.raw]   dame's literal message, for the decision log
  * @param {string} [opts.band]  the band at the time, if it was scored
+ * @param {string} [opts.via]   how it was asked for. 'command' is dame's typed
+ *   verb; 'agent' is agent mode acting on what she wrote in words. Both are her
+ *   say-so, and the log still has to tell them apart: one is her literal
+ *   target and the other is a model's reading of her sentence.
  * @returns {Promise<{ ok: boolean, message: string, did?: string }>}
  */
 export async function applyCommand(
   agent,
   action,
   actor,
-  { raw = '', band = null, lookUp = null } = {},
+  { raw = '', band = null, lookUp = null, via = 'command' } = {},
 ) {
   const uri = listUri();
   const bot = agent.session?.did;
@@ -137,7 +141,7 @@ export async function applyCommand(
         createdAt: new Date().toISOString(),
       },
     });
-    await log(did, 'list_add', raw, scored);
+    await log(did, 'list_add', raw, scored, via);
     return { ok: true, did, message: `Added ${actor} to the list.` };
   }
 
@@ -150,7 +154,7 @@ export async function applyCommand(
     collection: 'app.bsky.graph.listitem',
     rkey: found,
   });
-  await log(did, 'list_remove', raw, scored);
+  await log(did, 'list_remove', raw, scored, via);
   return { ok: true, did, message: `Removed ${actor} from the list.` };
 }
 
@@ -187,7 +191,7 @@ async function findItem(agent, uri, did) {
  * Best effort. A write that happened and was not logged is bad; refusing to
  * write because the log is down is worse, and the repo itself is the record.
  */
-async function log(did, action, raw, band) {
+async function log(did, action, raw, band, via = 'command') {
   try {
     const planId = crypto.randomUUID();
     await upsert('plan', [
@@ -195,7 +199,7 @@ async function log(did, action, raw, band) {
         id: planId,
         created_at: new Date().toISOString(),
         approved_at: new Date().toISOString(),
-        approved_bands: ['command'],
+        approved_bands: [via],
         note: raw,
       },
     ]);
@@ -206,7 +210,7 @@ async function log(did, action, raw, band) {
         band: band || 'UNSCORED',
         action,
         acted_at: new Date().toISOString(),
-        approved_via: 'command',
+        approved_via: via,
       },
     ]);
   } catch {

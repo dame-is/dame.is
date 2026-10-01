@@ -38,6 +38,11 @@ import {
 import { loadReference, makeIo } from '../../../api/_lib/reference.js';
 import { loadAgentConfig } from '../../../api/_lib/agentConfig.js';
 import { runDmPass } from '../../../api/_lib/dmLoop.js';
+import {
+  JUDGE_MODEL,
+  CHECK_MODEL,
+  ESCALATION_MODEL,
+} from '../../../api/_lib/tiers.js';
 import { botAgent, chatView } from '../../../api/_lib/botAgent.js';
 import { upsert } from '../../../api/_lib/modDb.js';
 
@@ -92,7 +97,7 @@ async function reference() {
   cached = {
     ref,
     takenAt,
-    io: makeIo({ ref, takenAt }),
+    io: makeIo({ ref, takenAt, pulseBudgetMs: config.pulseBudgetMs }),
     loadedAt: Date.now(),
   };
   logger.info('Loaded the reference snapshot', {
@@ -305,6 +310,8 @@ async function pollDms() {
     // senders.js exists to prevent, and it is not prevented by a module if the
     // callers each make their own.
     roster: config.roster,
+    mode: config.dmMode,
+    operatorModel: config.operatorModel,
     log: (msg, fields) => logger.info(msg, fields),
   });
   if (res.answered) stats.dmAnswers += res.answered;
@@ -422,6 +429,15 @@ async function start() {
     driftEveryHours: config.driftEveryHours,
     dryRun: config.dryRun,
     model,
+    dmMode: config.dmMode,
+    ...(config.dmMode === 'agent'
+      ? { operatorModel: config.operatorModel || '(same as analyst)' }
+      : {}),
+    // The other tiers. Triage uses the judge and the escalation model in
+    // classic mode too, so these are logged whatever the DM mode is.
+    judge: JUDGE_MODEL,
+    check: CHECK_MODEL,
+    escalation: ESCALATION_MODEL,
     logLevel: logger.level,
   });
 }

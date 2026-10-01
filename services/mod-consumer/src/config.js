@@ -5,6 +5,7 @@
 // systemd will read for you is a dependency for nothing.
 
 import { ME_DID } from '../../../src/config.js';
+import { normaliseMode } from '../../../api/_lib/dmLoop.js';
 import {
   rosterFromEnv,
   parseDids,
@@ -81,6 +82,17 @@ export const config = {
   answeredFile: process.env.ANSWERED_FILE || 'mod-consumer-answered.json',
   answeredKeep: num(process.env.ANSWERED_KEEP, 500),
 
+  /**
+   * Who answers a DM by default: "classic" (typed commands, numbered menus,
+   * a read-only analyst for everything else) or "agent" (one model with the
+   * write tools, talked to in sentences). In agent mode a message starting
+   * with "!" still takes the classic path. Public replies are unaffected.
+   */
+  dmMode: normaliseMode(process.env.MOD_DM_MODE),
+
+  /** The agent's model, when it should differ from the analyst's. */
+  operatorModel: process.env.MOD_OPERATOR_MODEL || null,
+
   /** true = classify and log, never post or DM. */
   dryRun: String(process.env.DRY_RUN || 'false').toLowerCase() === 'true',
 
@@ -110,6 +122,18 @@ export const config = {
   driftEveryHours: num(process.env.DRIFT_EVERY_HOURS, 168),
   /** How often to ask whether a drift run is due. */
   driftCheckMs: num(process.env.DRIFT_CHECK_MS, 60 * 60_000),
+
+  /**
+   * How long a network digest may spend reading author feeds.
+   *
+   * Longer than the serverless default because this box has no function
+   * ceiling: api/mod-agent.js has 60s for the fan-out AND the model call, and
+   * this has as long as dame will wait. The circle fan-out measured 8.8s over
+   * 228 accounts, so 45s is headroom for a slow day rather than a target. When
+   * it IS spent, circleWindow reports how many accounts went unread instead of
+   * returning a short answer that looks complete.
+   */
+  pulseBudgetMs: num(process.env.PULSE_BUDGET_MS, 45_000),
 
   statsIntervalMs: num(process.env.STATS_INTERVAL_MS, 30 * 60_000),
 };

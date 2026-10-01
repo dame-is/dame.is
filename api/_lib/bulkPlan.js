@@ -58,6 +58,16 @@ const BATCH = 50;
 /** Short enough to retype in a DM, long enough not to collide. */
 const shortCode = (uuid) => uuid.replace(/-/g, '').slice(0, 8);
 
+/**
+ * The `approved_via` for a write, given who asked for it.
+ *
+ * `by` is null for a typed command and 'agent' when agent mode called the
+ * function on dame's behalf. Prefixed rather than replaced, because the basis
+ * still holds -- a band is still a band -- and what changed is that a model
+ * chose it from her sentence instead of her typing it. "agent:band" says both.
+ */
+const viaFor = (basis, by) => (by ? `${by}:${basis}` : basis);
+
 /** Does this participant match the requested engagement kind? */
 function matchesKind(row, kind) {
   const wanted = KINDS[kind];
@@ -178,7 +188,7 @@ export async function findPlan(code) {
  * running `approve` again continues rather than duplicating. Stops at
  * PER_APPROVAL and says how many are left.
  */
-export async function applyPlan(agent, plan, bands) {
+export async function applyPlan(agent, plan, bands, { by = null } = {}) {
   const uri = listUri();
   const bot = agent.session?.did;
   if (!uri.startsWith(`at://${bot}/`)) {
@@ -220,7 +230,7 @@ export async function applyPlan(agent, plan, bands) {
   const { added, failed, rateLimited } = await writeRows(agent, plan, slice, {
     uri,
     bot,
-    via: 'band',
+    via: viaFor('band', by),
   });
   if (rateLimited) {
     return {
@@ -315,7 +325,12 @@ async function writeRows(agent, plan, rows, { uri, bot, via }) {
  * reproducible from the snapshot; this is a model reading that nobody can
  * reproduce, so the log says which one it was.
  */
-export async function applyPlanToTriage(agent, plan, label) {
+export async function applyPlanToTriage(
+  agent,
+  plan,
+  label,
+  { by = null } = {},
+) {
   const uri = listUri();
   const bot = agent.session?.did;
   if (!uri.startsWith(`at://${bot}/`)) {
@@ -337,7 +352,7 @@ export async function applyPlanToTriage(agent, plan, label) {
   const { added, failed } = await writeRows(agent, plan, slice, {
     uri,
     bot,
-    via: `triage:${label}`,
+    via: viaFor(`triage:${label}`, by),
   });
   const remaining = pending.length - added;
   return {
@@ -351,6 +366,45 @@ export async function applyPlanToTriage(agent, plan, label) {
         ? ` ${remaining} left, send "approve ${shortCode(plan.id)} ${label}" again.`
         : ''),
   };
+}
+
+/**
+ * How many accounts a plan action would touch, counted the way the action
+ * itself counts them: `pending` is what an approval would still add (never
+ * PROTECTED, never anyone already acted on), `live` is what an undo would take
+ * back. Read before a write so the check on it can see the size of it.
+ */
+export async function countDecisions(
+  plan,
+  { bands = null, label = null, state = 'pending' } = {},
+) {
+  const rows = await selectAll('decision', {
+    select: 'did,band,triage,action,acted_at,undone_at',
+    eq: { plan_id: plan.id },
+    order: 'did.asc',
+  });
+  return rows.filter((r) => {
+    // Mirrors undoPlan's own filter, so the number checked is the number undone.
+    if (state === 'live') {
+      return r.acted_at && r.action === 'list_add' && !r.undone_at;
+    }
+    if (r.acted_at || r.band === 'PROTECTED') return false;
+    if (bands?.length && !bands.includes(r.band)) return false;
+    if (label && r.triage !== label) return false;
+    return true;
+  }).length;
+}
+
+/** What a plan holds for these DIDs: band, triage label, whether acted on. */
+export async function decisionsFor(plan, dids) {
+  const wanted = new Set(dids.filter(Boolean));
+  if (!wanted.size) return new Map();
+  const rows = await selectAll('decision', {
+    select: 'did,band,triage,acted_at,undone_at',
+    eq: { plan_id: plan.id },
+    order: 'did.asc',
+  });
+  return new Map(rows.filter((r) => wanted.has(r.did)).map((r) => [r.did, r]));
 }
 
 /** Mark a plan as declined, so the log records the decision not to act. */
@@ -369,7 +423,7 @@ export async function cancelPlan(plan) {
 export { shortCode };
 
 /** Handles for a page of DIDs, 25 at a time, best effort. */
-async function handlesFor(dids) {
+export async function handlesFor(dids) {
   const out = new Map();
   for (let i = 0; i < dids.length; i += 25) {
     const q = dids
@@ -438,7 +492,12 @@ export async function reviewPlan(plan, { bands = null, limit = 15 } = {}) {
  * able to say which, because that is the difference between "you were in a
  * category I approved" and "I read your profile and decided".
  */
-export async function applyPlanToActors(agent, plan, actors) {
+export async function applyPlanToActors(
+  agent,
+  plan,
+  actors,
+  { by = null } = {},
+) {
   const uri = listUri();
   const bot = agent.session?.did;
   if (!uri.startsWith(`at://${bot}/`)) {
@@ -496,7 +555,7 @@ export async function applyPlanToActors(agent, plan, actors) {
         band: r.band,
         action: 'list_add',
         acted_at: now,
-        approved_via: 'individual',
+        approved_via: viaFor('individual', by),
       })),
     );
     added += batch.length;
