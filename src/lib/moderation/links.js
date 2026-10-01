@@ -53,11 +53,34 @@ export function listLink() {
  * record, and it is unreadable as an answer to "what was this batch about".
  * Returns null rather than a broken link for anything that is not a post.
  */
-export function postWebUrl(atUri) {
+export function postWebUrl(atUri, { handle = null } = {}) {
   const m = /^at:\/\/(did:[^/]+)\/app\.bsky\.feed\.post\/([^/?#]+)$/.exec(
     String(atUri ?? ''),
   );
-  return m ? `https://bsky.app/profile/${m[1]}/post/${m[2]}` : null;
+  if (!m) return null;
+  // A handle when there is one, because a link in a DM is read by a person and
+  // `bsky.app/profile/did:plc:3guzz.../post/...` tells them nothing about whose
+  // post they are about to open. Handles are rented and a DID is not, so this
+  // is the wrong trade for anything stored and the right one for a link that
+  // gets tapped within the hour.
+  //
+  // Constrained to the DNS shape a handle actually is, so nothing that could
+  // carry a path separator or a query gets rendered into a URL this account
+  // then marks as tappable.
+  const who = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/i.test(
+    String(handle ?? ''),
+  )
+    ? String(handle).toLowerCase()
+    : m[1];
+  return `https://bsky.app/profile/${who}/post/${m[2]}`;
+}
+
+/** The account in a bsky.app post URL this module built. */
+export function handleInPostUrl(url) {
+  const m = /^https:\/\/bsky\.app\/profile\/([^/]+)\/post\/[^/?#]+$/.exec(
+    String(url ?? ''),
+  );
+  return m ? m[1] : null;
 }
 
 /** Matches only links this module builds. */
@@ -71,11 +94,31 @@ const OWN_LINK = /https:\/\/dame\.is\/admin\?[^\s)\]]+/g;
  * it. TextEncoder rather than Buffer so this file stays importable in the
  * browser, which everything under src/ has to be.
  */
-export function ownLinkFacets(text) {
+export function ownLinkFacets(text, { allow = [] } = {}) {
   const s = String(text ?? '');
   const enc = new TextEncoder();
   const facets = [];
-  for (const m of s.matchAll(OWN_LINK)) {
+
+  // An EXACT-MATCH ALLOWLIST, not a second pattern.
+  //
+  // A digest cites posts, and a bsky.app URL this codebase built out of an
+  // at:// URI is indistinguishable by shape from one the analyst copied out of
+  // a stranger's post text -- which is the failure the comment at the top of
+  // this file is about. So the caller passes the exact URLs it built, from the
+  // URIs the digest tool actually returned, and nothing else is matched. The
+  // set is per message and computed from a tool result, never from prose.
+  const exact = [...new Set(allow.filter(Boolean).map(String))];
+  const patterns = [OWN_LINK];
+  if (exact.length) {
+    patterns.push(
+      new RegExp(
+        exact.map((u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+        'g',
+      ),
+    );
+  }
+
+  for (const m of patterns.flatMap((re) => [...s.matchAll(re)])) {
     const byteStart = enc.encode(s.slice(0, m.index)).length;
     const byteEnd = byteStart + enc.encode(m[0]).length;
     facets.push({
@@ -83,5 +126,11 @@ export function ownLinkFacets(text) {
       features: [{ $type: 'app.bsky.richtext.facet#link', uri: m[0] }],
     });
   }
-  return facets;
+  // Two passes over one string produce facets out of order, and a range that
+  // overlaps another is a record the server is entitled to reject.
+  return facets
+    .sort((a, b) => a.index.byteStart - b.index.byteStart)
+    .filter(
+      (f, i, all) => i === 0 || f.index.byteStart >= all[i - 1].index.byteEnd,
+    );
 }

@@ -7,6 +7,7 @@ import {
   actionsFor,
   planActions,
   DEFAULT_REPORT_TEMPLATE,
+  helpText,
 } from './report.js';
 
 const account = {
@@ -268,5 +269,33 @@ describe('estimateWrites', () => {
   it('costs a delete at one point, not three', async () => {
     const { estimateWrites } = await import('../../../api/_lib/bulkPlan.js');
     expect(estimateWrites(100, { kind: 'delete' })).toContain('100 points');
+  });
+});
+
+describe('helpText', () => {
+  it('leads with the thing that has no other way in', () => {
+    // A lookup is discoverable by typing a handle and a scan by pasting a
+    // link. A digest is discoverable by having built it.
+    const text = helpText();
+    expect(text.indexOf('WHAT THE NETWORK IS SAYING')).toBeLessThan(
+      text.indexOf('ONE ACCOUNT'),
+    );
+    expect(text).toContain('pulse');
+    expect(text).toContain('what are the people I follow talking about');
+  });
+
+  it('leaves writes out for a read-only sender rather than listing them', () => {
+    // The rule the menus already follow. A menu of buttons that reject you
+    // teaches you to stop reading the menu.
+    const ro = helpText({ canWrite: false });
+    for (const verb of ['block ', 'approve ', 'undo', 'add likers']) {
+      expect(ro).not.toContain(verb);
+    }
+    expect(ro).toContain('pulse');
+    expect(ro).toContain('read @handle');
+
+    const rw = helpText({ canWrite: true });
+    expect(rw).toContain('block @handle');
+    expect(rw).toContain('approve <code> UNKNOWN');
   });
 });

@@ -25,6 +25,7 @@
 // write is not reachable from the tool loop in the first place.
 
 import { extractTargets } from './target.js';
+import { handleInPostUrl } from './links.js';
 import { authorOf } from './trigger.js';
 import { BANDS } from './score.js';
 
@@ -102,6 +103,22 @@ const VERBS = [
   // one bulk path whose oracle is a model rather than the graph, which is why
   // it labels and never acts.
   { match: /^triage\b/i, action: 'triage' },
+  // Reads a SLICE of the network rather than an account. Like `read`, it is a
+  // canned question for the analyst rather than a branch of its own -- the
+  // digest is the model's job, and this verb exists so the follow-ups to one
+  // can be real commands that a number is allowed to resolve to.
+  { match: /^(?:pulse|digest)\b/i, action: 'pulse' },
+  // The other half of a digest: it says a thing was discussed, this is how you
+  // ask what was said. Also a canned question, and a read.
+  { match: /^(?:thread|discussion)\b/i, action: 'thread' },
+  // Deterministic, and the only verb here that touches nothing at all. It
+  // exists because nothing in this system listed what it could do, so the
+  // capabilities were discoverable only by having built them.
+  // ANCHORED TO THE WHOLE MESSAGE, unlike every other verb here. The others
+  // take an argument, so a trailing `\b` is how they find it; this one takes
+  // none, and matching a prefix would swallow "help me understand why they are
+  // connected" -- a real question -- and answer it with a menu.
+  { match: /^(?:help|commands|what can you do)[\s?!.]*$/i, action: 'help' },
   { match: /^cancel\b/i, action: 'cancel' },
   { match: /^list\s+add\b/i, action: 'list_add' },
   { match: /^list\s+remove\b/i, action: 'list_remove' },
@@ -198,6 +215,113 @@ export function parseCommand(
       embedUri ||
       null;
     return { action: 'plan', kind, target, needsTarget: !target, raw };
+  }
+
+  // `thread` names a POST, and like `plan` the post comes from dame's own
+  // message -- typed, pasted, attached, or picked from a menu this codebase
+  // built. Never from anything the analyst read.
+  if (verb.action === 'thread') {
+    const url =
+      rest.split(/\s+/).find((t) => /^https?:\/\//i.test(t)) ||
+      links.find((l) => extractTargets(l).length) ||
+      null;
+    const target =
+      extractTargets(raw)[0] ||
+      extractTargets(url || '')[0] ||
+      embedUri ||
+      null;
+    return {
+      action: 'thread',
+      target,
+      url,
+      handle: handleInPostUrl(url),
+      needsTarget: !target,
+      raw,
+    };
+  }
+
+  if (verb.action === 'help') {
+    return { action: 'help', needsTarget: false, raw };
+  }
+
+  // `pulse` names a SLICE, a window and how to cut it. Every part is optional
+  // and every part is matched literally, so a follow-up the system composed
+  // round-trips back through this parser unchanged -- which is what lets a
+  // number resolve to one. See `followUpsFor`.
+  if (verb.action === 'pulse') {
+    const tokens = rest.split(/\s+/).filter(Boolean);
+    let slice = null;
+    let hours = null;
+    let group = null;
+    let more = false;
+    let focus = null;
+
+    for (let i = 0; i < tokens.length; i += 1) {
+      const t = tokens[i];
+      const lower = t.toLowerCase();
+
+      // Everything after `about` is the focus, spaces and all, so a phrase
+      // survives. It is the last thing on the line by construction.
+      if (lower === 'about' || lower === 'mentioning') {
+        focus =
+          tokens
+            .slice(i + 1)
+            .join(' ')
+            .trim() || null;
+        break;
+      }
+      if (/^(circle|follows|following)$/.test(lower)) {
+        slice = 'circle';
+        continue;
+      }
+      if (/^(at:\/\/|https?:\/\/)/i.test(t)) {
+        slice = t;
+        continue;
+      }
+      // A window, as a person types one: `72`, `72h`, `3d`, `2 days`.
+      //
+      // The unit is looked for in the NEXT token as well as this one, because
+      // splitting on whitespace puts "2 days" in two of them -- and a bare "2"
+      // read as two hours is a window nobody meant, answered with an almost
+      // empty digest rather than with an error.
+      const win = lower.match(/^(\d{1,4})(h|hr|hrs|hour|hours|d|day|days)?$/);
+      if (win) {
+        const next = (tokens[i + 1] || '').toLowerCase();
+        const unit =
+          win[2] ||
+          (/^(h|hr|hrs|hour|hours|d|day|days)$/.test(next) ? next : '');
+        if (!win[2] && unit) i += 1;
+        const n = Number(win[1]);
+        hours = /^d/.test(unit) ? n * 24 : n;
+        continue;
+      }
+      if (/^(said|wrote|written|writing)$/.test(lower)) {
+        group = 'said';
+        continue;
+      }
+      if (/^(amplified|reposted|shared|boosted)$/.test(lower)) {
+        group = 'amplified';
+        continue;
+      }
+      if (lower === 'more' || lower === 'deeper') {
+        more = true;
+        continue;
+      }
+    }
+
+    return {
+      action: 'pulse',
+      slice: slice || 'circle',
+      hours: hours || null,
+      group,
+      // One level, not a counter. A DM caps at 1000 graphemes however many
+      // posts the model read, so a second "more" buys nothing and "pulse
+      // circle 24 more more" is not a command anyone would type.
+      more,
+      focus,
+      needsTarget: false,
+      raw,
+    };
   }
 
   // `history` names an account or nothing at all, so it never needs a code.
@@ -411,6 +535,236 @@ export function parseChoice(text) {
   return null;
 }
 
+/**
+ * A pulse command, rendered canonically.
+ *
+ * Round-trips: `parseCommand(pulseCommand(x))` gives back `x`. That property is
+ * what makes a follow-up menu safe to build in code -- the option dame presses
+ * is re-parsed by the same parser her typing goes through, so there is no
+ * second grammar that could drift from the first.
+ */
+export function pulseCommand({
+  slice = 'circle',
+  hours = null,
+  group = null,
+  more = false,
+  focus = null,
+} = {}) {
+  const parts = ['pulse', slice || 'circle'];
+  if (hours) parts.push(String(hours));
+  if (group) parts.push(group);
+  if (more) parts.push('more');
+  // Last, because everything after `about` is the focus.
+  if (focus) parts.push('about', focus);
+  return parts.join(' ');
+}
+
+/** A window as a person says it. */
+function windowWords(hours) {
+  const h = hours || 24;
+  if (h < 48) return `last ${h}h`;
+  const days = Math.round(h / 24);
+  return `last ${days} days`;
+}
+
+/** Where a slice is, said in words rather than in a URI. */
+function sliceWords(slice) {
+  if (!slice || slice === 'circle') return 'your circle';
+  return 'that feed';
+}
+
+/**
+ * A term safe to put in a menu label and in a command.
+ *
+ * Domains come from links other people posted, so the suggestion behind
+ * "narrow to github.com" is attacker-controlled. Bounded to a domain shape --
+ * no spaces, no newlines, no backticks, nothing that could read as prose or
+ * close a fence -- because the guarantee this menu makes is that the label
+ * names the filter and pressing it runs exactly the command shown. The worst a
+ * hostile value can buy is a read that matches nothing.
+ */
+const SAFE_TERM = /^[a-z0-9][a-z0-9.-]{1,40}$/i;
+
+export function safeTerm(term) {
+  const t = String(term ?? '').trim();
+  return SAFE_TERM.test(t) ? t.toLowerCase() : null;
+}
+
+/**
+ * A focus phrase safe to render into a command and a label.
+ *
+ * Wider than SAFE_TERM because a focus is a subject, not a domain -- "trans
+ * athletes" and "feed generators" are the normal case, and rejecting them would
+ * drop the focus from the menu while the digest above it was filtered, which is
+ * a menu that misdescribes what dame is looking at. Still no newlines, no
+ * backticks, no angle brackets, and bounded, because it is rendered into text
+ * the model will read back on the next turn.
+ */
+const SAFE_PHRASE = /^[a-z0-9][a-z0-9 .\-_']{0,60}$/i;
+
+export function safePhrase(phrase) {
+  const t = String(phrase ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
+  return SAFE_PHRASE.test(t) ? t : null;
+}
+
+/**
+ * The arguments a digest ran with, as the shape `followUpsFor` takes.
+ *
+ * When dame asks in words the model chooses the source and the window, so the
+ * menu has to describe THAT and not what she might have meant. The source is
+ * validated rather than trusted: it is rendered straight back into a command
+ * string, and a value that does not re-parse would produce an option whose
+ * label and behaviour disagree. Anything unrecognised falls back to the circle,
+ * which is what an unqualified question means anyway.
+ */
+export function pulseFromArgs(args = {}) {
+  const raw = String(args.source ?? '').trim();
+  const slice = /^(at:\/\/|https?:\/\/)\S+$/i.test(raw) ? raw : 'circle';
+  const hours = Number(args.hours);
+  return {
+    action: 'pulse',
+    slice,
+    hours: Number.isFinite(hours) && hours > 0 ? Math.round(hours) : 24,
+    group: null,
+    more: false,
+    focus: safePhrase(args.focus),
+    needsTarget: false,
+    raw: '',
+  };
+}
+
+/**
+ * The follow-ups to a digest, composed by CODE.
+ *
+ * Not lifted from the analyst's prose. `offersFrom` exists for the case where
+ * there is nothing better, and it is only as safe as dame reading the label;
+ * here the whole menu is a function of the arguments the digest actually ran
+ * with, so pressing 2 runs a read this file wrote. Same standing as the menu
+ * behind a plan.
+ *
+ * Ordered by what is usually wanted next: a bigger sample, then the half of
+ * the answer that was not shown, then a wider window, then a narrower topic.
+ */
+/**
+ * The posts an answer cited, resolved against the ones the digest returned.
+ *
+ * Same family as `offersFrom`: lift what the model wrote, validate it against
+ * something this codebase produced, and keep only what survives. The model
+ * writes `[7]`; what `[7]` MEANS is decided here, by indexing a table the tool
+ * built. So the analyst chooses which post it is pointing at and cannot point
+ * at a post the digest never saw -- which is what makes the resulting link safe
+ * to render as tappable, a thing this account otherwise never does for a URL it
+ * did not construct.
+ *
+ * A marker with no entry behind it is STRIPPED from the text rather than left
+ * standing. A dangling `[12]` in a reply is a reference to nothing, and reads
+ * as a bug in a way that costs more than the sentence it sat in.
+ *
+ * @returns {{ text: string, cited: Array<{n: number, url: string}> }}
+ */
+export function citationsIn(text, sample = []) {
+  const byN = new Map(
+    (sample || [])
+      .filter((r) => r && Number.isInteger(r.n) && typeof r.url === 'string')
+      .map((r) => [r.n, r.url]),
+  );
+  const cited = [];
+  const seen = new Set();
+  const out = String(text ?? '').replace(/\[(\d{1,3})\]/g, (whole, digits) => {
+    const n = Number(digits);
+    const url = byN.get(n);
+    if (!url) return '';
+    if (!seen.has(n)) {
+      seen.add(n);
+      cited.push({ n, url });
+    }
+    return whole;
+  });
+  // Stripping a marker can leave a double space or a space before a full stop.
+  const tidied = out.replace(/[ \t]{2,}/g, ' ').replace(/ ([,.;:])/g, '$1');
+  cited.sort((a, b) => a.n - b.n);
+  return { text: tidied, cited };
+}
+
+/** The cited posts as the numbered link list that follows an answer. */
+export function renderCitations(cited) {
+  return cited.map((c) => `[${c.n}] ${c.url}`).join('\n');
+}
+
+export function followUpsFor(cmd, { terms = [], posts = [], max = null } = {}) {
+  // Four options when there is nothing to drill into, six when there is --
+  // rather than letting three cited posts crowd the digest variants out of a
+  // menu sized for a world without them.
+  const cap = max ?? (posts.length ? 6 : 4);
+  const base = {
+    slice: cmd?.slice || 'circle',
+    hours: cmd?.hours || 24,
+    group: cmd?.group || null,
+    more: Boolean(cmd?.more),
+    focus: cmd?.focus || null,
+  };
+  const out = [];
+  const options = [];
+  const seen = new Set();
+
+  // The cited posts come FIRST. A digest that says a thing was discussed makes
+  // you want to read it, and until now the only way in was to go and find it.
+  for (const post of posts.slice(0, 3)) {
+    const url = String(post?.url ?? '');
+    if (!/^https:\/\/bsky\.app\/profile\/[^/]+\/post\/[^/?#]+$/.test(url)) {
+      continue;
+    }
+    const command = `thread ${url}`;
+    if (seen.has(command)) continue;
+    seen.add(command);
+    // The marker is appended to the label, not taken from the parse like every
+    // other label here. Two posts by the same account produce two identical
+    // options otherwise -- the menu that teaches you to stop reading menus --
+    // and the number ties each one to the link printed above it.
+    //
+    // It is safe for the reason the URL is: both come from the same validated
+    // citation record, built from the digest's own table. Neither is copied
+    // out of prose, so the label still cannot misdescribe its command.
+    const base = labelFor(parseCommand(command));
+    const n = Number.isInteger(post?.n) ? post.n : null;
+    options.push({ label: n ? `${base} [${n}]` : base, command });
+  }
+
+  if (!base.more) out.push({ ...base, more: true });
+  if (base.group !== 'amplified') {
+    out.push({ ...base, group: 'amplified', more: false });
+  }
+  if (base.group) out.push({ ...base, group: null, more: false });
+
+  const wider = base.hours < 72 ? 72 : base.hours < 168 ? 168 : null;
+  if (wider) out.push({ ...base, hours: wider, more: false });
+
+  if (base.focus) {
+    out.push({ ...base, focus: null, more: false });
+  } else {
+    for (const term of terms) {
+      const safe = safeTerm(term);
+      if (safe) out.push({ ...base, focus: safe, more: false });
+    }
+  }
+
+  // Deduped on the rendered command, so two paths that arrive at the same
+  // digest are one option rather than two identical buttons.
+  for (const o of out) {
+    const command = pulseCommand(o);
+    if (seen.has(command)) continue;
+    seen.add(command);
+    // The label comes from RE-PARSING the string, never from the object that
+    // built it. If the two ever disagree, the label is wrong about what will
+    // run, and this is the line that would catch it.
+    options.push({ label: labelFor(parseCommand(command)), command });
+    if (options.length >= cap) break;
+  }
+  return options;
+}
+
 /** A label from the PARSED command, so what dame reads is what will run. */
 export function labelFor(cmd) {
   const who = cmd.actor ? `@${String(cmd.actor).replace(/^@/, '')}` : '';
@@ -431,6 +785,30 @@ export function labelFor(cmd) {
       return `Cancel ${cmd.code}`;
     case 'read':
       return `Read ${who}'s recent posts`;
+    case 'help':
+      return 'What you can ask me';
+    case 'thread':
+      return cmd.handle
+        ? `Read the thread on @${cmd.handle}'s post`
+        : 'Read that thread';
+    case 'pulse': {
+      const where = sliceWords(cmd.slice);
+      const when = windowWords(cmd.hours);
+      // The focus rides on the verb rather than being appended, or an
+      // unfocused label ("talking about") and a focused one collide into
+      // "talking about, about github.com".
+      const about = cmd.focus ? ` about ${cmd.focus}` : '';
+      const verb =
+        cmd.group === 'amplified'
+          ? `Only what ${where} amplified${about}`
+          : cmd.group === 'said'
+            ? `Only what ${where} wrote${about}`
+            : about
+              ? `What ${where} is saying${about}`
+              : `What ${where} is talking about`;
+      const deeper = cmd.more ? ', deeper sample' : '';
+      return `${verb}, ${when}${deeper}`;
+    }
     default:
       return cmd.raw;
   }

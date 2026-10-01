@@ -28,6 +28,7 @@ import {
   DEFAULT_THRESHOLDS,
 } from '../../src/lib/moderation/score.js';
 import { referenceFrom } from '../../src/lib/moderation/precompute.js';
+import { pulse } from '../../src/lib/moderation/pulse.js';
 import { select, selectAll } from './modDb.js';
 
 /**
@@ -97,7 +98,7 @@ export async function loadReference() {
  * Built once per reference load and shared across turns, so a conversation does
  * not re-read the vouch table for every message.
  */
-export function makeIo({ ref, takenAt }) {
+export function makeIo({ ref, takenAt, pulseBudgetMs = 25_000 }) {
   const scorer = createScorer(ref);
   return {
     async preflight(link) {
@@ -121,6 +122,27 @@ export function makeIo({ ref, takenAt }) {
       const scored = await scorer.score([did]);
       return [...scored.values()][0] ?? null;
     },
+    /**
+     * What a slice of the network is talking about.
+     *
+     * The circle comes from the SNAPSHOT rather than from a live getFollows,
+     * so a digest is built from the same set of accounts the bands were
+     * computed against. Those drift apart between hourly precomputes, and a
+     * digest that quietly included someone dame unfollowed this morning would
+     * be answering a question about a circle that no longer exists.
+     *
+     * The budget is 25s because the slow path here is a 228-account fan-out --
+     * measured at 8.8s plus a handful of second pages -- and api/mod-agent.js
+     * is a 60s Vercel function that still has a model call to make afterwards.
+     * The droplet has no such ceiling and can be given a longer one.
+     */
+    pulse: (opts = {}) =>
+      pulse({
+        ...opts,
+        circleDids: [...ref.circle],
+        budgetMs: opts.budgetMs ?? pulseBudgetMs,
+      }),
+
     referenceStatus: () => ({
       snapshot: takenAt,
       scoredAccounts: ref.vouches.size,

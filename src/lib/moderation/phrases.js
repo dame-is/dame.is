@@ -57,6 +57,12 @@ export const ACK_CLAUSE = {
     'Going through what they have been posting.',
     'Having a proper read of their feed.',
   ],
+  thread: ['Reading that thread.', 'Pulling the replies and having a read.'],
+  pulse: [
+    'Reading what that slice has been posting.',
+    'Pulling the window and having a read.',
+    'Going through everyone in that slice.',
+  ],
 };
 
 /**
@@ -78,6 +84,11 @@ export const SLOW = new Set([
   // accounts at once.
   'read',
   'triage',
+  // A fan-out over a couple of hundred author feeds, and then a model call
+  // over everything it found. Measured at 7.6s before the model even starts,
+  // which is well past the point where silence reads as broken.
+  'pulse',
+  'thread',
 ]);
 
 export function worthAcking(cmd) {
@@ -134,6 +145,13 @@ export const NUDGE = {
   post: [
     'Attach the post or paste its link and I will harvest and score it.',
     'Send me the post, either attached or as a link, and I will run it.',
+  ],
+  // Its own wording, because the `post` nudge promises a harvest and a score,
+  // and a thread read is neither. A receipt that describes the wrong operation
+  // is the thing this file exists to avoid.
+  thread: [
+    'Name the post and I will read the thread on it. Paste the link, attach it, or pick a number from a digest.',
+    'Give me the post link and I will read what the replies are saying.',
   ],
   plan: [
     'Which plan? Send the code from the plan message, like "approve 3f9a2c1b UNKNOWN".',

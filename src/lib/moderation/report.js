@@ -108,6 +108,56 @@ export function renderReport(
  * PROTECTED gets no add option. The write would refuse it anyway, and a button
  * that exists to be rejected is worse than no button.
  */
+/**
+ * What this thing can do, said out loud.
+ *
+ * It did not exist for the first several months and the capabilities were
+ * discoverable only by having built them, which is a fine state for a tool
+ * nobody else uses and a silly one for a tool you talk to. Deterministic: a
+ * model asked what it can do will answer confidently and be wrong, because it
+ * reads the same prompt whether or not a tool is wired up behind it.
+ *
+ * WRITES ARE LEFT OUT FOR A READ-ONLY SENDER rather than listed and refused,
+ * the same rule the menus already follow. A menu of buttons that reject you
+ * teaches you to stop reading the menu.
+ */
+export function helpText({ canWrite = true } = {}) {
+  const reads = [
+    'WHAT THE NETWORK IS SAYING',
+    '  pulse                     what your circle is talking about, last 24h',
+    '  pulse 3d                  same, over three days (or 72, or 168)',
+    '  pulse amplified           only what they reposted, and who passed it on',
+    '  pulse about atproto       only posts mentioning that',
+    '  pulse <feed or list link> any custom feed or list, same window',
+    '  thread <post link>        what a cited post is actually arguing about',
+    '  Or just ask: "what are the people I follow talking about today?"',
+    '  A digest numbers what it names, links each one, and takes a number back.',
+    '',
+    'ONE ACCOUNT',
+    '  @handle                   band, vouches, reach, tenure',
+    '  read @handle              what they actually post about',
+    '  history @handle           every decision recorded about them',
+    '',
+    'ONE POST',
+    '  <paste a link>            score everyone who engaged with it',
+  ];
+  const writes = [
+    '',
+    'ACTING',
+    '  add likers <post>         harvest, score, propose a batch',
+    '  review <code>             the accounts in it that need a look',
+    '  approve <code> UNKNOWN    add that band only',
+    '  block @handle             add one account to the list',
+    '  unblock @handle           take them back off',
+    '  undo                      reverse the last batch',
+  ];
+  const tail = [
+    '',
+    'Replies that end in a numbered menu take a number instead of retyping.',
+  ];
+  return [...reads, ...(canWrite ? writes : []), ...tail].join('\n');
+}
+
 export function actionsFor(account) {
   const at = `@${account.handle || account.did}`;
   const out = [];
