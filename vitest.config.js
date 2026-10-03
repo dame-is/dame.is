@@ -35,6 +35,9 @@ export default defineConfig({
       // own suites. api/_lib/serviceAuth.js is the exception: it decides who
       // gets to read the moderation log, so its failure modes are the point.
       'api/**/*.test.js',
+      // The droplet consumer. Its session recovery is the part worth pinning:
+      // without it, one refused token refresh took DMs down for eight hours.
+      'services/mod-consumer/src/**/*.test.js',
       'middleware.test.js',
     ],
   },

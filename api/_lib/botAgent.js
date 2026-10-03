@@ -134,9 +134,13 @@ async function serviceFor(identifier) {
  *
  * @param {object} [opts]
  * @param {boolean} [opts.chat] wrap the agent for the chat service
+ * @param {Function} [opts.onExpired] called when the library drops the session
+ *   because a refresh was refused. Every call after that goes out with no
+ *   credentials, so a long-running caller has to log in again; see
+ *   services/mod-consumer/src/session.js.
  * @returns {Promise<{ agent: object, via: 'resume'|'login' }>}
  */
-export async function botAgent({ chat = false } = {}) {
+export async function botAgent({ chat = false, onExpired = null } = {}) {
   const { identifier, password } = credentials();
   const service = await serviceFor(identifier);
 
@@ -148,6 +152,10 @@ export async function botAgent({ chat = false } = {}) {
   const agent = new AtpAgent({
     service,
     persistSession: (event, session) => {
+      if (event === 'expired') {
+        onExpired?.();
+        return;
+      }
       if (!session) return;
       if (event === 'create' || event === 'update') {
         writeSession(session).catch(() => {});

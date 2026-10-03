@@ -53,6 +53,7 @@ import { connectJetstream } from './jetstream.js';
 import { replyInThread } from './publicReply.js';
 import { maybeRunDrift, ownerConvo } from './drift.js';
 import { tickWatches, tickAlerts } from './watching.js';
+import { isAuthError, createReconnector } from './session.js';
 
 const model = process.env.MOD_AGENT_MODEL || DEFAULT_MODEL;
 
@@ -135,6 +136,32 @@ async function atmosphereTools() {
   return atmoTools;
 }
 
+// --- the session, and getting it back -------------------------------------------
+/**
+ * Log in (resuming the stored session where possible) and swap the result in.
+ * Everything reads `agent` and `chat` when it runs, so the next job uses it.
+ */
+async function connect() {
+  // Only once this session is in use: a stale stored session expiring inside
+  // botAgent's own resume is handled there, by logging in.
+  let inUse = false;
+  const session = await botAgent({
+    onExpired: () => {
+      if (inUse) reconnector.reconnect('the session expired');
+    },
+  });
+  inUse = true;
+  agent = session.agent;
+  chat = chatView(agent);
+  botDid = agent.session?.did;
+  return session;
+}
+
+const reconnector = createReconnector({
+  connect,
+  log: (level, msg, fields) => logger[level](msg, fields),
+});
+
 // --- one job at a time -------------------------------------------------------
 let chain = Promise.resolve();
 let pending = 0;
@@ -148,6 +175,11 @@ function enqueue(label, job) {
       } catch (err) {
         stats.errors += 1;
         logger.error('Job failed', { label, err });
+        // A dead session fails every job the same way until someone logs in
+        // again, so the first one to notice asks for that.
+        if (isAuthError(err)) {
+          reconnector.reconnect(`${label}: ${String(err?.message || err)}`);
+        }
       } finally {
         pending -= 1;
       }
@@ -420,10 +452,7 @@ async function start() {
   assertConfig();
   loadState();
 
-  const session = await botAgent();
-  agent = session.agent;
-  chat = chatView(agent);
-  botDid = agent.session?.did;
+  const session = await connect();
   logger.info('Moderator session ready', {
     did: botDid,
     handle: agent.session?.handle,

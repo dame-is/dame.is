@@ -61,3 +61,11 @@ alter table mod.memory enable row level security;
 alter table mod.post_alert enable row level security;
 revoke all on mod.watch, mod.memory, mod.post_alert from anon, authenticated;
 grant all on mod.watch, mod.memory, mod.post_alert to service_role;
+
+-- 2026-10-03, applied as `mod_dm_choice_options_default`. `options` was NOT NULL
+-- with no default, and PostgREST's upsert inserts the payload's columns only,
+-- so every write that left it out failed the constraint before ON CONFLICT
+-- could merge: storing a 👍 question, clearing one, and remembering the last
+-- post sent (the last of those had been failing silently since it was
+-- written). With a default, a partial write keeps whatever options are there.
+alter table mod.dm_choice alter column options set default '[]'::jsonb;
