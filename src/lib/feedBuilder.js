@@ -28,6 +28,7 @@ import {
 // passed around as a parameter, and the shadowing reads terribly.
 import { VERB_REGISTRY, verbConfig as lookupVerb } from './verbRegistry.js';
 import { dedupePlaysByRkey, playedAtOf } from './teal.js';
+import { dropGhostPlays } from './ghostPlays.js';
 import { isPortfolioDoc } from './publications.js';
 import { createSubjectResolver } from './subjectResolver.js';
 import { fetchLiveObservationItems } from './liveObservations.js';
@@ -444,9 +445,10 @@ const DEDUPE_PRIORITY = {
 export function dedupeVerbAggregate(verb, items) {
   // Verbs whose collections are the same records under two lexicon names
   // (teal.fm's namespace move) dedupe on rkey instead of on title, since the
-  // rkey is what the migration preserves. Declared in the registry.
+  // rkey is what the migration preserves. Declared in the registry. Then the
+  // scrobbler's own doubles and echoes go too (see src/lib/ghostPlays.js).
   if (lookupVerb(verb)?.dedupe === 'rkey') {
-    return dedupePlaysByRkey(items, (item) => item?.atUri);
+    return dropGhostPlays(dedupePlaysByRkey(items, (item) => item?.atUri));
   }
   const priority = DEDUPE_PRIORITY[verb];
   if (!priority) return items;

@@ -14,6 +14,7 @@ import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { newestInstant, usePublishLatestRecord } from '../hooks/useFeedFooter.jsx';
 import { groupByDay } from '../lib/time.js';
 import { collapseListens } from '../lib/listenSessions.js';
+import { dropGhostPlays } from '../lib/ghostPlays.js';
 import { resolvePds, getLatestCommit } from '../lib/atproto.js';
 import { listTealPlays, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
 import { ME_DID } from '../config.js';
@@ -199,15 +200,19 @@ function listeningDayMeta(sessions) {
   return `${plural(songs, 'song')}, ${minutes.toLocaleString()} min, ${plural(artists.size, 'artist')}`;
 }
 
+// Ghost plays (see src/lib/ghostPlays.js) are dropped here, ahead of both the
+// feed and the stats header, so neither counts a song nobody played.
 function toListeningItems(records) {
   if (!Array.isArray(records)) return [];
-  return records
-    .filter((r) => r?.uri && r.value)
-    .map((r) => ({
-      verb: 'listening',
-      atUri: r.uri,
-      cid: r.cid,
-      createdAt: playedAtOf(r.value) || r.value?.createdAt || null,
-      payload: r.value,
-    }));
+  return dropGhostPlays(
+    records
+      .filter((r) => r?.uri && r.value)
+      .map((r) => ({
+        verb: 'listening',
+        atUri: r.uri,
+        cid: r.cid,
+        createdAt: playedAtOf(r.value) || r.value?.createdAt || null,
+        payload: r.value,
+      })),
+  );
 }
