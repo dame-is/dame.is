@@ -13,6 +13,11 @@ import {
 } from '../lib/teal.js';
 import { ME_DID } from '../config.js';
 
+// The last play any mount saw. NowPlaying lives in the top chrome's expanded
+// row, which unmounts when it collapses; without this every re-open showed a
+// "—" that filled in mid-animation.
+let lastPlay = null;
+
 /**
  * What dame is listening to. Snapshot first paint, then refreshes on the
  * shared 30s tick (alongside NowStatus and the home feed) so all the
@@ -32,11 +37,15 @@ import { ME_DID } from '../config.js';
  * Returns `{ track, artist, release, originUrl, playedAt, live, atUri, raw }`.
  */
 export function useNowPlaying() {
-  const [play, setPlay] = useState(null);
+  const [play, setPlayState] = useState(lastPlay);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
+    const setPlay = (next) => {
+      lastPlay = next;
+      setPlayState(next);
+    };
 
     async function refresh() {
       try {
@@ -53,9 +62,12 @@ export function useNowPlaying() {
     }
 
     async function boot() {
-      const seed = await fetchSnapshot('listening');
-      if (!cancelledRef.current && Array.isArray(seed) && seed[0]) {
-        setPlay(adopt(seed[0], null));
+      // A remembered play is newer than the build's snapshot; skip it.
+      if (!lastPlay) {
+        const seed = await fetchSnapshot('listening');
+        if (!cancelledRef.current && Array.isArray(seed) && seed[0]) {
+          setPlay(adopt(seed[0], null));
+        }
       }
       refresh();
     }

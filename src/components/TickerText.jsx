@@ -52,7 +52,10 @@ export default function TickerText({ children, className = '', title, marquee = 
       setOverflow(Math.max(0, width - wrap.clientWidth));
     }
 
-    measure();
+    // No up-front measure(): the observer reports every observed element
+    // once on observe(), after the browser's own layout. Measuring here
+    // instead forced a synchronous layout of the whole page inside the commit
+    // that mounted it (the top chrome's tier mounts four of these at once).
     const ro = new ResizeObserver(measure);
     ro.observe(wrap);
     ro.observe(inner);

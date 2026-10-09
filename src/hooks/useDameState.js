@@ -5,6 +5,11 @@ import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import { normalizeVitals } from '../lib/vitals.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 
+// The last record any mount saw, so the top chrome's expanded row (which
+// unmounts when it collapses) re-opens on what it last showed instead of an
+// empty row that fills in mid-animation.
+let lastRecord = null;
+
 /**
  * Latest is.dame.state record — Dame's current iPhone-sourced state (heart
  * rate, activity, battery, ambient sound, calories). is.dame.state is an
@@ -17,10 +22,14 @@ import { ME_DID, COLLECTIONS } from '../config.js';
  * shape (or null before anything loads).
  */
 export function useDameState() {
-  const [record, setRecord] = useState(null);
-  const [status, setStatus] = useState('idle');
+  const [record, setRecordState] = useState(lastRecord);
+  const [status, setStatus] = useState(lastRecord ? 'ready' : 'idle');
   const cancelledRef = useRef(false);
-  const recordRef = useRef(null);
+  const recordRef = useRef(lastRecord);
+  const setRecord = (next) => {
+    lastRecord = next;
+    setRecordState(next);
+  };
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -48,11 +57,14 @@ export function useDameState() {
     }
 
     async function boot() {
-      setStatus('loading');
-      const seed = await fetchSnapshot('state');
-      if (!cancelledRef.current && Array.isArray(seed) && seed[0]) {
-        recordRef.current = seed[0];
-        setRecord(seed[0]);
+      // A remembered record is newer than the build's snapshot; skip it.
+      if (!recordRef.current) {
+        setStatus('loading');
+        const seed = await fetchSnapshot('state');
+        if (!cancelledRef.current && Array.isArray(seed) && seed[0]) {
+          recordRef.current = seed[0];
+          setRecord(seed[0]);
+        }
       }
       refresh();
     }

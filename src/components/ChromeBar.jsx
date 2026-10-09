@@ -50,6 +50,10 @@ const MotionLink = motion.create(Link);
 // `true` to restore the search button — nothing else needs to change.
 const SEARCH_ENABLED = false;
 
+// How long the top chrome's size has to hold still before `--chrome-top-h`
+// is republished after a resize (see the effect that publishes it).
+const SIZE_SETTLE_MS = 120;
+
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
@@ -169,18 +173,27 @@ export default function ChromeBar() {
   // slides inside it — so the wrap's rect is the settled bottom even
   // mid-animation. Floor so any sub-pixel bias tucks the sheet a hair
   // under the chrome rather than leaving a seam. Re-measures on
-  // showBreadcrumb change, size changes, and scroll (the strip reveals
-  // on scroll and the iOS URL bar resizes there), rAF-throttled.
+  // showBreadcrumb change, scroll (the strip reveals on scroll and the iOS
+  // URL bar resizes there), rAF-throttled, and on size changes once they
+  // settle (see below).
+  //
+  // Both values are custom properties on <html>, and changing one restyles
+  // every element on the page whether anything reads it or not. So they're
+  // only written when they actually change.
   useEffect(() => {
     const el = topRef.current;
     if (!el) return undefined;
+    const rootStyle = document.documentElement.style;
+    const publish = (name, value) => {
+      if (rootStyle.getPropertyValue(name) !== value) rootStyle.setProperty(name, value);
+    };
     const apply = () => {
       const crumb = crumbRef.current;
       const bottom =
         showBreadcrumb && crumb
           ? crumb.getBoundingClientRect().bottom
           : el.getBoundingClientRect().bottom;
-      document.documentElement.style.setProperty('--chrome-top-h', `${Math.max(0, Math.floor(bottom))}px`);
+      publish('--chrome-top-h', `${Math.max(0, Math.floor(bottom))}px`);
       // On individual pages the breadcrumb is pinned open (not just revealed on
       // scroll), so unlike the feed pages — where it slides over already-
       // scrolled content — it would otherwise hang over the top of the page's
@@ -188,17 +201,24 @@ export default function ChromeBar() {
       // so the content column can reserve that much extra top padding; 0 on
       // pages where the strip only rides over on scroll.
       const pinnedH = isDetailPage && crumb ? crumb.getBoundingClientRect().height : 0;
-      document.documentElement.style.setProperty(
-        '--chrome-crumb-pin-h',
-        `${Math.max(0, Math.ceil(pinnedH))}px`,
-      );
+      publish('--chrome-crumb-pin-h', `${Math.max(0, Math.ceil(pinnedH))}px`);
     };
     apply();
     let raf = 0;
     const schedule = () => {
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; apply(); });
     };
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    // Size changes wait until the header stops resizing. Opening or closing
+    // the atmosphere row animates the header's height for ~360ms, and
+    // publishing every frame of that restyled the whole page each frame
+    // (~2,900 elements on the home feed): the stutter on expand/collapse.
+    // The sheets reading these only need where the chrome ends up.
+    let settle = 0;
+    const scheduleSettled = () => {
+      clearTimeout(settle);
+      settle = setTimeout(apply, SIZE_SETTLE_MS);
+    };
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSettled) : null;
     if (ro) {
       ro.observe(el);
       if (crumbRef.current) ro.observe(crumbRef.current);
@@ -210,6 +230,7 @@ export default function ChromeBar() {
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
       if (raf) cancelAnimationFrame(raf);
+      clearTimeout(settle);
     };
   }, [showBreadcrumb, isDetailPage]);
 
@@ -1264,13 +1285,22 @@ function useNearPageBottom(fraction = 0.05) {
     window.addEventListener('resize', schedule, { passive: true });
     // Feed first paint, "Load more", and background refreshes all grow/shrink
     // the document without a scroll or resize event — observe the body so the
-    // nearness re-measures on those height changes too.
+    // nearness re-measures on those height changes too. Once the height holds
+    // still, though: the top chrome's open/close animation grows the body
+    // every frame, and reading scrollHeight each of those frames forced an
+    // extra layout per frame.
+    let settle = 0;
+    const scheduleSettled = () => {
+      clearTimeout(settle);
+      settle = setTimeout(schedule, SIZE_SETTLE_MS);
+    };
     const ro =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleSettled) : null;
     if (ro) ro.observe(document.body);
     return () => {
       cancelAnimationFrame(frame);
       clearShortTimer();
+      clearTimeout(settle);
       if (ro) ro.disconnect();
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);

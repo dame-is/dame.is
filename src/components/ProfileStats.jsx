@@ -14,7 +14,9 @@ function useCountUp(target, ms = 700) {
   const rafRef = useRef(0);
 
   useEffect(() => {
-    if (typeof target !== 'number') return;
+    // Nothing to ramp when the count is already showing (a re-mount that
+    // starts from the remembered profile).
+    if (typeof target !== 'number' || target === n) return;
     cancelAnimationFrame(rafRef.current);
     fromRef.current = n;
     startRef.current = performance.now();
