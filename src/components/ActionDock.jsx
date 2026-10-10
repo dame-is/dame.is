@@ -9,6 +9,7 @@ import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import SignInPanel from './SignInPanel.jsx';
+import SheetKeyboardFill from './SheetKeyboardFill.jsx';
 import './ActionDock.css';
 
 export default function ActionDock() {
@@ -76,6 +77,10 @@ export default function ActionDock() {
           />
         )}
       </AnimatePresence>
+      {/* With the keyboard up the panel shrink-wraps to the form (see
+          .dock-panel.is-keyboard), so cover the page around it as the
+          full-height panel does the rest of the time. */}
+      <SheetKeyboardFill inset={kbInset} full />
       <AnimatePresence initial={false}>
         {open && (
           <motion.div

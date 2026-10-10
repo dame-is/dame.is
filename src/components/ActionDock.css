@@ -116,10 +116,16 @@
    - `--chrome-top-h` is republished on every window scroll event (the top chrome
      re-measures there), so a height keyed to it reflowed the panel under the
      caret mid-keystroke — the flicker where typed characters seemed to vanish.
-     Content-height doesn't read it until the cap is actually reached. */
+     Content-height doesn't read it until the cap is actually reached.
+
+   SheetKeyboardFill covers the page around the shrink-wrapped panel, in the
+   same surface. The bottom divider goes: the bar it divides the sheet from is
+   under the keyboard, and on iOS 26 it drew a stray line above the glass bars
+   floating over the fill. */
 .dock-panel.is-keyboard {
   height: auto;
   max-height: var(--dock-panel-h);
+  border-bottom: 0;
 }
 
 .dock-section {

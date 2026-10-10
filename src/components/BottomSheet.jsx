@@ -4,6 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
+import SheetKeyboardFill from './SheetKeyboardFill.jsx';
 import './BottomSheet.css';
 
 /**
@@ -81,6 +82,7 @@ export default function BottomSheet({
           />
         )}
       </AnimatePresence>
+      <SheetKeyboardFill inset={kbInset} />
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -95,7 +97,7 @@ export default function BottomSheet({
             <div
               ref={panelRef}
               id={id}
-              className={`bottom-sheet-panel bottom-sheet-panel-${size} ${className}`.trim()}
+              className={`bottom-sheet-panel bottom-sheet-panel-${size}${kbInset > 0 ? ' is-keyboard' : ''} ${className}`.trim()}
               role="dialog"
               aria-label={label}
             >
