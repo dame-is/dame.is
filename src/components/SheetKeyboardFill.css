@@ -1,9 +1,8 @@
 /* See SheetKeyboardFill.jsx. Spans from the bottom of the layout viewport up
-   to the lifted sheet's bottom edge: the sheet wraps rest at
-   max(bar, --kb-inset), so once the keyboard is taller than the bottom bar the
-   two edges meet exactly. Below that (a hardware keyboard's shortcut bar) the
-   sheet still sits on the bar, and this stays hidden under the bar's opaque
-   surface. */
+   to the bottom bar, which a sheet lifts onto the keyboard by the same
+   --kb-inset (ChromeBar.css, --kb-lift), so the two edges meet exactly. Under
+   the bar's z-index: where the keyboard is shorter than the home-indicator
+   padding the bar keeps, this stays hidden behind the bar's opaque surface. */
 .sheet-kb-fill {
   position: fixed;
   left: 0;

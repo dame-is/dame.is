@@ -20,18 +20,15 @@
    Sits above the bars (z 31) so its top edge overlaps the page cleanly. */
 .bottom-sheet-wrap {
   position: fixed;
-  /* Where the sheet's bottom edge rests — the higher of the bottom chrome (plus
-     the owner edit bar) and the on-screen keyboard (--kb-inset, how much of the
-     layout viewport the keyboard eats, from JS; 0 when it's down), so any input
-     the sheet hosts stays clear of the keyboard.
-
-     max(), not a sum: the keyboard covers the bottom bar, so once it's up the
-     bar is no longer something to sit on top of. Adding the two floats the
-     sheet a bar's height above the keyboard with the page showing through the
-     gap. --kb-inset already spans the safe area for the same reason. */
-  --sheet-bottom: max(
-    calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px)),
-    var(--kb-inset, 0px)
+  /* Where the sheet's bottom edge rests: on top of the bottom chrome bar (plus
+     the owner edit bar), wherever that bar is. With the keyboard up the bar
+     rides on it (ChromeBar.css, --kb-lift), so any input the sheet hosts clears
+     the keyboard with the bar still under it. --kb-inset is the keyboard's
+     height, from JS (0 when it's down); max() against the safe area because the
+     lifted bar drops its home-indicator padding. Same edge as the nav dock's. */
+  --sheet-bottom: calc(
+    var(--chrome-h) + var(--edit-bar-h, 0px) +
+      max(env(safe-area-inset-bottom, 0px), var(--kb-inset, 0px))
   );
   bottom: var(--sheet-bottom);
   left: 0;
@@ -61,13 +58,6 @@
   background: var(--surface-deep);
   /* Crisp divider between the panel and the button row below. */
   border-bottom: 1px solid var(--rule);
-}
-
-/* Riding on the keyboard, the button row is out of sight beneath it, and
-   SheetKeyboardFill continues the panel's surface below. The divider would
-   only draw a line across that surface. */
-.bottom-sheet-panel.is-keyboard {
-  border-bottom: 0;
 }
 
 /* Compact: content-height, capped to the gap between top + bottom chrome so

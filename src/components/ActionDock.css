@@ -19,23 +19,20 @@
    and shadow overlap the page cleanly. */
 .dock-sheet-wrap {
   position: fixed;
-  /* Where the sheet's bottom edge rests. Two candidates, whichever is higher:
+  /* Where the sheet's bottom edge rests: on top of the bottom chrome bar (plus
+     the owner edit-mode bar when it's open, via --edit-bar-h), wherever that
+     bar is.
 
-     - the bottom chrome bar (plus the owner edit-mode bar when it's open, via
-       --edit-bar-h), so the sheet expands from on top of them rather than
-       overlapping;
-     - the on-screen keyboard, via --kb-inset — how much of the layout viewport
-       the keyboard eats, measured from JS (see useKeyboardInset) and 0 when
-       there's no keyboard. Without this the account view's sign-in field ends
-       up behind the keyboard.
-
-     max(), not a sum: the keyboard covers the bottom bar, so once it's up the
-     bar is no longer something to sit on top of. Adding the two floats the
-     sheet a bar's height above the keyboard with the page showing through the
-     gap. --kb-inset already spans the safe area for the same reason. */
-  --dock-bottom: max(
-    calc(var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px)),
-    var(--kb-inset, 0px)
+     The bar normally sits on the home indicator (the safe area). With the
+     keyboard up it rides on the keyboard instead, lifted by the keyboard's
+     height (ChromeBar.css, --kb-lift), so the account view's sign-in field
+     clears the keyboard with the bar still under it. --kb-inset is that same
+     height, measured here from JS (see useKeyboardInset) and 0 with no
+     keyboard. max() against the safe area, because the lifted bar drops its
+     home-indicator padding. */
+  --dock-bottom: calc(
+    var(--chrome-h) + var(--edit-bar-h, 0px) +
+      max(env(safe-area-inset-bottom, 0px), var(--kb-inset, 0px))
   );
   bottom: var(--dock-bottom);
   left: 0;
@@ -119,13 +116,10 @@
      Content-height doesn't read it until the cap is actually reached.
 
    SheetKeyboardFill covers the page around the shrink-wrapped panel, in the
-   same surface. The bottom divider goes: the bar it divides the sheet from is
-   under the keyboard, and on iOS 26 it drew a stray line above the glass bars
-   floating over the fill. */
+   same surface, so it still reads as the full-height sheet. */
 .dock-panel.is-keyboard {
   height: auto;
   max-height: var(--dock-panel-h);
-  border-bottom: 0;
 }
 
 .dock-section {

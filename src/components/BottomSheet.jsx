@@ -59,9 +59,10 @@ export default function BottomSheet({
 
   // On-screen keyboard occlusion (§5.1): a sheet is pinned to the viewport
   // bottom, so the mobile keyboard covers any input it hosts. --kb-inset is
-  // what the keyboard eats; the CSS adds it into the wrap's bottom offset so
-  // the sheet — and its field — rides up above the keyboard. Shared with the
-  // nav dock, which hosts the sign-in field; see useKeyboardInset.
+  // what the keyboard eats. The bottom bar rides up onto the keyboard by the
+  // same amount (ChromeBar's KeyboardLift), and the CSS adds it into the wrap's
+  // bottom offset so the sheet, and its field, ride up on the bar. Shared with
+  // the nav dock, which hosts the sign-in field; see useKeyboardInset.
   const kbInset = useKeyboardInset(open);
 
   if (typeof document === 'undefined') return null;
@@ -97,7 +98,7 @@ export default function BottomSheet({
             <div
               ref={panelRef}
               id={id}
-              className={`bottom-sheet-panel bottom-sheet-panel-${size}${kbInset > 0 ? ' is-keyboard' : ''} ${className}`.trim()}
+              className={`bottom-sheet-panel bottom-sheet-panel-${size} ${className}`.trim()}
               role="dialog"
               aria-label={label}
             >

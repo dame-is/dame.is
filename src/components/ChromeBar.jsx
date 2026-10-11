@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
@@ -20,6 +20,7 @@ import { useTheme } from '../hooks/useTheme.jsx';
 import { useFont, FONT_SWITCHER_ENABLED } from '../hooks/useFont.jsx';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
+import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import { COLLECTIONS, ME_DID } from '../config.js';
 import NowStatus from './NowStatus.jsx';
 import NowPlaying from './NowPlaying.jsx';
@@ -495,6 +496,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // it slides up out of the bar once you reach the last stretch of the page.
   const nearBottom = useNearPageBottom();
   const footerRef = useRef(null);
+  const barRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
   const { skyHourKey, advanceSkyHour } = useTheme();
   const { serifOnly, toggle: toggleFont } = useFont();
@@ -641,6 +643,10 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     transition: { duration: reduce ? 0 : 0.2, ease: [0.22, 0.61, 0.36, 1] },
   };
   const layoutProp = reduce ? undefined : true;
+  // While a sheet is open, the bar rides on the on-screen keyboard rather than
+  // hiding behind it, so the sheet's field keeps its bar underneath. /admin
+  // lifts the bar by its own rule (adminShell.css), so it's left out here.
+  const liftOnKeyboard = (dockOpen || !!panel) && !inAdmin;
 
   return (
     // `layoutScroll layoutRoot` — the bar is `position: fixed`, and its right-
@@ -654,12 +660,14 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     // bar as a layout root makes its children resolve relative to the bar (not the
     // scrolling document), so only genuine layout shifts inside the bar animate.
     <motion.div
+      ref={barRef}
       className="chrome-bar chrome-bar-bottom"
       role="toolbar"
       aria-label="Global actions"
       layoutScroll
       layoutRoot
     >
+      <KeyboardLift targetRef={barRef} active={liftOnKeyboard} />
       <div className="chrome-bottom-row">
         {/* Left cluster. While the nav dock is open, the page-level controls
             (theme / filter / search / info / inspect) hand off to the dock's
@@ -1079,6 +1087,24 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
  *  `to` is the cumulative path up to and including that segment. The home
  *  root (`/`) is rendered separately as the leading slash, so this returns
  *  an empty array on the home page. Segments are URL-decoded for display. */
+/** Publishes how much of the layout viewport the on-screen keyboard covers as
+ *  `--kb-lift` on the bottom bar, which ChromeBar.css lifts the bar by, while
+ *  `active`. Its own component so a keyboard animating in re-renders this
+ *  (which draws nothing) rather than the whole bar and its layout-animated
+ *  buttons, and written in a layout effect so the bar moves in the same commit
+ *  as the sheet resting on it (the sheets measure the keyboard the same way). */
+function KeyboardLift({ targetRef, active }) {
+  const inset = useKeyboardInset(active);
+  useLayoutEffect(() => {
+    const el = targetRef.current;
+    if (!el) return undefined;
+    if (inset > 0) el.style.setProperty('--kb-lift', `${inset}px`);
+    else el.style.removeProperty('--kb-lift');
+    return () => el.style.removeProperty('--kb-lift');
+  }, [inset, targetRef]);
+  return null;
+}
+
 function buildCrumbs(pathname) {
   const parts = pathname.split('/').filter(Boolean);
   const crumbs = [];

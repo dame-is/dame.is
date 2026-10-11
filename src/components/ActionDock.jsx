@@ -31,9 +31,11 @@ export default function ActionDock() {
   useFocusTrap(panelRef, { active: open });
   // On-screen keyboard occlusion — the account view hosts the sign-in field,
   // and a sheet pinned to the viewport bottom sits behind the keyboard. Track
-  // what the keyboard eats and expose it as --kb-inset; the CSS lifts the sheet
-  // by that much and drops its ceiling to match, so the field stays visible and
-  // the browser never has to scroll-into-view to find it. See useKeyboardInset.
+  // what the keyboard eats and expose it as --kb-inset. The bottom bar rides up
+  // onto the keyboard by the same amount (ChromeBar's KeyboardLift) and the CSS
+  // rests the sheet on the bar and drops its ceiling to match, so the field
+  // stays visible and the browser never has to scroll-into-view to find it.
+  // See useKeyboardInset.
   const kbInset = useKeyboardInset(open);
 
   // Esc pops the sub-view first; only closes the dock once we're back
