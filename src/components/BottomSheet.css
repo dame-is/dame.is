@@ -20,15 +20,12 @@
    Sits above the bars (z 31) so its top edge overlaps the page cleanly. */
 .bottom-sheet-wrap {
   position: fixed;
-  /* Where the sheet's bottom edge rests: on top of the bottom chrome bar (plus
-     the owner edit bar), wherever that bar is. With the keyboard up the bar
-     rides on it (ChromeBar.css, --kb-lift), so any input the sheet hosts clears
-     the keyboard with the bar still under it. --kb-inset is the keyboard's
-     height, from JS (0 when it's down); max() against the safe area because the
-     lifted bar drops its home-indicator padding. Same edge as the nav dock's. */
+  /* Where the sheet's bottom edge rests: on top of the bottom chrome (plus the
+     owner edit bar). It stays there when the on-screen keyboard comes up; a
+     sheet hosting a text field keeps the field clear of it (see BottomSheet.jsx
+     and the nav dock's .dock-panel-view-account). */
   --sheet-bottom: calc(
-    var(--chrome-h) + var(--edit-bar-h, 0px) +
-      max(env(safe-area-inset-bottom, 0px), var(--kb-inset, 0px))
+    var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px)
   );
   bottom: var(--sheet-bottom);
   left: 0;
@@ -65,9 +62,8 @@
    divides it from the page showing above. */
 .bottom-sheet-panel-compact {
   border-top: 1px solid var(--rule);
-  /* Measured from the same --sheet-bottom the wrap rests on, so the ceiling
-     moves with the floor: once the sheet is lifted over the keyboard, a tall
-     panel scrolls instead of sliding up under the top chrome. */
+  /* Measured from the same --sheet-bottom the wrap rests on, so a tall panel
+     scrolls instead of sliding up under the top chrome. */
   max-height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--sheet-bottom));
   overflow-y: auto;
   overscroll-behavior: contain;

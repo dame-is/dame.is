@@ -3,8 +3,6 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
-import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
-import SheetKeyboardFill from './SheetKeyboardFill.jsx';
 import './BottomSheet.css';
 
 /**
@@ -27,6 +25,12 @@ import './BottomSheet.css';
  *     a filter grid, a short primer.
  *   - 'fill': the panel fills the whole gap up to the top chrome, butting
  *     its border, for full-surface sheets.
+ *
+ * The sheet stays on the bar when the on-screen keyboard comes up, so the
+ * keyboard covers the bottom of it. A sheet hosting a text field keeps the
+ * field high enough to stay clear (GuestbookSheet goes full height on touch
+ * screens for this); ActionDock.css says why the sheet doesn't chase the
+ * keyboard instead.
  */
 export default function BottomSheet({
   open,
@@ -57,14 +61,6 @@ export default function BottomSheet({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, closeOnEscape, onClose]);
 
-  // On-screen keyboard occlusion (§5.1): a sheet is pinned to the viewport
-  // bottom, so the mobile keyboard covers any input it hosts. --kb-inset is
-  // what the keyboard eats. The bottom bar rides up onto the keyboard by the
-  // same amount (ChromeBar's KeyboardLift), and the CSS adds it into the wrap's
-  // bottom offset so the sheet, and its field, ride up on the bar. Shared with
-  // the nav dock, which hosts the sign-in field; see useKeyboardInset.
-  const kbInset = useKeyboardInset(open);
-
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -83,13 +79,11 @@ export default function BottomSheet({
           />
         )}
       </AnimatePresence>
-      <SheetKeyboardFill inset={kbInset} />
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
             key="bottom-sheet"
             className="bottom-sheet-wrap"
-            style={{ '--kb-inset': `${kbInset}px` }}
             initial={{ height: 0 }}
             animate={{ height: 'auto' }}
             exit={{ height: 0 }}

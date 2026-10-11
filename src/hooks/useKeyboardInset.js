@@ -20,17 +20,17 @@ export function keyboardOverlap(innerHeight, visualHeight, offsetTop = 0) {
  * in CSS pixels — 0 when no keyboard is up (and always 0 where `visualViewport`
  * is unavailable, so callers degrade to their pre-keyboard layout).
  *
- * Why this is needed at all: our sheets are `position: fixed` off the bottom
- * edge, and a mobile keyboard doesn't shrink the layout viewport it's pinned
- * to — it just covers it. A sheet hosting a text field therefore ends up
- * *behind* the keyboard, and the browser starts scrolling whatever it can (the
- * document, then the sheet's own overflow container) trying to drag the focused
- * field back into view. That scroll is what makes the field appear to shoot off
- * the top of the screen, and — because our chrome republishes `--chrome-top-h`
- * on every scroll event, which the sheet's height calc reads — it also reflows
- * the panel under the caret on each keystroke, so typed characters flicker in
- * and out. Compensating for the keyboard here keeps the field on screen, which
- * removes the browser's reason to scroll, which settles the reflow.
+ * Why this is needed at all: a mobile keyboard doesn't shrink the layout
+ * viewport that `position: fixed` elements are pinned to — it just covers it.
+ * The admin shell (AdminShell.jsx) uses this to ride its frame and the bottom
+ * bar on the keyboard's top edge, so Save stays reachable while the owner
+ * types.
+ *
+ * The public sheets used to do the same and no longer do: on iOS Safari these
+ * events land after the keyboard has moved and while Safari is scrolling the
+ * page to reveal the focused field itself, so anything driven by them jumps.
+ * Those sheets keep their fields high enough that the keyboard never covers
+ * them instead; see .dock-panel-view-account in ActionDock.css.
  *
  * The measurement is `innerHeight - visualViewport.height - offsetTop`: the
  * slice of the layout viewport sitting below the visual viewport's bottom edge.

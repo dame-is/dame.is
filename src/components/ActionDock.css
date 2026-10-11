@@ -20,19 +20,12 @@
 .dock-sheet-wrap {
   position: fixed;
   /* Where the sheet's bottom edge rests: on top of the bottom chrome bar (plus
-     the owner edit-mode bar when it's open, via --edit-bar-h), wherever that
-     bar is.
-
-     The bar normally sits on the home indicator (the safe area). With the
-     keyboard up it rides on the keyboard instead, lifted by the keyboard's
-     height (ChromeBar.css, --kb-lift), so the account view's sign-in field
-     clears the keyboard with the bar still under it. --kb-inset is that same
-     height, measured here from JS (see useKeyboardInset) and 0 with no
-     keyboard. max() against the safe area, because the lifted bar drops its
-     home-indicator padding. */
+     the owner edit-mode bar when it's open, via --edit-bar-h), so the sheet
+     expands from on top of them rather than overlapping. It stays there when
+     the on-screen keyboard comes up; see .dock-panel-view-account below for
+     how the sign-in field keeps clear of it. */
   --dock-bottom: calc(
-    var(--chrome-h) + var(--edit-bar-h, 0px) +
-      max(env(safe-area-inset-bottom, 0px), var(--kb-inset, 0px))
+    var(--chrome-h) + var(--edit-bar-h, 0px) + env(safe-area-inset-bottom, 0px)
   );
   bottom: var(--dock-bottom);
   left: 0;
@@ -63,12 +56,9 @@
 .dock-panel {
   pointer-events: auto;
   /* The gap the sheet has to live in: the top chrome's bottom edge down to
-     wherever the sheet is resting (--dock-bottom, which tracks the keyboard).
-     Derived from the same value the wrap is positioned by, so the ceiling
-     always moves with the floor — otherwise lifting the sheet over the
-     keyboard pushes its top up under the top chrome. The max() keeps a usable
-     floor on short viewports (a landscape phone with the keyboard up leaves
-     very little) — the panel scrolls rather than collapsing to nothing. */
+     where the sheet rests (--dock-bottom, the same value the wrap is
+     positioned by). The max() keeps a usable floor on short viewports — the
+     panel scrolls rather than collapsing to nothing. */
   --dock-panel-h: max(
     9rem,
     calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--dock-bottom))
@@ -103,23 +93,27 @@
   overscroll-behavior: contain;
 }
 
-/* Keyboard up (the account view's sign-in field is focused): shrink-wrap to the
-   form and cap it at the space left above the keyboard, instead of holding the
-   full-gap height. Two reasons beyond the obvious fit:
+/* The sign-in form sits at the TOP of the sheet on touch screens, where the
+   on-screen keyboard can't reach it, and nothing moves when the keyboard comes
+   up: it slides over the bottom of the sheet and the bar, the way it covers
+   the bottom of a native form.
 
-   - A panel taller than the visible strip is a scroll container the browser can
-     scroll to chase the focused field, which is what threw the field off the
-     top of the screen. Content-height leaves it nothing to scroll.
-   - `--chrome-top-h` is republished on every window scroll event (the top chrome
-     re-measures there), so a height keyed to it reflowed the panel under the
-     caret mid-keystroke — the flicker where typed characters seemed to vanish.
-     Content-height doesn't read it until the cap is actually reached.
+   At the bottom (where the menu's content sits), the field would land behind
+   the keyboard, and iOS Safari then scrolls the whole page up to reveal it,
+   taking the top chrome off screen and leaving page content in view below the
+   bar. Safari gives no way to move with the keyboard instead: it doesn't
+   resize the page for the keyboard (no `interactive-widget` support), and the
+   visualViewport events that report its size arrive in bursts, after the fact
+   and while that scroll is still settling. An earlier version lifted the sheet
+   and bar on those events; it jumped on open and close, and on iOS 26 still
+   showed the page around Safari's floating keyboard controls.
 
-   SheetKeyboardFill covers the page around the shrink-wrapped panel, in the
-   same surface, so it still reads as the full-height sheet. */
-.dock-panel.is-keyboard {
-  height: auto;
-  max-height: var(--dock-panel-h);
+   Keyed on the field rather than the view, so the signed-in account card keeps
+   the thumb-side placement the menu has. */
+@media (pointer: coarse) {
+  .dock-panel-view-account:has(.signin-input) {
+    align-content: start;
+  }
 }
 
 .dock-section {

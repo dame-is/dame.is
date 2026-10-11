@@ -7,9 +7,7 @@ import { useActionDock } from '../hooks/useActionDock.jsx';
 import { useNavRoutes } from '../hooks/useNavRoutes.js';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
-import { useKeyboardInset } from '../hooks/useKeyboardInset.js';
 import SignInPanel from './SignInPanel.jsx';
-import SheetKeyboardFill from './SheetKeyboardFill.jsx';
 import './ActionDock.css';
 
 export default function ActionDock() {
@@ -29,14 +27,9 @@ export default function ActionDock() {
   // Focus into the dock on open, trap Tab within it, restore focus on close.
   // Escape stays owned by the handler below (it pops the sub-view first).
   useFocusTrap(panelRef, { active: open });
-  // On-screen keyboard occlusion — the account view hosts the sign-in field,
-  // and a sheet pinned to the viewport bottom sits behind the keyboard. Track
-  // what the keyboard eats and expose it as --kb-inset. The bottom bar rides up
-  // onto the keyboard by the same amount (ChromeBar's KeyboardLift) and the CSS
-  // rests the sheet on the bar and drops its ceiling to match, so the field
-  // stays visible and the browser never has to scroll-into-view to find it.
-  // See useKeyboardInset.
-  const kbInset = useKeyboardInset(open);
+  // The sheet doesn't move for the on-screen keyboard: the account view's
+  // sign-in field sits where the keyboard can't reach it instead. See
+  // .dock-panel-view-account in ActionDock.css.
 
   // Esc pops the sub-view first; only closes the dock once we're back
   // at the root menu. The Modal's built-in Esc handler is disabled
@@ -79,16 +72,11 @@ export default function ActionDock() {
           />
         )}
       </AnimatePresence>
-      {/* With the keyboard up the panel shrink-wraps to the form (see
-          .dock-panel.is-keyboard), so cover the page around it as the
-          full-height panel does the rest of the time. */}
-      <SheetKeyboardFill inset={kbInset} full />
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
             key="dock-sheet"
             className="dock-sheet-wrap"
-            style={{ '--kb-inset': `${kbInset}px` }}
             initial={{ height: 0 }}
             animate={{ height: 'auto' }}
             exit={{ height: 0 }}
@@ -97,7 +85,7 @@ export default function ActionDock() {
             <div
               ref={panelRef}
               id="action-dock-panel"
-              className={`dock-panel dock-panel-view-${view}${kbInset > 0 ? ' is-keyboard' : ''}`}
+              className={`dock-panel dock-panel-view-${view}`}
               role="dialog"
               aria-label="Site menu"
             >

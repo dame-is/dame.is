@@ -369,9 +369,10 @@
    itself. */
 
 /* 1. Rest on the site's bar wherever that bar currently is. BottomSheet's own
-      `--sheet-bottom` is a max() against the keyboard, which is right on a
-      public page (the bar hides behind the keyboard there) and wrong here (the
-      bar is lifted onto it — see adminShell.css). Same `--wb-floor` the frame
+      `--sheet-bottom` is the bar's resting place at the bottom of the screen,
+      which is right on a public page (the bar stays there, behind the
+      keyboard) and wrong here (the bar is lifted onto the keyboard — see
+      adminShell.css). Same `--wb-floor` the frame
       reads, so the panel and the frame's bottom edge cannot disagree. */
 :root[data-admin-frame='site'] .bottom-sheet-wrap {
   --sheet-bottom: var(--wb-floor);

@@ -16,6 +16,18 @@
   gap: var(--space-4);
 }
 
+/* On touch screens the sheet takes the whole gap between the bars, with its
+   content at the top: the signed-out handle field and the signed-in message
+   field then sit where the on-screen keyboard can't reach them, so nothing
+   has to move when it comes up (the nav dock's account view does the same;
+   ActionDock.css explains why). The height is BottomSheet's `fill` size. */
+@media (pointer: coarse) {
+  .guestbook-sheet-panel.bottom-sheet-panel-compact {
+    height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--sheet-bottom));
+    border-top: 0;
+  }
+}
+
 .guestbook-sheet-header {
   display: flex;
   align-items: center;
