@@ -46,6 +46,25 @@
   transform-origin: center 60%;
 }
 
+/* A gentle double pulse at the actual BPM (`--beat` is one beat's length). */
+.vital-heartbeat.is-beating {
+  animation: vital-heartbeat var(--beat, 1s) ease-in-out infinite;
+}
+
+@keyframes vital-heartbeat {
+  0% { transform: scale(1); }
+  16% { transform: scale(1.09); }
+  30% { transform: scale(1.01); }
+  44% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vital-heartbeat.is-beating {
+    animation: none;
+  }
+}
+
 .vital-value {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;

@@ -48,8 +48,8 @@
   border-bottom: 1px solid var(--rule);
   /* `visible` (not `hidden`) so the tertiary breadcrumb — absolutely
      positioned at the header's bottom edge — can spill below the bar
-     instead of being clipped. The secondary/atmosphere wrap still clips
-     its own height animation via its inline `overflow: hidden`. */
+     instead of being clipped, and so the expanded tier can hang below it
+     while it slides open or shut (see `.chrome-bar-secondary-wrap`). */
   overflow: visible;
   /* Full-bleed: the bar's surface + top/bottom hairlines span the whole
      viewport at every width. Its content is held on `.main`'s centered
@@ -90,6 +90,24 @@
 
 .chrome-cluster .chrome-signals-primary {
   align-items: baseline;
+}
+
+/* The expanded tier (LISTENING TO / FOLLOWED BY + the vitals bar). Its wrap
+   clips the content as it slides; useTierSlide in ChromeBar.jsx drives both
+   with transforms. At rest it sits in the header's flow. While opening or
+   closing it's an overlay pinned under the primary row, so the header (and
+   the page under it) never changes size mid-animation, and it carries the
+   header's bottom rule so the line travels with its edge. */
+.chrome-bar-secondary-wrap {
+  overflow: hidden;
+}
+
+.chrome-bar-secondary-wrap.is-sliding {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--tier-top, 100%);
+  border-bottom: 1px solid var(--rule);
 }
 
 .chrome-bar-secondary {
@@ -673,6 +691,17 @@
   width: 0.7rem;
   height: 0.7rem;
   line-height: 1;
+  transition: transform 0.25s ease-out;
+}
+
+.chrome-bar-top.is-expanded .chrome-expand-glyph {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chrome-expand-glyph {
+    transition: none;
+  }
 }
 
 /* Bottom chrome bar: fixed to the viewport bottom on every breakpoint.

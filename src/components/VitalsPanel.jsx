@@ -2,7 +2,7 @@ import {
   Heart, Flame, Footprints, Bike, Car, Armchair, PersonStanding, Volume2,
   BatteryLow, BatteryMedium, BatteryFull, BatteryCharging,
 } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
+import { useReducedMotion } from 'motion/react';
 import { useDameState } from '../hooks/useDameState.js';
 import { activityLabel } from '../lib/activity.js';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
@@ -114,14 +114,12 @@ function Heartbeat({ bpm, animate }) {
   if (!animate || !beat) {
     return <Heart className="vital-glyph vital-glyph-heart" size={14} strokeWidth={1.75} aria-hidden="true" />;
   }
+  // A CSS animation rather than a Motion one: Motion drives `scale` from
+  // JavaScript every frame, forever, while this is on screen. The browser runs
+  // this on its compositor instead.
   return (
-    <motion.span
-      className="vital-heartbeat"
-      aria-hidden="true"
-      animate={{ scale: [1, 1.09, 1.01, 1.05, 1] }}
-      transition={{ duration: beat, times: [0, 0.16, 0.3, 0.44, 1], ease: 'easeInOut', repeat: Infinity }}
-    >
+    <span className="vital-heartbeat is-beating" aria-hidden="true" style={{ '--beat': `${beat}s` }}>
       <Heart className="vital-glyph vital-glyph-heart" size={14} strokeWidth={1.75} aria-hidden="true" />
-    </motion.span>
+    </span>
   );
 }

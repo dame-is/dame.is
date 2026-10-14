@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
@@ -54,10 +54,34 @@ const SEARCH_ENABLED = false;
 // is republished after a resize (see the effect that publishes it).
 const SIZE_SETTLE_MS = 120;
 
+// An element's viewport bottom without its own translateY. The breadcrumb
+// strip rides the expanded tier's slide on a transform, and the published
+// chrome height should be where the strip settles, not where it is mid-slide.
+function settledBottom(node) {
+  const bottom = node.getBoundingClientRect().bottom;
+  const transform = getComputedStyle(node).transform;
+  if (!transform || transform === 'none') return bottom;
+  return bottom - new DOMMatrixReadOnly(transform).m42;
+}
+
 export default function ChromeBar() {
   const { expanded, toggle } = useChromeBar();
   const { open: dockOpen, toggle: toggleDock } = useActionDock();
   const reduce = useReducedMotion();
+  const primaryRef = useRef(null);
+  const tierWrapRef = useRef(null);
+  const tierInnerRef = useRef(null);
+  const tierMode = useTierSlide({
+    expanded,
+    reduce,
+    primaryRef,
+    wrapRef: tierWrapRef,
+    innerRef: tierInnerRef,
+    // Everything below the tier rides along with its edge: the page and the
+    // breadcrumb strip. (Called from an effect, after crumbRef exists.)
+    followers: () => [document.getElementById('main-content'), crumbRef.current],
+  });
+  const tierSliding = tierMode === 'opening' || tierMode === 'closing';
   const location = useLocation();
   // Brand mark: the bundled sky-avatar frame for the current Eastern
   // hour — the same art the live Bluesky avatar cycles through, served
@@ -191,7 +215,7 @@ export default function ChromeBar() {
       const crumb = crumbRef.current;
       const bottom =
         showBreadcrumb && crumb
-          ? crumb.getBoundingClientRect().bottom
+          ? settledBottom(crumb)
           : el.getBoundingClientRect().bottom;
       publish('--chrome-top-h', `${Math.max(0, Math.floor(bottom))}px`);
       // On individual pages the breadcrumb is pinned open (not just revealed on
@@ -286,7 +310,7 @@ export default function ChromeBar() {
         className={`chrome-bar chrome-bar-top ${expanded ? 'is-expanded' : 'is-collapsed'}`}
         role="banner"
       >
-        <div className="chrome-bar-row chrome-bar-primary">
+        <div ref={primaryRef} className="chrome-bar-row chrome-bar-primary">
           <div className="chrome-cluster">
             <Link to="/" className="chrome-title">
               {showAvatar && (
@@ -326,13 +350,9 @@ export default function ChromeBar() {
             aria-controls="chrome-bar-secondary"
             aria-label={expanded ? 'Collapse atmosphere bar' : 'Expand atmosphere bar'}
           >
-            <motion.svg
-              className="chrome-expand-glyph"
-              aria-hidden="true"
-              viewBox="0 0 12 12"
-              animate={{ rotate: expanded ? 180 : 0 }}
-              transition={{ duration: reduce ? 0 : 0.25, ease: 'easeOut' }}
-            >
+            {/* Rotation is a CSS transition keyed to the header's
+                is-expanded class, so it runs on the compositor. */}
+            <svg className="chrome-expand-glyph" aria-hidden="true" viewBox="0 0 12 12">
               <path
                 d="M2.5 4.5 L6 8 L9.5 4.5"
                 fill="none"
@@ -341,34 +361,25 @@ export default function ChromeBar() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-            </motion.svg>
+            </svg>
           </button>
         </div>
 
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div
-              key="secondary"
-              id="chrome-bar-secondary"
-              className="chrome-bar-secondary-wrap"
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              transition={{ duration: reduce ? 0 : 0.36, ease: [0.32, 0.72, 0, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
+        {/* The expanded tier. It opens and closes with compositor-only
+            animations (see useTierSlide): while sliding it rides over the
+            page as an overlay pinned under the primary row, and only joins
+            the header's flow once it's fully open. */}
+        {tierMode !== 'closed' && (
+          <div
+            ref={tierWrapRef}
+            id="chrome-bar-secondary"
+            className={`chrome-bar-secondary-wrap${tierSliding ? ' is-sliding' : ''}`}
+            inert={tierMode === 'closing' ? '' : undefined}
+            aria-hidden={tierMode === 'closing' ? true : undefined}
+          >
+            <div ref={tierInnerRef} className="chrome-bar-secondary-inner">
               <div className="chrome-bar-row chrome-bar-secondary">
-                <motion.div
-                  className="chrome-signals chrome-signals-secondary"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{
-                    duration: reduce ? 0 : 0.28,
-                    ease: [0.22, 0.61, 0.36, 1],
-                    delay: reduce ? 0 : 0.06,
-                  }}
-                >
+                <div className="chrome-signals chrome-signals-secondary">
                   <NowPlaying />
                   <ProfileStats />
                   {/* Day of life joins the LISTENING TO / FOLLOWED BY stack —
@@ -376,31 +387,21 @@ export default function ChromeBar() {
                       of the vitals bar below instead; this copy is hidden there
                       via CSS (and the vitals-bar copy is hidden on mobile). */}
                   <DayOfLifeTicker />
-                </motion.div>
+                </div>
               </div>
-              {/* Second expanded tier: the iPhone state / vitals bar. It lives
-                  in the same height-animating wrap, so it reveals together with
-                  the LISTENING TO / FOLLOWED BY row above; its own top hairline
-                  and deep surface make it read as a distinct bar rather than a
-                  wrapped continuation of that row. */}
+              {/* Second expanded tier: the iPhone state / vitals bar. It
+                  reveals together with the LISTENING TO / FOLLOWED BY row
+                  above; its own top hairline and deep surface make it read as
+                  a distinct bar rather than a wrapped continuation of that
+                  row. */}
               <div className="chrome-bar-row chrome-bar-state">
-                <motion.div
-                  className="chrome-signals chrome-signals-state"
-                  initial={{ opacity: 0, y: -6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{
-                    duration: reduce ? 0 : 0.28,
-                    ease: [0.22, 0.61, 0.36, 1],
-                    delay: reduce ? 0 : 0.1,
-                  }}
-                >
+                <div className="chrome-signals chrome-signals-state">
                   <VitalsPanel />
-                </motion.div>
+                </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+          </div>
+        )}
 
         {/* Breadcrumb strip stays mounted on every page (home shows just
             the root crumb plus the current day), and the reveal animates
@@ -1214,6 +1215,143 @@ function useScrolledDown(threshold = 220) {
 // landed yet — so this rides out that gap; only a page that's STILL unscrollable
 // after it is a genuinely short page whose footer should sit revealed.
 const SHORT_PAGE_SETTLE_MS = 500;
+
+// Open/close timing for the top chrome's expanded tier. Same curve and
+// length the old height animation used, so the motion reads the same.
+const TIER_SLIDE = { duration: 360, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' };
+const TIER_ROW_FADE = { duration: 280, easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)' };
+const TIER_ROW_DELAYS = [60, 100];
+
+/** Opens and closes the top chrome's expanded tier (LISTENING TO /
+ *  FOLLOWED BY and the vitals bar) without changing the page's layout
+ *  mid-animation.
+ *
+ *  It used to animate the tier's height. That moved everything below the
+ *  header every frame, so each frame was a layout, and in Safari a repaint
+ *  of the whole visible page, all of it driven from JavaScript on the main
+ *  thread (which iOS Safari can also run at a lower frame rate than the
+ *  screen). Fast phones still stuttered.
+ *
+ *  Now the layout changes once per toggle and everything that moves is a
+ *  transform or opacity animation, which the browser runs on its
+ *  compositor:
+ *
+ *  - While sliding, the tier is an overlay pinned under the primary row
+ *    (`.is-sliding`), so the header keeps its collapsed size. Its wrap
+ *    slides down while its content counter-slides up by the same amount:
+ *    the content stays put and is uncovered from the top, the same reveal
+ *    the height animation gave. The wrap carries the header's bottom rule
+ *    while sliding, so the line travels with the edge.
+ *  - The followers (the page and the breadcrumb strip) translate by exactly
+ *    how much of the tier is showing, so they stay butted against its edge.
+ *  - Fully open, the tier joins the header's flow and the transforms are
+ *    dropped in the same commit, so nothing visibly moves. Fully closed, it
+ *    unmounts.
+ *
+ *  A toggle mid-slide starts from wherever the tier is. Returns the mode:
+ *  'closed' | 'opening' | 'open' | 'closing'. */
+function useTierSlide({ expanded, reduce, primaryRef, wrapRef, innerRef, followers }) {
+  const [mode, setMode] = useState(expanded ? 'open' : 'closed');
+  const [prevExpanded, setPrevExpanded] = useState(expanded);
+  if (expanded !== prevExpanded) {
+    setPrevExpanded(expanded);
+    if (reduce) setMode(expanded ? 'open' : 'closed');
+    else setMode(expanded ? 'opening' : 'closing');
+  }
+  const animsRef = useRef([]);
+  const prevModeRef = useRef(mode);
+
+  useLayoutEffect(() => {
+    const prevMode = prevModeRef.current;
+    prevModeRef.current = mode;
+    const wrap = wrapRef.current;
+    const inner = innerRef.current;
+    const running = animsRef.current;
+
+    if (mode === 'open' || mode === 'closed') {
+      // At rest, the layout now matches where the slide ended, so the held
+      // end frames can go in this same commit.
+      for (const a of running) a.cancel();
+      animsRef.current = [];
+      return;
+    }
+    if (!wrap || !inner || typeof wrap.animate !== 'function') {
+      setMode(mode === 'opening' ? 'open' : 'closed');
+      return;
+    }
+
+    // Fractional on purpose: offsetHeight rounds, and a rounded slide ends
+    // half a pixel off from where the tier's real height puts the page.
+    const height = inner.getBoundingClientRect().height;
+    // How much of the tier is showing right now: read off the wrap's live
+    // transform when a slide is mid-flight, otherwise all or nothing.
+    let shown = prevMode === 'open' ? height : 0;
+    if (running.length) {
+      const ty = new DOMMatrixReadOnly(getComputedStyle(wrap).transform).m42;
+      shown = Math.min(height, Math.max(0, height + ty));
+    }
+    for (const a of running) a.cancel();
+
+    // Pin the overlay right under the primary row, relative to the header's
+    // padding box (what `top` resolves against).
+    const primary = primaryRef.current;
+    const header = wrap.parentElement;
+    if (primary && header) {
+      const top =
+        primary.getBoundingClientRect().bottom - header.getBoundingClientRect().top - header.clientTop;
+      wrap.style.setProperty('--tier-top', `${top}px`);
+    }
+    const target = mode === 'opening' ? height : 0;
+    const hold = { ...TIER_SLIDE, fill: 'forwards' };
+    const slide = (el, from, to) =>
+      el.animate(
+        [{ transform: `translateY(${from}px)` }, { transform: `translateY(${to}px)` }],
+        hold,
+      );
+    const anims = [slide(wrap, shown - height, target - height), slide(inner, height - shown, height - target)];
+    for (const el of followers()) if (el) anims.push(slide(el, shown, target));
+
+    const rows = inner.querySelectorAll(':scope > .chrome-bar-row > .chrome-signals');
+    if (mode === 'opening' && shown === 0) {
+      rows.forEach((row, i) => {
+        anims.push(
+          row.animate(
+            [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }],
+            { ...TIER_ROW_FADE, delay: TIER_ROW_DELAYS[i] ?? 100, fill: 'backwards' },
+          ),
+        );
+      });
+    } else if (mode === 'closing') {
+      rows.forEach((row) => {
+        anims.push(
+          row.animate(
+            [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }],
+            { ...TIER_ROW_FADE, fill: 'forwards' },
+          ),
+        );
+      });
+    }
+
+    animsRef.current = anims;
+    const lead = anims[0];
+    lead.onfinish = () => {
+      if (animsRef.current[0] === lead) setMode(mode === 'opening' ? 'open' : 'closed');
+    };
+    // `followers` and the refs are stable for the component's life.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  // Drop any held transforms if the chrome unmounts mid-slide (the page
+  // itself is a follower and outlives it).
+  useEffect(
+    () => () => {
+      for (const a of animsRef.current) a.cancel();
+    },
+    [],
+  );
+
+  return mode;
+}
 
 /** True once the window is scrolled into the last `fraction` of its
  *  scrollable range (default 5%, i.e. ~95% down). Drives the footer strip:
