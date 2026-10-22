@@ -1,0 +1,46 @@
+name: Mirror to Tangled
+
+# Pushes main to https://tangled.org/dame.is/dame.is whenever main changes on GitHub.
+#
+# The TANGLED_SSH_KEY secret is the private half of an SSH key whose public half is added
+# to the dame.is account on Tangled (Settings → Keys). Not a force push: if someone
+# pushes to main on Tangled directly, this fails instead of erasing their commits.
+#
+# "Run workflow" (Actions tab) mirrors by hand.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tangled-mirror
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push to Tangled
+        env:
+          KEY: ${{ secrets.TANGLED_SSH_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::warning::The TANGLED_SSH_KEY secret isn't set, so nothing was mirrored."
+            exit 0
+          fi
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/tangled_key
+          chmod 600 ~/.ssh/tangled_key
+          # Public, so safe to log: compare it with the keys on Tangled (Settings → Keys).
+          echo "Using key $(ssh-keygen -lf ~/.ssh/tangled_key)"
+          ssh-keyscan -t ed25519 tangled.org >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/tangled_key -o IdentitiesOnly=yes -o BatchMode=yes"
+          git push git@tangled.org:dame.is/dame.is HEAD:refs/heads/main
