@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { execSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Build identity for the auto-update watcher (see src/hooks/useAutoUpdate.js).
 //
@@ -29,6 +30,23 @@ function getBuildInfo() {
 }
 
 const BUILD = getBuildInfo();
+
+// The nav menu's is.dame.nav/self snapshot, baked into the bundle so the menu's
+// first render is already the owner's list (see src/hooks/useNavRoutes.js).
+// scripts/prefetch.mjs writes it before `vite build` runs. The app used to
+// fetch the same file at runtime, which left the built-in routes on screen for
+// the half second that took and then reshuffled them, under any tap that
+// landed in it. Null with no snapshot (dev without a prefetch,
+// `build:offline`), and the app falls back to that runtime fetch.
+function readNavSeed() {
+  try {
+    const path = fileURLToPath(new URL('./public/data/nav.json', import.meta.url));
+    const snap = JSON.parse(readFileSync(path, 'utf8'));
+    return snap?.value ? snap : null;
+  } catch {
+    return null;
+  }
+}
 
 // Emit dist/version.json (matching the baked-in build id) so the running app
 // can poll it and detect when a newer build has been deployed. Written in
@@ -66,5 +84,6 @@ export default defineConfig({
     __BUILD_ID__: JSON.stringify(BUILD.id),
     __COMMIT_SHA__: JSON.stringify(BUILD.commit),
     __BUILD_TIME__: JSON.stringify(BUILD.builtAt),
+    __NAV_SEED__: JSON.stringify(readNavSeed()),
   },
 });
