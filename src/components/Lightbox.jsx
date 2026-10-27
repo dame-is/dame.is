@@ -26,6 +26,9 @@ import './Lightbox.css';
  *     their blocks come from elsewhere and pointing at where is the point.
  *     Everywhere else the picture is the site's own, so the viewer stays
  *     bare — image, navigation, close.
+ *   - `embedSrc`: a video player URL (YouTube/Vimeo). The entry plays in an
+ *     iframe instead of showing `src`, which is then only its poster in the
+ *     grid. `width` / `height` give the player's aspect (16:9 without them).
  */
 export default function Lightbox({ open, onClose, images, index = 0 }) {
   const list = Array.isArray(images) ? images.filter((im) => im?.src) : [];
@@ -130,10 +133,20 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   // times however many the arrow keys walk through — or the same 1024px file
   // stretched to half density. Both were considered and neither was worth it.
   // If you came here to "fix" the small photo, that's the trade you're making.
-  const ratio = current.width > 0 && current.height > 0 ? current.width / current.height : null;
+  const embed = current.embedSrc || null;
+  const ratio =
+    current.width > 0 && current.height > 0
+      ? current.width / current.height
+      : embed
+        ? 16 / 9
+        : null;
+  // A player's width/height is its aspect, not a resolution to stay under, so
+  // a video fills the stage rather than capping at the 640px are.na quotes.
   const frameStyle = ratio
     ? {
-        width: `min(${current.width}px, 100%, calc(var(--lightbox-maxh) * ${ratio.toFixed(5)}))`,
+        width: embed
+          ? `min(100%, calc(var(--lightbox-maxh) * ${ratio.toFixed(5)}))`
+          : `min(${current.width}px, 100%, calc(var(--lightbox-maxh) * ${ratio.toFixed(5)}))`,
       }
     : undefined;
   // The sizer holds the frame's box open. When the intrinsic ratio is known it
@@ -144,11 +157,12 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   const sizerStyle = ratio
     ? { width: '100%', aspectRatio: `${current.width} / ${current.height}` }
     : undefined;
+  const noun = embed ? 'Video' : 'Image';
   const label = alt
-    ? `Image: ${alt}`
+    ? `${noun}: ${alt}`
     : count > 1
-      ? `Image ${active + 1} of ${count}`
-      : 'Image';
+      ? `${noun} ${active + 1} of ${count}`
+      : noun;
 
   return (
     <>
@@ -164,33 +178,49 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
     >
       <figure className="lightbox-figure" onClick={dismissOutsideImage}>
         <div className="lightbox-frame" style={frameStyle}>
-          {/* In-flow sizer: the low-res thumb (already cached from the grid the
-              lightbox was opened from) gives the frame real dimensions the
-              instant it opens, so the full-resolution photo — which usually has
-              to download — fades in over a visible picture rather than a blank,
-              collapsed box. Decorative; the real alt lives on the full image
-              below. Falls back to the full src when a caller passes no thumb. */}
-          <img
-            src={current.thumb || current.src}
-            alt=""
-            aria-hidden="true"
-            className="lightbox-sizer"
-            decoding="async"
-            style={sizerStyle}
-          />
-          <img
-            key={current.src}
-            src={current.src}
-            alt={alt}
-            className={`lightbox-image${loadedSrcs.has(current.src) ? ' is-loaded' : ''}`}
-            decoding="async"
-            onLoad={() => markLoaded(current.src)}
-            ref={(el) => {
-              // onLoad can be missed for cache hits that complete before
-              // React attaches the handler; the ref callback catches those.
-              if (el?.complete && el.naturalWidth) markLoaded(current.src);
-            }}
-          />
+          {embed ? (
+            // Keyed so stepping to the next video swaps the player outright
+            // (stopping the last one) instead of navigating the old iframe.
+            <iframe
+              key={embed}
+              src={embed}
+              title={alt || 'Video'}
+              className="lightbox-embed"
+              style={{ aspectRatio: String(ratio) }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : (
+            <>
+              {/* In-flow sizer: the low-res thumb (already cached from the grid the
+                  lightbox was opened from) gives the frame real dimensions the
+                  instant it opens, so the full-resolution photo — which usually has
+                  to download — fades in over a visible picture rather than a blank,
+                  collapsed box. Decorative; the real alt lives on the full image
+                  below. Falls back to the full src when a caller passes no thumb. */}
+              <img
+                src={current.thumb || current.src}
+                alt=""
+                aria-hidden="true"
+                className="lightbox-sizer"
+                decoding="async"
+                style={sizerStyle}
+              />
+              <img
+                key={current.src}
+                src={current.src}
+                alt={alt}
+                className={`lightbox-image${loadedSrcs.has(current.src) ? ' is-loaded' : ''}`}
+                decoding="async"
+                onLoad={() => markLoaded(current.src)}
+                ref={(el) => {
+                  // onLoad can be missed for cache hits that complete before
+                  // React attaches the handler; the ref callback catches those.
+                  if (el?.complete && el.naturalWidth) markLoaded(current.src);
+                }}
+              />
+            </>
+          )}
         </div>
       </figure>
     </Modal>

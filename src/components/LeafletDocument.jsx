@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { ME_DID } from '../config.js';
 import { relativeTime } from '../lib/time.js';
+import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import './LeafletDocument.css';
 
 // Lets an ImageBlock deep in the tree open the document's shared lightbox
@@ -332,34 +333,6 @@ function ImageBlock({ block, style }) {
       {caption && <figcaption className="leaflet-image-caption">{caption}</figcaption>}
     </figure>
   );
-}
-
-/**
- * If a URL is a known video host, return an embeddable player src so a
- * `website` block whose `src` is a YouTube/Vimeo link plays inline.
- */
-export function videoEmbedSrc(url) {
-  try {
-    const u = new URL(url);
-    const host = u.hostname.replace(/^www\./, '');
-    if (host === 'youtube.com' || host === 'm.youtube.com') {
-      const v = u.searchParams.get('v');
-      if (v) return `https://www.youtube.com/embed/${v}`;
-      const m = u.pathname.match(/^\/(?:embed|shorts)\/([\w-]+)/);
-      if (m) return `https://www.youtube.com/embed/${m[1]}`;
-    }
-    if (host === 'youtu.be') {
-      const id = u.pathname.slice(1).split('/')[0];
-      if (id) return `https://www.youtube.com/embed/${id}`;
-    }
-    if (host === 'vimeo.com') {
-      const id = u.pathname.split('/').filter(Boolean)[0];
-      if (id && /^\d+$/.test(id)) return `https://player.vimeo.com/video/${id}`;
-    }
-  } catch {
-    /* not a URL */
-  }
-  return null;
 }
 
 function WebsiteBlock({ block, style }) {

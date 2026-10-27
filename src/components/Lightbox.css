@@ -98,6 +98,16 @@
   opacity: 1;
 }
 
+/* Video player in place of the photo. The frame's inline width already fits
+   the player's aspect inside the height budget; the iframe just fills it. */
+.lightbox-embed {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 0;
+  background: #000;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lightbox-image {
     transition: none;

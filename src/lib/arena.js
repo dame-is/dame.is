@@ -70,9 +70,13 @@ export function fetchChannelPage(arenaSlug, page = 1, per = 100) {
 
 /**
  * Normalize an are.na block to the compact shape the gallery pages (and
- * snapshots) use. Handles Image and Link blocks (with a preview image) and
- * Text blocks (rendered as a text tile). Returns null for everything else —
- * Media, Attachment, nested Channels, and images/links without a preview.
+ * snapshots) use. Handles Image, Link and Embed blocks (with a preview image)
+ * and Text blocks (rendered as a text tile). Returns null for everything else —
+ * Attachment, nested Channels, and blocks without a preview.
+ *
+ * Embed is what are.na makes of a link it can play (a YouTube video, a
+ * SoundCloud track). It carries the same preview image as a Link, plus the
+ * player's own size; the page decides whether it can play it.
  */
 export function normalizeBlock(block) {
   if (!block) return null;
@@ -93,10 +97,14 @@ export function normalizeBlock(block) {
 
   const img = block?.image;
   if (!img?.src) return null;
-  if (block.type !== 'Image' && block.type !== 'Link') return null;
+  if (block.type !== 'Image' && block.type !== 'Link' && block.type !== 'Embed') return null;
+  const embed =
+    block.type === 'Embed'
+      ? { width: block.embed?.width || null, height: block.embed?.height || null }
+      : undefined;
   return {
     id: block.id,
-    type: block.type.toLowerCase(), // 'image' | 'link'
+    type: block.type.toLowerCase(), // 'image' | 'link' | 'embed'
     title: block.title || '',
     alt: img.alt_text || block.title || '',
     thumb: {
@@ -109,9 +117,10 @@ export function normalizeBlock(block) {
     width: img.width || null,
     height: img.height || null,
     aspectRatio: img.aspect_ratio || null,
-    sourceUrl: block.source?.url || null,
+    sourceUrl: block.source?.url || block.embed?.url || null,
     // The page title behind a Link block ("Polysemy - Wikipedia").
     sourceTitle: block.source?.title || block.title || '',
+    ...(embed && { embed }),
     position: block.connection?.position ?? null,
     connectedAt: block.connection?.connected_at || null,
   };

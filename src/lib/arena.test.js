@@ -3,7 +3,14 @@
 // interesting cases are the ones where "newest" and "position" disagree.
 
 import { describe, it, expect } from 'vitest';
-import { orderBlocks, arenaText, pickCoverThumb, DEFAULT_BLOCK_ORDER } from './arena.js';
+import {
+  orderBlocks,
+  arenaText,
+  pickCoverThumb,
+  normalizeBlock,
+  DEFAULT_BLOCK_ORDER,
+} from './arena.js';
+import { videoEmbedSrc } from './videoEmbed.js';
 
 /** Blocks as they come off are.na: position order, each with a connection date. */
 const block = (id, connectedAt, extra = {}) => ({ id, type: 'image', connectedAt, ...extra });
@@ -100,5 +107,65 @@ describe('pickCoverThumb', () => {
     expect(pickCoverThumb(blocks).src).toBe('https://example/2.jpg');
     expect(pickCoverThumb(blocks, 999).src).toBe('https://example/2.jpg');
     expect(pickCoverThumb([{ id: 1, type: 'text' }])).toBeNull();
+  });
+});
+
+describe('normalizeBlock', () => {
+  // Trimmed from a real v3 contents page: are.na turns a YouTube link into an
+  // Embed block, with the video's poster as its image.
+  const EMBED = {
+    id: 48229768,
+    type: 'Embed',
+    title: 'some video',
+    source: { url: 'https://youtube.com/watch?v=o_TlE_U_X3c&si=d717hF8V47tZyVsR', title: 'some video' },
+    embed: { url: null, type: 'video', width: 640, height: 360, html: '<iframe></iframe>' },
+    image: {
+      src: 'https://d2w9rnfcy7mm78.cloudfront.net/48229768/original.jpeg',
+      width: 480,
+      height: 360,
+      small: { src: 'https://images.are.na/small', src_2x: 'https://images.are.na/small2x' },
+      large: { src: 'https://images.are.na/large' },
+    },
+    connection: { position: 2, connected_at: '2026-07-26T02:26:00Z' },
+  };
+
+  it('keeps an Embed block as a captioned tile that knows its player size', () => {
+    const n = normalizeBlock(EMBED);
+    expect(n).toMatchObject({
+      id: 48229768,
+      type: 'embed',
+      thumb: { src: 'https://images.are.na/small', src2x: 'https://images.are.na/small2x' },
+      large: 'https://images.are.na/large',
+      sourceUrl: 'https://youtube.com/watch?v=o_TlE_U_X3c&si=d717hF8V47tZyVsR',
+      sourceTitle: 'some video',
+      embed: { width: 640, height: 360 },
+      position: 2,
+    });
+  });
+
+  it('gives only embeds an embed field', () => {
+    expect(normalizeBlock({ ...EMBED, type: 'Link' })).not.toHaveProperty('embed');
+  });
+
+  it('still drops what it has no tile for', () => {
+    expect(normalizeBlock({ ...EMBED, image: null })).toBeNull();
+    expect(normalizeBlock({ ...EMBED, type: 'Attachment' })).toBeNull();
+    expect(normalizeBlock({ ...EMBED, type: 'Channel' })).toBeNull();
+  });
+});
+
+describe('videoEmbedSrc', () => {
+  it('finds the player behind the ways a YouTube link gets shared', () => {
+    const player = 'https://www.youtube.com/embed/o_TlE_U_X3c';
+    expect(videoEmbedSrc('https://youtube.com/watch?v=o_TlE_U_X3c&si=abc')).toBe(player);
+    expect(videoEmbedSrc('https://youtu.be/o_TlE_U_X3c?si=abc')).toBe(player);
+    expect(videoEmbedSrc('https://m.youtube.com/shorts/o_TlE_U_X3c')).toBe(player);
+    expect(videoEmbedSrc('https://vimeo.com/76979871')).toBe('https://player.vimeo.com/video/76979871');
+  });
+
+  it('has nothing for a host it can’t frame', () => {
+    expect(videoEmbedSrc('https://soundcloud.com/someone/track')).toBeNull();
+    expect(videoEmbedSrc('not a url')).toBeNull();
+    expect(videoEmbedSrc(null)).toBeNull();
   });
 });

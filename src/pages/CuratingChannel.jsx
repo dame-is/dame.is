@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { Play } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import { CreatingGridSkeleton } from '../components/Skeleton.jsx';
@@ -7,6 +8,7 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, getRecord, toAtUri } from '../lib/atproto.js';
 import { fetchChannelMeta, fetchAllBlocks, arenaText, orderBlocks } from '../lib/arena.js';
+import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import './Curating.css';
 
@@ -25,6 +27,15 @@ function hostname(url) {
 
 function reverseSearchUrl(imageUrl) {
   return `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
+}
+
+// The player for an Embed block whose host we can frame (YouTube, Vimeo);
+// null for the rest, which open as their preview image like a link does.
+// Autoplays — the reader clicked the tile to watch it.
+function playerSrc(b) {
+  if (b.type !== 'embed') return null;
+  const src = videoEmbedSrc(b.sourceUrl);
+  return src ? `${src}?autoplay=1` : null;
 }
 
 export default function CuratingChannel() {
@@ -144,7 +155,7 @@ export default function CuratingChannel() {
   }
 
   const { truncated, recordCid } = items;
-  // Only image/link blocks are lightbox-navigable; text tiles are not.
+  // Only image/link/embed blocks are lightbox-navigable; text tiles are not.
   const visualBlocks = blocks.filter((b) => b.type !== 'text');
 
   return (
@@ -177,29 +188,43 @@ export default function CuratingChannel() {
                   </li>
                 );
               }
-              // Image / link tile — opens the lightbox at its position among
-              // the visual (non-text) blocks. A link tile is captioned with
-              // the page title, falling back to its domain.
+              // Image / link / embed tile — opens the lightbox at its position
+              // among the visual (non-text) blocks. A link or embed tile is
+              // captioned with the page title, falling back to its domain.
               const vIndex = visualBlocks.indexOf(b);
               const caption =
-                b.type === 'link'
+                b.type === 'link' || b.type === 'embed'
                   ? b.sourceTitle || b.title || (b.sourceUrl ? hostname(b.sourceUrl) : null)
                   : null;
+              const playable = Boolean(playerSrc(b));
+              const noun = playable ? 'video' : 'image';
+              const img = (
+                <img
+                  src={b.thumb.src}
+                  srcSet={b.thumb.src2x ? `${b.thumb.src2x} 2x` : undefined}
+                  alt={b.alt}
+                  loading="lazy"
+                  decoding="async"
+                />
+              );
               return (
                 <li key={b.id} className="curating-block">
                   <button
                     type="button"
                     className="curating-block-button"
                     onClick={() => setLightbox(vIndex)}
-                    aria-label={b.alt ? `View image: ${b.alt}` : `View image ${vIndex + 1}`}
+                    aria-label={b.alt ? `View ${noun}: ${b.alt}` : `View ${noun} ${vIndex + 1}`}
                   >
-                    <img
-                      src={b.thumb.src}
-                      srcSet={b.thumb.src2x ? `${b.thumb.src2x} 2x` : undefined}
-                      alt={b.alt}
-                      loading="lazy"
-                      decoding="async"
-                    />
+                    {playable ? (
+                      <span className="curating-block-media">
+                        {img}
+                        <span className="curating-block-play" aria-hidden="true">
+                          <Play />
+                        </span>
+                      </span>
+                    ) : (
+                      img
+                    )}
                     {caption && <span className="curating-block-domain gutter">{caption}</span>}
                   </button>
                 </li>
@@ -215,15 +240,24 @@ export default function CuratingChannel() {
             open={lightbox >= 0}
             index={Math.max(0, lightbox)}
             onClose={() => setLightbox(-1)}
-            images={visualBlocks.map((b) => ({
-              src: b.large,
-              alt: b.alt,
-              width: b.width || undefined,
-              height: b.height || undefined,
-              thumb: b.thumb?.src || undefined,
-              sourceUrl: b.sourceUrl || undefined,
-              searchUrl: reverseSearchUrl(b.large),
-            }))}
+            images={visualBlocks.map((b) => {
+              const embedSrc = playerSrc(b);
+              // A player sizes to its own aspect, not the preview image's
+              // (YouTube's is a letterboxed 4:3 frame around a 16:9 video).
+              const size = embedSrc ? b.embed || {} : b;
+              return {
+                src: b.large,
+                alt: b.alt,
+                width: size.width || undefined,
+                height: size.height || undefined,
+                thumb: b.thumb?.src || undefined,
+                sourceUrl: b.sourceUrl || undefined,
+                embedSrc: embedSrc || undefined,
+                // Reverse-searching a video's poster frame finds nothing worth
+                // having, so embeds keep only their source link.
+                searchUrl: b.type === 'embed' ? undefined : reverseSearchUrl(b.large),
+              };
+            })}
           />
         </>
       )}

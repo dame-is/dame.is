@@ -41,6 +41,38 @@
   object-fit: contain;
 }
 
+/* Playable embed (a YouTube video) → the poster with a play mark centred on
+   it, so the tile reads as "this one plays" before it's clicked. */
+.curating-block-media {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.curating-block-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.curating-block-play svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 2px; /* optical centre: the triangle's mass sits left */
+  fill: currentColor;
+}
+
 /* Text block → a square tile with the word(s) centred (are.na channels often
    mix text notes in with the images). */
 .curating-text-card {
