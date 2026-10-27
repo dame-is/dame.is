@@ -1608,7 +1608,7 @@ function ArenaCoverField({ value, onChange, arenaSlug }) {
     fetchAllBlocks(slug, { maxPages: 2 })
       .then(({ blocks: bs, truncated }) => {
         if (cancelled) return;
-        // Only image/link blocks can be a cover — text tiles have no thumbnail.
+        // Only image/link/embed blocks can be a cover — text tiles have no thumbnail.
         const pickable = bs.filter((b) => b.thumb?.src);
         setBlocks(pickable);
         setStatus(
