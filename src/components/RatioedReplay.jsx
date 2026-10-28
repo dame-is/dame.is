@@ -20,7 +20,7 @@
 // together, off one clock: the track is where in the piece you are, the rows
 // are what has happened by the time you got there.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fmtDuration, fmtElapsed } from '../lib/ratioed.js';
 import { tallyWitness } from '../lib/ratioedLive.js';
 import { ME_DID } from '../config.js';
@@ -54,6 +54,18 @@ function tailPos(sec, maxSec) {
 /** The inverse, for putting a readable clock under the playhead. */
 function tailSec(frac, maxSec) {
   return 10 ** (frac * Math.log10(Math.max(maxSec, 1) + 1)) - 1;
+}
+
+/** How many of an ascending list of positions are at or before `at`. */
+function countUpTo(sorted, at, pos = (x) => x) {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (pos(sorted[mid]) <= at) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /**
@@ -132,33 +144,57 @@ export default function RatioedReplay({ piece, events, profiles = {}, parent }) 
     setPlaying(true);
   }, []);
 
-  const arrived = useMemo(() => marks.filter((m) => m.at <= progress), [marks, progress]);
-  const latest = arrived[arrived.length - 1] || null;
+  // The playhead moves every frame; what it has reached changes only when it
+  // passes a record. Everything below is keyed on what it has reached — how
+  // many records have arrived, and how many withdrawals have happened — so a
+  // frame that crosses nothing redraws the clock, the fill and the scrubber
+  // and nothing else.
+  // Keyed on `progress` itself, every row of the transcript, every mark on
+  // the track and the counters were rebuilt sixty times a second for the
+  // whole sweep; take 17 has 110 of them.
+  const arrivedCount = countUpTo(marks, progress, (m) => m.at);
+  const latest = arrivedCount ? marks[arrivedCount - 1] : null;
   const sealed = progress >= 1;
+
+  // A withdrawal is something that happens rather than something that was
+  // always true: the row stands until the playhead reaches the moment it was
+  // taken back, and strikes through there. These are the moments those
+  // happen at, in order, and the latest of them the playhead has passed.
+  const withdrawals = useMemo(
+    () =>
+      marks
+        .filter((m) => m.e.goneMs != null)
+        .map((m) => posOf(m.e.goneMs / 1000))
+        .sort((a, b) => a - b),
+    [marks, posOf],
+  );
+  const withdrawnCount = countUpTo(withdrawals, progress);
+  const withdrawnBy = withdrawnCount ? withdrawals[withdrawnCount - 1] : -Infinity;
 
   // The same records, in the shape the live feed reads them in — so a piece
   // being replayed a year later looks like the piece being watched, which is
   // the only honest thing for it to look like.
   //
-  // The key is made rather than read: the measured log has no record keys in
-  // it, because an index answers a piece with counts and handles, not rkeys.
-  // Who, what and when is unique enough for a list that never re-orders.
+  // A row keeps its record key when it has one, and a watched row hands its
+  // key on to the measured row it matches (see composeEventLog), so a reply
+  // can be found on the AppView and opened with whatever it carried. A measured
+  // row nothing gave a key is named in `id` instead — who, what and when, and
+  // its place in the log — and has no rkey at all: an invented one went to the
+  // AppView as a post to look up, four times over, for every such reply.
   const feedRows = useMemo(
     () =>
-      arrived.map(({ e }) => {
+      marks.slice(0, arrivedCount).map(({ e, i }) => {
         const goneAt = e.goneMs != null ? posOf(e.goneMs / 1000) : null;
+        const who = e.did || e.h;
         return {
           ...e,
-          rkey: e.rkey || `${e.k}:${Math.round(e.off * 1000)}:${e.did || e.h}`,
+          id: e.rkey ? `${who}/${e.rkey}` : `${e.k}:${Math.round(e.off * 1000)}:${who}:${i}`,
           offMs: e.off * 1000,
           after: !e.pre,
-          // A withdrawal is something that happens rather than something that
-          // was always true: the row stands until the playhead reaches the
-          // moment it was taken back, and strikes through there.
-          goneMs: goneAt != null && goneAt <= progress ? e.goneMs : undefined,
+          goneMs: goneAt != null && goneAt <= withdrawnBy ? e.goneMs : undefined,
         };
       }),
-    [arrived, progress, posOf],
+    [marks, arrivedCount, withdrawnBy, posOf],
   );
   const aliveRows = useMemo(() => feedRows.filter((r) => !r.after), [feedRows]);
   const since = feedRows.length - aliveRows.length;
@@ -167,6 +203,53 @@ export default function RatioedReplay({ piece, events, profiles = {}, parent }) 
   const clock = sealed
     ? `sealed · +${fmtElapsed(tailSec(progress - 1, maxTail))}`
     : `+${fmtDuration(progress * lifeSec * 1000)}`;
+
+  // Built once per arrival rather than once per frame; see `arrivedCount`.
+  const tracks = useMemo(() => {
+    const alive = [];
+    const after = [];
+    marks.forEach((m, n) => {
+      const on = n < arrivedCount;
+      if (m.at <= 1) {
+        alive.push(
+          <Mark
+            key={`a${m.i}`}
+            mark={m}
+            left={m.at * 100}
+            on={on}
+            profiles={profiles}
+            lifeSec={lifeSec}
+          />,
+        );
+      } else {
+        after.push(
+          <Mark
+            key={`b${m.i}`}
+            mark={m}
+            left={(m.at - 1) * 100}
+            on={on}
+            profiles={profiles}
+            lifeSec={lifeSec}
+          />,
+        );
+      }
+    });
+    return { alive, after };
+  }, [marks, arrivedCount, profiles, lifeSec]);
+  const counters = useMemo(() => <RatioedCounters tally={tally} />, [tally]);
+  const transcript = useMemo(
+    () => (
+      <RatioedTicker
+        rows={feedRows}
+        profiles={profiles}
+        openable={false}
+        quiet
+        parent={parent}
+        empty="Nothing yet. Nobody has touched it."
+      />
+    ),
+    [feedRows, profiles, parent],
+  );
 
   return (
     <div className="ratioed-replay">
@@ -206,11 +289,7 @@ export default function RatioedReplay({ piece, events, profiles = {}, parent }) 
       <div className="ratioed-replay-track">
         <div className="ratioed-replay-alive" style={{ '--fill': `${Math.min(progress, 1) * 100}%` }}>
           <span className="ratioed-replay-band" />
-          {marks
-            .filter((m) => m.at <= 1)
-            .map((m) => (
-              <Mark key={`a${m.i}`} mark={m} left={m.at * 100} on={m.at <= progress} profiles={profiles} lifeSec={lifeSec} />
-            ))}
+          {tracks.alive}
         </div>
         <div className="ratioed-replay-seal" data-on={sealed || undefined} aria-hidden="true" />
         <div
@@ -218,18 +297,7 @@ export default function RatioedReplay({ piece, events, profiles = {}, parent }) 
           style={{ '--fill': `${Math.max(0, Math.min(progress - 1, 1)) * 100}%` }}
         >
           <span className="ratioed-replay-band" />
-          {marks
-            .filter((m) => m.at > 1)
-            .map((m) => (
-              <Mark
-                key={`b${m.i}`}
-                mark={m}
-                left={(m.at - 1) * 100}
-                on={m.at <= progress}
-                profiles={profiles}
-                lifeSec={lifeSec}
-              />
-            ))}
+          {tracks.after}
         </div>
       </div>
 
@@ -247,6 +315,10 @@ export default function RatioedReplay({ piece, events, profiles = {}, parent }) 
           max="2"
           step="0.001"
           value={progress}
+          // The scale is 0 to 2 because the track is two phases end to end,
+          // which is nothing a listener should have to hear. The clock above
+          // it is what the position means.
+          aria-valuetext={clock}
           onChange={(ev) => {
             setPlaying(false);
             setProgress(Number(ev.target.value));
@@ -274,25 +346,20 @@ export default function RatioedReplay({ piece, events, profiles = {}, parent }) 
           counters are the alive window only — that is the measurement, and a
           number that keeps climbing through the afterlife is a different
           claim. What has landed since gets its own line. */}
-      <RatioedCounters tally={tally} />
+      {counters}
       {since > 0 && (
         <p className="ratioed-replay-count">
           {since} more since the seal, on a post nobody can reply to
         </p>
       )}
-      <RatioedTicker
-        rows={feedRows}
-        profiles={profiles}
-        openable={false}
-        quiet
-        parent={parent}
-        empty="Nothing yet. Nobody has touched it."
-      />
+      {transcript}
     </div>
   );
 }
 
-function Mark({ mark, left, on, profiles, lifeSec }) {
+// Memoised: an arrival changes one mark's `on`, and the rest of the track has
+// nothing new to draw.
+const Mark = memo(function Mark({ mark, left, on, profiles, lifeSec }) {
   const { e } = mark;
   const handle = profiles[e.did]?.handle || e.h;
   const when = e.pre
@@ -305,4 +372,4 @@ function Mark({ mark, left, on, profiles, lifeSec }) {
       title={`${e.k} · @${handle} · ${when}${e.t ? `\n${e.t}` : ''}`}
     />
   );
-}
+});

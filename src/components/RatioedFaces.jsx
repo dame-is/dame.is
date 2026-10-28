@@ -16,6 +16,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { fmtDuration, fmtElapsed, foldFaces } from '../lib/ratioed.js';
 import { participantHref } from '../lib/ratioedParticipant.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import './RatioedFaces.css';
 
 const KIND_VERB = { like: 'liked', repost: 'reposted', quote: 'quoted', reply: 'replied' };
@@ -148,7 +149,7 @@ function Face({ person, profile, lifeSec, parent }) {
     <>
       <span className="ratioed-face-frame" data-gone={gone || undefined}>
         {profile?.avatar ? (
-          <img src={profile.avatar} alt="" loading="lazy" width="48" height="48" />
+          <img src={avatarThumb(profile.avatar)} alt="" loading="lazy" width="48" height="48" />
         ) : (
           <span className="ratioed-face-blank" aria-hidden="true">
             {gone ? '·' : (handle || '?').slice(0, 1)}

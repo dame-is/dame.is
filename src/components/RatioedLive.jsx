@@ -65,15 +65,6 @@ const BUDGET_BYTES = 256 * 1024 * 1024;
 // page that owns it, not here.
 const TICK_MS = 1000;
 
-/** Is this a connection somebody would want a firehose on by default? */
-function firehoseIsPolite() {
-  if (typeof navigator === 'undefined') return false;
-  const c = navigator.connection;
-  if (c?.saveData) return false;
-  if (c?.effectiveType && /2g|3g/.test(c.effectiveType)) return false;
-  return true;
-}
-
 /* ------------------------------------------------------------------ */
 
 /**
@@ -86,13 +77,25 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
   const [rows, setRows] = useState(() => piece?.witnessed || []);
   const [profiles, setProfiles] = useState({});
   const [now, setNow] = useState(() => Date.now());
-  const [streamOn, setStreamOn] = useState(firehoseIsPolite);
+  // Off until somebody turns it on, as the header says. It used to start on
+  // any connection that didn't report itself as slow — and Safari and every
+  // browser on iOS report nothing at all, while a phone on 4G reports "4g" —
+  // so the visitors arriving from a Bluesky link on a phone, which is most of
+  // them, were reading 166 KB/s of other people's posts without being asked.
+  const [streamOn, setStreamOn] = useState(false);
   const [stream, setStream] = useState(null);
   const [run, setRun] = useState(0);
+  // What every socket this deck has opened has cost between them. The budget
+  // is the deck's, not one socket's: each `watchSubject` counts from zero, so
+  // when backgrounding the tab closed the stream and coming back reopened it,
+  // a stream that had spent its 256 MB came back with another 256 MB, and
+  // again on every switch, without "start it again" ever being pressed.
+  const spentBytes = useRef(0);
+  const [spent, setSpent] = useState(false);
   // Reading a firehose into a tab nobody is looking at is the one kind of
-  // waste here with nothing on the other side of it. The record poll carries
-  // on regardless and backfills whatever the socket missed, so a visitor who
-  // comes back to the tab has lost nothing but the milliseconds.
+  // waste here with nothing on the other side of it. The record poll backfills
+  // whatever the socket missed the moment the tab is back, so a visitor who
+  // returns to it has lost nothing but the milliseconds.
   const [visible, setVisible] = useState(
     () => typeof document === 'undefined' || document.visibilityState !== 'hidden',
   );
@@ -120,10 +123,24 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
   }, []);
 
   useEffect(() => {
-    if (!streamOn || !visible || !piece?.subject || !Number.isFinite(postedMs)) return undefined;
+    if (!streamOn || spent || !visible || !piece?.subject || !Number.isFinite(postedMs)) {
+      return undefined;
+    }
+    const before = spentBytes.current;
+    const left = BUDGET_BYTES - before;
+    // Never opened on nothing: `watchSubject` reads a budget of zero as no
+    // budget at all.
+    if (left <= 0) {
+      setSpent(true);
+      return undefined;
+    }
     return watchSubject(piece.subject, {
-      budgetBytes: BUDGET_BYTES,
-      onStatus: setStream,
+      budgetBytes: left,
+      onStatus: (status) => {
+        spentBytes.current = before + (status.bytes || 0);
+        setStream({ ...status, bytes: spentBytes.current });
+        if (status.state === 'spent') setSpent(true);
+      },
       onEvent: (ev) => {
         setRows((r) => {
           if (ev.op === 'delete') {
@@ -134,7 +151,7 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
         });
       },
     });
-  }, [streamOn, visible, run, piece?.subject, postedMs]);
+  }, [streamOn, spent, visible, run, piece?.subject, postedMs]);
 
   // Faces and names for whoever turns up, resolved as new DIDs appear. The log
   // carries the handle the studio stamped in; this is what makes it a face.
@@ -181,10 +198,15 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
         </span>
         <StreamState
           on={streamOn}
-          paused={streamOn && !visible}
+          spent={spent}
+          paused={streamOn && !spent && !visible}
           stream={stream}
           onToggle={() => setStreamOn((v) => !v)}
-          onRestart={() => setRun((n) => n + 1)}
+          onRestart={() => {
+            spentBytes.current = 0;
+            setSpent(false);
+            setRun((n) => n + 1);
+          }}
         />
       </header>
 
@@ -234,9 +256,15 @@ export default function RatioedLive({ piece, record = null, series = null, copy 
  * nothing for minutes, and a panel whose only number is a byte count that also
  * only moved on a match looked broken for exactly as long as it was working.
  */
-function StreamState({ on, paused, stream, onToggle, onRestart }) {
+function StreamState({ on, spent, paused, stream, onToggle, onRestart }) {
   const mb = ((stream?.bytes || 0) / 1024 / 1024).toFixed(1);
-  const state = !on ? 'off' : paused ? 'paused' : stream?.state || 'connecting';
+  const state = !on
+    ? 'off'
+    : spent
+      ? 'spent'
+      : paused
+        ? 'paused'
+        : stream?.state || 'connecting';
   const rate = stream?.rate ? `${stream.rate.toLocaleString()}/s · ` : '';
   const label = !on
     ? 'from the record'

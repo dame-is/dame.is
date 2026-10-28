@@ -141,6 +141,55 @@ export function gapSummary(values, nowMs = Date.now()) {
   return { stuckRows, stuckPieces, needAName, fixable };
 }
 
+/**
+ * What on the PDS exists nowhere else, record by record — the question a
+ * "delete all" is actually asking.
+ *
+ * The bundle is two files that cover different things, and treating them as
+ * one is how this went wrong. The seed holds the FIGURES of every piece sealed
+ * when it was written, with the logs stripped out; the event harvest holds the
+ * alive-window log of the first eleven and nothing else. A witnessed log is in
+ * neither, ever: it is what the studio watched happen, and the record is the
+ * only place it was written down. So a piece can be in the seed and still be
+ * the only copy of its own evidence — which, for takes 12 to 35, the delete
+ * dialog used to say the opposite of.
+ *
+ * @param {object} live  rkey → record value, as listed from the PDS
+ * @param {object} bundle
+ * @param {Set<string>} bundle.figures  rkeys whose figures the seed holds
+ * @param {Set<string>} bundle.logs     rkeys whose event log the harvest holds
+ * @returns {Array<{ rkey, take, figures: boolean, events: boolean, witnessed: boolean }>}
+ *   one entry per record holding anything the bundle can't put back, in take
+ *   order; each flag says that part of it is on the PDS alone
+ */
+export function onlyOnPds(live, { figures, logs } = {}) {
+  const out = [];
+  for (const [rkey, v] of Object.entries(live || {})) {
+    if (!v) continue;
+    const entry = {
+      rkey,
+      take: v.take ?? 0,
+      figures: !figures?.has(rkey),
+      events: Array.isArray(v.events) && v.events.length > 0 && !logs?.has(rkey),
+      witnessed: Array.isArray(v.witnessed) && v.witnessed.length > 0,
+    };
+    if (entry.figures || entry.events || entry.witnessed) out.push(entry);
+  }
+  return out.sort((a, b) => a.take - b.take);
+}
+
+/** Take numbers as runs, for a sentence: `[1, 2, 3, 7, 9, 10]` → `1–3, 7, 9–10`. */
+export function takeRuns(takes) {
+  const sorted = [...new Set((takes || []).filter(Number.isFinite))].sort((a, b) => a - b);
+  const runs = [];
+  for (const t of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && t === last[1] + 1) last[1] = t;
+    else runs.push([t, t]);
+  }
+  return runs.map(([a, b]) => (a === b ? String(a) : `${a}–${b}`)).join(', ');
+}
+
 /** Is there anything here a repair would actually write? */
 export function worthRepairing(value, nowMs = Date.now()) {
   const g = pieceGaps(value, nowMs);

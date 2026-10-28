@@ -60,23 +60,32 @@ import {
   buildEventLog,
   buildPieceRecord,
 } from '../lib/ratioedDiscovery.js';
-import { repairPiece, gapSummary } from '../lib/ratioedRepair.js';
+import { repairPiece, gapSummary, onlyOnPds, takeRuns } from '../lib/ratioedRepair.js';
 import { resolveBreaker, witnessFromRecord } from '../lib/ratioedLive.js';
 import { loadTemplate } from '../lib/ratioedStudio.js';
 import { resolveProfiles } from '../lib/atproto.js';
 import { getBacklinkCount } from '../lib/constellation.js';
+// The bundled event harvest, read here only for which pieces it covers. This
+// panel is in the admin's own chunk, so nobody else downloads it for this.
+import BUNDLED_EVENTS from '../data/ratioedEvents.json';
 import './RatioedPanel.css';
 
 const NSID = COLLECTIONS.ratioedPiece;
-// Which pieces the bundle covers, so a row can say whether the PDS record is
-// the only copy of it that exists anywhere.
+// Which pieces the bundled seed has the FIGURES of. The build regenerates it
+// from every sealed piece, with the logs stripped out — so this is most of the
+// series, and it says nothing about whether a piece's evidence is anywhere
+// but the PDS. See `onlyOnPds`.
 const SEED_KEYS = new Set(SEED_PIECES.map((p) => p.rkey));
 const STANDARD_DOC = 'site.standard.document';
 
-// The pieces the bundled event log covers. They were measured before records
-// carried their own log, and the site still draws them from the bundle, so
-// they don't need one written.
-const SEEDED = new Set(SEED_PIECES.map((p) => p.rkey));
+// The pieces the bundled event LOG covers: the first eleven, measured before
+// records carried their own log. The site still draws them from the bundle,
+// so they don't need one written. This was built from the seed once, which
+// was right while the seed was those same eleven pieces and stopped being
+// right when the build started regenerating it — it called takes 12 to 35
+// covered by a log that has never held them.
+const SEEDED = new Set(Object.keys(BUNDLED_EVENTS));
+const BUNDLE = { figures: SEED_KEYS, logs: SEEDED };
 
 // How far back the scan reads, per collection. The scan used to take a single
 // page of 100, which is about three days of dame's timeline — so a piece not
@@ -202,7 +211,10 @@ export default function RatioedPanel({ agent, did }) {
   // the stale bundle, so the whole-value putRecord in `publishAll` would have
   // written the July value back over the repaired one. One press, 126 recorded
   // event rows gone.
+  // Everything on the PDS that the bundle could not put back.
+  const unbacked = useMemo(() => onlyOnPds(live, BUNDLE), [live]);
   const roster = useMemo(() => {
+    const alone = new Set(unbacked.map((u) => u.rkey));
     const byKey = new Map();
     for (const piece of SEED_PIECES) {
       const { rkey, ...record } = piece;
@@ -211,10 +223,10 @@ export default function RatioedPanel({ agent, did }) {
     for (const [rkey, record] of Object.entries(live)) {
       const piece = normalizePiece(rkey, record);
       if (!piece) continue;
-      byKey.set(rkey, { rkey, piece, record, pdsOnly: !SEED_KEYS.has(rkey) });
+      byKey.set(rkey, { rkey, piece, record, pdsOnly: alone.has(rkey) });
     }
     return Array.from(byKey.values()).sort((a, b) => a.piece.take - b.piece.take);
-  }, [live]);
+  }, [live, unbacked]);
 
   // Pieces whose recorded event log is missing, or predates the DID being
   // recorded alongside each handle — without it the build can't fold those
@@ -254,11 +266,22 @@ export default function RatioedPanel({ agent, did }) {
       setError('Every piece is already on the PDS. Nothing to write.');
       return;
     }
+    // The seed has figures and no logs, so a piece outside the first eleven
+    // goes back up as its numbers alone: the charts draw it with no marks, and
+    // its page has no replay. Said before, rather than found afterwards.
+    const bare = missing.filter(({ rkey }) => !SEEDED.has(rkey)).map((m) => m.piece.take);
     if (
       !window.confirm(
         `Write ${missing.length} ${NSID} record${missing.length === 1 ? '' : 's'} to your PDS?\n\n` +
-          `Takes ${missing.map((m) => m.piece.take).join(', ')} — the ones not there yet. ` +
+          `Takes ${takeRuns(missing.map((m) => m.piece.take))} — the ones not there yet. ` +
           `The ${roster.length - missing.length} already published are left alone.\n\n` +
+          (bare.length
+            ? `Take${bare.length === 1 ? '' : 's'} ${takeRuns(bare)} will have ${
+                bare.length === 1 ? 'its' : 'their'
+              } figures and no event log: the bundle never held one for ${
+                bare.length === 1 ? 'it' : 'them'
+              }.\n\n`
+            : '') +
           'Publishing makes each record a backlink on the post it measures.',
       )
     ) {
@@ -611,23 +634,36 @@ export default function RatioedPanel({ agent, did }) {
   async function deleteAll() {
     const keys = Object.keys(live);
     if (!keys.length) return;
-    // Name the part that cannot be undone. The bundle can re-seed the first
-    // eleven; nothing can re-seed the rest — their event logs, their witnessed
-    // logs and their measurements exist on the PDS and nowhere else, and
-    // public/data/ratioed.json is not a backup, it is regenerated FROM the PDS
-    // on the next build. A dialog that says only "delete 17 records" is not
-    // asking the question it is actually asking.
-    const orphans = roster.filter((r) => live[r.rkey] && !SEED_KEYS.has(r.rkey));
-    const takes = orphans.map((r) => r.piece.take).sort((a, b) => a - b);
+    // Name the part that cannot be undone. The bundle can re-seed the figures
+    // of most of the series and the event logs of the first eleven; nothing can
+    // re-seed the rest — the logs of every later take, every witnessed log, and
+    // the figures of anything sealed since the seed was written exist on the
+    // PDS and nowhere else, and public/data/ratioed.json is not a backup, it is
+    // regenerated FROM the PDS on the next build. A dialog that says only
+    // "delete 17 records" is not asking the question it is actually asking —
+    // and this one used to say the seed covered takes 1–35, about pieces whose
+    // logs it has never held.
+    const takesOf = (pick) => {
+      const takes = unbacked.filter(pick).map((u) => u.take);
+      return takes.length ? `take${takes.length === 1 ? '' : 's'} ${takeRuns(takes)}` : '';
+    };
+    const noFigures = takesOf((u) => u.figures);
+    const noLogs = takesOf((u) => u.events || u.witnessed);
+    const lost = [
+      noFigures && `${noFigures}: everything, figures included — the seed never held them`,
+      noLogs && `${noLogs}: the event logs, and everything the studio witnessed while they ran`,
+    ].filter(Boolean);
+    const seedTakes = takeRuns(SEED_PIECES.map((p) => p.take));
+    const logTakes = takeRuns(SEED_PIECES.filter((p) => SEEDED.has(p.rkey)).map((p) => p.take));
     if (
       !window.confirm(
         `Delete all ${keys.length} ${NSID} records from your PDS?\n\n` +
-          (orphans.length
-            ? `${orphans.length} of them exist nowhere else: take${orphans.length === 1 ? '' : 's'} ` +
-              `${takes.join(', ')}, with their event logs and everything the studio ` +
-              `witnessed while they ran. Those cannot be recovered — the bundled seed ` +
-              `only covers takes ${SEED_PIECES[0]?.take}–${SEED_PIECES[SEED_PIECES.length - 1]?.take}.`
-            : 'All of them are in the bundled seed and can be re-published.'),
+          (lost.length
+            ? `${unbacked.length} of them hold something that exists nowhere else, and it ` +
+              `cannot be recovered:\n\n${lost.map((l) => `• ${l}`).join('\n')}\n\n` +
+              `The bundle can put back the figures for takes ${seedTakes} and the event ` +
+              `logs for takes ${logTakes}, and nothing else.`
+            : 'Everything in them is in the bundle and can be re-published.'),
       )
     ) {
       return;
@@ -847,8 +883,9 @@ export default function RatioedPanel({ agent, did }) {
                   <span className={`ratioed-panel-state${onPds ? ' live' : ''}`}>
                     {onPds ? 'published' : 'not published'}
                   </span>
-                  {/* A piece measured in the app, with no counterpart in the
-                      bundle — so its record is the only copy there is. */}
+                  {/* Something this record holds — its figures, its event log,
+                      what the studio witnessed — is in no bundle, so the record
+                      is the only copy of it there is. */}
                   {pdsOnly && <span className="ratioed-panel-state">pds only</span>}
                   {onPds && (
                     <Link

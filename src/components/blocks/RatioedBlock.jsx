@@ -4,6 +4,7 @@ import {
   SEED_PIECES,
   SEED_PEOPLE,
   loadPieces,
+  loadLivePieces,
   livingRoster,
   loadPeople,
   roleOf,
@@ -17,6 +18,7 @@ import {
   areaRadius,
   piecePath,
   finished,
+  aliveTicks,
   WEEKDAYS,
   fmtDuration,
   fmtSeconds,
@@ -30,14 +32,13 @@ import {
   fmtReach,
 } from '../../lib/ratioedReach.js';
 import { projectStats } from '../../lib/ratioedStats.js';
-import { resolvePds } from '../../lib/atproto.js';
 import { paletteForHour } from '../../lib/skyTheme.js';
 import { ratioedScaleVars } from '../../lib/ratioedPalette.js';
 import { participantPath } from '../../lib/ratioedParticipant.js';
 import { useTheme } from '../../hooks/useTheme.jsx';
 import ScrollFrame from '../ScrollFrame.jsx';
 import RatioedHandle from '../RatioedHandle.jsx';
-import { ME_DID, RATIOED_PATH } from '../../config.js';
+import { RATIOED_PATH } from '../../config.js';
 import './RatioedBlock.css';
 
 const KINDS = ['reply', 'repost', 'quote', 'like'];
@@ -52,6 +53,9 @@ const EVENT_VARIANTS = new Set(['lifelines', 'hidden', 'participants', 'reach', 
 // Variants that also need the dated audience table, which is what gives the
 // pieces measured before follower counts were recorded a reach at all.
 const AUDIENCE_VARIANTS = new Set(['reach', 'participants', 'summary']);
+// Variants that read the roster: the summary counts it, the participants table
+// is it. The rest never look at a person, and the roster is a 113kB file.
+const PEOPLE_VARIANTS = new Set(['summary', 'participants']);
 const KIND_LABEL = { reply: 'reply', repost: 'repost', quote: 'quote', like: 'like' };
 const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
 
@@ -68,28 +72,6 @@ const ABBR = { reply: 'reply', repost: 'RT', quote: 'QT', like: '♥' };
  * the data. Null when nothing is measurable, in which case there is nothing to
  * infer from and no band gets drawn.
  */
-/**
- * Where to put the marks on the alive axis, derived from what the axis holds.
- *
- * It was the literal [0, 300, … 1500] — five minutes to twenty-five — beside a
- * header printing the real maximum. Take 14's 42m09s put the last tick at 59%
- * and left the right two-fifths of a shared axis unlabelled; and because the
- * ticks are absolute seconds over a max-derived denominator, a series whose
- * longest piece dropped under 25m would have pushed them past 100% and out of a
- * container with no overflow rule. Same class of hardcoded range this file
- * already replaced once, for the reaction band.
- */
-function aliveTicks(maxSec) {
-  const span = Math.max(maxSec || 0, 1);
-  // A step from the 1-2-5 family, so the labels stay round minutes.
-  const raw = span / 5;
-  const pow = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= raw) || pow * 10;
-  const out = [];
-  for (let t = 0; t < span; t += step) out.push(Math.round(t));
-  return out;
-}
-
 function reactionBand(pieces) {
   const ms = (pieces || [])
     .map((p) => p.breaker?.reactionMs)
@@ -186,6 +168,7 @@ export default function RatioedBlock({ block, style }) {
   // The roster the build regenerated, which knows about pieces added since the
   // bundle was harvested. Falls back to the bundle it was built from.
   useEffect(() => {
+    if (!PEOPLE_VARIANTS.has(variant)) return undefined;
     let alive = true;
     loadPeople().then((fresh) => {
       if (alive && fresh?.length) setPeople(fresh);
@@ -193,8 +176,11 @@ export default function RatioedBlock({ block, style }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [variant]);
 
+  // Both reads are shared with every other block on the page (see "Shared
+  // reads" in lib/ratioed.js): the essay has seven of these, and each used to
+  // make its own.
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -208,14 +194,11 @@ export default function RatioedBlock({ block, style }) {
       if (alive && fromSnap?.length) setPieces(fromSnap);
 
       // Then the PDS, which is the only place a piece published since that
-      // build exists.
-      const pds = await resolvePds(ME_DID).catch(() => null);
-      if (!pds) return;
-      // Only the finished ones. A piece that is up right now has no seal to
-      // plot against and no measurement to average, and every chart here reads
-      // the project as a completed series.
-      const fresh = finished(await loadPieces(pds));
-      if (alive && fresh?.length) setPieces(fresh);
+      // build exists. Only the finished ones: a piece that is up right now has
+      // no seal to plot against and no measurement to average, and every chart
+      // here reads the project as a completed series.
+      const fresh = finished(await loadLivePieces());
+      if (alive && fresh.length) setPieces(fresh);
     })();
     return () => {
       alive = false;
@@ -317,7 +300,13 @@ export default function RatioedBlock({ block, style }) {
         : null,
     [variant, pieces, eventLog, audience],
   );
-  const roster = useMemo(() => livingRoster(pieces, people, eventLog), [pieces, people, eventLog]);
+  // Only where something reads it: the summary's "came back" tile and the
+  // participants table. Every other variant was folding the whole roster
+  // against every log on each render for nothing.
+  const roster = useMemo(
+    () => (PEOPLE_VARIANTS.has(variant) ? livingRoster(pieces, people, eventLog) : null),
+    [variant, pieces, people, eventLog],
+  );
   // Project-wide reach, for the caption to quote. Null until both halves of the
   // join are in, which is what keeps the caption from stating a total drawn
   // from the two pieces that carry their own audience.
@@ -429,9 +418,14 @@ const hourLabel = (h) =>
 function markTitle(m) {
   return `Take ${m.take} · ${WEEKDAYS[m.day]} ${String(m.hour).padStart(2, '0')}:${String(
     m.minute,
-  ).padStart(2, '0')} · alive ${fmtDuration(m.lifespanMs)} · ${m.engagement} events from ${
-    m.participants
-  } people`;
+  ).padStart(2, '0')} · alive ${fmtDuration(m.lifespanMs)} · ${drew(m)}`;
+}
+
+/** `12 events from 5 people`, `1 event from 1 person`. */
+function drew(m) {
+  return `${plural(m.engagement, 'event')} from ${m.participants} ${
+    m.participants === 1 ? 'person' : 'people'
+  }`;
 }
 
 function Marks({ sized, cx, cy }) {
@@ -470,6 +464,41 @@ function When({ pieces }) {
       ) : (
         <WhenWide sized={sized} label={label} />
       )}
+
+      {/* What each mark says, in words. The marks carry it as a <title>, which
+          only a mouse can reach: the SVG is one image to a screen reader, so
+          its children are presentation, and a finger has no hover. Unseen on
+          screen, where the chart is the same table drawn. Hidden on a wrapping
+          <div> rather than the table itself, which sizes to its unwrapped rows
+          and widened the page on a phone. */}
+      <div className="ratioed-when-sr">
+        <table>
+          <caption>Every piece by when it was posted, in Eastern time</caption>
+          <thead>
+            <tr>
+              <th scope="col">take</th>
+              <th scope="col">posted</th>
+              <th scope="col">alive</th>
+              <th scope="col">drew</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...marks]
+              .sort((a, b) => a.take - b.take)
+              .map((m) => (
+                <tr key={m.rkey}>
+                  <th scope="row">{String(m.take).padStart(2, '0')}</th>
+                  <td>
+                    {WEEKDAYS[m.day]} {String(m.hour).padStart(2, '0')}:
+                    {String(m.minute).padStart(2, '0')}
+                  </td>
+                  <td>{fmtDuration(m.lifespanMs)}</td>
+                  <td>{drew(m)}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* A scale key, since the whole point of sizing the marks is reading
           magnitude off them. Shows the actual extremes in the data. */}
@@ -708,7 +737,7 @@ function Hidden({ pieces, events, parent }) {
       {rows.map((r, i) => (
         <div className="ratioed-hidden-row" key={`${r.rkey}-${i}`}>
           <div className="ratioed-hidden-when">
-            +{Math.round(r.afterSec)}s
+            +{fmtElapsed(r.afterSec)}
             <em>take {String(r.take).padStart(2, '0')}</em>
           </div>
           <div>
@@ -1004,7 +1033,7 @@ function Lifelines({ pieces, events, failed, stats, deltas, parent }) {
             {scale === 'true' ? `alive · 0 → ${fmtDuration(stats.maxLifespanMs)}` : 'alive · each row to its own scale'}
           </span>
           {(scale === 'true'
-            ? aliveTicks(maxLife).map((t) => [t / maxLife, t ? fmtDuration(t * 1000) : '0'])
+            ? aliveTicks(maxLife).map(({ t, label }) => [t / maxLife, label])
             : [[0, '0'], [0.25, '¼'], [0.5, '½'], [0.75, '¾'], [1, 'seal']]
           ).map(([pos, label], i, arr) => (
             <span
@@ -1164,18 +1193,22 @@ function PieceDetail({ piece, delta, parent }) {
                 ? `${fmtSeconds(b.reactionMs)}${b.likeSurvives === false ? ' (from the log; the like was deleted)' : ''}`
                 : 'unmeasurable — nothing timed the like'}
             </dd>
+            {/* The piece page's words for the same figure, so the two never
+                disagree about what it is or how to write it. */}
             <dt>announced</dt>
             <dd>
               {typeof piece.announceLagMs === 'number'
-                ? `${Math.round(piece.announceLagMs / 1000)}s after the gate`
+                ? `${fmtDuration(piece.announceLagMs)} after the seal`
                 : '—'}
             </dd>
           </dl>
         </div>
         <div className="ratioed-card">
-          <h4>While alive · {piece.preSeal.participants} participants</h4>
+          <h4>While alive · {plural(piece.preSeal.participants, 'participant')}</h4>
           <Mix m={piece.preSeal} />
-          <h4 className="ratioed-h4-gap">After the seal · {piece.postSeal.participants} actors</h4>
+          <h4 className="ratioed-h4-gap">
+            After the seal · {plural(piece.postSeal.participants, 'actor')}
+          </h4>
           <Mix m={piece.postSeal} />
           {delta && delta.total > 0 && (
             <p className="ratioed-delta">+{delta.total} since measured</p>
@@ -1206,6 +1239,9 @@ function PieceDetail({ piece, delta, parent }) {
   );
 }
 
+/** `1 participant`, `7 participants`. */
+const plural = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
 function Mix({ m }) {
   return (
     <p className="ratioed-mix">
@@ -1228,8 +1264,13 @@ function Mix({ m }) {
 /* ------------------------------------------------------------------ */
 
 function Reaction({ pieces }) {
-  const MAX = 20000;
   const band = reactionBand(pieces);
+  // The axis runs to the slowest measured reaction, rounded up to five
+  // seconds. It was a fixed 20s, the top of the 10–17s band the first eleven
+  // fell in; takes 23, 24 and 30 have since taken 26s, 47s and 33s, which drew
+  // their bars at up to 236% of the track and every inferred band at 231%,
+  // straight through the figures beside them.
+  const MAX = Math.ceil(((band?.hi || 0) * 1000) / 5000) * 5000 || 20000;
   // Chronological, not fastest-first: the point of this chart is that the
   // reaction time holds steady across thirteen months and wildly different
   // lifespans. Sorting by duration would hide exactly that.

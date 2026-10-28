@@ -19,31 +19,35 @@
   margin-bottom: var(--space-4);
 }
 
-/* Rank-by, as a segmented control. Three keys, one of them always on: a
+/* Rank-by, as a segmented control. Two keys, one of them always on: a
    leaderboard has an axis at all times, so there is no unsorted state to
-   return to and nothing here toggles off. */
-.ratioed-board-seg {
-  display: inline-flex;
-  border: 1px solid var(--rule);
-}
+   return to and nothing here toggles off.
+
+   Drawn the way the essay's True/Stretched and the replay's Real/Quick are —
+   a hairline per button and the pressed one inverted — so a reader moving
+   between the three meets one control rather than two. This one used to press
+   to the row-hover highlight, which on most hours of the sky is barely a
+   change at all. */
+.ratioed-board-seg { display: inline-flex; }
 .ratioed-board-seg button {
   font-family: var(--sans);
   font-variant: all-small-caps;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   font-size: var(--text-xs);
   padding: var(--space-1) var(--space-3);
-  border: 0;
+  border: 1px solid var(--rule);
   border-radius: 0;
   background: transparent;
   color: var(--ink-muted);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
-.ratioed-board-seg button + button { border-left: 1px solid var(--rule); }
+.ratioed-board-seg button + button { border-left: 0; }
 .ratioed-board-seg button:hover { color: var(--ink); }
 .ratioed-board-seg button[aria-pressed='true'] {
-  background: var(--highlight);
-  color: var(--ink);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--page);
 }
 
 .ratioed-board-find {
@@ -65,7 +69,12 @@
 .ratioed-board-head,
 .ratioed-board-row {
   display: grid;
-  grid-template-columns: var(--board-rank) minmax(0, 1fr) 7rem 5.5rem auto;
+  /* Every track fixed but the handle's, which is the only way separate grids
+     share columns. The role track was `auto`, so each row sized it to its own
+     chip — 51px for "was there", 127px for "broke #15 & #16 & #26" — and took
+     the difference out of the handle, sliding that row's bar, count and
+     audience left of the header and of the rows either side of it. */
+  grid-template-columns: var(--board-rank) minmax(0, 1fr) 7rem 5.5rem 9rem;
   align-items: center;
   gap: var(--space-3);
 }
@@ -99,6 +108,16 @@
    together; on a wide one the wrapper has to disappear, or it would occupy one
    grid column and stack them inside it. */
 .ratioed-board-figures { display: contents; }
+/* A role longer than its track is cut rather than allowed to widen it; the
+   whole of it is on the chip's title, and on the person's own page. */
+.ratioed-board-role { min-width: 0; }
+.ratioed-board-role .ratioed-tag {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
 
 /* The place, not the row number: it stays with the person when the board is
    re-sorted by audience, which is the whole reason it is printed rather than

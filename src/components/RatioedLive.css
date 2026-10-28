@@ -201,7 +201,10 @@
 }
 .ratioed-live-when { flex: none; width: 4.5em; }
 .ratioed-live-face { flex: none; }
-.ratioed-live-who { flex: 0 1 11em; }
+/* 14em rather than 11: wide enough for the long handles the series actually
+   has — `@girlpython.northsky.social` — now that a longer one is cut rather
+   than broken, and still a fixed basis, so the column holds. */
+.ratioed-live-who { flex: 0 1 14em; }
 .ratioed-live-text { flex: 1 1 8em; min-width: 0; }
 .ratioed-live-row:last-child { border-bottom: 0; }
 .ratioed-live-when { font-family: var(--mono, monospace); color: var(--ink-muted); }
@@ -215,7 +218,17 @@
   border-radius: 0;
   background: var(--rule-soft);
 }
-.ratioed-live-who { overflow-wrap: anywhere; }
+/* Cut to its column rather than broken across two lines. The column is a fixed
+   basis so the chips and the text after it line up down the feed; broken
+   anywhere, a long handle — the breaker's, on take 41 — stood its row two
+   lines tall as "@punishedtj.cryptoanarch / y.network", with most of the row
+   empty beside it. The whole handle is on the cell's title. */
+.ratioed-live-who {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* The artist's own records are in the log and in none of the counts. */
 .ratioed-live-row.is-self { color: var(--ink-faint); }
 .ratioed-live-self { font-size: var(--text-xs); color: var(--ink-muted); }
