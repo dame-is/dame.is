@@ -2690,6 +2690,16 @@ a.ledger-time:focus-visible {
   overflow-wrap: anywhere;
 }
 
+/* A phone's content column is about 200px, and a long handle
+   (@elucidating.extradimensional.space) broke mid-word across two lines of
+   it, pushing the date to a third. The name already links to the post, so
+   the handle steps out there; it still shows on the post's own page. */
+@media (max-width: 600px) {
+  .ledger-cite-handle {
+    display: none;
+  }
+}
+
 .ledger-cite-date {
   white-space: nowrap;
 }

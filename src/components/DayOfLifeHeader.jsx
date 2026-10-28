@@ -61,9 +61,9 @@ export function DayCounts({ items, link = true }) {
  * Feed.css); the cards layout stacks it.
  *
  * "Today" / "Yesterday" are relative to a clock that keeps running (useNow),
- * so a page left open past midnight moves them along. The chrome's strip reads
- * the day in view from `.day-section-header .day-header`; `data-day-short` is
- * its compact form, for a strip that wants one.
+ * so a page left open past midnight moves them along. The chrome reads the day
+ * in view from `.day-section-header .day-header` and takes `data-day-label`
+ * ("Today", "Oct 25") as its short form, beside the bar's ↑.
  */
 export default function DayOfLifeHeader({
   date,
@@ -75,7 +75,7 @@ export default function DayOfLifeHeader({
   const { name, date: dateText, short } = dayHeaderLabels(date, now);
   return (
     <header className={`day-section-header day-section-header-${variant}`}>
-      <h3 className="day-header" data-day-short={short}>
+      <h3 className="day-header" data-day-label={short}>
         <span className="day-header-name">{name}</span>
         {dateText && (
           <>

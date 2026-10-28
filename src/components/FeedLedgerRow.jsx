@@ -356,7 +356,7 @@ function DiaryDate({ date }) {
   const named = label === 'Today' || label === 'Yesterday';
   return (
     <header className="ledger-verb day-section-header ledger-diary-date">
-      <h3 className="day-header" aria-label={longDay(date)} data-day-short={named ? label : shortDay(date)}>
+      <h3 className="day-header" aria-label={longDay(date)} data-day-label={named ? label : shortDay(date)}>
         {named ? label : shortDay(date)}
       </h3>
       <span className="ledger-diary-dol">day {dayOfLife(date).toLocaleString('en-US')}</span>
