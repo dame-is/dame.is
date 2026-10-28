@@ -98,6 +98,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* A wide sheet would run the glosses out to a line no one reads in one go. */
+  max-width: 46rem;
 }
 
 .info-key-title {
