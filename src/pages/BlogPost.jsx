@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import PageShell from '../components/PageShell.jsx';
 import LeafletDocument from '../components/LeafletDocument.jsx';
 import Comments from '../components/Comments.jsx';
 import DocumentMeta from '../components/DocumentMeta.jsx';
 import SequenceFoot, { countWord } from '../components/SequenceFoot.jsx';
+import Fleuron from '../components/Fleuron.jsx';
 import { InspectMargin } from '../components/XraySubstrate.jsx';
 import { BlogPostSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
@@ -285,7 +286,7 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
         <LeafletDocument doc={value.content} />
         <footer className="blog-end">
           <p className="blog-end-mark" aria-hidden="true">
-            &#x2767;
+            <Fleuron />
           </p>
           {total > 1 && index >= 0 && (
             <SequenceFoot
@@ -300,6 +301,11 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
             />
           )}
         </footer>
+        <PrintColophon
+          created={created}
+          atUri={record?.uri}
+          replyCount={metrics?.replyCount}
+        />
         {commentsUri && (
           <Comments
             atUri={commentsUri}
@@ -313,6 +319,31 @@ function StandardPostBody({ record, essays = [], id, commentsUri, replies, repli
   );
 }
 
+/**
+ * What a printed essay carries instead of the screen's furniture (GAP-08):
+ * where it lives, when it was published and printed, the record it was set
+ * from, and how many replies it has, since the replies themselves don't go
+ * onto paper. Hidden on screen; Blogging.css shows it under @media print.
+ * Dates are absolute because a relative one is wrong a week after printing.
+ */
+function PrintColophon({ created, atUri, replyCount }) {
+  const { pathname } = useLocation();
+  return (
+    <footer className="blog-print-colophon">
+      <p>dame.is{pathname}</p>
+      <p>
+        {created ? `Published ${formatDateFull(created)}. ` : ''}
+        Printed {formatDateFull(new Date())}.
+        {replyCount ? ` ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'} on Bluesky.` : ''}
+      </p>
+      {atUri && (
+        <p>
+          <code>{atUri}</code>
+        </p>
+      )}
+    </footer>
+  );
+}
 
 function endsWithRkey(uri, rkey) {
   if (!uri || !rkey) return false;

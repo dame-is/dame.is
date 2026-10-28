@@ -32,6 +32,7 @@ import '../pages/Blogging.css';
 import '../components/WaypointsSheet.css';
 import '../components/Comments.css';
 import '../components/SequenceFoot.css';
+import '../components/Fleuron.css';
 import '../pages/Creating.css';
 import '../components/RatioedStats.css';
 import '../components/RatioedChip.css';

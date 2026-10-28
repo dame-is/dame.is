@@ -4,6 +4,7 @@
 // (The stats band is the shared Figures component now.)
 
 import FirstSightingChip from './FirstSightingChip.jsx';
+import Fleuron from './Fleuron.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
 import { formatObservedTime, mothName } from '../lib/mothing.js';
 
@@ -66,7 +67,9 @@ export function MothTile({ obs, onOpen, first = false }) {
         </button>
       ) : (
         <div className="mothing-tile mothing-tile-empty">
-          <div className="mothing-placeholder" aria-hidden="true">&#x1F98B;</div>
+          <div className="mothing-placeholder" aria-hidden="true">
+            <Fleuron />
+          </div>
           {caption}
         </div>
       )}

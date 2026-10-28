@@ -13,6 +13,7 @@ import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import FirstSightingChip from '../components/FirstSightingChip.jsx';
 import FeedMore from '../components/FeedMore.jsx';
+import Fleuron from '../components/Fleuron.jsx';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
 import { firstSightingIds } from '../lib/firstSightings.js';
 import {
@@ -164,7 +165,7 @@ function MothLedgerRow({ obs, onOpen, first = false }) {
         <img className="mothing-ledger-thumb" src={thumb} alt="" loading="lazy" decoding="async" />
       ) : (
         <span className="mothing-ledger-thumb mothing-ledger-thumb-empty" aria-hidden="true">
-          &#x1F98B;
+          <Fleuron />
         </span>
       )}
       <span className="mothing-ledger-names">
