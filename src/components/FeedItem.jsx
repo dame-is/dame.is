@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Check, CornerDownRight } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
@@ -116,6 +116,8 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
   // Ledger-only: whether a collapsed run — a listening session or a night of
   // moths — is showing its full list (see handleRowClick / FeedLedgerRow).
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
+  // Ids for the ledger row's x-ray cells, which describe the row in x-ray.
+  const xrayId = useId();
   const cfg = verbConfig(item.verb);
   if (!cfg) return null;
   const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
@@ -288,6 +290,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
       }
       role={selectable ? 'button' : undefined}
       aria-pressed={selectable ? selected : undefined}
+      aria-describedby={ledger && xrayActive ? `${xrayId}-nsid ${xrayId}-key` : undefined}
     >
       {selectable && (
         <span
@@ -300,6 +303,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
       {ledger && (
         <FeedLedgerRow
           item={item}
+          xrayId={xrayId}
           href={href}
           expanded={ledgerExpanded}
           onToggle={ledgerBatch ? () => setLedgerExpanded((v) => !v) : null}

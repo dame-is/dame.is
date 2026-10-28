@@ -3,6 +3,7 @@ import { useNowPlaying } from '../hooks/useNowPlaying.js';
 import { relativeTime } from '../lib/time.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import TickerText from './TickerText.jsx';
+import { xrayRecordAttrs } from '../lib/xray.js';
 
 export default function NowPlaying() {
   const play = useNowPlaying();
@@ -27,7 +28,7 @@ export default function NowPlaying() {
     </>
   );
   return (
-    <span className="chrome-signal chrome-signal-now-playing">
+    <span className="chrome-signal chrome-signal-now-playing" {...xrayRecordAttrs(play.atUri)}>
       <span className="chrome-signal-label">listening to</span>
       <TickerText className="chrome-signal-value" title={tooltip}>
         {href ? (

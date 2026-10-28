@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { useXray } from '../hooks/useXray.jsx';
 import LedgerXrayLine from './LedgerXrayLine.jsx';
@@ -30,6 +31,7 @@ export default function FlatLedger({ rows }) {
   // way the home feed ledger columns its gerund — so every title lines up.
   const kinded = rows.some((row) => row.kind);
   const xray = useXray();
+  const baseId = useId();
   return (
     <ol
       className={`feed-list feed-ledger feed-ledger-flat${kinded ? ' feed-ledger-flat-kinded' : ''} reveal-stagger`}
@@ -37,6 +39,7 @@ export default function FlatLedger({ rows }) {
       {rows.map((row, i) => {
         const inspectable = xray.active && !!row.atUri;
         const focused = inspectable && xray.focusUri === row.atUri;
+        const xrayId = `${baseId}-${i}`;
         return (
           <li
             key={row.key || i}
@@ -45,6 +48,7 @@ export default function FlatLedger({ rows }) {
             data-atproto={row.atUri ? '' : undefined}
             data-at-uri={row.atUri || undefined}
             data-cid={row.cid || undefined}
+            aria-describedby={inspectable ? `${xrayId}-nsid ${xrayId}-key` : undefined}
             onClickCapture={
               inspectable
                 ? (e) => {
@@ -84,7 +88,7 @@ export default function FlatLedger({ rows }) {
             ) : (
               <span className="ledger-time" />
             )}
-            {row.atUri && <LedgerXrayLine atUri={row.atUri} cid={row.cid} />}
+            {row.atUri && <LedgerXrayLine id={xrayId} atUri={row.atUri} cid={row.cid} />}
             {focused && <XraySubstratePanel atUri={row.atUri} cid={row.cid} />}
           </li>
         );

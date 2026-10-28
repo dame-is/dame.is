@@ -17,6 +17,18 @@
   min-width: 0;
 }
 
+/* The five readings, grouped because one record backs them all (x-ray
+   draws one underline under the group). Laid out as if they were still the
+   strip's own items. */
+.vitals-record,
+.vitals-readings {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: inherit;
+  min-width: 0;
+}
+
 .vitals-empty {
   align-items: baseline;
   gap: 0.45em;

@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAtUri } from '../hooks/useAtUri.js';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
+import { usePageCensus } from '../hooks/usePageRecords.js';
 import RecordEditor from './RecordEditor.jsx';
 import { ME_DID } from '../config.js';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
+import { censusLine } from '../lib/xray.js';
 import { BUILD_ID } from '../lib/appVersion.js';
 import './DebugOverlay.css';
 
@@ -19,6 +21,10 @@ export default function DebugPane({ onClose }) {
   const { agent, did, session, signIn } = useAtprotoSession();
   const [copied, setCopied] = useState(null);
   const [editing, setEditing] = useState(false);
+  // An aggregate page (home, a section index) has no one record: list what
+  // it's made of instead of three dashes.
+  const census = usePageCensus(!atUri && recordStatus !== 'loading');
+  const aggregate = !atUri && census.total > 0;
 
   const value = record?.value || record;
   const recordCid = cid || record?.cid || null;
@@ -52,18 +58,39 @@ export default function DebugPane({ onClose }) {
     <div className="debug-pane">
       <dl>
         <Row label="route" value={route} copyValue={route} copied={copied} onCopy={copy} />
-        <Row
-          label="at uri"
-          value={atUri}
-          copyValue={atUri}
-          linkTo={explorerPathFromAtUri(atUri)}
-          onNavigate={onClose}
-          mono
-          copied={copied}
-          onCopy={copy}
-        />
-        <Row label="cid" value={recordCid} copyValue={recordCid} mono copied={copied} onCopy={copy} />
-        <Row label="lexicon" value={lexicon} copyValue={lexicon} mono copied={copied} onCopy={copy} />
+        {aggregate ? (
+          <div className="debug-overlay-row debug-census">
+            <dt>records</dt>
+            <dd>
+              <span className="debug-census-line">{censusLine(census)}</span>
+              <ul className="debug-census-list">
+                {census.collections.map((c) => (
+                  <li key={`${c.did}/${c.nsid}`}>
+                    <Link to={explorerPathFromAtUri(`at://${c.did}/${c.nsid}`)} onClick={onClose}>
+                      {c.nsid}
+                    </Link>
+                    <span className="debug-census-count">{c.count.toLocaleString('en-US')}</span>
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        ) : (
+          <>
+            <Row
+              label="at uri"
+              value={atUri}
+              copyValue={atUri}
+              linkTo={explorerPathFromAtUri(atUri)}
+              onNavigate={onClose}
+              mono
+              copied={copied}
+              onCopy={copy}
+            />
+            <Row label="cid" value={recordCid} copyValue={recordCid} mono copied={copied} onCopy={copy} />
+            <Row label="lexicon" value={lexicon} copyValue={lexicon} mono copied={copied} onCopy={copy} />
+          </>
+        )}
         <Row label="pds" value={pds} copyValue={pds} placeholder="resolving…" mono copied={copied} onCopy={copy} />
         <Row label="appview" value="public.api.bsky.app" copyValue="public.api.bsky.app" mono copied={copied} onCopy={copy} />
         <Row label="build" value={BUILD_ID} copyValue={BUILD_ID} mono copied={copied} onCopy={copy} />
@@ -118,7 +145,7 @@ export default function DebugPane({ onClose }) {
           <div className="small-caps" style={{ marginTop: 'var(--space-3)' }}>raw record</div>
           <pre className="debug-overlay-json">{recordJson}</pre>
         </>
-      ) : (
+      ) : aggregate ? null : (
         <p className="debug-overlay-empty">{emptyStateText(recordStatus, { atUri, rkey, slug })}</p>
       )}
     </div>

@@ -43,3 +43,67 @@ export function atUriParts(atUri) {
     rkey: rkey ? `/${rkey}` : '',
   };
 }
+
+/**
+ * The attributes that make an element a record in x-ray's eyes: the row and
+ * HUD machinery read `data-atproto` / `data-at-uri`, and `data-xray-nsid`
+ * prints the collection beside an inline record (the chrome's live signals,
+ * the hero's phrases) as a dotted-underlined gloss. Empty for no URI.
+ */
+export function xrayRecordAttrs(atUri) {
+  const m = /^at:\/\/[^/]+\/([^/]+)\//.exec(String(atUri || ''));
+  if (!m) return {};
+  return { 'data-atproto': '', 'data-at-uri': atUri, 'data-xray-nsid': m[1] };
+}
+
+/** For a signal that isn't a record: x-ray says so, and says what it is. */
+export function xrayNotARecord(what) {
+  return { 'data-xray-note': `not a record · ${what}` };
+}
+
+/**
+ * What a reference record points at, for the x-ray tree's subject level:
+ * `{ uri, cid, handle }`, or null when the record isn't a reference (or
+ * points at an account rather than a record). Reads the feed payload's
+ * `subjectUri` / `subjectCid` (reposts) or a raw `subject` strong ref (likes).
+ */
+export function subjectOfRecord(value) {
+  if (!value || typeof value !== 'object') return null;
+  const ref = value.subjectRef || (typeof value.subject === 'object' ? value.subject : null);
+  const uri = value.subjectUri || ref?.uri || null;
+  if (!uri || !String(uri).startsWith('at://')) return null;
+  const { did } = parseAtUri(uri);
+  const handle = value.author?.did && value.author.did === did ? value.author.handle || null : null;
+  return { uri, cid: value.subjectCid || ref?.cid || null, handle };
+}
+
+/**
+ * A page's records counted by collection, most numerous first:
+ * `{ total, collections: [{ nsid, did, count }] }`. A record shown twice
+ * (a pinned post that's also in the feed) counts once.
+ */
+export function recordCensus(uris) {
+  const seen = new Set();
+  const byKey = new Map();
+  for (const uri of uris || []) {
+    if (!uri || seen.has(uri)) continue;
+    const { did, collection } = parseAtUri(uri);
+    if (!collection) continue;
+    seen.add(uri);
+    const key = `${did}/${collection}`;
+    const entry = byKey.get(key) || { nsid: collection, did, count: 0 };
+    entry.count += 1;
+    byKey.set(key, entry);
+  }
+  const collections = [...byKey.values()].sort((a, b) => b.count - a.count || a.nsid.localeCompare(b.nsid));
+  return { total: seen.size, collections };
+}
+
+/** "60 records in 4 collections", "1 record", "no records". */
+export function censusLine({ total, collections }) {
+  if (!total) return 'no records on this page';
+  const nsids = new Set(collections.map((c) => c.nsid)).size;
+  const records = `${total.toLocaleString('en-US')} ${total === 1 ? 'record' : 'records'}`;
+  if (nsids <= 1) return `${records} in ${collections[0].nsid}`;
+  return `${records} in ${nsids} collections`;
+}

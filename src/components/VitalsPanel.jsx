@@ -7,6 +7,7 @@ import { useDameState } from '../hooks/useDameState.js';
 import { activityLabel } from '../lib/activity.js';
 import DayOfLifeTicker from './DayOfLifeTicker.jsx';
 import './VitalsPanel.css';
+import { xrayRecordAttrs } from '../lib/xray.js';
 
 const ACTIVITY_ICON = {
   stationary: Armchair,
@@ -25,7 +26,7 @@ function batteryIcon(level, charging) {
 }
 
 export default function VitalsPanel() {
-  const { vitals } = useDameState();
+  const { vitals, uri } = useDameState();
   const reduce = useReducedMotion();
 
   // Nothing worth showing — no data yet, or every reading came back empty/0
@@ -55,50 +56,57 @@ export default function VitalsPanel() {
 
   return (
     <div className="vitals" aria-label="Current state from Dame's phone">
-      {vitals.heartRate != null && (
-        <span className="vital vital-heart" aria-label={`Heart rate ${vitals.heartRate} beats per minute`}>
-          <Heartbeat bpm={vitals.heartRate} animate={!reduce} />
-          <span className="vital-value">{vitals.heartRate}</span>
-          <span className="vital-unit">bpm</span>
-        </span>
-      )}
+      {/* One is.dame.state record sits behind all five readings, so x-ray's
+          underline spans them (the inner span) and its tag follows (the
+          outer span's ::after); the day of life beside them isn't part of it. */}
+      <span className="vitals-record" {...xrayRecordAttrs(uri)}>
+        <span className="vitals-readings">
+          {vitals.heartRate != null && (
+            <span className="vital vital-heart" aria-label={`Heart rate ${vitals.heartRate} beats per minute`}>
+              <Heartbeat bpm={vitals.heartRate} animate={!reduce} />
+              <span className="vital-value">{vitals.heartRate}</span>
+              <span className="vital-unit">bpm</span>
+            </span>
+          )}
 
-      {vitals.caloriesBurned != null && (
-        <span className="vital vital-cal" aria-label={`${vitals.caloriesBurned} calories burned today`}>
-          <Flame className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.caloriesBurned}</span>
-          <span className="vital-unit">cal</span>
-        </span>
-      )}
+          {vitals.caloriesBurned != null && (
+            <span className="vital vital-cal" aria-label={`${vitals.caloriesBurned} calories burned today`}>
+              <Flame className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-value">{vitals.caloriesBurned}</span>
+              <span className="vital-unit">cal</span>
+            </span>
+          )}
 
-      {vitals.soundLevel != null && (
-        <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
-          <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.soundLevel}</span>
-          <span className="vital-unit">dB</span>
-        </span>
-      )}
+          {vitals.soundLevel != null && (
+            <span className="vital vital-sound" aria-label={`Ambient sound ${vitals.soundLevel} decibels`}>
+              <Volume2 className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-value">{vitals.soundLevel}</span>
+              <span className="vital-unit">dB</span>
+            </span>
+          )}
 
-      {BatteryIcon && (
-        <span
-          className={`vital vital-battery ${vitals.charging ? 'is-charging' : ''} ${
-            vitals.batteryLevel <= 15 && !vitals.charging ? 'is-low' : ''
-          }`}
-          aria-label={`Battery ${vitals.batteryLevel} percent${vitals.charging ? ', charging' : ''}`}
-        >
-          <BatteryIcon className="vital-glyph" size={16} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-value">{vitals.batteryLevel}%</span>
-        </span>
-      )}
+          {BatteryIcon && (
+            <span
+              className={`vital vital-battery ${vitals.charging ? 'is-charging' : ''} ${
+                vitals.batteryLevel <= 15 && !vitals.charging ? 'is-low' : ''
+              }`}
+              aria-label={`Battery ${vitals.batteryLevel} percent${vitals.charging ? ', charging' : ''}`}
+            >
+              <BatteryIcon className="vital-glyph" size={16} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-value">{vitals.batteryLevel}%</span>
+            </span>
+          )}
 
-      {/* Activity sits last — it's a word rather than a number, so it reads
-          cleanly at the end of the numeric run. */}
-      {vitals.activity && (
-        <span className="vital vital-activity" aria-label={`Currently ${activityLabel(vitals.activity)}`}>
-          <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
-          <span className="vital-word">{activityLabel(vitals.activity)}</span>
+          {/* Activity sits last — it's a word rather than a number, so it reads
+              cleanly at the end of the numeric run. */}
+          {vitals.activity && (
+            <span className="vital vital-activity" aria-label={`Currently ${activityLabel(vitals.activity)}`}>
+              <ActivityIcon className="vital-glyph" size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span className="vital-word">{activityLabel(vitals.activity)}</span>
+            </span>
+          )}
         </span>
-      )}
+      </span>
 
       {/* Right edge: day of life, in the same small-caps label voice as
           LISTENING TO / FOLLOWED BY one bar up. */}

@@ -154,3 +154,47 @@
 .debug-overlay-editor .record-editor-compact .admin-field {
   margin-bottom: var(--space-3);
 }
+
+/* An aggregate page's records, by collection, each linked to its listing in
+   the explorer. */
+.debug-census dd {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.debug-census-line {
+  font-family: var(--serif);
+  color: var(--ink-soft);
+}
+
+.debug-census-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.debug-census-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.debug-census-list a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 0.2em;
+  word-break: break-all;
+}
+
+.debug-census-list a:hover {
+  color: var(--accent);
+}
+
+.debug-census-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}

@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
+import { xrayRecordAttrs } from '../lib/xray.js';
 
 /**
  * The home-page hero is one combinatorial sentence:
@@ -101,16 +102,20 @@ export default function HeroSentence({
   // Split records into the two pools by `part`, dropping disabled ones.
   // Fallback is per-part: if the PDS has roles but no clauses, clauses use
   // the in-file defaults rather than emptying the second half of the sentence.
-  const { poolA, poolB } = useMemo(() => {
+  const { poolA, poolB, uriOf } = useMemo(() => {
     const recs = heroRecords || [];
     const enabled = recs.filter(
       (r) => r.value?.enabled !== false && typeof r.value?.text === 'string' && r.value.text.trim(),
     );
     const roles = enabled.filter((r) => r.value.part === 'role').map((r) => r.value.text);
     const clauses = enabled.filter((r) => r.value.part === 'clause').map((r) => r.value.text);
+    // Each phrase's record, so x-ray can name the one on screen (the in-file
+    // fallbacks have none, and say nothing).
+    const uris = new Map(enabled.map((r) => [`${r.value.part}:${r.value.text}`, r.uri]));
     return {
       poolA: roles.length ? roles : VARIANTS_A,
       poolB: clauses.length ? clauses : VARIANTS_B,
+      uriOf: (part, text) => uris.get(`${part}:${text}`) || null,
     };
   }, [heroRecords]);
 
@@ -264,8 +269,20 @@ export default function HeroSentence({
       }}
     >
       <span className="hero-sentence-lead">dame is</span>{' '}
-      <Rotator index={indexA} pool={poolA} reduce={reduce} className="hero-rotator-a" />{' '}
-      <Rotator index={indexB} pool={poolB} reduce={reduce} className="hero-rotator-b" />
+      <Rotator
+        index={indexA}
+        pool={poolA}
+        reduce={reduce}
+        className="hero-rotator-a"
+        uri={uriOf('role', poolA[indexA])}
+      />{' '}
+      <Rotator
+        index={indexB}
+        pool={poolB}
+        reduce={reduce}
+        className="hero-rotator-b"
+        uri={uriOf('clause', poolB[indexB])}
+      />
 
       {/* Each measure entry mirrors the live nested structure (lead +
           two inline-block rotators) so wrapping at the rotator
@@ -305,7 +322,7 @@ function pickDifferent(current, length) {
   return next;
 }
 
-function Rotator({ index, pool, reduce, className = '' }) {
+function Rotator({ index, pool, reduce, className = '', uri = null }) {
   // Split the active phrase into words once per index change. Real
   // space text nodes between word spans preserve the wrap-anywhere
   // behavior the measure layer already counts on. Guard the lookup: the
@@ -316,11 +333,14 @@ function Rotator({ index, pool, reduce, className = '' }) {
   }, [pool, index]);
 
   return (
-    <span className={`hero-rotator ${className}`}>
+    <span className={`hero-rotator ${className}`} {...xrayRecordAttrs(uri)}>
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
           key={index}
           className="hero-rotator-phrase"
+          // X-ray's collection tag rides inside the phrase, after its last
+          // word, so it sits at the end of the phrase's last line.
+          data-xray-tag={xrayRecordAttrs(uri)['data-xray-nsid']}
           variants={reduce ? undefined : phraseVariants}
           initial={reduce ? false : 'hidden'}
           animate={reduce ? undefined : 'visible'}

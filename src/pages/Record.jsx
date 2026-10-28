@@ -990,7 +990,9 @@ function repostToItem(repostRecord, subjectPost) {
   return {
     verb: 'reposting',
     atUri: repostRecord.uri,
-    cid: subjectPost.cid || repostRecord.cid || null,
+    // The page is the repost record, so its CID is the repost's; the post it
+    // points at keeps its own as subjectCid.
+    cid: repostRecord.cid || null,
     createdAt: repostedAt,
     payload: {
       text: subjectPost.record?.text || '',
@@ -1011,6 +1013,7 @@ function repostToItem(repostRecord, subjectPost) {
       embedRecord: subjectPost.record?.embed || null,
       indexedAt: subjectPost.indexedAt,
       subjectUri: subjectPost.uri,
+      subjectCid: subjectPost.cid || repostRecord.value?.subject?.cid || null,
       subjectRef: repostRecord.value?.subject || null,
       reason: {
         $type: 'app.bsky.feed.defs#reasonRepost',

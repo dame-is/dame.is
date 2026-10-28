@@ -82,6 +82,7 @@ const BATCH_LEDGER_NAMES = 2;
 
 export default function FeedLedgerRow({
   item,
+  xrayId,
   href,
   expanded = false,
   onToggle = null,
@@ -174,11 +175,10 @@ export default function FeedLedgerRow({
         )}
       </div>
       <span className="ledger-time">{timeText}</span>
-      {/* X-ray manifest line: the same three columns re-expressed as the
-          record's address (collection highlighted) + content hash. Absolutely
-          positioned over the row so it stays one line and column-aligned;
-          revealed by the data-xray root attribute (see Xray.css). */}
-      {item.atUri && <LedgerXrayLine atUri={item.atUri} cid={item.cid} />}
+      {/* X-ray marginalia: in x-ray the verb and time columns give way to
+          the record's collection and its rkey over a short CID, and the row
+          keeps its content (see Xray.css). */}
+      {item.atUri && <LedgerXrayLine id={xrayId} atUri={item.atUri} cid={item.cid} />}
       {expanded && obsBatch && item.observations.map((obs) => (
         <ObservationChildRow
           key={obs.atUri || obs.payload?.inatId}
