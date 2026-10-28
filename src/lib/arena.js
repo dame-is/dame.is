@@ -144,6 +144,22 @@ export function arenaText(value) {
  * author-chosen `coverBlockId` (the are.na block id) when that block is present;
  * otherwise falls back to the first block — the historical default.
  */
+/**
+ * What a channel holds, for its row on /curating: the first `n` blocks in
+ * are.na's own position order, trimmed to what a small square needs (a
+ * thumbnail, or a text block's words).
+ */
+export function channelStrip(blocks, n = 6) {
+  return (Array.isArray(blocks) ? blocks : [])
+    .filter((b) => b && (b.thumb || b.type === 'text'))
+    .slice(0, n)
+    .map((b) =>
+      b.type === 'text'
+        ? { id: b.id, type: 'text', text: String(b.text || '').slice(0, 140) }
+        : { id: b.id, type: b.type, alt: b.alt || '', thumb: b.thumb },
+    );
+}
+
 export function pickCoverThumb(blocks, coverBlockId) {
   const list = Array.isArray(blocks) ? blocks : [];
   if (coverBlockId != null && coverBlockId !== '') {

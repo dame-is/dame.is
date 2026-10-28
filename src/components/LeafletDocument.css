@@ -412,6 +412,57 @@ ul.leaflet-list ul.leaflet-list ul.leaflet-list {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* Justified rows (the default): each photo keeps its own shape, every row
+   ends flush, and the series runs wider than the text into the page's
+   margin (--doc-overhang, the room Blogging.css computes either side of the
+   column; on an essay hung left it's all on the right). Each figure grows in
+   proportion to its aspect ratio from a basis of ratio × row height, so every
+   photo in a row comes out the same height and a portrait beside a landscape
+   leaves no hole. The ::after spacer keeps a short last row from stretching.
+   Each photograph is numbered as a plate. */
+.leaflet-gallery[data-layout="justified"] {
+  --row-h: 13rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-2);
+  counter-reset: plate;
+  margin-inline-start: calc(-1 * var(--doc-overhang-start, var(--doc-overhang, 0px)));
+  margin-inline-end: calc(-1 * var(--doc-overhang-end, var(--doc-overhang, 0px)));
+}
+
+.leaflet-gallery[data-layout="justified"]::after {
+  content: '';
+  flex-grow: 999;
+}
+
+.leaflet-gallery[data-layout="justified"] .leaflet-image {
+  flex: var(--ar, 1.5) 1 calc(var(--ar, 1.5) * var(--row-h));
+  min-width: 0;
+  counter-increment: plate;
+}
+
+.leaflet-gallery[data-layout="justified"] .leaflet-image img {
+  width: 100%;
+  height: auto;
+}
+
+.leaflet-gallery[data-layout="justified"] .leaflet-image::after {
+  content: 'pl. ' counter(plate);
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+@media (max-width: 34rem) {
+  .leaflet-gallery[data-layout="justified"] {
+    --row-h: 8rem;
+  }
+}
+
 /* Filmstrip: one row that scrolls sideways, each frame snapping into place.
    Sized off the container so roughly two and a half frames peek in, which is
    what tells the reader there's more to swipe to. */

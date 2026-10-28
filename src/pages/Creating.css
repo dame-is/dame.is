@@ -5,79 +5,111 @@
   margin-bottom: var(--space-5);
 }
 
-/* Masonry as side-by-side flex columns. Works are dealt round-robin into the
-   columns (see Creating.jsx) so they read left-to-right — newest along the top
-   row — while each column still packs tightly to its own varying heights,
-   giving the irregular mosaic instead of rows aligned to the tallest card. */
-.creating-grid {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-5);
-}
-
-.creating-grid-col {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
+/* Plates: the portfolio as a contents page of covers, in reading order row
+   by row. Three across at desktop width, two on a phone (min() keeps the
+   track from overflowing a 358px column). */
+.creating-plates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(16rem, 46%), 1fr));
+  gap: var(--space-6) var(--space-5);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.creating-grid-link {
+@media (max-width: 560px) {
+  .creating-plates {
+    gap: var(--space-5) var(--space-3);
+  }
+}
+
+.creating-plate-link {
   display: flex;
   flex-direction: column;
-  text-decoration: none;
+  gap: var(--space-2);
   color: var(--ink);
-  border: 1px solid var(--rule-soft);
-  border-radius: var(--radius-3);
-  overflow: hidden;
-  background: var(--page-edge);
-  transition: transform 200ms ease, border-color 200ms ease;
+  text-decoration: none;
+  --plate-keyline: color-mix(in srgb, var(--ink) 14%, transparent);
 }
 
-.creating-grid-link:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+/* Hover darkens the keyline. No card, no mat, no lift. */
+.creating-plate-link:hover {
+  --plate-keyline: color-mix(in srgb, var(--ink) 38%, transparent);
 }
 
-.creating-grid-link img {
-  /* Show the cover at its own aspect ratio rather than cropping it to a
-     fixed box. Width fills the card; height follows the image. */
+/* Every cover is cut to 4:3, so a row's covers stay level however long the
+   titles under them run. The work page shows the image whole. */
+.creating-plate-cover,
+.creating-plate-title-page {
+  display: block;
   width: 100%;
-  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
   background: var(--page);
+  outline: 1px solid var(--plate-keyline);
+  outline-offset: -1px;
+  transition: outline-color 200ms ease;
 }
 
-.creating-grid-placeholder {
-  aspect-ratio: 4/3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  color: var(--accent-soft);
-  background: var(--page);
+/* A title page for a work with no cover: a rule inset 12px, the kind top
+   left, the title centred, the year bottom right, on the paper. */
+.creating-plate-title-page {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 22px;
+  box-shadow: inset 0 0 0 12px var(--page), inset 0 0 0 13px var(--rule);
 }
 
-.creating-grid-meta {
-  padding: var(--space-3) var(--space-4) var(--space-4);
+.creating-plate-tp-kind,
+.creating-plate-tp-year {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+}
+
+.creating-plate-tp-year {
+  justify-self: end;
+  font-variant-numeric: lining-nums;
+}
+
+.creating-plate-tp-title {
+  align-self: center;
+  justify-self: center;
+  max-width: 85%;
+  font-family: var(--serif);
+  font-size: var(--text-xl);
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.creating-plate-caption {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 0.15rem;
 }
 
-.creating-grid-kind {
-  letter-spacing: 0.16em;
-  color: var(--accent);
-  font-size: var(--text-xs);
+/* "software · 2026": the kind and the year in one small-caps line. */
+.creating-plate-kind {
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
 }
 
-.creating-grid-title {
+.creating-plate-title {
   font-family: var(--serif);
   font-size: var(--text-lg);
-  margin: 0;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
 .creating-work-page {

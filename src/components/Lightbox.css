@@ -66,7 +66,8 @@
   min-height: 0;
   border-radius: var(--radius-2);
   background: var(--page-edge);
-  box-shadow: 0 16px 40px var(--shadow);
+  /* A tipped-in plate: a neutral keyline holds the edge, not a soft shadow. */
+  outline: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
   overflow: hidden;
 }
 
@@ -230,4 +231,39 @@
 .lightbox-ctl-glyph {
   width: 1rem;
   height: 1rem;
+}
+
+/* The plate's caption under the image: the title in the serif, where it
+   came from in small type. */
+.lightbox-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  margin-top: var(--space-2);
+  max-width: 100%;
+  text-align: center;
+  color: var(--scrim-ink);
+}
+
+.lightbox-caption-title {
+  font-family: var(--serif);
+  font-size: var(--text-base);
+  font-style: italic;
+}
+
+.lightbox-caption-credit {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.lightbox-figure {
+  touch-action: pan-y;
+}
+
+/* Leave the caption its two lines inside the height budget. */
+.lightbox-figure:has(> .lightbox-caption) {
+  --lightbox-maxh: calc(100dvh - var(--chrome-h) - 7rem);
 }

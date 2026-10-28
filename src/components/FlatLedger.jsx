@@ -15,6 +15,9 @@ import { XraySubstratePanel } from './XraySubstrate.jsx';
  *   - kind       optional small-caps tag ahead of the title (e.g. a category)
  *   - secondary  optional muted suffix after the title (e.g. a scientific name)
  *   - time       optional right-column string (a relative time, a count, …)
+ *   - runCont    the row continues a run of the same `time` (a year): the
+ *                column draws a dotted leader instead of repeating it, and the
+ *                value stays for screen readers
  *   - external   render an external <a target=_blank> instead of a router Link
  *   - nsid       optional collection, stamped as data-nsid so the chrome strip
  *                can read the record type at the top of the scroll
@@ -70,7 +73,11 @@ export default function FlatLedger({ rows }) {
                 </RowLink>
               </p>
             </div>
-            {row.time ? (
+            {row.time && row.runCont ? (
+              <span className="ledger-time ledger-run">
+                <span className="visually-hidden">{row.time}</span>
+              </span>
+            ) : row.time ? (
               <RowLink row={row} className="ledger-time">
                 {row.time}
               </RowLink>

@@ -125,11 +125,16 @@ export const IMAGE_BLOCK_TYPE = 'pub.leaflet.blocks.image';
  * so what published was hard to predict from the editor. An explicit count that
  * doesn't change under you is the point of the control.
  */
-export const GALLERY_DEFAULT_LAYOUT = 'two-up';
+export const GALLERY_DEFAULT_LAYOUT = 'justified';
 
 export const GALLERY_LAYOUTS = [
+  {
+    value: 'justified',
+    label: 'Justified rows',
+    hint: 'Each photo whole, rows ending flush, wider than the text (default)',
+  },
   { value: 'one-up', label: '1 across', hint: 'A single tight column' },
-  { value: 'two-up', label: '2 across', hint: 'Two columns at every width (default)' },
+  { value: 'two-up', label: '2 across', hint: 'Two columns at every width' },
   { value: 'three-up', label: '3 across', hint: 'Three columns at every width' },
   { value: 'four-up', label: '4 across', hint: 'Four columns — small on a phone' },
   { value: 'filmstrip', label: 'Filmstrip', hint: 'One row that scrolls sideways' },
@@ -139,9 +144,10 @@ export const GALLERY_LAYOUTS = [
 const GALLERY_LAYOUT_VALUES = new Set(GALLERY_LAYOUTS.map((l) => l.value));
 
 /**
- * The effective layout of an image block. An absent field — every image block
- * written before this control existed — reads as the default, so old documents
- * publish as a plain two-up grid rather than something count-dependent.
+ * The effective layout of an image block. An absent field (every image block
+ * written before this control existed) reads as the default: justified rows,
+ * which keep each photo's own shape. It used to be a two-up grid, which left
+ * a hole beside every portrait in a mixed series.
  */
 export function galleryLayoutOf(block) {
   return GALLERY_LAYOUT_VALUES.has(block?.gallery) ? block.gallery : GALLERY_DEFAULT_LAYOUT;
@@ -381,6 +387,8 @@ function ImageBlock({ block, style }) {
   const imgStyle = ar?.width && ar?.height
     ? { aspectRatio: `${ar.width} / ${ar.height}` }
     : undefined;
+  // The figure carries its ratio for a justified gallery's row maths.
+  const figureStyle = ar?.width && ar?.height ? { ...(style || {}), '--ar': ar.width / ar.height } : style;
   const img = (
     <img
       src={url}
@@ -391,7 +399,7 @@ function ImageBlock({ block, style }) {
     />
   );
   return (
-    <figure className="leaflet-image" style={style || undefined}>
+    <figure className="leaflet-image" style={figureStyle || undefined}>
       {lightbox?.openImage ? (
         <button
           type="button"

@@ -97,6 +97,28 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
     setActive((i) => (i + 1) % count);
   }, [count]);
 
+  // Swiping steps through the images, as the arrow keys do. Off under
+  // reduced motion, where the arrows and keys still work. A swipe swallows
+  // the click it ends on, so it never also dismisses the lightbox.
+  const swipe = useRef(null);
+  const swiped = useRef(false);
+  const onPointerDown = (e) => {
+    if (reduce || count < 2 || e.pointerType === 'mouse') return;
+    swipe.current = { x: e.clientX, y: e.clientY };
+  };
+  const onPointerUp = (e) => {
+    const start = swipe.current;
+    swipe.current = null;
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      swiped.current = true;
+      if (dx < 0) next();
+      else prev();
+    }
+  };
+
   useEffect(() => {
     if (!open || count < 2) return;
     function onKey(e) {
@@ -176,7 +198,21 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       scrimLabel="Close image"
       focusTrapRef={controlsRef}
     >
-      <figure className="lightbox-figure" onClick={dismissOutsideImage}>
+      <figure
+        className="lightbox-figure"
+        onClick={(e) => {
+          if (swiped.current) {
+            swiped.current = false;
+            return;
+          }
+          dismissOutsideImage(e);
+        }}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => {
+          swipe.current = null;
+        }}
+      >
         <div className="lightbox-frame" style={frameStyle}>
           {embed ? (
             // Keyed so stepping to the next video swaps the player outright
@@ -222,6 +258,13 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
             </>
           )}
         </div>
+        {/* A tipped-in plate's caption: what it is, and where it came from. */}
+        {(current.caption || current.credit) && (
+          <figcaption className="lightbox-caption">
+            {current.caption && <span className="lightbox-caption-title">{current.caption}</span>}
+            {current.credit && <span className="lightbox-caption-credit">{current.credit}</span>}
+          </figcaption>
+        )}
       </figure>
     </Modal>
       {/* Control bar — pinned to the viewport bottom at the exact
@@ -282,7 +325,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
                     >
                       <ChevronLeft className="lightbox-ctl-glyph" aria-hidden="true" />
                     </button>
-                    <span className="lightbox-controls-count" aria-hidden="true">
+                    <span className="lightbox-controls-count">
                       {active + 1} / {count}
                     </span>
                     <button

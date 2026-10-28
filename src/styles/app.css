@@ -435,3 +435,57 @@
   font-style: italic;
   color: var(--ink-muted);
 }
+
+/* A collection's "plates · index" switch (SectionViewSwitch), set right,
+   pulled up beside the page intro it belongs to. The chosen view is ink with
+   an accent rule under it; the other is a quiet link. */
+.section-view-switch {
+  display: flex;
+  align-self: flex-end;
+  align-items: baseline;
+  gap: 0.45em;
+  margin-top: calc(-1 * var(--space-4));
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+.section-view-switch button {
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  font: inherit;
+  font-variant: inherit;
+  letter-spacing: inherit;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.section-view-switch button[aria-pressed='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+@media (hover: hover) {
+  .section-view-switch button:hover {
+    color: var(--accent);
+  }
+}
+
+/* Text for screen readers only (a repeated year the index draws as a
+   leader, say). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

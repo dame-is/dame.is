@@ -2246,6 +2246,23 @@ a.ledger-verb:focus-visible {
   text-decoration: none;
 }
 
+/* The index's run leader: a year printed once, then a dotted rule down the
+   column through the rest of its run (FlatLedger `runCont`). */
+.ledger-time.ledger-run {
+  position: relative;
+  align-self: stretch;
+  min-height: 1em;
+}
+
+.ledger-time.ledger-run::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--space-3));
+  bottom: calc(-1 * var(--space-3));
+  right: 0.9em;
+  border-right: 1px dotted var(--ink-muted);
+}
+
 .feed-ledger-flat .ledger-body a:hover,
 .feed-ledger-flat .ledger-body a:focus-visible,
 a.ledger-time:hover,
