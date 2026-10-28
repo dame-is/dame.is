@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { afterAll, beforeAll, describe, it, expect } from 'vitest';
 import {
   groupSelfReplyThreads,
   threadAwareDateKey,
+  threadFolio,
+  threadMemberMark,
   selfThreadMembers,
 } from './threadGrouping.js';
 
@@ -119,5 +121,51 @@ describe('selfThreadMembers', () => {
     expect(selfThreadMembers([other, orphan], ME).size).toBe(0);
     expect(selfThreadMembers([post('a', 'x')], ME).size).toBe(0);
     expect(selfThreadMembers([other, orphan], null).size).toBe(0);
+  });
+});
+
+describe('thread folio and member marks (read in New York)', () => {
+  // TZ before the first formatted time: time.js builds its formatter once.
+  const realTz = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = 'America/New_York';
+  });
+  afterAll(() => {
+    if (realTz === undefined) delete process.env.TZ;
+    else process.env.TZ = realTz;
+  });
+
+  it('files a thread at its newest time, and says where it began', () => {
+    const a = post('a', '2026-10-27T05:27:00Z'); // 1:27 am
+    const b = post('b', '2026-10-27T05:29:00Z', { parent: uri('a') });
+    const c = post('c', '2026-10-27T05:46:00Z', { parent: uri('b') }); // 1:46 am
+    const [ta, tb, tc] = groupSelfReplyThreads([c, b, a], ME);
+    expect(ta._thread).toMatchObject({
+      firstAt: a.createdAt,
+      anchorAt: c.createdAt,
+      anchorAtUri: uri('c'),
+    });
+    const folio = threadFolio(ta._thread);
+    expect(folio.at).toBe(c.createdAt);
+    expect(folio.from).toMatchObject({ at: a.createdAt, date: '' });
+    expect(folio.from.clock).toMatch(/^1:27$/);
+    // Members share the folio's day and half of the clock.
+    expect(threadMemberMark(tb)).toMatchObject({ date: '' });
+    expect(threadMemberMark(tb).clock).toMatch(/^1:29$/);
+    expect(threadMemberMark(tc).clock).toMatch(/^1:46$/);
+  });
+
+  it('dates the members of a thread that crossed midnight', () => {
+    const a = post('a', '2026-10-27T00:57:00Z'); // 8:57 pm on the 26th
+    const b = post('b', '2026-10-27T00:59:00Z', { parent: uri('a') }); // 8:59 pm
+    const c = post('c', '2026-10-27T05:37:00Z', { parent: uri('b') }); // 1:37 am on the 27th
+    const [ta, tb, tc] = groupSelfReplyThreads([c, b, a], ME);
+    const folio = threadFolio(ta._thread);
+    expect(folio.from.date).toBe('Oct 26');
+    expect(folio.from.clock).toMatch(/^8:57\sPM$/i);
+    expect(threadMemberMark(tb).date).toBe('Oct 26');
+    expect(threadMemberMark(tb).clock).toMatch(/^8:59\sPM$/i);
+    // The newest post is on the day the thread is filed under.
+    expect(threadMemberMark(tc).date).toBe('');
   });
 });

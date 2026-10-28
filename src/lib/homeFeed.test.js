@@ -3,11 +3,16 @@ import {
   assignRowKeys,
   carryOverFailedSources,
   classifyBuild,
+  completeSince,
+  countPhrase,
+  dayVerbCounts,
   insertHorizonMarkers,
   isHorizonMarker,
   rebuildVerbs,
+  splitYearOnlyWorks,
   trimToHorizons,
 } from './homeFeed.js';
+import { groupSelfReplyThreads } from './threadGrouping.js';
 import { collapseListens } from './listenSessions.js';
 import { collapseObservations } from './observationBatches.js';
 
@@ -216,5 +221,99 @@ describe('assignRowKeys', () => {
     const keys = assignRowKeys(rows, previous).rows.map((r) => r.rowKey);
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys[0]).toBe('old');
+  });
+});
+
+describe('completeSince', () => {
+  const feed = [
+    item('posting', 'app.bsky.feed.post', 'p1', '2026-10-27T10:00:00Z'),
+    item('listening', 'fm.teal.alpha.feed.play', 'l1', '2026-10-27T09:00:00Z'),
+    item('logging', 'is.dame.now', 's1', '2026-10-20T09:00:00Z'),
+  ];
+
+  it('is the newest horizon of the verbs on show', () => {
+    const horizons = {
+      posting: '2026-10-24T17:31:00Z',
+      listening: '2026-10-22T08:00:00Z',
+    };
+    expect(completeSince(feed, horizons)).toBe('2026-10-24T17:31:00.000Z');
+  });
+
+  it("ignores a verb the filter hides, and is null when nothing ran out", () => {
+    const horizons = { reposting: '2026-10-26T00:00:00Z', listening: '2026-10-22T08:00:00Z' };
+    expect(completeSince(feed, horizons)).toBe('2026-10-22T08:00:00.000Z');
+    expect(completeSince(feed, { reposting: '2026-10-26T00:00:00Z' })).toBeNull();
+    expect(completeSince(feed, null)).toBeNull();
+    expect(completeSince([], { posting: '2026-10-26T00:00:00Z' })).toBeNull();
+  });
+});
+
+describe('splitYearOnlyWorks', () => {
+  it('takes works dated by their year out of the timeline', () => {
+    const feed = [
+      item('creating', 'is.dame.creating.work', 'w2', '2026-03-04T15:00:00Z'),
+      item('logging', 'is.dame.now', 's1', '2026-01-01T00:00:00.000Z'),
+      item('creating', 'is.dame.creating.work', 'w1', '2014-01-01T00:00:00.000Z'),
+      item('creating', 'is.dame.creating.work', 'w0', '2011-01-01T00:00:00.000Z'),
+    ];
+    const { dated, yearOnly } = splitYearOnlyWorks(feed);
+    // Only works: a status logged at that instant is a real time.
+    expect(dated.map((i) => i.atUri.split('/').pop())).toEqual(['w2', 's1']);
+    expect(yearOnly.map((i) => i.atUri.split('/').pop())).toEqual(['w1', 'w0']);
+  });
+
+  it('hands the timeline back as it was when there are none', () => {
+    const feed = [item('posting', 'app.bsky.feed.post', 'p1', '2026-10-27T10:00:00Z')];
+    expect(splitYearOnlyWorks(feed).dated).toBe(feed);
+    expect(splitYearOnlyWorks(null)).toEqual({ dated: [], yearOnly: [] });
+  });
+});
+
+describe('dayVerbCounts', () => {
+  const post = (rkey, createdAt, payload = {}) =>
+    item('posting', 'app.bsky.feed.post', rkey, createdAt, { payload });
+
+  it('counts what the rows show, busiest first', () => {
+    const a = post('a', '2026-10-27T05:27:00Z');
+    const b = post('b', '2026-10-27T05:29:00Z', {
+      reply: { parent: { uri: uri('app.bsky.feed.post', 'a') } },
+      parent: { author: { did: ME, handle: 'dame.is' } },
+    });
+    const elsewhere = post('r', '2026-10-27T06:00:00Z', {
+      reply: { parent: { uri: 'at://did:plc:other/app.bsky.feed.post/z' } },
+      parent: { author: { did: 'did:plc:other', handle: 'poe.atpota.to' } },
+    });
+    const day = groupSelfReplyThreads(
+      [
+        elsewhere,
+        b,
+        a,
+        item('reposting', 'app.bsky.feed.repost', 'x', '2026-10-27T04:00:00Z'),
+        { kind: 'horizon', horizonVerb: 'posting', rowKey: 'horizon:posting' },
+        item('listening', 'fm.teal.alpha.feed.play', 'l', '2026-10-27T03:00:00Z', {
+          count: 3,
+          plays: [{}, {}, {}],
+        }),
+      ],
+      ME,
+    );
+    // The thread's second post continues the first, so it counts as a post,
+    // not a reply; the reply to someone else is one.
+    expect(dayVerbCounts(day)).toEqual([
+      { verb: 'listening', count: 3 },
+      { verb: 'posting', count: 2 },
+      { verb: 'replying', count: 1 },
+      { verb: 'reposting', count: 1 },
+    ]);
+  });
+
+  it('says each count the way the day header prints it', () => {
+    expect(countPhrase('posting', 18)).toBe('posted 18');
+    expect(countPhrase('reposting', 5)).toBe('reposted 5');
+    expect(countPhrase('replying', 2)).toBe('replied 2');
+    expect(countPhrase('listening', 1)).toBe('listened to 1 song');
+    expect(countPhrase('listening', 1200)).toBe('listened to 1,200 songs');
+    expect(countPhrase('mothing', 14)).toBe('spotted 14 moths');
+    expect(countPhrase('logging', 2)).toBe('logged 2');
   });
 });
