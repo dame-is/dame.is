@@ -9,12 +9,18 @@
 
 const TICK_MS = 30_000;
 
+// A tab coming back within this long of the last fire has nothing new to
+// fetch: flicking away and back shouldn't cost a round of requests each time.
+const VISIBILITY_MIN_GAP_MS = 5_000;
+
 const SUBSCRIBERS = new Set();
 let intervalId = null;
 let visibilityWired = false;
+let lastFireAt = 0;
 
 function fireAll() {
   if (typeof document !== 'undefined' && document.hidden) return;
+  lastFireAt = Date.now();
   for (const fn of SUBSCRIBERS) {
     try {
       fn();
@@ -25,7 +31,16 @@ function fireAll() {
 }
 
 function onVisibility() {
-  if (typeof document !== 'undefined' && !document.hidden) fireAll();
+  if (typeof document === 'undefined' || document.hidden) return;
+  if (Date.now() - lastFireAt < VISIBILITY_MIN_GAP_MS) return;
+  fireAll();
+  // Start the next 30s from here. The interval kept its old phase across the
+  // hidden stretch, so a return a second before it was due fired everything
+  // twice in a second.
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = setInterval(fireAll, TICK_MS);
+  }
 }
 
 function start() {

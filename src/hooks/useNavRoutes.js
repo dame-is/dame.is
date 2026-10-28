@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { resolvePds, getRecord } from '../lib/atproto.js';
+import { resolvePds, getRecord, isRecordNotFound } from '../lib/atproto.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
 import { effectiveNavRoutes } from '../lib/navRoutes.js';
@@ -27,8 +27,11 @@ export function useNavRoutes() {
           rkey: 'self',
         });
         if (!cancelledRef.current && rec?.value) setRecord(rec);
-      } catch {
-        // No override (getRecord 404s until one exists) — defaults stand.
+      } catch (err) {
+        // The PDS answers a missing record with 400 RecordNotFound: there is
+        // no override (any more), so the defaults stand even if the snapshot
+        // still carried one. Anything else is the network — keep the snapshot.
+        if (!cancelledRef.current && isRecordNotFound(err)) setRecord(null);
       }
     }
     boot();

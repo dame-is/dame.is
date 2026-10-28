@@ -7,7 +7,9 @@ import { VERBS as REGISTRY_VERBS, primaryNsid, NSIDS } from './lib/verbRegistry.
 
 export const ME_DID = 'did:plc:gq4fo3u6tqzzdkjlwzpb23tj';
 export const ME_HANDLE = 'dame.is';
-export const BIRTHDATE = '1993-05-07T00:00:00Z';
+// A calendar date, not an instant — read it through lib/dayOfLife.js. As a
+// moment (`new Date(BIRTHDATE)`) it lands on May 6 anywhere west of UTC.
+export const BIRTHDATE = '1993-05-07';
 export const GITHUB_REPO = 'dame-is/dame.is';
 export const APPVIEW = 'https://public.api.bsky.app';
 export const PLC_DIRECTORY = 'https://plc.directory';

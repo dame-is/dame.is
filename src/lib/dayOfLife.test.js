@@ -3,6 +3,7 @@ import {
   dayOfLife,
   yearOfLife,
   dayOfYearOfLife,
+  daysInYearOfLife,
   dayOfLifeSnapshot,
 } from './dayOfLife.js';
 
@@ -94,14 +95,54 @@ describe('dayOfYearOfLife', () => {
   });
 });
 
+describe('daysInYearOfLife', () => {
+  const birth = new Date(1993, 4, 7);
+
+  it('is 365 in a year of life with no Feb 29 in it', () => {
+    expect(daysInYearOfLife(new Date(2026, 9, 27), birth)).toBe(365);
+  });
+
+  it('is 366 when a Feb 29 falls between the two birthdays', () => {
+    // May 7 2027 → May 7 2028 spans Feb 29 2028, and its last day is day 366.
+    expect(daysInYearOfLife(new Date(2028, 2, 1), birth)).toBe(366);
+    expect(dayOfYearOfLife(new Date(2028, 4, 6), birth)).toBe(366);
+  });
+});
+
+describe('the real birthdate', () => {
+  // Built with the config's own string rather than a local Date, which is how
+  // the shipped code calls these — and what the tests above, passing local
+  // Dates, could never catch going wrong.
+
+  it('is a calendar date: Oct 27 2026 is Day 12,227 in the local calendar', () => {
+    // (date(2026, 10, 27) - date(1993, 5, 7)).days + 1
+    expect(dayOfLife(new Date(2026, 9, 27, 12))).toBe(12227);
+  });
+
+  it('turns the year over on May 7, not the evening before', () => {
+    expect(yearOfLife(new Date(2026, 4, 6, 12))).toBe(33);
+    expect(dayOfYearOfLife(new Date(2026, 4, 6, 12))).toBe(365);
+    expect(yearOfLife(new Date(2026, 4, 7, 12))).toBe(34);
+    expect(dayOfYearOfLife(new Date(2026, 4, 7, 12))).toBe(1);
+  });
+
+  it('reads an ISO instant as the day it names, not the moment', () => {
+    const at = new Date(2026, 9, 27, 12);
+    expect(dayOfLife(at, '1993-05-07T00:00:00Z')).toBe(
+      dayOfLife(at, '1993-05-07'),
+    );
+  });
+});
+
 describe('dayOfLifeSnapshot', () => {
-  it('bundles the three values consistently with the individual functions', () => {
+  it('bundles the values consistently with the individual functions', () => {
     const birth = new Date(1993, 4, 7);
     const at = new Date(2026, 6, 17);
     expect(dayOfLifeSnapshot(at, birth)).toEqual({
       day: dayOfLife(at, birth),
       year: yearOfLife(at, birth),
       dayOfYear: dayOfYearOfLife(at, birth),
+      yearLength: daysInYearOfLife(at, birth),
     });
   });
 

@@ -1,5 +1,11 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { backlinkRows, flattenSources, getBacklinks, getManyToMany } from './constellation.js';
+import {
+  backlinkRows,
+  flattenSources,
+  getBacklinkCount,
+  getBacklinks,
+  getManyToMany,
+} from './constellation.js';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -27,6 +33,39 @@ describe('getBacklinks', () => {
 
     expect(await request).toEqual({ records: [{ did: 'did:plc:a' }] });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('retry pacing', () => {
+  it('waits out a Retry-After only so long before asking again', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        headers: { get: () => '600' },
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ total: 3 }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = getBacklinkCount(
+      'at://did:plc:me/app.bsky.feed.post/1',
+      'app.bsky.feed.like:subject.uri',
+    );
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await request).toEqual({ total: 3 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives each attempt a deadline of its own', async () => {
+    const fetchMock = vi.fn(async (_url, init) => {
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      return { ok: true, json: async () => ({ records: [] }) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await getBacklinks('did:plc:me', 'app.bsky.graph.block:subject');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
