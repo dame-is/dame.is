@@ -193,7 +193,14 @@ export default function ChromeBar() {
   // the masthead, under the atmosphere, as their standing way up. Feed and
   // index pages show theirs only in the running head, once scrolled.
   const isDetailPage = baseCrumbs.length >= 2;
-  const head = useRunningHead({ mountedPath, topRef, tierWrapRef, tierMode });
+  const inAdmin = location.pathname === '/admin';
+  // On /admin the masthead isn't drawn (below), so its atmosphere is never in view.
+  const head = useRunningHead({
+    mountedPath,
+    topRef,
+    tierWrapRef,
+    tierMode: inAdmin ? 'closed' : tierMode,
+  });
   // The trail's last crumb names the page: its own label when it gives one
   // through PageShell's `crumb` ("Oct 26 · 5:36 pm" rather than a record's
   // rkey), else on a detail page the title it shows, rather than its slug.
@@ -241,20 +248,20 @@ export default function ChromeBar() {
   // atmosphere in place and remembers that (the reader's standing choice).
   // Once the atmosphere has scrolled away it brings it back over the page
   // instead, for a look, and leaves the choice alone.
-  const tierInView = tierMode !== 'closed' && head.tierInView;
+  const tierInView = !inAdmin && tierMode !== 'closed' && head.tierInView;
   const atmosphereShown = peekOpen || (expanded && (tierInView || tierSliding));
   function onAtmosphere() {
     if (peekOpen) {
       setPeekOpen(false);
       return;
     }
-    if (expanded && (tierInView || tierSliding)) {
+    if (!inAdmin && expanded && (tierInView || tierSliding)) {
       toggle();
       return;
     }
     const header = topRef.current?.getBoundingClientRect();
     const mast = mastheadRef.current?.getBoundingClientRect();
-    if (!expanded && header && mast && mast.top >= header.bottom - 1) {
+    if (!inAdmin && !expanded && header && mast && mast.top >= header.bottom - 1) {
       toggle();
       return;
     }
@@ -468,12 +475,16 @@ export default function ChromeBar() {
           over the page as an overlay, and only joins the flow once fully
           open, moving the page once rather than every frame. A `.chrome-bar`
           like the running head, so it wears the inks tuned for the chrome's
-          surfaces (theme.css) and leaves print with the rest. */}
+          surfaces (theme.css) and leaves print with the rest.
+
+          Not on /admin, whose workbench is a fixed frame from the running
+          head down: a masthead in the flow would sit behind it. There the
+          chevron brings the atmosphere over the frame as a peek. */}
       <div
         ref={mastheadRef}
-        className={`chrome-bar chrome-masthead${tierMode === 'open' || isDetailPage ? ' has-flow' : ''}`}
+        className={`chrome-bar chrome-masthead${!inAdmin && (tierMode === 'open' || isDetailPage) ? ' has-flow' : ''}`}
       >
-        {tierMode !== 'closed' && (
+        {!inAdmin && tierMode !== 'closed' && (
           <div
             ref={tierWrapRef}
             id="chrome-bar-secondary"
@@ -486,7 +497,7 @@ export default function ChromeBar() {
             </div>
           </div>
         )}
-        {isDetailPage && (
+        {!inAdmin && isDetailPage && (
           // While reading, the running head carries the trail and this copy
           // has scrolled away under it; only one is live at a time.
           <div
@@ -1654,7 +1665,8 @@ function useRunningHead({ mountedPath, topRef, tierWrapRef, tierMode }) {
   useEffect(() => {
     const el = tierWrapRef.current;
     if (!tierPresent || !el || typeof IntersectionObserver === 'undefined') {
-      setTierInView(tierPresent);
+      // Not drawn (on /admin) is not in view.
+      setTierInView(tierPresent && !!el);
       return undefined;
     }
     const io = new IntersectionObserver(
