@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { readStorage } from '../lib/storageGuard.js';
 
 const FontContext = createContext(null);
 const STORAGE_KEY = 'dame.font';
@@ -30,8 +31,7 @@ function applyFont(font) {
 }
 
 function readInitial() {
-  if (typeof localStorage === 'undefined') return DEFAULT;
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = readStorage(STORAGE_KEY);
   return VALID.includes(stored) ? stored : DEFAULT;
 }
 

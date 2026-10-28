@@ -117,8 +117,32 @@ function serveModerationFixtures() {
   };
 }
 
+/**
+ * `virtual:sky-tuning` as no tuning at all (the built-in palette).
+ *
+ * vite.config.js's skyBootPaint serves that module to src/main.jsx, and this
+ * config doesn't load that plugin. The harness never runs src/main.jsx, but
+ * with the root at the repo root Vite still scans and pre-transforms the
+ * production index.html's entry, and an import it can't resolve there filled
+ * the log with errors on every load.
+ */
+function noSkyTuning() {
+  const id = 'virtual:sky-tuning';
+  return {
+    name: 'harness-no-sky-tuning',
+    resolveId: (source) => (source === id ? '\0' + id : null),
+    load: (resolved) => (resolved === '\0' + id ? 'export default null;' : null),
+  };
+}
+
 export default defineConfig({
-  plugins: [swapSessionModule(), serveHarnessShell(), serveModerationFixtures(), react()],
+  plugins: [
+    swapSessionModule(),
+    serveHarnessShell(),
+    serveModerationFixtures(),
+    noSkyTuning(),
+    react(),
+  ],
   publicDir: false,
   server: {
     port: 5174,
