@@ -2,7 +2,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 
 const ChromeBarContext = createContext(null);
 const STORAGE_KEY = 'dame.chrome.expanded';
-const MOBILE_QUERY = '(max-width: 700px)';
+// Where the atmosphere starts folded. Width alone used to decide it, so a
+// phone held sideways (844–932px wide, 390–430px tall) got the desktop
+// default and gave over half its screen to chrome before the page began.
+// A short screen folds it too, whatever its width.
+const COMPACT_QUERY = '(max-width: 700px), (max-height: 500px)';
 
 function readInitial() {
   if (typeof window === 'undefined') return true;
@@ -11,10 +15,10 @@ function readInitial() {
     if (stored === '1') return true;
     if (stored === '0') return false;
   } catch {}
-  // No stored pref: collapsed by default on mobile (the bar sits at the
-  // viewport bottom and we want the smaller footprint), expanded on
-  // desktop where the secondary signals are part of the everyday view.
-  if (typeof window.matchMedia === 'function' && window.matchMedia(MOBILE_QUERY).matches) {
+  // No stored pref: folded on phones and short screens, open on desktop,
+  // where the atmosphere is the masthead at the top of every page (it
+  // scrolls away with the page; see ChromeBar).
+  if (typeof window.matchMedia === 'function' && window.matchMedia(COMPACT_QUERY).matches) {
     return false;
   }
   return true;

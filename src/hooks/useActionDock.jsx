@@ -82,9 +82,16 @@ export function ActionDockProvider({ children }) {
   const closeDock = useCallback(() => setOpen(false), []);
   const toggle = useCallback(() => setOpen((prev) => !prev), []);
 
+  // The bottom bar's chips that didn't fit it. The bar measures itself and
+  // moves its least-needed chips out (ChromeBar's useBarOverflow); the dock
+  // draws them at its foot as labelled chips, so nothing the bar offers is
+  // lost at 320px or under large text. Each entry is `{ key, label, title,
+  // Glyph, run }`, published by the bar only when the set changes.
+  const [overflowTools, setOverflowTools] = useState([]);
+
   const value = useMemo(
-    () => ({ open, view, setView, openDock, closeDock, toggle }),
-    [open, view, openDock, closeDock, toggle],
+    () => ({ open, view, setView, openDock, closeDock, toggle, overflowTools, setOverflowTools }),
+    [open, view, openDock, closeDock, toggle, overflowTools],
   );
   return <ActionDockContext.Provider value={value}>{children}</ActionDockContext.Provider>;
 }

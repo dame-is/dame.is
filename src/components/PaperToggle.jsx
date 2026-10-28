@@ -26,7 +26,10 @@ export default function PaperToggle() {
       aria-label={`Paper: ${label} — tap for ${NEXT_LABEL[paper] || 'blank page'}`}
       title={`Paper: ${label} — tap to switch`}
     >
-      <Icon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+      {/* The hairline square is the face, as on every bar chip (ChromeBar). */}
+      <span className="chrome-nav-face">
+        <Icon className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+      </span>
     </button>
   );
 }

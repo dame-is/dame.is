@@ -36,7 +36,9 @@
   font-style: normal;
 }
 
-/* Top crumb bar: sticky at the top on all devices. */
+/* The running head: the one row of top chrome pinned while reading. The
+   atmosphere and the trail under it are the masthead (`.chrome-masthead`),
+   in the page, and scroll away beneath this. */
 .chrome-bar-top {
   position: sticky;
   top: 0;
@@ -46,10 +48,9 @@
   background: var(--surface-raised);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
-  /* `visible` (not `hidden`) so the tertiary breadcrumb — absolutely
-     positioned at the header's bottom edge — can spill below the bar
-     instead of being clipped, and so the expanded tier can hang below it
-     while it slides open or shut (see `.chrome-bar-secondary-wrap`). */
+  /* `visible` (not `hidden`) so the peek — the atmosphere brought back over
+     the page, absolutely positioned under the row — can hang below the bar
+     (see `.chrome-peek`). */
   overflow: visible;
   /* Full-bleed: the bar's surface + top/bottom hairlines span the whole
      viewport at every width. Its content is held on `.main`'s centered
@@ -73,9 +74,12 @@
 
 .chrome-bar-primary {
   flex: 0 0 auto;
+  /* Queried by the atmosphere's word (below), which steps aside when the row
+     is too narrow for it, in ems, so large text counts as narrow. */
+  container-type: inline-size;
 }
 
-/* Title + primary signals share a baseline and travel together as a single
+/* Title + running head share a baseline and travel together as a single
    block that the parent row vertically centers. Baseline-aligning the row
    itself would jam everything against the top of the 56px chrome bar; doing
    it on this nested cluster keeps the bottoms of the text in lockstep while
@@ -88,16 +92,108 @@
   min-width: 0;
 }
 
+/* The status and the trail share one grid cell and cross-fade, so swapping
+   one for the other never changes the row's size or moves the wordmark.
+   Opacity only: it runs on the compositor, and a reader scrolling past the
+   title doesn't wait on layout. Instant under reduced motion. */
+.chrome-head {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  align-items: baseline;
+}
+
+.chrome-head > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+  transition: opacity 200ms ease;
+}
+
 .chrome-cluster .chrome-signals-primary {
   align-items: baseline;
 }
 
-/* The expanded tier (LISTENING TO / FOLLOWED BY + the vitals bar). Its wrap
-   clips the content as it slides; useTierSlide in ChromeBar.jsx drives both
-   with transforms. At rest it sits in the header's flow. While opening or
-   closing it's an overlay pinned under the primary row, so the header (and
-   the page under it) never changes size mid-animation, and it carries the
-   header's bottom rule so the line travels with its edge. */
+.chrome-head-trail {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chrome-bar-top.is-reading .chrome-head-trail {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.chrome-bar-top.is-reading .chrome-head-status {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The trail as a running head: one line, a step up from the masthead's
+   strip, the page's title in italic and ellipsized when it runs long. */
+.chrome-head-trail .chrome-crumbs {
+  flex-wrap: nowrap;
+  font-size: var(--text-sm);
+}
+
+/* The sections before it are short words and keep them; the title is what
+   gives way. */
+.chrome-head-trail .chrome-crumb {
+  flex: 0 0 auto;
+}
+
+.chrome-head-trail .chrome-crumb:last-child {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The record NSID at the running head's right edge, once reading, on a
+   desktop. A phone's running head is one slim line; there the NSID lives in
+   x-ray, where records are the point (see the phone block below). */
+.chrome-head-nsid {
+  flex: 0 1 auto;
+  max-width: 30%;
+  margin-left: auto;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.chrome-bar-top.is-past-top .chrome-head-nsid {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chrome-head > *,
+  .chrome-head-nsid {
+    transition: none;
+  }
+}
+
+/* The masthead: the atmosphere rows and, on a detail page, the trail, in the
+   page right under the running head. In flow, so at the top of the page
+   nothing is covered, and reading on they scroll away under the pinned row
+   (which paints above it, z-index 30). Positioned so the atmosphere rows can
+   slide over the page from its top edge (`.is-sliding`). Its bottom rule is
+   drawn only while something sits in it at rest. */
+.chrome-masthead {
+  position: relative;
+  z-index: 1;
+  /* Keep scroll anchoring off the masthead: opening or folding it at the top
+     should move the page, not the scroll position. */
+  overflow-anchor: none;
+}
+
+.chrome-masthead.has-flow {
+  border-bottom: 1px solid var(--rule);
+}
+
+/* The atmosphere rows (LISTENING TO / FOLLOWED BY + the vitals bar). Their
+   wrap clips the content as it slides; useTierSlide in ChromeBar.jsx drives
+   both with transforms. In the masthead, at rest, they sit in the flow;
+   while opening or closing they're an overlay pinned at the masthead's top,
+   so the page under them never changes size mid-animation, and the wrap
+   carries a bottom rule so the line travels with its edge. */
 .chrome-bar-secondary-wrap {
   overflow: hidden;
 }
@@ -106,8 +202,24 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: var(--tier-top, 100%);
+  top: var(--tier-top, 0);
   border-bottom: 1px solid var(--rule);
+}
+
+/* The peek: the same rows brought back over the page once the masthead has
+   scrolled away, pinned under the running head's row (`--tier-top`, set by
+   useTierSlide) and always an overlay, so the page never moves for it. It
+   covers the running head's bottom rule and draws its own under the rows. */
+.chrome-peek {
+  z-index: 1;
+}
+
+/* In the masthead the running head's own bottom rule already sits above the
+   first row, so the row doesn't draw a second. The peek keeps its top rule:
+   it sits over the running head's rule, as the rows did when they lived in
+   the bar. */
+.chrome-masthead .chrome-bar-secondary {
+  border-top: 0;
 }
 
 .chrome-bar-secondary {
@@ -119,10 +231,10 @@
   /* Drop the --chrome-h (56px) floor this row inherits from
      `.chrome-bar-row`. That floor is for the primary bars; this is an
      expanding panel that should size to its content, exactly like the
-     tertiary breadcrumb strip below (which also zeroes it). Left in, the
-     floor made the LISTENING TO / FOLLOWED BY row stand noticeably taller
-     than the timestamp/NSID strip — its `.chrome-signals` padding now sets
-     the height so the two expansions match. */
+     trail strip below (which also zeroes it). Left in, the floor made the
+     LISTENING TO / FOLLOWED BY row stand noticeably taller than the
+     trail/NSID strip — its `.chrome-signals` padding now sets the height so
+     the two match. */
   min-height: 0;
 }
 
@@ -131,15 +243,14 @@
   /* The atmosphere row speaks at the metadata size, so its small-caps
      labels land at 12.35px rather than 11.4. */
   font-size: var(--text-meta);
-  /* Same vertical padding as the tertiary strip's crumbs (--space-2) so
-     this row and the timestamp/NSID strip stand the same height when each
-     is a single row. */
+  /* Same vertical padding as the trail strip's crumbs (--space-2) so this
+     row and the trail/NSID strip stand the same height when each is a
+     single row. */
   padding: var(--space-2) 0;
 }
 
-/* State / vitals bar — a second expanded tier beneath the LISTENING TO /
-   FOLLOWED BY row. It sits in the same height-animating wrap, so it reveals
-   together with that row; its own top hairline + deep surface delineate it as
+/* State / vitals bar — a second row beneath the LISTENING TO / FOLLOWED BY
+   row, revealed with it; its own top hairline + deep surface delineate it as
    a distinct bar rather than a wrapped continuation. */
 .chrome-bar-state {
   border-top: 1px solid var(--rule-soft);
@@ -155,61 +266,39 @@
   padding: var(--space-2) 0;
 }
 
-/* Tertiary chrome: the scroll-driven breadcrumb strip. It's absolutely
-   positioned at the header's bottom edge (top: 100%) rather than sitting in
-   the header's normal flow — so revealing it grows nothing in the document
-   and the page content beneath never shifts/jerks mid-scroll. It overlays
-   the top sliver of content while shown, reading as an extension of the
-   chrome. Anchored below the whole header, it naturally lands beneath the
-   secondary row when that's expanded too. */
-.chrome-bar-tertiary-wrap {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  /* A fixed-height clip (height auto = the strip's natural height, since the
-     strip slides via transform without affecting layout). The strip slides
-     within this box; the box itself is transparent so when the strip is
-     translated up out of view, the page content shows through. */
-  overflow: hidden;
-  /* Keep this strip out of the browser's scroll-anchoring calculation so it
-     never nudges the scroll position. */
-  overflow-anchor: none;
+/* A detail page's trail, in the masthead under the atmosphere: where you are
+   and the record's NSID at the right, its standing way up. In the page, so
+   it scrolls away while reading, when the running head takes the trail. */
+.chrome-masthead-trail {
+  background: var(--surface-deep);
+  min-height: 0;
+  /* The trail and NSID share one row when they fit; on a narrow screen the
+     NSID can drop under the trail (only in x-ray on a phone, below). */
+  flex-wrap: wrap;
+  row-gap: 0;
 }
 
-.chrome-bar-tertiary {
-  /* Deeper than the bars, matching the other expanded chrome panels
-     (atmosphere row, nav sheet). */
-  background: var(--surface-deep);
+.chrome-bar-secondary-wrap:not(.is-sliding) + .chrome-masthead-trail {
   border-top: 1px solid var(--rule-soft);
-  border-bottom: 1px solid var(--rule);
-  min-height: 0;
-  /* Promote to its own compositor layer so the slide is a pure transform —
-     no layout, no repaint of the page, nothing that can stall scrolling. */
-  will-change: transform;
+}
+
+.chrome-masthead-trail .chrome-breadcrumb {
+  flex: 1 1 auto;
 }
 
 .chrome-breadcrumb {
-  /* Content-sized so the day label can sit right after the trail; may
-     shrink (the crumbs ellipsize) when the two compete for width. */
+  /* Content-sized; the crumbs ellipsize when the trail outruns the row. */
   flex: 0 1 auto;
-  padding: var(--space-2) 0;
   min-width: 0;
 }
 
-/* The trail is Crimson Pro at a small size: its line box carries more leading
-   above the letters than below, so the symmetric --space-2 top/bottom padding
-   sits the text visibly low — too much room above it — whenever the trail and
-   NSID share one row (feed strips, and detail pages wide enough not to wrap).
-   Trim ~2px off the top to optically centre the trail between the strip's
-   hairlines (measured: +1.5px top-heavy at --space-2, ~0 here).
-
-   Scoped to :not(.is-nsid-wrapped) on purpose: once the NSID drops to its own
-   line, the trail's top becomes the whole block's outer edge and needs the
-   full --space-2 to balance the NSID's small-caps descent-leading at the
-   bottom — see the is-nsid-wrapped rules in the mobile block below. */
-.chrome-bar-tertiary:not(.is-nsid-wrapped) .chrome-breadcrumb {
-  padding-top: calc(var(--space-2) - 2px);
+/* The masthead's trail is Crimson Pro at a small size: its line box carries
+   more leading above the letters than below, so symmetric --space-2 padding
+   sits the text visibly low. Trim ~2px off the top to optically centre it
+   between the strip's hairlines (measured: +1.5px top-heavy at --space-2,
+   ~0 here). */
+.chrome-masthead-trail .chrome-breadcrumb {
+  padding: calc(var(--space-2) - 2px) 0 var(--space-2);
 }
 
 .chrome-crumbs {
@@ -232,30 +321,10 @@
   min-width: 0;
 }
 
-/* Current day-section indicator on feed pages — rides the crumb spot,
-   left-aligned: alone on the home page, after the trail on sub-pages
-   (the row's own gap separates the two). Carries the strip's vertical
-   padding itself so the row keeps its height when it's the only
-   content. */
-.chrome-crumb-day {
-  flex: 0 1 auto;
-  padding: var(--space-2) 0;
-  /* Same small-caps voice as the atmosphere row's "LISTENING TO" /
-     "FOLLOWED BY" labels (.chrome-signal-label) one bar up. */
-  font-family: var(--sans);
-  font-variant: all-small-caps;
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-/* The AT Protocol collection in view, pinned to the strip's right edge —
-   the top visible feed record's NSID on feed pages, the page's own
-   backing record elsewhere. Same small-caps voice as the day label. */
+/* The AT Protocol collection in view: the top visible feed record's NSID on
+   feed pages, the page's own backing record elsewhere. Small caps, in the
+   same voice as the atmosphere's labels, at the right edge of the masthead's
+   trail and (reading, on a desktop) of the running head. */
 .chrome-crumb-nsid {
   flex: 0 1 auto;
   margin-left: auto;
@@ -270,41 +339,6 @@
   text-overflow: ellipsis;
   min-width: 0;
   text-align: right;
-}
-
-/* On individual (detail) pages the breadcrumb trail and its record NSID share
-   the strip's single row — trail on the left, NSID right-aligned — whenever the
-   two fit together, at EVERY width. Only when they'd collide (a long slug plus
-   a long NSID, typically on a narrow screen) does the NSID drop onto its own
-   line beneath the trail, left-aligned and shown in full instead of ellipsized.
-   This is content-driven rather than a fixed breakpoint: the trail grows to
-   shove the NSID flush right on a shared line, and flex-wrap lets the NSID fall
-   to the next line only when there isn't room for both. Feed pages keep the
-   base right-aligned NSID that tracks the scrolled record (never wrapped). */
-.chrome-bar-tertiary.is-detail {
-  flex-wrap: wrap;
-  /* The chrome row's `gap` turns into a row-gap once the row wraps; zero it so
-     a wrapped NSID sits close under the trail — its own vertical padding is the
-     only separation — instead of gaining an extra row-gap on top. */
-  row-gap: 0;
-}
-.chrome-bar-tertiary.is-detail .chrome-breadcrumb {
-  /* Grow to fill the row so a shorter trail pushes the NSID flush to the right
-     edge when they share a line; the inner crumbs ellipsize if the trail alone
-     outruns the row. */
-  flex: 1 1 auto;
-}
-.chrome-bar-tertiary.is-detail .chrome-crumb-nsid {
-  /* Content-sized so it rides the trail's line when both fit (the growing trail
-     right-aligns it there) and wraps to its own line — left-aligned, in full —
-     only when it doesn't fit beside the trail. */
-  flex: 0 1 auto;
-  margin-left: 0;
-  text-align: left;
-  white-space: normal;
-  overflow: visible;
-  text-overflow: clip;
-  overflow-wrap: anywhere;
 }
 
 .chrome-crumb-sep {
@@ -334,8 +368,10 @@
 /* Hover tints only where a pointer can hover: on touch, iOS fires the hover on
    the first tap, holds back that tap's click while the tint transitions, and
    leaves the tint stuck afterwards (typography.css has the full story). Every
-   hover in this file is gated the same way; focus-visible stays ungated. */
-@media (hover: hover) {
+   hover in this file is gated the same way, and on a fine pointer too, so a
+   touchscreen laptop's tap can't leave one behind; focus-visible stays
+   ungated. */
+@media (hover: hover) and (pointer: fine) {
   .chrome-crumb-link:hover {
     color: var(--accent);
   }
@@ -348,6 +384,32 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* The page named by its title rather than its slug reads as a title: italic,
+   book weight. (`.chrome-bar *` sets everything upright; this is the one
+   exception.) */
+.chrome-bar .chrome-crumb-current.is-title,
+.chrome-masthead .chrome-crumb-current.is-title {
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Touch targets on the trail: a coarse pointer gets 44px of height without
+   the line growing, and the root crumb, a bare slash, gets a box wide enough
+   to hit. */
+@media (pointer: coarse) {
+  .chrome-crumb-link {
+    position: relative;
+  }
+  .chrome-crumb-link::before {
+    content: '';
+    position: absolute;
+    inset: -12px -3px;
+  }
+  .chrome-crumb-root::before {
+    inset: -12px -14px;
+  }
 }
 
 .chrome-title {
@@ -364,9 +426,21 @@
   flex: 0 0 auto;
 }
 
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .chrome-title:hover {
     color: var(--accent);
+  }
+}
+
+/* The wordmark goes home; on a coarse pointer its target reaches 44px. */
+@media (pointer: coarse) {
+  .chrome-title {
+    position: relative;
+  }
+  .chrome-title::before {
+    content: '';
+    position: absolute;
+    inset: -8px -4px;
   }
 }
 
@@ -374,31 +448,27 @@
    line box instead of sitting on the baseline. Sized here, not only on the
    <img>, so its box is held from the first paint: the image only mounts once
    it has decoded (ChromeBar.jsx), and the site name and status used to jump
-   sideways by the mark's width when it did. */
+   sideways by the mark's width when it did. Until then the box carries this
+   hour's sky band (an inline background from SKY_BANDS), the frame's own
+   deep sky over its horizon, so it reads as the mark arriving. */
 .chrome-mark {
   display: inline-block;
   align-self: center;
   width: 1.3em;
   height: 1.3em;
   line-height: 1;
-}
-
-/* The held box before the first frame lands: the frame's own hairline and
-   the skeleton's ground (Skeleton.css), so it reads as the mark arriving
-   rather than as a gap. */
-.chrome-mark:empty {
   border: 1px solid var(--rule);
-  background: var(--rule-soft);
+  background-color: var(--rule-soft);
+  background-size: cover;
 }
 
 .chrome-mark-img {
   display: block;
-  width: 1.3em;
-  height: 1.3em;
+  /* The frame sits inside the box's hairline rather than drawing its own. */
+  width: 100%;
+  height: 100%;
   border-radius: 0;
-  border: 1px solid var(--rule);
   object-fit: cover;
-  background: var(--rule-soft);
 }
 
 .chrome-name {
@@ -509,45 +579,191 @@
   color: var(--accent);
 }
 
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .chrome-signal-link:hover,
   .chrome-signal-link:hover strong {
     color: var(--accent);
   }
 }
 
-/* Right-side handles on the primary row: nav menu (opens the action dock
-   panel) sits to the left of the atmosphere expand/collapse chevron. */
-.chrome-nav,
+/* The atmosphere's switch, at the running head's right edge: a chevron in a
+   hairline square, and on a phone its word, "atmosphere", in the same
+   button. At the top of the page it opens or folds the masthead's rows; once
+   they've scrolled away it brings them back over the page (the peek). */
 .chrome-expand {
   flex: 0 0 auto;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chrome-expand-face {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  padding: 0;
-  /* Use the same hue as the chrome bar's own top/bottom hairlines so
-     the buttons feel like part of the bar's vocabulary. The icon
-     itself carries the contrast (--ink-soft). */
   border: 1px solid var(--rule);
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink-soft);
-  cursor: pointer;
-  text-decoration: none;
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-/* The bottom bar's icon buttons carry a lighter chip fill so they read as
-   raised buttons instead of blending into the chrome: --page sits a step
-   up from the bar's own --surface-raised in both themes. Every visible
-   .chrome-nav lives in the bottom bar; the top atmosphere chevron is
-   .chrome-expand, which keeps its flush, transparent treatment. */
+.chrome-expand-word {
+  display: none;
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant: all-small-caps;
+  letter-spacing: 0.14em;
+  color: var(--ink-muted);
+}
+
+.chrome-expand:focus-visible .chrome-expand-face {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chrome-expand:hover .chrome-expand-face {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+}
+
+/* The touch target: 44px tall on a coarse pointer, and reaching left into the
+   bar's empty space, without growing the painted square. */
+@media (pointer: coarse) {
+  .chrome-expand::before {
+    content: '';
+    position: absolute;
+    inset: -8px -8px -8px -16px;
+  }
+}
+
+.chrome-expand-glyph {
+  display: inline-flex;
+  width: 0.7rem;
+  height: 0.7rem;
+  line-height: 1;
+  transition: transform 0.25s ease-out;
+}
+
+.chrome-expand.is-open .chrome-expand-glyph {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chrome-expand-glyph {
+    transition: none;
+  }
+}
+
+/* The bottom bar's chips. A chip is a button holding a face — the 28px
+   hairline square with its glyph (or the hour chip's text box) — and, on a
+   wide desktop or a first visit on a phone, its word. Word and face are one
+   target. Every visual state is drawn on the face; the button itself is
+   transparent. */
 .chrome-nav {
-  background: var(--page);
-  /* Anchor for the coarse-pointer hit-area extension below. */
+  flex: 0 0 auto;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.chrome-nav-face {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  /* The bar's own hairline colour, so the chips read as part of its
+     vocabulary; the glyph carries the contrast (--ink-soft). A lighter chip
+     fill (--page, a step up from the bar's --surface-raised) reads as a
+     raised button rather than a hole in the bar. */
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  background: var(--page);
+  color: inherit;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+/* The chip's word: small caps in --ink-soft (6.6–11.9:1 on the bar across
+   the sampled hours), off until there's a reason to draw it. */
+.chrome-nav-label {
+  display: none;
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* A wide desktop has room: every chip says what it does, beside its face. */
+.chrome-bar-bottom.has-words .chrome-nav-label {
+  display: inline;
+}
+
+/* A phone's first visit: each chip's word as a caption under its face, at
+   12px in --ink-muted (≥ 4.7:1 on the bar at every sampled hour). The faces
+   rise to make room, so the bar keeps its height and nothing resting on it
+   moves; the captions go after the visitor's first tap on the bar. */
+.chrome-bar-bottom.has-captions .chrome-bottom-row,
+.chrome-bar-bottom.has-captions .chrome-bottom-cluster {
+  align-items: flex-start;
+}
+
+.chrome-bar-bottom.has-captions .chrome-bottom-row {
+  padding-top: 0.4rem;
+}
+
+.chrome-bar-bottom.has-captions .chrome-nav {
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chrome-bar-bottom.has-captions .chrome-nav-label {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+}
+
+/* A chip that didn't fit (useBarOverflow) waits in the compass sheet. Hidden
+   rather than unmounted, so its size can be remembered and the motion layout
+   around it doesn't animate a mount. */
+.chrome-bottom-row [data-tool].is-out {
+  display: none;
+}
+
+/* The feed layout's words, with the menu open: a chip like the others to the
+   overflow plan, so on a narrow phone under large text it moves into the
+   sheet rather than pushing the compass off the screen. */
+.chrome-bar-layout {
+  display: flex;
+  min-width: 0;
 }
 
 /* Touch targets: keep the 28px (1.75rem) visual chip, but grow the tappable
@@ -563,67 +779,93 @@
   }
 }
 
-.chrome-nav:focus-visible,
-.chrome-expand:focus-visible {
+.chrome-nav:focus-visible .chrome-nav-face {
   color: var(--accent);
   border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-@media (hover: hover) {
-  .chrome-nav:hover,
-  .chrome-expand:hover {
-    color: var(--accent);
-    border-color: var(--accent-soft);
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
-  }
-}
-
-/* Over the chip fill, hover/active must stay an opaque lighten — a
-   see-through accent tint would let the darker bar show through and read
-   as the button getting *darker* on hover. Mix the accent into --page. */
-.chrome-nav:focus-visible {
+  /* Over the chip fill, hover/focus must stay an opaque lighten — a
+     see-through accent tint would let the darker bar show through and read
+     as the button getting *darker*. Mix the accent into --page. */
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
 }
 
-/* On touch this tint stuck to whichever chip was tapped last, and at 14% it is
-   close enough to `.is-open`'s 20% that a toggle just tapped closed still
-   looked open. */
-@media (hover: hover) {
-  .chrome-nav:hover {
+/* Hover only where a pointer can hover and is fine. On touch this tint
+   stuck to whichever chip was tapped last, and close enough to the open look
+   that a toggle just tapped closed still looked open. */
+@media (hover: hover) and (pointer: fine) {
+  .chrome-nav:hover .chrome-nav-face {
+    color: var(--accent);
+    border-color: var(--accent-soft);
     background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
+  .chrome-nav:hover .chrome-nav-label {
+    color: var(--accent);
   }
 }
 
-/* The open chip's label is ink: accent on its own accent tint was 3.88:1
-   at 1pm. The accent stays in the hairline and the wash. */
-.chrome-nav.is-open {
+/* On: a sheet open, a mode engaged, a feed filtered. The accent goes in the
+   hairline and the wash, the glyph stays ink (accent on its own wash was
+   3.9:1 at 1 pm). `--wash-selected` is theme.css's selected-state ground
+   when it has one; the fallback is the same mix. */
+.chrome-nav.is-open .chrome-nav-face {
   color: var(--ink);
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 20%, var(--page));
+  border-color: var(--accent);
+  background: var(--wash-selected, color-mix(in srgb, var(--accent) 16%, var(--page)));
 }
 
-/* Time switcher: the sky clock's hour chip. A text button (the current
-   hour key, e.g. "3pm") rather than a glyph, since the label IS the
-   state — the hour whose sky palette is on screen. */
-.chrome-nav.chrome-sky-hour {
-  width: auto;
-  min-width: 1.75rem;
-  padding: 0 0.45rem;
+/* While its sheet is up, a chip shows the sheet's ×: a change of shape, not
+   just tint. The face's own content stays, hidden, holding its width. */
+.chrome-nav-face.is-sheet-open > :not(.chrome-nav-close) {
+  visibility: hidden;
+}
+
+.chrome-nav-close {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+/* The sky chip: a sliver of this hour's sky beside the hour, "1 pm et", in
+   lower case, so it reads as the hour on Dame's clock rather than the
+   visitor's own. */
+.chrome-nav.chrome-sky-hour .chrome-nav-face {
+  padding: 0 0.45rem 0 0.3rem;
   font-family: var(--mono-ui);
-  font-size: 0.72rem;
-  letter-spacing: 0.05em;
+  font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
-  /* Hour keys are lowercase in data ("4pm"); the chip reads as a label,
-     so render it in caps: 4PM, 11AM. */
-  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chrome-sky-swatch {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 0.95rem;
+  background-color: var(--rule);
+}
+
+.chrome-sky-zone {
+  font-variant: all-small-caps;
+  letter-spacing: 0.08em;
 }
 
 /* A held sky (picked in the hour sheet) keeps saying so after the sheet
    closes: the chip's hairline goes dashed until the clock is live again. */
-.chrome-nav.chrome-sky-hour[data-held] {
+.chrome-nav.chrome-sky-hour[data-held] .chrome-nav-face {
   border-style: dashed;
   border-color: var(--ink-muted);
+}
+
+/* The day in view beside ↑, inside its face (or, on a feed without day
+   sections, the count of entries above). */
+.chrome-nav.chrome-scroll-jump .chrome-nav-face:has(.chrome-scroll-day) {
+  padding: 0 0.45rem 0 0.3rem;
+}
+
+.chrome-scroll-day {
+  font-family: var(--sans);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-soft);
 }
 
 /* ------------------------------------------------------------------ */
@@ -637,12 +879,6 @@
    for the panels two of them open. Nothing here is admin-specific in its
    geometry: they are `.chrome-nav` chips like every other button in the bar. */
 
-/* The state button wears `⋯`, the glyph for what it opens, and carries its state
-   in that glyph's COLOUR — which is how every other control in this bar reports
-   one, and is what lets the button look like a button when there is nothing to
-   report. Only the hairline joins in: no fill, so a record with unsaved work
-   stays distinct from the panel being open, which is `.is-open`'s accent fill
-   below. */
 /* The admin directory's lazy body, mid-fetch. One quiet line in the sheet. */
 .chrome-admin-directory-loading {
   margin: 0;
@@ -651,7 +887,13 @@
   font-style: italic;
 }
 
-.chrome-nav.chrome-admin-state[data-dirty] {
+/* The state button wears `⋯`, the glyph for what it opens, and carries its state
+   in that glyph's COLOUR — which is how every other control in this bar reports
+   one, and is what lets the button look like a button when there is nothing to
+   report. Only the hairline joins in: no fill, so a record with unsaved work
+   stays distinct from the panel being open, which is `.is-open`'s accent fill
+   above. */
+.chrome-nav.chrome-admin-state[data-dirty] .chrome-nav-face {
   border-color: var(--accent-soft);
   color: var(--accent);
 }
@@ -659,7 +901,7 @@
 /* `--danger` rather than a warm tan: under the sky theme every derived hue sits
    within a step or two of `--accent` for most of the day, and an error the same
    colour as a success is not an error anybody sees. */
-.chrome-nav.chrome-admin-state[data-error] {
+.chrome-nav.chrome-admin-state[data-error] .chrome-nav-face {
   border-color: var(--danger);
   color: var(--danger);
 }
@@ -670,8 +912,21 @@
    Filled, because it is the control the thumb is aiming for — and the only
    filled thing in this cluster, so it does not have to compete. */
 .chrome-nav.chrome-admin-action {
-  width: auto;
+  /* The one control in this bar whose width is set by a STRING, and the strings
+     grow under the owner's thumb: Save becomes Saving…, Create becomes
+     Creating…. A label that grows must take it out of ITSELF and not out of
+     the compass at the far end — losing the menu button off the right edge is
+     not a degradation, it is a trap. `flex: 0 1 auto` over a `min-width: 0`
+     cluster is what makes the ellipsis the last resort rather than the
+     overflow. */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.chrome-nav.chrome-admin-action .chrome-nav-face {
+  flex: 0 1 auto;
   min-width: 1.75rem;
+  max-width: 100%;
   padding: 0 var(--space-2);
   font-size: 0.72rem;
   font-variant: all-small-caps;
@@ -679,24 +934,18 @@
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 20%, var(--page));
   color: var(--accent);
-  /* The one control in this bar whose width is set by a STRING, and the strings
-     grow under the owner's thumb: Save becomes Saving…, Create becomes
-     Creating…. At 320 the row has about seven pixels of slack, so a label that
-     grows must take it out of ITSELF and not out of the compass at the far end
-     — losing the menu button off the right edge is not a degradation, it is a
-     trap. `flex: 0 1 auto` over a `min-width: 0` cluster is what makes the
-     ellipsis the last resort rather than the overflow. */
-  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: block;
+  line-height: calc(1.75rem - 2px);
 }
 
 /* A destructive action never reaches this button — the admin publishes the last
    NON-destructive control as its primary and sends the rest to the panel. The
    rule stands because a surface may one day have nothing else to offer, and a
    Delete painted in the accent would be the worst possible way to find out. */
-.chrome-nav.chrome-admin-action[data-tone='danger'] {
+.chrome-nav.chrome-admin-action[data-tone='danger'] .chrome-nav-face {
   border-color: var(--danger);
   background: color-mix(in srgb, var(--danger) 16%, var(--page));
   color: var(--danger);
@@ -707,10 +956,9 @@
   cursor: default;
 }
 
-/* The compass nav button is the menu trigger — promote it to a filled,
-   accent-tinted primary so it reads as the main action among the
-   bottom-bar controls. */
-.chrome-nav.chrome-nav-bottom {
+/* The compass, the menu: filled, the bar's primary control, and the one chip
+   that never leaves it. */
+.chrome-nav.chrome-nav-bottom .chrome-nav-face {
   /* The filled control (theme.css --accent-fill), so the --page glyph
      clears AA at every hour. */
   background: var(--accent-fill);
@@ -720,30 +968,30 @@
   color: var(--page);
 }
 
-.chrome-nav.chrome-nav-bottom:focus-visible {
-  /* Hover moves further from the page rather than toward --accent-soft
+.chrome-nav.chrome-nav-bottom:focus-visible .chrome-nav-face {
+  /* Focus moves further from the page rather than toward --accent-soft
      (which dropped the glyph below AA). */
   background: var(--accent-fill-hover);
   border-color: var(--rule);
   color: var(--page);
 }
 
-@media (hover: hover) {
-  .chrome-nav.chrome-nav-bottom:hover {
+@media (hover: hover) and (pointer: fine) {
+  .chrome-nav.chrome-nav-bottom:hover .chrome-nav-face {
     background: var(--accent-fill-hover);
     border-color: var(--rule);
     color: var(--page);
   }
 }
 
-/* Open, it stays dark: it used to fill with --accent-soft, which put the
-   --page glyph at 2:1 for most of the day under the sky theme, so the
-   compass, by then the menu's close, faded out while the menu was up. The
-   ink hairline is what says "open" instead. */
-.chrome-nav.chrome-nav-bottom.is-open {
-  background: var(--accent-fill-hover);
-  border-color: var(--ink);
-  color: var(--page);
+/* Open, it wears the same "on" look as every chip whose sheet is up, with
+   the sheet's ×: an ink glyph on the accent wash, well clear of 3:1 at every
+   hour. Its old open fill, --accent-soft under a --page glyph, fell to about
+   2:1 for most of the day, so the menu's own close all but disappeared. */
+.chrome-nav.chrome-nav-bottom.is-open .chrome-nav-face {
+  color: var(--ink);
+  border-color: var(--accent);
+  background: var(--wash-selected, color-mix(in srgb, var(--accent) 16%, var(--page)));
 }
 
 .chrome-nav-glyph {
@@ -751,29 +999,9 @@
   height: 1rem;
 }
 
-.chrome-expand-glyph {
-  display: inline-flex;
-  width: 0.7rem;
-  height: 0.7rem;
-  line-height: 1;
-  transition: transform 0.25s ease-out;
-}
-
-.chrome-bar-top.is-expanded .chrome-expand-glyph {
-  transform: rotate(180deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chrome-expand-glyph {
-    transition: none;
-  }
-}
-
-/* Bottom chrome bar: fixed to the viewport bottom on every breakpoint.
-   Holds the global search input (left), an optional filter button
-   (middle, only when the current page registers itself as filterable),
-   and the compass nav button (right). The top bar no longer renders a
-   nav button — the bottom bar owns the menu trigger everywhere. */
+/* Bottom chrome bar: fixed to the viewport bottom on every breakpoint. The
+   page's tools on the left, the way around the site on the right, the
+   compass last. */
 .chrome-bar-bottom {
   display: block;
   position: fixed;
@@ -788,13 +1016,13 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Footer strip: the bottom-bar mirror of the top bar's tertiary breadcrumb.
-   Absolutely positioned at the bar's TOP edge (bottom: 100%) rather than in
-   flow — so revealing it grows nothing in the document and the page content
-   beneath never shifts mid-scroll. The strip slides up from behind the bar
-   inside this fixed clip; the wrap is transparent, so while the strip is
-   tucked away the page content shows through. Anchored to the bar, it
-   inherits the bar's full-bleed width + stacking context automatically. */
+/* Footer strip: the bottom-bar mirror of the top bar's breadcrumb. Absolutely
+   positioned at the bar's TOP edge (bottom: 100%) rather than in flow — so
+   revealing it grows nothing in the document and the page content beneath
+   never shifts mid-scroll. The strip slides up from behind the bar inside
+   this fixed clip; the wrap is transparent, so while the strip is tucked
+   away the page content shows through. Anchored to the bar, it inherits the
+   bar's full-bleed width + stacking context automatically. */
 .chrome-bar-footer-wrap {
   position: absolute;
   bottom: 100%;
@@ -807,15 +1035,14 @@
 }
 
 .chrome-bar-footer {
-  /* Deeper than the bar, matching the breadcrumb + the other expanded chrome
-     panels so the revealed strip reads as an extension of the bottom chrome. */
+  /* Deeper than the bar, matching the other expanded chrome panels so the
+     revealed strip reads as an extension of the bottom chrome. */
   background: var(--surface-deep);
-  /* Hairlines on both edges — like the top bar's breadcrumb, flipped. The top
-     divides the strip from the page content above; the bottom is the divider
-     to the button row. The strip is pinned to the bar's top edge
-     (bottom: 100%), so it paints OVER the bar's own border-top — this
-     border-bottom is what actually draws that divider, exactly as the nav
-     dock and bottom sheets carry their own. */
+  /* Hairlines on both edges. The top divides the strip from the page content
+     above; the bottom is the divider to the button row. The strip is pinned
+     to the bar's top edge (bottom: 100%), so it paints OVER the bar's own
+     border-top — this border-bottom is what actually draws that divider,
+     exactly as the nav dock and bottom sheets carry their own. */
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
   /* Compact chrome rhythm; horizontal padding tracks the chrome content
@@ -835,16 +1062,22 @@
   min-height: var(--chrome-h);
 }
 
+/* Wide enough for words, the bar spreads its chips a little so each word
+   stays with its own face. */
+.chrome-bar-bottom.has-words .chrome-bottom-row,
+.chrome-bar-bottom.has-words .chrome-bottom-cluster {
+  gap: var(--space-4);
+}
+
 .chrome-nav-top {
   display: none;
 }
 
-/* Left cluster of the bottom bar. Holds one of two interchangeable button
-   groups: the page controls (theme/filter/search/info) or — while the nav
-   dock is open — the dock's tools (density/debug/account). They cross-fade
-   in place via AnimatePresence (mode="wait"), so only one occupies the slot
-   at a time and the right-hand cluster (pinned past the flex spacer) never
-   shifts. */
+/* Left cluster of the bottom bar. Holds one of two interchangeable groups:
+   the page's tools (sky/filter/info/inspect) or — while the menu is open —
+   the menu's own (the feed layout, in words). They cross-fade in place via
+   AnimatePresence (mode="wait"), so only one occupies the slot at a time and
+   the right-hand cluster (pinned past the flex spacer) never shifts. */
 .chrome-bottom-left {
   display: flex;
   align-items: center;
@@ -858,45 +1091,23 @@
   gap: var(--space-2);
   /* So a label-width control inside it (the admin's primary action) can give
      room back instead of pushing the right cluster off the screen — see
-     `.chrome-admin-action`. Every other member is a fixed 28px chip, so this
+     `.chrome-admin-action`. Every other member is a fixed-size chip, so this
      changes nothing anywhere else. */
   min-width: 0;
 }
 
-/* Push the right-hand action cluster (filter + menu) away from the
-   search button on the left without forcing every layout to be a flex
-   space-between (which would also stretch the buttons themselves). */
+/* Push the right-hand cluster away from the tools on the left without
+   forcing every layout to be a flex space-between (which would also stretch
+   the buttons themselves). */
 .chrome-bottom-spacer {
   flex: 1 1 auto;
 }
 
-/* Count of feed items the user has scrolled past, shown to the left
-   of the scroll-jump button on feeds. Reads as quiet metadata, not a
-   tappable control. */
-.chrome-scroll-count {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-  flex: 0 0 auto;
-}
-
-/* The narrowest phones. Nothing in this row shrinks, so on a feed page scrolled
-   far enough to show the count the row ran past the compass, and from 359px
-   down the menu button — the way to the rest of the site — slid off the right
-   edge. The least of the bar goes first: the count, which is metadata, then
-   below 344px Home, which the breadcrumb's leading slash and the menu both
-   also are. Hidden rather than unrendered, so the motion layout around them
-   doesn't animate a breakpoint. */
-@media (max-width: 359px) {
-  .chrome-scroll-count {
-    display: none;
-  }
-}
-
-@media (max-width: 343px) {
+/* Home leaves a phone's bar: the wordmark in the running head goes home, and
+   the compass sheet lists it with whatever else didn't fit. Hidden rather
+   than unrendered, so the motion layout around it doesn't animate a
+   breakpoint. */
+@media (max-width: 700px) {
   .chrome-home-btn {
     display: none;
   }
@@ -989,6 +1200,7 @@
   }
 }
 
+
 @media (max-width: 700px) {
   .chrome-signals-secondary {
     flex-direction: column;
@@ -1025,47 +1237,53 @@
     border-top: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
   }
 
-  /* Detail-page breadcrumb: when the trail + record NSID no longer fit on one
-     row and the NSID wraps to its own line beneath the trail (ChromeBar.jsx
-     toggles `is-nsid-wrapped` once that happens), echo the LISTENING TO /
-     FOLLOWED BY stack above — the same faint dashed divider and the same
-     tightened interior spacing — so the wrapped strip reads as one stacked
-     block rather than two loosely stacked rows. The divider rides the trail's
-     own bottom edge, which spans the full column here (the trail grows to fill
-     the row once the NSID has left its line), so the dash runs edge to edge
-     exactly like the stack's. The trail keeps the strip's --space-2 outer top
-     padding; the NSID's outer bottom is trimmed (see below).
-
-     Every gap here is OPTICALLY balanced, not merely equal box padding, because
-     the NSID is `all-small-caps`: its line box reserves the full font ascent
-     above glyphs that only reach cap height, AND (at Crimson Pro's 1.6 line
-     height) a matching band of descent-leading below their baseline.
-
-     Interior dash: that phantom top-leading already supplies ~8px above the
-     caps, almost the whole gap on its own, while the descender-bearing trail
-     line sits ~5px of leading above the dash plus its --space-1 pad = ~9px. So
-     equal --space-1 padding on both sides renders visibly bottom-heavy
-     (measured +3px); the NSID needs almost no top pad. 1px centers the dash
-     between the two rows of ink (within ~0.3px).
-
-     Outer bottom: the NSID's ~6px of descent-leading likewise makes a full
-     --space-2 below it read ~2px heavier than the --space-2 above the trail,
-     so the whole strip looks bottom-weighted. Trim 2px off the NSID's bottom
-     to even the strip's top/bottom breathing room. Both are raw-px optical
-     nudges against the small-caps metric, not --space steps. */
-  .chrome-bar-tertiary.is-detail.is-nsid-wrapped .chrome-breadcrumb {
-    padding-bottom: var(--space-1);
-    border-bottom: 1px dashed color-mix(in srgb, var(--rule-soft) 60%, transparent);
+  /* The folded atmosphere gets its word on a phone, and one tall target from
+     the end of the status to the screen's edge; the status stays its own
+     link. Reading, the running head needs the room for the trail, so the
+     word steps aside and the chevron stays. */
+  .chrome-expand-word {
+    display: inline;
   }
-  .chrome-bar-tertiary.is-detail.is-nsid-wrapped .chrome-crumb-nsid {
-    padding-top: 1px;
-    padding-bottom: calc(var(--space-2) - 2px);
+  .chrome-bar-top.is-reading .chrome-expand-word {
+    display: none;
+  }
+
+  /* One slim running head: the NSID moves to x-ray, where records are the
+     point, and the masthead's trail keeps to one line. */
+  .chrome-head-nsid,
+  .chrome-masthead-trail .chrome-crumb-nsid {
+    display: none;
+  }
+  :root[data-xray='on'] .chrome-masthead-trail .chrome-crumb-nsid {
+    display: block;
+    margin-left: 0;
+    padding-top: 0;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
-/* Print: the fixed chrome bars (and their expanding sheets) are screen
-   navigation — never part of a printed page. Hiding them here also keeps
-   the resume's bottom-bar print button out of the printout it triggers. */
+/* A row too narrow for the wordmark, the word and the chevron together (a
+   320px phone under 150% text) keeps the wordmark and the chevron. */
+@container (max-width: 16em) {
+  .chrome-bar-primary .chrome-expand-word {
+    display: none;
+  }
+}
+
+/* On a coarse pointer the atmosphere's switch is a full 44px tall, with room
+   to its left, rather than a 28px square in the hardest corner to reach. */
+@media (pointer: coarse) {
+  .chrome-expand {
+    min-height: 2.75rem;
+    padding-left: var(--space-2);
+  }
+}
+
+/* Print: the chrome bars (and their expanding sheets) are screen navigation
+   — never part of a printed page. Hiding them here also keeps the resume's
+   bottom-bar print button out of the printout it triggers. */
 @media print {
   .chrome-bar,
   .dock-sheet-wrap,
