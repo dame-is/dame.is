@@ -6,8 +6,16 @@
 //
 // Resolution order (mirrors src/hooks/usePageContent.js + og/records.js):
 //   1. the build/deploy snapshot under /data/*.json  (the "latest deployment")
-//   2. a time-boxed live getRecord                    (records newer than the build)
+//   2. a time-boxed live getRecord, ONLY when that snapshot couldn't be read
 //   3. null → caller keeps the static og/pages.js copy
+//
+// A snapshot that loaded and has no record for the page is taken at its word.
+// It is the build's complete list, and the miss is the ordinary case for every
+// page with no record behind it — /exploring, /admin, a verb section borrowed
+// by /is.dame.now/:rkey, /themself until its profile record is written. Asking
+// the PDS anyway cost each of those views a PLC and a PDS round trip that
+// could never succeed. A page record created since the last build is the one
+// thing this gives up, until the next build (every six hours, and on publish).
 //
 // Everything is defensive: any miss/hiccup returns null so a slow or broken PDS
 // never blocks the card. Plain fetch only, so it runs in the Edge runtime.
@@ -84,26 +92,32 @@ const firstText = (...vals) => {
 };
 
 /**
- * The build snapshot for a source, or null. The is.dame.page snapshot is a
- * { [rkey]: record } map at /data/pages.json; the extended profile is a single
- * record at /data/extendedProfile.json. Both carry the { uri, cid, value } shape.
+ * The build snapshot's answer for a source: `{ loaded, record }`, where
+ * `loaded` says the snapshot itself was read (so a null `record` is a definite
+ * "no such record"). The is.dame.page snapshot is a { [rkey]: record } map at
+ * /data/pages.json; the extended profile is a single record at
+ * /data/extendedProfile.json, written as `{}` while none exists. Both carry the
+ * { uri, cid, value } shape.
  */
 async function snapshotRecord(origin, source) {
-  if (!origin) return null;
+  if (!origin) return { loaded: false, record: null };
   if (source.collection === COLLECTIONS.profile) {
     const rec = await fetchJson(`${origin}/data/extendedProfile.json`, SNAPSHOT_TIMEOUT_MS);
-    return rec?.value ? rec : null;
+    const loaded = Boolean(rec && typeof rec === 'object');
+    return { loaded, record: rec?.value ? rec : null };
   }
   const pages = await fetchJson(`${origin}/data/pages.json`, SNAPSHOT_TIMEOUT_MS);
-  const rec = pages && typeof pages === 'object' ? pages[source.rkey] : null;
-  return rec?.value ? rec : null;
+  const loaded = Boolean(pages && typeof pages === 'object');
+  const rec = loaded ? pages[source.rkey] : null;
+  return { loaded, record: rec?.value ? rec : null };
 }
 
-/** The record for a source: build snapshot first, then a live PDS fallback for
- *  records authored/edited since the last build. */
+/** The record for a source: the build snapshot, or — only when that can't be
+ *  read — a live PDS fallback. See the header for why a miss is final. */
 async function resolveRecord(origin, source) {
   const snap = await snapshotRecord(origin, source);
-  if (snap?.value) return snap;
+  if (snap.record) return snap.record;
+  if (snap.loaded) return null;
   const live = await withTimeout(liveRecord(source), PDS_TIMEOUT_MS);
   if (live?.value) return live;
   return null;
@@ -121,20 +135,22 @@ async function liveRecord(source) {
 
 /**
  * Resolve a top-level page route to its PDS-backed OG copy, or null when the
- * route has no backing record / no copy yet (→ caller keeps the static
- * og/pages.js defaults).
+ * route has no backing record (→ caller keeps the static og/pages.js defaults).
  *
- *   { title, desc }  — `desc` is the record's first non-empty copy field (a
- *   dedicated `description`, else `intro` for pages / `tagline` for the profile);
- *   `title` is the record's own title when it has one. Empty strings otherwise.
+ *   { title, desc, atUri }  — `desc` is the record's first non-empty copy field
+ *   (a dedicated `description`, else `intro` for pages / `tagline` for the
+ *   profile); `title` is the record's own title when it has one. Empty strings
+ *   otherwise, so a record with no copy yet still reports `atUri`, the record
+ *   that was found — which is how the middleware knows there is one to name.
  */
 export async function pageContentMeta(pathname, origin) {
   const source = sourceForPath(pathname);
   if (!source) return null;
   const rec = await resolveRecord(origin, source);
-  const v = rec?.value || {};
+  if (!rec) return null;
+  const v = rec.value || {};
   const desc = firstText(...source.fields.map((f) => v[f]));
   const title = firstText(v.title);
-  if (!desc && !title) return null;
-  return { title, desc };
+  const atUri = typeof rec.uri === 'string' && rec.uri ? rec.uri : null;
+  return { title, desc, atUri };
 }

@@ -34,6 +34,11 @@ const SNAPSHOTS = {
   curatingChannels: [{ slug: 'red-blue-yellow', title: 'Red Blue Yellow', description: 'Colour.' }],
   ratioedPieces: [{ value: { take: 14, measuredAt: '2026-05-01T00:00:00Z' } }],
   mothNights: ['2026-04-24', '2026-04-25'],
+  pages: {
+    sharing: {
+      value: { title: 'Sharing', body: 'Things worth handing off, and why.' },
+    },
+  },
 };
 
 const build = (over = {}) => buildLlmsTxt({ ...SNAPSHOTS, ...over });
@@ -117,6 +122,14 @@ describe('the AT Protocol surface it advertises', () => {
     expect(txt).toContain('`app.bsky.feed.post`');
   });
 
+  it('gives each section a heading of its own', () => {
+    // The are.na galleries were also headed "Collections", so an agent looking
+    // the lexicon list up by name got two sections and no way to tell them apart.
+    const txt = build();
+    const headings = txt.match(/^## .+$/gm);
+    expect(new Set(headings).size).toBe(headings.length);
+  });
+
   it('degrades to a placeholder host rather than a wrong one when the PDS is unknown', () => {
     const txt = build({ pds: null });
     expect(txt).toContain('https://<pds>/xrpc/com.atproto.repo.listRecords');
@@ -158,6 +171,20 @@ describe('the page list', () => {
       if (p === '/') continue;
       expect(txt).toContain(`](https://dame.is${p}): ${PAGES[p].desc}`);
     }
+  });
+
+  it('leaves out a page that is only a body, until the body is written', () => {
+    const line = '](https://dame.is/sharing)';
+    expect(build()).toContain(line);
+    expect(
+      build({
+        pages: { sharing: { value: { title: 'Sharing', body: '  ' } } },
+      }),
+    ).not.toContain(line);
+    expect(build({ pages: {} })).not.toContain(line);
+    expect(build({ pages: undefined })).not.toContain(line);
+    // Every other surface is listed whatever the pages snapshot holds.
+    expect(build({ pages: undefined })).toContain('](https://dame.is/themself)');
   });
 
   it('lists the same surfaces as sitemap.xml', () => {
