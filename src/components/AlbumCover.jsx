@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAlbumArt } from '../hooks/useAlbumArt.js';
+import './AlbumCover.css';
 
 /** How far ahead of the viewport a cover starts resolving. */
 const LOOKAHEAD = '500px';
@@ -19,9 +20,10 @@ const LOOKAHEAD = '500px';
  * mounted, for a screenful the reader can see. Each answer is cached in
  * localStorage, so scrolling back up costs nothing.
  *
- * A miss (or a plate nobody has scrolled to) draws the empty square rather than
+ * A miss (or a plate nobody has scrolled to) draws the empty plate rather than
  * nothing, so the shelf stays a grid instead of collapsing around the records
- * Apple has never heard of.
+ * Apple has never heard of. The same component serves the shelf, an album's
+ * page, the top lists and the session rows on /listening (see AlbumCover.css).
  */
 export default function AlbumCover({ payload, alt = '', size = 300, className = '' }) {
   const ref = useRef(null);

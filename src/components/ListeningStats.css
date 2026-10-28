@@ -183,17 +183,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-.listen-rank-cover {
+/* An AlbumCover (its plate and empty state are in AlbumCover.css); this only
+   sizes it. Two classes, so the cover's own fill-the-column width can't win
+   on load order. */
+.album-cover.listen-rank-cover {
   width: 2rem;
   height: 2rem;
   flex: 0 0 auto;
-  object-fit: cover;
-  background: var(--rule-soft);
-  border: 1px solid var(--rule-soft);
-}
-
-.listen-rank-cover-empty {
-  background: linear-gradient(135deg, var(--rule-soft), var(--surface-raised));
 }
 
 .listen-rank-text {

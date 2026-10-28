@@ -1,0 +1,42 @@
+/* An album's cover (AlbumCover), wherever it's drawn: the shelf, an album's
+   page, the top lists and /listening's ledger. Its own sheet so a page that
+   shows one small cover doesn't have to load the shelf's.
+
+   A cover is square whether or not Apple had one: the plate holds its shape
+   before the artwork resolves (and if it never does), so a grid stays a grid
+   instead of collapsing around the records nobody has indexed. The caller
+   sets the size; on its own it fills its column. */
+.album-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--rule-soft);
+  border: 1px solid var(--rule-soft);
+  overflow: hidden;
+}
+
+.album-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The empty plate: no art, or art that wouldn't load. A hairline square with
+   a plate mark pressed inside it, the way a book marks where a picture would
+   go, drawn from the hour's own rules so it sits quietly at every hour, and
+   never the browser's broken-image glyph. The mark's inset scales with the
+   square: 3px on a 36px cover, about 16px on a shelf plate. */
+.album-cover-empty {
+  background: color-mix(in srgb, var(--rule-soft) 45%, transparent);
+  border-color: var(--rule);
+}
+
+.album-cover-empty::after {
+  content: '';
+  position: absolute;
+  inset: max(3px, 8%);
+  border: 1px solid color-mix(in srgb, var(--rule) 75%, transparent);
+  pointer-events: none;
+}

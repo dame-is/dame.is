@@ -105,29 +105,8 @@
   text-decoration: none;
 }
 
-/* A cover is square whether or not Apple had one: the plate holds its shape
-   before the artwork resolves (and if it never does), so the grid stays a grid
-   instead of collapsing around the records nobody has indexed. */
-.album-cover {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: var(--rule-soft);
-  border: 1px solid var(--rule-soft);
-  overflow: hidden;
-}
-
-.album-cover img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.album-cover-empty {
-  background: linear-gradient(135deg, var(--rule-soft), var(--surface-raised));
-}
-
+/* The cover itself, and its empty plate, are AlbumCover's own (see
+   components/AlbumCover.css); the shelf only lights its edge on hover. */
 /* Hover only where a pointer can hover (see the note in typography.css);
    keyboard focus gets the same cue unconditionally. */
 .album-link:focus-visible .album-cover {

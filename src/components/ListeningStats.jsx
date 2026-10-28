@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useReducedMotion } from 'motion/react';
-import { useAlbumArt } from '../hooks/useAlbumArt.js';
+import AlbumCover from './AlbumCover.jsx';
 import { albumIdentity, albumIdentityResolver, albumPath } from '../lib/albums.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { playArtistLine, playArtistNames, playTrackName, playedAtOf } from '../lib/teal.js';
@@ -183,14 +183,13 @@ function RankLabel({ row, kind }) {
   return inner;
 }
 
-/** Small album-art thumbnail, resolved lazily from the sample play. */
+/**
+ * Small album-art thumbnail, resolved lazily from the sample play. AlbumCover,
+ * so art that resolves but won't load falls back to the empty plate rather
+ * than the browser's broken-image glyph.
+ */
 function Cover({ payload }) {
-  const state = useAlbumArt(payload, { size: 100 });
-  const url = state.status === 'hit' ? state.art?.thumbUrl : null;
-  if (url) {
-    return <img className="listen-rank-cover" src={url} alt="" loading="lazy" decoding="async" />;
-  }
-  return <span className="listen-rank-cover listen-rank-cover-empty" aria-hidden="true" />;
+  return <AlbumCover payload={payload} size={100} className="listen-rank-cover" />;
 }
 
 /* ------------------------------------------------------------------ */
