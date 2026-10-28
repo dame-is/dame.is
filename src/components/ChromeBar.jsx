@@ -518,6 +518,7 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
   // The footer rides the bottom chrome the way the breadcrumb rides the top:
   // it slides up out of the bar once you reach the last stretch of the page.
   const nearBottom = useNearPageBottom();
+  const canScroll = useCanScroll();
   const footerRef = useRef(null);
   const { available: filterAvailable } = useFeedFilter();
   const { skyHourKey, advanceSkyHour, skyOverridden } = useTheme();
@@ -968,7 +969,9 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
             nothing to move. A button that does nothing when pressed is worse
             than an absent one, and its 36px is exactly what the admin's own
             three controls need at 320. */}
-        {!inAdmin && (
+        {/* Also withheld on a page too short to scroll, where it had nothing
+            to jump to. */}
+        {!inAdmin && canScroll && (
           <motion.button
             layout={layoutProp}
             type="button"
@@ -1373,6 +1376,33 @@ function useTierSlide({ expanded, reduce, primaryRef, wrapRef, innerRef, followe
  *  so a reveal decided while the page was short is revised the instant real
  *  content arrives. Coalesced through requestAnimationFrame so the state flip
  *  (and the transform it drives) never runs synchronously inside a scroll. */
+/** Whether the page is tall enough to scroll at all (by more than 4px),
+ *  re-measured on resize and once the body's height settles. */
+function useCanScroll() {
+  const [can, setCan] = useState(true);
+  useEffect(() => {
+    let settle = 0;
+    const measure = () => {
+      const full = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      setCan(full - (window.innerHeight || 0) > 4);
+    };
+    const schedule = () => {
+      clearTimeout(settle);
+      settle = setTimeout(measure, 250);
+    };
+    schedule();
+    window.addEventListener('resize', schedule, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(schedule) : null;
+    if (ro) ro.observe(document.body);
+    return () => {
+      clearTimeout(settle);
+      window.removeEventListener('resize', schedule);
+      if (ro) ro.disconnect();
+    };
+  }, []);
+  return can;
+}
+
 function useNearPageBottom(fraction = 0.05) {
   const [near, setNear] = useState(false);
   useEffect(() => {

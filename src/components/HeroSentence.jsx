@@ -64,7 +64,25 @@ const wordVariants = {
   exit: { opacity: 0, y: 18, transition: { duration: 0.3, ease: EASE } },
 };
 
-export default function HeroSentence({ shuffleRef = null } = {}) {
+// How many swaps (role or clause) the sentence makes on its own before it
+// rests. It used to rewrite itself every 4–8 seconds for as long as the page
+// was open, with no pause a touch reader could find (WCAG 2.2.2).
+const SWAPS_BEFORE_REST = 3;
+
+/**
+ * The rotating "dame is …" sentence. `held` freezes it (a tap on the
+ * sentence toggles it through `onToggleHold`); it also rests by itself after
+ * three swaps, and whenever it's scrolled out of view. `onModeChange` reports
+ * 'rotating' | 'held' | 'resting' so the page can draw the hold / shuffle
+ * folio beside it, and `controlRef.current.resume()` starts another round.
+ */
+export default function HeroSentence({
+  shuffleRef = null,
+  controlRef = null,
+  held = false,
+  onToggleHold = null,
+  onModeChange = null,
+} = {}) {
   const reduce = useReducedMotion();
 
   // Phrases come from the PDS (`is.dame.hero.phrase`), snapshot-first with a
@@ -131,32 +149,58 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   const [minHeight, setMinHeight] = useState(null);
   const wrapRef = useRef(null);
   const measureRef = useRef(null);
+  // Swaps made since the last (re)start; at SWAPS_BEFORE_REST it rests.
+  const [swaps, setSwaps] = useState(0);
+  const [offscreen, setOffscreen] = useState(false);
+  const resting = swaps >= SWAPS_BEFORE_REST;
+  const stopped = reduce || paused || held || resting || offscreen;
+
+  useEffect(() => {
+    if (!controlRef) return undefined;
+    controlRef.current = { resume: () => setSwaps(0) };
+    return () => {
+      if (controlRef.current) controlRef.current = null;
+    };
+  }, [controlRef]);
+
+  useEffect(() => {
+    onModeChange?.(held ? 'held' : resting || reduce ? 'resting' : 'rotating');
+  }, [held, resting, reduce, onModeChange]);
+
+  // Rest while the sentence is off-screen: nobody is reading it.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([entry]) => setOffscreen(!entry.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // Part-A timer: schedule the next swap whenever index, pause, or
   // reduced-motion state changes. Random interval per round so two
   // adjacent swaps never feel metronomic.
   useEffect(() => {
-    if (reduce || paused) return;
+    if (stopped) return;
     const ms = 4000 + Math.random() * 4000;
-    const id = setTimeout(
-      () => setIndexA((i) => (i + 1) % poolA.length),
-      ms,
-    );
+    const id = setTimeout(() => {
+      setIndexA((i) => (i + 1) % poolA.length);
+      setSwaps((n) => n + 1);
+    }, ms);
     return () => clearTimeout(id);
-  }, [indexA, paused, reduce, poolA.length]);
+  }, [indexA, stopped, poolA.length]);
 
   // Part-B timer: same logic, but a small phase offset (4500 base
   // instead of 4000) so A and B drift independently rather than
   // locking into a shared rhythm.
   useEffect(() => {
-    if (reduce || paused) return;
+    if (stopped) return;
     const ms = 4500 + Math.random() * 4000;
-    const id = setTimeout(
-      () => setIndexB((i) => (i + 1) % poolB.length),
-      ms,
-    );
+    const id = setTimeout(() => {
+      setIndexB((i) => (i + 1) % poolB.length);
+      setSwaps((n) => n + 1);
+    }, ms);
     return () => clearTimeout(id);
-  }, [indexB, paused, reduce, poolB.length]);
+  }, [indexB, stopped, poolB.length]);
 
   // Pause when the tab is hidden — otherwise the timer fires
   // unattended and the user comes back to an arbitrary mid-cycle pair.
@@ -207,12 +251,17 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   return (
     <span
       ref={wrapRef}
-      className="hero-sentence"
+      className={`hero-sentence${held ? ' is-held' : ''}`}
       style={minHeight ? { minHeight: `${minHeight}px` } : undefined}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
+      onClick={() => {
+        // A tap holds it (or lets it go). A drag to select text isn't a tap.
+        if (!onToggleHold || window.getSelection?.()?.toString()) return;
+        onToggleHold();
+      }}
     >
       <span className="hero-sentence-lead">dame is</span>{' '}
       <Rotator index={indexA} pool={poolA} reduce={reduce} className="hero-rotator-a" />{' '}

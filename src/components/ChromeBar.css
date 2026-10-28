@@ -886,7 +886,7 @@
      translating it by exactly -50% lands the second copy where the first
      started — a jump-free wrap. Duration is set per-instance from the text
      width so every status scrolls at the same pace. */
-  animation: ticker-scroll var(--ticker-duration, 8s) linear infinite;
+  animation: ticker-scroll var(--ticker-duration, 8s) linear 1.5s 1;
 }
 
 /* Pause, so it can be read — hover with a pointer, or keyboard focus within

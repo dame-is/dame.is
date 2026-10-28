@@ -110,6 +110,9 @@
   color: var(--ink-soft);
   max-width: var(--measure);
   margin-bottom: 0;
+  /* An intro is a standfirst, not the second paragraph of a passage, even
+     when it follows another <p> (the home hero's folio). */
+  text-indent: 0;
 }
 
 /* Home hero: a combinatorial sentence rendered by <HeroSentence>.
@@ -153,6 +156,74 @@
 
 .hero-sentence-lead {
   color: var(--ink-faint);
+}
+
+/* Held (a tap on the sentence, or the folio's "hold"): the closing rule turns
+   solid accent, so the pause is visible as well as felt. */
+.hero-sentence.is-held {
+  border-bottom: 2px solid var(--accent);
+}
+
+/* The hero's folio, set under its last rule at the right like a page
+   number: hold / resume and shuffle, in small caps. */
+.hero-folio {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5em;
+  max-width: none;
+  margin: calc(var(--space-2) - var(--space-5)) 0 0;
+  font-family: var(--sans);
+  font-size: var(--text-meta);
+  font-variant: all-small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+  text-indent: 0;
+}
+
+.hero-folio button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  min-height: 2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-variant: inherit;
+  letter-spacing: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.hero-folio-state {
+  color: var(--ink);
+}
+
+/* The standfirst's opening words echo the hero's "dame is". */
+.standfirst-lead {
+  font-variant: all-small-caps;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.standfirst-ask {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.standfirst-ask svg {
+  color: var(--accent);
 }
 
 .hero-rotator {
@@ -264,13 +335,9 @@
   color: var(--page);
 }
 
-/* Icon-only utility buttons on the hero CTA row — shuffle the hero sentence,
-   and open the guestbook sign sheet. Square footprint, no label text, same
-   border treatment as the secondary text CTAs. */
-.home-hero-shuffle,
+/* The guestbook button opens the sign sheet rather than going somewhere,
+   but reads as one more labelled destination in the row. */
 .home-hero-guestbook-btn {
-  padding: 0.6em;
-  aspect-ratio: 1;
   cursor: pointer;
 }
 

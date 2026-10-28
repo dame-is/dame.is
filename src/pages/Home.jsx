@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowUp, Shuffle, Signature, X } from 'lucide-react';
+import { ArrowUp, Info, Pause, Play, Shuffle, Signature, X } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, {
   feedFilterCounts,
@@ -13,6 +13,7 @@ import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
 import VerbIcon from '../components/VerbIcon.jsx';
 import { verbIndexIntro } from '../lib/recordPlate.js';
+import { usePageContent } from '../hooks/usePageContent.js';
 import Lightbox from '../components/Lightbox.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
@@ -280,9 +281,21 @@ export default function Home({ verb: presetVerb = null } = {}) {
   const lastRevRef = useRef(null);
 
   // HeroSentence registers its imperative shuffle handle here so the
-  // shuffle button in the hero CTA row can advance both rotators
+  // shuffle button in the hero's folio can advance both rotators
   // without owning the hero's state.
   const shuffleRef = useRef(null);
+  // The hero holds on a tap (or the folio's "hold"), and rests by itself
+  // after three swaps; `heroMode` mirrors which, for the folio's wording.
+  const heroControlRef = useRef(null);
+  const [heroHeld, setHeroHeld] = useState(false);
+  const [heroMode, setHeroMode] = useState('rotating');
+  const toggleHeroHold = useCallback(() => setHeroHeld((h) => !h), []);
+  const resumeHero = useCallback(() => {
+    setHeroHeld(false);
+    heroControlRef.current?.resume();
+  }, []);
+  // The standfirst: is.dame.page/home's intro, else the registry default.
+  const { intro: standfirst } = usePageContent('home');
 
   // Opens the shared guestbook sign sheet (bottom chrome) from the hero's
   // "Sign the guestbook" aside beneath the CTAs.
@@ -711,9 +724,9 @@ export default function Home({ verb: presetVerb = null } = {}) {
     return map;
   }, [groups, newUris]);
 
-  // The home feed aggregates many records; it has no single is.dame.page/home
-  // backing record (none exists, and it isn't in PAGE_REGISTRY), so PageShell
-  // gets no `atUri`. Advertising that phantom record made the debug pane's
+  // The home feed aggregates many records; it has no single backing record
+  // (PAGE_REGISTRY's `home` entry only supplies the standfirst's copy), so
+  // PageShell gets no `atUri`. Advertising that phantom record made the debug pane's
   // "Edit record" surface a raw PDS "Could not locate record" error and emitted
   // a dead <link rel="alternate"> hint. See pageRkeyForPath in
   // src/hooks/useAtUri.js.
@@ -858,10 +871,34 @@ export default function Home({ verb: presetVerb = null } = {}) {
 
   return (
     <PageShell
-      title={<HeroSentence shuffleRef={shuffleRef} />}
+      title={
+        <HeroSentence
+          shuffleRef={shuffleRef}
+          controlRef={heroControlRef}
+          held={heroHeld}
+          onToggleHold={toggleHeroHold}
+          onModeChange={setHeroMode}
+        />
+      }
+      afterTitle={
+        <HeroFolio
+          mode={heroMode}
+          reduce={reduce}
+          onHold={toggleHeroHold}
+          onResume={resumeHero}
+          onShuffle={() => shuffleRef.current?.()}
+        />
+      }
+      intro={
+        standfirst ? (
+          <Standfirst text={standfirst} onAsk={() => openPanel('info')} />
+        ) : null
+      }
       headTitle="dame.is"
       selectable
     >
+      {/* Destinations only, every one labelled. Resume is the one filled
+          button; shuffle moved to the hero's own folio. */}
       <nav className="home-hero-cta" aria-label="Primary destinations">
         <Link className="home-hero-cta-btn home-hero-cta-primary" to="/available">
           Resume
@@ -876,19 +913,9 @@ export default function Home({ verb: presetVerb = null } = {}) {
           type="button"
           className="home-hero-cta-btn home-hero-guestbook-btn"
           onClick={() => openPanel('guestbook')}
-          aria-label="Sign the guestbook"
-          title="Sign the guestbook"
         >
           <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="home-hero-cta-btn home-hero-shuffle"
-          onClick={() => shuffleRef.current?.()}
-          aria-label="Shuffle hero statement"
-          title="Shuffle hero statement"
-        >
-          <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
+          Sign the guestbook
         </button>
       </nav>
 
@@ -898,5 +925,69 @@ export default function Home({ verb: presetVerb = null } = {}) {
       </section>
 
     </PageShell>
+  );
+}
+
+/**
+ * The hero's folio: small caps under its last rule, right-aligned like a
+ * page number. "hold · shuffle" while it turns over; "held · resume" once
+ * held (by this or a tap on the sentence); "resume · shuffle" once it has
+ * rested by itself. Under reduced motion it never rotates, so only shuffle.
+ */
+function HeroFolio({ mode, reduce, onHold, onResume, onShuffle }) {
+  return (
+    <p className="hero-folio">
+      {!reduce && mode === 'rotating' && (
+        <button type="button" aria-pressed={false} onClick={onHold}>
+          <Pause size={11} strokeWidth={2} aria-hidden="true" />
+          hold
+        </button>
+      )}
+      {!reduce && mode === 'held' && (
+        <>
+          <span className="hero-folio-state">held</span>
+          <button type="button" aria-pressed onClick={onResume}>
+            <Play size={11} strokeWidth={2} aria-hidden="true" />
+            resume
+          </button>
+        </>
+      )}
+      {!reduce && mode === 'resting' && (
+        <button type="button" onClick={onResume}>
+          <Play size={11} strokeWidth={2} aria-hidden="true" />
+          resume
+        </button>
+      )}
+      {!reduce && <span aria-hidden="true">·</span>}
+      <button type="button" onClick={onShuffle}>
+        <Shuffle size={11} strokeWidth={2} aria-hidden="true" />
+        shuffle
+      </button>
+    </p>
+  );
+}
+
+/**
+ * The fixed standfirst under the hero. Its opening "Dame is" is set in small
+ * caps, an echo of the hero's lead, and "What am I looking at?" opens the ⓘ
+ * sheet, which starts with Dame and the sections.
+ */
+function Standfirst({ text, onAsk }) {
+  const m = /^(Dame is)\b/.exec(text);
+  return (
+    <>
+      {m ? (
+        <>
+          <span className="standfirst-lead">{m[1]}</span>
+          {text.slice(m[1].length)}
+        </>
+      ) : (
+        text
+      )}{' '}
+      <button type="button" className="standfirst-ask" onClick={onAsk}>
+        What am I looking at?
+        <Info size={13} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+    </>
   );
 }

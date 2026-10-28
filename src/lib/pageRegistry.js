@@ -15,6 +15,18 @@
 import { COLLECTIONS } from '../config.js';
 
 export const PAGE_REGISTRY = {
+  // The home page's standfirst: the one fixed statement under the rotating
+  // hero, saying who Dame is and what the page is. Only `intro` is read (the
+  // feed itself has no single backing record), and it can be rewritten as
+  // is.dame.page/home without a deploy.
+  home: {
+    slug: 'home',
+    label: 'Home',
+    title: 'dame.is',
+    intro:
+      'Dame is a product engineer and designer who builds social software on the AT Protocol. Almost everything below is a live record from their own data server.',
+    collection: null,
+  },
   creating: {
     slug: 'creating',
     label: 'Creating',
@@ -94,7 +106,9 @@ export const PAGE_REGISTRY = {
     title: 'About this site',
     // The "What is this site?" primer shown in the bottom-bar info sheet.
     // Authored as markdown so it can migrate onto the PDS and be edited there.
-    body: `**dame.is** is a personal website built on top of the *AT Protocol*. It's where Dame writes, posts, plays music, ships projects, and keeps a running log of what they're up to. The data behind every record on this page is portable, open, and not stuck on this website.
+    body: `Dame is a product engineer and designer who builds social software. This is their website: essays under [blogging](/blogging), past work under [creating](/creating), moths under [mothing](/mothing), a running status log under [logging](/logging), and a guestbook under [welcoming](/welcoming). The [résumé](/available) is the quickest summary.
+
+**dame.is** is built on top of the *AT Protocol*, so the data behind every record on this page is portable, open, and not stuck on this website.
 
 ### What is atproto?
 
