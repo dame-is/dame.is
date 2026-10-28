@@ -49,7 +49,10 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
     setStatus('Uploading…');
     try {
       const { blob } = await uploadImageFile(agent, file);
-      onChange({ ...block, previewImage: blob });
+      // Updaters for every write that lands after an await: the block may have
+      // been edited since (a title typed while the image uploaded), and the
+      // caller applies these to the block as it is by then.
+      onChange((current) => ({ ...current, previewImage: blob }));
       setCoverDone(false);
       setStatus(null);
     } catch (err) {
@@ -60,7 +63,7 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
   // Pull a remote image (e.g. the link's og:image) through our same-origin
   // proxy — a direct cross-origin fetch is CORS-blocked on most hosts — then
   // upload it to the PDS. Returns the blob ref (and shows the thumbnail from a
-  // local object URL); the caller decides how to merge it into the block so
+  // local object URL); the caller merges it into the block with an updater, so
   // this never clobbers concurrent field edits.
   async function fetchAndUploadImage(imageUrl) {
     const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(imageUrl)}`);
@@ -76,12 +79,12 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
   }
 
   // "Use detected image" button — swap the current preview for the og:image.
-  async function useDetectedImage(imageUrl) {
+  async function applyDetectedImage(imageUrl) {
     if (!imageUrl) return;
     setStatus('Fetching preview image…');
     try {
       const blob = await fetchAndUploadImage(imageUrl);
-      onChange({ ...block, previewImage: blob });
+      onChange((current) => ({ ...current, previewImage: blob }));
       setCoverDone(false);
       setStatus(null);
     } catch {
@@ -99,15 +102,6 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
     try {
       const res = await fetch(`/api/unfurl?url=${encodeURIComponent(src)}`);
       const data = await res.json();
-      // Merge everything into a single block so title/description and a
-      // freshly uploaded preview blob land together (avoids a stale-block race
-      // between two separate onChange calls).
-      const next = {
-        ...block,
-        src,
-        title: block.title || data?.title || '',
-        description: block.description || data?.description || '',
-      };
       // Resolve a relative og:image ("/cover.png") against the page URL — the
       // proxy needs an absolute http(s) URL. (The unfurl endpoint already does
       // this; this is a belt-and-braces fallback for cached/older responses.)
@@ -120,16 +114,31 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
         }
       }
       if (image) setDetected(image);
+      let previewImage = null;
       if (image && !block.previewImage) {
         try {
           setStatus('Fetching preview image…');
-          next.previewImage = await fetchAndUploadImage(image);
+          previewImage = await fetchAndUploadImage(image);
           setStatus(null);
         } catch {
           setStatus('Metadata loaded, but the preview image could not be fetched.');
         }
       }
-      onChange(next);
+      // One write, merged into the block as it is by the time both requests are
+      // back — title and description fill only what is still empty, so anything
+      // typed during the fetch wins over the page's own metadata. Metadata for a
+      // URL the author has since replaced describes some other page, and is
+      // dropped.
+      onChange((current) => {
+        if (normalizeUrl(current.src) !== src) return current;
+        return {
+          ...current,
+          src,
+          title: current.title || data?.title || '',
+          description: current.description || data?.description || '',
+          ...(previewImage && !current.previewImage ? { previewImage } : {}),
+        };
+      });
     } catch {
       /* leave fields as-is on failure */
     } finally {
@@ -143,7 +152,7 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
     onChange({ ...block, previewImage: undefined });
   }
 
-  function useAsCover() {
+  function applyAsCover() {
     if (!onSetCover || !block.previewImage) return;
     // Mint a URL the cover field can own (ours is revoked on collapse); fall
     // back to the blob's read-back URL if the raw bytes aren't around.
@@ -215,7 +224,7 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
           <button
             type="button"
             className="admin-link-subtle"
-            onClick={() => useDetectedImage(detected)}
+            onClick={() => applyDetectedImage(detected)}
           >
             Use detected image
           </button>
@@ -232,7 +241,7 @@ export default function WebsiteBlockEditor({ block, agent, onChange, onSetCover 
             <button
               type="button"
               className="admin-link-subtle"
-              onClick={useAsCover}
+              onClick={applyAsCover}
             >
               {coverDone ? 'Cover set ✓' : 'Use as record cover'}
             </button>

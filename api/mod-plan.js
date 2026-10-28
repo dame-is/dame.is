@@ -19,7 +19,7 @@
 // time, and the log should say so.
 //
 // Actions (POST body):
-//   { action: 'plans' }                        recent plans, newest first
+//   { action: 'plans', before?, kind? }        recent plans, newest first
 //   { action: 'detail', code, ...filters }     one plan, one page of rows
 //   { action: 'add', code, dids: [] }          add those accounts, by name
 //   { action: 'undo', code }                   take the plan's additions back off
@@ -84,26 +84,46 @@ function sourceFromNote(note) {
   return /from (at:\/\/\S+)/.exec(String(note ?? ''))?.[1] ?? null;
 }
 
-/** Recent plans with enough shape to choose one. */
-export async function plans() {
+/** Plans per page of the Activity tab. */
+const PLANS_PAGE = 25;
+
+/**
+ * Recent plans with enough shape to choose one, a page at a time.
+ *
+ * `before` is the created_at of the last plan already shown. `kind` narrows to
+ * scans or to direct actions: every typed block and unblock is a plan of one,
+ * so an evening of them used to push every scan off the only page there was.
+ * A scan's note has always read "bulk <kind> from <uri>", and a direct
+ * action's is dame's own words, which is the split.
+ */
+export async function plans({ before = null, kind = 'all' } = {}) {
+  const where = {};
+  if (before) where.created_at = `lt.${before}`;
+  if (kind === 'scans') where.note = 'like.bulk*';
+  if (kind === 'direct') where.or = '(note.is.null,note.not.like.bulk*)';
   const rows = await select('plan', {
     select: 'id,created_at,approved_at,approved_bands,totals,note',
+    where,
     order: 'created_at.desc',
-    limit: 25,
+    limit: PLANS_PAGE,
   });
-  // One read of the decision table rather than one per plan: at these sizes the
-  // whole thing is a few pages, and 25 round trips to count rows is not.
-  const ids = new Set(rows.map((r) => r.id));
-  const all = await selectAll('decision', {
-    select: 'plan_id,triage,acted_at,undone_at,approved_via',
-    order: 'plan_id.asc',
-  });
+  // One read for the decisions of these plans rather than one per plan, and
+  // only these plans': reading the whole table to count 25 of them grew with
+  // every scan ever run.
+  const ids = rows.map((r) => r.id);
+  const all = ids.length
+    ? await selectAll('decision', {
+        select: 'plan_id,triage,action,acted_at,undone_at,approved_via',
+        where: { plan_id: `in.(${ids.join(',')})` },
+        order: 'plan_id.asc,did.asc',
+      })
+    : [];
   const byPlan = new Map();
   for (const d of all) {
-    if (!ids.has(d.plan_id)) continue;
     const agg = byPlan.get(d.plan_id) || {
       accounts: 0,
       added: 0,
+      removed: 0,
       undone: 0,
       hostile: 0,
       arguing: 0,
@@ -112,7 +132,11 @@ export async function plans() {
       via: {},
     };
     agg.accounts += 1;
-    if (d.acted_at && !d.undone_at) {
+    // An unblock is a plan of one too, and it took someone OFF. Counting it
+    // as "on the list" made every unblock read as an addition.
+    if (d.acted_at && d.action === 'list_remove') {
+      agg.removed += 1;
+    } else if (d.acted_at && !d.undone_at) {
       agg.added += 1;
       // HOW each account got there, not just how many. "you were in a band I
       // approved", "I read your profile", and "a model read what you wrote"
@@ -130,6 +154,7 @@ export async function plans() {
   }
 
   return {
+    next: rows.length === PLANS_PAGE ? rows[rows.length - 1].created_at : null,
     plans: rows.map((p) => ({
       code: shortCode(p.id),
       createdAt: p.created_at,
@@ -140,7 +165,12 @@ export async function plans() {
       // The at:// URI answers "which record"; this answers "what was it".
       webUrl: postWebUrl(p.totals?.uri ?? sourceFromNote(p.note)),
       kind: p.totals?.kind ?? null,
-      ...(byPlan.get(p.id) || { accounts: 0, added: 0, undone: 0 }),
+      ...(byPlan.get(p.id) || {
+        accounts: 0,
+        added: 0,
+        removed: 0,
+        undone: 0,
+      }),
     })),
   };
 }
@@ -152,7 +182,7 @@ export async function detail(body) {
 
   const rows = await selectAll('decision', {
     select:
-      'did,band,trust,vouches,triage,triage_quote,acted_at,undone_at,approved_via,evidence_uri',
+      'did,band,trust,vouches,triage,triage_quote,action,acted_at,undone_at,approved_via,evidence_uri,already_listed',
     eq: { plan_id: plan.id },
     order: 'did.asc',
   });
@@ -161,12 +191,18 @@ export async function detail(body) {
   const band = body.band || null;
   const state = body.state || 'all';
 
-  const live = (r) => r.acted_at && !r.undone_at;
+  // On the list because of this plan. An unblock's row is acted on too, and
+  // it is the opposite of an addition.
+  const live = (r) => r.acted_at && r.action !== 'list_remove' && !r.undone_at;
+  // On the list through something else when this plan was scanned, which is
+  // why approving it skipped them. Not "not on the list", which is what the
+  // pending filter is for.
+  const elsewhere = (r) => !r.acted_at && r.already_listed;
   const filtered = rows.filter((r) => {
     if (label && r.triage !== label) return false;
     if (band && r.band !== band) return false;
-    if (state === 'pending' && live(r)) return false;
-    if (state === 'added' && !live(r)) return false;
+    if (state === 'pending' && (live(r) || elsewhere(r))) return false;
+    if (state === 'added' && !live(r) && !elsewhere(r)) return false;
     return true;
   });
 
@@ -210,6 +246,8 @@ export async function detail(body) {
       quote: r.triage_quote,
       evidenceUri: r.evidence_uri,
       added: Boolean(live(r)),
+      alreadyListed: Boolean(elsewhere(r)),
+      removed: Boolean(r.acted_at && r.action === 'list_remove'),
       undone: Boolean(r.undone_at),
       approvedVia: r.approved_via,
       ...(profiles.get(r.did) || {}),
@@ -222,7 +260,14 @@ export default async function handler(req, res) {
   const action = req.body?.action || req.query?.action || 'plans';
 
   try {
-    if (action === 'plans') return res.status(200).json(await plans());
+    if (action === 'plans') {
+      return res.status(200).json(
+        await plans({
+          before: req.body?.before || null,
+          kind: req.body?.kind || 'all',
+        }),
+      );
+    }
     if (action === 'detail') {
       const out = await detail(req.body || {});
       return res.status(out.error ? 404 : 200).json(out);

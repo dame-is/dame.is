@@ -34,6 +34,14 @@ const STORES = {
 
 let _handlePromise = null;
 
+// How long an open waits on another tab before serving this one from memory.
+// A blocked open isn't a failure — it goes through the moment the tab holding
+// the older version lets go, which a tab running this code does at once (see
+// onversionchange below). A tab still running the code from before that
+// handler existed never lets go, though, and without a limit the studio would
+// sit on its loading state for as long as that tab stayed open.
+const BLOCKED_WAIT_MS = 5_000;
+
 /**
  * Open (once) and return the store handle:
  *
@@ -45,13 +53,23 @@ let _handlePromise = null;
  *   persistent            true when rows will survive a reload
  *
  * The handle is memoized: every consumer shares one connection, and a failed
- * open memoizes the memory fallback rather than retrying per call.
+ * open memoizes the memory fallback rather than retrying per call. Except a
+ * blocked one: that is another tab holding the database at an older version,
+ * which passes, so its fallback (marked `blocked`, for a studio that wants to
+ * say why) serves this call and the next call tries again.
  */
 export function openAnalyticsStore() {
   if (!_handlePromise) {
-    _handlePromise = openIdb()
+    const opening = openIdb()
       .then((db) => idbHandle(db))
-      .catch(() => memoryHandle());
+      .catch((err) => {
+        if (err?.blocked) {
+          if (_handlePromise === opening) _handlePromise = null;
+          return memoryHandle({ blocked: true });
+        }
+        return memoryHandle();
+      });
+    _handlePromise = opening;
   }
   return _handlePromise;
 }
@@ -68,19 +86,54 @@ function openIdb() {
       return;
     }
     const req = indexedDB.open(DB_NAME, DB_VERSION);
+    let settled = false;
+    let blockedTimer = null;
     req.onupgradeneeded = () => {
       const db = req.result;
       for (const [name, keyPath] of Object.entries(STORES)) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath });
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error || new Error('indexedDB open failed'));
-    req.onblocked = () => reject(new Error('indexedDB blocked'));
+    req.onsuccess = () => {
+      clearTimeout(blockedTimer);
+      // Opened after this call already gave up on it: release it straight
+      // away, or this tab becomes the one blocking the next upgrade.
+      if (settled) {
+        req.result.close();
+        return;
+      }
+      settled = true;
+      resolve(req.result);
+    };
+    req.onerror = () => {
+      clearTimeout(blockedTimer);
+      if (settled) return;
+      settled = true;
+      reject(req.error || new Error('indexedDB open failed'));
+    };
+    req.onblocked = () => {
+      if (blockedTimer || settled) return;
+      blockedTimer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        const err = new Error('indexedDB blocked by another tab');
+        err.blocked = true;
+        reject(err);
+      }, BLOCKED_WAIT_MS);
+    };
   });
 }
 
 function idbHandle(db) {
+  // A newer build in another tab wants to upgrade the schema. Step aside: this
+  // tab's calls fall back as if the database had gone (each one already
+  // tolerates that), and the handle is forgotten, so a later open asks again
+  // instead of handing out a closed connection.
+  db.onversionchange = () => {
+    db.close();
+    _handlePromise = null;
+  };
+
   // Any structural failure after open (a store missing because a future
   // version renamed it, an eviction mid-write) downgrades that CALL to the
   // fallback result rather than throwing into the studio.
@@ -146,10 +199,11 @@ function idbHandle(db) {
   };
 }
 
-function memoryHandle() {
+function memoryHandle({ blocked = false } = {}) {
   const mem = new Map(Object.keys(STORES).map((name) => [name, new Map()]));
   return {
     persistent: false,
+    blocked,
     async all(store) {
       return Array.from(mem.get(store)?.values() || []);
     },

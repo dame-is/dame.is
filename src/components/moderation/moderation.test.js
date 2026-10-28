@@ -9,7 +9,7 @@ import {
   paramsForRoute,
   routeFromParams,
 } from './routes.js';
-import { age, timeAgo, usd, viaTag, viaText } from './format.js';
+import { age, decisionText, timeAgo, usd, viaTag, viaText } from './format.js';
 import { tokenExpiry } from '../../lib/moderation/client.js';
 
 const route = (qs) => routeFromParams(new URLSearchParams(qs));
@@ -61,6 +61,22 @@ describe('where the hub opens', () => {
     );
   });
 
+  it("keeps a plan's filters in the URL, so a DM link survives a reload", () => {
+    const opened = route('tab=plans&code=6fa2491d&label=hostile&state=pending');
+    const q = paramsForRoute('view=moderation&tab=plans', opened);
+    expect(q.get('tab')).toBe('activity');
+    expect(q.get('label')).toBe('hostile');
+    expect(q.get('state')).toBe('pending');
+    expect(q.has('band')).toBe(false);
+    expect(routeFromParams(q)).toMatchObject(opened);
+    // Filters belong to a plan, and go when it does.
+    expect(
+      paramsForRoute(q.toString(), { ...opened, tab: 'queue', plan: null }).has(
+        'label',
+      ),
+    ).toBe(false);
+  });
+
   it('round-trips: a route written to the URL reads back as itself', () => {
     const r = { tab: 'blocked', plan: null, account: 'did:plc:abc' };
     expect(routeFromParams(paramsForRoute('view=moderation', r))).toMatchObject(
@@ -102,6 +118,34 @@ describe('how an account got on the list', () => {
       text: 'hostile · watch',
       tone: 'danger',
     });
+  });
+
+  it('tells an unblock from a block in an account history', () => {
+    const at = '2026-10-01T10:00:00Z';
+    expect(
+      decisionText({
+        action: 'list_add',
+        acted_at: at,
+        approved_via: 'command',
+      }),
+    ).toBe('Added: a direct block');
+    expect(
+      decisionText({
+        action: 'list_remove',
+        acted_at: at,
+        approved_via: 'command',
+      }),
+    ).toBe('Removed: a direct unblock');
+    expect(
+      decisionText({
+        action: 'list_remove',
+        acted_at: at,
+        approved_via: 'agent',
+      }),
+    ).toMatch(/^Removed: .*agent/);
+    expect(decisionText({ action: null, acted_at: null })).toMatch(
+      /not acted on/,
+    );
   });
 
   it('tags a hostile reading as the one that matters', () => {

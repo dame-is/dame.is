@@ -18,11 +18,21 @@
   display: none;
 }
 
+/* Same metrics as the shared .page-title (app.css), so the title holds its
+   size moving between /available and the other nav pages. Not that class
+   itself: this h1 swaps its text for the name in print. */
 .resume-title {
   font-family: var(--serif);
-  font-size: var(--text-3xl);
+  font-size: var(--text-4xl);
   margin: 0;
-  line-height: var(--leading-tight);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 700px) {
+  .resume-title {
+    font-size: var(--text-3xl);
+  }
 }
 
 .resume-headline {
@@ -61,9 +71,17 @@
   border-bottom: 1px solid var(--rule-soft);
 }
 
-.resume-contact a:hover {
-  color: var(--accent);
-  border-color: var(--accent-soft);
+@media (hover: hover) {
+  .resume-contact a:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+  }
+}
+
+/* A labelled contact link's address, which stands in for its label on paper
+   (see the @media print block below). */
+.resume-contact-print {
+  display: none;
 }
 
 /* --- Sections ------------------------------------------------------- */
@@ -110,8 +128,10 @@
   border-bottom: 1px solid var(--rule-soft);
 }
 
-.resume-org-name a:hover {
-  border-color: var(--accent-soft);
+@media (hover: hover) {
+  .resume-org-name a:hover {
+    border-color: var(--accent-soft);
+  }
 }
 
 /* A role within an organization. Multiple roles at one org share a left
@@ -228,9 +248,13 @@
   transition: border-color 120ms ease, background 120ms ease;
 }
 
-a.resume-work-link:hover {
-  border-color: var(--accent-soft);
-  background: color-mix(in srgb, var(--accent) 4%, transparent);
+/* Hover tints are pointer-only here as everywhere: on touch they stick to
+   whatever was tapped (see the note in typography.css). */
+@media (hover: hover) {
+  a.resume-work-link:hover {
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
 }
 
 .resume-work-link.is-static {
@@ -266,8 +290,10 @@ a.resume-work-link:hover {
   color: var(--ink);
 }
 
-a.resume-work-link:hover .resume-work-title {
-  color: var(--accent);
+@media (hover: hover) {
+  a.resume-work-link:hover .resume-work-title {
+    color: var(--accent);
+  }
 }
 
 .resume-work-desc {
@@ -343,10 +369,11 @@ a.resume-work-link:hover .resume-work-title {
    On screen the resume wears whatever theme is live (light / dark / sky).
    For paper that means a tinted or near-black ground and — in the dark
    themes — light text that all but vanishes on white. Rather than patch
-   each element, print re-grounds the resume's design tokens to plain
-   black-on-white and sheds the decorative surfaces (skill chips, work
-   thumbnails, card borders) so what comes out is a simple, ATS-friendly
-   document that sits comfortably on a standard sheet. */
+   each element, print re-grounds the design tokens to plain black-on-white
+   (theme.css does that for every page) and the resume sheds its decorative
+   surfaces (skill chips, work thumbnails, card borders) so what comes out is
+   a simple, ATS-friendly document that sits comfortably on a standard
+   sheet. */
 @media print {
   /* The paper's only frame; `auto` keeps it on the printer's own standard
      sheet (Letter or A4) rather than forcing one region's size. */
@@ -379,27 +406,13 @@ a.resume-work-link:hover .resume-work-title {
     padding: 0 !important;
   }
 
-  /* Re-ground the palette and shrink the type + spacing scale, all via the
-     design tokens. Custom properties inherit, so every descendant that
-     reads --ink / --page / --rule-* / --text-* / --space-* resolves to
-     these print values — the summary's `.blog-prose`, the skills, and the
-     work list included — without touching each rule. Scoped to `.resume`
-     so no other page's print is affected. */
+  /* Shrink the type + spacing scale via the design tokens. Custom
+     properties inherit, so every descendant that reads --text-* / --space-*
+     resolves to these print values — the summary's `.blog-prose`, the
+     skills, and the work list included — without touching each rule. Scoped
+     to `.resume` so no other page's print is affected. (The black-on-white
+     palette every printed page gets is in theme.css.) */
   .resume {
-    --page: #fff;
-    --page-edge: #fff;
-    --surface-raised: #fff;
-    --ink: #000;
-    --ink-soft: #1a1a1a;
-    --ink-muted: #3a3a3a;
-    --ink-faint: #5a5a5a;
-    --accent: #000;
-    --accent-soft: #8a8a8a;
-    --rule: #b3b3b3;
-    --rule-soft: #d0d0d0;
-    --highlight: transparent;
-    --shadow: none;
-
     /* A compact scale so a full resume fits the sheet without the on-screen
        display sizes overrunning the printable width. */
     --text-xs: 0.66rem;
@@ -455,6 +468,22 @@ a.resume-work-link:hover .resume-work-title {
     display: none;
   }
   .resume-title-print {
+    display: inline;
+  }
+  /* The name keeps the size the sheet was laid out around: the nav-page
+     title metrics above are for the screen. */
+  .resume-title {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    letter-spacing: -0.005em;
+  }
+
+  /* Likewise a contact link's label ("Website") gives way to its address,
+     since nobody can click a sheet of paper. */
+  .resume-contact-screen {
+    display: none;
+  }
+  .resume-contact-print {
     display: inline;
   }
 

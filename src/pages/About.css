@@ -4,6 +4,11 @@
   align-items: flex-start;
   flex-wrap: wrap;
   padding: var(--space-5) 0;
+}
+
+/* The rule divides the card from what follows it — photos, the long-form body
+   — so with nothing after the card it would only underline empty space. */
+.about-card:not(:last-child) {
   border-bottom: 1px solid var(--rule);
 }
 

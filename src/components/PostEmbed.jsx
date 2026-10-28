@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Play } from 'lucide-react';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import RelativeTimeText from './RelativeTimeText.jsx';
 import { renderPostText } from '../lib/postRichText.jsx';
 import { safeHref } from '../lib/safeHref.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import Lightbox from './Lightbox.jsx';
 import './PostEmbed.css';
 
@@ -26,14 +28,24 @@ import './PostEmbed.css';
  * a tint deep (a document's embedded post block). Everything below adds its
  * own depth to it, so a quote knows its absolute level without having to ask
  * what it is inside of. See the nesting scale in styles/theme.css.
+ *
+ * `postUri` is the at:// URI of the post the embed belongs to, when the
+ * caller knows it. A video the browser can't play inline links out to that
+ * post on bsky.app; without it the poster just sits there.
  */
-export default function PostEmbed({ embed, did, depth = 0, nest = 0 }) {
+export default function PostEmbed({
+  embed,
+  did,
+  depth = 0,
+  nest = 0,
+  postUri = null,
+}) {
   if (!embed) return null;
-  return renderEmbed(embed, did, depth, nest);
+  return renderEmbed(embed, did, depth, nest, postUri);
 }
 
 /** Resolves an embed object to its rendered element. */
-function renderEmbed(embed, did, depth, nest = 0) {
+function renderEmbed(embed, did, depth, nest = 0, postUri = null) {
   const type = embed.$type;
   switch (type) {
     case 'app.bsky.embed.images#view':
@@ -51,6 +63,7 @@ function renderEmbed(embed, did, depth, nest = 0) {
           thumbnail={embed.thumbnail}
           alt={embed.alt}
           aspectRatio={embed.aspectRatio}
+          postUri={postUri}
         />
       );
     case 'app.bsky.embed.video':
@@ -64,6 +77,7 @@ function renderEmbed(embed, did, depth, nest = 0) {
             : null}
           alt={embed.alt}
           aspectRatio={embed.aspectRatio}
+          postUri={postUri}
         />
       );
     case 'app.bsky.embed.external#view':
@@ -100,7 +114,13 @@ function renderEmbed(embed, did, depth, nest = 0) {
       return (
         <>
           {embed.media && (
-            <PostEmbed embed={embed.media} did={did} depth={depth} nest={nest} />
+            <PostEmbed
+              embed={embed.media}
+              did={did}
+              depth={depth}
+              nest={nest}
+              postUri={postUri}
+            />
           )}
           {embed.record?.record && (
             <QuoteRecord record={embed.record.record} depth={depth} nest={nest} />
@@ -111,7 +131,13 @@ function renderEmbed(embed, did, depth, nest = 0) {
       return (
         <>
           {embed.media && (
-            <PostEmbed embed={embed.media} did={did} depth={depth} nest={nest} />
+            <PostEmbed
+              embed={embed.media}
+              did={did}
+              depth={depth}
+              nest={nest}
+              postUri={postUri}
+            />
           )}
           {embed.record?.record && (
             <a
@@ -216,18 +242,36 @@ function ImageGrid({ images }) {
 }
 
 /**
- * HLS playback isn't natively supported in Chrome/Firefox. Use the
- * thumbnail with a "play on bsky" link as a graceful fallback when we
- * can't actually play the stream inline.
+ * Whether a plain <video> plays HLS here. Bluesky serves video only as an HLS
+ * playlist, which Safari and most mobile browsers play natively and others
+ * (Firefox, notably) don't: those report '' and would sit on a poster whose
+ * play button does nothing. Asked once per session.
  */
-function VideoBlock({ playlist, thumbnail, alt, aspectRatio }) {
+let nativeHls = null;
+function playsHlsNatively() {
+  if (nativeHls === null) {
+    nativeHls =
+      typeof document !== 'undefined' &&
+      document
+        .createElement('video')
+        .canPlayType('application/vnd.apple.mpegurl') !== '';
+  }
+  return nativeHls;
+}
+
+/**
+ * Inline player where the browser can play the stream; otherwise the
+ * thumbnail, linking out to the post on bsky.app (when `postUri` says which
+ * post that is) so the video is still one tap away.
+ */
+function VideoBlock({ playlist, thumbnail, alt, aspectRatio, postUri = null }) {
   if (!playlist && !thumbnail) return null;
   const style = aspectRatio
     ? { aspectRatio: `${aspectRatio.width} / ${aspectRatio.height}` }
     : undefined;
-  return (
-    <div className="post-embed-video" style={style}>
-      {playlist ? (
+  if (playlist && playsHlsNatively()) {
+    return (
+      <div className="post-embed-video" style={style}>
         <video
           controls
           preload="none"
@@ -237,10 +281,40 @@ function VideoBlock({ playlist, thumbnail, alt, aspectRatio }) {
         >
           <source src={playlist} type="application/vnd.apple.mpegurl" />
         </video>
-      ) : (
-        <img src={thumbnail} alt={alt || ''} loading="lazy" />
-      )}
-    </div>
+      </div>
+    );
+  }
+  const href =
+    playlist &&
+    /^at:\/\/[^/]+\/app\.bsky\.feed\.post\//.test(String(postUri || ''))
+      ? bskyAppUrlFromAtUri(postUri)
+      : null;
+  const poster = thumbnail ? (
+    <img src={thumbnail} alt={alt || ''} loading="lazy" />
+  ) : null;
+  if (!href) {
+    return poster ? (
+      <div className="post-embed-video" style={style}>
+        {poster}
+      </div>
+    ) : null;
+  }
+  return (
+    <a
+      className="post-embed-video post-embed-video-out"
+      style={style}
+      href={href}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-label={
+        alt ? `Play video on Bluesky: ${alt}` : 'Play video on Bluesky'
+      }
+    >
+      {poster}
+      <span className="post-embed-video-badge gutter" aria-hidden="true">
+        <Play size={12} strokeWidth={2} fill="currentColor" /> play on Bluesky
+      </span>
+    </a>
   );
 }
 
@@ -346,7 +420,7 @@ function QuoteRecord({ record, depth = 0, nest = 0 }) {
         {author.avatar && (
           <img
             className="post-embed-quote-avatar"
-            src={author.avatar}
+            src={avatarThumb(author.avatar)}
             alt=""
             width={20}
             height={20}
@@ -379,7 +453,13 @@ function QuoteRecord({ record, depth = 0, nest = 0 }) {
         <p className="post-embed-quote-text">{renderPostText(text, facets)}</p>
       )}
       {nestedEmbed && depth < 1 && (
-        <PostEmbed embed={nestedEmbed} did={author.did} depth={depth + 1} nest={nest} />
+        <PostEmbed
+          embed={nestedEmbed}
+          did={author.did}
+          depth={depth + 1}
+          nest={nest}
+          postUri={record.uri}
+        />
       )}
     </article>
   );

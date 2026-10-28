@@ -135,19 +135,34 @@ export default function CuratingChannel() {
     );
   }
 
-  if (status === 'error' || !items || items.notFound) {
-    const missing = status !== 'error';
+  // A transient failure (snapshot and are.na both out of reach) must not read
+  // as "not found" — not in the page, and not in the tab or history either,
+  // where a shared link would carry it. Keep the URL and offer another go, as
+  // the other detail pages do. Only a resolved-but-absent gallery is a 404.
+  if (status === 'error') {
     return (
       <PageShell
-        title={missing ? 'Gallery not found' : 'Gallery unavailable'}
-        headTitle="Not found — dame.is"
+        title="Couldn’t load this right now"
+        headTitle="Couldn’t load — dame.is"
       >
         <p>
-          {missing ? (
-            <>No gallery with slug <code>{slug}</code>.{' '}</>
-          ) : (
-            <>Couldn&rsquo;t load this gallery right now.{' '}</>
-          )}
+          Couldn&rsquo;t load this gallery right now — refresh to try again.
+        </p>
+        <p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Refresh
+          </button>{' '}
+          <Link to="/curating">Back to curating.</Link>
+        </p>
+      </PageShell>
+    );
+  }
+
+  if (!items || items.notFound) {
+    return (
+      <PageShell title="Gallery not found" headTitle="Not found — dame.is">
+        <p>
+          No gallery with slug <code>{slug}</code>.{' '}
           <Link to="/curating">Back to curating.</Link>
         </p>
       </PageShell>
@@ -198,6 +213,14 @@ export default function CuratingChannel() {
                   : null;
               const playable = Boolean(playerSrc(b));
               const noun = playable ? 'video' : 'image';
+              // A captioned tile's name starts with its caption, so what's on
+              // screen is what a screen reader says and what voice control
+              // can be told to press; a bare image tile names its picture.
+              const label = caption
+                ? `${caption}, view ${noun}`
+                : b.alt
+                  ? `View ${noun}: ${b.alt}`
+                  : `View ${noun} ${vIndex + 1}`;
               const img = (
                 <img
                   src={b.thumb.src}
@@ -213,7 +236,7 @@ export default function CuratingChannel() {
                     type="button"
                     className="curating-block-button"
                     onClick={() => setLightbox(vIndex)}
-                    aria-label={b.alt ? `View ${noun}: ${b.alt}` : `View ${noun} ${vIndex + 1}`}
+                    aria-label={label}
                   >
                     {playable ? (
                       <span className="curating-block-media">

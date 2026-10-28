@@ -165,7 +165,33 @@ function hslToRgb([h, s, l]) {
 }
 
 const hsl = (h, s, l) => rgbToHex(hslToRgb([h, s, l]));
+// CSS's `color-mix(in srgb, a <weight>, b)`.
+const mixHex = (a, b, weight) => {
+  const [ra, ga, ba] = hexToRgb(a);
+  const [rb, gb, bb] = hexToRgb(b);
+  return rgbToHex([
+    ra * weight + rb * (1 - weight),
+    ga * weight + gb * (1 - weight),
+    ba * weight + bb * (1 - weight),
+  ]);
+};
 const rgba = ([r, g, b], a) => `rgba(${r}, ${g}, ${b}, ${a})`;
+
+// WCAG 2 relative luminance and contrast ratio, on hex colors.
+function luminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio between two hex colors (1–21). */
+export function contrastRatio(a, b) {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
 
 /* ---------- palette derivation ---------- */
 
@@ -435,7 +461,8 @@ export function paletteForHour(hour, tuning = activeTuning) {
     pageOverride: cfg && cfg.page ? cfg.page : null,
     surfaceSep: cfg ? cfg.surfaceSep : 1,
   });
-  const outVars = cfg ? applyOverride(vars, ctx, cfg) : { ...vars, ...GLOW_OFF };
+  const tuned = cfg ? applyOverride(vars, ctx, cfg) : { ...vars, ...GLOW_OFF };
+  const outVars = withContrastFloor(tuned, ctx.day);
   return {
     hour: h24,
     key: KEYS[h24],
@@ -446,9 +473,117 @@ export function paletteForHour(hour, tuning = activeTuning) {
   };
 }
 
-// Every var name a palette emits, so clearSkyTheme can sweep them all
-// (base tokens + the glow group).
-const SKY_VAR_NAMES = Object.keys({ ...buildBaseVars(0).vars, ...GLOW_OFF });
+/* ---------- contrast floor ---------- */
+
+// WCAG AA for body-size text. The secondary inks carry real reading text —
+// timestamps, verb labels, breadcrumbs, the ledger's 10–12px meta — so they
+// are held to it like the static themes in theme.css always were.
+export const TEXT_CONTRAST_MIN = 4.5;
+
+// The destructive colour's fixed hue, and how much of it survives the mix
+// with the hour's ink (theme.css's --danger says why it never takes the sky's
+// hue).
+const DANGER_RED = '#d4483a';
+const DANGER_WEIGHT = 0.74;
+
+// How much stronger muted ink stays than faint ink once the floor has lifted
+// faint. Without it, the hours where both had to be lifted would land them
+// on the same ratio and flatten the ramp into one grey.
+const MUTED_OVER_FAINT = 1.2;
+
+const worstContrast = (hex, backgrounds) =>
+  Math.min(...backgrounds.map((bg) => contrastRatio(hex, bg)));
+
+// Move a color's lightness away from its backgrounds — darker on a day
+// page, lighter on a night one — just far enough to clear `min` against all
+// of them. Hue and saturation are kept, so the ink still reads as the
+// hour's own tint; luminance is monotonic in lightness at a fixed hue and
+// saturation, which is what makes the bisection valid. A color already
+// clear of the floor is returned untouched.
+function liftToContrast(hex, backgrounds, min, day) {
+  if (worstContrast(hex, backgrounds) >= min) return hex;
+  const [h, s, l] = rgbToHsl(hexToRgb(hex));
+  let near = l;
+  let far = day ? 0 : 1;
+  if (worstContrast(hsl(h, s, far), backgrounds) < min) return hsl(h, s, far);
+  for (let i = 0; i < 24; i += 1) {
+    const mid = (near + far) / 2;
+    if (worstContrast(hsl(h, s, mid), backgrounds) >= min) far = mid;
+    else near = mid;
+  }
+  return hsl(h, s, far);
+}
+
+/**
+ * Hold every text ink in a finished palette to TEXT_CONTRAST_MIN. The
+ * derivation sets the secondary inks as fixed lightness offsets from the
+ * page, which is right for most of the night and wrong for the shoulder
+ * hours — dawn and dusk pages are mid-tones, where an offset that read fine
+ * at midnight lands at 2.5:1 — and a tuning override can move them further
+ * either way. So the floor runs last, after the override, which also means
+ * the admin studio previews exactly what the site will paint.
+ *
+ * On-page inks are measured against the page AND --surface-deep, the
+ * ground of the sheets that render page-level text; the -raised pair
+ * against --surface-raised, where the chrome and panels draw them.
+ *
+ * --danger is floored here too, keeping its own fixed hue (theme.css). It
+ * was a plain CSS mix of that red with the hour's ink, which assumed the ink
+ * sat far from the page; on the mid-tone dawn and dusk pages it does not, and
+ * at 6pm the mix read 2.6:1. It is measured against all three grounds because
+ * it is drawn on all three: the page, the sheets' errors, the edit bar.
+ */
+function withContrastFloor(vars, day) {
+  const v = { ...vars };
+  const onPage = [v['--sky-page'], v['--sky-surface-deep']];
+  const onRaised = [v['--sky-surface-raised']];
+  const min = TEXT_CONTRAST_MIN;
+  v['--sky-ink-soft'] = liftToContrast(v['--sky-ink-soft'], onPage, min, day);
+  v['--sky-ink-faint'] = liftToContrast(v['--sky-ink-faint'], onPage, min, day);
+  v['--sky-ink-muted'] = liftToContrast(
+    v['--sky-ink-muted'],
+    onPage,
+    Math.max(
+      min,
+      worstContrast(v['--sky-ink-faint'], onPage) * MUTED_OVER_FAINT,
+    ),
+    day,
+  );
+  v['--sky-ink-faint-raised'] = liftToContrast(
+    v['--sky-ink-faint-raised'],
+    onRaised,
+    min,
+    day,
+  );
+  v['--sky-ink-muted-raised'] = liftToContrast(
+    v['--sky-ink-muted-raised'],
+    onRaised,
+    Math.max(
+      min,
+      worstContrast(v['--sky-ink-faint-raised'], onRaised) * MUTED_OVER_FAINT,
+    ),
+    day,
+  );
+  // The accent is link text as often as it is a fill.
+  v['--sky-accent'] = liftToContrast(
+    v['--sky-accent'],
+    [v['--sky-page']],
+    min,
+    day,
+  );
+  v['--sky-danger'] = liftToContrast(
+    mixHex(DANGER_RED, v['--sky-ink'], DANGER_WEIGHT),
+    [...onPage, ...onRaised],
+    min,
+    day,
+  );
+  return v;
+}
+
+// Every var name a palette emits, so applySkyTheme writes them all and
+// clearSkyTheme can sweep them all: the base tokens, the glow group, and what
+// the contrast floor adds.
+const SKY_VAR_NAMES = Object.keys(paletteForHour(0, null).vars);
 
 /** Write the given hour's palette onto <html> as --sky-* vars. */
 export function applySkyTheme(hour, tuning = activeTuning) {

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useActionDock } from './useActionDock.jsx';
 
 /**
@@ -17,6 +18,11 @@ import { useActionDock } from './useActionDock.jsx';
  * one-at-a-time rule across every bottom-chrome expansion.
  */
 const ChromePanelContext = createContext(null);
+// The three actions alone, in a context whose value never changes. A control
+// that only OPENS a panel, like the hero's guestbook button, has no use for
+// `panel`, and reading the full context re-rendered it on every panel opening
+// and closing, its own included.
+const ChromePanelActionsContext = createContext(null);
 
 // The known transient panels. Kept as a constant so callers and tests can
 // reason about the full set without magic strings scattered around. `debug`
@@ -71,15 +77,49 @@ export function ChromePanelProvider({ children }) {
     if (dockOpen) setPanel(null);
   }, [dockOpen]);
 
-  const value = useMemo(
-    () => ({ panel, openPanel, closePanel, togglePanel }),
-    [panel, openPanel, closePanel, togglePanel],
+  // A panel belongs to the page it was opened over, so navigating closes it —
+  // the same rule, and the same reasons, as the dock (see ActionDockProvider).
+  // Reset during render, not in an effect, because the incoming page may open
+  // one of its own from a mount effect: the guestbook opens its sheet on the
+  // way back from signing in, and child effects run before a parent's, so an
+  // effect here would close it again in the same commit.
+  const { pathname } = useLocation();
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    if (panel !== null) setPanel(null);
+  }
+
+  const actions = useMemo(
+    () => ({ openPanel, closePanel, togglePanel }),
+    [openPanel, closePanel, togglePanel],
   );
-  return <ChromePanelContext.Provider value={value}>{children}</ChromePanelContext.Provider>;
+  const value = useMemo(() => ({ panel, ...actions }), [panel, actions]);
+  return (
+    <ChromePanelActionsContext.Provider value={actions}>
+      <ChromePanelContext.Provider value={value}>
+        {children}
+      </ChromePanelContext.Provider>
+    </ChromePanelActionsContext.Provider>
+  );
 }
 
 export function useChromePanel() {
   const ctx = useContext(ChromePanelContext);
   if (!ctx) throw new Error('useChromePanel must be used inside <ChromePanelProvider>');
+  return ctx;
+}
+
+/**
+ * `{ openPanel, closePanel, togglePanel }` without `panel`, for a component
+ * that opens or closes panels but never asks which one is open. Stable for the
+ * life of the provider, so reading it re-renders nothing.
+ */
+export function useChromePanelActions() {
+  const ctx = useContext(ChromePanelActionsContext);
+  if (!ctx)
+    throw new Error(
+      'useChromePanelActions must be used inside <ChromePanelProvider>',
+    );
   return ctx;
 }

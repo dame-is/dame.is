@@ -1,10 +1,13 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useNowPlaying } from '../hooks/useNowPlaying.js';
 import { relativeTime } from '../lib/time.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import TickerText from './TickerText.jsx';
 
-export default function NowPlaying() {
+// Memoised: it takes no props, and the top chrome around it re-renders as the
+// page scrolls.
+export default memo(function NowPlaying() {
   const play = useNowPlaying();
   if (!play?.track) {
     return (
@@ -20,10 +23,16 @@ export default function NowPlaying() {
   const when = play.live ? 'now playing' : play.playedAt ? relativeTime(play.playedAt) : '';
   const tooltip = `${play.track}${play.artist ? ' by ' + play.artist : ''}${when ? ' · ' + when : ''}`;
   const href = recordPathFromAtUri(play.atUri);
+  // A play that isn't live says how long ago it was, inline, like the status
+  // line above it: on a phone there is no hover to show the tooltip, so the
+  // last thing played yesterday evening read as what's playing now.
   const inner = (
     <>
       <strong>{play.track}</strong>
       {play.artist ? ` by ${play.artist}` : ''}
+      {!play.live && when ? (
+        <span className="chrome-signal-meta">{when}</span>
+      ) : null}
     </>
   );
   return (
@@ -38,4 +47,4 @@ export default function NowPlaying() {
       </TickerText>
     </span>
   );
-}
+});

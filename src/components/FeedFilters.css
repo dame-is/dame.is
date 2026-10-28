@@ -62,9 +62,10 @@
   border-color: var(--accent);
 }
 
+/* Full-strength accent: the count is small text on the chip's tinted fill,
+   and a 0.75 opacity took it to 2.6:1 even with the accent itself at AA. */
 .feed-chip.is-active .feed-chip-count {
   color: var(--accent);
-  opacity: 0.75;
 }
 
 .feed-chip-label {
@@ -224,7 +225,6 @@
 
 .feed-chip-wrap.is-active .feed-chip.feed-chip-toggle .feed-chip-count {
   color: var(--accent);
-  opacity: 0.75;
 }
 
 .feed-chip-only {

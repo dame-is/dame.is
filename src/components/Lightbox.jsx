@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Modal from './Modal.jsx';
@@ -36,10 +35,10 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
   const [active, setActive] = useState(index);
   const [loadedSrcs, setLoadedSrcs] = useState(() => new Set());
   const reduce = useReducedMotion();
-  // The control bar is portalled to <body> (a scale transform on the Modal
-  // panel would trap the fixed bar inside the panel's box), so it lives outside
-  // the dialog's DOM subtree. Handing this ref to the Modal's focus trap keeps
-  // the controls inside the lightbox's Tab cycle even from there.
+  // The control bar renders beside the Modal panel rather than inside it (a
+  // scale transform on the panel would trap the fixed bar inside the panel's
+  // box). Handing this ref to the Modal's focus trap keeps the controls inside
+  // the lightbox's Tab cycle from there.
   const controlsRef = useRef(null);
   // The set of already-painted sources is mirrored in a ref so `markLoaded`
   // can bail BEFORE enqueueing an update. That guard has to live outside the
@@ -164,8 +163,97 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       ? `${noun} ${active + 1} of ${count}`
       : noun;
 
+  // Control bar — pinned to the viewport bottom at the exact position +
+  // height of the bottom chrome nav, on the same raised surface, so the nav
+  // appears to morph into the photo controls when the lightbox opens (and back
+  // on close). Rendered through the Modal's `outside` slot, inside the dialog
+  // but not inside the scaled panel, and stacked above the scrim so it reads
+  // as the persistent chrome the rest of the page dims behind.
+  const controls = (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="lightbox-controls"
+          ref={controlsRef}
+          className="lightbox-controls"
+          role="group"
+          aria-label="Image controls"
+          initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
+          transition={{ duration: reduce ? 0 : 0.26, ease: [0.32, 0.72, 0, 1] }}
+        >
+          <div className="lightbox-controls-row">
+            <div className="lightbox-controls-cluster lightbox-controls-links">
+              {current.sourceUrl && (
+                <a
+                  href={current.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="lightbox-controls-link"
+                >
+                  source
+                </a>
+              )}
+              {current.searchUrl && (
+                <a
+                  href={current.searchUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="lightbox-controls-link"
+                >
+                  reverse image search
+                </a>
+              )}
+            </div>
+
+            <div className="lightbox-controls-spacer" aria-hidden="true" />
+
+            {count > 1 && (
+              <div className="lightbox-controls-cluster lightbox-controls-nav">
+                <button
+                  type="button"
+                  className="lightbox-ctl"
+                  onClick={prev}
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft
+                    className="lightbox-ctl-glyph"
+                    aria-hidden="true"
+                  />
+                </button>
+                <span className="lightbox-controls-count" aria-hidden="true">
+                  {active + 1} / {count}
+                </span>
+                <button
+                  type="button"
+                  className="lightbox-ctl"
+                  onClick={next}
+                  aria-label="Next image"
+                >
+                  <ChevronRight
+                    className="lightbox-ctl-glyph"
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="lightbox-ctl lightbox-ctl-close"
+              onClick={onClose}
+              aria-label="Close image"
+            >
+              <X className="lightbox-ctl-glyph" aria-hidden="true" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
-    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -175,6 +263,7 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
       className="lightbox-panel"
       scrimLabel="Close image"
       focusTrapRef={controlsRef}
+      outside={controls}
     >
       <figure className="lightbox-figure" onClick={dismissOutsideImage}>
         <div className="lightbox-frame" style={frameStyle}>
@@ -224,92 +313,5 @@ export default function Lightbox({ open, onClose, images, index = 0 }) {
         </div>
       </figure>
     </Modal>
-      {/* Control bar — pinned to the viewport bottom at the exact
-          position + height of the bottom chrome nav, on the same raised
-          surface, so the nav appears to morph into the photo controls
-          when the lightbox opens (and back on close). Portalled to
-          <body> because the Modal panel carries a scale transform, which
-          would otherwise trap this fixed bar inside the panel's box. It
-          sits above the Modal scrim (z 60) so it reads as the persistent
-          chrome the rest of the page dims behind. */}
-      {createPortal(
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              key="lightbox-controls"
-              ref={controlsRef}
-              className="lightbox-controls"
-              role="group"
-              aria-label="Image controls"
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
-              transition={{ duration: reduce ? 0 : 0.26, ease: [0.32, 0.72, 0, 1] }}
-            >
-              <div className="lightbox-controls-row">
-                <div className="lightbox-controls-cluster lightbox-controls-links">
-                  {current.sourceUrl && (
-                    <a
-                      href={current.sourceUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="lightbox-controls-link"
-                    >
-                      source
-                    </a>
-                  )}
-                  {current.searchUrl && (
-                    <a
-                      href={current.searchUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="lightbox-controls-link"
-                    >
-                      reverse image search
-                    </a>
-                  )}
-                </div>
-
-                <div className="lightbox-controls-spacer" aria-hidden="true" />
-
-                {count > 1 && (
-                  <div className="lightbox-controls-cluster lightbox-controls-nav">
-                    <button
-                      type="button"
-                      className="lightbox-ctl"
-                      onClick={prev}
-                      aria-label="Previous image"
-                    >
-                      <ChevronLeft className="lightbox-ctl-glyph" aria-hidden="true" />
-                    </button>
-                    <span className="lightbox-controls-count" aria-hidden="true">
-                      {active + 1} / {count}
-                    </span>
-                    <button
-                      type="button"
-                      className="lightbox-ctl"
-                      onClick={next}
-                      aria-label="Next image"
-                    >
-                      <ChevronRight className="lightbox-ctl-glyph" aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  className="lightbox-ctl lightbox-ctl-close"
-                  onClick={onClose}
-                  aria-label="Close image"
-                >
-                  <X className="lightbox-ctl-glyph" aria-hidden="true" />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body,
-      )}
-    </>
   );
 }

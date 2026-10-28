@@ -59,22 +59,35 @@ function resolveContainers(value) {
  * element.
  *
  * `extraContainers` lets a trap span DOM that lives outside the panel subtree —
- * the image lightbox portals its control bar to <body> (a scale transform on
- * the Modal panel would otherwise trap the fixed bar inside the panel's box),
- * so those controls are threaded in here to stay keyboard-reachable as part of
- * the same trap. Accepts a ref, an element, or an array of either.
+ * the image lightbox renders its control bar beside the Modal panel (a scale
+ * transform on the panel would otherwise trap the fixed bar inside the panel's
+ * box), so those controls are threaded in here to stay keyboard-reachable as
+ * part of the same trap. Accepts a ref, an element, or an array of either.
+ *
+ * `fallbackFocus` is where focus goes on close when the opener is no longer in
+ * the document: the inspect HUD's "details" button unmounts while the sheet it
+ * opens is up, and without somewhere else to land, focus fell to <body> and the
+ * next Tab started from the top of the page. A function returning an element
+ * (or null), called at close time, once the overlay's own commit has put the
+ * page back.
  *
  * @param {import('react').RefObject<HTMLElement>} panelRef  the overlay panel
  * @param {object} options
  * @param {boolean} options.active  trap only while the overlay is open
  * @param {boolean} [options.restoreFocus=true]  return focus to the opener on close
  * @param {*} [options.extraContainers]  additional focusable region(s): ref(s) / element(s)
+ * @param {() => HTMLElement | null} [options.fallbackFocus]  focus target when the opener is gone
  */
-export function useFocusTrap(panelRef, { active, restoreFocus = true, extraContainers = [] } = {}) {
+export function useFocusTrap(
+  panelRef,
+  { active, restoreFocus = true, extraContainers = [], fallbackFocus } = {},
+) {
   // Read the latest extra containers at event time without re-arming the trap
   // when a caller passes a fresh array literal each render.
   const extrasRef = useRef(extraContainers);
   extrasRef.current = extraContainers;
+  const fallbackRef = useRef(fallbackFocus);
+  fallbackRef.current = fallbackFocus;
 
   useEffect(() => {
     if (!active) return undefined;
@@ -143,8 +156,11 @@ export function useFocusTrap(panelRef, { active, restoreFocus = true, extraConta
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       if (addedTabindex) panel.removeAttribute('tabindex');
-      if (restoreFocus && previouslyFocused && previouslyFocused.isConnected) {
+      if (!restoreFocus) return;
+      if (previouslyFocused && previouslyFocused.isConnected) {
         previouslyFocused.focus();
+      } else {
+        fallbackRef.current?.()?.focus({ preventScroll: true });
       }
     };
   }, [active, restoreFocus, panelRef]);

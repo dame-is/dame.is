@@ -10,6 +10,7 @@ import {
 } from '../lib/atproto.js';
 import { flattenSources, getBacklinkSources } from '../lib/constellation.js';
 import { formatDateFull, relativeTime } from '../lib/time.js';
+import BreakableId from './BreakableId.jsx';
 import './ExploringHome.css';
 
 /**
@@ -20,7 +21,8 @@ import './ExploringHome.css';
  * collection. Each row links into the generic browser at
  * `/exploring/dame.is/...` for the record-level view.
  *
- * `identity` ({ did, handle, pds }) is already resolved by the parent.
+ * `identity` ({ did, handle, pds, collections }) is already resolved by the
+ * parent; `collections` is null when its describeRepo call failed.
  */
 
 // Hand-written descriptions of the record types I designed. I write them here
@@ -59,7 +61,7 @@ function browsableCollection(baseNsid, collections) {
 }
 
 export default function ExploringHome({ identity }) {
-  const { did, handle, pds } = identity;
+  const { did, handle, pds, collections: knownCollections } = identity;
   const isPlc = did.startsWith('did:plc:');
 
   // Core facts (collections, account age and operation count, last-active) all
@@ -73,7 +75,10 @@ export default function ExploringHome({ identity }) {
     let cancelled = false;
     setCore({ loading: true });
     Promise.allSettled([
-      describeRepo(pds, did),
+      // The identity resolve already listed the collections; reuse them.
+      knownCollections
+        ? Promise.resolve({ collections: knownCollections })
+        : describeRepo(pds, did),
       isPlc ? getPlcAuditLog(did) : Promise.resolve(null),
       getLatestCommit(pds, did),
     ]).then(([descR, auditR, commitR]) => {
@@ -93,7 +98,7 @@ export default function ExploringHome({ identity }) {
     return () => {
       cancelled = true;
     };
-  }, [pds, did, isPlc]);
+  }, [pds, did, isPlc, knownCollections]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,8 +153,18 @@ export default function ExploringHome({ identity }) {
         <h2 className="exploring-home-section-title small-caps">Identity</h2>
         <dl className="exploring-home-identity">
           <IdentityRow label="handle" value={handle ? `@${handle}` : '—'} copy={handle ? `@${handle}` : null} />
-          <IdentityRow label="did" value={did} copy={did} mono />
-          <IdentityRow label="pds" value={pds} copy={pds} mono />
+          <IdentityRow
+            label="did"
+            value={<BreakableId>{did}</BreakableId>}
+            copy={did}
+            mono
+          />
+          <IdentityRow
+            label="pds"
+            value={<BreakableId>{pds}</BreakableId>}
+            copy={pds}
+            mono
+          />
         </dl>
         {isPlc && (
           <div className="exploring-home-identity-links">
@@ -205,7 +220,9 @@ export default function ExploringHome({ identity }) {
             <li key={lex.nsid} className="exploring-home-lexicon">
               <div className="exploring-home-lexicon-head">
                 <h3 className="exploring-home-lexicon-title">{lex.title}</h3>
-                <code className="exploring-home-lexicon-nsid gutter">{lex.nsid}</code>
+                <code className="exploring-home-lexicon-nsid gutter">
+                  <BreakableId>{lex.nsid}</BreakableId>
+                </code>
               </div>
               <p className="exploring-home-lexicon-blurb">{lex.blurb}</p>
               <div className="exploring-home-lexicon-links">
@@ -248,25 +265,31 @@ export default function ExploringHome({ identity }) {
   );
 }
 
+/**
+ * One stat card. A linked card keeps its <dt>/<dd> as direct children of the
+ * group (a <dl> may only hold those, wrapped in a <div>): the link sits inside
+ * the <dd> and stretches over the whole card with a pseudo-element, rather than
+ * wrapping the pair — which left screen readers unable to tie the label to its
+ * value.
+ */
 function Stat({ label, value, sub, to }) {
-  const body = (
-    <>
-      <dt className="exploring-home-stat-label small-caps">{label}</dt>
-      <dd className="exploring-home-stat-value">
-        {value}
-        {sub && <span className="exploring-home-stat-sub">{sub}</span>}
-      </dd>
-    </>
-  );
   return (
     <div className={`exploring-home-stat${to ? ' is-link' : ''}`}>
-      {to ? (
-        <Link to={to} className="exploring-home-stat-inner">
-          {body}
-        </Link>
-      ) : (
-        body
-      )}
+      <dt className="exploring-home-stat-label small-caps">{label}</dt>
+      <dd className="exploring-home-stat-value">
+        {to ? (
+          <Link
+            to={to}
+            className="exploring-home-stat-link"
+            aria-label={`${label}: ${value}`}
+          >
+            {value}
+          </Link>
+        ) : (
+          value
+        )}
+        {sub && <span className="exploring-home-stat-sub">{sub}</span>}
+      </dd>
     </div>
   );
 }
@@ -324,7 +347,9 @@ function CollectionGroup({ title, nsids }) {
         {nsids.map((nsid) => (
           <li key={nsid} className="exploring-home-collection-row">
             <Link to={`/exploring/${OWNER}/${nsid}`} className="exploring-home-collection-link">
-              <code>{nsid}</code>
+              <code>
+                <BreakableId>{nsid}</BreakableId>
+              </code>
             </Link>
           </li>
         ))}

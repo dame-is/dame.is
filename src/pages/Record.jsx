@@ -15,7 +15,14 @@ import ReferenceCard from '../components/ReferenceCard.jsx';
 import AtUriLink from '../components/AtUriLink.jsx';
 import AturiActions from '../components/AturiActions.jsx';
 import { RecordSkeleton } from '../components/Skeleton.jsx';
-import { resolvePds, getRecord, getPostThread, explorerPathFromAtUri } from '../lib/atproto.js';
+import {
+  resolvePds,
+  getRecord,
+  getPostThread,
+  isRecordNotFound,
+} from '../lib/atproto.js';
+import { createSubjectResolver } from '../lib/subjectResolver.js';
+import { isDraft } from '../lib/publications.js';
 import { ME_DID, ME_HANDLE } from '../config.js';
 import { flushBody } from '../lib/flushText.js';
 import { formatDateFull, formatTime, relativeDay, relativeTime } from '../lib/time.js';
@@ -26,7 +33,7 @@ import {
   recordPathFromAtUri,
   siblingCollections,
 } from '../lib/recordRoutes.js';
-import { verbConfig, primaryNsid } from '../lib/verbRegistry.js';
+import { nsidConfig, primaryNsid } from '../lib/verbRegistry.js';
 import { musicLinksFor } from '../lib/musicLinks.js';
 import { playArtistLine, playTrackName } from '../lib/teal.js';
 import { albumIdentity, albumPath } from '../lib/albums.js';
@@ -57,7 +64,9 @@ import '../components/Feed.css';
  *   - reposting → `getRecord` on Dame's PDS for the `app.bsky.feed.repost`
  *     record (the rkey *is* Dame's repost record's rkey), then
  *     `getPostThread` on `subject.uri` for the original post + thread.
- *   - everything else → `getRecord` on Dame's PDS for the record itself.
+ *   - everything else → `getRecord` on Dame's PDS for the record itself, plus
+ *     — for a record that points at something (a like, a follow, a star) —
+ *     the thing it points at, so the page can show it.
  */
 export default function Record({ verb, nsid, source }) {
   const { rkey } = useParams();
@@ -66,14 +75,24 @@ export default function Record({ verb, nsid, source }) {
   // dame/leaflet/standard, liking across bsky/grain/tangled) address the
   // exact collection.
   const collection = nsid || VERB_TO_COLLECTION[verb] || primaryNsid(verb);
+  // Posts and reposts are read from the Bluesky AppView, which answers with the
+  // post and its whole thread in one call — but only Bluesky's own lexicons are
+  // there. An Anisota post or repost, reachable by its lexicon-form URL, is a
+  // plain record on the PDS and takes the generic path below.
+  const threadMode =
+    verb === 'posting' && collection === 'app.bsky.feed.post'
+      ? 'post'
+      : verb === 'reposting' && collection === 'app.bsky.feed.repost'
+        ? 'repost'
+        : null;
   // The short `/{verb}/:rkey` form names no lexicon, so a verb spanning
   // several of them has to look in each until the rkey turns up. Listening is
   // the case that makes this load-bearing: teal.fm's production and alpha play
   // lexicons share one verb and one archive, and which of them holds any given
   // play depends only on when it was scrobbled.
   const candidates = useMemo(
-    () => (nsid ? [nsid] : siblingCollections(collection)),
-    [nsid, collection],
+    () => (nsid || threadMode ? [collection] : siblingCollections(collection)),
+    [nsid, threadMode, collection],
   );
   // The collection the record was actually found in — what the page reports
   // and hands to the body renderer, which is not always the one we asked for
@@ -111,11 +130,11 @@ export default function Record({ verb, nsid, source }) {
     setParents([]);
     setReplies([]);
     setSelfThread([]);
-    setRepliesStatus(verb === 'posting' || verb === 'reposting' ? 'loading' : 'idle');
+    setRepliesStatus(threadMode ? 'loading' : 'idle');
 
     async function load() {
       try {
-        if (verb === 'posting') {
+        if (threadMode === 'post') {
           const uri = `at://${ME_DID}/app.bsky.feed.post/${rkey}`;
           const thread = await getPostThread(uri, { depth: 6, parentHeight: 6 });
           if (cancelled) return;
@@ -130,12 +149,12 @@ export default function Record({ verb, nsid, source }) {
           return;
         }
 
-        if (verb === 'reposting') {
+        if (threadMode === 'repost') {
           const pds = await resolvePds(ME_DID);
           if (cancelled) return;
           const repost = await getRecord(pds, {
             repo: ME_DID,
-            collection: 'app.bsky.feed.repost',
+            collection,
             rkey,
           });
           if (cancelled) return;
@@ -145,7 +164,19 @@ export default function Record({ verb, nsid, source }) {
             setRepliesStatus('error');
             return;
           }
-          const thread = await getPostThread(subjectUri, { depth: 6, parentHeight: 6 });
+          let thread = null;
+          try {
+            thread = await getPostThread(subjectUri, {
+              depth: 6,
+              parentHeight: 6,
+            });
+          } catch (err) {
+            // The AppView answers a deleted or taken-down post with a 400
+            // NotFound rather than an empty thread. The repost itself is real,
+            // so that still gets the degraded card below; only a transient
+            // failure falls through to "couldn't load".
+            if (!isRecordNotFound(err)) throw err;
+          }
           if (cancelled) return;
           const subjectPost = thread?.thread?.post;
           if (!subjectPost) {
@@ -165,20 +196,37 @@ export default function Record({ verb, nsid, source }) {
         if (cancelled) return;
         const { record: fresh, collection: found } = await getFirstRecord(pds, candidates, rkey);
         if (cancelled) return;
-        if (!fresh?.value) {
+        // Drafts are hidden from every public surface, and BlogPost and
+        // CreatingWork refuse them by direct URL; the lexicon-form route
+        // (`/site.standard.document/<rkey>`) must not be the way round that.
+        if (
+          !fresh?.value ||
+          (DRAFTABLE_VERBS.has(verb) && isDraft(fresh.value))
+        ) {
           setMissing(true);
           return;
         }
+        const registered = nsidConfig(found)?.collection || null;
+        const subject = await hydrateRecordSubject(fresh, registered);
+        if (cancelled) return;
         setResolvedCollection(found);
-        setItem(recordToFeedItem(verb, fresh));
+        setItem({
+          ...recordToFeedItem(verb, fresh),
+          source: registered?.source || source || null,
+          subject,
+        });
       } catch (err) {
         if (cancelled) return;
-        if (isDefinitivelyMissing(err)) {
+        // Only a PDS (or AppView) saying the record isn't there makes this a
+        // 404. A network blip or a 5xx must not masquerade as "not found" —
+        // that breaks shared and OG links — so it gets the recoverable
+        // load-error state instead. See §4.1.
+        if (isRecordNotFound(err)) {
           setMissing(true);
         } else {
           setLoadError(true);
         }
-        if (verb === 'posting' || verb === 'reposting') setRepliesStatus('error');
+        if (threadMode) setRepliesStatus('error');
       }
 
       function applyThreadContext(threadNode) {
@@ -199,7 +247,7 @@ export default function Record({ verb, nsid, source }) {
     return () => {
       cancelled = true;
     };
-  }, [verb, rkey, collection, candidates, retryKey]);
+  }, [verb, rkey, collection, threadMode, candidates, source, retryKey]);
 
   if (!collection) {
     return (
@@ -217,7 +265,7 @@ export default function Record({ verb, nsid, source }) {
       <PageShell title="Record not found" headTitle="Not found — dame.is">
         <p>
           No record with rkey <code>{rkey}</code> in <LexiconList nsids={candidates} />.{' '}
-          <Link to={`/${verb}`}>Back to {verb}.</Link>
+          <Link to={verbIndexHref(verb)}>Back to {verb}.</Link>
         </p>
       </PageShell>
     );
@@ -233,7 +281,7 @@ export default function Record({ verb, nsid, source }) {
           <button type="button" onClick={() => setRetryKey((k) => k + 1)}>
             Try again
           </button>{' '}
-          <Link to={`/${verb}`}>Back to {verb}.</Link>
+          <Link to={verbIndexHref(verb)}>Back to {verb}.</Link>
         </p>
       </PageShell>
     );
@@ -251,13 +299,13 @@ export default function Record({ verb, nsid, source }) {
       headTitle={headTitleFor(verb, item)}
     >
       <article className="record-page">
-        {(verb === 'posting' || verb === 'reposting') && parents.length > 0 && (
+        {threadMode && parents.length > 0 && (
           <ParentChain parents={parents.slice(0, 1)} />
         )}
 
         {item ? (
           <div className="reveal">
-            <RecordBody verb={verb} item={item} collection={resolvedCollection} />
+            <RecordBody verb={verb} item={item} />
           </div>
         ) : (
           <RecordSkeleton />
@@ -275,7 +323,9 @@ export default function Record({ verb, nsid, source }) {
 
         {item && <AturiActions atUri={atUri} />}
 
-        {(verb === 'posting' || verb === 'reposting') && item?.atUri && (
+        {/* No replies section under a repost whose post is gone: there is no
+            thread to read, and "No replies yet" would claim there is. */}
+        {threadMode && item?.atUri && !item.payload?.subjectMissing && (
           <Comments
             atUri={item?.payload?.subjectUri || item.atUri}
             replies={replies}
@@ -298,21 +348,6 @@ export default function Record({ verb, nsid, source }) {
 /* ------------------------------------------------------------------ */
 
 /**
- * A 400 RecordNotFound from the PDS (or a 404 from the AppView) means the
- * record is genuinely gone. A network blip / 5xx / anything else must NOT
- * masquerade as "not found" — that breaks shared and OG links — so it gets
- * the recoverable load-error state instead. See §4.1.
- */
-function isDefinitivelyMissing(err) {
-  const status = err?.status;
-  return (
-    status === 400 ||
-    status === 404 ||
-    /RecordNotFound|Could not locate record|not found/i.test(err?.message || '')
-  );
-}
-
-/**
  * getRecord across `collections` in order, returning the first hit alongside
  * the collection it came from. A collection that definitively lacks the rkey
  * is skipped; a transient failure is re-thrown once every collection has been
@@ -326,11 +361,80 @@ async function getFirstRecord(pds, collections, rkey) {
       const record = await getRecord(pds, { repo: ME_DID, collection, rkey });
       if (record?.value) return { record, collection };
     } catch (err) {
-      if (!isDefinitivelyMissing(err)) transient = err;
+      if (!isRecordNotFound(err)) transient = err;
     }
   }
   if (transient) throw transient;
   return { record: null, collection: collections[0] };
+}
+
+/**
+ * Verbs whose records can be drafts (`draft: true`), which no public page may
+ * show — see `isDraft` in lib/publications.js.
+ */
+const DRAFTABLE_VERBS = new Set(['blogging', 'creating']);
+
+/**
+ * Longest the page waits on a record's subject before drawing the record
+ * without it. The subject lookups are plain fetches with no timeout of their
+ * own, and a stalled AppView must not hold the whole page on its skeleton.
+ */
+const SUBJECT_WAIT_MS = 6000;
+
+/**
+ * The thing a record points at — the post a like is of, the account a follow
+ * is of, the post a redaction erased — resolved the same way the feed resolves
+ * it (subjectResolver.js), so the page can show what the record is ABOUT and
+ * not only its JSON. The feed's rows carry this already; a record fetched fresh
+ * from the PDS is just the pointer.
+ *
+ * Returns the `_subject` shape ReferenceCard and the lab cards read — with
+ * `{ missing: true }` for a subject that's gone — or null when the collection
+ * declares no subject or the lookup didn't finish in time.
+ */
+async function hydrateRecordSubject(record, collectionConfig) {
+  if (!collectionConfig?.subject) return null;
+  // hydrateSubjects writes `_subject` onto what it's handed. A copy keeps the
+  // page's raw-record dump and "Copy record JSON" the record as the PDS has it.
+  const copy = { ...record };
+  let timer = null;
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), SUBJECT_WAIT_MS);
+  });
+  // A resolver of its own rather than the module-wide one, which rests a host
+  // that just failed for a minute: a record page opened in that minute would
+  // draw its subject as gone without asking again.
+  const lookup = createSubjectResolver()
+    .hydrateSubjects([copy], collectionConfig)
+    .then(
+      () => copy._subject || null,
+      () => null,
+    );
+  try {
+    return await Promise.race([lookup, deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Verbs with an index page of their own (the hand-written routes in App.jsx).
+ * Every other verb exists only as a slice of the home timeline, so that's
+ * where "back" goes — `/liking` would be a second not-found page.
+ */
+const VERB_INDEX_PAGES = new Set([
+  'posting',
+  'logging',
+  'listening',
+  'blogging',
+  'creating',
+  'mothing',
+]);
+
+function verbIndexHref(verb) {
+  return VERB_INDEX_PAGES.has(verb)
+    ? `/${verb}`
+    : `/?verbs=${encodeURIComponent(verb)}`;
 }
 
 /** "`a`", "`a` or `b`", "`a`, `b` or `c`" — lexicons as prose. */
@@ -347,7 +451,7 @@ function LexiconList({ nsids }) {
 /* Body dispatch                                                       */
 /* ------------------------------------------------------------------ */
 
-function RecordBody({ verb, item, collection }) {
+function RecordBody({ verb, item }) {
   switch (verb) {
     case 'posting':
     case 'reposting':
@@ -374,7 +478,7 @@ function RecordBody({ verb, item, collection }) {
     case 'flushing':
       return <FlushCard {...item} />;
     default:
-      return <GenericRecordBody verb={verb} item={item} collection={collection} />;
+      return <GenericRecordBody item={item} />;
   }
 }
 
@@ -397,24 +501,23 @@ function ObservationRecordBody({ item }) {
  * Fallback body for any verb that doesn't have a specialized layout.
  *
  * Renders, top to bottom:
- *   - the resolved subject preview (for reference verbs that have a
- *     `_subject` baked in by the prefetch step or `subject` set inline),
+ *   - the resolved subject preview, for records that point at something (a
+ *     like's post, a follow's account), hydrated by the load above,
  *   - a raw JSON dump of the underlying record, styled like the
- *     atmosphere debug overlay,
- *   - an action row mirroring the debug overlay's affordances (copy AT
- *     URI, copy raw JSON, open in the explorer).
+ *     atmosphere debug overlay, with copy buttons for it and its AT URI.
+ *
+ * "Open in…" and "Inspect Data" (the explorer) follow in the page's own
+ * AturiActions row, so this body doesn't offer them a second time.
  *
  * Specialized layouts are upgrades, not replacements — when a verb gets
  * its own branch above, the fallback simply stops being reached.
  */
-function GenericRecordBody({ item, collection }) {
-  const cfg = verbConfig(item.verb);
-  const reference = cfg?.collections?.find((c) => c.kind === 'reference');
+function GenericRecordBody({ item }) {
   const recordJson = JSON.stringify(item.raw || { uri: item.atUri, value: item.payload }, null, 2);
   const atUri = item.atUri || null;
   return (
     <div className="record-fallback">
-      {reference && item.subject && (
+      {item.subject && (
         <ReferenceCard
           payload={item.payload}
           atUri={atUri}
@@ -424,16 +527,24 @@ function GenericRecordBody({ item, collection }) {
           verb={item.verb}
         />
       )}
-      <RecordActionsRow atUri={atUri} recordJson={recordJson} />
       <details className="record-fallback-json" open>
         <summary className="small-caps">raw record</summary>
-        <pre className="debug-overlay-json record-fallback-pre">{recordJson}</pre>
+        <RecordCopyRow atUri={atUri} recordJson={recordJson} />
+        {/* Focusable so a keyboard can scroll the long lines sideways. */}
+        <pre
+          className="debug-overlay-json record-fallback-pre"
+          tabIndex={0}
+          role="region"
+          aria-label="Raw record JSON"
+        >
+          {recordJson}
+        </pre>
       </details>
     </div>
   );
 }
 
-function RecordActionsRow({ atUri, recordJson }) {
+function RecordCopyRow({ atUri, recordJson }) {
   const [copied, setCopied] = useState(null);
   function copy(text, key) {
     if (!text) return;
@@ -445,12 +556,8 @@ function RecordActionsRow({ atUri, recordJson }) {
       () => {},
     );
   }
-  const explorerPath = explorerPathFromAtUri(atUri);
   return (
     <div className="record-fallback-actions">
-      {explorerPath && (
-        <Link to={explorerPath}>Open in explorer</Link>
-      )}
       {atUri && (
         <button type="button" onClick={() => copy(atUri, 'uri')}>
           {copied === 'uri' ? 'AT URI copied' : 'Copy AT URI'}
@@ -827,6 +934,15 @@ function headTitleFor(verb, item) {
     case 'logging': {
       const text = (item.payload?.status || item.payload?.text || '').trim();
       return `${text ? truncate(text, 80) : 'A status'} — dame.is`;
+    }
+    case 'mothing':
+    case 'observing': {
+      // The name the card is headed with, so the tab reads "Somber Carpet
+      // Moth" rather than the verb's generic "a moth".
+      const taxon = item.payload?.taxon;
+      const fallback =
+        verb === 'mothing' ? 'Unidentified moth' : 'Unidentified organism';
+      return `${taxon?.commonName || taxon?.name || fallback} — dame.is`;
     }
     case 'flushing': {
       // The handle is already the suffix, so the tab reads the flush's own

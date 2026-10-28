@@ -65,6 +65,7 @@ import {
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
 import { useTheme } from '../hooks/useTheme.jsx';
 import { SKY_NSID } from '../config.js';
+import { getRecordIfExists, isSwapConflict } from '../lib/recordWrites.js';
 import './SkyThemeStudio.css';
 
 /* ---------- small color kit (hex + WCAG contrast) ---------- */
@@ -151,6 +152,7 @@ function previewStyle(vars) {
     '--accent': vars['--sky-accent'],
     '--accent-soft': vars['--sky-accent-soft'],
     '--tan': vars['--sky-tan'],
+    '--danger': vars['--sky-danger'],
     '--glow-buttons': vars['--sky-glow-buttons'],
     '--glow-avatar': vars['--sky-glow-avatar'],
     '--glow-accent': vars['--sky-glow-accent'],
@@ -159,6 +161,15 @@ function previewStyle(vars) {
 }
 
 const hourLabel = (h) => skyHourKey(h).replace('am', ' AM').replace('pm', ' PM').toUpperCase();
+
+/** What Save would write, as one comparable string — the dirty check's yardstick. */
+function draftPrint(enabled, showMark, byHour) {
+  return JSON.stringify({
+    enabled: Boolean(enabled),
+    showMark: Boolean(showMark),
+    hours: draftToHoursArray(byHour),
+  });
+}
 
 /* The palette entries the phone's read-only swatch strip shows, in the order a
    page is built out of them: the ground, the chrome that sits on it, the three
@@ -181,7 +192,7 @@ export default function SkyThemeStudio({ agent, did }) {
   // phone width, and nobody colour-grades an hourly palette on a 390px screen.
   // What survives is everything that is a DECISION rather than a nudge — the
   // override toggle, the live preview, the hour, and what that hour looks like.
-  const { stacked, registerBar } = useAdminShell();
+  const { stacked, registerBar, reportDirty } = useAdminShell();
   // The hour the REST of the site is on — the bottom bar's override if the
   // owner has stepped the clock with the hour chip, otherwise the live Eastern
   // hour. Held in a ref rather than read as a dependency: as a dep, every chip
@@ -200,6 +211,17 @@ export default function SkyThemeStudio({ agent, did }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [flash, setFlash] = useState(false);
+  // The draft as the PDS holds it — set at load and after every save — in the
+  // normalized shape Save writes, so a slider dragged away and back reads as
+  // clean again.
+  const [savedPrint, setSavedPrint] = useState(null);
+  // Whether is.dame.sky/self is on the PDS — the first save after "no" is a
+  // create, and only a create.
+  const [exists, setExists] = useState(false);
+  // A read that failed for any reason but "no such record", and the nonce
+  // "Try again" bumps to run the load once more.
+  const [loadError, setLoadError] = useState(null);
+  const [loadNonce, setLoadNonce] = useState(0);
 
   // No `--sky-hourbar-h` reservation any more, and nothing to measure: the bar
   // is in flow, so it takes its own space out of the pane the way every other
@@ -208,28 +230,47 @@ export default function SkyThemeStudio({ agent, did }) {
   // left to give.
 
   // Load the existing override (or seed the two shoulder hours with the fix).
+  // Only the PDS saying "no such record" seeds: any other failed read leaves
+  // the studio closed, because the seeded palette would read as the saved one
+  // and Save would write it over the real record.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       let record = null;
       try {
-        const res = await agent.com.atproto.repo.getRecord({ repo: did, collection: SKY_NSID, rkey: 'self' });
+        const res = await getRecordIfExists(agent, {
+          repo: did,
+          collection: SKY_NSID,
+          rkey: 'self',
+        });
         record = res?.data ? { value: res.data.value } : null;
-      } catch {
-        record = null; // 404 until one exists
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(err?.message || String(err));
+        setLoading(false);
+        return;
       }
       if (cancelled) return;
+      setExists(Boolean(record));
+      setLoadError(null);
       const draft = recordToDraft(record);
       setEnabled(draft.enabled);
       setShowMark(draft.showMark);
       setByHour(draft.byHour);
       setCreatedAt(draft.createdAt);
+      setSavedPrint(draftPrint(draft.enabled, draft.showMark, draft.byHour));
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [agent, did]);
+  }, [agent, did, loadNonce]);
+
+  const retryLoad = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    setLoadNonce((n) => n + 1);
+  }, []);
 
   // Live preview on the whole site (tune on the fly). Forces the override on
   // for the previewed hour regardless of the enable toggle, so a dormant
@@ -337,6 +378,9 @@ export default function SkyThemeStudio({ agent, did }) {
   useEffect(() => () => clearTimeout(flashTimer.current), []);
 
   const handleSave = useCallback(async () => {
+    // The keyboard shortcut below reaches this past the disabled button, so the
+    // button's own conditions are restated here — a failed read included.
+    if (saving || !byHour || loadError) return;
     setSaving(true);
     setError(null);
     setFlash(false);
@@ -351,8 +395,19 @@ export default function SkyThemeStudio({ agent, did }) {
         createdAt: createdAt || now,
         updatedAt: now,
       };
-      await agent.com.atproto.repo.putRecord({ repo: did, collection: SKY_NSID, rkey: 'self', record });
+      await agent.com.atproto.repo.putRecord({
+        repo: did,
+        collection: SKY_NSID,
+        rkey: 'self',
+        record,
+        // The first save is create-only: the PDS said there was no override
+        // when this loaded, and one that has turned up since is not this
+        // studio's to replace with a palette seeded from the defaults.
+        ...(exists ? {} : { swapRecord: null }),
+      });
+      setExists(true);
       setCreatedAt(record.createdAt);
+      setSavedPrint(draftPrint(enabled, showMark, byHour));
       // Install the saved tuning into the global slot (for when the studio
       // unmounts) but don't trigger ThemeProvider's apply effect — that
       // would paint the real clock hour and clobber the selected-hour
@@ -365,11 +420,43 @@ export default function SkyThemeStudio({ agent, did }) {
       clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setFlash(false), 2400);
     } catch (err) {
-      setError(err?.message || String(err));
+      setError(
+        isSwapConflict(err) && !exists
+          ? `${SKY_NSID}/self turned up on your PDS after this studio loaded, so nothing was written over it. Reload to tune what is there.`
+          : err?.message || String(err),
+      );
     } finally {
       setSaving(false);
     }
-  }, [agent, did, byHour, enabled, showMark, createdAt, liveApply, hour, installSkyTuning]);
+  }, [
+    agent,
+    did,
+    byHour,
+    enabled,
+    showMark,
+    createdAt,
+    exists,
+    liveApply,
+    hour,
+    installSkyTuning,
+    saving,
+    loadError,
+  ]);
+
+  // Unsaved tuning is reported to the shell, which is what arms its guard on the
+  // rail, the browser's Back and a closed tab — the studio had none, and an
+  // afternoon of palette work went with the first stray click. The note keeps
+  // the strip's wording to what is true here: the palette IS on screen, it is
+  // just not on the PDS. Still no Save in the strip (see the header): the note
+  // says what is pending, and the studio's own Save is where it is resolved.
+  const unsaved =
+    savedPrint != null &&
+    byHour != null &&
+    draftPrint(enabled, showMark, byHour) !== savedPrint;
+  useEffect(() => {
+    reportDirty(unsaved ? { dirty: true, note: 'Palette not saved' } : null);
+  }, [reportDirty, unsaved]);
+  useEffect(() => () => reportDirty(null), [reportDirty]);
 
   // Below 60rem the frame's action bar is where a surface's primary action
   // lives, so Save goes there and the in-flow `.sky-actions` row is not drawn.
@@ -384,10 +471,39 @@ export default function SkyThemeStudio({ agent, did }) {
   const saveRef = useRef(handleSave);
   saveRef.current = handleSave;
   const onSave = useCallback(() => saveRef.current(), []);
+
+  // Cmd/Ctrl+S, the habit from every other surface. The shell's own shortcut
+  // only saves what a pane REGISTERED as its actions, and this studio registers
+  // none (its Save stays in the pane), so the key fell through to the browser's
+  // "Save page" dialog.
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (
+        event.key !== 's' ||
+        !(event.metaKey || event.ctrlKey) ||
+        event.shiftKey
+      ) {
+        return;
+      }
+      event.preventDefault();
+      saveRef.current();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   const hourKey = skyHourKey(hour);
   useEffect(() => {
     registerBar({
-      status: error ? `Not saved — ${error}` : flash ? 'Saved' : `${overriddenCount}/24 tuned`,
+      status: loadError
+        ? 'Could not load the sky override'
+        : error
+          ? `Not saved — ${error}`
+          : flash
+            ? 'Saved'
+            : unsaved
+              ? `Palette not saved · ${overriddenCount}/24 tuned`
+              : `${overriddenCount}/24 tuned`,
       actions: [
         {
           id: 'save',
@@ -398,12 +514,26 @@ export default function SkyThemeStudio({ agent, did }) {
           onPress: onSave,
           busy: saving,
           busyLabel: 'Saving…',
+          disabled: Boolean(loadError),
         },
       ],
-      overflow: [{ id: 'reset-hour', label: `Reset ${hourKey}`, onPress: resetHour }],
+      overflow: loadError
+        ? null
+        : [{ id: 'reset-hour', label: `Reset ${hourKey}`, onPress: resetHour }],
     });
     return () => registerBar(null);
-  }, [registerBar, onSave, resetHour, saving, flash, error, overriddenCount, hourKey]);
+  }, [
+    registerBar,
+    onSave,
+    resetHour,
+    saving,
+    flash,
+    error,
+    loadError,
+    overriddenCount,
+    hourKey,
+    unsaved,
+  ]);
 
   const avatarUrl = skyAvatarUrl(hour);
   const isDay = byHour ? paletteForHour(hour, null).day : true;
@@ -417,7 +547,24 @@ export default function SkyThemeStudio({ agent, did }) {
     <div className="sky-root">
       {error && <p className="admin-error">{error}</p>}
 
-      {loading || !byHour ? (
+      {loadError ? (
+        <div>
+          <p className="placeholder-card">
+            The sky override could not be read, so the studio stays closed
+            rather than opening on the default palette.
+          </p>
+          <p className="admin-field-hint">{loadError}</p>
+          <div className="admin-actions">
+            <button
+              type="button"
+              className="admin-gate-button"
+              onClick={retryLoad}
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      ) : loading || !byHour ? (
         <AdminRecordListSkeleton rows={5} />
       ) : (
         <>

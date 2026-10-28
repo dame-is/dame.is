@@ -313,7 +313,8 @@
   color: var(--ink-faint);
 }
 
-.chrome-crumb-link {
+.chrome-crumb-link,
+.chrome-crumb-text {
   color: var(--ink-soft);
   text-decoration: none;
   transition: color 120ms ease;
@@ -323,9 +324,18 @@
   min-width: 0;
 }
 
-.chrome-crumb-link:hover,
 .chrome-crumb-link:focus-visible {
   color: var(--accent);
+}
+
+/* Hover tints only where a pointer can hover: on touch, iOS fires the hover on
+   the first tap, holds back that tap's click while the tint transitions, and
+   leaves the tint stuck afterwards (typography.css has the full story). Every
+   hover in this file is gated the same way; focus-visible stays ungated. */
+@media (hover: hover) {
+  .chrome-crumb-link:hover {
+    color: var(--accent);
+  }
 }
 
 .chrome-crumb-current {
@@ -351,16 +361,31 @@
   flex: 0 0 auto;
 }
 
-.chrome-title:hover {
-  color: var(--accent);
+@media (hover: hover) {
+  .chrome-title:hover {
+    color: var(--accent);
+  }
 }
 
 /* The brand mark is Dame's live avatar — center it against the wordmark's
-   line box instead of sitting on the baseline. */
+   line box instead of sitting on the baseline. Sized here, not only on the
+   <img>, so its box is held from the first paint: the image only mounts once
+   it has decoded (ChromeBar.jsx), and the site name and status used to jump
+   sideways by the mark's width when it did. */
 .chrome-mark {
   display: inline-block;
   align-self: center;
+  width: 1.3em;
+  height: 1.3em;
   line-height: 1;
+}
+
+/* The held box before the first frame lands: the frame's own hairline and
+   the skeleton's ground (Skeleton.css), so it reads as the mark arriving
+   rather than as a gap. */
+.chrome-mark:empty {
+  border: 1px solid var(--rule);
+  background: var(--rule-soft);
 }
 
 .chrome-mark-img {
@@ -370,7 +395,7 @@
   border-radius: 0;
   border: 1px solid var(--rule);
   object-fit: cover;
-  background: var(--surface-soft, transparent);
+  background: var(--rule-soft);
 }
 
 .chrome-name {
@@ -476,14 +501,16 @@
   transition: color 120ms ease;
 }
 
-.chrome-signal-link:hover,
-.chrome-signal-link:focus-visible {
+.chrome-signal-link:focus-visible,
+.chrome-signal-link:focus-visible strong {
   color: var(--accent);
 }
 
-.chrome-signal-link:hover strong,
-.chrome-signal-link:focus-visible strong {
-  color: var(--accent);
+@media (hover: hover) {
+  .chrome-signal-link:hover,
+  .chrome-signal-link:hover strong {
+    color: var(--accent);
+  }
 }
 
 /* Right-side handles on the primary row: nav menu (opens the action dock
@@ -533,21 +560,36 @@
   }
 }
 
-.chrome-nav:hover,
 .chrome-nav:focus-visible,
-.chrome-expand:hover,
 .chrome-expand:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
+@media (hover: hover) {
+  .chrome-nav:hover,
+  .chrome-expand:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+}
+
 /* Over the chip fill, hover/active must stay an opaque lighten — a
    see-through accent tint would let the darker bar show through and read
    as the button getting *darker* on hover. Mix the accent into --page. */
-.chrome-nav:hover,
 .chrome-nav:focus-visible {
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+/* On touch this tint stuck to whichever chip was tapped last, and at 14% it is
+   close enough to `.is-open`'s 20% that a toggle just tapped closed still
+   looked open. */
+@media (hover: hover) {
+  .chrome-nav:hover {
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
 }
 
 .chrome-nav.is-open {
@@ -666,7 +708,6 @@
   color: var(--page);
 }
 
-.chrome-nav.chrome-nav-bottom:hover,
 .chrome-nav.chrome-nav-bottom:focus-visible {
   /* Hover DARKENS rather than lightening to --accent-soft (which dropped the
      glyph below AA), so the --page glyph stays ≥4.5:1 in every theme. */
@@ -675,8 +716,20 @@
   color: var(--page);
 }
 
+@media (hover: hover) {
+  .chrome-nav.chrome-nav-bottom:hover {
+    background: color-mix(in srgb, var(--accent) 85%, #000);
+    border-color: var(--rule);
+    color: var(--page);
+  }
+}
+
+/* Open, it goes deeper still — for the same reason hover does. It used to fill
+   with --accent-soft, which put the --page glyph at under 3:1 for most of the
+   day under the sky theme: the compass, now the menu's close, faded out while
+   the menu was up. */
 .chrome-nav.chrome-nav-bottom.is-open {
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 72%, #000);
   border-color: var(--rule);
   color: var(--page);
 }
@@ -816,6 +869,25 @@
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   flex: 0 0 auto;
+}
+
+/* The narrowest phones. Nothing in this row shrinks, so on a feed page scrolled
+   far enough to show the count the row ran past the compass, and from 359px
+   down the menu button — the way to the rest of the site — slid off the right
+   edge. The least of the bar goes first: the count, which is metadata, then
+   below 344px Home, which the breadcrumb's leading slash and the menu both
+   also are. Hidden rather than unrendered, so the motion layout around them
+   doesn't animate a breakpoint. */
+@media (max-width: 359px) {
+  .chrome-scroll-count {
+    display: none;
+  }
+}
+
+@media (max-width: 343px) {
+  .chrome-home-btn {
+    display: none;
+  }
 }
 
 /* Truncated chrome-bar values render a single copy clipped by `max-width`.

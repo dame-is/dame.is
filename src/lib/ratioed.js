@@ -14,7 +14,7 @@ import SEED from '../data/ratioedPieces.json';
 import PEOPLE from '../data/ratioedPeople.json';
 import { getBacklinkSources, getBacklinks, backlinkRows, flattenSources } from './constellation.js';
 import { ME_DID, COLLECTIONS, RATIOED_PATH } from '../config.js';
-import { listRecords, rkeyFromAtUri } from './atproto.js';
+import { listRecords, resolvePds, rkeyFromAtUri } from './atproto.js';
 import { witnessFromRecord } from './ratioedLive.js';
 import { identify, UNRESOLVED } from './ratioedIdentity.js';
 import { brokenTakes, takesPresent } from './ratioedParticipant.js';
@@ -57,9 +57,23 @@ export const SEED_PEOPLE = PEOPLE;
  * this bundle was harvested still has its participants listed. Falls back to
  * the bundle, which is what the snapshot is built from anyway.
  */
-export async function loadPeople() {
-  const snap = await fetchSnapshot('ratioedPeople');
-  return Array.isArray(snap) && snap.length ? snap : SEED_PEOPLE;
+let peopleRead = null;
+export function loadPeople() {
+  // Read once a session, and shared: the essay mounts a chart block per figure
+  // and every one of them asked for this 113 kB file in its own right. The
+  // snapshot is static per deploy, so there is nothing a second read could
+  // learn. A miss is forgotten rather than kept, so a later mount tries again
+  // instead of settling for the bundle.
+  if (!peopleRead) {
+    const read = fetchSnapshot('ratioedPeople').then((snap) =>
+      Array.isArray(snap) && snap.length ? snap : null,
+    );
+    peopleRead = read;
+    read.then((found) => {
+      if (!found && peopleRead === read) peopleRead = null;
+    });
+  }
+  return peopleRead.then((found) => found || SEED_PEOPLE);
 }
 
 /**
@@ -628,7 +642,7 @@ export async function loadPieces(pds) {
  * `source` is 'pds' only when the PDS itself answered.
  */
 export async function readPieces(pds) {
-  const fromSnap = fromRecords(await fetchSnapshot('ratioed'));
+  const fromSnap = await snapshotPieces();
   const fallback = { pieces: fromSnap || SEED_PIECES, source: fromSnap ? 'snapshot' : 'seed' };
   if (!pds) return fallback;
   try {
@@ -639,10 +653,114 @@ export async function readPieces(pds) {
     });
     const live = fromRecords(records);
     if (!live) return fallback;
-    return { pieces: fromSnap ? mergePieces(fromSnap, live) : live, source: 'pds' };
+    const pieces = fromSnap ? mergePieces(fromSnap, live) : live;
+    // Every read the PDS answered becomes the one the public pages share, so
+    // the studio's own refresh after it posts or seals a take is what a piece
+    // page opened a moment later sees — not a minute-old list without it.
+    liveRead = { at: Date.now(), promise: Promise.resolve(pieces) };
+    return { pieces, source: 'pds' };
   } catch (err) {
     return { ...fallback, error: err?.message || String(err) };
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared reads                                                         */
+/* ------------------------------------------------------------------ */
+
+// The essay holds seven chart blocks and every one of them used to run the
+// whole load on its own: the 406 kB snapshot fetched and parsed twice each, a
+// PLC lookup and a full listRecords per block, and the live deltas below asked
+// of Constellation once per piece per block per state the pieces passed
+// through — about 234 calls to a rate-limited public index for 41 pieces, on
+// every visit. Nothing about any of it differs between blocks. So the reads
+// are made once and handed to whoever asks, and the pages a reader moves to
+// from the essay find them already in hand.
+//
+// The studio is the exception, and stays one. It decides whether a piece is
+// live from what the PDS says this second, so it calls `readPieces` itself,
+// every time, and only ever writes into what is shared here.
+
+// How long a PDS read stays the answer. Long enough to cover a visit's worth
+// of moving between the essay, a piece and the roster; short enough that a
+// take published while somebody reads still turns up on their next page.
+const LIVE_READ_TTL_MS = 60_000;
+
+let snapshotRead = null;
+let pdsRead = null;
+let liveRead = null; // { at, promise }
+
+/**
+ * The build's snapshot as pieces, or null when there isn't one. Static per
+ * deploy, so read once a session. Shared, so never mutated by a caller —
+ * `fromRecords` built these objects fresh and nothing downstream edits them.
+ */
+function snapshotPieces() {
+  if (!snapshotRead) {
+    const read = fetchSnapshot('ratioed').then(fromRecords);
+    snapshotRead = read;
+    // A miss is not remembered: the next caller should get to try again.
+    read.then((found) => {
+      if (!found && snapshotRead === read) snapshotRead = null;
+    });
+  }
+  return snapshotRead;
+}
+
+/** The artist's PDS, resolved once and shared. Null when PLC won't say. */
+export function ratioedPds() {
+  if (!pdsRead) {
+    const read = resolvePds(ME_DID).catch(() => null);
+    pdsRead = read;
+    read.then((pds) => {
+      if (!pds && pdsRead === read) pdsRead = null;
+    });
+  }
+  return pdsRead;
+}
+
+/**
+ * Every piece as the PDS has it, merged over the snapshot — or null when the
+ * PDS could not be reached or did not answer, in which case the snapshot a
+ * caller already has is the best there is.
+ *
+ * Shared across every caller for a minute. The one place a minute-old list
+ * could matter is a take the artist has just posted, and the studio's own
+ * read after posting it replaces this one (see `readPieces`).
+ */
+export function loadLivePieces() {
+  if (liveRead && Date.now() - liveRead.at < LIVE_READ_TTL_MS) return liveRead.promise;
+  const promise = ratioedPds().then(async (pds) => {
+    if (!pds) return null;
+    const read = await readPieces(pds);
+    return read.source === 'pds' ? read.pieces : null;
+  });
+  const entry = { at: Date.now(), promise };
+  liveRead = entry;
+  promise.then((pieces) => {
+    if (!pieces && liveRead === entry) liveRead = null;
+  });
+  return promise;
+}
+
+// One `/links/all` answer per post, shared for as long as a live read is. The
+// figure is a count of what exists now, so a minute-old one is still now; and
+// the essay asks the same 41 questions from two blocks, three times each, as
+// its pieces go from the bundle to the snapshot to the PDS.
+const sourceReads = new Map(); // subject → { at, promise }
+
+function backlinkSourcesOnce(subject) {
+  const hit = sourceReads.get(subject);
+  if (hit && Date.now() - hit.at < LIVE_READ_TTL_MS) return hit.promise;
+  const promise = getBacklinkSources(subject);
+  const entry = { at: Date.now(), promise };
+  sourceReads.set(subject, entry);
+  // A failed call answers null, and "we don't know" must not be kept as the
+  // answer — the next caller asks again.
+  promise.then((raw) => {
+    if (!raw && sourceReads.get(subject) === entry) sourceReads.delete(subject);
+  });
+  return promise;
 }
 
 /** Project-wide totals. Pure — derived from whatever pieces you hand it. */
@@ -681,8 +799,9 @@ export function aggregate(pieces) {
 /**
  * How much engagement each piece has picked up since it was measured.
  *
- * One `/links/all` call per piece (counts only, no pagination), so eleven
- * requests total. Returns a map keyed by rkey; pieces whose call failed are
+ * One `/links/all` call per piece (counts only, no pagination), and each answer
+ * is shared with every other caller for a minute — see `backlinkSourcesOnce`.
+ * Returns a map keyed by rkey; pieces whose call failed are
  * simply absent rather than reported as zero — "we don't know" and "nothing
  * new" must not look the same.
  */
@@ -691,7 +810,7 @@ export async function fetchLiveDeltas(pieces) {
   const results = await Promise.all(
     list.map(async (p) => {
       if (!p.subject) return null;
-      const raw = await getBacklinkSources(p.subject);
+      const raw = await backlinkSourcesOnce(p.subject);
       const flat = flattenSources(raw);
       if (!flat) return null;
       const now = { ...EMPTY };
@@ -822,4 +941,39 @@ export function fmtElapsed(sec) {
   if (sec < 5400) return `${Math.round(sec / 60)}m`;
   if (sec < 172800) return `${(sec / 3600).toFixed(sec < 36000 ? 1 : 0)}h`;
   return `${Math.round(sec / 86400)}d`;
+}
+
+// The steps an axis of seconds may take. Seconds for a short series, then the
+// divisions a clock face already has. It used to be the 1-2-5 family, which is
+// round in the unit it was counted in — seconds — and so labelled the longest
+// take's axis 16m40s, 33m20s and 50m00s under a comment saying the labels
+// stayed round minutes.
+const TICK_STEPS = [5, 10, 15, 30, 60, 120, 300, 600, 900, 1200, 1800, 3600];
+
+/**
+ * Where to put the marks on an axis running from 0 to `maxSec` seconds, and
+ * what each one says: a handful of them, at a step a reader can add up, and
+ * never one at or past the end — that is where the axis header already prints
+ * the real maximum.
+ *
+ * Derived from what the axis holds rather than written down. It was the
+ * literal [0, 300, … 1500] once, which stranded the right two-fifths of the
+ * axis unlabelled the day take 14 stood 42 minutes.
+ */
+export function aliveTicks(maxSec) {
+  const span = Math.max(maxSec || 0, 1);
+  // A sixth of the span, rounded up to a step: four to six marks, whatever the
+  // series runs to.
+  const raw = span / 6;
+  const step = TICK_STEPS.find((s) => s >= raw) || Math.ceil(raw / 3600) * 3600;
+  const out = [];
+  for (let t = 0; t < span; t += step) out.push({ t, label: tickLabel(t, step) });
+  return out;
+}
+
+function tickLabel(t, step) {
+  if (!t) return '0';
+  if (step >= 3600) return `${t / 3600}h`;
+  if (step >= 60) return `${t / 60}m`;
+  return fmtDuration(t * 1000);
 }

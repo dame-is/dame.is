@@ -1,8 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import { useEscapeLayer } from '../hooks/useEscapeLayer.js';
+import { useScrollLock } from '../hooks/useScrollLock.js';
 import './BottomSheet.css';
 
 /**
@@ -40,6 +42,7 @@ export default function BottomSheet({
   size = 'compact',
   className = '',
   closeOnEscape = true,
+  restoreFocusTo,
   children,
 }) {
   const reduce = useReducedMotion();
@@ -47,19 +50,17 @@ export default function BottomSheet({
   // Keep a touch-drag on the open sheet from scrolling the page behind it
   // when the panel's content fits without overflowing.
   usePreventScrollChain(panelRef, open);
+  // A fill sheet conceals the page entirely, so a wheel or PageDown over it
+  // has no business scrolling what's behind. A compact one leaves the page
+  // showing above it and usable, so the page keeps scrolling.
+  useScrollLock(open && size === 'fill');
   // Move focus into the sheet on open, trap Tab within it, and restore focus
   // to the trigger on close — the panel declares role="dialog" but the page
   // behind stays tappable, so the trap is what makes the keyboard honor it.
-  useFocusTrap(panelRef, { active: open });
-
-  useEffect(() => {
-    if (!open || !closeOnEscape) return undefined;
-    function onKey(e) {
-      if (e.key === 'Escape') onClose?.();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, closeOnEscape, onClose]);
+  // `restoreFocusTo` names somewhere to land when the trigger is gone by then.
+  useFocusTrap(panelRef, { active: open, fallbackFocus: restoreFocusTo });
+  // Escape closes this sheet only while it's the top overlay.
+  useEscapeLayer(open, closeOnEscape ? onClose : null);
 
   if (typeof document === 'undefined') return null;
 

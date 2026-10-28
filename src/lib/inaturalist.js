@@ -22,8 +22,14 @@ import {
   OBSERVING_NSID,
   OBSERVING_OBSERVATION_NSID,
 } from '../config.js';
+import { fetchWithTimeout } from './atproto.js';
 
 const PER_PAGE = 200; // iNaturalist's max page size.
+// How deep a page-numbered pull can go: iNaturalist refuses `page * per_page`
+// past 10,000. The whole-archive pulls default to it rather than to some
+// smaller round number, because a cap the archive outgrows fails silently —
+// the oldest nights drop off, and with them every lifer mark they held.
+const MAX_PAGED_RESULTS = 10000;
 
 /**
  * A "scope" pins an iNaturalist query to a slice of the observations. Two
@@ -64,8 +70,11 @@ export function isMothTaxon(taxon) {
 // drop it, which is fine — this is politeness for the server-side callers.
 const USER_AGENT = 'dame.is-mothing/1.0 (+https://dame.is/mothing; iNaturalist mirror)';
 
+// Through atproto.js's 15s ceiling, like every other request the home feed
+// waits on: a stalled iNaturalist answer would otherwise hold the feed's
+// rebuild (and the refresh loop behind it) open indefinitely.
 async function fetchJson(url) {
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
   });
   if (!res.ok) {
@@ -237,7 +246,7 @@ function summarizeSession(date, number, observations) {
     // Newest-first for display — the night's latest sighting sits on top,
     // matching the newest-first ordering of the sessions themselves (and the
     // orphan list). firstTime/lastTime stay chronological so the header span
-    // still reads low→high (e.g. "8:47pm–1:17am").
+    // still reads low→high (e.g. "8:47 pm – 1:17 am").
     observations: chronological.slice().reverse(),
     observationCount: chronological.length,
     speciesCount: species.size,
@@ -270,8 +279,22 @@ function nightMinutes(o) {
  * Location is stripped by `normalizeObservation`; each result carries an
  * `isMoth` flag derived from taxon ancestry.
  */
-export async function fetchObservations({ user = INATURALIST_USER, max = 1000, since = null, scope = MOTH_SCOPE } = {}) {
+export async function fetchObservations(opts = {}) {
+  return (await pullObservations(opts)).observations;
+}
+
+// fetchObservations, plus whether the pull reached everything iNaturalist
+// matched or stopped at `max` first. Counted on the raw results, so a record
+// normalization dropped can't make a complete pull read as a short one.
+async function pullObservations({
+  user = INATURALIST_USER,
+  max = MAX_PAGED_RESULTS,
+  since = null,
+  scope = MOTH_SCOPE,
+} = {}) {
   const out = [];
+  let fetched = 0;
+  let total = 0;
   let page = 1;
   while (out.length < max) {
     const params = new URLSearchParams({
@@ -284,15 +307,16 @@ export async function fetchObservations({ user = INATURALIST_USER, max = 1000, s
     if (since) params.set('updated_since', since);
     const data = await fetchJson(`${INATURALIST_API}/observations?${params}`);
     const batch = Array.isArray(data?.results) ? data.results : [];
+    fetched += batch.length;
     for (const o of batch) {
       const n = normalizeObservation(o);
       if (n) out.push(n);
     }
-    const total = data?.total_results ?? out.length;
+    total = data?.total_results ?? out.length;
     if (batch.length === 0 || out.length >= total) break;
     page += 1;
   }
-  return out;
+  return { observations: out, truncated: fetched < total };
 }
 
 /**
@@ -499,14 +523,26 @@ export function computeStats(observations, { user = INATURALIST_USER } = {}) {
  * One-shot: fetch observations and derive stats together. Returns the exact
  * shape written to `public/data/mothing.json` (minus `builtAt`, which the
  * caller stamps).
+ *
+ * `truncated` is true when the pull stopped at `max` short of everything
+ * iNaturalist matched. The archive is then missing its OLDEST end, which is
+ * exactly where each species' first sighting lives — so callers deriving lifer
+ * marks from `observations` should mark nothing rather than the wrong moth.
  */
-export async function fetchMothData({ user = INATURALIST_USER, max = 1000 } = {}) {
+export async function fetchMothData({
+  user = INATURALIST_USER,
+  max = MAX_PAGED_RESULTS,
+} = {}) {
   // Signature first, so a change during pagination trips the next comparison
   // (self-healing) rather than being silently baked into a stale snapshot.
   const sync = await fetchMothSignature({ user }).catch(() => null);
-  const observations = await fetchMothObservations({ user, max });
+  const { observations, truncated } = await pullObservations({
+    user,
+    max,
+    scope: MOTH_SCOPE,
+  });
   const stats = computeStats(observations, { user });
-  return { user, stats, observations, sync };
+  return { user, stats, observations, sync, truncated };
 }
 
 /* ------------------------------------------------------------------ */

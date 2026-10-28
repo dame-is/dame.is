@@ -18,10 +18,16 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.layout-toggle-option:hover,
 .layout-toggle-option:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .layout-toggle-option:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+  }
 }
 
 .layout-toggle-option.is-active {
@@ -33,4 +39,22 @@
 .layout-toggle-glyph {
   width: 0.95rem;
   height: 0.95rem;
+}
+
+/* Touch targets, as the bottom bar's chips around these do (ChromeBar.css):
+   44px tall on a coarse pointer without growing the painted 28px box. The pair
+   sits 4px apart, so the gap opens to the bar's own 8px and each reaches 4px
+   sideways, meeting its neighbour's rather than covering it. */
+@media (pointer: coarse) {
+  .layout-toggle-options {
+    gap: var(--space-2);
+  }
+  .layout-toggle-option {
+    position: relative;
+  }
+  .layout-toggle-option::before {
+    content: '';
+    position: absolute;
+    inset: -8px -4px;
+  }
 }

@@ -1,15 +1,56 @@
-import { cloneElement, createContext, Fragment, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  Fragment,
+  lazy,
+  Suspense,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { renderLeafletText } from '../lib/leafletRichText.jsx';
+import { renderPostText } from '../lib/postRichText.jsx';
 import { getPostThread } from '../lib/atproto.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import PostEmbed from './PostEmbed.jsx';
 import Lightbox from './Lightbox.jsx';
-import RatioedBlock from './blocks/RatioedBlock.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
+import { Skeleton, SkeletonText } from './Skeleton.jsx';
+// Where RatioedBlock used to be imported: the stylesheets it brings stay here,
+// so the CSS lands where it always has. See loadRatioedBlock below.
+import './ScrollFrame.css';
+import './RatioedHandle.css';
+import './blocks/RatioedBlock.css';
 import { Link } from 'react-router-dom';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { ME_DID } from '../config.js';
 import { relativeTime } from '../lib/time.js';
 import { videoEmbedSrc } from '../lib/videoEmbed.js';
 import './LeafletDocument.css';
+
+// Lazy: Ratioed's charts appear in one essay, but they carry the project's
+// whole seed (every piece and every participant), and this file is reached
+// from every page that draws a document: About, every blog post and work, and
+// the record editor's preview. Statically imported, that seed rode with all of
+// them, and in the entry chunk itself while the debug sheet still imported the
+// editor eagerly. Only the JavaScript moves; the CSS is imported above, in its
+// old cascade position (see lib/pageStyles.js for why that matters).
+//
+// The document stops short of a chart until the chunk is in, the way it holds
+// for an embedded post (see useEmbedCutoff), and a chart mounted after that is
+// drawn as `RatioedChart`, the loaded component itself. Through `lazy()` it
+// would suspend once even then, and React keeps a boundary's placeholder up
+// for a beat before revealing what replaced it, long enough for the rest of
+// the essay to be drawn beneath the placeholder and pushed down. The lazy
+// version covers what mounts first: the block-editor preview, which has no
+// hold, and a hold that times out before the chunk arrives.
+let RatioedChart = null;
+const loadRatioedBlock = () =>
+  import('./blocks/RatioedBlock.jsx').then((mod) => {
+    RatioedChart = mod.default;
+    return mod;
+  });
+const RatioedBlockLazy = lazy(loadRatioedBlock);
 
 // Lets an ImageBlock deep in the tree open the document's shared lightbox
 // at its own image. Null when a block is rendered outside a full document
@@ -67,8 +108,9 @@ function collectImages(pages) {
  * Empty text blocks act as paragraph breaks.
  */
 export default function LeafletDocument({ doc }) {
-  const pages = Array.isArray(doc?.pages) ? doc.pages : [];
+  const pages = useMemo(() => (Array.isArray(doc?.pages) ? doc.pages : []), [doc?.pages]);
   const images = useMemo(() => collectImages(pages), [pages]);
+  const cutoff = useEmbedCutoff(pages);
   const indexBySrc = useMemo(() => {
     const m = new Map();
     images.forEach((im, i) => {
@@ -87,9 +129,11 @@ export default function LeafletDocument({ doc }) {
   return (
     <LeafletLightboxContext.Provider value={ctx}>
       <div className="leaflet-doc">
-        {pages.map((page, pi) => (
-          <LeafletPage key={pi} page={page} />
-        ))}
+        {pages.map((page, pi) =>
+          cutoff && pi > cutoff.page ? null : (
+            <LeafletPage key={pi} page={page} upTo={cutoff && pi === cutoff.page ? cutoff.block : null} />
+          ),
+        )}
       </div>
       {images.length > 0 && (
         <Lightbox
@@ -175,8 +219,145 @@ export function galleryRuns(blocks) {
   return runs;
 }
 
-function LeafletPage({ page }) {
-  const blocks = Array.isArray(page?.blocks) ? page.blocks : [];
+/* ------------------------------------------------------------------ */
+/* Embedded posts: loading, and holding the page back for them          */
+/* ------------------------------------------------------------------ */
+
+const BSKY_POST_TYPE = 'pub.leaflet.blocks.bskyPost';
+const RATIOED_TYPE = 'is.dame.blocks.ratioed';
+// Stands in for a post's at:// URI among the holds below. Every Ratioed chart
+// waits on the same thing, the first time: the chunk that draws them.
+const RATIOED_CHUNK = 'ratioed-chunk';
+
+// How long the rest of a document waits on its embedded posts before it is
+// drawn anyway, with placeholders where they haven't answered.
+const EMBED_HOLD_MS = 2000;
+
+// Post views by at:// URI, shared by every document on the page and kept for
+// the session, so coming back to a post draws its embeds at once, with
+// `pendingPosts` holding the reads still in flight. A failed read isn't kept,
+// so the next mount tries again.
+const embeddedPosts = new Map(); // uri -> { status: 'ready' | 'missing', post }
+const pendingPosts = new Map(); // uri -> Promise<entry>
+
+function loadEmbeddedPost(uri) {
+  const held = embeddedPosts.get(uri);
+  if (held) return Promise.resolve(held);
+  if (pendingPosts.has(uri)) return pendingPosts.get(uri);
+  const promise = getPostThread(uri, { depth: 0, parentHeight: 0 })
+    .then((thread) => {
+      const post = thread?.thread?.post || null;
+      const entry = post ? { status: 'ready', post } : { status: 'missing', post: null };
+      embeddedPosts.set(uri, entry);
+      return entry;
+    })
+    .catch(() => ({ status: 'error', post: null }))
+    .finally(() => pendingPosts.delete(uri));
+  pendingPosts.set(uri, promise);
+  return promise;
+}
+
+/**
+ * Where to stop drawing a document while its embedded posts load:
+ * `{ page, block }` of the first top-level bskyPost block that hasn't
+ * answered yet, or null to draw everything.
+ *
+ * An embedded post loads from the AppView after the document mounts, and it
+ * can be anything from two lines to a screenful once its quote and pictures
+ * are in. Drawn as a short placeholder with the rest of the document under it,
+ * every paragraph after the first embed jumped when it landed — most of a
+ * phone screen on /creating/ratioed. So the document stops at the first embed
+ * still loading (its placeholder included) and the rest follows when the posts
+ * have answered, or after EMBED_HOLD_MS. Text arriving below what's on screen
+ * moves nothing anyone is reading.
+ *
+ * A Ratioed chart holds the document too, the first time one is drawn this
+ * visit: it stops just short of the chart, placeholder and all, until the
+ * chart's lazy chunk is in, so the essay is never drawn beneath a placeholder
+ * that the chart then pushes down.
+ */
+function useEmbedCutoff(pages) {
+  const uris = useMemo(() => {
+    const out = [];
+    pages.forEach((page, pi) => {
+      (Array.isArray(page?.blocks) ? page.blocks : []).forEach((entry, bi) => {
+        const block = entry?.block;
+        if (block?.$type === BSKY_POST_TYPE && block.postRef?.uri) {
+          out.push({ uri: block.postRef.uri, page: pi, block: bi });
+        } else if (block?.$type === RATIOED_TYPE && !RatioedChart) {
+          // Stops before the chart rather than at it: nothing should mount
+          // one until the chunk is in (see RatioedSlot).
+          out.push({ uri: RATIOED_CHUNK, page: pi, block: bi - 1 });
+        }
+      });
+    });
+    return out;
+  }, [pages]);
+  const key = uris.map((u) => u.uri).join(' ');
+  const [, setSettled] = useState(0);
+  // Reads that failed. They aren't cached (so a later mount retries), so this
+  // is what stops one from holding the document until the timeout.
+  const [failed, setFailed] = useState(() => new Set());
+  const [expired, setExpired] = useState(false);
+
+  useEffect(() => {
+    if (!uris.length) return undefined;
+    let cancelled = false;
+    setExpired(false);
+    const timer = setTimeout(() => {
+      if (!cancelled) setExpired(true);
+    }, EMBED_HOLD_MS);
+    for (const uri of new Set(uris.map((u) => u.uri))) {
+      const load =
+        uri === RATIOED_CHUNK
+          ? loadRatioedBlock().then(
+              () => ({ status: 'ready' }),
+              () => ({ status: 'error' }),
+            )
+          : loadEmbeddedPost(uri);
+      load.then((entry) => {
+        if (cancelled) return;
+        if (entry.status === 'error') setFailed((prev) => new Set(prev).add(uri));
+        else setSettled((n) => n + 1);
+      });
+    }
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  if (expired) return null;
+  const settled = (uri) =>
+    uri === RATIOED_CHUNK ? RatioedChart !== null : embeddedPosts.has(uri);
+  const first = uris.find(({ uri }) => !settled(uri) && !failed.has(uri));
+  return first ? { page: first.page, block: first.block } : null;
+}
+
+function useEmbeddedPost(uri) {
+  const [entry, setEntry] = useState(() => (uri ? embeddedPosts.get(uri) || null : null));
+  useEffect(() => {
+    if (!uri) return undefined;
+    let cancelled = false;
+    const held = embeddedPosts.get(uri);
+    setEntry(held || null);
+    if (!held) {
+      loadEmbeddedPost(uri).then((next) => {
+        if (!cancelled) setEntry(next);
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [uri]);
+  return entry;
+}
+
+function LeafletPage({ page, upTo = null }) {
+  const all = Array.isArray(page?.blocks) ? page.blocks : [];
+  // `upTo` is the last block to draw while an embed holds the rest back.
+  const blocks = upTo == null ? all : all.slice(0, upTo + 1);
   const out = [];
   const runStarts = new Map();
   for (const run of galleryRuns(blocks)) runStarts.set(run.start, run);
@@ -263,11 +444,45 @@ export function LeafletBlock({ block }) {
     // Site-local block type. Other renderers of pub.leaflet.content fall through
     // to `null` here, which is why a ratioed block should always be followed by
     // a text block carrying the same figures in prose.
-    case 'is.dame.blocks.ratioed':
-      return <RatioedBlock block={block} style={style} />;
+    //
+    // The chart is a lazy chunk, so it gets a boundary of its own: a chunk that
+    // fails to load (or a chart that throws) costs that one figure, not the
+    // essay around it, and the prose after it still carries the numbers.
+    case RATIOED_TYPE:
+      return (
+        <ErrorBoundary
+          fallback={
+            <p className="ratioed-note" style={style || undefined}>
+              This chart couldn’t be drawn. Reloading usually fixes it.
+            </p>
+          }
+        >
+          <Suspense
+            fallback={
+              <figure
+                className="ratioed"
+                style={{ minHeight: '12rem', ...(style || {}) }}
+                aria-busy="true"
+              />
+            }
+          >
+            <RatioedSlot block={block} style={style} />
+          </Suspense>
+        </ErrorBoundary>
+      );
     default:
       return null;
   }
+}
+
+/**
+ * A Ratioed chart: the loaded component when its chunk is already in, the
+ * lazy one when it isn't. Chosen once, at mount, so a chart that started out
+ * lazy isn't remounted (and its data re-read) when the chunk lands.
+ */
+function RatioedSlot({ block, style }) {
+  const [Chart] = useState(() => RatioedChart || RatioedBlockLazy);
+  return <Chart block={block} style={style} />;
 }
 
 function TextBlock({ block, style }) {
@@ -464,43 +679,31 @@ function ListItem({ item, ordered }) {
 }
 
 /**
- * Embedded Bluesky post. Loads the post lazily via the AppView
- * `getPostThread` endpoint (depth 0). On miss, renders a hint linking
- * to bsky.app so the reader can still chase the reference.
+ * Embedded Bluesky post. Loads the post via the AppView `getPostThread`
+ * endpoint (depth 0), through the shared cache above. On miss, renders a hint
+ * linking to bsky.app so the reader can still chase the reference.
  */
 function BskyPostBlock({ block, style }) {
   const uri = block?.postRef?.uri || null;
-  const [post, setPost] = useState(null);
-  const [status, setStatus] = useState('idle');
-
-  useEffect(() => {
-    if (!uri) return;
-    let cancelled = false;
-    setStatus('loading');
-    getPostThread(uri, { depth: 0, parentHeight: 0 })
-      .then((thread) => {
-        if (cancelled) return;
-        const view = thread?.thread?.post || null;
-        if (view) {
-          setPost(view);
-          setStatus('ready');
-        } else {
-          setStatus('missing');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setStatus('error');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [uri]);
+  const entry = useEmbeddedPost(uri);
+  const post = entry?.post || null;
 
   if (!uri) return null;
-  if (status === 'loading' || status === 'idle') {
+  if (!entry) {
+    // Shaped like the post it stands in for (byline, a few lines), so the
+    // block opens at something near its size rather than as one short line.
     return (
-      <div className="leaflet-bsky-post leaflet-bsky-post-loading" style={style || undefined}>
-        Loading post…
+      <div
+        className="leaflet-bsky-post leaflet-bsky-post-loading"
+        style={style || undefined}
+        role="status"
+        aria-label="Loading post"
+      >
+        <div className="leaflet-bsky-post-head" aria-hidden="true">
+          <Skeleton width={28} height={28} />
+          <Skeleton width="9rem" height="0.85em" />
+        </div>
+        <SkeletonText lines={3} />
       </div>
     );
   }
@@ -528,7 +731,7 @@ function BskyPostBlock({ block, style }) {
         {author.avatar && (
           <img
             className="leaflet-bsky-post-avatar"
-            src={author.avatar}
+            src={avatarThumb(author.avatar)}
             alt=""
             width={28}
             height={28}
@@ -559,32 +762,14 @@ function BskyPostBlock({ block, style }) {
           )}
         </div>
       </header>
-      {text && (
-        <p className="leaflet-bsky-post-text">{renderLeafletText(text, mapBskyFacetsToLeafletText(facets))}</p>
-      )}
+      {/* The post's own facets — links, mentions, tags — through the same
+          renderer the replies under a post use, so an embed links what they do. */}
+      {text && <p className="leaflet-bsky-post-text">{renderPostText(text, facets)}</p>}
       {/* The block itself is one level into the nesting scale, so the quotes
           inside it start at two rather than repainting its own colour. */}
       {post.embed && <PostEmbed embed={post.embed} did={author.did} nest={1} />}
     </article>
   );
-}
-
-/**
- * Bluesky link facets are tagged `app.bsky.richtext.facet#link`; the
- * leaflet renderer above only knows about `pub.leaflet.richtext.facet#link`.
- * Translate the type so embedded posts still render their links.
- */
-function mapBskyFacetsToLeafletText(facets) {
-  if (!Array.isArray(facets)) return facets;
-  return facets.map((f) => ({
-    ...f,
-    features: (f.features || []).map((feature) => {
-      if (feature?.$type === 'app.bsky.richtext.facet#link') {
-        return { ...feature, $type: 'pub.leaflet.richtext.facet#link' };
-      }
-      return feature;
-    }),
-  }));
 }
 
 function bskyAppUrlFromAtUri(atUri, handle) {

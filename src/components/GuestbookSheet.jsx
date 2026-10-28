@@ -1,12 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import BottomSheet from './BottomSheet.jsx';
-import GuestbookSignForm from './GuestbookSignForm.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { getProfile } from '../lib/atproto.js';
+import { signInErrorMessage } from '../lib/oauthClient.js';
 import './GuestbookSheet.css';
+
+// Lazy: the pen is for signed-in signers only, and it carries the guestbook
+// library and the profanity matcher, which were a sizeable share of every
+// visitor's entry chunk. Its stylesheet (pages/Guestbook.css) is already in
+// the entry through lib/pageStyles.js, so only the JavaScript moves.
+const loadSignForm = () => import('./GuestbookSignForm.jsx');
+const GuestbookSignForm = lazy(loadSignForm);
 
 /**
  * The guestbook sign sheet — the bottom-chrome surface behind every "Sign the
@@ -26,8 +40,22 @@ import './GuestbookSheet.css';
 export default function GuestbookSheet() {
   const { panel, closePanel } = useChromePanel();
   const open = panel === 'guestbook';
-  const { session, agent, did, signIn } = useAtprotoSession();
+  const { session, agent, did, loading, signIn, restore } = useAtprotoSession();
   const navigate = useNavigate();
+
+  // A returning signer's session isn't restored at startup (see
+  // useAtprotoSession); opening the pen is what asks for it. A layout effect,
+  // so the sheet's first frame already knows a restore is under way.
+  useLayoutEffect(() => {
+    if (open) restore();
+  }, [open, restore]);
+
+  // Fetch the pen while the session restores, so the two waits overlap and the
+  // form is usually there by the time the session is. A signed-out visitor
+  // never needs it, so they don't download it.
+  useEffect(() => {
+    if (open && (session || loading)) loadSignForm().catch(() => {});
+  }, [open, session, loading]);
 
   // The signer's profile, for the form's "signing as" line and to render their
   // fresh signature optimistically before Constellation indexes the backlink.
@@ -85,8 +113,18 @@ export default function GuestbookSheet() {
         </button>
       </div>
 
-      {session ? (
-        <GuestbookSignForm agent={agent} did={did} onSigned={handleSigned} />
+      {loading ? (
+        // `loading` also covers a live session whose Agent is still loading;
+        // the pen can't write without it.
+        <p className="guestbook-sheet-restoring">Restoring your session…</p>
+      ) : session ? (
+        <Suspense
+          fallback={
+            <p className="guestbook-sheet-restoring">Loading the form…</p>
+          }
+        >
+          <GuestbookSignForm agent={agent} did={did} onSigned={handleSigned} />
+        </Suspense>
       ) : (
         <GuestbookSignIn signIn={signIn} />
       )}
@@ -113,8 +151,9 @@ function GuestbookSignIn({ signIn }) {
       await signIn(input.trim(), { returnTo: '/welcoming', intent: 'guestbook-sign' });
       // Redirected away; if we somehow keep running, drop the busy state.
     } catch (err) {
+      console.warn('[guestbook] sign-in failed to start:', err);
       setBusy(false);
-      setError(err?.message || String(err));
+      setError(signInErrorMessage(err));
     }
   }
 
@@ -124,10 +163,16 @@ function GuestbookSignIn({ signIn }) {
         Sign in with your Atmosphere or Bluesky account to leave a note in my guestbook. The
         record is saved to your PDS and displays on my site via backlinks.
       </p>
+      {/* The same guards as the account panel's field (see SignInPanel): iOS
+          otherwise capitalizes and autocorrects a handle as if it were prose. */}
       <input
         className="signin-input"
         type="text"
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        inputMode="url"
+        enterKeyHint="go"
         spellCheck={false}
         placeholder="handle, DID, or PDS URL"
         value={input}

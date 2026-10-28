@@ -29,9 +29,13 @@
   transition: transform 200ms ease, border-color 200ms ease;
 }
 
-.curating-block-button:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+/* Pointer-only, as the site's hover tints are (see the note in
+   typography.css): on touch the lift sticks to whatever was tapped. */
+@media (hover: hover) {
+  .curating-block-button:hover {
+    border-color: var(--accent-soft);
+    transform: translateY(-2px);
+  }
 }
 
 .curating-block-button img {

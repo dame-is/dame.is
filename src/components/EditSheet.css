@@ -109,11 +109,31 @@
   transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
-.edit-sheet-close:hover,
 .edit-sheet-close:focus-visible {
   color: var(--accent);
   border-color: var(--accent-soft);
   background: color-mix(in srgb, var(--accent) 14%, var(--page));
+}
+
+@media (hover: hover) {
+  .edit-sheet-close:hover {
+    color: var(--accent);
+    border-color: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent) 14%, var(--page));
+  }
+}
+
+/* Touch target: 44px on a coarse pointer without growing the painted 28px
+   box, as the bottom bar's chips do (ChromeBar.css). */
+@media (pointer: coarse) {
+  .edit-sheet-close {
+    position: relative;
+  }
+  .edit-sheet-close::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
 }
 
 .edit-sheet-body {
@@ -141,7 +161,12 @@
   text-decoration: none;
 }
 
-.edit-sheet-admin-link:hover,
 .edit-sheet-admin-link:focus-visible {
   text-decoration: underline;
+}
+
+@media (hover: hover) {
+  .edit-sheet-admin-link:hover {
+    text-decoration: underline;
+  }
 }

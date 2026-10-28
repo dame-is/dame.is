@@ -109,6 +109,16 @@ describe('membership for a write', () => {
     // Duplicates are kept: taking someone off means deleting every copy.
     expect(listed.get('did:plc:a')).toEqual(['r1', 'r2']);
   });
+
+  it('can be told not to walk, for a caller that will walk once for many', async () => {
+    constellation.getManyToMany.mockResolvedValue(null);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    expect(await facts.rkeysForWrite(LIST, 'did:plc:a', { walk: false })).toBe(
+      null,
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
 });
 
 describe('the held copy, for reading many at once', () => {

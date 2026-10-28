@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { COLLECTIONS, ME_DID } from '../config.js';
 import { lexiconFor, blankRecordFor, hasLeafletContent } from '../lib/lexicons.js';
 import { renderMarkdown } from '../lib/markdown.js';
@@ -20,7 +21,9 @@ import {
 import { resolvePds } from '../lib/atproto.js';
 import { annotateBlobUrl, annotateLeafletBlobs } from '../lib/feedBuilder.js';
 import { fetchAllBlocks } from '../lib/arena.js';
-import BlocksEditor from './blocks/BlocksEditor.jsx';
+import { isSwapConflict } from '../lib/recordWrites.js';
+import { deleteEveryCopy } from '../lib/tealPlayDelete.js';
+import BlocksEditor, { BlocksFlushContext } from './blocks/BlocksEditor.jsx';
 import { uploadImageFile } from './blocks/ImageBlockEditor.jsx';
 import PhotoGalleryField from './PhotoGalleryField.jsx';
 import LabelledLinksField from './LabelledLinksField.jsx';
@@ -131,6 +134,21 @@ function isMissingRecordError(err) {
 const GONE_SENTENCE = 'That record is gone — it may have been deleted.';
 const UNREADABLE_SENTENCE = 'This record could not be read, so it cannot be saved over.';
 
+/** Shown when a save loses its compare-and-swap. See `cidRef` below. */
+const CONFLICT_SENTENCE =
+  'This record was changed somewhere else after you opened it, so saving would overwrite that change.';
+
+/**
+ * Shown when "New" names a fixed rkey that is already taken. `putRecord` is an
+ * upsert, so without the swap below Create on About — its rkey pre-filled as
+ * `self` — replaced the real profile with a blank one, and on the guestbook's
+ * book record it emptied the moderation list and put every hidden signature
+ * back on the page.
+ */
+function takenSentence(rkey) {
+  return `A record with the key “${rkey}” already exists — open it from the list instead of creating it again.`;
+}
+
 /** Does this text parse? Used to decide whether it is safe to overwrite. */
 function isParseableJson(text) {
   try {
@@ -209,8 +227,9 @@ const RAW_DIRTY_STATUS = Object.freeze({ dirty: true, fields: NO_FIELDS, note: '
  *                               screen says which it was.)
  *
  * The six props below are ADDITIVE and optional: every one of them is `undefined`
- * for the quick-edit sheet (EditSheet.jsx) and for /exploring, which is what keeps
- * this component's behaviour on public routes byte-for-byte what it was.
+ * for /exploring, and all but `onDirtyChange` for the quick-edit sheet
+ * (EditSheet.jsx), which is what keeps this component's behaviour on public
+ * routes what it was.
  *
  *   - mode:            'form' | 'raw' | 'preview'. When supplied the body mode is
  *                      CONTROLLED: the internal rawMode/preview state is bypassed
@@ -229,7 +248,9 @@ const RAW_DIRTY_STATUS = Object.freeze({ dirty: true, fields: NO_FIELDS, note: '
  *                      adding dirtiness to it would republish EditModeContext on
  *                      every character and re-render every feed row under an open
  *                      quick-edit sheet. When this prop is absent the diff is not
- *                      computed at all.
+ *                      computed at all. The sheet passes it only to know whether
+ *                      closing would discard anything, and holds the answer in a
+ *                      ref for exactly that reason.
  *   - onLoaded:        called ONCE with the record the fetch returned (post-
  *                      `migrate`, pre-annotation), for a caller that needs to
  *                      name what it opened. The workbench heads the pane with
@@ -250,7 +271,9 @@ const RAW_DIRTY_STATUS = Object.freeze({ dirty: true, fields: NO_FIELDS, note: '
  * Ref (imperative handle): `{ save(), remove(opts) }` — trigger a save or delete
  * from outside the component. `remove({ confirmed: true })` skips the editor's
  * own `window.confirm`, for a caller that has already asked its own, better
- * question (the workbench names the record in it).
+ * question (the workbench names the record in it). `save()` resolves any
+ * markdown a blocks body is still holding first, because a caller driving it
+ * from a keyboard shortcut never produced the click that would have.
  */
 const RecordEditor = forwardRef(function RecordEditor({
   agent,
@@ -312,6 +335,15 @@ const RecordEditor = forwardRef(function RecordEditor({
   // dependency list, which is the whole mechanism — a retry is one more run of
   // the effect that already knows how to fetch this record.
   const [reloadNonce, setReloadNonce] = useState(0);
+  // The CID of the version on screen — read with the record, replaced by every
+  // write's response — and handed back as `swapRecord` on save. A plain
+  // `putRecord` is last-write-wins, so an editor left open in a tab, or one on a
+  // phone while the desk edits the same post, wrote its stale copy over the
+  // newer one without a word. A ref, not state: nothing renders from it.
+  const cidRef = useRef(null);
+  // The last save lost that compare-and-swap. The form stays as the owner left
+  // it, and the two ways forward are offered under the error.
+  const [conflict, setConflict] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   // A transient object URL so a cover image set from inside a link card shows
   // in the cover field right away (a fresh blob has no `_url` until reload).
@@ -343,6 +375,8 @@ const RecordEditor = forwardRef(function RecordEditor({
 
   useEffect(() => {
     let cancelled = false;
+    cidRef.current = null;
+    setConflict(false);
     if (isNew) {
       // Merge any caller-supplied presets (e.g. a default publication for a
       // new creative work) over the lexicon's blank defaults.
@@ -366,6 +400,7 @@ const RecordEditor = forwardRef(function RecordEditor({
         });
         const fetched = (res?.data || res)?.value || {};
         if (cancelled) return;
+        cidRef.current = (res?.data || res)?.cid || null;
         // Normalize BlobRef instances to plain JSON *before* any clone/migrate
         // (structuredClone would corrupt them and strip images on save).
         const plain = toPlainRecord(fetched);
@@ -559,24 +594,36 @@ const RecordEditor = forwardRef(function RecordEditor({
     return record;
   }
 
-  async function handleSave() {
+  /**
+   * @param {{overwrite?: boolean}} [opts] `overwrite: true` writes without the
+   *   compare-and-swap — the owner's answer to a conflict, having been told what
+   *   it overwrites.
+   */
+  async function handleSave({ overwrite = false } = {}) {
     setError(null);
+    setConflict(false);
     setSavedFlash(false);
     const record = recordToWrite();
     if (!record) return;
     setSaving(true);
+    const fixedKey =
+      isNew && lex?.rkeyMode === 'fixed' ? rkeyDraft.trim() : null;
     try {
       if (isNew) {
         if (lex?.rkeyMode === 'fixed') {
-          const chosen = rkeyDraft.trim();
+          const chosen = fixedKey;
           if (!chosen) throw new Error('Pick an rkey for this record.');
           const finalRecord = lex.derive ? lex.derive(record, { rkey: chosen }) : record;
-          await agent.com.atproto.repo.putRecord({
+          const res = await agent.com.atproto.repo.putRecord({
             repo: did,
             collection,
             rkey: chosen,
             record: finalRecord,
+            // A null swap means "only if there is no record yet" — this is a
+            // CREATE, and the key may already be taken (see takenSentence).
+            swapRecord: null,
           });
+          cidRef.current = (res?.data || res)?.cid || null;
           // Refresh the editor's own state before handing off, exactly as the
           // edit path below does. Today this branch returns without it, leaving
           // the form claiming unsaved changes to a record already written — a
@@ -611,16 +658,27 @@ const RecordEditor = forwardRef(function RecordEditor({
         return;
       }
       const finalRecord = lex?.derive ? lex.derive(record, { rkey }) : record;
-      await agent.com.atproto.repo.putRecord({
+      const res = await agent.com.atproto.repo.putRecord({
         repo: did,
         collection,
         rkey,
         record: finalRecord,
+        // Only when the read said which version it was. A record whose CID never
+        // arrived saves the way it always has, rather than not at all.
+        ...(cidRef.current && !overwrite ? { swapRecord: cidRef.current } : {}),
       });
+      cidRef.current = (res?.data || res)?.cid || null;
       markSaved(finalRecord);
       onSaved?.(finalRecord);
     } catch (err) {
-      setError(err?.message || String(err));
+      if (isSwapConflict(err) && fixedKey) {
+        setError(takenSentence(fixedKey));
+      } else if (isSwapConflict(err) && !isNew) {
+        setConflict(true);
+        setError(CONFLICT_SENTENCE);
+      } else {
+        setError(err?.message || String(err));
+      }
     } finally {
       setSaving(false);
     }
@@ -647,7 +705,10 @@ const RecordEditor = forwardRef(function RecordEditor({
     setDeleting(true);
     setError(null);
     try {
-      await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey });
+      // For a teal.fm play, its copy in the other namespace goes too: every
+      // reader shows one copy of a play written to both, and deleting only this
+      // one let the other take its place on the next load.
+      await deleteEveryCopy(agent, { repo: did, collection, rkey });
       onDeleted?.();
     } catch (err) {
       setError(err?.message || String(err));
@@ -742,10 +803,23 @@ const RecordEditor = forwardRef(function RecordEditor({
   const deleteRef = useRef(null);
   saveRef.current = handleSave;
   deleteRef.current = handleDelete;
+  // One flush per mounted blocks editor (BlocksFlushContext). Run inside
+  // `flushSync` so the converted document has re-rendered — and `saveRef` been
+  // reassigned to a `handleSave` that closes over it — before the save reads it.
+  const flushersRef = useRef(null);
+  if (!flushersRef.current) flushersRef.current = new Set();
   useImperativeHandle(
     ref,
     () => ({
-      save: () => saveRef.current?.(),
+      save: () => {
+        const flushers = flushersRef.current;
+        if (flushers.size > 0) {
+          flushSync(() => {
+            for (const flush of flushers) flush();
+          });
+        }
+        return saveRef.current?.();
+      },
       remove: (opts) => deleteRef.current?.(opts),
     }),
     [],
@@ -767,8 +841,8 @@ const RecordEditor = forwardRef(function RecordEditor({
   // the consumer a fresh array every render and loop any effect that stores it.
   const dirtyStatus = useMemo(() => {
     // Nobody is listening. The walk below is not free on a long blocks body, and
-    // the public quick-edit sheet passes no handler — it must not pay for a
-    // question it never asks.
+    // /exploring passes no handler — it must not pay for a question it never
+    // asks.
     if (!onDirtyChange) return null;
     // Raw mode has no field granularity: the whole record is one textarea, so
     // the only honest comparison is text against the text we seeded it with.
@@ -931,26 +1005,53 @@ const RecordEditor = forwardRef(function RecordEditor({
       ) : rawActive ? (
         <RawJsonEditor value={rawText} onChange={setRawText} />
       ) : (
-        <FormEditor
-          lex={lex}
-          value={value || {}}
-          onChange={updateField}
-          agent={agent}
-          did={did}
-          collection={collection}
-          rkey={rkey}
-          coverPreview={coverPreview}
-          onSetCover={(key, blob, previewUrl) => {
-            updateField(key, blob);
-            setCoverPreview((prev) => {
-              if (prev && prev !== previewUrl) URL.revokeObjectURL(prev);
-              return previewUrl || null;
-            });
-          }}
-        />
+        <BlocksFlushContext.Provider value={flushersRef.current}>
+          <FormEditor
+            lex={lex}
+            value={value || {}}
+            onChange={updateField}
+            agent={agent}
+            did={did}
+            collection={collection}
+            rkey={rkey}
+            coverPreview={coverPreview}
+            onSetCover={(key, blob, previewUrl) => {
+              updateField(key, blob);
+              setCoverPreview((prev) => {
+                if (prev && prev !== previewUrl) URL.revokeObjectURL(prev);
+                return previewUrl || null;
+              });
+            }}
+          />
+        </BlocksFlushContext.Provider>
       )}
 
       {error && <p className="admin-error">{error}</p>}
+      {/* Both ways out of a conflict, beside the sentence that names it, for
+          every caller: the quick-edit sheet and the workbench hide the editor's
+          own Save row, and neither has anywhere else to put a choice this
+          specific. Loading discards the edits on screen; saving over discards
+          the other change. Neither is the editor's to pick. */}
+      {conflict && (
+        <div className="admin-actions record-editor-conflict">
+          <button
+            type="button"
+            className="admin-gate-button admin-gate-button-tight"
+            onClick={() => setReloadNonce((n) => n + 1)}
+            disabled={saving}
+          >
+            Load the latest (drops your edits)
+          </button>
+          <button
+            type="button"
+            className="admin-gate-button admin-gate-button-tight admin-danger"
+            onClick={() => handleSave({ overwrite: true })}
+            disabled={saving}
+          >
+            Save mine over it
+          </button>
+        </div>
+      )}
       {savedFlash && <p className="admin-success">Saved.</p>}
 
       {!hideActions && (
@@ -958,7 +1059,7 @@ const RecordEditor = forwardRef(function RecordEditor({
           <button
             type="button"
             className="admin-gate-button"
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={saving || deleting}
           >
             {saving ? 'Saving…' : isNew ? 'Create' : 'Save'}
@@ -1340,9 +1441,21 @@ function JsonField({ id, value, onChange }) {
   const [text, setText] = useState(() => stringifyJson(value));
   const [parseError, setParseError] = useState(null);
 
+  // Re-sync only when the value changed from OUTSIDE (a load, a save, an undo).
+  // The echo of this field's own emit comes back as the very object it sent, and
+  // re-serializing that replaced the text being typed with its pretty-printed
+  // form the moment it parsed — reflowing the textarea and throwing the caret to
+  // the end mid-word. BskyThreadField does the same for the same reason.
+  const lastEmitted = useRef(value);
   useEffect(() => {
+    if (value === lastEmitted.current) return;
+    lastEmitted.current = value;
     setText(stringifyJson(value));
   }, [value]);
+  const emit = (next) => {
+    lastEmitted.current = next;
+    onChange(next);
+  };
 
   return (
     <div>
@@ -1356,13 +1469,13 @@ function JsonField({ id, value, onChange }) {
           setText(next);
           if (!next.trim()) {
             setParseError(null);
-            onChange(undefined);
+            emit(undefined);
             return;
           }
           try {
             const parsed = JSON.parse(next);
             setParseError(null);
-            onChange(parsed);
+            emit(parsed);
           } catch (err) {
             setParseError(err.message);
           }
@@ -1554,8 +1667,15 @@ function ImageField({ id, value, onChange, agent, externalPreview }) {
           handleFile(e.dataTransfer?.files?.[0]);
         }}
         onClick={() => fileRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            fileRef.current?.click();
+          }
+        }}
         role="button"
         tabIndex={0}
+        aria-label={displayUrl ? 'Replace image' : 'Upload an image'}
       >
         {displayUrl ? (
           <img src={displayUrl} alt="" />
@@ -1586,6 +1706,31 @@ function ImageField({ id, value, onChange, agent, externalPreview }) {
 }
 
 /**
+ * How long the are.na slug has to sit still before the pickers fetch it.
+ *
+ * Both pickers fetch whenever the slug changes, and the slug is a text field:
+ * typing a 15-character slug fired a channel pull per keystroke — up to ten
+ * pages each for the pins — flashed "Could not load" for every partial slug in
+ * between, and could pull an unrelated channel whose slug happened to be a
+ * prefix of the one being typed.
+ */
+const ARENA_SLUG_SETTLE_MS = 600;
+
+/** `value`, once it has stopped changing for `ms`. Empty is passed through at once. */
+function useSettled(value, ms) {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    if (!value) {
+      setSettled(value);
+      return undefined;
+    }
+    const timer = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(timer);
+  }, [value, ms]);
+  return settled;
+}
+
+/**
  * Cover picker for an are.na gallery (`is.dame.arena.channel`). Loads the
  * channel's images (through the same-origin proxy) and lets the author click
  * one to front the gallery; the stored value is that block's are.na id.
@@ -1593,13 +1738,15 @@ function ImageField({ id, value, onChange, agent, externalPreview }) {
 function ArenaCoverField({ value, onChange, arenaSlug }) {
   const [blocks, setBlocks] = useState(null);
   const [status, setStatus] = useState(null);
+  const slugNow = (arenaSlug || '').trim();
+  const settledSlug = useSettled(slugNow, ARENA_SLUG_SETTLE_MS);
 
   useEffect(() => {
     let cancelled = false;
-    const slug = (arenaSlug || '').trim();
+    const slug = settledSlug;
     if (!slug) {
       setBlocks(null);
-      setStatus('Enter the are.na channel slug first, then reopen this record to pick a cover.');
+      setStatus('Enter the are.na channel slug to pick a cover.');
       return undefined;
     }
     setStatus('Loading images…');
@@ -1625,7 +1772,7 @@ function ArenaCoverField({ value, onChange, arenaSlug }) {
     return () => {
       cancelled = true;
     };
-  }, [arenaSlug]);
+  }, [settledSlug]);
 
   return (
     <div className="arena-cover-field">
@@ -1680,13 +1827,15 @@ function ArenaPinsField({ value, onChange, arenaSlug }) {
   const [status, setStatus] = useState(null);
 
   const pins = useMemo(() => (Array.isArray(value) ? value : []), [value]);
+  const slugNow = (arenaSlug || '').trim();
+  const settledSlug = useSettled(slugNow, ARENA_SLUG_SETTLE_MS);
 
   useEffect(() => {
     let cancelled = false;
-    const slug = (arenaSlug || '').trim();
+    const slug = settledSlug;
     if (!slug) {
       setBlocks(null);
-      setStatus('Enter the are.na channel slug first, then reopen this record to pin blocks.');
+      setStatus('Enter the are.na channel slug to pin blocks.');
       return undefined;
     }
     setStatus('Loading blocks…');
@@ -1709,7 +1858,7 @@ function ArenaPinsField({ value, onChange, arenaSlug }) {
     return () => {
       cancelled = true;
     };
-  }, [arenaSlug]);
+  }, [settledSlug]);
 
   // A pin whose block is no longer in the channel is kept, not quietly dropped:
   // it costs nothing on the page (see orderBlocks) and removing a block on

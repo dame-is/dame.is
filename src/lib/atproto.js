@@ -5,15 +5,59 @@ import { APPVIEW, PLC_DIRECTORY } from '../config.js';
 // A single request must never wedge the home-feed refresh loop. Attach a
 // 15s abort so a hung fetch rejects instead of hanging forever. Feature-
 // detected: environments without `AbortSignal.timeout` (older runtimes)
-// simply run with no signal. Never clobbers a caller-supplied signal.
+// simply run with no signal.
+//
+// A caller's own signal (a cancel button, an unmount) is kept, but it is not a
+// substitute: it fires when the caller gives up, and nothing gives up on a
+// server that has simply stopped answering. So the two are combined where the
+// runtime can (`AbortSignal.any`); where it can't, the caller's signal stands
+// alone, as it always did.
 const REQUEST_TIMEOUT_MS = 15_000;
-function withTimeout(init) {
+function withTimeout(init, ms = REQUEST_TIMEOUT_MS) {
   const base = init || {};
-  if (base.signal) return base;
-  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-    return { ...base, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) };
+  if (
+    typeof AbortSignal === 'undefined' ||
+    typeof AbortSignal.timeout !== 'function'
+  ) {
+    return base;
   }
-  return base;
+  const timeout = AbortSignal.timeout(ms);
+  if (!base.signal) return { ...base, signal: timeout };
+  if (typeof AbortSignal.any !== 'function') return base;
+  return { ...base, signal: AbortSignal.any([base.signal, timeout]) };
+}
+
+/**
+ * `fetch` with the same 15s ceiling every request in this module carries. For
+ * the clients that talk to other services (the AppView batch reads in
+ * subjectResolver.js, Slingshot, Constellation) and so can't go through
+ * `fetchJson`, but must not be able to hang the page that waits on them either.
+ */
+export function fetchWithTimeout(url, init, ms) {
+  return fetch(url, withTimeout(init, ms));
+}
+
+/**
+ * Did this request fail because the record isn't there, rather than because
+ * the server couldn't be asked? A PDS answers a missing record with a 400
+ * `RecordNotFound` (and some proxies with a 404); fetchJson's errors carry the
+ * status and the body's text, an @atproto/api one the XRPC code as `error`.
+ * Anything else — a timeout, a 5xx, a refused connection — says nothing about
+ * the record, and a caller that remembers answers must not remember it as gone.
+ *
+ * Any 400 counts, since getRecord also answers an rkey it won't parse with
+ * one: for a reader that is the same as no record. The site's two writers
+ * want narrower or broader answers and have their own, named for it:
+ * guestbook.js's isXrpcRecordNotFound and recordWrites.js's isRecordMissing.
+ */
+export function isRecordNotFound(err) {
+  const status = err?.status;
+  return (
+    status === 400 ||
+    status === 404 ||
+    err?.error === 'RecordNotFound' ||
+    /RecordNotFound|Could not locate record/i.test(err?.message || '')
+  );
 }
 
 async function fetchJson(url, init) {
@@ -29,11 +73,12 @@ async function fetchJson(url, init) {
 }
 
 /**
- * Resolve a DID's PDS endpoint via the PLC directory.
+ * Resolve a DID's PDS endpoint from its DID document — the PLC directory for
+ * `did:plc:*`, the host's `/.well-known/did.json` for `did:web:*`.
  * Returns a URL string with no trailing slash.
  */
 export async function resolvePds(did) {
-  const doc = await getPlcDocument(did);
+  const doc = await getDidDocument(did);
   const services = doc?.service || [];
   // Atproto PDS service id can be `#atproto_pds`.
   const pds =
@@ -44,24 +89,77 @@ export async function resolvePds(did) {
 }
 
 // ---------------------------------------------------------------------------
-// PLC directory — 30s in-memory cache so tab-switching on the explorer doesn't
-// hammer plc.directory.
+// DID documents and the PLC audit log, cached in memory.
+//
+// Cached as the PROMISE, not the answer. A page load fires a dozen
+// resolvePds(ME_DID) calls in the same tick (the chrome bar, the theme, the
+// feed, every record hook), and caching only the settled document let all of
+// them past the cache before the first one came back: ten identical
+// plc.directory requests per load, which the browser then queued one behind
+// another on its HTTP cache lock. A lookup that fails is dropped, so the next
+// caller asks again rather than inheriting the failure.
+//
+// Ten minutes for the document because what callers read off it — the PDS,
+// the handle — moves only on an account migration, which is rare and
+// deliberate. The audit log keeps 30s: the explorer view it feeds exists to
+// show what just changed, and nothing polls it.
+const DID_DOC_TTL = 10 * 60_000;
+const PLC_AUDIT_TTL = 30_000;
+const _didDocCache = new Map(); // did -> { promise, ts }
+const _plcAuditCache = new Map(); // did -> { promise, ts }
 
-const PLC_DOC_TTL = 30_000;
-const _plcDocCache = new Map(); // did -> { doc, ts }
-const _plcAuditCache = new Map(); // did -> { log, ts }
+function cachedRead(cache, key, ttl, read) {
+  const held = cache.get(key);
+  if (held && Date.now() - held.ts < ttl) return held.promise;
+  const promise = read();
+  cache.set(key, { promise, ts: Date.now() });
+  promise.catch(() => {
+    if (cache.get(key)?.promise === promise) cache.delete(key);
+  });
+  return promise;
+}
 
 /**
- * Fetch the DID document from the PLC directory. `did:plc:*` only — other
- * DID methods (`did:web:*`) will throw.
+ * Fetch the DID document from the PLC directory. `did:plc:*` only; use
+ * `getDidDocument` for a DID of either method.
  */
 export async function getPlcDocument(did) {
   if (!did) throw new Error('getPlcDocument: missing did');
-  const cached = _plcDocCache.get(did);
-  if (cached && Date.now() - cached.ts < PLC_DOC_TTL) return cached.doc;
-  const doc = await fetchJson(`${PLC_DIRECTORY}/${encodeURIComponent(did)}`);
-  _plcDocCache.set(did, { doc, ts: Date.now() });
-  return doc;
+  return cachedRead(_didDocCache, did, DID_DOC_TTL, () =>
+    fetchJson(`${PLC_DIRECTORY}/${encodeURIComponent(did)}`),
+  );
+}
+
+/**
+ * Where a `did:web` keeps its document: `did:web:example.com` →
+ * `https://example.com/.well-known/did.json`. A port arrives percent-encoded
+ * (`did:web:localhost%3A2583`). Further `:` segments would be a path, which
+ * atproto doesn't use for accounts, so those are refused rather than guessed
+ * at. `null` for anything that isn't a usable `did:web`.
+ */
+export function didWebDocumentUrl(did) {
+  const m = /^did:web:([^:/?#]+)$/.exec(String(did || ''));
+  if (!m) return null;
+  const host = m[1].replace(/%3A/gi, ':');
+  if (!/^[a-z0-9.-]+(:\d+)?$/i.test(host)) return null;
+  return `https://${host}/.well-known/did.json`;
+}
+
+/**
+ * The DID document for a `did:plc` or a `did:web`, through the same cache.
+ *
+ * A `did:web` is read from its own host. Server-side that always works; from a
+ * browser it also needs the host to allow cross-origin reads of the file, and
+ * where it doesn't this fails much as it did before did:web was handled at
+ * all — the explorer reports the repo unreachable, a subject shows as
+ * unavailable.
+ */
+export async function getDidDocument(did) {
+  if (!did) throw new Error('getDidDocument: missing did');
+  if (!String(did).startsWith('did:web:')) return getPlcDocument(did);
+  const url = didWebDocumentUrl(did);
+  if (!url) throw new Error(`Unsupported did:web identifier ${did}`);
+  return cachedRead(_didDocCache, did, DID_DOC_TTL, () => fetchJson(url));
 }
 
 /**
@@ -70,11 +168,9 @@ export async function getPlcDocument(did) {
  */
 export async function getPlcAuditLog(did) {
   if (!did) throw new Error('getPlcAuditLog: missing did');
-  const cached = _plcAuditCache.get(did);
-  if (cached && Date.now() - cached.ts < PLC_DOC_TTL) return cached.log;
-  const log = await fetchJson(`${PLC_DIRECTORY}/${encodeURIComponent(did)}/log/audit`);
-  _plcAuditCache.set(did, { log, ts: Date.now() });
-  return log;
+  return cachedRead(_plcAuditCache, did, PLC_AUDIT_TTL, () =>
+    fetchJson(`${PLC_DIRECTORY}/${encodeURIComponent(did)}/log/audit`),
+  );
 }
 
 /**
@@ -319,17 +415,26 @@ export async function listRecords(pds, { repo, collection, limit = 100, max = 50
   const records = [];
   let cursor = null;
   while (records.length < max) {
+    const want = Math.min(limit, max - records.length);
     const params = new URLSearchParams({
       repo,
       collection,
-      limit: String(Math.min(limit, max - records.length)),
+      limit: String(want),
     });
     if (reverse) params.set('reverse', 'true');
     if (cursor) params.set('cursor', cursor);
     const res = await fetchJson(`${pds}/xrpc/com.atproto.repo.listRecords?${params}`);
     const batch = res?.records || [];
     records.push(...batch);
-    if (!res.cursor || batch.length === 0) break;
+    // A short page is the last page. The PDS hands back a cursor with any page
+    // that isn't empty, so following it after a short one always cost a round
+    // trip for an empty answer — about seventeen of them per home-feed build,
+    // each on the rebuild's critical path. The callers read the owner's own
+    // repo on a reference PDS, which fills a page whenever there's more to fill
+    // it with. (getAuthorFeed above keeps following: the AppView drops blocked
+    // and deleted posts from a page after choosing it, so a short page there
+    // says nothing.)
+    if (!res?.cursor || batch.length < want) break;
     cursor = res.cursor;
   }
   return records;
@@ -352,6 +457,26 @@ export async function getRecord(pds, { repo, collection, rkey }) {
 export async function getLatestCommit(pds, did) {
   const params = new URLSearchParams({ did });
   return fetchJson(`${pds}/xrpc/com.atproto.sync.getLatestCommit?${params}`);
+}
+
+// The repo head, shared by everything that polls it on the same beat. The
+// refresh tick (lib/refreshTick.js) fires the chrome bar's live readers and
+// the home feed back to back, and each of them only wants to know whether
+// anything has been written since it last looked — one answer serves them
+// all. Short enough that the next tick, 30s on, always asks again.
+const REV_SHARE_MS = 5_000;
+const _revCache = new Map(); // did -> { promise, ts }
+
+/**
+ * The `rev` of a repo's head commit, or null when the PDS doesn't say.
+ * Concurrent and near-simultaneous callers share one getLatestCommit.
+ */
+export function getRepoRev(did) {
+  return cachedRead(_revCache, did, REV_SHARE_MS, async () => {
+    const pds = await resolvePds(did);
+    const commit = await getLatestCommit(pds, did);
+    return commit?.rev || null;
+  });
 }
 
 /**

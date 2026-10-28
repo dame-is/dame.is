@@ -293,8 +293,16 @@ export default function RatioedStudio({ agent, did }) {
       // or unreachable directory left this panel reading "Reading the series…"
       // indefinitely — with the answer already in hand, and at the one moment
       // it matters most, which is while a piece is up.
+      //
+      // Only into an empty panel, though. On every refresh after the first, the
+      // pieces on screen are a PDS read and the snapshot is older than they
+      // are — and a take published since the last build is not in it. Put back
+      // over a live piece, it emptied `live` for as long as the PDS took to
+      // answer: the witness feed cleared, the socket reopened with no cursor,
+      // and the composer drew itself for the take already up. Repairing an old
+      // piece mid-take was enough to do it.
       const fromSnap = await loadPieces(null);
-      if (fromSnap?.length) setPieces(fromSnap);
+      if (fromSnap?.length) setPieces((prev) => prev ?? fromSnap);
 
       // Then the PDS, which is the only place a piece published since the last
       // build exists. Worth waiting for; not worth waiting for forever.
@@ -392,10 +400,26 @@ export default function RatioedStudio({ agent, did }) {
 
   // Seed the composer once the take number is known, and leave it alone after —
   // it's a draft, and a background refresh must not overwrite typing.
+  //
+  // Except when it is still exactly what was filled in, for a take that is no
+  // longer next. Posting clears the draft and then refreshes, and in between
+  // the pieces still say the old take is next — so this refilled the composer
+  // with the take just posted, and after its seal the composer read "take N",
+  // with a link to take N's page, beside a button saying "Post take N+1".
+  // `filled` is what the template last wrote, so an edited draft is never
+  // touched.
+  const filled = useRef(null); // { take, text }
+  const fillDraft = useCallback((tpl, forTake) => {
+    const text = fillTemplate(tpl, forTake);
+    filled.current = { take: forTake, text };
+    setDraft(text);
+  }, []);
   useEffect(() => {
-    if (!pieces || live || draft || template === undefined) return;
-    setDraft(fillTemplate(template, take));
-  }, [pieces, live, draft, take, template]);
+    if (!pieces || live || template === undefined) return;
+    const untouched = filled.current && draft === filled.current.text;
+    if (draft && !(untouched && filled.current.take !== take)) return;
+    fillDraft(template, take);
+  }, [pieces, live, draft, take, template, fillDraft]);
 
   // A ticking clock while a piece is up, so "alive for" counts rather than
   // sits. It stops at the seal: after that the number is the lifespan, and a
@@ -415,14 +439,22 @@ export default function RatioedStudio({ agent, did }) {
   // front of you, and whether a withdrawn like still ends a piece is a question
   // for the artist, not for a boolean.
   const withdrawn = !seenLike && withdrawnOnly(feed);
+  // Both watches are keyed on which piece is up and what it points at, never on
+  // the `live` object: every refresh builds a new one for the same piece, and
+  // keyed on that, each refresh closed the socket and opened another with no
+  // cursor and no memory of the likes it had seen — so a like cast before the
+  // refresh and deleted after it was no longer recognised as one coming back.
+  const liveKey = live?.rkey || null;
+  const liveSubject = live ? subjectOf(live) : null;
+  const livePostedMs = live ? Date.parse(live.postedAt) : NaN;
   useEffect(() => {
-    if (!live || sealedNow) {
-      if (!live) setLikes(null);
+    if (!liveKey || sealedNow) {
+      if (!liveKey) setLikes(null);
       return undefined;
     }
     let alive = true;
     const poll = async () => {
-      const res = await getLikes(subjectOf(live)).catch(() => null);
+      const res = await getLikes(liveSubject).catch(() => null);
       if (alive && res) setLikes(res);
     };
     poll();
@@ -431,12 +463,10 @@ export default function RatioedStudio({ agent, did }) {
       alive = false;
       clearInterval(id);
     };
-  }, [live, sealedNow]);
+  }, [liveKey, liveSubject, sealedNow]);
 
   // A new piece starts a new log. Keyed on the record key rather than on the
   // object, which a background refresh replaces without anything having changed.
-  const liveKey = live?.rkey || null;
-  const livePostedMs = live ? Date.parse(live.postedAt) : NaN;
   useEffect(() => {
     setFeed([]);
     setWitnessFrom(null);
@@ -508,9 +538,9 @@ export default function RatioedStudio({ agent, did }) {
   // firehose, ~180 KB/s, and it exists to shave four seconds off noticing one
   // like. The moment the piece is sealed there is nothing left to notice.
   useEffect(() => {
-    if (!live || sealedNow) return undefined;
+    if (!liveKey || sealedNow) return undefined;
     setWitnessFrom((v) => v ?? Math.max(0, Date.now() - livePostedMs));
-    const close = watchSubject(subjectOf(live), {
+    const close = watchSubject(liveSubject, {
       // No budget here. A cap made sense while this was a curiosity; it does not
       // survive contact with a piece that stands for an hour, because the thing
       // the cap ends is the watch, and the watch is the measurement. The bytes
@@ -538,7 +568,7 @@ export default function RatioedStudio({ agent, did }) {
       },
     });
     return close;
-  }, [live, sealedNow, livePostedMs]);
+  }, [liveKey, liveSubject, sealedNow, livePostedMs]);
 
   // Faces for whoever turns up. Resolved in batches as new DIDs appear.
   //
@@ -1201,7 +1231,7 @@ export default function RatioedStudio({ agent, did }) {
       setTemplate(tplDraft);
       setAnnounceTpl(announcement);
       setAnnDraft(null);
-      setDraft(fillTemplate(tplDraft, take));
+      fillDraft(tplDraft, take);
       setTplDraft(null);
       setNote('Template saved. The composer above is rewritten from it.');
     } catch (err) {
@@ -1876,7 +1906,7 @@ export default function RatioedStudio({ agent, did }) {
             <button
               type="button"
               className="admin-link-subtle"
-              onClick={() => setDraft(fillTemplate(template ?? DEFAULT_TEMPLATE, take))}
+              onClick={() => fillDraft(template ?? DEFAULT_TEMPLATE, take)}
               disabled={!!busy}
             >
               reset to the template

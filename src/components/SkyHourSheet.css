@@ -43,9 +43,14 @@
   cursor: pointer;
 }
 
-.sky-hour-sheet-live:hover,
 .sky-hour-sheet-live:focus-visible {
   color: var(--ink);
+}
+
+@media (hover: hover) {
+  .sky-hour-sheet-live:hover {
+    color: var(--ink);
+  }
 }
 
 /* The arc row: step arrows flank the 24-cell strip so you can cycle the
@@ -69,10 +74,16 @@
   transition: color 120ms ease, border-color 120ms ease;
 }
 
-.sky-hour-sheet-step:hover,
 .sky-hour-sheet-step:focus-visible {
   color: var(--ink);
   border-color: var(--accent-soft);
+}
+
+@media (hover: hover) {
+  .sky-hour-sheet-step:hover {
+    color: var(--ink);
+    border-color: var(--accent-soft);
+  }
 }
 
 /* The 24-hour arc — short cells close to square so the strip reads as a
@@ -82,6 +93,9 @@
   display: grid;
   grid-template-columns: repeat(24, 1fr);
   gap: 2px;
+  /* A sideways drag along the strip scrubs the hours (SkyHourArc), so it
+     mustn't be claimed as a pan; vertical drags still scroll. */
+  touch-action: pan-y;
 }
 
 .sky-hour-sheet-cell {
@@ -94,8 +108,10 @@
   overflow: hidden;
 }
 
-.sky-hour-sheet-cell:hover {
-  filter: brightness(1.1);
+@media (hover: hover) {
+  .sky-hour-sheet-cell:hover {
+    filter: brightness(1.1);
+  }
 }
 
 .sky-hour-sheet-cell.is-sel {
@@ -111,5 +127,33 @@
 @media (max-width: 560px) {
   .sky-hour-sheet-cell {
     height: 20px;
+  }
+}
+
+/* Touch. On a phone each cell is a few pixels wide: too narrow to aim a finger
+   at, which is what the scrub is for, and at 20px too short to land one on, so
+   the strip stands at the 44px platform minimum instead of shrinking. The step
+   arrows stretch with it, and reach out toward the sheet's edge (away from the
+   cells) for the width their glyph can't spare. */
+@media (pointer: coarse) {
+  .sky-hour-sheet-cell {
+    height: 2.75rem;
+  }
+  .sky-hour-sheet-step {
+    position: relative;
+  }
+  .sky-hour-sheet-step::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+  }
+  .sky-hour-sheet-step-prev::before {
+    left: -12px;
+    right: 0;
+  }
+  .sky-hour-sheet-step-next::before {
+    left: 0;
+    right: -12px;
   }
 }

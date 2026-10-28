@@ -7,6 +7,10 @@
 // these values when no record exists, and the admin Page-content panel copies
 // them into a new record so a migration is visually lossless.
 //
+// Keep the defaults in step with the published records: a page paints them
+// for the beat before its record arrives, so a default that differs is a line
+// of copy visibly swapping for another on every cold load.
+//
 // `collection` maps a page to the feed collection whose admin record-list
 // hosts an embedded panel. `null` means the page has no backing feed
 // collection (it's pure page content) and only appears in the standalone
@@ -19,7 +23,7 @@ export const PAGE_REGISTRY = {
     slug: 'creating',
     label: 'Creating',
     title: 'Creating',
-    intro: 'A portfolio of works — art, software, writing, music, and more.',
+    intro: 'A selection of projects from the past two decades',
     collection: COLLECTIONS.creating,
   },
   blogging: {
@@ -47,7 +51,7 @@ export const PAGE_REGISTRY = {
     slug: 'listening',
     label: 'Listening',
     title: 'Listening',
-    intro: 'Songs played, freshest first, grouped by day-of-life.',
+    intro: 'See what music I’m currently listening to along with this month’s top artists, albums, and tracks.',
     collection: COLLECTIONS.listen,
   },
   curating: {
@@ -68,7 +72,7 @@ export const PAGE_REGISTRY = {
     slug: 'mothing',
     label: 'Mothing',
     title: 'Mothing',
-    intro: 'Moths I’ve found and photographed, pulled from iNaturalist. A running field notebook of the winged things drawn to the light.',
+    intro: 'Moths I’ve seen and photographed, pulled from iNaturalist and mirrored to my PDS.',
     collection: null,
   },
   // Presents as "Welcoming" (dame is welcoming) at /welcoming, but its slug —

@@ -1,3 +1,17 @@
+/* Keep whatever the browser scrolls into view — chiefly the next stop as
+   focus tabs down a long page — clear of the fixed chrome. The bottom bar is
+   `position: fixed`, so without this a focused link could land entirely
+   behind it, ring and all. The same sum .app-shell reserves below; the top
+   is ChromeBar's live measurement of where the top chrome ends. */
+html {
+  scroll-padding-top: var(--chrome-top-h, var(--chrome-h));
+  scroll-padding-bottom: calc(
+    var(--chrome-h) + var(--edit-bar-h, 0px) +
+      var(--chrome-bottom-footer-h, 0px) + env(safe-area-inset-bottom, 0px) +
+      var(--space-2)
+  );
+}
+
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -35,11 +49,19 @@
 }
 
 /* iOS Safari zooms the viewport in whenever a focused text field's
-   font-size is under 16px. Hold every form control at 16px on phone
-   widths so tapping into an input never triggers that jarring zoom.
+   font-size is under 16px. Hold every form control at 16px on touch
+   devices so tapping into an input never triggers that jarring zoom.
    !important so it wins over the per-field type-scale sizes (e.g. the
-   sign-in field's --text-sm) without having to touch each one. */
-@media (max-width: 700px) {
+   sign-in field's --text-sm) without having to touch each one.
+
+   The zoom is a property of the device, not the width: a width guard alone
+   left a landscape phone (844–932px) and every iPad zooming into the dock's
+   sign-in and guestbook fields, so a touch pointer qualifies at any width.
+   The primary pointer, not `any-pointer`: iPadOS reports touch as primary
+   even with a trackpad attached, while `any-pointer` would also catch every
+   touchscreen laptop — a desktop whose browser never zooms — and set its
+   fields, the admin's dense ones included, at 16px for nothing. */
+@media (max-width: 700px), (pointer: coarse) {
   input,
   textarea,
   select {
@@ -98,6 +120,13 @@
   line-height: 1.1;
   letter-spacing: -0.01em;
   margin: 0;
+  /* A title can be one long unbroken word — a Ratioed participant's
+     `@handle.bsky.social`, an album or gallery name — wider than a phone's
+     column at this size, and it pushed the whole page into a sideways scroll.
+     `anywhere` rather than `break-word` because only it lowers the min-content
+     width, which is what a flex or grid parent sizes against. It never breaks
+     a title that fits. */
+  overflow-wrap: anywhere;
 }
 
 .page-title .gerund {
@@ -110,6 +139,14 @@
   color: var(--ink-soft);
   max-width: var(--measure);
   margin-bottom: 0;
+}
+
+/* The intro is a lead, not the first paragraph of a passage, so the paragraph
+   after it starts flush, as one after a heading would. Otherwise the global
+   book-style `p + p` indent (typography.css) stepped in whatever came next —
+   an empty state, a one-line note — under the unindented intro. */
+.page-intro + p {
+  text-indent: 0;
 }
 
 /* Home hero: a combinatorial sentence rendered by <HeroSentence>.
@@ -322,6 +359,20 @@
 
 .route-list a:hover {
   color: var(--accent);
+}
+
+/* The hero's five destinations on one line down to a 320px phone. At their
+   desktop spacing the row ran ~330px against 288–343px of column below 380px
+   wide, so the shuffle button alone wrapped onto a line of its own. The icon
+   buttons keep their square padding. */
+@media (max-width: 380px) {
+  .home-hero-cta {
+    gap: var(--space-2);
+  }
+  .home-hero-cta
+    .home-hero-cta-btn:not(.home-hero-shuffle, .home-hero-guestbook-btn) {
+    padding-inline: 0.65em;
+  }
 }
 
 @media (max-width: 700px) {

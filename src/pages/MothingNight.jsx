@@ -10,6 +10,7 @@ import { firstSightingIds } from '../lib/firstSightings.js';
 import {
   findNight,
   formatNightDate,
+  isCalendarDate,
   mothLightboxImages,
   nightBeyondReach,
   nightPath,
@@ -65,11 +66,20 @@ export default function MothingNight() {
     mapItems: (data) => {
       const observations = Array.isArray(data?.observations) ? data.observations : null;
       if (!observations) return null;
+      // A date-shaped slug the calendar doesn't have (`2026-13-45`) can never
+      // hold a session — say so now rather than wait on the live pull.
+      if (!isCalendarDate(date)) return NO_SESSION;
       const found = findNight(observations, date);
       // Which of this night's moths were lifers has to be decided against
       // every OTHER night as well, so it's settled here, where the whole pull
-      // is in hand, rather than inside the night.
-      if (found) return { ...found, firstIds: firstSightingIds(observations) };
+      // is in hand, rather than inside the night — and not at all from a pull
+      // that stopped short, which is missing the oldest sightings, the firsts.
+      if (found) {
+        return {
+          ...found,
+          firstIds: data.truncated ? NO_FIRSTS : firstSightingIds(observations),
+        };
+      }
       // A miss means one of two things, and they want opposite treatment. If
       // the date is past what this copy can answer for, the copy is simply
       // behind — hold at `loading` (null does that) so a night logged since
@@ -97,37 +107,47 @@ export default function MothingNight() {
     return map;
   }, [session]);
 
-  const backToIndex = (
-    <p className="mothing-night-crumb">
-      <Link to="/mothing">&larr; Mothing</Link>
-    </p>
-  );
-
+  // The way back up to every night is the pinned breadcrumb, as on every
+  // detail page (see ChromeBar), so there's no "← Mothing" eyebrow here.
   if (status === 'loading') {
     return (
-      <PageShell above={backToIndex} headTitle={`Night of ${formatNightDate(date)} — dame.is`}>
+      <PageShell
+        headTitle={`Night of ${formatNightDate(date) || date} — dame.is`}
+      >
         <MothingSkeleton sessions={1} cells={8} />
       </PageShell>
     );
   }
 
-  if (!session) {
-    const unreachable = status === 'error';
+  // Not reaching iNaturalist (or the snapshot) isn't "no night here": a shared
+  // link that fails for a moment should say so and offer another go, as the
+  // other detail pages do, rather than call the night missing.
+  if (status === 'error') {
     return (
       <PageShell
-        above={backToIndex}
-        title={unreachable ? 'Night unavailable' : 'No night here'}
-        headTitle="Not found — dame.is"
+        title="Couldn’t load this right now"
+        headTitle="Couldn’t load — dame.is"
       >
         <p>
-          {unreachable ? (
-            <>Couldn&rsquo;t load the observations right now.{' '}</>
-          ) : (
-            <>
-              No mothing session on <strong>{formatNightDate(date) || date}</strong>. A session is
-              one night at the light, so only the nights that were spent there have a page.{' '}
-            </>
-          )}
+          Couldn&rsquo;t load this night&rsquo;s observations right now —
+          refresh to try again.
+        </p>
+        <p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Refresh
+          </button>{' '}
+          <Link to="/mothing">Back to every night.</Link>
+        </p>
+      </PageShell>
+    );
+  }
+
+  if (!session) {
+    return (
+      <PageShell title="No night here" headTitle="Not found — dame.is">
+        <p>
+          No mothing session on <strong>{formatNightDate(date) || date}</strong>. A session is
+          one night at the light, so only the nights that were spent there have a page.{' '}
           <Link to="/mothing">Back to every night.</Link>
         </p>
       </PageShell>
@@ -139,7 +159,6 @@ export default function MothingNight() {
 
   return (
     <PageShell
-      above={backToIndex}
       title={`Night of ${formatNightDate(session.date)}`}
       headTitle={`Night of ${formatNightDate(session.date)} — dame.is`}
     >

@@ -83,8 +83,9 @@ collapsed by rkey (production wins) — see [`src/lib/teal.js`](src/lib/teal.js)
 ## Listening / albums
 
 `/listening` is the play feed. `/listening/albums` is the same history read the
-other way: every record that has come round here, ranked by how often, each with
-a page of its own at `/listening/albums/{slug}`.
+other way: every record in the recent play history (the newest thousand plays
+per teal.fm lexicon, not the whole archive), ranked by how often, each with a
+page of its own at `/listening/albums/{slug}`.
 
 An album is **not a record**. teal.fm scrobbles tracks, so an album here is what
 a run of plays adds up to — the same relationship a mothing night has to its
@@ -170,8 +171,11 @@ writing; `--full` ignores the freshness marker. A Vercel cron runs the same
 sync every 6 hours (`/api/mirror-mothing`, see `vercel.json`), just before each
 `/api/rebuild`, so new observations reach the PDS — and the home feed — within
 hours instead of a day. It uses `BSKY_APP_PASSWORD` (+ optional
-`BSKY_IDENTIFIER`); set `CRON_SECRET` to lock the endpoint down. The freshness
-check makes the extra runs cheap: they no-op when nothing changed upstream.
+`BSKY_IDENTIFIER`), and it needs `CRON_SECRET`: the endpoint only runs for a
+request carrying `Authorization: Bearer <CRON_SECRET>` (Vercel sends that on
+its own cron calls), and with the secret unset it refuses every request. The
+freshness check makes the extra runs cheap: they no-op when nothing changed
+upstream.
 
 The `/mothing` page applies the same freshness check in the browser: it paints
 from the snapshot and only re-pulls the full observation set from iNaturalist
@@ -268,7 +272,11 @@ a working `curl`.
 After deploying, in Vercel:
 
 1. **Settings → Git → Deploy Hooks** → create one named `pds-rebuild` and copy the URL.
-2. **Settings → Environment Variables** → set `DEPLOY_HOOK_URL` to that URL.
+2. **Settings → Environment Variables** → set `DEPLOY_HOOK_URL` to that URL,
+   and `CRON_SECRET` to a long random string. `/api/rebuild` and the mirror
+   endpoints refuse every request while it is unset, the 6-hour cron included;
+   Vercel sends it on its own cron calls, and anything else calling them has to
+   send `Authorization: Bearer <CRON_SECRET>`.
 3. (Optional) point your publishing flow (Apple Shortcuts, etc.) at the same URL
    so a `curl -X POST` after writing a record kicks an instant rebuild.
 

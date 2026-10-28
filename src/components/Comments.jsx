@@ -1,4 +1,5 @@
 import { relativeTime } from '../lib/time.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import { ME_DID } from '../config.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { Link } from 'react-router-dom';
@@ -138,7 +139,7 @@ function ReplyNode({ node, depth }) {
           {author.avatar ? (
             <img
               className="comment-avatar"
-              src={author.avatar}
+              src={avatarThumb(author.avatar)}
               alt=""
               width={40}
               height={40}

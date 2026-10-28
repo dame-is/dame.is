@@ -31,9 +31,15 @@ export default function PagesOverview({ agent, did }) {
   const { go } = useAdminShell();
   const [records, setRecords] = useState(null); // is.dame.page records on the PDS
   const [error, setError] = useState(null);
+  const [loadNonce, setLoadNonce] = useState(0);
 
+  // A failed list leaves `records` null rather than empty. Empty used to badge
+  // every page LOCAL and offer to migrate it, and say there were no page
+  // records on the PDS at all — over a network error, about a PDS that may
+  // hold every one of them.
   useEffect(() => {
     let cancelled = false;
+    setError(null);
     agent.com.atproto.repo
       .listRecords({ repo: did, collection: COLLECTIONS.page, limit: 100 })
       .then((res) => {
@@ -41,15 +47,13 @@ export default function PagesOverview({ agent, did }) {
         if (!cancelled) setRecords(next?.records || []);
       })
       .catch((err) => {
-        if (!cancelled) {
-          setError(err?.message || String(err));
-          setRecords([]);
-        }
+        if (!cancelled) setError(err?.message || String(err));
       });
     return () => {
       cancelled = true;
     };
-  }, [agent, did]);
+  }, [agent, did, loadNonce]);
+  const failed = records === null && Boolean(error);
 
   const existing = useMemo(
     () => new Set((records || []).map((r) => rkeyFromUri(r.uri))),
@@ -79,7 +83,25 @@ export default function PagesOverview({ agent, did }) {
           Which pages serve their title &amp; intro from a PDS record vs the
           hardcoded defaults. Migrate or revert any of them.
         </p>
-        {records === null ? (
+        {failed ? (
+          // Blocks, not bare paragraphs: each follows the section's note, and a
+          // sibling paragraph takes the prose indent.
+          <div>
+            <p className="placeholder-card">
+              The page records could not be listed, so which pages are local and
+              which are on your PDS is not known.
+            </p>
+            <div className="admin-actions">
+              <button
+                type="button"
+                className="admin-gate-button"
+                onClick={() => setLoadNonce((n) => n + 1)}
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        ) : records === null ? (
           <AdminPagePanelsSkeleton panels={knownPageSlugs().length || 4} />
         ) : (
           <div className="admin-page-panels reveal">
@@ -102,7 +124,11 @@ export default function PagesOverview({ agent, did }) {
           The raw <code>{COLLECTIONS.page}</code> records on your PDS, including any
           page slugs beyond the built-in surfaces above.
         </p>
-        {records === null ? (
+        {failed ? (
+          <div>
+            <p className="placeholder-card">Not loaded.</p>
+          </div>
+        ) : records === null ? (
           <AdminRecordListSkeleton rows={4} label="Loading page records" />
         ) : records.length === 0 ? (
           <p className="placeholder-card">No page records on your PDS yet.</p>

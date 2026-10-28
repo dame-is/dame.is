@@ -13,24 +13,38 @@
   gap: var(--space-1);
 }
 
+/* The site's one totals treatment — accent figures over muted small-caps
+   labels, as /listening/albums, /listening and /logging draw theirs — so a
+   night's tally reads as the same kind of figure as an album shelf's. */
 .mothing-stat-value {
   font-family: var(--serif);
   font-size: var(--text-2xl);
   line-height: 1;
-  color: var(--ink);
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .mothing-stat-label {
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   font-size: var(--text-xs);
-  color: var(--accent);
 }
 
 .mothing-toplist {
   margin: 0 0 var(--space-5);
+  /* A ranked run, not prose: let it take the column instead of the global
+     paragraph measure, which wrapped it halfway across with the rest empty. */
+  max-width: none;
   color: var(--ink-soft, var(--ink));
   font-size: var(--text-sm);
   line-height: 1.6;
+}
+
+/* Lines break between species, never inside one ("Green" / "Cutworm Moth").
+   The separator is the one place a line may end: its trailing space wraps,
+   and the no-break space before the dot keeps it on the line it closes. */
+.mothing-toplist-item {
+  white-space: nowrap;
 }
 
 .mothing-toplist-lead {
@@ -44,7 +58,8 @@
 }
 
 .mothing-toplist-sep {
-  color: var(--rule-soft);
+  white-space: normal;
+  color: var(--ink-faint);
 }
 
 .mothing-sessions {
@@ -118,18 +133,22 @@
   transition: transform 200ms ease, border-color 200ms ease;
 }
 
-.mothing-tile:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+/* Pointer-only, as the site's hover tints are: on touch the lift sticks to
+   whatever was tapped (see the note in typography.css). */
+@media (hover: hover) {
+  .mothing-tile:hover {
+    border-color: var(--accent-soft);
+    transform: translateY(-2px);
+  }
+
+  .mothing-tile-empty:hover {
+    transform: none;
+    border-color: var(--rule-soft);
+  }
 }
 
 .mothing-tile-empty {
   cursor: default;
-}
-
-.mothing-tile-empty:hover {
-  transform: none;
-  border-color: var(--rule-soft);
 }
 
 .mothing-tile img {
@@ -198,16 +217,18 @@
   border-bottom: none;
 }
 
-.mothing-ledger-row:hover {
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
+@media (hover: hover) {
+  .mothing-ledger-row:hover {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+  }
+
+  .mothing-ledger-row-static:hover {
+    background: none;
+  }
 }
 
 .mothing-ledger-row-static {
   cursor: default;
-}
-
-.mothing-ledger-row-static:hover {
-  background: none;
 }
 
 .mothing-ledger-thumb {
@@ -281,14 +302,6 @@
     text-decoration-thickness: 1px;
     text-underline-offset: 0.15em;
   }
-}
-
-/* The way back up to every night. `.page` is a gapped flex column, so the
-   crumb cancels that gap to sit with the title it introduces (the same thing
-   a Ratioed piece's crumb does, for the same reason). */
-.mothing-night-crumb {
-  font-size: var(--text-sm);
-  margin: 0 0 calc(var(--space-3) - var(--space-5));
 }
 
 /* Either side of this night, by date — the pagination a single night wants,

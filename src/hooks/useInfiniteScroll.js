@@ -13,15 +13,21 @@ import { useEffect, useRef } from 'react';
  * reader actually reaches the end.
  *
  * `onReach` is read through a ref so a fresh closure each render doesn't
- * tear down and rebuild the observer; only `enabled`/`rootMargin` do.
- * Callers should bump the window by a step comfortably taller than a
- * viewport (the feed adds ~100 items), so one reveal pushes the sentinel
- * back out of range — the observer then re-fires only on the next scroll,
- * never in a runaway loop.
+ * tear down and rebuild the observer; only `enabled`/`rootMargin`/`version`
+ * do.
+ *
+ * An observer only reports transitions, so a reveal that adds less height
+ * than the margin — a hundred plays can collapse into four session rows —
+ * would leave the sentinel inside it with nothing left to report, and the
+ * list would stop growing until the reader scrolled back up and down again.
+ * Pass something that changes with every reveal as `version` (the window
+ * size): the observer is rebuilt, and a new observer always reports the
+ * sentinel's current state, so one still in range reveals again. That
+ * stays bounded — the caller turns `enabled` off once there's nothing left.
  */
 export function useInfiniteScroll(
   onReach,
-  { enabled = true, rootMargin = '600px 0px' } = {},
+  { enabled = true, rootMargin = '600px 0px', version = 0 } = {},
 ) {
   const sentinelRef = useRef(null);
   const onReachRef = useRef(onReach);
@@ -45,7 +51,7 @@ export function useInfiniteScroll(
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [enabled, rootMargin]);
+  }, [enabled, rootMargin, version]);
 
   return sentinelRef;
 }

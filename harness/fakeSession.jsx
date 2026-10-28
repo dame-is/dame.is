@@ -274,6 +274,9 @@ export function AtprotoSessionProvider({ children }) {
       error: null,
       signIn: async () => {},
       signOut: async () => {},
+      // The fake session is live from the first render, so there is nothing
+      // for a surface's restore() to wake.
+      restore: () => {},
     };
   }, []);
 

@@ -50,55 +50,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { COLLECTIONS, PORTFOLIO_PUBLICATION } from '../../config.js';
 import { lexiconFor } from '../../lib/lexicons.js';
-import { nsidConfig, recordHrefFor } from '../../lib/verbRegistry.js';
-import { canonicalWorkPath, isDraft, showOnBlog, showOnCreating } from '../../lib/publications.js';
+import { publicRecordPath } from '../../lib/publicRecordPath.js';
 import RecordEditor from '../../components/RecordEditor.jsx';
 import { recordTitle } from '../recordFields.js';
 import { useAdminShell } from '../useAdminShell.jsx';
 import './recordDetail.css';
-
-/** The two NSIDs whose public path is decided by publication rather than by NSID. */
-const DOCUMENT_NSIDS = new Set(['site.standard.document', 'pub.leaflet.document']);
-
-/**
- * Where this record can be READ on the public site, or null when it cannot be.
- *
- * The "View on site ↗" item was deferred once on the grounds that no
- * record→public-URL model existed. It does: `verbRegistry.js` maps an NSID to
- * the verb that owns it and every verb declares its own `recordHref`, which is
- * the same function the feed cards use to link a record. Nothing is invented
- * here; this only picks the right existing answer, and returns null rather than
- * guessing.
- *
- * The one case the registry cannot answer alone is a document, because its path
- * depends on the PUBLICATION it was written into rather than on its NSID: the
- * same `site.standard.document` reads at `/blogging/<rkey>` on the blog and at
- * `/creating/<slug>` in the portfolio, and it can be on both. `publications.js`
- * owns those three predicates already, so they answer it — with the SURFACE
- * breaking the tie, since a document opened from Creating should offer the
- * portfolio URL and the same record opened from Blogging should offer the blog
- * one.
- *
- * A draft has no public page at all, and neither does a record whose verb
- * declines to give one. Both return null, and the caller then renders no menu
- * item — an absent link being the only honest alternative to a wrong one.
- */
-function publicHrefFor(surface, collection, rkey, atUri, value) {
-  if (!rkey || !value || !atUri) return null;
-  if (DOCUMENT_NSIDS.has(collection)) {
-    if (isDraft(value)) return null;
-    const portfolioFirst = surface?.key === 'creating';
-    if (portfolioFirst && showOnCreating(value)) return canonicalWorkPath(value, rkey);
-    if (showOnBlog(value)) return `/blogging/${encodeURIComponent(rkey)}`;
-    if (showOnCreating(value)) return canonicalWorkPath(value, rkey);
-    return null;
-  }
-  // `nsidConfig` hands back `{ verb, collection }` where `verb` is the whole
-  // registry entry; `recordHrefFor` wants the gerund string off it.
-  const verb = nsidConfig(collection)?.verb?.verb;
-  if (!verb) return null;
-  return recordHrefFor(verb, { atUri, rkey, payload: value });
-}
 
 /** The tab bar, in order. Preview and JSON are dropped when there is no lexicon. */
 const TABS = Object.freeze([
@@ -221,6 +177,19 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
   // value written at load and at save cannot.
   const [record, setRecord] = useState(null);
   const handleLoaded = useCallback((value) => setRecord(value || null), []);
+  // This pane is not keyed (rule 1 is about the editor inside it), so on a desk
+  // it stays mounted from one selection to the next — and the record above
+  // stayed with it. Opening B headed B's skeleton with A's title, and if B
+  // turned out not to exist, "That record is gone" sat under A's name for good,
+  // beside a "View on site" built from A's value and B's rkey. Dropped during
+  // render the moment the subject changes, the way the shell resets its own
+  // per-record state, so the heading falls back to the rkey until B arrives.
+  const subject = `${collection}/${rkey ?? ''}`;
+  const [recordFor, setRecordFor] = useState(subject);
+  if (recordFor !== subject) {
+    setRecordFor(subject);
+    setRecord(null);
+  }
 
   const title = isNew ? `New ${newLabel}` : recordTitle(record, collection, rkey, lex);
   const kicker = lex?.label || null;
@@ -298,13 +267,24 @@ export default function RecordDetail({ surface, agent, did, collection, rkey, pr
     );
   }, [atUri, showFlash]);
 
-  // Where this record reads on the public site, when it reads anywhere. Depends
-  // on the loaded VALUE, not just the address — a draft has no page and a
-  // document's path is decided by its publication — so it recomputes as the
-  // editor reports what it loaded and again after a save changes it.
+  // Where this record reads on the public site, when it reads anywhere — the
+  // explorer's answer too, so "View on site" and the explorer's link can never
+  // disagree. It knows the cases a verb lookup alone gets wrong: the source (an
+  // Anisota post read from `/posting` finds nothing on the AppView), a draft of
+  // any kind, a publication, and a verb with no page but the explorer. Depends
+  // on the loaded VALUE, not just the address, so it recomputes as the editor
+  // reports what it loaded and again after a save changes it. Null renders no
+  // menu item: an absent link is the only honest alternative to a wrong one.
   const publicHref = useMemo(
-    () => publicHrefFor(surface, collection, rkey, atUri, record),
-    [surface, collection, rkey, atUri, record],
+    () =>
+      publicRecordPath({
+        repo: did,
+        collection,
+        rkey,
+        value: record,
+        surface: surface?.key,
+      }),
+    [did, surface, collection, rkey, record],
   );
 
   // Slot 1, slot 2 and slot 3 are all left to the shell's defaults here: `‹

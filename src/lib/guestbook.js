@@ -430,6 +430,13 @@ export async function detectCoarseRegion() {
   if (typeof navigator === 'undefined' || !navigator.geolocation) {
     throw new Error('Location is not available in this browser.');
   }
+  // Asked first because a refusal that never reached the visitor — the
+  // browser blocking location for this page, or a "never" they chose long ago
+  // — fails getCurrentPosition exactly as a declined prompt does, and telling
+  // someone who was never asked that they declined reads as an accusation.
+  if ((await geolocationPermission()) === 'denied') {
+    throw new Error("Location isn't available here.");
+  }
   const pos = await new Promise((resolve, reject) => {
     navigator.geolocation.getCurrentPosition(
       resolve,
@@ -472,6 +479,18 @@ export async function detectCoarseRegion() {
   return parts.join(', ');
 }
 
+// The geolocation permission's state ('granted' | 'prompt' | 'denied'), or
+// null where the Permissions API can't say — older Safari throws for a name it
+// doesn't know, and then the prompt itself is the only way to find out.
+async function geolocationPermission() {
+  try {
+    const status = await navigator.permissions?.query({ name: 'geolocation' });
+    return status?.state || null;
+  } catch {
+    return null;
+  }
+}
+
 // --- moderation (host only) ---------------------------------------------------
 
 /**
@@ -484,6 +503,14 @@ export async function detectCoarseRegion() {
  * If the book record doesn't exist yet (someone signed before
  * scripts/create-guestbook.mjs ran), it's created on the spot with default
  * chrome so the hide isn't lost.
+ *
+ * "Doesn't exist" has to mean the PDS SAID so. Any other failed read — a
+ * network blip, an expired token, a 5xx — rethrows, because treating it as a
+ * missing book would write a fresh one over the real record: its title and
+ * description reset, and every signature previously hidden (the abusive ones,
+ * by definition) public again. The create is also a compare-and-swap against
+ * "no record", so a book that turns out to exist after all fails the write
+ * instead of being replaced.
  */
 export async function setEntryHidden(agent, entryUri, hide) {
   if (!agent) throw new Error('Sign in first.');
@@ -497,7 +524,8 @@ export async function setEntryHidden(agent, entryUri, hide) {
       collection: GUESTBOOK_NSID,
       rkey: 'self',
     });
-  } catch {
+  } catch (err) {
+    if (!isXrpcRecordNotFound(err)) throw err;
     // No book yet — fall through to creating one.
   }
 
@@ -519,6 +547,21 @@ export async function setEntryHidden(agent, entryUri, hide) {
     collection: GUESTBOOK_NSID,
     rkey: 'self',
     record,
-    ...(existing?.data?.cid ? { swapRecord: existing.data.cid } : {}),
+    // A null swap means "only if there is no record yet".
+    swapRecord: existing ? existing.data?.cid : null,
   });
+}
+
+/**
+ * Did this @atproto/api getRecord failure mean "there is no such record"?
+ * Deliberately narrower than atproto.js's isRecordNotFound, which takes any
+ * 400 as absence — its caller writes when the answer is yes, so a 400 for
+ * anything else must not read as a missing book. The PDS answers a missing
+ * record with a 400 whose XRPC error is `RecordNotFound` (older ones only say
+ * so in the message, "Could not locate record").
+ */
+export function isXrpcRecordNotFound(err) {
+  const code = err?.error || err?.data?.error || '';
+  if (code === 'RecordNotFound') return true;
+  return /could not locate record/i.test(err?.message || '');
 }

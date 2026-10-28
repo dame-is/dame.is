@@ -51,21 +51,25 @@ export function useResumeBundle(agent, did, provided = null) {
    * case: the workbench opens on a record that, to a stale bundle, does not
    * exist yet, and would render "no such version".
    *
-   * @param {{collection: string, uri: string, value: object|null}[]} written
-   *        `value: null` means the record was deleted.
+   * @param {{collection: string, uri: string, value: object|null, cid?: string}[]} written
+   *        `value: null` means the record was deleted. `cid`, when the writer
+   *        has it, is the version it wrote — kept so the workbench's next save
+   *        swaps against what is actually there, not against nothing.
    */
   const applyWrites = useCallback((written) => {
     setBundle((prev) => {
       if (!prev) return prev;
       const next = { ...prev };
-      for (const { collection, uri, value } of written || []) {
+      for (const { collection, uri, value, cid } of written || []) {
         const bucket = BUCKET_FOR[collection];
         if (!bucket || !uri) continue;
         const list = (next[bucket] || []).slice();
         const at = list.findIndex((r) => r.uri === uri);
         // Round-tripped for the same reason the fetch does it: every consumer
         // clones and mutates these values, and the caller's copy is live.
-        const record = value ? { uri, value: JSON.parse(JSON.stringify(value)) } : null;
+        const record = value
+          ? { uri, cid, value: JSON.parse(JSON.stringify(value)) }
+          : null;
         // Replaced IN PLACE, never removed-and-appended: the studio lists these
         // in bundle order, and saving a version should not move it to the
         // bottom of the list you saved it from.
@@ -86,7 +90,10 @@ export function useResumeBundle(agent, did, provided = null) {
   useEffect(() => {
     let cancelled = false;
     if (hoisted || !agent || !did) return undefined;
-    setError(null);
+    // The error is NOT cleared here, only replaced by the outcome: a retry that
+    // blanked it at the start would show the screen as if nothing had gone
+    // wrong — "no such version" in the workbench — for as long as the retry
+    // took, and then put the failure back.
 
     async function listAll(collection) {
       const all = [];
@@ -115,7 +122,10 @@ export function useResumeBundle(agent, did, provided = null) {
           listAll(STANDARD_DOC).catch(() => []),
         ]);
         const documents = docs.filter((r) => showOnCreating(r?.value));
-        if (!cancelled) setBundle({ resumes, jobs, education, documents });
+        if (!cancelled) {
+          setError(null);
+          setBundle({ resumes, jobs, education, documents });
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err?.message || String(err));

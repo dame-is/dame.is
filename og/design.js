@@ -889,7 +889,9 @@ function playCard(t, { play, avatarUri, nsid, folio }) {
 // ── RECORD: one album ───────────────────────────────────────────────────────
 // An album is not a record anywhere — teal.fm scrobbles tracks — so what this
 // card has to carry is the arithmetic: how many times the thing has been
-// played, across how many of its tracks, for how long, since when.
+// played, across how many of its tracks, for how long. Not since when: the
+// album index only reaches back over the newest plays, so the first play it
+// holds is not the first play there was.
 function albumCard(t, { album, avatarUri, nsid }) {
   const CX = LISTEN_CX, bcBy = P - LE;
   const colW = (album.cover ? COVER_X - 40 : W - PAD) - CX;
@@ -932,7 +934,6 @@ function albumCard(t, { album, avatarUri, nsid }) {
       : null,
 
     ...factColumn(t, 'listening', album.listened, { left: CX, by: 6 * P + HP - 8 }),
-    ...factColumn(t, 'since', album.since, { left: CX + 200, by: 6 * P + HP - 8 }),
 
     album.cover ? coverPlate(t, album.cover, { left: COVER_X, top: 2 * P, size: COVER }) : null,
 
@@ -953,7 +954,9 @@ function albumsCard(t, { shelf, avatarUri, nsid }) {
   const SLOTS = 5;
   const GAP = (colW - SLOTS * BOX) / (SLOTS - 1);
   const covers = (shelf.covers || []).slice(0, SLOTS);
-  const { size, lines } = fitHeadline('Every album played', colW, 1, 72, 44);
+  // "Lately", not "every": the shelf is built from a window of the newest
+  // plays, the same reason the page's own intro says "recent".
+  const { size, lines } = fitHeadline('Albums played lately', colW, 1, 72, 44);
 
   const FX = [CX, CX + 200, CX + 400];
   const facts = [
@@ -1046,7 +1049,7 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  * @param {object}  [o.play]     render one teal.fm play's card
  *                               ({track,artist,album,cover})
  * @param {object}  [o.album]    render one album's card
- *                               ({title,artist,plays,tracks,listened,since,cover})
+ *                               ({title,artist,plays,tracks,listened,cover})
  * @param {object}  [o.shelf]    render the albums index card
  *                               ({total,artists,plays,listened,covers:[src]})
  * @param {object}  [o.participant] render one Ratioed participant's card

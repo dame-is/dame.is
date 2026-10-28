@@ -37,8 +37,18 @@ export function routeFromParams(params) {
   };
 }
 
-/** The query string for a route, keeping every parameter the hub does not own. */
-export function paramsForRoute(current, { tab, plan, account }) {
+/**
+ * The query string for a route, keeping every parameter the hub does not own.
+ *
+ * A plan's filters are written back too. A DM link opens a plan already
+ * filtered ("the 49 read as hostile, not yet on the list"), and dropping the
+ * filters on the first render meant a reload or a shared link opened something
+ * else.
+ */
+export function paramsForRoute(
+  current,
+  { tab, plan, account, planFilters = {} },
+) {
   const q = new URLSearchParams(current);
   for (const k of [
     'tab',
@@ -52,7 +62,12 @@ export function paramsForRoute(current, { tab, plan, account }) {
     q.delete(k);
   }
   if (tab !== DEFAULT_TAB) q.set('tab', tab);
-  if (plan) q.set('code', plan);
+  if (plan) {
+    q.set('code', plan);
+    for (const k of ['label', 'band', 'state']) {
+      if (planFilters?.[k]) q.set(k, planFilters[k]);
+    }
+  }
   if (account) q.set('account', account);
   return q;
 }

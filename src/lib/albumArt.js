@@ -39,20 +39,58 @@ const inflight = new Map();
 /* Cache                                                               */
 /* ------------------------------------------------------------------ */
 
-function readCache() {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
+// The stored cache is read into memory once per session and written back in
+// one go, a moment after the last change (and as the page goes away). It used
+// to be parsed whole on every lookup and parsed and rewritten whole on every
+// miss — with a couple of hundred covers on the album shelf, that was the same
+// growing blob handled hundreds of times over while the reader scrolled. Stale
+// entries are dropped on the way in and on the way out, and only the newest
+// MAX_ENTRIES are kept, so it can't grow until the quota quietly stops it.
+const FLUSH_DELAY_MS = 500;
+const MAX_ENTRIES = 2000;
+
+let memory = null; // Map<key, entry>
+let dirty = false;
+let flushTimer = null;
+
+function isFresh(entry, now) {
+  const ttl = entry?.artworkUrl100 ? HIT_TTL_MS : MISS_TTL_MS;
+  return now - (entry?.t || 0) <= ttl;
 }
 
-function writeCache(cache) {
+function cache() {
+  if (memory) return memory;
+  memory = new Map();
+  const now = Date.now();
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    const raw = localStorage.getItem(CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === 'object') {
+      for (const [key, entry] of Object.entries(parsed)) {
+        if (entry && typeof entry === 'object' && isFresh(entry, now)) {
+          memory.set(key, entry);
+        }
+      }
+    }
+  } catch {
+    // localStorage may be unavailable (private mode) or hold junk; start empty.
+  }
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', flush);
+  return memory;
+}
+
+function flush() {
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = null;
+  if (!memory || !dirty) return;
+  dirty = false;
+  const now = Date.now();
+  const kept = Array.from(memory.entries())
+    .filter(([, entry]) => isFresh(entry, now))
+    .sort((a, b) => (b[1].t || 0) - (a[1].t || 0))
+    .slice(0, MAX_ENTRIES);
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(Object.fromEntries(kept)));
   } catch {
     // localStorage may be unavailable (private mode, quota); ignore.
   }
@@ -60,19 +98,16 @@ function writeCache(cache) {
 
 function cacheGet(key) {
   if (!key) return undefined;
-  const cache = readCache();
-  const entry = cache[key];
-  if (!entry) return undefined;
-  const ttl = entry.artworkUrl100 ? HIT_TTL_MS : MISS_TTL_MS;
-  if (Date.now() - (entry.t || 0) > ttl) return undefined;
+  const entry = cache().get(key);
+  if (!entry || !isFresh(entry, Date.now())) return undefined;
   return entry;
 }
 
 function cacheSet(key, entry) {
   if (!key) return;
-  const cache = readCache();
-  cache[key] = { ...entry, t: Date.now() };
-  writeCache(cache);
+  cache().set(key, { ...entry, t: Date.now() });
+  dirty = true;
+  if (!flushTimer) flushTimer = setTimeout(flush, FLUSH_DELAY_MS);
 }
 
 /* ------------------------------------------------------------------ */

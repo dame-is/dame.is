@@ -39,9 +39,15 @@ export default async function handler(req, res) {
       const needsBot =
         body.decision === 'remove' || body.decision === 'restore';
       const agent = needsBot ? (await botAgent()).agent : null;
-      return res
-        .status(200)
-        .json(await decide(agent, body, { addToList: applyCommand }));
+      const out = await decide(agent, body, { addToList: applyCommand });
+      // A refused restore (the PROTECTED veto, an account that will not
+      // resolve) is an answer, not a crash, but it is not a success either.
+      // Said with a status, so a caller that only checks for errors cannot
+      // put the card back as though the account were on the list again.
+      if (out.ok === false) {
+        return res.status(409).json({ ...out, error: out.message });
+      }
+      return res.status(200).json(out);
     }
     return res.status(400).json({ error: `unknown action ${action}` });
   } catch (err) {

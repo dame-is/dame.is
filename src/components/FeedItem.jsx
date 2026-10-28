@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Check, CornerDownRight } from 'lucide-react';
 import { useEditMode } from '../hooks/useEditMode.jsx';
@@ -24,6 +24,7 @@ import { batchHref, isObservationBatch } from '../lib/observationBatches.js';
 import { rkeyFromAtUri } from '../lib/atproto.js';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { verbConfig, recordHrefFor, nsidFromAtUri } from '../lib/verbRegistry.js';
+import { formatWallClockTime } from '../lib/time.js';
 
 /**
  * Per-verb label overrides for the feed's verb column. Most verbs read
@@ -54,6 +55,27 @@ const RENDERERS = {
   AnisotaLabCard,
   FlushCard,
 };
+
+/**
+ * Renderers that print the row's own time (PostCard's, when a post has no
+ * text, is hoisted onto the verb line — see `hoistTime`). Every other card
+ * gets its time on the verb line from FeedItem.
+ */
+const OWN_TIME_RENDERERS = new Set([
+  'StatusEntry',
+  'PostCard',
+  'ReferenceCard',
+  'FlushCard',
+]);
+
+/**
+ * What a tap on the row leaves alone: anything with a behaviour of its own.
+ * Media elements are on the list because their native controls aren't
+ * elements a selector can see — a tap on a video's play button is a click
+ * on the <video>, and it bubbles here like any other.
+ */
+const ROW_CLICK_IGNORE =
+  'a, button, input, textarea, label, select, video, audio, iframe, [role="button"], [role="link"]';
 
 function postingReplyVerbLabel(reply) {
   switch (reply.kind) {
@@ -108,14 +130,34 @@ function hrefFor(item) {
  * — including falling back to 'cards' while owner edit mode is active,
  * so this component never has to reconcile ledger rows with the
  * selection UI.
+ *
+ * The component renders the list item itself, so a list hands it straight
+ * to a <ul>. `arriving` (with `arrivalDelay`, in seconds) plays the slide-in
+ * for a record that just landed; it's read once, on mount, so the row plays
+ * it on its first appearance only, whatever the prop does afterwards.
+ * Memoized: a feed re-renders for many reasons that don't touch a given row.
  */
-export default function FeedItem({ item, showVerb = true, layout = 'cards', onOpenLightbox = null }) {
+function FeedItem({
+  item,
+  showVerb = true,
+  layout = 'cards',
+  onOpenLightbox = null,
+  arriving = false,
+  arrivalDelay = 0,
+}) {
   const navigate = useNavigate();
   const edit = useEditMode();
   const xray = useXray();
   // Ledger-only: whether a collapsed run — a listening session or a night of
   // moths — is showing its full list (see handleRowClick / FeedLedgerRow).
   const [ledgerExpanded, setLedgerExpanded] = useState(false);
+  // The slide-in's delay while it plays; null once it's done (or if it never
+  // started). Dropping the class afterwards matters: a list reorder moves the
+  // row's DOM node, and a moved node would restart a CSS animation it still
+  // carried.
+  const [arrival, setArrival] = useState(() =>
+    arriving ? arrivalDelay : null,
+  );
   const cfg = verbConfig(item.verb);
   if (!cfg) return null;
   const Component = cfg.renderer ? RENDERERS[cfg.renderer] : null;
@@ -145,7 +187,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
     if (e.defaultPrevented) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    if (e.target.closest('a, button, input, textarea, label, select, [role="button"], [role="link"]')) return;
+    if (e.target.closest(ROW_CLICK_IGNORE)) return;
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
     if (sel && sel.toString().length > 0) return;
     xray.toggleFocus(item.atUri);
@@ -196,7 +238,7 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
     if (e.defaultPrevented) return;
     if (e.button !== undefined && e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    if (e.target.closest('a, button, input, textarea, label, select, [role="button"], [role="link"]')) return;
+    if (e.target.closest(ROW_CLICK_IGNORE)) return;
     const sel = typeof window !== 'undefined' ? window.getSelection() : null;
     if (sel && sel.toString().length > 0) return;
     if (canLightbox) {
@@ -251,7 +293,20 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
   // row is hidden by CSS whenever this hoisted copy exists (see
   // Feed.css).
   const hoistTime = showVerb && cfg.renderer === 'PostCard' && postCardShowsStandaloneTime(item);
-  const hoistTs = hoistTime ? item.createdAt || item.payload?.indexedAt : null;
+  // Cards whose renderer prints no time of their own get one in the same
+  // place, so every row in a card list can be placed in time the same way.
+  // Observations show the wall clock they were logged at, as the ledger
+  // does: the record keeps no timezone, so "3h ago" could be hours out for a
+  // reader somewhere else.
+  const headTime =
+    hoistTime || (showVerb && !OWN_TIME_RENDERERS.has(cfg.renderer));
+  const headTimeText = !headTime ? null : hoistTime ? (
+    <RelativeTimeText value={item.createdAt || item.payload?.indexedAt} />
+  ) : isObservation && formatWallClockTime(item.payload?.observedTime) ? (
+    formatWallClockTime(item.payload.observedTime)
+  ) : item.createdAt ? (
+    <RelativeTimeText value={item.createdAt} />
+  ) : null;
   const liClassName = [
     'feed-item',
     `feed-item-${item.verb}`,
@@ -265,12 +320,21 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
     selectable ? 'feed-item-selectable' : '',
     selected ? 'is-selected' : '',
     xrayFocused ? 'is-xray-focus' : '',
+    arrival !== null ? 'feed-item-arriving' : '',
   ]
     .filter(Boolean)
     .join(' ');
   return (
     <li
       className={liClassName}
+      style={arrival ? { '--arrival-delay': `${arrival}s` } : undefined}
+      onAnimationEnd={
+        arrival !== null
+          ? (e) => {
+              if (e.target === e.currentTarget) setArrival(null);
+            }
+          : undefined
+      }
       data-verb={item.verb}
       data-nsid={nsidFromAtUri(item.atUri) || undefined}
       data-atproto={item.atUri ? '' : undefined}
@@ -316,15 +380,13 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
             {verbInner}
           </span>
         );
-        if (!hoistTime) return verbEl;
-        const timeEl = href ? (
+        if (!headTimeText) return verbEl;
+        const timeEl = href && !listeningEdit ? (
           <Link className="gutter post-card-time feed-item-head-time" to={href}>
-            <RelativeTimeText value={hoistTs} />
+            {headTimeText}
           </Link>
         ) : (
-          <span className="gutter post-card-time feed-item-head-time">
-            <RelativeTimeText value={hoistTs} />
-          </span>
+          <span className="gutter post-card-time feed-item-head-time">{headTimeText}</span>
         );
         return (
           <div className="feed-item-head">
@@ -352,3 +414,5 @@ export default function FeedItem({ item, showVerb = true, layout = 'cards', onOp
     </li>
   );
 }
+
+export default memo(FeedItem);

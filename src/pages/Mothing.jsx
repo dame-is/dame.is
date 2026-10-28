@@ -5,11 +5,13 @@ import Lightbox from '../components/Lightbox.jsx';
 import { MothTile, MothStat } from '../components/MothTile.jsx';
 import { MothingSkeleton, FeedSkeleton } from '../components/Skeleton.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
+import { useFeedWindow } from '../hooks/useFeedWindow.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useFeedLayout } from '../hooks/useFeedLayout.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { XrayTag, XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import FirstSightingChip from '../components/FirstSightingChip.jsx';
+import FeedMore from '../components/FeedMore.jsx';
 import { fetchMothData, fetchMothSignature, photoUrl, buildSessions } from '../lib/inaturalist.js';
 import { firstSightingIds } from '../lib/firstSightings.js';
 import {
@@ -26,6 +28,10 @@ import '../components/Feed.css';
 import './Mothing.css';
 
 const EMPTY_OBSERVATIONS = [];
+const NO_FIRSTS = new Set();
+// A night is drawn as one tile (or ledger row) per moth, so the page's window
+// is counted in moths rather than in nights.
+const nightRows = (session) => session.observations.length;
 
 /**
  * A session's header, and the way through to the night's own page — the whole
@@ -96,13 +102,14 @@ function MothLedgerRow({ obs, onOpen, first = false }) {
       data-at-uri={atUri || undefined}
     >
       {photo ? (
+        // Named by its own contents — common name, the lifer mark, binomial,
+        // time — rather than an aria-label, which would replace them: a label
+        // short of what's on screen hides the binomial and the time from a
+        // screen reader, and voice control can't find the row by its words.
         <button
           type="button"
           className="mothing-ledger-row"
           onClick={() => onOpen(obs)}
-          // The label replaces the row's contents for a screen reader, so the
-          // mark has to be said here or it isn't said at all.
-          aria-label={`View photo: ${name}${first ? ', first sighting' : ''}`}
         >
           {inner}
         </button>
@@ -145,6 +152,7 @@ export default function Mothing() {
       return {
         stats: data.stats || null,
         observations: Array.isArray(data.observations) ? data.observations : [],
+        truncated: Boolean(data.truncated),
       };
     },
   });
@@ -158,10 +166,25 @@ export default function Mothing() {
 
   const { sessions, orphans } = useMemo(() => buildSessions(observations), [observations]);
 
+  // Drawn a window at a time, as the other feed pages are: the whole archive
+  // was every tile at once — five hundred images and four thousand nodes for
+  // a reader who mostly looks at the last few nights. The lightbox still walks
+  // every photograph, drawn or not. The daytime list comes last, once every
+  // night is showing.
+  const feedWindow = useFeedWindow(sessions, undefined, { weigh: nightRows });
+  const shownSessions = feedWindow.visible;
+  const shownOrphans = feedWindow.hasMore ? EMPTY_OBSERVATIONS : orphans;
+
   // Lifers. This page pulls every moth observation there is, so it derives the
   // set itself rather than reading the build's index — which means it is right
-  // about a sighting logged an hour ago, not right as of the last deploy.
-  const firstIds = useMemo(() => firstSightingIds(observations), [observations]);
+  // about a sighting logged an hour ago, not right as of the last deploy. A
+  // pull that stopped short is missing the oldest sightings, which are the
+  // firsts, so it marks none rather than hand the mark to the wrong moth.
+  const truncated = Boolean(items?.truncated);
+  const firstIds = useMemo(
+    () => (truncated ? NO_FIRSTS : firstSightingIds(observations)),
+    [observations, truncated],
+  );
 
   // Lightbox over every photographed observation, in the same order the tiles
   // render (sessions first, then orphans), so prev/next walks the whole page.
@@ -201,7 +224,11 @@ export default function Mothing() {
             <span key={s.taxonId || i} className="mothing-toplist-item">
               {s.commonName || s.name}
               <span className="mothing-toplist-count"> {s.count}</span>
-              {i < Math.min(6, stats.topSpecies.length) - 1 ? <span className="mothing-toplist-sep"> · </span> : ''}
+              {i < Math.min(6, stats.topSpecies.length) - 1 ? (
+                <span className="mothing-toplist-sep">{'\u00a0· '}</span>
+              ) : (
+                ''
+              )}
             </span>
           ))}
         </p>
@@ -217,7 +244,7 @@ export default function Mothing() {
         <p className="feed-empty">No moth observations yet.</p>
       ) : ledger ? (
         <div className="feed-ledger">
-          {sessions.map((session) => (
+          {shownSessions.map((session) => (
             <section key={session.date} className="feed-day-group">
               <header className="day-section-header">
                 <h3 className="day-header">
@@ -241,7 +268,7 @@ export default function Mothing() {
               </ol>
             </section>
           ))}
-          {orphans.length > 0 && (
+          {shownOrphans.length > 0 && (
             <section className="feed-day-group">
               <header className="day-section-header">
                 <h3 className="day-header">Daytime &amp; untimed</h3>
@@ -250,7 +277,7 @@ export default function Mothing() {
                 </p>
               </header>
               <ol className="mothing-ledger reveal-stagger">
-                {orphans.map((obs) => (
+                {shownOrphans.map((obs) => (
                   <MothLedgerRow
                     key={obs.id}
                     obs={obs}
@@ -261,10 +288,11 @@ export default function Mothing() {
               </ol>
             </section>
           )}
+          <FeedMore {...feedWindow} />
         </div>
       ) : (
         <div className="mothing-sessions">
-          {sessions.map((session) => (
+          {shownSessions.map((session) => (
             <section key={session.date} className="mothing-session">
               <SessionHeader session={session} />
               <ul className="mothing-grid reveal-stagger">
@@ -280,7 +308,7 @@ export default function Mothing() {
             </section>
           ))}
 
-          {orphans.length > 0 && (
+          {shownOrphans.length > 0 && (
             <section className="mothing-session">
               <header className="mothing-session-head">
                 <div className="mothing-session-headrow">
@@ -292,7 +320,7 @@ export default function Mothing() {
                 </span>
               </header>
               <ul className="mothing-grid reveal-stagger">
-                {orphans.map((obs) => (
+                {shownOrphans.map((obs) => (
                   <MothTile
                     key={obs.id}
                     obs={obs}
@@ -303,6 +331,7 @@ export default function Mothing() {
               </ul>
             </section>
           )}
+          <FeedMore {...feedWindow} />
         </div>
       )}
 

@@ -73,9 +73,14 @@
   cursor: pointer;
 }
 
-.search-sheet-clear:hover,
 .search-sheet-clear:focus-visible {
   color: var(--accent);
+}
+
+@media (hover: hover) {
+  .search-sheet-clear:hover {
+    color: var(--accent);
+  }
 }
 
 .search-sheet-hint {

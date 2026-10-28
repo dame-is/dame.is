@@ -16,6 +16,7 @@ import {
 } from '../../lib/moderation/client.js';
 import {
   ErrorNote,
+  SNAPSHOT_STALE_HOURS,
   Skeleton,
   compact,
   fmt,
@@ -34,19 +35,31 @@ function Health({ agent, data, reload }) {
   const rebuild = async () => {
     setBuilding('starting…');
     try {
-      let last = null;
-      for (let i = 0; i < 40; i += 1) {
-        last = await precomputeStatus(agent);
+      let last = await precomputeStatus(agent);
+      // "idle" is the endpoint declining to rebuild a snapshot under a week
+      // old, which is what the hourly job wants to hear and not what this
+      // button is for. Pressing it asks for a new one; asking once is enough,
+      // since every call after that just carries the new build forward.
+      if (last.state === 'idle') {
+        last = await precomputeStatus(agent, { restart: true });
+      }
+      for (
+        let i = 0;
+        i < 40 && (last.state === 'collecting' || last.state === 'finalising');
+        i += 1
+      ) {
         setBuilding(
           last.state === 'collecting'
             ? `reading · ${fmt(last.remaining ?? 0)} accounts left`
-            : last.state === 'finalising'
-              ? 'aggregating…'
-              : 'done',
+            : 'aggregating…',
         );
-        if (last.state !== 'collecting' && last.state !== 'finalising') break;
+        last = await precomputeStatus(agent);
       }
-      toast('Reference data is up to date');
+      toast(
+        last.state === 'finalised' || last.state === 'idle'
+          ? 'Reference data is up to date'
+          : 'Still building. The hourly job will finish it.',
+      );
       reload();
     } catch (err) {
       toast(`Rebuild failed: ${err.message}`, { tone: 'danger' });
@@ -74,8 +87,11 @@ function Health({ agent, data, reload }) {
   };
 
   const snap = data.snapshot;
-  const stale = snap.ageHours != null && snap.ageHours > 48;
-  const audit = (data.audits || []).find((a) => a.total > 0);
+  const stale = snap.ageHours != null && snap.ageHours > SNAPSHOT_STALE_HOURS;
+  // A finished run only. A re-score writes its row before it starts scoring,
+  // so a crashed or running one would otherwise read as the latest, with a
+  // partial count.
+  const audit = (data.audits || []).find((a) => a.finished_at && a.total > 0);
   const session = data.bot?.refreshed_at;
 
   return (

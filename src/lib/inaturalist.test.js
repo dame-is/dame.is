@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { isMothTaxon, normalizeObservation, buildSessions } from './inaturalist.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  isMothTaxon,
+  normalizeObservation,
+  buildSessions,
+  fetchMothData,
+  fetchObservations,
+} from './inaturalist.js';
 import { LEPIDOPTERA_TAXON_ID, BUTTERFLY_TAXON_ID } from '../config.js';
 
 // The moth/observing split is: a moth is Lepidoptera (47157) MINUS butterflies
@@ -120,5 +126,57 @@ describe('buildSessions ordering', () => {
     const [night] = buildSessions(oneNight).sessions;
     expect(night.firstTime).toBe('22:05');
     expect(night.lastTime).toBe('01:17');
+  });
+});
+
+// A stand-in for iNaturalist's /observations endpoint over an archive of
+// `total` observations: serves `page`/`per_page` slices, newest first, with
+// the real `total_results`.
+function stubArchive(total) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url) => {
+      const params = new URL(url).searchParams;
+      const per = Number(params.get('per_page'));
+      const page = Number(params.get('page') || 1);
+      const start = (page - 1) * per;
+      const count = Math.max(0, Math.min(per, total - start));
+      const results = Array.from({ length: count }, (_, i) => ({
+        id: total - start - i,
+        observed_on: '2026-08-18',
+        updated_at: '2026-08-19T02:00:00-05:00',
+        taxon: { id: 1, name: 'Noctua pronuba', ancestor_ids: [47157] },
+      }));
+      return {
+        ok: true,
+        json: async () => ({ total_results: total, results }),
+      };
+    }),
+  );
+}
+
+describe('whole-archive pulls', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('pull past 1,000 observations by default', async () => {
+    stubArchive(1234);
+    const observations = await fetchObservations();
+    expect(observations).toHaveLength(1234);
+  });
+
+  it('report a complete pull as not truncated', async () => {
+    stubArchive(519);
+    const data = await fetchMothData();
+    expect(data.observations).toHaveLength(519);
+    expect(data.truncated).toBe(false);
+  });
+
+  it('flag a pull that stopped at max short of the archive', async () => {
+    stubArchive(450);
+    const data = await fetchMothData({ max: 400 });
+    expect(data.observations).toHaveLength(400);
+    expect(data.truncated).toBe(true);
   });
 });

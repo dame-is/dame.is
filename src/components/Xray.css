@@ -98,7 +98,9 @@
   pointer-events: auto;
 }
 :root[data-xray="on"] .feed-item-ledger .ledger-xray .ledger-xray-uri { cursor: pointer; }
-.ledger-xray-uri:hover .nsid { text-decoration: underline; }
+@media (hover: hover) {
+  .ledger-xray-uri:hover .nsid { text-decoration: underline; }
+}
 
 /* A focused ledger row drops its full substrate panel below, spanning the
    row's whole grid rather than landing in a single column. */
@@ -124,7 +126,9 @@
 }
 .xray-tag .bp-uri { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xray-tag-open { color: var(--xr-ink); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; white-space: nowrap; }
-.xray-tag-open:hover { text-decoration: underline; }
+@media (hover: hover) {
+  .xray-tag-open:hover { text-decoration: underline; }
+}
 
 /* Any record-backed row that opts into the card-style tag (home cards, and
    the bespoke mothing / guestbook rows) reveals it when the mode is on. */
@@ -198,7 +202,9 @@
   color: var(--ink-soft); background: var(--page); border: 1px solid var(--rule);
   padding: 3px var(--space-2); text-decoration: none; cursor: pointer;
 }
-.xray-actions a:hover, .xray-actions button:hover { color: var(--accent); border-color: var(--accent-soft); }
+@media (hover: hover) {
+  .xray-actions a:hover, .xray-actions button:hover { color: var(--accent); border-color: var(--accent-soft); }
+}
 
 /* ----------------------------------------------------------------------
    A · DOCUMENT (resume) — backlinked composition. Each role/education
@@ -389,7 +395,9 @@
 .xray-hud-mark svg { width: 13px; height: 13px; }
 .xray-hud .bp-uri { display: inline-block; min-width: 0; max-width: min(52ch, 66vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .xray-hud-uri-link { text-decoration: none; min-width: 0; }
-.xray-hud-uri-link:hover .nsid { text-decoration: underline; }
+@media (hover: hover) {
+  .xray-hud-uri-link:hover .nsid { text-decoration: underline; }
+}
 .xray-hud-aggregate { color: var(--ink-faint); }
 .xray-hud-spacer { flex: 1 1 auto; }
 .xray-hud-inspect {
@@ -399,7 +407,9 @@
   color: var(--ink-soft); background: transparent; border: 1px solid var(--rule); padding: 3px var(--space-2); cursor: pointer;
 }
 .xray-hud-inspect svg { width: 13px; height: 13px; }
-.xray-hud-inspect:hover { color: var(--accent); border-color: var(--accent-soft); }
+@media (hover: hover) {
+  .xray-hud-inspect:hover { color: var(--accent); border-color: var(--accent-soft); }
+}
 
 /* Phones: the HUD rode three stacked lines (label / uri / button) and ate too
    much of the screen above the chrome bar. Collapse it to one line — just the
@@ -419,6 +429,23 @@
   .xray-hud-uri-link { flex: 1 1 auto; }
   .xray-hud .bp-uri { max-width: 100%; }
 }
+
+/* While the HUD is up (XrayLayer marks <html> with data-xray-hud and
+   publishes its height as --xray-hud-h), it sits in the band directly over the
+   bottom bar: the band the footer strip reveals into, and where the end of the
+   page comes to rest. So the page reserves the taller of the two at its foot —
+   the larger, not the sum, because the HUD covers the footer's band rather
+   than stacking on it — and the footer strip, which the HUD would only paint
+   over, steps aside. The rest of the sum is app.css's `.app-shell` padding,
+   repeated here. */
+:root[data-xray-hud] .app-shell {
+  padding-bottom: calc(
+    var(--chrome-h) + var(--edit-bar-h, 0px) +
+      max(var(--chrome-bottom-footer-h, 0px), var(--xray-hud-h, 0px)) +
+      env(safe-area-inset-bottom, 0px)
+  );
+}
+:root[data-xray-hud] .chrome-bar-footer-wrap { visibility: hidden; }
 
 /* Toggle button (chrome) active pulse when armed. */
 .chrome-xray.is-open .chrome-nav-glyph { animation: xray-pulse 2.4s ease-in-out infinite; }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { resolvePds } from '../lib/atproto.js';
-import { fetchSnapshot } from '../lib/snapshot.js';
+import { resolvePds, getRepoRev } from '../lib/atproto.js';
+import { fetchChromeSeed } from '../lib/snapshot.js';
 import { subscribeRefreshTick } from '../lib/refreshTick.js';
 import {
   fetchTealStatus,
@@ -17,6 +17,10 @@ import { ME_DID } from '../config.js';
 // row, which unmounts when it collapses; without this every re-open showed a
 // "—" that filled in mid-animation.
 let lastPlay = null;
+// What the last live read was made of, and the repo head it was read at. A
+// tick that finds the head unmoved skips the four teal reads, but still has to
+// re-judge the status record: it expires on the clock, not on a write.
+let lastRead = null; // { rev, record, status }
 
 /**
  * What dame is listening to. Snapshot first paint, then refreshes on the
@@ -39,6 +43,7 @@ let lastPlay = null;
 export function useNowPlaying() {
   const [play, setPlayState] = useState(lastPlay);
   const cancelledRef = useRef(false);
+  const inflightRef = useRef(false);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -48,31 +53,54 @@ export function useNowPlaying() {
     };
 
     async function refresh() {
+      if (inflightRef.current) return;
+      inflightRef.current = true;
       try {
+        const rev = await getRepoRev(ME_DID).catch(() => null);
+        if (rev && lastRead && rev === lastRead.rev) {
+          const next = adopt(lastRead.record, lastRead.status);
+          if (!cancelledRef.current && next && next.live !== lastPlay?.live) {
+            setPlay(next);
+          }
+          return;
+        }
         const pds = await resolvePds(ME_DID);
+        // A status read that failed stands on the last status this tab saw
+        // (still judged against the clock, so it expires) rather than on
+        // "nothing playing", which is what a blip used to look like.
+        let statusFailed = false;
         const [status, plays] = await Promise.all([
-          fetchTealStatus(pds, { repo: ME_DID }).catch(() => null),
-          listTealPlays(pds, { repo: ME_DID, max: 1 }).catch(() => []),
+          fetchTealStatus(pds, { repo: ME_DID }).catch(() => {
+            statusFailed = true;
+            return lastRead?.status || null;
+          }),
+          listTealPlays(pds, { repo: ME_DID, max: 1 }).catch(() => null),
         ]);
         const next = adopt(plays?.[0], status);
+        // A read that failed in part isn't kept as the answer for this head,
+        // or the next ticks would skip the read that could replace it.
+        if (plays && !statusFailed) {
+          lastRead = { rev, record: plays[0] || null, status };
+        }
         if (!cancelledRef.current && next) setPlay(next);
       } catch {
         // keep whatever we had; networks fail.
+      } finally {
+        inflightRef.current = false;
       }
     }
 
-    async function boot() {
-      // A remembered play is newer than the build's snapshot; skip it.
-      if (!lastPlay) {
-        const seed = await fetchSnapshot('listening');
-        if (!cancelledRef.current && Array.isArray(seed) && seed[0]) {
-          setPlay(adopt(seed[0], null));
-        }
-      }
-      refresh();
+    // A remembered play is newer than the build's snapshot; skip it. The
+    // snapshot only stands in until the live read answers — it never paints
+    // over one that got there first.
+    if (!lastPlay) {
+      fetchChromeSeed('listening').then((seed) => {
+        if (cancelledRef.current || lastPlay) return;
+        const first = adopt(seed, null);
+        if (first) setPlay(first);
+      });
     }
-
-    boot();
+    refresh();
     const unsubscribe = subscribeRefreshTick(refresh);
     return () => {
       cancelledRef.current = true;

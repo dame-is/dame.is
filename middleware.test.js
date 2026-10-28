@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import middleware, { config } from './middleware.js';
+import { ME_DID, BLOG_PUBLICATION } from './src/config.js';
 
 const SHELL = readFileSync(
   resolve(dirname(fileURLToPath(import.meta.url)), 'index.html'),
@@ -64,7 +65,14 @@ describe('paths middleware must not judge', () => {
   it('falls through for the legacy paths vercel.json redirects', async () => {
     // These are absent from the route table on purpose. If Vercel ever ran
     // middleware before its redirects, 404ing them would break every old link.
-    for (const p of ['/about', '/blog', '/blog/an-old-post', '/resume', '/flushing']) {
+    for (const p of [
+      '/about',
+      '/blog',
+      '/blog/an-old-post',
+      '/resume',
+      '/flushing',
+      '/participants',
+    ]) {
       expect(await get(p)).toBeUndefined();
     }
   });
@@ -123,6 +131,12 @@ describe('404s', () => {
       '/curating/no-such-channel',
       '/creating/no-such-work',
       '/creating/ratioed/99',
+      // The verbs whose record pages used to card as the home page and never
+      // 404 — every `/{verb}/:rkey` the registry generates now resolves.
+      '/photographing/3nosuchrkey',
+      '/liking/3nosuchrkey',
+      '/flushing/3nosuchrkey',
+      '/crafting/3nosuchrkey',
     ]) {
       expect((await get(p, { accept: HTML_ACCEPT })).status).toBe(404);
     }
@@ -142,7 +156,6 @@ describe('404s', () => {
       '/admin',
       '/is.dame.now/3abc',
       '/app.bsky.feed.post/3xyz',
-      '/participants',
     ]) {
       const res = await get(p, { accept: HTML_ACCEPT });
       expect(res.status, `${p} should not 404`).toBe(200);
@@ -248,6 +261,16 @@ describe('the HTML a crawler receives', () => {
     expect(body).toContain('rel="site.standard.publication"');
   });
 
+  it('starts the home feed snapshot downloading with the HTML, on / only', async () => {
+    const preload =
+      '<link rel="preload" as="fetch" href="/data/unifiedFeed.json" crossorigin />';
+    const home = await (await get('/', { accept: HTML_ACCEPT })).text();
+    expect(home).toContain(preload);
+    expect(home.indexOf(preload)).toBeLessThan(home.indexOf('</head>'));
+    const other = await (await get('/themself', { accept: HTML_ACCEPT })).text();
+    expect(other).not.toContain('unifiedFeed.json');
+  });
+
   it('keeps the shell’s boot-recovery and entry module intact', async () => {
     const body = await (await get('/', { accept: HTML_ACCEPT })).text();
     expect(body).toContain("u.searchParams.has('_r')");
@@ -305,5 +328,217 @@ describe('failure handling', () => {
     );
     const res = await get('/', { accept: 'text/markdown' });
     expect(res.status).toBe(200);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* With records to find                                                */
+/* ------------------------------------------------------------------ */
+
+const PDS = 'https://pds.example';
+
+/**
+ * A world with a PDS in it: the shell, the PLC directory, `records` keyed
+ * `collection/rkey` on the PDS, and `snapshots` keyed by name under /data.
+ * Anything else 404s, as in the cold-edge stub above.
+ */
+function worldFetch({ records = {}, snapshots = {} } = {}) {
+  const calls = [];
+  const json = (body) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  const fn = vi.fn(async (input) => {
+    const url = String(input?.url || input);
+    calls.push(url);
+    if (url.endsWith('/index.html')) {
+      return new Response(SHELL, {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    }
+    if (url.startsWith('https://plc.directory/')) {
+      return json({
+        id: ME_DID,
+        service: [{ id: '#atproto_pds', serviceEndpoint: PDS }],
+      });
+    }
+    if (url.startsWith(`${PDS}/xrpc/com.atproto.repo.getRecord`)) {
+      const q = new URL(url).searchParams;
+      const key = `${q.get('collection')}/${q.get('rkey')}`;
+      if (records[key]) {
+        return json({
+          uri: `at://${ME_DID}/${key}`,
+          cid: 'bafyreiexamplecid',
+          value: records[key],
+        });
+      }
+      return new Response(JSON.stringify({ error: 'RecordNotFound' }), {
+        status: 400,
+      });
+    }
+    const snap = url.match(/\/data\/([^/?]+)\.json$/);
+    if (snap && snap[1] in snapshots) return json(snapshots[snap[1]]);
+    return new Response('not found', { status: 404 });
+  });
+  vi.stubGlobal('fetch', fn);
+  return calls;
+}
+
+const html = async (path) => {
+  const res = await get(path, { accept: HTML_ACCEPT });
+  return { res, body: await res.text() };
+};
+const metaContent = (body, attr, key) =>
+  body.match(new RegExp(`<meta ${attr}="${key}" content="([^"]*)"`))?.[1] ??
+  null;
+
+describe('record pages', () => {
+  it('answers 200 for a post with no text, and names what kind of post it is', async () => {
+    // A quote post's text is "" — which used to resolve to nothing, and so to a
+    // 404 with noindex for a record that was right there.
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3quote': {
+          text: '',
+          embed: {
+            $type: 'app.bsky.embed.record',
+            record: { uri: 'at://x/app.bsky.feed.post/1', cid: 'c' },
+          },
+          createdAt: '2026-05-01T12:00:00.000Z',
+        },
+      },
+    });
+    const { res, body } = await html('/posting/3quote');
+    expect(res.status).toBe(200);
+    expect(body).not.toContain('content="noindex"');
+    expect(metaContent(body, 'name', 'description')).toBe('A quote post');
+    expect(body).toContain(`at://${ME_DID}/app.bsky.feed.post/3quote`);
+  });
+
+  it('describes a post card by its text, for a reader who cannot see it', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3words': {
+          text: 'moths at the porch light',
+          createdAt: '2026-05-01T12:00:00.000Z',
+        },
+      },
+    });
+    const { body } = await html('/posting/3words');
+    expect(metaContent(body, 'property', 'og:image:alt')).toBe(
+      'moths at the porch light',
+    );
+    expect(metaContent(body, 'name', 'twitter:image:alt')).toBe(
+      'moths at the porch light',
+    );
+  });
+
+  it('gives a photo its own title and card rather than the home page’s', async () => {
+    worldFetch({
+      records: {
+        'social.grain.gallery/3photo': {
+          title: 'Night walk',
+          description: 'Six frames',
+          createdAt: '2026-05-01T12:00:00.000Z',
+        },
+      },
+    });
+    const { res, body } = await html('/photographing/3photo');
+    expect(res.status).toBe(200);
+    expect(body).toContain('<title>Night walk — dame.is</title>');
+    expect(metaContent(body, 'property', 'og:image')).toContain(
+      'section=photographing',
+    );
+  });
+
+  it('names a record with nothing to say by its verb', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.like/3like': {
+          subject: {
+            uri: 'at://did:plc:someone/app.bsky.feed.post/3x',
+            cid: 'c',
+          },
+          createdAt: '2026-05-01T12:00:00.000Z',
+        },
+      },
+    });
+    const { res, body } = await html('/liking/3like');
+    expect(res.status).toBe(200);
+    expect(body).toContain('<title>dame.is liking</title>');
+    expect(metaContent(body, 'name', 'description')).toBe('A like');
+  });
+
+  it('marks a blog post an article to Open Graph, with its date', async () => {
+    worldFetch({
+      snapshots: {
+        blogs: [
+          {
+            uri: `at://${ME_DID}/site.standard.document/3blogpost`,
+            cid: 'bafyreiexamplecid',
+            value: {
+              title: 'On moths',
+              description: 'Why the light.',
+              publishedAt: '2026-05-01T12:00:00.000Z',
+              site: BLOG_PUBLICATION,
+            },
+          },
+        ],
+      },
+    });
+    const { body } = await html('/blogging/3blogpost');
+    expect(metaContent(body, 'property', 'og:type')).toBe('article');
+    expect(metaContent(body, 'property', 'article:published_time')).toBe(
+      '2026-05-01T12:00:00.000Z',
+    );
+  });
+
+  it('borrows the owning verb’s copy on a lexicon-form record address', async () => {
+    const { res, body } = await html('/is.dame.now/3abc');
+    expect(res.status).toBe(200);
+    expect(body).toContain('<title>dame.is logging</title>');
+  });
+});
+
+describe('pages with no record behind them', () => {
+  it('names the profile record only once there is one', async () => {
+    worldFetch({ snapshots: { extendedProfile: {} } });
+    expect((await html('/themself')).body).not.toContain('name="atproto:uri"');
+
+    worldFetch({
+      snapshots: {
+        extendedProfile: {
+          uri: `at://${ME_DID}/is.dame.profile/self`,
+          cid: 'c',
+          value: { tagline: 'hi' },
+        },
+      },
+    });
+    expect((await html('/themself')).body).toContain(
+      `<meta name="atproto:uri" content="at://${ME_DID}/is.dame.profile/self"`,
+    );
+  });
+
+  it('takes a snapshot that loaded at its word, without asking the PDS', async () => {
+    const calls = worldFetch({ snapshots: { pages: {}, extendedProfile: {} } });
+    await html('/exploring');
+    await html('/themself');
+    expect(
+      calls.some((u) => u.includes('plc.directory') || u.startsWith(PDS)),
+    ).toBe(false);
+  });
+
+  it('keeps the explorer’s landing page indexable and its sub-pages out', async () => {
+    worldFetch();
+    const home = await html('/exploring');
+    expect(home.body).toContain('<title>dame.is exploring</title>');
+    expect(home.body).not.toContain('content="noindex"');
+
+    const deep = await html(`/exploring/${ME_DID}/is.dame.now`);
+    expect(deep.res.status).toBe(200);
+    expect(deep.res.headers.get('x-robots-tag')).toBe('noindex');
+    expect(deep.body).toContain('<meta name="robots" content="noindex" />');
   });
 });

@@ -117,22 +117,27 @@ async function reference() {
 // rather than released, and refetched only in case aturi.to publishes something
 // new. A failure here is not fatal: the gate's own tools answer every scoring
 // question on their own.
+//
+// A FAILED LOAD IS REMEMBERED TOO. Only a non-empty list used to count as
+// loaded, so while aturi.to was down every 2s DM poll asked again, waited up to
+// 20s on a request that was going to fail, and logged that it had -- on the box
+// whose original outage was a log that would not stop growing.
+const ATMOSPHERE_RETRY_MS = 5 * 60_000;
 let atmoTools = {};
-let atmoLoadedAt = 0;
+let atmoNextAt = 0;
 
 async function atmosphereTools() {
   if (!config.atmosphere) return {};
-  if (
-    Object.keys(atmoTools).length &&
-    Date.now() - atmoLoadedAt < config.atmosphereTtlMs
-  ) {
-    return atmoTools;
-  }
+  if (Date.now() < atmoNextAt) return atmoTools;
   atmoTools = await loadAtmosphereTools({
     client: createAtmosphereClient({ url: config.atmosphereUrl }),
     log: (msg, fields) => logger.info(msg, fields),
   });
-  atmoLoadedAt = Date.now();
+  atmoNextAt =
+    Date.now() +
+    (Object.keys(atmoTools).length
+      ? config.atmosphereTtlMs
+      : ATMOSPHERE_RETRY_MS);
   return atmoTools;
 }
 
@@ -370,6 +375,17 @@ function scheduleDmPoll() {
   if (dmTimer.unref) dmTimer.unref();
 }
 
+// --- the slow jobs wait for a quiet minute ------------------------------------
+const QUIET_FOR_MS = 60_000;
+
+/**
+ * Nothing queued, and nothing from dame for a minute. Anything long waits for
+ * this, because while it runs the DM poll skips itself, and an evening of
+ * "block" must not sit behind a harvest or a re-score.
+ */
+const quiet = () =>
+  pending === 0 && !shuttingDown && Date.now() - lastDmAt >= QUIET_FOR_MS;
+
 // --- the weekly re-score -----------------------------------------------------
 let driftTimer = null;
 
@@ -380,8 +396,9 @@ function scheduleDrift() {
   }
   const tick = () => {
     // Queued like everything else, so a re-score of 8,500 accounts cannot run
-    // alongside a model call on a 512 MB box.
-    if (pending > 0 || shuttingDown) return;
+    // alongside a model call on a 512 MB box. And only once the DMs are quiet:
+    // it is minutes of AppView calls, and the DM poll waits for all of them.
+    if (!quiet()) return;
     enqueue('drift', async () => {
       const convoId = await ownerConvo(chat);
       const body = await maybeRunDrift(agent, chat, convoId);
@@ -395,11 +412,8 @@ function scheduleDrift() {
 // --- watched posts, and dame's own posts taking off ---------------------------
 let watchTimer = null;
 let alertTimer = null;
-const QUIET_FOR_MS = 60_000;
 
 function scheduleWatching() {
-  const quiet = () =>
-    pending === 0 && !shuttingDown && Date.now() - lastDmAt >= QUIET_FOR_MS;
   if (config.watchEveryMs > 0) {
     watchTimer = setInterval(() => {
       if (!quiet()) return;

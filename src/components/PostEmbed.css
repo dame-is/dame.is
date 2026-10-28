@@ -158,6 +158,41 @@
   object-fit: contain;
 }
 
+/* A browser that can't play the HLS stream inline gets the poster as a link
+   to the post on bsky.app, labelled so it doesn't pass for a dead player. */
+.post-embed-video-out {
+  display: block;
+  position: relative;
+  color: inherit;
+  text-decoration: none;
+}
+
+.post-embed-video-badge {
+  position: absolute;
+  left: var(--space-2);
+  bottom: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.3em 0.6em;
+  border-radius: var(--radius-2);
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  transition: color 120ms ease;
+}
+
+.post-embed-video-out:focus-visible .post-embed-video-badge {
+  color: var(--accent);
+}
+
+@media (hover: hover) {
+  .post-embed-video-out:hover .post-embed-video-badge {
+    color: var(--accent);
+  }
+}
+
 /* External link card. Two-column on wide layouts, stacked on narrow. */
 .post-embed-link-card {
   display: grid;

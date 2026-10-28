@@ -6,7 +6,7 @@
 // ones you read. Adds made here are recorded as `individual`, because on this
 // screen that is what happened.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import {
   planAdd,
@@ -81,9 +81,16 @@ function PlanCard({ p, onOpen }) {
           <span>
             <strong>{fmt(p.accounts)}</strong> scored
           </span>
-          <span>
-            <strong>{fmt(p.added)}</strong> on the list
-          </span>
+          {(p.added > 0 || !p.removed) && (
+            <span>
+              <strong>{fmt(p.added)}</strong> on the list
+            </span>
+          )}
+          {p.removed > 0 && (
+            <span>
+              <strong>{fmt(p.removed)}</strong> taken off
+            </span>
+          )}
           {p.undone > 0 && (
             <span>
               <strong>{fmt(p.undone)}</strong> undone
@@ -126,7 +133,14 @@ const BAND_FILTERS = [
   { key: 'UNKNOWN', label: 'Stranger' },
 ];
 
-function PlanDetail({ agent, code, initial = {}, onBack, onOpenAccount }) {
+function PlanDetail({
+  agent,
+  code,
+  initial = {},
+  onBack,
+  onFilters,
+  onOpenAccount,
+}) {
   const toast = useToast();
   const [state, setState] = useState(initial.state || 'pending');
   const [label, setLabel] = useState(initial.label || '');
@@ -148,9 +162,11 @@ function PlanDetail({ agent, code, initial = {}, onBack, onOpenAccount }) {
 
   // A new filter starts at the first page. Set together with the filter, not in
   // an effect after it, so changing a filter is one request rather than two.
-  const filter = (setter) => (value) => {
+  // The address bar follows, so a reload or a shared link keeps the view.
+  const filter = (name, setter) => (value) => {
     setter(value);
     setOffset(0);
+    onFilters?.({ state, label, band, [name]: value });
   };
 
   const toggle = (did) =>
@@ -255,21 +271,21 @@ function PlanDetail({ agent, code, initial = {}, onBack, onOpenAccount }) {
             <Chips
               options={STATES}
               value={state}
-              onChange={filter(setState)}
+              onChange={filter('state', setState)}
               label="On the list"
             />
             {data.counts.labelled > 0 && (
               <Chips
                 options={LABELS}
                 value={label}
-                onChange={filter(setLabel)}
+                onChange={filter('label', setLabel)}
                 label="Label"
               />
             )}
             <Chips
               options={BAND_FILTERS}
               value={band}
-              onChange={filter(setBand)}
+              onChange={filter('band', setBand)}
               label="Band"
             />
           </div>
@@ -284,7 +300,8 @@ function PlanDetail({ agent, code, initial = {}, onBack, onOpenAccount }) {
           <ul className="mh-rows mh-rows--plan">
             {data.rows.map((r) => {
               const name = r.displayName || r.handle || r.did;
-              const canPick = !r.added && r.band !== 'PROTECTED';
+              const canPick =
+                !r.added && !r.alreadyListed && r.band !== 'PROTECTED';
               return (
                 <li
                   key={r.did}
@@ -327,6 +344,10 @@ function PlanDetail({ agent, code, initial = {}, onBack, onOpenAccount }) {
                           on the list · {r.approvedVia || '?'}
                         </Tag>
                       )}
+                      {r.alreadyListed && (
+                        <Tag tone="muted">already on the list</Tag>
+                      )}
+                      {r.removed && <Tag tone="muted">taken off</Tag>}
                       {r.vouches > 0 && (
                         <span className="mh-row-when">
                           {r.vouches} shared follows
@@ -406,21 +427,64 @@ function PlanDetail({ agent, code, initial = {}, onBack, onOpenAccount }) {
   );
 }
 
+const KINDS = [
+  { key: 'all', label: 'Everything' },
+  { key: 'scans', label: 'Scans' },
+  { key: 'direct', label: 'Direct actions' },
+];
+
 export default function ActivityView({
   agent,
   plan,
   planFilters,
   onPlan,
+  onFilters,
   onOpenAccount,
 }) {
+  const [kind, setKind] = useState('all');
+  // Pages past the first, which is cached like every other view's first page.
+  const [older, setOlder] = useState({
+    plans: [],
+    next: undefined,
+    loading: false,
+    error: null,
+  });
   const { data, error, loading, reload } = useCached(
-    'plans',
-    () => planList(agent),
+    `plans:${kind}`,
+    () => planList(agent, { kind }),
     {
       staleMs: 30_000,
     },
   );
   const open = useCallback((code) => onPlan(code), [onPlan]);
+
+  // A new filter, or a refreshed first page, starts the older pages again. The
+  // count lets a page still in flight from before that see it is out of date,
+  // rather than land under a filter it was not asked for.
+  const started = useRef(0);
+  useEffect(() => {
+    started.current += 1;
+    setOlder({ plans: [], next: undefined, loading: false, error: null });
+  }, [kind, data]);
+
+  const next = older.next === undefined ? data?.next : older.next;
+  const loadOlder = async () => {
+    const asked = started.current;
+    setOlder((o) => ({ ...o, loading: true, error: null }));
+    try {
+      const page = await planList(agent, { kind, before: next });
+      if (started.current !== asked) return;
+      setOlder((o) => ({
+        plans: [...o.plans, ...page.plans],
+        next: page.next,
+        loading: false,
+        error: null,
+      }));
+    } catch (err) {
+      if (started.current !== asked) return;
+      setOlder((o) => ({ ...o, loading: false, error: err }));
+    }
+  };
 
   if (plan) {
     return (
@@ -430,26 +494,53 @@ export default function ActivityView({
         code={plan}
         initial={planFilters}
         onBack={() => onPlan(null)}
+        onFilters={onFilters}
         onOpenAccount={onOpenAccount}
       />
     );
   }
 
+  const shown = [...(data?.plans || []), ...older.plans];
+
   return (
     <section className="mh-view" aria-label="Activity">
-      <p className="mh-small">
-        Every batch the system has proposed, newest first, and what became of
-        it. Open one to read each account beside the words it was labelled on.
-      </p>
+      <div className="mh-view-intro">
+        <Chips
+          options={KINDS}
+          value={kind}
+          onChange={setKind}
+          label="What to show"
+        />
+        <p className="mh-small">
+          Every scan the system has run and every block or unblock you asked
+          for, newest first, and what became of it. Open a scan to read each
+          account beside the words it was labelled on.
+        </p>
+      </div>
       {loading && <Skeleton rows={4} avatar={false} />}
       <ErrorNote error={error} onRetry={reload} />
-      {data && !data.plans.length && <Empty title="Nothing yet" />}
-      {data?.plans?.length > 0 && (
+      {data && !shown.length && <Empty title="Nothing yet" />}
+      {shown.length > 0 && (
         <ul className="mh-plans">
-          {data.plans.map((p) => (
+          {shown.map((p) => (
             <PlanCard key={p.code} p={p} onOpen={open} />
           ))}
         </ul>
+      )}
+      {data && (next || older.loading || older.error) && (
+        <div className="mh-more">
+          <ErrorNote error={older.error} onRetry={loadOlder} compact />
+          {older.loading && <Skeleton rows={2} avatar={false} />}
+          {!older.loading && next && (
+            <button
+              type="button"
+              className="mh-button mh-button--quiet"
+              onClick={loadOlder}
+            >
+              Show older
+            </button>
+          )}
+        </div>
       )}
     </section>
   );

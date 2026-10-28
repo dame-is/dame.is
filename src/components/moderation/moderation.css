@@ -433,6 +433,11 @@
   border-color: var(--accent-soft);
 }
 
+.mh-badge--notable {
+  color: var(--ink-muted);
+  border-color: var(--ink-muted);
+}
+
 .mh-badge--unknown {
   color: var(--ink-faint);
   border-color: var(--rule-soft);
@@ -500,7 +505,7 @@
   border-left-color: var(--accent-soft);
 }
 .mh-card--notable {
-  border-left-color: var(--ink-faint);
+  border-left-color: var(--ink-muted);
 }
 
 .mh-card-head {

@@ -159,10 +159,13 @@ export default function RatioedTicker({
       return next;
     });
 
-  // Memoised so the hydrator sees a new list only when the rows actually
-  // change: it settles for 400ms on every one it is handed, and the replay
-  // rebuilds this component's rows on every frame of its playhead.
-  const uris = useMemo(() => rows.map(rowUri).filter(Boolean), [rows]);
+  // Memoised on what the list SAYS rather than on the array it arrived in, so
+  // the hydrator sees a new list only when the rows actually change: it
+  // settles for 400ms on every one it is handed, and a caller that rebuilds its
+  // rows with the same contents — the replay, on an arrival — used to restart
+  // that wait with each rebuild.
+  const uriKey = rows.map(rowUri).filter(Boolean).join('\n');
+  const uris = useMemo(() => (uriKey ? uriKey.split('\n') : []), [uriKey]);
   const posts = usePostViews(uris);
 
   if (!rows.length) return <p className="ratioed-live-empty">{empty}</p>;
@@ -195,7 +198,12 @@ export default function RatioedTicker({
             const pressable = Boolean(r.t) || marks.length > 0;
             const behind = Boolean(post?.embed) || Boolean(extra) || offerOpen;
             const canOpen = standing && Boolean(uri) && pressable && behind;
-            const isOpen = canOpen && open.has(r.rkey);
+            // A row's identity. The live feeds' rows are records and their key
+            // is the record's; the replay's include measured rows nothing ever
+            // gave a key, and it names those itself in `id` rather than
+            // inventing an rkey a post could be asked for by.
+            const id = r.id ?? r.rkey;
+            const isOpen = canOpen && open.has(id);
             // The controls live in one place at a time: at the end of the row
             // while it is closed, in the panel once it is open. Rendered once
             // either way, because two copies with one of them hidden is two
@@ -216,7 +224,7 @@ export default function RatioedTicker({
             );
             return (
               <li
-                key={r.rkey}
+                key={id}
                 className={`ratioed-live-row ratioed-k-${r.k}${r.goneMs != null ? ' is-gone' : ''}${
                   mine ? ' is-self' : ''
                 }${isOpen ? ' is-open' : ''}`}
@@ -227,7 +235,9 @@ export default function RatioedTicker({
                 ) : (
                   <span className="ratioed-live-face is-blank" aria-hidden="true" />
                 )}
-                <span className="ratioed-live-who">
+                {/* Titled, because a handle longer than its column is cut to fit
+                    rather than broken across two lines. */}
+                <span className="ratioed-live-who" title={`@${handle}`}>
                   {parent ? <RatioedHandle handle={handle} parent={parent} /> : `@${handle}`}
                   {mine && <span className="ratioed-live-self"> the artist</span>}
                 </span>
@@ -250,7 +260,7 @@ export default function RatioedTicker({
                     type="button"
                     className="ratioed-live-text is-toggle"
                     aria-expanded={isOpen}
-                    onClick={() => toggle(r.rkey)}
+                    onClick={() => toggle(id)}
                   >
                     {r.t}
                     <ChevronDown size={12} className="ratioed-live-caret" aria-hidden="true" />

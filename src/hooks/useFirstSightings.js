@@ -23,16 +23,25 @@ let cached = null;
 
 function loadFirstSightings() {
   if (!cached) {
-    cached = fetchSnapshot('firstSightings')
-      .then((snap) => ({
-        ids: new Set(Array.isArray(snap?.ids) ? snap.ids : []),
-        taxa: new Set(Array.isArray(snap?.taxa) ? snap.taxa : []),
-      }))
+    const pending = fetchSnapshot('firstSightings')
+      .then((snap) => {
+        // fetchSnapshot answers a failed read with null rather than
+        // rejecting, so the miss is caught here: let a later mount retry
+        // rather than holding the failure for the rest of the visit.
+        if (snap == null) {
+          if (cached === pending) cached = null;
+          return EMPTY;
+        }
+        return {
+          ids: new Set(Array.isArray(snap.ids) ? snap.ids : []),
+          taxa: new Set(Array.isArray(snap.taxa) ? snap.taxa : []),
+        };
+      })
       .catch(() => {
-        // Let a later mount retry rather than caching the failure forever.
-        cached = null;
+        if (cached === pending) cached = null;
         return EMPTY;
       });
+    cached = pending;
   }
   return cached;
 }

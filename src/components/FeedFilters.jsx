@@ -49,7 +49,7 @@ export default function FeedFilters({ counts, estimatedVerbs }) {
       const out = new URLSearchParams(prev);
       // Always write the explicit list once the user starts toggling, so
       // their choice doesn't drift if we ever change the defaults.
-      out.set('verbs', Array.from(verbs).join(','));
+      out.set('verbs', verbsParamValue(verbs));
       return out;
     }, { replace: true });
   }
@@ -206,6 +206,17 @@ function FilterModal({
       </div>
     </BottomSheet>
   );
+}
+
+/**
+ * The `verbs` param value for an explicit chip selection. An empty selection
+ * is written as the "show none" sentinel: an empty value means "all" to
+ * resolveActiveVerbs, so switching off the last chip used to switch every
+ * verb on — likes and their slow fetch included.
+ */
+export function verbsParamValue(verbs) {
+  const list = Array.from(verbs || []);
+  return list.length ? list.join(',') : NONE_SENTINEL;
 }
 
 /**

@@ -12,9 +12,10 @@
 //             src/lib/verbRegistry.js (the primary collection per verb) and the
 //             infrastructure NSIDs in src/config.js.
 //
-// Pages not listed here fall back to `DEFAULT` (the home card). Dynamic record
-// routes (/blogging/:slug, …) intentionally use the default for now — per-record
-// cards would need the record title at request time, a later enhancement.
+// Pages not listed here fall back to `DEFAULT` (the home card). Record routes
+// (/blogging/:slug, /posting/:rkey, …) get a card of their own from
+// og/records.js, and borrow their section's entry here for the page title and
+// for the card drawn when the record can't be resolved.
 
 export const SITE = {
   domain: 'dame.is',
@@ -79,7 +80,7 @@ export const PAGES = {
   '/listening/albums': {
     label: 'albums',
     title: 'dame.is listening — albums',
-    desc: 'Every album dame has played, ranked by how often — derived from the scrobbles rather than stored as records of their own.',
+    desc: 'Every album in dame’s recent play history, ranked by how often — derived from the scrobbles rather than stored as records of their own.',
     nsid: 'fm.teal.feed.play',
   },
   '/posting': {
@@ -115,6 +116,82 @@ export const PAGES = {
     title: 'dame.is sharing',
     desc: "Dame's ethos and the things worth passing on.",
     nsid: 'is.dame.page',
+  },
+  // The atproto explorer. Its sub-pages are other people's repos as much as
+  // dame's, so the middleware keeps those out of the index; this copy is what
+  // the explorer's own landing page and every card under it say.
+  '/exploring': {
+    label: 'exploring',
+    title: 'dame.is exploring',
+    desc: 'A browser for AT Protocol repositories — every collection and record behind this site, read straight off the PDS, and anyone else’s too.',
+    nsid: 'com.atproto.repo.listRecords',
+  },
+
+  // Verbs with record pages but no index page. Nothing routes to
+  // /photographing itself; these exist so that /photographing/:rkey has a
+  // section to name its page and draw its card from, the way /posting/:rkey
+  // has /posting. Without them a photo, a like or a flush carded as the home
+  // page and was titled plain "dame.is". Same voice as the rest; the NSID is
+  // each verb's primary collection in src/lib/verbRegistry.js.
+  '/photographing': {
+    label: 'photographing',
+    title: 'dame.is photographing',
+    desc: 'Photo galleries and stories dame has posted to Grain, read from the AT Protocol.',
+    nsid: 'social.grain.gallery',
+  },
+  '/observing': {
+    label: 'observing',
+    title: 'dame.is observing',
+    desc: 'Everything dame has logged on iNaturalist that isn’t a moth — birds, plants, fungi — mirrored onto the AT Protocol.',
+    nsid: 'is.dame.observing.observation',
+  },
+  '/liking': {
+    label: 'liking',
+    title: 'dame.is liking',
+    desc: 'Things dame has liked across Bluesky, Grain, Tangled and Anisota.',
+    nsid: 'app.bsky.feed.like',
+  },
+  '/reposting': {
+    label: 'reposting',
+    title: 'dame.is reposting',
+    desc: 'Posts dame has passed along, reposted from across the atmosphere.',
+    nsid: 'app.bsky.feed.repost',
+  },
+  '/following': {
+    label: 'following',
+    title: 'dame.is following',
+    desc: 'Accounts dame has followed across Bluesky, Grain and Tangled.',
+    nsid: 'app.bsky.graph.follow',
+  },
+  '/listing': {
+    label: 'listing',
+    title: 'dame.is listing',
+    desc: 'Lists of accounts dame keeps on Bluesky.',
+    nsid: 'app.bsky.graph.list',
+  },
+  '/feeding': {
+    label: 'feeding',
+    title: 'dame.is feeding',
+    desc: 'Custom feeds dame has published for Bluesky.',
+    nsid: 'app.bsky.feed.generator',
+  },
+  '/commenting': {
+    label: 'commenting',
+    title: 'dame.is commenting',
+    desc: 'Comments dame has left on Grain galleries and Leaflet documents.',
+    nsid: 'social.grain.comment',
+  },
+  '/flushing': {
+    label: 'flushing',
+    title: 'dame.is flushing',
+    desc: 'Flushes from flushes.app — the rest of the sentence that starts “dame is flushing”.',
+    nsid: 'im.flushing.right.now',
+  },
+  '/crafting': {
+    label: 'crafting',
+    title: 'dame.is crafting',
+    desc: 'Pieces made in the Anisota Lab — poems, sigils, carvings, inkblots and synths.',
+    nsid: 'net.anisota.lab.poetry',
   },
 };
 

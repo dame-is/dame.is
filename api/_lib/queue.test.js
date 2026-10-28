@@ -253,6 +253,23 @@ describe('a page of the queue', () => {
     expect(db.review).toEqual([]);
   });
 
+  it('fills a page from further down when the accounts on it have left the list', async () => {
+    // The two most urgent were unblocked some other way. The page still holds
+    // two, and says whether there is more past them.
+    members.delete('did:plc:prot');
+    members.delete('did:plc:conn');
+    const page = await queuePage({ limit: 2 });
+    expect(page.items.map((i) => i.did)).toEqual([
+      'did:plc:disp',
+      'did:plc:peri',
+    ]);
+    expect(page.skipped).toBe(2);
+    expect(page.more).toBe(true);
+
+    const last = await queuePage({ limit: 10 });
+    expect(last.more).toBe(false);
+  });
+
   it('filters to one reason', async () => {
     const page = await queuePage({ reason: 'disputed' });
     expect(page.items.map((i) => i.did)).toEqual(['did:plc:disp']);

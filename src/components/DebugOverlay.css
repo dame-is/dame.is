@@ -26,9 +26,11 @@
   border-radius: 0;
 }
 
-.debug-overlay-close:hover {
-  color: var(--accent);
-  background: var(--page-edge);
+@media (hover: hover) {
+  .debug-overlay-close:hover {
+    color: var(--accent);
+    background: var(--page-edge);
+  }
 }
 
 .debug-overlay-row {
@@ -76,9 +78,11 @@
   text-decoration: none;
 }
 
-.debug-overlay-row-button:hover,
-.debug-overlay-row-link:hover {
-  color: var(--accent);
+@media (hover: hover) {
+  .debug-overlay-row-button:hover,
+  .debug-overlay-row-link:hover {
+    color: var(--accent);
+  }
 }
 
 .debug-overlay-row-action {
@@ -91,8 +95,10 @@
   font-family: inherit;
 }
 
-.debug-overlay-row-action:hover {
-  color: var(--accent);
+@media (hover: hover) {
+  .debug-overlay-row-action:hover {
+    color: var(--accent);
+  }
 }
 
 .debug-overlay-json {
@@ -133,10 +139,12 @@
   cursor: pointer;
 }
 
-.debug-overlay-actions button:hover,
-.debug-overlay-actions a:hover {
-  border-color: var(--accent-soft);
-  color: var(--accent);
+@media (hover: hover) {
+  .debug-overlay-actions button:hover,
+  .debug-overlay-actions a:hover {
+    border-color: var(--accent-soft);
+    color: var(--accent);
+  }
 }
 
 .debug-overlay-editor {

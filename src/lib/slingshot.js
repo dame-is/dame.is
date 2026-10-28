@@ -6,6 +6,8 @@
 // Mirrors constellation.js: every call swallows errors and returns `null`
 // so callers can fall back (e.g. to a direct PDS fetch) without try/catch.
 
+import { fetchWithTimeout } from './atproto.js';
+
 const SLINGSHOT_BASE = 'https://slingshot.microcosm.blue';
 
 /**
@@ -17,7 +19,9 @@ export async function getRecordCached({ repo, collection, rkey }) {
   if (!repo || !collection || !rkey) return null;
   const params = new URLSearchParams({ repo, collection, rkey });
   try {
-    const res = await fetch(`${SLINGSHOT_BASE}/xrpc/com.atproto.repo.getRecord?${params}`);
+    const res = await fetchWithTimeout(
+      `${SLINGSHOT_BASE}/xrpc/com.atproto.repo.getRecord?${params}`,
+    );
     if (!res.ok) return null;
     return await res.json();
   } catch {

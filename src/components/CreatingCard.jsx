@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
-import { coverThumb } from '../lib/creatingHelpers.js';
+import { coverThumb, swapToOriginal } from '../lib/creatingHelpers.js';
 import { workSlug, workCategory } from '../lib/publications.js';
 
 export default function CreatingCard({ payload, atUri }) {
@@ -13,7 +13,12 @@ export default function CreatingCard({ payload, atUri }) {
     <article className="creating-card feed-card" data-at-uri={atUri}>
       {thumb && (
         <div className="creating-card-thumb">
-          <img src={thumb.url} alt={thumb.alt || ''} loading="lazy" />
+          <img
+            src={thumb.url}
+            alt={thumb.alt || ''}
+            loading="lazy"
+            onError={(e) => swapToOriginal(e, thumb.original)}
+          />
         </div>
       )}
       <div className="creating-card-body">

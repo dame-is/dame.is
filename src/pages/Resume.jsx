@@ -6,16 +6,22 @@ import { XraySubstratePanel } from '../components/XraySubstrate.jsx';
 import { useXray } from '../hooks/useXray.jsx';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { usePageContent } from '../hooks/usePageContent.js';
-import { resolvePds, listRecords } from '../lib/atproto.js';
+import {
+  resolvePds,
+  listRecords,
+  getRecord,
+  rkeyFromAtUri,
+} from '../lib/atproto.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { transformRecords } from '../lib/feedBuilder.js';
 import { ResumeSkeleton } from '../components/Skeleton.jsx';
-import { showOnCreating, workSlug } from '../lib/publications.js';
-import { coverThumb } from '../lib/creatingHelpers.js';
+import { isDraft, showOnCreating, workSlug } from '../lib/publications.js';
+import { coverThumb, swapToOriginal } from '../lib/creatingHelpers.js';
 import {
   resolveResume,
   pickDefaultResume,
   findResumeBySlug,
+  printableUrl,
 } from '../lib/resumeHelpers.js';
 import { atUriParts } from '../lib/xray.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -86,17 +92,62 @@ function ResumeXrayRole({ atUri, nsid, note, children }) {
 
 async function fetchResumeBundle() {
   const pds = await resolvePds(ME_DID);
-  const [resumes, jobs, education, docs] = await Promise.all([
-    listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resume, max: 50 }).catch(() => []),
-    listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeJob, max: 200 }).catch(() => []),
-    listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeEducation, max: 100 }).catch(() => []),
-    // Portfolio posts, so a job's `work` links can render as live embeds
-    // (cover + title). Blob URLs are annotated for the covers.
-    listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }).catch(() => []),
+  // The résumé itself and the records it backlinks are allowed to fail the
+  // whole fetch. Read as empty instead, one PDS hiccup would replace the
+  // snapshot already on screen with "No resume published yet." (or with a
+  // résumé whose Experience section had silently vanished); a rejection here
+  // just leaves that snapshot standing. An empty collection still resolves [].
+  const [resumes, jobs, education] = await Promise.all([
+    listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resume, max: 50 }),
+    listRecords(pds, {
+      repo: ME_DID,
+      collection: COLLECTIONS.resumeJob,
+      max: 200,
+    }),
+    listRecords(pds, {
+      repo: ME_DID,
+      collection: COLLECTIONS.resumeEducation,
+      max: 100,
+    }),
   ]);
-  transformRecords(docs, STANDARD_DOC, pds, ME_DID);
-  const documents = docs.filter((r) => showOnCreating(r?.value));
+  const documents = await fetchWorkDocuments(pds, jobs);
   return { resumes, jobs, education, documents };
+}
+
+/**
+ * The portfolio posts the jobs' `work` links point at, so those links can
+ * render as live embeds (cover + title). Read one by one, by the URIs the
+ * links carry: a handful of records, where listing every standard document on
+ * the PDS to find them meant paging through a couple of hundred. The rkey is
+ * taken from the URI as written, since some are slugs rather than TIDs.
+ *
+ * Optional, record by record: a miss only costs that embed, which then
+ * renders as the link's own label. Filtered as prefetch.mjs filters the
+ * snapshot's copy, so the live read can't show a draft the snapshot hid.
+ */
+async function fetchWorkDocuments(pds, jobs) {
+  const prefix = `at://${ME_DID}/${STANDARD_DOC}/`;
+  const uris = new Set();
+  for (const job of jobs || []) {
+    for (const link of job?.value?.links || []) {
+      if (typeof link?.work === 'string' && link.work.startsWith(prefix)) {
+        uris.add(link.work);
+      }
+    }
+  }
+  const docs = (
+    await Promise.all(
+      Array.from(uris, (uri) =>
+        getRecord(pds, {
+          repo: ME_DID,
+          collection: STANDARD_DOC,
+          rkey: rkeyFromAtUri(uri),
+        }).catch(() => null),
+      ),
+    )
+  ).filter((r) => r?.value);
+  transformRecords(docs, STANDARD_DOC, pds, ME_DID);
+  return docs.filter((r) => !isDraft(r.value) && showOnCreating(r.value));
 }
 
 /** Shape one resolved link for rendering: title, href, thumbnail, external? */
@@ -108,7 +159,7 @@ function displayLink(link) {
       title: link.label || link.doc.title || slug,
       description: link.description,
       href: slug ? `/creating/${slug}` : null,
-      thumb: coverThumb(link.doc),
+      thumb: coverThumb(link.doc, { size: 'icon' }),
       external: false,
     };
   }
@@ -148,7 +199,12 @@ function ResumeWorkLink({ item }) {
     <>
       {item.thumb && (
         <span className="resume-work-thumb">
-          <img src={item.thumb.url} alt={item.thumb.alt || ''} loading="lazy" />
+          <img
+            src={item.thumb.url}
+            alt={item.thumb.alt || ''}
+            loading="lazy"
+            onError={(e) => swapToOriginal(e, item.thumb.original)}
+          />
         </span>
       )}
       <span className="resume-work-body">
@@ -199,13 +255,25 @@ function ResumeIdentity({ screenTitle, printName, headline, contact }) {
               <a href={`mailto:${contact.email}`}>{contact.email}</a>
             </li>
           )}
-          {(contact.links || []).map((l) => (
-            <li key={l.url}>
-              <a href={l.url} target="_blank" rel="noreferrer noopener">
-                {l.label || l.url}
-              </a>
-            </li>
-          ))}
+          {(contact.links || []).map((l) => {
+            // Paper can't follow a link, so a labelled one ("Website") prints
+            // as its address instead — see .resume-contact-print in Resume.css.
+            const printed = l.label ? printableUrl(l.url) : '';
+            return (
+              <li key={l.url}>
+                <a href={l.url} target="_blank" rel="noreferrer noopener">
+                  {printed ? (
+                    <>
+                      <span className="resume-contact-screen">{l.label}</span>
+                      <span className="resume-contact-print">{printed}</span>
+                    </>
+                  ) : (
+                    l.label || l.url
+                  )}
+                </a>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>
@@ -228,13 +296,13 @@ export default function Resume() {
     mapItems: (data) => (data && Array.isArray(data.resumes) ? data : null),
   });
 
-  const resumes = items?.resumes || [];
   const resolved = useMemo(() => {
+    const resumes = items?.resumes || [];
     const chosen = slug ? findResumeBySlug(resumes, slug) : pickDefaultResume(resumes);
     return chosen
       ? resolveResume(chosen, items?.jobs, items?.education, items?.documents)
       : null;
-  }, [resumes, items, slug]);
+  }, [items, slug]);
 
   const summaryHtml = useMemo(() => {
     const v = resolved?.value;
@@ -253,7 +321,9 @@ export default function Resume() {
     return (
       <PageShell
         title={pageTitle}
-        headTitle="dame.is available"
+        // A version that isn't there is a not-found page, titled like the
+        // others; with no slug it's the résumé page, just empty.
+        headTitle={slug ? 'Not found — dame.is' : 'dame.is available'}
         atUri={`at://${ME_DID}/is.dame.page/resume`}
       >
         <p className="feed-empty">

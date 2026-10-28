@@ -26,6 +26,7 @@ import { rkeyFromUri } from './RecordEditor.jsx';
 import { AdminRecordListSkeleton } from './Skeleton.jsx';
 import { useAdminShell } from '../admin/useAdminShell.jsx';
 import { nsidFromAtUri } from '../lib/verbRegistry.js';
+import { deleteEveryCopy } from '../lib/tealPlayDelete.js';
 import {
   TEAL_PLAY_NSIDS,
   comparePlaysDesc,
@@ -231,7 +232,10 @@ export default function ListeningManager({ agent, did }) {
       const deleted = new Set();
       // A row's lexicon comes from its own URI — the selected rkeys can span
       // both teal namespaces, and deleting from the wrong one is a no-op that
-      // reads as a successful delete.
+      // reads as a successful delete. The row's own copy goes first and the
+      // other namespace's after it (deleteEveryCopy): this list is deduped by
+      // rkey, so a play written to both shows once, and deleting only the copy
+      // on screen would hand the row straight back on the next load.
       const collectionOf = new Map(
         records.map((rec) => [rkeyFromUri(rec.uri), nsidFromAtUri(rec.uri)]),
       );
@@ -246,7 +250,7 @@ export default function ListeningManager({ agent, did }) {
           if (!collection) continue;
           // Serial on purpose: image-free but write-heavy, and a parallel burst
           // of 200 deletes is how a PDS starts refusing them.
-          await agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey });
+          await deleteEveryCopy(agent, { repo: did, collection, rkey });
           deleted.add(rkey);
           // Row by row rather than in one setRecords at the end: a list that
           // shrinks IS the progress bar, and a 24-second run where nothing

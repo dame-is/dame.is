@@ -43,7 +43,7 @@ import {
   RATIOED_PATH,
 } from '../src/config.js';
 // The agent-facing site guide, built from the same snapshots as sitemap.xml.
-import { buildLlmsTxt } from '../og/llms.js';
+import { buildLlmsTxt, surfaceHasContent } from '../og/llms.js';
 import {
   resolvePds,
   getProfile,
@@ -74,7 +74,13 @@ import {
 } from '../src/lib/feedBuilder.js';
 import { compareIsoDesc } from '../src/lib/time.js';
 import { selfThreadMembers } from '../src/lib/threadGrouping.js';
-import { isDraft, showOnBlog, showOnCreating, workSlug } from '../src/lib/publications.js';
+import {
+  isDraft,
+  isPortfolioDoc,
+  showOnBlog,
+  showOnCreating,
+  workSlug,
+} from '../src/lib/publications.js';
 import { rosterFromEvents, mergeRoster } from '../src/lib/ratioedRoster.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -118,8 +124,20 @@ function snapshotCount(data) {
   // and a pull that comes back empty must not blank a good index — every album
   // page would 404 at the edge until the next build put it back.
   if (Array.isArray(data?.albums)) return data.albums.length;
+  // The mothing archive and the curating index. Both are read at the edge, and
+  // an empty one there is not a thin page but a broken one: with no moths every
+  // night past the latest live pull 404s, and with no galleries every channel
+  // drops out of the sitemap and llms.txt.
+  if (Array.isArray(data?.observations)) return data.observations.length;
+  if (Array.isArray(data?.galleries)) return data.galleries.length;
   return null;
 }
+
+/** For the snapshots that are a { [rkey]: record } map rather than a list. */
+const keyCount = (data) =>
+  data && typeof data === 'object' && !Array.isArray(data)
+    ? Object.keys(data).length
+    : null;
 
 // The last-known-good snapshot for `name`: the local file if present (an
 // incremental local run), otherwise the currently-deployed copy (on CI the
@@ -159,18 +177,29 @@ async function previousSnapshotData(name, path) {
  * 135 entries against 275 — a number that passes any is-it-empty test while
  * silently dropping every participant of the last six pieces.
  */
-async function writeJson(name, data, { guardEmpty = false, minRatio = 0 } = {}) {
+async function writeJson(
+  name,
+  data,
+  { guardEmpty = false, minRatio = 0, countOf = snapshotCount } = {},
+) {
   await mkdir(OUT, { recursive: true });
   const path = resolve(OUT, `${name}.json`);
-  const newCount = snapshotCount(data);
+  const newCount = countOf(data);
 
   // §8.3: never overwrite a healthy snapshot with a suspiciously-empty one. A
   // transient upstream failure can yield 0 items; if the previous snapshot had
   // many, carry the prior data forward and flag the build as degraded rather
   // than shipping thin content for up to 6h.
-  if (guardEmpty || minRatio > 0) {
+  //
+  // The previous snapshot is only fetched when it could change the outcome:
+  // always for a ratio (the floor is a fraction of it), but for the empty
+  // guard only when the new data IS empty. Fetched unconditionally, a healthy
+  // build downloaded every deployed snapshot one after another — ~12 MB of
+  // production's own JSON, to compare against numbers that were fine.
+  const needsPrevious = minRatio > 0 || (guardEmpty && newCount === 0);
+  if (needsPrevious) {
     const prev = await previousSnapshotData(name, path);
-    const prevCount = snapshotCount(prev);
+    const prevCount = countOf(prev);
     const floor = minRatio > 0 ? Math.floor((prevCount || 0) * minRatio) : 0;
     const tooSmall = newCount === 0 || (minRatio > 0 && newCount < floor);
     if (prevCount > 0 && tooSmall) {
@@ -178,15 +207,23 @@ async function writeJson(name, data, { guardEmpty = false, minRatio = 0 } = {}) 
         `refusing to overwrite ${name}.json with ${newCount} items — previous snapshot had ` +
           `${prevCount}. Carrying prior data forward and marking meta ok:false.`,
       );
-      await writeFile(path, JSON.stringify(prev, null, 2) + '\n', 'utf-8');
+      await writeFile(path, serializeSnapshot(prev), 'utf-8');
       preservedSnapshots.push({ name, prevCount, rejected: newCount });
       return prev;
     }
   }
 
-  await writeFile(path, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  await writeFile(path, serializeSnapshot(data), 'utf-8');
   log(`wrote ${name}.json (${newCount == null ? '—' : newCount})`);
   return data;
+}
+
+// Minified. public/data is gitignored and only machines read it, so no diff
+// or reviewer depends on the indentation — and the indentation was a third of
+// every snapshot's bytes (posts.json: 3.1 MB pretty, 2.0 MB without), which
+// every first paint downloaded and parsed.
+function serializeSnapshot(data) {
+  return JSON.stringify(data) + '\n';
 }
 
 async function writePublicFile(name, content) {
@@ -467,6 +504,46 @@ async function fetchDisplayNames(dids) {
   return out;
 }
 
+/**
+ * The résumé snapshot, with the documents its work links point at.
+ *
+ * A job's `work` link is an at:// URI and nothing else — no label, no url —
+ * so without the document behind it there is nothing to draw. The snapshot
+ * used to leave the documents out, which meant "Selected work" was missing
+ * from first paint, appeared only once the live read had listed every
+ * standard document on the PDS, and never appeared at all if that read
+ * failed. Only the referenced documents go in, from the blogs snapshot just
+ * written (blob URLs already baked on), and without their body text when a
+ * cover makes it unnecessary: the page shows a title and a thumbnail.
+ */
+async function writeResume({ resumes, jobs, education, written }) {
+  const referenced = new Set(
+    (jobs || []).flatMap((j) =>
+      (j?.value?.links || []).map((l) => l?.work).filter(Boolean),
+    ),
+  );
+  const documents = (Array.isArray(written.blogs) ? written.blogs : [])
+    .filter(
+      (r) =>
+        referenced.has(r?.uri) && !isDraft(r.value) && showOnCreating(r.value),
+    )
+    .map((r) => {
+      const value = { ...r.value };
+      delete value.textContent;
+      // coverThumb falls back to the first image in the body, so the body
+      // stays when there's no cover to use instead.
+      if (value.coverImage?._url) delete value.content;
+      return { ...r, value };
+    });
+  await writeJson('resume', {
+    builtAt: new Date().toISOString(),
+    resumes,
+    jobs,
+    education,
+    documents,
+  });
+}
+
 // --- Discoverability: sitemap.xml + Atom feed -------------------------------
 const SITEMAP_SURFACES = [
   '/',
@@ -499,6 +576,11 @@ function isoOrNull(value) {
   return Number.isFinite(t) ? new Date(t).toISOString() : null;
 }
 
+/** The collection NSID out of an at:// URI. */
+function collectionOfUri(uri) {
+  return String(uri || '').match(/^at:\/\/[^/]+\/([^/]+)\//)?.[1] || null;
+}
+
 function sitemapUrl(path, lastmod) {
   const loc = xmlEscape(`${SITE_ORIGIN}${path}`);
   const mod = isoOrNull(lastmod);
@@ -513,6 +595,7 @@ function buildSitemap({
   ratioedPieces,
   mothNights,
   albums,
+  pages,
   builtAt,
 }) {
   const entries = [];
@@ -523,11 +606,19 @@ function buildSitemap({
     entries.push(sitemapUrl(path, lastmod));
   };
 
-  for (const path of SITEMAP_SURFACES) push(path, path === '/' ? builtAt : null);
+  // A surface with nothing on it yet (see surfaceHasContent) isn't listed.
+  for (const path of SITEMAP_SURFACES) {
+    if (!surfaceHasContent(path, pages)) continue;
+    push(path, path === '/' ? builtAt : null);
+  }
 
+  // A document cross-posted onto the other section by a tag is listed once,
+  // under its home publication — the address the middleware calls canonical
+  // (og/records.js canonicalPathFor). Listing both put two self-canonical
+  // copies of the same essay in front of every search engine.
   for (const r of blogRecords || []) {
     const v = r?.value;
-    if (!v || isDraft(v) || !showOnBlog(v)) continue;
+    if (!v || isDraft(v) || !showOnBlog(v) || isPortfolioDoc(v)) continue;
     const rkey = rkeyFromAtUri(r.uri);
     if (!rkey) continue;
     push(`/blogging/${encodeURIComponent(rkey)}`, v.publishedAt || v.updatedAt || v.createdAt);
@@ -536,6 +627,11 @@ function buildSitemap({
   for (const r of creatingRecords || []) {
     const v = r?.value;
     if (!v || isDraft(v)) continue;
+    // A blog-homed post shown on /creating. Keyed on the collection because a
+    // legacy is.dame.creating.work has no `site` and is not a portfolio doc
+    // either, yet /creating is its only home.
+    if (collectionOfUri(r.uri) === COLLECTIONS.blogging && !isPortfolioDoc(v))
+      continue;
     const slug = workSlug(v) || rkeyFromAtUri(r.uri);
     if (!slug) continue;
     push(`/creating/${encodeURIComponent(slug)}`, v.updatedAt || v.createdAt);
@@ -648,22 +744,44 @@ function buildAtomFeed({ blogRecords, builtAt }) {
 
 async function main() {
   log(`me=${ME_DID}`);
-  const pds = await safe('resolvePds', () => resolvePds(ME_DID), null);
+  let pds = await safe('resolvePds', () => resolvePds(ME_DID), null);
   if (!pds) {
-    warn('No PDS resolved — exiting with empty snapshots so the site still builds.');
-    await writeJson('snapshot-meta', {
-      builtAt: new Date().toISOString(),
-      pds: null,
-      did: ME_DID,
-      ok: false,
-    });
-    return;
+    // A plc.directory outage is not a PDS move — accounts migrate rarely and
+    // on purpose — so the host the last build read from is almost certainly
+    // still the host, and the build can go on reading fresh data from it.
+    const last = await previousSnapshotData(
+      'snapshot-meta',
+      resolve(OUT, 'snapshot-meta.json'),
+    );
+    pds =
+      typeof last?.pds === 'string' && /^https:\/\//.test(last.pds)
+        ? last.pds
+        : null;
+    if (pds)
+      warn(`resolvePds failed — reading from the last build's PDS, ${pds}`);
+  }
+  if (!pds) {
+    // Fail the build rather than ship it. This used to write an ok:false meta
+    // file and exit 0, and since public/data, the sitemap, the feed and
+    // llms.txt are all generated, `vite build` then deployed a site with none
+    // of them: every page painting empty, every album, older night and
+    // participant page 404ing at the edge, /sitemap.xml answering with the app
+    // shell. A failed build leaves the current deployment serving instead. A
+    // git-push deploy during the same outage fails too, which is the point.
+    throw new Error(
+      'No PDS resolved and no previous build to take one from — not shipping empty snapshots.',
+    );
   }
   log(`pds=${pds}`);
 
   // --- Profile (AppView) ----------------------------------------------------
   const profile = await safe('getProfile', () => getProfile(ME_DID), null);
-  await writeJson('profile', profile || {});
+  // Guarded like the lists: a failed AppView read was written as {} over a
+  // good profile, and the chrome lost its name and avatar for six hours.
+  await writeJson('profile', profile || {}, {
+    guardEmpty: true,
+    countOf: (p) => (p?.did ? 1 : 0),
+  });
 
   // --- Extended profile (is.dame.profile/self on PDS) -----------------------
   const extendedProfile = await safe(
@@ -700,7 +818,7 @@ async function main() {
       [],
     ),
   );
-  await writeJson('state', stateLog);
+  const stateWritten = await writeJson('state', stateLog);
 
   // --- Nav menu override (is.dame.nav/self) ---------------------------------
   // Optional PDS override for the dock-sheet route list; snapshotted so the
@@ -737,7 +855,12 @@ async function main() {
     const m = String(r.uri || '').match(/\/([^/]+)$/);
     if (m) pages[m[1]] = r;
   }
-  await writeJson('pages', pages);
+  // A map, so counted by key: a failed read is {} and must not blank every
+  // page's intro and every card's description.
+  const pagesWritten = await writeJson('pages', pages, {
+    guardEmpty: true,
+    countOf: keyCount,
+  });
 
   // --- Hero phrases (is.dame.hero.phrase) -----------------------------------
   const heroPhrases = await safe(
@@ -777,17 +900,13 @@ async function main() {
   // --- Resume (is.dame.resume + backlinked jobs + education) ----------------
   // One combined snapshot so /resume paints instantly; the page re-fetches
   // all three collections live and resolves the backlinks in the browser.
+  // Written further down, once the documents its work links point at are in
+  // hand (see writeResume).
   const [resumes, resumeJobs, resumeEducation] = await Promise.all([
     safe('listRecords:resume', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resume, max: 50 }), []),
     safe('listRecords:resumeJob', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeJob, max: 200 }), []),
     safe('listRecords:resumeEducation', () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.resumeEducation, max: 100 }), []),
   ]);
-  await writeJson('resume', {
-    builtAt: new Date().toISOString(),
-    resumes,
-    jobs: resumeJobs,
-    education: resumeEducation,
-  });
 
   // --- Curating (is.dame.arena.channel → are.na gallery snapshots) ----------
   // Guest tier is 30 req/min; an ARENA_ACCESS_TOKEN (read-only personal
@@ -795,18 +914,60 @@ async function main() {
   // inter-request spacing adapts to whichever budget we have.
   const arenaAuthed = Boolean(arenaAccessToken());
   const arenaDelayMs = arenaAuthed ? 250 : 2100;
+  // Null, not [], on a failed read: an empty list is an answer (every gallery
+  // switched off) and a failed read is not.
   const arenaChannelRecords = await safe(
     'listRecords:arenaChannel',
     () => listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.arenaChannel, max: 100 }),
-    [],
+    null,
   );
-  const enabledGalleries = arenaChannelRecords
+  const enabledGalleries = (arenaChannelRecords || [])
     .map((r) => ({ rkey: String(r.uri || '').split('/').pop(), value: r.value || {} }))
     .filter((g) => g.rkey && g.value.arenaSlug && g.value.enabled !== false)
     .sort((a, b) => (a.value.order ?? 0) - (b.value.order ?? 0));
   log(`arena: ${enabledGalleries.length} enabled channel(s), auth=${arenaAuthed}`);
 
+  // A channel whose are.na read failed used to be skipped, which dropped it
+  // from curating.json, the sitemap and llms.txt — and, on CI, left no
+  // curating-<rkey>.json at all. are.na rate-limits by the minute, which the
+  // retry backoff can't wait out, so this is an ordinary failure. Carry the
+  // last build's copy of that one gallery forward instead, and say so.
+  // Read once, a miss included: with the site down too, asking again for every
+  // failed channel would sit through the same timeout each time.
+  let previousCurating;
+  const previousGalleries = async () => {
+    previousCurating ??= previousSnapshotData(
+      'curating',
+      resolve(OUT, 'curating.json'),
+    );
+    return (await previousCurating)?.galleries || [];
+  };
+  const carryGalleryForward = async (rkey) => {
+    const prev = (await previousGalleries()).find((p) => p?.slug === rkey);
+    if (!prev) return null;
+    const name = `curating-${rkey}`;
+    const file = await previousSnapshotData(name, resolve(OUT, `${name}.json`));
+    if (file) await writeJson(name, file);
+    warn(
+      `arena: ${rkey} unreadable — carrying the previous build's gallery forward`,
+    );
+    preservedSnapshots.push({
+      name,
+      prevCount: file?.blocks?.length ?? 0,
+      rejected: null,
+    });
+    return prev;
+  };
+
   const galleries = [];
+  if (!arenaChannelRecords) {
+    // The list itself failed, so every gallery the last build had is one whose
+    // read failed.
+    for (const prev of await previousGalleries()) {
+      const kept = prev?.slug ? await carryGalleryForward(prev.slug) : null;
+      if (kept) galleries.push(kept);
+    }
+  }
   for (const g of enabledGalleries) {
     const snap = await safe(
       `arena:${g.value.arenaSlug}`,
@@ -819,7 +980,11 @@ async function main() {
       },
       null,
     );
-    if (!snap) continue; // channel fetch failed → skip it; the build proceeds
+    if (!snap) {
+      const kept = await carryGalleryForward(g.rkey);
+      if (kept) galleries.push(kept);
+      continue;
+    }
 
     const gallery = {
       slug: g.rkey,
@@ -853,12 +1018,21 @@ async function main() {
   // External API, not the PDS — but snapshotted the same way so /mothing
   // paints instantly and has a fallback if iNaturalist is unreachable at
   // runtime. Location data is stripped by `fetchMothData`.
-  const mothing = await safe(
+  //
+  // Guarded, and everything below reads what was WRITTEN: a failed pull is
+  // `observations: []`, and shipping that put every night outside iNaturalist's
+  // latest 200 observations past the edge's reach (a 404) and dropped every
+  // night from the sitemap and llms.txt until the next build.
+  const mothingFetched = await safe(
     'fetchMothData',
     () => fetchMothData({ user: INATURALIST_USER }),
     { user: INATURALIST_USER, stats: null, observations: [] },
   );
-  await writeJson('mothing', { builtAt: new Date().toISOString(), ...mothing });
+  const mothing = await writeJson(
+    'mothing',
+    { builtAt: new Date().toISOString(), ...mothingFetched },
+    { guardEmpty: true },
+  );
 
   // --- Guestbook (Constellation backlinks → signatures) ---------------------
   // Not from my PDS: every signature lives on the SIGNER's own repo, and the
@@ -935,6 +1109,20 @@ async function main() {
     written[name] = await writeJson(name, records, { guardEmpty: true });
   }
 
+  // --- The atmosphere bar's seed (chrome.json) -----------------------------
+  // The top bar paints its status, its now-playing and its vitals from the
+  // newest record of now.json, listening.json and state.json, and so every
+  // cold load downloaded and parsed all three, several hundred KB of JSON,
+  // for one record apiece. This is those three records on their own (see
+  // fetchChromeSeed in src/lib/snapshot.js). Taken from what landed on disk,
+  // so it agrees with the full files when a guard kept a previous snapshot;
+  // the full files stay for /logging, /listening and the vitals history.
+  await writeJson('chrome', {
+    now: written.now?.[0] || null,
+    listening: written.listening?.[0] || null,
+    state: (Array.isArray(stateWritten) && stateWritten[0]) || null,
+  });
+
   // Multi-collection verbs also write a combined `<verb>.json` for
   // page-level consumers that want everything at once.
   for (const verbConfig of VERB_REGISTRY) {
@@ -952,30 +1140,43 @@ async function main() {
 
   await writeFirstSightings(mothing, written);
 
+  await writeResume({
+    resumes,
+    jobs: resumeJobs,
+    education: resumeEducation,
+    written,
+  });
+
   // --- Albums ---------------------------------------------------------------
   // An album is derived, not stored (see src/lib/albums.js), so it has to be
   // derived from ENOUGH plays. The registry caps a listening snapshot at 100
   // records per lexicon — right for a feed, far short of an archive, and an
   // album whose plays all fall outside that window would have a page the site
   // renders and the edge 404s. So the albums index gets its own deeper pull.
+  //
+  // A pull is whole or it throws (listTealPlays rejects when either namespace
+  // fails), so a failure comes back as the empty fallback and the empty-guard
+  // carries the previous index forward. Skipping the write instead shipped a
+  // build with no albums.json at all, and every album page 404ed at the edge.
+  // No `minRatio`: the index is a window of the newest plays, and a week of one
+  // record on repeat legitimately narrows it, which a ratio guard would refuse
+  // build after build against an index it had itself carried forward.
   const albumPull = await safe(
     'albums',
     async () => {
       const plays = await listTealPlays(pds, { repo: ME_DID, max: ALBUM_PLAY_MAX });
       return { plays: plays.length, albums: buildAlbums(plays, { maxTracks: SNAPSHOT_TRACK_CAP }) };
     },
-    null,
+    { plays: 0, albums: [] },
   );
   // What landed on disk, not what was fetched: the empty-guard can decide to
   // keep the previous index, and the sitemap below has to list the albums the
   // site will actually answer to.
-  const albumsWritten = albumPull
-    ? await writeJson(
-        'albums',
-        { builtAt: new Date().toISOString(), plays: albumPull.plays, albums: albumPull.albums },
-        { guardEmpty: true },
-      )
-    : null;
+  const albumsWritten = await writeJson(
+    'albums',
+    { builtAt: new Date().toISOString(), plays: albumPull.plays, albums: albumPull.albums },
+    { guardEmpty: true },
+  );
 
   // --- Discoverability: sitemap.xml + Atom feed -----------------------------
   // Generated from the snapshots already in hand. Blog posts live in the
@@ -1001,6 +1202,7 @@ async function main() {
           ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
           mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
           albums: albumsWritten?.albums || [],
+          pages: pagesWritten,
           builtAt,
         }),
       ),
@@ -1024,6 +1226,7 @@ async function main() {
           ratioedPieces: Array.isArray(ratioedWritten) ? ratioedWritten : ratioedPieces,
           mothNights: buildSessions(mothing?.observations).sessions.map((n) => n.date),
           albums: albumsWritten?.albums || [],
+          pages: pagesWritten,
         }),
       ),
     null,

@@ -69,6 +69,12 @@ const MONTHS = [
  * Anchored to the start of `now`'s *local* day — a post made at 11pm
  * EST should read as "today" until midnight EST, not until UTC's idea
  * of midnight (which is 7-8pm EST).
+ *
+ * Weeks, months and years count completed units, on the same month and year
+ * lengths as `relativeTime`. They used to round, which put "Elapsed 2 years
+ * ago" in a blog post's meta band over a footer reading "written 1y ago" — the
+ * same date, told two ways on one screen. (The day count itself still rounds:
+ * a span between two local midnights is 23 or 25 hours across a DST change.)
  */
 export function relativeDay(date, now = new Date()) {
   const d = new Date(date);
@@ -79,15 +85,16 @@ export function relativeDay(date, now = new Date()) {
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
   if (days < 7) return `${days} days ago`;
-  if (days < 30) {
-    const w = Math.round(days / 7);
+  const span = days * MS.d;
+  if (span < MS.mo) {
+    const w = Math.floor(span / MS.w);
     return w === 1 ? '1 week ago' : `${w} weeks ago`;
   }
-  if (days < 365) {
-    const mo = Math.round(days / 30);
+  if (span < MS.y) {
+    const mo = Math.floor(span / MS.mo);
     return mo === 1 ? '1 month ago' : `${mo} months ago`;
   }
-  const y = Math.round(days / 365);
+  const y = Math.floor(span / MS.y);
   return y === 1 ? '1 year ago' : `${y} years ago`;
 }
 
@@ -142,10 +149,40 @@ export function formatDayShortLabel(date, now = new Date()) {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
+/**
+ * The calendar day a date names, as `{ y, m, d }` (m 0-based), or null.
+ *
+ * An instant is read in the reader's own time zone — the zone `formatTime`
+ * and `groupByDay` use — so a date printed beside a time names the same day
+ * the time is on. These used to read UTC parts, and a record page said "10:53
+ * PM on October 17" for an evening on the 16th anywhere west of Greenwich.
+ *
+ * A bare 'YYYY-MM-DD' is a day, not an instant, and is read as written. (JS
+ * parses it as UTC midnight, which local parts would put on the day before
+ * everywhere in the Americas.) So is an instant on the exact millisecond of
+ * UTC midnight, which is how a day gets stored when the field wants a
+ * timestamp: the back-filled portfolio works carry '2019-01-01T00:00:00.000Z'
+ * for a piece from 2019, and local parts dated it December 31, 2018.
+ */
+function calendarParts(date) {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [y, m, d] = date.split('-').map(Number);
+    const check = new Date(Date.UTC(y, m - 1, d));
+    if (check.getUTCMonth() !== m - 1) return null;
+    return { y, m: m - 1, d };
+  }
+  const t = new Date(date);
+  if (Number.isNaN(t.getTime())) return null;
+  if (t.getTime() % MS.d === 0) {
+    return { y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate() };
+  }
+  return { y: t.getFullYear(), m: t.getMonth(), d: t.getDate() };
+}
+
 export function formatDateLong(date) {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  const p = calendarParts(date);
+  if (!p) return '';
+  return `${p.d} ${MONTHS[p.m]} ${p.y}`;
 }
 
 /**
@@ -153,20 +190,20 @@ export function formatDateLong(date) {
  * the blog index meta line.
  */
 export function formatDateFull(date) {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+  const p = calendarParts(date);
+  if (!p) return '';
+  return `${MONTHS[p.m]} ${p.d}, ${p.y}`;
 }
 
 /**
  * Abbreviated-month date, e.g. "Jun 27, 2025" — `formatDateFull` for a column
- * too narrow to spell the month. Same UTC parts as its long form so the two
- * always name the same day.
+ * too narrow to spell the month. Same calendar parts as its long form so the
+ * two always name the same day.
  */
 export function formatDateShort(date) {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+  const p = calendarParts(date);
+  if (!p) return '';
+  return `${MONTHS[p.m].slice(0, 3)} ${p.d}, ${p.y}`;
 }
 
 /* The months as a printed date abbreviates them: anything longer than four
@@ -178,19 +215,32 @@ const MONTHS_ABBREV = MONTHS.map((m, i) => (i === 8 ? 'Sept' : m.length > 4 ? m.
 /**
  * Middle-length date, e.g. "Sept 15, 2026", "June 27, 2025" — for a band that
  * has room for a date but not for "September 15, 2026", the longest form a
- * calendar can hand it. Same UTC parts as the other two, so all three name the
- * same day.
+ * calendar can hand it. Same calendar parts as the other two, so all three
+ * name the same day.
  */
 export function formatDateAbbrev(date) {
-  const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${MONTHS_ABBREV[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
+  const p = calendarParts(date);
+  if (!p) return '';
+  return `${MONTHS_ABBREV[p.m]} ${p.d}, ${p.y}`;
 }
+
+// One formatter, made on first use. `toLocaleTimeString` with options builds a
+// fresh one on every call, and this runs for every row of every feed on every
+// render — it was the heaviest app function in a scroll profile. Made lazily
+// rather than at import so the locale and zone are the ones in force when the
+// page first formats a time, not whenever this module happened to load.
+let timeFormat = null;
 
 export function formatTime(date) {
   const d = new Date(date);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (!timeFormat) {
+    timeFormat = new Intl.DateTimeFormat(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+  return timeFormat.format(d);
 }
 
 /**

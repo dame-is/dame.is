@@ -9,6 +9,7 @@ import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { fetchSnapshot } from '../lib/snapshot.js';
 import { resolvePds, listRecords, rkeyFromAtUri } from '../lib/atproto.js';
 import { transformRecords } from '../lib/feedBuilder.js';
+import { rereadWork } from '../lib/workRecord.js';
 import { renderMarkdown } from '../lib/markdown.js';
 import { showOnCreating, isDraft, workSlug, workCategory } from '../lib/publications.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
@@ -17,21 +18,48 @@ import './Blogging.css';
 
 const STANDARD_DOC = 'site.standard.document';
 
+// Every work the snapshots know: the standard documents /creating shows, then
+// any legacy is.dame.creating.work. fetchSnapshot shares its reads, so asking
+// again from the live fetch costs nothing.
+async function loadSnapshotWorks() {
+  const [creations, blogs] = await Promise.all([
+    fetchSnapshot('creations'),
+    fetchSnapshot('blogs'),
+  ]);
+  const std = Array.isArray(blogs)
+    ? blogs.filter((r) => showOnCreating(r?.value))
+    : [];
+  return [...std, ...(Array.isArray(creations) ? creations : [])];
+}
+
+/**
+ * The work at `/creating/<slug>` among `records`: by path first, then by rkey
+ * so URI-derived links resolve too. Drafts are hidden from public surfaces,
+ * so a drafted work must not resolve by direct URL either.
+ */
+function findWork(records, slug) {
+  if (!Array.isArray(records)) return null;
+  const visible = records.filter((r) => r?.value && !isDraft(r.value));
+  return (
+    visible.find((r) => workSlug(r.value) === slug) ||
+    visible.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
+    null
+  );
+}
+
 export default function CreatingWork() {
   const { slug } = useParams();
 
   const { items: record, status } = useLiveFeed({
     strategy: 'snapshot-first',
-    fetchSnapshotOverride: async () => {
-      const [creations, blogs] = await Promise.all([
-        fetchSnapshot('creations'),
-        fetchSnapshot('blogs'),
-      ]);
-      const std = Array.isArray(blogs) ? blogs.filter((r) => showOnCreating(r?.value)) : [];
-      return [...std, ...(Array.isArray(creations) ? creations : [])];
-    },
+    fetchSnapshotOverride: loadSnapshotWorks,
     fetchLive: async () => {
       const pds = await resolvePds(ME_DID);
+      // Confirm the record the snapshot found by reading just that one (see
+      // lib/workRecord.js); list everything only for a work it didn't know.
+      const known = findWork(await loadSnapshotWorks().catch(() => null), slug);
+      const live = known && (await rereadWork(pds, known, slug));
+      if (live) return [live];
       const [stdDocs, legacy] = await Promise.all([
         listRecords(pds, { repo: ME_DID, collection: STANDARD_DOC, max: 200 }),
         listRecords(pds, { repo: ME_DID, collection: COLLECTIONS.creating, max: 200 }),
@@ -40,18 +68,7 @@ export default function CreatingWork() {
       transformRecords(legacy, COLLECTIONS.creating, pds, ME_DID);
       return [...stdDocs.filter((r) => showOnCreating(r?.value)), ...legacy];
     },
-    mapItems: (snap) => {
-      if (!Array.isArray(snap)) return null;
-      // Drafts are hidden from public surfaces; a drafted work must not
-      // resolve by direct URL either (the live fetch would otherwise find it).
-      const visible = snap.filter((r) => r?.value && !isDraft(r.value));
-      return (
-        visible.find((r) => workSlug(r.value) === slug) ||
-        // Fall back to the rkey so URI-derived links resolve too.
-        visible.find((r) => rkeyFromAtUri(r?.uri) === slug) ||
-        null
-      );
-    },
+    mapItems: (records) => findWork(records, slug),
     deps: [slug],
   });
 

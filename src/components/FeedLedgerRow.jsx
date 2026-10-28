@@ -6,6 +6,7 @@ import { renderPlainTextWithTruncatedUrls } from '../lib/feedUrlFormat.jsx';
 import { getReplyHint } from '../lib/postReplyHint.js';
 import { recordPathFromAtUri } from '../lib/recordRoutes.js';
 import { photoUrl } from '../lib/inaturalist.js';
+import { avatarThumb } from '../lib/avatarThumb.js';
 import {
   batchCountLabel,
   batchNameLine,
@@ -169,7 +170,11 @@ export default function FeedLedgerRow({
         )}
         {embed && (
           <div className="ledger-embed">
-            <PostEmbed embed={embed.embed} did={embed.did} />
+            <PostEmbed
+              embed={embed.embed}
+              did={embed.did}
+              postUri={item.atUri}
+            />
           </div>
         )}
       </div>
@@ -257,7 +262,7 @@ function RepostQuote({ item }) {
           {author.avatar && (
             <img
               className="post-embed-quote-avatar"
-              src={author.avatar}
+              src={avatarThumb(author.avatar)}
               alt=""
               width={20}
               height={20}
@@ -289,7 +294,13 @@ function RepostQuote({ item }) {
             {renderPostText(payload.text, payload.facets || null)}
           </p>
         )}
-        {embed && <PostEmbed embed={embed} did={author.did} />}
+        {embed && (
+          <PostEmbed
+            embed={embed}
+            did={author.did}
+            postUri={payload.subjectUri}
+          />
+        )}
       </article>
     </div>
   );

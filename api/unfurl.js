@@ -2,7 +2,11 @@
 // metadata (title, description, image) so the block editor can populate a
 // link card without the author copying it by hand. Read-only, owner-facing.
 
-import { assertPublicHttpUrl } from './_lib/ssrfGuard.js';
+import {
+  assertPublicHttpUrl,
+  isCrossSiteRequest,
+  UPSTREAM_TIMEOUT_MS,
+} from './_lib/ssrfGuard.js';
 
 const META_LIMIT = 512 * 1024; // only need the <head>; cap the read.
 const MAX_REDIRECTS = 3; // re-validate every hop against the SSRF guard.
@@ -36,6 +40,12 @@ function metaContent(html, names) {
 }
 
 export default async function handler(req, res) {
+  if (isCrossSiteRequest(req)) {
+    return res
+      .status(403)
+      .json({ error: 'Cross-site requests are not allowed.' });
+  }
+
   const url = req.query?.url;
   if (!url || !/^https?:\/\//i.test(url)) {
     return res.status(400).json({ error: 'Pass a valid http(s) `url` query param.' });
@@ -49,6 +59,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    // One deadline for the whole exchange — every hop and the <head> read.
+    const signal = AbortSignal.timeout(UPSTREAM_TIMEOUT_MS);
     // Follow redirects by hand so every hop is re-checked by the SSRF guard —
     // `redirect:'follow'` would silently chase a Location into a private host.
     let upstream;
@@ -57,6 +69,7 @@ export default async function handler(req, res) {
       upstream = await fetch(current.href, {
         headers: { 'user-agent': 'Mozilla/5.0 (dame.is link unfurl)' },
         redirect: 'manual',
+        signal,
       });
       const location = upstream.status >= 300 && upstream.status < 400
         ? upstream.headers.get('location')
@@ -88,7 +101,6 @@ export default async function handler(req, res) {
       const decoder = new TextDecoder();
       let total = 0;
       // Read just enough to cover <head>.
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -120,6 +132,9 @@ export default async function handler(req, res) {
     res.setHeader('cache-control', 'public, max-age=3600');
     return res.status(200).json(out);
   } catch (err) {
-    return res.status(502).json({ error: err?.message || 'unfurl failed' });
+    const timedOut = err?.name === 'TimeoutError' || err?.name === 'AbortError';
+    return res.status(timedOut ? 504 : 502).json({
+      error: timedOut ? 'Upstream timed out.' : err?.message || 'unfurl failed',
+    });
   }
 }

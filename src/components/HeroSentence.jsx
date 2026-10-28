@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useLiveFeed } from '../hooks/useLiveFeed.js';
 import { resolvePds, listRecords } from '../lib/atproto.js';
 import { ME_DID, COLLECTIONS } from '../config.js';
+import { compareIsoDesc } from '../lib/time.js';
 
 /**
  * The home-page hero is one combinatorial sentence:
@@ -47,6 +48,13 @@ export const VARIANTS_B = [
 
 const EASE = [0.22, 0.61, 0.36, 1];
 
+// How many of each pool's longest phrases the hidden measure layer pairs up.
+// Every pairing used to be laid out (10 × 12 = 120 sentences, over 700 hidden
+// nodes, more than a quarter of the home page's DOM), but the tallest one is
+// always a pairing of long phrases: across 320–1600px it was never outside the
+// two longest of each pool. Four of each keeps a margin at an eighth the cost.
+const MEASURE_LONGEST = 4;
+
 // Motion variants for the word-by-word stagger inside each rotator.
 // The container itself has no visual animation — it just orchestrates
 // timing for its word children via `staggerChildren`. Children inherit
@@ -83,11 +91,19 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   // Split records into the two pools by `part`, dropping disabled ones.
   // Fallback is per-part: if the PDS has roles but no clauses, clauses use
   // the in-file defaults rather than emptying the second half of the sentence.
+  // Oldest first: listRecords hands them over newest-first, which reversed
+  // the in-file order the seed wrote them in (and with it the rotation, and
+  // the pinned reduced-motion opener).
   const { poolA, poolB } = useMemo(() => {
     const recs = heroRecords || [];
-    const enabled = recs.filter(
-      (r) => r.value?.enabled !== false && typeof r.value?.text === 'string' && r.value.text.trim(),
-    );
+    const enabled = recs
+      .filter(
+        (r) =>
+          r.value?.enabled !== false &&
+          typeof r.value?.text === 'string' &&
+          r.value.text.trim(),
+      )
+      .sort((a, b) => -compareIsoDesc(a.value.createdAt, b.value.createdAt));
     const roles = enabled.filter((r) => r.value.part === 'role').map((r) => r.value.text);
     const clauses = enabled.filter((r) => r.value.part === 'clause').map((r) => r.value.text);
     return {
@@ -106,12 +122,20 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
     reduce ? 0 : Math.floor(Math.random() * VARIANTS_B.length),
   );
 
-  // Pools are dynamic (they load and can change). Keep indices in range so
-  // `Rotator` never dereferences an out-of-bounds phrase.
-  useEffect(() => {
-    setIndexA((i) => (poolA.length ? i % poolA.length : 0));
-    setIndexB((i) => (poolB.length ? i % poolB.length : 0));
-  }, [poolA.length, poolB.length]);
+  // Pools are dynamic: the in-file fallback paints first, the PDS phrases
+  // land a moment later, a live refresh can follow. When one changes, keep
+  // the phrase on screen by finding it in the new pool (falling back to a
+  // clamped index), so the hero doesn't swap text out from under the reader
+  // with no transition. Adjusted during render, not in an effect, so no frame
+  // ever draws the old index against the new pool.
+  const [seenPools, setSeenPools] = useState({ poolA, poolB });
+  if (seenPools.poolA !== poolA || seenPools.poolB !== poolB) {
+    setSeenPools({ poolA, poolB });
+    if (seenPools.poolA !== poolA)
+      setIndexA(carryIndex(seenPools.poolA, poolA, indexA));
+    if (seenPools.poolB !== poolB)
+      setIndexB(carryIndex(seenPools.poolB, poolB, indexB));
+  }
 
   // Imperative shuffle handle the parent (Home) wires to a button so
   // users can advance the sentence manually instead of waiting for the
@@ -127,6 +151,14 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
       if (shuffleRef.current) shuffleRef.current = null;
     };
   }, [shuffleRef, poolA.length, poolB.length]);
+  const measureA = useMemo(
+    () => longestPhrases(poolA, MEASURE_LONGEST),
+    [poolA],
+  );
+  const measureB = useMemo(
+    () => longestPhrases(poolB, MEASURE_LONGEST),
+    [poolB],
+  );
   const [paused, setPaused] = useState(false);
   const [minHeight, setMinHeight] = useState(null);
   const wrapRef = useRef(null);
@@ -172,13 +204,20 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   // Reserve vertical space equal to the tallest A×B combination so the
   // feed below the hero doesn't jump as variants cycle. Wrapping
   // depends on both parts combined, so per-part measurement isn't
-  // enough — we measure every combination in the hidden layer.
+  // enough — we measure combinations in the hidden layer (the longest
+  // phrases of each pool against each other; see MEASURE_LONGEST).
+  //
+  // Re-run whenever the pools change: the PDS phrases usually land after the
+  // fallback was measured, and a longer one would otherwise only be noticed
+  // when it first appeared — as exactly the jump this exists to prevent.
   useEffect(() => {
     const wrap = wrapRef.current;
     const measure = measureRef.current;
     if (!wrap || !measure) return;
+    let cancelled = false;
 
     function recompute() {
+      if (cancelled) return;
       let max = 0;
       for (const child of measure.children) {
         const h = child.getBoundingClientRect().height;
@@ -201,8 +240,11 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
     // and therefore which combination is tallest).
     const ro = new ResizeObserver(recompute);
     ro.observe(wrap);
-    return () => ro.disconnect();
-  }, []);
+    return () => {
+      cancelled = true;
+      ro.disconnect();
+    };
+  }, [poolA, poolB]);
 
   return (
     <span
@@ -229,8 +271,8 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
         className="hero-sentence-measure"
         ref={measureRef}
       >
-        {poolA.flatMap((a) =>
-          poolB.map((b) => (
+        {measureA.flatMap((a) =>
+          measureB.map((b) => (
             <span key={`${a}|${b}`}>
               <span className="hero-sentence-lead">dame is</span>{' '}
               <span className="hero-rotator hero-rotator-a">
@@ -247,6 +289,18 @@ export default function HeroSentence({ shuffleRef = null } = {}) {
   );
 }
 
+/** The `k` longest phrases of a pool, by character count. */
+function longestPhrases(pool, k) {
+  return [...pool].sort((a, b) => b.length - a.length).slice(0, k);
+}
+
+/** `index` into `prev`, moved to wherever the same phrase sits in `next`. */
+function carryIndex(prev, next, index) {
+  if (!next.length) return 0;
+  const at = next.indexOf(prev[index]);
+  return at >= 0 ? at : index % next.length;
+}
+
 function pickDifferent(current, length) {
   if (length <= 1) return 0;
   let next;
@@ -261,21 +315,23 @@ function Rotator({ index, pool, reduce, className = '' }) {
   // space text nodes between word spans preserve the wrap-anywhere
   // behavior the measure layer already counts on. Guard the lookup: the
   // pool can change a render before the parent clamps `index` back in range.
-  const words = useMemo(() => {
-    const phrase = pool[index] ?? pool[0] ?? '';
-    return phrase.split(' ');
-  }, [pool, index]);
+  const phrase = pool[index] ?? pool[0] ?? '';
+  const words = useMemo(() => phrase.split(' '), [phrase]);
 
+  // Keyed by the text, not the index, so a pool change that keeps the same
+  // phrase on screen (see carryIndex) isn't mistaken for a new one. Under
+  // reduced motion the swap is instant: popLayout would otherwise hold the
+  // old phrase over the new one while it faded.
   return (
     <span className={`hero-rotator ${className}`}>
       <AnimatePresence initial={false} mode="popLayout">
         <motion.span
-          key={index}
+          key={phrase}
           className="hero-rotator-phrase"
           variants={reduce ? undefined : phraseVariants}
           initial={reduce ? false : 'hidden'}
           animate={reduce ? undefined : 'visible'}
-          exit={reduce ? { opacity: 0 } : 'exit'}
+          exit={reduce ? { opacity: 0, transition: { duration: 0 } } : 'exit'}
         >
           {words.map((word, i) => (
             <Fragment key={i}>

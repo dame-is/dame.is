@@ -16,6 +16,7 @@
 import { resolveActor } from '../../src/lib/moderation/target.js';
 import { select, upsert } from './modDb.js';
 import { rkeysForWrite, noteListed, noteUnlisted } from './graphFacts.js';
+import { closeAdds } from './closeAdds.js';
 
 /**
  * Which list a command acts on.
@@ -93,7 +94,7 @@ export async function applyCommand(
       ok: false,
       message:
         `That list is in ${owner === null ? 'an unreadable repo' : "dame's own repo"}, and I can only write to lists this account owns. ` +
-        'Run the migration first (Migrate tab), or remove them from your client.',
+        'The list has to move to this account first, or remove them from your client.',
     };
   }
 
@@ -210,6 +211,11 @@ export async function applyCommand(
     }
   }
   noteUnlisted(uri, did);
+  // Close what put them on, as the queue's Remove does. Left open, "undo last"
+  // keeps choosing the plan that added them and reports them as still to take
+  // off, however many times it is asked. Best effort, like the log below: the
+  // listitems are already gone, and that is the part dame asked for.
+  await closeAdds(did, raw || 'unblocked').catch(() => {});
   await log(did, 'list_remove', raw, scored, via);
   return {
     ok: true,

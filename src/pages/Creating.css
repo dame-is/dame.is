@@ -38,9 +38,14 @@
   transition: transform 200ms ease, border-color 200ms ease;
 }
 
-.creating-grid-link:hover {
-  border-color: var(--accent-soft);
-  transform: translateY(-2px);
+/* Pointer-only, as the site's hover tints are: on touch the lift sticks to
+   whatever was tapped, and stays up after navigating back (see the note in
+   typography.css). */
+@media (hover: hover) {
+  .creating-grid-link:hover {
+    border-color: var(--accent-soft);
+    transform: translateY(-2px);
+  }
 }
 
 .creating-grid-link img {

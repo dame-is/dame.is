@@ -38,7 +38,7 @@ import {
 import { lookupArtwork } from './_lib/itunes.js';
 import { photoUrl } from '../src/lib/inaturalist.js';
 import { nightSpan, photographed } from '../src/lib/mothing.js';
-import { formatListenTime, monthYear } from '../src/lib/albums.js';
+import { formatListenTime } from '../src/lib/albums.js';
 import { artLookupFor, upscaleArtwork } from '../src/lib/musicIds.js';
 import { playArtistLine, playTrackName, playedAtOf } from '../src/lib/teal.js';
 import { MOTHING_OBSERVATION_NSID } from '../src/config.js';
@@ -196,7 +196,11 @@ async function playCardData(record) {
   };
 }
 
-/** Everything one album's card draws, off the album index. */
+/**
+ * Everything one album's card draws, off the album index. No "since": the
+ * index is built from a window of the newest plays, so an album's first play
+ * in it is not its first play here (see albumCardCopy in src/lib/albums.js).
+ */
 async function albumCardData(album) {
   if (!album?.title) return null;
   return {
@@ -205,7 +209,6 @@ async function albumCardData(album) {
     plays: album.plays || 0,
     tracks: album.tracks || 0,
     listened: formatListenTime(album.seconds),
-    since: monthYear(album.firstPlayed),
     cover: await inlineCover(album.sample),
   };
 }
@@ -306,7 +309,9 @@ export default async function handler(req, res) {
       // Stamp the folio with the night's own day, exactly as a record card is
       // stamped with the record's — the notebook page number is what dates
       // this card now that its headline names the session instead.
-      if (night && !q.date) folioAt = new Date(`${night.date}T00:00:00Z`);
+      // The night's date is a calendar day, so it goes in as one: as UTC
+      // midnight it would read as the evening before in Eastern time.
+      if (night && !q.date) folioAt = night.date;
     }
     // The listening cards. None of the three takes free text either: `play`
     // carries a record key, `album` a slug that has to match something in the
@@ -328,12 +333,18 @@ export default async function handler(req, res) {
     if (!takenAlready && !play && !album && (q.albums === '1' || q.albums === 'true')) {
       shelf = await shelfCardData(await albumsIndex(origin));
     }
-    // A handle nobody in the roster answers to, or a roster that could not be
-    // read: draw the work's own card rather than the site's home index, which
-    // is what a bare fall-through would give. The middleware marks that path
-    // noindex anyway; this is only about what a human sees if they open the
-    // image URL by hand.
-    if (!piece && !participant && !board && (q.participant || q.board)) {
+    // A handle nobody in the roster answers to, a piece the snapshot and the
+    // PDS both missed, or a roster that could not be read: draw the work's own
+    // card rather than the site's home index, which is what a bare fall-through
+    // would give. The middleware marks a path it can't resolve noindex anyway,
+    // but a piece it DID resolve can still miss here on a blip, and the crawler
+    // that fetched this image keeps whatever it got.
+    if (
+      !piece &&
+      !participant &&
+      !board &&
+      (q.piece || q.participant || q.board)
+    ) {
       const meta = pageMeta('/creating');
       pathname = '/creating';
       label = meta.label;
@@ -351,6 +362,30 @@ export default async function handler(req, res) {
       subtitle = meta.desc;
       nsid = meta.nsid;
     }
+    // A night no session answers to: the mothing page's own card, likewise.
+    if (!piece && !participant && !board && !night && q.night) {
+      const meta = pageMeta('/mothing');
+      pathname = '/mothing';
+      label = meta.label;
+      subtitle = meta.desc;
+      nsid = meta.nsid;
+    }
+    // Whether a subject was asked for and didn't resolve. That card is a
+    // stand-in, and caching it for the rest of the hour plus a day of
+    // stale-while-revalidate meant one slow snapshot read on the first fetch
+    // pinned every share of the piece to the stand-in.
+    const flag = (v) => v === '1' || v === 'true';
+    const asked =
+      q.piece ||
+      q.participant ||
+      flag(q.board) ||
+      q.night ||
+      q.play ||
+      q.album ||
+      flag(q.albums);
+    const drawn =
+      piece || participant || board || night || play || album || shelf;
+    const missed = Boolean(asked) && !drawn;
     if (piece || participant || board) {
       // Fall through to the render with one of them set; nothing else applies.
     } else if (night) {
@@ -442,9 +477,11 @@ export default async function handler(req, res) {
     res.setHeader('Content-Type', 'image/png');
     res.setHeader(
       'Cache-Control',
-      live
-        ? `public, max-age=${maxAge}, s-maxage=${maxAge}`
-        : `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=86400`,
+      missed
+        ? 'public, max-age=60, s-maxage=60'
+        : live
+          ? `public, max-age=${maxAge}, s-maxage=${maxAge}`
+          : `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=86400`,
     );
     res.setHeader('Content-Length', String(png.length));
     return res.status(200).end(png);

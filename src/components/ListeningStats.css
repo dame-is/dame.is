@@ -73,11 +73,15 @@
   margin-bottom: var(--space-6);
 }
 
+/* Top-aligned, not centred: the minutes tile carries an extra "≈ hrs" line,
+   and centring its taller stack lifted that figure 11px above its four
+   neighbours. From the top, every value sits on one line and the sub-line
+   hangs below its own label. */
 .listen-stat-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.15rem;
   padding: var(--space-4) var(--space-2);
   background: var(--bg);

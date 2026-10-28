@@ -236,10 +236,29 @@ export function composeMessage(message) {
  */
 const CHOICE_TTL_MS = 30 * 60_000;
 
+/**
+ * The stored options, if they are still live.
+ *
+ * Timed from when the OPTIONS were offered, which each one carries. The row's
+ * created_at is rewritten whenever a post is remembered, so an evening of
+ * block+post messages kept renewing a menu shown hours earlier, and a bare "2"
+ * could still run its bulk approve. Rows from before options carried a time
+ * fall back to created_at.
+ */
+function liveOptions(row, now = Date.now()) {
+  if (!row?.options?.length) return null;
+  const at = row.options[0].offered_at ?? row.created_at;
+  if (now - Date.parse(at) > CHOICE_TTL_MS) return null;
+  return row.options;
+}
+
 async function offerChoices(convoId, options, lastPost) {
   if (!options?.length && !lastPost) return;
-  const row = { convo_id: convoId, created_at: new Date().toISOString() };
-  if (options?.length) row.options = options;
+  const now = new Date().toISOString();
+  const row = { convo_id: convoId, created_at: now };
+  if (options?.length) {
+    row.options = options.map((o) => ({ ...o, offered_at: now }));
+  }
   if (lastPost) {
     row.last_post = lastPost;
     row.last_post_at = new Date().toISOString();
@@ -310,10 +329,7 @@ async function takeChoice(convoId, n) {
     select: 'options,created_at',
     eq: { convo_id: convoId },
   }).catch(() => []);
-  const row = rows?.[0];
-  if (!row) return null;
-  if (Date.now() - Date.parse(row.created_at) > CHOICE_TTL_MS) return null;
-  return row.options?.[n - 1]?.command ?? null;
+  return liveOptions(rows?.[0])?.[n - 1]?.command ?? null;
 }
 
 /** Render options as the numbered menu dame picks from. */
@@ -442,9 +458,10 @@ export async function runCommand(
     }
     const lines = h.rows.map((r) => {
       const when = new Date(r.acted_at).toLocaleString();
+      const verb = r.action === 'list_remove' ? 'removed' : 'added';
       const note = r.plan?.note ? `, "${r.plan.note}"` : '';
       const undone = r.undone_at ? ' (undone)' : '';
-      return `${when} · ${r.band} · ${r.approved_via ?? '?'} · ${r.code}${undone}${note}`;
+      return `${when} · ${verb} · ${r.band} · ${r.approved_via ?? '?'} · ${r.code}${undone}${note}`;
     });
     return say(
       `${h.total} actions on record, most recent first:\n\n${lines.join('\n')}` +
@@ -546,12 +563,20 @@ export async function runCommand(
       if (!out.total)
         return say(`Nothing in ${cmd.code} was read as ${label}.`);
       if (!out.pending) {
+        // Not always "all added": PROTECTED rows are never added, and someone
+        // already on the list through another plan, or taken back off, is not
+        // added again by approving this.
+        const record = { label: 'Show me the record', command: 'history' };
         return say(
-          `All ${out.added} read as ${label} are already on the list.`,
-          [
-            { label: 'Take them back off', command: `undo ${cmd.code}` },
-            { label: 'Show me the record', command: 'history' },
-          ],
+          out.added === out.total
+            ? `All ${out.added} read as ${label} are already on the list.`
+            : `Nothing read as ${label} is left to add. ${out.added} of the ${out.total} are on the list through this plan; the rest are PROTECTED, were already on it, or were taken back off.`,
+          out.added
+            ? [
+                { label: 'Take them back off', command: `undo ${cmd.code}` },
+                record,
+              ]
+            : [record],
         );
       }
       const lines = out.rows.map(
@@ -934,8 +959,7 @@ async function readCardChoices(convoId) {
   }).catch(() => []);
   const row = rows?.[0];
   if (!row?.options?.length || !row.options.every((o) => o.key)) return null;
-  if (Date.now() - Date.parse(row.created_at) > CHOICE_TTL_MS) return null;
-  return row.options;
+  return liveOptions(row);
 }
 
 /** Bands an engagement-kind approval reaches: every band but PROTECTED. */
@@ -1800,27 +1824,44 @@ export async function runDmPass({
       }
 
       // Read the conversation back so a follow-up means something.
-      const history = await readHistory(chat, entry, { botDid, limits });
-
-      const reply = await answer({
-        generate,
-        message: reading
-          ? readRequest(reading)
-          : pulsing
-            ? pulseRequest(pulsing)
-            : threading
-              ? threadRequest(threading)
-              : composeMessage(entry.message),
-        io,
-        history,
-        model: activeModel,
-        surface: 'dm',
-        extraTools,
-        voice: config?.style,
-        guidance: config?.guidance,
-        maxSteps: limits.maxSteps,
-        reviewRows: limits.reviewRows,
-      });
+      let reply;
+      try {
+        const history = await readHistory(chat, entry, { botDid, limits });
+        reply = await answer({
+          generate,
+          message: reading
+            ? readRequest(reading)
+            : pulsing
+              ? pulseRequest(pulsing)
+              : threading
+                ? threadRequest(threading)
+                : composeMessage(entry.message),
+          io,
+          history,
+          model: activeModel,
+          surface: 'dm',
+          extraTools,
+          voice: config?.style,
+          guidance: config?.guidance,
+          maxSteps: limits.maxSteps,
+          reviewRows: limits.reviewRows,
+        });
+      } catch (err) {
+        // Said, like every other branch's failure, in the words the agent
+        // path uses (fallbackText). A model that timed out or a gateway that
+        // errored used to end the turn with the 👀 taken away and nothing
+        // else, which looks exactly like a deliberate non-answer.
+        const why = String(err?.message || err);
+        await send(
+          /abort|timeout/i.test(why)
+            ? 'That took too long and I stopped.'
+            : `That failed: ${why.slice(0, 200)}`,
+        ).catch(() => {});
+        log('The analyst failed', { convoId: entry.convoId, err: why });
+        outcome = 'failed';
+        turns.push({ convoId: entry.convoId, analyst: 'failed' });
+        continue;
+      }
 
       let text = reply.text || 'No answer produced.';
       // The analyst quotes commands in backticks. Lift them into a menu so dame
@@ -1900,6 +1941,20 @@ export async function runDmPass({
         chunks: chunks.length,
         steps: reply.steps,
       });
+    } catch (err) {
+      // One message that failed in a way nothing above caught. The cursor has
+      // already moved past it, so it is dropped either way; what this changes
+      // is that the rest of the batch is still answered, and dame sees a ❌
+      // rather than an 👀 that quietly disappears.
+      log('A DM turn failed', {
+        convoId: entry.convoId,
+        err: String(err?.message || err),
+      });
+      outcome = 'failed';
+      await send(
+        `That failed: ${String(err?.message || err).slice(0, 200)}`,
+      ).catch(() => {});
+      turns.push({ convoId: entry.convoId, failed: true });
     } finally {
       await settle(chat, entry.convoId, entry.message.id, outcome);
     }

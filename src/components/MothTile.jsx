@@ -38,9 +38,11 @@ export function MothTile({ obs, onOpen, first = false }) {
       {first && <FirstSightingChip size="small" />}
     </span>
   );
-  // The tile's own aria-label REPLACES its contents for a screen reader, so
-  // the mark has to be said here or it isn't said at all.
-  const label = `View photo: ${title}${first ? ', first sighting' : ''}`;
+  // The tile is named by its caption — common name, binomial, the lifer mark —
+  // rather than an aria-label, which would replace it: a label short of what's
+  // on screen hides the binomial from a screen reader, and voice control can't
+  // find the tile by the words it shows. The photo's alt is empty so the name
+  // isn't said twice; the caption under it already says what it is.
   return (
     <li className="mothing-cell">
       {src ? (
@@ -48,9 +50,14 @@ export function MothTile({ obs, onOpen, first = false }) {
           type="button"
           className="mothing-tile"
           onClick={() => onOpen(obs)}
-          aria-label={label}
         >
-          <img src={src} srcSet={srcSet} alt={title} loading="lazy" decoding="async" />
+          <img
+            src={src}
+            srcSet={srcSet}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
           {caption}
         </button>
       ) : (

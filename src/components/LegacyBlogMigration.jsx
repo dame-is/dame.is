@@ -199,7 +199,22 @@ export default function LegacyBlogMigration({ agent, did }) {
                 <button
                   type="button"
                   className="admin-gate-button admin-gate-button-tight"
-                  onClick={() => runOne(post)}
+                  onClick={() => {
+                    // A second migration writes the same rkey (migratePost
+                    // overwrites rather than duplicating), so on a post that is
+                    // already there it puts the original markdown conversion
+                    // back over every edit since — a typo fix, a linked comments
+                    // thread. One click was all that took.
+                    if (
+                      isMigrated &&
+                      !window.confirm(
+                        `Re-import “${post.title}” from the legacy markdown? Any edits made to it since it was migrated will be overwritten.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    runOne(post);
+                  }}
                   disabled={busy}
                 >
                   {st?.status === 'running'
