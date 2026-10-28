@@ -6,7 +6,16 @@
 // humanized rkey there — the slug with its apostrophes filed off.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { recordMeta } from './records.js';
+import {
+  recordMeta,
+  postCardCopy,
+  postImages,
+  bskyImageUrl,
+  avatarThumbUrl,
+  photosLabel,
+  subjectPost,
+  subjectCardCopy,
+} from './records.js';
 import {
   ME_DID,
   COLLECTIONS,
@@ -126,11 +135,12 @@ describe('recordMeta — /curating/:slug', () => {
 });
 
 /**
- * A PDS holding `records` (keyed `collection/rkey`) and an origin serving
- * `snapshots` (keyed by name). Anything else is a 404 — never a throw, since
+ * A PDS holding `records` (keyed `collection/rkey`), an origin serving
+ * `snapshots` (keyed by name), and an AppView that knows the post views in
+ * `posts` (keyed by at:// URI). Anything else is a 404 — never a throw, since
  * these resolvers ask several places before they give up.
  */
-function worldFetch({ records = {}, snapshots = {} } = {}) {
+function worldFetch({ records = {}, snapshots = {}, posts = {} } = {}) {
   const calls = [];
   vi.stubGlobal(
     'fetch',
@@ -141,6 +151,10 @@ function worldFetch({ records = {}, snapshots = {} } = {}) {
         return json({
           service: [{ id: '#atproto_pds', serviceEndpoint: PDS }],
         });
+      }
+      if (url.startsWith('https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts')) {
+        const uris = new URL(url).searchParams.getAll('uris');
+        return json({ posts: uris.map((u) => posts[u]).filter(Boolean) });
       }
       if (url.startsWith(`${PDS}/xrpc/com.atproto.repo.getRecord`)) {
         const q = new URL(url).searchParams;
@@ -330,5 +344,319 @@ describe('recordMeta — records with no text of their own', () => {
     worldFetch();
     expect(await recordMeta('/posting/3nothing', ORIGIN)).toBeNull();
     expect(await recordMeta('/photographing/3nothing', ORIGIN)).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Photos, and the posts Dame passes on                                */
+/* ------------------------------------------------------------------ */
+
+// Real shapes, trimmed: CIDs are long base32 strings and the CDN is addressed
+// by them, so the fixtures use ones that look like the real thing.
+const CID_A = 'bafkreifkgmd2iisfr7fv3ucbcoqsgaexbp2itcnrwjxl2iqvbrjyehrn7m';
+const CID_B = 'bafkreihzx5t5rrb2ryykt2itp3uaa7tvc2jc3teev67ywi7l22gmbpr3da';
+const blob = (cid) => ({ $type: 'blob', ref: { $link: cid }, mimeType: 'image/jpeg', size: 1000 });
+const image = (cid, alt = '', aspectRatio = { width: 4, height: 3 }) => ({ alt, image: blob(cid), aspectRatio });
+const imagesEmbed = (...images) => ({ $type: 'app.bsky.embed.images', images });
+
+describe('postImages / postCardCopy', () => {
+  it('reads a plain image embed and the media half of a quote-with-media', () => {
+    expect(postImages({ embed: imagesEmbed(image(CID_A, 'a dog')) })).toEqual([
+      { cid: CID_A, alt: 'a dog', aspect: 4 / 3 },
+    ]);
+    const withQuote = {
+      embed: {
+        $type: 'app.bsky.embed.recordWithMedia',
+        media: imagesEmbed(image(CID_B, 'dril tweet')),
+        record: { $type: 'app.bsky.embed.record', record: { uri: 'at://x/app.bsky.feed.post/1', cid: 'c' } },
+      },
+    };
+    expect(postImages(withQuote).map((p) => p.alt)).toEqual(['dril tweet']);
+  });
+
+  it('builds CDN thumbnails as JPEG, and drops an image whose address looks wrong', () => {
+    const copy = postCardCopy({
+      text: 'two',
+      embed: imagesEmbed(image(CID_A), { alt: 'broken', image: { ref: { $link: '../../etc' } } }),
+    });
+    expect(copy.photos).toEqual([
+      {
+        url: `https://cdn.bsky.app/img/feed_thumbnail/plain/${ME_DID}/${CID_A}@jpeg`,
+        alt: '',
+        aspect: 4 / 3,
+      },
+    ]);
+  });
+
+  it('captions a post with no words by its alt text, and counts photos with none', () => {
+    const alt = postCardCopy({ text: '', embed: imagesEmbed(image(CID_A, 'a sunset')) });
+    expect(alt).toMatchObject({ text: '', caption: 'a sunset', standIn: '' });
+    const bare = postCardCopy({ text: '', embed: imagesEmbed(image(CID_A), image(CID_B)) });
+    expect(bare).toMatchObject({ caption: '', standIn: 'Two photos', total: 2 });
+  });
+
+  it('keeps photos off a card when a label asks for it, and keeps the words', () => {
+    const value = {
+      text: 'not for everyone',
+      labels: { $type: 'com.atproto.label.defs#selfLabels', values: [{ val: 'nudity' }] },
+      embed: imagesEmbed(image(CID_A)),
+    };
+    expect(postCardCopy(value)).toMatchObject({ text: 'not for everyone', photos: [], total: 1 });
+    // And an AppView label on somebody else's post does the same.
+    const labelled = postCardCopy(
+      { text: 'x', embed: imagesEmbed(image(CID_A)) },
+      { labels: [{ val: 'graphic-media' }] },
+    );
+    expect(labelled.photos).toEqual([]);
+  });
+
+  it('counts in words, as far as Bluesky allows', () => {
+    expect(photosLabel(1)).toBe('A photo');
+    expect(photosLabel(4)).toBe('Four photos');
+  });
+});
+
+describe('bskyImageUrl / avatarThumbUrl', () => {
+  it('refuses an address it would not want to fetch', () => {
+    expect(bskyImageUrl('did:plc:abc', CID_A)).toContain('/feed_thumbnail/plain/did:plc:abc/');
+    expect(bskyImageUrl('https://evil.example', CID_A)).toBeNull();
+    expect(bskyImageUrl('did:plc:abc', 'x/../y')).toBeNull();
+  });
+
+  it('takes only a CDN avatar, rebuilt as the thumbnail', () => {
+    expect(avatarThumbUrl(`https://cdn.bsky.app/img/avatar/plain/did:plc:abc/${CID_A}`)).toBe(
+      `https://cdn.bsky.app/img/avatar_thumbnail/plain/did:plc:abc/${CID_A}@jpeg`,
+    );
+    expect(avatarThumbUrl('https://example.com/avatar.svg')).toBeNull();
+    expect(avatarThumbUrl(undefined)).toBeNull();
+  });
+});
+
+describe('recordMeta — a post with photos', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('gives a post with a photo the photo card, read back by its record key', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3cooper': {
+          text: 'gm from cooper',
+          embed: imagesEmbed(image(CID_A, 'A small tan chihuahua')),
+          createdAt: '2026-10-27T12:00:00.000Z',
+        },
+      },
+    });
+    const meta = await recordMeta('/posting/3cooper', ORIGIN);
+    expect(meta.title).toBe('gm from cooper');
+    expect(meta.textOnly).toBe(true);
+    // Only the record key rides on the query: no text, no image URL.
+    expect(meta.ogQuery).toBe('post=3cooper');
+    expect(meta.imageAlt).toBe('gm from cooper (a photo: A small tan chihuahua)');
+  });
+
+  it('names a photo-only post by its alt text rather than its embed kind', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3dril': {
+          text: '',
+          embed: {
+            $type: 'app.bsky.embed.recordWithMedia',
+            media: imagesEmbed(image(CID_A, 'dril tweet about spending 3,600 on candles')),
+            record: { $type: 'app.bsky.embed.record', record: { uri: 'at://x/app.bsky.feed.post/1', cid: 'c' } },
+          },
+        },
+      },
+    });
+    const meta = await recordMeta('/posting/3dril', ORIGIN);
+    expect(meta.title).toBe('dril tweet about spending 3,600 on candles');
+    expect(meta.ogQuery).toBe('post=3dril');
+    expect(meta.imageAlt).toBe('A photo by Dame: dril tweet about spending 3,600 on candles');
+  });
+
+  it('says which photo an alt text belongs to when there are several', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3web': {
+          text: 'good morning',
+          embed: imagesEmbed(image(CID_A, 'a spider web'), image(CID_B, 'another'), image(CID_A)),
+        },
+      },
+    });
+    expect((await recordMeta('/posting/3web', ORIGIN)).imageAlt).toBe(
+      'good morning (three photos, the first: a spider web)',
+    );
+  });
+
+  it('calls a photo-only post with no alt text what it is', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3bare': { text: '', embed: imagesEmbed(image(CID_A), image(CID_B)) },
+      },
+    });
+    const meta = await recordMeta('/posting/3bare', ORIGIN);
+    expect(meta.title).toBe('Two photos by Dame');
+    expect(meta.imageAlt).toBe('Two photos by Dame');
+  });
+
+  it('cuts a transcript-length alt text short in the head', async () => {
+    const long = `Screenshot. ${'word '.repeat(200)}`;
+    worldFetch({
+      records: { 'app.bsky.feed.post/3long': { text: '', embed: imagesEmbed(image(CID_A, long)) } },
+    });
+    const meta = await recordMeta('/posting/3long', ORIGIN);
+    expect(meta.title.length).toBeLessThanOrEqual(280);
+    expect(meta.title.endsWith('…')).toBe(true);
+  });
+
+  it('keeps the words-only card for a post whose photos a label keeps off', async () => {
+    worldFetch({
+      records: {
+        'app.bsky.feed.post/3label': {
+          text: 'careful',
+          labels: { values: [{ val: 'porn' }] },
+          embed: imagesEmbed(image(CID_A)),
+        },
+      },
+    });
+    const meta = await recordMeta('/posting/3label', ORIGIN);
+    expect(meta.title).toBe('careful');
+    expect(meta.ogQuery).toBeUndefined();
+  });
+
+  it('leaves a text post exactly as it was', async () => {
+    worldFetch({ records: { 'app.bsky.feed.post/3text': { text: 'moats' } } });
+    const meta = await recordMeta('/posting/3text', ORIGIN);
+    expect(meta.title).toBe('moats');
+    expect(meta.ogQuery).toBeUndefined();
+    expect(meta.imageAlt).toBeUndefined();
+  });
+});
+
+const POE_DID = 'did:plc:poepoepoepoepoepoepoepoe';
+const POE_POST = `at://${POE_DID}/app.bsky.feed.post/3dispatch`;
+const poeView = (record, extra = {}) => ({
+  uri: POE_POST,
+  cid: 'bafyreipoe',
+  author: {
+    did: POE_DID,
+    handle: 'poe.atpota.to',
+    displayName: 'Poe',
+    avatar: `https://cdn.bsky.app/img/avatar/plain/${POE_DID}/${CID_B}`,
+    labels: [],
+    ...(extra.author || {}),
+  },
+  record: { $type: 'app.bsky.feed.post', createdAt: '2026-10-26T10:00:00.000Z', ...record },
+  labels: extra.labels || [],
+});
+const repostOf = (uri) => ({
+  $type: 'app.bsky.feed.repost',
+  subject: { uri, cid: 'bafyreipoe' },
+  createdAt: '2026-10-27T15:00:00.000Z',
+});
+
+describe('recordMeta — reposts and likes', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('credits a repost to whoever wrote the post, and quotes it', async () => {
+    worldFetch({
+      records: { 'app.bsky.feed.repost/3rp': repostOf(POE_POST) },
+      posts: { [POE_POST]: poeView({ text: 'new dispatch! bluesky put profile links in your own repo' }) },
+    });
+    const meta = await recordMeta('/reposting/3rp', ORIGIN);
+    expect(meta.title).toBe('Dame reposted a post by Poe (@poe.atpota.to)');
+    expect(meta.description).toBe('“new dispatch! bluesky put profile links in your own repo”');
+    expect(meta.textOnly).toBe(false);
+    expect(meta.ogQuery).toBe('repost=3rp');
+    expect(meta.imageAlt).toBe(
+      'A post by Poe (@poe.atpota.to): “new dispatch! bluesky put profile links in your own repo”',
+    );
+    // The page is still the repost record's own.
+    expect(meta.atUri).toBe(`at://${ME_DID}/app.bsky.feed.repost/3rp`);
+    expect(meta.nsid).toBe('app.bsky.feed.repost');
+    expect(meta.date).toBe('2026-10-27T15:00:00.000Z');
+  });
+
+  it('describes a reposted photo by its alt text', async () => {
+    worldFetch({
+      records: { 'app.bsky.feed.repost/3rp': repostOf(POE_POST) },
+      posts: { [POE_POST]: poeView({ text: '', embed: imagesEmbed(image(CID_A, 'a weevil')) }) },
+    });
+    const meta = await recordMeta('/reposting/3rp', ORIGIN);
+    expect(meta.description).toBe('a weevil');
+    expect(meta.imageAlt).toBe('A photo by Poe (@poe.atpota.to): a weevil');
+  });
+
+  it('says liked for a like, and the handle alone when there is no display name', async () => {
+    worldFetch({
+      records: { 'app.bsky.feed.like/3lk': { ...repostOf(POE_POST), $type: 'app.bsky.feed.like' } },
+      posts: { [POE_POST]: poeView({ text: 'hi' }, { author: { displayName: '' } }) },
+    });
+    const meta = await recordMeta('/liking/3lk', ORIGIN);
+    expect(meta.title).toBe('Dame liked a post by @poe.atpota.to');
+    expect(meta.ogQuery).toBe('like=3lk');
+  });
+
+  it('says so when Dame reposts their own post', async () => {
+    const own = `at://${ME_DID}/app.bsky.feed.post/3own`;
+    worldFetch({
+      records: { 'app.bsky.feed.repost/3rp': repostOf(own) },
+      posts: {
+        [own]: {
+          ...poeView({ text: 'mine' }),
+          uri: own,
+          author: { did: ME_DID, handle: 'dame.is', displayName: 'dame' },
+        },
+      },
+    });
+    expect((await recordMeta('/reposting/3rp', ORIGIN)).title).toBe('Dame reposted their own post');
+  });
+
+  it('keeps the plain verb card when the AppView cannot name the post', async () => {
+    worldFetch({ records: { 'app.bsky.feed.repost/3rp': repostOf(POE_POST) } });
+    const meta = await recordMeta('/reposting/3rp', ORIGIN);
+    expect(meta.title).toBe('A repost');
+    expect(meta.textOnly).toBe(true);
+    expect(meta.ogQuery).toBeUndefined();
+  });
+
+  it('leaves out an author who asked not to be shown to signed-out readers', async () => {
+    worldFetch({
+      records: { 'app.bsky.feed.repost/3rp': repostOf(POE_POST) },
+      posts: { [POE_POST]: poeView({ text: 'hi' }, { author: { labels: [{ val: '!no-unauthenticated' }] } }) },
+    });
+    const meta = await recordMeta('/reposting/3rp', ORIGIN);
+    expect(meta.title).toBe('A repost');
+    expect(meta.ogQuery).toBeUndefined();
+  });
+
+  it('never asks the AppView about a subject that is not a Bluesky post', async () => {
+    const calls = worldFetch({
+      records: {
+        'social.grain.favorite/3fav': {
+          subject: 'at://did:plc:x/social.grain.gallery/3g',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+      },
+    });
+    const meta = await recordMeta('/liking/3fav', ORIGIN);
+    expect(meta.title).toBe('A like');
+    expect(calls.some((u) => u.includes('getPosts'))).toBe(false);
+  });
+
+  it('hands the card renderer the same post, author and photos', async () => {
+    worldFetch({
+      records: { 'app.bsky.feed.repost/3rp': repostOf(POE_POST) },
+      posts: { [POE_POST]: poeView({ text: 'look', embed: imagesEmbed(image(CID_A, 'a weevil')) }) },
+    });
+    const copy = subjectCardCopy(await subjectPost('reposting', '3rp'));
+    expect(copy.text).toBe('look');
+    expect(copy.author).toEqual({
+      name: 'Poe',
+      handle: 'poe.atpota.to',
+      avatar: `https://cdn.bsky.app/img/avatar_thumbnail/plain/${POE_DID}/${CID_B}@jpeg`,
+    });
+    // The photo lives in the AUTHOR's repo, so the CDN is asked under their DID.
+    expect(copy.photos[0].url).toBe(
+      `https://cdn.bsky.app/img/feed_thumbnail/plain/${POE_DID}/${CID_A}@jpeg`,
+    );
   });
 });

@@ -249,6 +249,17 @@ before the catch-all rewrite in `vercel.json` fires:
   ([acceptmarkdown.com](https://acceptmarkdown.com); RFC 9110 §12.5.1 for the
   q-value ranking, `406` for a request that accepts neither form). Everything
   negotiated carries `Vary: Accept`.
+- **Share cards for posts.** A post with photos unfurls as
+  `/api/og?post={rkey}`: the photos as a plate (up to four, laid out the way
+  Bluesky lays them out) and the words beside them, or the first photo's alt
+  text when there are none. A repost or a like unfurls as
+  `/api/og?repost={rkey}` / `?like={rkey}`: the post it points at, under its
+  author's avatar, name and handle, in quotation marks, and the head says
+  "Dame reposted a post by …". Only a record key rides on the query; the
+  renderer reads the text back off the record and builds every image URL
+  itself from a DID and a CID on the Bluesky CDN (as JPEG, so never an SVG).
+  Photos a moderation label covers stay off the card, and an author who has
+  opted out of signed-out viewing gets the plain verb card instead.
 - **Identity.** [`og/jsonld.js`](og/jsonld.js) emits a schema.org `@graph` — a
   `Person`, the `WebSite` they publish, and the page — plus a per-path
   canonical URL. It is a Person, not an Organization: there is no company here

@@ -430,12 +430,16 @@ export default async function middleware(request) {
           // text is the whole of the body — repeating it under the heading
           // would just print it twice (ssrContent skips a body equal to desc).
           heading = section.title;
-          imageAlt = clip(rec.title, 420);
+          imageAlt = clip(rec.imageAlt || rec.title, 420);
         } else {
           title = `${rec.title} — ${SITE.domain}`;
           desc = rec.description || section.desc;
           heading = rec.title;
           body = rec.description || '';
+          // A card that shows more than its title (a repost's card is the
+          // original post, under its author's name) says so to a reader who
+          // can't see it.
+          if (rec.imageAlt) imageAlt = clip(rec.imageAlt, 420);
         }
         date = rec.date || null;
         // Only a blog post is an Article; a work, a channel, a track and a moth

@@ -289,6 +289,248 @@ function recordCard(t, { segs, title, subtitle, nsid, avatarUri, folio, body }) 
   ], { verticals: [PAD, { x: DIV, strong: true }, W - PAD], halfBands: [{ from: 3 * P + HP, to: bandTo }] });
 }
 
+// ── RECORD: a post with photos, or somebody else's post ─────────────────────
+// A photo is the best material a post has, and the body-copy card above set the
+// words and threw the picture away. This card draws the photos as a plate on
+// the right, ruled into the page the way a night's moths and an album's cover
+// are, with the words in the column beside it.
+//
+// The same card carries a repost or a like, because what Dame passed on IS a
+// post, only somebody else's. Their avatar, name and handle head the column and
+// their text is set in quotation marks, so nobody reads it as Dame's words.
+
+// The plate's box: top and bottom on rules (2½P → 7P), right edge on the page
+// guide. A single photo keeps something of its own shape inside that box (a
+// landscape plate is wider than a portrait one) but never so wide that the
+// words lose their column, or so narrow that a phone screenshot is a sliver.
+const PLATE_TOP = 2 * P + HP;
+const PLATE_BOTTOM = 7 * P;
+const PLATE_H = PLATE_BOTTOM - PLATE_TOP;
+const PLATE_MIN_W = 3 * P;
+const PLATE_MAX_W = 6 * P;
+const PLATE_GAP = 8;
+// Clearance between the words and the plate, the gap the listening cards keep.
+const PLATE_CLEAR = 40;
+
+/** One photo in a box of its own: cropped to fill, hairline edge, square
+ *  corners. `src` is a data: URI, as every image a card draws is. */
+function imagePlate(t, src, { left, top, width, height }) {
+  return h(
+    'div',
+    {
+      style: {
+        position: 'absolute',
+        left: Math.round(left),
+        top: Math.round(top),
+        width: Math.round(width),
+        height: Math.round(height),
+        overflow: 'hidden',
+        border: `1px solid ${t.rule}`,
+      },
+    },
+    h('img', { src, width: Math.round(width), height: Math.round(height), style: { objectFit: 'cover' } }),
+  );
+}
+
+/** How wide the plate is for these photos, or 0 for none. */
+function plateWidth(photos) {
+  if (!photos.length) return 0;
+  if (photos.length > 1) return PLATE_MAX_W;
+  const aspect = photos[0].aspect || 1;
+  return Math.max(PLATE_MIN_W, Math.min(PLATE_MAX_W, Math.round(PLATE_H * aspect)));
+}
+
+/**
+ * Up to four photos laid out in the plate's box the way Bluesky lays out a
+ * post's: one fills it, two sit side by side, three put the first beside a
+ * stacked pair, four make a grid. A reader who has seen the post in an app
+ * sees the same picture here.
+ */
+function photoPlates(t, photos, { left, width }) {
+  const n = Math.min(photos.length, 4);
+  if (!n) return [];
+  // Whole pixels, with any odd one going to the second cell, so the outer
+  // edges stay exactly on the guide and the rule (2½P → 7P is 315, which
+  // doesn't halve evenly).
+  const leftW = Math.floor((width - PLATE_GAP) / 2);
+  const rightW = width - leftW - PLATE_GAP;
+  const topH = Math.floor((PLATE_H - PLATE_GAP) / 2);
+  const lowH = PLATE_H - topH - PLATE_GAP;
+  const right = leftW + PLATE_GAP;
+  const lower = topH + PLATE_GAP;
+  const cells =
+    n === 1
+      ? [[0, 0, width, PLATE_H]]
+      : n === 2
+        ? [[0, 0, leftW, PLATE_H], [right, 0, rightW, PLATE_H]]
+        : n === 3
+          ? [[0, 0, leftW, PLATE_H], [right, 0, rightW, topH], [right, lower, rightW, lowH]]
+          : [[0, 0, leftW, topH], [right, 0, rightW, topH], [0, lower, leftW, lowH], [right, lower, rightW, lowH]];
+  return cells.map(([x, y, w, hh], i) =>
+    imagePlate(t, photos[i].src, { left: left + x, top: PLATE_TOP + y, width: w, height: hh }),
+  );
+}
+
+/**
+ * Set a run of words in the column between two baselines, as large as they
+ * will go. Short words (three lines or fewer) take the coarse rules at a size
+ * that holds its own beside a photograph; "gm from cooper" in body copy next
+ * to a 300px plate read as a footnote to it. Anything longer drops to body
+ * copy on the half-pitch rules, shrinking a step or two before it is cut.
+ *
+ * `quote` sets the words in quotation marks and keeps the closing one when the
+ * text has to be cut.
+ */
+function setWords(t, text, { top, bottom, left, width, italic = false, color, quote = false }) {
+  const words = quote ? `“${text}”` : text;
+  // The first coarse rule at or below `top`, for the large size.
+  const bigTop = Math.ceil((top + 8) / P) * P - 8;
+  const bigRows = Math.floor((bottom - bigTop) / P) + 1;
+  const big = wrapText(words, 44, width);
+  if (big.length <= Math.min(3, bigRows)) {
+    return big.map((l, i) =>
+      at(l, { size: 44, by: bigTop + i * P, left, weight: 400, italic, color, ls: '-0.005em' }),
+    );
+  }
+  const rows = Math.floor((bottom - top) / HP) + 1;
+  let size = 30;
+  let lines = wrapText(words, size, width);
+  while (lines.length > rows && size > 26) {
+    size -= 2;
+    lines = wrapText(words, size, width);
+  }
+  if (lines.length > rows) {
+    lines = lines.slice(0, rows);
+    const last = lines[rows - 1].replace(/\s+\S*$/, '');
+    lines[rows - 1] = `${last}…${quote ? '”' : ''}`;
+  }
+  return lines.map((l, i) => at(l, { size, by: top + i * HP, left, weight: 400, italic, color }));
+}
+
+/**
+ * Letters from Unicode's Mathematical Alphanumeric block folded back to plain
+ * ones: "𝕮𝖍𝖆𝖗𝖑𝖎𝖊" → "Charlie". People set display names in them as a
+ * typeface, which is what they are, and Crimson Pro has none of them, so on a
+ * card they drew as a row of empty boxes. Folded, the name is set in the
+ * card's own face like every other word on it. Only that block is touched:
+ * normalising a whole string would also turn an ellipsis into three dots.
+ */
+const plainLetters = (s) =>
+  String(s || '').replace(/[\u{1D400}-\u{1D7FF}]/gu, (c) => c.normalize('NFKC'));
+
+function postCard(t, { post: raw, verb, avatarUri, nsid, folio }) {
+  const CX = 320, bcBy = P - LE;
+  const post = {
+    ...raw,
+    text: plainLetters(raw.text),
+    caption: plainLetters(raw.caption),
+    alt: plainLetters(raw.alt),
+  };
+  const photos = (post.photos || []).filter((p) => p && p.src).slice(0, 4);
+  const plateW = plateWidth(photos);
+  const plateL = W - PAD - plateW;
+  const colW = (plateW ? plateL - PLATE_CLEAR : W - PAD) - CX;
+  const author = raw.author ? { ...raw.author, name: plainLetters(raw.author.name) } : null;
+
+  // The author, when the post isn't Dame's: a square avatar on the half rules
+  // (2½P → 3½P) with the name and the handle beside it, one line each.
+  const AV = 2 * HP;
+  const nameLeft = author && author.avatar ? CX + AV + 18 : CX;
+  const nameW = CX + colW - nameLeft;
+  const byline = author
+    ? [
+        author.avatar
+          ? h(
+              'div',
+              {
+                style: {
+                  position: 'absolute',
+                  left: CX,
+                  top: PLATE_TOP,
+                  width: AV,
+                  height: AV,
+                  overflow: 'hidden',
+                  border: `1px solid ${t.rule}`,
+                },
+              },
+              h('img', { src: author.avatar, width: AV, height: AV, style: { objectFit: 'cover' } }),
+            )
+          : null,
+        at(fitLine(author.name || (author.handle ? `@${author.handle}` : ''), 34, nameW), {
+          size: 34,
+          by: 3 * P - 8,
+          left: nameLeft,
+          weight: 600,
+          color: t.ink,
+          ls: '-0.01em',
+        }),
+        author.name && author.handle
+          ? at(fitLine(`@${author.handle}`, 24, nameW), {
+              size: 24,
+              by: 3 * P + HP - 8,
+              left: nameLeft,
+              weight: 400,
+              color: t.inkMuted,
+            })
+          : null,
+      ]
+    : [];
+
+  // The words: the post's own, else its photo's alt text in italic (it
+  // describes the picture rather than saying anything), else a plain stand-in.
+  // Somebody else's words are quoted; Dame's never were.
+  const top = author ? 4 * P + HP - 8 : 3 * P - 8;
+  const bottom = 7 * P - 8;
+  const words = post.text
+    ? setWords(t, post.text, { top, bottom, left: CX, width: colW, color: t.ink, quote: Boolean(author) })
+    : post.caption || post.standIn
+      ? setWords(t, post.caption || post.standIn, {
+          top,
+          // Six lines at most. Alt text is often a full transcript of a
+          // screenshot, and nine lines of italic beside the picture it
+          // describes read as a wall rather than a caption.
+          bottom: Math.min(bottom, top + 5 * HP),
+          left: CX,
+          width: colW,
+          italic: true,
+          color: t.inkSoft,
+        })
+      : [];
+
+  // A post with words of its own has said what it has to say; the alt text
+  // under its plate is the picture's caption, one line, like a figure's. It
+  // may run wider than a portrait plate, back under the empty foot of the
+  // column, or a phone-shaped photo would get a caption of three words.
+  const figCaption =
+    post.text && photos.length && post.alt
+      ? at(fitLine(post.alt, 20, Math.max(plateW, PLATE_MAX_W)), {
+          size: 20,
+          by: 7 * P + HP - 8,
+          right: PAD,
+          italic: true,
+          weight: 400,
+          color: t.inkMuted,
+        })
+      : null;
+
+  return shell(t, [
+    at('day', { size: 23, by: 3 * P - LE, left: PAD, color: t.inkFaint, ls: '0.12em' }),
+    at(folio, { size: 44, by: 4 * P - 10, left: PAD, color: t.inkSoft }),
+    avatarMark(t, avatarUri, { textBaseline: bcBy, left: CX }),
+    rowAt(recordCrumb(t, verb || 'posting'), { size: 28, by: bcBy, left: avatarUri ? CX + 46 + 18 : CX }),
+    ...byline,
+    ...words,
+    ...photoPlates(t, photos, { left: plateL, width: plateW }),
+    figCaption,
+    at(nsid, { size: 22, by: 8 * P - LE, left: CX, color: t.inkMuted }),
+  ], {
+    verticals: [PAD, { x: CX, strong: true }, W - PAD],
+    // Fine rules from the plate's top edge down, so the plate starts ON one,
+    // and one more under it when a caption sits there.
+    halfBands: [{ from: PLATE_TOP, to: figCaption ? 7 * P + HP : 7 * P }],
+  });
+}
+
 // ── RECORD: one Ratioed piece ───────────────────────────────────────────────
 // A piece has a shape, and a title-plus-blurb card throws it away. What it is,
 // is a line with a cut in it: the seconds a post stood, every record that
@@ -1052,6 +1294,11 @@ function homeCardH1(t, { avatarUri, folio, nsid, hero }) {
  *                               ({title,artist,plays,tracks,listened,cover})
  * @param {object}  [o.shelf]    render the albums index card
  *                               ({total,artists,plays,listened,covers:[src]})
+ * @param {object}  [o.post]     render a post's card: Dame's with photos, or
+ *                               somebody else's under a repost or a like
+ *                               ({text,caption,standIn,alt,photos:[{src,aspect}],
+ *                               author:{name,handle,avatar}|null})
+ * @param {string}  [o.verb]     the post card's breadcrumb gerund
  * @param {object}  [o.participant] render one Ratioed participant's card
  * @param {object}  [o.board]    render the Ratioed participants leaderboard
  * @param {Array}   [o.homeIndex] [{label,nsid}] for the home index card
@@ -1092,6 +1339,11 @@ export function ogElement(o = {}) {
   }
   if (o.board) {
     return boardCard(t, { board: o.board, scale: o.scale || {}, avatarUri });
+  }
+  // A post with photos, or the post a repost or a like points at: its subject
+  // is read off the record, so it has no gerund label to fall back on either.
+  if (o.post) {
+    return postCard(t, { post: o.post, verb: o.verb || segs[0] || 'posting', avatarUri, nsid: o.nsid || '', folio });
   }
 
   const isHome = pathname === '/' || !o.label;
