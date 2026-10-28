@@ -12,6 +12,7 @@ import { usePageCensus, useHoveredRecord } from '../hooks/usePageRecords.js';
 import { explorerPathFromAtUri } from '../lib/atproto.js';
 import { censusLine } from '../lib/xray.js';
 import { AtUriMono, XraySubstratePanel } from './XraySubstrate.jsx';
+import { SHEET_SLIDE } from './BottomSheet.jsx';
 import './BottomSheet.css';
 
 /**
@@ -91,22 +92,19 @@ function XrayHud({ inlineFocus }) {
     openPanel('debug');
   }
 
-  // Expand up out of the bottom chrome on the shared BottomSheet mechanism
-  // (fixed clip pinned on the bar, height 0 ↔ auto) so it reads as one system
-  // with the search/filter/info panels — minus the click-catching backdrop,
-  // since in x-ray you keep tapping page rows to inspect them.
+  // Rise up out of the bottom chrome on the shared BottomSheet mechanism
+  // (fixed clip pinned on the bar, the panel sliding up out of it) so it reads
+  // as one system with the search/filter/info panels — minus the
+  // click-catching backdrop, since in x-ray you keep tapping page rows to
+  // inspect them.
   return (
-    <motion.div
-      className="bottom-sheet-wrap xray-hud-wrap"
-      initial={{ height: 0 }}
-      animate={{ height: 'auto' }}
-      exit={{ height: 0 }}
-      transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
-    >
-      <div
+    <motion.div className="bottom-sheet-wrap xray-hud-wrap">
+      <motion.div
         className="bottom-sheet-panel bottom-sheet-panel-compact xray-hud"
         role="status"
         aria-live="polite"
+        {...SHEET_SLIDE}
+        transition={{ ...SHEET_SLIDE.transition, duration: reduce ? 0 : SHEET_SLIDE.transition.duration }}
       >
         {inlineFocus && (
           <div className="xray-hud-tree">
@@ -149,7 +147,7 @@ function XrayHud({ inlineFocus }) {
           <span className="xray-hud-inspect-label">details</span>
           <ArrowUpRight aria-hidden strokeWidth={1.75} />
         </button>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }

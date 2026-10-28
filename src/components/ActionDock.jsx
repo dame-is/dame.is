@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ChevronLeft } from 'lucide-react';
 import { useActionDock } from '../hooks/useActionDock.jsx';
@@ -8,6 +9,7 @@ import { usePreventScrollChain } from '../hooks/usePreventScrollChain.js';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import SignInPanel from './SignInPanel.jsx';
 import RouteList from './RouteList.jsx';
+import { SHEET_SLIDE } from './BottomSheet.jsx';
 import './ActionDock.css';
 
 export default function ActionDock() {
@@ -31,6 +33,26 @@ export default function ActionDock() {
   else if (!open && openRoutes) setOpenRoutes(null);
   const shownRoutes = openRoutes ?? routes;
   const reduce = useReducedMotion();
+  const navigate = useNavigate();
+
+  // A route tapped in the menu closes the sheet first and navigates two frames
+  // later. Done together, the next page's render held the main thread before
+  // the sheet's closing slide could start, so on a phone the menu sat fully
+  // open for a beat and then vanished. Once the slide has started it's the
+  // browser's to run (a transform), and the new page can take its time
+  // underneath. A modified click (new tab, new window) is left to the link.
+  const goTo = useCallback(
+    (event, to) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button > 0) {
+        closeDock();
+        return;
+      }
+      event.preventDefault();
+      closeDock();
+      requestAnimationFrame(() => requestAnimationFrame(() => navigate(to)));
+    },
+    [closeDock, navigate],
+  );
   const panelRef = useRef(null);
   // Keep a touch-drag on the open sheet from scrolling the concealed page
   // behind it (the route list often fits without overflowing).
@@ -59,11 +81,13 @@ export default function ActionDock() {
 
   if (typeof document === 'undefined') return null;
 
-  // The dock is a sheet that expands UPWARD out of the bottom chrome
-  // bar — the mirror of the top bar's expand-down rows. A motion.div
-  // pinned above the bar animates height 0 ↔ auto with overflow
-  // hidden, so the panel unfurls upward instead of overlaying as a
-  // centered modal. A transparent (non-dimming) backdrop below the
+  // The dock is a sheet that rises UPWARD out of the bottom chrome
+  // bar — the mirror of the top bar's expand-down rows. A clip pinned
+  // above the bar holds the panel, which slides up out of it
+  // (SHEET_SLIDE, shared with every bottom sheet) instead of overlaying
+  // as a centered modal. The slide is a transform the browser runs off
+  // the main thread, so tapping a route closes the sheet smoothly even
+  // while the next page renders underneath it. A transparent (non-dimming) backdrop below the
   // bars catches outside clicks to close, keeping the toolbar itself
   // tappable. Portalled to <body> so no transformed feed ancestor can
   // trap its fixed positioning.
@@ -85,18 +109,13 @@ export default function ActionDock() {
       </AnimatePresence>
       <AnimatePresence initial={false}>
         {open && (
-          <motion.div
-            key="dock-sheet"
-            className="dock-sheet-wrap"
-            initial={{ height: 0 }}
-            animate={{ height: 'auto' }}
-            exit={{ height: 0 }}
-            transition={{ duration: reduce ? 0 : 0.34, ease: [0.32, 0.72, 0, 1] }}
-          >
-            <div
+          <motion.div key="dock-sheet" className="dock-sheet-wrap">
+            <motion.div
               ref={panelRef}
               id="action-dock-panel"
               className={`dock-panel dock-panel-view-${view}`}
+              {...SHEET_SLIDE}
+              transition={{ ...SHEET_SLIDE.transition, duration: reduce ? 0 : SHEET_SLIDE.transition.duration }}
               role="dialog"
               aria-label="Site menu"
             >
@@ -112,7 +131,7 @@ export default function ActionDock() {
             >
               <div className="dock-section">
                 <div className="dock-heading">Dame is&hellip;</div>
-                <RouteList routes={shownRoutes} onNavigate={closeDock} />
+                <RouteList routes={shownRoutes} onNavigate={goTo} />
               </div>
             </motion.div>
           )}
@@ -144,7 +163,7 @@ export default function ActionDock() {
           )}
         </AnimatePresence>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

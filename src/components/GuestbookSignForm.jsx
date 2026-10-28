@@ -103,13 +103,6 @@ export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, 
     }
   }
 
-  // On a phone the handle field sits low in the sheet, where the keyboard
-  // lands; bring it up into view once the keyboard has opened.
-  function revealOnFocus(event) {
-    const el = event.currentTarget;
-    setTimeout(() => el.scrollIntoView?.({ block: 'center', behavior: 'smooth' }), 300);
-  }
-
   return (
     <form className="guestbook-form" onSubmit={handleSubmit}>
       <div className="guestbook-note-field">
@@ -204,7 +197,6 @@ export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, 
                 placeholder="handle, DID, or PDS URL"
                 value={handleInput}
                 onChange={(e) => setHandleInput(e.target.value)}
-                onFocus={revealOnFocus}
                 disabled={busy}
               />
               <button type="submit" className="signin-button" disabled={!canSign}>

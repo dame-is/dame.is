@@ -12,11 +12,11 @@
   background: transparent;
 }
 
-/* .dock-sheet-wrap: the animated clip box, pinned directly on top of
-   the bottom bar and spanning the same full-bleed width. Framer animates
-   its height 0 ↔ auto; overflow:hidden means the panel inside unfurls
-   upward out of the bar. Sits above the bars (z 31) so its top edge
-   and shadow overlap the page cleanly. */
+/* .dock-sheet-wrap: the clip box, pinned directly on top of the bottom
+   bar and spanning the same full-bleed width. The panel inside slides up
+   from below it (SHEET_SLIDE); overflow:hidden hides the part still below,
+   so it reads as rising out of the bar. Sits above the bars (z 31) so its
+   top edge overlaps the page cleanly. */
 .dock-sheet-wrap {
   position: fixed;
   /* Where the sheet's bottom edge rests: on top of the bottom chrome bar (plus
@@ -33,13 +33,6 @@
   width: 100%;
   z-index: 31;
   overflow: hidden;
-  /* Bottom-anchor the panel inside the height-animating clip: the panel is
-     its full height from the first frame and the clip reveals it from the bar
-     upward, so its bottom edge (and border-bottom divider) sits at the clip's
-     bottom the whole time. Anchoring at the top instead lets the panel
-     overflow the clip's BOTTOM mid-animation, clipping the divider away while
-     the opaque panel still covers the bar's own border-top — the seam then
-     vanishes until the animation settles. */
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -59,21 +52,21 @@
      where the sheet rests (--dock-bottom, the same value the wrap is
      positioned by). The max() keeps a usable floor on short viewports — the
      panel scrolls rather than collapsing to nothing. */
+  /* One pixel more than the gap, so the top hairline below lands exactly on
+     the top chrome's own border-bottom. */
   --dock-panel-h: max(
     9rem,
-    calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--dock-bottom))
+    calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--dock-bottom) + 1px)
   );
-  /* Keep full height inside the bottom-anchored clip (see .dock-sheet-wrap):
-     the clip reveals the panel from the bar upward, clipping its TOP rather
-     than shrinking it, so the border-bottom divider stays put and the content
-     doesn't reflow mid-animation. */
   flex: 0 0 auto;
   /* Deeper than the bar's --surface-raised so the expanded sheet reads
      as its own layer above the toolbar. */
   background: var(--surface-deep);
-  /* No border-top: the sheet's top edge butts against the top chrome's
-     own border-bottom, and a border here would double it into a 2px
-     line. The top chrome's hairline is the single divider. */
+  /* The top hairline rides up with the sheet as it rises, then, open, sits
+     exactly over the top chrome's own border-bottom (the same opaque
+     --rule, one pixel up; see --dock-panel-h), so it reads as one line
+     rather than doubling into two. */
+  border-top: 1px solid var(--rule);
   /* Crisp divider between the expanded sheet and the button row below.
      Lives on the sheet's bottom edge (the sheet paints above the bar,
      z 31 > 30, so it wins over the bar's own hidden top border). */

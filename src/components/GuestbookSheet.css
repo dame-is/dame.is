@@ -9,24 +9,12 @@
      kept on :root for exactly this) so the sheet lines up with the nav dock,
      the breadcrumb, and the bottom-bar buttons at every breakpoint. Extra
      bottom inset so the sign button clears the chrome bar below it rather than
-     crowding its top edge. */
+     crowding its top edge. Content height, like the other sheets, so it sits
+     on the bar where the thumb is. */
   padding: var(--space-4) var(--chrome-pad-x) var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-/* On touch screens the sheet takes the whole gap between the bars, with its
-   content at the top: the note, which the sheet opens on, sits where the
-   on-screen keyboard can't reach it (the nav dock's account view does the
-   same; ActionDock.css explains why). The handle field comes lower down, so
-   focusing it scrolls it up into view (GuestbookSignForm). The height is
-   BottomSheet's `fill` size. */
-@media (pointer: coarse) {
-  .guestbook-sheet-panel.bottom-sheet-panel-compact {
-    height: calc(100dvh - var(--chrome-top-h, var(--chrome-h)) - var(--sheet-bottom));
-    border-top: 0;
-  }
 }
 
 .guestbook-sheet-header {
