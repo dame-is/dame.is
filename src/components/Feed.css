@@ -2101,6 +2101,12 @@ a.reference-card-profile:focus-visible {
   display: block;
 }
 
+/* The column lowercases a clock's "PM"; a month keeps its capital. */
+.ledger-tick-date,
+.ledger-from-date {
+  text-transform: none;
+}
+
 /* The thread's folio: its newest time, and where it began beneath. A flex
    column aligned to the end, so a "from 12:53" wider than the time column
    spills left into the gutter rather than off the page. */

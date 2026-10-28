@@ -310,7 +310,7 @@ function ThreadFolio({ thread, href }) {
           <span>from</span>{' '}
           {folio.from.date && (
             <>
-              <span>{folio.from.date},</span>{' '}
+              <span className="ledger-from-date">{folio.from.date},</span>{' '}
             </>
           )}
           <span>{folio.from.clock}</span>
