@@ -84,7 +84,6 @@ export default function GuestbookSheet() {
       <GuestbookSignForm
         agent={agent}
         did={did}
-        profile={profile}
         signedIn={Boolean(session)}
         signerHandle={signerHandle}
         signIn={signIn}

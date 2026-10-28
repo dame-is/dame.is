@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowUp, Info, Pause, Play, Shuffle, Signature, X } from 'lucide-react';
+import { Shuffle, Signature, X } from 'lucide-react';
 import PageShell from '../components/PageShell.jsx';
 import FeedFilters, {
   feedFilterCounts,
@@ -13,7 +13,6 @@ import DayOfLifeHeader from '../components/DayOfLifeHeader.jsx';
 import HeroSentence from '../components/HeroSentence.jsx';
 import VerbIcon from '../components/VerbIcon.jsx';
 import { verbIndexIntro } from '../lib/recordPlate.js';
-import { usePageContent } from '../hooks/usePageContent.js';
 import Lightbox from '../components/Lightbox.jsx';
 import { FeedSkeleton } from '../components/Skeleton.jsx';
 import { photoUrl } from '../lib/inaturalist.js';
@@ -251,20 +250,6 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // URIs whose `motion.li` should run the slide-in. Cleared after each
   // render via a layout effect (see below).
   const [newUris, setNewUris] = useState(() => new Set());
-  // Arrivals newer than anything already on screen wait here, behind a
-  // "2 new entries" note at the head of the ledger, instead of pushing the
-  // rows a reader is looking at down the page. Tapping the note lets them in
-  // (with the usual slide-in). Older arrivals merge in place, since they
-  // land below the reader rather than on top of them.
-  const [heldUris, setHeldUris] = useState(() => new Set());
-  // The feed as last painted, for the refresh closure to measure arrivals
-  // against without re-binding.
-  const feedRef = useRef(feed);
-  feedRef.current = feed;
-  // A new view starts from its top, so nothing needs to wait behind the note.
-  useEffect(() => {
-    setHeldUris((cur) => (cur.size ? new Set() : cur));
-  }, [filterSig]);
   if (seenUrisRef.current.size === 0 && initialCache?.items) {
     for (const item of initialCache.items) {
       if (item?.atUri) seenUrisRef.current.add(item.atUri);
@@ -281,24 +266,12 @@ export default function Home({ verb: presetVerb = null } = {}) {
   const lastRevRef = useRef(null);
 
   // HeroSentence registers its imperative shuffle handle here so the
-  // shuffle button in the hero's folio can advance both rotators
+  // shuffle button in the hero CTA row can advance both rotators
   // without owning the hero's state.
   const shuffleRef = useRef(null);
-  // The hero holds on a tap (or the folio's "hold"), and rests by itself
-  // after three swaps; `heroMode` mirrors which, for the folio's wording.
-  const heroControlRef = useRef(null);
-  const [heroHeld, setHeroHeld] = useState(false);
-  const [heroMode, setHeroMode] = useState('rotating');
-  const toggleHeroHold = useCallback(() => setHeroHeld((h) => !h), []);
-  const resumeHero = useCallback(() => {
-    setHeroHeld(false);
-    heroControlRef.current?.resume();
-  }, []);
-  // The standfirst: is.dame.page/home's intro, else the registry default.
-  const { intro: standfirst } = usePageContent('home');
 
-  // Opens the shared guestbook sign sheet (bottom chrome) from the hero's
-  // "Sign the guestbook" aside beneath the CTAs.
+  // Opens the shared guestbook sign sheet (bottom chrome) from the
+  // guestbook button in the hero CTA row.
   const { openPanel } = useChromePanel();
 
   const runRefresh = useCallback(async ({ force = true } = {}) => {
@@ -434,23 +407,7 @@ export default function Home({ verb: presetVerb = null } = {}) {
     // Only flag arrivals on background refreshes — the very first load
     // (when seenUris is still empty) shouldn't slide every row in.
     if (seenUrisRef.current.size > 0 && arrivals.size > 0) {
-      const shown = feedRef.current || [];
-      const top = shown.reduce((max, item) => {
-        const t = Date.parse(item?.createdAt || '');
-        return Number.isFinite(t) && t > max ? t : max;
-      }, -Infinity);
-      const above = new Set();
-      for (const item of nextFeed) {
-        const t = Date.parse(item?.createdAt || '');
-        if (item?.atUri && arrivals.has(item.atUri) && Number.isFinite(t) && t > top) above.add(item.atUri);
-      }
-      if (above.size && shown.length) {
-        setHeldUris((cur) => new Set([...cur, ...above]));
-        const rest = new Set([...arrivals].filter((uri) => !above.has(uri)));
-        if (rest.size) setNewUris(rest);
-      } else {
-        setNewUris(arrivals);
-      }
+      setNewUris(arrivals);
     }
     for (const uri of arrivals) seenUrisRef.current.add(uri);
 
@@ -618,23 +575,11 @@ export default function Home({ verb: presetVerb = null } = {}) {
   // renderers, so the ledger steps aside while it's active.
   const { layout } = useFeedLayout();
   const ledger = layout === 'ledger' && !editActive;
-  const filteredAll = useMemo(() => {
+  const filtered = useMemo(() => {
     const base = filterFeed(safeFeed, params, ME_DID);
     if (!removedUris || removedUris.size === 0) return base;
     return base.filter((item) => !removedUris.has(item.atUri));
   }, [safeFeed, params, removedUris]);
-  const heldCount = useMemo(
-    () => (heldUris.size ? filteredAll.filter((item) => heldUris.has(item.atUri)).length : 0),
-    [filteredAll, heldUris],
-  );
-  const filtered = useMemo(
-    () => (heldUris.size ? filteredAll.filter((item) => !heldUris.has(item.atUri)) : filteredAll),
-    [filteredAll, heldUris],
-  );
-  const releaseHeld = useCallback(() => {
-    setNewUris(new Set(heldUris));
-    setHeldUris(new Set());
-  }, [heldUris]);
   // Client-side pagination — the user only sees the first `visibleCount`
   // filtered items at a time. Slicing here (before threading / day
   // grouping) means thread chains never get split mid-conversation: each
@@ -724,9 +669,9 @@ export default function Home({ verb: presetVerb = null } = {}) {
     return map;
   }, [groups, newUris]);
 
-  // The home feed aggregates many records; it has no single backing record
-  // (PAGE_REGISTRY's `home` entry only supplies the standfirst's copy), so
-  // PageShell gets no `atUri`. Advertising that phantom record made the debug pane's
+  // The home feed aggregates many records; it has no single is.dame.page/home
+  // backing record (none exists, and it isn't in PAGE_REGISTRY), so PageShell
+  // gets no `atUri`. Advertising that phantom record made the debug pane's
   // "Edit record" surface a raw PDS "Could not locate record" error and emitted
   // a dead <link rel="alternate"> hint. See pageRkeyForPath in
   // src/hooks/useAtUri.js.
@@ -746,13 +691,6 @@ export default function Home({ verb: presetVerb = null } = {}) {
           ) : filtered.length === 0 ? (
             <p className="feed-empty">No records match these filters.</p>
           ) : (
-            <>
-            {heldCount > 0 && (
-              <button type="button" className="feed-held-note" onClick={releaseHeld}>
-                <ArrowUp size={12} strokeWidth={1.75} aria-hidden="true" />
-                {heldCount} new {heldCount === 1 ? 'entry' : 'entries'}
-              </button>
-            )}
             <ol className="feed-list reveal-stagger">
             {groups.map((group, gi) => (
               <li key={group.dateKey} className="feed-day-group">
@@ -808,7 +746,6 @@ export default function Home({ verb: presetVerb = null } = {}) {
               </li>
             ))}
           </ol>
-            </>
           )}
         </div>
         {!loading && hasMore && (
@@ -871,34 +808,12 @@ export default function Home({ verb: presetVerb = null } = {}) {
 
   return (
     <PageShell
-      title={
-        <HeroSentence
-          shuffleRef={shuffleRef}
-          controlRef={heroControlRef}
-          held={heroHeld}
-          onToggleHold={toggleHeroHold}
-          onModeChange={setHeroMode}
-        />
-      }
-      afterTitle={
-        <HeroFolio
-          mode={heroMode}
-          reduce={reduce}
-          onHold={toggleHeroHold}
-          onResume={resumeHero}
-          onShuffle={() => shuffleRef.current?.()}
-        />
-      }
-      intro={
-        standfirst ? (
-          <Standfirst text={standfirst} onAsk={() => openPanel('info')} />
-        ) : null
-      }
+      title={<HeroSentence shuffleRef={shuffleRef} />}
       headTitle="dame.is"
       selectable
     >
-      {/* Destinations only, every one labelled. Resume is the one filled
-          button; shuffle moved to the hero's own folio. */}
+      {/* Resume is the one filled button; the guestbook and shuffle ride at
+          the end of the row as icon buttons. */}
       <nav className="home-hero-cta" aria-label="Primary destinations">
         <Link className="home-hero-cta-btn home-hero-cta-primary" to="/available">
           Resume
@@ -913,9 +828,19 @@ export default function Home({ verb: presetVerb = null } = {}) {
           type="button"
           className="home-hero-cta-btn home-hero-guestbook-btn"
           onClick={() => openPanel('guestbook')}
+          aria-label="Sign the guestbook"
+          title="Sign the guestbook"
         >
           <Signature size={16} strokeWidth={1.75} aria-hidden="true" />
-          Sign the guestbook
+        </button>
+        <button
+          type="button"
+          className="home-hero-cta-btn home-hero-shuffle"
+          onClick={() => shuffleRef.current?.()}
+          aria-label="Shuffle hero statement"
+          title="Shuffle hero statement"
+        >
+          <Shuffle size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </nav>
 
@@ -925,69 +850,5 @@ export default function Home({ verb: presetVerb = null } = {}) {
       </section>
 
     </PageShell>
-  );
-}
-
-/**
- * The hero's folio: small caps under its last rule, right-aligned like a
- * page number. "hold · shuffle" while it turns over; "held · resume" once
- * held (by this or a tap on the sentence); "resume · shuffle" once it has
- * rested by itself. Under reduced motion it never rotates, so only shuffle.
- */
-function HeroFolio({ mode, reduce, onHold, onResume, onShuffle }) {
-  return (
-    <p className="hero-folio">
-      {!reduce && mode === 'rotating' && (
-        <button type="button" aria-pressed={false} onClick={onHold}>
-          <Pause size={11} strokeWidth={2} aria-hidden="true" />
-          hold
-        </button>
-      )}
-      {!reduce && mode === 'held' && (
-        <>
-          <span className="hero-folio-state">held</span>
-          <button type="button" aria-pressed onClick={onResume}>
-            <Play size={11} strokeWidth={2} aria-hidden="true" />
-            resume
-          </button>
-        </>
-      )}
-      {!reduce && mode === 'resting' && (
-        <button type="button" onClick={onResume}>
-          <Play size={11} strokeWidth={2} aria-hidden="true" />
-          resume
-        </button>
-      )}
-      {!reduce && <span aria-hidden="true">·</span>}
-      <button type="button" onClick={onShuffle}>
-        <Shuffle size={11} strokeWidth={2} aria-hidden="true" />
-        shuffle
-      </button>
-    </p>
-  );
-}
-
-/**
- * The fixed standfirst under the hero. Its opening "Dame is" is set in small
- * caps, an echo of the hero's lead, and "What am I looking at?" opens the ⓘ
- * sheet, which starts with Dame and the sections.
- */
-function Standfirst({ text, onAsk }) {
-  const m = /^(Dame is)\b/.exec(text);
-  return (
-    <>
-      {m ? (
-        <>
-          <span className="standfirst-lead">{m[1]}</span>
-          {text.slice(m[1].length)}
-        </>
-      ) : (
-        text
-      )}{' '}
-      <button type="button" className="standfirst-ask" onClick={onAsk}>
-        What am I looking at?
-        <Info size={13} strokeWidth={1.75} aria-hidden="true" />
-      </button>
-    </>
   );
 }

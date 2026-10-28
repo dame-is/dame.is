@@ -19,7 +19,6 @@ import { useChromeBar } from '../hooks/useChromeBar.jsx';
  */
 export default function PageShell({
   title,
-  afterTitle,
   intro,
   above,
   atUri,
@@ -58,9 +57,6 @@ export default function PageShell({
           {title}
         </h1>
       )}
-      {/* Controls that belong to the title but can't sit inside a heading:
-          the home hero's hold / shuffle folio. */}
-      {afterTitle}
       {intro && <p className="page-intro">{intro}</p>}
       {children}
     </article>

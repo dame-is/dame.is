@@ -65,25 +65,11 @@ const wordVariants = {
   exit: { opacity: 0, y: 18, transition: { duration: 0.3, ease: EASE } },
 };
 
-// How many swaps (role or clause) the sentence makes on its own before it
-// rests. It used to rewrite itself every 4–8 seconds for as long as the page
-// was open, with no pause a touch reader could find (WCAG 2.2.2).
-const SWAPS_BEFORE_REST = 3;
-
 /**
- * The rotating "dame is …" sentence. `held` freezes it (a tap on the
- * sentence toggles it through `onToggleHold`); it also rests by itself after
- * three swaps, and whenever it's scrolled out of view. `onModeChange` reports
- * 'rotating' | 'held' | 'resting' so the page can draw the hold / shuffle
- * folio beside it, and `controlRef.current.resume()` starts another round.
+ * The rotating "dame is …" sentence. It pauses on hover and focus, while the
+ * tab is hidden, and while it's scrolled out of view (nobody is reading it).
  */
-export default function HeroSentence({
-  shuffleRef = null,
-  controlRef = null,
-  held = false,
-  onToggleHold = null,
-  onModeChange = null,
-} = {}) {
+export default function HeroSentence({ shuffleRef = null } = {}) {
   const reduce = useReducedMotion();
 
   // Phrases come from the PDS (`is.dame.hero.phrase`), snapshot-first with a
@@ -154,23 +140,8 @@ export default function HeroSentence({
   const [minHeight, setMinHeight] = useState(null);
   const wrapRef = useRef(null);
   const measureRef = useRef(null);
-  // Swaps made since the last (re)start; at SWAPS_BEFORE_REST it rests.
-  const [swaps, setSwaps] = useState(0);
   const [offscreen, setOffscreen] = useState(false);
-  const resting = swaps >= SWAPS_BEFORE_REST;
-  const stopped = reduce || paused || held || resting || offscreen;
-
-  useEffect(() => {
-    if (!controlRef) return undefined;
-    controlRef.current = { resume: () => setSwaps(0) };
-    return () => {
-      if (controlRef.current) controlRef.current = null;
-    };
-  }, [controlRef]);
-
-  useEffect(() => {
-    onModeChange?.(held ? 'held' : resting || reduce ? 'resting' : 'rotating');
-  }, [held, resting, reduce, onModeChange]);
+  const stopped = reduce || paused || offscreen;
 
   // Rest while the sentence is off-screen: nobody is reading it.
   useEffect(() => {
@@ -187,10 +158,7 @@ export default function HeroSentence({
   useEffect(() => {
     if (stopped) return;
     const ms = 4000 + Math.random() * 4000;
-    const id = setTimeout(() => {
-      setIndexA((i) => (i + 1) % poolA.length);
-      setSwaps((n) => n + 1);
-    }, ms);
+    const id = setTimeout(() => setIndexA((i) => (i + 1) % poolA.length), ms);
     return () => clearTimeout(id);
   }, [indexA, stopped, poolA.length]);
 
@@ -200,10 +168,7 @@ export default function HeroSentence({
   useEffect(() => {
     if (stopped) return;
     const ms = 4500 + Math.random() * 4000;
-    const id = setTimeout(() => {
-      setIndexB((i) => (i + 1) % poolB.length);
-      setSwaps((n) => n + 1);
-    }, ms);
+    const id = setTimeout(() => setIndexB((i) => (i + 1) % poolB.length), ms);
     return () => clearTimeout(id);
   }, [indexB, stopped, poolB.length]);
 
@@ -256,17 +221,12 @@ export default function HeroSentence({
   return (
     <span
       ref={wrapRef}
-      className={`hero-sentence${held ? ' is-held' : ''}`}
+      className="hero-sentence"
       style={minHeight ? { minHeight: `${minHeight}px` } : undefined}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
       onBlurCapture={() => setPaused(false)}
-      onClick={() => {
-        // A tap holds it (or lets it go). A drag to select text isn't a tap.
-        if (!onToggleHold || window.getSelection?.()?.toString()) return;
-        onToggleHold();
-      }}
     >
       <span className="hero-sentence-lead">dame is</span>{' '}
       <Rotator

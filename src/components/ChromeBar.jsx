@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { ArrowDown, ArrowUp, ArrowUpLeft, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Compass, Ellipsis, Home, Info, LayoutGrid, ListFilterPlus, Microscope, Pencil, Printer, Search, Type, User, X } from 'lucide-react';
 import { useChromeBar } from '../hooks/useChromeBar.jsx';
 import { nsidFromAtUri, primaryNsid } from '../lib/verbRegistry.js';
 import { skyAvatarUrl } from '../lib/skyAvatars.js';
@@ -625,16 +625,20 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
     };
   }, []);
 
-  // Every page except home gets an "up" handle in the bottom bar: one level
-  // up the same trail the running head draws (a record to its section, a
-  // section to home). It used to walk back through history, which sent a
-  // visitor who arrived from a Bluesky link straight back off the site, and on
-  // a fresh tab fell back to whatever the path's parent segment was, a 404
-  // for ten of the verbs. History stays with the browser's own Back.
+  // Every page except home gets a back handle in the bottom bar. It walks
+  // back through history (mirroring the browser's back button) so you return
+  // to wherever you came from: home → a post → back lands on home, not on
+  // the post's section. When this page is the first one of the visit (a
+  // fresh tab, or a link in from Bluesky), there's no in-site history to
+  // walk, so it goes up the running head's trail instead (a record to its
+  // section, a section to home) rather than sending the visitor off the site.
+  // React Router keys the visit's first entry 'default'.
   const up = upFrom(location.pathname);
+  const hasHistory = location.key !== 'default';
 
   function goBack() {
-    navigate(up.to);
+    if (hasHistory) navigate(-1);
+    else navigate(up.to);
   }
 
   function scrollToTop() {
@@ -955,11 +959,11 @@ function ChromeBarBottom({ dockOpen, toggleDock }) {
               type="button"
               className="chrome-nav chrome-back-btn"
               onClick={goBack}
-              aria-label={`Up to ${up.label}`}
-              title={`Up to ${up.label}`}
+              aria-label={hasHistory ? 'Go back' : `Up to ${up.label}`}
+              title={hasHistory ? 'Go back' : `Up to ${up.label}`}
               {...controlFade}
             >
-              <ArrowUpLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
+              <ArrowLeft className="chrome-nav-glyph" aria-hidden="true" strokeWidth={1.75} />
             </motion.button>
           )}
         </AnimatePresence>

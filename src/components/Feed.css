@@ -957,32 +957,6 @@ a.post-card-author-link:focus-visible {
   text-decoration-color: var(--accent-soft);
 }
 
-/* Live entries newer than what's on screen wait behind this note at the
-   head of the feed, a running-head line in the day header's small caps,
-   rather than pushing the rows down under the reader. */
-.feed-held-note {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
-  align-self: flex-start;
-  margin: 0 0 var(--space-2);
-  padding: 0.2em 0;
-  border: 0;
-  border-bottom: 1px solid var(--accent-soft);
-  background: none;
-  font-family: var(--sans);
-  font-size: var(--text-meta);
-  font-variant: all-small-caps;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-  cursor: pointer;
-}
-
-.feed-held-note:hover,
-.feed-held-note:focus-visible {
-  border-bottom-color: var(--accent);
-}
-
 .feed-activity-standalone {
   font-family: var(--sans);
   font-size: var(--text-xs);

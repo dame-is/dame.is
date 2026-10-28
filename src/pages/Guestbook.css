@@ -3,8 +3,7 @@
 /* --- the pen ------------------------------------------------------------ */
 
 /* The pen sits flush inside the sign sheet — no card padding/border/background;
-   the sheet supplies its own inset. Writing comes first, then the proof of
-   the line you'll leave, then signing. */
+   the sheet supplies its own inset. Writing comes first, then signing. */
 .guestbook-form {
   display: flex;
   flex-direction: column;
@@ -142,40 +141,6 @@
   font-size: var(--text-xs);
   color: var(--ink-muted);
   max-width: 52ch;
-}
-
-/* The proof: your line as the register will set it. */
-.guestbook-proof {
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--rule-soft);
-}
-
-.guestbook-proof-label {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  color: var(--ink-muted);
-}
-
-.guestbook-proof-list .guestbook-entry {
-  padding: var(--space-2) 0;
-  border-top: 0;
-}
-
-.guestbook-proof-note {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-xs);
-  color: var(--ink-muted);
-}
-
-.guestbook-proof-note code {
-  font-family: var(--code);
-  color: var(--ink-soft);
-}
-
-.guestbook-entry-placeholder {
-  font-style: italic;
-  color: var(--ink-muted);
 }
 
 /* Signing, once: one handle field and one button, or "Signing as". */

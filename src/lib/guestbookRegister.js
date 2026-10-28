@@ -1,21 +1,11 @@
 // The guestbook as a register: numbered lines, dated in Dame's clock, and a
-// draft that survives the OAuth hop. Pure helpers (plus a guarded
-// sessionStorage pair), so the page, the sign sheet and the tests agree.
+// draft that survives the OAuth hop. Pure helpers (plus guarded
+// sessionStorage calls), so the page, the sign sheet and the tests agree.
 
 import { DAME_ZONE } from './recordPlate.js';
 
 /** Where the sign sheet keeps a note while the signer is away at their PDS. */
 export const DRAFT_KEY = 'dame.guestbook.draft';
-
-/**
- * The public number of signatures on a page of the book (live or snapshot):
- * the backlink total less the ones the host hid and the ones the language
- * filter benched. Null when the page carries no total.
- */
-export function publicCount(page) {
-  if (!page || typeof page.total !== 'number') return null;
-  return Math.max(0, page.total - (page.hiddenCount || 0) - (page.flaggedCount || 0));
-}
 
 /**
  * Register numbers for the entries on screen, newest first: the newest public
@@ -50,21 +40,6 @@ export function registerDate(iso) {
     day: 'numeric',
     year: 'numeric',
   }).format(d);
-}
-
-/**
- * Whether a sign-in input is worth a public profile lookup for the preview:
- * a bare handle ("alice.bsky.social", "@alice.bsky.social") or a DID, not a
- * PDS URL or a half-typed word.
- */
-export function profileLookupKey(input) {
-  const s = String(input || '').trim().replace(/^@/, '');
-  if (/^did:[a-z]+:[A-Za-z0-9._:%-]+$/.test(s)) return s;
-  if (/^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(s) && !/^https?:/i.test(s)) {
-    const tld = s.split('.').pop();
-    return tld.length >= 2 ? s.toLowerCase() : null;
-  }
-  return null;
 }
 
 function storage() {

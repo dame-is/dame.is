@@ -15,18 +15,6 @@
 import { COLLECTIONS } from '../config.js';
 
 export const PAGE_REGISTRY = {
-  // The home page's standfirst: the one fixed statement under the rotating
-  // hero, saying who Dame is and what the page is. Only `intro` is read (the
-  // feed itself has no single backing record), and it can be rewritten as
-  // is.dame.page/home without a deploy.
-  home: {
-    slug: 'home',
-    label: 'Home',
-    title: 'dame.is',
-    intro:
-      'Dame is a product engineer and designer who builds social software on the AT Protocol. Almost everything below is a live record from their own data server.',
-    collection: null,
-  },
   creating: {
     slug: 'creating',
     label: 'Creating',

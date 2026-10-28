@@ -6,11 +6,8 @@ import {
   graphemeLength,
   ENTRY_TEXT_MAX_GRAPHEMES,
 } from '../lib/guestbook.js';
-import { clearDraft, profileLookupKey, readDraft, saveDraft } from '../lib/guestbookRegister.js';
-import { getProfile, rkeyFromAtUri } from '../lib/atproto.js';
-import { GUESTBOOK_ENTRY_NSID } from '../config.js';
-import { useGuestbookCount } from '../hooks/useGuestbookCount.js';
-import GuestbookEntryRow from './GuestbookEntryRow.jsx';
+import { clearDraft, readDraft, saveDraft } from '../lib/guestbookRegister.js';
+import { rkeyFromAtUri } from '../lib/atproto.js';
 // The signature form's styles live with the /welcoming page; importing the
 // stylesheet here (a global, side-effect import) means the form is styled
 // wherever it renders — the guestbook page or the bottom-chrome sign sheet
@@ -18,39 +15,8 @@ import GuestbookEntryRow from './GuestbookEntryRow.jsx';
 import '../pages/Guestbook.css';
 
 /**
- * The public profile behind a typed handle, for the proof: looked up on the
- * AppView once typing pauses, and only for something shaped like a handle or
- * a DID. Null until then, or when nothing comes back.
- */
-function useTypedProfile(input) {
-  const key = profileLookupKey(input);
-  const [found, setFound] = useState(null);
-  useEffect(() => {
-    if (!key) return undefined;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      getProfile(key)
-        .then((p) => {
-          if (!cancelled) setFound(p ? { key, profile: p } : null);
-        })
-        .catch(() => {
-          if (!cancelled) setFound(null);
-        });
-    }, 450);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [key]);
-  if (!key) return null;
-  return found?.key === key ? found.profile : { handle: key.startsWith('did:') ? null : key };
-}
-
-/**
  * The pen. Writing comes first: the note, its count against the 300-character
- * limit, and a place folded behind "Add a place". Under it, a proof of the
- * line you'll leave, set exactly as the register will set it. Then you sign,
- * once:
+ * limit, and a place folded behind "Add a place". Then you sign, once:
  *
  *   - Signed out → one handle field and "Sign with atproto". The note is kept
  *     in sessionStorage across the hop to the signer's PDS, and /welcoming
@@ -62,7 +28,7 @@ function useTypedProfile(input) {
  * (Older entries may carry a one-glyph `mark` from the retired picker; rows
  * still render them.)
  */
-export default function GuestbookSignForm({ agent, did, profile, signedIn, signerHandle, signIn, onSigned }) {
+export default function GuestbookSignForm({ agent, did, signedIn, signerHandle, signIn, onSigned }) {
   const ids = useId();
   // A note saved before a sign-in hop that didn't finish comes back here.
   const saved = useMemo(() => readDraft(), []);
@@ -75,25 +41,20 @@ export default function GuestbookSignForm({ agent, did, profile, signedIn, signe
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState(null);
   const noteRef = useRef(null);
-  const count = useGuestbookCount();
-  const typedProfile = useTypedProfile(signedIn ? '' : handleInput);
 
-  // The cursor starts in the note: the sheet opens to write in.
+  // With a mouse and keyboard the cursor starts in the note. On a touch
+  // screen it doesn't: focusing would throw the keyboard up over the sheet
+  // before the visitor has asked to type.
   useEffect(() => {
-    noteRef.current?.focus({ preventScroll: true });
+    if (window.matchMedia?.('(pointer: fine)').matches) {
+      noteRef.current?.focus({ preventScroll: true });
+    }
   }, []);
 
   const length = graphemeLength(text);
   const over = length > ENTRY_TEXT_MAX_GRAPHEMES;
   const hasNote = Boolean(text.trim()) && !over;
   const canSign = !busy && hasNote && (signedIn ? Boolean(agent) : Boolean(handleInput.trim()));
-
-  const proof = {
-    uri: null,
-    did,
-    value: { text: text.trim(), location: placeOpen ? location.trim() : '' },
-    profile: signedIn ? profile : typedProfile,
-  };
 
   async function detectRegion() {
     if (locating) return;
@@ -216,19 +177,6 @@ export default function GuestbookSignForm({ agent, did, profile, signedIn, signe
           {locError && <p className="signin-error">{locError}</p>}
         </div>
       )}
-
-      {/* The proof: the line as the register will set it. A visual echo of
-          the fields above, so it's hidden from screen readers, which already
-          have the fields. */}
-      <div className="guestbook-proof">
-        <p className="guestbook-proof-label small-caps">Preview</p>
-        <ul className="guestbook-list guestbook-proof-list" aria-hidden="true">
-          <GuestbookEntryRow preview entry={proof} number={count != null ? count + 1 : null} />
-        </ul>
-        <p className="guestbook-proof-note">
-          Saved to your own PDS as an <code>{GUESTBOOK_ENTRY_NSID}</code> record.
-        </p>
-      </div>
 
       <div className="guestbook-signas">
         {signedIn ? (

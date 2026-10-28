@@ -6,7 +6,6 @@ import GuestbookEntryRow from '../components/GuestbookEntryRow.jsx';
 import { CommentsSkeleton } from '../components/Skeleton.jsx';
 import { useAtprotoSession } from '../hooks/useAtprotoSession.jsx';
 import { useChromePanel } from '../hooks/useChromePanel.jsx';
-import { setGuestbookCount } from '../hooks/useGuestbookCount.js';
 import { usePageContent } from '../hooks/usePageContent.js';
 import { useEditMode } from '../hooks/useEditMode.jsx';
 import {
@@ -289,12 +288,6 @@ export default function Guestbook() {
       : visible?.length ?? null;
   const numbers = registerNumbers(visible, count);
   const nextNumber = count != null ? count + 1 : null;
-
-  // Tell the sign sheet how long the book is, so its proof can number the
-  // line you're about to leave.
-  useEffect(() => {
-    if (status !== 'loading' && count != null) setGuestbookCount(count);
-  }, [status, count]);
 
   const sign = () => openPanel('guestbook');
   const blankStatus =

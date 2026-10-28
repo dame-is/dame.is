@@ -9,7 +9,7 @@ import '../pages/Guestbook.css';
 
 /**
  * One guestbook signature as a line in the register — shared between
- * /welcoming, the admin moderation panel and the sign sheet's proof. Its
+ * /welcoming and the admin moderation panel. Its
  * number hangs in the margin; the note comes first, in the reading size; one
  * small signature line follows (avatar, name, handle, the place in the
  * signer's own words) and closes on the date, which is the permalink. The
@@ -23,10 +23,6 @@ import '../pages/Guestbook.css';
  *   - `entering`                   → this signature arrived on the live read
  *                                    after the page had already painted, so it
  *                                    slides in rather than appearing outright.
- *   - `preview`                    → the sign sheet's proof of a line not yet
- *                                    written: no links, no controls, "just
- *                                    now", and a placeholder until there's a
- *                                    note.
  */
 export default function GuestbookEntryRow({
   entry,
@@ -36,7 +32,6 @@ export default function GuestbookEntryRow({
   moderating,
   onSetHidden,
   entering,
-  preview = false,
 }) {
   const [removing, setRemoving] = useState(false);
   const [toggling, setToggling] = useState(false);
@@ -45,23 +40,23 @@ export default function GuestbookEntryRow({
   const { value, profile } = entry;
   // Each signature is a record on the SIGNER's own PDS — x-ray makes that
   // decentralization visible. entry.uri already points at it (a foreign repo).
-  const inspectable = !preview && xray.active && !!entry.uri;
+  const inspectable = xray.active && !!entry.uri;
   const focused = inspectable && xray.focusUri === entry.uri;
   const handle = profile?.handle && profile.handle !== 'handle.invalid' ? profile.handle : null;
   const name =
     value.signature?.trim() ||
     profile?.displayName?.trim() ||
     (handle ? `@${handle}` : null) ||
-    (preview ? null : shortDid(entry.did));
+    shortDid(entry.did);
   // Show the handle beside the name unless the name already IS the handle.
   const showHandle = handle && name !== `@${handle}`;
-  const explorerPath = preview ? null : explorerPathFromAtUri(entry.uri);
+  const explorerPath = explorerPathFromAtUri(entry.uri);
   // Legacy signatures often lack a createdAt (recovered from the TID rkey where
   // possible); when even that isn't available, skip the date rather than
   // rendering an empty permalink.
-  const when = preview ? 'just now' : registerDate(value.createdAt);
-  const whenFull = !preview && value.createdAt ? `${longDate(value.createdAt)} · ${clockTime(value.createdAt)}` : undefined;
-  const hasControls = !preview && (mine || moderating);
+  const when = registerDate(value.createdAt);
+  const whenFull = value.createdAt ? `${longDate(value.createdAt)} · ${clockTime(value.createdAt)}` : undefined;
+  const hasControls = mine || moderating;
   // Flagged by the language filter (or on the host's hidden list): benched from
   // the public view. Both only ever render here in moderation, dimmed.
   const suppressed = entry.hidden || entry.flagged;
@@ -92,10 +87,10 @@ export default function GuestbookEntryRow({
 
   return (
     <li
-      className={`guestbook-entry${suppressed ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}${entering ? ' guestbook-entry-arriving' : ''}${preview ? ' guestbook-entry-preview' : ''}`}
-      data-nsid={preview ? undefined : entry.collection || undefined}
-      data-atproto={!preview && entry.uri ? '' : undefined}
-      data-at-uri={preview ? undefined : entry.uri || undefined}
+      className={`guestbook-entry${suppressed ? ' guestbook-entry-is-hidden' : ''}${focused ? ' is-xray-focus' : ''}${entering ? ' guestbook-entry-arriving' : ''}`}
+      data-nsid={entry.collection || undefined}
+      data-atproto={entry.uri ? '' : undefined}
+      data-at-uri={entry.uri || undefined}
     >
       <span className="guestbook-entry-number">{number ?? ''}</span>
       <div className="guestbook-entry-body">
@@ -107,10 +102,6 @@ export default function GuestbookEntryRow({
         ) : value.mark ? (
           <p className="guestbook-entry-mark" title="left their mark">
             {value.mark}
-          </p>
-        ) : preview ? (
-          <p className="guestbook-entry-text guestbook-entry-placeholder">
-            Your note appears here as you write it.
           </p>
         ) : null}
 
@@ -128,7 +119,7 @@ export default function GuestbookEntryRow({
           </span>
           {name && (
             <span className="guestbook-entry-name">
-              {handle && !preview ? (
+              {handle ? (
                 <a href={`https://bsky.app/profile/${handle}`} target="_blank" rel="noreferrer noopener">
                   {name}
                 </a>
@@ -138,7 +129,6 @@ export default function GuestbookEntryRow({
             </span>
           )}
           {showHandle && <span className="guestbook-entry-handle">@{handle}</span>}
-          {preview && !name && <span className="guestbook-entry-handle">@you</span>}
           {value.location && <span className="guestbook-entry-location">{value.location}</span>}
           {when && (
             <span className="guestbook-entry-time">
@@ -147,7 +137,7 @@ export default function GuestbookEntryRow({
                   <time dateTime={value.createdAt}>{when}</time>
                 </Link>
               ) : (
-                <time dateTime={preview ? undefined : value.createdAt}>{when}</time>
+                <time dateTime={value.createdAt}>{when}</time>
               )}
             </span>
           )}
